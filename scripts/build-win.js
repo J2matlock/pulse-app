@@ -11,10 +11,11 @@
  *   3. Create staging dir with out/, package.json, and production node_modules
  *   4. Run electron-builder --win (produces win-unpacked/ directory)
  *   5. Verify win-unpacked directory
- *   6. Sign inner Electron exe (optional, before packaging)
- *   7. Package win-unpacked into PULSE.exe launcher via Inno Setup
- *   8. Sign PULSE.exe launcher (optional)
- *   9. Clean up staging dir, rebuild native module for Linux
+ *   6. Package win-unpacked into PULSE.exe launcher via Inno Setup
+ *   7. Clean up staging dir, rebuild native module for Linux
+ *
+ * The exe is not code-signed: Pulse is free and open source, so Windows
+ * SmartScreen shows "More info → Run anyway" on first run.
  *
  * Requires: Inno Setup 6 (native on Windows, or under Wine on Linux)
  *   Install on Linux: bash scripts/setup-innosetup.sh
@@ -155,28 +156,8 @@ if (!fs.existsSync(winUnpacked)) {
 const winUnpackedSize = runQuiet(`du -sh "${winUnpacked}"`)
 console.log(`[build-win] win-unpacked: ${winUnpackedSize.split('\t')[0]}`)
 
-// ---------- step 6: sign inner exe before packaging ----------
-const skipSign = process.env.SKIP_SIGNING === '1' || process.argv.includes('--no-sign')
-const jsignJar = path.join(ROOT, 'scripts', 'jsign.jar')
-const innerExe = path.join(winUnpacked, 'Pulse by BaringaSoft.exe')
-
-if (skipSign) {
-  console.log('\n=== Step 6: Code signing SKIPPED (--no-sign or SKIP_SIGNING=1) ===')
-} else if (!fs.existsSync(jsignJar)) {
-  console.log('\n=== Step 6: Code signing SKIPPED (jsign.jar not found) ===')
-  console.log('[build-win] To enable signing, download jsign:')
-  console.log('  curl -sL https://github.com/ebourg/jsign/releases/download/7.1/jsign-7.1.jar -o scripts/jsign.jar')
-} else if (fs.existsSync(innerExe)) {
-  console.log('\n=== Step 6: Sign inner Electron exe ===')
-  try {
-    run(`node scripts/sign-exe.js "${innerExe}"`)
-  } catch (e) {
-    console.error('[build-win] Inner exe signing failed, continuing with unsigned build.')
-  }
-}
-
-// ---------- step 7: create launcher with Inno Setup ----------
-console.log('\n=== Step 7: Create launcher with Inno Setup ===')
+// ---------- step 6: create launcher with Inno Setup ----------
+console.log('\n=== Step 6: Create launcher with Inno Setup ===')
 fs.mkdirSync(DIST, { recursive: true })
 
 // Convert Linux path to Wine Z: path
@@ -239,23 +220,8 @@ if (!fs.existsSync(launcherExe)) {
 const launcherSize = fs.statSync(launcherExe).size
 console.log(`[build-win] Launcher created: PULSE.exe (${(launcherSize / 1024 / 1024).toFixed(1)} MB)`)
 
-// ---------- step 8: sign PULSE.exe launcher ----------
-if (skipSign) {
-  console.log('\n=== Step 8: Launcher signing SKIPPED (--no-sign or SKIP_SIGNING=1) ===')
-} else if (!fs.existsSync(jsignJar)) {
-  console.log('\n=== Step 8: Launcher signing SKIPPED (jsign.jar not found) ===')
-} else {
-  console.log('\n=== Step 8: Sign PULSE.exe launcher ===')
-  try {
-    run(`node scripts/sign-exe.js "${launcherExe}"`)
-  } catch (e) {
-    console.error('[build-win] Launcher signing failed! The unsigned PULSE.exe is still available.')
-    console.error('[build-win] To build without signing: npm run package:win -- --no-sign')
-  }
-}
-
-// ---------- step 9: cleanup + restore ----------
-console.log('\n=== Step 9: Cleanup ===')
+// ---------- step 7: cleanup + restore ----------
+console.log('\n=== Step 7: Cleanup ===')
 fs.rmSync(STAGING, { recursive: true, force: true })
 console.log('[build-win] Staging directory removed')
 

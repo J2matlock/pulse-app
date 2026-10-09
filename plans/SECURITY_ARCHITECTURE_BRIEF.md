@@ -263,7 +263,7 @@ A: The database is encrypted with AES-256. Without the password, the data is unr
 A: Yes. Pulse is open source under the GNU GPL v3, so the complete source code is public for review at https://github.com/J2matlock/pulse-app. We also provide a CycloneDX SBOM, this security brief and full third-party license documentation.
 
 **Q: Is the application code signed?**
-A: Code signing certificates can be configured for Windows (Authenticode) and macOS (Apple Developer ID) distributions. Contact us for signed builds.
+A: No. Pulse is free and open source, and the Windows build is not code-signed, so Windows SmartScreen asks for confirmation on first run (More info → Run anyway). Each release lists SHA-256 checksums, and your IT team can build Pulse from the public source code instead.
 
 **Q: Does the application auto-update?**
 A: No. Updates are never installed automatically. Users must manually check for updates and choose to install them.

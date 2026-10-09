@@ -7,9 +7,6 @@ dist/
 .build-staging/
 .build-staging-mac/
 
-# Code signing
-scripts/jsign.jar
-
 # TypeScript build info
 *.tsbuildinfo
 

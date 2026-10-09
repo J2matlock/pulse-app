@@ -280,6 +280,7 @@ When implementation deviates from the spec, document it here:
 | 2026-02-27 | Keep `electron-store` at v8 | v9+ is ESM-only, requires main process ESM migration throughout. Not worth the effort. |
 | 2026-02-27 | Use electron-vite 3 + Vite 6, NOT electron-vite 4 + Vite 7 | Tailwind 4 PostCSS plugin doesn't support Vite 7 yet. Vite 6 path is safer and more battle-tested. |
 | 2026-02-28 | Tailwind 4 upgrade: `.btn` as `@utility` | Tailwind 4 `@apply` only resolves Tailwind utilities, not custom CSS classes. Converted `.btn` to `@utility btn {}` so `.btn-primary/secondary/danger` can `@apply btn`. |
+| 2026-10-09 | No code signing | The Azure Trusted Signing subscription lapsed and Pulse isn't sold anymore. `scripts/sign-exe.js` and the signing steps in `build-win.js` were removed; releases ship a `SHA256SUMS.txt` instead. |
 | 2026-10-08 | Free and open source under GPL-3.0; licensing removed | No trial, no license key, no record limit. `enforceWritable()` stays as a generic read-only gate (error code `READ_ONLY`), with nothing registering a checker. Audit and security-finding reports in `plans/` stay local (git-ignored) and aren't in the public repo. |
 | 2026-10-01 | Built-in snippets, letter templates and list templates are seeded only under the human-services words | They're written for social work; a workspace with other words (e.g. a car shop) would see "Met with client at residence". Found by the W01 leak test. |
 

@@ -26,7 +26,7 @@ git status --short                               # clean tree, nothing stray
 
 ## 2. Build & sign
 - `npm run package:win` (portable exe) and `npm run package:linux` (AppImage).
-- Windows signing: `node scripts/sign-exe.js` (Azure Trusted Signing through jsign). Verify with `osslsigncode verify` or check Properties → Digital Signatures on Windows.
+- Builds are not code-signed (decided 2026-10-09). Publish a `SHA256SUMS.txt` with every release.
 - Source maps are excluded (`!out/**/*.map`). Fuses are applied (`scripts/afterPack.js`).
 - `sbom.json` and `THIRD_PARTY_LICENSES.txt` are regenerated if dependencies changed.
 

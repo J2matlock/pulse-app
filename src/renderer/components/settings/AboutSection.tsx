@@ -93,7 +93,7 @@ function CheckForUpdatesButton(): React.ReactElement {
           <li>Click <strong>Download update</strong> above (or check for updates first) — this downloads the new PULSE.exe to your Downloads folder.</li>
           <li>Close Pulse.</li>
           <li>Copy the new PULSE.exe and replace the one you currently use.</li>
-          <li>Launch the new PULSE.exe — it will briefly set itself up, then open as normal.</li>
+          <li>Launch the new PULSE.exe — it will briefly set itself up, then open as normal. If Windows says &quot;Windows protected your PC&quot;, click <strong>More info</strong>, then <strong>Run anyway</strong>.</li>
         </ol>
         <div className="flex items-start gap-2 pt-1">
           <Shield className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />

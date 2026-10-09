@@ -16,8 +16,10 @@ Website: https://baringasoft.com
 
 Get the latest version from the [releases page](https://github.com/J2matlock/pulse-releases/releases/latest).
 
-- **Linux:** [Pulse 2.0.0 AppImage](https://github.com/J2matlock/pulse-releases/releases/tag/v2.0.0). Make it executable (`chmod +x`) and run it, or see [Building](#building).
-- **Windows:** download `PULSE.exe` and run it. It's portable: your data is kept in a `PulseData` folder next to it. The signed 2.0.0 Windows build is coming soon; until then the download is version 1.1.6.
+- **Windows 10/11:** download `PULSE.exe` and run it. It's portable: your data is kept in a `PulseData` folder next to it. Pulse isn't code-signed, so the first time Windows may say "Windows protected your PC": click **More info → Run anyway**.
+- **Linux:** download the AppImage, make it executable (`chmod +x`) and run it, or see [Building](#building).
+
+Each release lists SHA-256 checksums in `SHA256SUMS.txt`.
 
 ## Building
 
