@@ -170,6 +170,14 @@ const EXPECTED: Record<string, Expected> = {
       jobs: { columns: ['Vehicle', 'Stage', 'Picked up on', 'Follow-up called'], rules: ['Follow-up call'] },
     },
   },
+  'tree-service': {
+    lists: {
+      customers: { columns: ['Address', 'Last tree check', 'Ash tree treatment'], rules: ['Every year', 'Every 2 years'], required: ['Phone', 'Address'] },
+      jobs: { columns: ['Customer', 'Stage', 'Estimate sent on', 'Estimate follow-up', 'Permit expires', 'Completed on', 'Follow-up call'], rules: ['Estimate follow-up', 'Follow-up call'] },
+      equipment: { columns: ['Hour meter', 'Hours at last service', 'Last service', 'Aerial lift inspection', 'Dielectric test'], rules: ['Service'] },
+      crew: { columns: ['Arborist certification expires', 'CPR / first aid expires', 'CDL medical card expires'] },
+    },
+  },
   'property-manager': {
     lists: {
       units: { columns: ['Tenants', 'Work orders', 'Last inspection'] },

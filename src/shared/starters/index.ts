@@ -23,6 +23,7 @@ import vocationalRehab from './vocational-rehab.json'
 import fleetManager from './fleet-manager.json'
 import personalVehicles from './personal-vehicles.json'
 import autoService from './auto-service.json'
+import treeService from './tree-service.json'
 import propertyManager from './property-manager.json'
 import salesFollowUps from './sales-follow-ups.json'
 import animalRescue from './animal-rescue.json'
@@ -76,6 +77,7 @@ export const BUILTIN_STARTERS: readonly unknown[] = [
   salesFollowUps,
   // Trades and service
   autoService,
+  treeService,
   driverFiles,
   fleetManager,
   // Property and safety

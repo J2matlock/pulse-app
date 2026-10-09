@@ -1469,3 +1469,11 @@ Comprehensive audit identified 2 critical, 7 high, 10 medium, 15 low findings. A
 - Code signing dropped (Azure subscription lapsed; Pulse isn't sold). `scripts/sign-exe.js` and the signing steps in `build-win.js` removed; About's update steps and the README explain SmartScreen's More info → Run anyway
 - v2.0.0 in `pulse-releases` now has `PULSE.exe`, the AppImage and `SHA256SUMS.txt`, and is marked latest, so the website's `releases/latest/download/PULSE.exe` serves 2.0.0
 - `latest.json` in `pulse-releases` now announces 2.0.0 (Windows `downloadUrl` plus `downloads.win` / `downloads.linux`), so installed copies offer the update on their next check
+
+## 2026-10-09 (cont.) — Tree service starter
+- `tree-service` (Trades and service): Customers ← Jobs (Customer). Jobs board Estimate requested → Estimate sent (stamps "Estimate sent on") → Approved → Scheduled → In progress (adds the Job site safety checklist) → Done (stamps "Completed on") / Not going ahead
+- Deadlines: estimate follow-up 7 days after sending, shown only while the stage is Estimate sent (first starter to use a rule condition); scheduled date hidden once Done or Not going ahead; follow-up call 7 days after done; permit expiry. Customers: yearly tree check, ash treatment every 2 years. Equipment: service every 100 engine hours or 6 months (meter, hour history in the sample), aerial lift inspection and dielectric test yearly, registration. Crew: arborist certification, CPR / first aid, CDL medical card (60 days' warning), yearly chainsaw safety training
+- Estimate request form, letters (estimate follow-up, yearly tree check reminder), calendar sample (jobs, estimate visits, weekly crew safety meeting), help tips; icon `tree-deciduous`
+- Website copy generator no longer mentions the 15-record free limit; page and screenshots for tree-service (copied to `pulse-landing-page/img/starters/tree-service/`)
+- Not released yet: ships in the next version
+- Build state: npm test 3557 pass / 4 skip; typecheck 0; eslint 0 errors

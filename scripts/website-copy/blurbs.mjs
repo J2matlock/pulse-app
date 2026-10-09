@@ -118,6 +118,10 @@ export const BLURBS = {
     headline: 'Customers, their vehicles and every job, from estimate to pickup',
     problem: 'You know your regulars, but not when each car is due for its next oil change or inspection. Jobs move from estimate to waiting on parts to ready, and the whiteboard doesn\'t tell you which customer to call back three days after pickup.',
   },
+  'tree-service': {
+    headline: 'Estimates, crews and equipment, without the clipboard',
+    problem: 'Estimate requests come in faster than you can call people back, and half the quotes you send never get a follow-up. Meanwhile the chipper is due for service by the hour meter, the bucket truck needs its yearly inspection, and somebody\'s CPR card ran out last month.',
+  },
   'property-manager': {
     headline: 'Units, tenants and work orders, all connected',
     problem: 'Leases end on different dates across every unit, work orders come in by phone and text, and inspections are due on their own schedule. When a tenant calls, you want their unit, their lease and their open work orders in one place, not in three spreadsheets.',

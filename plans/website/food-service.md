@@ -48,8 +48,8 @@ Equipment and the regular services it needs.
 - **Colors that tell you what to do next.** Green is fine, yellow is coming up, red is overdue.
 - **Bring what you have.** Import your existing spreadsheet from Excel or CSV.
 
-## Try it free
+## Get Pulse — free
 
-[Download Pulse](https://github.com/J2matlock/pulse-releases/releases/latest) for Windows or Linux and pick "Food service compliance" when it asks how you want to start. The free version keeps up to 15 active staff; sample data never counts.
+[Download Pulse](https://github.com/J2matlock/pulse-releases/releases/latest) for Windows or Linux and pick "Food service compliance" when it asks how you want to start. Pulse is free and open source: no trial, no license key, no limits.
 
 > Pulse is a tracking aid, not your official record system. Keep your official records where your agency, court or regulator requires them.

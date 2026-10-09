@@ -40,6 +40,6 @@ People in recovery you meet with each week.
 - **Colors that tell you what to do next.** Green is fine, yellow is coming up, red is overdue.
 - **Bring what you have.** Import your existing spreadsheet from Excel or CSV.
 
-## Try it free
+## Get Pulse — free
 
-[Download Pulse](https://github.com/J2matlock/pulse-releases/releases/latest) for Windows or Linux and pick "Peer recovery specialist" when it asks how you want to start. The free version keeps up to 15 active clients; sample data never counts.
+[Download Pulse](https://github.com/J2matlock/pulse-releases/releases/latest) for Windows or Linux and pick "Peer recovery specialist" when it asks how you want to start. Pulse is free and open source: no trial, no license key, no limits.

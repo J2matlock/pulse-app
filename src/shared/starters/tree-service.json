@@ -1,0 +1,1242 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "tree-service",
+  "name": "Tree service",
+  "description": "For tree care companies: customers, jobs on a board from estimate request to done, estimate follow-ups, permits, equipment service by engine hours, aerial lift inspections and crew certifications.",
+  "icon": "tree-deciduous",
+  "group": "Trades and service",
+  "vocab": {
+    "record": {
+      "one": "record",
+      "many": "records",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false,
+    "links": true,
+    "stages": true,
+    "measures": false,
+    "appointments": true,
+    "forms": true,
+    "attachments": true
+  },
+  "activityTypes": [
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    },
+    {
+      "key": "call",
+      "label": "Call",
+      "icon": "📞",
+      "color": "blue"
+    },
+    {
+      "key": "text",
+      "label": "Text",
+      "icon": "💬",
+      "color": "teal"
+    },
+    {
+      "key": "site_visit",
+      "label": "Site visit",
+      "icon": "🌳",
+      "color": "green"
+    }
+  ],
+  "documentTemplates": [
+    {
+      "name": "Estimate follow-up",
+      "content": "{{today}}\n\nHi {{linked:Customer.Name}},\n\nI wanted to follow up on the estimate we sent on {{field:Estimate sent on}} for {{name}} ({{field:Estimate}}).\n\nLet me know if you have any questions, or if you would like to get on the schedule.\n\nThanks,\n\n{{my_name}}"
+    },
+    {
+      "name": "Yearly tree check reminder",
+      "content": "{{today}}\n\nHi {{name}},\n\nIt has been about a year since we last looked at your trees ({{field:Last tree check}}). A quick yearly check catches dead limbs, disease and storm damage before they turn into a bigger job.\n\nGive us a call to set up a free visit.\n\nThanks,\n\n{{my_name}}"
+    }
+  ],
+  "helpTips": [
+    {
+      "title": "Estimates",
+      "body": "Move a job to Estimate sent and Pulse fills in the date. If it is still waiting a week later, the Estimate follow-up column turns due. Once the job is approved (or not going ahead), the reminder goes away."
+    },
+    {
+      "title": "Engine hours",
+      "body": "Update the Hour meter on the chipper and grinder now and then. Pulse learns how fast the hours add up and shows about when the next service is due: every 100 hours or 6 months, whichever comes first."
+    },
+    {
+      "title": "Before stump grinding",
+      "body": "Call 811 a few days ahead so underground lines are marked, and keep the ticket number in a note on the job. The Job site safety checklist is added when a job moves to In progress."
+    },
+    {
+      "title": "Photos and permits",
+      "body": "Drop before-and-after photos, permits and signed estimates into Files on the job. They are stored encrypted inside Pulse."
+    }
+  ],
+  "lists": [
+    {
+      "key": "customers",
+      "name": "Customers",
+      "description": "Homeowners, businesses and property managers you work for",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "customer",
+          "many": "customers",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 1,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 2,
+          "width": 200
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 3,
+          "width": 180,
+          "is_required": 1
+        },
+        {
+          "name": "Preferred contact",
+          "column_type": "dropdown",
+          "position": 4,
+          "width": 150,
+          "config": "{\"options\": [\"Call\", \"Text\", \"Email\"]}"
+        },
+        {
+          "name": "Property notes",
+          "column_type": "notes",
+          "position": 5,
+          "width": 240,
+          "description": "Gate code, dogs, power lines, where to park the chipper"
+        },
+        {
+          "name": "Last tree check",
+          "column_type": "date",
+          "position": 6,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
+          "description": "Date you last walked the property with them; Pulse reminds you a year later"
+        },
+        {
+          "name": "Ash tree treatment",
+          "column_type": "date",
+          "position": 7,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every 2 years\", \"log_changes\": true}",
+          "description": "Last emerald ash borer injection. Leave blank if they have no ash trees"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Every 2 years",
+          "description": "Due on the same date two years later",
+          "interval_months": 24,
+          "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        }
+      ]
+    },
+    {
+      "key": "jobs",
+      "name": "Jobs",
+      "description": "Work from the first call to the cleanup check",
+      "kind": "job",
+      "vocab": {
+        "record": {
+          "one": "job",
+          "many": "jobs",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Job",
+          "column_type": "text",
+          "position": 0,
+          "width": 230,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Stage",
+          "column_type": "status",
+          "position": 1,
+          "width": 160,
+          "config": "{\"options\": [{\"label\": \"Estimate requested\", \"color\": \"#64748b\"}, {\"label\": \"Estimate sent\", \"color\": \"#3b82f6\"}, {\"label\": \"Approved\", \"color\": \"#8b5cf6\"}, {\"label\": \"Scheduled\", \"color\": \"#f59e0b\"}, {\"label\": \"In progress\", \"color\": \"#f97316\"}, {\"label\": \"Done\", \"color\": \"#22c55e\"}, {\"label\": \"Not going ahead\", \"color\": \"#ef4444\"}]}"
+        },
+        {
+          "name": "Work type",
+          "column_type": "dropdown",
+          "position": 2,
+          "width": 150,
+          "config": "{\"options\": [\"Removal\", \"Pruning\", \"Stump grinding\", \"Storm cleanup\", \"Plant health care\", \"Cabling and bracing\", \"Inspection\"]}"
+        },
+        {
+          "name": "Estimate",
+          "column_type": "currency",
+          "position": 3,
+          "width": 120
+        },
+        {
+          "name": "Estimate sent on",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "description": "Filled in when the job moves to Estimate sent"
+        },
+        {
+          "name": "Estimate follow-up",
+          "column_type": "date",
+          "position": 5,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Estimate follow-up\", \"log_changes\": true}",
+          "description": "Date you called back about the estimate"
+        },
+        {
+          "name": "Scheduled for",
+          "column_type": "date",
+          "position": 6,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Scheduled date\", \"log_changes\": true}",
+          "description": "The day the crew is booked"
+        },
+        {
+          "name": "Permit expires",
+          "column_type": "date",
+          "position": 7,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Expires\", \"log_changes\": true}",
+          "description": "Tree removal permit from the town, if one is needed"
+        },
+        {
+          "name": "Completed on",
+          "column_type": "date",
+          "position": 8,
+          "width": 150,
+          "description": "Filled in when the job moves to Done"
+        },
+        {
+          "name": "Follow-up call",
+          "column_type": "date",
+          "position": 9,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Follow-up call\", \"log_changes\": true}",
+          "description": "Date you checked the cleanup was OK and asked for a review"
+        },
+        {
+          "name": "Invoice total",
+          "column_type": "currency",
+          "position": 10,
+          "width": 130
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Scheduled date",
+          "description": "The date entered is the day of the job, until it is done",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is_not\", \"values\": [\"Done\", \"Not going ahead\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Expires",
+          "description": "The date entered is when it runs out",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Estimate follow-up",
+          "description": "Call back 7 days after sending an estimate, while it is still waiting",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\": \"relative\", \"anchorColumnId\": {\"column\": \"Estimate sent on\"}, \"offset\": {\"days\": 7, \"direction\": \"after\"}}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is\", \"values\": [\"Estimate sent\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Follow-up call",
+          "description": "Call the customer 7 days after the job is done",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\": \"relative\", \"anchorColumnId\": {\"column\": \"Completed on\"}, \"offset\": {\"days\": 7, \"direction\": \"after\"}}"
+        }
+      ],
+      "checklists": [
+        {
+          "name": "Job site safety",
+          "description": "Before the first cut",
+          "items": "[\"Walk the site and talk through the plan with the crew\", \"Power lines checked: stay 10 feet away unless line-clearance qualified\", \"Drop zone marked off with cones\", \"PPE checked: helmet, eye and ear protection, chaps\", \"Aerial rescue plan and first aid kit ready\", \"Nearest hospital noted\", \"Underground lines marked (811) before stump grinding\"]"
+        }
+      ],
+      "links": [
+        {
+          "to": "customers",
+          "label_forward": "Customer",
+          "label_backward": "Jobs",
+          "cardinality": "many_to_one"
+        }
+      ],
+      "stage": {
+        "column": "Stage",
+        "options": [
+          {
+            "value": "Estimate requested",
+            "color": "slate"
+          },
+          {
+            "value": "Estimate sent",
+            "color": "blue",
+            "onEnter": {
+              "stampColumn": "Estimate sent on"
+            }
+          },
+          {
+            "value": "Approved",
+            "color": "purple"
+          },
+          {
+            "value": "Scheduled",
+            "color": "amber"
+          },
+          {
+            "value": "In progress",
+            "color": "orange",
+            "onEnter": {
+              "checklist": "Job site safety"
+            }
+          },
+          {
+            "value": "Done",
+            "color": "green",
+            "done": true,
+            "onEnter": {
+              "stampColumn": "Completed on",
+              "activityType": "note"
+            }
+          },
+          {
+            "value": "Not going ahead",
+            "color": "red",
+            "done": true
+          }
+        ],
+        "hideDoneAfterDays": 30
+      },
+      "forms": [
+        {
+          "name": "Estimate request",
+          "intro": "Take this down when someone calls asking for a quote, or print a blank for the truck.",
+          "log_activity_type": "call",
+          "fields": [
+            {
+              "kind": "section",
+              "title": "The work"
+            },
+            {
+              "kind": "column",
+              "column": "Job",
+              "label": "What do they need done?",
+              "required": true
+            },
+            {
+              "kind": "column",
+              "column": "Work type",
+              "width": "half"
+            },
+            {
+              "kind": "note",
+              "label": "Where are the trees on the property?"
+            },
+            {
+              "kind": "note",
+              "label": "Anything close by: power lines, buildings, fences, a pool?"
+            },
+            {
+              "kind": "note",
+              "label": "Best time to come out and look"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "equipment",
+      "name": "Equipment",
+      "description": "Chippers, stump grinders, trucks and saws, with service and inspections due",
+      "kind": "thing",
+      "vocab": {
+        "record": {
+          "one": "machine",
+          "many": "machines",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 210,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Type",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 140,
+          "config": "{\"options\": [\"Chipper\", \"Stump grinder\", \"Bucket truck\", \"Crane\", \"Truck\", \"Loader\", \"Chainsaws\", \"Trailer\"]}"
+        },
+        {
+          "name": "Hour meter",
+          "column_type": "number",
+          "position": 2,
+          "width": 120,
+          "description": "Engine hours; update it now and then so Pulse can forecast service"
+        },
+        {
+          "name": "Hours at last service",
+          "column_type": "number",
+          "position": 3,
+          "width": 160
+        },
+        {
+          "name": "Last service",
+          "column_type": "date",
+          "position": 4,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Service\", \"log_changes\": true}"
+        },
+        {
+          "name": "Aerial lift inspection",
+          "column_type": "date",
+          "position": 5,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
+          "description": "Yearly inspection for bucket trucks and lifts"
+        },
+        {
+          "name": "Dielectric test",
+          "column_type": "date",
+          "position": 6,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
+          "description": "Yearly test for insulated booms used near power lines"
+        },
+        {
+          "name": "Registration expires",
+          "column_type": "date",
+          "position": 7,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Expires\", \"log_changes\": true}"
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 8,
+          "width": 220
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Service",
+          "description": "Every 100 engine hours or 6 months, whichever comes first",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "meter",
+          "rule_config": "{\"kind\": \"meter\", \"readingColumnId\": {\"column\": \"Hour meter\"}, \"lastServiceReadingColumnId\": {\"column\": \"Hours at last service\"}, \"every\": 100, \"unit\": \"hours\", \"timeFallback\": {\"months\": 6}, \"typicalPerDay\": 3}"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Expires",
+          "description": "The date entered is when it runs out",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        }
+      ]
+    },
+    {
+      "key": "crew",
+      "name": "Crew",
+      "description": "Climbers, ground workers and operators, with certifications and training due",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "crew member",
+          "many": "crew members",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 180,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 1,
+          "width": 140
+        },
+        {
+          "name": "Role",
+          "column_type": "dropdown",
+          "position": 2,
+          "width": 150,
+          "config": "{\"options\": [\"Crew lead\", \"Climber\", \"Ground worker\", \"Bucket operator\", \"Estimator\"]}"
+        },
+        {
+          "name": "Arborist certification expires",
+          "column_type": "date",
+          "position": 3,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}",
+          "description": "ISA Certified Arborist or similar; renews every 3 years"
+        },
+        {
+          "name": "CPR / first aid expires",
+          "column_type": "date",
+          "position": 4,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}"
+        },
+        {
+          "name": "CDL medical card expires",
+          "column_type": "date",
+          "position": 5,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}",
+          "description": "For anyone who drives the trucks"
+        },
+        {
+          "name": "Chainsaw safety training",
+          "column_type": "date",
+          "position": 6,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
+          "description": "Date of the last refresher"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Expires (60 days ahead)",
+          "description": "The date entered is when it runs out; warns 60 days ahead",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        }
+      ]
+    }
+  ],
+  "dashboardCards": [
+    "summary",
+    "today",
+    "stages",
+    "dueForService",
+    "missingInfo"
+  ],
+  "sampleData": {
+    "records": {
+      "customers": [
+        {
+          "Name": "Robert Dubois",
+          "Phone": "555-0113",
+          "Email": "robert.dubois@example.com",
+          "Address": "100 Maple Ave\nSpringfield",
+          "Preferred contact": "Text",
+          "Property notes": "Gate code 4471. Dog in the back yard.",
+          "Last tree check": {
+            "daysFromToday": -380
+          }
+        },
+        {
+          "Name": "Linh Smith",
+          "Phone": "555-0120",
+          "Email": "linh.smith@example.com",
+          "Address": "137 Birch Lane\nSpringfield",
+          "Preferred contact": "Call",
+          "Property notes": "Power line along the back fence.",
+          "Last tree check": {
+            "daysFromToday": -360
+          }
+        },
+        {
+          "Name": "Dorothy Kowalski",
+          "Phone": "555-0127",
+          "Email": "dorothy.kowalski@example.com",
+          "Address": "174 Cedar Court\nSpringfield",
+          "Preferred contact": "Text",
+          "Last tree check": {
+            "daysFromToday": -300
+          }
+        },
+        {
+          "Name": "Carlos Wong",
+          "Phone": "555-0134",
+          "Email": "carlos.wong@example.com",
+          "Address": "211 Willow Way\nSpringfield",
+          "Preferred contact": "Email",
+          "Property notes": "Owns the office park on Willow; bill monthly.",
+          "Last tree check": {
+            "daysFromToday": -200
+          }
+        },
+        {
+          "Name": "Priya Bell",
+          "Phone": "555-0141",
+          "Email": "priya.bell@example.com",
+          "Address": "248 Elm Street\nSpringfield",
+          "Preferred contact": "Call",
+          "Last tree check": {
+            "daysFromToday": -100
+          }
+        },
+        {
+          "Name": "Frank Rivera",
+          "Phone": "555-0148",
+          "Email": "frank.rivera@example.com",
+          "Address": "285 Pine Road\nSpringfield",
+          "Preferred contact": "Text",
+          "Property notes": "Park the chipper on the street, not the driveway.",
+          "Last tree check": {
+            "daysFromToday": -350
+          },
+          "Ash tree treatment": {
+            "daysFromToday": -700
+          }
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Phone": "555-0155",
+          "Email": "keisha.thompson@example.com",
+          "Address": "322 Oak Terrace\nSpringfield",
+          "Preferred contact": "Call",
+          "Property notes": "Two big ash trees out front.",
+          "Last tree check": {
+            "daysFromToday": -30
+          },
+          "Ash tree treatment": {
+            "daysFromToday": -800
+          }
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Phone": "555-0162",
+          "Email": "samuel.rahman@example.com",
+          "Address": "359 Aspen Drive\nSpringfield",
+          "Preferred contact": "Email"
+        }
+      ],
+      "jobs": [
+        {
+          "Job": "Remove dead oak by the garage",
+          "Stage": "In progress",
+          "Work type": "Removal",
+          "Estimate": 2400,
+          "Estimate sent on": {
+            "daysFromToday": -20
+          },
+          "Scheduled for": {
+            "daysFromToday": 0
+          },
+          "Permit expires": {
+            "daysFromToday": 10
+          }
+        },
+        {
+          "Job": "Prune two maples over the roof",
+          "Stage": "Scheduled",
+          "Work type": "Pruning",
+          "Estimate": 850,
+          "Estimate sent on": {
+            "daysFromToday": -12
+          },
+          "Scheduled for": {
+            "daysFromToday": 3
+          }
+        },
+        {
+          "Job": "Fallen limb on the fence",
+          "Stage": "Approved",
+          "Work type": "Storm cleanup",
+          "Estimate": 600,
+          "Estimate sent on": {
+            "daysFromToday": -2
+          },
+          "Scheduled for": {
+            "daysFromToday": 1
+          }
+        },
+        {
+          "Job": "Grind three stumps",
+          "Stage": "Estimate sent",
+          "Work type": "Stump grinding",
+          "Estimate": 375,
+          "Estimate sent on": {
+            "daysFromToday": -9
+          }
+        },
+        {
+          "Job": "Crown thinning, front yard",
+          "Stage": "Estimate sent",
+          "Work type": "Pruning",
+          "Estimate": 1200,
+          "Estimate sent on": {
+            "daysFromToday": -5
+          }
+        },
+        {
+          "Job": "Treat ash trees",
+          "Stage": "Estimate requested",
+          "Work type": "Plant health care"
+        },
+        {
+          "Job": "Look at a leaning pine",
+          "Stage": "Estimate requested",
+          "Work type": "Inspection"
+        },
+        {
+          "Job": "Remove two pines by the driveway",
+          "Stage": "Done",
+          "Work type": "Removal",
+          "Estimate": 3100,
+          "Estimate sent on": {
+            "daysFromToday": -40
+          },
+          "Scheduled for": {
+            "daysFromToday": -9
+          },
+          "Completed on": {
+            "daysFromToday": -8
+          },
+          "Invoice total": 3100
+        },
+        {
+          "Job": "Trim hedges and shrubs",
+          "Stage": "Done",
+          "Work type": "Pruning",
+          "Estimate": 300,
+          "Estimate sent on": {
+            "daysFromToday": -15
+          },
+          "Scheduled for": {
+            "daysFromToday": -3
+          },
+          "Completed on": {
+            "daysFromToday": -3
+          },
+          "Invoice total": 300
+        },
+        {
+          "Job": "Cable and brace the split maple",
+          "Stage": "Scheduled",
+          "Work type": "Cabling and bracing",
+          "Estimate": 950,
+          "Estimate sent on": {
+            "daysFromToday": -18
+          },
+          "Scheduled for": {
+            "daysFromToday": 9
+          }
+        }
+      ],
+      "equipment": [
+        {
+          "Name": "Chipper – Bandit 250",
+          "Type": "Chipper",
+          "Last service": {
+            "daysFromToday": -40
+          },
+          "Hour meter": 1840,
+          "Hours at last service": 1745
+        },
+        {
+          "Name": "Stump grinder – Rayco",
+          "Type": "Stump grinder",
+          "Last service": {
+            "daysFromToday": -75
+          },
+          "Hour meter": 620,
+          "Hours at last service": 560
+        },
+        {
+          "Name": "Bucket truck – 60 ft",
+          "Type": "Bucket truck",
+          "Last service": {
+            "daysFromToday": -50
+          },
+          "Aerial lift inspection": {
+            "daysFromToday": -350
+          },
+          "Dielectric test": {
+            "daysFromToday": -370
+          },
+          "Registration expires": {
+            "daysFromToday": 45
+          },
+          "Hour meter": 4210,
+          "Hours at last service": 4150
+        },
+        {
+          "Name": "Chip truck – F-550",
+          "Type": "Truck",
+          "Last service": {
+            "daysFromToday": -150
+          },
+          "Registration expires": {
+            "daysFromToday": 12
+          }
+        },
+        {
+          "Name": "Chainsaws (6)",
+          "Type": "Chainsaws",
+          "Last service": {
+            "daysFromToday": -20
+          },
+          "Notes": "Sharpen chains every Friday."
+        }
+      ],
+      "crew": [
+        {
+          "Name": "Marcus Lee",
+          "Phone": "555-0170",
+          "Role": "Crew lead",
+          "Arborist certification expires": {
+            "daysFromToday": 40
+          },
+          "CPR / first aid expires": {
+            "daysFromToday": 200
+          },
+          "CDL medical card expires": {
+            "daysFromToday": 20
+          },
+          "Chainsaw safety training": {
+            "daysFromToday": -300
+          }
+        },
+        {
+          "Name": "Ana Torres",
+          "Phone": "555-0173",
+          "Role": "Climber",
+          "Arborist certification expires": {
+            "daysFromToday": 400
+          },
+          "CPR / first aid expires": {
+            "daysFromToday": -5
+          },
+          "Chainsaw safety training": {
+            "daysFromToday": -370
+          }
+        },
+        {
+          "Name": "Devon Price",
+          "Phone": "555-0176",
+          "Role": "Ground worker",
+          "CPR / first aid expires": {
+            "daysFromToday": 90
+          },
+          "Chainsaw safety training": {
+            "daysFromToday": -100
+          }
+        },
+        {
+          "Name": "Sam Okafor",
+          "Phone": "555-0179",
+          "Role": "Bucket operator",
+          "CPR / first aid expires": {
+            "daysFromToday": 300
+          },
+          "CDL medical card expires": {
+            "daysFromToday": 6
+          },
+          "Chainsaw safety training": {
+            "daysFromToday": -200
+          }
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "jobs#0",
+        "to": "customers#0",
+        "link": "Customer"
+      },
+      {
+        "from": "jobs#1",
+        "to": "customers#1",
+        "link": "Customer"
+      },
+      {
+        "from": "jobs#2",
+        "to": "customers#2",
+        "link": "Customer"
+      },
+      {
+        "from": "jobs#3",
+        "to": "customers#3",
+        "link": "Customer"
+      },
+      {
+        "from": "jobs#4",
+        "to": "customers#4",
+        "link": "Customer"
+      },
+      {
+        "from": "jobs#5",
+        "to": "customers#6",
+        "link": "Customer"
+      },
+      {
+        "from": "jobs#6",
+        "to": "customers#5",
+        "link": "Customer"
+      },
+      {
+        "from": "jobs#7",
+        "to": "customers#7",
+        "link": "Customer"
+      },
+      {
+        "from": "jobs#8",
+        "to": "customers#0",
+        "link": "Customer"
+      },
+      {
+        "from": "jobs#9",
+        "to": "customers#3",
+        "link": "Customer"
+      }
+    ],
+    "activities": [
+      {
+        "record": "jobs#3",
+        "type": "call",
+        "daysAgo": 9,
+        "text": "Walked the yard with Carlos. Three stumps by the back fence, one close to the gas line."
+      },
+      {
+        "record": "jobs#4",
+        "type": "site_visit",
+        "daysAgo": 6,
+        "text": "Measured the canopy; about a day for a crew of three."
+      },
+      {
+        "record": "jobs#0",
+        "type": "note",
+        "daysAgo": 14,
+        "text": "Town permit approved. Copy in Files."
+      },
+      {
+        "record": "jobs#2",
+        "type": "call",
+        "daysAgo": 2,
+        "text": "Approved over the phone. Wants it done before the weekend."
+      },
+      {
+        "record": "jobs#7",
+        "type": "note",
+        "daysAgo": 8,
+        "text": "Both pines down and hauled. Stumps left low for grinding later."
+      },
+      {
+        "record": "customers#6",
+        "type": "site_visit",
+        "daysAgo": 30,
+        "text": "Yearly check. Ash trees look healthy; treatment due next year."
+      },
+      {
+        "record": "equipment#2",
+        "type": "note",
+        "daysAgo": 50,
+        "text": "Hydraulic fluid and filters changed."
+      }
+    ],
+    "history": [
+      {
+        "record": "equipment#0",
+        "column": "Hour meter",
+        "values": [
+          {
+            "value": "400",
+            "daysAgo": 450
+          },
+          {
+            "value": "688",
+            "daysAgo": 360
+          },
+          {
+            "value": "976",
+            "daysAgo": 270
+          },
+          {
+            "value": "1264",
+            "daysAgo": 180
+          },
+          {
+            "value": "1552",
+            "daysAgo": 90
+          },
+          {
+            "value": "1837",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "equipment#1",
+        "column": "Hour meter",
+        "values": [
+          {
+            "value": "80",
+            "daysAgo": 450
+          },
+          {
+            "value": "188",
+            "daysAgo": 360
+          },
+          {
+            "value": "296",
+            "daysAgo": 270
+          },
+          {
+            "value": "404",
+            "daysAgo": 180
+          },
+          {
+            "value": "512",
+            "daysAgo": 90
+          },
+          {
+            "value": "619",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "equipment#2",
+        "column": "Hour meter",
+        "values": [
+          {
+            "value": "3085",
+            "daysAgo": 450
+          },
+          {
+            "value": "3310",
+            "daysAgo": 360
+          },
+          {
+            "value": "3535",
+            "daysAgo": 270
+          },
+          {
+            "value": "3760",
+            "daysAgo": 180
+          },
+          {
+            "value": "3985",
+            "daysAgo": 90
+          },
+          {
+            "value": "4208",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "jobs#0",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Estimate sent",
+            "daysAgo": 20
+          },
+          {
+            "value": "Approved",
+            "daysAgo": 15
+          },
+          {
+            "value": "Scheduled",
+            "daysAgo": 14
+          },
+          {
+            "value": "In progress",
+            "daysAgo": 0
+          }
+        ]
+      },
+      {
+        "record": "jobs#1",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Estimate sent",
+            "daysAgo": 12
+          },
+          {
+            "value": "Approved",
+            "daysAgo": 8
+          },
+          {
+            "value": "Scheduled",
+            "daysAgo": 7
+          }
+        ]
+      },
+      {
+        "record": "jobs#9",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Estimate sent",
+            "daysAgo": 18
+          },
+          {
+            "value": "Approved",
+            "daysAgo": 11
+          },
+          {
+            "value": "Scheduled",
+            "daysAgo": 10
+          }
+        ]
+      }
+    ],
+    "appointments": [
+      {
+        "record": "jobs#0",
+        "title": "Oak removal",
+        "dayOffset": 0,
+        "time": "07:30",
+        "minutes": 480,
+        "location": "100 Maple Ave"
+      },
+      {
+        "record": "jobs#2",
+        "title": "Storm cleanup",
+        "dayOffset": 1,
+        "time": "08:00",
+        "minutes": 180,
+        "location": "174 Cedar Court"
+      },
+      {
+        "record": "jobs#5",
+        "title": "Estimate: ash trees",
+        "dayOffset": 1,
+        "time": "15:00",
+        "minutes": 30,
+        "type": "site_visit",
+        "location": "322 Oak Terrace"
+      },
+      {
+        "record": "jobs#6",
+        "title": "Estimate: leaning pine",
+        "dayOffset": 2,
+        "time": "16:00",
+        "minutes": 30,
+        "type": "site_visit",
+        "location": "285 Pine Road"
+      },
+      {
+        "record": "jobs#1",
+        "title": "Maple pruning",
+        "dayOffset": 3,
+        "time": "08:00",
+        "minutes": 300,
+        "location": "137 Birch Lane"
+      },
+      {
+        "record": "jobs#9",
+        "title": "Cable and brace",
+        "dayOffset": 9,
+        "time": "08:00",
+        "minutes": 240,
+        "location": "211 Willow Way"
+      },
+      {
+        "record": "jobs#7",
+        "title": "Pine removal",
+        "dayOffset": -9,
+        "time": "07:30",
+        "minutes": 480,
+        "location": "359 Aspen Drive"
+      },
+      {
+        "record": "crew#0",
+        "title": "Crew safety meeting",
+        "dayOffset": 1,
+        "time": "07:00",
+        "minutes": 20,
+        "repeatWeekly": 8
+      }
+    ]
+  }
+}
