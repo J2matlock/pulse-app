@@ -1477,3 +1477,7 @@ Comprehensive audit identified 2 critical, 7 high, 10 medium, 15 low findings. A
 - Website copy generator no longer mentions the 15-record free limit; page and screenshots for tree-service (copied to `pulse-landing-page/img/starters/tree-service/`)
 - Not released yet: ships in the next version
 - Build state: npm test 3557 pass / 4 skip; typecheck 0; eslint 0 errors
+
+## 2026-10-09 (cont.) — Pulse 2.0.1 released
+- Version 2.0.1 (tree service starter), tagged v2.0.1 in pulse-app
+- `pulse-releases` v2.0.1: `PULSE.exe`, `BaringaSoftPulse-2.0.1.AppImage`, `SHA256SUMS.txt`, marked latest; `latest.json` announces 2.0.1
