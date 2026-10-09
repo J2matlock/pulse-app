@@ -1,0 +1,215 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "personal-documents",
+  "name": "Personal documents",
+  "description": "Passports, licenses, insurance policies and warranties for your household, with warnings 90, 30 and 7 days before anything expires.",
+  "icon": "folder",
+  "group": "Personal",
+  "vocab": {
+    "record": {
+      "one": "item",
+      "many": "items",
+      "article": "an"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": false,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": false,
+    "summaryReport": false,
+    "handoff": false
+  },
+  "lists": [
+    {
+      "key": "documents",
+      "name": "My documents",
+      "description": "Passports, licenses, insurance and warranties, with a warning before each expires",
+      "kind": "thing",
+      "columns": [
+        {
+          "name": "Item",
+          "column_type": "text",
+          "position": 0,
+          "width": 200,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Belongs to",
+          "column_type": "text",
+          "position": 1,
+          "width": 140
+        },
+        {
+          "name": "Number",
+          "column_type": "text",
+          "position": 2,
+          "width": 120,
+          "description": "Just the last 4 digits, so a lost laptop never gives away the whole number"
+        },
+        {
+          "name": "Expires",
+          "column_type": "date",
+          "position": 3,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Expires (90-day warning)\",\"log_changes\":true}"
+        },
+        {
+          "name": "Where it's kept",
+          "column_type": "text",
+          "position": 4,
+          "width": 180
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 5,
+          "width": 220
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Expires (90-day warning)",
+          "description": "The date entered is when it expires; warns 90, 30, 7 days ahead",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":90,\"bgClass\":\"#facc15\",\"label\":\"Renew soon\"},{\"daysBefore\":30,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":7,\"bgClass\":\"#f87171\",\"label\":\"Expiring\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Expires today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Expired\"}]"
+        }
+      ]
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "documents": [
+        {
+          "Item": "Passport",
+          "Belongs to": "Sam",
+          "Number": "…4821",
+          "Expires": {
+            "daysFromToday": 1500
+          },
+          "Where it's kept": "Fire safe"
+        },
+        {
+          "Item": "Passport",
+          "Belongs to": "Alex",
+          "Number": "…1177",
+          "Expires": {
+            "daysFromToday": 70
+          },
+          "Where it's kept": "Fire safe",
+          "Notes": "Renew early — takes 8 weeks"
+        },
+        {
+          "Item": "Driver's license",
+          "Belongs to": "Sam",
+          "Number": "…0392",
+          "Expires": {
+            "daysFromToday": 300
+          },
+          "Where it's kept": "Wallet"
+        },
+        {
+          "Item": "Car insurance",
+          "Belongs to": "Family",
+          "Number": "…5510",
+          "Expires": {
+            "daysFromToday": 12
+          },
+          "Where it's kept": "Glove box",
+          "Notes": "Shop around before renewing"
+        },
+        {
+          "Item": "Home insurance",
+          "Belongs to": "Family",
+          "Number": "…7734",
+          "Expires": {
+            "daysFromToday": 180
+          },
+          "Where it's kept": "File cabinet"
+        },
+        {
+          "Item": "Fridge warranty",
+          "Belongs to": "Family",
+          "Expires": {
+            "daysFromToday": -6
+          },
+          "Where it's kept": "Kitchen drawer",
+          "Notes": "Call the store about extended cover"
+        },
+        {
+          "Item": "Library card",
+          "Belongs to": "Alex",
+          "Number": "…2208",
+          "Expires": {
+            "daysFromToday": 600
+          },
+          "Where it's kept": "Wallet"
+        },
+        {
+          "Item": "Car registration",
+          "Belongs to": "Family",
+          "Expires": {
+            "daysFromToday": 40
+          },
+          "Where it's kept": "Glove box",
+          "Notes": "Renew online"
+        }
+      ]
+    },
+    "activities": [
+      {
+        "record": "documents#0",
+        "type": "note",
+        "daysAgo": 1,
+        "text": "Booked the passport photo appointment."
+      },
+      {
+        "record": "documents#1",
+        "type": "note",
+        "daysAgo": 8,
+        "text": "Booked the passport photo appointment."
+      },
+      {
+        "record": "documents#1",
+        "type": "note",
+        "daysAgo": 21,
+        "text": "Got three insurance quotes; renewing with the cheapest."
+      },
+      {
+        "record": "documents#2",
+        "type": "note",
+        "daysAgo": 15,
+        "text": "Booked the passport photo appointment."
+      },
+      {
+        "record": "documents#2",
+        "type": "note",
+        "daysAgo": 28,
+        "text": "Got three insurance quotes; renewing with the cheapest."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary"
+  ]
+}

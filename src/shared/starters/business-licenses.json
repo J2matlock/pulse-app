@@ -1,0 +1,369 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "business-licenses",
+  "name": "Business licenses and permits",
+  "description": "Track every license, permit and registration your business holds, with warnings 90, 60, 30 and 7 days before each expires and a renewal checklist.",
+  "icon": "file-badge",
+  "group": "Business",
+  "vocab": {
+    "record": {
+      "one": "license",
+      "many": "licenses",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": false,
+    "summaryReport": true,
+    "handoff": false
+  },
+  "lists": [
+    {
+      "key": "licenses",
+      "name": "Licenses & permits",
+      "description": "Every license, permit and registration, with its expiry date",
+      "kind": "thing",
+      "columns": [
+        {
+          "name": "License or permit",
+          "column_type": "text",
+          "position": 0,
+          "width": 220,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Issued by",
+          "column_type": "text",
+          "position": 1,
+          "width": 200,
+          "description": "The agency or office that issues it"
+        },
+        {
+          "name": "Number",
+          "column_type": "text",
+          "position": 2,
+          "width": 160
+        },
+        {
+          "name": "Location",
+          "column_type": "text",
+          "position": 3,
+          "width": 160,
+          "description": "The site or location it covers"
+        },
+        {
+          "name": "Issued on",
+          "column_type": "date",
+          "position": 4,
+          "width": 150
+        },
+        {
+          "name": "Expires on",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "is_required": 1,
+          "config": "{\"alert_rule_name\":\"Expires (90-day warning)\",\"log_changes\":true,\"done_checklist_name\":\"Renewal steps\"}"
+        },
+        {
+          "name": "Renewal fee",
+          "column_type": "currency",
+          "position": 6,
+          "width": 120
+        },
+        {
+          "name": "Renewal steps",
+          "column_type": "notes",
+          "position": 7,
+          "width": 220,
+          "description": "Anything special about renewing this one"
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 8,
+          "width": 130,
+          "config": "{\"options\":[\"Current\",\"Renewal sent\",\"Expired\",\"Not needed\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Expires (90-day warning)",
+          "description": "The date entered is when it expires; warns 90, 60, 30, 7 days ahead",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":90,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":60,\"bgClass\":\"#facc15\",\"label\":\"Renew soon\"},{\"daysBefore\":30,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":7,\"bgClass\":\"#f87171\",\"label\":\"Expiring\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Expires today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Expired\"}]"
+        }
+      ],
+      "checklists": [
+        {
+          "name": "Renewal steps",
+          "description": "What to do each time a license or permit is renewed",
+          "items": "[\"Fill in the renewal form\",\"Pay the fee\",\"File a copy of the new license\",\"Update the expiry date\"]"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    },
+    {
+      "key": "application",
+      "label": "Application sent",
+      "icon": "📨",
+      "color": "blue"
+    },
+    {
+      "key": "payment",
+      "label": "Payment made",
+      "icon": "💳",
+      "color": "green"
+    },
+    {
+      "key": "inspection",
+      "label": "Inspection",
+      "icon": "🔍",
+      "color": "orange"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "licenses": [
+        {
+          "License or permit": "Business license",
+          "Issued by": "City Clerk",
+          "Number": "BL-2024-1031",
+          "Location": "Main Street store",
+          "Issued on": {
+            "daysFromToday": -374
+          },
+          "Expires on": {
+            "daysFromToday": -9
+          },
+          "Renewal fee": 150,
+          "Renewal steps": "Renew online at the city site",
+          "Status": "Expired"
+        },
+        {
+          "License or permit": "Food service permit",
+          "Issued by": "County Health Department",
+          "Number": "FP-2025-1208",
+          "Location": "Main Street store",
+          "Issued on": {
+            "daysFromToday": -361
+          },
+          "Expires on": {
+            "daysFromToday": 4
+          },
+          "Renewal fee": 275,
+          "Status": "Renewal sent"
+        },
+        {
+          "License or permit": "Fire inspection certificate",
+          "Issued by": "Fire Marshal",
+          "Number": "FI-2024-1385",
+          "Location": "Main Street store",
+          "Issued on": {
+            "daysFromToday": -344
+          },
+          "Expires on": {
+            "daysFromToday": 21
+          },
+          "Renewal fee": 0,
+          "Renewal steps": "Inspector calls to book a visit",
+          "Status": "Current"
+        },
+        {
+          "License or permit": "Sales tax registration",
+          "Issued by": "State Revenue Department",
+          "Number": "ST-2025-1562",
+          "Location": "All locations",
+          "Issued on": {
+            "daysFromToday": -320
+          },
+          "Expires on": {
+            "daysFromToday": 45
+          },
+          "Renewal fee": 0,
+          "Status": "Current"
+        },
+        {
+          "License or permit": "Alarm permit",
+          "Issued by": "Police Department",
+          "Number": "AP-2024-1739",
+          "Location": "Main Street store",
+          "Issued on": {
+            "daysFromToday": -285
+          },
+          "Expires on": {
+            "daysFromToday": 80
+          },
+          "Renewal fee": 50,
+          "Status": "Current"
+        },
+        {
+          "License or permit": "Sign permit",
+          "Issued by": "City Planning",
+          "Number": "SP-2025-1916",
+          "Location": "Main Street store",
+          "Issued on": {
+            "daysFromToday": -235
+          },
+          "Expires on": {
+            "daysFromToday": 130
+          },
+          "Renewal fee": 75,
+          "Status": "Current"
+        },
+        {
+          "License or permit": "Elevator certificate",
+          "Issued by": "State Labor Department",
+          "Number": "EC-2024-2093",
+          "Location": "Warehouse",
+          "Issued on": {
+            "daysFromToday": -165
+          },
+          "Expires on": {
+            "daysFromToday": 200
+          },
+          "Renewal fee": 200,
+          "Status": "Current"
+        },
+        {
+          "License or permit": "Liquor license",
+          "Issued by": "State Liquor Board",
+          "Number": "LL-2025-2270",
+          "Location": "Main Street store",
+          "Issued on": {
+            "daysFromToday": -105
+          },
+          "Expires on": {
+            "daysFromToday": 260
+          },
+          "Renewal fee": 1200,
+          "Renewal steps": "Needs the landlord's letter",
+          "Status": "Current"
+        },
+        {
+          "License or permit": "Health department permit",
+          "Issued by": "County Health Department",
+          "Number": "HD-2024-2447",
+          "Location": "Warehouse",
+          "Issued on": {
+            "daysFromToday": -35
+          },
+          "Expires on": {
+            "daysFromToday": 330
+          },
+          "Renewal fee": 300,
+          "Status": "Current"
+        },
+        {
+          "License or permit": "Certificate of occupancy",
+          "Issued by": "Building Department",
+          "Number": "CO-2025-2624",
+          "Location": "Warehouse",
+          "Issued on": {
+            "daysFromToday": -30
+          },
+          "Expires on": {
+            "daysFromToday": 700
+          },
+          "Status": "Not needed"
+        }
+      ]
+    },
+    "activities": [
+      {
+        "record": "licenses#0",
+        "type": "application",
+        "daysAgo": 1,
+        "text": "Sent the renewal application."
+      },
+      {
+        "record": "licenses#1",
+        "type": "inspection",
+        "daysAgo": 8,
+        "text": "Inspection passed; certificate to arrive by mail."
+      },
+      {
+        "record": "licenses#1",
+        "type": "note",
+        "daysAgo": 21,
+        "text": "Called the office to check the status of the renewal."
+      },
+      {
+        "record": "licenses#2",
+        "type": "application",
+        "daysAgo": 15,
+        "text": "Sent the renewal application."
+      },
+      {
+        "record": "licenses#2",
+        "type": "payment",
+        "daysAgo": 28,
+        "text": "Paid the renewal fee online; receipt saved."
+      },
+      {
+        "record": "licenses#3",
+        "type": "inspection",
+        "daysAgo": 22,
+        "text": "Inspection passed; certificate to arrive by mail."
+      },
+      {
+        "record": "licenses#4",
+        "type": "application",
+        "daysAgo": 29,
+        "text": "Sent the renewal application."
+      },
+      {
+        "record": "licenses#4",
+        "type": "payment",
+        "daysAgo": 42,
+        "text": "Paid the renewal fee online; receipt saved."
+      },
+      {
+        "record": "licenses#5",
+        "type": "inspection",
+        "daysAgo": 36,
+        "text": "Inspection passed; certificate to arrive by mail."
+      },
+      {
+        "record": "licenses#5",
+        "type": "note",
+        "daysAgo": 49,
+        "text": "Called the office to check the status of the renewal."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "missingInfo"
+  ]
+}

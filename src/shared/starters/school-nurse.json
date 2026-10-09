@@ -1,0 +1,569 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "school-nurse",
+  "name": "School nurse",
+  "description": "Students with health needs: allergies, conditions, medication authorizations, health plan reviews and yearly vision and hearing screenings.",
+  "icon": "stethoscope",
+  "group": "Education and youth",
+  "vocab": {
+    "record": {
+      "one": "student",
+      "many": "students",
+      "article": "a"
+    },
+    "list": {
+      "one": "roster",
+      "many": "rosters",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false
+  },
+  "lists": [
+    {
+      "key": "students",
+      "name": "Health roster",
+      "description": "Students with health needs, screenings and medication authorizations",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Grade",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 90,
+          "config": "{\"options\":[\"K\",\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\"]}"
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 2,
+          "width": 150,
+          "is_required": 1
+        },
+        {
+          "name": "Guardian",
+          "column_type": "text",
+          "position": 3,
+          "width": 160
+        },
+        {
+          "name": "Guardian phone",
+          "column_type": "phone",
+          "position": 4,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Allergies",
+          "column_type": "text",
+          "position": 5,
+          "width": 160,
+          "description": "Food, medicine or other allergies"
+        },
+        {
+          "name": "Conditions",
+          "column_type": "tag",
+          "position": 6,
+          "width": 140,
+          "description": "Health conditions, e.g. asthma, diabetes"
+        },
+        {
+          "name": "Immunizations complete",
+          "column_type": "checkbox",
+          "position": 7,
+          "width": 130
+        },
+        {
+          "name": "Medication authorization expires",
+          "column_type": "date",
+          "position": 8,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Expires (30-day warning)\",\"log_changes\":true}"
+        },
+        {
+          "name": "Health plan review",
+          "column_type": "date",
+          "position": 9,
+          "width": 150,
+          "description": "Date of the last health plan review",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Vision screening",
+          "column_type": "date",
+          "position": 10,
+          "width": 150,
+          "description": "Date of the last vision screening",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Hearing screening",
+          "column_type": "date",
+          "position": 11,
+          "width": 150,
+          "description": "Date of the last hearing screening",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Expires (30-day warning)",
+          "description": "The date entered is when it expires; warns 30, 14, 7 days ahead",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Renew soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":7,\"bgClass\":\"#f87171\",\"label\":\"Expiring\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Expires today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Expired\"}]"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "office_visit",
+      "label": "Office visit",
+      "icon": "🩹",
+      "color": "orange"
+    },
+    {
+      "key": "medication",
+      "label": "Medication given",
+      "icon": "💊",
+      "color": "purple"
+    },
+    {
+      "key": "parent_call",
+      "label": "Parent call",
+      "icon": "📞",
+      "color": "blue"
+    },
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    }
+  ],
+  "documentTemplates": [
+    {
+      "name": "Medication form reminder",
+      "content": "{{today}}\n\nDear parent or guardian of {{name}},\n\nThe medication authorization on file at school is due for renewal: {{deadline:Medication authorization expires}}.\n\nPlease have the prescriber fill in a new form and return it to the health office so we can keep giving the medication at school.\n\nThank you,\n\n{{my_name}}\nSchool Nurse"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "students": [
+        {
+          "Name": "Carlos Wong",
+          "Grade": "K",
+          "Date of birth": {
+            "daysFromToday": -2438
+          },
+          "Guardian": "Keisha Thompson",
+          "Guardian phone": "555-0152",
+          "Allergies": "Peanuts",
+          "Conditions": "[\"Asthma\"]",
+          "Immunizations complete": "true",
+          "Medication authorization expires": {
+            "daysFromToday": -5
+          },
+          "Health plan review": {
+            "daysFromToday": -380
+          },
+          "Vision screening": {
+            "daysFromToday": -255
+          },
+          "Hearing screening": {
+            "daysFromToday": -368
+          }
+        },
+        {
+          "Name": "Priya Bell",
+          "Grade": "3",
+          "Date of birth": {
+            "daysFromToday": -3303
+          },
+          "Guardian": "Samuel Rahman",
+          "Guardian phone": "555-0159",
+          "Conditions": "[\"Diabetes\"]",
+          "Immunizations complete": "true",
+          "Medication authorization expires": {
+            "daysFromToday": 6
+          },
+          "Health plan review": {
+            "daysFromToday": -340
+          },
+          "Vision screening": {
+            "daysFromToday": -65
+          },
+          "Hearing screening": {
+            "daysFromToday": -360
+          }
+        },
+        {
+          "Name": "Frank Rivera",
+          "Grade": "6",
+          "Date of birth": {
+            "daysFromToday": -1899
+          },
+          "Guardian": "Grace Okafor",
+          "Guardian phone": "555-0166",
+          "Allergies": "Penicillin",
+          "Immunizations complete": "true",
+          "Vision screening": {
+            "daysFromToday": -365
+          },
+          "Hearing screening": {
+            "daysFromToday": -341
+          }
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Grade": "K",
+          "Date of birth": {
+            "daysFromToday": -4571
+          },
+          "Guardian": "Omar Brown",
+          "Guardian phone": "555-0173",
+          "Conditions": "[\"Asthma\", \"Seizures\"]",
+          "Immunizations complete": "true",
+          "Medication authorization expires": {
+            "daysFromToday": 90
+          },
+          "Health plan review": {
+            "daysFromToday": -120
+          },
+          "Vision screening": {
+            "daysFromToday": -356
+          },
+          "Hearing screening": {
+            "daysFromToday": -290
+          }
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Grade": "3",
+          "Date of birth": {
+            "daysFromToday": -3661
+          },
+          "Guardian": "Ruth Jackson",
+          "Guardian phone": "555-0180",
+          "Allergies": "Bee stings",
+          "Immunizations complete": "false",
+          "Vision screening": {
+            "daysFromToday": -327
+          },
+          "Hearing screening": {
+            "daysFromToday": -145
+          }
+        },
+        {
+          "Name": "Grace Okafor",
+          "Grade": "6",
+          "Date of birth": {
+            "daysFromToday": -3535
+          },
+          "Guardian": "Diego Ferreira",
+          "Guardian phone": "555-0187",
+          "Conditions": "[\"ADHD\"]",
+          "Immunizations complete": "true",
+          "Medication authorization expires": {
+            "daysFromToday": 240
+          },
+          "Health plan review": {
+            "daysFromToday": -300
+          },
+          "Vision screening": {
+            "daysFromToday": -255
+          },
+          "Hearing screening": {
+            "daysFromToday": -368
+          }
+        },
+        {
+          "Name": "Omar Brown",
+          "Grade": "K",
+          "Date of birth": {
+            "daysFromToday": -3131
+          },
+          "Guardian": "Hannah Walker",
+          "Guardian phone": "555-0194",
+          "Immunizations complete": "true",
+          "Vision screening": {
+            "daysFromToday": -65
+          },
+          "Hearing screening": {
+            "daysFromToday": -360
+          }
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Grade": "3",
+          "Date of birth": {
+            "daysFromToday": -5021
+          },
+          "Guardian": "Tyrone Haddad",
+          "Allergies": "Tree nuts",
+          "Conditions": "[\"Asthma\"]",
+          "Immunizations complete": "true",
+          "Medication authorization expires": {
+            "daysFromToday": 6
+          },
+          "Health plan review": {
+            "daysFromToday": -340
+          },
+          "Vision screening": {
+            "daysFromToday": -365
+          },
+          "Hearing screening": {
+            "daysFromToday": -341
+          }
+        },
+        {
+          "Name": "Diego Ferreira",
+          "Grade": "6",
+          "Date of birth": {
+            "daysFromToday": -2288
+          },
+          "Guardian": "Mei Ortiz",
+          "Guardian phone": "555-0108",
+          "Immunizations complete": "true",
+          "Vision screening": {
+            "daysFromToday": -356
+          },
+          "Hearing screening": {
+            "daysFromToday": -290
+          }
+        },
+        {
+          "Name": "Hannah Walker",
+          "Grade": "K",
+          "Date of birth": {
+            "daysFromToday": -4880
+          },
+          "Guardian": "Walter Johnson",
+          "Guardian phone": "555-0115",
+          "Allergies": "Latex",
+          "Conditions": "[\"Allergies\"]",
+          "Immunizations complete": "true",
+          "Medication authorization expires": {
+            "daysFromToday": 90
+          },
+          "Health plan review": {
+            "daysFromToday": -120
+          },
+          "Vision screening": {
+            "daysFromToday": -327
+          },
+          "Hearing screening": {
+            "daysFromToday": -145
+          }
+        },
+        {
+          "Name": "Tyrone Haddad",
+          "Grade": "3",
+          "Date of birth": {
+            "daysFromToday": -2407
+          },
+          "Guardian": "Yolanda Miller",
+          "Guardian phone": "555-0122",
+          "Immunizations complete": "true",
+          "Vision screening": {
+            "daysFromToday": -255
+          },
+          "Hearing screening": {
+            "daysFromToday": -368
+          }
+        },
+        {
+          "Name": "Mei Ortiz",
+          "Grade": "6",
+          "Date of birth": {
+            "daysFromToday": -3697
+          },
+          "Guardian": "Ahmed Fischer",
+          "Guardian phone": "555-0129",
+          "Immunizations complete": "false",
+          "Vision screening": {
+            "daysFromToday": -65
+          },
+          "Hearing screening": {
+            "daysFromToday": -360
+          }
+        },
+        {
+          "Name": "Walter Johnson",
+          "Grade": "K",
+          "Date of birth": {
+            "daysFromToday": -3859
+          },
+          "Guardian": "Beatrice O'Brien",
+          "Guardian phone": "555-0136",
+          "Conditions": "[\"Diabetes\"]",
+          "Immunizations complete": "true",
+          "Medication authorization expires": {
+            "daysFromToday": -5
+          },
+          "Health plan review": {
+            "daysFromToday": -380
+          },
+          "Vision screening": {
+            "daysFromToday": -365
+          },
+          "Hearing screening": {
+            "daysFromToday": -341
+          }
+        },
+        {
+          "Name": "Yolanda Miller",
+          "Grade": "3",
+          "Date of birth": {
+            "daysFromToday": -3512
+          },
+          "Guardian": "Kevin Nguyen",
+          "Guardian phone": "555-0143",
+          "Allergies": "Shellfish",
+          "Immunizations complete": "true",
+          "Vision screening": {
+            "daysFromToday": -356
+          },
+          "Hearing screening": {
+            "daysFromToday": -290
+          }
+        },
+        {
+          "Name": "Ahmed Fischer",
+          "Grade": "6",
+          "Date of birth": {
+            "daysFromToday": -2290
+          },
+          "Guardian": "Lucia Chen",
+          "Guardian phone": "555-0150",
+          "Immunizations complete": "true",
+          "Vision screening": {
+            "daysFromToday": -327
+          },
+          "Hearing screening": {
+            "daysFromToday": -145
+          }
+        }
+      ]
+    },
+    "activities": [
+      {
+        "record": "students#0",
+        "type": "office_visit",
+        "daysAgo": 1,
+        "text": "Came in with a headache; rested 15 minutes and returned to class."
+      },
+      {
+        "record": "students#1",
+        "type": "parent_call",
+        "daysAgo": 8,
+        "text": "Called home about the new authorization form."
+      },
+      {
+        "record": "students#1",
+        "type": "note",
+        "daysAgo": 21,
+        "text": "Updated the health plan with the new inhaler."
+      },
+      {
+        "record": "students#2",
+        "type": "office_visit",
+        "daysAgo": 15,
+        "text": "Came in with a headache; rested 15 minutes and returned to class."
+      },
+      {
+        "record": "students#2",
+        "type": "medication",
+        "daysAgo": 28,
+        "text": "Gave the scheduled dose at lunch."
+      },
+      {
+        "record": "students#3",
+        "type": "parent_call",
+        "daysAgo": 22,
+        "text": "Called home about the new authorization form."
+      },
+      {
+        "record": "students#4",
+        "type": "office_visit",
+        "daysAgo": 29,
+        "text": "Came in with a headache; rested 15 minutes and returned to class."
+      },
+      {
+        "record": "students#4",
+        "type": "medication",
+        "daysAgo": 42,
+        "text": "Gave the scheduled dose at lunch."
+      },
+      {
+        "record": "students#5",
+        "type": "parent_call",
+        "daysAgo": 36,
+        "text": "Called home about the new authorization form."
+      },
+      {
+        "record": "students#5",
+        "type": "note",
+        "daysAgo": 49,
+        "text": "Updated the health plan with the new inhaler."
+      },
+      {
+        "record": "students#6",
+        "type": "office_visit",
+        "daysAgo": 43,
+        "text": "Came in with a headache; rested 15 minutes and returned to class."
+      },
+      {
+        "record": "students#7",
+        "type": "parent_call",
+        "daysAgo": 50,
+        "text": "Called home about the new authorization form."
+      },
+      {
+        "record": "students#7",
+        "type": "note",
+        "daysAgo": 3,
+        "text": "Updated the health plan with the new inhaler."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "missingInfo",
+    "recentActivity"
+  ]
+}

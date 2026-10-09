@@ -1,0 +1,535 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "prior-authorization",
+  "name": "Prior authorization tracker",
+  "description": "For therapy and clinic offices: how many authorized visits each patient has left and when each authorization ends, so renewals go in on time.",
+  "icon": "stethoscope",
+  "group": "Health",
+  "vocab": {
+    "record": {
+      "one": "patient",
+      "many": "patients",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": false,
+    "summaryReport": true,
+    "handoff": false
+  },
+  "lists": [
+    {
+      "key": "patients",
+      "name": "Authorizations",
+      "description": "Patients with insurance authorizations and how many visits are left",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 1,
+          "width": 150
+        },
+        {
+          "name": "Insurance",
+          "column_type": "dropdown",
+          "position": 2,
+          "width": 170,
+          "config": "{\"options\":[\"Medicaid\",\"Medicare Advantage\",\"Blue Plan\",\"Choice Health\",\"Other\"]}"
+        },
+        {
+          "name": "Authorization number",
+          "column_type": "text",
+          "position": 3,
+          "width": 170
+        },
+        {
+          "name": "Visits authorized",
+          "column_type": "number",
+          "position": 4,
+          "width": 130,
+          "is_required": 1
+        },
+        {
+          "name": "Authorization start",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "is_required": 1
+        },
+        {
+          "name": "Authorization end",
+          "column_type": "date",
+          "position": 6,
+          "width": 150,
+          "is_required": 1
+        },
+        {
+          "name": "Visits left",
+          "column_type": "deadline",
+          "position": 7,
+          "width": 140,
+          "description": "Visits used against the authorization, and when it ends",
+          "config": "{\"alert_rule_name\":\"Visits left\"}"
+        },
+        {
+          "name": "Service",
+          "column_type": "dropdown",
+          "position": 8,
+          "width": 170,
+          "config": "{\"options\":[\"Physical therapy\",\"Occupational therapy\",\"Speech therapy\",\"Counseling\"]}"
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 9,
+          "width": 160,
+          "config": "{\"options\":[\"Active\",\"Renewal requested\",\"Discharged\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Visits left",
+          "description": "Counts visits between the authorization start and end dates",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "quota",
+          "rule_config": "{\"kind\":\"quota\",\"activityTypes\":[\"visit\"],\"limitColumnId\":{\"column\":\"Visits authorized\"},\"startColumnId\":{\"column\":\"Authorization start\"},\"endColumnId\":{\"column\":\"Authorization end\"},\"warnRemaining\":2,\"warnDaysBeforeEnd\":14}"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "visit",
+      "label": "Visit",
+      "icon": "🏥",
+      "color": "orange"
+    },
+    {
+      "key": "no_show",
+      "label": "No-show",
+      "icon": "🚫",
+      "color": "red"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "patients": [
+        {
+          "Name": "Carlos Wong",
+          "Date of birth": {
+            "daysFromToday": -28511
+          },
+          "Insurance": "Medicaid",
+          "Authorization number": "PA88120",
+          "Visits authorized": 12,
+          "Authorization start": {
+            "daysFromToday": -80
+          },
+          "Authorization end": {
+            "daysFromToday": 10
+          },
+          "Service": "Physical therapy",
+          "Status": "Renewal requested"
+        },
+        {
+          "Name": "Priya Bell",
+          "Date of birth": {
+            "daysFromToday": -24588
+          },
+          "Insurance": "Blue Plan",
+          "Authorization number": "PA88437",
+          "Visits authorized": 8,
+          "Authorization start": {
+            "daysFromToday": -60
+          },
+          "Authorization end": {
+            "daysFromToday": 10
+          },
+          "Service": "Occupational therapy",
+          "Status": "Active"
+        },
+        {
+          "Name": "Frank Rivera",
+          "Date of birth": {
+            "daysFromToday": -3285
+          },
+          "Insurance": "Medicare Advantage",
+          "Authorization number": "PA88754",
+          "Visits authorized": 20,
+          "Authorization start": {
+            "daysFromToday": -45
+          },
+          "Authorization end": {
+            "daysFromToday": 135
+          },
+          "Service": "Speech therapy",
+          "Status": "Active"
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Date of birth": {
+            "daysFromToday": -8635
+          },
+          "Insurance": "Choice Health",
+          "Authorization number": "PA89071",
+          "Visits authorized": 10,
+          "Authorization start": {
+            "daysFromToday": -30
+          },
+          "Authorization end": {
+            "daysFromToday": 90
+          },
+          "Service": "Counseling",
+          "Status": "Active"
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Date of birth": {
+            "daysFromToday": -19143
+          },
+          "Insurance": "Medicaid",
+          "Authorization number": "PA89388",
+          "Visits authorized": 6,
+          "Authorization start": {
+            "daysFromToday": -100
+          },
+          "Authorization end": {
+            "daysFromToday": -5
+          },
+          "Service": "Physical therapy",
+          "Status": "Discharged"
+        },
+        {
+          "Name": "Grace Okafor",
+          "Date of birth": {
+            "daysFromToday": -2694
+          },
+          "Insurance": "Blue Plan",
+          "Authorization number": "PA89705",
+          "Visits authorized": 12,
+          "Authorization start": {
+            "daysFromToday": -20
+          },
+          "Authorization end": {
+            "daysFromToday": 70
+          },
+          "Service": "Counseling",
+          "Status": "Active"
+        },
+        {
+          "Name": "Omar Brown",
+          "Date of birth": {
+            "daysFromToday": -24556
+          },
+          "Insurance": "Choice Health",
+          "Authorization number": "PA90022",
+          "Visits authorized": 8,
+          "Authorization start": {
+            "daysFromToday": -70
+          },
+          "Authorization end": {
+            "daysFromToday": -10
+          },
+          "Service": "Occupational therapy",
+          "Status": "Active"
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Date of birth": {
+            "daysFromToday": -21080
+          },
+          "Insurance": "Medicaid",
+          "Authorization number": "PA90339",
+          "Visits authorized": 24,
+          "Authorization start": {
+            "daysFromToday": -10
+          },
+          "Authorization end": {
+            "daysFromToday": 170
+          },
+          "Service": "Speech therapy",
+          "Status": "Active"
+        }
+      ]
+    },
+    "activities": [
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 1,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 8,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 16,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 24,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 32,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 40,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 47,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 55,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 63,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 71,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 1,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 9,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 17,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 25,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 34,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 42,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 50,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#2",
+        "type": "visit",
+        "daysAgo": 1,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#2",
+        "type": "visit",
+        "daysAgo": 8,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#2",
+        "type": "visit",
+        "daysAgo": 15,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#2",
+        "type": "visit",
+        "daysAgo": 22,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#2",
+        "type": "visit",
+        "daysAgo": 29,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#2",
+        "type": "visit",
+        "daysAgo": 36,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#3",
+        "type": "visit",
+        "daysAgo": 1,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#3",
+        "type": "visit",
+        "daysAgo": 10,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#3",
+        "type": "visit",
+        "daysAgo": 19,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 1,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 17,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 33,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 50,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 66,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 82,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#5",
+        "type": "visit",
+        "daysAgo": 1,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 1,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 14,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 28,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 41,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 55,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 1,
+        "text": "Treatment visit; home exercises reviewed."
+      },
+      {
+        "record": "patients#0",
+        "type": "no_show",
+        "daysAgo": 12,
+        "text": "No-show; called and rescheduled."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "quotas",
+    "missingInfo"
+  ]
+}

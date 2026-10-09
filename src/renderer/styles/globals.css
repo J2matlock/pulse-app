@@ -1,0 +1,632 @@
+@import "tailwindcss";
+
+/* ── Class-based dark mode (Pulse uses .dark class, not prefers-color-scheme) ── */
+@variant dark (&:where(.dark, .dark *));
+
+/* ── Theme: custom design tokens from tailwind.config.js ──────────────────────── */
+@theme {
+  /* Alert/deadline colors — identical in light and dark (spec Section 10) */
+  --color-alert-green: #22C55E;
+  --color-alert-yellow: #EAB308;
+  --color-alert-orange: #F97316;
+  --color-alert-red: #EF4444;
+  --color-alert-pulse: #DC2626;
+  --color-star: #F59E0B;
+  --color-sticky-note: #FFFBEB;
+
+  /* System font stack — no custom fonts loaded */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Consolas", "Liberation Mono", monospace;
+
+  /* Font sizes — 15px (text-base) for all body/grid/interactive text (spec Section 10).
+     sm/xs are only for secondary text (timestamps, counts, badges) and never below 13px. */
+  --text-xs: 13px;
+  --text-xs--line-height: 1.5;
+  --text-sm: 14px;
+  --text-sm--line-height: 1.5;
+  --text-base: 15px;
+  --text-base--line-height: 1.5;
+  --text-lg: 16px;
+  --text-lg--line-height: 1.4;
+  --text-xl: 18px;
+  --text-xl--line-height: 1.3;
+  --text-2xl: 20px;
+  --text-2xl--line-height: 1.3;
+  --text-3xl: 24px;
+  --text-3xl--line-height: 1.2;
+  --text-4xl: 28px;
+  --text-4xl--line-height: 1.2;
+
+  /* 44px minimum touch/click target (spec Section 10) */
+  --min-h-touch: 44px;
+
+  /* Layout heights */
+  --height-topbar: 48px;
+  --height-statusbar: 28px;
+  --height-row-compact: 36px;
+  --height-row-comfortable: 44px;
+  --height-row-spacious: 52px;
+
+  /* Sidebar widths */
+  --width-sidebar-expanded: 220px;
+  --width-sidebar-collapsed: 48px;
+
+  /* Thick focus rings (spec accessibility requirement) */
+  --ring-width-3: 3px;
+
+  /* Grid borders — use gray-300+ (chunky, visible — spec Section 10) */
+  --color-border-grid: #D1D5DB;
+}
+
+@layer utilities {
+  /* Vertical-only scroll areas never scroll sideways. Without this, an element
+     poking past the edge (e.g. a hit-44 click area) makes the browser add a
+     horizontal scrollbar, because overflow-y:auto turns overflow-x visible→auto. */
+  .overflow-y-auto:not(.overflow-x-auto, .overflow-x-scroll, .overflow-auto) {
+    overflow-x: hidden;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer base {
+  /* Native controls (scrollbars, date pickers, selects) follow the app theme */
+  :root { color-scheme: light; }
+  :root.dark { color-scheme: dark; }
+
+  /* Default placeholder text readable in both themes (preflight uses 50% of the
+     text color, which is too faint for this audience). Utilities still override. */
+  input::placeholder, textarea::placeholder { color: var(--color-slate-500); opacity: 1; }
+  :root.dark input::placeholder, :root.dark textarea::placeholder { color: var(--color-slate-400); }
+
+  :root {
+    /* Light theme variables */
+    --bg-primary: #FFFFFF;
+    --bg-secondary: #F8FAFC;
+    --bg-sidebar: #F1F5F9;
+    --text-primary: #1E293B;     /* slate-800 — never pure black */
+    --text-secondary: #64748B;   /* slate-500 */
+    --border: #E2E8F0;           /* slate-200 */
+    --border-grid: #D1D5DB;      /* gray-300 — chunky, visible */
+    --accent: #2563EB;           /* blue-600 */
+    --accent-hover: #1D4ED8;
+    --ring-color: #2563EB;
+  }
+
+  .dark {
+    --bg-primary: #0F172A;       /* slate-900 */
+    --bg-secondary: #1E293B;     /* slate-800 */
+    --bg-sidebar: #1E293B;
+    --text-primary: #F1F5F9;     /* slate-100 */
+    --text-secondary: #94A3B8;   /* slate-400 */
+    --border: #334155;           /* slate-700 */
+    --border-grid: #475569;      /* slate-600 */
+    --accent: #3B82F6;           /* blue-500 */
+    --accent-hover: #2563EB;
+    --ring-color: #3B82F6;
+  }
+
+  /* Base: 15px minimum for all body text (spec requirement) */
+  html {
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+      'Helvetica Neue', Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    margin: 0;
+    overflow: hidden;  /* Electron app — no page scroll, only internal scroll */
+    user-select: none; /* Prevent accidental text selection on UI chrome */
+  }
+
+  /* Allow text selection only inside grid cells and text inputs */
+  input, textarea, [data-selectable] {
+    user-select: text;
+  }
+}
+
+/* ── hit-44: invisible 44×44 click area around small icon buttons ─────────────
+   Keeps the visual size but meets the 44px target rule. The pseudo-element is
+   centred on the button and never smaller than the button itself. */
+@utility hit-44 {
+  /* absolute/fixed buttons are already a containing block — don't override them */
+  &:not(.absolute, .fixed, .sticky) { position: relative; }
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* ── Custom utility: btn (so @apply btn works in component classes) ────────── */
+@utility btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  border-radius: calc(var(--radius-sm, 0.25rem));
+  font-weight: 500;
+  transition-property: color, background-color, border-color, transform;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+  cursor: pointer;
+  min-height: 44px;
+  font-size: 15px;
+
+  &:active {
+    transform: scale(0.97);
+    transition-duration: 100ms;
+  }
+}
+
+/* ── btn-compact: 36px toolbar button with a 44px click area (see hit-44) ─── */
+@utility btn-compact {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  height: 36px;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition-property: color, background-color, border-color;
+  transition-duration: 150ms;
+  &:not(.absolute, .fixed, .sticky) { position: relative; }
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+  &:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--color-blue-500); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+@layer components {
+  /* Focus rings — 3px, clearly visible (accessibility requirement) */
+  .focus-ring {
+    @apply outline-hidden ring-3 ring-offset-1;
+    ring-color: var(--ring-color);
+  }
+
+  .btn:focus-visible {
+    @apply outline-hidden ring-3 ring-offset-1 ring-blue-500;
+  }
+
+  .btn-primary {
+    @apply btn bg-blue-600 text-white hover:bg-blue-700;
+  }
+
+  .btn-secondary {
+    @apply btn bg-slate-100 text-slate-800 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600;
+  }
+
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700;
+  }
+
+  /* Compact toolbar buttons (36px visual, 44px click area) */
+  .btn-compact-primary {
+    @apply btn-compact bg-blue-600 text-white hover:bg-blue-700;
+  }
+  .btn-compact-secondary {
+    @apply btn-compact border border-slate-300 bg-white text-slate-700 hover:bg-slate-100
+           dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700;
+  }
+  .btn-compact-soft {
+    @apply btn-compact bg-blue-50 text-blue-700 hover:bg-blue-100
+           dark:bg-blue-900/40 dark:text-blue-200 dark:hover:bg-blue-900/60;
+  }
+
+  /* Grid cell — chunky borders, 15px text */
+  .grid-cell {
+    @apply px-3 text-base border-r border-b;
+    border-color: var(--border-grid);
+    font-size: 15px;
+    height: var(--row-height, 44px);
+    display: flex;
+    align-items: center;
+  }
+
+  /* Input base */
+  .input {
+    @apply w-full rounded-sm border border-slate-300 px-3 py-2 text-base bg-white dark:bg-slate-800
+           text-slate-900 dark:text-slate-100 dark:border-slate-600
+           focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:border-blue-500;
+    font-size: 15px;
+    min-height: 44px;
+  }
+}
+
+@layer utilities {
+  /* Alert color utilities for deadline cells */
+  .alert-green  { background-color: color-mix(in srgb, #22C55E 15%, transparent); }
+  .alert-yellow { background-color: color-mix(in srgb, #EAB308 15%, transparent); }
+  .alert-orange { background-color: color-mix(in srgb, #F97316 15%, transparent); }
+  .alert-red    { background-color: color-mix(in srgb, #EF4444 15%, transparent); }
+
+
+  /* Overdue pulse animates the background only — fading opacity would also fade
+     the text on top of it (it dimmed overdue rows to 70% every two seconds). */
+  .alert-pulse {
+    background-color: color-mix(in srgb, #DC2626 20%, transparent);
+    animation: pulse-alert 2s ease-in-out infinite;
+  }
+  @keyframes pulse-alert {
+    50% { background-color: color-mix(in srgb, #DC2626 9%, transparent); }
+  }
+
+  /* Deeply overdue — deeper red, same background-only pulse */
+  .alert-pulse-dark {
+    background-color: color-mix(in srgb, #B91C1C 26%, transparent);
+    animation: pulse-alert-dark 2s ease-in-out infinite;
+  }
+  @keyframes pulse-alert-dark {
+    50% { background-color: color-mix(in srgb, #B91C1C 13%, transparent); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .alert-pulse { animation: none; }
+    .alert-pulse-dark { animation: none; }
+  }
+
+  /* Page transitions */
+  .page-enter {
+    animation: page-fade-in 150ms ease-out;
+  }
+
+  @keyframes page-fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Checklist check-pop animation — satisfying scale bounce on completion */
+  @keyframes check-pop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.25); }
+    100% { transform: scale(1); }
+  }
+
+  .animate-check-pop {
+    animation: check-pop 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-check-pop { animation: none; }
+  }
+
+  /* ── Modal animation: 200ms scale+fade ────────────────────────────────────── */
+  @keyframes modal-enter {
+    from { opacity: 0; transform: scale(0.95); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  .animate-modal-enter {
+    animation: modal-enter 200ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-modal-enter { animation: none; }
+  }
+
+  /* ── Toast slide-in from bottom-right ─────────────────────────────────────── */
+  @keyframes toast-slide-in {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes toast-slide-out {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(16px); }
+  }
+
+  .animate-toast-in {
+    animation: toast-slide-in 200ms ease-out;
+  }
+
+  .animate-toast-out {
+    animation: toast-slide-out 200ms ease-in forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-toast-in { animation: none; }
+    .animate-toast-out { animation: none; opacity: 0; }
+  }
+
+  /* ── Cell save flash — brief green flash on successful save ───────────────── */
+  @keyframes cell-save-flash {
+    0%   { background-color: rgba(34, 197, 94, 0.2); }
+    100% { background-color: transparent; }
+  }
+
+  .animate-cell-save {
+    animation: cell-save-flash 600ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-cell-save { animation: none; }
+  }
+
+  /* ── Status indicator fade ────────────────────────────────────────────────── */
+  @keyframes status-fade {
+    0%, 70% { opacity: 1; }
+    100%    { opacity: 0; }
+  }
+
+  .animate-status-fade {
+    animation: status-fade 2s ease-out forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-status-fade { animation: none; opacity: 0; }
+  }
+
+  /* ── Row highlight flash — blue flash on newly added rows (Finding 2.5) ──── */
+  @keyframes row-highlight {
+    0%   { background-color: rgba(59, 130, 246, 0.25); }
+    100% { background-color: transparent; }
+  }
+  @keyframes row-highlight-dark {
+    0%   { background-color: rgba(59, 130, 246, 0.15); }
+    100% { background-color: transparent; }
+  }
+
+  .animate-row-highlight {
+    animation: row-highlight 1500ms ease-out forwards;
+  }
+
+  :is(.dark .animate-row-highlight) {
+    animation: row-highlight-dark 1500ms ease-out forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-row-highlight { animation: none; }
+  }
+
+  /* ── Search mark pulse — highlight search matches (Finding 3.1) ──────────── */
+  @keyframes mark-pulse {
+    0%, 100% { background-color: rgba(250, 204, 21, 0.5); }
+    50%      { background-color: rgba(250, 204, 21, 0.8); }
+  }
+
+  .search-mark {
+    background-color: rgba(250, 204, 21, 0.35);
+    border-radius: 2px;
+    padding: 0 2px;
+  }
+
+  .search-mark-current {
+    background-color: rgba(249, 115, 22, 0.6);
+    border-radius: 2px;
+    padding: 0 2px;
+    outline: 2px solid rgba(249, 115, 22, 0.8);
+    outline-offset: -1px;
+  }
+
+  .search-mark-active {
+    animation: mark-pulse 600ms ease-in-out 2;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .search-mark-active { animation: none; }
+  }
+
+  /* ── Task completion celebration (Finding 3.17) ──────────────────────────── */
+  @keyframes celebration-pop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.15); }
+    100% { transform: scale(1); opacity: 0.7; }
+  }
+
+  .animate-celebration {
+    animation: celebration-pop 500ms cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-celebration { animation: none; }
+  }
+
+  /* ── Star bounce — favorite toggle feedback (Finding 3.18) ───────────────── */
+  @keyframes star-bounce {
+    0%   { transform: scale(1); }
+    30%  { transform: scale(1.3); }
+    60%  { transform: scale(0.9); }
+    100% { transform: scale(1); }
+  }
+
+  .animate-star-bounce {
+    animation: star-bounce 400ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-star-bounce { animation: none; }
+  }
+
+  /* ── Row slide in/out — smooth row add/remove (Finding 3.19) ─────────────── */
+  @keyframes slide-in-fade {
+    0%   { opacity: 0; transform: translateY(-8px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slide-out-fade {
+    0%   { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(8px); }
+  }
+
+  .animate-slide-in {
+    animation: slide-in-fade 200ms ease-out forwards;
+  }
+
+  .animate-slide-out {
+    animation: slide-out-fade 200ms ease-in forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-slide-in { animation: none; }
+    .animate-slide-out { animation: none; opacity: 0; }
+  }
+
+  /* ── Profile button ─────────────────────────────────────────────────────────── */
+  .profile-btn-glow {
+    border-radius: 6px;
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    background-color: rgba(99, 102, 241, 0.08);
+    color: rgb(129, 140, 248);
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  }
+
+  .profile-btn-glow:hover {
+    background-color: rgba(99, 102, 241, 0.22);
+    border-color: rgba(99, 102, 241, 0.65);
+    color: rgb(165, 180, 252);
+  }
+
+  .profile-btn-glow:active {
+    transform: scale(0.93);
+  }
+
+  :is(.dark .profile-btn-glow) {
+    border-color: rgba(99, 102, 241, 0.3);
+    background-color: rgba(99, 102, 241, 0.1);
+    color: rgb(129, 140, 248);
+  }
+
+  :is(.dark .profile-btn-glow):hover {
+    background-color: rgba(99, 102, 241, 0.25);
+    border-color: rgba(99, 102, 241, 0.6);
+    color: rgb(165, 180, 252);
+  }
+
+  /* ── Global reduced-motion: disable all transitions/animations ────────────── */
+  @media (prefers-reduced-motion: reduce) {
+    .page-enter { animation: none; }
+
+    *, *::before, *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+
+  /* OS high-contrast preference is detected in JS (settingsStore) which adds .high-contrast class to <html>.
+     All high-contrast styles are consolidated in the .high-contrast class block below. */
+}
+
+/* ── Row striping ─────────────────────────────────────────────────────────── */
+:root {
+  --bg-stripe: #F8FAFC;
+}
+.dark {
+  --bg-stripe: rgba(30, 41, 59, 0.5);
+}
+.striped-rows [data-row-index]:nth-child(even) .grid-cell {
+  background-color: var(--bg-stripe);
+}
+
+/* ── Grid line modes ──────────────────────────────────────────────────────── */
+.grid-lines-horizontal .grid-cell { border-right-color: transparent; }
+.grid-lines-none .grid-cell { border-right-color: transparent; border-bottom-color: transparent; }
+
+/* ── App-level reduced motion (mirrors prefers-reduced-motion) ────────────── */
+.reduce-motion *, .reduce-motion *::before, .reduce-motion *::after {
+  transition-duration: 0.01ms !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+}
+
+/* ── Cell padding variable — grid cells use this instead of hardcoded px-3 ── */
+.grid-cell { padding-left: var(--cell-padding, 12px); padding-right: var(--cell-padding, 12px); }
+
+/* ── High contrast class (matches prefers-contrast: more behavior) ────────── */
+.high-contrast {
+  --border: #94A3B8;
+  --border-grid: #64748B;
+}
+.dark.high-contrast {
+  --border: #94A3B8;
+  --border-grid: #CBD5E1;
+}
+.high-contrast * { border-color: inherit; }
+.high-contrast button:focus-visible, .high-contrast a:focus-visible,
+.high-contrast input:focus-visible, .high-contrast select:focus-visible,
+.high-contrast textarea:focus-visible, .high-contrast [tabindex]:focus-visible {
+  outline: 3px solid currentColor !important;
+  outline-offset: 2px !important;
+}
+.high-contrast .btn, .high-contrast .btn-primary,
+.high-contrast .btn-secondary, .high-contrast .btn-danger {
+  border: 2px solid currentColor;
+}
+.high-contrast .grid-cell { border-width: 2px; }
+.high-contrast *:focus { outline: 4px solid #000 !important; }
+.dark.high-contrast *:focus { outline: 4px solid #fff !important; }
+
+/* ── Print styles ─────────────────────────────────────────────────────────── */
+@media print {
+  /* Hide everything except the print layout */
+  body > *:not(.print-layout) {
+    display: none !important;
+  }
+
+  body {
+    overflow: visible;
+    background: white;
+    color: black;
+    font-size: 12pt;
+    user-select: text;
+  }
+
+  .print-layout {
+    position: static !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    z-index: auto !important;
+  }
+
+  /* Hide screen-only elements */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Ensure tables don't break across pages awkwardly */
+  table { page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
+  thead { display: table-header-group; }
+
+  /* Footer at bottom of last page */
+  .print-layout > div:last-child {
+    page-break-before: avoid;
+  }
+
+  /* Remove shadows and decorative elements */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  a { text-decoration: underline; color: black; }
+}

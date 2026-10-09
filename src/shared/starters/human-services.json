@@ -1,0 +1,4604 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "human-services",
+  "name": "Human services",
+  "description": "Caseloads for care managers, social workers, coordinators and similar roles: contacts, reviews and reassessments with deadline colors.",
+  "icon": "heart-handshake",
+  "group": "Human services",
+  "vocab": {
+    "record": {
+      "one": "client",
+      "many": "clients",
+      "article": "a"
+    },
+    "list": {
+      "one": "caseload",
+      "many": "caseloads",
+      "article": "a"
+    },
+    "activity": {
+      "one": "case note",
+      "many": "case notes",
+      "article": "a"
+    },
+    "activityLog": {
+      "one": "case log",
+      "many": "case logs",
+      "article": "a"
+    },
+    "contactDirectory": {
+      "one": "contacts",
+      "many": "contacts",
+      "article": "a",
+      "oneCap": "Contacts",
+      "manyCap": "Contacts"
+    },
+    "contact": {
+      "one": "provider",
+      "many": "providers",
+      "article": "a"
+    },
+    "priority": {
+      "one": "acuity level",
+      "many": "acuity levels",
+      "article": "an"
+    },
+    "archive": {
+      "one": "archive",
+      "many": "archives",
+      "article": "an"
+    },
+    "worker": {
+      "one": "case manager",
+      "many": "case managers",
+      "article": "a"
+    },
+    "requirement": {
+      "one": "contact requirement",
+      "many": "contact requirements",
+      "article": "a"
+    },
+    "appointment": {
+      "one": "appointment",
+      "many": "appointments",
+      "article": "an"
+    },
+    "stage": {
+      "one": "stage",
+      "many": "stages",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": true,
+    "contactsDirectory": true,
+    "requirements": true,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": true,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": true
+  },
+  "variantQuestion": "Which describes your work best?",
+  "variants": [
+    {
+      "key": "opwdd-caseload",
+      "name": "OPWDD Caseload",
+      "description": "Office for People With Developmental Disabilities — standard columns for OPWDD care coordinators",
+      "lists": [
+        {
+          "key": "caseload",
+          "name": "OPWDD Caseload",
+          "description": "Standard grid for OPWDD care coordination",
+          "kind": "person",
+          "columns": [
+            {
+              "name": "Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 180,
+              "is_name_column": 1,
+              "is_identifier": 1
+            },
+            {
+              "name": "CIN #",
+              "column_type": "text",
+              "position": 1,
+              "width": 120,
+              "is_identifier": 1
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 2,
+              "width": 120
+            },
+            {
+              "name": "Annual Assessment Due",
+              "column_type": "date",
+              "position": 3,
+              "width": 150,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Quarterly Contact Due",
+              "column_type": "date",
+              "position": 4,
+              "width": 150,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Monthly Contact Due",
+              "column_type": "date",
+              "position": 5,
+              "width": 150,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Plan of Care Review",
+              "column_type": "date",
+              "position": 6,
+              "width": 150,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 7,
+              "width": 130
+            },
+            {
+              "name": "Guardian",
+              "column_type": "text",
+              "position": 8,
+              "width": 160
+            },
+            {
+              "name": "Guardian Phone",
+              "column_type": "phone",
+              "position": 9,
+              "width": 130
+            },
+            {
+              "name": "Residence",
+              "column_type": "text",
+              "position": 10,
+              "width": 160
+            },
+            {
+              "name": "HCBS Waiver",
+              "column_type": "dropdown",
+              "position": 11,
+              "width": 130,
+              "config": "{\"options\":[\"COMP\",\"NHTD\",\"TBI\",\"None\"]}"
+            },
+            {
+              "name": "Status",
+              "column_type": "dropdown",
+              "position": 12,
+              "width": 120,
+              "config": "{\"options\":[\"Active\",\"Transitioning\",\"On Hold\",\"Inactive\"]}"
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Due date",
+              "description": "The date entered is the deadline",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            }
+          ]
+        }
+      ],
+      "sampleData": {
+        "records": {
+          "caseload": [
+            {
+              "Name": "James Patel",
+              "CIN #": "AB12345C",
+              "Date of Birth": {
+                "daysFromToday": -13431
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": -3
+              },
+              "Quarterly Contact Due": {
+                "daysFromToday": 16
+              },
+              "Monthly Contact Due": {
+                "daysFromToday": 110
+              },
+              "Plan of Care Review": {
+                "daysFromToday": -3
+              },
+              "Phone": "555-0191",
+              "Guardian": "Grace Okafor",
+              "Guardian Phone": "555-0117",
+              "Residence": "Family home",
+              "HCBS Waiver": "NHTD",
+              "Status": "Transitioning"
+            },
+            {
+              "Name": "Aisha Morales",
+              "CIN #": "AB13156C",
+              "Date of Birth": {
+                "daysFromToday": -9985
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 5
+              },
+              "Quarterly Contact Due": {
+                "daysFromToday": 55
+              },
+              "Monthly Contact Due": {
+                "daysFromToday": 300
+              },
+              "Plan of Care Review": {
+                "daysFromToday": 5
+              },
+              "Phone": "555-0198",
+              "Guardian": "Omar Brown",
+              "Guardian Phone": "555-0124",
+              "Residence": "Group home — Maple House",
+              "HCBS Waiver": "COMP",
+              "Status": "Active"
+            },
+            {
+              "Name": "Robert Dubois",
+              "CIN #": "AB13967C",
+              "Date of Birth": {
+                "daysFromToday": -12663
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 24
+              },
+              "Quarterly Contact Due": {
+                "daysFromToday": 160
+              },
+              "Monthly Contact Due": {
+                "daysFromToday": 0
+              },
+              "Plan of Care Review": {
+                "daysFromToday": 24
+              },
+              "Phone": "555-0105",
+              "Guardian": "Ruth Jackson",
+              "Guardian Phone": "555-0131",
+              "Residence": "Own apartment",
+              "HCBS Waiver": "COMP",
+              "Status": "Active"
+            },
+            {
+              "Name": "Linh Smith",
+              "CIN #": "AB14778C",
+              "Date of Birth": {
+                "daysFromToday": -27981
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 75
+              },
+              "Quarterly Contact Due": {
+                "daysFromToday": -14
+              },
+              "Monthly Contact Due": {
+                "daysFromToday": 9
+              },
+              "Plan of Care Review": {
+                "daysFromToday": 75
+              },
+              "Phone": "555-0112",
+              "Guardian": "Diego Ferreira",
+              "Guardian Phone": "555-0138",
+              "Residence": "Supervised apartment",
+              "HCBS Waiver": "COMP",
+              "Status": "Active"
+            },
+            {
+              "Name": "Dorothy Kowalski",
+              "CIN #": "AB15589C",
+              "Date of Birth": {
+                "daysFromToday": -24562
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 220
+              },
+              "Quarterly Contact Due": {
+                "daysFromToday": 2
+              },
+              "Monthly Contact Due": {
+                "daysFromToday": 38
+              },
+              "Plan of Care Review": {
+                "daysFromToday": 220
+              },
+              "Phone": "555-0119",
+              "Guardian": "Hannah Walker",
+              "Guardian Phone": "555-0145",
+              "Residence": "Family home",
+              "HCBS Waiver": "TBI",
+              "Status": "On Hold"
+            },
+            {
+              "Name": "Carlos Wong",
+              "CIN #": "AB16400C",
+              "Date of Birth": {
+                "daysFromToday": -11564
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": -3
+              },
+              "Quarterly Contact Due": {
+                "daysFromToday": 16
+              },
+              "Monthly Contact Due": {
+                "daysFromToday": 110
+              },
+              "Plan of Care Review": {
+                "daysFromToday": -3
+              },
+              "Phone": "555-0126",
+              "Guardian": "Tyrone Haddad",
+              "Guardian Phone": "555-0152",
+              "Residence": "Group home — Maple House",
+              "HCBS Waiver": "COMP",
+              "Status": "Active"
+            },
+            {
+              "Name": "Priya Bell",
+              "CIN #": "AB17211C",
+              "Date of Birth": {
+                "daysFromToday": -8229
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 5
+              },
+              "Quarterly Contact Due": {
+                "daysFromToday": 55
+              },
+              "Monthly Contact Due": {
+                "daysFromToday": 300
+              },
+              "Plan of Care Review": {
+                "daysFromToday": 5
+              },
+              "Phone": "555-0133",
+              "Guardian": "Mei Ortiz",
+              "Guardian Phone": "555-0159",
+              "Residence": "Own apartment",
+              "HCBS Waiver": "COMP",
+              "Status": "Active"
+            },
+            {
+              "Name": "Frank Rivera",
+              "CIN #": "AB18022C",
+              "Date of Birth": {
+                "daysFromToday": -27011
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 24
+              },
+              "Quarterly Contact Due": {
+                "daysFromToday": 160
+              },
+              "Monthly Contact Due": {
+                "daysFromToday": 0
+              },
+              "Plan of Care Review": {
+                "daysFromToday": 24
+              },
+              "Phone": "555-0140",
+              "Guardian": "Walter Johnson",
+              "Guardian Phone": "555-0166",
+              "Residence": "Supervised apartment",
+              "HCBS Waiver": "COMP",
+              "Status": "Active"
+            }
+          ]
+        },
+        "activities": [
+          {
+            "record": "caseload#0",
+            "type": "visit",
+            "daysAgo": 2,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#0",
+            "type": "meeting",
+            "daysAgo": 13,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#1",
+            "type": "phone",
+            "daysAgo": 7,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#1",
+            "type": "email",
+            "daysAgo": 18,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#2",
+            "type": "meeting",
+            "daysAgo": 12,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#2",
+            "type": "note",
+            "daysAgo": 23,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#3",
+            "type": "email",
+            "daysAgo": 17,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#3",
+            "type": "visit",
+            "daysAgo": 28,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#4",
+            "type": "note",
+            "daysAgo": 22,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#4",
+            "type": "phone",
+            "daysAgo": 33,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#5",
+            "type": "visit",
+            "daysAgo": 27,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#5",
+            "type": "meeting",
+            "daysAgo": 38,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#6",
+            "type": "phone",
+            "daysAgo": 32,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#6",
+            "type": "email",
+            "daysAgo": 3,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#7",
+            "type": "meeting",
+            "daysAgo": 37,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#7",
+            "type": "note",
+            "daysAgo": 8,
+            "text": "Received updated benefits letter; copied to file."
+          }
+        ]
+      }
+    },
+    {
+      "key": "social-worker-caseload",
+      "name": "Social Worker Caseload",
+      "description": "General social work caseload with standard deadline tracking",
+      "lists": [
+        {
+          "key": "caseload",
+          "name": "Social Worker Caseload",
+          "description": "General social work case management",
+          "kind": "person",
+          "columns": [
+            {
+              "name": "Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 180,
+              "is_name_column": 1,
+              "is_identifier": 1
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 1,
+              "width": 120
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 2,
+              "width": 130
+            },
+            {
+              "name": "Email",
+              "column_type": "email",
+              "position": 3,
+              "width": 180
+            },
+            {
+              "name": "Address",
+              "column_type": "address",
+              "position": 4,
+              "width": 200
+            },
+            {
+              "name": "Case Open Date",
+              "column_type": "date",
+              "position": 5,
+              "width": 130
+            },
+            {
+              "name": "Next Review",
+              "column_type": "date",
+              "position": 6,
+              "width": 130,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Annual Assessment",
+              "column_type": "date",
+              "position": 7,
+              "width": 150,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Status",
+              "column_type": "dropdown",
+              "position": 8,
+              "width": 120,
+              "config": "{\"options\":[\"Active\",\"In Progress\",\"Pending\",\"Closed\"]}"
+            },
+            {
+              "name": "Priority",
+              "column_type": "dropdown",
+              "position": 9,
+              "width": 110,
+              "config": "{\"options\":[\"Low\",\"Normal\",\"High\",\"Urgent\"]}"
+            },
+            {
+              "name": "Referral Source",
+              "column_type": "text",
+              "position": 10,
+              "width": 160
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Due date",
+              "description": "The date entered is the deadline",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            }
+          ],
+          "forms": [
+            {
+              "name": "Intake",
+              "intro": "Basic details for someone new. Fill it in together, or print a blank to fill on paper.",
+              "log_activity_type": "note",
+              "fields": [
+                {
+                  "kind": "section",
+                  "title": "About them"
+                },
+                {
+                  "kind": "column",
+                  "column": "Name",
+                  "required": true
+                },
+                {
+                  "kind": "column",
+                  "column": "Date of Birth",
+                  "width": "half"
+                },
+                {
+                  "kind": "column",
+                  "column": "Phone",
+                  "width": "half"
+                },
+                {
+                  "kind": "column",
+                  "column": "Email"
+                },
+                {
+                  "kind": "column",
+                  "column": "Address"
+                },
+                {
+                  "kind": "section",
+                  "title": "Referral"
+                },
+                {
+                  "kind": "column",
+                  "column": "Referral Source"
+                },
+                {
+                  "kind": "note",
+                  "label": "What brings them in?",
+                  "required": true
+                },
+                {
+                  "kind": "note",
+                  "label": "Anything to follow up on?"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "sampleData": {
+        "records": {
+          "caseload": [
+            {
+              "Name": "Aisha Morales",
+              "Date of Birth": {
+                "daysFromToday": -9536
+              },
+              "Phone": "555-0126",
+              "Email": "aisha.morales@example.com",
+              "Address": "100 Maple Ave\nSpringfield",
+              "Case Open Date": {
+                "daysFromToday": -116
+              },
+              "Next Review": {
+                "daysFromToday": 0
+              },
+              "Annual Assessment": {
+                "daysFromToday": 24
+              },
+              "Status": "In Progress",
+              "Priority": "Normal",
+              "Referral Source": "Hospital"
+            },
+            {
+              "Name": "Robert Dubois",
+              "Date of Birth": {
+                "daysFromToday": -23811
+              },
+              "Phone": "555-0133",
+              "Email": "robert.dubois@example.com",
+              "Address": "137 Birch Lane\nSpringfield",
+              "Case Open Date": {
+                "daysFromToday": -783
+              },
+              "Next Review": {
+                "daysFromToday": 9
+              },
+              "Annual Assessment": {
+                "daysFromToday": 75
+              },
+              "Status": "Active",
+              "Priority": "Low",
+              "Referral Source": "School"
+            },
+            {
+              "Name": "Linh Smith",
+              "Date of Birth": {
+                "daysFromToday": -21298
+              },
+              "Phone": "555-0140",
+              "Email": "linh.smith@example.com",
+              "Address": "174 Cedar Court\nSpringfield",
+              "Case Open Date": {
+                "daysFromToday": -650
+              },
+              "Next Review": {
+                "daysFromToday": 38
+              },
+              "Annual Assessment": {
+                "daysFromToday": 220
+              },
+              "Status": "Active",
+              "Priority": "Low",
+              "Referral Source": "Self"
+            },
+            {
+              "Name": "Dorothy Kowalski",
+              "Date of Birth": {
+                "daysFromToday": -16808
+              },
+              "Phone": "555-0147",
+              "Email": "dorothy.kowalski@example.com",
+              "Address": "211 Willow Way\nSpringfield",
+              "Case Open Date": {
+                "daysFromToday": -625
+              },
+              "Next Review": {
+                "daysFromToday": 110
+              },
+              "Annual Assessment": {
+                "daysFromToday": -3
+              },
+              "Status": "Active",
+              "Priority": "Low",
+              "Referral Source": "Family"
+            },
+            {
+              "Name": "Carlos Wong",
+              "Date of Birth": {
+                "daysFromToday": -14455
+              },
+              "Phone": "555-0154",
+              "Email": "carlos.wong@example.com",
+              "Address": "248 Elm Street\nSpringfield",
+              "Case Open Date": {
+                "daysFromToday": -683
+              },
+              "Next Review": {
+                "daysFromToday": 300
+              },
+              "Annual Assessment": {
+                "daysFromToday": 5
+              },
+              "Status": "Pending",
+              "Priority": "High",
+              "Referral Source": "County"
+            },
+            {
+              "Name": "Priya Bell",
+              "Date of Birth": {
+                "daysFromToday": -25445
+              },
+              "Phone": "555-0161",
+              "Email": "priya.bell@example.com",
+              "Address": "285 Pine Road\nSpringfield",
+              "Case Open Date": {
+                "daysFromToday": -410
+              },
+              "Next Review": {
+                "daysFromToday": 0
+              },
+              "Annual Assessment": {
+                "daysFromToday": 24
+              },
+              "Status": "Active",
+              "Priority": "Low",
+              "Referral Source": "Hospital"
+            },
+            {
+              "Name": "Frank Rivera",
+              "Date of Birth": {
+                "daysFromToday": -27632
+              },
+              "Phone": "555-0168",
+              "Email": "frank.rivera@example.com",
+              "Address": "322 Oak Terrace\nSpringfield",
+              "Case Open Date": {
+                "daysFromToday": -304
+              },
+              "Next Review": {
+                "daysFromToday": 9
+              },
+              "Annual Assessment": {
+                "daysFromToday": 75
+              },
+              "Status": "Active",
+              "Priority": "Low",
+              "Referral Source": "School"
+            },
+            {
+              "Name": "Keisha Thompson",
+              "Date of Birth": {
+                "daysFromToday": -8409
+              },
+              "Phone": "555-0175",
+              "Email": "keisha.thompson@example.com",
+              "Address": "359 Aspen Drive\nSpringfield",
+              "Case Open Date": {
+                "daysFromToday": -402
+              },
+              "Next Review": {
+                "daysFromToday": 38
+              },
+              "Annual Assessment": {
+                "daysFromToday": 220
+              },
+              "Status": "Active",
+              "Priority": "Low",
+              "Referral Source": "Self"
+            }
+          ]
+        },
+        "activities": [
+          {
+            "record": "caseload#0",
+            "type": "phone",
+            "daysAgo": 3,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#0",
+            "type": "email",
+            "daysAgo": 14,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#1",
+            "type": "meeting",
+            "daysAgo": 8,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#1",
+            "type": "note",
+            "daysAgo": 19,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#2",
+            "type": "email",
+            "daysAgo": 13,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#2",
+            "type": "visit",
+            "daysAgo": 24,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#3",
+            "type": "note",
+            "daysAgo": 18,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#3",
+            "type": "phone",
+            "daysAgo": 29,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#4",
+            "type": "visit",
+            "daysAgo": 23,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#4",
+            "type": "meeting",
+            "daysAgo": 34,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#5",
+            "type": "phone",
+            "daysAgo": 28,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#5",
+            "type": "email",
+            "daysAgo": 39,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#6",
+            "type": "meeting",
+            "daysAgo": 33,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#6",
+            "type": "note",
+            "daysAgo": 4,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#7",
+            "type": "email",
+            "daysAgo": 38,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#7",
+            "type": "visit",
+            "daysAgo": 9,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          }
+        ]
+      }
+    },
+    {
+      "key": "iep-coordinator",
+      "name": "IEP Coordinator",
+      "description": "Individualized Education Program tracking for school-based coordinators",
+      "lists": [
+        {
+          "key": "caseload",
+          "name": "IEP Caseload",
+          "description": "IEP / special education case tracking",
+          "kind": "person",
+          "columns": [
+            {
+              "name": "Student Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 180,
+              "is_name_column": 1,
+              "is_identifier": 1
+            },
+            {
+              "name": "Student ID",
+              "column_type": "text",
+              "position": 1,
+              "width": 110,
+              "is_identifier": 1
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 2,
+              "width": 120
+            },
+            {
+              "name": "Grade",
+              "column_type": "text",
+              "position": 3,
+              "width": 80
+            },
+            {
+              "name": "School",
+              "column_type": "text",
+              "position": 4,
+              "width": 160
+            },
+            {
+              "name": "IEP Annual Review",
+              "column_type": "date",
+              "position": 5,
+              "width": 150,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Triennial Evaluation",
+              "column_type": "date",
+              "position": 6,
+              "width": 150,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Next IEP Meeting",
+              "column_type": "date",
+              "position": 7,
+              "width": 150,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Eligibility Date",
+              "column_type": "date",
+              "position": 8,
+              "width": 130
+            },
+            {
+              "name": "Disability Category",
+              "column_type": "dropdown",
+              "position": 9,
+              "width": 160,
+              "config": "{\"options\":[\"Autism\",\"ED\",\"ID\",\"LD\",\"OHI\",\"SLD\",\"SLI\",\"TBI\",\"VI\",\"HI\",\"DB\",\"OI\",\"Multiple\"]}"
+            },
+            {
+              "name": "Parent/Guardian",
+              "column_type": "text",
+              "position": 10,
+              "width": 160
+            },
+            {
+              "name": "Parent Phone",
+              "column_type": "phone",
+              "position": 11,
+              "width": 130
+            },
+            {
+              "name": "Parent Email",
+              "column_type": "email",
+              "position": 12,
+              "width": 180
+            },
+            {
+              "name": "Services",
+              "column_type": "text",
+              "position": 13,
+              "width": 200
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Due date",
+              "description": "The date entered is the deadline",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            }
+          ]
+        }
+      ],
+      "sampleData": {
+        "records": {
+          "caseload": [
+            {
+              "Student Name": "Robert Dubois",
+              "Student ID": "S100200",
+              "Date of Birth": {
+                "daysFromToday": -3198
+              },
+              "Grade": "K",
+              "School": "Lincoln Elementary",
+              "IEP Annual Review": {
+                "daysFromToday": 220
+              },
+              "Triennial Evaluation": {
+                "daysFromToday": 2
+              },
+              "Next IEP Meeting": {
+                "daysFromToday": 38
+              },
+              "Eligibility Date": {
+                "daysFromToday": -163
+              },
+              "Disability Category": "ED",
+              "Parent/Guardian": "Grace Okafor",
+              "Parent Phone": "555-0143",
+              "Parent Email": "robert.dubois@example.com",
+              "Services": "Speech 2x/week"
+            },
+            {
+              "Student Name": "Linh Smith",
+              "Student ID": "S100217",
+              "Date of Birth": {
+                "daysFromToday": -3892
+              },
+              "Grade": "2",
+              "School": "Westside Middle",
+              "IEP Annual Review": {
+                "daysFromToday": -3
+              },
+              "Triennial Evaluation": {
+                "daysFromToday": 16
+              },
+              "Next IEP Meeting": {
+                "daysFromToday": 110
+              },
+              "Eligibility Date": {
+                "daysFromToday": -670
+              },
+              "Disability Category": "Autism",
+              "Parent/Guardian": "Omar Brown",
+              "Parent Phone": "555-0150",
+              "Parent Email": "linh.smith@example.com",
+              "Services": "OT 1x/week"
+            },
+            {
+              "Student Name": "Dorothy Kowalski",
+              "Student ID": "S100234",
+              "Date of Birth": {
+                "daysFromToday": -5143
+              },
+              "Grade": "4",
+              "School": "Central High",
+              "IEP Annual Review": {
+                "daysFromToday": 5
+              },
+              "Triennial Evaluation": {
+                "daysFromToday": 55
+              },
+              "Next IEP Meeting": {
+                "daysFromToday": 300
+              },
+              "Eligibility Date": {
+                "daysFromToday": -650
+              },
+              "Disability Category": "Autism",
+              "Parent/Guardian": "Ruth Jackson",
+              "Parent Phone": "555-0157",
+              "Parent Email": "dorothy.kowalski@example.com",
+              "Services": "Resource room daily"
+            },
+            {
+              "Student Name": "Carlos Wong",
+              "Student ID": "S100251",
+              "Date of Birth": {
+                "daysFromToday": -2065
+              },
+              "Grade": "6",
+              "School": "Lincoln Elementary",
+              "IEP Annual Review": {
+                "daysFromToday": 24
+              },
+              "Triennial Evaluation": {
+                "daysFromToday": 160
+              },
+              "Next IEP Meeting": {
+                "daysFromToday": 0
+              },
+              "Eligibility Date": {
+                "daysFromToday": -295
+              },
+              "Disability Category": "Autism",
+              "Parent/Guardian": "Diego Ferreira",
+              "Parent Phone": "555-0164",
+              "Parent Email": "carlos.wong@example.com",
+              "Services": "Counseling 1x/week"
+            },
+            {
+              "Student Name": "Priya Bell",
+              "Student ID": "S100268",
+              "Date of Birth": {
+                "daysFromToday": -4864
+              },
+              "Grade": "7",
+              "School": "Westside Middle",
+              "IEP Annual Review": {
+                "daysFromToday": 75
+              },
+              "Triennial Evaluation": {
+                "daysFromToday": -14
+              },
+              "Next IEP Meeting": {
+                "daysFromToday": 9
+              },
+              "Eligibility Date": {
+                "daysFromToday": -226
+              },
+              "Disability Category": "ID",
+              "Parent/Guardian": "Hannah Walker",
+              "Parent Phone": "555-0171",
+              "Parent Email": "priya.bell@example.com",
+              "Services": "Speech 2x/week"
+            },
+            {
+              "Student Name": "Frank Rivera",
+              "Student ID": "S100285",
+              "Date of Birth": {
+                "daysFromToday": -6080
+              },
+              "Grade": "9",
+              "School": "Central High",
+              "IEP Annual Review": {
+                "daysFromToday": 220
+              },
+              "Triennial Evaluation": {
+                "daysFromToday": 2
+              },
+              "Next IEP Meeting": {
+                "daysFromToday": 38
+              },
+              "Eligibility Date": {
+                "daysFromToday": -583
+              },
+              "Disability Category": "Autism",
+              "Parent/Guardian": "Tyrone Haddad",
+              "Parent Phone": "555-0178",
+              "Parent Email": "frank.rivera@example.com",
+              "Services": "OT 1x/week"
+            },
+            {
+              "Student Name": "Keisha Thompson",
+              "Student ID": "S100302",
+              "Date of Birth": {
+                "daysFromToday": -4988
+              },
+              "Grade": "11",
+              "School": "Lincoln Elementary",
+              "IEP Annual Review": {
+                "daysFromToday": -3
+              },
+              "Triennial Evaluation": {
+                "daysFromToday": 16
+              },
+              "Next IEP Meeting": {
+                "daysFromToday": 110
+              },
+              "Eligibility Date": {
+                "daysFromToday": -436
+              },
+              "Disability Category": "Autism",
+              "Parent/Guardian": "Mei Ortiz",
+              "Parent Phone": "555-0185",
+              "Parent Email": "keisha.thompson@example.com",
+              "Services": "Resource room daily"
+            },
+            {
+              "Student Name": "Samuel Rahman",
+              "Student ID": "S100319",
+              "Date of Birth": {
+                "daysFromToday": -5552
+              },
+              "Grade": "12",
+              "School": "Westside Middle",
+              "IEP Annual Review": {
+                "daysFromToday": 5
+              },
+              "Triennial Evaluation": {
+                "daysFromToday": 55
+              },
+              "Next IEP Meeting": {
+                "daysFromToday": 300
+              },
+              "Eligibility Date": {
+                "daysFromToday": -267
+              },
+              "Disability Category": "Autism",
+              "Parent/Guardian": "Walter Johnson",
+              "Parent Phone": "555-0192",
+              "Parent Email": "samuel.rahman@example.com",
+              "Services": "Counseling 1x/week"
+            }
+          ]
+        },
+        "activities": [
+          {
+            "record": "caseload#0",
+            "type": "meeting",
+            "daysAgo": 4,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#0",
+            "type": "note",
+            "daysAgo": 15,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#1",
+            "type": "email",
+            "daysAgo": 9,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#1",
+            "type": "visit",
+            "daysAgo": 20,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#2",
+            "type": "note",
+            "daysAgo": 14,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#2",
+            "type": "phone",
+            "daysAgo": 25,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#3",
+            "type": "visit",
+            "daysAgo": 19,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#3",
+            "type": "meeting",
+            "daysAgo": 30,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#4",
+            "type": "phone",
+            "daysAgo": 24,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#4",
+            "type": "email",
+            "daysAgo": 35,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#5",
+            "type": "meeting",
+            "daysAgo": 29,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#5",
+            "type": "note",
+            "daysAgo": 40,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#6",
+            "type": "email",
+            "daysAgo": 34,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#6",
+            "type": "visit",
+            "daysAgo": 5,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#7",
+            "type": "note",
+            "daysAgo": 39,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#7",
+            "type": "phone",
+            "daysAgo": 10,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          }
+        ]
+      }
+    },
+    {
+      "key": "probation-officer",
+      "name": "Probation Officer",
+      "description": "Probation / parole case management with compliance tracking",
+      "lists": [
+        {
+          "key": "caseload",
+          "name": "Probation Caseload",
+          "description": "Probation and parole case management",
+          "kind": "person",
+          "columns": [
+            {
+              "name": "Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 180,
+              "is_name_column": 1,
+              "is_identifier": 1
+            },
+            {
+              "name": "Case #",
+              "column_type": "text",
+              "position": 1,
+              "width": 110,
+              "is_identifier": 1
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 2,
+              "width": 120
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 3,
+              "width": 130
+            },
+            {
+              "name": "Address",
+              "column_type": "address",
+              "position": 4,
+              "width": 200
+            },
+            {
+              "name": "Next Check-In",
+              "column_type": "date",
+              "position": 5,
+              "width": 140,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Court Date",
+              "column_type": "date",
+              "position": 6,
+              "width": 130,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Supervision End",
+              "column_type": "date",
+              "position": 7,
+              "width": 140,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Drug Test Due",
+              "column_type": "date",
+              "position": 8,
+              "width": 130,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Supervision Level",
+              "column_type": "dropdown",
+              "position": 9,
+              "width": 140,
+              "config": "{\"options\":[\"Minimum\",\"Standard\",\"Intensive\",\"Maximum\"]}"
+            },
+            {
+              "name": "Charge",
+              "column_type": "text",
+              "position": 10,
+              "width": 180
+            },
+            {
+              "name": "Employed",
+              "column_type": "checkbox",
+              "position": 11,
+              "width": 90
+            },
+            {
+              "name": "Employer",
+              "column_type": "text",
+              "position": 12,
+              "width": 160
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Due date",
+              "description": "The date entered is the deadline",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            }
+          ]
+        }
+      ],
+      "sampleData": {
+        "records": {
+          "caseload": [
+            {
+              "Name": "Linh Smith",
+              "Case #": "2024-1040",
+              "Date of Birth": {
+                "daysFromToday": -18040
+              },
+              "Phone": "555-0139",
+              "Address": "100 Maple Ave\nSpringfield",
+              "Next Check-In": {
+                "daysFromToday": 300
+              },
+              "Court Date": {
+                "daysFromToday": 5
+              },
+              "Supervision End": {
+                "daysFromToday": 55
+              },
+              "Drug Test Due": {
+                "daysFromToday": 300
+              },
+              "Supervision Level": "Standard",
+              "Charge": "Possession",
+              "Employed": "false"
+            },
+            {
+              "Name": "Dorothy Kowalski",
+              "Case #": "2024-1053",
+              "Date of Birth": {
+                "daysFromToday": -11882
+              },
+              "Phone": "555-0146",
+              "Address": "137 Birch Lane\nSpringfield",
+              "Next Check-In": {
+                "daysFromToday": 0
+              },
+              "Court Date": {
+                "daysFromToday": 24
+              },
+              "Supervision End": {
+                "daysFromToday": 160
+              },
+              "Drug Test Due": {
+                "daysFromToday": 0
+              },
+              "Supervision Level": "Minimum",
+              "Charge": "Theft",
+              "Employed": "true",
+              "Employer": "City Parks"
+            },
+            {
+              "Name": "Carlos Wong",
+              "Case #": "2024-1066",
+              "Date of Birth": {
+                "daysFromToday": -29279
+              },
+              "Phone": "555-0153",
+              "Address": "174 Cedar Court\nSpringfield",
+              "Next Check-In": {
+                "daysFromToday": 9
+              },
+              "Court Date": {
+                "daysFromToday": 75
+              },
+              "Supervision End": {
+                "daysFromToday": -14
+              },
+              "Drug Test Due": {
+                "daysFromToday": 9
+              },
+              "Supervision Level": "Minimum",
+              "Charge": "DUI",
+              "Employed": "true"
+            },
+            {
+              "Name": "Priya Bell",
+              "Case #": "2024-1079",
+              "Date of Birth": {
+                "daysFromToday": -10984
+              },
+              "Phone": "555-0160",
+              "Address": "211 Willow Way\nSpringfield",
+              "Next Check-In": {
+                "daysFromToday": 38
+              },
+              "Court Date": {
+                "daysFromToday": 220
+              },
+              "Supervision End": {
+                "daysFromToday": 2
+              },
+              "Drug Test Due": {
+                "daysFromToday": 38
+              },
+              "Supervision Level": "Minimum",
+              "Charge": "Trespass",
+              "Employed": "false"
+            },
+            {
+              "Name": "Frank Rivera",
+              "Case #": "2024-1092",
+              "Date of Birth": {
+                "daysFromToday": -7870
+              },
+              "Phone": "555-0167",
+              "Address": "248 Elm Street\nSpringfield",
+              "Next Check-In": {
+                "daysFromToday": 110
+              },
+              "Court Date": {
+                "daysFromToday": -3
+              },
+              "Supervision End": {
+                "daysFromToday": 16
+              },
+              "Drug Test Due": {
+                "daysFromToday": 110
+              },
+              "Supervision Level": "Intensive",
+              "Charge": "Possession",
+              "Employed": "true",
+              "Employer": "Corner Market"
+            },
+            {
+              "Name": "Keisha Thompson",
+              "Case #": "2024-1105",
+              "Date of Birth": {
+                "daysFromToday": -20470
+              },
+              "Phone": "555-0174",
+              "Address": "285 Pine Road\nSpringfield",
+              "Next Check-In": {
+                "daysFromToday": 300
+              },
+              "Court Date": {
+                "daysFromToday": 5
+              },
+              "Supervision End": {
+                "daysFromToday": 55
+              },
+              "Drug Test Due": {
+                "daysFromToday": 300
+              },
+              "Supervision Level": "Minimum",
+              "Charge": "Theft",
+              "Employed": "true",
+              "Employer": "City Parks"
+            },
+            {
+              "Name": "Samuel Rahman",
+              "Case #": "2024-1118",
+              "Date of Birth": {
+                "daysFromToday": -17421
+              },
+              "Phone": "555-0181",
+              "Address": "322 Oak Terrace\nSpringfield",
+              "Next Check-In": {
+                "daysFromToday": 0
+              },
+              "Court Date": {
+                "daysFromToday": 24
+              },
+              "Supervision End": {
+                "daysFromToday": 160
+              },
+              "Drug Test Due": {
+                "daysFromToday": 0
+              },
+              "Supervision Level": "Minimum",
+              "Charge": "DUI",
+              "Employed": "false"
+            },
+            {
+              "Name": "Grace Okafor",
+              "Case #": "2024-1131",
+              "Date of Birth": {
+                "daysFromToday": -23866
+              },
+              "Phone": "555-0188",
+              "Address": "359 Aspen Drive\nSpringfield",
+              "Next Check-In": {
+                "daysFromToday": 9
+              },
+              "Court Date": {
+                "daysFromToday": 75
+              },
+              "Supervision End": {
+                "daysFromToday": -14
+              },
+              "Drug Test Due": {
+                "daysFromToday": 9
+              },
+              "Supervision Level": "Minimum",
+              "Charge": "Trespass",
+              "Employed": "true",
+              "Employer": "Riverside Diner"
+            }
+          ]
+        },
+        "activities": [
+          {
+            "record": "caseload#0",
+            "type": "email",
+            "daysAgo": 5,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#0",
+            "type": "visit",
+            "daysAgo": 16,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#1",
+            "type": "note",
+            "daysAgo": 10,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#1",
+            "type": "phone",
+            "daysAgo": 21,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#2",
+            "type": "visit",
+            "daysAgo": 15,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#2",
+            "type": "meeting",
+            "daysAgo": 26,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#3",
+            "type": "phone",
+            "daysAgo": 20,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#3",
+            "type": "email",
+            "daysAgo": 31,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#4",
+            "type": "meeting",
+            "daysAgo": 25,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#4",
+            "type": "note",
+            "daysAgo": 36,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#5",
+            "type": "email",
+            "daysAgo": 30,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#5",
+            "type": "visit",
+            "daysAgo": 41,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#6",
+            "type": "note",
+            "daysAgo": 35,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#6",
+            "type": "phone",
+            "daysAgo": 6,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#7",
+            "type": "visit",
+            "daysAgo": 40,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#7",
+            "type": "meeting",
+            "daysAgo": 11,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          }
+        ]
+      }
+    },
+    {
+      "key": "therapist-caseload",
+      "name": "Therapist Caseload",
+      "description": "Outpatient therapy client tracking with session and authorization management",
+      "lists": [
+        {
+          "key": "caseload",
+          "name": "Therapy Caseload",
+          "description": "Outpatient therapy case management",
+          "kind": "person",
+          "columns": [
+            {
+              "name": "Client Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 180,
+              "is_name_column": 1,
+              "is_identifier": 1
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 1,
+              "width": 120
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 2,
+              "width": 130
+            },
+            {
+              "name": "Email",
+              "column_type": "email",
+              "position": 3,
+              "width": 180
+            },
+            {
+              "name": "Insurance",
+              "column_type": "text",
+              "position": 4,
+              "width": 150
+            },
+            {
+              "name": "Auth Expiration",
+              "column_type": "date",
+              "position": 5,
+              "width": 140,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Auth Sessions Remaining",
+              "column_type": "number",
+              "position": 6,
+              "width": 150
+            },
+            {
+              "name": "Next Appointment",
+              "column_type": "date",
+              "position": 7,
+              "width": 140,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Treatment Start",
+              "column_type": "date",
+              "position": 8,
+              "width": 130
+            },
+            {
+              "name": "Annual Assessment Due",
+              "column_type": "date",
+              "position": 9,
+              "width": 150,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Diagnosis",
+              "column_type": "text",
+              "position": 10,
+              "width": 160
+            },
+            {
+              "name": "Frequency",
+              "column_type": "dropdown",
+              "position": 11,
+              "width": 120,
+              "config": "{\"options\":[\"Weekly\",\"Bi-weekly\",\"Monthly\",\"PRN\"]}"
+            },
+            {
+              "name": "Status",
+              "column_type": "dropdown",
+              "position": 12,
+              "width": 110,
+              "config": "{\"options\":[\"Active\",\"On Hold\",\"Waitlist\",\"Discharged\"]}"
+            },
+            {
+              "name": "Emergency Contact",
+              "column_type": "text",
+              "position": 13,
+              "width": 160
+            },
+            {
+              "name": "EC Phone",
+              "column_type": "phone",
+              "position": 14,
+              "width": 130
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Due date",
+              "description": "The date entered is the deadline",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            }
+          ]
+        }
+      ],
+      "sampleData": {
+        "records": {
+          "caseload": [
+            {
+              "Client Name": "Dorothy Kowalski",
+              "Date of Birth": {
+                "daysFromToday": -18798
+              },
+              "Phone": "555-0126",
+              "Email": "dorothy.kowalski@example.com",
+              "Insurance": "Medicaid",
+              "Auth Expiration": {
+                "daysFromToday": -14
+              },
+              "Auth Sessions Remaining": 12,
+              "Next Appointment": {
+                "daysFromToday": 75
+              },
+              "Treatment Start": {
+                "daysFromToday": -844
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 9
+              },
+              "Diagnosis": "Adjustment disorder",
+              "Frequency": "Bi-weekly",
+              "Status": "On Hold",
+              "Emergency Contact": "Grace Okafor",
+              "EC Phone": "555-0182"
+            },
+            {
+              "Client Name": "Carlos Wong",
+              "Date of Birth": {
+                "daysFromToday": -8268
+              },
+              "Phone": "555-0133",
+              "Email": "carlos.wong@example.com",
+              "Insurance": "Medicare",
+              "Auth Expiration": {
+                "daysFromToday": 2
+              },
+              "Auth Sessions Remaining": 4,
+              "Next Appointment": {
+                "daysFromToday": 220
+              },
+              "Treatment Start": {
+                "daysFromToday": -824
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 38
+              },
+              "Diagnosis": "Generalized anxiety",
+              "Frequency": "Weekly",
+              "Status": "Active",
+              "Emergency Contact": "Omar Brown",
+              "EC Phone": "555-0189"
+            },
+            {
+              "Client Name": "Priya Bell",
+              "Date of Birth": {
+                "daysFromToday": -18276
+              },
+              "Phone": "555-0140",
+              "Email": "priya.bell@example.com",
+              "Insurance": "Blue Plan",
+              "Auth Expiration": {
+                "daysFromToday": 16
+              },
+              "Auth Sessions Remaining": 20,
+              "Next Appointment": {
+                "daysFromToday": -3
+              },
+              "Treatment Start": {
+                "daysFromToday": -190
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 110
+              },
+              "Diagnosis": "Depression",
+              "Frequency": "Weekly",
+              "Status": "Active",
+              "Emergency Contact": "Ruth Jackson",
+              "EC Phone": "555-0196"
+            },
+            {
+              "Client Name": "Frank Rivera",
+              "Date of Birth": {
+                "daysFromToday": -12235
+              },
+              "Phone": "555-0147",
+              "Email": "frank.rivera@example.com",
+              "Insurance": "Self-pay",
+              "Auth Expiration": {
+                "daysFromToday": 55
+              },
+              "Auth Sessions Remaining": 1,
+              "Next Appointment": {
+                "daysFromToday": 5
+              },
+              "Treatment Start": {
+                "daysFromToday": -510
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 300
+              },
+              "Diagnosis": "PTSD",
+              "Frequency": "Weekly",
+              "Status": "Active",
+              "Emergency Contact": "Diego Ferreira",
+              "EC Phone": "555-0103"
+            },
+            {
+              "Client Name": "Keisha Thompson",
+              "Date of Birth": {
+                "daysFromToday": -18444
+              },
+              "Phone": "555-0154",
+              "Email": "keisha.thompson@example.com",
+              "Insurance": "Medicaid",
+              "Auth Expiration": {
+                "daysFromToday": 160
+              },
+              "Auth Sessions Remaining": 8,
+              "Next Appointment": {
+                "daysFromToday": 24
+              },
+              "Treatment Start": {
+                "daysFromToday": -586
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 0
+              },
+              "Diagnosis": "Adjustment disorder",
+              "Frequency": "Monthly",
+              "Status": "Waitlist",
+              "Emergency Contact": "Hannah Walker",
+              "EC Phone": "555-0110"
+            },
+            {
+              "Client Name": "Samuel Rahman",
+              "Date of Birth": {
+                "daysFromToday": -11973
+              },
+              "Phone": "555-0161",
+              "Email": "samuel.rahman@example.com",
+              "Insurance": "Medicare",
+              "Auth Expiration": {
+                "daysFromToday": -14
+              },
+              "Auth Sessions Remaining": 15,
+              "Next Appointment": {
+                "daysFromToday": 75
+              },
+              "Treatment Start": {
+                "daysFromToday": -285
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 9
+              },
+              "Diagnosis": "Generalized anxiety",
+              "Frequency": "Weekly",
+              "Status": "Active",
+              "Emergency Contact": "Tyrone Haddad",
+              "EC Phone": "555-0117"
+            },
+            {
+              "Client Name": "Grace Okafor",
+              "Date of Birth": {
+                "daysFromToday": -7410
+              },
+              "Phone": "555-0168",
+              "Email": "grace.okafor@example.com",
+              "Insurance": "Blue Plan",
+              "Auth Expiration": {
+                "daysFromToday": 2
+              },
+              "Auth Sessions Remaining": 2,
+              "Next Appointment": {
+                "daysFromToday": 220
+              },
+              "Treatment Start": {
+                "daysFromToday": -447
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 38
+              },
+              "Diagnosis": "Depression",
+              "Frequency": "Weekly",
+              "Status": "Active",
+              "Emergency Contact": "Mei Ortiz",
+              "EC Phone": "555-0124"
+            },
+            {
+              "Client Name": "Omar Brown",
+              "Date of Birth": {
+                "daysFromToday": -19803
+              },
+              "Phone": "555-0175",
+              "Email": "omar.brown@example.com",
+              "Insurance": "Self-pay",
+              "Auth Expiration": {
+                "daysFromToday": 16
+              },
+              "Auth Sessions Remaining": 10,
+              "Next Appointment": {
+                "daysFromToday": -3
+              },
+              "Treatment Start": {
+                "daysFromToday": -918
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 110
+              },
+              "Diagnosis": "PTSD",
+              "Frequency": "Weekly",
+              "Status": "Active",
+              "Emergency Contact": "Walter Johnson",
+              "EC Phone": "555-0131"
+            }
+          ]
+        },
+        "activities": [
+          {
+            "record": "caseload#0",
+            "type": "note",
+            "daysAgo": 6,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#0",
+            "type": "phone",
+            "daysAgo": 17,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#1",
+            "type": "visit",
+            "daysAgo": 11,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#1",
+            "type": "meeting",
+            "daysAgo": 22,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#2",
+            "type": "phone",
+            "daysAgo": 16,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#2",
+            "type": "email",
+            "daysAgo": 27,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#3",
+            "type": "meeting",
+            "daysAgo": 21,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#3",
+            "type": "note",
+            "daysAgo": 32,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#4",
+            "type": "email",
+            "daysAgo": 26,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#4",
+            "type": "visit",
+            "daysAgo": 37,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#5",
+            "type": "note",
+            "daysAgo": 31,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#5",
+            "type": "phone",
+            "daysAgo": 2,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#6",
+            "type": "visit",
+            "daysAgo": 36,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#6",
+            "type": "meeting",
+            "daysAgo": 7,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#7",
+            "type": "phone",
+            "daysAgo": 41,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#7",
+            "type": "email",
+            "daysAgo": 12,
+            "text": "Emailed the program for an updated progress report."
+          }
+        ]
+      }
+    },
+    {
+      "key": "care-manager-service-coordinator",
+      "name": "Care Manager / Service Coordinator",
+      "description": "Monthly contacts, care plan reviews, and annual reassessments for care management caseloads",
+      "lists": [
+        {
+          "key": "caseload",
+          "name": "Care Manager / Service Coordinator",
+          "description": "Monthly contacts, care plan reviews, and annual reassessments for care management caseloads",
+          "kind": "person",
+          "columns": [
+            {
+              "name": "Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 180,
+              "is_name_column": 1,
+              "is_identifier": 1
+            },
+            {
+              "name": "Medicaid ID",
+              "column_type": "text",
+              "position": 1,
+              "width": 130,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 2,
+              "width": 120,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 3,
+              "width": 130
+            },
+            {
+              "name": "Last Face-to-Face",
+              "column_type": "date",
+              "position": 4,
+              "width": 150,
+              "config": "{\"note_updates\":[\"visit\"],\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+            },
+            {
+              "name": "Last Phone Contact",
+              "column_type": "date",
+              "position": 5,
+              "width": 150,
+              "config": "{\"note_updates\":[\"phone\"],\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+            },
+            {
+              "name": "Last Care Plan Review",
+              "column_type": "date",
+              "position": 6,
+              "width": 170,
+              "config": "{\"alert_rule_name\":\"Every 6 months\",\"log_changes\":true}"
+            },
+            {
+              "name": "Last Reassessment",
+              "column_type": "date",
+              "position": 7,
+              "width": 160,
+              "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+            },
+            {
+              "name": "Guardian",
+              "column_type": "text",
+              "position": 8,
+              "width": 160
+            },
+            {
+              "name": "Guardian Phone",
+              "column_type": "phone",
+              "position": 9,
+              "width": 130
+            },
+            {
+              "name": "Program",
+              "column_type": "dropdown",
+              "position": 10,
+              "width": 140,
+              "config": "{\"options\":[\"Waiver\",\"Health Home\",\"Case Management\",\"Other\"]}"
+            },
+            {
+              "name": "Status",
+              "column_type": "dropdown",
+              "position": 11,
+              "width": 130,
+              "config": "{\"options\":[\"Active\",\"On Hold\",\"Transitioning\",\"Discharged\"]}"
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Every 30 days",
+              "description": "Due 30 days after the date entered",
+              "interval_days": 30,
+              "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            },
+            {
+              "name": "Every 6 months",
+              "description": "Due 6 months after the date entered",
+              "interval_months": 6,
+              "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            },
+            {
+              "name": "Every year",
+              "description": "Due on the same date a year later",
+              "interval_months": 12,
+              "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            }
+          ],
+          "requirements": [
+            {
+              "label": "Visit",
+              "note_types": [
+                "visit"
+              ],
+              "per_month": 1
+            },
+            {
+              "label": "Phone contact",
+              "note_types": [
+                "phone"
+              ],
+              "per_month": 1
+            }
+          ]
+        }
+      ],
+      "sampleData": {
+        "records": {
+          "caseload": [
+            {
+              "Name": "Carlos Wong",
+              "Medicaid ID": "XY40210Z",
+              "Date of Birth": {
+                "daysFromToday": -10833
+              },
+              "Phone": "555-0139",
+              "Last Face-to-Face": {
+                "daysFromToday": -30
+              },
+              "Last Phone Contact": {
+                "daysFromToday": -6
+              },
+              "Last Care Plan Review": {
+                "daysFromToday": -108
+              },
+              "Last Reassessment": {
+                "daysFromToday": -255
+              },
+              "Guardian": "Grace Okafor",
+              "Guardian Phone": "555-0117",
+              "Program": "Health Home",
+              "Status": "On Hold"
+            },
+            {
+              "Name": "Priya Bell",
+              "Medicaid ID": "XY40943Z",
+              "Date of Birth": {
+                "daysFromToday": -18998
+              },
+              "Phone": "555-0146",
+              "Last Face-to-Face": {
+                "daysFromToday": -21
+              },
+              "Last Phone Contact": {
+                "daysFromToday": -30
+              },
+              "Last Care Plan Review": {
+                "daysFromToday": -197
+              },
+              "Last Reassessment": {
+                "daysFromToday": -65
+              },
+              "Guardian": "Omar Brown",
+              "Guardian Phone": "555-0124",
+              "Program": "Waiver",
+              "Status": "Active"
+            },
+            {
+              "Name": "Frank Rivera",
+              "Medicaid ID": "XY41676Z",
+              "Date of Birth": {
+                "daysFromToday": -7009
+              },
+              "Phone": "555-0153",
+              "Last Face-to-Face": {
+                "daysFromToday": -44
+              },
+              "Last Phone Contact": {
+                "daysFromToday": -21
+              },
+              "Last Care Plan Review": {
+                "daysFromToday": -181
+              },
+              "Last Reassessment": {
+                "daysFromToday": -365
+              },
+              "Guardian": "Ruth Jackson",
+              "Guardian Phone": "555-0131",
+              "Program": "Waiver",
+              "Status": "Active"
+            },
+            {
+              "Name": "Keisha Thompson",
+              "Medicaid ID": "XY42409Z",
+              "Date of Birth": {
+                "daysFromToday": -29026
+              },
+              "Phone": "555-0160",
+              "Last Face-to-Face": {
+                "daysFromToday": -28
+              },
+              "Last Phone Contact": {
+                "daysFromToday": -44
+              },
+              "Last Care Plan Review": {
+                "daysFromToday": -167
+              },
+              "Last Reassessment": {
+                "daysFromToday": -356
+              },
+              "Guardian": "Diego Ferreira",
+              "Guardian Phone": "555-0138",
+              "Program": "Waiver",
+              "Status": "Active"
+            },
+            {
+              "Name": "Samuel Rahman",
+              "Medicaid ID": "XY43142Z",
+              "Date of Birth": {
+                "daysFromToday": -21546
+              },
+              "Phone": "555-0167",
+              "Last Face-to-Face": {
+                "daysFromToday": -14
+              },
+              "Last Phone Contact": {
+                "daysFromToday": -28
+              },
+              "Last Care Plan Review": {
+                "daysFromToday": -128
+              },
+              "Last Reassessment": {
+                "daysFromToday": -327
+              },
+              "Guardian": "Hannah Walker",
+              "Guardian Phone": "555-0145",
+              "Program": "Case Management",
+              "Status": "Transitioning"
+            },
+            {
+              "Name": "Grace Okafor",
+              "Medicaid ID": "XY43875Z",
+              "Date of Birth": {
+                "daysFromToday": -19595
+              },
+              "Phone": "555-0174",
+              "Last Face-to-Face": {
+                "daysFromToday": -33
+              },
+              "Last Phone Contact": {
+                "daysFromToday": -14
+              },
+              "Last Care Plan Review": {
+                "daysFromToday": -23
+              },
+              "Last Reassessment": {
+                "daysFromToday": -255
+              },
+              "Guardian": "Tyrone Haddad",
+              "Guardian Phone": "555-0152",
+              "Program": "Waiver",
+              "Status": "Active"
+            },
+            {
+              "Name": "Omar Brown",
+              "Medicaid ID": "XY44608Z",
+              "Date of Birth": {
+                "daysFromToday": -16271
+              },
+              "Phone": "555-0181",
+              "Last Face-to-Face": {
+                "daysFromToday": -25
+              },
+              "Last Phone Contact": {
+                "daysFromToday": -33
+              },
+              "Last Care Plan Review": {
+                "daysFromToday": -183
+              },
+              "Last Reassessment": {
+                "daysFromToday": -65
+              },
+              "Guardian": "Mei Ortiz",
+              "Guardian Phone": "555-0159",
+              "Program": "Waiver",
+              "Status": "Active"
+            },
+            {
+              "Name": "Ruth Jackson",
+              "Medicaid ID": "XY45341Z",
+              "Date of Birth": {
+                "daysFromToday": -11413
+              },
+              "Phone": "555-0188",
+              "Last Face-to-Face": {
+                "daysFromToday": -6
+              },
+              "Last Phone Contact": {
+                "daysFromToday": -25
+              },
+              "Last Care Plan Review": {
+                "daysFromToday": -174
+              },
+              "Last Reassessment": {
+                "daysFromToday": -365
+              },
+              "Guardian": "Walter Johnson",
+              "Guardian Phone": "555-0166",
+              "Program": "Waiver",
+              "Status": "Active"
+            }
+          ]
+        },
+        "activities": [
+          {
+            "record": "caseload#0",
+            "type": "visit",
+            "daysAgo": 7,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#0",
+            "type": "meeting",
+            "daysAgo": 18,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#1",
+            "type": "phone",
+            "daysAgo": 12,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#1",
+            "type": "email",
+            "daysAgo": 23,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#2",
+            "type": "meeting",
+            "daysAgo": 17,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#2",
+            "type": "note",
+            "daysAgo": 28,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#3",
+            "type": "email",
+            "daysAgo": 22,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#3",
+            "type": "visit",
+            "daysAgo": 33,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#4",
+            "type": "note",
+            "daysAgo": 27,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#4",
+            "type": "phone",
+            "daysAgo": 38,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#5",
+            "type": "visit",
+            "daysAgo": 32,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#5",
+            "type": "meeting",
+            "daysAgo": 3,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#6",
+            "type": "phone",
+            "daysAgo": 37,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#6",
+            "type": "email",
+            "daysAgo": 8,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#7",
+            "type": "meeting",
+            "daysAgo": 2,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#7",
+            "type": "note",
+            "daysAgo": 13,
+            "text": "Received updated benefits letter; copied to file."
+          }
+        ]
+      }
+    },
+    {
+      "key": "school-counselor",
+      "name": "School Counselor",
+      "description": "Student check-ins, plan reviews, and parent contacts",
+      "lists": [
+        {
+          "key": "caseload",
+          "name": "School Counselor",
+          "description": "Student check-ins, plan reviews, and parent contacts",
+          "kind": "person",
+          "columns": [
+            {
+              "name": "Student Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 180,
+              "is_name_column": 1,
+              "is_identifier": 1
+            },
+            {
+              "name": "Student ID",
+              "column_type": "text",
+              "position": 1,
+              "width": 110,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Grade",
+              "column_type": "text",
+              "position": 2,
+              "width": 80
+            },
+            {
+              "name": "Last Check-In",
+              "column_type": "date",
+              "position": 3,
+              "width": 140,
+              "config": "{\"note_updates\":[\"meeting\",\"visit\"],\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+            },
+            {
+              "name": "504/IEP Review Due",
+              "column_type": "date",
+              "position": 4,
+              "width": 160,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Next Meeting",
+              "column_type": "date",
+              "position": 5,
+              "width": 140,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Focus",
+              "column_type": "dropdown",
+              "position": 6,
+              "width": 160,
+              "config": "{\"options\":[\"Academic\",\"Social-Emotional\",\"College/Career\",\"Attendance\",\"Behavior\"]}"
+            },
+            {
+              "name": "Parent/Guardian",
+              "column_type": "text",
+              "position": 7,
+              "width": 160
+            },
+            {
+              "name": "Parent Phone",
+              "column_type": "phone",
+              "position": 8,
+              "width": 130
+            },
+            {
+              "name": "Status",
+              "column_type": "dropdown",
+              "position": 9,
+              "width": 120,
+              "config": "{\"options\":[\"Active\",\"Monitoring\",\"Closed\"]}"
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Every 30 days",
+              "description": "Due 30 days after the date entered",
+              "interval_days": 30,
+              "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            },
+            {
+              "name": "Due date",
+              "description": "The date entered is the deadline",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            }
+          ]
+        }
+      ],
+      "sampleData": {
+        "records": {
+          "caseload": [
+            {
+              "Student Name": "Priya Bell",
+              "Student ID": "S100200",
+              "Grade": "K",
+              "Last Check-In": {
+                "daysFromToday": -14
+              },
+              "504/IEP Review Due": {
+                "daysFromToday": 160
+              },
+              "Next Meeting": {
+                "daysFromToday": 0
+              },
+              "Focus": "Social-Emotional",
+              "Parent/Guardian": "Grace Okafor",
+              "Parent Phone": "555-0104",
+              "Status": "Monitoring"
+            },
+            {
+              "Student Name": "Frank Rivera",
+              "Student ID": "S100217",
+              "Grade": "2",
+              "Last Check-In": {
+                "daysFromToday": -33
+              },
+              "504/IEP Review Due": {
+                "daysFromToday": -14
+              },
+              "Next Meeting": {
+                "daysFromToday": 9
+              },
+              "Focus": "Academic",
+              "Parent/Guardian": "Omar Brown",
+              "Parent Phone": "555-0111",
+              "Status": "Active"
+            },
+            {
+              "Student Name": "Keisha Thompson",
+              "Student ID": "S100234",
+              "Grade": "4",
+              "Last Check-In": {
+                "daysFromToday": -25
+              },
+              "504/IEP Review Due": {
+                "daysFromToday": 2
+              },
+              "Next Meeting": {
+                "daysFromToday": 38
+              },
+              "Focus": "Academic",
+              "Parent/Guardian": "Ruth Jackson",
+              "Parent Phone": "555-0118",
+              "Status": "Active"
+            },
+            {
+              "Student Name": "Samuel Rahman",
+              "Student ID": "S100251",
+              "Grade": "6",
+              "Last Check-In": {
+                "daysFromToday": -6
+              },
+              "504/IEP Review Due": {
+                "daysFromToday": 16
+              },
+              "Next Meeting": {
+                "daysFromToday": 110
+              },
+              "Focus": "Academic",
+              "Parent/Guardian": "Diego Ferreira",
+              "Parent Phone": "555-0125",
+              "Status": "Active"
+            },
+            {
+              "Student Name": "Grace Okafor",
+              "Student ID": "S100268",
+              "Grade": "7",
+              "Last Check-In": {
+                "daysFromToday": -30
+              },
+              "504/IEP Review Due": {
+                "daysFromToday": 55
+              },
+              "Next Meeting": {
+                "daysFromToday": 300
+              },
+              "Focus": "College/Career",
+              "Parent/Guardian": "Hannah Walker",
+              "Parent Phone": "555-0132",
+              "Status": "Closed"
+            },
+            {
+              "Student Name": "Omar Brown",
+              "Student ID": "S100285",
+              "Grade": "9",
+              "Last Check-In": {
+                "daysFromToday": -21
+              },
+              "504/IEP Review Due": {
+                "daysFromToday": 160
+              },
+              "Next Meeting": {
+                "daysFromToday": 0
+              },
+              "Focus": "Academic",
+              "Parent/Guardian": "Tyrone Haddad",
+              "Parent Phone": "555-0139",
+              "Status": "Active"
+            },
+            {
+              "Student Name": "Ruth Jackson",
+              "Student ID": "S100302",
+              "Grade": "11",
+              "Last Check-In": {
+                "daysFromToday": -44
+              },
+              "504/IEP Review Due": {
+                "daysFromToday": -14
+              },
+              "Next Meeting": {
+                "daysFromToday": 9
+              },
+              "Focus": "Academic",
+              "Parent/Guardian": "Mei Ortiz",
+              "Parent Phone": "555-0146",
+              "Status": "Active"
+            },
+            {
+              "Student Name": "Diego Ferreira",
+              "Student ID": "S100319",
+              "Grade": "12",
+              "Last Check-In": {
+                "daysFromToday": -28
+              },
+              "504/IEP Review Due": {
+                "daysFromToday": 2
+              },
+              "Next Meeting": {
+                "daysFromToday": 38
+              },
+              "Focus": "Academic",
+              "Parent/Guardian": "Walter Johnson",
+              "Parent Phone": "555-0153",
+              "Status": "Active"
+            }
+          ]
+        },
+        "activities": [
+          {
+            "record": "caseload#0",
+            "type": "phone",
+            "daysAgo": 8,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#0",
+            "type": "email",
+            "daysAgo": 19,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#1",
+            "type": "meeting",
+            "daysAgo": 13,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#1",
+            "type": "note",
+            "daysAgo": 24,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#2",
+            "type": "email",
+            "daysAgo": 18,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#2",
+            "type": "visit",
+            "daysAgo": 29,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#3",
+            "type": "note",
+            "daysAgo": 23,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#3",
+            "type": "phone",
+            "daysAgo": 34,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#4",
+            "type": "visit",
+            "daysAgo": 28,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#4",
+            "type": "meeting",
+            "daysAgo": 39,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#5",
+            "type": "phone",
+            "daysAgo": 33,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#5",
+            "type": "email",
+            "daysAgo": 4,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#6",
+            "type": "meeting",
+            "daysAgo": 38,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#6",
+            "type": "note",
+            "daysAgo": 9,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#7",
+            "type": "email",
+            "daysAgo": 3,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#7",
+            "type": "visit",
+            "daysAgo": 14,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          }
+        ]
+      }
+    },
+    {
+      "key": "foster-care-caseworker",
+      "name": "Foster Care Caseworker",
+      "description": "Monthly home visits, court dates, case plan reviews, and medical exams",
+      "lists": [
+        {
+          "key": "caseload",
+          "name": "Foster Care Caseworker",
+          "description": "Monthly home visits, court dates, case plan reviews, and medical exams",
+          "kind": "person",
+          "columns": [
+            {
+              "name": "Child Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 180,
+              "is_name_column": 1,
+              "is_identifier": 1
+            },
+            {
+              "name": "Case #",
+              "column_type": "text",
+              "position": 1,
+              "width": 110,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 2,
+              "width": 120,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Placement",
+              "column_type": "text",
+              "position": 3,
+              "width": 170
+            },
+            {
+              "name": "Placement Date",
+              "column_type": "date",
+              "position": 4,
+              "width": 140
+            },
+            {
+              "name": "Last Home Visit",
+              "column_type": "date",
+              "position": 5,
+              "width": 150,
+              "config": "{\"note_updates\":[\"visit\"],\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+            },
+            {
+              "name": "Next Court Hearing",
+              "column_type": "date",
+              "position": 6,
+              "width": 160,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Last Case Plan Review",
+              "column_type": "date",
+              "position": 7,
+              "width": 170,
+              "config": "{\"alert_rule_name\":\"Every 6 months\",\"log_changes\":true}"
+            },
+            {
+              "name": "Medical Exam Due",
+              "column_type": "date",
+              "position": 8,
+              "width": 150,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Caregiver",
+              "column_type": "text",
+              "position": 9,
+              "width": 160
+            },
+            {
+              "name": "Caregiver Phone",
+              "column_type": "phone",
+              "position": 10,
+              "width": 130
+            },
+            {
+              "name": "Permanency Goal",
+              "column_type": "dropdown",
+              "position": 11,
+              "width": 160,
+              "config": "{\"options\":[\"Reunification\",\"Adoption\",\"Guardianship\",\"APPLA\"]}"
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Every 30 days",
+              "description": "Due 30 days after the date entered",
+              "interval_days": 30,
+              "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            },
+            {
+              "name": "Due date",
+              "description": "The date entered is the deadline",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            },
+            {
+              "name": "Every 6 months",
+              "description": "Due 6 months after the date entered",
+              "interval_months": 6,
+              "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            }
+          ]
+        }
+      ],
+      "sampleData": {
+        "records": {
+          "caseload": [
+            {
+              "Child Name": "Frank Rivera",
+              "Case #": "2024-1040",
+              "Date of Birth": {
+                "daysFromToday": -3109
+              },
+              "Placement": "Kinship — aunt",
+              "Placement Date": {
+                "daysFromToday": -414
+              },
+              "Last Home Visit": {
+                "daysFromToday": -33
+              },
+              "Next Court Hearing": {
+                "daysFromToday": 38
+              },
+              "Last Case Plan Review": {
+                "daysFromToday": -178
+              },
+              "Medical Exam Due": {
+                "daysFromToday": 2
+              },
+              "Caregiver": "Grace Okafor",
+              "Caregiver Phone": "555-0130",
+              "Permanency Goal": "Adoption"
+            },
+            {
+              "Child Name": "Keisha Thompson",
+              "Case #": "2024-1053",
+              "Date of Birth": {
+                "daysFromToday": -2653
+              },
+              "Placement": "Foster home",
+              "Placement Date": {
+                "daysFromToday": -751
+              },
+              "Last Home Visit": {
+                "daysFromToday": -25
+              },
+              "Next Court Hearing": {
+                "daysFromToday": 110
+              },
+              "Last Case Plan Review": {
+                "daysFromToday": -159
+              },
+              "Medical Exam Due": {
+                "daysFromToday": 16
+              },
+              "Caregiver": "Omar Brown",
+              "Caregiver Phone": "555-0137",
+              "Permanency Goal": "Reunification"
+            },
+            {
+              "Child Name": "Samuel Rahman",
+              "Case #": "2024-1066",
+              "Date of Birth": {
+                "daysFromToday": -1868
+              },
+              "Placement": "Therapeutic foster home",
+              "Placement Date": {
+                "daysFromToday": -170
+              },
+              "Last Home Visit": {
+                "daysFromToday": -6
+              },
+              "Next Court Hearing": {
+                "daysFromToday": 300
+              },
+              "Last Case Plan Review": {
+                "daysFromToday": -108
+              },
+              "Medical Exam Due": {
+                "daysFromToday": 55
+              },
+              "Caregiver": "Ruth Jackson",
+              "Caregiver Phone": "555-0144",
+              "Permanency Goal": "Reunification"
+            },
+            {
+              "Child Name": "Grace Okafor",
+              "Case #": "2024-1079",
+              "Date of Birth": {
+                "daysFromToday": -3179
+              },
+              "Placement": "Kinship — grandparent",
+              "Placement Date": {
+                "daysFromToday": -244
+              },
+              "Last Home Visit": {
+                "daysFromToday": -30
+              },
+              "Next Court Hearing": {
+                "daysFromToday": 0
+              },
+              "Last Case Plan Review": {
+                "daysFromToday": -197
+              },
+              "Medical Exam Due": {
+                "daysFromToday": 160
+              },
+              "Caregiver": "Diego Ferreira",
+              "Caregiver Phone": "555-0151",
+              "Permanency Goal": "Reunification"
+            },
+            {
+              "Child Name": "Omar Brown",
+              "Case #": "2024-1092",
+              "Date of Birth": {
+                "daysFromToday": -4030
+              },
+              "Placement": "Kinship — aunt",
+              "Placement Date": {
+                "daysFromToday": -500
+              },
+              "Last Home Visit": {
+                "daysFromToday": -21
+              },
+              "Next Court Hearing": {
+                "daysFromToday": 9
+              },
+              "Last Case Plan Review": {
+                "daysFromToday": -181
+              },
+              "Medical Exam Due": {
+                "daysFromToday": -14
+              },
+              "Caregiver": "Hannah Walker",
+              "Caregiver Phone": "555-0158",
+              "Permanency Goal": "Guardianship"
+            },
+            {
+              "Child Name": "Ruth Jackson",
+              "Case #": "2024-1105",
+              "Date of Birth": {
+                "daysFromToday": -4612
+              },
+              "Placement": "Foster home",
+              "Placement Date": {
+                "daysFromToday": -429
+              },
+              "Last Home Visit": {
+                "daysFromToday": -44
+              },
+              "Next Court Hearing": {
+                "daysFromToday": 38
+              },
+              "Last Case Plan Review": {
+                "daysFromToday": -167
+              },
+              "Medical Exam Due": {
+                "daysFromToday": 2
+              },
+              "Caregiver": "Tyrone Haddad",
+              "Caregiver Phone": "555-0165",
+              "Permanency Goal": "Reunification"
+            },
+            {
+              "Child Name": "Diego Ferreira",
+              "Case #": "2024-1118",
+              "Date of Birth": {
+                "daysFromToday": -4673
+              },
+              "Placement": "Therapeutic foster home",
+              "Placement Date": {
+                "daysFromToday": -226
+              },
+              "Last Home Visit": {
+                "daysFromToday": -28
+              },
+              "Next Court Hearing": {
+                "daysFromToday": 110
+              },
+              "Last Case Plan Review": {
+                "daysFromToday": -128
+              },
+              "Medical Exam Due": {
+                "daysFromToday": 16
+              },
+              "Caregiver": "Mei Ortiz",
+              "Caregiver Phone": "555-0172",
+              "Permanency Goal": "Reunification"
+            },
+            {
+              "Child Name": "Hannah Walker",
+              "Case #": "2024-1131",
+              "Date of Birth": {
+                "daysFromToday": -4060
+              },
+              "Placement": "Kinship — grandparent",
+              "Placement Date": {
+                "daysFromToday": -526
+              },
+              "Last Home Visit": {
+                "daysFromToday": -14
+              },
+              "Next Court Hearing": {
+                "daysFromToday": 300
+              },
+              "Last Case Plan Review": {
+                "daysFromToday": -23
+              },
+              "Medical Exam Due": {
+                "daysFromToday": 55
+              },
+              "Caregiver": "Walter Johnson",
+              "Caregiver Phone": "555-0179",
+              "Permanency Goal": "Reunification"
+            }
+          ]
+        },
+        "activities": [
+          {
+            "record": "caseload#0",
+            "type": "meeting",
+            "daysAgo": 9,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#0",
+            "type": "note",
+            "daysAgo": 20,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#1",
+            "type": "email",
+            "daysAgo": 14,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#1",
+            "type": "visit",
+            "daysAgo": 25,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#2",
+            "type": "note",
+            "daysAgo": 19,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#2",
+            "type": "phone",
+            "daysAgo": 30,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#3",
+            "type": "visit",
+            "daysAgo": 24,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#3",
+            "type": "meeting",
+            "daysAgo": 35,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#4",
+            "type": "phone",
+            "daysAgo": 29,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#4",
+            "type": "email",
+            "daysAgo": 40,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#5",
+            "type": "meeting",
+            "daysAgo": 34,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#5",
+            "type": "note",
+            "daysAgo": 5,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#6",
+            "type": "email",
+            "daysAgo": 39,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#6",
+            "type": "visit",
+            "daysAgo": 10,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#7",
+            "type": "note",
+            "daysAgo": 4,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#7",
+            "type": "phone",
+            "daysAgo": 15,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          }
+        ]
+      }
+    },
+    {
+      "key": "home-health-coordinator",
+      "name": "Home Health Coordinator",
+      "description": "Visits, recertifications, and plan-of-care signatures",
+      "lists": [
+        {
+          "key": "caseload",
+          "name": "Home Health Coordinator",
+          "description": "Visits, recertifications, and plan-of-care signatures",
+          "kind": "person",
+          "columns": [
+            {
+              "name": "Patient Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 180,
+              "is_name_column": 1,
+              "is_identifier": 1
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 1,
+              "width": 120,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 2,
+              "width": 130
+            },
+            {
+              "name": "Address",
+              "column_type": "address",
+              "position": 3,
+              "width": 200
+            },
+            {
+              "name": "Next Visit",
+              "column_type": "date",
+              "position": 4,
+              "width": 130,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Recertification Due",
+              "column_type": "date",
+              "position": 5,
+              "width": 160,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Plan of Care Signed",
+              "column_type": "date",
+              "position": 6,
+              "width": 160,
+              "config": "{\"alert_rule_name\":\"Every 60 days\",\"log_changes\":true}"
+            },
+            {
+              "name": "Physician",
+              "column_type": "text",
+              "position": 7,
+              "width": 160
+            },
+            {
+              "name": "Physician Phone",
+              "column_type": "phone",
+              "position": 8,
+              "width": 130
+            },
+            {
+              "name": "Insurance",
+              "column_type": "text",
+              "position": 9,
+              "width": 140
+            },
+            {
+              "name": "Status",
+              "column_type": "dropdown",
+              "position": 10,
+              "width": 130,
+              "config": "{\"options\":[\"Active\",\"On Hold\",\"Transitioning\",\"Discharged\"]}"
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Due date",
+              "description": "The date entered is the deadline",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            },
+            {
+              "name": "Every 60 days",
+              "description": "Due 60 days after the date entered",
+              "interval_days": 60,
+              "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            }
+          ]
+        }
+      ],
+      "sampleData": {
+        "records": {
+          "caseload": [
+            {
+              "Patient Name": "Keisha Thompson",
+              "Date of Birth": {
+                "daysFromToday": -28661
+              },
+              "Phone": "555-0126",
+              "Address": "100 Maple Ave\nSpringfield",
+              "Next Visit": {
+                "daysFromToday": 300
+              },
+              "Recertification Due": {
+                "daysFromToday": 5
+              },
+              "Plan of Care Signed": {
+                "daysFromToday": -5
+              },
+              "Physician": "Dr. Walker",
+              "Physician Phone": "555-0104",
+              "Insurance": "Medicaid",
+              "Status": "On Hold"
+            },
+            {
+              "Patient Name": "Samuel Rahman",
+              "Date of Birth": {
+                "daysFromToday": -19415
+              },
+              "Phone": "555-0133",
+              "Address": "137 Birch Lane\nSpringfield",
+              "Next Visit": {
+                "daysFromToday": 0
+              },
+              "Recertification Due": {
+                "daysFromToday": 24
+              },
+              "Plan of Care Signed": {
+                "daysFromToday": -60
+              },
+              "Physician": "Dr. Miller",
+              "Physician Phone": "555-0111",
+              "Insurance": "Medicare",
+              "Status": "Active"
+            },
+            {
+              "Patient Name": "Grace Okafor",
+              "Date of Birth": {
+                "daysFromToday": -15333
+              },
+              "Phone": "555-0140",
+              "Address": "174 Cedar Court\nSpringfield",
+              "Next Visit": {
+                "daysFromToday": 9
+              },
+              "Recertification Due": {
+                "daysFromToday": 75
+              },
+              "Plan of Care Signed": {
+                "daysFromToday": -51
+              },
+              "Physician": "Dr. Chen",
+              "Physician Phone": "555-0118",
+              "Insurance": "Blue Plan",
+              "Status": "Active"
+            },
+            {
+              "Patient Name": "Omar Brown",
+              "Date of Birth": {
+                "daysFromToday": -22887
+              },
+              "Phone": "555-0147",
+              "Address": "211 Willow Way\nSpringfield",
+              "Next Visit": {
+                "daysFromToday": 38
+              },
+              "Recertification Due": {
+                "daysFromToday": 220
+              },
+              "Plan of Care Signed": {
+                "daysFromToday": -22
+              },
+              "Physician": "Dr. Morales",
+              "Physician Phone": "555-0125",
+              "Insurance": "Self-pay",
+              "Status": "Active"
+            },
+            {
+              "Patient Name": "Ruth Jackson",
+              "Date of Birth": {
+                "daysFromToday": -28511
+              },
+              "Phone": "555-0154",
+              "Address": "248 Elm Street\nSpringfield",
+              "Next Visit": {
+                "daysFromToday": 110
+              },
+              "Recertification Due": {
+                "daysFromToday": -3
+              },
+              "Plan of Care Signed": {
+                "daysFromToday": -63
+              },
+              "Physician": "Dr. Wong",
+              "Physician Phone": "555-0132",
+              "Insurance": "Medicaid",
+              "Status": "Transitioning"
+            },
+            {
+              "Patient Name": "Diego Ferreira",
+              "Date of Birth": {
+                "daysFromToday": -22548
+              },
+              "Phone": "555-0161",
+              "Address": "285 Pine Road\nSpringfield",
+              "Next Visit": {
+                "daysFromToday": 300
+              },
+              "Recertification Due": {
+                "daysFromToday": 5
+              },
+              "Plan of Care Signed": {
+                "daysFromToday": -55
+              },
+              "Physician": "Dr. Rahman",
+              "Physician Phone": "555-0139",
+              "Insurance": "Medicare",
+              "Status": "Active"
+            },
+            {
+              "Patient Name": "Hannah Walker",
+              "Date of Birth": {
+                "daysFromToday": -8954
+              },
+              "Phone": "555-0168",
+              "Address": "322 Oak Terrace\nSpringfield",
+              "Next Visit": {
+                "daysFromToday": 0
+              },
+              "Recertification Due": {
+                "daysFromToday": 24
+              },
+              "Plan of Care Signed": {
+                "daysFromToday": -36
+              },
+              "Physician": "Dr. Ferreira",
+              "Physician Phone": "555-0146",
+              "Insurance": "Blue Plan",
+              "Status": "Active"
+            },
+            {
+              "Patient Name": "Tyrone Haddad",
+              "Date of Birth": {
+                "daysFromToday": -14831
+              },
+              "Phone": "555-0175",
+              "Address": "359 Aspen Drive\nSpringfield",
+              "Next Visit": {
+                "daysFromToday": 9
+              },
+              "Recertification Due": {
+                "daysFromToday": 75
+              },
+              "Plan of Care Signed": {
+                "daysFromToday": -74
+              },
+              "Physician": "Dr. Johnson",
+              "Physician Phone": "555-0153",
+              "Insurance": "Self-pay",
+              "Status": "Active"
+            }
+          ]
+        },
+        "activities": [
+          {
+            "record": "caseload#0",
+            "type": "email",
+            "daysAgo": 10,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#0",
+            "type": "visit",
+            "daysAgo": 21,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#1",
+            "type": "note",
+            "daysAgo": 15,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#1",
+            "type": "phone",
+            "daysAgo": 26,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#2",
+            "type": "visit",
+            "daysAgo": 20,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#2",
+            "type": "meeting",
+            "daysAgo": 31,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#3",
+            "type": "phone",
+            "daysAgo": 25,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#3",
+            "type": "email",
+            "daysAgo": 36,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#4",
+            "type": "meeting",
+            "daysAgo": 30,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#4",
+            "type": "note",
+            "daysAgo": 41,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#5",
+            "type": "email",
+            "daysAgo": 35,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#5",
+            "type": "visit",
+            "daysAgo": 6,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#6",
+            "type": "note",
+            "daysAgo": 40,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#6",
+            "type": "phone",
+            "daysAgo": 11,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#7",
+            "type": "visit",
+            "daysAgo": 5,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#7",
+            "type": "meeting",
+            "daysAgo": 16,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          }
+        ]
+      }
+    },
+    {
+      "key": "re-entry-case-manager",
+      "name": "Re-entry Case Manager",
+      "description": "Post-release contacts, appointments, housing, and benefits",
+      "lists": [
+        {
+          "key": "caseload",
+          "name": "Re-entry Case Manager",
+          "description": "Post-release contacts, appointments, housing, and benefits",
+          "kind": "person",
+          "columns": [
+            {
+              "name": "Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 180,
+              "is_name_column": 1,
+              "is_identifier": 1
+            },
+            {
+              "name": "ID #",
+              "column_type": "text",
+              "position": 1,
+              "width": 110,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 2,
+              "width": 120,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 3,
+              "width": 130
+            },
+            {
+              "name": "Release Date",
+              "column_type": "date",
+              "position": 4,
+              "width": 130
+            },
+            {
+              "name": "Last Contact",
+              "column_type": "date",
+              "position": 5,
+              "width": 140,
+              "config": "{\"note_updates\":[\"visit\",\"phone\",\"meeting\"],\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+            },
+            {
+              "name": "Next Appointment",
+              "column_type": "date",
+              "position": 6,
+              "width": 150,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Benefits Application Due",
+              "column_type": "date",
+              "position": 7,
+              "width": 180,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Housing",
+              "column_type": "dropdown",
+              "position": 8,
+              "width": 150,
+              "config": "{\"options\":[\"Stable\",\"Transitional\",\"Shelter\",\"Unhoused\"]}"
+            },
+            {
+              "name": "Employment",
+              "column_type": "dropdown",
+              "position": 9,
+              "width": 140,
+              "config": "{\"options\":[\"Employed\",\"Searching\",\"In Training\",\"Not Seeking\"]}"
+            },
+            {
+              "name": "Supervising Officer",
+              "column_type": "text",
+              "position": 10,
+              "width": 160
+            },
+            {
+              "name": "Status",
+              "column_type": "dropdown",
+              "position": 11,
+              "width": 130,
+              "config": "{\"options\":[\"Active\",\"On Hold\",\"Transitioning\",\"Discharged\"]}"
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Every 30 days",
+              "description": "Due 30 days after the date entered",
+              "interval_days": 30,
+              "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            },
+            {
+              "name": "Due date",
+              "description": "The date entered is the deadline",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            }
+          ]
+        }
+      ],
+      "sampleData": {
+        "records": {
+          "caseload": [
+            {
+              "Name": "Samuel Rahman",
+              "ID #": "R-5520",
+              "Date of Birth": {
+                "daysFromToday": -8614
+              },
+              "Phone": "555-0139",
+              "Release Date": {
+                "daysFromToday": -524
+              },
+              "Last Contact": {
+                "daysFromToday": -28
+              },
+              "Next Appointment": {
+                "daysFromToday": 75
+              },
+              "Benefits Application Due": {
+                "daysFromToday": -14
+              },
+              "Housing": "Transitional",
+              "Employment": "Searching",
+              "Supervising Officer": "Officer Okafor",
+              "Status": "On Hold"
+            },
+            {
+              "Name": "Grace Okafor",
+              "ID #": "R-5549",
+              "Date of Birth": {
+                "daysFromToday": -7405
+              },
+              "Phone": "555-0146",
+              "Release Date": {
+                "daysFromToday": -503
+              },
+              "Last Contact": {
+                "daysFromToday": -14
+              },
+              "Next Appointment": {
+                "daysFromToday": 220
+              },
+              "Benefits Application Due": {
+                "daysFromToday": 2
+              },
+              "Housing": "Stable",
+              "Employment": "Employed",
+              "Supervising Officer": "Officer Patel",
+              "Status": "Active"
+            },
+            {
+              "Name": "Omar Brown",
+              "ID #": "R-5578",
+              "Date of Birth": {
+                "daysFromToday": -29707
+              },
+              "Phone": "555-0153",
+              "Release Date": {
+                "daysFromToday": -699
+              },
+              "Last Contact": {
+                "daysFromToday": -33
+              },
+              "Next Appointment": {
+                "daysFromToday": -3
+              },
+              "Benefits Application Due": {
+                "daysFromToday": 16
+              },
+              "Housing": "Stable",
+              "Employment": "Employed",
+              "Supervising Officer": "Officer Haddad",
+              "Status": "Active"
+            },
+            {
+              "Name": "Ruth Jackson",
+              "ID #": "R-5607",
+              "Date of Birth": {
+                "daysFromToday": -14252
+              },
+              "Phone": "555-0160",
+              "Release Date": {
+                "daysFromToday": -563
+              },
+              "Last Contact": {
+                "daysFromToday": -25
+              },
+              "Next Appointment": {
+                "daysFromToday": 5
+              },
+              "Benefits Application Due": {
+                "daysFromToday": 55
+              },
+              "Housing": "Stable",
+              "Employment": "Employed",
+              "Supervising Officer": "Officer Wong",
+              "Status": "Active"
+            },
+            {
+              "Name": "Diego Ferreira",
+              "ID #": "R-5636",
+              "Date of Birth": {
+                "daysFromToday": -29732
+              },
+              "Phone": "555-0167",
+              "Release Date": {
+                "daysFromToday": -107
+              },
+              "Last Contact": {
+                "daysFromToday": -6
+              },
+              "Next Appointment": {
+                "daysFromToday": 24
+              },
+              "Benefits Application Due": {
+                "daysFromToday": 160
+              },
+              "Housing": "Shelter",
+              "Employment": "In Training",
+              "Supervising Officer": "Officer O'Brien",
+              "Status": "Transitioning"
+            },
+            {
+              "Name": "Hannah Walker",
+              "ID #": "R-5665",
+              "Date of Birth": {
+                "daysFromToday": -18434
+              },
+              "Phone": "555-0174",
+              "Release Date": {
+                "daysFromToday": -75
+              },
+              "Last Contact": {
+                "daysFromToday": -30
+              },
+              "Next Appointment": {
+                "daysFromToday": 75
+              },
+              "Benefits Application Due": {
+                "daysFromToday": -14
+              },
+              "Housing": "Stable",
+              "Employment": "Employed",
+              "Supervising Officer": "Officer Okafor",
+              "Status": "Active"
+            },
+            {
+              "Name": "Tyrone Haddad",
+              "ID #": "R-5694",
+              "Date of Birth": {
+                "daysFromToday": -26351
+              },
+              "Phone": "555-0181",
+              "Release Date": {
+                "daysFromToday": -647
+              },
+              "Last Contact": {
+                "daysFromToday": -21
+              },
+              "Next Appointment": {
+                "daysFromToday": 220
+              },
+              "Benefits Application Due": {
+                "daysFromToday": 2
+              },
+              "Housing": "Stable",
+              "Employment": "Employed",
+              "Supervising Officer": "Officer Patel",
+              "Status": "Active"
+            },
+            {
+              "Name": "Mei Ortiz",
+              "ID #": "R-5723",
+              "Date of Birth": {
+                "daysFromToday": -23555
+              },
+              "Phone": "555-0188",
+              "Release Date": {
+                "daysFromToday": -461
+              },
+              "Last Contact": {
+                "daysFromToday": -44
+              },
+              "Next Appointment": {
+                "daysFromToday": -3
+              },
+              "Benefits Application Due": {
+                "daysFromToday": 16
+              },
+              "Housing": "Stable",
+              "Employment": "Employed",
+              "Supervising Officer": "Officer Haddad",
+              "Status": "Active"
+            }
+          ]
+        },
+        "activities": [
+          {
+            "record": "caseload#0",
+            "type": "note",
+            "daysAgo": 11,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#0",
+            "type": "phone",
+            "daysAgo": 22,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#1",
+            "type": "visit",
+            "daysAgo": 16,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#1",
+            "type": "meeting",
+            "daysAgo": 27,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#2",
+            "type": "phone",
+            "daysAgo": 21,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#2",
+            "type": "email",
+            "daysAgo": 32,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#3",
+            "type": "meeting",
+            "daysAgo": 26,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#3",
+            "type": "note",
+            "daysAgo": 37,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#4",
+            "type": "email",
+            "daysAgo": 31,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#4",
+            "type": "visit",
+            "daysAgo": 2,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#5",
+            "type": "note",
+            "daysAgo": 36,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#5",
+            "type": "phone",
+            "daysAgo": 7,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#6",
+            "type": "visit",
+            "daysAgo": 41,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#6",
+            "type": "meeting",
+            "daysAgo": 12,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#7",
+            "type": "phone",
+            "daysAgo": 6,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#7",
+            "type": "email",
+            "daysAgo": 17,
+            "text": "Emailed the program for an updated progress report."
+          }
+        ]
+      }
+    },
+    {
+      "key": "waiver-coordinator",
+      "name": "Waiver Coordinator",
+      "description": "Monthly contacts, quarterly visits, service plan and level-of-care reviews",
+      "lists": [
+        {
+          "key": "caseload",
+          "name": "Waiver Coordinator",
+          "description": "Monthly contacts, quarterly visits, service plan and level-of-care reviews",
+          "kind": "person",
+          "columns": [
+            {
+              "name": "Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 180,
+              "is_name_column": 1,
+              "is_identifier": 1
+            },
+            {
+              "name": "Medicaid ID",
+              "column_type": "text",
+              "position": 1,
+              "width": 130,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 2,
+              "width": 120,
+              "config": "{\"required\":true}"
+            },
+            {
+              "name": "Waiver Program",
+              "column_type": "text",
+              "position": 3,
+              "width": 150
+            },
+            {
+              "name": "Last Monthly Contact",
+              "column_type": "date",
+              "position": 4,
+              "width": 160,
+              "config": "{\"note_updates\":[\"visit\",\"phone\",\"meeting\"],\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+            },
+            {
+              "name": "Last Home Visit",
+              "column_type": "date",
+              "position": 5,
+              "width": 150,
+              "config": "{\"note_updates\":[\"visit\"],\"alert_rule_name\":\"Every 90 days\",\"log_changes\":true}"
+            },
+            {
+              "name": "Last Service Plan Review",
+              "column_type": "date",
+              "position": 6,
+              "width": 180,
+              "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+            },
+            {
+              "name": "Last Level of Care Review",
+              "column_type": "date",
+              "position": 7,
+              "width": 180,
+              "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+            },
+            {
+              "name": "Medicaid Recertification Due",
+              "column_type": "date",
+              "position": 8,
+              "width": 200,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Guardian",
+              "column_type": "text",
+              "position": 9,
+              "width": 160
+            },
+            {
+              "name": "Status",
+              "column_type": "dropdown",
+              "position": 10,
+              "width": 130,
+              "config": "{\"options\":[\"Active\",\"On Hold\",\"Transitioning\",\"Discharged\"]}"
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Every 30 days",
+              "description": "Due 30 days after the date entered",
+              "interval_days": 30,
+              "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            },
+            {
+              "name": "Every 90 days",
+              "description": "Due 90 days after the date entered",
+              "interval_days": 90,
+              "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            },
+            {
+              "name": "Every year",
+              "description": "Due on the same date a year later",
+              "interval_months": 12,
+              "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            },
+            {
+              "name": "Due date",
+              "description": "The date entered is the deadline",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            }
+          ]
+        }
+      ],
+      "sampleData": {
+        "records": {
+          "caseload": [
+            {
+              "Name": "Grace Okafor",
+              "Medicaid ID": "XY40210Z",
+              "Date of Birth": {
+                "daysFromToday": -28026
+              },
+              "Waiver Program": "Elderly waiver",
+              "Last Monthly Contact": {
+                "daysFromToday": -6
+              },
+              "Last Home Visit": {
+                "daysFromToday": -88
+              },
+              "Last Service Plan Review": {
+                "daysFromToday": -255
+              },
+              "Last Level of Care Review": {
+                "daysFromToday": -368
+              },
+              "Medicaid Recertification Due": {
+                "daysFromToday": 16
+              },
+              "Guardian": "Grace Okafor",
+              "Status": "On Hold"
+            },
+            {
+              "Name": "Omar Brown",
+              "Medicaid ID": "XY40943Z",
+              "Date of Birth": {
+                "daysFromToday": -28701
+              },
+              "Waiver Program": "Disability waiver",
+              "Last Monthly Contact": {
+                "daysFromToday": -30
+              },
+              "Last Home Visit": {
+                "daysFromToday": -74
+              },
+              "Last Service Plan Review": {
+                "daysFromToday": -65
+              },
+              "Last Level of Care Review": {
+                "daysFromToday": -360
+              },
+              "Medicaid Recertification Due": {
+                "daysFromToday": 55
+              },
+              "Guardian": "Omar Brown",
+              "Status": "Active"
+            },
+            {
+              "Name": "Ruth Jackson",
+              "Medicaid ID": "XY41676Z",
+              "Date of Birth": {
+                "daysFromToday": -30757
+              },
+              "Waiver Program": "Brain injury waiver",
+              "Last Monthly Contact": {
+                "daysFromToday": -21
+              },
+              "Last Home Visit": {
+                "daysFromToday": -35
+              },
+              "Last Service Plan Review": {
+                "daysFromToday": -365
+              },
+              "Last Level of Care Review": {
+                "daysFromToday": -341
+              },
+              "Medicaid Recertification Due": {
+                "daysFromToday": 160
+              },
+              "Guardian": "Ruth Jackson",
+              "Status": "Active"
+            },
+            {
+              "Name": "Diego Ferreira",
+              "Medicaid ID": "XY42409Z",
+              "Date of Birth": {
+                "daysFromToday": -15592
+              },
+              "Waiver Program": "Elderly waiver",
+              "Last Monthly Contact": {
+                "daysFromToday": -44
+              },
+              "Last Home Visit": {
+                "daysFromToday": -93
+              },
+              "Last Service Plan Review": {
+                "daysFromToday": -356
+              },
+              "Last Level of Care Review": {
+                "daysFromToday": -290
+              },
+              "Medicaid Recertification Due": {
+                "daysFromToday": -14
+              },
+              "Guardian": "Diego Ferreira",
+              "Status": "Active"
+            },
+            {
+              "Name": "Hannah Walker",
+              "Medicaid ID": "XY43142Z",
+              "Date of Birth": {
+                "daysFromToday": -28930
+              },
+              "Waiver Program": "Disability waiver",
+              "Last Monthly Contact": {
+                "daysFromToday": -28
+              },
+              "Last Home Visit": {
+                "daysFromToday": -85
+              },
+              "Last Service Plan Review": {
+                "daysFromToday": -327
+              },
+              "Last Level of Care Review": {
+                "daysFromToday": -145
+              },
+              "Medicaid Recertification Due": {
+                "daysFromToday": 2
+              },
+              "Guardian": "Hannah Walker",
+              "Status": "Transitioning"
+            },
+            {
+              "Name": "Tyrone Haddad",
+              "Medicaid ID": "XY43875Z",
+              "Date of Birth": {
+                "daysFromToday": -11543
+              },
+              "Waiver Program": "Brain injury waiver",
+              "Last Monthly Contact": {
+                "daysFromToday": -14
+              },
+              "Last Home Visit": {
+                "daysFromToday": -66
+              },
+              "Last Service Plan Review": {
+                "daysFromToday": -255
+              },
+              "Last Level of Care Review": {
+                "daysFromToday": -368
+              },
+              "Medicaid Recertification Due": {
+                "daysFromToday": 16
+              },
+              "Guardian": "Tyrone Haddad",
+              "Status": "Active"
+            },
+            {
+              "Name": "Mei Ortiz",
+              "Medicaid ID": "XY44608Z",
+              "Date of Birth": {
+                "daysFromToday": -20877
+              },
+              "Waiver Program": "Elderly waiver",
+              "Last Monthly Contact": {
+                "daysFromToday": -33
+              },
+              "Last Home Visit": {
+                "daysFromToday": -15
+              },
+              "Last Service Plan Review": {
+                "daysFromToday": -65
+              },
+              "Last Level of Care Review": {
+                "daysFromToday": -360
+              },
+              "Medicaid Recertification Due": {
+                "daysFromToday": 55
+              },
+              "Guardian": "Mei Ortiz",
+              "Status": "Active"
+            },
+            {
+              "Name": "Walter Johnson",
+              "Medicaid ID": "XY45341Z",
+              "Date of Birth": {
+                "daysFromToday": -11225
+              },
+              "Waiver Program": "Disability waiver",
+              "Last Monthly Contact": {
+                "daysFromToday": -25
+              },
+              "Last Home Visit": {
+                "daysFromToday": -90
+              },
+              "Last Service Plan Review": {
+                "daysFromToday": -365
+              },
+              "Last Level of Care Review": {
+                "daysFromToday": -341
+              },
+              "Medicaid Recertification Due": {
+                "daysFromToday": 160
+              },
+              "Guardian": "Walter Johnson",
+              "Status": "Active"
+            }
+          ]
+        },
+        "activities": [
+          {
+            "record": "caseload#0",
+            "type": "visit",
+            "daysAgo": 12,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#0",
+            "type": "meeting",
+            "daysAgo": 23,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#1",
+            "type": "phone",
+            "daysAgo": 17,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#1",
+            "type": "email",
+            "daysAgo": 28,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#2",
+            "type": "meeting",
+            "daysAgo": 22,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#2",
+            "type": "note",
+            "daysAgo": 33,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#3",
+            "type": "email",
+            "daysAgo": 27,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#3",
+            "type": "visit",
+            "daysAgo": 38,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#4",
+            "type": "note",
+            "daysAgo": 32,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#4",
+            "type": "phone",
+            "daysAgo": 3,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#5",
+            "type": "visit",
+            "daysAgo": 37,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#5",
+            "type": "meeting",
+            "daysAgo": 8,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#6",
+            "type": "phone",
+            "daysAgo": 2,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#6",
+            "type": "email",
+            "daysAgo": 13,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#7",
+            "type": "meeting",
+            "daysAgo": 7,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#7",
+            "type": "note",
+            "daysAgo": 18,
+            "text": "Received updated benefits letter; copied to file."
+          }
+        ]
+      }
+    }
+  ]
+}

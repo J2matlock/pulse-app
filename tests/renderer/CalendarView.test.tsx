@@ -1,0 +1,112 @@
+// @vitest-environment jsdom
+/** The calendar (W07 §6): month cells with events, "+N more", layers, agenda, keyboard, panel and new appointment. */
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import React from 'react'
+import { render, screen, fireEvent, act, within } from '@testing-library/react'
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
+
+vi.mock('lucide-react', async () => (await import('./lucideMock')).lucideMock)
+vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }))
+import { localDateString } from '../../src/shared/dates'
+const today = localDateString()
+const appt = (id: number, time: string, title: string, extra: Record<string, unknown> = {}) => ({ id, row_id: 4, series_id: null, title, start_at: `${today}T${time}`, end_at: null, all_day: 0, location: null, activity_type_key: null, status: 'scheduled', case_log_id: null, notes: null, is_exception: 0, created_at: '', updated_at: '', record_name: 'Jane', grid_id: 2, grid_name: 'Clients', ...extra })
+let appointments = [appt(1, '15:00', 'Session'), appt(2, '09:00', 'Intake')]
+const invoke = vi.fn(async (channel: string, ..._args: unknown[]) => {
+  if (channel === 'appointments:list') return { ok: true, data: appointments }
+  if (channel === 'calendar:items') return { ok: true, data: [
+    { kind: 'deadline', key: 'deadline-4-9', date: today, title: 'Review', rowId: 4, gridId: 2, recordName: 'Jane', state: 'overdue', daysUntil: -1 },
+    { kind: 'task', key: 'task-1', date: today, title: 'Order forms' },
+  ] }
+  return { ok: true, data: null }
+})
+Object.defineProperty(window, 'api', { value: { invoke, on: () => () => {} }, writable: true, configurable: true })
+
+import CalendarView, { eventsByDay } from '../../src/renderer/views/CalendarView'
+import { useWorkspaceStore } from '../../src/renderer/stores/workspaceStore'
+import { setWords } from './vocabFixture'
+
+function Where() { const l = useLocation(); return <div data-testid="where">{l.pathname}{l.search}</div> }
+async function show(mode: 'Month' | 'Week' = 'Month') {
+  render(<MemoryRouter><Routes><Route path="*" element={<><CalendarView /><Where /></>} /></Routes></MemoryRouter>)
+  await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+  if (mode === 'Month') fireEvent.click(screen.getByRole('button', { name: 'Month' }))
+}
+
+beforeEach(() => {
+  setWords(); invoke.mockClear()
+  appointments = [appt(1, '15:00', 'Session'), appt(2, '09:00', 'Intake')]
+  useWorkspaceStore.setState({ features: { appointments: true, tasks: true } } as never)
+})
+
+describe('calendar events', () => {
+  it('put appointments first, in time order, and respect layers', () => {
+    const by = eventsByDay(appointments as never, [{ kind: 'task', key: 't', date: today, title: 'X' }], new Set(['appointments', 'tasks']))
+    expect(by.get(today)!.map(e => e.type === 'appointment' ? e.appt.title : e.item.title)).toEqual(['Intake', 'Session', 'X'])
+    expect(eventsByDay(appointments as never, [], new Set(['tasks'])).size).toBe(0)
+  })
+})
+
+describe('the calendar', () => {
+  it('shows today\'s events in the month, with "+N more" past three', async () => {
+    await show()
+    const cell = document.querySelector(`[data-day="${today}"]`) as HTMLElement
+    expect(within(cell).getByRole('button', { name: /9:00 am to|Intake with Jane, scheduled/ })).toBeTruthy()
+    expect(within(cell).getByText('+2 more')).toBeTruthy()
+    // Turning off appointments leaves the deadline and task
+    fireEvent.click(screen.getByRole('button', { name: 'Appointments' }))
+    expect(within(cell).queryByText(/Intake/)).toBeNull()
+    expect(within(cell).getByText('Jane: Review')).toBeTruthy()
+  })
+
+  it('agenda lists the day; an appointment opens its panel, a deadline its record', async () => {
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: 'Agenda' }))
+    const day = screen.getByRole('region', { name: new RegExp(`^${new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date())}`) })
+    expect(within(day).getAllByRole('button').map(b => b.textContent)).toEqual(['9:00 am Intake with Jane', '3:00 pm Session with Jane', 'Jane: Review', 'Task: Order forms'])
+    fireEvent.click(within(day).getByRole('button', { name: /Intake with Jane/ }))
+    expect(screen.getByRole('heading', { name: 'Intake' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Done/ })).toBeTruthy()
+    fireEvent.click(within(day).getByText('Jane: Review'))
+    expect(screen.getByTestId('where').textContent).toBe('/profile/4?gridId=2')
+  })
+
+  it('N opens a new appointment on the focused day', async () => {
+    await show()
+    const cell = document.querySelector(`[data-day="${today}"]`) as HTMLElement
+    cell.focus()
+    fireEvent.keyDown(cell, { key: 'n' })
+    expect(screen.getByRole('heading', { name: 'New appointment' })).toBeTruthy()
+    expect((screen.getByLabelText('Date') as HTMLInputElement).value).toBe(today)
+  })
+})
+
+describe('week view', () => {
+  it('opens by default with appointments on, placing them by time; clicking a slot starts a new one there', async () => {
+    await show('Week')
+    expect(screen.getByRole('button', { name: 'Week' }).getAttribute('aria-pressed')).toBe('true')
+    const day = screen.getByRole('group', { name: new RegExp(`^${new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date())}`) })
+    const intake = within(day).getByRole('button', { name: /Intake with Jane/ })
+    expect((intake.parentElement as HTMLElement).style.top).toBe(`${9 * 48}px`)
+    // The deadline and task sit in the all-day row, not the hours
+    expect(within(day).queryByText('Jane: Review')).toBeNull()
+    expect(screen.getByText('Jane: Review')).toBeTruthy()
+    fireEvent.click(day, { clientY: 14.5 * 48 })
+    expect(screen.getByRole('heading', { name: 'New appointment' })).toBeTruthy()
+    expect((screen.getByLabelText('Time') as HTMLInputElement).value).toBe('14:30')
+  })
+
+  it('dragging an appointment down moves it, snapped to 15 minutes', async () => {
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'appointments:list') return { ok: true, data: appointments }
+      if (channel === 'appointments:update') return { ok: true, data: { snapshot: { appointments: [], series: [], createdAppointmentIds: [], createdSeriesIds: [] }, ids: [2] } }
+      return { ok: true, data: [] }
+    })
+    await show('Week')
+    const intake = screen.getByRole('button', { name: /Intake with Jane/ })
+    // Each step on its own, so the drag listeners are in place before the pointer moves
+    await act(async () => { fireEvent.pointerDown(intake, { button: 0, clientX: 10, clientY: 100 }) })
+    await act(async () => { window.dispatchEvent(new MouseEvent('pointermove', { clientX: 10, clientY: 100 + 50 })) })
+    await act(async () => { window.dispatchEvent(new MouseEvent('pointerup')) })
+    expect(invoke).toHaveBeenCalledWith('appointments:update', 2, { start_at: `${today}T10:00`, end_at: null }, 'one')
+  })
+})

@@ -1,0 +1,304 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "personal-vehicles",
+  "name": "Personal vehicles",
+  "description": "Your household's cars: oil changes every 5,000 miles or 6 months, tire rotations, registration and insurance renewals.",
+  "icon": "wrench",
+  "group": "Personal",
+  "vocab": {
+    "record": {
+      "one": "vehicle",
+      "many": "vehicles",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": false,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": false,
+    "summaryReport": false,
+    "handoff": false
+  },
+  "lists": [
+    {
+      "key": "vehicles",
+      "name": "My vehicles",
+      "description": "Your cars with oil changes, tire rotations, registration and insurance",
+      "kind": "thing",
+      "columns": [
+        {
+          "name": "Vehicle",
+          "column_type": "text",
+          "position": 0,
+          "width": 180,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Odometer",
+          "column_type": "number",
+          "position": 1,
+          "width": 120,
+          "description": "Update it now and then; Pulse works out how fast the miles add up"
+        },
+        {
+          "name": "Odometer at last oil change",
+          "column_type": "number",
+          "position": 2,
+          "width": 170
+        },
+        {
+          "name": "Last oil change",
+          "column_type": "date",
+          "position": 3,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Oil change\",\"log_changes\":true}"
+        },
+        {
+          "name": "Odometer at last rotation",
+          "column_type": "number",
+          "position": 4,
+          "width": 170
+        },
+        {
+          "name": "Last rotation",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Tire rotation\",\"log_changes\":true}"
+        },
+        {
+          "name": "Registration expires",
+          "column_type": "date",
+          "position": 6,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
+          "name": "Insurance renews",
+          "column_type": "date",
+          "position": 7,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 8,
+          "width": 200
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Oil change",
+          "description": "Every 5,000 miles or 6 months, whichever comes first",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "meter",
+          "rule_config": "{\"kind\":\"meter\",\"readingColumnId\":{\"column\":\"Odometer\"},\"lastServiceReadingColumnId\":{\"column\":\"Odometer at last oil change\"},\"every\":5000,\"unit\":\"mi\",\"timeFallback\":{\"months\":6},\"typicalPerDay\":35}"
+        },
+        {
+          "name": "Tire rotation",
+          "description": "Every 7,500 miles",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "meter",
+          "rule_config": "{\"kind\":\"meter\",\"readingColumnId\":{\"column\":\"Odometer\"},\"lastServiceReadingColumnId\":{\"column\":\"Odometer at last rotation\"},\"every\":7500,\"unit\":\"mi\",\"typicalPerDay\":35}"
+        },
+        {
+          "name": "Due date",
+          "description": "The date entered is the deadline",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "service",
+      "label": "Service",
+      "icon": "🔧",
+      "color": "orange"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "vehicles": [
+        {
+          "Vehicle": "2018 Honda CR-V",
+          "Odometer": 61200,
+          "Odometer at last oil change": 57100,
+          "Last oil change": {
+            "daysFromToday": -130
+          },
+          "Odometer at last rotation": 54300,
+          "Last rotation": {
+            "daysFromToday": -230
+          },
+          "Registration expires": {
+            "daysFromToday": 25
+          },
+          "Insurance renews": {
+            "daysFromToday": 95
+          }
+        },
+        {
+          "Vehicle": "2014 Toyota Corolla",
+          "Odometer": 104800,
+          "Odometer at last oil change": 99500,
+          "Last oil change": {
+            "daysFromToday": -120
+          },
+          "Odometer at last rotation": 102600,
+          "Last rotation": {
+            "daysFromToday": -50
+          },
+          "Registration expires": {
+            "daysFromToday": 160
+          },
+          "Insurance renews": {
+            "daysFromToday": 95
+          },
+          "Notes": "Timing belt due at 105,000"
+        },
+        {
+          "Vehicle": "2022 Subaru Outback",
+          "Odometer": 18300,
+          "Odometer at last oil change": 16800,
+          "Last oil change": {
+            "daysFromToday": -70
+          },
+          "Odometer at last rotation": 16800,
+          "Last rotation": {
+            "daysFromToday": -70
+          },
+          "Registration expires": {
+            "daysFromToday": 300
+          },
+          "Insurance renews": {
+            "daysFromToday": -3
+          }
+        }
+      ]
+    },
+    "history": [
+      {
+        "record": "vehicles#0",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "50430",
+            "daysAgo": 360
+          },
+          {
+            "value": "53100",
+            "daysAgo": 271
+          },
+          {
+            "value": "55800",
+            "daysAgo": 181
+          },
+          {
+            "value": "58500",
+            "daysAgo": 91
+          },
+          {
+            "value": "61200",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "vehicles#1",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "88645",
+            "daysAgo": 360
+          },
+          {
+            "value": "92650",
+            "daysAgo": 271
+          },
+          {
+            "value": "96700",
+            "daysAgo": 181
+          },
+          {
+            "value": "100750",
+            "daysAgo": 91
+          },
+          {
+            "value": "104800",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "vehicles#2",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "11120",
+            "daysAgo": 360
+          },
+          {
+            "value": "12900",
+            "daysAgo": 271
+          },
+          {
+            "value": "14700",
+            "daysAgo": 181
+          },
+          {
+            "value": "16500",
+            "daysAgo": 91
+          },
+          {
+            "value": "18300",
+            "daysAgo": 1
+          }
+        ]
+      }
+    ],
+    "activities": [
+      {
+        "record": "vehicles#0",
+        "type": "service",
+        "daysAgo": 130,
+        "text": "Oil change at Quick Lube; next due at 62,100."
+      },
+      {
+        "record": "vehicles#1",
+        "type": "service",
+        "daysAgo": 50,
+        "text": "Rotated tires and checked brakes."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "dueForService"
+  ]
+}

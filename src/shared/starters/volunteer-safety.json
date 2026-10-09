@@ -1,0 +1,424 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "volunteer-safety",
+  "name": "Youth volunteer safety",
+  "description": "For churches, clubs and youth programs: background checks every 3 years and child safety training every year for everyone who serves with children.",
+  "icon": "church",
+  "group": "Faith and community",
+  "vocab": {
+    "record": {
+      "one": "volunteer",
+      "many": "volunteers",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": false,
+    "summaryReport": true,
+    "handoff": false
+  },
+  "lists": [
+    {
+      "key": "volunteers",
+      "name": "Volunteers",
+      "description": "Everyone who serves with children and youth, with their background checks and training",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Ministry or program",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 170,
+          "config": "{\"options\":[\"Nursery\",\"Children\",\"Youth\",\"Music\",\"Hospitality\",\"Transportation\"]}"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 2,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 3,
+          "width": 200
+        },
+        {
+          "name": "Background check",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "description": "Date of the last background check; due again every 3 years",
+          "config": "{\"alert_rule_name\":\"Every 3 years\",\"log_changes\":true}"
+        },
+        {
+          "name": "Child safety training",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "description": "Date of the last child safety training; due again every year",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "References checked",
+          "column_type": "checkbox",
+          "position": 6,
+          "width": 120
+        },
+        {
+          "name": "Start date",
+          "column_type": "date",
+          "position": 7,
+          "width": 150
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 8,
+          "width": 130,
+          "config": "{\"options\":[\"Active\",\"Paused\",\"Stepped down\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every 3 years",
+          "description": "Due 3 years after the date entered",
+          "interval_months": 36,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    },
+    {
+      "key": "training",
+      "label": "Training",
+      "icon": "🎓",
+      "color": "teal"
+    },
+    {
+      "key": "checkin",
+      "label": "Check-in",
+      "icon": "👋",
+      "color": "green"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "volunteers": [
+        {
+          "Name": "Samuel Rahman",
+          "Ministry or program": "Nursery",
+          "Phone": "555-0126",
+          "Email": "samuel.rahman@example.com",
+          "Background check": {
+            "daysFromToday": -1110
+          },
+          "Child safety training": {
+            "daysFromToday": -356
+          },
+          "References checked": "true",
+          "Start date": {
+            "daysFromToday": -615
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Grace Okafor",
+          "Ministry or program": "Children",
+          "Phone": "555-0133",
+          "Email": "grace.okafor@example.com",
+          "Background check": {
+            "daysFromToday": -1094
+          },
+          "Child safety training": {
+            "daysFromToday": -327
+          },
+          "References checked": "true",
+          "Start date": {
+            "daysFromToday": -63
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Omar Brown",
+          "Ministry or program": "Youth",
+          "Phone": "555-0140",
+          "Email": "omar.brown@example.com",
+          "Background check": {
+            "daysFromToday": -1080
+          },
+          "Child safety training": {
+            "daysFromToday": -255
+          },
+          "References checked": "true",
+          "Start date": {
+            "daysFromToday": -469
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Ministry or program": "Children",
+          "Phone": "555-0147",
+          "Email": "ruth.jackson@example.com",
+          "Background check": {
+            "daysFromToday": -1041
+          },
+          "Child safety training": {
+            "daysFromToday": -65
+          },
+          "References checked": "true",
+          "Start date": {
+            "daysFromToday": -524
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Diego Ferreira",
+          "Ministry or program": "Music",
+          "Phone": "555-0154",
+          "Email": "diego.ferreira@example.com",
+          "Background check": {
+            "daysFromToday": -936
+          },
+          "Child safety training": {
+            "daysFromToday": -365
+          },
+          "References checked": "true",
+          "Start date": {
+            "daysFromToday": -621
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Hannah Walker",
+          "Ministry or program": "Youth",
+          "Phone": "555-0161",
+          "Email": "hannah.walker@example.com",
+          "Background check": {
+            "daysFromToday": -1110
+          },
+          "Child safety training": {
+            "daysFromToday": -356
+          },
+          "References checked": "false",
+          "Start date": {
+            "daysFromToday": -45
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Tyrone Haddad",
+          "Ministry or program": "Nursery",
+          "Phone": "555-0168",
+          "Email": "tyrone.haddad@example.com",
+          "Background check": {
+            "daysFromToday": -1094
+          },
+          "Child safety training": {
+            "daysFromToday": -327
+          },
+          "References checked": "true",
+          "Start date": {
+            "daysFromToday": -241
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Mei Ortiz",
+          "Ministry or program": "Transportation",
+          "Phone": "555-0175",
+          "Email": "mei.ortiz@example.com",
+          "Background check": {
+            "daysFromToday": -1080
+          },
+          "Child safety training": {
+            "daysFromToday": -255
+          },
+          "References checked": "true",
+          "Start date": {
+            "daysFromToday": -503
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Walter Johnson",
+          "Ministry or program": "Children",
+          "Phone": "555-0182",
+          "Email": "walter.johnson@example.com",
+          "Background check": {
+            "daysFromToday": -1041
+          },
+          "Child safety training": {
+            "daysFromToday": -65
+          },
+          "References checked": "true",
+          "Start date": {
+            "daysFromToday": -862
+          },
+          "Status": "Paused"
+        },
+        {
+          "Name": "Yolanda Miller",
+          "Ministry or program": "Hospitality",
+          "Phone": "555-0189",
+          "Email": "yolanda.miller@example.com",
+          "Background check": {
+            "daysFromToday": -936
+          },
+          "Child safety training": {
+            "daysFromToday": -365
+          },
+          "References checked": "true",
+          "Start date": {
+            "daysFromToday": -533
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Ahmed Fischer",
+          "Ministry or program": "Youth",
+          "Email": "ahmed.fischer@example.com",
+          "Background check": {
+            "daysFromToday": -1110
+          },
+          "Child safety training": {
+            "daysFromToday": -356
+          },
+          "References checked": "false",
+          "Start date": {
+            "daysFromToday": -873
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Beatrice O'Brien",
+          "Ministry or program": "Children",
+          "Phone": "555-0103",
+          "Email": "beatrice.obrien@example.com",
+          "Background check": {
+            "daysFromToday": -1094
+          },
+          "Child safety training": {
+            "daysFromToday": -327
+          },
+          "References checked": "true",
+          "Start date": {
+            "daysFromToday": -314
+          },
+          "Status": "Active"
+        }
+      ]
+    },
+    "activities": [
+      {
+        "record": "volunteers#0",
+        "type": "training",
+        "daysAgo": 1,
+        "text": "Completed the online child safety course."
+      },
+      {
+        "record": "volunteers#1",
+        "type": "note",
+        "daysAgo": 8,
+        "text": "Sent the background check consent form."
+      },
+      {
+        "record": "volunteers#1",
+        "type": "training",
+        "daysAgo": 21,
+        "text": "Completed the online child safety course."
+      },
+      {
+        "record": "volunteers#2",
+        "type": "checkin",
+        "daysAgo": 15,
+        "text": "Checked in after the first month serving; going well."
+      },
+      {
+        "record": "volunteers#2",
+        "type": "note",
+        "daysAgo": 28,
+        "text": "Sent the background check consent form."
+      },
+      {
+        "record": "volunteers#3",
+        "type": "training",
+        "daysAgo": 22,
+        "text": "Completed the online child safety course."
+      },
+      {
+        "record": "volunteers#4",
+        "type": "note",
+        "daysAgo": 29,
+        "text": "Sent the background check consent form."
+      },
+      {
+        "record": "volunteers#4",
+        "type": "training",
+        "daysAgo": 42,
+        "text": "Completed the online child safety course."
+      },
+      {
+        "record": "volunteers#5",
+        "type": "checkin",
+        "daysAgo": 36,
+        "text": "Checked in after the first month serving; going well."
+      },
+      {
+        "record": "volunteers#5",
+        "type": "note",
+        "daysAgo": 49,
+        "text": "Sent the background check consent form."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "missingInfo"
+  ]
+}

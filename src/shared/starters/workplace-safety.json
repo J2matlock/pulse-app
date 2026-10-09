@@ -1,0 +1,516 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "workplace-safety",
+  "name": "Workplace safety training",
+  "description": "OSHA-style training records: forklift, first aid, hazard communication, fall protection, respirator fit tests and hearing tests, with what each employee is due for. Pulse is a tracking aid, not your official record system.",
+  "icon": "hard-hat",
+  "group": "Property and safety",
+  "vocab": {
+    "record": {
+      "one": "employee",
+      "many": "employees",
+      "article": "an"
+    },
+    "list": {
+      "one": "roster",
+      "many": "rosters",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": false,
+    "summaryReport": true,
+    "handoff": false
+  },
+  "lists": [
+    {
+      "key": "employees",
+      "name": "Safety roster",
+      "description": "Employees and the safety training each one is due for",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Department",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 140,
+          "is_required": 1,
+          "config": "{\"options\":[\"Warehouse\",\"Production\",\"Maintenance\",\"Shipping\",\"Office\"]}"
+        },
+        {
+          "name": "Hire date",
+          "column_type": "date",
+          "position": 2,
+          "width": 150
+        },
+        {
+          "name": "Forklift certified",
+          "column_type": "date",
+          "position": 3,
+          "width": 150,
+          "description": "Date of the last forklift evaluation; due again every 3 years",
+          "config": "{\"alert_rule_name\":\"Every 3 years\",\"log_changes\":true}"
+        },
+        {
+          "name": "First aid/CPR expires",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Expires (60-day warning)\",\"log_changes\":true}"
+        },
+        {
+          "name": "Hazard communication",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "description": "Date of the last hazard communication training",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Fall protection",
+          "column_type": "date",
+          "position": 6,
+          "width": 150,
+          "description": "Date of the last fall protection training",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Respirator fit test",
+          "column_type": "date",
+          "position": 7,
+          "width": 150,
+          "description": "Date of the last fit test",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Hearing test",
+          "column_type": "date",
+          "position": 8,
+          "width": 150,
+          "description": "Date of the last hearing test",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 9,
+          "width": 120,
+          "config": "{\"options\":[\"Active\",\"On leave\",\"Former\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every 3 years",
+          "description": "Due 3 years after the date entered",
+          "interval_months": 36,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Expires (60-day warning)",
+          "description": "The date entered is when it expires; warns 60, 30, 14 days ahead",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#facc15\",\"label\":\"Renew soon\"},{\"daysBefore\":30,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":14,\"bgClass\":\"#f87171\",\"label\":\"Expiring\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Expires today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Expired\"}]"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    },
+    {
+      "key": "training",
+      "label": "Training",
+      "icon": "🎓",
+      "color": "teal"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "employees": [
+        {
+          "Name": "Priya Bell",
+          "Department": "Warehouse",
+          "Hire date": {
+            "daysFromToday": -361
+          },
+          "Forklift certified": {
+            "daysFromToday": -1100
+          },
+          "First aid/CPR expires": {
+            "daysFromToday": 160
+          },
+          "Hazard communication": {
+            "daysFromToday": -365
+          },
+          "Fall protection": {
+            "daysFromToday": -341
+          },
+          "Hearing test": {
+            "daysFromToday": -365
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Frank Rivera",
+          "Department": "Production",
+          "Hire date": {
+            "daysFromToday": -184
+          },
+          "First aid/CPR expires": {
+            "daysFromToday": -14
+          },
+          "Hazard communication": {
+            "daysFromToday": -356
+          },
+          "Fall protection": {
+            "daysFromToday": -290
+          },
+          "Respirator fit test": {
+            "daysFromToday": -300
+          },
+          "Hearing test": {
+            "daysFromToday": -356
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Department": "Maintenance",
+          "Hire date": {
+            "daysFromToday": -434
+          },
+          "Forklift certified": {
+            "daysFromToday": -900
+          },
+          "First aid/CPR expires": {
+            "daysFromToday": 2
+          },
+          "Hazard communication": {
+            "daysFromToday": -327
+          },
+          "Fall protection": {
+            "daysFromToday": -145
+          },
+          "Respirator fit test": {
+            "daysFromToday": -340
+          },
+          "Hearing test": {
+            "daysFromToday": -327
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Department": "Shipping",
+          "Hire date": {
+            "daysFromToday": -696
+          },
+          "Forklift certified": {
+            "daysFromToday": -400
+          },
+          "First aid/CPR expires": {
+            "daysFromToday": 16
+          },
+          "Hazard communication": {
+            "daysFromToday": -255
+          },
+          "Fall protection": {
+            "daysFromToday": -368
+          },
+          "Hearing test": {
+            "daysFromToday": -255
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Grace Okafor",
+          "Department": "Warehouse",
+          "Hire date": {
+            "daysFromToday": -79
+          },
+          "Forklift certified": {
+            "daysFromToday": -1094
+          },
+          "First aid/CPR expires": {
+            "daysFromToday": 55
+          },
+          "Hazard communication": {
+            "daysFromToday": -65
+          },
+          "Fall protection": {
+            "daysFromToday": -360
+          },
+          "Hearing test": {
+            "daysFromToday": -65
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Omar Brown",
+          "Department": "Office",
+          "Hire date": {
+            "daysFromToday": -104
+          },
+          "First aid/CPR expires": {
+            "daysFromToday": 160
+          },
+          "Hazard communication": {
+            "daysFromToday": -365
+          },
+          "Fall protection": {
+            "daysFromToday": -341
+          },
+          "Hearing test": {
+            "daysFromToday": -365
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Department": "Production",
+          "Hire date": {
+            "daysFromToday": -870
+          },
+          "First aid/CPR expires": {
+            "daysFromToday": -14
+          },
+          "Hazard communication": {
+            "daysFromToday": -356
+          },
+          "Fall protection": {
+            "daysFromToday": -290
+          },
+          "Respirator fit test": {
+            "daysFromToday": -300
+          },
+          "Hearing test": {
+            "daysFromToday": -356
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Diego Ferreira",
+          "Department": "Warehouse",
+          "Hire date": {
+            "daysFromToday": -578
+          },
+          "Forklift certified": {
+            "daysFromToday": -1080
+          },
+          "First aid/CPR expires": {
+            "daysFromToday": 2
+          },
+          "Hazard communication": {
+            "daysFromToday": -327
+          },
+          "Fall protection": {
+            "daysFromToday": -145
+          },
+          "Hearing test": {
+            "daysFromToday": -327
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Hannah Walker",
+          "Department": "Maintenance",
+          "Hire date": {
+            "daysFromToday": -126
+          },
+          "Forklift certified": {
+            "daysFromToday": -900
+          },
+          "First aid/CPR expires": {
+            "daysFromToday": 16
+          },
+          "Hazard communication": {
+            "daysFromToday": -255
+          },
+          "Fall protection": {
+            "daysFromToday": -368
+          },
+          "Respirator fit test": {
+            "daysFromToday": -100
+          },
+          "Hearing test": {
+            "daysFromToday": -255
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Tyrone Haddad",
+          "Department": "Shipping",
+          "Hire date": {
+            "daysFromToday": -404
+          },
+          "Forklift certified": {
+            "daysFromToday": -400
+          },
+          "First aid/CPR expires": {
+            "daysFromToday": 55
+          },
+          "Hazard communication": {
+            "daysFromToday": -65
+          },
+          "Fall protection": {
+            "daysFromToday": -360
+          },
+          "Hearing test": {
+            "daysFromToday": -65
+          },
+          "Status": "On leave"
+        },
+        {
+          "Name": "Mei Ortiz",
+          "Department": "Production",
+          "Hire date": {
+            "daysFromToday": -626
+          },
+          "First aid/CPR expires": {
+            "daysFromToday": 160
+          },
+          "Hazard communication": {
+            "daysFromToday": -365
+          },
+          "Fall protection": {
+            "daysFromToday": -341
+          },
+          "Respirator fit test": {
+            "daysFromToday": -370
+          },
+          "Hearing test": {
+            "daysFromToday": -365
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Walter Johnson",
+          "Department": "Office",
+          "Hire date": {
+            "daysFromToday": -89
+          },
+          "First aid/CPR expires": {
+            "daysFromToday": -14
+          },
+          "Hazard communication": {
+            "daysFromToday": -356
+          },
+          "Fall protection": {
+            "daysFromToday": -290
+          },
+          "Hearing test": {
+            "daysFromToday": -356
+          },
+          "Status": "Active"
+        }
+      ]
+    },
+    "activities": [
+      {
+        "record": "employees#0",
+        "type": "training",
+        "daysAgo": 1,
+        "text": "Completed the annual hazard communication class."
+      },
+      {
+        "record": "employees#1",
+        "type": "training",
+        "daysAgo": 8,
+        "text": "Fall protection refresher done on site."
+      },
+      {
+        "record": "employees#1",
+        "type": "training",
+        "daysAgo": 21,
+        "text": "Completed the annual hazard communication class."
+      },
+      {
+        "record": "employees#2",
+        "type": "note",
+        "daysAgo": 15,
+        "text": "Scheduled for the next forklift evaluation."
+      },
+      {
+        "record": "employees#2",
+        "type": "training",
+        "daysAgo": 28,
+        "text": "Fall protection refresher done on site."
+      },
+      {
+        "record": "employees#3",
+        "type": "training",
+        "daysAgo": 22,
+        "text": "Completed the annual hazard communication class."
+      },
+      {
+        "record": "employees#4",
+        "type": "training",
+        "daysAgo": 29,
+        "text": "Fall protection refresher done on site."
+      },
+      {
+        "record": "employees#4",
+        "type": "training",
+        "daysAgo": 42,
+        "text": "Completed the annual hazard communication class."
+      },
+      {
+        "record": "employees#5",
+        "type": "note",
+        "daysAgo": 36,
+        "text": "Scheduled for the next forklift evaluation."
+      },
+      {
+        "record": "employees#5",
+        "type": "training",
+        "daysAgo": 49,
+        "text": "Fall protection refresher done on site."
+      }
+    ]
+  },
+  "helpTips": [
+    {
+      "title": "Printing training status",
+      "body": "Reports → Build a report: report on deadlines, group by the rule, and export it as a PDF for an inspector or your insurer."
+    }
+  ],
+  "dashboardCards": [
+    "summary",
+    "missingInfo"
+  ]
+}

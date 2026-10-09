@@ -1,0 +1,1386 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "auto-service",
+  "name": "Auto & equipment service",
+  "description": "For repair shops and service businesses: customers, their vehicles or equipment, and jobs on a board from estimate to pickup, with oil-change forecasts from mileage and a follow-up call 3 days after pickup.",
+  "icon": "wrench",
+  "group": "Trades and service",
+  "vocab": {
+    "record": {
+      "one": "record",
+      "many": "records",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false,
+    "links": true,
+    "stages": true,
+    "measures": false
+  },
+  "lists": [
+    {
+      "key": "customers",
+      "name": "Customers",
+      "description": "People and businesses you do work for",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "customer",
+          "many": "customers",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 1,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 2,
+          "width": 200
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 3,
+          "width": 160
+        },
+        {
+          "name": "Preferred contact",
+          "column_type": "dropdown",
+          "position": 4,
+          "width": 150,
+          "config": "{\"options\":[\"Call\",\"Text\",\"Email\"]}"
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 5,
+          "width": 220
+        }
+      ]
+    },
+    {
+      "key": "vehicles",
+      "name": "Vehicles",
+      "description": "Vehicles and equipment, with their owners and service due",
+      "kind": "thing",
+      "vocab": {
+        "record": {
+          "one": "vehicle",
+          "many": "vehicles",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Year",
+          "column_type": "number",
+          "position": 0,
+          "width": 90
+        },
+        {
+          "name": "Make",
+          "column_type": "text",
+          "position": 1,
+          "width": 120
+        },
+        {
+          "name": "Model",
+          "column_type": "text",
+          "position": 2,
+          "width": 130
+        },
+        {
+          "name": "Plate",
+          "column_type": "text",
+          "position": 3,
+          "width": 110
+        },
+        {
+          "name": "VIN",
+          "column_type": "text",
+          "position": 4,
+          "width": 190
+        },
+        {
+          "name": "Odometer",
+          "column_type": "number",
+          "position": 5,
+          "width": 120
+        },
+        {
+          "name": "Odometer at last oil change",
+          "column_type": "number",
+          "position": 6,
+          "width": 170
+        },
+        {
+          "name": "Last oil change",
+          "column_type": "date",
+          "position": 7,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Oil change\",\"log_changes\":true}"
+        },
+        {
+          "name": "State inspection",
+          "column_type": "date",
+          "position": 8,
+          "width": 150,
+          "description": "Date of the last state inspection",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Oil change",
+          "description": "Every 5,000 miles or 6 months, whichever comes first",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "meter",
+          "rule_config": "{\"kind\":\"meter\",\"readingColumnId\":{\"column\":\"Odometer\"},\"lastServiceReadingColumnId\":{\"column\":\"Odometer at last oil change\"},\"every\":5000,\"unit\":\"mi\",\"timeFallback\":{\"months\":6},\"typicalPerDay\":35}"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ],
+      "displayFormat": "{Year} {Make} {Model}",
+      "links": [
+        {
+          "to": "customers",
+          "label_forward": "Owner",
+          "label_backward": "Vehicles",
+          "cardinality": "many_to_one"
+        }
+      ]
+    },
+    {
+      "key": "jobs",
+      "name": "Jobs",
+      "description": "Work orders from estimate to pickup",
+      "kind": "job",
+      "vocab": {
+        "record": {
+          "one": "job",
+          "many": "jobs",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Job",
+          "column_type": "text",
+          "position": 0,
+          "width": 220,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Stage",
+          "column_type": "status",
+          "position": 1,
+          "width": 150,
+          "config": "{\"options\":[{\"label\":\"Estimate\",\"color\":\"#64748b\"},{\"label\":\"Approved\",\"color\":\"#3b82f6\"},{\"label\":\"Waiting on parts\",\"color\":\"#f59e0b\"},{\"label\":\"In progress\",\"color\":\"#f97316\"},{\"label\":\"Ready\",\"color\":\"#14b8a6\"},{\"label\":\"Picked up\",\"color\":\"#22c55e\"}]}"
+        },
+        {
+          "name": "Concern",
+          "column_type": "notes",
+          "position": 2,
+          "width": 220,
+          "description": "What the customer asked for, in their words"
+        },
+        {
+          "name": "Estimate",
+          "column_type": "currency",
+          "position": 3,
+          "width": 120
+        },
+        {
+          "name": "Promised",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "description": "When you told the customer it would be ready",
+          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
+          "name": "Picked up on",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "description": "Filled in when the job moves to Picked up"
+        },
+        {
+          "name": "Follow-up called",
+          "column_type": "date",
+          "position": 6,
+          "width": 150,
+          "description": "Date you called to check everything is OK",
+          "config": "{\"alert_rule_name\":\"Follow-up call\",\"log_changes\":true}"
+        },
+        {
+          "name": "Labor hours",
+          "column_type": "number",
+          "position": 7,
+          "width": 110
+        },
+        {
+          "name": "Invoice total",
+          "column_type": "currency",
+          "position": 8,
+          "width": 130
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Due date",
+          "description": "The date entered is the deadline",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Follow-up call",
+          "description": "Call the customer 3 days after pickup",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\":\"relative\",\"anchorColumnId\":{\"column\":\"Picked up on\"},\"offset\":{\"days\":3,\"direction\":\"after\"}}"
+        }
+      ],
+      "links": [
+        {
+          "to": "vehicles",
+          "label_forward": "Vehicle",
+          "label_backward": "Jobs",
+          "cardinality": "many_to_one"
+        }
+      ],
+      "stage": {
+        "column": "Stage",
+        "options": [
+          {
+            "value": "Estimate",
+            "color": "slate"
+          },
+          {
+            "value": "Approved",
+            "color": "blue"
+          },
+          {
+            "value": "Waiting on parts",
+            "color": "amber"
+          },
+          {
+            "value": "In progress",
+            "color": "orange"
+          },
+          {
+            "value": "Ready",
+            "color": "teal"
+          },
+          {
+            "value": "Picked up",
+            "color": "green",
+            "done": true,
+            "onEnter": {
+              "stampColumn": "Picked up on",
+              "activityType": "note"
+            }
+          }
+        ],
+        "hideDoneAfterDays": 14
+      }
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    },
+    {
+      "key": "call",
+      "label": "Call",
+      "icon": "📞",
+      "color": "blue"
+    },
+    {
+      "key": "text",
+      "label": "Text",
+      "icon": "💬",
+      "color": "teal"
+    }
+  ],
+  "documentTemplates": [
+    {
+      "name": "Oil change reminder",
+      "content": "{{today}}\n\nHi {{linked:Owner.Name}},\n\nYour {{name}} is coming up on its next oil change: {{deadline:Last oil change}}.\n\nGive us a call or reply to book a time.\n\nThanks,\n\n{{my_name}}"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "customers": [
+        {
+          "Name": "Robert Dubois",
+          "Phone": "555-0113",
+          "Email": "robert.dubois@example.com",
+          "Address": "100 Maple Ave\nSpringfield",
+          "Preferred contact": "Text"
+        },
+        {
+          "Name": "Linh Smith",
+          "Phone": "555-0120",
+          "Email": "linh.smith@example.com",
+          "Address": "137 Birch Lane\nSpringfield",
+          "Preferred contact": "Call",
+          "Notes": "Prefers mornings"
+        },
+        {
+          "Name": "Dorothy Kowalski",
+          "Phone": "555-0127",
+          "Email": "dorothy.kowalski@example.com",
+          "Address": "174 Cedar Court\nSpringfield",
+          "Preferred contact": "Text"
+        },
+        {
+          "Name": "Carlos Wong",
+          "Phone": "555-0134",
+          "Email": "carlos.wong@example.com",
+          "Address": "211 Willow Way\nSpringfield",
+          "Preferred contact": "Email",
+          "Notes": "Fleet account — bill monthly"
+        },
+        {
+          "Name": "Priya Bell",
+          "Phone": "555-0141",
+          "Email": "priya.bell@example.com",
+          "Address": "248 Elm Street\nSpringfield",
+          "Preferred contact": "Call"
+        },
+        {
+          "Name": "Frank Rivera",
+          "Phone": "555-0148",
+          "Email": "frank.rivera@example.com",
+          "Address": "285 Pine Road\nSpringfield",
+          "Preferred contact": "Text"
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Phone": "555-0155",
+          "Email": "keisha.thompson@example.com",
+          "Address": "322 Oak Terrace\nSpringfield",
+          "Preferred contact": "Call",
+          "Notes": "Spare key on file"
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Phone": "555-0162",
+          "Email": "samuel.rahman@example.com",
+          "Address": "359 Aspen Drive\nSpringfield",
+          "Preferred contact": "Email"
+        }
+      ],
+      "vehicles": [
+        {
+          "Year": 2018,
+          "Make": "Honda",
+          "Model": "CR-V",
+          "Plate": "KDL-2140",
+          "VIN": "1HGAM826400X12040",
+          "Odometer": 61200,
+          "Odometer at last oil change": 57100,
+          "Last oil change": {
+            "daysFromToday": -128
+          },
+          "State inspection": {
+            "daysFromToday": -330
+          }
+        },
+        {
+          "Year": 2014,
+          "Make": "Toyota",
+          "Model": "Corolla",
+          "Plate": "MRT-2453",
+          "VIN": "1HGBM833711Y12049",
+          "Odometer": 128400,
+          "Odometer at last oil change": 122800,
+          "Last oil change": {
+            "daysFromToday": -186
+          },
+          "State inspection": {
+            "daysFromToday": -200
+          }
+        },
+        {
+          "Year": 2020,
+          "Make": "Ford",
+          "Model": "F-150",
+          "Plate": "BXZ-2766",
+          "VIN": "1HGCM841022Z12059",
+          "Odometer": 44100,
+          "Odometer at last oil change": 41600,
+          "Last oil change": {
+            "daysFromToday": -55
+          },
+          "State inspection": {
+            "daysFromToday": -370
+          }
+        },
+        {
+          "Year": 2016,
+          "Make": "Subaru",
+          "Model": "Outback",
+          "Plate": "PLQ-3079",
+          "VIN": "1HGDM848333W12069",
+          "Odometer": 92300,
+          "Odometer at last oil change": 87600,
+          "Last oil change": {
+            "daysFromToday": -167
+          },
+          "State inspection": {
+            "daysFromToday": -100
+          }
+        },
+        {
+          "Year": 2012,
+          "Make": "Chevrolet",
+          "Model": "Malibu",
+          "Plate": "HWS-3392",
+          "VIN": "1HGEM855644V12078",
+          "Odometer": 151800,
+          "Odometer at last oil change": 150900,
+          "Last oil change": {
+            "daysFromToday": -36
+          },
+          "State inspection": {
+            "daysFromToday": -300
+          }
+        },
+        {
+          "Year": 2021,
+          "Make": "Toyota",
+          "Model": "RAV4",
+          "Plate": "KDL-3705",
+          "VIN": "1HGFM862955X12088",
+          "Odometer": 23500,
+          "Odometer at last oil change": 20400,
+          "Last oil change": {
+            "daysFromToday": -77
+          },
+          "State inspection": {
+            "daysFromToday": -30
+          }
+        },
+        {
+          "Year": 2015,
+          "Make": "Ford",
+          "Model": "Transit",
+          "Plate": "MRT-4018",
+          "VIN": "1HGGM870266Y12098",
+          "Odometer": 133900,
+          "Odometer at last oil change": 128700,
+          "Last oil change": {
+            "daysFromToday": -74
+          },
+          "State inspection": {
+            "daysFromToday": -360
+          }
+        },
+        {
+          "Year": 2019,
+          "Make": "Hyundai",
+          "Model": "Elantra",
+          "Plate": "BXZ-4331",
+          "VIN": "1HGHM877577Z12107",
+          "Odometer": 57000,
+          "Odometer at last oil change": 55200,
+          "Last oil change": {
+            "daysFromToday": -51
+          },
+          "State inspection": {
+            "daysFromToday": -150
+          }
+        },
+        {
+          "Year": 2017,
+          "Make": "Jeep",
+          "Model": "Wrangler",
+          "Plate": "PLQ-4644",
+          "VIN": "1HGJM884888W12117",
+          "Odometer": 70400,
+          "Odometer at last oil change": 66000,
+          "Last oil change": {
+            "daysFromToday": -200
+          },
+          "State inspection": {
+            "daysFromToday": -250
+          }
+        },
+        {
+          "Year": 2013,
+          "Make": "Honda",
+          "Model": "Accord",
+          "Plate": "HWS-4957",
+          "VIN": "1HGKM892199V12127",
+          "Odometer": 141200,
+          "Odometer at last oil change": 137700,
+          "Last oil change": {
+            "daysFromToday": -116
+          },
+          "State inspection": {
+            "daysFromToday": -340
+          }
+        }
+      ],
+      "jobs": [
+        {
+          "Job": "Brakes squeaking",
+          "Stage": "In progress",
+          "Concern": "Squeal when stopping, worse in the morning",
+          "Estimate": 380,
+          "Promised": {
+            "daysFromToday": 1
+          },
+          "Labor hours": 1.5
+        },
+        {
+          "Job": "Oil change and rotation",
+          "Stage": "Ready",
+          "Estimate": 89,
+          "Promised": {
+            "daysFromToday": 0
+          },
+          "Labor hours": 0.5
+        },
+        {
+          "Job": "Check engine light",
+          "Stage": "Waiting on parts",
+          "Concern": "Light came on after fueling",
+          "Estimate": 640,
+          "Promised": {
+            "daysFromToday": 3
+          },
+          "Labor hours": 2.0
+        },
+        {
+          "Job": "State inspection",
+          "Stage": "Estimate",
+          "Concern": "Due this month",
+          "Estimate": 35,
+          "Promised": {
+            "daysFromToday": 2
+          },
+          "Labor hours": 0.5
+        },
+        {
+          "Job": "Replace timing belt",
+          "Stage": "Approved",
+          "Concern": "At 100k, belt never done",
+          "Estimate": 920,
+          "Promised": {
+            "daysFromToday": 5
+          },
+          "Labor hours": 4.0
+        },
+        {
+          "Job": "AC not cold",
+          "Stage": "Picked up",
+          "Concern": "Blows warm after 10 minutes",
+          "Estimate": 280,
+          "Picked up on": {
+            "daysFromToday": -6
+          },
+          "Follow-up called": {
+            "daysFromToday": -3
+          },
+          "Labor hours": 1.5,
+          "Invoice total": 295.4
+        },
+        {
+          "Job": "Tire replacement",
+          "Stage": "Picked up",
+          "Concern": "Front tires worn",
+          "Estimate": 760,
+          "Picked up on": {
+            "daysFromToday": -2
+          },
+          "Labor hours": 1.0,
+          "Invoice total": 781.2
+        },
+        {
+          "Job": "Battery dead",
+          "Stage": "Picked up",
+          "Concern": "Wouldn't start this morning",
+          "Estimate": 210,
+          "Picked up on": {
+            "daysFromToday": -1
+          },
+          "Labor hours": 0.5,
+          "Invoice total": 219.99
+        },
+        {
+          "Job": "Noise from front end",
+          "Stage": "In progress",
+          "Concern": "Clunk over bumps",
+          "Estimate": 450,
+          "Promised": {
+            "daysFromToday": -1
+          },
+          "Labor hours": 2.5
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "vehicles#0",
+        "to": "customers#0",
+        "link": "Owner"
+      },
+      {
+        "from": "vehicles#1",
+        "to": "customers#1",
+        "link": "Owner"
+      },
+      {
+        "from": "vehicles#2",
+        "to": "customers#2",
+        "link": "Owner"
+      },
+      {
+        "from": "vehicles#3",
+        "to": "customers#3",
+        "link": "Owner"
+      },
+      {
+        "from": "vehicles#4",
+        "to": "customers#3",
+        "link": "Owner"
+      },
+      {
+        "from": "vehicles#5",
+        "to": "customers#4",
+        "link": "Owner"
+      },
+      {
+        "from": "vehicles#6",
+        "to": "customers#5",
+        "link": "Owner"
+      },
+      {
+        "from": "vehicles#7",
+        "to": "customers#6",
+        "link": "Owner"
+      },
+      {
+        "from": "vehicles#8",
+        "to": "customers#7",
+        "link": "Owner"
+      },
+      {
+        "from": "vehicles#9",
+        "to": "customers#1",
+        "link": "Owner"
+      },
+      {
+        "from": "jobs#0",
+        "to": "vehicles#0",
+        "link": "Vehicle"
+      },
+      {
+        "from": "jobs#1",
+        "to": "vehicles#2",
+        "link": "Vehicle"
+      },
+      {
+        "from": "jobs#2",
+        "to": "vehicles#4",
+        "link": "Vehicle"
+      },
+      {
+        "from": "jobs#3",
+        "to": "vehicles#5",
+        "link": "Vehicle"
+      },
+      {
+        "from": "jobs#4",
+        "to": "vehicles#1",
+        "link": "Vehicle"
+      },
+      {
+        "from": "jobs#5",
+        "to": "vehicles#7",
+        "link": "Vehicle"
+      },
+      {
+        "from": "jobs#6",
+        "to": "vehicles#3",
+        "link": "Vehicle"
+      },
+      {
+        "from": "jobs#7",
+        "to": "vehicles#9",
+        "link": "Vehicle"
+      },
+      {
+        "from": "jobs#8",
+        "to": "vehicles#8",
+        "link": "Vehicle"
+      }
+    ],
+    "history": [
+      {
+        "record": "vehicles#0",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "43952",
+            "daysAgo": 540
+          },
+          {
+            "value": "46800",
+            "daysAgo": 451
+          },
+          {
+            "value": "49680",
+            "daysAgo": 361
+          },
+          {
+            "value": "52560",
+            "daysAgo": 271
+          },
+          {
+            "value": "55440",
+            "daysAgo": 181
+          },
+          {
+            "value": "58320",
+            "daysAgo": 91
+          },
+          {
+            "value": "61200",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "vehicles#1",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "112230",
+            "daysAgo": 540
+          },
+          {
+            "value": "114900",
+            "daysAgo": 451
+          },
+          {
+            "value": "117600",
+            "daysAgo": 361
+          },
+          {
+            "value": "120300",
+            "daysAgo": 271
+          },
+          {
+            "value": "123000",
+            "daysAgo": 181
+          },
+          {
+            "value": "125700",
+            "daysAgo": 91
+          },
+          {
+            "value": "128400",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "vehicles#2",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "19845",
+            "daysAgo": 540
+          },
+          {
+            "value": "23850",
+            "daysAgo": 451
+          },
+          {
+            "value": "27900",
+            "daysAgo": 361
+          },
+          {
+            "value": "31950",
+            "daysAgo": 271
+          },
+          {
+            "value": "36000",
+            "daysAgo": 181
+          },
+          {
+            "value": "40050",
+            "daysAgo": 91
+          },
+          {
+            "value": "44100",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "vehicles#3",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "77208",
+            "daysAgo": 540
+          },
+          {
+            "value": "79700",
+            "daysAgo": 451
+          },
+          {
+            "value": "82220",
+            "daysAgo": 361
+          },
+          {
+            "value": "84740",
+            "daysAgo": 271
+          },
+          {
+            "value": "87260",
+            "daysAgo": 181
+          },
+          {
+            "value": "89780",
+            "daysAgo": 91
+          },
+          {
+            "value": "92300",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "vehicles#4",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "138325",
+            "daysAgo": 540
+          },
+          {
+            "value": "140550",
+            "daysAgo": 451
+          },
+          {
+            "value": "142800",
+            "daysAgo": 361
+          },
+          {
+            "value": "145050",
+            "daysAgo": 271
+          },
+          {
+            "value": "147300",
+            "daysAgo": 181
+          },
+          {
+            "value": "149550",
+            "daysAgo": 91
+          },
+          {
+            "value": "151800",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "vehicles#5",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "1940",
+            "daysAgo": 540
+          },
+          {
+            "value": "5500",
+            "daysAgo": 451
+          },
+          {
+            "value": "9100",
+            "daysAgo": 361
+          },
+          {
+            "value": "12700",
+            "daysAgo": 271
+          },
+          {
+            "value": "16300",
+            "daysAgo": 181
+          },
+          {
+            "value": "19900",
+            "daysAgo": 91
+          },
+          {
+            "value": "23500",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "vehicles#6",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "96170",
+            "daysAgo": 540
+          },
+          {
+            "value": "102400",
+            "daysAgo": 451
+          },
+          {
+            "value": "108700",
+            "daysAgo": 361
+          },
+          {
+            "value": "115000",
+            "daysAgo": 271
+          },
+          {
+            "value": "121300",
+            "daysAgo": 181
+          },
+          {
+            "value": "127600",
+            "daysAgo": 91
+          },
+          {
+            "value": "133900",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "vehicles#7",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "38135",
+            "daysAgo": 540
+          },
+          {
+            "value": "41250",
+            "daysAgo": 451
+          },
+          {
+            "value": "44400",
+            "daysAgo": 361
+          },
+          {
+            "value": "47550",
+            "daysAgo": 271
+          },
+          {
+            "value": "50700",
+            "daysAgo": 181
+          },
+          {
+            "value": "53850",
+            "daysAgo": 91
+          },
+          {
+            "value": "57000",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "vehicles#8",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "58542",
+            "daysAgo": 540
+          },
+          {
+            "value": "60500",
+            "daysAgo": 451
+          },
+          {
+            "value": "62480",
+            "daysAgo": 361
+          },
+          {
+            "value": "64460",
+            "daysAgo": 271
+          },
+          {
+            "value": "66440",
+            "daysAgo": 181
+          },
+          {
+            "value": "68420",
+            "daysAgo": 91
+          },
+          {
+            "value": "70400",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "vehicles#9",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "125030",
+            "daysAgo": 540
+          },
+          {
+            "value": "127700",
+            "daysAgo": 451
+          },
+          {
+            "value": "130400",
+            "daysAgo": 361
+          },
+          {
+            "value": "133100",
+            "daysAgo": 271
+          },
+          {
+            "value": "135800",
+            "daysAgo": 181
+          },
+          {
+            "value": "138500",
+            "daysAgo": 91
+          },
+          {
+            "value": "141200",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "jobs#0",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Estimate",
+            "daysAgo": 8
+          },
+          {
+            "value": "Approved",
+            "daysAgo": 6
+          },
+          {
+            "value": "Waiting on parts",
+            "daysAgo": 4
+          },
+          {
+            "value": "In progress",
+            "daysAgo": 2
+          }
+        ]
+      },
+      {
+        "record": "jobs#1",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Estimate",
+            "daysAgo": 10
+          },
+          {
+            "value": "Approved",
+            "daysAgo": 8
+          },
+          {
+            "value": "Waiting on parts",
+            "daysAgo": 6
+          },
+          {
+            "value": "In progress",
+            "daysAgo": 4
+          },
+          {
+            "value": "Ready",
+            "daysAgo": 2
+          }
+        ]
+      },
+      {
+        "record": "jobs#2",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Estimate",
+            "daysAgo": 6
+          },
+          {
+            "value": "Approved",
+            "daysAgo": 4
+          },
+          {
+            "value": "Waiting on parts",
+            "daysAgo": 2
+          }
+        ]
+      },
+      {
+        "record": "jobs#3",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Estimate",
+            "daysAgo": 2
+          }
+        ]
+      },
+      {
+        "record": "jobs#4",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Estimate",
+            "daysAgo": 4
+          },
+          {
+            "value": "Approved",
+            "daysAgo": 2
+          }
+        ]
+      },
+      {
+        "record": "jobs#5",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Estimate",
+            "daysAgo": 12
+          },
+          {
+            "value": "Approved",
+            "daysAgo": 10
+          },
+          {
+            "value": "Waiting on parts",
+            "daysAgo": 8
+          },
+          {
+            "value": "In progress",
+            "daysAgo": 6
+          },
+          {
+            "value": "Ready",
+            "daysAgo": 4
+          },
+          {
+            "value": "Picked up",
+            "daysAgo": 2
+          }
+        ]
+      },
+      {
+        "record": "jobs#6",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Estimate",
+            "daysAgo": 12
+          },
+          {
+            "value": "Approved",
+            "daysAgo": 10
+          },
+          {
+            "value": "Waiting on parts",
+            "daysAgo": 8
+          },
+          {
+            "value": "In progress",
+            "daysAgo": 6
+          },
+          {
+            "value": "Ready",
+            "daysAgo": 4
+          },
+          {
+            "value": "Picked up",
+            "daysAgo": 2
+          }
+        ]
+      },
+      {
+        "record": "jobs#7",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Estimate",
+            "daysAgo": 12
+          },
+          {
+            "value": "Approved",
+            "daysAgo": 10
+          },
+          {
+            "value": "Waiting on parts",
+            "daysAgo": 8
+          },
+          {
+            "value": "In progress",
+            "daysAgo": 6
+          },
+          {
+            "value": "Ready",
+            "daysAgo": 4
+          },
+          {
+            "value": "Picked up",
+            "daysAgo": 2
+          }
+        ]
+      },
+      {
+        "record": "jobs#8",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Estimate",
+            "daysAgo": 8
+          },
+          {
+            "value": "Approved",
+            "daysAgo": 6
+          },
+          {
+            "value": "Waiting on parts",
+            "daysAgo": 4
+          },
+          {
+            "value": "In progress",
+            "daysAgo": 2
+          }
+        ]
+      }
+    ],
+    "activities": [
+      {
+        "record": "jobs#0",
+        "type": "call",
+        "daysAgo": 1,
+        "text": "Called with the estimate; approved over the phone."
+      },
+      {
+        "record": "jobs#1",
+        "type": "note",
+        "daysAgo": 8,
+        "text": "Parts ordered; arriving Thursday."
+      },
+      {
+        "record": "jobs#1",
+        "type": "call",
+        "daysAgo": 21,
+        "text": "Called with the estimate; approved over the phone."
+      },
+      {
+        "record": "jobs#2",
+        "type": "text",
+        "daysAgo": 15,
+        "text": "Texted that it's ready for pickup."
+      },
+      {
+        "record": "jobs#2",
+        "type": "note",
+        "daysAgo": 28,
+        "text": "Parts ordered; arriving Thursday."
+      },
+      {
+        "record": "jobs#3",
+        "type": "call",
+        "daysAgo": 22,
+        "text": "Called with the estimate; approved over the phone."
+      },
+      {
+        "record": "jobs#4",
+        "type": "note",
+        "daysAgo": 29,
+        "text": "Parts ordered; arriving Thursday."
+      },
+      {
+        "record": "jobs#4",
+        "type": "call",
+        "daysAgo": 42,
+        "text": "Called with the estimate; approved over the phone."
+      },
+      {
+        "record": "jobs#5",
+        "type": "text",
+        "daysAgo": 36,
+        "text": "Texted that it's ready for pickup."
+      },
+      {
+        "record": "jobs#5",
+        "type": "note",
+        "daysAgo": 49,
+        "text": "Parts ordered; arriving Thursday."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "stages",
+    "dueForService",
+    "missingInfo"
+  ]
+}

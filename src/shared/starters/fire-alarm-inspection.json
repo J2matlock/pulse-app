@@ -1,0 +1,703 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "fire-alarm-inspection",
+  "name": "Fire & alarm inspection",
+  "description": "For fire protection and alarm companies: customers, their sites and every device at each site, with yearly inspections and 5-year hydrostatic tests on extinguishers, and inspection certificates kept with each site.",
+  "icon": "shield-check",
+  "group": "Property and safety",
+  "vocab": {
+    "record": {
+      "one": "record",
+      "many": "records",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false,
+    "links": true,
+    "attachments": true
+  },
+  "lists": [
+    {
+      "key": "customers",
+      "name": "Customers",
+      "description": "Businesses and building owners you inspect for",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "customer",
+          "many": "customers",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Customer",
+          "column_type": "text",
+          "position": 0,
+          "width": 210,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Contact person",
+          "column_type": "text",
+          "position": 1,
+          "width": 160
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 2,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 3,
+          "width": 200
+        },
+        {
+          "name": "Billing address",
+          "column_type": "address",
+          "position": 4,
+          "width": 160
+        },
+        {
+          "name": "Contract",
+          "column_type": "dropdown",
+          "position": 5,
+          "width": 140,
+          "config": "{\"options\":[\"Annual\",\"Semi-annual\",\"Quarterly\",\"Call-out only\"]}"
+        }
+      ]
+    },
+    {
+      "key": "sites",
+      "name": "Sites",
+      "description": "Buildings and locations",
+      "kind": "thing",
+      "vocab": {
+        "record": {
+          "one": "site",
+          "many": "sites",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Site",
+          "column_type": "text",
+          "position": 0,
+          "width": 210,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 1,
+          "width": 160,
+          "is_required": 1
+        },
+        {
+          "name": "Monitoring account",
+          "column_type": "text",
+          "position": 2,
+          "width": 160
+        },
+        {
+          "name": "Last inspection",
+          "column_type": "date",
+          "position": 3,
+          "width": 150,
+          "description": "Date of the last full inspection",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Access notes",
+          "column_type": "notes",
+          "position": 4,
+          "width": 220,
+          "description": "Keys, codes, who to ask for"
+        },
+        {
+          "name": "Certificates",
+          "column_type": "file_count",
+          "position": 5,
+          "width": 130,
+          "description": "How many inspection certificates and reports are in Files on the site's page"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ],
+      "links": [
+        {
+          "to": "customers",
+          "label_forward": "Customer",
+          "label_backward": "Sites",
+          "cardinality": "many_to_one"
+        }
+      ]
+    },
+    {
+      "key": "devices",
+      "name": "Devices",
+      "description": "Extinguishers, detectors, panels and systems at each site",
+      "kind": "thing",
+      "vocab": {
+        "record": {
+          "one": "device",
+          "many": "devices",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Device",
+          "column_type": "text",
+          "position": 0,
+          "width": 180,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Type",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 170,
+          "config": "{\"options\":[\"Fire extinguisher\",\"Smoke detector\",\"Sprinkler system\",\"Alarm panel\",\"Emergency light\",\"Kitchen hood system\"]}"
+        },
+        {
+          "name": "Location",
+          "column_type": "text",
+          "position": 2,
+          "width": 170
+        },
+        {
+          "name": "Serial number",
+          "column_type": "text",
+          "position": 3,
+          "width": 150
+        },
+        {
+          "name": "Installed",
+          "column_type": "date",
+          "position": 4,
+          "width": 150
+        },
+        {
+          "name": "Last inspection",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "description": "Date of the last inspection or service",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Hydrostatic test",
+          "column_type": "date",
+          "position": 6,
+          "width": 150,
+          "description": "Extinguishers: date of the last hydrostatic test; due every 5 years",
+          "config": "{\"alert_rule_name\":\"Every 5 years\",\"log_changes\":true}"
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 7,
+          "width": 130,
+          "config": "{\"options\":[\"OK\",\"Needs repair\",\"Replaced\",\"Removed\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Every 5 years",
+          "description": "Due 5 years after the date entered",
+          "interval_months": 60,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ],
+      "links": [
+        {
+          "to": "sites",
+          "label_forward": "Site",
+          "label_backward": "Devices",
+          "cardinality": "many_to_one"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    },
+    {
+      "key": "inspection",
+      "label": "Inspection",
+      "icon": "🔍",
+      "color": "orange"
+    },
+    {
+      "key": "repair",
+      "label": "Repair",
+      "icon": "🛠️",
+      "color": "red"
+    }
+  ],
+  "documentTemplates": [
+    {
+      "name": "Inspection due notice",
+      "content": "{{today}}\n\n{{linked:Customer.Contact person}},\n\nThe yearly fire and life safety inspection at {{name}} is coming due: {{deadline:Last inspection}}.\n\nPlease call us to schedule a visit.\n\nThank you,\n\n{{my_name}}"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "customers": [
+        {
+          "Customer": "Hilltop Bakery",
+          "Contact person": "Linh Smith",
+          "Phone": "555-0126",
+          "Email": "hilltop.bakery@example.com",
+          "Billing address": "200 Maple Ave\nSpringfield",
+          "Contract": "Annual"
+        },
+        {
+          "Customer": "Riverside Apartments",
+          "Contact person": "Dorothy Kowalski",
+          "Phone": "555-0133",
+          "Email": "riverside.apartments@example.com",
+          "Billing address": "255 Birch Lane\nSpringfield",
+          "Contract": "Semi-annual"
+        },
+        {
+          "Customer": "Lakeside Dental",
+          "Contact person": "Carlos Wong",
+          "Phone": "555-0140",
+          "Email": "lakeside.dental@example.com",
+          "Billing address": "310 Cedar Court\nSpringfield",
+          "Contract": "Annual"
+        },
+        {
+          "Customer": "Metro Storage",
+          "Contact person": "Priya Bell",
+          "Phone": "555-0147",
+          "Email": "metro.storage@example.com",
+          "Billing address": "365 Willow Way\nSpringfield",
+          "Contract": "Quarterly"
+        },
+        {
+          "Customer": "Corner Market",
+          "Contact person": "Frank Rivera",
+          "Phone": "555-0154",
+          "Email": "corner.market@example.com",
+          "Billing address": "420 Elm Street\nSpringfield",
+          "Contract": "Call-out only"
+        }
+      ],
+      "sites": [
+        {
+          "Site": "Hilltop Bakery – Main St",
+          "Address": "10 Cedar Court\nSpringfield",
+          "Monitoring account": "MON-30410",
+          "Last inspection": {
+            "daysFromToday": -340
+          },
+          "Access notes": "Back door, ask for the manager"
+        },
+        {
+          "Site": "Riverside Apartments – Building A",
+          "Address": "87 Willow Way\nSpringfield",
+          "Monitoring account": "MON-30427",
+          "Last inspection": {
+            "daysFromToday": -380
+          },
+          "Access notes": "Lockbox code from the office"
+        },
+        {
+          "Site": "Riverside Apartments – Building B",
+          "Address": "164 Elm Street\nSpringfield",
+          "Monitoring account": "MON-30444",
+          "Last inspection": {
+            "daysFromToday": -120
+          },
+          "Access notes": "Lockbox code from the office"
+        },
+        {
+          "Site": "Lakeside Dental",
+          "Address": "241 Pine Road\nSpringfield",
+          "Monitoring account": "MON-30461",
+          "Last inspection": {
+            "daysFromToday": -200
+          },
+          "Access notes": "Before 8 am only"
+        },
+        {
+          "Site": "Metro Storage – North",
+          "Address": "318 Oak Terrace\nSpringfield",
+          "Monitoring account": "MON-30478",
+          "Last inspection": {
+            "daysFromToday": -360
+          },
+          "Access notes": "Gate code 4410"
+        },
+        {
+          "Site": "Corner Market",
+          "Address": "395 Aspen Drive\nSpringfield",
+          "Last inspection": {
+            "daysFromToday": -30
+          }
+        }
+      ],
+      "devices": [
+        {
+          "Device": "Extinguisher #1",
+          "Type": "Fire extinguisher",
+          "Location": "Kitchen",
+          "Serial number": "SN447120",
+          "Installed": {
+            "daysFromToday": -1700
+          },
+          "Last inspection": {
+            "daysFromToday": -340
+          },
+          "Hydrostatic test": {
+            "daysFromToday": -1700
+          },
+          "Status": "OK"
+        },
+        {
+          "Device": "Extinguisher #2",
+          "Type": "Fire extinguisher",
+          "Location": "Front counter",
+          "Serial number": "SN448031",
+          "Installed": {
+            "daysFromToday": -900
+          },
+          "Last inspection": {
+            "daysFromToday": -340
+          },
+          "Hydrostatic test": {
+            "daysFromToday": -900
+          },
+          "Status": "OK"
+        },
+        {
+          "Device": "Hood system",
+          "Type": "Kitchen hood system",
+          "Location": "Kitchen",
+          "Serial number": "SN448942",
+          "Installed": {
+            "daysFromToday": -2500
+          },
+          "Last inspection": {
+            "daysFromToday": -175
+          },
+          "Status": "OK"
+        },
+        {
+          "Device": "Alarm panel",
+          "Type": "Alarm panel",
+          "Location": "Lobby",
+          "Serial number": "SN449853",
+          "Installed": {
+            "daysFromToday": -3000
+          },
+          "Last inspection": {
+            "daysFromToday": -380
+          },
+          "Status": "OK"
+        },
+        {
+          "Device": "Sprinklers",
+          "Type": "Sprinkler system",
+          "Location": "Riser room",
+          "Serial number": "SN450764",
+          "Installed": {
+            "daysFromToday": -4000
+          },
+          "Last inspection": {
+            "daysFromToday": -380
+          },
+          "Status": "OK"
+        },
+        {
+          "Device": "Alarm panel",
+          "Type": "Alarm panel",
+          "Location": "Lobby",
+          "Serial number": "SN451675",
+          "Installed": {
+            "daysFromToday": -1200
+          },
+          "Last inspection": {
+            "daysFromToday": -120
+          },
+          "Status": "OK"
+        },
+        {
+          "Device": "Extinguisher #1",
+          "Type": "Fire extinguisher",
+          "Location": "Hallway",
+          "Serial number": "SN452586",
+          "Installed": {
+            "daysFromToday": -1820
+          },
+          "Last inspection": {
+            "daysFromToday": -120
+          },
+          "Hydrostatic test": {
+            "daysFromToday": -1820
+          },
+          "Status": "OK"
+        },
+        {
+          "Device": "Exit lights",
+          "Type": "Emergency light",
+          "Location": "All exits",
+          "Serial number": "SN453497",
+          "Installed": {
+            "daysFromToday": -600
+          },
+          "Last inspection": {
+            "daysFromToday": -200
+          },
+          "Status": "Needs repair"
+        },
+        {
+          "Device": "Extinguisher #1",
+          "Type": "Fire extinguisher",
+          "Location": "Office",
+          "Serial number": "SN454408",
+          "Installed": {
+            "daysFromToday": -2000
+          },
+          "Last inspection": {
+            "daysFromToday": -360
+          },
+          "Hydrostatic test": {
+            "daysFromToday": -1790
+          },
+          "Status": "OK"
+        },
+        {
+          "Device": "Smoke detectors",
+          "Type": "Smoke detector",
+          "Location": "All units",
+          "Serial number": "SN455319",
+          "Installed": {
+            "daysFromToday": -800
+          },
+          "Last inspection": {
+            "daysFromToday": -360
+          },
+          "Status": "OK"
+        },
+        {
+          "Device": "Extinguisher #1",
+          "Type": "Fire extinguisher",
+          "Location": "Register",
+          "Serial number": "SN456230",
+          "Installed": {
+            "daysFromToday": -1000
+          },
+          "Last inspection": {
+            "daysFromToday": -30
+          },
+          "Hydrostatic test": {
+            "daysFromToday": -1000
+          },
+          "Status": "OK"
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "sites#0",
+        "to": "customers#0",
+        "link": "Customer"
+      },
+      {
+        "from": "sites#1",
+        "to": "customers#1",
+        "link": "Customer"
+      },
+      {
+        "from": "sites#2",
+        "to": "customers#1",
+        "link": "Customer"
+      },
+      {
+        "from": "sites#3",
+        "to": "customers#2",
+        "link": "Customer"
+      },
+      {
+        "from": "sites#4",
+        "to": "customers#3",
+        "link": "Customer"
+      },
+      {
+        "from": "sites#5",
+        "to": "customers#4",
+        "link": "Customer"
+      },
+      {
+        "from": "devices#0",
+        "to": "sites#0",
+        "link": "Site"
+      },
+      {
+        "from": "devices#1",
+        "to": "sites#0",
+        "link": "Site"
+      },
+      {
+        "from": "devices#2",
+        "to": "sites#0",
+        "link": "Site"
+      },
+      {
+        "from": "devices#3",
+        "to": "sites#1",
+        "link": "Site"
+      },
+      {
+        "from": "devices#4",
+        "to": "sites#1",
+        "link": "Site"
+      },
+      {
+        "from": "devices#5",
+        "to": "sites#2",
+        "link": "Site"
+      },
+      {
+        "from": "devices#6",
+        "to": "sites#2",
+        "link": "Site"
+      },
+      {
+        "from": "devices#7",
+        "to": "sites#3",
+        "link": "Site"
+      },
+      {
+        "from": "devices#8",
+        "to": "sites#4",
+        "link": "Site"
+      },
+      {
+        "from": "devices#9",
+        "to": "sites#4",
+        "link": "Site"
+      },
+      {
+        "from": "devices#10",
+        "to": "sites#5",
+        "link": "Site"
+      }
+    ],
+    "activities": [
+      {
+        "record": "sites#0",
+        "type": "inspection",
+        "daysAgo": 1,
+        "text": "Annual inspection done; certificate left with the manager."
+      },
+      {
+        "record": "sites#1",
+        "type": "note",
+        "daysAgo": 8,
+        "text": "Customer asked for a quote on a second panel."
+      },
+      {
+        "record": "sites#1",
+        "type": "inspection",
+        "daysAgo": 21,
+        "text": "Annual inspection done; certificate left with the manager."
+      },
+      {
+        "record": "sites#2",
+        "type": "repair",
+        "daysAgo": 15,
+        "text": "Replaced two exit light batteries."
+      },
+      {
+        "record": "sites#2",
+        "type": "note",
+        "daysAgo": 28,
+        "text": "Customer asked for a quote on a second panel."
+      },
+      {
+        "record": "sites#3",
+        "type": "inspection",
+        "daysAgo": 22,
+        "text": "Annual inspection done; certificate left with the manager."
+      },
+      {
+        "record": "sites#4",
+        "type": "note",
+        "daysAgo": 29,
+        "text": "Customer asked for a quote on a second panel."
+      },
+      {
+        "record": "sites#4",
+        "type": "inspection",
+        "daysAgo": 42,
+        "text": "Annual inspection done; certificate left with the manager."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "missingInfo"
+  ],
+  "helpTips": [
+    {
+      "title": "Certificates",
+      "body": "After an inspection, drop the signed certificate or report into Files on the site's page. It is stored encrypted inside Pulse, and the Certificates column shows how many each site has."
+    }
+  ]
+}

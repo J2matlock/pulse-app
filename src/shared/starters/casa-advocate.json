@@ -1,0 +1,367 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "casa-advocate",
+  "name": "CASA / guardian ad litem",
+  "description": "For court-appointed advocates: hearings, court reports due 10 business days before each hearing, and a visit every month.",
+  "icon": "shield-check",
+  "group": "Legal and government",
+  "vocab": {
+    "record": {
+      "one": "child",
+      "many": "children",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": true,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false
+  },
+  "lists": [
+    {
+      "key": "children",
+      "name": "Children",
+      "description": "Children you advocate for, with hearings, court reports and monthly visits",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Case number",
+          "column_type": "text",
+          "position": 1,
+          "width": 140
+        },
+        {
+          "name": "Court",
+          "column_type": "text",
+          "position": 2,
+          "width": 150
+        },
+        {
+          "name": "Next hearing",
+          "column_type": "date",
+          "position": 3,
+          "width": 150,
+          "is_required": 1,
+          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
+          "name": "Court report filed",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "description": "Date you filed the court report for the next hearing",
+          "config": "{\"alert_rule_name\":\"Court report due\",\"log_changes\":true}"
+        },
+        {
+          "name": "Last visit",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+        },
+        {
+          "name": "Placement",
+          "column_type": "dropdown",
+          "position": 6,
+          "width": 140,
+          "config": "{\"options\":[\"Foster home\",\"Kinship\",\"Group home\",\"With parent\",\"Other\"]}"
+        },
+        {
+          "name": "Caregiver",
+          "column_type": "text",
+          "position": 7,
+          "width": 160
+        },
+        {
+          "name": "Caregiver phone",
+          "column_type": "phone",
+          "position": 8,
+          "width": 140
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 9,
+          "width": 110,
+          "config": "{\"options\":[\"Active\",\"Closed\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Due date",
+          "description": "The date entered is the deadline",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Court report due",
+          "description": "The court report is due 10 business days before the hearing",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\":\"relative\",\"anchorColumnId\":{\"column\":\"Next hearing\"},\"offset\":{\"businessDays\":10,\"direction\":\"before\"}}",
+          "business_days": 1
+        },
+        {
+          "name": "Every 30 days",
+          "description": "Due 30 days after the date entered",
+          "interval_days": 30,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ],
+      "requirements": [
+        {
+          "label": "Visit",
+          "note_types": [
+            "visit"
+          ],
+          "per_month": 1
+        }
+      ]
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "children": [
+        {
+          "Name": "Priya Bell",
+          "Case number": "JD-2025-3310",
+          "Court": "Family Court, Room 2",
+          "Next hearing": {
+            "daysFromToday": 6
+          },
+          "Last visit": {
+            "daysFromToday": -44
+          },
+          "Placement": "Kinship",
+          "Caregiver": "Carlos Wong",
+          "Caregiver phone": "555-0104",
+          "Status": "Closed"
+        },
+        {
+          "Name": "Frank Rivera",
+          "Case number": "JD-2024-3357",
+          "Court": "Family Court, Room 4",
+          "Next hearing": {
+            "daysFromToday": 13
+          },
+          "Last visit": {
+            "daysFromToday": -28
+          },
+          "Placement": "Foster home",
+          "Caregiver": "Priya Bell",
+          "Caregiver phone": "555-0111",
+          "Status": "Active"
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Case number": "JD-2025-3404",
+          "Court": "Family Court, Room 2",
+          "Next hearing": {
+            "daysFromToday": 20
+          },
+          "Last visit": {
+            "daysFromToday": -14
+          },
+          "Placement": "Foster home",
+          "Caregiver": "Frank Rivera",
+          "Caregiver phone": "555-0118",
+          "Status": "Active"
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Case number": "JD-2024-3451",
+          "Court": "Family Court, Room 4",
+          "Next hearing": {
+            "daysFromToday": 35
+          },
+          "Last visit": {
+            "daysFromToday": -33
+          },
+          "Placement": "Foster home",
+          "Caregiver": "Keisha Thompson",
+          "Caregiver phone": "555-0125",
+          "Status": "Active"
+        },
+        {
+          "Name": "Grace Okafor",
+          "Case number": "JD-2025-3498",
+          "Court": "Family Court, Room 2",
+          "Next hearing": {
+            "daysFromToday": 60
+          },
+          "Last visit": {
+            "daysFromToday": -25
+          },
+          "Placement": "Group home",
+          "Caregiver": "Samuel Rahman",
+          "Caregiver phone": "555-0132",
+          "Status": "Active"
+        },
+        {
+          "Name": "Omar Brown",
+          "Case number": "JD-2024-3545",
+          "Court": "Family Court, Room 4",
+          "Next hearing": {
+            "daysFromToday": 90
+          },
+          "Last visit": {
+            "daysFromToday": -6
+          },
+          "Placement": "Foster home",
+          "Caregiver": "Grace Okafor",
+          "Caregiver phone": "555-0139",
+          "Status": "Active"
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Case number": "JD-2025-3592",
+          "Court": "Family Court, Room 2",
+          "Next hearing": {
+            "daysFromToday": 4
+          },
+          "Court report filed": {
+            "daysFromToday": -2
+          },
+          "Last visit": {
+            "daysFromToday": -30
+          },
+          "Placement": "Foster home",
+          "Caregiver": "Omar Brown",
+          "Caregiver phone": "555-0146",
+          "Status": "Active"
+        },
+        {
+          "Name": "Diego Ferreira",
+          "Case number": "JD-2024-3639",
+          "Court": "Family Court, Room 4",
+          "Next hearing": {
+            "daysFromToday": 120
+          },
+          "Last visit": {
+            "daysFromToday": -21
+          },
+          "Placement": "Foster home",
+          "Caregiver": "Ruth Jackson",
+          "Caregiver phone": "555-0153",
+          "Status": "Active"
+        }
+      ]
+    },
+    "activities": [
+      {
+        "record": "children#0",
+        "type": "visit",
+        "daysAgo": 1,
+        "text": "Visited at the foster home; doing well in school."
+      },
+      {
+        "record": "children#1",
+        "type": "note",
+        "daysAgo": 8,
+        "text": "Read the updated school records."
+      },
+      {
+        "record": "children#1",
+        "type": "visit",
+        "daysAgo": 21,
+        "text": "Visited at the foster home; doing well in school."
+      },
+      {
+        "record": "children#2",
+        "type": "phone",
+        "daysAgo": 15,
+        "text": "Talked with the caseworker about the visitation schedule."
+      },
+      {
+        "record": "children#2",
+        "type": "note",
+        "daysAgo": 28,
+        "text": "Read the updated school records."
+      },
+      {
+        "record": "children#3",
+        "type": "visit",
+        "daysAgo": 22,
+        "text": "Visited at the foster home; doing well in school."
+      },
+      {
+        "record": "children#4",
+        "type": "note",
+        "daysAgo": 29,
+        "text": "Read the updated school records."
+      },
+      {
+        "record": "children#4",
+        "type": "visit",
+        "daysAgo": 42,
+        "text": "Visited at the foster home; doing well in school."
+      },
+      {
+        "record": "children#5",
+        "type": "phone",
+        "daysAgo": 36,
+        "text": "Talked with the caseworker about the visitation schedule."
+      },
+      {
+        "record": "children#5",
+        "type": "note",
+        "daysAgo": 49,
+        "text": "Read the updated school records."
+      },
+      {
+        "record": "children#6",
+        "type": "visit",
+        "daysAgo": 43,
+        "text": "Visited at the foster home; doing well in school."
+      },
+      {
+        "record": "children#7",
+        "type": "note",
+        "daysAgo": 50,
+        "text": "Read the updated school records."
+      },
+      {
+        "record": "children#7",
+        "type": "visit",
+        "daysAgo": 3,
+        "text": "Visited at the foster home; doing well in school."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "requirements",
+    "missingInfo"
+  ]
+}

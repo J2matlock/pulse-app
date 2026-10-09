@@ -1,0 +1,121 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSettingsStore } from '../stores/settingsStore'
+import { useShallow } from 'zustand/react/shallow'
+import { useAlertStore } from '../stores/alertStore'
+import { useWorkspaceStore } from '../stores/workspaceStore'
+import { useActivityTypeStore } from '../stores/activityTypeStore'
+import { IPC } from '../../shared/ipc-channels'
+import { safeInvoke } from '../utils/safeInvoke'
+import { checkBackupReminder } from './useBackupReminder'
+import toast from 'react-hot-toast'
+
+export type AuthState = 'checking' | 'needs-setup' | 'locked' | 'recovery' | 'onboarding' | 'ready'
+
+interface UseAuthGatingReturn {
+  authState: AuthState
+  setShowOnboarding: (v: boolean) => void
+  showTourAfterOnboarding: () => void
+  completeOnboarding: () => void
+}
+
+export function useAuthGating(): UseAuthGatingReturn {
+  const { isLocked, isPasswordSetup, recoverySession } = useSettingsStore(useShallow(s => ({
+    isLocked: s.isLocked,
+    isPasswordSetup: s.isPasswordSetup,
+    recoverySession: s.recoverySession,
+  })))
+  const setPasswordSetup = useSettingsStore(s => s.setPasswordSetup)
+  const loadRules = useAlertStore(s => s.loadRules)
+
+  const [isChecking, setIsChecking] = useState(true)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const prevLockedRef = useRef(true)
+
+  // On app load, check if password has been set up
+  useEffect(() => {
+    async function checkSetup() {
+      try {
+        const result = await safeInvoke(IPC.AUTH_IS_SETUP)
+        if (result.ok) {
+          setPasswordSetup(result.data)
+        }
+      } catch {
+        setPasswordSetup(false)
+      } finally {
+        setIsChecking(false)
+      }
+    }
+    checkSetup()
+  }, [setPasswordSetup])
+
+  // Load alert rules and optionally show onboarding when unlocked
+  useEffect(() => {
+    if (prevLockedRef.current && !isLocked && isPasswordSetup) {
+      void useWorkspaceStore.getState().load()
+      void useActivityTypeStore.getState().load()
+      void (async () => {
+        try {
+          const result = await safeInvoke(IPC.ONBOARDING_CHECK)
+          if (result.ok && !result.data.complete) {
+            setShowOnboarding(true)
+            return
+          }
+        } catch { /* ignore — proceed normally on error */ }
+        loadRules()
+        // Check for migration failure and warn user
+        try {
+          const migResult = await safeInvoke<{ version: number; error: string; timestamp: string } | null>(IPC.APP_MIGRATION_STATUS)
+          if (migResult.ok && migResult.data) {
+            const { version, error } = migResult.data
+            toast.error(
+              `A database migration (v${version}) failed: ${error}. Some features may not work correctly. You can restore from a pre-migration backup in Settings > Backup.`,
+              { duration: 15000 }
+            )
+            // Clear the flag so the warning only shows once per launch
+            await safeInvoke(IPC.APP_MIGRATION_STATUS, true)
+          }
+        } catch { /* non-critical */ }
+        await checkBackupReminder()
+      })()
+    }
+    if (isLocked) {
+      setShowOnboarding(false)
+    }
+    prevLockedRef.current = isLocked
+  }, [isLocked, isPasswordSetup, loadRules])
+
+  const completeOnboarding = useCallback(() => {
+    setShowOnboarding(false)
+    loadRules()
+  }, [loadRules])
+
+  const showTourAfterOnboarding = useCallback(() => {
+    setShowOnboarding(false)
+    loadRules()
+  }, [loadRules])
+
+  // Words or features changed elsewhere (another window, applying a starter)
+  useEffect(() => window.api.on(IPC.WORKSPACE_CHANGED, () => { void useWorkspaceStore.getState().load() }), [])
+  useEffect(() => window.api.on(IPC.ACTIVITY_TYPES_CHANGED, () => { void useActivityTypeStore.getState().load() }), [])
+
+  // Derive the auth state
+  let authState: AuthState = 'ready'
+  if (isChecking) {
+    authState = 'checking'
+  } else if (!isPasswordSetup) {
+    authState = 'needs-setup'
+  } else if (isLocked) {
+    authState = 'locked'
+  } else if (recoverySession) {
+    authState = 'recovery'
+  } else if (showOnboarding) {
+    authState = 'onboarding'
+  }
+
+  return {
+    authState,
+    setShowOnboarding,
+    showTourAfterOnboarding,
+    completeOnboarding,
+  }
+}

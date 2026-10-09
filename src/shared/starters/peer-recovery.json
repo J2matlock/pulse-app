@@ -1,0 +1,466 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "peer-recovery",
+  "name": "Peer recovery specialist",
+  "description": "For peer recovery and recovery coaching: a weekly contact requirement, recovery plan reviews every 90 days and milestones at 30, 60 and 90 days, 6 months and every year.",
+  "icon": "sprout",
+  "group": "Human services",
+  "vocab": {
+    "record": {
+      "one": "client",
+      "many": "clients",
+      "article": "a"
+    },
+    "list": {
+      "one": "caseload",
+      "many": "caseloads",
+      "article": "a"
+    },
+    "activity": {
+      "one": "case note",
+      "many": "case notes",
+      "article": "a"
+    },
+    "activityLog": {
+      "one": "case log",
+      "many": "case logs",
+      "article": "a"
+    },
+    "contactDirectory": {
+      "one": "contacts",
+      "many": "contacts",
+      "article": "a",
+      "oneCap": "Contacts",
+      "manyCap": "Contacts"
+    },
+    "contact": {
+      "one": "provider",
+      "many": "providers",
+      "article": "a"
+    },
+    "priority": {
+      "one": "acuity level",
+      "many": "acuity levels",
+      "article": "an"
+    },
+    "archive": {
+      "one": "archive",
+      "many": "archives",
+      "article": "an"
+    },
+    "worker": {
+      "one": "case manager",
+      "many": "case managers",
+      "article": "a"
+    },
+    "requirement": {
+      "one": "contact requirement",
+      "many": "contact requirements",
+      "article": "a"
+    },
+    "appointment": {
+      "one": "appointment",
+      "many": "appointments",
+      "article": "an"
+    },
+    "stage": {
+      "one": "stage",
+      "many": "stages",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": true,
+    "contactsDirectory": true,
+    "requirements": true,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": true,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": true
+  },
+  "lists": [
+    {
+      "key": "caseload",
+      "name": "Peer support caseload",
+      "description": "People in recovery you meet with each week",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 1,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Recovery start date",
+          "column_type": "date",
+          "position": 2,
+          "width": 150,
+          "description": "The milestones count from this date"
+        },
+        {
+          "name": "Milestones",
+          "column_type": "deadline",
+          "position": 3,
+          "width": 140,
+          "description": "The next milestone to celebrate; mark it done to move to the next",
+          "config": "{\"alert_rule_name\":\"Recovery milestones\"}"
+        },
+        {
+          "name": "Recovery plan review",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "description": "Date of the last recovery plan review; due again in 90 days",
+          "config": "{\"alert_rule_name\":\"Every 90 days\",\"log_changes\":true}"
+        },
+        {
+          "name": "Last contact",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+        },
+        {
+          "name": "Supports",
+          "column_type": "tag",
+          "position": 6,
+          "width": 140,
+          "description": "Meetings, sponsor, groups, faith community…"
+        },
+        {
+          "name": "Emergency contact",
+          "column_type": "text",
+          "position": 7,
+          "width": 160
+        },
+        {
+          "name": "Emergency phone",
+          "column_type": "phone",
+          "position": 8,
+          "width": 140
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 9,
+          "width": 130,
+          "config": "{\"options\":[\"Active\",\"Re-engaging\",\"Graduated\",\"Closed\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Recovery milestones",
+          "description": "Milestones counted from the recovery start date",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "sequence",
+          "rule_config": "{\"kind\":\"sequence\",\"anchorColumnId\":{\"column\":\"Recovery start date\"},\"steps\":[{\"label\":\"30 days\",\"offset\":{\"days\":30}},{\"label\":\"60 days\",\"offset\":{\"days\":60}},{\"label\":\"90 days\",\"offset\":{\"days\":90}},{\"label\":\"6 months\",\"offset\":{\"months\":6}},{\"label\":\"1 year\",\"offset\":{\"months\":12}}],\"repeatLast\":{\"months\":12}}"
+        },
+        {
+          "name": "Every 90 days",
+          "description": "Due 90 days after the date entered",
+          "interval_days": 90,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Every 30 days",
+          "description": "Due 30 days after the date entered",
+          "interval_days": 30,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ],
+      "requirements": [
+        {
+          "label": "Weekly contact",
+          "note_types": [
+            "meeting",
+            "phone",
+            "group"
+          ],
+          "per_month": 1,
+          "period": "week"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "group",
+      "label": "Group",
+      "icon": "👥",
+      "color": "teal"
+    },
+    {
+      "key": "crisis",
+      "label": "Crisis contact",
+      "icon": "🚨",
+      "color": "red"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "caseload": [
+        {
+          "Name": "Carlos Wong",
+          "Phone": "555-0113",
+          "Recovery start date": {
+            "daysFromToday": -12
+          },
+          "Recovery plan review": {
+            "daysFromToday": -85
+          },
+          "Last contact": {
+            "daysFromToday": -6
+          },
+          "Supports": "[\"Sponsor\", \"NA meetings\"]",
+          "Emergency contact": "Mei Ortiz",
+          "Emergency phone": "555-0104",
+          "Status": "Active"
+        },
+        {
+          "Name": "Priya Bell",
+          "Phone": "555-0120",
+          "Recovery start date": {
+            "daysFromToday": -26
+          },
+          "Recovery plan review": {
+            "daysFromToday": -66
+          },
+          "Last contact": {
+            "daysFromToday": -30
+          },
+          "Supports": "[\"Group\"]",
+          "Emergency contact": "Walter Johnson",
+          "Emergency phone": "555-0111",
+          "Status": "Active"
+        },
+        {
+          "Name": "Frank Rivera",
+          "Phone": "555-0127",
+          "Recovery start date": {
+            "daysFromToday": -41
+          },
+          "Recovery plan review": {
+            "daysFromToday": -15
+          },
+          "Last contact": {
+            "daysFromToday": -21
+          },
+          "Supports": "[\"AA meetings\"]",
+          "Emergency contact": "Yolanda Miller",
+          "Emergency phone": "555-0118",
+          "Status": "Active"
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Phone": "555-0134",
+          "Recovery start date": {
+            "daysFromToday": -55
+          },
+          "Recovery plan review": {
+            "daysFromToday": -90
+          },
+          "Last contact": {
+            "daysFromToday": -44
+          },
+          "Supports": "[\"Faith community\"]",
+          "Emergency contact": "Ahmed Fischer",
+          "Emergency phone": "555-0125",
+          "Status": "Active"
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Phone": "555-0141",
+          "Recovery start date": {
+            "daysFromToday": -85
+          },
+          "Recovery plan review": {
+            "daysFromToday": -81
+          },
+          "Last contact": {
+            "daysFromToday": -28
+          },
+          "Supports": "[\"Sponsor\"]",
+          "Emergency contact": "Beatrice O'Brien",
+          "Emergency phone": "555-0132",
+          "Status": "Active"
+        },
+        {
+          "Name": "Grace Okafor",
+          "Phone": "555-0148",
+          "Recovery start date": {
+            "daysFromToday": -150
+          },
+          "Recovery plan review": {
+            "daysFromToday": -52
+          },
+          "Last contact": {
+            "daysFromToday": -14
+          },
+          "Emergency contact": "Kevin Nguyen",
+          "Emergency phone": "555-0139",
+          "Status": "Re-engaging"
+        },
+        {
+          "Name": "Omar Brown",
+          "Phone": "555-0155",
+          "Recovery start date": {
+            "daysFromToday": -20
+          },
+          "Recovery plan review": {
+            "daysFromToday": -104
+          },
+          "Last contact": {
+            "daysFromToday": -33
+          },
+          "Supports": "[\"Group\", \"Family\"]",
+          "Emergency contact": "Lucia Chen",
+          "Emergency phone": "555-0146",
+          "Status": "Active"
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Phone": "555-0162",
+          "Recovery start date": {
+            "daysFromToday": -340
+          },
+          "Recovery plan review": {
+            "daysFromToday": -88
+          },
+          "Last contact": {
+            "daysFromToday": -25
+          },
+          "Supports": "[\"SMART Recovery\"]",
+          "Emergency contact": "Marcus Davis",
+          "Emergency phone": "555-0153",
+          "Status": "Active"
+        }
+      ]
+    },
+    "activities": [
+      {
+        "record": "caseload#0",
+        "type": "meeting",
+        "daysAgo": 1,
+        "text": "Met for coffee; talked through the week and the plan for the weekend."
+      },
+      {
+        "record": "caseload#1",
+        "type": "group",
+        "daysAgo": 8,
+        "text": "Attended the Tuesday peer group."
+      },
+      {
+        "record": "caseload#1",
+        "type": "note",
+        "daysAgo": 21,
+        "text": "Celebrated 30 days today."
+      },
+      {
+        "record": "caseload#2",
+        "type": "meeting",
+        "daysAgo": 15,
+        "text": "Met for coffee; talked through the week and the plan for the weekend."
+      },
+      {
+        "record": "caseload#2",
+        "type": "phone",
+        "daysAgo": 28,
+        "text": "Phone check-in; going to a meeting tonight."
+      },
+      {
+        "record": "caseload#3",
+        "type": "group",
+        "daysAgo": 22,
+        "text": "Attended the Tuesday peer group."
+      },
+      {
+        "record": "caseload#4",
+        "type": "meeting",
+        "daysAgo": 29,
+        "text": "Met for coffee; talked through the week and the plan for the weekend."
+      },
+      {
+        "record": "caseload#4",
+        "type": "phone",
+        "daysAgo": 42,
+        "text": "Phone check-in; going to a meeting tonight."
+      },
+      {
+        "record": "caseload#5",
+        "type": "group",
+        "daysAgo": 36,
+        "text": "Attended the Tuesday peer group."
+      },
+      {
+        "record": "caseload#5",
+        "type": "note",
+        "daysAgo": 49,
+        "text": "Celebrated 30 days today."
+      },
+      {
+        "record": "caseload#6",
+        "type": "meeting",
+        "daysAgo": 43,
+        "text": "Met for coffee; talked through the week and the plan for the weekend."
+      },
+      {
+        "record": "caseload#7",
+        "type": "group",
+        "daysAgo": 50,
+        "text": "Attended the Tuesday peer group."
+      },
+      {
+        "record": "caseload#7",
+        "type": "note",
+        "daysAgo": 3,
+        "text": "Celebrated 30 days today."
+      }
+    ],
+    "stepsDone": [
+      {
+        "record": "caseload#2",
+        "column": "Milestones",
+        "steps": 1
+      },
+      {
+        "record": "caseload#4",
+        "column": "Milestones",
+        "steps": 2
+      },
+      {
+        "record": "caseload#5",
+        "column": "Milestones",
+        "steps": 3
+      },
+      {
+        "record": "caseload#7",
+        "column": "Milestones",
+        "steps": 4
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "requirements",
+    "missingInfo"
+  ]
+}

@@ -1,0 +1,421 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "pastoral-care",
+  "name": "Pastoral care",
+  "description": "For pastors and care teams: birthdays and anniversaries every year, bereavement care at 1, 3, 6 and 13 months after a loss, and regular visits.",
+  "icon": "church",
+  "group": "Faith and community",
+  "vocab": {
+    "record": {
+      "one": "member",
+      "many": "members",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": false,
+    "summaryReport": true,
+    "handoff": false
+  },
+  "lists": [
+    {
+      "key": "members",
+      "name": "Care list",
+      "description": "Members to remember on birthdays, anniversaries and after a loss",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 1,
+          "width": 140
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 2,
+          "width": 160
+        },
+        {
+          "name": "Birthday",
+          "column_type": "date",
+          "position": 3,
+          "width": 150
+        },
+        {
+          "name": "Next birthday",
+          "column_type": "deadline",
+          "position": 4,
+          "width": 140,
+          "config": "{\"alert_rule_name\":\"Birthday\"}"
+        },
+        {
+          "name": "Anniversary",
+          "column_type": "date",
+          "position": 5,
+          "width": 150
+        },
+        {
+          "name": "Next anniversary",
+          "column_type": "deadline",
+          "position": 6,
+          "width": 140,
+          "config": "{\"alert_rule_name\":\"Wedding anniversary\"}"
+        },
+        {
+          "name": "Date of loss",
+          "column_type": "date",
+          "position": 7,
+          "width": 150,
+          "description": "When someone close to them died; bereavement care counts from here"
+        },
+        {
+          "name": "Bereavement care",
+          "column_type": "deadline",
+          "position": 8,
+          "width": 140,
+          "description": "The next bereavement contact; mark it done to move on",
+          "config": "{\"alert_rule_name\":\"Bereavement care\"}"
+        },
+        {
+          "name": "Last visit",
+          "column_type": "date",
+          "position": 9,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Every 90 days\",\"log_changes\":true}"
+        },
+        {
+          "name": "Care needs",
+          "column_type": "tag",
+          "position": 10,
+          "width": 140,
+          "description": "Homebound, hospital, grieving, new baby…"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Birthday",
+          "description": "Each year on their birthday",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "calendar",
+          "rule_config": "{\"kind\":\"calendar\",\"fromColumnMonth\":{\"column\":\"Birthday\"},\"lead\":14}"
+        },
+        {
+          "name": "Wedding anniversary",
+          "description": "Each year on the anniversary",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "calendar",
+          "rule_config": "{\"kind\":\"calendar\",\"fromColumnMonth\":{\"column\":\"Anniversary\"},\"lead\":14}"
+        },
+        {
+          "name": "Bereavement care",
+          "description": "Reach out 1, 3, 6 and 13 months after a loss",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "sequence",
+          "rule_config": "{\"kind\":\"sequence\",\"anchorColumnId\":{\"column\":\"Date of loss\"},\"steps\":[{\"label\":\"1 month\",\"offset\":{\"months\":1}},{\"label\":\"3 months\",\"offset\":{\"months\":3}},{\"label\":\"6 months\",\"offset\":{\"months\":6}},{\"label\":\"13 months\",\"offset\":{\"months\":13}}]}"
+        },
+        {
+          "name": "Every 90 days",
+          "description": "Due 90 days after the date entered",
+          "interval_days": 90,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "card",
+      "label": "Card sent",
+      "icon": "💌",
+      "color": "purple"
+    },
+    {
+      "key": "prayer",
+      "label": "Prayer",
+      "icon": "🙏",
+      "color": "teal"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "members": [
+        {
+          "Name": "Samuel Rahman",
+          "Phone": "555-0113",
+          "Address": "40 Church Street\nSpringfield",
+          "Birthday": {
+            "daysFromToday": -10945
+          },
+          "Anniversary": {
+            "daysFromToday": -3590
+          },
+          "Date of loss": {
+            "daysFromToday": -20
+          },
+          "Last visit": {
+            "daysFromToday": -100
+          },
+          "Care needs": "[\"Homebound\"]"
+        },
+        {
+          "Name": "Grace Okafor",
+          "Phone": "555-0120",
+          "Address": "59 Hill Road\nSpringfield",
+          "Birthday": {
+            "daysFromToday": -12735
+          },
+          "Anniversary": {
+            "daysFromToday": -4736
+          },
+          "Last visit": {
+            "daysFromToday": -30
+          }
+        },
+        {
+          "Name": "Omar Brown",
+          "Phone": "555-0127",
+          "Address": "78 Elm Street\nSpringfield",
+          "Birthday": {
+            "daysFromToday": -14400
+          },
+          "Date of loss": {
+            "daysFromToday": -80
+          },
+          "Last visit": {
+            "daysFromToday": -15
+          },
+          "Care needs": "[\"Grieving\"]"
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Phone": "555-0134",
+          "Address": "97 River Lane\nSpringfield",
+          "Birthday": {
+            "daysFromToday": -16414
+          },
+          "Anniversary": {
+            "daysFromToday": -6955
+          },
+          "Last visit": {
+            "daysFromToday": -80
+          },
+          "Care needs": "[\"Hospital\"]"
+        },
+        {
+          "Name": "Diego Ferreira",
+          "Phone": "555-0141",
+          "Address": "116 Church Street\nSpringfield",
+          "Birthday": {
+            "daysFromToday": -18350
+          },
+          "Anniversary": {
+            "daysFromToday": -8017
+          },
+          "Last visit": {
+            "daysFromToday": -200
+          }
+        },
+        {
+          "Name": "Hannah Walker",
+          "Phone": "555-0148",
+          "Address": "135 Hill Road\nSpringfield",
+          "Birthday": {
+            "daysFromToday": -19985
+          },
+          "Date of loss": {
+            "daysFromToday": -200
+          },
+          "Last visit": {
+            "daysFromToday": -60
+          },
+          "Care needs": "[\"Homebound\", \"Grieving\"]"
+        },
+        {
+          "Name": "Tyrone Haddad",
+          "Phone": "555-0155",
+          "Address": "154 Elm Street\nSpringfield",
+          "Birthday": {
+            "daysFromToday": -21898
+          },
+          "Anniversary": {
+            "daysFromToday": -10040
+          },
+          "Last visit": {
+            "daysFromToday": -10
+          },
+          "Care needs": "[\"New baby\"]"
+        },
+        {
+          "Name": "Mei Ortiz",
+          "Phone": "555-0162",
+          "Address": "173 River Lane\nSpringfield",
+          "Birthday": {
+            "daysFromToday": -23575
+          },
+          "Anniversary": {
+            "daysFromToday": -11309
+          },
+          "Last visit": {
+            "daysFromToday": -85
+          }
+        },
+        {
+          "Name": "Walter Johnson",
+          "Phone": "555-0169",
+          "Address": "192 Church Street\nSpringfield",
+          "Birthday": {
+            "daysFromToday": -25250
+          },
+          "Last visit": {
+            "daysFromToday": -40
+          }
+        },
+        {
+          "Name": "Yolanda Miller",
+          "Phone": "555-0176",
+          "Address": "211 Hill Road\nSpringfield",
+          "Birthday": {
+            "daysFromToday": -27350
+          },
+          "Anniversary": {
+            "daysFromToday": -13175
+          },
+          "Last visit": {
+            "daysFromToday": -92
+          },
+          "Care needs": "[\"Homebound\"]"
+        }
+      ]
+    },
+    "stepsDone": [
+      {
+        "record": "members#2",
+        "column": "Bereavement care",
+        "steps": 1
+      },
+      {
+        "record": "members#5",
+        "column": "Bereavement care",
+        "steps": 3
+      }
+    ],
+    "activities": [
+      {
+        "record": "members#0",
+        "type": "visit",
+        "daysAgo": 1,
+        "text": "Home visit; brought communion and the bulletin."
+      },
+      {
+        "record": "members#1",
+        "type": "phone",
+        "daysAgo": 8,
+        "text": "Called to check in after the hospital stay."
+      },
+      {
+        "record": "members#1",
+        "type": "prayer",
+        "daysAgo": 21,
+        "text": "Added to the prayer list at their request."
+      },
+      {
+        "record": "members#2",
+        "type": "visit",
+        "daysAgo": 15,
+        "text": "Home visit; brought communion and the bulletin."
+      },
+      {
+        "record": "members#2",
+        "type": "card",
+        "daysAgo": 28,
+        "text": "Sent a birthday card."
+      },
+      {
+        "record": "members#3",
+        "type": "phone",
+        "daysAgo": 22,
+        "text": "Called to check in after the hospital stay."
+      },
+      {
+        "record": "members#4",
+        "type": "visit",
+        "daysAgo": 29,
+        "text": "Home visit; brought communion and the bulletin."
+      },
+      {
+        "record": "members#4",
+        "type": "card",
+        "daysAgo": 42,
+        "text": "Sent a birthday card."
+      },
+      {
+        "record": "members#5",
+        "type": "phone",
+        "daysAgo": 36,
+        "text": "Called to check in after the hospital stay."
+      },
+      {
+        "record": "members#5",
+        "type": "prayer",
+        "daysAgo": 49,
+        "text": "Added to the prayer list at their request."
+      },
+      {
+        "record": "members#6",
+        "type": "visit",
+        "daysAgo": 43,
+        "text": "Home visit; brought communion and the bulletin."
+      },
+      {
+        "record": "members#7",
+        "type": "phone",
+        "daysAgo": 50,
+        "text": "Called to check in after the hospital stay."
+      },
+      {
+        "record": "members#7",
+        "type": "prayer",
+        "daysAgo": 3,
+        "text": "Added to the prayer list at their request."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "missingInfo"
+  ]
+}

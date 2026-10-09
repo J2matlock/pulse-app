@@ -1,0 +1,209 @@
+/**
+ * undoStore.test.ts — Zustand undo/redo store unit tests.
+ */
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+
+// Mock window.api before importing the store
+const mockInvoke = vi.fn()
+;(globalThis as Record<string, unknown>).window = { api: { invoke: mockInvoke } }
+
+// Mock crypto.randomUUID
+let uuidCounter = 0
+vi.stubGlobal('crypto', { randomUUID: () => `uuid-${++uuidCounter}` })
+
+import { useUndoStore } from '../../../src/renderer/stores/undoStore'
+import type { UndoItem } from '../../../src/renderer/stores/undoStore'
+
+function makeItem(overrides: Partial<UndoItem> = {}): UndoItem {
+  return {
+    id: `uuid-${++uuidCounter}`,
+    description: 'Test action',
+    timestamp: Date.now(),
+    category: 'silent',
+    icon: 'pencil',
+    undo: vi.fn().mockResolvedValue(undefined),
+    redo: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  }
+}
+
+describe('undoStore', () => {
+  beforeEach(() => {
+    mockInvoke.mockReset()
+    uuidCounter = 0
+    useUndoStore.setState({ undoStack: [], redoStack: [], toast: null, isUndoing: false })
+  })
+
+  describe('push', () => {
+    it('adds item to undoStack', () => {
+      useUndoStore.getState().push(makeItem())
+      expect(useUndoStore.getState().undoStack).toHaveLength(1)
+    })
+
+    it('clears redoStack on push', () => {
+      useUndoStore.setState({ redoStack: [makeItem()] })
+      useUndoStore.getState().push(makeItem())
+      expect(useUndoStore.getState().redoStack).toHaveLength(0)
+    })
+
+    it('does not push when isUndoing is true', () => {
+      useUndoStore.setState({ isUndoing: true })
+      useUndoStore.getState().push(makeItem())
+      expect(useUndoStore.getState().undoStack).toHaveLength(0)
+    })
+  })
+
+  describe('max stack size', () => {
+    it('caps at 100 items, dropping oldest', () => {
+      const items: UndoItem[] = []
+      for (let i = 0; i < 105; i++) {
+        const item = makeItem({ id: `item-${i}`, description: `Action ${i}` })
+        items.push(item)
+        useUndoStore.getState().push(item)
+      }
+      const stack = useUndoStore.getState().undoStack
+      expect(stack).toHaveLength(100)
+      // Oldest items should have been dropped (items 0-4)
+      expect(stack[0]!.id).toBe('item-5')
+      expect(stack[99]!.id).toBe('item-104')
+    })
+  })
+
+  describe('undo / redo cycle', () => {
+    it('undo moves item from undoStack to redoStack and calls undo()', async () => {
+      const undoFn = vi.fn().mockResolvedValue(undefined)
+      const item = makeItem({ undo: undoFn })
+      useUndoStore.getState().push(item)
+
+      await useUndoStore.getState().undo()
+      expect(useUndoStore.getState().undoStack).toHaveLength(0)
+      expect(useUndoStore.getState().redoStack).toHaveLength(1)
+      expect(undoFn).toHaveBeenCalledOnce()
+    })
+
+    it('redo moves item from redoStack to undoStack and calls redo()', async () => {
+      const redoFn = vi.fn().mockResolvedValue(undefined)
+      const item = makeItem({ redo: redoFn })
+      useUndoStore.getState().push(item)
+      await useUndoStore.getState().undo()
+
+      await useUndoStore.getState().redo()
+      expect(useUndoStore.getState().undoStack).toHaveLength(1)
+      expect(useUndoStore.getState().redoStack).toHaveLength(0)
+      expect(redoFn).toHaveBeenCalledOnce()
+    })
+
+    it('undo with empty stack is a no-op', async () => {
+      await useUndoStore.getState().undo()
+      expect(useUndoStore.getState().undoStack).toHaveLength(0)
+      expect(useUndoStore.getState().redoStack).toHaveLength(0)
+    })
+
+    it('redo with empty stack is a no-op', async () => {
+      await useUndoStore.getState().redo()
+      expect(useUndoStore.getState().redoStack).toHaveLength(0)
+    })
+  })
+
+  describe('undoTo', () => {
+    it('undoes all items from top down to target (inclusive)', async () => {
+      const undoFns = [vi.fn().mockResolvedValue(undefined), vi.fn().mockResolvedValue(undefined), vi.fn().mockResolvedValue(undefined)]
+      const items = [
+        makeItem({ id: 'a', undo: undoFns[0] }),
+        makeItem({ id: 'b', undo: undoFns[1] }),
+        makeItem({ id: 'c', undo: undoFns[2] }),
+      ]
+      for (const item of items) useUndoStore.getState().push(item)
+      expect(useUndoStore.getState().undoStack).toHaveLength(3)
+
+      // undoTo 'b' should undo 'c' and 'b' (2 items from top)
+      await useUndoStore.getState().undoTo('b')
+      expect(useUndoStore.getState().undoStack).toHaveLength(1)
+      expect(useUndoStore.getState().undoStack[0]!.id).toBe('a')
+      expect(undoFns[2]).toHaveBeenCalledOnce()
+      expect(undoFns[1]).toHaveBeenCalledOnce()
+      expect(undoFns[0]).not.toHaveBeenCalled()
+    })
+
+    it('undoTo with nonexistent id is a no-op', async () => {
+      useUndoStore.getState().push(makeItem({ id: 'x' }))
+      await useUndoStore.getState().undoTo('nonexistent')
+      expect(useUndoStore.getState().undoStack).toHaveLength(1)
+    })
+  })
+
+  describe('clear', () => {
+    it('empties both stacks', () => {
+      useUndoStore.getState().push(makeItem())
+      useUndoStore.getState().push(makeItem())
+      useUndoStore.getState().clear()
+      expect(useUndoStore.getState().undoStack).toHaveLength(0)
+      expect(useUndoStore.getState().redoStack).toHaveLength(0)
+    })
+  })
+
+  describe('pushWithToast', () => {
+    it('sets toast with description', () => {
+      useUndoStore.getState().pushWithToast(makeItem({ description: 'Deleted client' }))
+      expect(useUndoStore.getState().toast).toEqual({ description: 'Deleted client' })
+    })
+
+    it('does not push or show toast when isUndoing', () => {
+      useUndoStore.setState({ isUndoing: true })
+      useUndoStore.getState().pushWithToast(makeItem({ description: 'Should not appear' }))
+      expect(useUndoStore.getState().undoStack).toHaveLength(0)
+      expect(useUndoStore.getState().toast).toBeNull()
+    })
+  })
+
+  describe('coalesce', () => {
+    it('replaces existing item matched by predicate', () => {
+      const original = makeItem({ id: 'orig', description: 'Changed cell [5]', contextId: 1 })
+      useUndoStore.getState().push(original)
+
+      const updated = makeItem({ id: 'orig', description: 'Changed cell [5]', contextId: 1 })
+      useUndoStore.getState().coalesce(
+        (item) => item.id === 'orig',
+        updated,
+      )
+      expect(useUndoStore.getState().undoStack).toHaveLength(1)
+      expect(useUndoStore.getState().undoStack[0]).toBe(updated)
+    })
+
+    it('pushes as new item when no match', () => {
+      useUndoStore.getState().push(makeItem({ id: 'existing' }))
+      const newItem = makeItem({ id: 'new-one' })
+      useUndoStore.getState().coalesce(
+        (item) => item.id === 'nonexistent',
+        newItem,
+      )
+      expect(useUndoStore.getState().undoStack).toHaveLength(2)
+    })
+  })
+
+  describe('dismissToast', () => {
+    it('clears toast', () => {
+      useUndoStore.setState({ toast: { description: 'test' } })
+      useUndoStore.getState().dismissToast()
+      expect(useUndoStore.getState().toast).toBeNull()
+    })
+  })
+
+  describe('side effects', () => {
+    it('undo voids case log entries via IPC', async () => {
+      mockInvoke.mockResolvedValue(undefined)
+      const item = makeItem({
+        sideEffects: [{ type: 'void_case_log', caseLogId: 42 }],
+      })
+      useUndoStore.getState().push(item)
+
+      await useUndoStore.getState().undo()
+      // Should call CASE_LOG_VOID
+      expect(mockInvoke).toHaveBeenCalledWith(
+        'case-log:void',
+        42,
+        'Undone action',
+      )
+    })
+  })
+})

@@ -1,0 +1,410 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "international-students",
+  "name": "International student advisor",
+  "description": "For international student offices: program end dates, the OPT window (90 days before to 60 days after the program ends) and I-20, passport and visa expiries. Pulse is a tracking aid, not your official record system.",
+  "icon": "graduation-cap",
+  "group": "Education and youth",
+  "vocab": {
+    "record": {
+      "one": "student",
+      "many": "students",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false
+  },
+  "lists": [
+    {
+      "key": "students",
+      "name": "International students",
+      "description": "Students with program end dates, OPT windows and document expiries",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Country",
+          "column_type": "text",
+          "position": 1,
+          "width": 130
+        },
+        {
+          "name": "Program",
+          "column_type": "text",
+          "position": 2,
+          "width": 190
+        },
+        {
+          "name": "Program end date",
+          "column_type": "date",
+          "position": 3,
+          "width": 150,
+          "is_required": 1
+        },
+        {
+          "name": "OPT applied",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "description": "Date the OPT application was filed",
+          "config": "{\"alert_rule_name\":\"OPT application window\",\"log_changes\":true}"
+        },
+        {
+          "name": "I-20 end date",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Expires (90-day warning)\",\"log_changes\":true}"
+        },
+        {
+          "name": "Passport expires",
+          "column_type": "date",
+          "position": 6,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Expires (90-day warning)\",\"log_changes\":true}"
+        },
+        {
+          "name": "Visa expires",
+          "column_type": "date",
+          "position": 7,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Expires (90-day warning)\",\"log_changes\":true}"
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 8,
+          "width": 200
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 9,
+          "width": 130,
+          "config": "{\"options\":[\"Enrolled\",\"On OPT\",\"Transferred\",\"Completed\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "OPT application window",
+          "description": "OPT can be applied for from 90 days before to 60 days after the program ends",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":150,\"bgClass\":\"#bbf7d0\",\"label\":\"Window opens\"},{\"daysBefore\":60,\"bgClass\":\"#facc15\",\"label\":\"Window open\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Closing soon\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Last day\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Window closed\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\":\"relative\",\"anchorColumnId\":{\"column\":\"Program end date\"},\"offset\":{\"days\":60,\"direction\":\"after\"}}"
+        },
+        {
+          "name": "Expires (90-day warning)",
+          "description": "The date entered is when it expires; warns 90, 60, 30 days ahead",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":90,\"bgClass\":\"#facc15\",\"label\":\"Renew soon\"},{\"daysBefore\":60,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":30,\"bgClass\":\"#f87171\",\"label\":\"Expiring\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Expires today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Expired\"}]"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "advising",
+      "label": "Advising",
+      "icon": "🎓",
+      "color": "teal"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "students": [
+        {
+          "Name": "Grace Okafor",
+          "Country": "India",
+          "Program": "MS Computer Science",
+          "Program end date": {
+            "daysFromToday": -30
+          },
+          "I-20 end date": {
+            "daysFromToday": 0
+          },
+          "Passport expires": {
+            "daysFromToday": 900
+          },
+          "Visa expires": {
+            "daysFromToday": 200
+          },
+          "Email": "grace.okafor@example.com",
+          "Status": "On OPT"
+        },
+        {
+          "Name": "Omar Brown",
+          "Country": "China",
+          "Program": "MBA",
+          "Program end date": {
+            "daysFromToday": 20
+          },
+          "I-20 end date": {
+            "daysFromToday": 50
+          },
+          "Passport expires": {
+            "daysFromToday": 40
+          },
+          "Visa expires": {
+            "daysFromToday": 500
+          },
+          "Email": "omar.brown@example.com",
+          "Status": "Enrolled"
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Country": "Brazil",
+          "Program": "BS Biology",
+          "Program end date": {
+            "daysFromToday": 75
+          },
+          "I-20 end date": {
+            "daysFromToday": 105
+          },
+          "Passport expires": {
+            "daysFromToday": 1500
+          },
+          "Visa expires": {
+            "daysFromToday": -10
+          },
+          "Email": "ruth.jackson@example.com",
+          "Status": "Enrolled"
+        },
+        {
+          "Name": "Diego Ferreira",
+          "Country": "Nigeria",
+          "Program": "MS Data Science",
+          "Program end date": {
+            "daysFromToday": 130
+          },
+          "I-20 end date": {
+            "daysFromToday": 160
+          },
+          "Passport expires": {
+            "daysFromToday": 700
+          },
+          "Visa expires": {
+            "daysFromToday": 900
+          },
+          "Email": "diego.ferreira@example.com",
+          "Status": "Enrolled"
+        },
+        {
+          "Name": "Hannah Walker",
+          "Country": "Vietnam",
+          "Program": "BA Economics",
+          "Program end date": {
+            "daysFromToday": 300
+          },
+          "I-20 end date": {
+            "daysFromToday": 330
+          },
+          "Passport expires": {
+            "daysFromToday": 25
+          },
+          "Visa expires": {
+            "daysFromToday": 120
+          },
+          "Email": "hannah.walker@example.com",
+          "Status": "Transferred"
+        },
+        {
+          "Name": "Tyrone Haddad",
+          "Country": "South Korea",
+          "Program": "MS Engineering",
+          "Program end date": {
+            "daysFromToday": 500
+          },
+          "I-20 end date": {
+            "daysFromToday": 530
+          },
+          "Passport expires": {
+            "daysFromToday": 2000
+          },
+          "Visa expires": {
+            "daysFromToday": 1000
+          },
+          "Email": "tyrone.haddad@example.com",
+          "Status": "Enrolled"
+        },
+        {
+          "Name": "Mei Ortiz",
+          "Country": "Mexico",
+          "Program": "BS Nursing",
+          "Program end date": {
+            "daysFromToday": -50
+          },
+          "OPT applied": {
+            "daysFromToday": -60
+          },
+          "I-20 end date": {
+            "daysFromToday": -20
+          },
+          "Passport expires": {
+            "daysFromToday": 1100
+          },
+          "Visa expires": {
+            "daysFromToday": 600
+          },
+          "Email": "mei.ortiz@example.com",
+          "Status": "Enrolled"
+        },
+        {
+          "Name": "Walter Johnson",
+          "Country": "Ghana",
+          "Program": "MPH",
+          "Program end date": {
+            "daysFromToday": 60
+          },
+          "I-20 end date": {
+            "daysFromToday": 90
+          },
+          "Passport expires": {
+            "daysFromToday": 300
+          },
+          "Visa expires": {
+            "daysFromToday": 45
+          },
+          "Email": "walter.johnson@example.com",
+          "Status": "Enrolled"
+        },
+        {
+          "Name": "Yolanda Miller",
+          "Country": "Nepal",
+          "Program": "MS Computer Science",
+          "Program end date": {
+            "daysFromToday": 200
+          },
+          "I-20 end date": {
+            "daysFromToday": 230
+          },
+          "Passport expires": {
+            "daysFromToday": 800
+          },
+          "Visa expires": {
+            "daysFromToday": 300
+          },
+          "Email": "yolanda.miller@example.com",
+          "Status": "Completed"
+        },
+        {
+          "Name": "Ahmed Fischer",
+          "Country": "Turkey",
+          "Program": "BA Design",
+          "Program end date": {
+            "daysFromToday": 700
+          },
+          "I-20 end date": {
+            "daysFromToday": 730
+          },
+          "Passport expires": {
+            "daysFromToday": 1200
+          },
+          "Visa expires": {
+            "daysFromToday": 1300
+          },
+          "Email": "ahmed.fischer@example.com",
+          "Status": "Enrolled"
+        }
+      ]
+    },
+    "activities": [
+      {
+        "record": "students#0",
+        "type": "advising",
+        "daysAgo": 1,
+        "text": "Advising appointment about OPT timing."
+      },
+      {
+        "record": "students#1",
+        "type": "note",
+        "daysAgo": 8,
+        "text": "Updated the I-20 for the program extension."
+      },
+      {
+        "record": "students#1",
+        "type": "advising",
+        "daysAgo": 21,
+        "text": "Advising appointment about OPT timing."
+      },
+      {
+        "record": "students#2",
+        "type": "email",
+        "daysAgo": 15,
+        "text": "Sent the reminder about updating the address."
+      },
+      {
+        "record": "students#2",
+        "type": "note",
+        "daysAgo": 28,
+        "text": "Updated the I-20 for the program extension."
+      },
+      {
+        "record": "students#3",
+        "type": "advising",
+        "daysAgo": 22,
+        "text": "Advising appointment about OPT timing."
+      },
+      {
+        "record": "students#4",
+        "type": "note",
+        "daysAgo": 29,
+        "text": "Updated the I-20 for the program extension."
+      },
+      {
+        "record": "students#4",
+        "type": "advising",
+        "daysAgo": 42,
+        "text": "Advising appointment about OPT timing."
+      },
+      {
+        "record": "students#5",
+        "type": "email",
+        "daysAgo": 36,
+        "text": "Sent the reminder about updating the address."
+      },
+      {
+        "record": "students#5",
+        "type": "note",
+        "daysAgo": 49,
+        "text": "Updated the I-20 for the program extension."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "missingInfo"
+  ]
+}

@@ -1,0 +1,666 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "fleet-manager",
+  "name": "Fleet manager",
+  "description": "For small fleets: service every 5,000 miles or 6 months (Pulse estimates the date from each vehicle's mileage), registrations and annual inspections.",
+  "icon": "truck",
+  "group": "Trades and service",
+  "vocab": {
+    "record": {
+      "one": "vehicle",
+      "many": "vehicles",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": false,
+    "summaryReport": true,
+    "handoff": false
+  },
+  "lists": [
+    {
+      "key": "vehicles",
+      "name": "Fleet",
+      "description": "Vehicles with mileage-based service, registration and inspections",
+      "kind": "thing",
+      "columns": [
+        {
+          "name": "Unit",
+          "column_type": "text",
+          "position": 0,
+          "width": 120,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Year",
+          "column_type": "number",
+          "position": 1,
+          "width": 90
+        },
+        {
+          "name": "Make and model",
+          "column_type": "text",
+          "position": 2,
+          "width": 170
+        },
+        {
+          "name": "Plate",
+          "column_type": "text",
+          "position": 3,
+          "width": 110
+        },
+        {
+          "name": "Odometer",
+          "column_type": "number",
+          "position": 4,
+          "width": 120,
+          "description": "Update it when you fuel up or service the vehicle"
+        },
+        {
+          "name": "Odometer at last service",
+          "column_type": "number",
+          "position": 5,
+          "width": 150
+        },
+        {
+          "name": "Last service",
+          "column_type": "date",
+          "position": 6,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Service\",\"log_changes\":true}"
+        },
+        {
+          "name": "Registration expires",
+          "column_type": "date",
+          "position": 7,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
+          "name": "Annual inspection",
+          "column_type": "date",
+          "position": 8,
+          "width": 150,
+          "description": "Date of the last annual inspection",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Assigned driver",
+          "column_type": "text",
+          "position": 9,
+          "width": 160
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 10,
+          "width": 140,
+          "config": "{\"options\":[\"In service\",\"In the shop\",\"Out of service\",\"Sold\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Service",
+          "description": "Every 5,000 miles or 6 months, whichever comes first",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "meter",
+          "rule_config": "{\"kind\":\"meter\",\"readingColumnId\":{\"column\":\"Odometer\"},\"lastServiceReadingColumnId\":{\"column\":\"Odometer at last service\"},\"every\":5000,\"unit\":\"mi\",\"timeFallback\":{\"months\":6},\"typicalPerDay\":60}"
+        },
+        {
+          "name": "Due date",
+          "description": "The date entered is the deadline",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ],
+      "displayFormat": "{Unit} – {Year} {Make and model}"
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "service",
+      "label": "Service",
+      "icon": "🔧",
+      "color": "orange"
+    },
+    {
+      "key": "fuel",
+      "label": "Fuel",
+      "icon": "⛽",
+      "color": "blue"
+    },
+    {
+      "key": "repair",
+      "label": "Repair",
+      "icon": "🛠️",
+      "color": "red"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "vehicles": [
+        {
+          "Unit": "#101",
+          "Year": 2019,
+          "Make and model": "Ford Transit",
+          "Plate": "FLT-4100",
+          "Odometer": 48200,
+          "Odometer at last service": 39950,
+          "Last service": {
+            "daysFromToday": -150
+          },
+          "Registration expires": {
+            "daysFromToday": 20
+          },
+          "Annual inspection": {
+            "daysFromToday": -300
+          },
+          "Status": "In service"
+        },
+        {
+          "Unit": "#102",
+          "Year": 2017,
+          "Make and model": "Chevy Express",
+          "Plate": "FLT-4137",
+          "Odometer": 91500,
+          "Odometer at last service": 88300,
+          "Last service": {
+            "daysFromToday": -40
+          },
+          "Registration expires": {
+            "daysFromToday": 200
+          },
+          "Annual inspection": {
+            "daysFromToday": -200
+          },
+          "Assigned driver": "Kevin Nguyen",
+          "Status": "In service"
+        },
+        {
+          "Unit": "#103",
+          "Year": 2022,
+          "Make and model": "Ford F-150",
+          "Plate": "FLT-4174",
+          "Odometer": 23100,
+          "Odometer at last service": 19100,
+          "Last service": {
+            "daysFromToday": -100
+          },
+          "Registration expires": {
+            "daysFromToday": 95
+          },
+          "Annual inspection": {
+            "daysFromToday": -370
+          },
+          "Assigned driver": "Lucia Chen",
+          "Status": "In service"
+        },
+        {
+          "Unit": "#104",
+          "Year": 2018,
+          "Make and model": "Ram ProMaster",
+          "Plate": "FLT-4211",
+          "Odometer": 66400,
+          "Odometer at last service": 55025,
+          "Last service": {
+            "daysFromToday": -175
+          },
+          "Registration expires": {
+            "daysFromToday": -5
+          },
+          "Annual inspection": {
+            "daysFromToday": -100
+          },
+          "Assigned driver": "Marcus Davis",
+          "Status": "In service"
+        },
+        {
+          "Unit": "#105",
+          "Year": 2023,
+          "Make and model": "Toyota Camry",
+          "Plate": "FLT-4248",
+          "Odometer": 12900,
+          "Odometer at last service": 12300,
+          "Last service": {
+            "daysFromToday": -20
+          },
+          "Registration expires": {
+            "daysFromToday": 330
+          },
+          "Annual inspection": {
+            "daysFromToday": -30
+          },
+          "Status": "In service"
+        },
+        {
+          "Unit": "#106",
+          "Year": 2016,
+          "Make and model": "Ford E-350",
+          "Plate": "FLT-4285",
+          "Odometer": 120300,
+          "Odometer at last service": 113700,
+          "Last service": {
+            "daysFromToday": -60
+          },
+          "Registration expires": {
+            "daysFromToday": 60
+          },
+          "Annual inspection": {
+            "daysFromToday": -350
+          },
+          "Assigned driver": "James Patel",
+          "Status": "In the shop"
+        },
+        {
+          "Unit": "#107",
+          "Year": 2021,
+          "Make and model": "Nissan NV200",
+          "Plate": "FLT-4322",
+          "Odometer": 38800,
+          "Odometer at last service": 29050,
+          "Last service": {
+            "daysFromToday": -195
+          },
+          "Registration expires": {
+            "daysFromToday": 140
+          },
+          "Annual inspection": {
+            "daysFromToday": -250
+          },
+          "Assigned driver": "Aisha Morales",
+          "Status": "In service"
+        },
+        {
+          "Unit": "#108",
+          "Year": 2018,
+          "Make and model": "Chevy Silverado",
+          "Plate": "FLT-4359",
+          "Odometer": 74100,
+          "Odometer at last service": 67800,
+          "Last service": {
+            "daysFromToday": -90
+          },
+          "Registration expires": {
+            "daysFromToday": 250
+          },
+          "Annual inspection": {
+            "daysFromToday": -120
+          },
+          "Assigned driver": "Robert Dubois",
+          "Status": "In service"
+        }
+      ]
+    },
+    "history": [
+      {
+        "record": "vehicles#0",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "18555",
+            "daysAgo": 540
+          },
+          {
+            "value": "23450",
+            "daysAgo": 451
+          },
+          {
+            "value": "28400",
+            "daysAgo": 361
+          },
+          {
+            "value": "33350",
+            "daysAgo": 271
+          },
+          {
+            "value": "38300",
+            "daysAgo": 181
+          },
+          {
+            "value": "43250",
+            "daysAgo": 91
+          },
+          {
+            "value": "48200",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "vehicles#1",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "48380",
+            "daysAgo": 540
+          },
+          {
+            "value": "55500",
+            "daysAgo": 451
+          },
+          {
+            "value": "62700",
+            "daysAgo": 361
+          },
+          {
+            "value": "69900",
+            "daysAgo": 271
+          },
+          {
+            "value": "77100",
+            "daysAgo": 181
+          },
+          {
+            "value": "84300",
+            "daysAgo": 91
+          },
+          {
+            "value": "91500",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "vehicles#2",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "1540",
+            "daysAgo": 540
+          },
+          {
+            "value": "5100",
+            "daysAgo": 451
+          },
+          {
+            "value": "8700",
+            "daysAgo": 361
+          },
+          {
+            "value": "12300",
+            "daysAgo": 271
+          },
+          {
+            "value": "15900",
+            "daysAgo": 181
+          },
+          {
+            "value": "19500",
+            "daysAgo": 91
+          },
+          {
+            "value": "23100",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "vehicles#3",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "31365",
+            "daysAgo": 540
+          },
+          {
+            "value": "37150",
+            "daysAgo": 451
+          },
+          {
+            "value": "43000",
+            "daysAgo": 361
+          },
+          {
+            "value": "48850",
+            "daysAgo": 271
+          },
+          {
+            "value": "54700",
+            "daysAgo": 181
+          },
+          {
+            "value": "60550",
+            "daysAgo": 91
+          },
+          {
+            "value": "66400",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "vehicles#4",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "-3270",
+            "daysAgo": 540
+          },
+          {
+            "value": "-600",
+            "daysAgo": 451
+          },
+          {
+            "value": "2100",
+            "daysAgo": 361
+          },
+          {
+            "value": "4800",
+            "daysAgo": 271
+          },
+          {
+            "value": "7500",
+            "daysAgo": 181
+          },
+          {
+            "value": "10200",
+            "daysAgo": 91
+          },
+          {
+            "value": "12900",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "vehicles#5",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "71790",
+            "daysAgo": 540
+          },
+          {
+            "value": "79800",
+            "daysAgo": 451
+          },
+          {
+            "value": "87900",
+            "daysAgo": 361
+          },
+          {
+            "value": "96000",
+            "daysAgo": 271
+          },
+          {
+            "value": "104100",
+            "daysAgo": 181
+          },
+          {
+            "value": "112200",
+            "daysAgo": 91
+          },
+          {
+            "value": "120300",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "vehicles#6",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "11850",
+            "daysAgo": 540
+          },
+          {
+            "value": "16300",
+            "daysAgo": 451
+          },
+          {
+            "value": "20800",
+            "daysAgo": 361
+          },
+          {
+            "value": "25300",
+            "daysAgo": 271
+          },
+          {
+            "value": "29800",
+            "daysAgo": 181
+          },
+          {
+            "value": "34300",
+            "daysAgo": 91
+          },
+          {
+            "value": "38800",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "vehicles#7",
+        "column": "Odometer",
+        "values": [
+          {
+            "value": "36370",
+            "daysAgo": 540
+          },
+          {
+            "value": "42600",
+            "daysAgo": 451
+          },
+          {
+            "value": "48900",
+            "daysAgo": 361
+          },
+          {
+            "value": "55200",
+            "daysAgo": 271
+          },
+          {
+            "value": "61500",
+            "daysAgo": 181
+          },
+          {
+            "value": "67800",
+            "daysAgo": 91
+          },
+          {
+            "value": "74100",
+            "daysAgo": 1
+          }
+        ]
+      }
+    ],
+    "activities": [
+      {
+        "record": "vehicles#0",
+        "type": "service",
+        "daysAgo": 1,
+        "text": "Oil, filter and tire rotation."
+      },
+      {
+        "record": "vehicles#1",
+        "type": "note",
+        "daysAgo": 8,
+        "text": "Driver reported a check-engine light; booked in."
+      },
+      {
+        "record": "vehicles#1",
+        "type": "service",
+        "daysAgo": 21,
+        "text": "Oil, filter and tire rotation."
+      },
+      {
+        "record": "vehicles#2",
+        "type": "repair",
+        "daysAgo": 15,
+        "text": "Replaced the rear brake pads."
+      },
+      {
+        "record": "vehicles#2",
+        "type": "note",
+        "daysAgo": 28,
+        "text": "Driver reported a check-engine light; booked in."
+      },
+      {
+        "record": "vehicles#3",
+        "type": "service",
+        "daysAgo": 22,
+        "text": "Oil, filter and tire rotation."
+      },
+      {
+        "record": "vehicles#4",
+        "type": "note",
+        "daysAgo": 29,
+        "text": "Driver reported a check-engine light; booked in."
+      },
+      {
+        "record": "vehicles#4",
+        "type": "service",
+        "daysAgo": 42,
+        "text": "Oil, filter and tire rotation."
+      },
+      {
+        "record": "vehicles#5",
+        "type": "repair",
+        "daysAgo": 36,
+        "text": "Replaced the rear brake pads."
+      },
+      {
+        "record": "vehicles#5",
+        "type": "note",
+        "daysAgo": 49,
+        "text": "Driver reported a check-engine light; booked in."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "dueForService",
+    "missingInfo"
+  ]
+}

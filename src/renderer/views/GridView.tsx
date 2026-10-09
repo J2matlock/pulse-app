@@ -1,0 +1,148 @@
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
+import { useGridStore } from '../stores/gridStore'
+import { DataGrid } from '../components/grid/DataGrid'
+import { GridToolbar } from '../components/grid/GridToolbar'
+import { FilterBar } from '../components/grid/FilterBar'
+import { FindReplaceBar } from '../components/grid/FindReplaceBar'
+import { GridStatusFooter } from '../components/grid/GridStatusFooter'
+import { EmptyState } from '../components/shared/EmptyState'
+import { ConfirmDialog } from '../components/shared/ConfirmDialog'
+import { pulseEvents } from '../events'
+import { useVocab } from '../hooks/useVocab'
+import { useFeature } from '../hooks/useFeature'
+import { BoardView } from '../components/board/BoardView'
+import { stageConfigOf } from '../../shared/stages'
+
+export default function GridView(): React.ReactElement {
+  const { t } = useVocab()
+  const { grids, gridListLoaded, activeGridId } = useGridStore(useShallow(s => ({
+    grids: s.grids, gridListLoaded: s.gridListLoaded, activeGridId: s.activeGridId,
+  })))
+  const { loadGridList, loadGrid } = useGridStore(useShallow(s => ({
+    loadGridList: s.loadGridList, loadGrid: s.loadGrid,
+  })))
+  const { rows, columns, updateCell, setFindReplaceQuery, setFindReplaceActiveMatch } = useGridStore(
+    useShallow(s => ({
+      rows: s.rows,
+      columns: s.columns,
+      updateCell: s.updateCell,
+      setFindReplaceQuery: s.setFindReplaceQuery,
+      setFindReplaceActiveMatch: s.setFindReplaceActiveMatch,
+    }))
+  )
+  // Board (W06): when the stage feature is on, the list has a stage, and the board was chosen
+  const stagesOn = useFeature('stages')
+  const viewMode = useGridStore(s => s.viewMode)
+  const hasStage = useGridStore(s => s.columns.concat(s.hiddenColumns).some(c => stageConfigOf(c) !== null))
+  const showBoard = stagesOn && hasStage && viewMode === 'board'
+  const pendingTypeChange = useGridStore(s => s.pendingColumnTypeChange)
+  const confirmColumnTypeChange = useGridStore(s => s.confirmColumnTypeChange)
+  const cancelColumnTypeChange = useGridStore(s => s.cancelColumnTypeChange)
+  const creatingRef = useRef(false)
+  const [findReplaceOpen, setFindReplaceOpen] = useState(false)
+
+  // Listen for Ctrl+H toggle-find-replace event
+  useEffect(() => {
+    function handleToggle() {
+      setFindReplaceOpen(v => !v)
+    }
+    const unsub = pulseEvents.on('toggle-find-replace', handleToggle)
+    return unsub
+  }, [])
+
+  const handleClose = useCallback(() => {
+    setFindReplaceOpen(false)
+    setFindReplaceQuery('')
+    setFindReplaceActiveMatch(null)
+  }, [setFindReplaceQuery, setFindReplaceActiveMatch])
+
+  const handleReplace = useCallback(async (rowId: number, colId: number, _oldVal: string, newVal: string) => {
+    await updateCell(rowId, colId, newVal)
+  }, [updateCell])
+
+  const handleReplaceAll = useCallback(async (replacements: Array<{ rowId: number; colId: number; oldVal: string; newVal: string }>) => {
+    for (const r of replacements) {
+      await updateCell(r.rowId, r.colId, r.newVal)
+    }
+  }, [updateCell])
+
+  useEffect(() => {
+    if (!gridListLoaded) loadGridList()
+  }, [gridListLoaded, loadGridList])
+
+  // Auto-select first grid — only after loadGridList has resolved.
+  // If no grids exist, re-fetch once to avoid acting on stale state (e.g. after onboarding import).
+  useEffect(() => {
+    if (!gridListLoaded) return
+    if (grids.length === 0) {
+      // Re-fetch to catch grids created during onboarding
+      if (creatingRef.current) return
+      creatingRef.current = true
+      loadGridList().then(() => {
+        const current = useGridStore.getState().grids
+        if (current.length > 0) {
+          loadGrid(current[0]!.id)
+        }
+        creatingRef.current = false
+      })
+    } else if (!activeGridId) {
+      loadGrid(grids[0]!.id)
+    }
+  }, [gridListLoaded, grids, activeGridId, loadGrid, loadGridList])
+
+  // No grid selected — show helpful empty state
+  if (gridListLoaded && !activeGridId) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        <div className="flex-1 flex items-center justify-center">
+          <EmptyState
+            icon={
+              <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25Z" />
+              </svg>
+            }
+            title={`No ${t('list')} selected`}
+            description={`Select ${t('list', { article: true })} from the sidebar, or create a new one to get started.`}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      <GridToolbar />
+      <FilterBar />
+      <div className="flex-1 overflow-hidden relative">
+        <FindReplaceBar
+          open={findReplaceOpen}
+          onClose={handleClose}
+          rows={rows}
+          columns={columns}
+          onReplace={handleReplace}
+          onReplaceAll={handleReplaceAll}
+          onHighlightChange={setFindReplaceQuery}
+          onActiveMatchChange={setFindReplaceActiveMatch}
+        />
+        {showBoard ? <BoardView /> : <DataGrid />}
+      </div>
+      <GridStatusFooter />
+
+      {/* Column type change confirmation dialog (8A) */}
+      <ConfirmDialog
+        open={pendingTypeChange != null}
+        title="Change column type?"
+        message={
+          pendingTypeChange
+            ? `Changing from ${pendingTypeChange.oldType} to ${pendingTypeChange.newType} will not convert existing data. Some values may display incorrectly.`
+            : ''
+        }
+        confirmLabel="Change Type"
+        destructive={false}
+        onConfirm={() => void confirmColumnTypeChange()}
+        onCancel={cancelColumnTypeChange}
+      />
+    </div>
+  )
+}

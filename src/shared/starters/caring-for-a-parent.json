@@ -1,0 +1,512 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "caring-for-a-parent",
+  "name": "Caring for a parent",
+  "description": "For family caregivers: a parent's doctor visits on the calendar, medication reviews every 3 months, yearly check-ups, insurance and benefits renewals, their care team, and copies of the power of attorney and insurance cards kept safe in Files.",
+  "icon": "hand-heart",
+  "group": "Personal",
+  "vocab": {
+    "record": {
+      "one": "parent",
+      "many": "parents",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": false,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": false,
+    "summaryReport": false,
+    "handoff": true,
+    "links": true,
+    "appointments": true,
+    "attachments": true,
+    "notifications": true
+  },
+  "lists": [
+    {
+      "key": "parents",
+      "name": "Parents",
+      "description": "The people you look after, with their check-ups, medications and renewals",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 170,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 1,
+          "width": 140
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 2,
+          "width": 140
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 3,
+          "width": 200
+        },
+        {
+          "name": "Allergies",
+          "column_type": "text",
+          "position": 4,
+          "width": 160
+        },
+        {
+          "name": "Insurance",
+          "column_type": "dropdown",
+          "position": 5,
+          "width": 170,
+          "config": "{\"options\":[\"Medicare\",\"Medicare Advantage\",\"Medicare + supplement\",\"Medicaid\",\"Other\"]}"
+        },
+        {
+          "name": "Medication review",
+          "column_type": "date",
+          "position": 6,
+          "width": 160,
+          "description": "Last time a doctor or pharmacist went over all the medications; again every 3 months",
+          "config": "{\"alert_rule_name\":\"Every 3 months\",\"log_changes\":true}"
+        },
+        {
+          "name": "Wellness visit",
+          "column_type": "date",
+          "position": 7,
+          "width": 150,
+          "description": "Last yearly check-up",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Insurance renews",
+          "column_type": "date",
+          "position": 8,
+          "width": 150,
+          "description": "When the plan renews or open enrollment ends",
+          "config": "{\"alert_rule_name\":\"Renews (60-day warning)\",\"log_changes\":true}"
+        },
+        {
+          "name": "Benefits renewal",
+          "column_type": "date",
+          "position": 9,
+          "width": 150,
+          "description": "Medicaid, food or housing benefits paperwork due",
+          "config": "{\"alert_rule_name\":\"Renews (60-day warning)\",\"log_changes\":true}"
+        },
+        {
+          "name": "Power of attorney",
+          "column_type": "dropdown",
+          "position": 10,
+          "width": 150,
+          "description": "Keep a copy in Files on their page",
+          "config": "{\"options\":[\"On file\",\"Not yet\",\"Not needed\"]}"
+        },
+        {
+          "name": "Health care proxy",
+          "column_type": "dropdown",
+          "position": 11,
+          "width": 150,
+          "description": "Keep a copy in Files on their page",
+          "config": "{\"options\":[\"On file\",\"Not yet\",\"Not needed\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every 3 months",
+          "description": "Due 3 months after the date entered",
+          "interval_months": 3,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":15,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Renews (60-day warning)",
+          "description": "The date entered is when it renews",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ],
+      "links": [
+        {
+          "to": "care-team",
+          "label_forward": "Care team",
+          "label_backward": "Looks after",
+          "cardinality": "many_to_many"
+        }
+      ],
+      "checklists": [
+        {
+          "name": "Hospital stay",
+          "description": "What to bring and who to tell",
+          "items": "[\"Medication list printed\",\"Insurance cards and ID\",\"Copy of health care proxy\",\"Glasses, hearing aids, chargers\",\"Tell the primary doctor\",\"Ask about discharge plan and follow-up visits\"]"
+        }
+      ]
+    },
+    {
+      "key": "care-team",
+      "name": "Care team",
+      "description": "Doctors, the pharmacy and everyone else who helps",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "care team member",
+          "many": "care team members",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Role",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 160,
+          "config": "{\"options\":[\"Primary doctor\",\"Specialist\",\"Pharmacy\",\"Dentist\",\"Home care\",\"Insurance\",\"Lawyer\",\"Other\"]}"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 2,
+          "width": 140
+        },
+        {
+          "name": "Fax",
+          "column_type": "phone",
+          "position": 3,
+          "width": 140
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 4,
+          "width": 200
+        },
+        {
+          "name": "Patient portal",
+          "column_type": "url",
+          "position": 5,
+          "width": 180
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "doctor_visit",
+      "label": "Doctor visit",
+      "icon": "🩺",
+      "color": "teal"
+    },
+    {
+      "key": "med_change",
+      "label": "Medication change",
+      "icon": "💊",
+      "color": "purple"
+    }
+  ],
+  "helpTips": [
+    {
+      "title": "Important papers",
+      "body": "On a parent's page, drop copies of the power of attorney, health care proxy and insurance cards into Files. They are stored encrypted inside Pulse."
+    },
+    {
+      "title": "Hospital stay",
+      "body": "Start the Hospital stay checklist on their page so nothing gets forgotten, and print the handoff packet for the hospital team."
+    }
+  ],
+  "dashboardCards": [
+    "today",
+    "summary",
+    "recentActivity"
+  ],
+  "sampleData": {
+    "records": {
+      "parents": [
+        {
+          "Name": "Ruth Ellison",
+          "Date of birth": {
+            "daysFromToday": -29600
+          },
+          "Phone": "555-0141",
+          "Address": "12 Maple Hollow Rd",
+          "Allergies": "Penicillin",
+          "Insurance": "Medicare + supplement",
+          "Medication review": {
+            "daysFromToday": -104
+          },
+          "Wellness visit": {
+            "daysFromToday": -190
+          },
+          "Insurance renews": {
+            "daysFromToday": 48
+          },
+          "Benefits renewal": null,
+          "Power of attorney": "On file",
+          "Health care proxy": "On file"
+        },
+        {
+          "Name": "Walter Ellison",
+          "Date of birth": {
+            "daysFromToday": -31200
+          },
+          "Phone": "555-0141",
+          "Address": "12 Maple Hollow Rd",
+          "Allergies": "None known",
+          "Insurance": "Medicare Advantage",
+          "Medication review": {
+            "daysFromToday": -70
+          },
+          "Wellness visit": {
+            "daysFromToday": -340
+          },
+          "Insurance renews": {
+            "daysFromToday": 48
+          },
+          "Benefits renewal": {
+            "daysFromToday": 130
+          },
+          "Power of attorney": "Not yet",
+          "Health care proxy": "On file"
+        }
+      ],
+      "care-team": [
+        {
+          "Name": "Dr. Anita Shah",
+          "Role": "Primary doctor",
+          "Phone": "555-0150",
+          "Fax": "555-0151",
+          "Address": "400 Elm Street, Suite 2",
+          "Patient portal": "https://portal.example.com"
+        },
+        {
+          "Name": "Riverside Heart Clinic",
+          "Role": "Specialist",
+          "Phone": "555-0152",
+          "Address": "88 River Road"
+        },
+        {
+          "Name": "Corner Pharmacy",
+          "Role": "Pharmacy",
+          "Phone": "555-0153",
+          "Fax": "555-0154",
+          "Address": "3 Main Street"
+        },
+        {
+          "Name": "Bright Eyes Optometry",
+          "Role": "Specialist",
+          "Phone": "555-0155",
+          "Address": "27 Oak Avenue"
+        },
+        {
+          "Name": "Helping Hands Home Care",
+          "Role": "Home care",
+          "Phone": "555-0156"
+        },
+        {
+          "Name": "Lee & Park Elder Law",
+          "Role": "Lawyer",
+          "Phone": "555-0157",
+          "Address": "19 Court Street"
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "parents#0",
+        "to": "care-team#0",
+        "link": "Care team"
+      },
+      {
+        "from": "parents#0",
+        "to": "care-team#1",
+        "link": "Care team"
+      },
+      {
+        "from": "parents#0",
+        "to": "care-team#2",
+        "link": "Care team"
+      },
+      {
+        "from": "parents#0",
+        "to": "care-team#5",
+        "link": "Care team"
+      },
+      {
+        "from": "parents#1",
+        "to": "care-team#0",
+        "link": "Care team"
+      },
+      {
+        "from": "parents#1",
+        "to": "care-team#2",
+        "link": "Care team"
+      },
+      {
+        "from": "parents#1",
+        "to": "care-team#3",
+        "link": "Care team"
+      },
+      {
+        "from": "parents#1",
+        "to": "care-team#4",
+        "link": "Care team"
+      },
+      {
+        "from": "parents#1",
+        "to": "care-team#5",
+        "link": "Care team"
+      }
+    ],
+    "activities": [
+      {
+        "record": "parents#0",
+        "type": "doctor_visit",
+        "daysAgo": 20,
+        "text": "Saw Dr. Shah. Blood pressure better; keep the same dose. Blood work in 3 months."
+      },
+      {
+        "record": "parents#0",
+        "type": "med_change",
+        "daysAgo": 45,
+        "text": "Heart clinic stopped one water pill and lowered the other. Updated the pill box."
+      },
+      {
+        "record": "parents#0",
+        "type": "phone",
+        "daysAgo": 6,
+        "text": "Pharmacy called: refill ready Thursday. Asked them to sync all refills to one day."
+      },
+      {
+        "record": "parents#1",
+        "type": "doctor_visit",
+        "daysAgo": 12,
+        "text": "Physical therapy evaluation after the fall. Twice a week for three weeks, then exercises at home."
+      },
+      {
+        "record": "parents#1",
+        "type": "note",
+        "daysAgo": 30,
+        "text": "Talked with Dad about the power of attorney. He wants to meet the lawyer first."
+      },
+      {
+        "record": "parents#1",
+        "type": "phone",
+        "daysAgo": 3,
+        "text": "Called the elder law office; they can meet next week."
+      },
+      {
+        "record": "parents#1",
+        "type": "med_change",
+        "daysAgo": 70,
+        "text": "Medication review with the pharmacist. Stopped the sleep aid; okay to take vitamin D."
+      }
+    ],
+    "appointments": [
+      {
+        "record": "parents#0",
+        "title": "Heart clinic follow-up",
+        "dayOffset": 9,
+        "time": "10:30",
+        "minutes": 45,
+        "type": "doctor_visit",
+        "location": "Riverside Heart Clinic"
+      },
+      {
+        "record": "parents#0",
+        "title": "Blood work",
+        "dayOffset": 60,
+        "time": "08:00",
+        "minutes": 30,
+        "type": "doctor_visit",
+        "location": "400 Elm Street"
+      },
+      {
+        "record": "parents#0",
+        "title": "Primary doctor visit",
+        "dayOffset": -20,
+        "time": "14:00",
+        "minutes": 30,
+        "type": "doctor_visit",
+        "location": "400 Elm Street"
+      },
+      {
+        "record": "parents#1",
+        "title": "Physical therapy",
+        "dayOffset": 1,
+        "time": "13:00",
+        "minutes": 45,
+        "type": "doctor_visit",
+        "location": "Helping Hands Home Care",
+        "repeatWeekly": 3
+      },
+      {
+        "record": "parents#1",
+        "title": "Physical therapy",
+        "dayOffset": 4,
+        "time": "13:00",
+        "minutes": 45,
+        "type": "doctor_visit",
+        "location": "Helping Hands Home Care",
+        "repeatWeekly": 3
+      },
+      {
+        "record": "parents#1",
+        "title": "Eye exam",
+        "dayOffset": 3,
+        "time": "09:15",
+        "minutes": 60,
+        "type": "doctor_visit",
+        "location": "Bright Eyes Optometry"
+      },
+      {
+        "record": "parents#1",
+        "title": "Meet the elder law attorney",
+        "dayOffset": 7,
+        "time": "11:00",
+        "minutes": 60,
+        "type": "meeting",
+        "location": "19 Court Street"
+      }
+    ]
+  }
+}

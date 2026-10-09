@@ -1,0 +1,572 @@
+import React, { useEffect, useRef, useState } from 'react'
+import {
+  RotateCcw, FolderOpen, Play, Upload, Download, CheckCircle, Loader2, Info,
+} from 'lucide-react'
+import { useGridStore } from '../../stores/gridStore'
+import { useUndoStore } from '../../stores/undoStore'
+import { IPC } from '../../../shared/ipc-channels'
+import { safeInvoke } from '../../utils/safeInvoke'
+import toast from 'react-hot-toast'
+import { ConfirmDialog } from '../shared/ConfirmDialog'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { LoadingOverlay } from '../shared/LoadingSpinner'
+import { localDateString, parseDbTimestamp } from '../../../shared/dates'
+import { MoveComputerWizard } from './MoveComputerWizard'
+import { useVocab } from '../../hooks/useVocab'
+
+interface BackupPreviewData {
+  gridCount: number
+  rowCount: number
+  schemaVersion: number
+  // null when the backup has no grids to date it by
+  createdAt: string | null
+}
+
+interface AutoBackupEntry {
+  path: string
+  filename: string
+  timestamp: string
+  sizeBytes: number
+}
+
+interface ScheduledConfig {
+  enabled: boolean
+  intervalHours: number
+  destinationDir: string
+  lastRunISO: string | null
+}
+
+const LARGE_BACKUP_BYTES = 500 * 1024 * 1024
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`
+}
+
+interface BackupSectionProps {
+  saveSetting: (key: string, value: string) => Promise<void>
+  /** Jump to another Settings section (the move wizard links to Security) */
+  onGoToSection?: (section: 'security') => void
+}
+
+export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps): React.ReactElement {
+  const { t } = useVocab(null)
+  const [showMove, setShowMove] = useState(false)
+  const [backupInfo, setBackupInfo] = useState<{ lastAuto: string | null; autoCount: number; lastAutoBackupFailed?: boolean; lastAutoBackupError?: string | null; dbSize?: number } | null>(null)
+  const [autoBackups, setAutoBackups] = useState<AutoBackupEntry[]>([])
+  const [scheduledConfig, setScheduledConfig] = useState<ScheduledConfig>({
+    enabled: false, intervalHours: 24, destinationDir: '', lastRunISO: null
+  })
+  const [restoreTarget, setRestoreTarget] = useState<{ path: string; label: string } | null>(null)
+  const [restoring, setRestoring] = useState(false)
+  const [restoreResult, setRestoreResult] = useState<{ safetyPath: string } | null>(null)
+  const scheduledDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [runningBackup, setRunningBackup] = useState(false)
+  const [backupReminderEnabled, setBackupReminderEnabled] = useState(false)
+  const [backupReminderDays, setBackupReminderDays] = useState(7)
+  const [validationError, setValidationError] = useState<string | null>(null)
+  const [validatingDestination, setValidatingDestination] = useState(false)
+  const [backupPreview, setBackupPreview] = useState<BackupPreviewData | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const restoreResultTrapRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(restoreResultTrapRef, restoreResult != null)
+
+  useEffect(() => {
+    return () => {
+      if (scheduledDebounceRef.current) clearTimeout(scheduledDebounceRef.current)
+    }
+  }, [])
+
+  // Load backup info and settings on mount
+  useEffect(() => {
+    async function load() {
+      const res = await safeInvoke<{
+        dbSize: number; totalClients: number; dbPath: string
+        lastAutoBackup: string | null; autoBackupCount: number
+        lastAutoBackupFailed?: boolean; lastAutoBackupError?: string | null
+      }>(IPC.BACKUP_GET_INFO)
+      if (res.ok) {
+        setBackupInfo({ lastAuto: res.data.lastAutoBackup, autoCount: res.data.autoBackupCount, lastAutoBackupFailed: res.data.lastAutoBackupFailed, lastAutoBackupError: res.data.lastAutoBackupError, dbSize: res.data.dbSize })
+      }
+      const listRes = await safeInvoke<AutoBackupEntry[]>(IPC.BACKUP_AUTO_LIST)
+      if (listRes.ok) setAutoBackups(listRes.data)
+      const cfgRes = await safeInvoke<ScheduledConfig>(IPC.BACKUP_SCHEDULED_GET_CONFIG)
+      if (cfgRes.ok) setScheduledConfig(cfgRes.data)
+
+      // Load reminder settings
+      const settingsRes = await safeInvoke<Record<string, string>>(IPC.SETTINGS_GET_ALL)
+      if (settingsRes.ok) {
+        if (settingsRes.data.backup_reminder_enabled) setBackupReminderEnabled(settingsRes.data.backup_reminder_enabled === 'true')
+        if (settingsRes.data.backup_reminder_days) setBackupReminderDays(Number(settingsRes.data.backup_reminder_days) || 7)
+      }
+    }
+    load()
+  }, [])
+
+  async function handleManualBackup() {
+    setRunningBackup(true)
+    try {
+      const saveRes = await safeInvoke(IPC.APP_SHOW_SAVE_DIALOG, {
+        title: 'Save Backup Archive',
+        defaultPath: `pulse-backup-${localDateString()}.pulse-backup`,
+        filters: [{ name: 'Pulse Backup', extensions: ['pulse-backup'] }]
+      })
+      if (!saveRes.ok || saveRes.data.canceled || !saveRes.data.filePath) return
+      const res = await safeInvoke(IPC.BACKUP_MANUAL_CREATE, saveRes.data.filePath)
+      if (res.ok) toast.success('Backup saved successfully.')
+      else toast.error('Backup failed. Please try again.')
+    } finally {
+      setRunningBackup(false)
+    }
+  }
+
+  async function initiateRestore(path: string, label: string) {
+    const verifyRes = await safeInvoke(IPC.BACKUP_VERIFY, path)
+    if (!verifyRes.ok || !verifyRes.data.valid) {
+      toast.error('This backup file appears to be invalid or from a different version.')
+      return
+    }
+    // Fetch preview info for the confirmation dialog
+    setPreviewLoading(true)
+    setBackupPreview(null)
+    const previewRes = await safeInvoke<BackupPreviewData>(IPC.BACKUP_PREVIEW, path)
+    if (previewRes.ok) {
+      setBackupPreview(previewRes.data)
+    }
+    // If preview fails, we still allow restore — just without preview info
+    setPreviewLoading(false)
+    setRestoreTarget({ path, label })
+  }
+
+  async function executeRestore() {
+    if (!restoreTarget) return
+    const target = restoreTarget
+    setRestoreTarget(null)
+    setRestoring(true)
+    try {
+      const isPulseBak = target.path.endsWith('.pulse-backup')
+      const channel = isPulseBak ? IPC.BACKUP_RESTORE_FILE : IPC.BACKUP_RESTORE_AUTO
+      const res = await safeInvoke(channel, target.path)
+      if (res.ok) {
+        void useGridStore.getState().loadGridList()
+        useUndoStore.getState().clear()
+        setRestoreResult({ safetyPath: res.data.safetyPath })
+      } else {
+        toast.error('Restore failed. Please try a different backup.')
+      }
+    } catch {
+      toast.error('Restore failed. Please try again.')
+    } finally {
+      setRestoring(false)
+    }
+  }
+
+  async function handleLoadBackupFile() {
+    const dialogRes = await safeInvoke(IPC.APP_SHOW_FILE_DIALOG, {
+      title: 'Select Backup File',
+      properties: ['openFile'],
+      filters: [
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    })
+    if (!dialogRes.ok || dialogRes.data.canceled || !dialogRes.data.filePaths?.length) return
+    const path = dialogRes.data.filePaths[0]!
+    await initiateRestore(path, path.split(/[\\/]/).pop() ?? path)
+  }
+
+  async function handleScheduledDestinationChange() {
+    const dialogRes = await safeInvoke(IPC.APP_SHOW_FILE_DIALOG, {
+      title: 'Choose Backup Destination Folder',
+      properties: ['openDirectory']
+    })
+    if (!dialogRes.ok || dialogRes.data.canceled || !dialogRes.data.filePaths?.length) return
+    const dir = dialogRes.data.filePaths[0]!
+    setValidationError(null)
+    setValidatingDestination(true)
+    const valRes = await safeInvoke<{ valid: boolean; error?: string }>(IPC.BACKUP_VALIDATE_DESTINATION, dir)
+    if (!valRes.ok || !valRes.data.valid) {
+      setValidationError(valRes.ok ? (valRes.data.error || 'This folder is not writable. Choose a different location.') : 'Could not validate this folder. Choose a different location.')
+      setValidatingDestination(false)
+      return
+    }
+    setValidatingDestination(false)
+    saveScheduledConfig({ ...scheduledConfig, destinationDir: dir })
+    setScheduledConfig(prev => ({ ...prev, destinationDir: dir }))
+  }
+
+  function saveScheduledConfig(config: ScheduledConfig) {
+    if (scheduledDebounceRef.current) clearTimeout(scheduledDebounceRef.current)
+    scheduledDebounceRef.current = setTimeout(async () => {
+      const res = await safeInvoke(IPC.BACKUP_SCHEDULED_SET_CONFIG, config)
+      if (!res.ok) toast.error('Failed to save backup config.')
+    }, 500)
+  }
+
+  function updateScheduledConfig(updates: Partial<ScheduledConfig>) {
+    const next = { ...scheduledConfig, ...updates }
+    setScheduledConfig(next)
+    saveScheduledConfig(next)
+  }
+
+  async function handleRunScheduledNow() {
+    const config = scheduledConfig
+    const res = await safeInvoke<boolean>(IPC.BACKUP_SCHEDULED_SET_CONFIG, {
+      ...config,
+      lastRunISO: null
+    })
+    if (!res.ok) { toast.error('Failed to trigger backup'); return }
+    const runRes = await safeInvoke<{ ran: boolean; destPath?: string; error?: string }>(IPC.BACKUP_SCHEDULED_RUN, {
+      enabled: true,
+      intervalDays: 0,
+      destinationDir: config.destinationDir,
+      lastRunDate: null
+    })
+    if (runRes.ok && runRes.data.ran) {
+      toast.success(`Backup saved to ${runRes.data.destPath ?? 'backup folder'}.`)
+      const nowISO = new Date().toISOString()
+      const newCfg = { ...config, lastRunISO: nowISO }
+      setScheduledConfig(newCfg)
+      const cfgRes = await safeInvoke(IPC.BACKUP_SCHEDULED_SET_CONFIG, newCfg)
+      if (!cfgRes.ok) toast.error('Failed to save backup config.')
+    } else {
+      const reason = runRes.ok ? (runRes.data.error || 'Unknown reason') : (runRes.error || 'IPC error')
+      toast.error(`Backup did not run: ${reason}`)
+    }
+  }
+
+  return (
+    <>
+      <div className="flex items-center gap-3 flex-wrap">
+        <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 flex-1">Backup</h2>
+        <button type="button" className="btn-compact-soft" onClick={() => setShowMove(true)}>Move to a new computer…</button>
+      </div>
+      <MoveComputerWizard open={showMove} onClose={() => setShowMove(false)} onGoToSecurity={onGoToSection ? () => onGoToSection('security') : undefined} />
+
+      {/* Info box: 3-layer backup explanation */}
+      <div className="flex items-start gap-2.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm text-blue-700 dark:text-blue-300">
+        <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+        <p>
+          Pulse protects your data with three backup layers: <strong>Auto-backup</strong> saves when you close the app, <strong>Scheduled backup</strong> runs on your chosen interval, and <strong>Manual backup</strong> lets you save on demand. All backups are stored locally.
+        </p>
+      </div>
+
+      {/* Files live inside the database, so a big one makes every backup big */}
+      {(backupInfo?.dbSize ?? 0) > LARGE_BACKUP_BYTES && (
+        <p className="rounded-lg border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-base text-amber-900 dark:text-amber-100">
+          Your data is {formatBytes(backupInfo!.dbSize!)}, so each backup needs that much room and takes longer. Removing files you no longer need (Settings → Data) makes backups smaller.
+        </p>
+      )}
+
+      {/* Warning: last auto-backup failed */}
+      {backupInfo?.lastAutoBackupFailed && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 px-4 py-3">
+          <span className="text-amber-600 dark:text-amber-400 text-lg mt-0.5">&#9888;</span>
+          <div className="min-w-0">
+            <p className="text-base font-medium text-amber-800 dark:text-amber-200">
+              Your last auto-backup didn't complete
+            </p>
+            <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5">
+              {backupInfo.lastAutoBackupError || 'Unknown error'}. You can create a manual backup below to make sure your data is safe.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Panel 1: Auto-Backups */}
+      <div className="space-y-3">
+        <div>
+          <p className="text-base font-medium text-slate-700 dark:text-slate-300">Auto-backups</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Automatically saves when you close the app. Keeps the latest copies plus one from each of the last 7 days and last 4 weeks.
+          </p>
+        </div>
+        {autoBackups.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400 italic">
+            No auto-backups yet — they appear here after you close and reopen the app.
+          </p>
+        ) : (
+          <div
+            className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden"
+            style={{ maxHeight: 240, overflowY: 'auto' }}
+          >
+            {autoBackups.map((entry, i) => (
+              <div
+                key={entry.path}
+                className={`flex items-center justify-between px-3 py-2 gap-3 ${i > 0 ? 'border-t border-slate-200 dark:border-slate-700' : ''} bg-white dark:bg-slate-800`}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    {new Date(entry.timestamp).toLocaleString()}
+                  </p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">{formatBytes(entry.sizeBytes)}</p>
+                </div>
+                <button
+                  onClick={() => void initiateRestore(entry.path, new Date(entry.timestamp).toLocaleString())}
+                  className="btn-secondary flex items-center gap-1.5 flex-shrink-0 text-base"
+                  style={{ minHeight: 36 }}
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Restore
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={() => void handleLoadBackupFile()}
+          className="btn-secondary flex items-center gap-1.5 text-base"
+          style={{ minHeight: 44 }}
+        >
+          <Upload className="w-3.5 h-3.5" />
+          Restore from file…
+        </button>
+      </div>
+
+      {/* Panel 2: Scheduled Backups */}
+      <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+        <div>
+          <p className="text-base font-medium text-slate-700 dark:text-slate-300">Scheduled backups</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Runs automatically at your chosen interval. Copies your database to a location you choose. Last 10 copies kept.
+          </p>
+        </div>
+
+        {/* Enable toggle */}
+        <label
+          className="flex items-center gap-3 cursor-pointer select-none rounded-lg border border-slate-200 dark:border-slate-700 px-4 bg-white dark:bg-slate-800"
+          style={{ minHeight: 44 }}
+        >
+          <input
+            type="checkbox"
+            checked={scheduledConfig.enabled}
+            onChange={e => updateScheduledConfig({ enabled: e.target.checked })}
+            className="w-4 h-4 accent-blue-600"
+          />
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            Enable scheduled backups
+          </span>
+        </label>
+
+        {scheduledConfig.enabled && (
+          <div className="space-y-3 pl-1">
+            {/* Interval */}
+            <div className="space-y-1">
+              <label htmlFor="settings-backup-freq" className="block text-base font-medium text-slate-600 dark:text-slate-400">Frequency</label>
+              <select
+                id="settings-backup-freq"
+                className="input"
+                style={{ minHeight: 44, fontSize: 15 }}
+                value={scheduledConfig.intervalHours}
+                onChange={e => updateScheduledConfig({ intervalHours: Number(e.target.value) })}
+              >
+                <option value={24}>Daily (every 24 hours)</option>
+                <option value={72}>Every 3 days</option>
+                <option value={168}>Weekly</option>
+                <option value={12}>Every 12 hours</option>
+              </select>
+            </div>
+
+            {/* Destination */}
+            <div className="space-y-1">
+              <label className="block text-base font-medium text-slate-600 dark:text-slate-400">Destination folder</label>
+              <div className="flex items-center gap-2">
+                <span
+                  className="flex-1 text-sm font-mono text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-sm px-3 py-2 truncate"
+                  title={scheduledConfig.destinationDir}
+                >
+                  {scheduledConfig.destinationDir || 'Default backup folder'}
+                </span>
+                <button
+                  onClick={() => void handleScheduledDestinationChange()}
+                  disabled={validatingDestination}
+                  className="btn-secondary flex items-center gap-1.5 flex-shrink-0"
+                  style={{ minHeight: 44 }}
+                >
+                  {validatingDestination ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FolderOpen className="w-4 h-4" />
+                  )}
+                  {validatingDestination ? 'Checking…' : 'Change…'}
+                </button>
+              </div>
+              {validationError && (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                  {validationError}
+                </p>
+              )}
+            </div>
+
+            {/* Last run + Run now */}
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {scheduledConfig.lastRunISO
+                  ? `Last run: ${new Date(scheduledConfig.lastRunISO).toLocaleString()}`
+                  : 'Never run'}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => void handleManualBackup()}
+                  disabled={runningBackup}
+                  className="btn-secondary flex items-center gap-1.5 text-base disabled:opacity-50"
+                  style={{ minHeight: 44 }}
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Save to different location…
+                </button>
+                <button
+                  onClick={() => void handleRunScheduledNow()}
+                  className="btn-secondary flex items-center gap-1.5"
+                  style={{ minHeight: 44 }}
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  Run now
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Panel 3: Backup Reminders */}
+      <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+        <div>
+          <p className="text-base font-medium text-slate-700 dark:text-slate-300">Backup reminders</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Get a reminder after login if no backup has been made in a while.
+          </p>
+        </div>
+        <label
+          className="flex items-center gap-3 cursor-pointer select-none rounded-lg border border-slate-200 dark:border-slate-700 px-4 bg-white dark:bg-slate-800"
+          style={{ minHeight: 44 }}
+        >
+          <input
+            type="checkbox"
+            checked={backupReminderEnabled}
+            onChange={e => {
+              setBackupReminderEnabled(e.target.checked)
+              void saveSetting('backup_reminder_enabled', e.target.checked ? 'true' : 'false')
+            }}
+            className="w-4 h-4 accent-blue-600"
+          />
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            Enable backup reminders
+          </span>
+        </label>
+        {backupReminderEnabled && (
+          <div className="space-y-1 pl-1">
+            <label htmlFor="settings-backup-reminder-days" className="block text-base font-medium text-slate-600 dark:text-slate-400">
+              Remind after how many days without a backup?
+            </label>
+            <select
+              id="settings-backup-reminder-days"
+              className="input"
+              style={{ minHeight: 44, fontSize: 15 }}
+              value={backupReminderDays}
+              onChange={e => {
+                const d = Number(e.target.value)
+                setBackupReminderDays(d)
+                void saveSetting('backup_reminder_days', String(d))
+              }}
+            >
+              <option value={3}>3 days</option>
+              <option value={7}>7 days (default)</option>
+              <option value={14}>14 days</option>
+              <option value={30}>30 days</option>
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* Restore confirm dialog */}
+      {restoreTarget && (
+        <ConfirmDialog
+          open
+          variant="typed"
+          title="Restore from backup?"
+          message={`This will replace all your current data with the backup from "${restoreTarget.label}". Your current data will be saved as a safety backup first. This cannot be undone without the safety backup.\n\nType RESTORE to confirm.`}
+          requiredPhrase="RESTORE"
+          confirmLabel="Restore"
+          destructive
+          onConfirm={() => { setBackupPreview(null); void executeRestore() }}
+          onCancel={() => { setBackupPreview(null); setRestoreTarget(null) }}
+        >
+          {backupPreview && (
+            <div className="mb-4 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-600 text-sm space-y-1">
+              <p className="font-medium text-slate-700 dark:text-slate-300">Backup contents</p>
+              <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                <span>{t('list', { many: true, cap: true })}</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">{backupPreview.gridCount}</span>
+              </div>
+              <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                <span>{t('record', { many: true, cap: true })}</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">{backupPreview.rowCount}</span>
+              </div>
+              <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                <span>Schema version</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">{backupPreview.schemaVersion}</span>
+              </div>
+              <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                <span>Created</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">{backupPreview.createdAt ? parseDbTimestamp(backupPreview.createdAt).toLocaleString() : '—'}</span>
+              </div>
+            </div>
+          )}
+          {previewLoading && (
+            <div className="mb-4 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Loading backup details…
+            </div>
+          )}
+        </ConfirmDialog>
+      )}
+
+      {/* Restoring overlay */}
+      {restoring && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-8 shadow-2xl">
+            <LoadingOverlay label="Restoring backup…" />
+          </div>
+        </div>
+      )}
+
+      {/* Restore success dialog */}
+      {restoreResult && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+          <div ref={restoreResultTrapRef} className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-2xl max-w-md w-full mx-4 space-y-4">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0" />
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Restore complete</h3>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Your data has been restored. A safety backup of your previous data was saved to:
+            </p>
+            <p className="text-sm font-mono bg-slate-100 dark:bg-slate-700 rounded-sm px-3 py-2 break-all text-slate-700 dark:text-slate-300">
+              {restoreResult.safetyPath}
+            </p>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Restart the app now to load the restored data.
+            </p>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => void safeInvoke(IPC.APP_RELAUNCH)}
+                className="btn-primary flex-1"
+                style={{ minHeight: 44 }}
+              >
+                Restart now
+              </button>
+              <button
+                onClick={() => setRestoreResult(null)}
+                className="btn-secondary flex-1"
+                style={{ minHeight: 44 }}
+              >
+                Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}

@@ -1,0 +1,200 @@
+/**
+ * Batch documents and address labels (W10 §3.1–3.2): one PDF with a
+ * document for each record, two postcards per sheet, or Avery labels.
+ */
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { FileStack, X } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { IPC } from '../../../shared/ipc-channels'
+import { localDateString } from '../../../shared/dates'
+import { safeInvoke } from '../../utils/safeInvoke'
+import { noteUnencryptedExport } from '../../utils/exportNotice'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { useVocab } from '../../hooks/useVocab'
+import { useGridStore } from '../../stores/gridStore'
+import { UnknownPlaceholders } from '../shared/UnknownPlaceholders'
+
+type Who = 'selected' | 'deadline' | 'all'
+const label = 'block text-base font-semibold text-slate-800 dark:text-slate-100 mb-1'
+
+function nextMonth(): { from: string; to: string } {
+  const now = new Date()
+  return { from: localDateString(new Date(now.getFullYear(), now.getMonth() + 1, 1)), to: localDateString(new Date(now.getFullYear(), now.getMonth() + 2, 0)) }
+}
+
+export function BatchDocumentsDialog({ gridId, rowIds, initialMode = 'documents', onClose }: {
+  gridId: number
+  /** The selected records, if any */
+  rowIds?: number[]
+  initialMode?: 'documents' | 'labels'
+  onClose: () => void
+}): React.ReactElement {
+  const trapRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(trapRef, true)
+  const { t } = useVocab(gridId)
+  const columns = useGridStore(s => s.columns)
+  const hiddenColumns = useGridStore(s => s.hiddenColumns)
+  const all = useMemo(() => [...columns, ...hiddenColumns].filter(c => c.grid_id === gridId), [columns, hiddenColumns, gridId])
+  const deadlineColumns = all.filter(c => (c.column_type === 'date' || c.column_type === 'deadline') && /"alert_rule_id"\s*:\s*\d/.test(c.config ?? ''))
+  const addressColumns = [...all.filter(c => c.column_type === 'address'), ...all.filter(c => c.column_type === 'text' && /address/i.test(c.name))]
+  const [mode, setMode] = useState(initialMode)
+  const [templates, setTemplates] = useState<Array<{ id: number; name: string }>>([])
+  const [templateId, setTemplateId] = useState<number | null>(null)
+  const [who, setWho] = useState<Who>(rowIds?.length ? 'selected' : deadlineColumns.length ? 'deadline' : 'all')
+  const [deadlineCol, setDeadlineCol] = useState<number | null>(deadlineColumns[0]?.id ?? null)
+  const [range, setRange] = useState(nextMonth)
+  const [page, setPage] = useState<'letter' | 'postcard'>('letter')
+  const [addressCol, setAddressCol] = useState<number | null>(addressColumns[0]?.id ?? null)
+  const [layout, setLayout] = useState<'avery-5160' | 'avery-5163'>('avery-5160')
+  const [busy, setBusy] = useState(false)
+  const [unknown, setUnknown] = useState<string[]>([])
+
+  useEffect(() => {
+    void safeInvoke<Array<{ id: number; name: string }>>(IPC.LETTER_TEMPLATE_GET_ALL).then(r => {
+      if (r.ok) { setTemplates(r.data); setTemplateId(r.data[0]?.id ?? null) }
+    })
+  }, [])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const target = {
+    gridId,
+    ...(who === 'selected' && rowIds?.length ? { rowIds } : {}),
+    ...(who === 'deadline' && deadlineCol ? { deadline: { columnId: deadlineCol, ...range } } : {}),
+  }
+  const ready = mode === 'documents' ? !!templateId : !!addressCol
+  const many = t('record', { many: true })
+
+  async function make() {
+    setBusy(true)
+    setUnknown([])
+    try {
+      if (mode === 'documents') {
+        const res = await safeInvoke<{ filePath: string; count: number; unknown: string[] } | null>(IPC.DOC_BATCH, templateId, target, page)
+        if (!res.ok) { toast.error(res.error); return }
+        if (!res.data) return
+        noteUnencryptedExport()
+        toast.success(`Saved ${res.data.count} ${res.data.count === 1 ? 'document' : 'documents'}`)
+        if (res.data.unknown.length) { setUnknown(res.data.unknown); return }
+      } else {
+        const res = await safeInvoke<{ filePath: string; count: number; skipped: number } | null>(IPC.DOC_LABELS, target, addressCol, layout)
+        if (!res.ok) { toast.error(res.error); return }
+        if (!res.data) return
+        noteUnencryptedExport()
+        toast.success(`Saved ${res.data.count} label${res.data.count === 1 ? '' : 's'}${res.data.skipped ? ` (${res.data.skipped} without an address left out)` : ''}`)
+      }
+      onClose()
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="batch-docs-title" onClick={e => e.stopPropagation()}
+        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 id="batch-docs-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <FileStack className="w-5 h-5" aria-hidden="true" />Print documents or labels
+          </h2>
+          <button type="button" aria-label="Close" onClick={onClose}
+            className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+            <X className="w-5 h-5 text-slate-500" />
+          </button>
+        </div>
+
+        <div role="group" aria-label="Make" className="flex rounded-lg border border-slate-300 dark:border-slate-600 overflow-hidden w-fit">
+          {(['documents', 'labels'] as const).map(m => (
+            <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}
+              className={`px-4 text-base ${mode === m ? 'bg-blue-600 text-white font-medium' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200'}`} style={{ minHeight: 44 }}>
+              {m === 'documents' ? 'Documents' : 'Address labels'}
+            </button>
+          ))}
+        </div>
+
+        <fieldset>
+          <legend className={label}>For</legend>
+          {rowIds?.length ? (
+            <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200 cursor-pointer" style={{ minHeight: 44 }}>
+              <input type="radio" name="batch-who" className="w-5 h-5" checked={who === 'selected'} onChange={() => setWho('selected')} />
+              The {rowIds.length} selected
+            </label>
+          ) : null}
+          {deadlineColumns.length > 0 && (
+            <div>
+              <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200 cursor-pointer" style={{ minHeight: 44 }}>
+                <input type="radio" name="batch-who" className="w-5 h-5" checked={who === 'deadline'} onChange={() => setWho('deadline')} />
+                Everyone with a deadline due between
+              </label>
+              {who === 'deadline' && (
+                <div className="flex flex-wrap items-center gap-2 pl-7">
+                  <select className="input w-auto" aria-label="Deadline" value={deadlineCol ?? ''} onChange={e => setDeadlineCol(Number(e.target.value) || null)}>
+                    {deadlineColumns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                  <input type="date" className="input w-auto" aria-label="From" value={range.from} onChange={e => setRange(r => ({ ...r, from: e.target.value }))} />
+                  <span className="text-base text-slate-600 dark:text-slate-300">and</span>
+                  <input type="date" className="input w-auto" aria-label="To" value={range.to} min={range.from} onChange={e => setRange(r => ({ ...r, to: e.target.value }))} />
+                </div>
+              )}
+            </div>
+          )}
+          <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200 cursor-pointer" style={{ minHeight: 44 }}>
+            <input type="radio" name="batch-who" className="w-5 h-5" checked={who === 'all'} onChange={() => setWho('all')} />
+            All active {many} in this {t('list')}
+          </label>
+        </fieldset>
+
+        {mode === 'documents' ? (
+          <>
+            <label className="block">
+              <span className={label}>Template</span>
+              {templates.length === 0
+                ? <p className="text-base text-slate-500 dark:text-slate-400">No templates yet. Make one under Letters &amp; documents.</p>
+                : <select className="input w-full" value={templateId ?? ''} onChange={e => setTemplateId(Number(e.target.value))}>
+                    {templates.map(tp => <option key={tp.id} value={tp.id}>{tp.name}</option>)}
+                  </select>}
+            </label>
+            <fieldset>
+              <legend className={label}>Page</legend>
+              {(['letter', 'postcard'] as const).map(p => (
+                <label key={p} className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200 cursor-pointer" style={{ minHeight: 44 }}>
+                  <input type="radio" name="batch-page" className="w-5 h-5" checked={page === p} onChange={() => setPage(p)} />
+                  {p === 'letter' ? 'Letter, one per page' : 'Postcards, 4×6 in, two per sheet with cut marks'}
+                </label>
+              ))}
+            </fieldset>
+          </>
+        ) : (
+          <>
+            <label className="block">
+              <span className={label}>Address column</span>
+              {addressColumns.length === 0
+                ? <p className="text-base text-slate-500 dark:text-slate-400">This {t('list')} has no address column.</p>
+                : <select className="input w-full" value={addressCol ?? ''} onChange={e => setAddressCol(Number(e.target.value))}>
+                    {addressColumns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>}
+            </label>
+            <fieldset>
+              <legend className={label}>Label sheets</legend>
+              {(['avery-5160', 'avery-5163'] as const).map(l => (
+                <label key={l} className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200 cursor-pointer" style={{ minHeight: 44 }}>
+                  <input type="radio" name="batch-layout" className="w-5 h-5" checked={layout === l} onChange={() => setLayout(l)} />
+                  {l === 'avery-5160' ? 'Avery 5160: 30 per sheet, 2⅝ × 1 in' : 'Avery 5163: 10 per sheet, 4 × 2 in'}
+                </label>
+              ))}
+            </fieldset>
+          </>
+        )}
+
+        <UnknownPlaceholders unknown={unknown} />
+
+        <div className="flex justify-end gap-2">
+          <button type="button" className="btn-secondary" onClick={onClose}>{unknown.length ? 'Close' : 'Cancel'}</button>
+          <button type="button" className="btn-primary" disabled={busy || !ready} onClick={() => void make()}>Make PDF</button>
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,460 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "community-health-worker",
+  "name": "Community health worker",
+  "description": "Outreach and follow-up for community health workers: two contacts a month, screenings due, health concerns and referrals.",
+  "icon": "heart-pulse",
+  "group": "Human services",
+  "vocab": {
+    "record": {
+      "one": "client",
+      "many": "clients",
+      "article": "a"
+    },
+    "list": {
+      "one": "caseload",
+      "many": "caseloads",
+      "article": "a"
+    },
+    "activity": {
+      "one": "case note",
+      "many": "case notes",
+      "article": "a"
+    },
+    "activityLog": {
+      "one": "case log",
+      "many": "case logs",
+      "article": "a"
+    },
+    "contactDirectory": {
+      "one": "contacts",
+      "many": "contacts",
+      "article": "a",
+      "oneCap": "Contacts",
+      "manyCap": "Contacts"
+    },
+    "contact": {
+      "one": "provider",
+      "many": "providers",
+      "article": "a"
+    },
+    "priority": {
+      "one": "acuity level",
+      "many": "acuity levels",
+      "article": "an"
+    },
+    "archive": {
+      "one": "archive",
+      "many": "archives",
+      "article": "an"
+    },
+    "worker": {
+      "one": "case manager",
+      "many": "case managers",
+      "article": "a"
+    },
+    "requirement": {
+      "one": "contact requirement",
+      "many": "contact requirements",
+      "article": "a"
+    },
+    "appointment": {
+      "one": "appointment",
+      "many": "appointments",
+      "article": "an"
+    },
+    "stage": {
+      "one": "stage",
+      "many": "stages",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": true,
+    "contactsDirectory": true,
+    "requirements": true,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": true,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": true
+  },
+  "lists": [
+    {
+      "key": "caseload",
+      "name": "Community health caseload",
+      "description": "People you support with outreach, screenings and referrals",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 1,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Preferred language",
+          "column_type": "dropdown",
+          "position": 2,
+          "width": 150,
+          "config": "{\"options\":[\"English\",\"Spanish\",\"Vietnamese\",\"Arabic\",\"Other\"]}"
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 3,
+          "width": 160
+        },
+        {
+          "name": "Health concerns",
+          "column_type": "tag",
+          "position": 4,
+          "width": 140
+        },
+        {
+          "name": "Last contact",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+        },
+        {
+          "name": "Screening due",
+          "column_type": "date",
+          "position": 6,
+          "width": 150,
+          "description": "The next screening (blood pressure, A1C, mammogram…)",
+          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
+          "name": "Primary care clinic",
+          "column_type": "text",
+          "position": 7,
+          "width": 160
+        },
+        {
+          "name": "Insurance",
+          "column_type": "dropdown",
+          "position": 8,
+          "width": 130,
+          "config": "{\"options\":[\"Medicaid\",\"Medicare\",\"Marketplace\",\"None\"]}"
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 9,
+          "width": 120,
+          "config": "{\"options\":[\"Active\",\"Outreach\",\"Closed\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every 30 days",
+          "description": "Due 30 days after the date entered",
+          "interval_days": 30,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Due date",
+          "description": "The date entered is the deadline",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ],
+      "requirements": [
+        {
+          "label": "Contacts",
+          "note_types": [
+            "visit",
+            "phone",
+            "text"
+          ],
+          "per_month": 2
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "text",
+      "label": "Text",
+      "icon": "💬",
+      "color": "teal"
+    },
+    {
+      "key": "referral",
+      "label": "Referral made",
+      "icon": "➡️",
+      "color": "amber"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "caseload": [
+        {
+          "Name": "Linh Smith",
+          "Phone": "555-0113",
+          "Preferred language": "English",
+          "Address": "300 Cedar Court\nSpringfield",
+          "Health concerns": "[\"Diabetes\"]",
+          "Last contact": {
+            "daysFromToday": -21
+          },
+          "Screening due": {
+            "daysFromToday": 5
+          },
+          "Primary care clinic": "Eastside Community Clinic",
+          "Insurance": "Medicaid",
+          "Status": "Active"
+        },
+        {
+          "Name": "Dorothy Kowalski",
+          "Phone": "555-0120",
+          "Preferred language": "Spanish",
+          "Address": "323 Willow Way\nSpringfield",
+          "Health concerns": "[\"High blood pressure\"]",
+          "Last contact": {
+            "daysFromToday": -44
+          },
+          "Screening due": {
+            "daysFromToday": 24
+          },
+          "Primary care clinic": "Riverside Family Health",
+          "Insurance": "Medicare",
+          "Status": "Active"
+        },
+        {
+          "Name": "Carlos Wong",
+          "Phone": "555-0127",
+          "Preferred language": "English",
+          "Address": "346 Elm Street\nSpringfield",
+          "Health concerns": "[\"Asthma\"]",
+          "Last contact": {
+            "daysFromToday": -28
+          },
+          "Screening due": {
+            "daysFromToday": 75
+          },
+          "Insurance": "None",
+          "Status": "Outreach"
+        },
+        {
+          "Name": "Priya Bell",
+          "Phone": "555-0134",
+          "Preferred language": "Spanish",
+          "Address": "369 Pine Road\nSpringfield",
+          "Health concerns": "[\"Prenatal\"]",
+          "Last contact": {
+            "daysFromToday": -14
+          },
+          "Screening due": {
+            "daysFromToday": 220
+          },
+          "Primary care clinic": "Eastside Community Clinic",
+          "Insurance": "Medicaid",
+          "Status": "Active"
+        },
+        {
+          "Name": "Frank Rivera",
+          "Phone": "555-0141",
+          "Preferred language": "Vietnamese",
+          "Address": "392 Maple Ave\nSpringfield",
+          "Health concerns": "[\"Diabetes\", \"High blood pressure\"]",
+          "Last contact": {
+            "daysFromToday": -33
+          },
+          "Screening due": {
+            "daysFromToday": -3
+          },
+          "Primary care clinic": "Downtown Health Center",
+          "Insurance": "Marketplace",
+          "Status": "Active"
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Phone": "555-0148",
+          "Preferred language": "English",
+          "Address": "415 Birch Lane\nSpringfield",
+          "Last contact": {
+            "daysFromToday": -25
+          },
+          "Screening due": {
+            "daysFromToday": 5
+          },
+          "Primary care clinic": "Eastside Community Clinic",
+          "Insurance": "Medicaid",
+          "Status": "Active"
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Phone": "555-0155",
+          "Preferred language": "Arabic",
+          "Address": "438 Cedar Court\nSpringfield",
+          "Health concerns": "[\"Heart disease\"]",
+          "Last contact": {
+            "daysFromToday": -6
+          },
+          "Screening due": {
+            "daysFromToday": 24
+          },
+          "Primary care clinic": "Riverside Family Health",
+          "Insurance": "Medicare",
+          "Status": "Active"
+        },
+        {
+          "Name": "Grace Okafor",
+          "Phone": "555-0162",
+          "Preferred language": "Spanish",
+          "Address": "461 Willow Way\nSpringfield",
+          "Health concerns": "[\"Diabetes\"]",
+          "Last contact": {
+            "daysFromToday": -30
+          },
+          "Screening due": {
+            "daysFromToday": 75
+          },
+          "Insurance": "None",
+          "Status": "Active"
+        },
+        {
+          "Name": "Omar Brown",
+          "Phone": "555-0169",
+          "Preferred language": "English",
+          "Address": "484 Elm Street\nSpringfield",
+          "Last contact": {
+            "daysFromToday": -21
+          },
+          "Screening due": {
+            "daysFromToday": 220
+          },
+          "Primary care clinic": "Eastside Community Clinic",
+          "Insurance": "Medicaid",
+          "Status": "Outreach"
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Phone": "555-0176",
+          "Preferred language": "English",
+          "Address": "507 Pine Road\nSpringfield",
+          "Health concerns": "[\"High blood pressure\"]",
+          "Last contact": {
+            "daysFromToday": -44
+          },
+          "Screening due": {
+            "daysFromToday": -3
+          },
+          "Primary care clinic": "Downtown Health Center",
+          "Insurance": "Marketplace",
+          "Status": "Active"
+        }
+      ]
+    },
+    "activities": [
+      {
+        "record": "caseload#0",
+        "type": "visit",
+        "daysAgo": 1,
+        "text": "Home visit. Checked blood pressure log and talked about meals."
+      },
+      {
+        "record": "caseload#1",
+        "type": "text",
+        "daysAgo": 8,
+        "text": "Texted the pharmacy refill reminder."
+      },
+      {
+        "record": "caseload#1",
+        "type": "referral",
+        "daysAgo": 21,
+        "text": "Referred to the food pantry and the diabetes class."
+      },
+      {
+        "record": "caseload#2",
+        "type": "visit",
+        "daysAgo": 15,
+        "text": "Home visit. Checked blood pressure log and talked about meals."
+      },
+      {
+        "record": "caseload#2",
+        "type": "phone",
+        "daysAgo": 28,
+        "text": "Called to remind about the clinic appointment."
+      },
+      {
+        "record": "caseload#3",
+        "type": "text",
+        "daysAgo": 22,
+        "text": "Texted the pharmacy refill reminder."
+      },
+      {
+        "record": "caseload#4",
+        "type": "visit",
+        "daysAgo": 29,
+        "text": "Home visit. Checked blood pressure log and talked about meals."
+      },
+      {
+        "record": "caseload#4",
+        "type": "phone",
+        "daysAgo": 42,
+        "text": "Called to remind about the clinic appointment."
+      },
+      {
+        "record": "caseload#5",
+        "type": "text",
+        "daysAgo": 36,
+        "text": "Texted the pharmacy refill reminder."
+      },
+      {
+        "record": "caseload#5",
+        "type": "referral",
+        "daysAgo": 49,
+        "text": "Referred to the food pantry and the diabetes class."
+      },
+      {
+        "record": "caseload#6",
+        "type": "visit",
+        "daysAgo": 43,
+        "text": "Home visit. Checked blood pressure log and talked about meals."
+      },
+      {
+        "record": "caseload#7",
+        "type": "text",
+        "daysAgo": 50,
+        "text": "Texted the pharmacy refill reminder."
+      },
+      {
+        "record": "caseload#7",
+        "type": "referral",
+        "daysAgo": 3,
+        "text": "Referred to the food pantry and the diabetes class."
+      }
+    ]
+  },
+  "helpTips": [
+    {
+      "title": "Contact notes",
+      "body": "Choose the Contact note format when writing a case note to get the same headings every time."
+    }
+  ],
+  "dashboardCards": [
+    "summary",
+    "requirements",
+    "missingInfo"
+  ]
+}

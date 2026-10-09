@@ -1,0 +1,491 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "refugee-resettlement",
+  "name": "Refugee resettlement",
+  "description": "For resettlement case managers: milestones from arrival (home visit in 5 days, core services in 30 days, 90- and 180-day check-ins) and two contacts a month.",
+  "icon": "home",
+  "group": "Human services",
+  "vocab": {
+    "record": {
+      "one": "client",
+      "many": "clients",
+      "article": "a"
+    },
+    "list": {
+      "one": "caseload",
+      "many": "caseloads",
+      "article": "a"
+    },
+    "activity": {
+      "one": "case note",
+      "many": "case notes",
+      "article": "a"
+    },
+    "activityLog": {
+      "one": "case log",
+      "many": "case logs",
+      "article": "a"
+    },
+    "contactDirectory": {
+      "one": "contacts",
+      "many": "contacts",
+      "article": "a",
+      "oneCap": "Contacts",
+      "manyCap": "Contacts"
+    },
+    "contact": {
+      "one": "provider",
+      "many": "providers",
+      "article": "a"
+    },
+    "priority": {
+      "one": "acuity level",
+      "many": "acuity levels",
+      "article": "an"
+    },
+    "archive": {
+      "one": "archive",
+      "many": "archives",
+      "article": "an"
+    },
+    "worker": {
+      "one": "case manager",
+      "many": "case managers",
+      "article": "a"
+    },
+    "requirement": {
+      "one": "contact requirement",
+      "many": "contact requirements",
+      "article": "a"
+    },
+    "appointment": {
+      "one": "appointment",
+      "many": "appointments",
+      "article": "an"
+    },
+    "stage": {
+      "one": "stage",
+      "many": "stages",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": true,
+    "contactsDirectory": true,
+    "requirements": true,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": true,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": true
+  },
+  "lists": [
+    {
+      "key": "caseload",
+      "name": "Resettlement caseload",
+      "description": "Families from arrival through the first six months",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Country of origin",
+          "column_type": "text",
+          "position": 1,
+          "width": 150
+        },
+        {
+          "name": "Language",
+          "column_type": "dropdown",
+          "position": 2,
+          "width": 130,
+          "config": "{\"options\":[\"Arabic\",\"Dari\",\"Pashto\",\"Spanish\",\"Swahili\",\"Ukrainian\",\"Burmese\"]}"
+        },
+        {
+          "name": "Arrival date",
+          "column_type": "date",
+          "position": 3,
+          "width": 150,
+          "is_required": 1
+        },
+        {
+          "name": "Milestones",
+          "column_type": "deadline",
+          "position": 4,
+          "width": 140,
+          "description": "The next resettlement step; mark it done to move on",
+          "config": "{\"alert_rule_name\":\"Resettlement milestones\"}"
+        },
+        {
+          "name": "Household size",
+          "column_type": "number",
+          "position": 5,
+          "width": 120
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 6,
+          "width": 160
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 7,
+          "width": 140
+        },
+        {
+          "name": "Employment",
+          "column_type": "dropdown",
+          "position": 8,
+          "width": 130,
+          "config": "{\"options\":[\"Employed\",\"Job search\",\"In training\",\"Not yet\"]}"
+        },
+        {
+          "name": "Last contact",
+          "column_type": "date",
+          "position": 9,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Resettlement milestones",
+          "description": "From arrival: home visit in 5 days, core services in 30 days, then 90- and 180-day check-ins",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "sequence",
+          "rule_config": "{\"kind\":\"sequence\",\"anchorColumnId\":{\"column\":\"Arrival date\"},\"steps\":[{\"label\":\"Home visit\",\"offset\":{\"days\":5}},{\"label\":\"Core services done\",\"offset\":{\"days\":30}},{\"label\":\"90-day check-in\",\"offset\":{\"days\":90}},{\"label\":\"180-day check-in\",\"offset\":{\"days\":180}}]}"
+        },
+        {
+          "name": "Every 30 days",
+          "description": "Due 30 days after the date entered",
+          "interval_days": 30,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ],
+      "requirements": [
+        {
+          "label": "Contact",
+          "note_types": [
+            "visit",
+            "phone",
+            "meeting"
+          ],
+          "per_month": 2
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "orientation",
+      "label": "Cultural orientation",
+      "icon": "🧭",
+      "color": "teal"
+    },
+    {
+      "key": "escort",
+      "label": "Appointment escort",
+      "icon": "🚗",
+      "color": "amber"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "caseload": [
+        {
+          "Name": "Robert Dubois",
+          "Country of origin": "Afghanistan",
+          "Language": "Dari",
+          "Arrival date": {
+            "daysFromToday": -3
+          },
+          "Household size": 5,
+          "Address": "210 Maple Ave, Apt 1\nSpringfield",
+          "Phone": "555-0191",
+          "Employment": "Not yet",
+          "Last contact": {
+            "daysFromToday": -2
+          }
+        },
+        {
+          "Name": "Linh Smith",
+          "Country of origin": "Syria",
+          "Language": "Arabic",
+          "Arrival date": {
+            "daysFromToday": -12
+          },
+          "Household size": 4,
+          "Address": "241 Birch Lane, Apt 2\nSpringfield",
+          "Phone": "555-0198",
+          "Employment": "Not yet",
+          "Last contact": {
+            "daysFromToday": -5
+          }
+        },
+        {
+          "Name": "Dorothy Kowalski",
+          "Country of origin": "DR Congo",
+          "Language": "Swahili",
+          "Arrival date": {
+            "daysFromToday": -25
+          },
+          "Household size": 7,
+          "Address": "272 Cedar Court, Apt 3\nSpringfield",
+          "Phone": "555-0105",
+          "Employment": "Not yet",
+          "Last contact": {
+            "daysFromToday": -9
+          }
+        },
+        {
+          "Name": "Carlos Wong",
+          "Country of origin": "Ukraine",
+          "Language": "Ukrainian",
+          "Arrival date": {
+            "daysFromToday": -40
+          },
+          "Household size": 3,
+          "Address": "303 Maple Ave, Apt 4\nSpringfield",
+          "Phone": "555-0112",
+          "Employment": "Not yet",
+          "Last contact": {
+            "daysFromToday": -20
+          }
+        },
+        {
+          "Name": "Priya Bell",
+          "Country of origin": "Afghanistan",
+          "Language": "Pashto",
+          "Arrival date": {
+            "daysFromToday": -70
+          },
+          "Household size": 6,
+          "Address": "334 Birch Lane, Apt 5\nSpringfield",
+          "Phone": "555-0119",
+          "Employment": "Job search",
+          "Last contact": {
+            "daysFromToday": -35
+          }
+        },
+        {
+          "Name": "Frank Rivera",
+          "Country of origin": "Venezuela",
+          "Language": "Spanish",
+          "Arrival date": {
+            "daysFromToday": -95
+          },
+          "Household size": 2,
+          "Address": "365 Cedar Court, Apt 6\nSpringfield",
+          "Phone": "555-0126",
+          "Employment": "In training",
+          "Last contact": {
+            "daysFromToday": -14
+          }
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Country of origin": "Myanmar",
+          "Language": "Burmese",
+          "Arrival date": {
+            "daysFromToday": -130
+          },
+          "Household size": 4,
+          "Address": "396 Maple Ave, Apt 7\nSpringfield",
+          "Phone": "555-0133",
+          "Employment": "Employed",
+          "Last contact": {
+            "daysFromToday": -40
+          }
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Country of origin": "Syria",
+          "Language": "Arabic",
+          "Arrival date": {
+            "daysFromToday": -170
+          },
+          "Household size": 5,
+          "Address": "427 Birch Lane, Apt 8\nSpringfield",
+          "Phone": "555-0140",
+          "Employment": "Job search",
+          "Last contact": {
+            "daysFromToday": -26
+          }
+        },
+        {
+          "Name": "Grace Okafor",
+          "Country of origin": "DR Congo",
+          "Language": "Swahili",
+          "Arrival date": {
+            "daysFromToday": -200
+          },
+          "Household size": 8,
+          "Address": "458 Cedar Court, Apt 9\nSpringfield",
+          "Phone": "555-0147",
+          "Employment": "In training",
+          "Last contact": {
+            "daysFromToday": -60
+          }
+        },
+        {
+          "Name": "Omar Brown",
+          "Country of origin": "Ukraine",
+          "Language": "Ukrainian",
+          "Arrival date": {
+            "daysFromToday": -15
+          },
+          "Household size": 1,
+          "Address": "489 Maple Ave, Apt 10\nSpringfield",
+          "Phone": "555-0154",
+          "Employment": "Not yet",
+          "Last contact": {
+            "daysFromToday": -7
+          }
+        }
+      ]
+    },
+    "stepsDone": [
+      {
+        "record": "caseload#2",
+        "column": "Milestones",
+        "steps": 1
+      },
+      {
+        "record": "caseload#3",
+        "column": "Milestones",
+        "steps": 1
+      },
+      {
+        "record": "caseload#4",
+        "column": "Milestones",
+        "steps": 2
+      },
+      {
+        "record": "caseload#5",
+        "column": "Milestones",
+        "steps": 2
+      },
+      {
+        "record": "caseload#6",
+        "column": "Milestones",
+        "steps": 3
+      },
+      {
+        "record": "caseload#7",
+        "column": "Milestones",
+        "steps": 3
+      },
+      {
+        "record": "caseload#8",
+        "column": "Milestones",
+        "steps": 4
+      },
+      {
+        "record": "caseload#9",
+        "column": "Milestones",
+        "steps": 1
+      }
+    ],
+    "activities": [
+      {
+        "record": "caseload#0",
+        "type": "visit",
+        "daysAgo": 1,
+        "text": "Home visit with an interpreter; reviewed the bus routes and school enrollment."
+      },
+      {
+        "record": "caseload#1",
+        "type": "escort",
+        "daysAgo": 8,
+        "text": "Went along to the health screening appointment."
+      },
+      {
+        "record": "caseload#1",
+        "type": "phone",
+        "daysAgo": 21,
+        "text": "Called about the Social Security card appointment."
+      },
+      {
+        "record": "caseload#2",
+        "type": "visit",
+        "daysAgo": 15,
+        "text": "Home visit with an interpreter; reviewed the bus routes and school enrollment."
+      },
+      {
+        "record": "caseload#2",
+        "type": "orientation",
+        "daysAgo": 28,
+        "text": "Cultural orientation session: banking and budgeting."
+      },
+      {
+        "record": "caseload#3",
+        "type": "escort",
+        "daysAgo": 22,
+        "text": "Went along to the health screening appointment."
+      },
+      {
+        "record": "caseload#4",
+        "type": "visit",
+        "daysAgo": 29,
+        "text": "Home visit with an interpreter; reviewed the bus routes and school enrollment."
+      },
+      {
+        "record": "caseload#4",
+        "type": "orientation",
+        "daysAgo": 42,
+        "text": "Cultural orientation session: banking and budgeting."
+      },
+      {
+        "record": "caseload#5",
+        "type": "escort",
+        "daysAgo": 36,
+        "text": "Went along to the health screening appointment."
+      },
+      {
+        "record": "caseload#5",
+        "type": "phone",
+        "daysAgo": 49,
+        "text": "Called about the Social Security card appointment."
+      },
+      {
+        "record": "caseload#6",
+        "type": "visit",
+        "daysAgo": 43,
+        "text": "Home visit with an interpreter; reviewed the bus routes and school enrollment."
+      },
+      {
+        "record": "caseload#7",
+        "type": "escort",
+        "daysAgo": 50,
+        "text": "Went along to the health screening appointment."
+      },
+      {
+        "record": "caseload#7",
+        "type": "phone",
+        "daysAgo": 3,
+        "text": "Called about the Social Security card appointment."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "requirements",
+    "missingInfo"
+  ]
+}

@@ -1,0 +1,974 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "property-manager",
+  "name": "Property manager",
+  "description": "For landlords and small property managers: units with inspections, tenants with lease ends, and work orders on a board from new to done.",
+  "icon": "building-2",
+  "group": "Property and safety",
+  "vocab": {
+    "record": {
+      "one": "record",
+      "many": "records",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false,
+    "links": true,
+    "stages": true
+  },
+  "lists": [
+    {
+      "key": "units",
+      "name": "Units",
+      "description": "Rental units with inspections and status",
+      "kind": "thing",
+      "vocab": {
+        "record": {
+          "one": "unit",
+          "many": "units",
+          "article": "an"
+        }
+      },
+      "columns": [
+        {
+          "name": "Unit",
+          "column_type": "text",
+          "position": 0,
+          "width": 140,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Building",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 180,
+          "config": "{\"options\":[\"Maple Court\",\"Riverside Apartments\",\"Elm Street Duplex\"]}"
+        },
+        {
+          "name": "Bedrooms",
+          "column_type": "number",
+          "position": 2,
+          "width": 100
+        },
+        {
+          "name": "Rent",
+          "column_type": "currency",
+          "position": 3,
+          "width": 110
+        },
+        {
+          "name": "Last inspection",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "description": "Date of the last unit inspection",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Smoke detectors checked",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Every 6 months\",\"log_changes\":true}"
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 6,
+          "width": 140,
+          "config": "{\"options\":[\"Occupied\",\"Vacant\",\"Make-ready\",\"Notice given\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Every 6 months",
+          "description": "Due 6 months after the date entered",
+          "interval_months": 6,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ]
+    },
+    {
+      "key": "tenants",
+      "name": "Tenants",
+      "description": "Tenants and their leases",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "tenant",
+          "many": "tenants",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 1,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 2,
+          "width": 200
+        },
+        {
+          "name": "Lease start",
+          "column_type": "date",
+          "position": 3,
+          "width": 150
+        },
+        {
+          "name": "Lease end",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "is_required": 1,
+          "config": "{\"alert_rule_name\":\"Expires (90-day warning)\",\"log_changes\":true}"
+        },
+        {
+          "name": "Monthly rent",
+          "column_type": "currency",
+          "position": 5,
+          "width": 130
+        },
+        {
+          "name": "Deposit",
+          "column_type": "currency",
+          "position": 6,
+          "width": 110
+        },
+        {
+          "name": "Emergency contact",
+          "column_type": "text",
+          "position": 7,
+          "width": 160
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Expires (90-day warning)",
+          "description": "The date entered is when it expires; warns 90, 60, 30 days ahead",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":90,\"bgClass\":\"#facc15\",\"label\":\"Renew soon\"},{\"daysBefore\":60,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":30,\"bgClass\":\"#f87171\",\"label\":\"Expiring\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Expires today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Expired\"}]"
+        }
+      ],
+      "links": [
+        {
+          "to": "units",
+          "label_forward": "Lives in",
+          "label_backward": "Tenants",
+          "cardinality": "many_to_one"
+        }
+      ]
+    },
+    {
+      "key": "work-orders",
+      "name": "Work orders",
+      "description": "Repairs and maintenance requests",
+      "kind": "job",
+      "vocab": {
+        "record": {
+          "one": "work order",
+          "many": "work orders",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Request",
+          "column_type": "text",
+          "position": 0,
+          "width": 220,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Stage",
+          "column_type": "status",
+          "position": 1,
+          "width": 140,
+          "config": "{\"options\":[{\"label\":\"New\",\"color\":\"#64748b\"},{\"label\":\"Scheduled\",\"color\":\"#3b82f6\"},{\"label\":\"In progress\",\"color\":\"#f97316\"},{\"label\":\"Done\",\"color\":\"#22c55e\"}]}"
+        },
+        {
+          "name": "Priority",
+          "column_type": "dropdown",
+          "position": 2,
+          "width": 120,
+          "config": "{\"options\":[\"Emergency\",\"Urgent\",\"Routine\"]}"
+        },
+        {
+          "name": "Reported on",
+          "column_type": "date",
+          "position": 3,
+          "width": 150
+        },
+        {
+          "name": "Scheduled for",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
+          "name": "Vendor",
+          "column_type": "text",
+          "position": 5,
+          "width": 170
+        },
+        {
+          "name": "Cost",
+          "column_type": "currency",
+          "position": 6,
+          "width": 110
+        },
+        {
+          "name": "Completed on",
+          "column_type": "date",
+          "position": 7,
+          "width": 150
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Due date",
+          "description": "The date entered is the deadline",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ],
+      "links": [
+        {
+          "to": "units",
+          "label_forward": "Unit",
+          "label_backward": "Work orders",
+          "cardinality": "many_to_one"
+        }
+      ],
+      "stage": {
+        "column": "Stage",
+        "options": [
+          {
+            "value": "New",
+            "color": "slate"
+          },
+          {
+            "value": "Scheduled",
+            "color": "blue"
+          },
+          {
+            "value": "In progress",
+            "color": "orange"
+          },
+          {
+            "value": "Done",
+            "color": "green",
+            "done": true,
+            "onEnter": {
+              "stampColumn": "Completed on"
+            }
+          }
+        ],
+        "hideDoneAfterDays": 30
+      }
+    }
+  ],
+  "documentTemplates": [
+    {
+      "name": "Lease renewal notice",
+      "content": "{{today}}\n\nDear {{name}},\n\nYour lease for unit {{linked:Lives in.Unit}} ends on {{field:Lease end}}.\n\nWe would be glad to have you stay. Please let us know by the end of the month whether you plan to renew.\n\nSincerely,\n\n{{my_name}}"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "units": [
+        {
+          "Unit": "1A",
+          "Building": "Maple Court",
+          "Bedrooms": 1,
+          "Rent": 950,
+          "Last inspection": {
+            "daysFromToday": -300
+          },
+          "Smoke detectors checked": {
+            "daysFromToday": -150
+          },
+          "Status": "Occupied"
+        },
+        {
+          "Unit": "1B",
+          "Building": "Maple Court",
+          "Bedrooms": 2,
+          "Rent": 1200,
+          "Last inspection": {
+            "daysFromToday": -380
+          },
+          "Smoke detectors checked": {
+            "daysFromToday": -190
+          },
+          "Status": "Occupied"
+        },
+        {
+          "Unit": "2A",
+          "Building": "Maple Court",
+          "Bedrooms": 2,
+          "Rent": 1200,
+          "Last inspection": {
+            "daysFromToday": -120
+          },
+          "Smoke detectors checked": {
+            "daysFromToday": -60
+          },
+          "Status": "Notice given"
+        },
+        {
+          "Unit": "2B",
+          "Building": "Maple Court",
+          "Bedrooms": 1,
+          "Rent": 950,
+          "Last inspection": {
+            "daysFromToday": -60
+          },
+          "Smoke detectors checked": {
+            "daysFromToday": -175
+          },
+          "Status": "Occupied"
+        },
+        {
+          "Unit": "3A",
+          "Building": "Maple Court",
+          "Bedrooms": 3,
+          "Rent": 1500,
+          "Last inspection": {
+            "daysFromToday": -200
+          },
+          "Smoke detectors checked": {
+            "daysFromToday": -20
+          },
+          "Status": "Vacant"
+        },
+        {
+          "Unit": "101",
+          "Building": "Riverside Apartments",
+          "Bedrooms": 1,
+          "Rent": 1050,
+          "Last inspection": {
+            "daysFromToday": -340
+          },
+          "Smoke detectors checked": {
+            "daysFromToday": -100
+          },
+          "Status": "Occupied"
+        },
+        {
+          "Unit": "102",
+          "Building": "Riverside Apartments",
+          "Bedrooms": 2,
+          "Rent": 1300,
+          "Last inspection": {
+            "daysFromToday": -30
+          },
+          "Smoke detectors checked": {
+            "daysFromToday": -30
+          },
+          "Status": "Occupied"
+        },
+        {
+          "Unit": "201",
+          "Building": "Riverside Apartments",
+          "Bedrooms": 2,
+          "Rent": 1300,
+          "Last inspection": {
+            "daysFromToday": -250
+          },
+          "Smoke detectors checked": {
+            "daysFromToday": -200
+          },
+          "Status": "Make-ready"
+        },
+        {
+          "Unit": "Left",
+          "Building": "Elm Street Duplex",
+          "Bedrooms": 3,
+          "Rent": 1600,
+          "Last inspection": {
+            "daysFromToday": -370
+          },
+          "Smoke detectors checked": {
+            "daysFromToday": -80
+          },
+          "Status": "Occupied"
+        },
+        {
+          "Unit": "Right",
+          "Building": "Elm Street Duplex",
+          "Bedrooms": 3,
+          "Rent": 1600,
+          "Last inspection": {
+            "daysFromToday": -90
+          },
+          "Smoke detectors checked": {
+            "daysFromToday": -140
+          },
+          "Status": "Occupied"
+        }
+      ],
+      "tenants": [
+        {
+          "Name": "Linh Smith",
+          "Phone": "555-0113",
+          "Email": "linh.smith@example.com",
+          "Lease start": {
+            "daysFromToday": -300
+          },
+          "Lease end": {
+            "daysFromToday": 65
+          },
+          "Monthly rent": 950,
+          "Deposit": 950,
+          "Emergency contact": "Omar Brown 555-0143"
+        },
+        {
+          "Name": "Dorothy Kowalski",
+          "Phone": "555-0120",
+          "Email": "dorothy.kowalski@example.com",
+          "Lease start": {
+            "daysFromToday": -700
+          },
+          "Lease end": {
+            "daysFromToday": 30
+          },
+          "Monthly rent": 1200,
+          "Deposit": 1200,
+          "Emergency contact": "Ruth Jackson 555-0150"
+        },
+        {
+          "Name": "Carlos Wong",
+          "Phone": "555-0127",
+          "Email": "carlos.wong@example.com",
+          "Lease start": {
+            "daysFromToday": -340
+          },
+          "Lease end": {
+            "daysFromToday": 25
+          },
+          "Monthly rent": 1200,
+          "Deposit": 1200,
+          "Emergency contact": "Diego Ferreira 555-0157"
+        },
+        {
+          "Name": "Priya Bell",
+          "Phone": "555-0134",
+          "Email": "priya.bell@example.com",
+          "Lease start": {
+            "daysFromToday": -100
+          },
+          "Lease end": {
+            "daysFromToday": 265
+          },
+          "Monthly rent": 950,
+          "Deposit": 950,
+          "Emergency contact": "Hannah Walker 555-0164"
+        },
+        {
+          "Name": "Frank Rivera",
+          "Phone": "555-0141",
+          "Email": "frank.rivera@example.com",
+          "Lease start": {
+            "daysFromToday": -500
+          },
+          "Lease end": {
+            "daysFromToday": 230
+          },
+          "Monthly rent": 1050,
+          "Deposit": 1050,
+          "Emergency contact": "Tyrone Haddad 555-0171"
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Phone": "555-0148",
+          "Email": "keisha.thompson@example.com",
+          "Lease start": {
+            "daysFromToday": -200
+          },
+          "Lease end": {
+            "daysFromToday": 165
+          },
+          "Monthly rent": 1300,
+          "Deposit": 1300,
+          "Emergency contact": "Mei Ortiz 555-0178"
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Phone": "555-0155",
+          "Email": "samuel.rahman@example.com",
+          "Lease start": {
+            "daysFromToday": -650
+          },
+          "Lease end": {
+            "daysFromToday": 80
+          },
+          "Monthly rent": 1600,
+          "Deposit": 1600,
+          "Emergency contact": "Walter Johnson 555-0185"
+        },
+        {
+          "Name": "Grace Okafor",
+          "Phone": "555-0162",
+          "Email": "grace.okafor@example.com",
+          "Lease start": {
+            "daysFromToday": -30
+          },
+          "Lease end": {
+            "daysFromToday": 335
+          },
+          "Monthly rent": 1600,
+          "Deposit": 1600,
+          "Emergency contact": "Yolanda Miller 555-0192"
+        }
+      ],
+      "work-orders": [
+        {
+          "Request": "Leaking kitchen faucet",
+          "Stage": "Scheduled",
+          "Priority": "Routine",
+          "Reported on": {
+            "daysFromToday": -4
+          },
+          "Scheduled for": {
+            "daysFromToday": 3
+          },
+          "Vendor": "Quick Plumbing"
+        },
+        {
+          "Request": "No heat",
+          "Stage": "In progress",
+          "Priority": "Emergency",
+          "Reported on": {
+            "daysFromToday": -1
+          },
+          "Scheduled for": {
+            "daysFromToday": 0
+          },
+          "Vendor": "Comfort Heating"
+        },
+        {
+          "Request": "Paint and clean for move-in",
+          "Stage": "In progress",
+          "Priority": "Routine",
+          "Reported on": {
+            "daysFromToday": -10
+          },
+          "Scheduled for": {
+            "daysFromToday": 6
+          },
+          "Vendor": "In-house"
+        },
+        {
+          "Request": "Replace smoke detector battery",
+          "Stage": "New",
+          "Priority": "Urgent",
+          "Reported on": {
+            "daysFromToday": -2
+          }
+        },
+        {
+          "Request": "Clogged bathtub drain",
+          "Stage": "Done",
+          "Priority": "Routine",
+          "Reported on": {
+            "daysFromToday": -20
+          },
+          "Vendor": "Quick Plumbing",
+          "Cost": 140,
+          "Completed on": {
+            "daysFromToday": -16
+          }
+        },
+        {
+          "Request": "Broken blind",
+          "Stage": "New",
+          "Priority": "Routine",
+          "Reported on": {
+            "daysFromToday": -6
+          },
+          "Scheduled for": {
+            "daysFromToday": -3
+          }
+        },
+        {
+          "Request": "Gutter cleaning",
+          "Stage": "Scheduled",
+          "Priority": "Routine",
+          "Reported on": {
+            "daysFromToday": -14
+          },
+          "Scheduled for": {
+            "daysFromToday": 12
+          },
+          "Vendor": "Clear Gutters Co."
+        },
+        {
+          "Request": "Dishwasher not draining",
+          "Stage": "Done",
+          "Priority": "Urgent",
+          "Reported on": {
+            "daysFromToday": -9
+          },
+          "Vendor": "Appliance Pros",
+          "Cost": 185,
+          "Completed on": {
+            "daysFromToday": -5
+          }
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "tenants#0",
+        "to": "units#0",
+        "link": "Lives in"
+      },
+      {
+        "from": "tenants#1",
+        "to": "units#1",
+        "link": "Lives in"
+      },
+      {
+        "from": "tenants#2",
+        "to": "units#2",
+        "link": "Lives in"
+      },
+      {
+        "from": "tenants#3",
+        "to": "units#3",
+        "link": "Lives in"
+      },
+      {
+        "from": "tenants#4",
+        "to": "units#5",
+        "link": "Lives in"
+      },
+      {
+        "from": "tenants#5",
+        "to": "units#6",
+        "link": "Lives in"
+      },
+      {
+        "from": "tenants#6",
+        "to": "units#8",
+        "link": "Lives in"
+      },
+      {
+        "from": "tenants#7",
+        "to": "units#9",
+        "link": "Lives in"
+      },
+      {
+        "from": "work-orders#0",
+        "to": "units#0",
+        "link": "Unit"
+      },
+      {
+        "from": "work-orders#1",
+        "to": "units#5",
+        "link": "Unit"
+      },
+      {
+        "from": "work-orders#2",
+        "to": "units#7",
+        "link": "Unit"
+      },
+      {
+        "from": "work-orders#3",
+        "to": "units#1",
+        "link": "Unit"
+      },
+      {
+        "from": "work-orders#4",
+        "to": "units#8",
+        "link": "Unit"
+      },
+      {
+        "from": "work-orders#5",
+        "to": "units#3",
+        "link": "Unit"
+      },
+      {
+        "from": "work-orders#6",
+        "to": "units#9",
+        "link": "Unit"
+      },
+      {
+        "from": "work-orders#7",
+        "to": "units#6",
+        "link": "Unit"
+      }
+    ],
+    "history": [
+      {
+        "record": "work-orders#0",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 4
+          },
+          {
+            "value": "Scheduled",
+            "daysAgo": 2
+          }
+        ]
+      },
+      {
+        "record": "work-orders#1",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 1
+          },
+          {
+            "value": "Scheduled",
+            "daysAgo": 1
+          },
+          {
+            "value": "In progress",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "work-orders#2",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 10
+          },
+          {
+            "value": "Scheduled",
+            "daysAgo": 7
+          },
+          {
+            "value": "In progress",
+            "daysAgo": 4
+          }
+        ]
+      },
+      {
+        "record": "work-orders#3",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 2
+          }
+        ]
+      },
+      {
+        "record": "work-orders#4",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 20
+          },
+          {
+            "value": "Scheduled",
+            "daysAgo": 15
+          },
+          {
+            "value": "In progress",
+            "daysAgo": 10
+          },
+          {
+            "value": "Done",
+            "daysAgo": 5
+          }
+        ]
+      },
+      {
+        "record": "work-orders#5",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 6
+          }
+        ]
+      },
+      {
+        "record": "work-orders#6",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 14
+          },
+          {
+            "value": "Scheduled",
+            "daysAgo": 7
+          }
+        ]
+      },
+      {
+        "record": "work-orders#7",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 9
+          },
+          {
+            "value": "Scheduled",
+            "daysAgo": 7
+          },
+          {
+            "value": "In progress",
+            "daysAgo": 5
+          },
+          {
+            "value": "Done",
+            "daysAgo": 3
+          }
+        ]
+      }
+    ],
+    "activities": [
+      {
+        "record": "tenants#0",
+        "type": "phone",
+        "daysAgo": 1,
+        "text": "Called about the lease renewal; wants another year."
+      },
+      {
+        "record": "tenants#1",
+        "type": "phone",
+        "daysAgo": 8,
+        "text": "Called about the lease renewal; wants another year."
+      },
+      {
+        "record": "tenants#1",
+        "type": "note",
+        "daysAgo": 21,
+        "text": "Rent received late; late fee waived this once."
+      },
+      {
+        "record": "tenants#2",
+        "type": "phone",
+        "daysAgo": 15,
+        "text": "Called about the lease renewal; wants another year."
+      },
+      {
+        "record": "tenants#2",
+        "type": "note",
+        "daysAgo": 28,
+        "text": "Rent received late; late fee waived this once."
+      },
+      {
+        "record": "tenants#3",
+        "type": "phone",
+        "daysAgo": 22,
+        "text": "Called about the lease renewal; wants another year."
+      },
+      {
+        "record": "tenants#4",
+        "type": "phone",
+        "daysAgo": 29,
+        "text": "Called about the lease renewal; wants another year."
+      },
+      {
+        "record": "tenants#4",
+        "type": "note",
+        "daysAgo": 42,
+        "text": "Rent received late; late fee waived this once."
+      },
+      {
+        "record": "work-orders#0",
+        "type": "note",
+        "daysAgo": 2,
+        "text": "Vendor confirmed for Tuesday morning."
+      },
+      {
+        "record": "work-orders#1",
+        "type": "note",
+        "daysAgo": 9,
+        "text": "Vendor confirmed for Tuesday morning."
+      },
+      {
+        "record": "work-orders#1",
+        "type": "note",
+        "daysAgo": 22,
+        "text": "Vendor confirmed for Tuesday morning."
+      },
+      {
+        "record": "work-orders#2",
+        "type": "note",
+        "daysAgo": 16,
+        "text": "Vendor confirmed for Tuesday morning."
+      },
+      {
+        "record": "work-orders#2",
+        "type": "note",
+        "daysAgo": 29,
+        "text": "Vendor confirmed for Tuesday morning."
+      },
+      {
+        "record": "work-orders#3",
+        "type": "note",
+        "daysAgo": 23,
+        "text": "Vendor confirmed for Tuesday morning."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "stages",
+    "missingInfo"
+  ]
+}

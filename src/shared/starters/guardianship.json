@@ -1,0 +1,681 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "guardianship",
+  "name": "Guardianship & fiduciary",
+  "description": "For professional guardians and conservators: wards, where they live, their court cases and hearings, the yearly report to the court and a visit every month. Pulse is a tracking aid, not your official record system.",
+  "icon": "shield-check",
+  "group": "Legal and government",
+  "vocab": {
+    "record": {
+      "one": "record",
+      "many": "records",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": true,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false,
+    "links": true,
+    "attachments": true
+  },
+  "lists": [
+    {
+      "key": "wards",
+      "name": "Wards",
+      "description": "People under guardianship or conservatorship",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "ward",
+          "many": "wards",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 1,
+          "width": 150
+        },
+        {
+          "name": "Appointment date",
+          "column_type": "date",
+          "position": 2,
+          "width": 150,
+          "is_required": 1,
+          "description": "The date of the court order appointing you"
+        },
+        {
+          "name": "Annual report",
+          "column_type": "deadline",
+          "position": 3,
+          "width": 140,
+          "description": "The yearly report to the court; mark it done when filed",
+          "config": "{\"alert_rule_name\":\"Annual report to the court\"}"
+        },
+        {
+          "name": "Last visit",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+        },
+        {
+          "name": "Physician",
+          "column_type": "text",
+          "position": 5,
+          "width": 160
+        },
+        {
+          "name": "Medicaid renewal",
+          "column_type": "date",
+          "position": 6,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
+          "name": "Powers",
+          "column_type": "tag",
+          "position": 7,
+          "width": 140,
+          "description": "Person, property, health care…"
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 8,
+          "width": 130,
+          "config": "{\"options\":[\"Active\",\"Restored\",\"Deceased\",\"Transferred\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Annual report to the court",
+          "description": "Due each year on the appointment anniversary",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "calendar",
+          "rule_config": "{\"kind\":\"calendar\",\"fromColumnMonth\":{\"column\":\"Appointment date\"},\"lead\":60}"
+        },
+        {
+          "name": "Every 30 days",
+          "description": "Due 30 days after the date entered",
+          "interval_days": 30,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Due date",
+          "description": "The date entered is the deadline",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ],
+      "requirements": [
+        {
+          "label": "Visit",
+          "note_types": [
+            "visit"
+          ],
+          "per_month": 1
+        }
+      ],
+      "links": [
+        {
+          "to": "facilities",
+          "label_forward": "Lives at",
+          "label_backward": "Residents",
+          "cardinality": "many_to_one"
+        }
+      ]
+    },
+    {
+      "key": "facilities",
+      "name": "Facilities",
+      "description": "Where your wards live",
+      "kind": "thing",
+      "vocab": {
+        "record": {
+          "one": "facility",
+          "many": "facilities",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Facility",
+          "column_type": "text",
+          "position": 0,
+          "width": 220,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Type",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 150,
+          "config": "{\"options\":[\"Nursing home\",\"Assisted living\",\"Group home\",\"Hospital\",\"Private home\"]}"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 2,
+          "width": 140
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 3,
+          "width": 160
+        },
+        {
+          "name": "Contact person",
+          "column_type": "text",
+          "position": 4,
+          "width": 160
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 5,
+          "width": 220
+        }
+      ]
+    },
+    {
+      "key": "court-cases",
+      "name": "Court cases",
+      "description": "Court cases and hearings",
+      "kind": "job",
+      "vocab": {
+        "record": {
+          "one": "case",
+          "many": "cases",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Case",
+          "column_type": "text",
+          "position": 0,
+          "width": 170,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Court",
+          "column_type": "text",
+          "position": 1,
+          "width": 180
+        },
+        {
+          "name": "Judge",
+          "column_type": "text",
+          "position": 2,
+          "width": 150
+        },
+        {
+          "name": "Next hearing",
+          "column_type": "date",
+          "position": 3,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
+          "name": "Attorney",
+          "column_type": "text",
+          "position": 4,
+          "width": 160
+        },
+        {
+          "name": "Attorney phone",
+          "column_type": "phone",
+          "position": 5,
+          "width": 140
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 6,
+          "width": 220
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Due date",
+          "description": "The date entered is the deadline",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ],
+      "links": [
+        {
+          "to": "wards",
+          "label_forward": "Ward",
+          "label_backward": "Court cases",
+          "cardinality": "many_to_one"
+        }
+      ]
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "wards": [
+        {
+          "Name": "Omar Brown",
+          "Date of birth": {
+            "daysFromToday": -32987
+          },
+          "Appointment date": {
+            "daysFromToday": -340
+          },
+          "Last visit": {
+            "daysFromToday": -5
+          },
+          "Physician": "Dr. Okafor",
+          "Medicaid renewal": {
+            "daysFromToday": 30
+          },
+          "Powers": "[\"Person\", \"Property\"]",
+          "Status": "Restored"
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Date of birth": {
+            "daysFromToday": -34124
+          },
+          "Appointment date": {
+            "daysFromToday": -700
+          },
+          "Last visit": {
+            "daysFromToday": -20
+          },
+          "Physician": "Dr. Walker",
+          "Medicaid renewal": {
+            "daysFromToday": 150
+          },
+          "Powers": "[\"Person\"]",
+          "Status": "Active"
+        },
+        {
+          "Name": "Diego Ferreira",
+          "Date of birth": {
+            "daysFromToday": -25380
+          },
+          "Appointment date": {
+            "daysFromToday": -1100
+          },
+          "Last visit": {
+            "daysFromToday": -34
+          },
+          "Physician": "Dr. Miller",
+          "Medicaid renewal": {
+            "daysFromToday": -6
+          },
+          "Powers": "[\"Property\"]",
+          "Status": "Active"
+        },
+        {
+          "Name": "Hannah Walker",
+          "Date of birth": {
+            "daysFromToday": -22091
+          },
+          "Appointment date": {
+            "daysFromToday": -200
+          },
+          "Last visit": {
+            "daysFromToday": -12
+          },
+          "Physician": "Dr. Chen",
+          "Medicaid renewal": {
+            "daysFromToday": 300
+          },
+          "Powers": "[\"Person\", \"Health care\"]",
+          "Status": "Active"
+        },
+        {
+          "Name": "Tyrone Haddad",
+          "Date of birth": {
+            "daysFromToday": -32990
+          },
+          "Appointment date": {
+            "daysFromToday": -1460
+          },
+          "Last visit": {
+            "daysFromToday": -27
+          },
+          "Physician": "Dr. Morales",
+          "Medicaid renewal": {
+            "daysFromToday": 75
+          },
+          "Powers": "[\"Person\", \"Property\"]",
+          "Status": "Deceased"
+        },
+        {
+          "Name": "Mei Ortiz",
+          "Date of birth": {
+            "daysFromToday": -32601
+          },
+          "Appointment date": {
+            "daysFromToday": -900
+          },
+          "Last visit": {
+            "daysFromToday": -45
+          },
+          "Physician": "Dr. Wong",
+          "Medicaid renewal": {
+            "daysFromToday": 220
+          },
+          "Powers": "[\"Health care\"]",
+          "Status": "Active"
+        },
+        {
+          "Name": "Walter Johnson",
+          "Date of birth": {
+            "daysFromToday": -21974
+          },
+          "Appointment date": {
+            "daysFromToday": -45
+          },
+          "Last visit": {
+            "daysFromToday": -8
+          },
+          "Physician": "Dr. Rahman",
+          "Medicaid renewal": {
+            "daysFromToday": 12
+          },
+          "Powers": "[\"Person\"]",
+          "Status": "Active"
+        },
+        {
+          "Name": "Yolanda Miller",
+          "Date of birth": {
+            "daysFromToday": -32308
+          },
+          "Appointment date": {
+            "daysFromToday": -590
+          },
+          "Last visit": {
+            "daysFromToday": -16
+          },
+          "Physician": "Dr. Ferreira",
+          "Medicaid renewal": {
+            "daysFromToday": 400
+          },
+          "Powers": "[\"Property\"]",
+          "Status": "Active"
+        }
+      ],
+      "facilities": [
+        {
+          "Facility": "Sunrise Nursing Home",
+          "Type": "Nursing home",
+          "Phone": "555-0126",
+          "Address": "500 Willow Way\nSpringfield",
+          "Contact person": "Yolanda Miller (social worker)",
+          "Notes": "Visiting hours 9–8"
+        },
+        {
+          "Facility": "Oak Grove Assisted Living",
+          "Type": "Assisted living",
+          "Phone": "555-0133",
+          "Address": "620 Elm Street\nSpringfield",
+          "Contact person": "Ahmed Fischer (social worker)",
+          "Notes": "Ask for the nurse on duty"
+        },
+        {
+          "Facility": "Maple House",
+          "Type": "Group home",
+          "Phone": "555-0140",
+          "Address": "740 Pine Road\nSpringfield",
+          "Contact person": "Beatrice O'Brien (social worker)"
+        },
+        {
+          "Facility": "Riverside Care Center",
+          "Type": "Nursing home",
+          "Phone": "555-0147",
+          "Address": "860 Oak Terrace\nSpringfield",
+          "Contact person": "Kevin Nguyen (social worker)",
+          "Notes": "Sign in at the front desk"
+        }
+      ],
+      "court-cases": [
+        {
+          "Case": "G-2019-4410",
+          "Court": "Probate Court, Room 3",
+          "Judge": "Judge Nguyen",
+          "Next hearing": {
+            "daysFromToday": 14
+          },
+          "Attorney": "Kevin Nguyen",
+          "Attorney phone": "555-0165"
+        },
+        {
+          "Case": "G-2020-4447",
+          "Court": "Probate Court, Room 3",
+          "Judge": "Judge Chen",
+          "Next hearing": {
+            "daysFromToday": 60
+          },
+          "Attorney": "Lucia Chen",
+          "Attorney phone": "555-0172",
+          "Notes": "Annual review hearing"
+        },
+        {
+          "Case": "G-2021-4484",
+          "Court": "Probate Court, Room 3",
+          "Judge": "Judge Davis",
+          "Next hearing": {
+            "daysFromToday": 5
+          },
+          "Attorney": "Marcus Davis",
+          "Attorney phone": "555-0179",
+          "Notes": "Petition to sell the house"
+        },
+        {
+          "Case": "G-2022-4521",
+          "Court": "Probate Court, Room 3",
+          "Judge": "Judge Garcia",
+          "Next hearing": {
+            "daysFromToday": 120
+          },
+          "Attorney": "Maria Garcia",
+          "Attorney phone": "555-0186"
+        },
+        {
+          "Case": "G-2023-4558",
+          "Court": "Probate Court, Room 3",
+          "Judge": "Judge Patel",
+          "Next hearing": {
+            "daysFromToday": -1
+          },
+          "Attorney": "James Patel",
+          "Attorney phone": "555-0193",
+          "Notes": "Rescheduled — waiting for the new date"
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "wards#0",
+        "to": "facilities#0",
+        "link": "Lives at"
+      },
+      {
+        "from": "wards#1",
+        "to": "facilities#1",
+        "link": "Lives at"
+      },
+      {
+        "from": "wards#2",
+        "to": "facilities#2",
+        "link": "Lives at"
+      },
+      {
+        "from": "wards#3",
+        "to": "facilities#0",
+        "link": "Lives at"
+      },
+      {
+        "from": "wards#4",
+        "to": "facilities#3",
+        "link": "Lives at"
+      },
+      {
+        "from": "wards#5",
+        "to": "facilities#1",
+        "link": "Lives at"
+      },
+      {
+        "from": "wards#7",
+        "to": "facilities#3",
+        "link": "Lives at"
+      },
+      {
+        "from": "court-cases#0",
+        "to": "wards#0",
+        "link": "Ward"
+      },
+      {
+        "from": "court-cases#1",
+        "to": "wards#1",
+        "link": "Ward"
+      },
+      {
+        "from": "court-cases#2",
+        "to": "wards#2",
+        "link": "Ward"
+      },
+      {
+        "from": "court-cases#3",
+        "to": "wards#4",
+        "link": "Ward"
+      },
+      {
+        "from": "court-cases#4",
+        "to": "wards#5",
+        "link": "Ward"
+      }
+    ],
+    "activities": [
+      {
+        "record": "wards#0",
+        "type": "visit",
+        "daysAgo": 1,
+        "text": "Visited at the facility; eating well, no new concerns from staff."
+      },
+      {
+        "record": "wards#1",
+        "type": "note",
+        "daysAgo": 8,
+        "text": "Paid the facility bill from the guardianship account."
+      },
+      {
+        "record": "wards#1",
+        "type": "visit",
+        "daysAgo": 21,
+        "text": "Visited at the facility; eating well, no new concerns from staff."
+      },
+      {
+        "record": "wards#2",
+        "type": "phone",
+        "daysAgo": 15,
+        "text": "Called the nurse about the medication change."
+      },
+      {
+        "record": "wards#2",
+        "type": "note",
+        "daysAgo": 28,
+        "text": "Paid the facility bill from the guardianship account."
+      },
+      {
+        "record": "wards#3",
+        "type": "visit",
+        "daysAgo": 22,
+        "text": "Visited at the facility; eating well, no new concerns from staff."
+      },
+      {
+        "record": "wards#4",
+        "type": "note",
+        "daysAgo": 29,
+        "text": "Paid the facility bill from the guardianship account."
+      },
+      {
+        "record": "wards#4",
+        "type": "visit",
+        "daysAgo": 42,
+        "text": "Visited at the facility; eating well, no new concerns from staff."
+      },
+      {
+        "record": "wards#5",
+        "type": "phone",
+        "daysAgo": 36,
+        "text": "Called the nurse about the medication change."
+      },
+      {
+        "record": "wards#5",
+        "type": "note",
+        "daysAgo": 49,
+        "text": "Paid the facility bill from the guardianship account."
+      },
+      {
+        "record": "wards#6",
+        "type": "visit",
+        "daysAgo": 43,
+        "text": "Visited at the facility; eating well, no new concerns from staff."
+      },
+      {
+        "record": "wards#7",
+        "type": "note",
+        "daysAgo": 50,
+        "text": "Paid the facility bill from the guardianship account."
+      },
+      {
+        "record": "wards#7",
+        "type": "visit",
+        "daysAgo": 3,
+        "text": "Visited at the facility; eating well, no new concerns from staff."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "requirements",
+    "missingInfo"
+  ]
+}

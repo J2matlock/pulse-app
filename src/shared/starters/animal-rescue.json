@@ -1,0 +1,827 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "animal-rescue",
+  "name": "Animal rescue",
+  "description": "For rescues and shelters: animals on a board from intake to adoption, which foster home each is with, vaccines and vet visits, and foster home checks.",
+  "icon": "paw-print",
+  "group": "Animals",
+  "vocab": {
+    "record": {
+      "one": "animal",
+      "many": "animals",
+      "article": "an"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": false,
+    "summaryReport": true,
+    "handoff": false,
+    "links": true,
+    "stages": true,
+    "attachments": true
+  },
+  "lists": [
+    {
+      "key": "animals",
+      "name": "Animals",
+      "description": "Animals from intake to adoption",
+      "kind": "thing",
+      "vocab": {
+        "record": {
+          "one": "animal",
+          "many": "animals",
+          "article": "an"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 140,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Species",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 110,
+          "config": "{\"options\":[\"Dog\",\"Cat\",\"Rabbit\",\"Other\"]}"
+        },
+        {
+          "name": "Breed",
+          "column_type": "text",
+          "position": 2,
+          "width": 150
+        },
+        {
+          "name": "Sex",
+          "column_type": "dropdown",
+          "position": 3,
+          "width": 100,
+          "config": "{\"options\":[\"Female\",\"Male\"]}"
+        },
+        {
+          "name": "Intake date",
+          "column_type": "date",
+          "position": 4,
+          "width": 150
+        },
+        {
+          "name": "Stage",
+          "column_type": "status",
+          "position": 5,
+          "width": 160,
+          "config": "{\"options\":[{\"label\":\"Intake\",\"color\":\"#64748b\"},{\"label\":\"Medical\",\"color\":\"#f97316\"},{\"label\":\"Ready\",\"color\":\"#3b82f6\"},{\"label\":\"Adoption pending\",\"color\":\"#a855f7\"},{\"label\":\"Adopted\",\"color\":\"#22c55e\"}]}"
+        },
+        {
+          "name": "Spayed/neutered",
+          "column_type": "checkbox",
+          "position": 6,
+          "width": 130
+        },
+        {
+          "name": "Microchip",
+          "column_type": "text",
+          "position": 7,
+          "width": 150
+        },
+        {
+          "name": "Rabies vaccine",
+          "column_type": "date",
+          "position": 8,
+          "width": 150,
+          "description": "Date of the last rabies vaccine",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Next vet visit",
+          "column_type": "date",
+          "position": 9,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
+          "name": "Adopted on",
+          "column_type": "date",
+          "position": 10,
+          "width": 150
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Due date",
+          "description": "The date entered is the deadline",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ],
+      "links": [
+        {
+          "to": "fosters",
+          "label_forward": "Placed with",
+          "label_backward": "Animals in care",
+          "cardinality": "many_to_one"
+        }
+      ],
+      "stage": {
+        "column": "Stage",
+        "options": [
+          {
+            "value": "Intake",
+            "color": "slate"
+          },
+          {
+            "value": "Medical",
+            "color": "orange"
+          },
+          {
+            "value": "Ready",
+            "color": "blue"
+          },
+          {
+            "value": "Adoption pending",
+            "color": "purple"
+          },
+          {
+            "value": "Adopted",
+            "color": "green",
+            "done": true,
+            "onEnter": {
+              "stampColumn": "Adopted on"
+            }
+          }
+        ],
+        "hideDoneAfterDays": 30
+      }
+    },
+    {
+      "key": "fosters",
+      "name": "Fosters",
+      "description": "Foster homes and what they can take",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "foster",
+          "many": "fosters",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 1,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 2,
+          "width": 200
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 3,
+          "width": 160
+        },
+        {
+          "name": "Can take",
+          "column_type": "tag",
+          "position": 4,
+          "width": 140,
+          "description": "Dogs, cats, puppies, kittens, medical cases…"
+        },
+        {
+          "name": "Home check",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "description": "Date of the last home check; due again every 2 years",
+          "config": "{\"alert_rule_name\":\"Every 2 years\",\"log_changes\":true}"
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 6,
+          "width": 120,
+          "config": "{\"options\":[\"Active\",\"Full\",\"On a break\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every 2 years",
+          "description": "Due 2 years after the date entered",
+          "interval_months": 24,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "vet",
+      "label": "Vet visit",
+      "icon": "🩺",
+      "color": "orange"
+    },
+    {
+      "key": "application",
+      "label": "Adoption application",
+      "icon": "📝",
+      "color": "purple"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "animals": [
+        {
+          "Name": "Biscuit",
+          "Species": "Dog",
+          "Breed": "Beagle mix",
+          "Sex": "Male",
+          "Intake date": {
+            "daysFromToday": -60
+          },
+          "Stage": "Ready",
+          "Spayed/neutered": "true",
+          "Microchip": "985112004400",
+          "Rabies vaccine": {
+            "daysFromToday": -300
+          },
+          "Next vet visit": {
+            "daysFromToday": 20
+          }
+        },
+        {
+          "Name": "Luna",
+          "Species": "Cat",
+          "Breed": "Domestic shorthair",
+          "Sex": "Female",
+          "Intake date": {
+            "daysFromToday": -20
+          },
+          "Stage": "Medical",
+          "Spayed/neutered": "false",
+          "Microchip": "985112012131",
+          "Rabies vaccine": {
+            "daysFromToday": -18
+          },
+          "Next vet visit": {
+            "daysFromToday": 3
+          }
+        },
+        {
+          "Name": "Pepper",
+          "Species": "Dog",
+          "Breed": "Lab mix",
+          "Sex": "Female",
+          "Intake date": {
+            "daysFromToday": -90
+          },
+          "Stage": "Adoption pending",
+          "Spayed/neutered": "true",
+          "Microchip": "985112019862",
+          "Rabies vaccine": {
+            "daysFromToday": -370
+          }
+        },
+        {
+          "Name": "Mochi",
+          "Species": "Cat",
+          "Breed": "Siamese mix",
+          "Sex": "Female",
+          "Intake date": {
+            "daysFromToday": -45
+          },
+          "Stage": "Ready",
+          "Spayed/neutered": "true",
+          "Microchip": "985112027593",
+          "Rabies vaccine": {
+            "daysFromToday": -40
+          },
+          "Next vet visit": {
+            "daysFromToday": 60
+          }
+        },
+        {
+          "Name": "Rex",
+          "Species": "Dog",
+          "Breed": "Shepherd mix",
+          "Sex": "Male",
+          "Intake date": {
+            "daysFromToday": -2
+          },
+          "Stage": "Intake",
+          "Spayed/neutered": "false",
+          "Next vet visit": {
+            "daysFromToday": 1
+          }
+        },
+        {
+          "Name": "Clover",
+          "Species": "Rabbit",
+          "Breed": "Lop",
+          "Sex": "Female",
+          "Intake date": {
+            "daysFromToday": -120
+          },
+          "Stage": "Ready",
+          "Spayed/neutered": "true",
+          "Microchip": "985112043055",
+          "Next vet visit": {
+            "daysFromToday": 45
+          }
+        },
+        {
+          "Name": "Tiger",
+          "Species": "Cat",
+          "Breed": "Tabby",
+          "Sex": "Male",
+          "Intake date": {
+            "daysFromToday": -150
+          },
+          "Stage": "Adopted",
+          "Spayed/neutered": "true",
+          "Microchip": "985112050786",
+          "Rabies vaccine": {
+            "daysFromToday": -140
+          },
+          "Adopted on": {
+            "daysFromToday": -12
+          }
+        },
+        {
+          "Name": "Daisy",
+          "Species": "Dog",
+          "Breed": "Pit mix",
+          "Sex": "Female",
+          "Intake date": {
+            "daysFromToday": -15
+          },
+          "Stage": "Medical",
+          "Spayed/neutered": "false",
+          "Microchip": "985112058517",
+          "Rabies vaccine": {
+            "daysFromToday": -12
+          },
+          "Next vet visit": {
+            "daysFromToday": -2
+          }
+        },
+        {
+          "Name": "Oreo",
+          "Species": "Cat",
+          "Breed": "Tuxedo",
+          "Sex": "Male",
+          "Intake date": {
+            "daysFromToday": -35
+          },
+          "Stage": "Ready",
+          "Spayed/neutered": "true",
+          "Microchip": "985112066248",
+          "Rabies vaccine": {
+            "daysFromToday": -200
+          },
+          "Next vet visit": {
+            "daysFromToday": 90
+          }
+        },
+        {
+          "Name": "Ziggy",
+          "Species": "Dog",
+          "Breed": "Terrier mix",
+          "Sex": "Male",
+          "Intake date": {
+            "daysFromToday": -200
+          },
+          "Stage": "Adopted",
+          "Spayed/neutered": "true",
+          "Microchip": "985112073979",
+          "Rabies vaccine": {
+            "daysFromToday": -350
+          },
+          "Adopted on": {
+            "daysFromToday": -40
+          }
+        }
+      ],
+      "fosters": [
+        {
+          "Name": "Linh Smith",
+          "Phone": "555-0113",
+          "Email": "linh.smith@example.com",
+          "Address": "12 Maple Ave\nSpringfield",
+          "Can take": "[\"Dogs\", \"Puppies\"]",
+          "Home check": {
+            "daysFromToday": -600
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Dorothy Kowalski",
+          "Phone": "555-0120",
+          "Email": "dorothy.kowalski@example.com",
+          "Address": "53 Birch Lane\nSpringfield",
+          "Can take": "[\"Cats\", \"Kittens\"]",
+          "Home check": {
+            "daysFromToday": -200
+          },
+          "Status": "Full"
+        },
+        {
+          "Name": "Carlos Wong",
+          "Phone": "555-0127",
+          "Email": "carlos.wong@example.com",
+          "Address": "94 Cedar Court\nSpringfield",
+          "Can take": "[\"Dogs\"]",
+          "Home check": {
+            "daysFromToday": -720
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Priya Bell",
+          "Phone": "555-0134",
+          "Email": "priya.bell@example.com",
+          "Address": "135 Willow Way\nSpringfield",
+          "Can take": "[\"Cats\", \"Medical cases\"]",
+          "Home check": {
+            "daysFromToday": -100
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Frank Rivera",
+          "Phone": "555-0141",
+          "Email": "frank.rivera@example.com",
+          "Address": "176 Elm Street\nSpringfield",
+          "Can take": "[\"Kittens\"]",
+          "Home check": {
+            "daysFromToday": -400
+          },
+          "Status": "On a break"
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Phone": "555-0148",
+          "Email": "keisha.thompson@example.com",
+          "Address": "217 Pine Road\nSpringfield",
+          "Can take": "[\"Dogs\", \"Cats\"]",
+          "Home check": {
+            "daysFromToday": -690
+          },
+          "Status": "Active"
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "animals#0",
+        "to": "fosters#1",
+        "link": "Placed with"
+      },
+      {
+        "from": "animals#1",
+        "to": "fosters#3",
+        "link": "Placed with"
+      },
+      {
+        "from": "animals#2",
+        "to": "fosters#0",
+        "link": "Placed with"
+      },
+      {
+        "from": "animals#3",
+        "to": "fosters#1",
+        "link": "Placed with"
+      },
+      {
+        "from": "animals#5",
+        "to": "fosters#5",
+        "link": "Placed with"
+      },
+      {
+        "from": "animals#7",
+        "to": "fosters#2",
+        "link": "Placed with"
+      },
+      {
+        "from": "animals#8",
+        "to": "fosters#3",
+        "link": "Placed with"
+      }
+    ],
+    "history": [
+      {
+        "record": "animals#0",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Intake",
+            "daysAgo": 60
+          },
+          {
+            "value": "Medical",
+            "daysAgo": 40
+          },
+          {
+            "value": "Ready",
+            "daysAgo": 20
+          }
+        ]
+      },
+      {
+        "record": "animals#1",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Intake",
+            "daysAgo": 20
+          },
+          {
+            "value": "Medical",
+            "daysAgo": 10
+          }
+        ]
+      },
+      {
+        "record": "animals#2",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Intake",
+            "daysAgo": 90
+          },
+          {
+            "value": "Medical",
+            "daysAgo": 68
+          },
+          {
+            "value": "Ready",
+            "daysAgo": 45
+          },
+          {
+            "value": "Adoption pending",
+            "daysAgo": 23
+          }
+        ]
+      },
+      {
+        "record": "animals#3",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Intake",
+            "daysAgo": 45
+          },
+          {
+            "value": "Medical",
+            "daysAgo": 30
+          },
+          {
+            "value": "Ready",
+            "daysAgo": 15
+          }
+        ]
+      },
+      {
+        "record": "animals#4",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Intake",
+            "daysAgo": 2
+          }
+        ]
+      },
+      {
+        "record": "animals#5",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Intake",
+            "daysAgo": 120
+          },
+          {
+            "value": "Medical",
+            "daysAgo": 80
+          },
+          {
+            "value": "Ready",
+            "daysAgo": 40
+          }
+        ]
+      },
+      {
+        "record": "animals#6",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Intake",
+            "daysAgo": 150
+          },
+          {
+            "value": "Medical",
+            "daysAgo": 120
+          },
+          {
+            "value": "Ready",
+            "daysAgo": 90
+          },
+          {
+            "value": "Adoption pending",
+            "daysAgo": 60
+          },
+          {
+            "value": "Adopted",
+            "daysAgo": 30
+          }
+        ]
+      },
+      {
+        "record": "animals#7",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Intake",
+            "daysAgo": 15
+          },
+          {
+            "value": "Medical",
+            "daysAgo": 8
+          }
+        ]
+      },
+      {
+        "record": "animals#8",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Intake",
+            "daysAgo": 35
+          },
+          {
+            "value": "Medical",
+            "daysAgo": 24
+          },
+          {
+            "value": "Ready",
+            "daysAgo": 12
+          }
+        ]
+      },
+      {
+        "record": "animals#9",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Intake",
+            "daysAgo": 200
+          },
+          {
+            "value": "Medical",
+            "daysAgo": 160
+          },
+          {
+            "value": "Ready",
+            "daysAgo": 120
+          },
+          {
+            "value": "Adoption pending",
+            "daysAgo": 80
+          },
+          {
+            "value": "Adopted",
+            "daysAgo": 40
+          }
+        ]
+      }
+    ],
+    "activities": [
+      {
+        "record": "animals#0",
+        "type": "vet",
+        "daysAgo": 1,
+        "text": "Vet visit: vaccines given, healthy weight."
+      },
+      {
+        "record": "animals#1",
+        "type": "application",
+        "daysAgo": 8,
+        "text": "Adoption application received; checking references."
+      },
+      {
+        "record": "animals#1",
+        "type": "vet",
+        "daysAgo": 21,
+        "text": "Vet visit: vaccines given, healthy weight."
+      },
+      {
+        "record": "animals#2",
+        "type": "note",
+        "daysAgo": 15,
+        "text": "Great with other dogs at the meet-and-greet."
+      },
+      {
+        "record": "animals#2",
+        "type": "application",
+        "daysAgo": 28,
+        "text": "Adoption application received; checking references."
+      },
+      {
+        "record": "animals#3",
+        "type": "vet",
+        "daysAgo": 22,
+        "text": "Vet visit: vaccines given, healthy weight."
+      },
+      {
+        "record": "animals#4",
+        "type": "application",
+        "daysAgo": 29,
+        "text": "Adoption application received; checking references."
+      },
+      {
+        "record": "animals#4",
+        "type": "vet",
+        "daysAgo": 42,
+        "text": "Vet visit: vaccines given, healthy weight."
+      },
+      {
+        "record": "animals#5",
+        "type": "note",
+        "daysAgo": 36,
+        "text": "Great with other dogs at the meet-and-greet."
+      },
+      {
+        "record": "animals#5",
+        "type": "application",
+        "daysAgo": 49,
+        "text": "Adoption application received; checking references."
+      },
+      {
+        "record": "animals#6",
+        "type": "vet",
+        "daysAgo": 43,
+        "text": "Vet visit: vaccines given, healthy weight."
+      },
+      {
+        "record": "animals#7",
+        "type": "application",
+        "daysAgo": 50,
+        "text": "Adoption application received; checking references."
+      },
+      {
+        "record": "animals#7",
+        "type": "vet",
+        "daysAgo": 3,
+        "text": "Vet visit: vaccines given, healthy weight."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "stages",
+    "missingInfo"
+  ]
+}

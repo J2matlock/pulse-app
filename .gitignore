@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+.build-staging/
+.build-staging-mac/
+
+# Code signing
+scripts/jsign.jar
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Electron builder
+dist_electron/
+
+# Database files (never commit user data)
+*.db
+*.db-shm
+*.db-wal
+
+# electron-store data
+app-data/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Inno Setup
+*.bmp
+
+# Environment
+.env
+.env.local
+
+# Website screenshots (scripts/website-copy/screenshots.sh)
+plans/website/screenshots/
+
+# Private: audit reports and security findings stay local (not in the public repo)
+SUPER_AUDIT_REPORT.md
+.SUPER_AUDIT_REPORT.md*
+audit-findings-*.md
+plans/AUDIT_*.md
+plans/REMEDIATION_*.md
+plans/PHI_SECURITY_REMEDIATION_PLAN.md
+plans/CODE_REVIEW_*.md
+plans/it-security-review-plan.md
+plans/security-review/gaps-and-roadmap.md
+plans/LicSpec.md
+plans/PLAN-licensing.md
+
+# Test output
+test-results/

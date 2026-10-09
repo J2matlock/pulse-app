@@ -1,0 +1,405 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "veterans-service-officer",
+  "name": "Veterans service officer",
+  "description": "For county and nonprofit veterans service officers: intent-to-file deadlines one year out, claims, decisions and appeal windows. Pulse is a tracking aid, not your official record system.",
+  "icon": "shield-check",
+  "group": "Legal and government",
+  "vocab": {
+    "record": {
+      "one": "veteran",
+      "many": "veterans",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false
+  },
+  "lists": [
+    {
+      "key": "veterans",
+      "name": "Veterans",
+      "description": "Veterans with intent-to-file deadlines, claims and appeal windows",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Branch",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 130,
+          "config": "{\"options\":[\"Army\",\"Navy\",\"Air Force\",\"Marine Corps\",\"Coast Guard\",\"Space Force\"]}"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 2,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Claim type",
+          "column_type": "dropdown",
+          "position": 3,
+          "width": 190,
+          "config": "{\"options\":[\"Disability compensation\",\"Pension\",\"Education\",\"Health care\",\"Burial\"]}"
+        },
+        {
+          "name": "Intent to file date",
+          "column_type": "date",
+          "position": 4,
+          "width": 150
+        },
+        {
+          "name": "Claim filed",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "description": "Date the claim was filed",
+          "config": "{\"alert_rule_name\":\"Intent to file expires\",\"log_changes\":true}"
+        },
+        {
+          "name": "Decision date",
+          "column_type": "date",
+          "position": 6,
+          "width": 150
+        },
+        {
+          "name": "Appeal filed",
+          "column_type": "date",
+          "position": 7,
+          "width": 150,
+          "description": "Date an appeal was filed, if any",
+          "config": "{\"alert_rule_name\":\"Appeal window\",\"log_changes\":true}"
+        },
+        {
+          "name": "Next appointment",
+          "column_type": "date",
+          "position": 8,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 9,
+          "width": 160,
+          "config": "{\"options\":[\"Gathering evidence\",\"Filed\",\"Decided\",\"Appealing\",\"Closed\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Intent to file expires",
+          "description": "The claim must be filed within a year of the intent to file",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\":\"relative\",\"anchorColumnId\":{\"column\":\"Intent to file date\"},\"offset\":{\"months\":12,\"direction\":\"after\"}}"
+        },
+        {
+          "name": "Appeal window",
+          "description": "A decision can be appealed for a year",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\":\"relative\",\"anchorColumnId\":{\"column\":\"Decision date\"},\"offset\":{\"months\":12,\"direction\":\"after\"}}"
+        },
+        {
+          "name": "Due date",
+          "description": "The date entered is the deadline",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "appointment",
+      "label": "Office visit",
+      "icon": "🏢",
+      "color": "orange"
+    },
+    {
+      "key": "evidence",
+      "label": "Evidence received",
+      "icon": "📄",
+      "color": "green"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "veterans": [
+        {
+          "Name": "Keisha Thompson",
+          "Branch": "Army",
+          "Phone": "555-0126",
+          "Claim type": "Pension",
+          "Intent to file date": {
+            "daysFromToday": -340
+          },
+          "Appeal filed": {
+            "daysFromToday": -504
+          },
+          "Next appointment": {
+            "daysFromToday": 3
+          },
+          "Status": "Gathering evidence"
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Branch": "Navy",
+          "Phone": "555-0133",
+          "Claim type": "Disability compensation",
+          "Intent to file date": {
+            "daysFromToday": -300
+          },
+          "Appeal filed": {
+            "daysFromToday": -657
+          },
+          "Next appointment": {
+            "daysFromToday": 10
+          },
+          "Status": "Gathering evidence"
+        },
+        {
+          "Name": "Grace Okafor",
+          "Branch": "Army",
+          "Phone": "555-0140",
+          "Claim type": "Disability compensation",
+          "Intent to file date": {
+            "daysFromToday": -200
+          },
+          "Appeal filed": {
+            "daysFromToday": -412
+          },
+          "Next appointment": {
+            "daysFromToday": 40
+          },
+          "Status": "Gathering evidence"
+        },
+        {
+          "Name": "Omar Brown",
+          "Branch": "Air Force",
+          "Phone": "555-0147",
+          "Claim type": "Disability compensation",
+          "Intent to file date": {
+            "daysFromToday": -100
+          },
+          "Appeal filed": {
+            "daysFromToday": -303
+          },
+          "Next appointment": {
+            "daysFromToday": 75
+          },
+          "Status": "Gathering evidence"
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Branch": "Marine Corps",
+          "Phone": "555-0154",
+          "Claim type": "Education",
+          "Intent to file date": {
+            "daysFromToday": -30
+          },
+          "Appeal filed": {
+            "daysFromToday": -171
+          },
+          "Next appointment": {
+            "daysFromToday": -2
+          },
+          "Status": "Gathering evidence"
+        },
+        {
+          "Name": "Diego Ferreira",
+          "Branch": "Army",
+          "Phone": "555-0161",
+          "Claim type": "Disability compensation",
+          "Intent to file date": {
+            "daysFromToday": -380
+          },
+          "Claim filed": {
+            "daysFromToday": -200
+          },
+          "Decision date": {
+            "daysFromToday": -30
+          },
+          "Appeal filed": {
+            "daysFromToday": -220
+          },
+          "Next appointment": {
+            "daysFromToday": 15
+          },
+          "Status": "Decided"
+        },
+        {
+          "Name": "Hannah Walker",
+          "Branch": "Navy",
+          "Phone": "555-0168",
+          "Claim type": "Disability compensation",
+          "Intent to file date": {
+            "daysFromToday": -250
+          },
+          "Claim filed": {
+            "daysFromToday": -100
+          },
+          "Decision date": {
+            "daysFromToday": -340
+          },
+          "Appeal filed": {
+            "daysFromToday": -917
+          },
+          "Next appointment": {
+            "daysFromToday": 25
+          },
+          "Status": "Decided"
+        },
+        {
+          "Name": "Tyrone Haddad",
+          "Branch": "Coast Guard",
+          "Phone": "555-0175",
+          "Claim type": "Disability compensation",
+          "Intent to file date": {
+            "daysFromToday": -150
+          },
+          "Appeal filed": {
+            "daysFromToday": -722
+          },
+          "Next appointment": {
+            "daysFromToday": 50
+          },
+          "Status": "Gathering evidence"
+        },
+        {
+          "Name": "Mei Ortiz",
+          "Branch": "Army",
+          "Phone": "555-0182",
+          "Claim type": "Health care",
+          "Intent to file date": {
+            "daysFromToday": -360
+          },
+          "Appeal filed": {
+            "daysFromToday": -36
+          },
+          "Next appointment": {
+            "daysFromToday": 8
+          },
+          "Status": "Gathering evidence"
+        },
+        {
+          "Name": "Walter Johnson",
+          "Branch": "Air Force",
+          "Phone": "555-0189",
+          "Claim type": "Disability compensation",
+          "Intent to file date": {
+            "daysFromToday": -60
+          },
+          "Appeal filed": {
+            "daysFromToday": -376
+          },
+          "Next appointment": {
+            "daysFromToday": 100
+          },
+          "Status": "Gathering evidence"
+        }
+      ]
+    },
+    "activities": [
+      {
+        "record": "veterans#0",
+        "type": "appointment",
+        "daysAgo": 1,
+        "text": "Met in the office; signed the intent to file."
+      },
+      {
+        "record": "veterans#1",
+        "type": "phone",
+        "daysAgo": 8,
+        "text": "Called about the exam letter."
+      },
+      {
+        "record": "veterans#1",
+        "type": "appointment",
+        "daysAgo": 21,
+        "text": "Met in the office; signed the intent to file."
+      },
+      {
+        "record": "veterans#2",
+        "type": "evidence",
+        "daysAgo": 15,
+        "text": "Received the buddy statement and medical records."
+      },
+      {
+        "record": "veterans#2",
+        "type": "phone",
+        "daysAgo": 28,
+        "text": "Called about the exam letter."
+      },
+      {
+        "record": "veterans#3",
+        "type": "appointment",
+        "daysAgo": 22,
+        "text": "Met in the office; signed the intent to file."
+      },
+      {
+        "record": "veterans#4",
+        "type": "phone",
+        "daysAgo": 29,
+        "text": "Called about the exam letter."
+      },
+      {
+        "record": "veterans#4",
+        "type": "appointment",
+        "daysAgo": 42,
+        "text": "Met in the office; signed the intent to file."
+      },
+      {
+        "record": "veterans#5",
+        "type": "evidence",
+        "daysAgo": 36,
+        "text": "Received the buddy statement and medical records."
+      },
+      {
+        "record": "veterans#5",
+        "type": "phone",
+        "daysAgo": 49,
+        "text": "Called about the exam letter."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "missingInfo"
+  ]
+}

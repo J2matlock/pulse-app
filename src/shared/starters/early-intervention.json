@@ -1,0 +1,386 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "early-intervention",
+  "name": "Early intervention",
+  "description": "For early intervention service coordinators: the IFSP within 45 days of referral, 6-month reviews, yearly IFSPs and transition planning at 33 months.",
+  "icon": "sprout",
+  "group": "Education and youth",
+  "vocab": {
+    "record": {
+      "one": "child",
+      "many": "children",
+      "article": "a"
+    },
+    "list": {
+      "one": "roster",
+      "many": "rosters",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false
+  },
+  "lists": [
+    {
+      "key": "children",
+      "name": "Early intervention",
+      "description": "Infants and toddlers from referral to transition at age 3",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 1,
+          "width": 150,
+          "is_required": 1
+        },
+        {
+          "name": "Parent",
+          "column_type": "text",
+          "position": 2,
+          "width": 160,
+          "is_required": 1
+        },
+        {
+          "name": "Parent phone",
+          "column_type": "phone",
+          "position": 3,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Referral date",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "is_required": 1
+        },
+        {
+          "name": "IFSP timeline",
+          "column_type": "deadline",
+          "position": 5,
+          "width": 140,
+          "description": "The next IFSP step; mark it done to move on",
+          "config": "{\"alert_rule_name\":\"IFSP timeline\"}"
+        },
+        {
+          "name": "Transition conference",
+          "column_type": "date",
+          "position": 6,
+          "width": 150,
+          "description": "Date the transition conference was held",
+          "config": "{\"alert_rule_name\":\"Transition at 33 months\",\"log_changes\":true}"
+        },
+        {
+          "name": "Services",
+          "column_type": "tag",
+          "position": 7,
+          "width": 140,
+          "description": "Speech, OT, PT, developmental therapy…"
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 8,
+          "width": 130,
+          "config": "{\"options\":[\"Referred\",\"Active\",\"Transitioned\",\"Exited\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "IFSP timeline",
+          "description": "From referral: the IFSP within 45 days, a 6-month review, then a yearly IFSP",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "sequence",
+          "rule_config": "{\"kind\":\"sequence\",\"anchorColumnId\":{\"column\":\"Referral date\"},\"steps\":[{\"label\":\"IFSP meeting\",\"offset\":{\"days\":45}},{\"label\":\"6-month review\",\"offset\":{\"days\":45,\"months\":6}},{\"label\":\"Annual IFSP\",\"offset\":{\"days\":45,\"months\":12}}],\"repeatLast\":{\"months\":12}}"
+        },
+        {
+          "name": "Transition at 33 months",
+          "description": "Transition planning is due when the child turns 2 years 9 months",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\":\"relative\",\"anchorColumnId\":{\"column\":\"Date of birth\"},\"offset\":{\"months\":33,\"direction\":\"after\"}}"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "home_visit",
+      "label": "Home visit",
+      "icon": "🏠",
+      "color": "orange"
+    },
+    {
+      "key": "parent_contact",
+      "label": "Parent contact",
+      "icon": "📞",
+      "color": "blue"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "children": [
+        {
+          "Name": "Dorothy Kowalski",
+          "Date of birth": {
+            "daysFromToday": -400
+          },
+          "Parent": "Frank Rivera",
+          "Parent phone": "555-0139",
+          "Referral date": {
+            "daysFromToday": -20
+          },
+          "Services": "[\"Speech\"]",
+          "Status": "Referred"
+        },
+        {
+          "Name": "Carlos Wong",
+          "Date of birth": {
+            "daysFromToday": -950
+          },
+          "Parent": "Keisha Thompson",
+          "Parent phone": "555-0146",
+          "Referral date": {
+            "daysFromToday": -210
+          },
+          "Services": "[\"OT\", \"Speech\"]",
+          "Status": "Active"
+        },
+        {
+          "Name": "Priya Bell",
+          "Date of birth": {
+            "daysFromToday": -600
+          },
+          "Parent": "Samuel Rahman",
+          "Parent phone": "555-0153",
+          "Referral date": {
+            "daysFromToday": -150
+          },
+          "Services": "[\"PT\"]",
+          "Status": "Active"
+        },
+        {
+          "Name": "Frank Rivera",
+          "Date of birth": {
+            "daysFromToday": -1000
+          },
+          "Parent": "Grace Okafor",
+          "Parent phone": "555-0160",
+          "Referral date": {
+            "daysFromToday": -60
+          },
+          "Services": "[\"Developmental therapy\"]",
+          "Status": "Active"
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Date of birth": {
+            "daysFromToday": -300
+          },
+          "Parent": "Omar Brown",
+          "Parent phone": "555-0167",
+          "Referral date": {
+            "daysFromToday": -40
+          },
+          "Services": "[\"Speech\"]",
+          "Status": "Active"
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Date of birth": {
+            "daysFromToday": -800
+          },
+          "Parent": "Ruth Jackson",
+          "Parent phone": "555-0174",
+          "Referral date": {
+            "daysFromToday": -300
+          },
+          "Services": "[\"OT\"]",
+          "Status": "Active"
+        },
+        {
+          "Name": "Grace Okafor",
+          "Date of birth": {
+            "daysFromToday": -700
+          },
+          "Parent": "Diego Ferreira",
+          "Parent phone": "555-0181",
+          "Referral date": {
+            "daysFromToday": -100
+          },
+          "Services": "[\"PT\", \"OT\"]",
+          "Status": "Active"
+        },
+        {
+          "Name": "Omar Brown",
+          "Date of birth": {
+            "daysFromToday": -960
+          },
+          "Parent": "Hannah Walker",
+          "Parent phone": "555-0188",
+          "Referral date": {
+            "daysFromToday": -500
+          },
+          "Transition conference": {
+            "daysFromToday": -12
+          },
+          "Services": "[\"Speech\"]",
+          "Status": "Active"
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Date of birth": {
+            "daysFromToday": -250
+          },
+          "Parent": "Tyrone Haddad",
+          "Parent phone": "555-0195",
+          "Referral date": {
+            "daysFromToday": -10
+          },
+          "Status": "Referred"
+        },
+        {
+          "Name": "Diego Ferreira",
+          "Date of birth": {
+            "daysFromToday": -500
+          },
+          "Parent": "Mei Ortiz",
+          "Parent phone": "555-0102",
+          "Referral date": {
+            "daysFromToday": -190
+          },
+          "Services": "[\"Developmental therapy\"]",
+          "Status": "Active"
+        }
+      ]
+    },
+    "stepsDone": [
+      {
+        "record": "children#1",
+        "column": "IFSP timeline",
+        "steps": 1
+      },
+      {
+        "record": "children#2",
+        "column": "IFSP timeline",
+        "steps": 1
+      },
+      {
+        "record": "children#5",
+        "column": "IFSP timeline",
+        "steps": 2
+      },
+      {
+        "record": "children#6",
+        "column": "IFSP timeline",
+        "steps": 1
+      },
+      {
+        "record": "children#7",
+        "column": "IFSP timeline",
+        "steps": 3
+      },
+      {
+        "record": "children#9",
+        "column": "IFSP timeline",
+        "steps": 1
+      }
+    ],
+    "activities": [
+      {
+        "record": "children#0",
+        "type": "home_visit",
+        "daysAgo": 1,
+        "text": "Home visit with the family; practiced the new routines."
+      },
+      {
+        "record": "children#1",
+        "type": "note",
+        "daysAgo": 8,
+        "text": "Evaluation report received from the therapist."
+      },
+      {
+        "record": "children#1",
+        "type": "home_visit",
+        "daysAgo": 21,
+        "text": "Home visit with the family; practiced the new routines."
+      },
+      {
+        "record": "children#2",
+        "type": "parent_contact",
+        "daysAgo": 15,
+        "text": "Called to confirm the IFSP meeting time."
+      },
+      {
+        "record": "children#2",
+        "type": "note",
+        "daysAgo": 28,
+        "text": "Evaluation report received from the therapist."
+      },
+      {
+        "record": "children#3",
+        "type": "home_visit",
+        "daysAgo": 22,
+        "text": "Home visit with the family; practiced the new routines."
+      },
+      {
+        "record": "children#4",
+        "type": "note",
+        "daysAgo": 29,
+        "text": "Evaluation report received from the therapist."
+      },
+      {
+        "record": "children#4",
+        "type": "home_visit",
+        "daysAgo": 42,
+        "text": "Home visit with the family; practiced the new routines."
+      },
+      {
+        "record": "children#5",
+        "type": "parent_contact",
+        "daysAgo": 36,
+        "text": "Called to confirm the IFSP meeting time."
+      },
+      {
+        "record": "children#5",
+        "type": "note",
+        "daysAgo": 49,
+        "text": "Evaluation report received from the therapist."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "missingInfo"
+  ]
+}

@@ -1,0 +1,298 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import toast from 'react-hot-toast'
+import { LayoutTemplate, Search, X, Sparkles, ArrowLeft } from 'lucide-react'
+import { IPC } from '../../../shared/ipc-channels'
+import type { ApplyResult, StarterPreview, StarterRef, StarterSummary } from '../../../shared/starters/schema'
+import { safeInvoke } from '../../utils/safeInvoke'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { useVocab } from '../../hooks/useVocab'
+import { useGridStore } from '../../stores/gridStore'
+import { useAlertStore } from '../../stores/alertStore'
+import { StarterIcon } from './StarterIcon'
+import { pulseEvents } from '../../events'
+
+type Step = 'gallery' | 'variant' | 'review' | 'done'
+
+interface Props {
+  /**
+   * 'add' (Settings, existing workspace): words and features are off by default.
+   * 'setup' (first run): on by default, and after adding, setup takes over
+   * (onApplied) instead of this dialog's own summary.
+   */
+  mode: 'add' | 'setup'
+  onClose: () => void
+  onApplied?: (result: ApplyResult) => void
+  /** Start with this starter (an opened file) instead of the gallery */
+  initial?: { source: StarterRef; summary: StarterSummary }
+}
+
+const KIND_LABEL = { person: 'People', thing: 'Things', job: 'Jobs' } as const
+
+/**
+ * Pick an example (starter template), choose its variant, review what it adds,
+ * and apply it. Nothing already in the workspace is changed or removed.
+ */
+export function ApplyStarterDialog({ mode, onClose, onApplied, initial }: Props): React.ReactElement {
+  const { t, f } = useVocab(null)
+  const trapRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(trapRef, true)
+
+  const [step, setStep] = useState<Step>(initial ? (initial.summary.variants.length > 0 ? 'variant' : 'review') : 'gallery')
+  const [starters, setStarters] = useState<StarterSummary[] | null>(null)
+  const [query, setQuery] = useState('')
+  const [chosen, setChosen] = useState<StarterSummary | null>(initial?.summary ?? null)
+  const [source, setSource] = useState<StarterRef | null>(initial?.source ?? null)
+  const [variant, setVariant] = useState<string | undefined>(initial?.summary.variants[0]?.key)
+  const [preview, setPreview] = useState<StarterPreview | null>(null)
+  const [lists, setLists] = useState<Set<string>>(new Set())
+  const [useWords, setUseWords] = useState(mode === 'setup')
+  const [useFeatures, setUseFeatures] = useState(mode === 'setup')
+  const [sample, setSample] = useState(false)
+  const [working, setWorking] = useState(false)
+  const [result, setResult] = useState<ApplyResult | null>(null)
+
+  useEffect(() => {
+    if (initial) return // opened from a file: no gallery
+    void safeInvoke(IPC.STARTER_LIST).then(r => {
+      if (r.ok) setStarters(r.data)
+      else { toast.error("We couldn't load the examples."); setStarters([]) }
+    })
+  }, [initial])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !working) onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose, working])
+
+  const groups = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const matches = (starters ?? []).filter(s => !q || [s.name, s.description, ...s.listNames, ...s.variants.map(v => v.name)].some(x => x.toLowerCase().includes(q)))
+    const byGroup = new Map<string, StarterSummary[]>()
+    for (const s of matches) byGroup.set(s.group ?? 'Other', [...(byGroup.get(s.group ?? 'Other') ?? []), s])
+    return [...byGroup.entries()]
+  }, [starters, query])
+
+  async function loadPreview(src: StarterRef, v: string | undefined) {
+    setPreview(null)
+    setStep('review')
+    const r = await safeInvoke(IPC.STARTER_PREVIEW, src, v)
+    if (!r.ok) { toast.error(r.error); if (initial) onClose(); else setStep('gallery'); return }
+    setPreview(r.data)
+    setLists(new Set(r.data.lists.map(l => l.key)))
+  }
+
+  function pick(s: StarterSummary) {
+    const src = { builtinId: s.id }
+    setChosen(s)
+    setSource(src)
+    if (s.variants.length > 0) { setVariant(s.variants[0]!.key); setStep('variant') }
+    else { setVariant(undefined); void loadPreview(src, undefined) }
+  }
+
+  // An opened file without variants goes straight to review
+  useEffect(() => {
+    if (initial && initial.summary.variants.length === 0) void loadPreview(initial.source, undefined)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the file passed in
+  }, [])
+
+  async function apply() {
+    if (!source || !preview) return
+    setWorking(true)
+    try {
+      const r = await safeInvoke(IPC.STARTER_APPLY, source, {
+        lists: [...lists], applyWords: useWords && preview.words.length > 0, applyFeatures: useFeatures && preview.features.length > 0,
+        sampleData: sample && preview.hasSampleData, ...(variant ? { variant } : {}),
+      })
+      if (!r.ok) { toast.error(r.error === 'READ_ONLY' ? "Examples can't be added right now." : r.error); return }
+      if (mode === 'setup') { onApplied?.(r.data); return }
+      await Promise.all([useGridStore.getState().loadGridList(), useAlertStore.getState().loadRules()])
+      if (sample && preview.hasSampleData) pulseEvents.emit('sample-data:changed')
+      setResult(r.data)
+      setStep('done')
+      onApplied?.(r.data)
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  function open(gridId: number) {
+    void useGridStore.getState().loadGrid(gridId)
+    // Not router-bound: this dialog also opens during setup, outside the router
+    window.location.hash = '#/grid'
+    onClose()
+  }
+
+  const title = step === 'done' ? 'Added' : chosen && step !== 'gallery' ? chosen.name : 'Start from an example'
+  const box = 'w-5 h-5 mt-0.5 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-3 focus:ring-blue-500 flex-shrink-0'
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center-safe justify-center bg-black/50 p-4 overflow-y-auto" onClick={() => { if (!working) onClose() }}>
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="starter-title" onClick={e => e.stopPropagation()}
+        className="w-full max-w-2xl rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+          {(step === 'variant' || step === 'review') && !(initial && (step === 'variant' || initial.summary.variants.length === 0)) && (
+            <button type="button" onClick={() => setStep(step === 'review' && chosen?.variants.length ? 'variant' : 'gallery')} aria-label="Back"
+              className="hit-44 p-2 rounded-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+          {chosen && step !== 'gallery' ? <StarterIcon name={chosen.icon} className="w-6 h-6 text-blue-600 dark:text-blue-400" /> : <LayoutTemplate className="w-6 h-6 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
+          <h2 id="starter-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex-1">{title}</h2>
+          <button type="button" onClick={onClose} disabled={working} aria-label="Close" className="hit-44 p-2 rounded-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {step === 'gallery' && (
+          <div className="px-6 py-5 space-y-4">
+            <p className="text-base text-slate-700 dark:text-slate-200">Pick something close to your work. You can change everything afterwards.</p>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" aria-hidden="true" />
+              <input type="search" className="input w-full pl-9" placeholder="Search examples…" aria-label="Search examples" value={query} onChange={e => setQuery(e.target.value)} />
+            </div>
+            {starters === null ? <p className="text-base text-slate-500 dark:text-slate-400">Loading…</p>
+              : groups.length === 0 ? <p className="text-base text-slate-600 dark:text-slate-300">No examples match. Try another word.</p>
+              : groups.map(([group, items]) => (
+                <section key={group} className="space-y-2" aria-label={group}>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{group}</h3>
+                  {items.map(s => (
+                    <button key={s.id} type="button" onClick={() => pick(s)}
+                      className="w-full text-left flex gap-3 p-4 rounded-lg border-2 border-slate-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+                      style={{ minHeight: 44 }}>
+                      <StarterIcon name={s.icon} className="w-6 h-6 mt-0.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-base font-semibold text-slate-900 dark:text-slate-100">{s.name}</span>
+                        <span className="block text-base text-slate-600 dark:text-slate-300">{s.description}</span>
+                        <span className="block text-sm text-slate-500 dark:text-slate-400 mt-1">
+                          {s.variants.length > 0 ? `${s.variants.length} layouts to choose from` : s.listNames.join(' · ')}
+                          {s.hasSampleData && <span className="ml-2 inline-block px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200">Includes sample data</span>}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </section>
+              ))}
+          </div>
+        )}
+
+        {step === 'variant' && chosen && (
+          <div className="px-6 py-5 space-y-3">
+            <fieldset className="space-y-2">
+              <legend className="text-base font-medium text-slate-800 dark:text-slate-100 mb-2">{chosen.variantQuestion ?? 'Which describes your work best?'}</legend>
+              {chosen.variants.map(v => (
+                <label key={v.key} className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-600 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20" style={{ minHeight: 44 }}>
+                  <input type="radio" name="starter-variant" className="w-5 h-5 mt-0.5" checked={variant === v.key} onChange={() => setVariant(v.key)} />
+                  <span>
+                    <span className="block text-base font-medium text-slate-900 dark:text-slate-100">{v.name}</span>
+                    <span className="block text-sm text-slate-600 dark:text-slate-300">{v.description}</span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+            <div className="flex justify-end gap-2 pt-2">
+              {!initial && <button type="button" className="btn-secondary" onClick={() => setStep('gallery')}>Back</button>}
+              <button type="button" className="btn-primary" onClick={() => source && void loadPreview(source, variant)}>Next</button>
+            </div>
+          </div>
+        )}
+
+        {step === 'review' && (
+          <div className="px-6 py-5 space-y-5">
+            {preview === null ? <p className="text-base text-slate-500 dark:text-slate-400">Loading…</p> : (
+              <>
+                <fieldset className="space-y-2">
+                  <legend className="text-base font-medium text-slate-800 dark:text-slate-100 mb-1">{t('list', { many: true, cap: true })} to add</legend>
+                  {preview.lists.map(l => (
+                    <label key={l.key} className="flex items-start gap-3 cursor-pointer select-none" style={{ minHeight: 44 }}>
+                      <input type="checkbox" className={box} checked={lists.has(l.key)}
+                        onChange={e => setLists(prev => { const n = new Set(prev); if (e.target.checked) n.add(l.key); else n.delete(l.key); return n })} />
+                      <span>
+                        <span className="block text-base font-medium text-slate-900 dark:text-slate-100">{l.finalName}</span>
+                        <span className="block text-sm text-slate-600 dark:text-slate-300">
+                          {KIND_LABEL[l.kind]} · {l.columns} columns{l.rules.length > 0 ? ` · deadline rules: ${l.rules.join(', ')}` : ''}
+                          {l.finalName !== l.name && ` · renamed because you already have “${l.name}”`}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </fieldset>
+
+                {preview.words.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="flex items-start gap-3 cursor-pointer select-none" style={{ minHeight: 44 }}>
+                      <input type="checkbox" className={box} checked={useWords} onChange={e => setUseWords(e.target.checked)} />
+                      <span className="text-base font-medium text-slate-900 dark:text-slate-100">Use this example's words everywhere</span>
+                    </label>
+                    <table className="ml-8 text-base text-slate-700 dark:text-slate-200">
+                      <caption className="sr-only">Words that would change</caption>
+                      <tbody>
+                        {preview.words.map(w => (
+                          <tr key={w.key}><td className="pr-3 py-0.5">{w.current}</td><td className="pr-3" aria-label="becomes">→</td><td className="font-medium">{w.proposed}</td></tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {preview.features.length > 0 && (
+                  <label className="flex items-start gap-3 cursor-pointer select-none" style={{ minHeight: 44 }}>
+                    <input type="checkbox" className={box} checked={useFeatures} onChange={e => setUseFeatures(e.target.checked)} />
+                    <span>
+                      <span className="block text-base font-medium text-slate-900 dark:text-slate-100">Turn on the features it uses</span>
+                      <span className="block text-sm text-slate-600 dark:text-slate-300">{preview.features.map(x => f(x.label)).join(', ')}</span>
+                    </span>
+                  </label>
+                )}
+
+                {preview.hasSampleData && (
+                  <label className="flex items-start gap-3 cursor-pointer select-none" style={{ minHeight: 44 }}>
+                    <input type="checkbox" className={box} checked={sample} onChange={e => setSample(e.target.checked)} />
+                    <span>
+                      <span className="block text-base font-medium text-slate-900 dark:text-slate-100">Add sample data</span>
+                      <span className="block text-sm text-slate-600 dark:text-slate-300">Made-up entries to try things out. You can remove them in one click.</span>
+                    </span>
+                  </label>
+                )}
+
+                <p className="text-sm text-slate-600 dark:text-slate-300">Nothing you already have is changed. You can delete added {t('list', { many: true })} later from the {t('list')} menu.</p>
+              </>
+            )}
+            <div className="flex justify-end gap-2">
+              <button type="button" className="btn-secondary" onClick={onClose} disabled={working}>Cancel</button>
+              <button type="button" className="btn-primary" disabled={working || preview === null || lists.size === 0} onClick={() => void apply()}>
+                {working ? 'Adding…' : 'Add'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === 'done' && result && preview && (
+          <div className="px-6 py-5 space-y-4">
+            <p className="flex items-center gap-2 text-base text-slate-800 dark:text-slate-100">
+              <Sparkles className="w-5 h-5 text-green-600 dark:text-green-400" aria-hidden="true" />
+              {Object.keys(result.gridIds).length === 1 ? `Added 1 ${t('list')}.` : `Added ${Object.keys(result.gridIds).length} ${t('list', { many: true })}.`}
+            </p>
+            <ul className="space-y-2">
+              {preview.lists.filter(l => result.gridIds[l.key] !== undefined).map(l => (
+                <li key={l.key} className="flex items-center gap-3">
+                  <span className="flex-1 text-base text-slate-900 dark:text-slate-100">{result.renamed[l.name] ?? l.name}</span>
+                  <button type="button" className="btn-compact-secondary" onClick={() => open(result.gridIds[l.key]!)}>Open</button>
+                </li>
+              ))}
+            </ul>
+            {result.warnings.length > 0 && (
+              <ul className="list-disc pl-5 text-sm text-amber-800 dark:text-amber-200">
+                {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            )}
+            <p className="text-sm text-slate-600 dark:text-slate-300">You can delete these {t('list', { many: true })} later from the {t('list')} menu.</p>
+            <div className="flex justify-end">
+              <button type="button" className="btn-primary" onClick={onClose}>Done</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,1285 @@
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
+import { ChevronDown, ChevronRight, X, Plus, Trash2, Pencil, Check } from 'lucide-react'
+import { ConfirmDialog } from '../shared/ConfirmDialog'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { IPC } from '../../../shared/ipc-channels'
+import type { ChecklistItem as ChecklistItemType, ChecklistTemplate, ChecklistPriority, ChecklistGroup } from '../../../shared/types'
+import { ChecklistItem, CompletedChecklistItem } from './ChecklistItem'
+import { ChecklistToolbar } from './ChecklistToolbar'
+import { GroupPicker } from '../shared/GroupPicker'
+import { ChecklistGroupHeader } from './ChecklistGroupHeader'
+import { ChecklistAddDialog } from './ChecklistAddDialog'
+import { useUndoStore } from '../../stores/undoStore'
+import { safeInvoke } from '../../utils/safeInvoke'
+import { rlog } from '../../utils/rendererLogger'
+import { pulseEvents } from '../../events'
+import { useVocab } from '../../hooks/useVocab'
+
+interface Props {
+  rowId: number
+  clientName: string
+  /** If provided, Checklist stores a focus-add-input callback here so the parent can call it. */
+  focusAddRef?: React.MutableRefObject<(() => void) | null>
+}
+
+export function Checklist({ rowId, clientName, focusAddRef }: Props) {
+  const [items, setItems] = useState<ChecklistItemType[]>([])
+  const [groups, setGroups] = useState<ChecklistGroup[]>([])
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set())
+  const [loading, setLoading] = useState(true)
+  const [completedExpanded, setCompletedExpanded] = useState(false)
+  const [showTemplateManager, setShowTemplateManager] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [groupAddTitles, setGroupAddTitles] = useState<Record<number, string>>({})
+  const [recentlyCheckedIds, setRecentlyCheckedIds] = useState<Set<number>>(new Set())
+  const addInputRef = useRef<HTMLInputElement>(null)
+  const [addFlash, setAddFlash] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
+  const [confirmClear, setConfirmClear] = useState(false)
+  const [confirmDeleteGroup, setConfirmDeleteGroup] = useState<{ id: number; name: string } | null>(null)
+  const [showAddDialog, setShowAddDialog] = useState(false)
+  const [pendingTemplateId, setPendingTemplateId] = useState<number | null>(null)
+  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  )
+
+  // Expose focus callback to parent
+  useEffect(() => {
+    if (focusAddRef) {
+      focusAddRef.current = () => {
+        addInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        addInputRef.current?.focus()
+        // Flash the input area to call attention
+        setAddFlash(true)
+        setTimeout(() => setAddFlash(false), 700)
+      }
+    }
+    return () => { if (focusAddRef) focusAddRef.current = null }
+  }, [focusAddRef])
+
+  const loadItems = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [itemsResult, groupsResult] = await Promise.all([
+        safeInvoke<ChecklistItemType[]>(IPC.CHECKLIST_GET, rowId),
+        safeInvoke<ChecklistGroup[]>(IPC.CHECKLIST_GROUP_GET_ALL, rowId),
+      ])
+      if (itemsResult.ok) setItems(itemsResult.data)
+      if (groupsResult.ok) {
+        setGroups(groupsResult.data)
+        // Initialize collapse state from DB
+        setCollapsedGroups(new Set(groupsResult.data.filter(g => g.is_collapsed === 1).map(g => g.id)))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [rowId])
+
+  // Load items when rowId changes
+  useEffect(() => { void loadItems() }, [loadItems])
+
+  // Reload when undo/redo updates checklist data externally (cross-mount)
+  useEffect(() => {
+    const unsub = pulseEvents.on('checklist:changed', (data) => {
+      if (data.rowId === rowId) void loadItems()
+    })
+    return unsub
+  }, [rowId, loadItems])
+
+  const activeItems = useMemo(() => {
+    const active = items.filter(i => i.is_completed === 0 || recentlyCheckedIds.has(i.id))
+    return [...active].sort((a, b) => a.position - b.position)
+  }, [items, recentlyCheckedIds])
+
+  const completedItems = useMemo(() =>
+    items.filter(i => i.is_completed === 1 && !recentlyCheckedIds.has(i.id))
+      .sort((a, b) => (b.completed_at ?? '').localeCompare(a.completed_at ?? '')),
+    [items, recentlyCheckedIds]
+  )
+
+  const total = activeItems.length + completedItems.length
+  const doneCount = completedItems.length
+  const progressPct = total > 0 ? Math.round((doneCount / total) * 100) : 0
+  const progressColor = progressPct === 100 ? '#22c55e' : progressPct >= 50 ? '#eab308' : '#94a3b8'
+
+  // ── Grouped items memo ──────────────────────────────────────────────────
+  const groupedActiveItems = useMemo(() => {
+    const map = new Map<number | null, ChecklistItemType[]>()
+    for (const item of activeItems) {
+      const key = item.group_id ?? null
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(item)
+    }
+    return map
+  }, [activeItems])
+
+  const hasGroups = groups.length > 0
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const handleAddItem = useCallback(async (title: string, groupId?: number | null, extraFields?: { description?: string | null; priority?: string; due_date?: string | null; recurrence_rule?: string | null }) => {
+    const extra: Record<string, unknown> = {}
+    if (groupId != null) extra.group_id = groupId
+    if (extraFields?.description) extra.description = extraFields.description
+    if (extraFields?.priority) extra.priority = extraFields.priority
+    if (extraFields?.due_date) extra.due_date = extraFields.due_date
+    if (extraFields?.recurrence_rule) extra.recurrence_rule = extraFields.recurrence_rule
+    const result = await safeInvoke<ChecklistItemType>(IPC.CHECKLIST_CREATE_ITEM, rowId, title, Object.keys(extra).length > 0 ? extra : undefined)
+    if (result.ok) {
+      const created = result.data
+      setItems(prev => [...prev, created])
+      useUndoStore.getState().push({
+        id: crypto.randomUUID(),
+        description: `Added checklist item "${title}"`,
+        timestamp: Date.now(),
+        category: 'logged',
+        icon: 'plus-circle',
+        undo: async () => {
+          await safeInvoke(IPC.CHECKLIST_DELETE_ITEM, created.id)
+          pulseEvents.emit('checklist:changed', { rowId })
+        },
+        redo: async () => {
+          await safeInvoke(IPC.CHECKLIST_RESTORE_ITEM, created)
+          pulseEvents.emit('checklist:changed', { rowId })
+        },
+      })
+    }
+  }, [rowId])
+
+  const handleToggle = useCallback(async (id: number, isCompleted: boolean) => {
+    const now = isCompleted ? new Date().toISOString() : null
+    // Capture previous state for undo before touching anything
+    const prevItem = items.find(i => i.id === id)
+    const prevCompleted = prevItem?.is_completed ?? 0
+    const prevCompletedAt = prevItem?.completed_at ?? null
+    const itemTitle = prevItem?.title ?? 'checklist item'
+
+    if (isCompleted) {
+      // Keep item in active list briefly so the pop animation plays
+      setRecentlyCheckedIds(prev => new Set(prev).add(id))
+      setTimeout(() => {
+        setRecentlyCheckedIds(prev => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      }, 400)
+    }
+    setItems(prev => prev.map(i => i.id === id
+      ? { ...i, is_completed: isCompleted ? 1 : 0, completed_at: now }
+      : i
+    ))
+    const res = await safeInvoke<{ sysLogId: number | null }>(IPC.CHECKLIST_UPDATE_ITEM, id, {
+      is_completed: isCompleted ? 1 : 0,
+      completed_at: now,
+    })
+    if (res.ok) {
+      const sysLogId = res.data.sysLogId
+      useUndoStore.getState().pushWithToast({
+        id: crypto.randomUUID(),
+        description: isCompleted ? `Completed "${itemTitle}"` : `Reopened "${itemTitle}"`,
+        timestamp: Date.now(),
+        category: sysLogId != null ? 'logged' : 'silent',
+        icon: 'check-square',
+        contextLabel: clientName,
+        contextId: rowId,
+        sideEffects: sysLogId != null ? [{ type: 'void_case_log', caseLogId: sysLogId }] : undefined,
+        undo: async () => {
+          setItems(prev => prev.map(i => i.id === id
+            ? { ...i, is_completed: prevCompleted, completed_at: prevCompletedAt }
+            : i
+          ))
+          await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, {
+            is_completed: prevCompleted,
+            completed_at: prevCompletedAt,
+          })
+          pulseEvents.emit('checklist:changed', { rowId })
+        },
+        redo: async () => {
+          setItems(prev => prev.map(i => i.id === id
+            ? { ...i, is_completed: isCompleted ? 1 : 0, completed_at: now }
+            : i
+          ))
+          await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, {
+            is_completed: isCompleted ? 1 : 0,
+            completed_at: now,
+          })
+          pulseEvents.emit('checklist:changed', { rowId })
+        },
+      })
+    }
+  }, [items, clientName, rowId])
+
+  const handleUpdate = useCallback(async (id: number, updates: Partial<ChecklistItemType>) => {
+    let prevItem: ChecklistItemType | undefined
+    setItems(prev => {
+      prevItem = prev.find(i => i.id === id)
+      return prev.map(i => i.id === id ? { ...i, ...updates } : i)
+    })
+    await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, updates)
+    if (prevItem) {
+      const prev = prevItem
+      const prevValues = Object.fromEntries(
+        (Object.keys(updates) as Array<keyof ChecklistItemType>).map(k => [k, prev[k]])
+      ) as Partial<ChecklistItemType>
+      useUndoStore.getState().push({
+        id: crypto.randomUUID(),
+        description: 'Updated checklist item',
+        timestamp: Date.now(),
+        category: 'logged',
+        icon: 'edit',
+        undo: async () => {
+          await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, prevValues)
+          pulseEvents.emit('checklist:changed', { rowId })
+        },
+        redo: async () => {
+          await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, updates)
+          pulseEvents.emit('checklist:changed', { rowId })
+        },
+      })
+    }
+  }, [rowId])
+
+  const handleDelete = useCallback(async (id: number) => {
+    let deletedItem: ChecklistItemType | undefined
+    setItems(prev => {
+      deletedItem = prev.find(i => i.id === id)
+      return prev.filter(i => i.id !== id)
+    })
+    await safeInvoke(IPC.CHECKLIST_DELETE_ITEM, id)
+    if (deletedItem) {
+      const item = deletedItem
+      useUndoStore.getState().push({
+        id: crypto.randomUUID(),
+        description: 'Deleted checklist item',
+        timestamp: Date.now(),
+        category: 'logged',
+        icon: 'trash',
+        undo: async () => {
+          await safeInvoke(IPC.CHECKLIST_RESTORE_ITEM, item)
+          pulseEvents.emit('checklist:changed', { rowId })
+        },
+        redo: async () => {
+          await safeInvoke(IPC.CHECKLIST_DELETE_ITEM, id)
+          pulseEvents.emit('checklist:changed', { rowId })
+        },
+      })
+    }
+  }, [rowId])
+
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    // Group reorder
+    const activeStr = String(active.id)
+    const overStr = String(over.id)
+    if (activeStr.startsWith('group-') && overStr.startsWith('group-')) {
+      const activeGroupId = Number(activeStr.replace('group-', ''))
+      const overGroupId = Number(overStr.replace('group-', ''))
+      const sorted = [...groups].sort((a, b) => a.position - b.position)
+      const oldIdx = sorted.findIndex(g => g.id === activeGroupId)
+      const newIdx = sorted.findIndex(g => g.id === overGroupId)
+      if (oldIdx === -1 || newIdx === -1) return
+      const newOrder = arrayMove(sorted, oldIdx, newIdx)
+      setGroups(newOrder.map((g, i) => ({ ...g, position: i })))
+      await safeInvoke(IPC.CHECKLIST_GROUP_REORDER, rowId, newOrder.map(g => g.id))
+      return
+    }
+
+    // Item reorder
+    const activeIdx = activeItems.findIndex(i => i.id === active.id)
+    const overIdx   = activeItems.findIndex(i => i.id === over.id)
+    if (activeIdx === -1 || overIdx === -1) return
+    const oldOrder = activeItems.map(i => i.id)
+    const newOrder = arrayMove(activeItems, activeIdx, overIdx)
+    setItems(prev => prev.map(item => {
+      const newPos = newOrder.findIndex(n => n.id === item.id)
+      return newPos === -1 ? item : { ...item, position: newPos }
+    }))
+    await safeInvoke(IPC.CHECKLIST_REORDER, rowId, newOrder.map(i => i.id))
+    useUndoStore.getState().push({
+      id: crypto.randomUUID(),
+      description: 'Reordered checklist items',
+      timestamp: Date.now(),
+      category: 'logged',
+      icon: 'reorder',
+      undo: async () => {
+        await safeInvoke(IPC.CHECKLIST_REORDER, rowId, oldOrder)
+        pulseEvents.emit('checklist:changed', { rowId })
+      },
+      redo: async () => {
+        await safeInvoke(IPC.CHECKLIST_REORDER, rowId, newOrder.map(i => i.id))
+        pulseEvents.emit('checklist:changed', { rowId })
+      },
+    })
+  }, [activeItems, groups, rowId])
+
+  const doResetCycle = useCallback(async () => {
+    const completedSnapshot = items.filter(i => i.is_completed === 1)
+    await safeInvoke(IPC.CHECKLIST_RESET_CYCLE, rowId)
+    setItems(prev => prev.map(i => ({ ...i, is_completed: 0 as const, completed_at: null })))
+    setCompletedExpanded(false)
+    if (completedSnapshot.length > 0) {
+      useUndoStore.getState().push({
+        id: crypto.randomUUID(),
+        description: 'Reset checklist cycle',
+        timestamp: Date.now(),
+        category: 'logged',
+        icon: 'reset',
+        undo: async () => {
+          await Promise.all(completedSnapshot.map(i =>
+            safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, i.id, { is_completed: 1, completed_at: i.completed_at })
+          ))
+          pulseEvents.emit('checklist:changed', { rowId })
+        },
+        redo: async () => {
+          await safeInvoke(IPC.CHECKLIST_RESET_CYCLE, rowId)
+          pulseEvents.emit('checklist:changed', { rowId })
+        },
+      })
+    }
+  }, [rowId, items])
+
+  const doClearCompleted = useCallback(async () => {
+    const toDelete = items.filter(i => i.is_completed === 1)
+    if (toDelete.length === 0) return
+    setItems(prev => prev.filter(i => i.is_completed !== 1))
+    setCompletedExpanded(false)
+    await Promise.all(toDelete.map(i => safeInvoke(IPC.CHECKLIST_DELETE_ITEM, i.id)))
+    useUndoStore.getState().pushWithToast({
+      id: crypto.randomUUID(),
+      description: `Cleared ${toDelete.length} completed item${toDelete.length === 1 ? '' : 's'}`,
+      timestamp: Date.now(),
+      category: 'structural',
+      icon: 'trash',
+      undo: async () => {
+        await Promise.all(toDelete.map(i => safeInvoke(IPC.CHECKLIST_RESTORE_ITEM, i)))
+        pulseEvents.emit('checklist:changed', { rowId })
+      },
+      redo: async () => {
+        await Promise.all(toDelete.map(i => safeInvoke(IPC.CHECKLIST_DELETE_ITEM, i.id)))
+        pulseEvents.emit('checklist:changed', { rowId })
+      },
+    })
+  }, [items, rowId])
+
+  // ── Group handlers ─────────────────────────────────────────────────────
+
+  const handleAddGroup = useCallback(async () => {
+    const result = await safeInvoke<ChecklistGroup>(IPC.CHECKLIST_GROUP_CREATE, rowId, 'New Group')
+    if (result.ok) {
+      const created = result.data
+      setGroups(prev => [...prev, created])
+      useUndoStore.getState().push({
+        id: crypto.randomUUID(),
+        description: 'Added checklist group',
+        timestamp: Date.now(),
+        category: 'structural',
+        icon: 'folder-plus',
+        undo: async () => {
+          await safeInvoke(IPC.CHECKLIST_GROUP_DELETE, created.id)
+          pulseEvents.emit('checklist:changed', { rowId })
+        },
+        redo: async () => {
+          await safeInvoke(IPC.CHECKLIST_GROUP_CREATE, rowId, created.name)
+          pulseEvents.emit('checklist:changed', { rowId })
+        },
+      })
+    }
+  }, [rowId])
+
+  const handleRenameGroup = useCallback(async (groupId: number, name: string) => {
+    const prevGroup = groups.find(g => g.id === groupId)
+    const prevName = prevGroup?.name ?? ''
+    setGroups(prev => prev.map(g => g.id === groupId ? { ...g, name } : g))
+    await safeInvoke(IPC.CHECKLIST_GROUP_UPDATE, groupId, { name })
+    useUndoStore.getState().push({
+      id: crypto.randomUUID(),
+      description: `Renamed group to "${name}"`,
+      timestamp: Date.now(),
+      category: 'logged',
+      icon: 'edit',
+      undo: async () => {
+        await safeInvoke(IPC.CHECKLIST_GROUP_UPDATE, groupId, { name: prevName })
+        pulseEvents.emit('checklist:changed', { rowId })
+      },
+      redo: async () => {
+        await safeInvoke(IPC.CHECKLIST_GROUP_UPDATE, groupId, { name })
+        pulseEvents.emit('checklist:changed', { rowId })
+      },
+    })
+  }, [groups, rowId])
+
+  const handleDeleteGroup = useCallback(async (groupId: number) => {
+    const deletedGroup = groups.find(g => g.id === groupId)
+    if (!deletedGroup) return
+    const affectedItems = items.filter(i => i.group_id === groupId)
+    setGroups(prev => prev.filter(g => g.id !== groupId))
+    setItems(prev => prev.map(i => i.group_id === groupId ? { ...i, group_id: null } : i))
+    await safeInvoke(IPC.CHECKLIST_GROUP_DELETE, groupId)
+    useUndoStore.getState().push({
+      id: crypto.randomUUID(),
+      description: `Deleted group "${deletedGroup.name}"`,
+      timestamp: Date.now(),
+      category: 'structural',
+      icon: 'trash',
+      undo: async () => {
+        // Recreate group and reassign items
+        const res = await safeInvoke<ChecklistGroup>(IPC.CHECKLIST_GROUP_CREATE, rowId, deletedGroup.name)
+        if (res.ok) {
+          const newGroup = res.data
+          await Promise.all(affectedItems.map(i =>
+            safeInvoke(IPC.CHECKLIST_MOVE_ITEM_TO_GROUP, i.id, newGroup.id)
+          ))
+        }
+        pulseEvents.emit('checklist:changed', { rowId })
+      },
+      redo: async () => {
+        await safeInvoke(IPC.CHECKLIST_GROUP_DELETE, groupId)
+        pulseEvents.emit('checklist:changed', { rowId })
+      },
+    })
+  }, [groups, items, rowId])
+
+  const handleToggleCollapse = useCallback((groupId: number) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev)
+      const newState = !next.has(groupId)
+      if (newState) next.add(groupId)
+      else next.delete(groupId)
+      // Debounce-save to DB
+      if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current)
+      collapseTimerRef.current = setTimeout(() => {
+        void safeInvoke(IPC.CHECKLIST_GROUP_UPDATE, groupId, { is_collapsed: newState ? 1 : 0 })
+      }, 500)
+      return next
+    })
+  }, [])
+
+  const handleApplyTemplate = useCallback(async (templateId: number, groupId?: number | null, createdGroupId?: number | null) => {
+    const result = await safeInvoke<{ createdIds: number[] }>(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId, groupId ?? null)
+    if (result.ok) {
+      const { createdIds } = result.data
+      // Reload items from DB to get full item objects
+      const reloaded = await safeInvoke<ChecklistItemType[]>(IPC.CHECKLIST_GET, rowId)
+      if (reloaded.ok) setItems(reloaded.data)
+      if (createdIds.length > 0) {
+        useUndoStore.getState().push({
+          id: crypto.randomUUID(),
+          description: `Applied template (${createdIds.length} item${createdIds.length === 1 ? '' : 's'} added)`,
+          timestamp: Date.now(),
+          category: 'structural',
+          icon: 'check-square',
+          undo: async () => {
+            await Promise.all(createdIds.map(id => safeInvoke(IPC.CHECKLIST_DELETE_ITEM, id)))
+            if (createdGroupId) await safeInvoke(IPC.CHECKLIST_GROUP_DELETE, createdGroupId)
+            pulseEvents.emit('checklist:changed', { rowId })
+          },
+          redo: async () => {
+            await safeInvoke(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId, groupId ?? null)
+            pulseEvents.emit('checklist:changed', { rowId })
+          },
+        })
+      }
+    }
+    setShowTemplateManager(false)
+  }, [rowId])
+
+  return (
+    <section className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+      {/* Header */}
+      <ChecklistToolbar
+        loading={loading}
+        total={total}
+        doneCount={doneCount}
+        onOpenTemplates={() => setShowTemplateManager(true)}
+        onAddTask={() => setShowAddDialog(true)}
+        onAddGroup={handleAddGroup}
+      />
+
+      {/* Progress bar */}
+      {!loading && total > 0 && (
+        <div className="px-4 py-2 bg-slate-50 dark:bg-slate-800/50">
+          <progress
+            value={doneCount}
+            max={total}
+            aria-label={`${doneCount} of ${total} checklist items complete`}
+            className="w-full h-2 rounded-full [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-slate-200 dark:[&::-webkit-progress-bar]:bg-slate-700 [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:transition-all [&::-webkit-progress-value]:duration-500"
+            style={{ ['--progress-color' as string]: progressColor }}
+          />
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            {doneCount} of {total} completed{progressPct === 100 ? ' — all done!' : ''}
+          </p>
+        </div>
+      )}
+
+      {/* Active items */}
+      <div className="px-1 py-1">
+        {loading ? (
+          <div className="py-6 text-center text-sm text-slate-500 dark:text-slate-500">Loading…</div>
+        ) : activeItems.length === 0 && completedItems.length === 0 && !hasGroups ? (
+          <div className="py-4 text-center text-sm text-slate-500 dark:text-slate-500">
+            No checklist items yet. Type below and press Enter to add one, or use Templates.
+          </div>
+        ) : !hasGroups ? (
+          /* ── Flat mode (no groups) — identical to previous behavior ── */
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={activeItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
+              {activeItems.map(item => (
+                <ChecklistItem
+                  key={item.id}
+                  item={item}
+                  isDragDisabled={false}
+                  onToggle={() => handleToggle(item.id, true)}
+                  onUpdate={updates => handleUpdate(item.id, updates)}
+                  onDelete={() => handleDelete(item.id)}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        ) : (
+          /* ── Grouped mode ── */
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            {/* Ungrouped items first */}
+            {(groupedActiveItems.get(null) ?? []).length > 0 && (
+              <div className="mb-1">
+                <SortableContext items={(groupedActiveItems.get(null) ?? []).map(i => i.id)} strategy={verticalListSortingStrategy}>
+                  {(groupedActiveItems.get(null) ?? []).map(item => (
+                    <ChecklistItem
+                      key={item.id}
+                      item={item}
+                      isDragDisabled={false}
+                      onToggle={() => handleToggle(item.id, true)}
+                      onUpdate={updates => handleUpdate(item.id, updates)}
+                      onDelete={() => handleDelete(item.id)}
+                    />
+                  ))}
+                </SortableContext>
+              </div>
+            )}
+
+            {/* Ungrouped add item input — placed above groups */}
+            <div className={`mx-2 mb-1 rounded-lg transition-all duration-700
+                            ${addFlash
+                              ? 'bg-blue-50 dark:bg-blue-900/25 ring-3 ring-blue-400 dark:ring-blue-500'
+                              : 'bg-transparent ring-0'}`}>
+              <input
+                ref={addInputRef}
+                type="text"
+                value={newTitle}
+                onChange={e => setNewTitle(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && newTitle.trim()) {
+                    void handleAddItem(newTitle.trim())
+                    setNewTitle('')
+                  }
+                }}
+                placeholder="+ Add task… (press Enter)"
+                style={{ fontSize: 15 }}
+                spellCheck={false}
+                className="w-full px-3 py-2 text-slate-600 dark:text-slate-400
+                           placeholder-slate-500 dark:placeholder-slate-400
+                           bg-transparent focus:outline-hidden focus:ring-3 focus:ring-blue-500 rounded-sm border-0"
+              />
+            </div>
+
+            {/* Groups sorted by position — wrapped in SortableContext for group header drag */}
+            <SortableContext
+              items={[...groups].sort((a, b) => a.position - b.position).map(g => `group-${g.id}`)}
+              strategy={verticalListSortingStrategy}
+            >
+            {[...groups].sort((a, b) => a.position - b.position).map(group => {
+              const groupItems = groupedActiveItems.get(group.id) ?? []
+              const allGroupItems = items.filter(i => i.group_id === group.id)
+              const groupCompleted = allGroupItems.filter(i => i.is_completed === 1).length
+              const groupTotal = allGroupItems.length
+              const isCollapsed = collapsedGroups.has(group.id)
+
+              return (
+                <div key={group.id}>
+                  <ChecklistGroupHeader
+                    group={group}
+                    totalItems={groupTotal}
+                    completedItems={groupCompleted}
+                    isCollapsed={isCollapsed}
+                    onToggleCollapse={() => handleToggleCollapse(group.id)}
+                    onRename={(name) => void handleRenameGroup(group.id, name)}
+                    onDelete={() => setConfirmDeleteGroup({ id: group.id, name: group.name })}
+                    isDragDisabled={false}
+                  />
+
+                  {!isCollapsed && (
+                    <div className="ml-3 border-l-2 border-slate-200 dark:border-slate-600 pl-1">
+                      <SortableContext items={groupItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                        {groupItems.map(item => (
+                          <ChecklistItem
+                            key={item.id}
+                            item={item}
+                            isDragDisabled={false}
+                            onToggle={() => handleToggle(item.id, true)}
+                            onUpdate={updates => handleUpdate(item.id, updates)}
+                            onDelete={() => handleDelete(item.id)}
+                          />
+                        ))}
+                      </SortableContext>
+
+                      {/* Per-group add item input */}
+                      <input
+                        type="text"
+                        value={groupAddTitles[group.id] ?? ''}
+                        onChange={e => setGroupAddTitles(prev => ({ ...prev, [group.id]: e.target.value }))}
+                        onKeyDown={e => {
+                          const val = (groupAddTitles[group.id] ?? '').trim()
+                          if (e.key === 'Enter' && val) {
+                            void handleAddItem(val, group.id)
+                            setGroupAddTitles(prev => ({ ...prev, [group.id]: '' }))
+                          }
+                        }}
+                        placeholder="+ Add task… (press Enter)"
+                        style={{ fontSize: 15 }}
+                        spellCheck={false}
+                        className="w-full px-3 py-1.5 text-base text-slate-500 dark:text-slate-400
+                                   placeholder-slate-500 dark:placeholder-slate-400
+                                   bg-transparent focus:outline-hidden focus:ring-3 focus:ring-blue-500 rounded-sm border-0"
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+            </SortableContext>
+          </DndContext>
+        )}
+
+        {/* Add item input (flat/no-groups mode only — grouped mode has its own above the groups) */}
+        {!hasGroups && (
+          <div className={`mx-2 mb-1 rounded-lg transition-all duration-700
+                          ${addFlash
+                            ? 'bg-blue-50 dark:bg-blue-900/25 ring-3 ring-blue-400 dark:ring-blue-500'
+                            : 'bg-transparent ring-0'}`}>
+            <input
+              ref={addInputRef}
+              type="text"
+              value={newTitle}
+              onChange={e => setNewTitle(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && newTitle.trim()) {
+                  void handleAddItem(newTitle.trim())
+                  setNewTitle('')
+                }
+              }}
+              placeholder="+ Add task… (press Enter)"
+              style={{ fontSize: 15 }}
+              spellCheck={false}
+              className="w-full px-3 py-2 text-slate-600 dark:text-slate-400
+                         placeholder-slate-500 dark:placeholder-slate-400
+                         bg-transparent focus:outline-hidden focus:ring-3 focus:ring-blue-500 rounded-sm border-0"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Completed section */}
+      {completedItems.length > 0 && (
+        <div className="border-t border-slate-100 dark:border-slate-700">
+          <div className="flex items-center">
+            <button
+              onClick={() => setCompletedExpanded(prev => !prev)}
+              aria-expanded={completedExpanded}
+              aria-controls="completed-items-list"
+              className="flex-1 flex items-center gap-2 px-4 py-2.5 text-base
+                         text-slate-500 dark:text-slate-400
+                         hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors
+                         focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+            >
+              {completedExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              Completed ({completedItems.length})
+            </button>
+            <button
+              onClick={() => setConfirmReset(true)}
+              title="Uncheck all completed items for a new cycle"
+              className="hit-44 px-3 py-1.5 mr-1 text-base text-slate-500 dark:text-slate-400
+                         hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20
+                         rounded-sm transition-colors
+                         focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-400"
+            >
+              Reset cycle
+            </button>
+            <button
+              onClick={() => setConfirmClear(true)}
+              title="Delete all completed items"
+              className="hit-44 px-3 py-1.5 mr-3 text-base text-slate-500 dark:text-slate-400
+                         hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20
+                         rounded-sm transition-colors
+                         focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400"
+            >
+              Clear all
+            </button>
+          </div>
+
+          {completedExpanded && (
+            <div id="completed-items-list" className="px-1 pb-1">
+              {completedItems.map(item => (
+                <CompletedChecklistItem
+                  key={item.id}
+                  item={item}
+                  onUncheck={() => handleToggle(item.id, false)}
+                  onDelete={() => handleDelete(item.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Add task dialog */}
+      {showAddDialog && (
+        <ChecklistAddDialog
+          groups={groups}
+          onClose={() => setShowAddDialog(false)}
+          onSave={({ title, description, priority, due_date, group_id, recurrence_rule }) => {
+            void handleAddItem(title, group_id, { description, priority, due_date, recurrence_rule })
+          }}
+        />
+      )}
+
+      {/* Template manager modal */}
+      {showTemplateManager && (
+        <TemplateManager
+          onApply={(templateId) => {
+            setPendingTemplateId(templateId)
+            setShowTemplateManager(false)
+          }}
+          onClose={() => setShowTemplateManager(false)}
+        />
+      )}
+
+      {/* GroupPicker for template apply */}
+      {pendingTemplateId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <GroupPicker
+            groups={groups}
+            onSelect={(groupId) => {
+              const tid = pendingTemplateId
+              setPendingTemplateId(null)
+              void handleApplyTemplate(tid, groupId)
+            }}
+            onCreateAndSelect={async (name) => {
+              const res = await safeInvoke<ChecklistGroup>(IPC.CHECKLIST_GROUP_CREATE, rowId, name)
+              if (res.ok) {
+                setGroups(prev => [...prev, res.data])
+                const tid = pendingTemplateId
+                setPendingTemplateId(null)
+                void handleApplyTemplate(tid, res.data.id, res.data.id)
+              }
+            }}
+            onCancel={() => setPendingTemplateId(null)}
+          />
+        </div>
+      )}
+
+      {/* Reset cycle confirmation */}
+      <ConfirmDialog
+        open={confirmReset}
+        title="Reset checklist cycle"
+        message={`Uncheck all ${completedItems.length} completed item${completedItems.length === 1 ? '' : 's'} for ${clientName}? They'll be available to complete again. This can be undone.`}
+        confirmLabel="Reset cycle"
+        onConfirm={() => { setConfirmReset(false); void doResetCycle() }}
+        onCancel={() => setConfirmReset(false)}
+      />
+
+      {/* Clear completed confirmation */}
+      <ConfirmDialog
+        open={confirmClear}
+        title="Clear completed items"
+        message={`Delete ${completedItems.length} completed item${completedItems.length === 1 ? '' : 's'} permanently? This can be undone.`}
+        confirmLabel="Clear all"
+        destructive={true}
+        onConfirm={() => { setConfirmClear(false); void doClearCompleted() }}
+        onCancel={() => setConfirmClear(false)}
+      />
+
+      {/* Delete group confirmation */}
+      <ConfirmDialog
+        open={!!confirmDeleteGroup}
+        title="Delete group"
+        message={`Delete the group "${confirmDeleteGroup?.name}"? Items in this group will become ungrouped. This can be undone.`}
+        confirmLabel="Delete group"
+        destructive={true}
+        onConfirm={() => { if (confirmDeleteGroup) { void handleDeleteGroup(confirmDeleteGroup.id); setConfirmDeleteGroup(null) } }}
+        onCancel={() => setConfirmDeleteGroup(null)}
+      />
+    </section>
+  )
+}
+
+// ── Template Manager ───────────────────────────────────────────────────────────
+
+interface TemplateItemDraft {
+  key: string
+  title: string
+  priority: ChecklistPriority
+}
+
+interface TemplateDraft {
+  name: string
+  description: string
+  isRecurring: boolean
+  recurrenceDays: string
+  items: TemplateItemDraft[]
+}
+
+function emptyDraft(): TemplateDraft {
+  return { name: '', description: '', isRecurring: false, recurrenceDays: '30', items: [] }
+}
+
+function templateToDraft(tpl: ChecklistTemplate): TemplateDraft {
+  let rawItems: Array<{ title?: string; priority?: string }> = []
+  try { rawItems = JSON.parse(tpl.items) } catch { /* ignore */ }
+  return {
+    name: tpl.name,
+    description: tpl.description ?? '',
+    isRecurring: tpl.is_recurring === 1,
+    recurrenceDays: tpl.recurrence_days?.toString() ?? '30',
+    items: rawItems.map((it, i) => ({
+      key: String(i),
+      title: it.title ?? '',
+      priority: (it.priority as ChecklistPriority) ?? 'normal',
+    })),
+  }
+}
+
+export function TemplateManager({ onApply, onClose }: {
+  onApply: (templateId: number) => void
+  onClose: () => void
+}) {
+  const { t } = useVocab(null)
+  const [templates, setTemplates] = useState<ChecklistTemplate[]>([])
+  const [loading, setLoading] = useState(true)
+  const [view, setView] = useState<'list' | 'create' | 'edit'>('list')
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [draft, setDraft] = useState<TemplateDraft>(emptyDraft())
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null)
+  const trapRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(trapRef, true)
+  const nameInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { void loadTemplates() }, [])
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') { if (view !== 'list') setView('list'); else onClose() } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [view, onClose])
+
+  useEffect(() => {
+    if (view !== 'list') setTimeout(() => nameInputRef.current?.focus(), 50)
+  }, [view])
+
+  async function loadTemplates() {
+    setLoading(true)
+    const result = await safeInvoke<ChecklistTemplate[]>(IPC.CL_TEMPLATE_GET_ALL)
+    if (result.ok) setTemplates(result.data)
+    setLoading(false)
+  }
+
+  function openCreate() {
+    setDraft(emptyDraft())
+    setEditingId(null)
+    setError('')
+    setView('create')
+  }
+
+  function openEdit(tpl: ChecklistTemplate) {
+    setDraft(templateToDraft(tpl))
+    setEditingId(tpl.id)
+    setError('')
+    setView('edit')
+  }
+
+  async function handleSave() {
+    if (!draft.name.trim()) { setError('Template name is required.'); return }
+    setSaving(true)
+    setError('')
+    try {
+      const payload = {
+        name: draft.name.trim(),
+        description: draft.description.trim() || null,
+        is_recurring: (draft.isRecurring ? 1 : 0) as 0 | 1,
+        recurrence_days: draft.isRecurring ? (parseInt(draft.recurrenceDays, 10) || 30) : null,
+        is_system: 0 as 0 | 1,
+        items: JSON.stringify(draft.items.map(it => ({
+          title: it.title.trim(),
+          priority: it.priority,
+        })).filter(it => it.title)),
+      }
+
+      if (view === 'create') {
+        const result = await safeInvoke<ChecklistTemplate>(IPC.CL_TEMPLATE_CREATE, payload)
+        if (!result.ok) throw new Error(result.error)
+        setTemplates(prev => [...prev, result.data].sort((a, b) => a.name.localeCompare(b.name)))
+      } else if (editingId != null) {
+        const result = await safeInvoke<ChecklistTemplate>(IPC.CL_TEMPLATE_UPDATE, editingId, payload)
+        if (!result.ok) throw new Error(result.error)
+        setTemplates(prev => prev.map(t => t.id === editingId ? result.data : t))
+      }
+      setView('list')
+    } catch (err) {
+      rlog.error('Checklist', 'Failed to save template', err)
+      setError('Failed to save template. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(id: number) {
+    const result = await safeInvoke<boolean>(IPC.CL_TEMPLATE_DELETE, id)
+    if (result.ok) setTemplates(prev => prev.filter(t => t.id !== id))
+  }
+
+  // Draft item helpers
+  function addDraftItem() {
+    setDraft(d => ({ ...d, items: [...d.items, { key: Date.now().toString(), title: '', priority: 'normal' }] }))
+  }
+
+  function updateDraftItem(key: string, updates: Partial<TemplateItemDraft>) {
+    setDraft(d => ({ ...d, items: d.items.map(it => it.key === key ? { ...it, ...updates } : it) }))
+  }
+
+  function removeDraftItem(key: string) {
+    setDraft(d => ({ ...d, items: d.items.filter(it => it.key !== key) }))
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  return createPortal(
+    <div
+      ref={trapRef}
+      className="fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex items-center justify-center p-4"
+      role="dialog" aria-modal="true"
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-2xl
+                     border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col"
+           style={{ maxHeight: '85vh' }}>
+
+        {/* Modal header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            {view !== 'list' && (
+              <button
+                onClick={() => setView('list')}
+                className="hit-44 text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 mr-1
+                           focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
+              >
+                <ChevronRight className="w-5 h-5 rotate-180" />
+              </button>
+            )}
+            <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+              {view === 'list' ? 'Checklist Templates' : view === 'create' ? 'New Template' : 'Edit Template'}
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="hit-44 text-slate-500 hover:text-slate-600 dark:hover:text-slate-300
+                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto">
+          {view === 'list' ? (
+            /* ── List view ── */
+            <>
+              {loading ? (
+                <div className="py-12 text-center text-sm text-slate-500 dark:text-slate-400">Loading…</div>
+              ) : templates.length === 0 ? (
+                <div className="py-12 text-center">
+                  <p className="text-slate-500 dark:text-slate-400 mb-4">No templates yet.</p>
+                  <button
+                    onClick={openCreate}
+                    className="hit-44 px-4 py-2 rounded-lg bg-blue-500 text-white text-base font-medium hover:bg-blue-600 transition-colors"
+                  >
+                    Create your first template
+                  </button>
+                </div>
+              ) : (
+                <ul className="divide-y divide-slate-100 dark:divide-slate-700">
+                  {templates.map(tpl => {
+                    let itemCount = 0
+                    try { itemCount = (JSON.parse(tpl.items) as unknown[]).length } catch { /* ignore */ }
+                    return (
+                      <li key={tpl.id} className="flex items-center gap-3 px-5 py-4
+                                                   hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-base font-medium text-slate-800 dark:text-slate-200 truncate">
+                            {tpl.name}
+                          </div>
+                          {tpl.description && (
+                            <div className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                              {tpl.description}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-sm text-slate-500 dark:text-slate-500">
+                              {itemCount} item{itemCount !== 1 ? 's' : ''}
+                            </span>
+                            {tpl.is_recurring === 1 && tpl.recurrence_days && (
+                              <span className="text-sm text-blue-500 dark:text-blue-400">
+                                · Repeats every {tpl.recurrence_days} days
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            onClick={() => openEdit(tpl)}
+                            className="hit-44 p-1.5 rounded-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300
+                                       hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors
+                                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+                            title="Edit template"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteTarget({ id: tpl.id, name: tpl.name })}
+                            className="hit-44 p-1.5 rounded-sm text-slate-500 hover:text-red-500
+                                       hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors
+                                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400"
+                            title="Delete template"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => onApply(tpl.id)}
+                            className="hit-44 ml-1 px-3 py-1.5 rounded-md text-base font-medium
+                                       bg-blue-500 text-white hover:bg-blue-600 transition-colors
+                                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+                          >
+                            Apply
+                          </button>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </>
+          ) : (
+            /* ── Create / Edit view ── */
+            <div className="p-5 space-y-4">
+              {error && (
+                <div className="px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm">
+                  {error}
+                </div>
+              )}
+
+              {/* Name */}
+              <div>
+                <label htmlFor="checklist-save-name" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Template Name <span className="text-red-600 dark:text-red-400">*</span>
+                </label>
+                <input
+                  id="checklist-save-name"
+                  ref={nameInputRef}
+                  type="text"
+                  value={draft.name}
+                  onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+                  placeholder={`e.g. Annual review, New ${t('record')} intake…`}
+                  style={{ fontSize: 15 }}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                             bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100
+                             focus:outline-hidden focus:ring-3 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label htmlFor="checklist-save-desc" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Description <span className="text-slate-500 dark:text-slate-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  id="checklist-save-desc"
+                  type="text"
+                  value={draft.description}
+                  onChange={e => setDraft(d => ({ ...d, description: e.target.value }))}
+                  placeholder="Brief description of when to use this template"
+                  style={{ fontSize: 15 }}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                             bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100
+                             focus:outline-hidden focus:ring-3 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Recurring */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setDraft(d => ({ ...d, isRecurring: !d.isRecurring }))}
+                  className={`hit-44 relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                             focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
+                             ${draft.isRecurring ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+                  role="switch"
+                  aria-checked={draft.isRecurring}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform
+                                   ${draft.isRecurring ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+                <span className="text-sm text-slate-700 dark:text-slate-300">
+                  Repeating template (for recurring workflows)
+                </span>
+                {draft.isRecurring && (
+                  <div className="flex items-center gap-1.5 ml-2">
+                    <span className="text-sm text-slate-500">every</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={999}
+                      value={draft.recurrenceDays}
+                      onChange={e => setDraft(d => ({ ...d, recurrenceDays: e.target.value }))}
+                      className="w-16 px-2 py-1 text-base rounded-sm border border-slate-300 dark:border-slate-600
+                                 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100
+                                 focus:outline-hidden focus:ring-3 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-slate-500">days</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Items */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-base font-medium text-slate-700 dark:text-slate-300">
+                    Items ({draft.items.length})
+                  </label>
+                </div>
+
+                {draft.items.length > 0 && (
+                  <div className="space-y-1.5 mb-2">
+                    {draft.items.map((item, idx) => (
+                      <div key={item.key} className="flex items-center gap-2">
+                        <span className="text-sm text-slate-500 dark:text-slate-400 w-5 text-right flex-shrink-0">{idx + 1}.</span>
+                        <input
+                          type="text"
+                          value={item.title}
+                          onChange={e => updateDraftItem(item.key, { title: e.target.value })}
+                          placeholder="Item title"
+                          style={{ fontSize: 15 }}
+                          className="flex-1 px-2 py-1.5 rounded-sm border border-slate-300 dark:border-slate-600
+                                     bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100
+                                     focus:outline-hidden focus:ring-3 focus:ring-blue-500"
+                        />
+                        <select
+                          value={item.priority}
+                          onChange={e => updateDraftItem(item.key, { priority: e.target.value as ChecklistPriority })}
+                          style={{ fontSize: 15 }}
+                          className="w-24 px-1.5 py-1.5 rounded-sm border border-slate-300 dark:border-slate-600
+                                     bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100
+                                     focus:outline-hidden focus:ring-3 focus:ring-blue-500"
+                        >
+                          <option value="low">Low</option>
+                          <option value="normal">Normal</option>
+                          <option value="high">High</option>
+                          <option value="urgent">Urgent</option>
+                        </select>
+                        <button
+                          onClick={() => removeDraftItem(item.key)}
+                          className="hit-44 p-1.5 text-slate-500 hover:text-red-500 rounded-sm
+                                     focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  onClick={addDraftItem}
+                  className="hit-44 flex items-center gap-1.5 px-3 py-2 rounded-lg text-base
+                             text-blue-600 dark:text-blue-400 border border-dashed border-blue-300 dark:border-blue-700
+                             hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors w-full justify-center"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Item
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-700 flex-shrink-0 flex items-center justify-between">
+          {view === 'list' ? (
+            <>
+              <p className="text-sm text-slate-500 dark:text-slate-500">
+                Templates add items to the existing checklist without replacing them.
+              </p>
+              <button
+                onClick={openCreate}
+                className="hit-44 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-base font-medium
+                           bg-blue-500 text-white hover:bg-blue-600 transition-colors
+                           focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+              >
+                <Plus className="w-4 h-4" />
+                New Template
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setView('list')}
+                className="hit-44 px-3 py-1.5 rounded-lg text-base text-slate-600 dark:text-slate-400
+                           hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="hit-44 flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-base font-medium
+                           bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 transition-colors
+                           focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+              >
+                <Check className="w-4 h-4" />
+                {saving ? 'Saving…' : 'Save Template'}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete template"
+        message={`Delete the template "${deleteTarget?.name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        destructive
+        onConfirm={() => { if (deleteTarget) { void handleDelete(deleteTarget.id); setDeleteTarget(null) } }}
+        onCancel={() => setDeleteTarget(null)}
+      />
+    </div>,
+    document.body
+  )
+}

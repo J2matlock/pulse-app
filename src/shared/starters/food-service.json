@@ -1,0 +1,522 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "food-service",
+  "name": "Food service compliance",
+  "description": "Food handler cards and manager certifications for your staff, plus hood cleaning, calibration, fire suppression, pest service and health inspections for your equipment. Pulse is a tracking aid, not your official record system.",
+  "icon": "utensils-crossed",
+  "group": "Business",
+  "vocab": {
+    "record": {
+      "one": "record",
+      "many": "records",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": false,
+    "summaryReport": true,
+    "handoff": false
+  },
+  "lists": [
+    {
+      "key": "staff",
+      "name": "Kitchen staff",
+      "description": "Kitchen and front-of-house staff with their food safety cards",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "staff member",
+          "many": "staff",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Role",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 140,
+          "is_required": 1,
+          "config": "{\"options\":[\"Cook\",\"Prep\",\"Server\",\"Dishwasher\",\"Manager\"]}"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 2,
+          "width": 140
+        },
+        {
+          "name": "Hire date",
+          "column_type": "date",
+          "position": 3,
+          "width": 150
+        },
+        {
+          "name": "Food handler card expires",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "is_required": 1,
+          "config": "{\"alert_rule_name\":\"Expires (60-day warning)\",\"log_changes\":true}"
+        },
+        {
+          "name": "Manager certification expires",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "description": "Only for managers and people in charge",
+          "config": "{\"alert_rule_name\":\"Expires (60-day warning)\",\"log_changes\":true}"
+        },
+        {
+          "name": "Allergen training",
+          "column_type": "date",
+          "position": 6,
+          "width": 150,
+          "description": "Date of the last allergen training; due again a year later",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Expires (60-day warning)",
+          "description": "The date entered is when it expires; warns 60, 30, 14 days ahead",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#facc15\",\"label\":\"Renew soon\"},{\"daysBefore\":30,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":14,\"bgClass\":\"#f87171\",\"label\":\"Expiring\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Expires today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Expired\"}]"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ]
+    },
+    {
+      "key": "equipment",
+      "name": "Equipment & services",
+      "description": "Equipment and the regular services it needs",
+      "kind": "thing",
+      "vocab": {
+        "record": {
+          "one": "item",
+          "many": "items",
+          "article": "an"
+        }
+      },
+      "columns": [
+        {
+          "name": "Item",
+          "column_type": "text",
+          "position": 0,
+          "width": 210,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Location",
+          "column_type": "text",
+          "position": 1,
+          "width": 160
+        },
+        {
+          "name": "Last hood cleaning",
+          "column_type": "date",
+          "position": 2,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Every 6 months\",\"log_changes\":true}"
+        },
+        {
+          "name": "Last thermometer calibration",
+          "column_type": "date",
+          "position": 3,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+        },
+        {
+          "name": "Last fire suppression inspection",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Every 6 months\",\"log_changes\":true}"
+        },
+        {
+          "name": "Last pest service",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+        },
+        {
+          "name": "Last health inspection",
+          "column_type": "date",
+          "position": 6,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Vendor",
+          "column_type": "text",
+          "position": 7,
+          "width": 160,
+          "description": "Who does the service"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every 6 months",
+          "description": "Due 6 months after the date entered",
+          "interval_months": 6,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Every 30 days",
+          "description": "Due 30 days after the date entered",
+          "interval_days": 30,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    },
+    {
+      "key": "inspection",
+      "label": "Inspection",
+      "icon": "🔍",
+      "color": "orange"
+    },
+    {
+      "key": "service",
+      "label": "Service visit",
+      "icon": "🛠️",
+      "color": "teal"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "staff": [
+        {
+          "Name": "Aisha Morales",
+          "Role": "Manager",
+          "Phone": "555-0126",
+          "Hire date": {
+            "daysFromToday": -913
+          },
+          "Food handler card expires": {
+            "daysFromToday": 24
+          },
+          "Manager certification expires": {
+            "daysFromToday": -4
+          },
+          "Allergen training": {
+            "daysFromToday": -365
+          }
+        },
+        {
+          "Name": "Robert Dubois",
+          "Role": "Cook",
+          "Phone": "555-0133",
+          "Hire date": {
+            "daysFromToday": -899
+          },
+          "Food handler card expires": {
+            "daysFromToday": 75
+          },
+          "Allergen training": {
+            "daysFromToday": -356
+          }
+        },
+        {
+          "Name": "Linh Smith",
+          "Role": "Cook",
+          "Phone": "555-0140",
+          "Hire date": {
+            "daysFromToday": -87
+          },
+          "Food handler card expires": {
+            "daysFromToday": 220
+          },
+          "Allergen training": {
+            "daysFromToday": -327
+          }
+        },
+        {
+          "Name": "Dorothy Kowalski",
+          "Role": "Prep",
+          "Phone": "555-0147",
+          "Hire date": {
+            "daysFromToday": -123
+          },
+          "Food handler card expires": {
+            "daysFromToday": -3
+          },
+          "Allergen training": {
+            "daysFromToday": -255
+          }
+        },
+        {
+          "Name": "Carlos Wong",
+          "Role": "Server",
+          "Phone": "555-0154",
+          "Hire date": {
+            "daysFromToday": -116
+          },
+          "Food handler card expires": {
+            "daysFromToday": 5
+          },
+          "Allergen training": {
+            "daysFromToday": -65
+          }
+        },
+        {
+          "Name": "Priya Bell",
+          "Role": "Server",
+          "Phone": "555-0161",
+          "Hire date": {
+            "daysFromToday": -399
+          },
+          "Food handler card expires": {
+            "daysFromToday": 24
+          },
+          "Allergen training": {
+            "daysFromToday": -365
+          }
+        },
+        {
+          "Name": "Frank Rivera",
+          "Role": "Dishwasher",
+          "Phone": "555-0168",
+          "Hire date": {
+            "daysFromToday": -885
+          },
+          "Food handler card expires": {
+            "daysFromToday": 75
+          },
+          "Allergen training": {
+            "daysFromToday": -356
+          }
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Role": "Prep",
+          "Phone": "555-0175",
+          "Hire date": {
+            "daysFromToday": -203
+          },
+          "Food handler card expires": {
+            "daysFromToday": 220
+          },
+          "Allergen training": {
+            "daysFromToday": -327
+          }
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Role": "Server",
+          "Phone": "555-0182",
+          "Hire date": {
+            "daysFromToday": -783
+          },
+          "Food handler card expires": {
+            "daysFromToday": -3
+          },
+          "Allergen training": {
+            "daysFromToday": -255
+          }
+        },
+        {
+          "Name": "Grace Okafor",
+          "Role": "Manager",
+          "Phone": "555-0189",
+          "Hire date": {
+            "daysFromToday": -858
+          },
+          "Food handler card expires": {
+            "daysFromToday": 5
+          },
+          "Manager certification expires": {
+            "daysFromToday": 300
+          },
+          "Allergen training": {
+            "daysFromToday": -65
+          }
+        }
+      ],
+      "equipment": [
+        {
+          "Item": "Kitchen hood",
+          "Location": "Kitchen",
+          "Last hood cleaning": {
+            "daysFromToday": -200
+          },
+          "Last fire suppression inspection": {
+            "daysFromToday": -200
+          },
+          "Vendor": "Clean Hood Co."
+        },
+        {
+          "Item": "Walk-in cooler",
+          "Location": "Back of house",
+          "Last thermometer calibration": {
+            "daysFromToday": -170
+          },
+          "Last pest service": {
+            "daysFromToday": -170
+          },
+          "Vendor": "Cold Room Services"
+        },
+        {
+          "Item": "Probe thermometers",
+          "Location": "Kitchen",
+          "Last thermometer calibration": {
+            "daysFromToday": -40
+          }
+        },
+        {
+          "Item": "Fryer station",
+          "Location": "Kitchen",
+          "Last hood cleaning": {
+            "daysFromToday": -25
+          },
+          "Last fire suppression inspection": {
+            "daysFromToday": -25
+          },
+          "Vendor": "Clean Hood Co."
+        },
+        {
+          "Item": "Dining room",
+          "Location": "Front of house",
+          "Last pest service": {
+            "daysFromToday": -3
+          },
+          "Last health inspection": {
+            "daysFromToday": -330
+          },
+          "Vendor": "Bug Away Pest Control"
+        },
+        {
+          "Item": "Dish machine",
+          "Location": "Dish area",
+          "Last pest service": {
+            "daysFromToday": -35
+          },
+          "Vendor": "Dish Pro Repair"
+        }
+      ]
+    },
+    "activities": [
+      {
+        "record": "equipment#0",
+        "type": "service",
+        "daysAgo": 1,
+        "text": "Hood cleaned; filters replaced. Next visit booked."
+      },
+      {
+        "record": "equipment#1",
+        "type": "note",
+        "daysAgo": 8,
+        "text": "Calibrated all probe thermometers in ice water."
+      },
+      {
+        "record": "equipment#1",
+        "type": "service",
+        "daysAgo": 21,
+        "text": "Hood cleaned; filters replaced. Next visit booked."
+      },
+      {
+        "record": "equipment#2",
+        "type": "inspection",
+        "daysAgo": 15,
+        "text": "Routine inspection, no violations."
+      },
+      {
+        "record": "equipment#2",
+        "type": "note",
+        "daysAgo": 28,
+        "text": "Calibrated all probe thermometers in ice water."
+      },
+      {
+        "record": "equipment#3",
+        "type": "service",
+        "daysAgo": 22,
+        "text": "Hood cleaned; filters replaced. Next visit booked."
+      },
+      {
+        "record": "staff#0",
+        "type": "note",
+        "daysAgo": 2,
+        "text": "Signed up for the food handler class on the 12th."
+      },
+      {
+        "record": "staff#1",
+        "type": "note",
+        "daysAgo": 9,
+        "text": "Signed up for the food handler class on the 12th."
+      },
+      {
+        "record": "staff#1",
+        "type": "note",
+        "daysAgo": 22,
+        "text": "Signed up for the food handler class on the 12th."
+      },
+      {
+        "record": "staff#2",
+        "type": "note",
+        "daysAgo": 16,
+        "text": "Signed up for the food handler class on the 12th."
+      },
+      {
+        "record": "staff#2",
+        "type": "note",
+        "daysAgo": 29,
+        "text": "Signed up for the food handler class on the 12th."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "missingInfo"
+  ]
+}

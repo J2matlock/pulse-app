@@ -1,0 +1,443 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "special-education",
+  "name": "Special education",
+  "description": "For IEP case managers and coordinators: the referral timeline (consent, evaluation in 60 school days, eligibility, first IEP), annual IEP reviews and 3-year re-evaluations.",
+  "icon": "graduation-cap",
+  "group": "Education and youth",
+  "vocab": {
+    "record": {
+      "one": "student",
+      "many": "students",
+      "article": "a"
+    },
+    "list": {
+      "one": "roster",
+      "many": "rosters",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false
+  },
+  "lists": [
+    {
+      "key": "students",
+      "name": "Special education",
+      "description": "Students from referral through annual reviews and re-evaluations",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Grade",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 90,
+          "config": "{\"options\":[\"Pre-K\",\"K\",\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\",\"10\",\"11\",\"12\"]}"
+        },
+        {
+          "name": "School",
+          "column_type": "text",
+          "position": 2,
+          "width": 170
+        },
+        {
+          "name": "Disability category",
+          "column_type": "dropdown",
+          "position": 3,
+          "width": 200,
+          "config": "{\"options\":[\"Autism\",\"Specific learning disability\",\"Speech or language\",\"Other health impairment\",\"Emotional disability\",\"Intellectual disability\",\"Multiple\"]}"
+        },
+        {
+          "name": "Referral date",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "description": "Fill in for new referrals; the timeline counts from here"
+        },
+        {
+          "name": "Referral timeline",
+          "column_type": "deadline",
+          "position": 5,
+          "width": 140,
+          "description": "The next step for a new referral; mark it done to move on",
+          "config": "{\"alert_rule_name\":\"Referral timeline\"}"
+        },
+        {
+          "name": "IEP date",
+          "column_type": "date",
+          "position": 6,
+          "width": 150,
+          "description": "Date of the last IEP meeting; the annual review is due a year later",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Last evaluation",
+          "column_type": "date",
+          "position": 7,
+          "width": 150,
+          "description": "Date of the last full evaluation; the re-evaluation is due 3 years later",
+          "config": "{\"alert_rule_name\":\"Every 3 years\",\"log_changes\":true}"
+        },
+        {
+          "name": "Parent/guardian",
+          "column_type": "text",
+          "position": 8,
+          "width": 160
+        },
+        {
+          "name": "Parent phone",
+          "column_type": "phone",
+          "position": 9,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 10,
+          "width": 130,
+          "config": "{\"options\":[\"Referred\",\"Evaluating\",\"Eligible\",\"Not eligible\",\"Exited\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Referral timeline",
+          "description": "From referral: consent, evaluation in 60 school days, eligibility, then the first IEP within 30 days",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "sequence",
+          "rule_config": "{\"kind\":\"sequence\",\"anchorColumnId\":{\"column\":\"Referral date\"},\"steps\":[{\"label\":\"Consent signed\",\"offset\":{\"businessDays\":10}},{\"label\":\"Evaluation done\",\"offset\":{\"businessDays\":60}},{\"label\":\"Eligibility meeting\",\"offset\":{\"businessDays\":70}},{\"label\":\"IEP meeting\",\"offset\":{\"businessDays\":70,\"days\":30}}]}"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Every 3 years",
+          "description": "Due 3 years after the date entered",
+          "interval_months": 36,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "parent_contact",
+      "label": "Parent contact",
+      "icon": "📞",
+      "color": "blue"
+    },
+    {
+      "key": "meeting",
+      "label": "Meeting",
+      "icon": "🤝",
+      "color": "green"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "students": [
+        {
+          "Name": "Robert Dubois",
+          "Grade": "2",
+          "School": "Lincoln Elementary",
+          "Referral date": {
+            "daysFromToday": -20
+          },
+          "Parent/guardian": "Dorothy Kowalski",
+          "Parent phone": "555-0117",
+          "Status": "Referred"
+        },
+        {
+          "Name": "Linh Smith",
+          "Grade": "K",
+          "School": "Lincoln Elementary",
+          "Referral date": {
+            "daysFromToday": -70
+          },
+          "Parent/guardian": "Carlos Wong",
+          "Parent phone": "555-0124",
+          "Status": "Evaluating"
+        },
+        {
+          "Name": "Dorothy Kowalski",
+          "Grade": "6",
+          "School": "Westside Middle",
+          "Referral date": {
+            "daysFromToday": -100
+          },
+          "Parent/guardian": "Priya Bell",
+          "Parent phone": "555-0131",
+          "Status": "Evaluating"
+        },
+        {
+          "Name": "Carlos Wong",
+          "Grade": "3",
+          "School": "Lincoln Elementary",
+          "Disability category": "Other health impairment",
+          "IEP date": {
+            "daysFromToday": -350
+          },
+          "Last evaluation": {
+            "daysFromToday": -1080
+          },
+          "Parent/guardian": "Frank Rivera",
+          "Parent phone": "555-0138",
+          "Status": "Eligible"
+        },
+        {
+          "Name": "Priya Bell",
+          "Grade": "4",
+          "School": "Lincoln Elementary",
+          "Disability category": "Emotional disability",
+          "IEP date": {
+            "daysFromToday": -300
+          },
+          "Last evaluation": {
+            "daysFromToday": -700
+          },
+          "Parent/guardian": "Keisha Thompson",
+          "Parent phone": "555-0145",
+          "Status": "Eligible"
+        },
+        {
+          "Name": "Frank Rivera",
+          "Grade": "9",
+          "School": "Central High",
+          "Disability category": "Autism",
+          "IEP date": {
+            "daysFromToday": -200
+          },
+          "Last evaluation": {
+            "daysFromToday": -400
+          },
+          "Parent/guardian": "Samuel Rahman",
+          "Parent phone": "555-0152",
+          "Status": "Eligible"
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Grade": "1",
+          "School": "Lincoln Elementary",
+          "Disability category": "Specific learning disability",
+          "IEP date": {
+            "daysFromToday": -120
+          },
+          "Last evaluation": {
+            "daysFromToday": -1000
+          },
+          "Parent/guardian": "Grace Okafor",
+          "Parent phone": "555-0159",
+          "Status": "Eligible"
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Grade": "7",
+          "School": "Westside Middle",
+          "Disability category": "Speech or language",
+          "IEP date": {
+            "daysFromToday": -40
+          },
+          "Last evaluation": {
+            "daysFromToday": -200
+          },
+          "Parent/guardian": "Omar Brown",
+          "Parent phone": "555-0166",
+          "Status": "Eligible"
+        },
+        {
+          "Name": "Grace Okafor",
+          "Grade": "5",
+          "School": "Lincoln Elementary",
+          "Disability category": "Other health impairment",
+          "IEP date": {
+            "daysFromToday": -363
+          },
+          "Last evaluation": {
+            "daysFromToday": -1090
+          },
+          "Parent/guardian": "Ruth Jackson",
+          "Parent phone": "555-0173",
+          "Status": "Eligible"
+        },
+        {
+          "Name": "Omar Brown",
+          "Grade": "11",
+          "School": "Central High",
+          "Disability category": "Emotional disability",
+          "IEP date": {
+            "daysFromToday": -380
+          },
+          "Last evaluation": {
+            "daysFromToday": -900
+          },
+          "Parent/guardian": "Diego Ferreira",
+          "Parent phone": "555-0180",
+          "Status": "Eligible"
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Grade": "8",
+          "School": "Westside Middle",
+          "Disability category": "Autism",
+          "IEP date": {
+            "daysFromToday": -250
+          },
+          "Last evaluation": {
+            "daysFromToday": -600
+          },
+          "Parent/guardian": "Hannah Walker",
+          "Parent phone": "555-0187",
+          "Status": "Eligible"
+        },
+        {
+          "Name": "Diego Ferreira",
+          "Grade": "2",
+          "School": "Lincoln Elementary",
+          "Disability category": "Specific learning disability",
+          "IEP date": {
+            "daysFromToday": -90
+          },
+          "Last evaluation": {
+            "daysFromToday": -300
+          },
+          "Parent/guardian": "Tyrone Haddad",
+          "Parent phone": "555-0194",
+          "Status": "Eligible"
+        }
+      ]
+    },
+    "stepsDone": [
+      {
+        "record": "students#1",
+        "column": "Referral timeline",
+        "steps": 1
+      },
+      {
+        "record": "students#2",
+        "column": "Referral timeline",
+        "steps": 2
+      }
+    ],
+    "activities": [
+      {
+        "record": "students#0",
+        "type": "parent_contact",
+        "daysAgo": 1,
+        "text": "Called home to schedule the annual review."
+      },
+      {
+        "record": "students#1",
+        "type": "note",
+        "daysAgo": 8,
+        "text": "Sent the prior written notice home."
+      },
+      {
+        "record": "students#1",
+        "type": "parent_contact",
+        "daysAgo": 21,
+        "text": "Called home to schedule the annual review."
+      },
+      {
+        "record": "students#2",
+        "type": "meeting",
+        "daysAgo": 15,
+        "text": "IEP team meeting; goals updated, services unchanged."
+      },
+      {
+        "record": "students#2",
+        "type": "note",
+        "daysAgo": 28,
+        "text": "Sent the prior written notice home."
+      },
+      {
+        "record": "students#3",
+        "type": "parent_contact",
+        "daysAgo": 22,
+        "text": "Called home to schedule the annual review."
+      },
+      {
+        "record": "students#4",
+        "type": "note",
+        "daysAgo": 29,
+        "text": "Sent the prior written notice home."
+      },
+      {
+        "record": "students#4",
+        "type": "parent_contact",
+        "daysAgo": 42,
+        "text": "Called home to schedule the annual review."
+      },
+      {
+        "record": "students#5",
+        "type": "meeting",
+        "daysAgo": 36,
+        "text": "IEP team meeting; goals updated, services unchanged."
+      },
+      {
+        "record": "students#5",
+        "type": "note",
+        "daysAgo": 49,
+        "text": "Sent the prior written notice home."
+      },
+      {
+        "record": "students#6",
+        "type": "parent_contact",
+        "daysAgo": 43,
+        "text": "Called home to schedule the annual review."
+      },
+      {
+        "record": "students#7",
+        "type": "note",
+        "daysAgo": 50,
+        "text": "Sent the prior written notice home."
+      },
+      {
+        "record": "students#7",
+        "type": "parent_contact",
+        "daysAgo": 3,
+        "text": "Called home to schedule the annual review."
+      }
+    ]
+  },
+  "helpTips": [
+    {
+      "title": "School days",
+      "body": "The referral timeline counts school days. Add your school holidays and breaks in Settings → Workspace → Work days so they are skipped."
+    }
+  ],
+  "dashboardCards": [
+    "summary",
+    "missingInfo"
+  ]
+}

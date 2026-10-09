@@ -1,0 +1,412 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "hr-generalist",
+  "name": "HR generalist",
+  "description": "For small-business HR: probation reviews 90 days after hire, benefits eligibility at 60 days and a yearly review on each hire anniversary.",
+  "icon": "users",
+  "group": "Business",
+  "vocab": {
+    "record": {
+      "one": "employee",
+      "many": "employees",
+      "article": "an"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false
+  },
+  "lists": [
+    {
+      "key": "employees",
+      "name": "Employees",
+      "description": "Employees with probation, benefits and anniversary reviews",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Job title",
+          "column_type": "text",
+          "position": 1,
+          "width": 170
+        },
+        {
+          "name": "Department",
+          "column_type": "dropdown",
+          "position": 2,
+          "width": 150,
+          "config": "{\"options\":[\"Operations\",\"Sales\",\"Finance\",\"Customer service\",\"Warehouse\"]}"
+        },
+        {
+          "name": "Manager",
+          "column_type": "text",
+          "position": 3,
+          "width": 160
+        },
+        {
+          "name": "Hire date",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "is_required": 1
+        },
+        {
+          "name": "Probation review done",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "description": "Date the end-of-probation review was held",
+          "config": "{\"alert_rule_name\":\"Probation ends\",\"log_changes\":true}"
+        },
+        {
+          "name": "Benefits enrolled",
+          "column_type": "date",
+          "position": 6,
+          "width": 150,
+          "description": "Date the employee enrolled (or declined) benefits",
+          "config": "{\"alert_rule_name\":\"Benefits eligibility\",\"log_changes\":true}"
+        },
+        {
+          "name": "Yearly review",
+          "column_type": "deadline",
+          "position": 7,
+          "width": 140,
+          "description": "The next review, on the hire anniversary; mark it done each year",
+          "config": "{\"alert_rule_name\":\"Review on hire anniversary\"}"
+        },
+        {
+          "name": "I-9 complete",
+          "column_type": "checkbox",
+          "position": 8,
+          "width": 110
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 9,
+          "width": 120,
+          "config": "{\"options\":[\"Active\",\"On leave\",\"Former\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Probation ends",
+          "description": "The probation review is due 90 days after the hire date",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\":\"relative\",\"anchorColumnId\":{\"column\":\"Hire date\"},\"offset\":{\"days\":90,\"direction\":\"after\"}}"
+        },
+        {
+          "name": "Benefits eligibility",
+          "description": "Benefits enrollment opens 60 days after the hire date",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\":\"relative\",\"anchorColumnId\":{\"column\":\"Hire date\"},\"offset\":{\"days\":60,\"direction\":\"after\"}}"
+        },
+        {
+          "name": "Review on hire anniversary",
+          "description": "The yearly review falls on the hire anniversary",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "calendar",
+          "rule_config": "{\"kind\":\"calendar\",\"fromColumnMonth\":{\"column\":\"Hire date\"},\"lead\":45}"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "meeting",
+      "label": "Meeting",
+      "icon": "🤝",
+      "color": "green"
+    },
+    {
+      "key": "document",
+      "label": "Document received",
+      "icon": "📄",
+      "color": "teal"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "employees": [
+        {
+          "Name": "Aisha Morales",
+          "Job title": "Coordinator",
+          "Department": "Operations",
+          "Manager": "Ahmed Fischer",
+          "Hire date": {
+            "daysFromToday": -20
+          },
+          "I-9 complete": "false",
+          "Status": "On leave"
+        },
+        {
+          "Name": "Robert Dubois",
+          "Job title": "Account rep",
+          "Department": "Sales",
+          "Manager": "Beatrice O'Brien",
+          "Hire date": {
+            "daysFromToday": -50
+          },
+          "I-9 complete": "true",
+          "Status": "Active"
+        },
+        {
+          "Name": "Linh Smith",
+          "Job title": "Bookkeeper",
+          "Department": "Finance",
+          "Manager": "Kevin Nguyen",
+          "Hire date": {
+            "daysFromToday": -85
+          },
+          "I-9 complete": "true",
+          "Status": "Active"
+        },
+        {
+          "Name": "Dorothy Kowalski",
+          "Job title": "Support specialist",
+          "Department": "Customer service",
+          "Manager": "Ahmed Fischer",
+          "Hire date": {
+            "daysFromToday": -95
+          },
+          "Benefits enrolled": {
+            "daysFromToday": -35
+          },
+          "I-9 complete": "true",
+          "Status": "Active"
+        },
+        {
+          "Name": "Carlos Wong",
+          "Job title": "Picker",
+          "Department": "Warehouse",
+          "Manager": "Beatrice O'Brien",
+          "Hire date": {
+            "daysFromToday": -140
+          },
+          "Probation review done": {
+            "daysFromToday": -50
+          },
+          "Benefits enrolled": {
+            "daysFromToday": -80
+          },
+          "I-9 complete": "true",
+          "Status": "Former"
+        },
+        {
+          "Name": "Priya Bell",
+          "Job title": "Team lead",
+          "Department": "Operations",
+          "Manager": "Kevin Nguyen",
+          "Hire date": {
+            "daysFromToday": -330
+          },
+          "Probation review done": {
+            "daysFromToday": -240
+          },
+          "Benefits enrolled": {
+            "daysFromToday": -270
+          },
+          "I-9 complete": "true",
+          "Status": "Active"
+        },
+        {
+          "Name": "Frank Rivera",
+          "Job title": "Account rep",
+          "Department": "Sales",
+          "Manager": "Ahmed Fischer",
+          "Hire date": {
+            "daysFromToday": -700
+          },
+          "Probation review done": {
+            "daysFromToday": -610
+          },
+          "Benefits enrolled": {
+            "daysFromToday": -640
+          },
+          "I-9 complete": "true",
+          "Status": "Active"
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Job title": "Analyst",
+          "Department": "Finance",
+          "Manager": "Beatrice O'Brien",
+          "Hire date": {
+            "daysFromToday": -1050
+          },
+          "Probation review done": {
+            "daysFromToday": -960
+          },
+          "Benefits enrolled": {
+            "daysFromToday": -990
+          },
+          "I-9 complete": "true",
+          "Status": "Active"
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Job title": "Support specialist",
+          "Department": "Customer service",
+          "Manager": "Kevin Nguyen",
+          "Hire date": {
+            "daysFromToday": -1400
+          },
+          "Probation review done": {
+            "daysFromToday": -1310
+          },
+          "Benefits enrolled": {
+            "daysFromToday": -1340
+          },
+          "I-9 complete": "true",
+          "Status": "Active"
+        },
+        {
+          "Name": "Grace Okafor",
+          "Job title": "Driver",
+          "Department": "Warehouse",
+          "Manager": "Ahmed Fischer",
+          "Hire date": {
+            "daysFromToday": -345
+          },
+          "Probation review done": {
+            "daysFromToday": -255
+          },
+          "Benefits enrolled": {
+            "daysFromToday": -285
+          },
+          "I-9 complete": "true",
+          "Status": "Active"
+        },
+        {
+          "Name": "Omar Brown",
+          "Job title": "Coordinator",
+          "Department": "Operations",
+          "Manager": "Beatrice O'Brien",
+          "Hire date": {
+            "daysFromToday": -30
+          },
+          "I-9 complete": "true",
+          "Status": "Active"
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Job title": "Picker",
+          "Department": "Warehouse",
+          "Manager": "Kevin Nguyen",
+          "Hire date": {
+            "daysFromToday": -400
+          },
+          "Probation review done": {
+            "daysFromToday": -310
+          },
+          "Benefits enrolled": {
+            "daysFromToday": -340
+          },
+          "I-9 complete": "true",
+          "Status": "Active"
+        }
+      ]
+    },
+    "activities": [
+      {
+        "record": "employees#0",
+        "type": "meeting",
+        "daysAgo": 1,
+        "text": "Check-in meeting; settling in well."
+      },
+      {
+        "record": "employees#1",
+        "type": "note",
+        "daysAgo": 8,
+        "text": "Benefits enrollment packet sent."
+      },
+      {
+        "record": "employees#1",
+        "type": "meeting",
+        "daysAgo": 21,
+        "text": "Check-in meeting; settling in well."
+      },
+      {
+        "record": "employees#2",
+        "type": "document",
+        "daysAgo": 15,
+        "text": "Signed handbook acknowledgment received."
+      },
+      {
+        "record": "employees#2",
+        "type": "note",
+        "daysAgo": 28,
+        "text": "Benefits enrollment packet sent."
+      },
+      {
+        "record": "employees#3",
+        "type": "meeting",
+        "daysAgo": 22,
+        "text": "Check-in meeting; settling in well."
+      },
+      {
+        "record": "employees#4",
+        "type": "note",
+        "daysAgo": 29,
+        "text": "Benefits enrollment packet sent."
+      },
+      {
+        "record": "employees#4",
+        "type": "meeting",
+        "daysAgo": 42,
+        "text": "Check-in meeting; settling in well."
+      },
+      {
+        "record": "employees#5",
+        "type": "document",
+        "daysAgo": 36,
+        "text": "Signed handbook acknowledgment received."
+      },
+      {
+        "record": "employees#5",
+        "type": "note",
+        "daysAgo": 49,
+        "text": "Benefits enrollment packet sent."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "missingInfo"
+  ]
+}

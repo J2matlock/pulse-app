@@ -1,0 +1,708 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "childcare-center",
+  "name": "Childcare director",
+  "description": "For childcare centers: children with immunization records, physicals and emergency cards, and staff with CPR, background checks, TB tests and training hours.",
+  "icon": "graduation-cap",
+  "group": "Education and youth",
+  "vocab": {
+    "record": {
+      "one": "record",
+      "many": "records",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false
+  },
+  "lists": [
+    {
+      "key": "children",
+      "name": "Children",
+      "description": "Enrolled children with health forms and emergency cards",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "child",
+          "many": "children",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 1,
+          "width": 150,
+          "is_required": 1
+        },
+        {
+          "name": "Classroom",
+          "column_type": "dropdown",
+          "position": 2,
+          "width": 130,
+          "config": "{\"options\":[\"Infants\",\"Toddlers\",\"Preschool\",\"Pre-K\",\"School-age\"]}"
+        },
+        {
+          "name": "Parent",
+          "column_type": "text",
+          "position": 3,
+          "width": 160,
+          "is_required": 1
+        },
+        {
+          "name": "Parent phone",
+          "column_type": "phone",
+          "position": 4,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Allergies",
+          "column_type": "text",
+          "position": 5,
+          "width": 160
+        },
+        {
+          "name": "Start date",
+          "column_type": "date",
+          "position": 6,
+          "width": 150
+        },
+        {
+          "name": "Immunizations due",
+          "column_type": "date",
+          "position": 7,
+          "width": 150,
+          "description": "When the next immunization record is due",
+          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
+          "name": "Physical exam",
+          "column_type": "date",
+          "position": 8,
+          "width": 150,
+          "description": "Date of the last physical exam form",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Emergency card updated",
+          "column_type": "date",
+          "position": 9,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Due date",
+          "description": "The date entered is the deadline",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ]
+    },
+    {
+      "key": "staff",
+      "name": "Staff",
+      "description": "Staff with certifications and checks",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "staff member",
+          "many": "staff",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Role",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 150,
+          "config": "{\"options\":[\"Director\",\"Lead teacher\",\"Assistant teacher\",\"Cook\",\"Floater\"]}"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 2,
+          "width": 140
+        },
+        {
+          "name": "Hire date",
+          "column_type": "date",
+          "position": 3,
+          "width": 150
+        },
+        {
+          "name": "CPR/First aid expires",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Expires (60-day warning)\",\"log_changes\":true}"
+        },
+        {
+          "name": "Background check",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "description": "Date of the last background check; due again every 5 years",
+          "config": "{\"alert_rule_name\":\"Every 5 years\",\"log_changes\":true}"
+        },
+        {
+          "name": "TB test",
+          "column_type": "date",
+          "position": 6,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Training hours this year",
+          "column_type": "number",
+          "position": 7,
+          "width": 150
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Expires (60-day warning)",
+          "description": "The date entered is when it expires; warns 60, 30, 14 days ahead",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#facc15\",\"label\":\"Renew soon\"},{\"daysBefore\":30,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":14,\"bgClass\":\"#f87171\",\"label\":\"Expiring\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Expires today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Expired\"}]"
+        },
+        {
+          "name": "Every 5 years",
+          "description": "Due 5 years after the date entered",
+          "interval_months": 60,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "parent_contact",
+      "label": "Parent contact",
+      "icon": "📞",
+      "color": "blue"
+    },
+    {
+      "key": "incident",
+      "label": "Incident report",
+      "icon": "🩹",
+      "color": "red"
+    }
+  ],
+  "documentTemplates": [
+    {
+      "name": "Health form reminder",
+      "content": "{{today}}\n\nDear {{field:Parent}},\n\nOur records show {{name}}'s immunization record is due: {{deadline:Immunizations due}}.\n\nPlease bring an updated copy from the doctor's office so we can keep our files current.\n\nThank you,\n\n{{my_name}}"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "children": [
+        {
+          "Name": "Ruth Jackson",
+          "Date of birth": {
+            "daysFromToday": -200
+          },
+          "Classroom": "Infants",
+          "Parent": "Tyrone Haddad",
+          "Parent phone": "555-0152",
+          "Start date": {
+            "daysFromToday": -60
+          },
+          "Immunizations due": {
+            "daysFromToday": 10
+          },
+          "Physical exam": {
+            "daysFromToday": -50
+          },
+          "Emergency card updated": {
+            "daysFromToday": -50
+          }
+        },
+        {
+          "Name": "Diego Ferreira",
+          "Date of birth": {
+            "daysFromToday": -623
+          },
+          "Classroom": "Toddlers",
+          "Parent": "Mei Ortiz",
+          "Parent phone": "555-0159",
+          "Allergies": "Dairy",
+          "Start date": {
+            "daysFromToday": -300
+          },
+          "Immunizations due": {
+            "daysFromToday": 45
+          },
+          "Physical exam": {
+            "daysFromToday": -340
+          },
+          "Emergency card updated": {
+            "daysFromToday": -200
+          }
+        },
+        {
+          "Name": "Hannah Walker",
+          "Date of birth": {
+            "daysFromToday": -646
+          },
+          "Classroom": "Toddlers",
+          "Parent": "Walter Johnson",
+          "Parent phone": "555-0166",
+          "Start date": {
+            "daysFromToday": -120
+          },
+          "Immunizations due": {
+            "daysFromToday": 120
+          },
+          "Physical exam": {
+            "daysFromToday": -100
+          },
+          "Emergency card updated": {
+            "daysFromToday": -100
+          }
+        },
+        {
+          "Name": "Tyrone Haddad",
+          "Date of birth": {
+            "daysFromToday": -1269
+          },
+          "Classroom": "Preschool",
+          "Parent": "Yolanda Miller",
+          "Parent phone": "555-0173",
+          "Allergies": "Peanuts",
+          "Start date": {
+            "daysFromToday": -500
+          },
+          "Immunizations due": {
+            "daysFromToday": -4
+          },
+          "Physical exam": {
+            "daysFromToday": -380
+          },
+          "Emergency card updated": {
+            "daysFromToday": -370
+          }
+        },
+        {
+          "Name": "Mei Ortiz",
+          "Date of birth": {
+            "daysFromToday": -1292
+          },
+          "Classroom": "Preschool",
+          "Parent": "Ahmed Fischer",
+          "Parent phone": "555-0180",
+          "Start date": {
+            "daysFromToday": -700
+          },
+          "Immunizations due": {
+            "daysFromToday": 300
+          },
+          "Physical exam": {
+            "daysFromToday": -200
+          },
+          "Emergency card updated": {
+            "daysFromToday": -300
+          }
+        },
+        {
+          "Name": "Walter Johnson",
+          "Date of birth": {
+            "daysFromToday": -1315
+          },
+          "Classroom": "Preschool",
+          "Parent": "Beatrice O'Brien",
+          "Parent phone": "555-0187",
+          "Start date": {
+            "daysFromToday": -30
+          },
+          "Immunizations due": {
+            "daysFromToday": 25
+          },
+          "Physical exam": {
+            "daysFromToday": -20
+          },
+          "Emergency card updated": {
+            "daysFromToday": -20
+          }
+        },
+        {
+          "Name": "Yolanda Miller",
+          "Date of birth": {
+            "daysFromToday": -1738
+          },
+          "Classroom": "Pre-K",
+          "Parent": "Kevin Nguyen",
+          "Parent phone": "555-0194",
+          "Allergies": "Eggs",
+          "Start date": {
+            "daysFromToday": -400
+          },
+          "Immunizations due": {
+            "daysFromToday": 200
+          },
+          "Physical exam": {
+            "daysFromToday": -300
+          },
+          "Emergency card updated": {
+            "daysFromToday": -340
+          }
+        },
+        {
+          "Name": "Ahmed Fischer",
+          "Date of birth": {
+            "daysFromToday": -1761
+          },
+          "Classroom": "Pre-K",
+          "Parent": "Lucia Chen",
+          "Parent phone": "555-0101",
+          "Start date": {
+            "daysFromToday": -800
+          },
+          "Immunizations due": {
+            "daysFromToday": 400
+          },
+          "Physical exam": {
+            "daysFromToday": -360
+          },
+          "Emergency card updated": {
+            "daysFromToday": -120
+          }
+        },
+        {
+          "Name": "Beatrice O'Brien",
+          "Date of birth": {
+            "daysFromToday": -1784
+          },
+          "Classroom": "Pre-K",
+          "Parent": "Marcus Davis",
+          "Parent phone": "555-0108",
+          "Start date": {
+            "daysFromToday": -250
+          },
+          "Immunizations due": {
+            "daysFromToday": 60
+          },
+          "Physical exam": {
+            "daysFromToday": -150
+          },
+          "Emergency card updated": {
+            "daysFromToday": -60
+          }
+        },
+        {
+          "Name": "Kevin Nguyen",
+          "Date of birth": {
+            "daysFromToday": -2607
+          },
+          "Classroom": "School-age",
+          "Parent": "Maria Garcia",
+          "Parent phone": "555-0115",
+          "Start date": {
+            "daysFromToday": -900
+          },
+          "Physical exam": {
+            "daysFromToday": -250
+          },
+          "Emergency card updated": {
+            "daysFromToday": -365
+          }
+        },
+        {
+          "Name": "Lucia Chen",
+          "Date of birth": {
+            "daysFromToday": -430
+          },
+          "Classroom": "Infants",
+          "Parent": "James Patel",
+          "Parent phone": "555-0122",
+          "Start date": {
+            "daysFromToday": -15
+          },
+          "Immunizations due": {
+            "daysFromToday": 5
+          },
+          "Physical exam": {
+            "daysFromToday": -10
+          },
+          "Emergency card updated": {
+            "daysFromToday": -10
+          }
+        },
+        {
+          "Name": "Marcus Davis",
+          "Date of birth": {
+            "daysFromToday": -853
+          },
+          "Classroom": "Toddlers",
+          "Parent": "Aisha Morales",
+          "Parent phone": "555-0129",
+          "Allergies": "Tree nuts",
+          "Start date": {
+            "daysFromToday": -200
+          },
+          "Immunizations due": {
+            "daysFromToday": 90
+          },
+          "Physical exam": {
+            "daysFromToday": -90
+          },
+          "Emergency card updated": {
+            "daysFromToday": -180
+          }
+        }
+      ],
+      "staff": [
+        {
+          "Name": "Hannah Walker",
+          "Role": "Director",
+          "Phone": "555-0126",
+          "Hire date": {
+            "daysFromToday": -2000
+          },
+          "CPR/First aid expires": {
+            "daysFromToday": 9
+          },
+          "Background check": {
+            "daysFromToday": -1800
+          },
+          "TB test": {
+            "daysFromToday": -300
+          },
+          "Training hours this year": 14
+        },
+        {
+          "Name": "Tyrone Haddad",
+          "Role": "Lead teacher",
+          "Phone": "555-0133",
+          "Hire date": {
+            "daysFromToday": -900
+          },
+          "CPR/First aid expires": {
+            "daysFromToday": 38
+          },
+          "Background check": {
+            "daysFromToday": -880
+          },
+          "TB test": {
+            "daysFromToday": -360
+          },
+          "Training hours this year": 9
+        },
+        {
+          "Name": "Mei Ortiz",
+          "Role": "Lead teacher",
+          "Phone": "555-0140",
+          "Hire date": {
+            "daysFromToday": -400
+          },
+          "CPR/First aid expires": {
+            "daysFromToday": 110
+          },
+          "Background check": {
+            "daysFromToday": -390
+          },
+          "TB test": {
+            "daysFromToday": -200
+          },
+          "Training hours this year": 12
+        },
+        {
+          "Name": "Walter Johnson",
+          "Role": "Assistant teacher",
+          "Phone": "555-0147",
+          "Hire date": {
+            "daysFromToday": -200
+          },
+          "CPR/First aid expires": {
+            "daysFromToday": 300
+          },
+          "Background check": {
+            "daysFromToday": -190
+          },
+          "TB test": {
+            "daysFromToday": -190
+          },
+          "Training hours this year": 4
+        },
+        {
+          "Name": "Yolanda Miller",
+          "Role": "Assistant teacher",
+          "Phone": "555-0154",
+          "Hire date": {
+            "daysFromToday": -60
+          },
+          "CPR/First aid expires": {
+            "daysFromToday": 0
+          },
+          "Background check": {
+            "daysFromToday": -55
+          },
+          "TB test": {
+            "daysFromToday": -55
+          },
+          "Training hours this year": 2
+        },
+        {
+          "Name": "Ahmed Fischer",
+          "Role": "Cook",
+          "Phone": "555-0161",
+          "Hire date": {
+            "daysFromToday": -1500
+          },
+          "CPR/First aid expires": {
+            "daysFromToday": 9
+          },
+          "Background check": {
+            "daysFromToday": -1790
+          },
+          "TB test": {
+            "daysFromToday": -380
+          },
+          "Training hours this year": 6
+        },
+        {
+          "Name": "Beatrice O'Brien",
+          "Role": "Floater",
+          "Phone": "555-0168",
+          "Hire date": {
+            "daysFromToday": -30
+          },
+          "CPR/First aid expires": {
+            "daysFromToday": 38
+          },
+          "Background check": {
+            "daysFromToday": -25
+          },
+          "TB test": {
+            "daysFromToday": -25
+          },
+          "Training hours this year": 0
+        }
+      ]
+    },
+    "activities": [
+      {
+        "record": "children#0",
+        "type": "parent_contact",
+        "daysAgo": 1,
+        "text": "Reminded the parent that the physical form is due."
+      },
+      {
+        "record": "children#1",
+        "type": "note",
+        "daysAgo": 8,
+        "text": "New emergency contact added."
+      },
+      {
+        "record": "children#1",
+        "type": "parent_contact",
+        "daysAgo": 21,
+        "text": "Reminded the parent that the physical form is due."
+      },
+      {
+        "record": "children#2",
+        "type": "incident",
+        "daysAgo": 15,
+        "text": "Minor fall on the playground; ice pack, parent told at pickup."
+      },
+      {
+        "record": "children#2",
+        "type": "note",
+        "daysAgo": 28,
+        "text": "New emergency contact added."
+      },
+      {
+        "record": "children#3",
+        "type": "parent_contact",
+        "daysAgo": 22,
+        "text": "Reminded the parent that the physical form is due."
+      },
+      {
+        "record": "children#4",
+        "type": "note",
+        "daysAgo": 29,
+        "text": "New emergency contact added."
+      },
+      {
+        "record": "children#4",
+        "type": "parent_contact",
+        "daysAgo": 42,
+        "text": "Reminded the parent that the physical form is due."
+      },
+      {
+        "record": "children#5",
+        "type": "incident",
+        "daysAgo": 36,
+        "text": "Minor fall on the playground; ice pack, parent told at pickup."
+      },
+      {
+        "record": "children#5",
+        "type": "note",
+        "daysAgo": 49,
+        "text": "New emergency contact added."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "missingInfo"
+  ]
+}

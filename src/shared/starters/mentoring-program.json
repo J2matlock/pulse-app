@@ -1,0 +1,763 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "mentoring-program",
+  "name": "Mentoring program",
+  "description": "For mentoring programs: mentors and mentees, one-to-one matches, mentees on a board from referral to match, background checks and a match check-in every month.",
+  "icon": "users",
+  "group": "Faith and community",
+  "vocab": {
+    "record": {
+      "one": "person",
+      "many": "people",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": true,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": false,
+    "summaryReport": true,
+    "handoff": false,
+    "links": true,
+    "stages": true
+  },
+  "lists": [
+    {
+      "key": "mentors",
+      "name": "Mentors",
+      "description": "Volunteer mentors",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "mentor",
+          "many": "mentors",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 1,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 2,
+          "width": 200
+        },
+        {
+          "name": "Interests",
+          "column_type": "tag",
+          "position": 3,
+          "width": 140
+        },
+        {
+          "name": "Background check",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "description": "Date of the last background check; due again every 2 years",
+          "config": "{\"alert_rule_name\":\"Every 2 years\",\"log_changes\":true}"
+        },
+        {
+          "name": "Training done",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "description": "Date they finished mentor training"
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 6,
+          "width": 170,
+          "config": "{\"options\":[\"Active\",\"Waiting for a match\",\"On a break\",\"Left\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every 2 years",
+          "description": "Due 2 years after the date entered",
+          "interval_months": 24,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ]
+    },
+    {
+      "key": "mentees",
+      "name": "Mentees",
+      "description": "Young people waiting for or in a match",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "mentee",
+          "many": "mentees",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 1,
+          "width": 150
+        },
+        {
+          "name": "Guardian",
+          "column_type": "text",
+          "position": 2,
+          "width": 160
+        },
+        {
+          "name": "Guardian phone",
+          "column_type": "phone",
+          "position": 3,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "School",
+          "column_type": "text",
+          "position": 4,
+          "width": 170
+        },
+        {
+          "name": "Interests",
+          "column_type": "tag",
+          "position": 5,
+          "width": 140
+        },
+        {
+          "name": "Referred on",
+          "column_type": "date",
+          "position": 6,
+          "width": 150
+        },
+        {
+          "name": "Stage",
+          "column_type": "status",
+          "position": 7,
+          "width": 130,
+          "config": "{\"options\":[{\"label\":\"Referred\",\"color\":\"#64748b\"},{\"label\":\"Matching\",\"color\":\"#f59e0b\"},{\"label\":\"Matched\",\"color\":\"#22c55e\"},{\"label\":\"Closed\",\"color\":\"#ef4444\"}]}"
+        },
+        {
+          "name": "Match date",
+          "column_type": "date",
+          "position": 8,
+          "width": 150
+        },
+        {
+          "name": "Last match check-in",
+          "column_type": "date",
+          "position": 9,
+          "width": 150,
+          "description": "Date of the last check-in with the match; due monthly",
+          "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every 30 days",
+          "description": "Due 30 days after the date entered",
+          "interval_days": 30,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ],
+      "requirements": [
+        {
+          "label": "Match check-in",
+          "note_types": [
+            "checkin"
+          ],
+          "per_month": 1
+        }
+      ],
+      "links": [
+        {
+          "to": "mentors",
+          "label_forward": "Matched with",
+          "label_backward": "Mentee",
+          "cardinality": "one_to_one"
+        }
+      ],
+      "stage": {
+        "column": "Stage",
+        "options": [
+          {
+            "value": "Referred",
+            "color": "slate"
+          },
+          {
+            "value": "Matching",
+            "color": "amber"
+          },
+          {
+            "value": "Matched",
+            "color": "green"
+          },
+          {
+            "value": "Closed",
+            "color": "red",
+            "done": true
+          }
+        ],
+        "hideDoneAfterDays": 60
+      }
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "checkin",
+      "label": "Match check-in",
+      "icon": "🤝",
+      "color": "green"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "mentors": [
+        {
+          "Name": "Frank Rivera",
+          "Phone": "555-0113",
+          "Email": "frank.rivera@example.com",
+          "Interests": "[\"Sports\", \"Music\"]",
+          "Background check": {
+            "daysFromToday": -300
+          },
+          "Training done": {
+            "daysFromToday": -290
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Phone": "555-0120",
+          "Email": "keisha.thompson@example.com",
+          "Interests": "[\"Art\"]",
+          "Background check": {
+            "daysFromToday": -700
+          },
+          "Training done": {
+            "daysFromToday": -690
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Phone": "555-0127",
+          "Email": "samuel.rahman@example.com",
+          "Interests": "[\"Science\", \"Games\"]",
+          "Background check": {
+            "daysFromToday": -120
+          },
+          "Training done": {
+            "daysFromToday": -110
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Grace Okafor",
+          "Phone": "555-0134",
+          "Email": "grace.okafor@example.com",
+          "Interests": "[\"Reading\"]",
+          "Background check": {
+            "daysFromToday": -650
+          },
+          "Training done": {
+            "daysFromToday": -640
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Omar Brown",
+          "Phone": "555-0141",
+          "Email": "omar.brown@example.com",
+          "Interests": "[\"Sports\"]",
+          "Background check": {
+            "daysFromToday": -30
+          },
+          "Training done": {
+            "daysFromToday": -20
+          },
+          "Status": "Waiting for a match"
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Phone": "555-0148",
+          "Email": "ruth.jackson@example.com",
+          "Interests": "[\"Cooking\", \"Art\"]",
+          "Background check": {
+            "daysFromToday": -400
+          },
+          "Training done": {
+            "daysFromToday": -390
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Diego Ferreira",
+          "Phone": "555-0155",
+          "Email": "diego.ferreira@example.com",
+          "Interests": "[\"Music\"]",
+          "Background check": {
+            "daysFromToday": -710
+          },
+          "Training done": {
+            "daysFromToday": -700
+          },
+          "Status": "On a break"
+        }
+      ],
+      "mentees": [
+        {
+          "Name": "Samuel Rahman",
+          "Date of birth": {
+            "daysFromToday": -3139
+          },
+          "Guardian": "Hannah Walker",
+          "Guardian phone": "555-0139",
+          "School": "Lincoln Elementary",
+          "Interests": "[\"Science\", \"Games\"]",
+          "Referred on": {
+            "daysFromToday": -400
+          },
+          "Stage": "Matched",
+          "Match date": {
+            "daysFromToday": -370
+          },
+          "Last match check-in": {
+            "daysFromToday": -10
+          }
+        },
+        {
+          "Name": "Grace Okafor",
+          "Date of birth": {
+            "daysFromToday": -5770
+          },
+          "Guardian": "Tyrone Haddad",
+          "Guardian phone": "555-0146",
+          "School": "Westside Middle",
+          "Interests": "[\"Reading\"]",
+          "Referred on": {
+            "daysFromToday": -300
+          },
+          "Stage": "Matched",
+          "Match date": {
+            "daysFromToday": -270
+          },
+          "Last match check-in": {
+            "daysFromToday": -25
+          }
+        },
+        {
+          "Name": "Omar Brown",
+          "Date of birth": {
+            "daysFromToday": -3025
+          },
+          "Guardian": "Mei Ortiz",
+          "Guardian phone": "555-0153",
+          "School": "Central High",
+          "Interests": "[\"Sports\"]",
+          "Referred on": {
+            "daysFromToday": -200
+          },
+          "Stage": "Matched",
+          "Match date": {
+            "daysFromToday": -170
+          },
+          "Last match check-in": {
+            "daysFromToday": -40
+          }
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Date of birth": {
+            "daysFromToday": -5726
+          },
+          "Guardian": "Walter Johnson",
+          "Guardian phone": "555-0160",
+          "School": "Westside Middle",
+          "Interests": "[\"Cooking\", \"Art\"]",
+          "Referred on": {
+            "daysFromToday": -150
+          },
+          "Stage": "Matched",
+          "Match date": {
+            "daysFromToday": -120
+          },
+          "Last match check-in": {
+            "daysFromToday": -5
+          }
+        },
+        {
+          "Name": "Diego Ferreira",
+          "Date of birth": {
+            "daysFromToday": -4462
+          },
+          "Guardian": "Yolanda Miller",
+          "Guardian phone": "555-0167",
+          "School": "Lincoln Elementary",
+          "Interests": "[\"Music\"]",
+          "Referred on": {
+            "daysFromToday": -30
+          },
+          "Stage": "Matching"
+        },
+        {
+          "Name": "Hannah Walker",
+          "Date of birth": {
+            "daysFromToday": -3186
+          },
+          "Guardian": "Ahmed Fischer",
+          "Guardian phone": "555-0174",
+          "School": "Central High",
+          "Interests": "[\"Science\"]",
+          "Referred on": {
+            "daysFromToday": -5
+          },
+          "Stage": "Referred"
+        },
+        {
+          "Name": "Tyrone Haddad",
+          "Date of birth": {
+            "daysFromToday": -5642
+          },
+          "Guardian": "Beatrice O'Brien",
+          "Guardian phone": "555-0181",
+          "School": "Westside Middle",
+          "Interests": "[\"Sports\", \"Music\"]",
+          "Referred on": {
+            "daysFromToday": -90
+          },
+          "Stage": "Matched",
+          "Match date": {
+            "daysFromToday": -60
+          },
+          "Last match check-in": {
+            "daysFromToday": -33
+          }
+        },
+        {
+          "Name": "Mei Ortiz",
+          "Date of birth": {
+            "daysFromToday": -3412
+          },
+          "Guardian": "Kevin Nguyen",
+          "Guardian phone": "555-0188",
+          "School": "Lincoln Elementary",
+          "Interests": "[\"Art\"]",
+          "Referred on": {
+            "daysFromToday": -12
+          },
+          "Stage": "Referred"
+        },
+        {
+          "Name": "Walter Johnson",
+          "Date of birth": {
+            "daysFromToday": -4767
+          },
+          "Guardian": "Lucia Chen",
+          "Guardian phone": "555-0195",
+          "School": "Central High",
+          "Interests": "[\"Science\", \"Games\"]",
+          "Referred on": {
+            "daysFromToday": -500
+          },
+          "Stage": "Closed",
+          "Match date": {
+            "daysFromToday": -470
+          }
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "mentees#0",
+        "to": "mentors#0",
+        "link": "Matched with"
+      },
+      {
+        "from": "mentees#1",
+        "to": "mentors#1",
+        "link": "Matched with"
+      },
+      {
+        "from": "mentees#2",
+        "to": "mentors#2",
+        "link": "Matched with"
+      },
+      {
+        "from": "mentees#3",
+        "to": "mentors#3",
+        "link": "Matched with"
+      },
+      {
+        "from": "mentees#6",
+        "to": "mentors#5",
+        "link": "Matched with"
+      }
+    ],
+    "history": [
+      {
+        "record": "mentees#0",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Referred",
+            "daysAgo": 400
+          },
+          {
+            "value": "Matching",
+            "daysAgo": 390
+          },
+          {
+            "value": "Matched",
+            "daysAgo": 370
+          }
+        ]
+      },
+      {
+        "record": "mentees#1",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Referred",
+            "daysAgo": 300
+          },
+          {
+            "value": "Matching",
+            "daysAgo": 290
+          },
+          {
+            "value": "Matched",
+            "daysAgo": 270
+          }
+        ]
+      },
+      {
+        "record": "mentees#2",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Referred",
+            "daysAgo": 200
+          },
+          {
+            "value": "Matching",
+            "daysAgo": 190
+          },
+          {
+            "value": "Matched",
+            "daysAgo": 170
+          }
+        ]
+      },
+      {
+        "record": "mentees#3",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Referred",
+            "daysAgo": 150
+          },
+          {
+            "value": "Matching",
+            "daysAgo": 140
+          },
+          {
+            "value": "Matched",
+            "daysAgo": 120
+          }
+        ]
+      },
+      {
+        "record": "mentees#4",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Referred",
+            "daysAgo": 30
+          },
+          {
+            "value": "Matching",
+            "daysAgo": 20
+          }
+        ]
+      },
+      {
+        "record": "mentees#5",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Referred",
+            "daysAgo": 5
+          }
+        ]
+      },
+      {
+        "record": "mentees#6",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Referred",
+            "daysAgo": 90
+          },
+          {
+            "value": "Matching",
+            "daysAgo": 80
+          },
+          {
+            "value": "Matched",
+            "daysAgo": 60
+          }
+        ]
+      },
+      {
+        "record": "mentees#7",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Referred",
+            "daysAgo": 12
+          }
+        ]
+      },
+      {
+        "record": "mentees#8",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Referred",
+            "daysAgo": 500
+          },
+          {
+            "value": "Matching",
+            "daysAgo": 490
+          },
+          {
+            "value": "Matched",
+            "daysAgo": 470
+          },
+          {
+            "value": "Closed",
+            "daysAgo": 20
+          }
+        ]
+      }
+    ],
+    "activities": [
+      {
+        "record": "mentees#0",
+        "type": "checkin",
+        "daysAgo": 1,
+        "text": "Monthly check-in with the mentor: went to the science museum, going well."
+      },
+      {
+        "record": "mentees#1",
+        "type": "note",
+        "daysAgo": 8,
+        "text": "Interest form received."
+      },
+      {
+        "record": "mentees#1",
+        "type": "checkin",
+        "daysAgo": 21,
+        "text": "Monthly check-in with the mentor: went to the science museum, going well."
+      },
+      {
+        "record": "mentees#2",
+        "type": "checkin",
+        "daysAgo": 15,
+        "text": "Check-in call with the guardian; happy with the match."
+      },
+      {
+        "record": "mentees#2",
+        "type": "note",
+        "daysAgo": 28,
+        "text": "Interest form received."
+      },
+      {
+        "record": "mentees#3",
+        "type": "checkin",
+        "daysAgo": 22,
+        "text": "Monthly check-in with the mentor: went to the science museum, going well."
+      },
+      {
+        "record": "mentees#4",
+        "type": "note",
+        "daysAgo": 29,
+        "text": "Interest form received."
+      },
+      {
+        "record": "mentees#4",
+        "type": "checkin",
+        "daysAgo": 42,
+        "text": "Monthly check-in with the mentor: went to the science museum, going well."
+      },
+      {
+        "record": "mentees#5",
+        "type": "checkin",
+        "daysAgo": 36,
+        "text": "Check-in call with the guardian; happy with the match."
+      },
+      {
+        "record": "mentees#5",
+        "type": "note",
+        "daysAgo": 49,
+        "text": "Interest form received."
+      },
+      {
+        "record": "mentees#6",
+        "type": "checkin",
+        "daysAgo": 43,
+        "text": "Monthly check-in with the mentor: went to the science museum, going well."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "requirements",
+    "stages",
+    "missingInfo"
+  ]
+}

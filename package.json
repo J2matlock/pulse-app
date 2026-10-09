@@ -1,0 +1,188 @@
+{
+  "name": "baringasoft-pulse",
+  "version": "2.0.0",
+  "description": "A free, private, offline tracker for people and things with deadlines",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "author": {
+    "name": "BaringaSoft",
+    "email": "support@baringasoft.com"
+  },
+  "main": "out/main/index.js",
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/J2matlock/pulse-app.git"
+  },
+  "bugs": "https://github.com/J2matlock/pulse-app/issues",
+  "private": true,
+  "homepage": ".",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "package": "npm run build && electron-builder",
+    "package:win": "node scripts/build-win.js",
+    "package:linux": "node scripts/build-linux.js",
+    "package:mac": "node scripts/build-mac.js",
+    "package:all": "npm run package:linux && npm run package:win",
+    "postinstall": "electron-rebuild -f -w better-sqlite3-multiple-ciphers",
+    "test": "bash scripts/run-tests.sh",
+    "test:unit": "bash scripts/run-tests.sh",
+    "test:coverage": "bash scripts/run-tests.sh --coverage",
+    "test:watch": "echo 'NOTE: DB-dependent tests may fail in watch mode (ABI mismatch). Use npm test for full suite.' && vitest --watch",
+    "test:e2e": "npm run build && npx playwright test",
+    "test:all": "npm run test:unit && npm run test:e2e",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json; A=$?; tsc --noEmit -p tsconfig.web.json; B=$?; [ $A -eq 0 ] && [ $B -eq 0 ]",
+    "lint": "eslint src",
+    "ui-tour": "npm run build && UI_TOUR=1 npx playwright test e2e/ui-tour.spec.ts --reporter=line"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "6.3.1",
+    "@dnd-kit/sortable": "8.0.0",
+    "@dnd-kit/utilities": "3.2.2",
+    "@tanstack/react-table": "8.21.3",
+    "@tanstack/react-virtual": "3.13.19",
+    "@tiptap/extension-underline": "3.31.4",
+    "@tiptap/pm": "3.31.4",
+    "@tiptap/react": "3.31.4",
+    "@tiptap/starter-kit": "3.31.4",
+    "bcryptjs": "3.0.3",
+    "better-sqlite3-multiple-ciphers": "12.6.2",
+    "cmdk": "1.1.1",
+    "date-fns": "4.1.0",
+    "dompurify": "3.4.16",
+    "electron-store": "8.2.0",
+    "exceljs": "4.4.0",
+    "jspdf": "4.2.1",
+    "jspdf-autotable": "5.0.7",
+    "lucide-react": "0.575.0",
+    "motion": "12.34.3",
+    "papaparse": "5.5.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-hot-toast": "2.6.0",
+    "react-router-dom": "7.18.4",
+    "yauzl": "3.2.1",
+    "yazl": "3.3.1",
+    "zod": "4.3.6",
+    "zustand": "5.0.11"
+  },
+  "devDependencies": {
+    "@electron/fuses": "2.1.0",
+    "@electron/rebuild": "4.0.3",
+    "@playwright/test": "1.58.2",
+    "@tailwindcss/postcss": "4.2.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.1",
+    "@types/bcryptjs": "3.0.0",
+    "@types/better-sqlite3": "7.6.13",
+    "@types/dompurify": "3.2.0",
+    "@types/node": "22.13.5",
+    "@types/papaparse": "5.5.2",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@types/yauzl": "^2.10.3",
+    "@types/yazl": "^3.3.0",
+    "@typescript-eslint/eslint-plugin": "8.56.1",
+    "@typescript-eslint/parser": "8.56.1",
+    "@vitejs/plugin-react": "4.3.4",
+    "electron": "39.7.0",
+    "electron-builder": "26.8.1",
+    "electron-vite": "3.1.0",
+    "eslint": "10.0.2",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-security": "4.0.0",
+    "jsdom": "28.1.0",
+    "postcss": "8.5.6",
+    "tailwindcss": "4.2.1",
+    "typescript": "5.9.3",
+    "vite": "6.4.1",
+    "vitest": "4.0.18"
+  },
+  "build": {
+    "appId": "com.baringasoft.pulse",
+    "productName": "Pulse by BaringaSoft",
+    "copyright": "Copyright © 2026 BaringaSoft",
+    "afterPack": "./scripts/afterPack.js",
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "files": [
+      "out/**/*",
+      "!out/**/*.map"
+    ],
+    "fileAssociations": [
+      {
+        "ext": "pulse",
+        "name": "Pulse Template",
+        "description": "Pulse by BaringaSoft setup template",
+        "mimeType": "application/x-pulse-template"
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "build/icon-256.png",
+        "to": "icon.png"
+      }
+    ],
+    "linux": {
+      "executableName": "baringasoft-pulse",
+      "artifactName": "BaringaSoftPulse-${version}.${ext}",
+      "target": [
+        "AppImage"
+      ],
+      "category": "Office",
+      "icon": "build/icon.png",
+      "mimeTypes": [
+        "application/x-pulse-template"
+      ]
+    },
+    "win": {
+      "signAndEditExecutable": false,
+      "icon": "build/icon.ico",
+      "artifactName": "BaringaSoftPulse-${version}.${ext}",
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "BaringaSoftPulse-${version}-${arch}.${ext}",
+      "icon": "build/icon-512.png",
+      "category": "public.app-category.productivity",
+      "minimumSystemVersion": "12.0",
+      "darkModeSupport": true,
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "entitlements": "build/entitlements.mac.plist",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "title": "Pulse ${version}"
+    }
+  }
+}

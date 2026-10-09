@@ -1,0 +1,339 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "grant-manager",
+  "name": "Grant manager",
+  "description": "For nonprofit grant managers: quarterly reports, closeout reports 90 days after a grant ends, funders and program officers.",
+  "icon": "building-2",
+  "group": "Business",
+  "vocab": {
+    "record": {
+      "one": "grant",
+      "many": "grants",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false
+  },
+  "lists": [
+    {
+      "key": "grants",
+      "name": "Grants",
+      "description": "Grants with quarterly reports and closeout deadlines",
+      "kind": "thing",
+      "columns": [
+        {
+          "name": "Grant",
+          "column_type": "text",
+          "position": 0,
+          "width": 220,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Funder",
+          "column_type": "text",
+          "position": 1,
+          "width": 200
+        },
+        {
+          "name": "Amount",
+          "column_type": "currency",
+          "position": 2,
+          "width": 130
+        },
+        {
+          "name": "Start date",
+          "column_type": "date",
+          "position": 3,
+          "width": 150
+        },
+        {
+          "name": "End date",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "is_required": 1
+        },
+        {
+          "name": "Quarterly report",
+          "column_type": "deadline",
+          "position": 5,
+          "width": 140,
+          "description": "The next progress report; mark it done when sent",
+          "config": "{\"alert_rule_name\":\"Quarterly report\"}"
+        },
+        {
+          "name": "Closeout submitted",
+          "column_type": "date",
+          "position": 6,
+          "width": 150,
+          "description": "Date the final report was submitted",
+          "config": "{\"alert_rule_name\":\"Closeout due\",\"log_changes\":true}"
+        },
+        {
+          "name": "Program officer",
+          "column_type": "text",
+          "position": 7,
+          "width": 160
+        },
+        {
+          "name": "Officer email",
+          "column_type": "email",
+          "position": 8,
+          "width": 200
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 9,
+          "width": 130,
+          "config": "{\"options\":[\"Applied\",\"Active\",\"Closing out\",\"Closed\",\"Declined\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Quarterly report",
+          "description": "Progress reports are due 30 days after each quarter ends",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "calendar",
+          "rule_config": "{\"kind\":\"calendar\",\"months\":[1,4,7,10],\"day\":30}"
+        },
+        {
+          "name": "Closeout due",
+          "description": "The final report is due 90 days after the grant ends",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\":\"relative\",\"anchorColumnId\":{\"column\":\"End date\"},\"offset\":{\"days\":90,\"direction\":\"after\"}}"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "report",
+      "label": "Report sent",
+      "icon": "📊",
+      "color": "blue"
+    },
+    {
+      "key": "payment",
+      "label": "Payment received",
+      "icon": "💵",
+      "color": "green"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "grants": [
+        {
+          "Grant": "Youth Mentoring Program",
+          "Funder": "Springfield Community Foundation",
+          "Amount": 50000,
+          "Start date": {
+            "daysFromToday": -200
+          },
+          "End date": {
+            "daysFromToday": 165
+          },
+          "Program officer": "Diego Ferreira",
+          "Officer email": "youth.mentoring.program@example.com",
+          "Status": "Active"
+        },
+        {
+          "Grant": "Food Pantry Expansion",
+          "Funder": "State Department of Agriculture",
+          "Amount": 120000,
+          "Start date": {
+            "daysFromToday": -400
+          },
+          "End date": {
+            "daysFromToday": -120
+          },
+          "Program officer": "Hannah Walker",
+          "Officer email": "food.pantry.expansion@example.com",
+          "Status": "Closing out"
+        },
+        {
+          "Grant": "After-School Tutoring",
+          "Funder": "Lakeside Family Fund",
+          "Amount": 25000,
+          "Start date": {
+            "daysFromToday": -30
+          },
+          "End date": {
+            "daysFromToday": 335
+          },
+          "Program officer": "Tyrone Haddad",
+          "Officer email": "after-school.tutoring@example.com",
+          "Status": "Active"
+        },
+        {
+          "Grant": "Senior Meals",
+          "Funder": "County Aging Office",
+          "Amount": 80000,
+          "Start date": {
+            "daysFromToday": -700
+          },
+          "End date": {
+            "daysFromToday": -60
+          },
+          "Closeout submitted": {
+            "daysFromToday": -5
+          },
+          "Program officer": "Mei Ortiz",
+          "Officer email": "senior.meals@example.com",
+          "Status": "Closing out"
+        },
+        {
+          "Grant": "Community Garden",
+          "Funder": "Green Neighborhoods Trust",
+          "Amount": 10000,
+          "Start date": {
+            "daysFromToday": -100
+          },
+          "End date": {
+            "daysFromToday": 265
+          },
+          "Program officer": "Walter Johnson",
+          "Officer email": "community.garden@example.com",
+          "Status": "Active"
+        },
+        {
+          "Grant": "Job Readiness Workshops",
+          "Funder": "Workforce Board",
+          "Amount": 45000,
+          "Start date": {
+            "daysFromToday": -380
+          },
+          "End date": {
+            "daysFromToday": -15
+          },
+          "Program officer": "Yolanda Miller",
+          "Officer email": "job.readiness.workshops@example.com",
+          "Status": "Closing out"
+        },
+        {
+          "Grant": "Literacy Nights",
+          "Funder": "Library Partners Fund",
+          "Amount": 7500,
+          "Start date": {
+            "daysFromToday": -500
+          },
+          "End date": {
+            "daysFromToday": 230
+          },
+          "Program officer": "Ahmed Fischer",
+          "Officer email": "literacy.nights@example.com",
+          "Status": "Active"
+        },
+        {
+          "Grant": "Emergency Rent Help",
+          "Funder": "United Giving",
+          "Amount": 60000,
+          "Start date": {
+            "daysFromToday": -300
+          },
+          "End date": {
+            "daysFromToday": 65
+          },
+          "Program officer": "Beatrice O'Brien",
+          "Officer email": "emergency.rent.help@example.com",
+          "Status": "Active"
+        }
+      ]
+    },
+    "activities": [
+      {
+        "record": "grants#0",
+        "type": "report",
+        "daysAgo": 1,
+        "text": "Sent the quarterly progress report and budget."
+      },
+      {
+        "record": "grants#1",
+        "type": "note",
+        "daysAgo": 8,
+        "text": "Program officer asked for more photos for the next report."
+      },
+      {
+        "record": "grants#1",
+        "type": "report",
+        "daysAgo": 21,
+        "text": "Sent the quarterly progress report and budget."
+      },
+      {
+        "record": "grants#2",
+        "type": "payment",
+        "daysAgo": 15,
+        "text": "Second installment received."
+      },
+      {
+        "record": "grants#2",
+        "type": "note",
+        "daysAgo": 28,
+        "text": "Program officer asked for more photos for the next report."
+      },
+      {
+        "record": "grants#3",
+        "type": "report",
+        "daysAgo": 22,
+        "text": "Sent the quarterly progress report and budget."
+      },
+      {
+        "record": "grants#4",
+        "type": "note",
+        "daysAgo": 29,
+        "text": "Program officer asked for more photos for the next report."
+      },
+      {
+        "record": "grants#4",
+        "type": "report",
+        "daysAgo": 42,
+        "text": "Sent the quarterly progress report and budget."
+      },
+      {
+        "record": "grants#5",
+        "type": "payment",
+        "daysAgo": 36,
+        "text": "Second installment received."
+      },
+      {
+        "record": "grants#5",
+        "type": "note",
+        "daysAgo": 49,
+        "text": "Program officer asked for more photos for the next report."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "missingInfo"
+  ]
+}

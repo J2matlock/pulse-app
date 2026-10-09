@@ -1,0 +1,590 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "sales-follow-ups",
+  "name": "Sales & follow-ups",
+  "description": "A simple sales pipeline: leads on a board from new to won or lost, what each is worth, and when to follow up next.",
+  "icon": "users",
+  "group": "Business",
+  "vocab": {
+    "record": {
+      "one": "lead",
+      "many": "leads",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false,
+    "stages": true
+  },
+  "lists": [
+    {
+      "key": "leads",
+      "name": "Leads",
+      "description": "People you're talking to about work, and when to follow up",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Company",
+          "column_type": "text",
+          "position": 1,
+          "width": 180
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 2,
+          "width": 140
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 3,
+          "width": 200
+        },
+        {
+          "name": "Source",
+          "column_type": "dropdown",
+          "position": 4,
+          "width": 150,
+          "config": "{\"options\":[\"Referral\",\"Website\",\"Event\",\"Cold call\",\"Repeat customer\"]}"
+        },
+        {
+          "name": "Stage",
+          "column_type": "status",
+          "position": 5,
+          "width": 130,
+          "config": "{\"options\":[{\"label\":\"New\",\"color\":\"#64748b\"},{\"label\":\"Contacted\",\"color\":\"#3b82f6\"},{\"label\":\"Proposal\",\"color\":\"#a855f7\"},{\"label\":\"Won\",\"color\":\"#22c55e\"},{\"label\":\"Lost\",\"color\":\"#ef4444\"}]}"
+        },
+        {
+          "name": "Value",
+          "column_type": "currency",
+          "position": 6,
+          "width": 110
+        },
+        {
+          "name": "Next follow-up",
+          "column_type": "date",
+          "position": 7,
+          "width": 150,
+          "is_required": 1,
+          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
+          "name": "Closed on",
+          "column_type": "date",
+          "position": 8,
+          "width": 150
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Due date",
+          "description": "The date entered is the deadline",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ],
+      "stage": {
+        "column": "Stage",
+        "options": [
+          {
+            "value": "New",
+            "color": "slate"
+          },
+          {
+            "value": "Contacted",
+            "color": "blue"
+          },
+          {
+            "value": "Proposal",
+            "color": "purple"
+          },
+          {
+            "value": "Won",
+            "color": "green",
+            "done": true,
+            "onEnter": {
+              "stampColumn": "Closed on"
+            }
+          },
+          {
+            "value": "Lost",
+            "color": "red",
+            "done": true,
+            "onEnter": {
+              "stampColumn": "Closed on"
+            }
+          }
+        ],
+        "hideDoneAfterDays": 30
+      }
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "call",
+      "label": "Call",
+      "icon": "📞",
+      "color": "blue"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "leads": [
+        {
+          "Name": "Keisha Thompson",
+          "Company": "Lakeside Dental",
+          "Phone": "555-0126",
+          "Email": "keisha.thompson@example.com",
+          "Source": "Referral",
+          "Stage": "New",
+          "Value": 2400,
+          "Next follow-up": {
+            "daysFromToday": -3
+          }
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Company": "Hilltop Bakery",
+          "Phone": "555-0133",
+          "Email": "samuel.rahman@example.com",
+          "Source": "Website",
+          "Stage": "Contacted",
+          "Value": 800,
+          "Next follow-up": {
+            "daysFromToday": 0
+          }
+        },
+        {
+          "Name": "Grace Okafor",
+          "Company": "Green Lawns",
+          "Phone": "555-0140",
+          "Email": "grace.okafor@example.com",
+          "Source": "Event",
+          "Stage": "Proposal",
+          "Value": 5000,
+          "Next follow-up": {
+            "daysFromToday": 2
+          }
+        },
+        {
+          "Name": "Omar Brown",
+          "Company": "Bright Signs",
+          "Phone": "555-0147",
+          "Email": "omar.brown@example.com",
+          "Source": "Cold call",
+          "Stage": "Contacted",
+          "Value": 1200,
+          "Next follow-up": {
+            "daysFromToday": 5
+          }
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Company": "Corner Market",
+          "Phone": "555-0154",
+          "Email": "ruth.jackson@example.com",
+          "Source": "Repeat customer",
+          "Stage": "Won",
+          "Value": 3600,
+          "Closed on": {
+            "daysFromToday": -12
+          }
+        },
+        {
+          "Name": "Diego Ferreira",
+          "Company": "River City Gym",
+          "Phone": "555-0161",
+          "Email": "diego.ferreira@example.com",
+          "Source": "Referral",
+          "Stage": "Proposal",
+          "Value": 7500,
+          "Next follow-up": {
+            "daysFromToday": -1
+          }
+        },
+        {
+          "Name": "Hannah Walker",
+          "Phone": "555-0168",
+          "Email": "hannah.walker@example.com",
+          "Source": "Website",
+          "Stage": "New",
+          "Value": 600,
+          "Next follow-up": {
+            "daysFromToday": 1
+          }
+        },
+        {
+          "Name": "Tyrone Haddad",
+          "Company": "Main St Books",
+          "Phone": "555-0175",
+          "Email": "tyrone.haddad@example.com",
+          "Source": "Event",
+          "Stage": "Lost",
+          "Value": 1500,
+          "Closed on": {
+            "daysFromToday": -20
+          }
+        },
+        {
+          "Name": "Mei Ortiz",
+          "Company": "Oak Realty",
+          "Phone": "555-0182",
+          "Email": "mei.ortiz@example.com",
+          "Source": "Referral",
+          "Stage": "Contacted",
+          "Value": 2200,
+          "Next follow-up": {
+            "daysFromToday": 9
+          }
+        },
+        {
+          "Name": "Walter Johnson",
+          "Company": "Sunrise Daycare",
+          "Phone": "555-0189",
+          "Email": "walter.johnson@example.com",
+          "Source": "Website",
+          "Stage": "Proposal",
+          "Value": 4100,
+          "Next follow-up": {
+            "daysFromToday": 14
+          }
+        },
+        {
+          "Name": "Yolanda Miller",
+          "Company": "Metro Cleaners",
+          "Phone": "555-0196",
+          "Email": "yolanda.miller@example.com",
+          "Source": "Repeat customer",
+          "Stage": "Won",
+          "Value": 950,
+          "Closed on": {
+            "daysFromToday": -3
+          }
+        },
+        {
+          "Name": "Ahmed Fischer",
+          "Phone": "555-0103",
+          "Email": "ahmed.fischer@example.com",
+          "Source": "Cold call",
+          "Stage": "New",
+          "Value": 1800,
+          "Next follow-up": {
+            "daysFromToday": 40
+          }
+        }
+      ]
+    },
+    "history": [
+      {
+        "record": "leads#0",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 3
+          }
+        ]
+      },
+      {
+        "record": "leads#1",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 9
+          },
+          {
+            "value": "Contacted",
+            "daysAgo": 3
+          }
+        ]
+      },
+      {
+        "record": "leads#2",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 17
+          },
+          {
+            "value": "Contacted",
+            "daysAgo": 10
+          },
+          {
+            "value": "Proposal",
+            "daysAgo": 3
+          }
+        ]
+      },
+      {
+        "record": "leads#3",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 11
+          },
+          {
+            "value": "Contacted",
+            "daysAgo": 3
+          }
+        ]
+      },
+      {
+        "record": "leads#4",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 18
+          },
+          {
+            "value": "Contacted",
+            "daysAgo": 13
+          },
+          {
+            "value": "Proposal",
+            "daysAgo": 8
+          },
+          {
+            "value": "Won",
+            "daysAgo": 3
+          }
+        ]
+      },
+      {
+        "record": "leads#5",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 15
+          },
+          {
+            "value": "Contacted",
+            "daysAgo": 9
+          },
+          {
+            "value": "Proposal",
+            "daysAgo": 3
+          }
+        ]
+      },
+      {
+        "record": "leads#6",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 3
+          }
+        ]
+      },
+      {
+        "record": "leads#7",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 27
+          },
+          {
+            "value": "Contacted",
+            "daysAgo": 19
+          },
+          {
+            "value": "Proposal",
+            "daysAgo": 11
+          },
+          {
+            "value": "Lost",
+            "daysAgo": 3
+          }
+        ]
+      },
+      {
+        "record": "leads#8",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 8
+          },
+          {
+            "value": "Contacted",
+            "daysAgo": 3
+          }
+        ]
+      },
+      {
+        "record": "leads#9",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 15
+          },
+          {
+            "value": "Contacted",
+            "daysAgo": 9
+          },
+          {
+            "value": "Proposal",
+            "daysAgo": 3
+          }
+        ]
+      },
+      {
+        "record": "leads#10",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 24
+          },
+          {
+            "value": "Contacted",
+            "daysAgo": 17
+          },
+          {
+            "value": "Proposal",
+            "daysAgo": 10
+          },
+          {
+            "value": "Won",
+            "daysAgo": 3
+          }
+        ]
+      },
+      {
+        "record": "leads#11",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "New",
+            "daysAgo": 3
+          }
+        ]
+      }
+    ],
+    "activities": [
+      {
+        "record": "leads#0",
+        "type": "call",
+        "daysAgo": 1,
+        "text": "Intro call; interested, wants a quote by Friday."
+      },
+      {
+        "record": "leads#1",
+        "type": "meeting",
+        "daysAgo": 8,
+        "text": "Met on site to measure up."
+      },
+      {
+        "record": "leads#1",
+        "type": "note",
+        "daysAgo": 21,
+        "text": "Asked to check back after their busy season."
+      },
+      {
+        "record": "leads#2",
+        "type": "call",
+        "daysAgo": 15,
+        "text": "Intro call; interested, wants a quote by Friday."
+      },
+      {
+        "record": "leads#2",
+        "type": "email",
+        "daysAgo": 28,
+        "text": "Sent the proposal with two options."
+      },
+      {
+        "record": "leads#3",
+        "type": "meeting",
+        "daysAgo": 22,
+        "text": "Met on site to measure up."
+      },
+      {
+        "record": "leads#4",
+        "type": "call",
+        "daysAgo": 29,
+        "text": "Intro call; interested, wants a quote by Friday."
+      },
+      {
+        "record": "leads#4",
+        "type": "email",
+        "daysAgo": 42,
+        "text": "Sent the proposal with two options."
+      },
+      {
+        "record": "leads#5",
+        "type": "meeting",
+        "daysAgo": 36,
+        "text": "Met on site to measure up."
+      },
+      {
+        "record": "leads#5",
+        "type": "note",
+        "daysAgo": 49,
+        "text": "Asked to check back after their busy season."
+      },
+      {
+        "record": "leads#6",
+        "type": "call",
+        "daysAgo": 43,
+        "text": "Intro call; interested, wants a quote by Friday."
+      },
+      {
+        "record": "leads#7",
+        "type": "meeting",
+        "daysAgo": 50,
+        "text": "Met on site to measure up."
+      },
+      {
+        "record": "leads#7",
+        "type": "note",
+        "daysAgo": 3,
+        "text": "Asked to check back after their busy season."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "stages",
+    "recentActivity"
+  ]
+}

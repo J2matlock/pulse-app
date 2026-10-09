@@ -1,0 +1,502 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "housing-case-manager",
+  "name": "Housing case manager",
+  "description": "For housing and homeless services: monthly contacts, housing plan reviews every 6 months, lease end dates and yearly income recertification, with a one-contact-a-month requirement.",
+  "icon": "home",
+  "group": "Human services",
+  "vocab": {
+    "record": {
+      "one": "client",
+      "many": "clients",
+      "article": "a"
+    },
+    "list": {
+      "one": "caseload",
+      "many": "caseloads",
+      "article": "a"
+    },
+    "activity": {
+      "one": "case note",
+      "many": "case notes",
+      "article": "a"
+    },
+    "activityLog": {
+      "one": "case log",
+      "many": "case logs",
+      "article": "a"
+    },
+    "contactDirectory": {
+      "one": "contacts",
+      "many": "contacts",
+      "article": "a",
+      "oneCap": "Contacts",
+      "manyCap": "Contacts"
+    },
+    "contact": {
+      "one": "provider",
+      "many": "providers",
+      "article": "a"
+    },
+    "priority": {
+      "one": "acuity level",
+      "many": "acuity levels",
+      "article": "an"
+    },
+    "archive": {
+      "one": "archive",
+      "many": "archives",
+      "article": "an"
+    },
+    "worker": {
+      "one": "case manager",
+      "many": "case managers",
+      "article": "a"
+    },
+    "requirement": {
+      "one": "contact requirement",
+      "many": "contact requirements",
+      "article": "a"
+    },
+    "appointment": {
+      "one": "appointment",
+      "many": "appointments",
+      "article": "an"
+    },
+    "stage": {
+      "one": "stage",
+      "many": "stages",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": true,
+    "contactsDirectory": true,
+    "requirements": true,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": true,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": true
+  },
+  "lists": [
+    {
+      "key": "caseload",
+      "name": "Housing caseload",
+      "description": "Participants with housing plans, leases and recertifications",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 1,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 2,
+          "width": 160
+        },
+        {
+          "name": "Program",
+          "column_type": "dropdown",
+          "position": 3,
+          "width": 200,
+          "config": "{\"options\":[\"Rapid rehousing\",\"Permanent supportive housing\",\"Prevention\",\"Outreach\"]}"
+        },
+        {
+          "name": "Last contact",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+        },
+        {
+          "name": "Housing plan review",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "description": "Date of the last housing plan review; due again in 6 months",
+          "config": "{\"alert_rule_name\":\"Every 6 months\",\"log_changes\":true}"
+        },
+        {
+          "name": "Lease end",
+          "column_type": "date",
+          "position": 6,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+        },
+        {
+          "name": "Income recertification",
+          "column_type": "date",
+          "position": 7,
+          "width": 150,
+          "description": "Date of the last income recertification; due again a year later",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "Landlord",
+          "column_type": "text",
+          "position": 8,
+          "width": 160
+        },
+        {
+          "name": "Landlord phone",
+          "column_type": "phone",
+          "position": 9,
+          "width": 140
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 10,
+          "width": 120,
+          "config": "{\"options\":[\"Housed\",\"Searching\",\"Shelter\",\"Exited\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every 30 days",
+          "description": "Due 30 days after the date entered",
+          "interval_days": 30,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Every 6 months",
+          "description": "Due 6 months after the date entered",
+          "interval_months": 6,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Due date",
+          "description": "The date entered is the deadline",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ],
+      "requirements": [
+        {
+          "label": "Contact",
+          "note_types": [
+            "visit",
+            "phone",
+            "meeting"
+          ],
+          "per_month": 1
+        }
+      ]
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "caseload": [
+        {
+          "Name": "Aisha Morales",
+          "Phone": "555-0113",
+          "Address": "120 Maple Ave, Apt 2\nSpringfield",
+          "Program": "Rapid rehousing",
+          "Last contact": {
+            "daysFromToday": -14
+          },
+          "Housing plan review": {
+            "daysFromToday": -186
+          },
+          "Lease end": {
+            "daysFromToday": -4
+          },
+          "Income recertification": {
+            "daysFromToday": -341
+          },
+          "Landlord": "Greenview Properties",
+          "Landlord phone": "555-0117",
+          "Status": "Housed"
+        },
+        {
+          "Name": "Robert Dubois",
+          "Phone": "555-0120",
+          "Address": "161 Birch Lane, Apt 3\nSpringfield",
+          "Program": "Permanent supportive housing",
+          "Last contact": {
+            "daysFromToday": -33
+          },
+          "Housing plan review": {
+            "daysFromToday": -178
+          },
+          "Lease end": {
+            "daysFromToday": 20
+          },
+          "Income recertification": {
+            "daysFromToday": -290
+          },
+          "Landlord": "J. Ortiz",
+          "Landlord phone": "555-0124",
+          "Status": "Housed"
+        },
+        {
+          "Name": "Linh Smith",
+          "Phone": "555-0127",
+          "Address": "202 Cedar Court, Apt 4\nSpringfield",
+          "Program": "Prevention",
+          "Last contact": {
+            "daysFromToday": -25
+          },
+          "Housing plan review": {
+            "daysFromToday": -159
+          },
+          "Lease end": {
+            "daysFromToday": 45
+          },
+          "Income recertification": {
+            "daysFromToday": -145
+          },
+          "Landlord": "Northside Apartments",
+          "Landlord phone": "555-0131",
+          "Status": "Housed"
+        },
+        {
+          "Name": "Dorothy Kowalski",
+          "Phone": "555-0134",
+          "Address": "243 Willow Way, Apt 5\nSpringfield",
+          "Program": "Rapid rehousing",
+          "Last contact": {
+            "daysFromToday": -6
+          },
+          "Housing plan review": {
+            "daysFromToday": -108
+          },
+          "Lease end": {
+            "daysFromToday": 120
+          },
+          "Income recertification": {
+            "daysFromToday": -368
+          },
+          "Landlord": "Maple Court LLC",
+          "Landlord phone": "555-0138",
+          "Status": "Searching"
+        },
+        {
+          "Name": "Carlos Wong",
+          "Phone": "555-0141",
+          "Program": "Outreach",
+          "Last contact": {
+            "daysFromToday": -30
+          },
+          "Housing plan review": {
+            "daysFromToday": -197
+          },
+          "Income recertification": {
+            "daysFromToday": -360
+          },
+          "Status": "Shelter"
+        },
+        {
+          "Name": "Priya Bell",
+          "Phone": "555-0148",
+          "Address": "325 Pine Road, Apt 7\nSpringfield",
+          "Program": "Rapid rehousing",
+          "Last contact": {
+            "daysFromToday": -21
+          },
+          "Housing plan review": {
+            "daysFromToday": -181
+          },
+          "Lease end": {
+            "daysFromToday": 300
+          },
+          "Income recertification": {
+            "daysFromToday": -341
+          },
+          "Landlord": "J. Ortiz",
+          "Landlord phone": "555-0152",
+          "Status": "Housed"
+        },
+        {
+          "Name": "Frank Rivera",
+          "Phone": "555-0155",
+          "Address": "366 Maple Ave, Apt 8\nSpringfield",
+          "Program": "Permanent supportive housing",
+          "Last contact": {
+            "daysFromToday": -44
+          },
+          "Housing plan review": {
+            "daysFromToday": -167
+          },
+          "Lease end": {
+            "daysFromToday": 9
+          },
+          "Income recertification": {
+            "daysFromToday": -290
+          },
+          "Landlord": "Northside Apartments",
+          "Landlord phone": "555-0159",
+          "Status": "Housed"
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Phone": "555-0162",
+          "Address": "407 Birch Lane, Apt 9\nSpringfield",
+          "Program": "Prevention",
+          "Last contact": {
+            "daysFromToday": -28
+          },
+          "Housing plan review": {
+            "daysFromToday": -128
+          },
+          "Lease end": {
+            "daysFromToday": 75
+          },
+          "Income recertification": {
+            "daysFromToday": -145
+          },
+          "Landlord": "Maple Court LLC",
+          "Landlord phone": "555-0166",
+          "Status": "Housed"
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Phone": "555-0169",
+          "Address": "448 Cedar Court, Apt 10\nSpringfield",
+          "Program": "Rapid rehousing",
+          "Last contact": {
+            "daysFromToday": -14
+          },
+          "Housing plan review": {
+            "daysFromToday": -23
+          },
+          "Lease end": {
+            "daysFromToday": 160
+          },
+          "Income recertification": {
+            "daysFromToday": -368
+          },
+          "Landlord": "Greenview Properties",
+          "Landlord phone": "555-0173",
+          "Status": "Housed"
+        },
+        {
+          "Name": "Grace Okafor",
+          "Phone": "555-0176",
+          "Program": "Outreach",
+          "Last contact": {
+            "daysFromToday": -33
+          },
+          "Housing plan review": {
+            "daysFromToday": -183
+          },
+          "Income recertification": {
+            "daysFromToday": -360
+          },
+          "Status": "Shelter"
+        }
+      ]
+    },
+    "activities": [
+      {
+        "record": "caseload#0",
+        "type": "visit",
+        "daysAgo": 1,
+        "text": "Home visit. Unit in good shape; reviewed the budget together."
+      },
+      {
+        "record": "caseload#1",
+        "type": "meeting",
+        "daysAgo": 8,
+        "text": "Met with the landlord about the lease renewal."
+      },
+      {
+        "record": "caseload#1",
+        "type": "note",
+        "daysAgo": 21,
+        "text": "Received the income verification letter; copied to file."
+      },
+      {
+        "record": "caseload#2",
+        "type": "visit",
+        "daysAgo": 15,
+        "text": "Home visit. Unit in good shape; reviewed the budget together."
+      },
+      {
+        "record": "caseload#2",
+        "type": "phone",
+        "daysAgo": 28,
+        "text": "Phone check-in; rent paid on time this month."
+      },
+      {
+        "record": "caseload#3",
+        "type": "meeting",
+        "daysAgo": 22,
+        "text": "Met with the landlord about the lease renewal."
+      },
+      {
+        "record": "caseload#4",
+        "type": "visit",
+        "daysAgo": 29,
+        "text": "Home visit. Unit in good shape; reviewed the budget together."
+      },
+      {
+        "record": "caseload#4",
+        "type": "phone",
+        "daysAgo": 42,
+        "text": "Phone check-in; rent paid on time this month."
+      },
+      {
+        "record": "caseload#5",
+        "type": "meeting",
+        "daysAgo": 36,
+        "text": "Met with the landlord about the lease renewal."
+      },
+      {
+        "record": "caseload#5",
+        "type": "note",
+        "daysAgo": 49,
+        "text": "Received the income verification letter; copied to file."
+      },
+      {
+        "record": "caseload#6",
+        "type": "visit",
+        "daysAgo": 43,
+        "text": "Home visit. Unit in good shape; reviewed the budget together."
+      },
+      {
+        "record": "caseload#7",
+        "type": "meeting",
+        "daysAgo": 50,
+        "text": "Met with the landlord about the lease renewal."
+      },
+      {
+        "record": "caseload#7",
+        "type": "note",
+        "daysAgo": 3,
+        "text": "Received the income verification letter; copied to file."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "requirements",
+    "missingInfo"
+  ]
+}

@@ -1,0 +1,1290 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "therapy-practice",
+  "name": "Therapy & counseling",
+  "description": "For therapists and counselors: weekly sessions on the calendar, authorized sessions counted as you write session notes, treatment plan reviews every 90 days, PHQ-9 and GAD-7 scores over time and an intake form. Pulse is a tracking aid, not your official record system.",
+  "icon": "brain",
+  "group": "Health",
+  "vocab": {
+    "record": {
+      "one": "client",
+      "many": "clients",
+      "article": "a"
+    },
+    "list": {
+      "one": "caseload",
+      "many": "caseloads",
+      "article": "a"
+    },
+    "activity": {
+      "one": "session note",
+      "many": "session notes",
+      "article": "a"
+    },
+    "worker": {
+      "one": "therapist",
+      "many": "therapists",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": true,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": true,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": true,
+    "appointments": true,
+    "forms": true,
+    "attachments": true
+  },
+  "lists": [
+    {
+      "key": "clients",
+      "name": "Clients",
+      "description": "Everyone you see, with their authorization, plan review and screening scores",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 180,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 1,
+          "width": 140
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 2,
+          "width": 140
+        },
+        {
+          "name": "Insurance",
+          "column_type": "dropdown",
+          "position": 3,
+          "width": 150,
+          "config": "{\"options\":[\"Medicaid\",\"Blue Plan\",\"Choice Health\",\"Employee assistance\",\"Self-pay\"]}"
+        },
+        {
+          "name": "Main concern",
+          "column_type": "dropdown",
+          "position": 4,
+          "width": 150,
+          "config": "{\"options\":[\"Anxiety\",\"Depression\",\"Grief\",\"Trauma\",\"Relationships\",\"Stress\",\"Other\"]}"
+        },
+        {
+          "name": "Sessions authorized",
+          "column_type": "number",
+          "position": 5,
+          "width": 130
+        },
+        {
+          "name": "Authorization start",
+          "column_type": "date",
+          "position": 6,
+          "width": 140
+        },
+        {
+          "name": "Authorization end",
+          "column_type": "date",
+          "position": 7,
+          "width": 140
+        },
+        {
+          "name": "Sessions left",
+          "column_type": "deadline",
+          "position": 8,
+          "width": 140,
+          "description": "Sessions used against the authorization, and when it ends",
+          "config": "{\"alert_rule_name\":\"Sessions left\"}"
+        },
+        {
+          "name": "Treatment plan review",
+          "column_type": "date",
+          "position": 9,
+          "width": 160,
+          "description": "Date the treatment plan was last reviewed; due again every 90 days",
+          "config": "{\"alert_rule_name\":\"Every 90 days\",\"log_changes\":true}"
+        },
+        {
+          "name": "Consent signed",
+          "column_type": "date",
+          "position": 10,
+          "width": 140,
+          "description": "Consent and release forms; renewed every year",
+          "config": "{\"alert_rule_name\":\"Every year\",\"log_changes\":true}"
+        },
+        {
+          "name": "PHQ-9",
+          "column_type": "number",
+          "position": 11,
+          "width": 100,
+          "description": "Latest depression screening score (0–27). Earlier scores show as a chart on the page.",
+          "config": "{\"log_changes\":true}"
+        },
+        {
+          "name": "GAD-7",
+          "column_type": "number",
+          "position": 12,
+          "width": 100,
+          "description": "Latest anxiety screening score (0–21). Earlier scores show as a chart on the page.",
+          "config": "{\"log_changes\":true}"
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 13,
+          "width": 130,
+          "config": "{\"options\":[\"Intake\",\"Active\",\"On hold\",\"Discharged\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Sessions left",
+          "description": "Counts sessions between the authorization start and end dates",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":15,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "quota",
+          "rule_config": "{\"kind\":\"quota\",\"activityTypes\":[\"session\"],\"limitColumnId\":{\"column\":\"Sessions authorized\"},\"startColumnId\":{\"column\":\"Authorization start\"},\"endColumnId\":{\"column\":\"Authorization end\"},\"warnRemaining\":2,\"warnDaysBeforeEnd\":14}"
+        },
+        {
+          "name": "Every 90 days",
+          "description": "Due 90 days after the date entered",
+          "interval_days": 90,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":15,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ],
+      "forms": [
+        {
+          "name": "Intake",
+          "intro": "Fill this in with a new client at the first session, or print a blank for the waiting room.",
+          "log_activity_type": "session",
+          "fields": [
+            {
+              "kind": "section",
+              "title": "About you"
+            },
+            {
+              "kind": "column",
+              "column": "Name",
+              "required": true
+            },
+            {
+              "kind": "column",
+              "column": "Date of birth",
+              "width": "half"
+            },
+            {
+              "kind": "column",
+              "column": "Phone",
+              "width": "half"
+            },
+            {
+              "kind": "column",
+              "column": "Insurance",
+              "width": "half"
+            },
+            {
+              "kind": "column",
+              "column": "Main concern",
+              "width": "half"
+            },
+            {
+              "kind": "section",
+              "title": "What brings you in",
+              "text": "In your own words. Write as much or as little as you like."
+            },
+            {
+              "kind": "note",
+              "label": "What would you like help with?",
+              "required": true
+            },
+            {
+              "kind": "note",
+              "label": "What have you tried so far?"
+            },
+            {
+              "kind": "section",
+              "title": "Screening scores"
+            },
+            {
+              "kind": "column",
+              "column": "PHQ-9",
+              "width": "half",
+              "help": "0–27"
+            },
+            {
+              "kind": "column",
+              "column": "GAD-7",
+              "width": "half",
+              "help": "0–21"
+            },
+            {
+              "kind": "column",
+              "column": "Consent signed",
+              "label": "Consent signed on"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "session",
+      "label": "Session",
+      "icon": "💬",
+      "color": "teal"
+    },
+    {
+      "key": "phone",
+      "label": "Phone",
+      "icon": "📞",
+      "color": "blue"
+    },
+    {
+      "key": "no_show",
+      "label": "No-show",
+      "icon": "🚫",
+      "color": "red"
+    },
+    {
+      "key": "cancelled",
+      "label": "Cancellation",
+      "icon": "❌",
+      "color": "amber"
+    }
+  ],
+  "documentTemplates": [
+    {
+      "name": "Authorization renewal request",
+      "content": "{{today}}\n\nRe: {{name}}, born {{field:Date of birth}}\nInsurance: {{field:Insurance}}\n\nThe current authorization of {{field:Sessions authorized}} sessions ends on {{field:Authorization end}}. Treatment is ongoing and we are asking for more sessions to continue the current plan.\n\nThe treatment plan was last reviewed on {{field:Treatment plan review}}.\n\nThank you,\n\n{{my_name}}"
+    }
+  ],
+  "helpTips": [
+    {
+      "title": "SOAP notes",
+      "body": "Choose the SOAP format when you write a session note to get Subjective, Objective, Assessment and Plan headings every time."
+    },
+    {
+      "title": "Weekly sessions",
+      "body": "On a client's page, add an appointment and choose Repeat weekly. End it on the Authorization end date so the series stops when the authorization does. Marking a session done writes its session note, which counts toward Sessions left."
+    },
+    {
+      "title": "Scores over time",
+      "body": "Type each new PHQ-9 or GAD-7 score over the old one. The client's page keeps every score and shows them as a small chart."
+    }
+  ],
+  "dashboardCards": [
+    "today",
+    "summary",
+    "quotas",
+    "missingInfo"
+  ],
+  "sampleData": {
+    "records": {
+      "clients": [
+        {
+          "Name": "Maya Delgado",
+          "Date of birth": {
+            "daysFromToday": -11800
+          },
+          "Phone": "555-0120",
+          "Insurance": "Blue Plan",
+          "Main concern": "Anxiety",
+          "Sessions authorized": 12,
+          "Authorization start": {
+            "daysFromToday": -70
+          },
+          "Authorization end": {
+            "daysFromToday": 20
+          },
+          "Treatment plan review": {
+            "daysFromToday": -60
+          },
+          "Consent signed": {
+            "daysFromToday": -70
+          },
+          "PHQ-9": 8,
+          "GAD-7": 9,
+          "Status": "Active"
+        },
+        {
+          "Name": "Jordan Pike",
+          "Date of birth": {
+            "daysFromToday": -9700
+          },
+          "Phone": "555-0121",
+          "Insurance": "Medicaid",
+          "Main concern": "Depression",
+          "Sessions authorized": 20,
+          "Authorization start": {
+            "daysFromToday": -40
+          },
+          "Authorization end": {
+            "daysFromToday": 140
+          },
+          "Treatment plan review": {
+            "daysFromToday": -96
+          },
+          "Consent signed": {
+            "daysFromToday": -340
+          },
+          "PHQ-9": 15,
+          "GAD-7": 8,
+          "Status": "Active"
+        },
+        {
+          "Name": "Priya Natarajan",
+          "Date of birth": {
+            "daysFromToday": -14200
+          },
+          "Phone": "555-0122",
+          "Insurance": "Choice Health",
+          "Main concern": "Grief",
+          "Sessions authorized": 8,
+          "Authorization start": {
+            "daysFromToday": -50
+          },
+          "Authorization end": {
+            "daysFromToday": 40
+          },
+          "Treatment plan review": {
+            "daysFromToday": -45
+          },
+          "Consent signed": {
+            "daysFromToday": -50
+          },
+          "PHQ-9": 9,
+          "GAD-7": 7,
+          "Status": "Active"
+        },
+        {
+          "Name": "Sam Okafor",
+          "Date of birth": {
+            "daysFromToday": -8100
+          },
+          "Phone": "555-0123",
+          "Insurance": "Employee assistance",
+          "Main concern": "Stress",
+          "Sessions authorized": 6,
+          "Authorization start": {
+            "daysFromToday": -42
+          },
+          "Authorization end": {
+            "daysFromToday": 18
+          },
+          "Treatment plan review": {
+            "daysFromToday": -40
+          },
+          "Consent signed": {
+            "daysFromToday": -42
+          },
+          "PHQ-9": 6,
+          "GAD-7": 9,
+          "Status": "Active"
+        },
+        {
+          "Name": "Elena Brooks",
+          "Date of birth": {
+            "daysFromToday": -16300
+          },
+          "Phone": "555-0124",
+          "Insurance": "Self-pay",
+          "Main concern": "Relationships",
+          "Sessions authorized": null,
+          "Authorization start": null,
+          "Authorization end": null,
+          "Treatment plan review": {
+            "daysFromToday": -20
+          },
+          "Consent signed": {
+            "daysFromToday": -370
+          },
+          "PHQ-9": 5,
+          "GAD-7": 7,
+          "Status": "Active"
+        },
+        {
+          "Name": "Chris Tanaka",
+          "Date of birth": {
+            "daysFromToday": -12600
+          },
+          "Phone": "555-0125",
+          "Insurance": "Blue Plan",
+          "Main concern": "Trauma",
+          "Sessions authorized": 24,
+          "Authorization start": {
+            "daysFromToday": -120
+          },
+          "Authorization end": {
+            "daysFromToday": 60
+          },
+          "Treatment plan review": {
+            "daysFromToday": -88
+          },
+          "Consent signed": {
+            "daysFromToday": -120
+          },
+          "PHQ-9": 10,
+          "GAD-7": 9,
+          "Status": "Active"
+        },
+        {
+          "Name": "Riley Morgan",
+          "Date of birth": {
+            "daysFromToday": -7400
+          },
+          "Phone": "555-0126",
+          "Insurance": "Medicaid",
+          "Main concern": "Anxiety",
+          "Sessions authorized": 12,
+          "Authorization start": {
+            "daysFromToday": -5
+          },
+          "Authorization end": {
+            "daysFromToday": 175
+          },
+          "Treatment plan review": {
+            "daysFromToday": -5
+          },
+          "Consent signed": {
+            "daysFromToday": -5
+          },
+          "PHQ-9": 12,
+          "GAD-7": 15,
+          "Status": "Intake"
+        },
+        {
+          "Name": "Dana Whitfield",
+          "Date of birth": {
+            "daysFromToday": -18900
+          },
+          "Phone": "555-0127",
+          "Insurance": "Choice Health",
+          "Main concern": "Depression",
+          "Sessions authorized": 10,
+          "Authorization start": {
+            "daysFromToday": -150
+          },
+          "Authorization end": {
+            "daysFromToday": -10
+          },
+          "Treatment plan review": {
+            "daysFromToday": -130
+          },
+          "Consent signed": {
+            "daysFromToday": -150
+          },
+          "PHQ-9": 6,
+          "GAD-7": 5,
+          "Status": "Discharged"
+        }
+      ]
+    },
+    "activities": [
+      {
+        "record": "clients#0",
+        "type": "session",
+        "daysAgo": 3,
+        "text": "Session focused on coping skills; practiced grounding. Homework: daily log."
+      },
+      {
+        "record": "clients#0",
+        "type": "session",
+        "daysAgo": 10,
+        "text": "Reviewed homework and progress on goals. Worked on reframing worried thoughts."
+      },
+      {
+        "record": "clients#0",
+        "type": "session",
+        "daysAgo": 17,
+        "text": "Session on sleep and routines; set two small goals for the week."
+      },
+      {
+        "record": "clients#0",
+        "type": "session",
+        "daysAgo": 24,
+        "text": "Discussed a hard week; safety check done, no concerns. Plan continues."
+      },
+      {
+        "record": "clients#0",
+        "type": "session",
+        "daysAgo": 31,
+        "text": "Practiced breathing and planned for a stressful event coming up."
+      },
+      {
+        "record": "clients#0",
+        "type": "session",
+        "daysAgo": 38,
+        "text": "Session focused on coping skills; practiced grounding. Homework: daily log."
+      },
+      {
+        "record": "clients#0",
+        "type": "session",
+        "daysAgo": 45,
+        "text": "Reviewed homework and progress on goals. Worked on reframing worried thoughts."
+      },
+      {
+        "record": "clients#0",
+        "type": "session",
+        "daysAgo": 52,
+        "text": "Session on sleep and routines; set two small goals for the week."
+      },
+      {
+        "record": "clients#0",
+        "type": "session",
+        "daysAgo": 59,
+        "text": "Discussed a hard week; safety check done, no concerns. Plan continues."
+      },
+      {
+        "record": "clients#0",
+        "type": "session",
+        "daysAgo": 66,
+        "text": "Intake session: history, goals and consent reviewed. PHQ-9 and GAD-7 given."
+      },
+      {
+        "record": "clients#1",
+        "type": "session",
+        "daysAgo": 5,
+        "text": "Reviewed homework and progress on goals. Worked on reframing worried thoughts."
+      },
+      {
+        "record": "clients#1",
+        "type": "session",
+        "daysAgo": 12,
+        "text": "Session on sleep and routines; set two small goals for the week."
+      },
+      {
+        "record": "clients#1",
+        "type": "session",
+        "daysAgo": 19,
+        "text": "Discussed a hard week; safety check done, no concerns. Plan continues."
+      },
+      {
+        "record": "clients#1",
+        "type": "session",
+        "daysAgo": 26,
+        "text": "Practiced breathing and planned for a stressful event coming up."
+      },
+      {
+        "record": "clients#1",
+        "type": "session",
+        "daysAgo": 33,
+        "text": "Intake session: history, goals and consent reviewed. PHQ-9 and GAD-7 given."
+      },
+      {
+        "record": "clients#2",
+        "type": "session",
+        "daysAgo": 2,
+        "text": "Session on sleep and routines; set two small goals for the week."
+      },
+      {
+        "record": "clients#2",
+        "type": "session",
+        "daysAgo": 9,
+        "text": "Discussed a hard week; safety check done, no concerns. Plan continues."
+      },
+      {
+        "record": "clients#2",
+        "type": "session",
+        "daysAgo": 16,
+        "text": "Practiced breathing and planned for a stressful event coming up."
+      },
+      {
+        "record": "clients#2",
+        "type": "session",
+        "daysAgo": 23,
+        "text": "Session focused on coping skills; practiced grounding. Homework: daily log."
+      },
+      {
+        "record": "clients#2",
+        "type": "session",
+        "daysAgo": 30,
+        "text": "Reviewed homework and progress on goals. Worked on reframing worried thoughts."
+      },
+      {
+        "record": "clients#2",
+        "type": "session",
+        "daysAgo": 37,
+        "text": "Intake session: history, goals and consent reviewed. PHQ-9 and GAD-7 given."
+      },
+      {
+        "record": "clients#3",
+        "type": "session",
+        "daysAgo": 6,
+        "text": "Discussed a hard week; safety check done, no concerns. Plan continues."
+      },
+      {
+        "record": "clients#3",
+        "type": "session",
+        "daysAgo": 13,
+        "text": "Practiced breathing and planned for a stressful event coming up."
+      },
+      {
+        "record": "clients#3",
+        "type": "session",
+        "daysAgo": 20,
+        "text": "Session focused on coping skills; practiced grounding. Homework: daily log."
+      },
+      {
+        "record": "clients#3",
+        "type": "session",
+        "daysAgo": 27,
+        "text": "Reviewed homework and progress on goals. Worked on reframing worried thoughts."
+      },
+      {
+        "record": "clients#3",
+        "type": "session",
+        "daysAgo": 34,
+        "text": "Intake session: history, goals and consent reviewed. PHQ-9 and GAD-7 given."
+      },
+      {
+        "record": "clients#4",
+        "type": "session",
+        "daysAgo": 8,
+        "text": "Practiced breathing and planned for a stressful event coming up."
+      },
+      {
+        "record": "clients#4",
+        "type": "session",
+        "daysAgo": 22,
+        "text": "Session focused on coping skills; practiced grounding. Homework: daily log."
+      },
+      {
+        "record": "clients#4",
+        "type": "session",
+        "daysAgo": 36,
+        "text": "Reviewed homework and progress on goals. Worked on reframing worried thoughts."
+      },
+      {
+        "record": "clients#4",
+        "type": "session",
+        "daysAgo": 50,
+        "text": "Intake session: history, goals and consent reviewed. PHQ-9 and GAD-7 given."
+      },
+      {
+        "record": "clients#5",
+        "type": "session",
+        "daysAgo": 1,
+        "text": "Session focused on coping skills; practiced grounding. Homework: daily log."
+      },
+      {
+        "record": "clients#5",
+        "type": "session",
+        "daysAgo": 8,
+        "text": "Reviewed homework and progress on goals. Worked on reframing worried thoughts."
+      },
+      {
+        "record": "clients#5",
+        "type": "session",
+        "daysAgo": 15,
+        "text": "Session on sleep and routines; set two small goals for the week."
+      },
+      {
+        "record": "clients#5",
+        "type": "session",
+        "daysAgo": 22,
+        "text": "Discussed a hard week; safety check done, no concerns. Plan continues."
+      },
+      {
+        "record": "clients#5",
+        "type": "session",
+        "daysAgo": 29,
+        "text": "Practiced breathing and planned for a stressful event coming up."
+      },
+      {
+        "record": "clients#5",
+        "type": "session",
+        "daysAgo": 43,
+        "text": "Session focused on coping skills; practiced grounding. Homework: daily log."
+      },
+      {
+        "record": "clients#5",
+        "type": "session",
+        "daysAgo": 50,
+        "text": "Reviewed homework and progress on goals. Worked on reframing worried thoughts."
+      },
+      {
+        "record": "clients#5",
+        "type": "session",
+        "daysAgo": 57,
+        "text": "Session on sleep and routines; set two small goals for the week."
+      },
+      {
+        "record": "clients#5",
+        "type": "session",
+        "daysAgo": 64,
+        "text": "Discussed a hard week; safety check done, no concerns. Plan continues."
+      },
+      {
+        "record": "clients#5",
+        "type": "session",
+        "daysAgo": 71,
+        "text": "Practiced breathing and planned for a stressful event coming up."
+      },
+      {
+        "record": "clients#5",
+        "type": "session",
+        "daysAgo": 78,
+        "text": "Session focused on coping skills; practiced grounding. Homework: daily log."
+      },
+      {
+        "record": "clients#5",
+        "type": "session",
+        "daysAgo": 85,
+        "text": "Reviewed homework and progress on goals. Worked on reframing worried thoughts."
+      },
+      {
+        "record": "clients#5",
+        "type": "session",
+        "daysAgo": 92,
+        "text": "Session on sleep and routines; set two small goals for the week."
+      },
+      {
+        "record": "clients#5",
+        "type": "session",
+        "daysAgo": 99,
+        "text": "Discussed a hard week; safety check done, no concerns. Plan continues."
+      },
+      {
+        "record": "clients#5",
+        "type": "session",
+        "daysAgo": 106,
+        "text": "Practiced breathing and planned for a stressful event coming up."
+      },
+      {
+        "record": "clients#5",
+        "type": "session",
+        "daysAgo": 113,
+        "text": "Intake session: history, goals and consent reviewed. PHQ-9 and GAD-7 given."
+      },
+      {
+        "record": "clients#6",
+        "type": "session",
+        "daysAgo": 5,
+        "text": "Intake session: history, goals and consent reviewed. PHQ-9 and GAD-7 given."
+      },
+      {
+        "record": "clients#7",
+        "type": "session",
+        "daysAgo": 15,
+        "text": "Session on sleep and routines; set two small goals for the week."
+      },
+      {
+        "record": "clients#7",
+        "type": "session",
+        "daysAgo": 22,
+        "text": "Discussed a hard week; safety check done, no concerns. Plan continues."
+      },
+      {
+        "record": "clients#7",
+        "type": "session",
+        "daysAgo": 29,
+        "text": "Practiced breathing and planned for a stressful event coming up."
+      },
+      {
+        "record": "clients#7",
+        "type": "session",
+        "daysAgo": 43,
+        "text": "Session focused on coping skills; practiced grounding. Homework: daily log."
+      },
+      {
+        "record": "clients#7",
+        "type": "session",
+        "daysAgo": 57,
+        "text": "Reviewed homework and progress on goals. Worked on reframing worried thoughts."
+      },
+      {
+        "record": "clients#7",
+        "type": "session",
+        "daysAgo": 71,
+        "text": "Session on sleep and routines; set two small goals for the week."
+      },
+      {
+        "record": "clients#7",
+        "type": "session",
+        "daysAgo": 85,
+        "text": "Discussed a hard week; safety check done, no concerns. Plan continues."
+      },
+      {
+        "record": "clients#7",
+        "type": "session",
+        "daysAgo": 99,
+        "text": "Practiced breathing and planned for a stressful event coming up."
+      },
+      {
+        "record": "clients#7",
+        "type": "session",
+        "daysAgo": 113,
+        "text": "Session focused on coping skills; practiced grounding. Homework: daily log."
+      },
+      {
+        "record": "clients#7",
+        "type": "session",
+        "daysAgo": 127,
+        "text": "Intake session: history, goals and consent reviewed. PHQ-9 and GAD-7 given."
+      },
+      {
+        "record": "clients#1",
+        "type": "no_show",
+        "daysAgo": 40,
+        "text": "No-show. Called and left a message to reschedule."
+      },
+      {
+        "record": "clients#3",
+        "type": "phone",
+        "daysAgo": 2,
+        "text": "Called to move next session to Thursday evening."
+      },
+      {
+        "record": "clients#4",
+        "type": "cancelled",
+        "daysAgo": 15,
+        "text": "Cancelled the day before (work travel); rescheduled."
+      },
+      {
+        "record": "clients#0",
+        "type": "phone",
+        "daysAgo": 11,
+        "text": "Called insurance about renewing the authorization; request faxed."
+      },
+      {
+        "record": "clients#7",
+        "type": "note",
+        "daysAgo": 10,
+        "text": "Discharged: goals met. Discharge summary sent to the doctor."
+      }
+    ],
+    "history": [
+      {
+        "record": "clients#0",
+        "column": "PHQ-9",
+        "values": [
+          {
+            "value": "14",
+            "daysAgo": 66
+          },
+          {
+            "value": "12",
+            "daysAgo": 50
+          },
+          {
+            "value": "10",
+            "daysAgo": 35
+          },
+          {
+            "value": "9",
+            "daysAgo": 19
+          },
+          {
+            "value": "8",
+            "daysAgo": 3
+          }
+        ]
+      },
+      {
+        "record": "clients#0",
+        "column": "GAD-7",
+        "values": [
+          {
+            "value": "16",
+            "daysAgo": 66
+          },
+          {
+            "value": "14",
+            "daysAgo": 50
+          },
+          {
+            "value": "12",
+            "daysAgo": 35
+          },
+          {
+            "value": "10",
+            "daysAgo": 19
+          },
+          {
+            "value": "9",
+            "daysAgo": 3
+          }
+        ]
+      },
+      {
+        "record": "clients#1",
+        "column": "PHQ-9",
+        "values": [
+          {
+            "value": "19",
+            "daysAgo": 33
+          },
+          {
+            "value": "17",
+            "daysAgo": 19
+          },
+          {
+            "value": "15",
+            "daysAgo": 5
+          }
+        ]
+      },
+      {
+        "record": "clients#1",
+        "column": "GAD-7",
+        "values": [
+          {
+            "value": "9",
+            "daysAgo": 33
+          },
+          {
+            "value": "9",
+            "daysAgo": 19
+          },
+          {
+            "value": "8",
+            "daysAgo": 5
+          }
+        ]
+      },
+      {
+        "record": "clients#2",
+        "column": "PHQ-9",
+        "values": [
+          {
+            "value": "16",
+            "daysAgo": 37
+          },
+          {
+            "value": "13",
+            "daysAgo": 25
+          },
+          {
+            "value": "11",
+            "daysAgo": 14
+          },
+          {
+            "value": "9",
+            "daysAgo": 2
+          }
+        ]
+      },
+      {
+        "record": "clients#2",
+        "column": "GAD-7",
+        "values": [
+          {
+            "value": "11",
+            "daysAgo": 37
+          },
+          {
+            "value": "10",
+            "daysAgo": 25
+          },
+          {
+            "value": "8",
+            "daysAgo": 14
+          },
+          {
+            "value": "7",
+            "daysAgo": 2
+          }
+        ]
+      },
+      {
+        "record": "clients#3",
+        "column": "PHQ-9",
+        "values": [
+          {
+            "value": "9",
+            "daysAgo": 34
+          },
+          {
+            "value": "7",
+            "daysAgo": 20
+          },
+          {
+            "value": "6",
+            "daysAgo": 6
+          }
+        ]
+      },
+      {
+        "record": "clients#3",
+        "column": "GAD-7",
+        "values": [
+          {
+            "value": "13",
+            "daysAgo": 34
+          },
+          {
+            "value": "11",
+            "daysAgo": 20
+          },
+          {
+            "value": "9",
+            "daysAgo": 6
+          }
+        ]
+      },
+      {
+        "record": "clients#4",
+        "column": "PHQ-9",
+        "values": [
+          {
+            "value": "8",
+            "daysAgo": 50
+          },
+          {
+            "value": "7",
+            "daysAgo": 29
+          },
+          {
+            "value": "5",
+            "daysAgo": 8
+          }
+        ]
+      },
+      {
+        "record": "clients#4",
+        "column": "GAD-7",
+        "values": [
+          {
+            "value": "10",
+            "daysAgo": 50
+          },
+          {
+            "value": "8",
+            "daysAgo": 29
+          },
+          {
+            "value": "7",
+            "daysAgo": 8
+          }
+        ]
+      },
+      {
+        "record": "clients#5",
+        "column": "PHQ-9",
+        "values": [
+          {
+            "value": "18",
+            "daysAgo": 113
+          },
+          {
+            "value": "16",
+            "daysAgo": 91
+          },
+          {
+            "value": "15",
+            "daysAgo": 68
+          },
+          {
+            "value": "13",
+            "daysAgo": 46
+          },
+          {
+            "value": "12",
+            "daysAgo": 23
+          },
+          {
+            "value": "10",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "clients#5",
+        "column": "GAD-7",
+        "values": [
+          {
+            "value": "17",
+            "daysAgo": 113
+          },
+          {
+            "value": "15",
+            "daysAgo": 91
+          },
+          {
+            "value": "14",
+            "daysAgo": 68
+          },
+          {
+            "value": "12",
+            "daysAgo": 46
+          },
+          {
+            "value": "11",
+            "daysAgo": 23
+          },
+          {
+            "value": "9",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "clients#7",
+        "column": "PHQ-9",
+        "values": [
+          {
+            "value": "17",
+            "daysAgo": 127
+          },
+          {
+            "value": "14",
+            "daysAgo": 99
+          },
+          {
+            "value": "11",
+            "daysAgo": 71
+          },
+          {
+            "value": "8",
+            "daysAgo": 43
+          },
+          {
+            "value": "6",
+            "daysAgo": 15
+          }
+        ]
+      },
+      {
+        "record": "clients#7",
+        "column": "GAD-7",
+        "values": [
+          {
+            "value": "12",
+            "daysAgo": 127
+          },
+          {
+            "value": "10",
+            "daysAgo": 99
+          },
+          {
+            "value": "8",
+            "daysAgo": 71
+          },
+          {
+            "value": "6",
+            "daysAgo": 43
+          },
+          {
+            "value": "5",
+            "daysAgo": 15
+          }
+        ]
+      }
+    ],
+    "appointments": [
+      {
+        "record": "clients#0",
+        "title": "Session",
+        "dayOffset": 1,
+        "time": "15:00",
+        "minutes": 50,
+        "type": "session",
+        "location": "Office 2",
+        "repeatWeekly": 8
+      },
+      {
+        "record": "clients#1",
+        "title": "Session",
+        "dayOffset": 2,
+        "time": "10:00",
+        "minutes": 50,
+        "type": "session",
+        "location": "Office 2",
+        "repeatWeekly": 8
+      },
+      {
+        "record": "clients#2",
+        "title": "Session",
+        "dayOffset": 4,
+        "time": "13:00",
+        "minutes": 50,
+        "type": "session",
+        "location": "Office 2",
+        "repeatWeekly": 8
+      },
+      {
+        "record": "clients#3",
+        "title": "Session",
+        "dayOffset": 3,
+        "time": "17:00",
+        "minutes": 50,
+        "type": "session",
+        "location": "Office 2",
+        "repeatWeekly": 8
+      },
+      {
+        "record": "clients#4",
+        "title": "Session",
+        "dayOffset": 5,
+        "time": "09:00",
+        "minutes": 50,
+        "type": "session",
+        "location": "Video",
+        "repeatWeekly": 6
+      },
+      {
+        "record": "clients#5",
+        "title": "Session",
+        "dayOffset": 1,
+        "time": "11:00",
+        "minutes": 50,
+        "type": "session",
+        "location": "Office 2",
+        "repeatWeekly": 8
+      },
+      {
+        "record": "clients#6",
+        "title": "Session",
+        "dayOffset": 3,
+        "time": "14:00",
+        "minutes": 50,
+        "type": "session",
+        "location": "Office 2",
+        "repeatWeekly": 8
+      },
+      {
+        "record": "clients#1",
+        "title": "Session",
+        "dayOffset": -40,
+        "time": "10:00",
+        "minutes": 50,
+        "type": "session",
+        "location": "Office 2",
+        "status": "no_show"
+      },
+      {
+        "record": "clients#6",
+        "title": "Intake follow-up call",
+        "dayOffset": 1,
+        "time": "12:30",
+        "minutes": 15,
+        "type": "phone"
+      }
+    ]
+  }
+}

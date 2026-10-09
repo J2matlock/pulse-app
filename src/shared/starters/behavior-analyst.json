@@ -1,0 +1,1584 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "behavior-analyst",
+  "name": "Behavior analyst (ABA)",
+  "description": "For BCBAs and ABA practices: learners with authorized sessions counted as you log them, treatment plan reviews every 6 months, and technicians with RBT certification and monthly supervision. Pulse is a tracking aid, not your official record system.",
+  "icon": "heart-handshake",
+  "group": "Health",
+  "vocab": {
+    "record": {
+      "one": "learner",
+      "many": "learners",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": true,
+    "links": true
+  },
+  "lists": [
+    {
+      "key": "learners",
+      "name": "Learners",
+      "description": "Learners with authorizations and treatment plan reviews",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 1,
+          "width": 150
+        },
+        {
+          "name": "Guardian",
+          "column_type": "text",
+          "position": 2,
+          "width": 160
+        },
+        {
+          "name": "Guardian phone",
+          "column_type": "phone",
+          "position": 3,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Funding",
+          "column_type": "dropdown",
+          "position": 4,
+          "width": 160,
+          "config": "{\"options\":[\"Medicaid\",\"Private insurance\",\"School district\",\"Self-pay\"]}"
+        },
+        {
+          "name": "Sessions authorized",
+          "column_type": "number",
+          "position": 5,
+          "width": 150
+        },
+        {
+          "name": "Authorization start",
+          "column_type": "date",
+          "position": 6,
+          "width": 150
+        },
+        {
+          "name": "Authorization end",
+          "column_type": "date",
+          "position": 7,
+          "width": 150
+        },
+        {
+          "name": "Sessions left",
+          "column_type": "deadline",
+          "position": 8,
+          "width": 140,
+          "config": "{\"alert_rule_name\":\"Sessions left\"}"
+        },
+        {
+          "name": "Treatment plan review",
+          "column_type": "date",
+          "position": 9,
+          "width": 150,
+          "description": "Date of the last treatment plan update; due again in 6 months",
+          "config": "{\"alert_rule_name\":\"Every 6 months\",\"log_changes\":true}"
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 10,
+          "width": 130,
+          "config": "{\"options\":[\"Active\",\"Assessment\",\"Waitlist\",\"Discharged\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Sessions left",
+          "description": "Counts sessions between the authorization start and end dates",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]",
+          "kind": "quota",
+          "rule_config": "{\"kind\":\"quota\",\"activityTypes\":[\"session\"],\"limitColumnId\":{\"column\":\"Sessions authorized\"},\"startColumnId\":{\"column\":\"Authorization start\"},\"endColumnId\":{\"column\":\"Authorization end\"},\"warnRemaining\":4,\"warnDaysBeforeEnd\":21}"
+        },
+        {
+          "name": "Every 6 months",
+          "description": "Due 6 months after the date entered",
+          "interval_months": 6,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":30,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":14,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ],
+      "links": [
+        {
+          "to": "technicians",
+          "label_forward": "Technician",
+          "label_backward": "Learners",
+          "cardinality": "many_to_one"
+        }
+      ]
+    },
+    {
+      "key": "technicians",
+      "name": "Technicians",
+      "description": "Registered behavior technicians and their supervision",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "technician",
+          "many": "technicians",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 1,
+          "width": 140
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 2,
+          "width": 200
+        },
+        {
+          "name": "RBT certification expires",
+          "column_type": "date",
+          "position": 3,
+          "width": 150,
+          "is_required": 1,
+          "config": "{\"alert_rule_name\":\"Expires (60-day warning)\",\"log_changes\":true}"
+        },
+        {
+          "name": "Last supervision",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "description": "Date of the last supervision session",
+          "config": "{\"alert_rule_name\":\"Every 30 days\",\"log_changes\":true}"
+        },
+        {
+          "name": "CPR expires",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "config": "{\"alert_rule_name\":\"Expires (60-day warning)\",\"log_changes\":true}"
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 6,
+          "width": 120,
+          "config": "{\"options\":[\"Active\",\"On leave\",\"Former\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Expires (60-day warning)",
+          "description": "The date entered is when it expires; warns 60, 30, 14 days ahead",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\":60,\"bgClass\":\"#facc15\",\"label\":\"Renew soon\"},{\"daysBefore\":30,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":14,\"bgClass\":\"#f87171\",\"label\":\"Expiring\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Expires today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Expired\"}]"
+        },
+        {
+          "name": "Every 30 days",
+          "description": "Due 30 days after the date entered",
+          "interval_days": 30,
+          "thresholds": "[{\"daysBefore\":7,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":3,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+        }
+      ]
+    }
+  ],
+  "activityTypes": [
+    {
+      "key": "session",
+      "label": "Session",
+      "icon": "🧩",
+      "color": "teal"
+    },
+    {
+      "key": "parent_training",
+      "label": "Parent training",
+      "icon": "👪",
+      "color": "purple"
+    }
+  ],
+  "sampleData": {
+    "records": {
+      "learners": [
+        {
+          "Name": "Keisha Thompson",
+          "Date of birth": {
+            "daysFromToday": -3841
+          },
+          "Guardian": "Keisha Thompson",
+          "Guardian phone": "555-0139",
+          "Funding": "Medicaid",
+          "Sessions authorized": 48,
+          "Authorization start": {
+            "daysFromToday": -60
+          },
+          "Authorization end": {
+            "daysFromToday": 120
+          },
+          "Treatment plan review": {
+            "daysFromToday": -150
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Date of birth": {
+            "daysFromToday": -2625
+          },
+          "Guardian": "Samuel Rahman",
+          "Guardian phone": "555-0146",
+          "Funding": "Private insurance",
+          "Sessions authorized": 72,
+          "Authorization start": {
+            "daysFromToday": -100
+          },
+          "Authorization end": {
+            "daysFromToday": 20
+          },
+          "Treatment plan review": {
+            "daysFromToday": -190
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Grace Okafor",
+          "Date of birth": {
+            "daysFromToday": -1828
+          },
+          "Guardian": "Grace Okafor",
+          "Guardian phone": "555-0153",
+          "Funding": "Medicaid",
+          "Sessions authorized": 48,
+          "Authorization start": {
+            "daysFromToday": -20
+          },
+          "Authorization end": {
+            "daysFromToday": 160
+          },
+          "Treatment plan review": {
+            "daysFromToday": -30
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Omar Brown",
+          "Date of birth": {
+            "daysFromToday": -3177
+          },
+          "Guardian": "Omar Brown",
+          "Guardian phone": "555-0160",
+          "Funding": "School district",
+          "Sessions authorized": 36,
+          "Authorization start": {
+            "daysFromToday": -150
+          },
+          "Authorization end": {
+            "daysFromToday": 25
+          },
+          "Treatment plan review": {
+            "daysFromToday": -170
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Date of birth": {
+            "daysFromToday": -3691
+          },
+          "Guardian": "Ruth Jackson",
+          "Guardian phone": "555-0167",
+          "Funding": "Private insurance",
+          "Sessions authorized": 60,
+          "Authorization start": {
+            "daysFromToday": -40
+          },
+          "Authorization end": {
+            "daysFromToday": 50
+          },
+          "Treatment plan review": {
+            "daysFromToday": -60
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Diego Ferreira",
+          "Date of birth": {
+            "daysFromToday": -3203
+          },
+          "Guardian": "Diego Ferreira",
+          "Guardian phone": "555-0174",
+          "Funding": "Medicaid",
+          "Sessions authorized": 48,
+          "Authorization start": {
+            "daysFromToday": -80
+          },
+          "Authorization end": {
+            "daysFromToday": 100
+          },
+          "Treatment plan review": {
+            "daysFromToday": -100
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Hannah Walker",
+          "Date of birth": {
+            "daysFromToday": -4400
+          },
+          "Guardian": "Hannah Walker",
+          "Guardian phone": "555-0181",
+          "Funding": "Self-pay",
+          "Sessions authorized": 24,
+          "Authorization start": {
+            "daysFromToday": -10
+          },
+          "Authorization end": {
+            "daysFromToday": 80
+          },
+          "Treatment plan review": {
+            "daysFromToday": -10
+          },
+          "Status": "Assessment"
+        },
+        {
+          "Name": "Tyrone Haddad",
+          "Date of birth": {
+            "daysFromToday": -3371
+          },
+          "Guardian": "Tyrone Haddad",
+          "Guardian phone": "555-0188",
+          "Funding": "Medicaid",
+          "Sessions authorized": 96,
+          "Authorization start": {
+            "daysFromToday": -170
+          },
+          "Authorization end": {
+            "daysFromToday": 10
+          },
+          "Treatment plan review": {
+            "daysFromToday": -175
+          },
+          "Status": "Active"
+        }
+      ],
+      "technicians": [
+        {
+          "Name": "Grace Okafor",
+          "Phone": "555-0113",
+          "Email": "grace.okafor@example.com",
+          "RBT certification expires": {
+            "daysFromToday": 200
+          },
+          "Last supervision": {
+            "daysFromToday": -10
+          },
+          "CPR expires": {
+            "daysFromToday": 400
+          },
+          "Status": "On leave"
+        },
+        {
+          "Name": "Omar Brown",
+          "Phone": "555-0120",
+          "Email": "omar.brown@example.com",
+          "RBT certification expires": {
+            "daysFromToday": 25
+          },
+          "Last supervision": {
+            "daysFromToday": -28
+          },
+          "CPR expires": {
+            "daysFromToday": 90
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Phone": "555-0127",
+          "Email": "ruth.jackson@example.com",
+          "RBT certification expires": {
+            "daysFromToday": 320
+          },
+          "Last supervision": {
+            "daysFromToday": -35
+          },
+          "CPR expires": {
+            "daysFromToday": 15
+          },
+          "Status": "Active"
+        },
+        {
+          "Name": "Diego Ferreira",
+          "Phone": "555-0134",
+          "Email": "diego.ferreira@example.com",
+          "RBT certification expires": {
+            "daysFromToday": -5
+          },
+          "Last supervision": {
+            "daysFromToday": -3
+          },
+          "CPR expires": {
+            "daysFromToday": 600
+          },
+          "Status": "Active"
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "learners#0",
+        "to": "technicians#0",
+        "link": "Technician"
+      },
+      {
+        "from": "learners#1",
+        "to": "technicians#1",
+        "link": "Technician"
+      },
+      {
+        "from": "learners#2",
+        "to": "technicians#2",
+        "link": "Technician"
+      },
+      {
+        "from": "learners#3",
+        "to": "technicians#3",
+        "link": "Technician"
+      },
+      {
+        "from": "learners#4",
+        "to": "technicians#0",
+        "link": "Technician"
+      },
+      {
+        "from": "learners#5",
+        "to": "technicians#1",
+        "link": "Technician"
+      },
+      {
+        "from": "learners#6",
+        "to": "technicians#2",
+        "link": "Technician"
+      },
+      {
+        "from": "learners#7",
+        "to": "technicians#3",
+        "link": "Technician"
+      }
+    ],
+    "activities": [
+      {
+        "record": "learners#0",
+        "type": "session",
+        "daysAgo": 1,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#0",
+        "type": "session",
+        "daysAgo": 5,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#0",
+        "type": "session",
+        "daysAgo": 9,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#0",
+        "type": "session",
+        "daysAgo": 13,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#0",
+        "type": "session",
+        "daysAgo": 17,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#0",
+        "type": "session",
+        "daysAgo": 22,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#0",
+        "type": "session",
+        "daysAgo": 26,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#0",
+        "type": "session",
+        "daysAgo": 30,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#0",
+        "type": "session",
+        "daysAgo": 34,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#0",
+        "type": "session",
+        "daysAgo": 38,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#0",
+        "type": "session",
+        "daysAgo": 43,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#0",
+        "type": "session",
+        "daysAgo": 47,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#0",
+        "type": "session",
+        "daysAgo": 51,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#0",
+        "type": "session",
+        "daysAgo": 55,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 1,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 3,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 5,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 8,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 10,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 13,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 15,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 18,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 20,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 23,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 25,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 28,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 30,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 33,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 35,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 38,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 40,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 43,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 45,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 48,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 50,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 52,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 55,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 57,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 60,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 62,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 65,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 67,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 70,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 72,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 75,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 77,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 80,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 82,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 85,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 87,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 90,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 92,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 95,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "session",
+        "daysAgo": 97,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#2",
+        "type": "session",
+        "daysAgo": 1,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#2",
+        "type": "session",
+        "daysAgo": 4,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#2",
+        "type": "session",
+        "daysAgo": 8,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#2",
+        "type": "session",
+        "daysAgo": 12,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#2",
+        "type": "session",
+        "daysAgo": 16,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 1,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 5,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 10,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 14,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 19,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 23,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 28,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 32,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 37,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 41,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 46,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 50,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 55,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 59,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 64,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 68,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 73,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 77,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 82,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 86,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 91,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 95,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 100,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 104,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 109,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 113,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 118,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 122,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 127,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 131,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 136,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 140,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#3",
+        "type": "session",
+        "daysAgo": 145,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#4",
+        "type": "session",
+        "daysAgo": 1,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#4",
+        "type": "session",
+        "daysAgo": 3,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#4",
+        "type": "session",
+        "daysAgo": 6,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#4",
+        "type": "session",
+        "daysAgo": 8,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#4",
+        "type": "session",
+        "daysAgo": 11,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#4",
+        "type": "session",
+        "daysAgo": 14,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#4",
+        "type": "session",
+        "daysAgo": 16,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#4",
+        "type": "session",
+        "daysAgo": 19,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#4",
+        "type": "session",
+        "daysAgo": 21,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#4",
+        "type": "session",
+        "daysAgo": 24,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#4",
+        "type": "session",
+        "daysAgo": 27,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#4",
+        "type": "session",
+        "daysAgo": 29,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#4",
+        "type": "session",
+        "daysAgo": 32,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#4",
+        "type": "session",
+        "daysAgo": 34,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#4",
+        "type": "session",
+        "daysAgo": 37,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#5",
+        "type": "session",
+        "daysAgo": 1,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#5",
+        "type": "session",
+        "daysAgo": 5,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#5",
+        "type": "session",
+        "daysAgo": 9,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#5",
+        "type": "session",
+        "daysAgo": 14,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#5",
+        "type": "session",
+        "daysAgo": 18,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#5",
+        "type": "session",
+        "daysAgo": 22,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#5",
+        "type": "session",
+        "daysAgo": 27,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#5",
+        "type": "session",
+        "daysAgo": 31,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#5",
+        "type": "session",
+        "daysAgo": 36,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#5",
+        "type": "session",
+        "daysAgo": 40,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#5",
+        "type": "session",
+        "daysAgo": 44,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#5",
+        "type": "session",
+        "daysAgo": 49,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#5",
+        "type": "session",
+        "daysAgo": 53,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#5",
+        "type": "session",
+        "daysAgo": 58,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#5",
+        "type": "session",
+        "daysAgo": 62,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#5",
+        "type": "session",
+        "daysAgo": 66,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#5",
+        "type": "session",
+        "daysAgo": 71,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#5",
+        "type": "session",
+        "daysAgo": 75,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#6",
+        "type": "session",
+        "daysAgo": 1,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 1,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 4,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 7,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 11,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 14,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 17,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 21,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 24,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 28,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 31,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 34,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 38,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 41,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 44,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 48,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 51,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 55,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 58,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 61,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 65,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 68,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 71,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 75,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 78,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 82,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 85,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 88,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 92,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 95,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 99,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 102,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 105,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 109,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 112,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 115,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 119,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 122,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 126,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 129,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 132,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 136,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 139,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 142,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 146,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 149,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 153,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 156,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 159,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 163,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#7",
+        "type": "session",
+        "daysAgo": 166,
+        "text": "Session: worked on communication and turn-taking goals; data entered."
+      },
+      {
+        "record": "learners#1",
+        "type": "parent_training",
+        "daysAgo": 6,
+        "text": "Parent training on the bedtime routine."
+      }
+    ]
+  },
+  "dashboardCards": [
+    "summary",
+    "quotas",
+    "missingInfo"
+  ]
+}

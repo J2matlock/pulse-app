@@ -1,0 +1,523 @@
+/**
+ * TemplateManagerView — Full-page view at /templates.
+ * Manages setup templates (.pulse files) and checklist templates.
+ */
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { Download, Upload, FileText, Plus, Check } from 'lucide-react'
+import { IPC } from '../../shared/ipc-channels'
+import type { ChecklistTemplate, Grid, SaveDialogResult, OpenDialogResult } from '../../shared/types'
+import { safeInvoke } from '../utils/safeInvoke'
+import { rlog } from '../utils/rendererLogger'
+import { ChecklistTemplateEditor } from '../components/profile/ChecklistTemplateEditor'
+import { ImportPreviewModal } from '../components/shared/ImportPreviewModal'
+import type { PulseImportPreview, ImportedFile } from '../components/shared/ImportPreviewModal'
+import type { SetupTemplate } from './template-manager/types'
+import { LoadingOverlay as Spinner } from '../components/shared/LoadingSpinner'
+import { SetupTemplateCard } from './template-manager/SetupTemplateCard'
+import { ChecklistTemplateRow } from './template-manager/ChecklistTemplateRow'
+import { useFocusTrap } from '../hooks/useFocusTrap'
+import { EmptyState } from '../components/shared/EmptyState'
+import { useVocab } from '../hooks/useVocab'
+import { useFeature } from '../hooks/useFeature'
+
+export default function TemplateManagerView(): React.ReactElement {
+  const checklistsOn = useFeature('checklists')
+  const { t: w } = useVocab(null)
+  const [setupTemplates, setSetupTemplates] = useState<SetupTemplate[]>([])
+  const [clTemplates, setClTemplates] = useState<ChecklistTemplate[]>([])
+  const [grids, setGrids] = useState<Grid[]>([])
+  const [loadingSetup, setLoadingSetup] = useState(true)
+  const [loadingCL, setLoadingCL] = useState(true)
+  const [setupError, setSetupError] = useState<string | null>(null)
+  const [clError, setClError] = useState<string | null>(null)
+
+  // Checklist editor modal
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editorTemplate, setEditorTemplate] = useState<ChecklistTemplate | null>(null)
+
+  // Import flow
+  const [importedFile, setImportedFile] = useState<ImportedFile | null>(null)
+  const [importing, setImporting] = useState(false)
+
+  // Export state
+  const [exporting, setExporting] = useState(false)
+  const [gridPickerOpen, setGridPickerOpen] = useState(false)
+  const [pickerGridId, setPickerGridId] = useState<number | null>(null)
+  const gridPickerTrapRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(gridPickerTrapRef, gridPickerOpen)
+
+  const loadSetupTemplates = useCallback(async () => {
+    setLoadingSetup(true)
+    setSetupError(null)
+    try {
+      const res = await safeInvoke<SetupTemplate[]>(IPC.SETUP_TEMPLATE_GET_ALL)
+      if (res.ok) {
+        setSetupTemplates(res.data)
+      } else {
+        setSetupError(res.error ?? 'Could not load setup templates. Please try again.')
+      }
+    } catch (err) {
+      rlog.error('TemplateManagerView', 'Failed to load setup templates', err)
+      setSetupError('Could not load setup templates. Please try again.')
+    } finally {
+      setLoadingSetup(false)
+    }
+  }, [])
+
+  const loadCLTemplates = useCallback(async () => {
+    setLoadingCL(true)
+    setClError(null)
+    try {
+      const res = await safeInvoke<ChecklistTemplate[]>(IPC.CL_TEMPLATE_GET_ALL)
+      if (res.ok) {
+        setClTemplates(res.data)
+      } else {
+        setClError('Could not load checklist templates. Please try again.')
+      }
+    } catch {
+      setClError('Could not load checklist templates. Please try again.')
+    } finally {
+      setLoadingCL(false)
+    }
+  }, [])
+
+  const loadGrids = useCallback(async () => {
+    try {
+      const res = await safeInvoke<Grid[]>(IPC.GRID_GET_ALL)
+      if (res.ok) setGrids(res.data)
+    } catch {
+      // grids are best-effort for selectors
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadSetupTemplates()
+    void loadCLTemplates()
+    void loadGrids()
+  }, [loadSetupTemplates, loadCLTemplates, loadGrids])
+
+  async function handleImport() {
+    setImporting(true)
+    try {
+      const dialogRes = await safeInvoke<OpenDialogResult>(IPC.APP_SHOW_FILE_DIALOG, {
+        title: 'Import Template File',
+        filters: [{ name: 'Pulse Templates', extensions: ['pulse'] }],
+        properties: ['openFile'],
+      })
+
+      if (!dialogRes.ok || !dialogRes.data || dialogRes.data.canceled || dialogRes.data.filePaths.length === 0) return
+
+      const filePath = dialogRes.data.filePaths[0]!
+
+      const previewRes = await safeInvoke<{ pulse: unknown; preview: PulseImportPreview }>(IPC.SETUP_TEMPLATE_IMPORT, filePath)
+
+      if (!previewRes.ok) {
+        setSetupError(previewRes.error ?? 'Could not read that template file. Make sure it is a valid .pulse file.')
+        return
+      }
+
+      setImportedFile({ filePath, preview: previewRes.data.preview })
+    } catch {
+      setSetupError('Something went wrong while opening the file. Please try again.')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  function handleExportCurrentGrid() {
+    if (grids.length === 0) {
+      setSetupError('No grids to export. Create a grid first.')
+      return
+    }
+    if (grids.length === 1) {
+      void doExport(grids[0]!.id)
+    } else {
+      setPickerGridId(grids.find(g => g.is_active === 1)?.id ?? grids[0]!.id)
+      setGridPickerOpen(true)
+    }
+  }
+
+  async function doExport(gridId: number) {
+    const saveRes = await safeInvoke<SaveDialogResult>(IPC.APP_SHOW_SAVE_DIALOG, {
+      title: 'Save Template As',
+      defaultPath: `${grids.find(g => g.id === gridId)?.name ?? 'template'}.pulse`,
+      filters: [{ name: 'Pulse Templates', extensions: ['pulse'] }],
+    })
+
+    if (!saveRes.ok || !saveRes.data || saveRes.data.canceled || !saveRes.data.filePath) return
+
+    setExporting(true)
+    try {
+      const res = await safeInvoke<true>(IPC.SETUP_TEMPLATE_EXPORT, gridId, saveRes.data.filePath)
+      if (!res.ok) {
+        setSetupError(res.error ?? 'Could not export the template. Please try again.')
+      } else {
+        void loadSetupTemplates()
+      }
+    } catch {
+      setSetupError('Could not export the template. Please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  async function handleDeleteSetupTemplate(id: number) {
+    try {
+      const res = await safeInvoke<true>(IPC.SETUP_TEMPLATE_DELETE, id)
+      if (res.ok) {
+        setSetupTemplates(prev => prev.filter(t => t.id !== id))
+      } else {
+        setSetupError(res.error ?? 'Could not delete the template. Please try again.')
+      }
+    } catch {
+      setSetupError('Could not delete the template. Please try again.')
+    }
+  }
+
+  async function handleDeleteCLTemplate(id: number) {
+    try {
+      const res = await safeInvoke<true>(IPC.CL_TEMPLATE_DELETE, id)
+      if (res.ok) {
+        setClTemplates(prev => prev.filter(t => t.id !== id))
+      } else {
+        setClError(res.error ?? 'Could not delete the template. Please try again.')
+      }
+    } catch {
+      setClError('Could not delete the template. Please try again.')
+    }
+  }
+
+  function handleCLSaved(saved: ChecklistTemplate) {
+    setClTemplates(prev => {
+      const idx = prev.findIndex(t => t.id === saved.id)
+      if (idx >= 0) {
+        const next = [...prev]
+        next[idx] = saved
+        return next
+      }
+      return [...prev, saved]
+    })
+  }
+
+  async function handleExportCLTemplate(template: ChecklistTemplate) {
+    try {
+      const slug = template.name.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60)
+      const saveRes = await safeInvoke<SaveDialogResult>(IPC.APP_SHOW_SAVE_DIALOG, {
+        title: 'Export Checklist Template',
+        defaultPath: `${slug}.pulse-checklist`,
+        filters: [{ name: 'Pulse Checklist Template', extensions: ['pulse-checklist'] }],
+      })
+      if (!saveRes.ok || saveRes.data.canceled || !saveRes.data.filePath) return
+      const res = await safeInvoke<true>(IPC.CL_TEMPLATE_EXPORT, template.id, saveRes.data.filePath)
+      if (!res.ok) setClError(res.error ?? 'Could not export the template.')
+    } catch {
+      setClError('Could not export the template.')
+    }
+  }
+
+  async function handleImportCLTemplate() {
+    try {
+      const openRes = await safeInvoke<OpenDialogResult>(IPC.APP_SHOW_FILE_DIALOG, {
+        title: 'Import Checklist Template',
+        properties: ['openFile'],
+        filters: [{ name: 'Pulse Checklist Template', extensions: ['pulse-checklist'] }],
+      })
+      if (!openRes.ok || openRes.data.canceled || !openRes.data.filePaths?.length) return
+      const res = await safeInvoke<ChecklistTemplate>(IPC.CL_TEMPLATE_IMPORT, openRes.data.filePaths[0])
+      if (res.ok) {
+        setClTemplates(prev => [...prev, res.data])
+      } else {
+        setClError(res.error ?? 'Could not import the template.')
+      }
+    } catch {
+      setClError('Could not import the template.')
+    }
+  }
+
+  function openEditor(template: ChecklistTemplate | null) {
+    setEditorTemplate(template)
+    setEditorOpen(true)
+  }
+
+  return (
+    <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900">
+
+      {/* Page header — fixed at top */}
+      <div className="flex-shrink-0 max-w-7xl w-full mx-auto px-6 pt-8 pb-4">
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Templates</h1>
+        <p className="mt-1 text-base text-slate-500 dark:text-slate-400">
+          Pulse has two kinds of templates. <strong>{w('list', { cap: true })} templates</strong> save the whole setup of {w('list', { article: true })} so you can reuse it.{' '}
+          <strong>Checklist templates</strong> are reusable to-do lists you can attach to individual {w('record')} profiles.
+        </p>
+      </div>
+
+      <div className="flex-1 min-h-0 max-w-7xl w-full mx-auto px-6 pb-8">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 h-full items-start" style={{ gridTemplateRows: '1fr' }}>
+
+        {/* ── Caseload Templates (left) ──────────────────────────────────── */}
+        <section className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 overflow-y-auto max-h-full">
+          <div className="flex items-center gap-3 mb-1">
+            <FileText className="w-5 h-5 text-blue-500" />
+            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+              {w('list', { cap: true })} templates
+            </h2>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+            Saved as .pulse files. Captures your columns, column types, alert rules, deadline settings, activity tracking, and checklist assignments.
+            Use these to start a new {w('list')} with the same setup, or share your structure with a colleague.
+          </p>
+
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <button
+              type="button"
+              onClick={handleImport}
+              disabled={importing}
+              title="Import a .pulse template file"
+              aria-label="Import a .pulse template file"
+              className="hit-44 flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                         text-base text-slate-700 dark:text-slate-300
+                         hover:bg-slate-50 dark:hover:bg-slate-700 min-h-[40px]
+                         disabled:opacity-50 disabled:cursor-not-allowed
+                         focus:outline-hidden focus:ring-3 focus:ring-slate-400 transition-colors"
+            >
+              <Upload className="w-4 h-4" />
+              {importing ? 'Opening...' : 'Import .pulse File'}
+            </button>
+            <button
+              type="button"
+              onClick={handleExportCurrentGrid}
+              disabled={exporting}
+              title="Save current grid as a reusable template"
+              aria-label="Save current grid as a reusable template"
+              className="hit-44 flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
+                         text-base text-slate-700 dark:text-slate-300
+                         hover:bg-slate-50 dark:hover:bg-slate-700 min-h-[40px]
+                         disabled:opacity-50 disabled:cursor-not-allowed
+                         focus:outline-hidden focus:ring-3 focus:ring-slate-400 transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              {exporting ? 'Saving...' : 'Save Current Grid as Template'}
+            </button>
+          </div>
+
+          {setupError && (
+            <div className="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-3">
+              {setupError}
+              <button
+                type="button"
+                onClick={() => setSetupError(null)}
+                className="hit-44 ml-3 underline text-red-600 dark:text-red-400 hover:no-underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {loadingSetup ? (
+            <Spinner />
+          ) : setupTemplates.length === 0 ? (
+            <EmptyState
+              icon={<FileText className="w-12 h-12" />}
+              title={`No ${w('list')} templates yet`}
+              description={`${w('list', { cap: true })} templates save the whole setup of ${w('list', { article: true })} so you can reuse it. Import a .pulse file or save one of yours as a template.`}
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+              {setupTemplates.map(t => (
+                <SetupTemplateCard
+                  key={t.id}
+                  template={t}
+                  grids={grids}
+                  onDelete={handleDeleteSetupTemplate}
+                  onExport={async (id) => {
+                    const saveRes = await safeInvoke<SaveDialogResult>(IPC.APP_SHOW_SAVE_DIALOG, {
+                      title: 'Export Template',
+                      defaultPath: `${t.name.replace(/[^a-z0-9]/gi, '_')}.pulse`,
+                      filters: [{ name: 'Pulse Templates', extensions: ['pulse'] }],
+                    })
+                    if (!saveRes.ok || !saveRes.data || saveRes.data.canceled || !saveRes.data.filePath) return
+                    const res = await safeInvoke<true>(IPC.SETUP_TEMPLATE_EXPORT, { templateId: id, outputPath: saveRes.data.filePath })
+                    if (!res.ok) setSetupError(res.error ?? 'Could not export the template.')
+                  }}
+                  onRefresh={loadSetupTemplates}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {checklistsOn && (<>
+          {/* ── Checklist Templates (right) ─────────────────────────────────── */}
+          <section className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 overflow-y-auto max-h-full">
+            <div className="flex items-center justify-between gap-3 mb-1 flex-wrap">
+              <div className="flex items-center gap-3 min-w-0">
+                <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
+                <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 truncate">
+                  Checklist Templates
+                </h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleImportCLTemplate}
+                  title="Import a .pulse-checklist file"
+                  aria-label="Import checklist template"
+                  className="hit-44 flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200
+                             dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200
+                             text-base font-medium min-h-[40px]
+                             focus:outline-hidden focus:ring-3 focus:ring-blue-500 transition-colors"
+                >
+                  <Upload className="w-4 h-4" />
+                  Import
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openEditor(null)}
+                  title="Create a new checklist template"
+                  aria-label="Create a new checklist template"
+                  className="hit-44 flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white
+                             text-base font-medium min-h-[40px]
+                             focus:outline-hidden focus:ring-3 focus:ring-blue-500 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  New Checklist
+                </button>
+              </div>
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+              Reusable to-do lists that you can add to any {w('record')} profile.
+              Great for intake steps, closing procedures, or recurring review checklists.
+              Optionally set them to recur on a schedule.
+            </p>
+
+            {clError && (
+              <div className="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-3">
+                {clError}
+                <button
+                  type="button"
+                  onClick={() => setClError(null)}
+                  className="hit-44 ml-3 underline text-red-600 dark:text-red-400 hover:no-underline"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            {loadingCL ? (
+              <Spinner />
+            ) : clTemplates.length === 0 ? (
+              <EmptyState
+                icon={<Check className="w-12 h-12" />}
+                title="No checklist templates yet"
+                description="Templates let you create reusable checklists for common workflows like intake, discharge, or annual reviews."
+                action={{ label: 'Create your first template', onClick: () => openEditor(null) }}
+              />
+            ) : (
+              <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
+                      <th scope="col" className="px-4 py-3 text-left text-sm font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
+                        Name
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left text-sm font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide whitespace-nowrap">
+                        Items
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left text-sm font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide whitespace-nowrap">
+                        Recurring
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-right text-sm font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {clTemplates.map(t => (
+                      <ChecklistTemplateRow
+                        key={t.id}
+                        template={t}
+                        onEdit={openEditor}
+                        onDelete={handleDeleteCLTemplate}
+                        onExport={handleExportCLTemplate}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </>)}
+
+        </div>{/* end grid */}
+      </div>{/* end flex-1 */}
+
+      {/* Checklist editor modal */}
+      <ChecklistTemplateEditor
+        open={editorOpen}
+        template={editorTemplate}
+        onClose={() => setEditorOpen(false)}
+        onSaved={t => { handleCLSaved(t); setEditorOpen(false) }}
+      />
+
+      {/* Grid picker modal */}
+      {gridPickerOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={e => { if (e.target === e.currentTarget) setGridPickerOpen(false) }}
+        >
+          <div ref={gridPickerTrapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+              Save {w('list', { cap: true })} as Template
+            </h2>
+            <div>
+              <label htmlFor="template-mgr-caseload" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Which {w('list')}?
+              </label>
+              <select
+                id="template-mgr-caseload"
+                value={pickerGridId ?? ''}
+                onChange={e => setPickerGridId(parseInt(e.target.value))}
+                className="input w-full"
+                style={{ fontSize: 15 }}
+              >
+                {grids.map(g => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-3 justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => setGridPickerOpen(false)}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={pickerGridId === null}
+                onClick={() => {
+                  setGridPickerOpen(false)
+                  if (pickerGridId !== null) void doExport(pickerGridId)
+                }}
+                className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Save as Template
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import preview modal */}
+      {importedFile && (
+        <ImportPreviewModal
+          imported={importedFile}
+          grids={grids}
+          onClose={() => setImportedFile(null)}
+          onApplied={() => { setImportedFile(null); void loadSetupTemplates() }}
+        />
+      )}
+    </div>
+  )
+}
