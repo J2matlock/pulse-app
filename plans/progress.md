@@ -1464,3 +1464,8 @@ Comprehensive audit identified 2 critical, 7 high, 10 medium, 15 low findings. A
 - v2.0.0 published in `pulse-releases` with the Linux AppImage and SHA256SUMS only, **not** marked latest, and `latest.json` left at 1.1.6, so Windows installs aren't offered an update without a Windows file and the website's `releases/latest/download/PULSE.exe` link still works
 - Windows signing blocked: Azure Trusted Signing returns 403, and `az login` reports no subscriptions for j2matlock@outlook.com (the subscription holding `baringasoft-signing` looks expired, or the signer role is missing). The unsigned `dist/PULSE.exe` was built but not published
 - To finish Windows once Azure is fixed: `npm run package:win` (signs through `scripts/sign-exe.js`), upload `PULSE.exe` to the v2.0.0 release, mark it latest, and update `latest.json` in `pulse-releases` (`version` 2.0.0, `downloadUrl` to the v2.0.0 `PULSE.exe`, `downloads.linux` to the AppImage)
+
+## 2026-10-09 (cont.) — Windows 2.0.0 shipped unsigned
+- Code signing dropped (Azure subscription lapsed; Pulse isn't sold). `scripts/sign-exe.js` and the signing steps in `build-win.js` removed; About's update steps and the README explain SmartScreen's More info → Run anyway
+- v2.0.0 in `pulse-releases` now has `PULSE.exe`, the AppImage and `SHA256SUMS.txt`, and is marked latest, so the website's `releases/latest/download/PULSE.exe` serves 2.0.0
+- Not done: `latest.json` in `pulse-releases` still says 1.1.6 (updating it was declined), so installed copies aren't told about 2.0.0 yet
