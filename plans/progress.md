@@ -1468,4 +1468,4 @@ Comprehensive audit identified 2 critical, 7 high, 10 medium, 15 low findings. A
 ## 2026-10-09 (cont.) — Windows 2.0.0 shipped unsigned
 - Code signing dropped (Azure subscription lapsed; Pulse isn't sold). `scripts/sign-exe.js` and the signing steps in `build-win.js` removed; About's update steps and the README explain SmartScreen's More info → Run anyway
 - v2.0.0 in `pulse-releases` now has `PULSE.exe`, the AppImage and `SHA256SUMS.txt`, and is marked latest, so the website's `releases/latest/download/PULSE.exe` serves 2.0.0
-- Not done: `latest.json` in `pulse-releases` still says 1.1.6 (updating it was declined), so installed copies aren't told about 2.0.0 yet
+- `latest.json` in `pulse-releases` now announces 2.0.0 (Windows `downloadUrl` plus `downloads.win` / `downloads.linux`), so installed copies offer the update on their next check
