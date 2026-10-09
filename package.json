@@ -36,7 +36,8 @@
     "test:all": "npm run test:unit && npm run test:e2e",
     "typecheck": "tsc --noEmit -p tsconfig.node.json; A=$?; tsc --noEmit -p tsconfig.web.json; B=$?; [ $A -eq 0 ] && [ $B -eq 0 ]",
     "lint": "eslint src",
-    "ui-tour": "npm run build && UI_TOUR=1 npx playwright test e2e/ui-tour.spec.ts --reporter=line"
+    "ui-tour": "npm run build && UI_TOUR=1 npx playwright test e2e/ui-tour.spec.ts --reporter=line",
+    "licenses": "node scripts/third-party-licenses.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",
