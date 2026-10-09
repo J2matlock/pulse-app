@@ -1458,3 +1458,9 @@ Comprehensive audit identified 2 critical, 7 high, 10 medium, 15 low findings. A
 - Version 2.0.0 with a What's New entry
 - Website screenshots for all 38 starters (`scripts/website-copy/screenshots.sh`), copied to `pulse-landing-page/img/starters/<id>/` plus `img/hero-{dashboard,list,calendar}.png`. Electron hangs on start under this machine's Wayland session (even an empty app); run Electron/Playwright with `env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11`
 - Build state: npm test 3555 pass / 4 skip; typecheck 0; eslint 0 errors
+
+## 2026-10-09 (cont.) — Public repo and Linux release
+- Public repo https://github.com/J2matlock/pulse-app created from one fresh commit (no private history). Local `origin` is now the public repo; the old private repo is remote `private` (branch `private-main` keeps its history)
+- v2.0.0 published in `pulse-releases` with the Linux AppImage and SHA256SUMS only, **not** marked latest, and `latest.json` left at 1.1.6, so Windows installs aren't offered an update without a Windows file and the website's `releases/latest/download/PULSE.exe` link still works
+- Windows signing blocked: Azure Trusted Signing returns 403, and `az login` reports no subscriptions for j2matlock@outlook.com (the subscription holding `baringasoft-signing` looks expired, or the signer role is missing). The unsigned `dist/PULSE.exe` was built but not published
+- To finish Windows once Azure is fixed: `npm run package:win` (signs through `scripts/sign-exe.js`), upload `PULSE.exe` to the v2.0.0 release, mark it latest, and update `latest.json` in `pulse-releases` (`version` 2.0.0, `downloadUrl` to the v2.0.0 `PULSE.exe`, `downloads.linux` to the AppImage)
