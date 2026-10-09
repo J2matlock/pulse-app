@@ -23,16 +23,15 @@ const app = readJson(join(root, 'package.json'))
 // ── Packages that ship ───────────────────────────────────────────────
 // Production dependencies, plus Electron: it's a devDependency for
 // electron-builder, but its runtime is inside every build.
-const tree = JSON.parse(execFileSync(npm, ['ls', '--omit=dev', '--all', '--json', '--long'], { cwd: root, maxBuffer: 64 << 20 }).toString())
+// `npm query .prod` lists every installed production package, including
+// optional and deduped ones that a walk of `npm ls` can miss.
+const prod = JSON.parse(execFileSync(npm, ['query', '.prod'], { cwd: root, maxBuffer: 64 << 20 }).toString())
 const pkgs = new Map()
-;(function walk(node) {
-  for (const [name, dep] of Object.entries(node.dependencies ?? {})) {
-    const key = `${name}@${dep.version}`
-    if (pkgs.has(key) || !dep.path) continue
-    pkgs.set(key, { name, version: dep.version, path: dep.path })
-    walk(dep)
-  }
-})(tree)
+for (const p of prod) {
+  if (!p.location) continue // the app itself
+  const key = `${p.name}@${p.version}`
+  if (!pkgs.has(key)) pkgs.set(key, { name: p.name, version: p.version, path: p.path })
+}
 const electronDir = join(root, 'node_modules', 'electron')
 const electron = readJson(join(electronDir, 'package.json'))
 pkgs.set(`electron@${electron.version}`, { name: 'electron', version: electron.version, path: electronDir })
@@ -92,7 +91,7 @@ writeFileSync(join(root, 'THIRD_PARTY_LICENSES.txt'), [
 ].join('\n'))
 
 // ── sbom.json ────────────────────────────────────────────────────────
-execFileSync(npx, ['--yes', CYCLONEDX, '--omit', 'dev', '--spec-version', '1.6', '--output-reproducible',
+execFileSync(npx, ['--yes', CYCLONEDX, '--omit', 'dev', '--spec-version', '1.6', '--flatten-components', '--output-reproducible',
   '--output-format', 'JSON', '--output-file', 'sbom.json'], { cwd: root, stdio: 'inherit' })
 const sbom = readJson(join(root, 'sbom.json'))
 if (!sbom.components.some(c => c.name === 'electron')) {
@@ -108,6 +107,16 @@ if (!sbom.components.some(c => c.name === 'electron')) {
 }
 sbom.metadata.timestamp = new Date().toISOString()
 writeFileSync(join(root, 'sbom.json'), JSON.stringify(sbom, null, 2) + '\n')
+
+// The SBOM and the license files must describe the same packages
+const purlName = c => (c.group ? `${c.group}/` : '') + c.name + '@' + c.version
+const inSbom = new Set(sbom.components.map(purlName))
+const notInSbom = list.map(p => `${p.name}@${p.version}`).filter(k => !inSbom.has(k))
+const notInList = [...inSbom].filter(k => !pkgs.has(k))
+if (notInSbom.length || notInList.length) {
+  console.warn(`SBOM and license list differ. Only in licenses: ${notInSbom.join(', ') || '-'}. Only in SBOM: ${notInList.join(', ') || '-'}`)
+  process.exitCode = 1
+}
 
 const missing = list.filter(p => !p.text).map(p => `${p.name}@${p.version}`)
 console.log(`${list.length} packages; ${Object.keys(counts).length} licenses; SBOM ${sbom.components.length} components`)

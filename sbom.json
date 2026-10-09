@@ -147,7 +147,7 @@
         "value": "true"
       }
     ],
-    "timestamp": "2026-10-09T22:21:35.458Z"
+    "timestamp": "2026-10-09T22:22:50.834Z"
   },
   "components": [
     {
@@ -428,52 +428,50 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/@fast-csv/format"
         }
-      ],
-      "components": [
+      ]
+    },
+    {
+      "type": "library",
+      "name": "node",
+      "group": "@types",
+      "version": "14.18.63",
+      "bom-ref": "baringasoft-pulse@2.0.0|@fast-csv/format@4.3.5|@types/node@14.18.63",
+      "description": "TypeScript definitions for Node.js",
+      "licenses": [
         {
-          "type": "library",
-          "name": "node",
-          "group": "@types",
-          "version": "14.18.63",
-          "bom-ref": "baringasoft-pulse@2.0.0|@fast-csv/format@4.3.5|@types/node@14.18.63",
-          "description": "TypeScript definitions for Node.js",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/%40types/node@14.18.63",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/@types/node/-/node-14.18.63.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/DefinitelyTyped/DefinitelyTyped/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/DefinitelyTyped/DefinitelyTyped.git#types/node",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\" and \"repository.directory\""
-            },
-            {
-              "url": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/@fast-csv/format/node_modules/@types/node"
-            }
-          ]
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40types/node@14.18.63",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/@types/node/-/node-14.18.63.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/DefinitelyTyped/DefinitelyTyped/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/DefinitelyTyped/DefinitelyTyped.git#types/node",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\" and \"repository.directory\""
+        },
+        {
+          "url": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@fast-csv/format/node_modules/@types/node"
         }
       ]
     },
@@ -521,52 +519,50 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/@fast-csv/parse"
         }
-      ],
-      "components": [
+      ]
+    },
+    {
+      "type": "library",
+      "name": "node",
+      "group": "@types",
+      "version": "14.18.63",
+      "bom-ref": "baringasoft-pulse@2.0.0|@fast-csv/parse@4.3.6|@types/node@14.18.63",
+      "description": "TypeScript definitions for Node.js",
+      "licenses": [
         {
-          "type": "library",
-          "name": "node",
-          "group": "@types",
-          "version": "14.18.63",
-          "bom-ref": "baringasoft-pulse@2.0.0|@fast-csv/parse@4.3.6|@types/node@14.18.63",
-          "description": "TypeScript definitions for Node.js",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/%40types/node@14.18.63",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/@types/node/-/node-14.18.63.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/DefinitelyTyped/DefinitelyTyped/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/DefinitelyTyped/DefinitelyTyped.git#types/node",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\" and \"repository.directory\""
-            },
-            {
-              "url": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/@fast-csv/parse/node_modules/@types/node"
-            }
-          ]
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40types/node@14.18.63",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/@types/node/-/node-14.18.63.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/DefinitelyTyped/DefinitelyTyped/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/DefinitelyTyped/DefinitelyTyped.git#types/node",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\" and \"repository.directory\""
+        },
+        {
+          "url": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@fast-csv/parse/node_modules/@types/node"
         }
       ]
     },
@@ -882,51 +878,49 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/@radix-ui/react-dialog"
         }
-      ],
-      "components": [
+      ]
+    },
+    {
+      "type": "library",
+      "name": "react-primitive",
+      "group": "@radix-ui",
+      "version": "2.1.3",
+      "bom-ref": "baringasoft-pulse@2.0.0|@radix-ui/react-dialog@1.1.15|@radix-ui/react-primitive@2.1.3",
+      "licenses": [
         {
-          "type": "library",
-          "name": "react-primitive",
-          "group": "@radix-ui",
-          "version": "2.1.3",
-          "bom-ref": "baringasoft-pulse@2.0.0|@radix-ui/react-dialog@1.1.15|@radix-ui/react-primitive@2.1.3",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/%40radix-ui/react-primitive@2.1.3",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/@radix-ui/react-primitive/-/react-primitive-2.1.3.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/radix-ui/primitives/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/radix-ui/primitives.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://radix-ui.com/primitives",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/@radix-ui/react-dialog/node_modules/@radix-ui/react-primitive"
-            }
-          ]
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40radix-ui/react-primitive@2.1.3",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/@radix-ui/react-primitive/-/react-primitive-2.1.3.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/radix-ui/primitives/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/radix-ui/primitives.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://radix-ui.com/primitives",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@radix-ui/react-dialog/node_modules/@radix-ui/react-primitive"
         }
       ]
     },
@@ -972,51 +966,49 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/@radix-ui/react-dismissable-layer"
         }
-      ],
-      "components": [
+      ]
+    },
+    {
+      "type": "library",
+      "name": "react-primitive",
+      "group": "@radix-ui",
+      "version": "2.1.3",
+      "bom-ref": "baringasoft-pulse@2.0.0|@radix-ui/react-dismissable-layer@1.1.11|@radix-ui/react-primitive@2.1.3",
+      "licenses": [
         {
-          "type": "library",
-          "name": "react-primitive",
-          "group": "@radix-ui",
-          "version": "2.1.3",
-          "bom-ref": "baringasoft-pulse@2.0.0|@radix-ui/react-dismissable-layer@1.1.11|@radix-ui/react-primitive@2.1.3",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/%40radix-ui/react-primitive@2.1.3",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/@radix-ui/react-primitive/-/react-primitive-2.1.3.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/radix-ui/primitives/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/radix-ui/primitives.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://radix-ui.com/primitives",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/@radix-ui/react-dismissable-layer/node_modules/@radix-ui/react-primitive"
-            }
-          ]
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40radix-ui/react-primitive@2.1.3",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/@radix-ui/react-primitive/-/react-primitive-2.1.3.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/radix-ui/primitives/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/radix-ui/primitives.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://radix-ui.com/primitives",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@radix-ui/react-dismissable-layer/node_modules/@radix-ui/react-primitive"
         }
       ]
     },
@@ -1106,51 +1098,49 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/@radix-ui/react-focus-scope"
         }
-      ],
-      "components": [
+      ]
+    },
+    {
+      "type": "library",
+      "name": "react-primitive",
+      "group": "@radix-ui",
+      "version": "2.1.3",
+      "bom-ref": "baringasoft-pulse@2.0.0|@radix-ui/react-focus-scope@1.1.7|@radix-ui/react-primitive@2.1.3",
+      "licenses": [
         {
-          "type": "library",
-          "name": "react-primitive",
-          "group": "@radix-ui",
-          "version": "2.1.3",
-          "bom-ref": "baringasoft-pulse@2.0.0|@radix-ui/react-focus-scope@1.1.7|@radix-ui/react-primitive@2.1.3",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/%40radix-ui/react-primitive@2.1.3",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/@radix-ui/react-primitive/-/react-primitive-2.1.3.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/radix-ui/primitives/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/radix-ui/primitives.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://radix-ui.com/primitives",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/@radix-ui/react-focus-scope/node_modules/@radix-ui/react-primitive"
-            }
-          ]
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40radix-ui/react-primitive@2.1.3",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/@radix-ui/react-primitive/-/react-primitive-2.1.3.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/radix-ui/primitives/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/radix-ui/primitives.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://radix-ui.com/primitives",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@radix-ui/react-focus-scope/node_modules/@radix-ui/react-primitive"
         }
       ]
     },
@@ -1240,51 +1230,49 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/@radix-ui/react-portal"
         }
-      ],
-      "components": [
+      ]
+    },
+    {
+      "type": "library",
+      "name": "react-primitive",
+      "group": "@radix-ui",
+      "version": "2.1.3",
+      "bom-ref": "baringasoft-pulse@2.0.0|@radix-ui/react-portal@1.1.9|@radix-ui/react-primitive@2.1.3",
+      "licenses": [
         {
-          "type": "library",
-          "name": "react-primitive",
-          "group": "@radix-ui",
-          "version": "2.1.3",
-          "bom-ref": "baringasoft-pulse@2.0.0|@radix-ui/react-portal@1.1.9|@radix-ui/react-primitive@2.1.3",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/%40radix-ui/react-primitive@2.1.3",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/@radix-ui/react-primitive/-/react-primitive-2.1.3.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/radix-ui/primitives/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/radix-ui/primitives.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://radix-ui.com/primitives",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/@radix-ui/react-portal/node_modules/@radix-ui/react-primitive"
-            }
-          ]
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40radix-ui/react-primitive@2.1.3",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/@radix-ui/react-primitive/-/react-primitive-2.1.3.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/radix-ui/primitives/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/radix-ui/primitives.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://radix-ui.com/primitives",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@radix-ui/react-portal/node_modules/@radix-ui/react-primitive"
         }
       ]
     },
@@ -1374,51 +1362,49 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/@radix-ui/react-primitive"
         }
-      ],
-      "components": [
+      ]
+    },
+    {
+      "type": "library",
+      "name": "react-slot",
+      "group": "@radix-ui",
+      "version": "1.2.4",
+      "bom-ref": "baringasoft-pulse@2.0.0|@radix-ui/react-primitive@2.1.4|@radix-ui/react-slot@1.2.4",
+      "licenses": [
         {
-          "type": "library",
-          "name": "react-slot",
-          "group": "@radix-ui",
-          "version": "1.2.4",
-          "bom-ref": "baringasoft-pulse@2.0.0|@radix-ui/react-primitive@2.1.4|@radix-ui/react-slot@1.2.4",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/%40radix-ui/react-slot@1.2.4",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/@radix-ui/react-slot/-/react-slot-1.2.4.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/radix-ui/primitives/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/radix-ui/primitives.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://radix-ui.com/primitives",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/@radix-ui/react-primitive/node_modules/@radix-ui/react-slot"
-            }
-          ]
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40radix-ui/react-slot@1.2.4",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/@radix-ui/react-slot/-/react-slot-1.2.4.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/radix-ui/primitives/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/radix-ui/primitives.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://radix-ui.com/primitives",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@radix-ui/react-primitive/node_modules/@radix-ui/react-slot"
         }
       ]
     },
@@ -3451,97 +3437,95 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/ajv-formats"
         }
-      ],
-      "components": [
+      ]
+    },
+    {
+      "type": "library",
+      "name": "ajv",
+      "version": "8.18.0",
+      "bom-ref": "baringasoft-pulse@2.0.0|ajv-formats@2.1.1|ajv@8.18.0",
+      "author": "Evgeny Poberezkin",
+      "description": "Another JSON Schema Validator",
+      "licenses": [
         {
-          "type": "library",
-          "name": "ajv",
-          "version": "8.18.0",
-          "bom-ref": "baringasoft-pulse@2.0.0|ajv-formats@2.1.1|ajv@8.18.0",
-          "author": "Evgeny Poberezkin",
-          "description": "Another JSON Schema Validator",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/ajv@8.18.0",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/ajv/-/ajv-8.18.0.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/ajv-validator/ajv/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/ajv-validator/ajv.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://ajv.js.org",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/ajv-formats/node_modules/ajv"
-            }
-          ]
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/ajv@8.18.0",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/ajv/-/ajv-8.18.0.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
         },
         {
-          "type": "library",
-          "name": "json-schema-traverse",
-          "version": "1.0.0",
-          "bom-ref": "baringasoft-pulse@2.0.0|ajv-formats@2.1.1|json-schema-traverse@1.0.0",
-          "author": "Evgeny Poberezkin",
-          "description": "Traverse JSON Schema passing each schema object to callback",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/json-schema-traverse@1.0.0",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/json-schema-traverse/-/json-schema-traverse-1.0.0.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/epoberezkin/json-schema-traverse/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/epoberezkin/json-schema-traverse.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/epoberezkin/json-schema-traverse#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/ajv-formats/node_modules/json-schema-traverse"
-            }
-          ]
+          "url": "https://github.com/ajv-validator/ajv/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/ajv-validator/ajv.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://ajv.js.org",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/ajv-formats/node_modules/ajv"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "json-schema-traverse",
+      "version": "1.0.0",
+      "bom-ref": "baringasoft-pulse@2.0.0|ajv-formats@2.1.1|json-schema-traverse@1.0.0",
+      "author": "Evgeny Poberezkin",
+      "description": "Traverse JSON Schema passing each schema object to callback",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/json-schema-traverse@1.0.0",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/json-schema-traverse/-/json-schema-traverse-1.0.0.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/epoberezkin/json-schema-traverse/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/epoberezkin/json-schema-traverse.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/epoberezkin/json-schema-traverse#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/ajv-formats/node_modules/json-schema-traverse"
         }
       ]
     },
@@ -4057,55 +4041,53 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/bl"
         }
-      ],
-      "components": [
+      ]
+    },
+    {
+      "type": "library",
+      "name": "readable-stream",
+      "version": "3.6.2",
+      "bom-ref": "baringasoft-pulse@2.0.0|bl@4.1.0|readable-stream@3.6.2",
+      "description": "Streams3, a user-land copy of the stream library from Node.js",
+      "licenses": [
         {
-          "type": "library",
-          "name": "readable-stream",
-          "version": "3.6.2",
-          "bom-ref": "baringasoft-pulse@2.0.0|bl@4.1.0|readable-stream@3.6.2",
-          "description": "Streams3, a user-land copy of the stream library from Node.js",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/readable-stream@3.6.2",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/readable-stream/-/readable-stream-3.6.2.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/nodejs/readable-stream/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/nodejs/readable-stream.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/nodejs/readable-stream#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": ">= 6"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/bl/node_modules/readable-stream"
-            }
-          ]
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/readable-stream@3.6.2",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/readable-stream/-/readable-stream-3.6.2.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/nodejs/readable-stream/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/nodejs/readable-stream.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/nodejs/readable-stream#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": ">= 6"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/bl/node_modules/readable-stream"
         }
       ]
     },
@@ -4529,97 +4511,95 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/conf"
         }
-      ],
-      "components": [
+      ]
+    },
+    {
+      "type": "library",
+      "name": "ajv",
+      "version": "8.18.0",
+      "bom-ref": "baringasoft-pulse@2.0.0|conf@10.2.0|ajv@8.18.0",
+      "author": "Evgeny Poberezkin",
+      "description": "Another JSON Schema Validator",
+      "licenses": [
         {
-          "type": "library",
-          "name": "ajv",
-          "version": "8.18.0",
-          "bom-ref": "baringasoft-pulse@2.0.0|conf@10.2.0|ajv@8.18.0",
-          "author": "Evgeny Poberezkin",
-          "description": "Another JSON Schema Validator",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/ajv@8.18.0",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/ajv/-/ajv-8.18.0.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/ajv-validator/ajv/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/ajv-validator/ajv.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://ajv.js.org",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/conf/node_modules/ajv"
-            }
-          ]
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/ajv@8.18.0",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/ajv/-/ajv-8.18.0.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
         },
         {
-          "type": "library",
-          "name": "json-schema-traverse",
-          "version": "1.0.0",
-          "bom-ref": "baringasoft-pulse@2.0.0|conf@10.2.0|json-schema-traverse@1.0.0",
-          "author": "Evgeny Poberezkin",
-          "description": "Traverse JSON Schema passing each schema object to callback",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/json-schema-traverse@1.0.0",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/json-schema-traverse/-/json-schema-traverse-1.0.0.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/epoberezkin/json-schema-traverse/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/epoberezkin/json-schema-traverse.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/epoberezkin/json-schema-traverse#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/conf/node_modules/json-schema-traverse"
-            }
-          ]
+          "url": "https://github.com/ajv-validator/ajv/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/ajv-validator/ajv.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://ajv.js.org",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/conf/node_modules/ajv"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "json-schema-traverse",
+      "version": "1.0.0",
+      "bom-ref": "baringasoft-pulse@2.0.0|conf@10.2.0|json-schema-traverse@1.0.0",
+      "author": "Evgeny Poberezkin",
+      "description": "Traverse JSON Schema passing each schema object to callback",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/json-schema-traverse@1.0.0",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/json-schema-traverse/-/json-schema-traverse-1.0.0.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/epoberezkin/json-schema-traverse/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/epoberezkin/json-schema-traverse.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/epoberezkin/json-schema-traverse#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/conf/node_modules/json-schema-traverse"
         }
       ]
     },
@@ -5085,56 +5065,54 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/decompress-response"
         }
-      ],
-      "components": [
+      ]
+    },
+    {
+      "type": "library",
+      "name": "mimic-response",
+      "version": "3.1.0",
+      "bom-ref": "baringasoft-pulse@2.0.0|decompress-response@6.0.0|mimic-response@3.1.0",
+      "author": "Sindre Sorhus",
+      "description": "Mimic a Node.js HTTP response stream",
+      "licenses": [
         {
-          "type": "library",
-          "name": "mimic-response",
-          "version": "3.1.0",
-          "bom-ref": "baringasoft-pulse@2.0.0|decompress-response@6.0.0|mimic-response@3.1.0",
-          "author": "Sindre Sorhus",
-          "description": "Mimic a Node.js HTTP response stream",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/mimic-response@3.1.0",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/mimic-response/-/mimic-response-3.1.0.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/sindresorhus/mimic-response/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/sindresorhus/mimic-response.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/sindresorhus/mimic-response#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": ">=10"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/decompress-response/node_modules/mimic-response"
-            }
-          ]
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/mimic-response@3.1.0",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/mimic-response/-/mimic-response-3.1.0.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/sindresorhus/mimic-response/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/sindresorhus/mimic-response.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/sindresorhus/mimic-response#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": ">=10"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/decompress-response/node_modules/mimic-response"
         }
       ]
     },
@@ -5423,140 +5401,138 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/duplexer2"
         }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "readable-stream",
+      "version": "2.3.8",
+      "bom-ref": "baringasoft-pulse@2.0.0|duplexer2@0.1.4|readable-stream@2.3.8",
+      "description": "Streams3, a user-land copy of the stream library from Node.js",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
       ],
-      "components": [
+      "purl": "pkg:npm/readable-stream@2.3.8",
+      "externalReferences": [
         {
-          "type": "library",
-          "name": "readable-stream",
-          "version": "2.3.8",
-          "bom-ref": "baringasoft-pulse@2.0.0|duplexer2@0.1.4|readable-stream@2.3.8",
-          "description": "Streams3, a user-land copy of the stream library from Node.js",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/readable-stream@2.3.8",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/readable-stream/-/readable-stream-2.3.8.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/nodejs/readable-stream/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/nodejs/readable-stream.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/nodejs/readable-stream#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/duplexer2/node_modules/readable-stream"
-            }
-          ]
+          "url": "https://registry.npmjs.org/readable-stream/-/readable-stream-2.3.8.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
         },
         {
-          "type": "library",
-          "name": "safe-buffer",
-          "version": "5.1.2",
-          "bom-ref": "baringasoft-pulse@2.0.0|duplexer2@0.1.4|safe-buffer@5.1.2",
-          "author": "Feross Aboukhadijeh",
-          "description": "Safer Node.js Buffer API",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/safe-buffer@5.1.2",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/feross/safe-buffer/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/feross/safe-buffer.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/feross/safe-buffer",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/duplexer2/node_modules/safe-buffer"
-            }
-          ]
+          "url": "https://github.com/nodejs/readable-stream/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
         },
         {
-          "type": "library",
-          "name": "string_decoder",
-          "version": "1.1.1",
-          "bom-ref": "baringasoft-pulse@2.0.0|duplexer2@0.1.4|string_decoder@1.1.1",
-          "description": "The string_decoder module from Node core",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/string_decoder@1.1.1",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/string_decoder/-/string_decoder-1.1.1.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/nodejs/string_decoder/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/nodejs/string_decoder.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/nodejs/string_decoder",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/duplexer2/node_modules/string_decoder"
-            }
-          ]
+          "url": "git://github.com/nodejs/readable-stream.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/nodejs/readable-stream#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/duplexer2/node_modules/readable-stream"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "safe-buffer",
+      "version": "5.1.2",
+      "bom-ref": "baringasoft-pulse@2.0.0|duplexer2@0.1.4|safe-buffer@5.1.2",
+      "author": "Feross Aboukhadijeh",
+      "description": "Safer Node.js Buffer API",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/safe-buffer@5.1.2",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/feross/safe-buffer/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/feross/safe-buffer.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/feross/safe-buffer",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/duplexer2/node_modules/safe-buffer"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "string_decoder",
+      "version": "1.1.1",
+      "bom-ref": "baringasoft-pulse@2.0.0|duplexer2@0.1.4|string_decoder@1.1.1",
+      "description": "The string_decoder module from Node core",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/string_decoder@1.1.1",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/string_decoder/-/string_decoder-1.1.1.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/nodejs/string_decoder/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/nodejs/string_decoder.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/nodejs/string_decoder",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/duplexer2/node_modules/string_decoder"
         }
       ]
     },
@@ -5746,779 +5722,773 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/exceljs"
         }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "archiver-utils",
+      "version": "2.1.0",
+      "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|archiver-utils@2.1.0",
+      "author": "Chris Talkington",
+      "description": "utility functions for archiver",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
       ],
-      "components": [
+      "purl": "pkg:npm/archiver-utils@2.1.0",
+      "externalReferences": [
         {
-          "type": "library",
-          "name": "archiver-utils",
-          "version": "2.1.0",
-          "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|archiver-utils@2.1.0",
-          "author": "Chris Talkington",
-          "description": "utility functions for archiver",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/archiver-utils@2.1.0",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/archiver-utils/-/archiver-utils-2.1.0.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/archiverjs/archiver-utils/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/archiverjs/archiver-utils.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/archiverjs/archiver-utils#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": ">= 6"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/exceljs/node_modules/archiver-utils"
-            }
-          ],
-          "components": [
-            {
-              "type": "library",
-              "name": "readable-stream",
-              "version": "2.3.8",
-              "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|archiver-utils@2.1.0|readable-stream@2.3.8",
-              "description": "Streams3, a user-land copy of the stream library from Node.js",
-              "licenses": [
-                {
-                  "license": {
-                    "id": "MIT",
-                    "acknowledgement": "declared"
-                  }
-                }
-              ],
-              "purl": "pkg:npm/readable-stream@2.3.8",
-              "externalReferences": [
-                {
-                  "url": "https://registry.npmjs.org/readable-stream/-/readable-stream-2.3.8.tgz",
-                  "type": "distribution",
-                  "comment": "as detected from npm-ls property \"resolved\""
-                },
-                {
-                  "url": "https://github.com/nodejs/readable-stream/issues",
-                  "type": "issue-tracker",
-                  "comment": "as detected from PackageJson property \"bugs.url\""
-                },
-                {
-                  "url": "git://github.com/nodejs/readable-stream.git",
-                  "type": "vcs",
-                  "comment": "as detected from PackageJson property \"repository.url\""
-                },
-                {
-                  "url": "https://github.com/nodejs/readable-stream#readme",
-                  "type": "website",
-                  "comment": "as detected from PackageJson property \"homepage\""
-                }
-              ],
-              "properties": [
-                {
-                  "name": "cdx:npm:package:path",
-                  "value": "node_modules/exceljs/node_modules/archiver-utils/node_modules/readable-stream"
-                }
-              ]
-            }
-          ]
+          "url": "https://registry.npmjs.org/archiver-utils/-/archiver-utils-2.1.0.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
         },
         {
-          "type": "library",
-          "name": "archiver",
-          "version": "5.3.2",
-          "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|archiver@5.3.2",
-          "author": "Chris Talkington",
-          "description": "a streaming interface for archive generation",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/archiver@5.3.2",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/archiver/-/archiver-5.3.2.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/archiverjs/node-archiver/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/archiverjs/node-archiver.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/archiverjs/node-archiver",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": ">= 10"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/exceljs/node_modules/archiver"
-            }
-          ]
+          "url": "https://github.com/archiverjs/archiver-utils/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
         },
         {
-          "type": "library",
-          "name": "balanced-match",
-          "version": "1.0.2",
-          "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|balanced-match@1.0.2",
-          "author": "Julian Gruber",
-          "description": "Match balanced character pairs, like \"{\" and \"}\"",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/balanced-match@1.0.2",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/juliangruber/balanced-match/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/juliangruber/balanced-match.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/juliangruber/balanced-match",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/exceljs/node_modules/balanced-match"
-            }
-          ]
+          "url": "git+https://github.com/archiverjs/archiver-utils.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
         },
         {
-          "type": "library",
-          "name": "brace-expansion",
-          "version": "1.1.21",
-          "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|brace-expansion@1.1.21",
-          "author": "Julian Gruber",
-          "description": "Brace expansion as known from sh/bash",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/brace-expansion@1.1.21",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.21.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/juliangruber/brace-expansion/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/juliangruber/brace-expansion.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/juliangruber/brace-expansion",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/exceljs/node_modules/brace-expansion"
-            }
-          ]
+          "url": "https://github.com/archiverjs/archiver-utils#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": ">= 6"
         },
         {
-          "type": "library",
-          "name": "buffer-crc32",
-          "version": "0.2.13",
-          "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|buffer-crc32@0.2.13",
-          "author": "Brian J. Brennan",
-          "description": "A pure javascript CRC32 algorithm that plays nice with binary data",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            },
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared",
-                "url": "https://github.com/brianloveswords/buffer-crc32/raw/master/LICENSE"
-              }
-            }
-          ],
-          "purl": "pkg:npm/buffer-crc32@0.2.13",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/buffer-crc32/-/buffer-crc32-0.2.13.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/brianloveswords/buffer-crc32/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/brianloveswords/buffer-crc32.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/brianloveswords/buffer-crc32",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": "*"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/exceljs/node_modules/buffer-crc32"
-            }
-          ]
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/exceljs/node_modules/archiver-utils"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "readable-stream",
+      "version": "2.3.8",
+      "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|archiver-utils@2.1.0|readable-stream@2.3.8",
+      "description": "Streams3, a user-land copy of the stream library from Node.js",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/readable-stream@2.3.8",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/readable-stream/-/readable-stream-2.3.8.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
         },
         {
-          "type": "library",
-          "name": "compress-commons",
-          "version": "4.1.2",
-          "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|compress-commons@4.1.2",
-          "author": "Chris Talkington",
-          "description": "a library that defines a common interface for working with archive formats within node",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/compress-commons@4.1.2",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/compress-commons/-/compress-commons-4.1.2.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/archiverjs/node-compress-commons/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/archiverjs/node-compress-commons.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/archiverjs/node-compress-commons",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": ">= 10"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/exceljs/node_modules/compress-commons"
-            }
-          ]
+          "url": "https://github.com/nodejs/readable-stream/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
         },
         {
-          "type": "library",
-          "name": "crc32-stream",
-          "version": "4.0.3",
-          "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|crc32-stream@4.0.3",
-          "author": "Chris Talkington",
-          "description": "a streaming CRC32 checksumer",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/crc32-stream@4.0.3",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/crc32-stream/-/crc32-stream-4.0.3.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/archiverjs/node-crc32-stream/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/archiverjs/node-crc32-stream.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/archiverjs/node-crc32-stream",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": ">= 10"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/exceljs/node_modules/crc32-stream"
-            }
-          ]
+          "url": "git://github.com/nodejs/readable-stream.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
         },
         {
-          "type": "library",
-          "name": "glob",
-          "version": "7.2.3",
-          "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|glob@7.2.3",
-          "author": "Isaac Z. Schlueter",
-          "description": "a little globber",
-          "licenses": [
-            {
-              "license": {
-                "id": "ISC",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/glob@7.2.3",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/glob/-/glob-7.2.3.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/isaacs/node-glob/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/isaacs/node-glob.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/isaacs/node-glob#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": "*"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/exceljs/node_modules/glob"
-            }
-          ]
+          "url": "https://github.com/nodejs/readable-stream#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/exceljs/node_modules/archiver-utils/node_modules/readable-stream"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "archiver",
+      "version": "5.3.2",
+      "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|archiver@5.3.2",
+      "author": "Chris Talkington",
+      "description": "a streaming interface for archive generation",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/archiver@5.3.2",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/archiver/-/archiver-5.3.2.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
         },
         {
-          "type": "library",
-          "name": "minimatch",
-          "version": "3.1.5",
-          "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|minimatch@3.1.5",
-          "author": "Isaac Z. Schlueter",
-          "description": "a glob matcher in javascript",
-          "licenses": [
-            {
-              "license": {
-                "id": "ISC",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/minimatch@3.1.5",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/minimatch/-/minimatch-3.1.5.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/isaacs/minimatch/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/isaacs/minimatch.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/isaacs/minimatch#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": "*"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/exceljs/node_modules/minimatch"
-            }
-          ]
+          "url": "https://github.com/archiverjs/node-archiver/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
         },
         {
-          "type": "library",
-          "name": "readable-stream",
-          "version": "3.6.2",
-          "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|readable-stream@3.6.2",
-          "description": "Streams3, a user-land copy of the stream library from Node.js",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/readable-stream@3.6.2",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/readable-stream/-/readable-stream-3.6.2.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/nodejs/readable-stream/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/nodejs/readable-stream.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/nodejs/readable-stream#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": ">= 6"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/exceljs/node_modules/readable-stream"
-            }
-          ]
+          "url": "git+https://github.com/archiverjs/node-archiver.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
         },
         {
-          "type": "library",
-          "name": "safe-buffer",
-          "version": "5.1.2",
-          "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|safe-buffer@5.1.2",
-          "author": "Feross Aboukhadijeh",
-          "description": "Safer Node.js Buffer API",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/safe-buffer@5.1.2",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/feross/safe-buffer/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/feross/safe-buffer.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/feross/safe-buffer",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/exceljs/node_modules/safe-buffer"
-            }
-          ]
+          "url": "https://github.com/archiverjs/node-archiver",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": ">= 10"
         },
         {
-          "type": "library",
-          "name": "string_decoder",
-          "version": "1.1.1",
-          "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|string_decoder@1.1.1",
-          "description": "The string_decoder module from Node core",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/string_decoder@1.1.1",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/string_decoder/-/string_decoder-1.1.1.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/nodejs/string_decoder/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/nodejs/string_decoder.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/nodejs/string_decoder",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/exceljs/node_modules/string_decoder"
-            }
-          ]
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/exceljs/node_modules/archiver"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "balanced-match",
+      "version": "1.0.2",
+      "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|balanced-match@1.0.2",
+      "author": "Julian Gruber",
+      "description": "Match balanced character pairs, like \"{\" and \"}\"",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/balanced-match@1.0.2",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
         },
         {
-          "type": "library",
-          "name": "tar-stream",
-          "version": "2.2.0",
-          "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|tar-stream@2.2.0",
-          "author": "Mathias Buus",
-          "description": "tar-stream is a streaming tar parser and generator and nothing else. It is streams2 and operates purely using streams which means you can easily extract/parse tarballs without ever hitting the file system.",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/tar-stream@2.2.0",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/tar-stream/-/tar-stream-2.2.0.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/mafintosh/tar-stream/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/mafintosh/tar-stream.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/mafintosh/tar-stream",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": ">=6"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/exceljs/node_modules/tar-stream"
-            }
-          ]
+          "url": "https://github.com/juliangruber/balanced-match/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
         },
         {
-          "type": "library",
-          "name": "zip-stream",
-          "version": "4.1.1",
-          "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|zip-stream@4.1.1",
-          "author": "Chris Talkington",
-          "description": "a streaming zip archive generator.",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/zip-stream@4.1.1",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/zip-stream/-/zip-stream-4.1.1.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/archiverjs/node-zip-stream/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/archiverjs/node-zip-stream.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/archiverjs/node-zip-stream",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": ">= 10"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/exceljs/node_modules/zip-stream"
-            }
-          ],
-          "components": [
-            {
-              "type": "library",
-              "name": "archiver-utils",
-              "version": "3.0.4",
-              "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|zip-stream@4.1.1|archiver-utils@3.0.4",
-              "author": "Chris Talkington",
-              "description": "utility functions for archiver",
-              "licenses": [
-                {
-                  "license": {
-                    "id": "MIT",
-                    "acknowledgement": "declared"
-                  }
-                }
-              ],
-              "purl": "pkg:npm/archiver-utils@3.0.4",
-              "externalReferences": [
-                {
-                  "url": "https://registry.npmjs.org/archiver-utils/-/archiver-utils-3.0.4.tgz",
-                  "type": "distribution",
-                  "comment": "as detected from npm-ls property \"resolved\""
-                },
-                {
-                  "url": "https://github.com/archiverjs/archiver-utils/issues",
-                  "type": "issue-tracker",
-                  "comment": "as detected from PackageJson property \"bugs.url\""
-                },
-                {
-                  "url": "git+https://github.com/archiverjs/archiver-utils.git",
-                  "type": "vcs",
-                  "comment": "as detected from PackageJson property \"repository.url\""
-                },
-                {
-                  "url": "https://github.com/archiverjs/archiver-utils#readme",
-                  "type": "website",
-                  "comment": "as detected from PackageJson property \"homepage\""
-                }
-              ],
-              "properties": [
-                {
-                  "name": "cdx:npm:package:constraint:engine:node",
-                  "value": ">= 10"
-                },
-                {
-                  "name": "cdx:npm:package:path",
-                  "value": "node_modules/exceljs/node_modules/zip-stream/node_modules/archiver-utils"
-                }
-              ]
-            }
-          ]
+          "url": "git://github.com/juliangruber/balanced-match.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/juliangruber/balanced-match",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/exceljs/node_modules/balanced-match"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "brace-expansion",
+      "version": "1.1.21",
+      "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|brace-expansion@1.1.21",
+      "author": "Julian Gruber",
+      "description": "Brace expansion as known from sh/bash",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/brace-expansion@1.1.21",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.21.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/juliangruber/brace-expansion/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/juliangruber/brace-expansion.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/juliangruber/brace-expansion",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/exceljs/node_modules/brace-expansion"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "buffer-crc32",
+      "version": "0.2.13",
+      "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|buffer-crc32@0.2.13",
+      "author": "Brian J. Brennan",
+      "description": "A pure javascript CRC32 algorithm that plays nice with binary data",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        },
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared",
+            "url": "https://github.com/brianloveswords/buffer-crc32/raw/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:npm/buffer-crc32@0.2.13",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/buffer-crc32/-/buffer-crc32-0.2.13.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/brianloveswords/buffer-crc32/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/brianloveswords/buffer-crc32.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/brianloveswords/buffer-crc32",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": "*"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/exceljs/node_modules/buffer-crc32"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "compress-commons",
+      "version": "4.1.2",
+      "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|compress-commons@4.1.2",
+      "author": "Chris Talkington",
+      "description": "a library that defines a common interface for working with archive formats within node",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/compress-commons@4.1.2",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/compress-commons/-/compress-commons-4.1.2.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/archiverjs/node-compress-commons/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/archiverjs/node-compress-commons.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/archiverjs/node-compress-commons",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": ">= 10"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/exceljs/node_modules/compress-commons"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "crc32-stream",
+      "version": "4.0.3",
+      "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|crc32-stream@4.0.3",
+      "author": "Chris Talkington",
+      "description": "a streaming CRC32 checksumer",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/crc32-stream@4.0.3",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/crc32-stream/-/crc32-stream-4.0.3.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/archiverjs/node-crc32-stream/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/archiverjs/node-crc32-stream.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/archiverjs/node-crc32-stream",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": ">= 10"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/exceljs/node_modules/crc32-stream"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "glob",
+      "version": "7.2.3",
+      "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|glob@7.2.3",
+      "author": "Isaac Z. Schlueter",
+      "description": "a little globber",
+      "licenses": [
+        {
+          "license": {
+            "id": "ISC",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/glob@7.2.3",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/glob/-/glob-7.2.3.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/isaacs/node-glob/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/isaacs/node-glob.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/isaacs/node-glob#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": "*"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/exceljs/node_modules/glob"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "minimatch",
+      "version": "3.1.5",
+      "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|minimatch@3.1.5",
+      "author": "Isaac Z. Schlueter",
+      "description": "a glob matcher in javascript",
+      "licenses": [
+        {
+          "license": {
+            "id": "ISC",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/minimatch@3.1.5",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/minimatch/-/minimatch-3.1.5.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/isaacs/minimatch/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/isaacs/minimatch.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/isaacs/minimatch#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": "*"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/exceljs/node_modules/minimatch"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "readable-stream",
+      "version": "3.6.2",
+      "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|readable-stream@3.6.2",
+      "description": "Streams3, a user-land copy of the stream library from Node.js",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/readable-stream@3.6.2",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/readable-stream/-/readable-stream-3.6.2.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/nodejs/readable-stream/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/nodejs/readable-stream.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/nodejs/readable-stream#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": ">= 6"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/exceljs/node_modules/readable-stream"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "safe-buffer",
+      "version": "5.1.2",
+      "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|safe-buffer@5.1.2",
+      "author": "Feross Aboukhadijeh",
+      "description": "Safer Node.js Buffer API",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/safe-buffer@5.1.2",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/feross/safe-buffer/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/feross/safe-buffer.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/feross/safe-buffer",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/exceljs/node_modules/safe-buffer"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "string_decoder",
+      "version": "1.1.1",
+      "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|string_decoder@1.1.1",
+      "description": "The string_decoder module from Node core",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/string_decoder@1.1.1",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/string_decoder/-/string_decoder-1.1.1.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/nodejs/string_decoder/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/nodejs/string_decoder.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/nodejs/string_decoder",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/exceljs/node_modules/string_decoder"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "tar-stream",
+      "version": "2.2.0",
+      "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|tar-stream@2.2.0",
+      "author": "Mathias Buus",
+      "description": "tar-stream is a streaming tar parser and generator and nothing else. It is streams2 and operates purely using streams which means you can easily extract/parse tarballs without ever hitting the file system.",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/tar-stream@2.2.0",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/tar-stream/-/tar-stream-2.2.0.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/mafintosh/tar-stream/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/mafintosh/tar-stream.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/mafintosh/tar-stream",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": ">=6"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/exceljs/node_modules/tar-stream"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "zip-stream",
+      "version": "4.1.1",
+      "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|zip-stream@4.1.1",
+      "author": "Chris Talkington",
+      "description": "a streaming zip archive generator.",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/zip-stream@4.1.1",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/zip-stream/-/zip-stream-4.1.1.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/archiverjs/node-zip-stream/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/archiverjs/node-zip-stream.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/archiverjs/node-zip-stream",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": ">= 10"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/exceljs/node_modules/zip-stream"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "archiver-utils",
+      "version": "3.0.4",
+      "bom-ref": "baringasoft-pulse@2.0.0|exceljs@4.4.0|zip-stream@4.1.1|archiver-utils@3.0.4",
+      "author": "Chris Talkington",
+      "description": "utility functions for archiver",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/archiver-utils@3.0.4",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/archiver-utils/-/archiver-utils-3.0.4.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/archiverjs/archiver-utils/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/archiverjs/archiver-utils.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/archiverjs/archiver-utils#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": ">= 10"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/exceljs/node_modules/zip-stream/node_modules/archiver-utils"
         }
       ]
     },
@@ -7123,285 +7093,283 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/fstream"
         }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "balanced-match",
+      "version": "1.0.2",
+      "bom-ref": "baringasoft-pulse@2.0.0|fstream@1.0.12|balanced-match@1.0.2",
+      "author": "Julian Gruber",
+      "description": "Match balanced character pairs, like \"{\" and \"}\"",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
       ],
-      "components": [
+      "purl": "pkg:npm/balanced-match@1.0.2",
+      "externalReferences": [
         {
-          "type": "library",
-          "name": "balanced-match",
-          "version": "1.0.2",
-          "bom-ref": "baringasoft-pulse@2.0.0|fstream@1.0.12|balanced-match@1.0.2",
-          "author": "Julian Gruber",
-          "description": "Match balanced character pairs, like \"{\" and \"}\"",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/balanced-match@1.0.2",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/juliangruber/balanced-match/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/juliangruber/balanced-match.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/juliangruber/balanced-match",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/fstream/node_modules/balanced-match"
-            }
-          ]
+          "url": "https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
         },
         {
-          "type": "library",
-          "name": "brace-expansion",
-          "version": "1.1.21",
-          "bom-ref": "baringasoft-pulse@2.0.0|fstream@1.0.12|brace-expansion@1.1.21",
-          "author": "Julian Gruber",
-          "description": "Brace expansion as known from sh/bash",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/brace-expansion@1.1.21",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.21.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/juliangruber/brace-expansion/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/juliangruber/brace-expansion.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/juliangruber/brace-expansion",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/fstream/node_modules/brace-expansion"
-            }
-          ]
+          "url": "https://github.com/juliangruber/balanced-match/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
         },
         {
-          "type": "library",
-          "name": "glob",
-          "version": "7.2.3",
-          "bom-ref": "baringasoft-pulse@2.0.0|fstream@1.0.12|glob@7.2.3",
-          "author": "Isaac Z. Schlueter",
-          "description": "a little globber",
-          "licenses": [
-            {
-              "license": {
-                "id": "ISC",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/glob@7.2.3",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/glob/-/glob-7.2.3.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/isaacs/node-glob/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/isaacs/node-glob.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/isaacs/node-glob#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": "*"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/fstream/node_modules/glob"
-            }
-          ]
+          "url": "git://github.com/juliangruber/balanced-match.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
         },
         {
-          "type": "library",
-          "name": "minimatch",
-          "version": "3.1.5",
-          "bom-ref": "baringasoft-pulse@2.0.0|fstream@1.0.12|minimatch@3.1.5",
-          "author": "Isaac Z. Schlueter",
-          "description": "a glob matcher in javascript",
-          "licenses": [
-            {
-              "license": {
-                "id": "ISC",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/minimatch@3.1.5",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/minimatch/-/minimatch-3.1.5.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/isaacs/minimatch/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/isaacs/minimatch.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/isaacs/minimatch#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": "*"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/fstream/node_modules/minimatch"
-            }
-          ]
+          "url": "https://github.com/juliangruber/balanced-match",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/fstream/node_modules/balanced-match"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "brace-expansion",
+      "version": "1.1.21",
+      "bom-ref": "baringasoft-pulse@2.0.0|fstream@1.0.12|brace-expansion@1.1.21",
+      "author": "Julian Gruber",
+      "description": "Brace expansion as known from sh/bash",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/brace-expansion@1.1.21",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.21.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
         },
         {
-          "type": "library",
-          "name": "mkdirp",
-          "version": "0.5.6",
-          "bom-ref": "baringasoft-pulse@2.0.0|fstream@1.0.12|mkdirp@0.5.6",
-          "author": "James Halliday",
-          "description": "Recursively mkdir, like `mkdir -p`",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/mkdirp@0.5.6",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/mkdirp/-/mkdirp-0.5.6.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/substack/node-mkdirp/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/substack/node-mkdirp.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/substack/node-mkdirp#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/fstream/node_modules/mkdirp"
-            }
-          ]
+          "url": "https://github.com/juliangruber/brace-expansion/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
         },
         {
-          "type": "library",
-          "name": "rimraf",
-          "version": "2.7.1",
-          "bom-ref": "baringasoft-pulse@2.0.0|fstream@1.0.12|rimraf@2.7.1",
-          "author": "Isaac Z. Schlueter",
-          "description": "A deep deletion module for node (like `rm -rf`)",
-          "licenses": [
-            {
-              "license": {
-                "id": "ISC",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/rimraf@2.7.1",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/rimraf/-/rimraf-2.7.1.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/isaacs/rimraf/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/isaacs/rimraf.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/isaacs/rimraf#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/fstream/node_modules/rimraf"
-            }
-          ]
+          "url": "git://github.com/juliangruber/brace-expansion.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/juliangruber/brace-expansion",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/fstream/node_modules/brace-expansion"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "glob",
+      "version": "7.2.3",
+      "bom-ref": "baringasoft-pulse@2.0.0|fstream@1.0.12|glob@7.2.3",
+      "author": "Isaac Z. Schlueter",
+      "description": "a little globber",
+      "licenses": [
+        {
+          "license": {
+            "id": "ISC",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/glob@7.2.3",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/glob/-/glob-7.2.3.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/isaacs/node-glob/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/isaacs/node-glob.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/isaacs/node-glob#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": "*"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/fstream/node_modules/glob"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "minimatch",
+      "version": "3.1.5",
+      "bom-ref": "baringasoft-pulse@2.0.0|fstream@1.0.12|minimatch@3.1.5",
+      "author": "Isaac Z. Schlueter",
+      "description": "a glob matcher in javascript",
+      "licenses": [
+        {
+          "license": {
+            "id": "ISC",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/minimatch@3.1.5",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/minimatch/-/minimatch-3.1.5.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/isaacs/minimatch/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/isaacs/minimatch.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/isaacs/minimatch#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": "*"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/fstream/node_modules/minimatch"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "mkdirp",
+      "version": "0.5.6",
+      "bom-ref": "baringasoft-pulse@2.0.0|fstream@1.0.12|mkdirp@0.5.6",
+      "author": "James Halliday",
+      "description": "Recursively mkdir, like `mkdir -p`",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/mkdirp@0.5.6",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/mkdirp/-/mkdirp-0.5.6.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/substack/node-mkdirp/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/substack/node-mkdirp.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/substack/node-mkdirp#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/fstream/node_modules/mkdirp"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "rimraf",
+      "version": "2.7.1",
+      "bom-ref": "baringasoft-pulse@2.0.0|fstream@1.0.12|rimraf@2.7.1",
+      "author": "Isaac Z. Schlueter",
+      "description": "A deep deletion module for node (like `rm -rf`)",
+      "licenses": [
+        {
+          "license": {
+            "id": "ISC",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/rimraf@2.7.1",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/rimraf/-/rimraf-2.7.1.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/isaacs/rimraf/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/isaacs/rimraf.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/isaacs/rimraf#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/fstream/node_modules/rimraf"
         }
       ]
     },
@@ -8173,182 +8141,180 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/jszip"
         }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "pako",
+      "version": "1.0.11",
+      "bom-ref": "baringasoft-pulse@2.0.0|jszip@3.10.1|pako@1.0.11",
+      "description": "zlib port to javascript - fast, modularized, with browser support",
+      "licenses": [
+        {
+          "expression": "(MIT AND Zlib)",
+          "acknowledgement": "declared"
+        }
       ],
-      "components": [
+      "purl": "pkg:npm/pako@1.0.11",
+      "externalReferences": [
         {
-          "type": "library",
-          "name": "pako",
-          "version": "1.0.11",
-          "bom-ref": "baringasoft-pulse@2.0.0|jszip@3.10.1|pako@1.0.11",
-          "description": "zlib port to javascript - fast, modularized, with browser support",
-          "licenses": [
-            {
-              "expression": "(MIT AND Zlib)",
-              "acknowledgement": "declared"
-            }
-          ],
-          "purl": "pkg:npm/pako@1.0.11",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/pako/-/pako-1.0.11.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/nodeca/pako/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/nodeca/pako.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/nodeca/pako",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/jszip/node_modules/pako"
-            }
-          ]
+          "url": "https://registry.npmjs.org/pako/-/pako-1.0.11.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
         },
         {
-          "type": "library",
-          "name": "readable-stream",
-          "version": "2.3.8",
-          "bom-ref": "baringasoft-pulse@2.0.0|jszip@3.10.1|readable-stream@2.3.8",
-          "description": "Streams3, a user-land copy of the stream library from Node.js",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/readable-stream@2.3.8",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/readable-stream/-/readable-stream-2.3.8.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/nodejs/readable-stream/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/nodejs/readable-stream.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/nodejs/readable-stream#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/jszip/node_modules/readable-stream"
-            }
-          ]
+          "url": "https://github.com/nodeca/pako/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
         },
         {
-          "type": "library",
-          "name": "safe-buffer",
-          "version": "5.1.2",
-          "bom-ref": "baringasoft-pulse@2.0.0|jszip@3.10.1|safe-buffer@5.1.2",
-          "author": "Feross Aboukhadijeh",
-          "description": "Safer Node.js Buffer API",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/safe-buffer@5.1.2",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/feross/safe-buffer/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/feross/safe-buffer.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/feross/safe-buffer",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/jszip/node_modules/safe-buffer"
-            }
-          ]
+          "url": "git+https://github.com/nodeca/pako.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
         },
         {
-          "type": "library",
-          "name": "string_decoder",
-          "version": "1.1.1",
-          "bom-ref": "baringasoft-pulse@2.0.0|jszip@3.10.1|string_decoder@1.1.1",
-          "description": "The string_decoder module from Node core",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/string_decoder@1.1.1",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/string_decoder/-/string_decoder-1.1.1.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/nodejs/string_decoder/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/nodejs/string_decoder.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/nodejs/string_decoder",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/jszip/node_modules/string_decoder"
-            }
-          ]
+          "url": "https://github.com/nodeca/pako",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/jszip/node_modules/pako"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "readable-stream",
+      "version": "2.3.8",
+      "bom-ref": "baringasoft-pulse@2.0.0|jszip@3.10.1|readable-stream@2.3.8",
+      "description": "Streams3, a user-land copy of the stream library from Node.js",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/readable-stream@2.3.8",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/readable-stream/-/readable-stream-2.3.8.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/nodejs/readable-stream/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/nodejs/readable-stream.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/nodejs/readable-stream#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/jszip/node_modules/readable-stream"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "safe-buffer",
+      "version": "5.1.2",
+      "bom-ref": "baringasoft-pulse@2.0.0|jszip@3.10.1|safe-buffer@5.1.2",
+      "author": "Feross Aboukhadijeh",
+      "description": "Safer Node.js Buffer API",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/safe-buffer@5.1.2",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/feross/safe-buffer/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/feross/safe-buffer.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/feross/safe-buffer",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/jszip/node_modules/safe-buffer"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "string_decoder",
+      "version": "1.1.1",
+      "bom-ref": "baringasoft-pulse@2.0.0|jszip@3.10.1|string_decoder@1.1.1",
+      "description": "The string_decoder module from Node core",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/string_decoder@1.1.1",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/string_decoder/-/string_decoder-1.1.1.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/nodejs/string_decoder/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/nodejs/string_decoder.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/nodejs/string_decoder",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/jszip/node_modules/string_decoder"
         }
       ]
     },
@@ -8399,140 +8365,138 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/lazystream"
         }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "readable-stream",
+      "version": "2.3.8",
+      "bom-ref": "baringasoft-pulse@2.0.0|lazystream@1.0.1|readable-stream@2.3.8",
+      "description": "Streams3, a user-land copy of the stream library from Node.js",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
       ],
-      "components": [
+      "purl": "pkg:npm/readable-stream@2.3.8",
+      "externalReferences": [
         {
-          "type": "library",
-          "name": "readable-stream",
-          "version": "2.3.8",
-          "bom-ref": "baringasoft-pulse@2.0.0|lazystream@1.0.1|readable-stream@2.3.8",
-          "description": "Streams3, a user-land copy of the stream library from Node.js",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/readable-stream@2.3.8",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/readable-stream/-/readable-stream-2.3.8.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/nodejs/readable-stream/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/nodejs/readable-stream.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/nodejs/readable-stream#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/lazystream/node_modules/readable-stream"
-            }
-          ]
+          "url": "https://registry.npmjs.org/readable-stream/-/readable-stream-2.3.8.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
         },
         {
-          "type": "library",
-          "name": "safe-buffer",
-          "version": "5.1.2",
-          "bom-ref": "baringasoft-pulse@2.0.0|lazystream@1.0.1|safe-buffer@5.1.2",
-          "author": "Feross Aboukhadijeh",
-          "description": "Safer Node.js Buffer API",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/safe-buffer@5.1.2",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/feross/safe-buffer/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/feross/safe-buffer.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/feross/safe-buffer",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/lazystream/node_modules/safe-buffer"
-            }
-          ]
+          "url": "https://github.com/nodejs/readable-stream/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
         },
         {
-          "type": "library",
-          "name": "string_decoder",
-          "version": "1.1.1",
-          "bom-ref": "baringasoft-pulse@2.0.0|lazystream@1.0.1|string_decoder@1.1.1",
-          "description": "The string_decoder module from Node core",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/string_decoder@1.1.1",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/string_decoder/-/string_decoder-1.1.1.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/nodejs/string_decoder/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/nodejs/string_decoder.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/nodejs/string_decoder",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/lazystream/node_modules/string_decoder"
-            }
-          ]
+          "url": "git://github.com/nodejs/readable-stream.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/nodejs/readable-stream#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/lazystream/node_modules/readable-stream"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "safe-buffer",
+      "version": "5.1.2",
+      "bom-ref": "baringasoft-pulse@2.0.0|lazystream@1.0.1|safe-buffer@5.1.2",
+      "author": "Feross Aboukhadijeh",
+      "description": "Safer Node.js Buffer API",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/safe-buffer@5.1.2",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/feross/safe-buffer/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/feross/safe-buffer.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/feross/safe-buffer",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/lazystream/node_modules/safe-buffer"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "string_decoder",
+      "version": "1.1.1",
+      "bom-ref": "baringasoft-pulse@2.0.0|lazystream@1.0.1|string_decoder@1.1.1",
+      "description": "The string_decoder module from Node core",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/string_decoder@1.1.1",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/string_decoder/-/string_decoder-1.1.1.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/nodejs/string_decoder/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/nodejs/string_decoder.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/nodejs/string_decoder",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/lazystream/node_modules/string_decoder"
         }
       ]
     },
@@ -9856,56 +9820,54 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/onetime"
         }
-      ],
-      "components": [
+      ]
+    },
+    {
+      "type": "library",
+      "name": "mimic-fn",
+      "version": "2.1.0",
+      "bom-ref": "baringasoft-pulse@2.0.0|onetime@5.1.2|mimic-fn@2.1.0",
+      "author": "Sindre Sorhus",
+      "description": "Make a function mimic another one",
+      "licenses": [
         {
-          "type": "library",
-          "name": "mimic-fn",
-          "version": "2.1.0",
-          "bom-ref": "baringasoft-pulse@2.0.0|onetime@5.1.2|mimic-fn@2.1.0",
-          "author": "Sindre Sorhus",
-          "description": "Make a function mimic another one",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/mimic-fn@2.1.0",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/mimic-fn/-/mimic-fn-2.1.0.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/sindresorhus/mimic-fn/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/sindresorhus/mimic-fn.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/sindresorhus/mimic-fn#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": ">=6"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/onetime/node_modules/mimic-fn"
-            }
-          ]
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/mimic-fn@2.1.0",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/mimic-fn/-/mimic-fn-2.1.0.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/sindresorhus/mimic-fn/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/sindresorhus/mimic-fn.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/sindresorhus/mimic-fn#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": ">=6"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/onetime/node_modules/mimic-fn"
         }
       ]
     },
@@ -10001,56 +9963,54 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/p-locate"
         }
-      ],
-      "components": [
+      ]
+    },
+    {
+      "type": "library",
+      "name": "p-limit",
+      "version": "2.3.0",
+      "bom-ref": "baringasoft-pulse@2.0.0|p-locate@3.0.0|p-limit@2.3.0",
+      "author": "Sindre Sorhus",
+      "description": "Run multiple promise-returning & async functions with limited concurrency",
+      "licenses": [
         {
-          "type": "library",
-          "name": "p-limit",
-          "version": "2.3.0",
-          "bom-ref": "baringasoft-pulse@2.0.0|p-locate@3.0.0|p-limit@2.3.0",
-          "author": "Sindre Sorhus",
-          "description": "Run multiple promise-returning & async functions with limited concurrency",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/p-limit@2.3.0",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/p-limit/-/p-limit-2.3.0.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/sindresorhus/p-limit/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/sindresorhus/p-limit.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/sindresorhus/p-limit#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": ">=6"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/p-locate/node_modules/p-limit"
-            }
-          ]
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/p-limit@2.3.0",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/p-limit/-/p-limit-2.3.0.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/sindresorhus/p-limit/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/sindresorhus/p-limit.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/sindresorhus/p-limit#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": ">=6"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/p-locate/node_modules/p-limit"
         }
       ]
     },
@@ -11594,146 +11554,144 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/readdir-glob"
         }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "balanced-match",
+      "version": "1.0.2",
+      "bom-ref": "baringasoft-pulse@2.0.0|readdir-glob@1.1.3|balanced-match@1.0.2",
+      "author": "Julian Gruber",
+      "description": "Match balanced character pairs, like \"{\" and \"}\"",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
       ],
-      "components": [
+      "purl": "pkg:npm/balanced-match@1.0.2",
+      "externalReferences": [
         {
-          "type": "library",
-          "name": "balanced-match",
-          "version": "1.0.2",
-          "bom-ref": "baringasoft-pulse@2.0.0|readdir-glob@1.1.3|balanced-match@1.0.2",
-          "author": "Julian Gruber",
-          "description": "Match balanced character pairs, like \"{\" and \"}\"",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/balanced-match@1.0.2",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/juliangruber/balanced-match/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/juliangruber/balanced-match.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/juliangruber/balanced-match",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/readdir-glob/node_modules/balanced-match"
-            }
-          ]
+          "url": "https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
         },
         {
-          "type": "library",
-          "name": "brace-expansion",
-          "version": "2.1.7",
-          "bom-ref": "baringasoft-pulse@2.0.0|readdir-glob@1.1.3|brace-expansion@2.1.7",
-          "author": "Julian Gruber",
-          "description": "Brace expansion as known from sh/bash",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/brace-expansion@2.1.7",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.1.7.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/juliangruber/brace-expansion/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/juliangruber/brace-expansion.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/juliangruber/brace-expansion",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/readdir-glob/node_modules/brace-expansion"
-            }
-          ]
+          "url": "https://github.com/juliangruber/balanced-match/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
         },
         {
-          "type": "library",
-          "name": "minimatch",
-          "version": "5.1.9",
-          "bom-ref": "baringasoft-pulse@2.0.0|readdir-glob@1.1.3|minimatch@5.1.9",
-          "author": "Isaac Z. Schlueter",
-          "description": "a glob matcher in javascript",
-          "licenses": [
-            {
-              "license": {
-                "id": "ISC",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/minimatch@5.1.9",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/minimatch/-/minimatch-5.1.9.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/isaacs/minimatch/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/isaacs/minimatch.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/isaacs/minimatch#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": ">=10"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/readdir-glob/node_modules/minimatch"
-            }
-          ]
+          "url": "git://github.com/juliangruber/balanced-match.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/juliangruber/balanced-match",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/readdir-glob/node_modules/balanced-match"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "brace-expansion",
+      "version": "2.1.7",
+      "bom-ref": "baringasoft-pulse@2.0.0|readdir-glob@1.1.3|brace-expansion@2.1.7",
+      "author": "Julian Gruber",
+      "description": "Brace expansion as known from sh/bash",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/brace-expansion@2.1.7",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.1.7.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/juliangruber/brace-expansion/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/juliangruber/brace-expansion.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/juliangruber/brace-expansion",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/readdir-glob/node_modules/brace-expansion"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "minimatch",
+      "version": "5.1.9",
+      "bom-ref": "baringasoft-pulse@2.0.0|readdir-glob@1.1.3|minimatch@5.1.9",
+      "author": "Isaac Z. Schlueter",
+      "description": "a glob matcher in javascript",
+      "licenses": [
+        {
+          "license": {
+            "id": "ISC",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/minimatch@5.1.9",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/minimatch/-/minimatch-5.1.9.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/isaacs/minimatch/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/isaacs/minimatch.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/isaacs/minimatch#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": ">=10"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/readdir-glob/node_modules/minimatch"
         }
       ]
     },
@@ -12526,149 +12484,147 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/tar-fs"
         }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "chownr",
+      "version": "1.1.4",
+      "bom-ref": "baringasoft-pulse@2.0.0|tar-fs@2.1.4|chownr@1.1.4",
+      "author": "Isaac Z. Schlueter",
+      "description": "like `chown -R`",
+      "licenses": [
+        {
+          "license": {
+            "id": "ISC",
+            "acknowledgement": "declared"
+          }
+        }
       ],
-      "components": [
+      "purl": "pkg:npm/chownr@1.1.4",
+      "externalReferences": [
         {
-          "type": "library",
-          "name": "chownr",
-          "version": "1.1.4",
-          "bom-ref": "baringasoft-pulse@2.0.0|tar-fs@2.1.4|chownr@1.1.4",
-          "author": "Isaac Z. Schlueter",
-          "description": "like `chown -R`",
-          "licenses": [
-            {
-              "license": {
-                "id": "ISC",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/chownr@1.1.4",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/chownr/-/chownr-1.1.4.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/isaacs/chownr/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/isaacs/chownr.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/isaacs/chownr#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/tar-fs/node_modules/chownr"
-            }
-          ]
+          "url": "https://registry.npmjs.org/chownr/-/chownr-1.1.4.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
         },
         {
-          "type": "library",
-          "name": "readable-stream",
-          "version": "3.6.2",
-          "bom-ref": "baringasoft-pulse@2.0.0|tar-fs@2.1.4|readable-stream@3.6.2",
-          "description": "Streams3, a user-land copy of the stream library from Node.js",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/readable-stream@3.6.2",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/readable-stream/-/readable-stream-3.6.2.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/nodejs/readable-stream/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/nodejs/readable-stream.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/nodejs/readable-stream#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": ">= 6"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/tar-fs/node_modules/readable-stream"
-            }
-          ]
+          "url": "https://github.com/isaacs/chownr/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
         },
         {
-          "type": "library",
-          "name": "tar-stream",
-          "version": "2.2.0",
-          "bom-ref": "baringasoft-pulse@2.0.0|tar-fs@2.1.4|tar-stream@2.2.0",
-          "author": "Mathias Buus",
-          "description": "tar-stream is a streaming tar parser and generator and nothing else. It is streams2 and operates purely using streams which means you can easily extract/parse tarballs without ever hitting the file system.",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/tar-stream@2.2.0",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/tar-stream/-/tar-stream-2.2.0.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/mafintosh/tar-stream/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git+https://github.com/mafintosh/tar-stream.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/mafintosh/tar-stream",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": ">=6"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/tar-fs/node_modules/tar-stream"
-            }
-          ]
+          "url": "git://github.com/isaacs/chownr.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/isaacs/chownr#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/tar-fs/node_modules/chownr"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "readable-stream",
+      "version": "3.6.2",
+      "bom-ref": "baringasoft-pulse@2.0.0|tar-fs@2.1.4|readable-stream@3.6.2",
+      "description": "Streams3, a user-land copy of the stream library from Node.js",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/readable-stream@3.6.2",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/readable-stream/-/readable-stream-3.6.2.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/nodejs/readable-stream/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/nodejs/readable-stream.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/nodejs/readable-stream#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": ">= 6"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/tar-fs/node_modules/readable-stream"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "tar-stream",
+      "version": "2.2.0",
+      "bom-ref": "baringasoft-pulse@2.0.0|tar-fs@2.1.4|tar-stream@2.2.0",
+      "author": "Mathias Buus",
+      "description": "tar-stream is a streaming tar parser and generator and nothing else. It is streams2 and operates purely using streams which means you can easily extract/parse tarballs without ever hitting the file system.",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/tar-stream@2.2.0",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/tar-stream/-/tar-stream-2.2.0.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/mafintosh/tar-stream/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git+https://github.com/mafintosh/tar-stream.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/mafintosh/tar-stream",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": ">=6"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/tar-fs/node_modules/tar-stream"
         }
       ]
     },
@@ -12994,185 +12950,183 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/unzipper"
         }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "bluebird",
+      "version": "3.4.7",
+      "bom-ref": "baringasoft-pulse@2.0.0|unzipper@0.10.14|bluebird@3.4.7",
+      "author": "Petka Antonov",
+      "description": "Full featured Promises/A+ implementation with exceptionally good performance",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
       ],
-      "components": [
+      "purl": "pkg:npm/bluebird@3.4.7",
+      "externalReferences": [
         {
-          "type": "library",
-          "name": "bluebird",
-          "version": "3.4.7",
-          "bom-ref": "baringasoft-pulse@2.0.0|unzipper@0.10.14|bluebird@3.4.7",
-          "author": "Petka Antonov",
-          "description": "Full featured Promises/A+ implementation with exceptionally good performance",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/bluebird@3.4.7",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/bluebird/-/bluebird-3.4.7.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "http://github.com/petkaantonov/bluebird/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/petkaantonov/bluebird.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/petkaantonov/bluebird",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/unzipper/node_modules/bluebird"
-            }
-          ]
+          "url": "https://registry.npmjs.org/bluebird/-/bluebird-3.4.7.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
         },
         {
-          "type": "library",
-          "name": "readable-stream",
-          "version": "2.3.8",
-          "bom-ref": "baringasoft-pulse@2.0.0|unzipper@0.10.14|readable-stream@2.3.8",
-          "description": "Streams3, a user-land copy of the stream library from Node.js",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/readable-stream@2.3.8",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/readable-stream/-/readable-stream-2.3.8.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/nodejs/readable-stream/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/nodejs/readable-stream.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/nodejs/readable-stream#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/unzipper/node_modules/readable-stream"
-            }
-          ]
+          "url": "http://github.com/petkaantonov/bluebird/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
         },
         {
-          "type": "library",
-          "name": "safe-buffer",
-          "version": "5.1.2",
-          "bom-ref": "baringasoft-pulse@2.0.0|unzipper@0.10.14|safe-buffer@5.1.2",
-          "author": "Feross Aboukhadijeh",
-          "description": "Safer Node.js Buffer API",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/safe-buffer@5.1.2",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/feross/safe-buffer/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/feross/safe-buffer.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/feross/safe-buffer",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/unzipper/node_modules/safe-buffer"
-            }
-          ]
+          "url": "git://github.com/petkaantonov/bluebird.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
         },
         {
-          "type": "library",
-          "name": "string_decoder",
-          "version": "1.1.1",
-          "bom-ref": "baringasoft-pulse@2.0.0|unzipper@0.10.14|string_decoder@1.1.1",
-          "description": "The string_decoder module from Node core",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/string_decoder@1.1.1",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/string_decoder/-/string_decoder-1.1.1.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/nodejs/string_decoder/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/nodejs/string_decoder.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/nodejs/string_decoder",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/unzipper/node_modules/string_decoder"
-            }
-          ]
+          "url": "https://github.com/petkaantonov/bluebird",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/unzipper/node_modules/bluebird"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "readable-stream",
+      "version": "2.3.8",
+      "bom-ref": "baringasoft-pulse@2.0.0|unzipper@0.10.14|readable-stream@2.3.8",
+      "description": "Streams3, a user-land copy of the stream library from Node.js",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/readable-stream@2.3.8",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/readable-stream/-/readable-stream-2.3.8.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/nodejs/readable-stream/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/nodejs/readable-stream.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/nodejs/readable-stream#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/unzipper/node_modules/readable-stream"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "safe-buffer",
+      "version": "5.1.2",
+      "bom-ref": "baringasoft-pulse@2.0.0|unzipper@0.10.14|safe-buffer@5.1.2",
+      "author": "Feross Aboukhadijeh",
+      "description": "Safer Node.js Buffer API",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/safe-buffer@5.1.2",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.1.2.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/feross/safe-buffer/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/feross/safe-buffer.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/feross/safe-buffer",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/unzipper/node_modules/safe-buffer"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "string_decoder",
+      "version": "1.1.1",
+      "bom-ref": "baringasoft-pulse@2.0.0|unzipper@0.10.14|string_decoder@1.1.1",
+      "description": "The string_decoder module from Node core",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/string_decoder@1.1.1",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/string_decoder/-/string_decoder-1.1.1.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/nodejs/string_decoder/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/nodejs/string_decoder.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/nodejs/string_decoder",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/unzipper/node_modules/string_decoder"
         }
       ]
     },
@@ -13634,63 +13588,61 @@
           "name": "cdx:npm:package:path",
           "value": "node_modules/yauzl"
         }
-      ],
-      "components": [
+      ]
+    },
+    {
+      "type": "library",
+      "name": "buffer-crc32",
+      "version": "0.2.13",
+      "bom-ref": "baringasoft-pulse@2.0.0|yauzl@3.2.1|buffer-crc32@0.2.13",
+      "author": "Brian J. Brennan",
+      "description": "A pure javascript CRC32 algorithm that plays nice with binary data",
+      "licenses": [
         {
-          "type": "library",
-          "name": "buffer-crc32",
-          "version": "0.2.13",
-          "bom-ref": "baringasoft-pulse@2.0.0|yauzl@3.2.1|buffer-crc32@0.2.13",
-          "author": "Brian J. Brennan",
-          "description": "A pure javascript CRC32 algorithm that plays nice with binary data",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            },
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared",
-                "url": "https://github.com/brianloveswords/buffer-crc32/raw/master/LICENSE"
-              }
-            }
-          ],
-          "purl": "pkg:npm/buffer-crc32@0.2.13",
-          "externalReferences": [
-            {
-              "url": "https://registry.npmjs.org/buffer-crc32/-/buffer-crc32-0.2.13.tgz",
-              "type": "distribution",
-              "comment": "as detected from npm-ls property \"resolved\""
-            },
-            {
-              "url": "https://github.com/brianloveswords/buffer-crc32/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            },
-            {
-              "url": "git://github.com/brianloveswords/buffer-crc32.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/brianloveswords/buffer-crc32",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:constraint:engine:node",
-              "value": "*"
-            },
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/yauzl/node_modules/buffer-crc32"
-            }
-          ]
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        },
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared",
+            "url": "https://github.com/brianloveswords/buffer-crc32/raw/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:npm/buffer-crc32@0.2.13",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/buffer-crc32/-/buffer-crc32-0.2.13.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/brianloveswords/buffer-crc32/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/brianloveswords/buffer-crc32.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/brianloveswords/buffer-crc32",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": "*"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/yauzl/node_modules/buffer-crc32"
         }
       ]
     },
