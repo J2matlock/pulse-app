@@ -17,6 +17,13 @@ interface ReleaseEntry {
 
 const RELEASES: ReleaseEntry[] = [
   {
+    version: '2.0.1',
+    date: '2026-10-09',
+    items: [
+      'New example: Tree service. Customers, jobs on a board from estimate to done, estimate follow-ups, equipment service by engine hours and crew certifications',
+    ],
+  },
+  {
     version: '2.0.0',
     date: '2026-10-08',
     items: [
