@@ -347,6 +347,10 @@ app.whenReady().then(async () => {
     Menu.setApplicationMenu(Menu.buildFromTemplate(buildMacMenuTemplate(app.getName(), cmd => {
       BrowserWindow.getFocusedWindow()?.webContents.send(IPC.MENU_COMMAND, cmd)
     })))
+  } else {
+    // Electron's default (hidden) menu still answers Ctrl+R / Ctrl+Shift+R by
+    // reloading the page, which looks like a crash and drops unsaved typing
+    Menu.setApplicationMenu(null)
   }
   createWindow()
   initTray({ window: () => mainWindow, isUnlocked, lock: forceLock })

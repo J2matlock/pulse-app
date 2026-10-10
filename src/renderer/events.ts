@@ -13,6 +13,12 @@ type PulseEvents = {
   'note-tracking:changed': undefined
   /** Open a form to fill in (W08): a new record, or this one */
   'form:fill': { formId: number; gridId: number; rowId?: number }
+  /** Open the spreadsheet import for the open list */
+  'grid:open-import': undefined
+  /** Open the example gallery (adding to this workspace), optionally with sample data ticked */
+  'starters:open': { sample: boolean }
+  /** Show first-run setup again (no lists left), at one of its starting points */
+  'setup:open': { step: 'start' | 'examples' | 'sheet-name' | 'blank' }
 }
 
 class TypedEventBus {

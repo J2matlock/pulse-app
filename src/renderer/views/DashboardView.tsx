@@ -603,7 +603,15 @@ export default function DashboardView(): React.ReactElement {
                 showSpinner ? <LoadingOverlay label="Loading dashboard…" /> : <div className="py-16" />
               ) : filteredItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-2 text-slate-500 dark:text-slate-400">
-                  {filterTab === 'all' ? (
+                  {filterTab === 'all' && stats?.totalActive === 0 ? (
+                    <>
+                      <p className="text-base font-semibold text-slate-700 dark:text-slate-300">Nothing here yet</p>
+                      <p className="text-base text-slate-500 dark:text-slate-400">Your dashboard fills up as you add {t('record', { many: true })} with dates.</p>
+                      <button type="button" className="btn-secondary mt-2" onClick={() => pulseEvents.emit('starters:open', { sample: true })}>
+                        See an example with sample data
+                      </button>
+                    </>
+                  ) : filterTab === 'all' ? (
                     <>
                       <CheckCircle className="w-12 h-12 text-green-400 dark:text-green-500 opacity-60" />
                       <p className="text-base font-semibold text-slate-700 dark:text-slate-300">All clear!</p>

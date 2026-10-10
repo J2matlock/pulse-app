@@ -6,6 +6,7 @@ import { ContactRequirementsDialog } from '../contact-req/ContactRequirementsDia
 import { ListSettingsDialog } from '../grid/ListSettingsDialog'
 import { NewListDialog } from '../grid/NewListDialog'
 import { ApplyStarterDialog } from '../starters/ApplyStarterDialog'
+import { pulseEvents } from '../../events'
 import { AnimatePresence, motion } from 'motion/react'
 import { dropdownVariants, backdropVariants, modalPanelVariants } from '../../utils/animations'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
@@ -329,7 +330,9 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
   const closeSettings = useCallback(() => setSettingsGridId(null), [])
   const renameInputRef = useRef<HTMLInputElement>(null)
   const [creatingGrid, setCreatingGrid] = useState(false)
-  const [pickingExample, setPickingExample] = useState(false)
+  const [pickingExample, setPickingExample] = useState<false | { sample: boolean }>(false)
+  // "See an example" from an empty list or the empty dashboard
+  useEffect(() => pulseEvents.on('starters:open', ({ sample }) => setPickingExample({ sample })), [])
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -841,10 +844,10 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
         <NewListDialog
           onClose={() => setCreatingGrid(false)}
           onCreated={id => { setCreatingGrid(false); void loadGrid(id); navigate('/grid') }}
-          onPickExample={() => { setCreatingGrid(false); setPickingExample(true) }}
+          onPickExample={() => { setCreatingGrid(false); setPickingExample({ sample: false }) }}
         />
       )}
-      {pickingExample && <ApplyStarterDialog mode="add" onClose={() => setPickingExample(false)} />}
+      {pickingExample && <ApplyStarterDialog mode="add" withSamples={pickingExample.sample} onClose={() => setPickingExample(false)} />}
       {settingsGridId !== null && (
         <ListSettingsDialog
           gridId={settingsGridId}

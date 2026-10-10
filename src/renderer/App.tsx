@@ -85,6 +85,7 @@ export default function App(): React.ReactElement {
   // Auth gating: manages unlock flow and onboarding
   const {
     authState,
+    setupStart,
     completeOnboarding,
     showTourAfterOnboarding,
   } = useAuthGating()
@@ -158,6 +159,8 @@ export default function App(): React.ReactElement {
     return (
       <ErrorBoundary>
           <SetupView
+            start={setupStart}
+            onCancel={setupStart === 'welcome' ? undefined : completeOnboarding}
             onComplete={completeOnboarding}
             onStartTour={() => {
               showTourAfterOnboarding()

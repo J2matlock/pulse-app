@@ -323,6 +323,32 @@ describe('DataGrid', () => {
       expect(screen.getByText(/No clients yet/)).toBeTruthy()
     })
 
+    it('the empty list gives real next steps and the shortcut that works (audit 2.1)', async () => {
+      setupStores({ rows: [] })
+      const { pulseEvents } = await import('../../../../src/renderer/events')
+      const opened: string[] = []
+      const offs = [pulseEvents.on('grid:open-import', () => opened.push('import')), pulseEvents.on('starters:open', e => opened.push(`example:${e.sample}`))]
+      renderDataGrid()
+      await flushEffects()
+      expect(screen.getByText('Ctrl+N')).toBeTruthy()
+      expect(screen.queryByText(/Ctrl\+Shift\+R/)).toBeNull()
+      expect(screen.queryByText(/Right-click/)).toBeNull()
+      expect(screen.getByRole('button', { name: 'Add Client' })).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: 'Bring in a spreadsheet' }))
+      fireEvent.click(screen.getByRole('button', { name: 'See an example with sample data' }))
+      expect(opened).toEqual(['import', 'example:true'])
+      offs.forEach(off => off())
+    })
+
+    it('says when filters hide every record, and clears them', async () => {
+      setupStores({ showStarredOnly: true })
+      renderDataGrid()
+      await flushEffects()
+      expect(screen.getByText(/No clients match your filters/)).toBeTruthy()
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Clear filters' })) })
+      expect(useGridStore.getState().showStarredOnly).toBe(false)
+    })
+
     it('shows search empty state with search query', async () => {
       setupStores({ rows: [], searchQuery: 'missing' })
       renderDataGrid()

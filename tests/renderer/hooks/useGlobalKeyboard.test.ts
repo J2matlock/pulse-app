@@ -121,6 +121,12 @@ describe('useGlobalKeyboard', () => {
     expect(window.location.hash).toBe('#/contacts')
   })
 
+  it('Ctrl+Shift+D goes to the dashboard, as its labels say', () => {
+    render()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'D', ctrlKey: true, shiftKey: true, bubbles: true }))
+    expect(window.location.hash).toBe('#/dashboard')
+  })
+
   it('ignores the shortcuts of switched-off features', () => {
     setFeatures({ ...EXISTING_FEATURES, contactsDirectory: false, tasks: false })
     window.location.hash = ''

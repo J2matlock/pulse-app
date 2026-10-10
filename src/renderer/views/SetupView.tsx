@@ -28,6 +28,10 @@ import { GuidedBlankStart } from './setup/GuidedBlankStart'
 type Step = 'welcome' | 'profile' | 'start' | 'sheet-name' | 'sheet-import' | 'sheet-rows' | 'sheet-dates' | 'blank' | 'done'
 
 interface Props {
+  /** Where to begin: the welcome screen (first run), or a starting point when shown again */
+  start?: 'welcome' | 'start' | 'examples' | 'sheet-name' | 'blank'
+  /** Shown again from the app: a way back without choosing anything */
+  onCancel?: () => void
   onComplete: () => void
   onStartTour: () => void
 }
@@ -79,12 +83,12 @@ function Back({ onClick }: { onClick: () => void }) {
   )
 }
 
-export default function SetupView({ onComplete, onStartTour }: Props): React.ReactElement {
-  const [step, setStep] = useState<Step>('welcome')
+export default function SetupView({ start = 'welcome', onCancel, onComplete, onStartTour }: Props): React.ReactElement {
+  const [step, setStep] = useState<Step>(start === 'examples' ? 'start' : start)
   const [profile, setProfile] = useState({ name: '', title: '', org: '' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showExamples, setShowExamples] = useState(false)
+  const [showExamples, setShowExamples] = useState(start === 'examples')
   const [listName, setListName] = useState('')
   const [gridId, setGridId] = useState<number | null>(null)
   const importDone = useRef(false)
@@ -244,7 +248,9 @@ export default function SetupView({ onComplete, onStartTour }: Props): React.Rea
                 </button>
               </p>
               {error && <p role="alert" className="text-base text-red-700 dark:text-red-300">{error}</p>}
-              <Back onClick={() => go('profile')} />
+              {onCancel
+                ? <button type="button" onClick={onCancel} className="hit-44 text-base text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100">Not now</button>
+                : <Back onClick={() => go('profile')} />}
             </div>
           )}
 

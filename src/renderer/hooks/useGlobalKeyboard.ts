@@ -10,7 +10,7 @@ import { featureNow } from './useFeature'
 
 /**
  * Global keyboard shortcuts: Ctrl+K (command palette), ? (shortcuts modal),
- * Ctrl+Z (undo), Ctrl+Y/Ctrl+Shift+Z (redo), Ctrl+Shift+P (contacts),
+ * Ctrl+Z (undo), Ctrl+Y/Ctrl+Shift+Z (redo), Ctrl+Shift+D (dashboard), Ctrl+Shift+P (contacts),
  * Ctrl+Shift+T (new task), Ctrl+Shift+F (focus mode toggle),
  * Ctrl+H (find and replace), Ctrl+N (add new client).
  */
@@ -40,6 +40,11 @@ export function useGlobalKeyboard(
     if (isMod(e) && e.key === 'k') {
       e.preventDefault()
       setCommandPaletteOpen(v => !v)
+    }
+    // Ctrl+Shift+D — Dashboard
+    if (isMod(e) && e.shiftKey && e.key === 'D') {
+      e.preventDefault()
+      window.location.hash = '#/dashboard'
     }
     // Ctrl+Shift+P — Contacts / Provider Directory
     if (isMod(e) && e.shiftKey && e.key === 'P' && featureNow('contactsDirectory')) {

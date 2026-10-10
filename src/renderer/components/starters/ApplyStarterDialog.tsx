@@ -24,6 +24,8 @@ interface Props {
   onApplied?: (result: ApplyResult) => void
   /** Start with this starter (an opened file) instead of the gallery */
   initial?: { source: StarterRef; summary: StarterSummary }
+  /** Start with "Add sample data" ticked (the "try it" paths) */
+  withSamples?: boolean
 }
 
 const KIND_LABEL = { person: 'People', thing: 'Things', job: 'Jobs' } as const
@@ -32,7 +34,7 @@ const KIND_LABEL = { person: 'People', thing: 'Things', job: 'Jobs' } as const
  * Pick an example (starter template), choose its variant, review what it adds,
  * and apply it. Nothing already in the workspace is changed or removed.
  */
-export function ApplyStarterDialog({ mode, onClose, onApplied, initial }: Props): React.ReactElement {
+export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamples }: Props): React.ReactElement {
   const { t, f } = useVocab(null)
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, true)
@@ -47,7 +49,7 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial }: Props)
   const [lists, setLists] = useState<Set<string>>(new Set())
   const [useWords, setUseWords] = useState(mode === 'setup')
   const [useFeatures, setUseFeatures] = useState(mode === 'setup')
-  const [sample, setSample] = useState(false)
+  const [sample, setSample] = useState(withSamples ?? false)
   const [working, setWorking] = useState(false)
   const [result, setResult] = useState<ApplyResult | null>(null)
 

@@ -173,7 +173,7 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
     { label: 'Go to Dashboard', icon: LayoutDashboard, action: () => navigate('/dashboard'), shortcut: 'Ctrl+Shift+D' },
     { label: 'Go to Grid', icon: Grid3X3, action: () => navigate('/grid'), shortcut: '' },
     { label: 'Go to Reports', icon: BarChart3, action: () => navigate('/reports'), shortcut: '' },
-    { label: 'Go to Tasks', icon: ClipboardList, action: () => navigate('/tasks'), shortcut: 'Ctrl+Shift+T', feature: 'tasks' as FeatureKey },
+    { label: 'Go to Tasks', icon: ClipboardList, action: () => navigate('/tasks'), shortcut: '', feature: 'tasks' as FeatureKey },
     { label: 'Go to Contacts', icon: BookUser, action: () => navigate('/contacts'), shortcut: 'Ctrl+Shift+P', feature: 'contactsDirectory' as FeatureKey },
     { label: 'Go to Snippets', icon: Zap, action: () => navigate('/snippets'), shortcut: '', feature: 'snippets' as FeatureKey },
     { label: 'Go to Templates', icon: LayoutTemplate, action: () => navigate('/templates'), shortcut: '' },
@@ -184,8 +184,8 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
 
   const paletteForms = useFormStore(s => (activeGridId ? s.byGrid[activeGridId] : undefined)) ?? NO_FORMS
   const actionCommands = useMemo(() => ([
-    { label: `Add New ${tActive('record', { cap: true })}`, icon: UserPlus, action: handleAddClient, shortcut: '' },
-    ...(isOn(features, 'tasks') ? [{ label: 'Add New Task', icon: ClipboardList, action: handleAddTask, shortcut: '' }] : []),
+    { label: `Add New ${tActive('record', { cap: true })}`, icon: UserPlus, action: handleAddClient, shortcut: 'Ctrl+N' },
+    ...(isOn(features, 'tasks') ? [{ label: 'Add New Task', icon: ClipboardList, action: handleAddTask, shortcut: 'Ctrl+Shift+T' }] : []),
     // Fill a form (W08): a new record in the open list
     ...(isOn(features, 'forms') && activeGridId ? paletteForms.map(f => ({ label: `Fill form: ${f.name}`, icon: ClipboardPen, action: () => pulseEvents.emit('form:fill', { formId: f.id, gridId: activeGridId }), shortcut: '' })) : []),
     { label: 'Lock App', icon: Lock, action: lock, shortcut: 'Ctrl+L' },
