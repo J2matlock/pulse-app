@@ -14,7 +14,7 @@ const ROWS: Array<{ key: VocabKey; label: string; hint: string }> = [
   { key: 'activityLog', label: 'Notes history', hint: 'Where those notes are listed' },
   { key: 'contact', label: 'Outside contacts', hint: 'People and organizations you work with' },
   { key: 'contactDirectory', label: 'Contacts page', hint: 'The page that lists them' },
-  { key: 'requirement', label: 'Requirements', hint: 'How many notes each one needs per month' },
+  { key: 'requirement', label: 'Requirements', hint: 'How many contacts each one needs in a period' },
   { key: 'priority', label: 'Priority', hint: 'How much attention each one needs' },
   { key: 'worker', label: 'Your role', hint: 'Used on letters and reports' },
 ]

@@ -25,7 +25,7 @@ import { getSampleGridId, markSampleRows } from './sample-data'
 import { addSampleHistory } from './sample-history'
 import { addStarterReports } from './starter-reports'
 import { assignAutoNumbers, bumpAutoNumbersPastValues, freshAutoNumberConfig } from './auto-number'
-import { addMissingActivityTypes, listActivityTypes, userTypeKeys } from './activity-types'
+import { addMissingActivityTypes, listActivityTypes, replaceStartingTypes, userTypeKeys } from './activity-types'
 import { addMissingMeasures, listMeasures } from './measures'
 import { hasDisplayFormat, refreshDisplayNames } from './display-names'
 import { normalizeDisplayFormat } from '../shared/displayFormat'
@@ -364,6 +364,8 @@ export function applyStarter(src: StarterSource, opts: ApplyOptions): ApplyResul
   db.transaction(() => {
     // 0. Note types and numbers first, so requirements can use them; the user's own are never changed
     if (s.activityTypes?.length && addMissingActivityTypes(s.activityTypes) > 0) result.activityTypesChanged = true
+    // A full set of the example's own replaces the starting Phone/Meeting/Email/Visit in a fresh workspace
+    if (s.activityTypes?.length && replaceStartingTypes(s.activityTypes.map(t => t.key)) > 0) result.activityTypesChanged = true
     if (s.measures?.length) {
       const m = addMissingMeasures(s.measures)
       if (m.added > 0) result.workspaceChanged = true

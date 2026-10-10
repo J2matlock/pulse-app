@@ -10,7 +10,7 @@ import { MeasureInput } from './MeasureInput'
 import type { NoteMeasureValues } from './CaseLogEntry'
 import { useGridStore } from '../../stores/gridStore'
 import { pulseEvents } from '../../events'
-import { BUILTIN_NOTE_FORMATS, composeNote, parseCustomFormats, type NoteFormat } from '../../../shared/noteFormats'
+import { builtinFormatsFor, composeNote, parseCustomFormats, type NoteFormat } from '../../../shared/noteFormats'
 import { NoteFormatsDialog } from './NoteFormatsDialog'
 import { useNoteTracking } from '../../hooks/useNoteTracking'
 import { CaseLogEntry } from './CaseLogEntry'
@@ -115,7 +115,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
   const [formatId, setFormatId] = useState('')
   const [fieldValues, setFieldValues] = useState<string[]>([])
   const [editingFormats, setEditingFormats] = useState(false)
-  const allFormats = [...BUILTIN_NOTE_FORMATS, ...customFormats]
+  const builtinFormats = builtinFormatsFor(t('record'))
+  const allFormats = [...builtinFormats, ...customFormats]
   const format = allFormats.find(f => f.id === formatId)
   const composedContent = format ? composeNote(format, fieldValues) : newContent.trim()
   const [internalSnippets, setInternalSnippets] = useState<Snippet[]>([])
@@ -137,8 +138,9 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         const custom = formatsRes.ok ? parseCustomFormats(formatsRes.data) : []
         setCustomFormats(custom)
         const last = lastRes.ok ? lastRes.data : null
-        if (last && [...BUILTIN_NOTE_FORMATS, ...custom].some(f => f.id === last)) setFormatId(last)
+        if (last && [...builtinFormats, ...custom].some(f => f.id === last)) setFormatId(last)
       })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the note box opens
   }, [])
 
   function chooseFormat(id: string) {
@@ -508,14 +510,17 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <label htmlFor={`note-format-${rowId}`} className="text-base text-slate-600 dark:text-slate-300">Format</label>
-          <select id={`note-format-${rowId}`} className="input w-auto" value={formatId} onChange={e => chooseFormat(e.target.value)}>
-            <option value="">Free text</option>
-            {allFormats.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-            <option value="__edit">Edit formats…</option>
-          </select>
-        </div>
+        {/* Only when a format exists (built-in under human-services words, or the user's own); Settings → Notes adds them */}
+        {allFormats.length > 0 && (
+          <div className="flex items-center gap-2">
+            <label htmlFor={`note-format-${rowId}`} className="text-base text-slate-600 dark:text-slate-300">Format</label>
+            <select id={`note-format-${rowId}`} className="input w-auto" value={formatId} onChange={e => chooseFormat(e.target.value)}>
+              <option value="">Free text</option>
+              {allFormats.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+              <option value="__edit">Edit formats…</option>
+            </select>
+          </div>
+        )}
 
         {format && (
           <div className="space-y-2">

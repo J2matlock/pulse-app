@@ -110,6 +110,8 @@ describe('CaseLog', () => {
     expect(screen.getByText('Activity log')).toBeTruthy()
     expect(screen.getByTitle('Add a note')).toBeTruthy()
     await waitFor(() => expect(screen.getByText('No notes yet.')).toBeTruthy())
+    // No clinical DAP/SOAP/BIRP formats outside human services, so no Format control (audit R-16)
+    expect(screen.queryByLabelText('Format')).toBeNull()
   })
 
   it('shows empty state when no entries', async () => {

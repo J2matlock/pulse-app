@@ -5,7 +5,7 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import { pulseEvents } from '../../events'
 import { loadNoteTracking, type NoteTracking } from '../../hooks/useNoteTracking'
 import { NoteFormatsDialog } from '../profile/NoteFormatsDialog'
-import { parseCustomFormats, type NoteFormat } from '../../../shared/noteFormats'
+import { builtinFormatsFor, parseCustomFormats, type NoteFormat } from '../../../shared/noteFormats'
 import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
@@ -69,7 +69,7 @@ export function NotesSection(): React.ReactElement {
 
       <section className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
         <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Time and mileage</h2>
-        {toggle('timeTracking', timeOn, `Record time on ${w('activity', { many: true })}`, 'Adds a Minutes box to each note. Monthly totals and service units appear under Export → Totals.')}
+        {toggle('timeTracking', timeOn, `Record time on ${w('activity', { many: true })}`, `Adds a Minutes box to each ${w('activity')}. Monthly totals and service units appear under Export → Totals.`)}
         {timeOn && (
           <label className="flex items-center gap-2 pl-8 text-base text-slate-700 dark:text-slate-200">
             One unit is
@@ -80,7 +80,7 @@ export function NotesSection(): React.ReactElement {
             <span className="text-sm text-slate-600 dark:text-slate-300">(a unit counts from half: 8 of 15 minutes = 1 unit)</span>
           </label>
         )}
-        {toggle('mileage', mileageOn, `Record mileage on ${w('activity', { many: true })}`, 'Adds a Miles box to each note, for your monthly mileage claim.')}
+        {toggle('mileage', mileageOn, `Record mileage on ${w('activity', { many: true })}`, `Adds a Miles box to each ${w('activity')}, for your monthly mileage claim.`)}
         {mileageOn && (
           <label className="flex items-center gap-2 pl-8 text-base text-slate-700 dark:text-slate-200">
             Rate per mile $
@@ -105,7 +105,10 @@ export function NotesSection(): React.ReactElement {
 
       <section className="space-y-2 pt-4 border-t border-slate-200 dark:border-slate-700">
         <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Note formats</h2>
-        <p className="text-sm text-slate-600 dark:text-slate-300">DAP, SOAP, BIRP and contact notes are built in. Add your own with the sections your agency uses.</p>
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          {builtinFormatsFor(w('record')).length > 0 ? 'DAP, SOAP, BIRP and contact notes are built in. ' : ''}
+          Give a {w('activity')} its own sections, like “Who / What happened / Next steps”, each with its own box.
+        </p>
         <button type="button" className="btn-secondary" onClick={() => void openFormats()}>Edit note formats…</button>
       </section>
       {formats && <NoteFormatsDialog formats={formats} onClose={closeFormats} />}

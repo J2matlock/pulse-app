@@ -383,6 +383,25 @@ describe('note types, numbers, periods and name formats in examples (W03 §5)', 
     expect(res.warnings.join(' ')).toMatch(/"Unknown".*wasn't added/)
   })
 
+  it('an example with its own full set replaces the starting types in a fresh workspace (audit R-17)', async () => {
+    const { applyStarter } = await starters()
+    applyStarter({ builtinId: 'tree-service' }, { lists: ['customers'], applyWords: false, applyFeatures: false, sampleData: false })
+    const active = (testDb.db.prepare('SELECT key FROM activity_types WHERE is_archived = 0 ORDER BY key').all() as Array<{ key: string }>).map(r => r.key)
+    expect(active).toEqual(['call', 'note', 'site_visit', 'text'])
+    // Archived, not deleted, so nothing that refers to them breaks
+    expect(testDb.db.prepare("SELECT is_archived FROM activity_types WHERE key = 'phone'").get()).toEqual({ is_archived: 1 })
+  })
+
+  it("keeps the starting types once the workspace has notes, or when the example only adds", async () => {
+    const { applyStarter } = await starters()
+    applyStarter(fileSource(therapy), { lists: ['clients'], applyWords: false, applyFeatures: false, sampleData: false })
+    expect(testDb.db.prepare("SELECT is_archived FROM activity_types WHERE key = 'visit'").get()).toEqual({ is_archived: 0 })
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 1 })
+    testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type) VALUES (?, 'Called', 'phone')").run(rowIds[0])
+    applyStarter({ builtinId: 'tree-service' }, { lists: ['customers'], applyWords: false, applyFeatures: false, sampleData: false })
+    expect(testDb.db.prepare("SELECT is_archived FROM activity_types WHERE key = 'visit'").get()).toEqual({ is_archived: 0 })
+  })
+
   it('applying twice adds nothing new', async () => {
     const { applyStarter } = await starters()
     applyStarter(fileSource(therapy), { lists: ['clients'], applyWords: false, applyFeatures: false, sampleData: false })
