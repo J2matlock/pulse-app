@@ -87,11 +87,13 @@ vi.mock('../src/main/backup', () => ({
   restoreFromPulseBackup: async () => '/tmp/safety.db',
   getBackupInfo: () => ({ layer1: { count: 1 }, lastAutoBackupFailed: false, lastAutoBackupError: null }),
   verifyBackup: async () => ({ valid: true, rowCount: 10 }),
-  getScheduledConfig: () => ({ enabled: false, intervalHours: 24, destinationDir: null }),
-  setScheduledConfig: () => {},
+  getScheduledConfig: () => ({ enabled: false, intervalHours: 24, destinationDir: '/old/dest', lastRunISO: '2026-10-01T09:00:00.000Z' }),
+  setScheduledConfig: (cfg: unknown) => { backupMock.lastSet = cfg },
   checkAndRunScheduled: async () => {},
+  runScheduledBackupNow: async () => ({ ran: true, destPath: '/old/dest/pulse-scheduled-x.pulse-backup', lastRunISO: '2026-10-10T09:00:00.000Z' }),
   runPreMigrationBackup: () => {},
 }))
+const backupMock = vi.hoisted(() => ({ lastSet: null as unknown }))
 
 vi.mock('../src/main/export', () => ({
   exportCsv: async () => '/tmp/export.csv',
@@ -239,6 +241,21 @@ describe('BACKUP_SCHEDULED_SET_CONFIG', () => {
   it('rejects intervalHours > 720', async () => {
     const result = await invoke(IPC.BACKUP_SCHEDULED_SET_CONFIG, { enabled: true, intervalHours: 800 }) as { ok: false }
     expect(result.ok).toBe(false)
+  })
+
+  it('keeps the recorded last run when the renderer saves settings', async () => {
+    const result = await invoke(IPC.BACKUP_SCHEDULED_SET_CONFIG, { enabled: true, intervalHours: 12, lastRunISO: null }) as { ok: true }
+    expect(result.ok).toBe(true)
+    expect(backupMock.lastSet).toEqual({ enabled: true, intervalHours: 12, destinationDir: '/old/dest', lastRunISO: '2026-10-01T09:00:00.000Z' })
+  })
+})
+
+describe('BACKUP_SCHEDULED_RUN_NOW', () => {
+  it('runs the scheduled backup in main and returns the result', async () => {
+    const result = await invoke(IPC.BACKUP_SCHEDULED_RUN_NOW) as { ok: true; data: { ran: boolean; lastRunISO: string } }
+    expect(result.ok).toBe(true)
+    expect(result.data.ran).toBe(true)
+    expect(result.data.lastRunISO).toBe('2026-10-10T09:00:00.000Z')
   })
 })
 

@@ -57,7 +57,7 @@ vi.mock('../src/main/logger', () => ({
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const BetterSqlite3 = require('better-sqlite3-multiple-ciphers')
 import { setupPassword, generateRecoveryKey, getDbKey, lockApp, isPasswordSetup, verifyAndUnlock } from '../src/main/auth'
-import { runManualBackup, restoreBackupOnNewInstall, moveAsideExistingDatabase, withBackupDbFile } from '../src/main/backup'
+import { runManualBackup, restoreBackupOnNewInstall, moveAsideExistingDatabase, withBackupDbFile, runScheduledBackupNow, setScheduledConfig, getScheduledConfig, describeBackupError } from '../src/main/backup'
 
 function openWithKey(path: string, hex: string) {
   const db = new BetterSqlite3(path)
@@ -153,5 +153,50 @@ describe('Restore on a new computer', () => {
     })
     expect(count).toBe(1)
     expect(readdirSync(join(state.dir, 'backups')).filter(f => f.startsWith('preview-tmp-'))).toEqual([])
+  })
+})
+
+describe('Scheduled backup "Run now"', () => {
+  it('writes a backup to the chosen folder, records the run, and that backup restores', async () => {
+    const { keyHex, recoveryKey } = await makeBackupOnOldComputer()
+    const dest = join(state.dir, 'usb', 'scheduled')
+    setScheduledConfig({ enabled: true, intervalHours: 24, destinationDir: dest, lastRunISO: null })
+
+    const res = await runScheduledBackupNow()
+    expect(res.ran).toBe(true)
+    expect(res.destPath).toMatch(/pulse-scheduled-.*\.pulse-backup$/)
+    expect(existsSync(res.destPath!)).toBe(true)
+    expect(getScheduledConfig().lastRunISO).toBe(res.lastRunISO)
+    expect(getScheduledConfig().destinationDir).toBe(dest)
+
+    // A backup made by "Run now" must restore on a new computer too
+    const backupPath = res.destPath!
+    wipeToFreshInstall()
+    await restoreBackupOnNewInstall({ backupPath, secret: recoveryKey, newPassword: 'New-Computer-Pass', hint: '' })
+    const db = openWithKey(join(state.dir, 'pulse.db'), keyHex)
+    expect(db.prepare('SELECT name FROM clients').get()).toEqual({ name: 'Jane Doe' })
+    db.close()
+  })
+
+  it('reports a plain reason when the folder is unavailable, and keeps the last run', async () => {
+    await makeBackupOnOldComputer()
+    const blocker = join(state.dir, 'not-a-folder')
+    writeFileSync(blocker, 'x')
+    setScheduledConfig({ enabled: true, intervalHours: 24, destinationDir: join(blocker, 'backups'), lastRunISO: '2026-01-01T00:00:00.000Z' })
+    const res = await runScheduledBackupNow()
+    expect(res.ran).toBe(false)
+    expect(res.error).toMatch(/can't be found|isn't allowed|couldn't be saved/)
+    expect(res.error).not.toMatch(/ENOTDIR|EEXIST/)
+    expect(getScheduledConfig().lastRunISO).toBe('2026-01-01T00:00:00.000Z')
+  })
+})
+
+describe('describeBackupError', () => {
+  it('turns system error codes into plain words', () => {
+    const e = (code: string) => Object.assign(new Error('x'), { code })
+    expect(describeBackupError(e('ENOENT'))).toMatch(/USB drive or network folder/)
+    expect(describeBackupError(e('EACCES'))).toMatch(/isn't allowed/)
+    expect(describeBackupError(e('ENOSPC'))).toMatch(/full/)
+    expect(describeBackupError(new Error('weird'))).toMatch(/couldn't be saved/)
   })
 })

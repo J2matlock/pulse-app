@@ -11,7 +11,7 @@ import { getProvider } from '../contacts'
 import {
   listAutoBackupsRich, runScheduledBackup, runManualBackup,
   restoreFromDb, restoreFromPulseBackup, getBackupInfo,
-  verifyBackup, getScheduledConfig, setScheduledConfig, withBackupDbFile,
+  verifyBackup, getScheduledConfig, setScheduledConfig, withBackupDbFile, runScheduledBackupNow,
   type ScheduledBackupConfig, type PersistentScheduledConfig
 } from '../backup'
 import { getDbKey } from '../auth'
@@ -77,6 +77,11 @@ export function registerExportHandlers(): void {
     if (config.destinationDir) assertSafePath(config.destinationDir)
     const result = await runScheduledBackup(config)
     return ok(result)
+  })
+
+  // "Run now" runs entirely in main, so the renderer never fakes a config to trigger it
+  secureWrap(IPC.BACKUP_SCHEDULED_RUN_NOW, 'ipc-export', async () => {
+    return ok(await runScheduledBackupNow())
   })
 
   secureWrap(IPC.BACKUP_MANUAL_CREATE, 'ipc-export', async (_e, destPath: string) => {
@@ -170,7 +175,9 @@ export function registerExportHandlers(): void {
       if (typeof config.destinationDir !== 'string') return fail('Invalid destination directory')
       assertSafePath(config.destinationDir)
     }
-    setScheduledConfig(config)
+    // Main owns the run history; the renderer only changes the settings
+    const current = getScheduledConfig()
+    setScheduledConfig({ ...current, enabled: config.enabled, intervalHours: config.intervalHours, destinationDir: config.destinationDir ?? current.destinationDir })
     return ok(true)
   })
 

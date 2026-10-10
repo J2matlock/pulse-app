@@ -347,6 +347,7 @@ export interface IPCContract {
   // ── Backup ──────────────────────────────────────────────────────────────
   'backup:auto-list':            { args: [];                                return: Array<{ path: string; filename: string; timestamp: Date; sizeBytes: number }> }
   'backup:scheduled-run':        { args: [config: Record<string, unknown>]; return: unknown }
+  'backup:scheduled-run-now':    { args: [];                                return: { ran: boolean; destPath?: string; lastRunISO?: string | null; error?: string } }
   'backup:manual-create':        { args: [destPath: string];                return: unknown }
   'backup:restore-auto':         { args: [backupDbPath: string];            return: { safetyPath: string } }
   'backup:restore-file':         { args: [backupPath: string];              return: { safetyPath: string } }

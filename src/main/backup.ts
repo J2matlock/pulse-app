@@ -701,15 +701,52 @@ export async function checkAndRunScheduled(): Promise<void> {
   }
 
   try {
-    const destDir = config.destinationDir || getBackupDir()
-    mkdirSync(destDir, { recursive: true, mode: 0o700 })
-    const destPath = join(destDir, `pulse-scheduled-${nowTimestamp()}.pulse-backup`)
-    await createPulseBackup(dbPath, destPath, 'scheduled')
-    pruneBackups(destDir, 'pulse-scheduled-', '.pulse-backup', MAX_SCHEDULED_BACKUPS)
-    setScheduledConfig({ ...config, lastRunISO: new Date().toISOString() })
+    const destPath = await performScheduledBackup(config)
     logger.info('backup', `Scheduled backup saved: ${destPath}`)
   } catch (err) {
     logger.error('backup', 'Scheduled backup failed', err)
+  }
+}
+
+/**
+ * Write one scheduled backup to the configured folder and record the run.
+ * Throws on failure; callers decide whether to log or report it.
+ */
+async function performScheduledBackup(config: PersistentScheduledConfig): Promise<string> {
+  const dbPath = getStoredDbPath()
+  if (!dbPath || !existsSync(dbPath)) throw new Error('Database file not found')
+  const destDir = config.destinationDir || getBackupDir()
+  mkdirSync(destDir, { recursive: true, mode: 0o700 })
+  const destPath = join(destDir, `pulse-scheduled-${nowTimestamp()}.pulse-backup`)
+  await createPulseBackup(dbPath, destPath, 'scheduled')
+  pruneBackups(destDir, 'pulse-scheduled-', '.pulse-backup', MAX_SCHEDULED_BACKUPS)
+  // Re-read so a settings change saved while the backup was writing isn't undone
+  setScheduledConfig({ ...getScheduledConfig(), lastRunISO: new Date().toISOString() })
+  return destPath
+}
+
+/**
+ * Plain-language reason a backup couldn't be written, for people who don't
+ * know what EACCES means.
+ */
+export function describeBackupError(err: unknown): string {
+  const code = (err as { code?: string } | null)?.code
+  if (code === 'ENOENT' || code === 'ENOTDIR') return 'The backup folder can\'t be found. If it\'s on a USB drive or network folder, check that it\'s connected.'
+  if (code === 'EACCES' || code === 'EPERM' || code === 'EROFS') return 'Pulse isn\'t allowed to save in the backup folder. Choose a different folder.'
+  if (code === 'ENOSPC') return 'The backup drive is full. Free up space or choose a different folder.'
+  if (err instanceof Error && err.message === 'Database file not found') return 'Pulse couldn\'t find your data file to back up.'
+  return 'The backup couldn\'t be saved. Try again, or choose a different folder.'
+}
+
+/** "Run now" in Settings: back up to the scheduled folder straight away. */
+export async function runScheduledBackupNow(): Promise<{ ran: boolean; destPath?: string; lastRunISO?: string | null; error?: string }> {
+  try {
+    const destPath = await performScheduledBackup(getScheduledConfig())
+    logger.info('backup', `Scheduled backup (run now) saved: ${destPath}`)
+    return { ran: true, destPath, lastRunISO: getScheduledConfig().lastRunISO }
+  } catch (err) {
+    logger.error('backup', 'Scheduled backup (run now) failed', err)
+    return { ran: false, error: describeBackupError(err) }
   }
 }
 

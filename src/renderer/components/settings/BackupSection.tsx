@@ -61,8 +61,8 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
   const [restoreTarget, setRestoreTarget] = useState<{ path: string; label: string } | null>(null)
   const [restoring, setRestoring] = useState(false)
   const [restoreResult, setRestoreResult] = useState<{ safetyPath: string } | null>(null)
-  const scheduledDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [runningBackup, setRunningBackup] = useState(false)
+  const [runningScheduled, setRunningScheduled] = useState(false)
   const [backupReminderEnabled, setBackupReminderEnabled] = useState(false)
   const [backupReminderDays, setBackupReminderDays] = useState(7)
   const [validationError, setValidationError] = useState<string | null>(null)
@@ -71,12 +71,6 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
   const [previewLoading, setPreviewLoading] = useState(false)
   const restoreResultTrapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(restoreResultTrapRef, restoreResult != null)
-
-  useEffect(() => {
-    return () => {
-      if (scheduledDebounceRef.current) clearTimeout(scheduledDebounceRef.current)
-    }
-  }, [])
 
   // Load backup info and settings on mount
   useEffect(() => {
@@ -195,12 +189,12 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
     setScheduledConfig(prev => ({ ...prev, destinationDir: dir }))
   }
 
+  // Saved straight away: every change here is a single click, and a delayed
+  // save was lost when the user switched tabs within half a second
   function saveScheduledConfig(config: ScheduledConfig) {
-    if (scheduledDebounceRef.current) clearTimeout(scheduledDebounceRef.current)
-    scheduledDebounceRef.current = setTimeout(async () => {
-      const res = await safeInvoke(IPC.BACKUP_SCHEDULED_SET_CONFIG, config)
-      if (!res.ok) toast.error('Failed to save backup config.')
-    }, 500)
+    void safeInvoke(IPC.BACKUP_SCHEDULED_SET_CONFIG, config).then(res => {
+      if (!res.ok) toast.error('We couldn\'t save your backup settings. Try again.')
+    })
   }
 
   function updateScheduledConfig(updates: Partial<ScheduledConfig>) {
@@ -210,28 +204,18 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
   }
 
   async function handleRunScheduledNow() {
-    const config = scheduledConfig
-    const res = await safeInvoke<boolean>(IPC.BACKUP_SCHEDULED_SET_CONFIG, {
-      ...config,
-      lastRunISO: null
-    })
-    if (!res.ok) { toast.error('Failed to trigger backup'); return }
-    const runRes = await safeInvoke<{ ran: boolean; destPath?: string; error?: string }>(IPC.BACKUP_SCHEDULED_RUN, {
-      enabled: true,
-      intervalDays: 0,
-      destinationDir: config.destinationDir,
-      lastRunDate: null
-    })
-    if (runRes.ok && runRes.data.ran) {
-      toast.success(`Backup saved to ${runRes.data.destPath ?? 'backup folder'}.`)
-      const nowISO = new Date().toISOString()
-      const newCfg = { ...config, lastRunISO: nowISO }
-      setScheduledConfig(newCfg)
-      const cfgRes = await safeInvoke(IPC.BACKUP_SCHEDULED_SET_CONFIG, newCfg)
-      if (!cfgRes.ok) toast.error('Failed to save backup config.')
-    } else {
-      const reason = runRes.ok ? (runRes.data.error || 'Unknown reason') : (runRes.error || 'IPC error')
-      toast.error(`Backup did not run: ${reason}`)
+    if (runningScheduled) return
+    setRunningScheduled(true)
+    try {
+      const runRes = await safeInvoke(IPC.BACKUP_SCHEDULED_RUN_NOW)
+      if (runRes.ok && runRes.data.ran) {
+        toast.success(`Backup saved to ${runRes.data.destPath ?? 'your backup folder'}.`)
+        setScheduledConfig(prev => ({ ...prev, lastRunISO: runRes.data.lastRunISO ?? new Date().toISOString() }))
+      } else {
+        toast.error(`The backup didn't run. ${runRes.ok ? (runRes.data.error ?? '') : runRes.error}`.trim())
+      }
+    } finally {
+      setRunningScheduled(false)
     }
   }
 
@@ -243,11 +227,30 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
       </div>
       <MoveComputerWizard open={showMove} onClose={() => setShowMove(false)} onGoToSecurity={onGoToSection ? () => onGoToSection('security') : undefined} />
 
+      {/* The one safety action everyone needs, always visible */}
+      <div className="rounded-lg border-2 border-slate-200 dark:border-slate-700 p-4 space-y-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <p className="text-base text-slate-700 dark:text-slate-300 flex-1 min-w-[12rem]">
+            Save a copy of everything to a USB drive or another folder.
+          </p>
+          <button
+            type="button"
+            onClick={() => void handleManualBackup()}
+            disabled={runningBackup}
+            className="btn-primary flex items-center gap-1.5 disabled:opacity-50"
+            style={{ minHeight: 44 }}
+          >
+            {runningBackup ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            {runningBackup ? 'Backing up…' : 'Back up now…'}
+          </button>
+        </div>
+      </div>
+
       {/* Info box: 3-layer backup explanation */}
       <div className="flex items-start gap-2.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm text-blue-700 dark:text-blue-300">
         <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
         <p>
-          Pulse protects your data with three backup layers: <strong>Auto-backup</strong> saves when you close the app, <strong>Scheduled backup</strong> runs on your chosen interval, and <strong>Manual backup</strong> lets you save on demand. All backups are stored locally.
+          Pulse protects your data with three backup layers: <strong>Auto-backup</strong> saves when you close the app, <strong>Scheduled backup</strong> runs on your chosen interval, and <strong>Back up now</strong> saves a copy wherever you choose.
         </p>
       </div>
 
@@ -267,7 +270,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
               Your last auto-backup didn't complete
             </p>
             <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5">
-              {backupInfo.lastAutoBackupError || 'Unknown error'}. You can create a manual backup below to make sure your data is safe.
+              {backupInfo.lastAutoBackupError || 'Unknown error'}. Use "Back up now" above to make sure your data is safe.
             </p>
           </div>
         </div>
@@ -407,21 +410,14 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
               </p>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => void handleManualBackup()}
-                  disabled={runningBackup}
-                  className="btn-secondary flex items-center gap-1.5 text-base disabled:opacity-50"
-                  style={{ minHeight: 44 }}
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Save to different location…
-                </button>
-                <button
+                  type="button"
                   onClick={() => void handleRunScheduledNow()}
-                  className="btn-secondary flex items-center gap-1.5"
+                  disabled={runningScheduled}
+                  className="btn-secondary flex items-center gap-1.5 disabled:opacity-50"
                   style={{ minHeight: 44 }}
                 >
-                  <Play className="w-3.5 h-3.5" />
-                  Run now
+                  {runningScheduled ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                  {runningScheduled ? 'Running…' : 'Run now'}
                 </button>
               </div>
             </div>

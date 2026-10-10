@@ -176,6 +176,7 @@ export const IPC = {
   // Backup (3 layers)
   BACKUP_AUTO_LIST: 'backup:auto-list',
   BACKUP_SCHEDULED_RUN: 'backup:scheduled-run',
+  BACKUP_SCHEDULED_RUN_NOW: 'backup:scheduled-run-now',
   BACKUP_MANUAL_CREATE: 'backup:manual-create',
   BACKUP_RESTORE_AUTO: 'backup:restore-auto',
   BACKUP_RESTORE_FILE: 'backup:restore-file',
