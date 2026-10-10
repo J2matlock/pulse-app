@@ -69,4 +69,12 @@ describe('quota rules in main', () => {
     expect(byRow.get(rowIds[1]!)).toMatchObject({ label: '0 of 3 used', state: 'ok' })
     expect(loadGridDeadlineContext(gridId).quota).toEqual({ [`${rowIds[0]}:${ruleCol}`]: 2 })
   })
+
+  it('counts a session by the day it happened, not the day it was written (audit 1.22)', () => {
+    // Happened inside the dates, written up after the end
+    t.db.prepare(`INSERT INTO case_log (row_id, content, log_type, occurred_at, created_at) VALUES (?, 'x', 'session', datetime('2026-12-30 10:00:00', 'utc'), datetime('2027-01-03 10:00:00', 'utc'))`).run(rowIds[1])
+    // Written inside the dates about a session before the start
+    t.db.prepare(`INSERT INTO case_log (row_id, content, log_type, occurred_at, created_at) VALUES (?, 'x', 'session', datetime('2026-06-28 10:00:00', 'utc'), datetime('2026-07-02 10:00:00', 'utc'))`).run(rowIds[1])
+    expect(loadGridDeadlineContext(gridId).quota[`${rowIds[1]}:${ruleCol}`]).toBe(1)
+  })
 })

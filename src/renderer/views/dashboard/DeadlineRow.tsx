@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, ChevronDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { classifyDeadline, computeEffectiveDeadline, formatDeadlineTooltip } from '../../utils/deadlineCalc'
 import { resolveAlertColor } from '../../utils/alertColors'
@@ -7,6 +7,7 @@ import { completeDeadlines, startsNextCycle } from './completeDeadline'
 import { hasInterval, toRuleInterval } from '../../../shared/ruleInterval'
 import type { ExtendedDeadlineInfo } from './types'
 import { MeterReadingDialog } from './MeterReadingDialog'
+import { DoneOnDayDialog } from './DoneOnDayDialog'
 import { ExtendDeadlineDialog } from './ExtendDeadlineDialog'
 import { extendDeadline, removeExtension } from './extendDeadline'
 import { ymdToDate } from '../../../shared/deadlineEngine'
@@ -22,6 +23,7 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
   const navigate = useNavigate()
   const [marking, setMarking] = useState(false)
   const [askReading, setAskReading] = useState(false)
+  const [askDay, setAskDay] = useState(false)
   const [extending, setExtending] = useState(false)
   const { daysUntil, threshold, clientName, columnName, gridName, dateValue, intervalDays, interval, rowId, columnId, gridId } = deadline
   const ruleInterval = interval ?? toRuleInterval(intervalDays)
@@ -65,10 +67,10 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
 
   const tooltip = deadline.detail && ruleKind !== 'interval' ? deadline.detail : formatDeadlineTooltip(dateValue, ruleInterval, daysUntil)
 
-  async function markDone(reading?: number) {
+  async function markDone(reading?: number, doneOn?: string) {
     setMarking(true)
     try {
-      const done = await completeDeadlines([{ rowId, columnId, columnName, clientName, dateValue, interval: ruleInterval, checklistTemplateId: deadline.checklistTemplateId, ruleKind, reading, step: deadline.step }], { onUndone: onUndoneMarkDone })
+      const done = await completeDeadlines([{ rowId, columnId, columnName, clientName, dateValue, interval: ruleInterval, checklistTemplateId: deadline.checklistTemplateId, ruleKind, reading, step: deadline.step, doneOn }], { onUndone: onUndoneMarkDone })
       if (done.length > 0) onMarkDone?.(rowId, columnId)
     } finally {
       setMarking(false)
@@ -163,13 +165,30 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
           Done
         </button>
       )}
+      {/* The work happened on an earlier day (meter readings ask for the day in their dialog) */}
+      {onMarkDone && ruleKind !== 'quota' && ruleKind !== 'meter' && (
+        <button
+          onClick={() => setAskDay(true)}
+          disabled={marking}
+          title="Done on another day…"
+          aria-label="Done on another day…"
+          className="hit-44 flex-shrink-0 -ml-3 px-1.5 py-1.5 rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500 disabled:opacity-50"
+          style={{ minHeight: 36 }}
+        >
+          <ChevronDown className="w-4 h-4" />
+        </button>
+      )}
       {extending && (
         <ExtendDeadlineDialog title={`${columnName}: ${clientName}`} currentDue={deadline.due ?? null} onClose={() => setExtending(false)}
           onSave={(newDue, reason) => { setExtending(false); void extendDeadline(rowId, columnId, columnName, newDue, reason, onUndoneMarkDone) }} />
       )}
       {askReading && (
         <MeterReadingDialog title={`${columnName}: ${clientName}`} onClose={() => setAskReading(false)}
-          onSave={reading => { setAskReading(false); void markDone(reading) }} />
+          onSave={(reading, doneOn) => { setAskReading(false); void markDone(reading, doneOn) }} />
+      )}
+      {askDay && (
+        <DoneOnDayDialog title={`${columnName}: ${clientName}`} onClose={() => setAskDay(false)}
+          onSave={day => { setAskDay(false); void markDone(undefined, day) }} />
       )}
     </div>
   )

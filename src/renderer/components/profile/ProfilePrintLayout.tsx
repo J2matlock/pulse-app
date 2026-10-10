@@ -216,7 +216,7 @@ export function ProfilePrintLayout({ rowId, gridId, clientName, onClose }: Profi
             <tbody>
               {caseLog.map(entry => (
                 <tr key={entry.id}>
-                  <td style={cellStyle}>{parseDbTimestamp(entry.created_at).toLocaleDateString()}</td>
+                  <td style={cellStyle}>{parseDbTimestamp(entry.occurred_at ?? entry.created_at).toLocaleDateString()}</td>
                   <td style={cellStyle}>{activity.label(entry.log_type)}</td>
                   <td style={cellStyle}>{entry.content}</td>
                 </tr>

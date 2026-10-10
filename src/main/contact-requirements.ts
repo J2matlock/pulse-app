@@ -89,12 +89,12 @@ export function getRequirementStatus(ref: string = localDateString(), gridId?: n
     FROM rows r WHERE r.grid_id = ? AND r.is_active = 1 AND r.deleted_at IS NULL
     ORDER BY client_name COLLATE NOCASE
   `)
-  // created_at is stored in UTC; periods are the user's local calendar days
+  // Counted by the day it happened (occurred_at, stored in UTC); periods are the user's local calendar days
   const countsStmt = db.prepare(`
     SELECT cl.row_id, cl.log_type, COUNT(*) AS n
     FROM case_log cl JOIN rows r ON r.id = cl.row_id
     WHERE r.grid_id = ? AND cl.voided_at IS NULL
-      AND date(cl.created_at, 'localtime') BETWEEN ? AND ?
+      AND date(cl.occurred_at, 'localtime') BETWEEN ? AND ?
     GROUP BY cl.row_id, cl.log_type
   `)
   const gridName = db.prepare('SELECT name FROM grids WHERE id = ? AND is_active = 1')

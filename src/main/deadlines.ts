@@ -188,7 +188,7 @@ export function quotaCounts(gridId: number, cfg: QuotaConfig): Map<number, numbe
     JOIN cells e ON e.row_id = r.id AND e.column_id = ?
     JOIN case_log cl ON cl.row_id = r.id AND cl.voided_at IS NULL
       AND cl.log_type IN (${types.map(() => '?').join(',')})
-      AND date(cl.created_at, 'localtime') BETWEEN substr(s.value, 1, 10) AND substr(e.value, 1, 10)
+      AND date(cl.occurred_at, 'localtime') BETWEEN substr(s.value, 1, 10) AND substr(e.value, 1, 10)
     WHERE r.grid_id = ?
     GROUP BY r.id
   `).all(cfg.startColumnId, cfg.endColumnId, ...types, gridId) as Array<{ row_id: number; n: number }>

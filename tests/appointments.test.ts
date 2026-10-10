@@ -188,7 +188,7 @@ describe('series', () => {
 })
 
 describe('marking appointments', () => {
-  const notes = () => t.db.prepare('SELECT id, content, log_type, minutes, source_action_id, voided_at, created_at FROM case_log WHERE row_id = ? ORDER BY id').all(g.rowIds[0]) as Array<{ id: number; content: string; log_type: string; minutes: number | null; source_action_id: string; voided_at: string | null; created_at: string }>
+  const notes = () => t.db.prepare('SELECT id, content, log_type, minutes, source_action_id, voided_at, created_at, occurred_at FROM case_log WHERE row_id = ? ORDER BY id').all(g.rowIds[0]) as Array<{ id: number; content: string; log_type: string; minutes: number | null; source_action_id: string; voided_at: string | null; created_at: string; occurred_at: string }>
   const yesterday = inDays(-1)
 
   it('done makes a note of its kind on the day it happened, with minutes when time is tracked, and moves dates', () => {
@@ -199,7 +199,9 @@ describe('marking appointments', () => {
     const change = setAppointmentStatus(ids[0]!, 'done')
     const [n] = notes()
     expect(n).toMatchObject({ content: 'Appointment: Check-in call', log_type: 'phone', minutes: 45, source_action_id: `appt:${ids[0]}` })
-    expect(localDateString(new Date(n!.created_at.replace(' ', 'T') + 'Z'))).toBe(yesterday)
+    expect(localDateString(new Date(n!.occurred_at.replace(' ', 'T') + 'Z'))).toBe(yesterday)
+    // ...and keeps when it was written up
+    expect(localDateString(new Date(n!.created_at.replace(' ', 'T') + 'Z'))).toBe(localDateString())
     expect(change).toMatchObject({ previous: 'scheduled', caseLogId: n!.id, updatedDates: [{ column_id: last, old_value: null, new_value: yesterday }] })
     expect(t.db.prepare('SELECT status, case_log_id FROM appointments WHERE id = ?').get(ids[0])).toEqual({ status: 'done', case_log_id: n!.id })
     // Back to scheduled voids the note

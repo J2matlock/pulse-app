@@ -6,6 +6,7 @@ import type { CaseLogEntry, CaseLogType } from '../../../shared/types'
 import { formatDateTime } from '../../utils/formatTime'
 import { relativeTime } from '../../utils/relativeTime'
 import { CaseLogEditHistory } from './CaseLogEditHistory'
+import { noteDays, formatDate } from './CaseLogEntry'
 import { useActivityTypes } from '../../hooks/useActivityTypes'
 
 interface Props {
@@ -165,13 +166,20 @@ export function ActivityTimeline({ rowId }: Props) {
                     {entry.is_pinned === 1 && (
                       <span className="text-sm text-amber-600 dark:text-amber-400">📌 Pinned</span>
                     )}
-                    <time
-                      dateTime={entry.created_at}
-                      className="ml-auto text-sm text-slate-500 dark:text-slate-400 flex-shrink-0 text-right"
-                    >
-                      <span>{relativeTime(entry.created_at)}</span>
-                      <span className="block text-slate-400/70 dark:text-slate-500/70">{formatDateTime(entry.created_at)}</span>
-                    </time>
+                    {noteDays(entry).backdated ? (
+                      <span className="ml-auto text-sm text-slate-500 dark:text-slate-400 flex-shrink-0 text-right" title={`Written ${formatDateTime(entry.created_at)}`}>
+                        <time dateTime={noteDays(entry).happened} className="block">{formatDate(noteDays(entry).happened)}</time>
+                        <span className="block">(written {formatDate(noteDays(entry).written)})</span>
+                      </span>
+                    ) : (
+                      <time
+                        dateTime={entry.created_at}
+                        className="ml-auto text-sm text-slate-500 dark:text-slate-400 flex-shrink-0 text-right"
+                      >
+                        <span>{relativeTime(entry.created_at)}</span>
+                        <span className="block text-slate-400/70 dark:text-slate-500/70">{formatDateTime(entry.created_at)}</span>
+                      </time>
+                    )}
                   </div>
                   <p className={`text-sm mt-0.5 line-clamp-3 whitespace-pre-wrap leading-relaxed
                     ${isVoided ? 'line-through text-slate-500 dark:text-slate-400' : ''}

@@ -396,6 +396,8 @@ export interface CaseLogEntry {
   extra_measures?: string | null
   created_at: string
   updated_at: string
+  /** When it happened (UTC timestamp like created_at); created_at is when it was written */
+  occurred_at?: string
   is_pinned: 0 | 1
   follow_up_date: string | null
   follow_up_completed: 0 | 1

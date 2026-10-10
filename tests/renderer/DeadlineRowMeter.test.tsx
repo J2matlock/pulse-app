@@ -27,7 +27,42 @@ describe('meter deadlines on the dashboard', () => {
     fireEvent.change(screen.getByLabelText('Current reading'), { target: { value: '45,210' } })
     const dialog = screen.getByRole('dialog')
     await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Mark done' })) })
-    expect(invoke).toHaveBeenCalledWith(IPC.DEADLINE_METER_DONE, 4, 9, 45210)
+    expect(invoke).toHaveBeenCalledWith(IPC.DEADLINE_METER_DONE, 4, 9, 45210, null)
     expect(onMarkDone).toHaveBeenCalledWith(4, 9)
+  })
+
+  it('can be marked done on another day from the reading dialog (audit 1.22)', async () => {
+    invoke.mockClear()
+    render(<MemoryRouter><DeadlineRow deadline={deadline} onMarkDone={vi.fn()} /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('button', { name: 'Mark done' }))
+    const dialog = screen.getByRole('dialog')
+    fireEvent.change(within(dialog).getByLabelText('Current reading'), { target: { value: '45210' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Done on another day…' }))
+    fireEvent.change(within(dialog).getByLabelText('Day it was done'), { target: { value: '2026-01-02' } })
+    await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Mark done' })) })
+    expect(invoke).toHaveBeenCalledWith(IPC.DEADLINE_METER_DONE, 4, 9, 45210, '2026-01-02')
+  })
+})
+
+describe('Done on another day… (audit 1.22)', () => {
+  it('starts the next cycle from the day it was really done', async () => {
+    invoke.mockClear()
+    invoke.mockImplementation(async () => ({ ok: true, data: { sysLogId: 5 } }))
+    const interval = { ...deadline, ruleKind: 'interval' as const, columnName: 'Home visit', intervalDays: 30, interval: { days: 30, months: 0 }, due: undefined, detail: undefined }
+    render(<MemoryRouter><DeadlineRow deadline={interval} onMarkDone={vi.fn()} /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('button', { name: 'Done on another day…' }))
+    const dialog = screen.getByRole('dialog')
+    fireEvent.change(within(dialog).getByLabelText('Day it was done'), { target: { value: '2026-01-02' } })
+    await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Mark done' })) })
+    expect(invoke).toHaveBeenCalledWith(IPC.CELL_UPDATE, 4, 9, '2026-01-02')
+  })
+
+  it('will not take a day in the future', () => {
+    const interval = { ...deadline, ruleKind: 'interval' as const, intervalDays: 30, interval: { days: 30, months: 0 }, due: undefined, detail: undefined }
+    render(<MemoryRouter><DeadlineRow deadline={interval} onMarkDone={vi.fn()} /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('button', { name: 'Done on another day…' }))
+    const dialog = screen.getByRole('dialog')
+    fireEvent.change(within(dialog).getByLabelText('Day it was done'), { target: { value: '2999-01-01' } })
+    expect((within(dialog).getByRole('button', { name: 'Mark done' }) as HTMLButtonElement).disabled).toBe(true)
   })
 })

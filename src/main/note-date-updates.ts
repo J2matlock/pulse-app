@@ -7,12 +7,41 @@
  * A date never moves backward (a later date entered by hand wins).
  */
 import { getDb, upsertCell, cachedStmt } from './database'
-import { localDateString } from '../shared/dates'
+import { localDateString, parseDbTimestamp } from '../shared/dates'
 import type { NoteDateUpdate } from '../shared/types'
 import { columnAffectsDisplayName, refreshDisplayNames } from './display-names'
 import { userTypeKeys } from './activity-types'
 
-/** Note types a column can follow (system entries never update dates). */
+/**
+ * A "when did this happen?" day from the screen: a real YYYY-MM-DD, not in
+ * the future. Returns the day, null when none was given, or an error message.
+ */
+export function checkOccurredOn(value: unknown): string | null | { error: string } {
+  if (value === undefined || value === null || value === '') return null
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return { error: 'Choose the day it happened.' }
+  const [y, m, d] = value.split('-').map(Number) as [number, number, number]
+  const date = new Date(y, m - 1, d)
+  if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d || y < 1900) return { error: 'Choose the day it happened.' }
+  if (value > localDateString()) return { error: "That day hasn't happened yet. Choose today or an earlier day." }
+  return value
+}
+
+/**
+ * The stored timestamp (UTC, like datetime('now')) for a note that happened
+ * on a local day: now for today, midday for an earlier day (so the local day
+ * is the same in every time zone change).
+ */
+export function occurredTimestamp(day: string, now: Date = new Date()): string {
+  const [y, m, d] = day.split('-').map(Number) as [number, number, number]
+  const at = day === localDateString(now) ? now : new Date(y, m - 1, d, 12, 0, 0)
+  return at.toISOString().replace('T', ' ').slice(0, 19)
+}
+
+/** The local day of a stored timestamp */
+export function localDayOf(timestamp: string): string {
+  return localDateString(parseDbTimestamp(timestamp))
+}
+
 
 export function applyNoteDateUpdates(rowId: number, logType: string, noteDate: string = localDateString()): NoteDateUpdate[] {
   // Only people's own note types move dates; notes Pulse writes itself never do

@@ -412,8 +412,9 @@ export function setAppointmentStatus(id: number, status: ApptStatus, opts: Statu
         const extra = cleanExtraMeasures(opts.extra ?? null)
         if (extra && typeof extra === 'object') throw new ApptError(extra.error)
         const at = noteTimestamp(a.start_at)
-        noteId = Number(db.prepare(`INSERT INTO case_log (row_id, content, log_type, minutes, miles, extra_measures, source_action_id, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(a.row_id, content, type, minutes || null, miles, extra, `appt:${id}`, at, at).lastInsertRowid)
+        // It happened at the appointment's time; created_at stays when it was recorded
+        noteId = Number(db.prepare(`INSERT INTO case_log (row_id, content, log_type, minutes, miles, extra_measures, source_action_id, occurred_at, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`).run(a.row_id, content, type, minutes || null, miles, extra, `appt:${id}`, at).lastInsertRowid)
         if (status === 'done') change.updatedDates = applyNoteDateUpdates(a.row_id, type, a.start_at.slice(0, 10) > localDateString() ? localDateString() : a.start_at.slice(0, 10))
       }
     }

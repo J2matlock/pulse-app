@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'vite
 import type { Database } from 'better-sqlite3'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
+import { localDateString } from '../src/shared/dates'
 
 // ── Handler capture map ──────────────────────────────────────────────────────
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
@@ -483,5 +484,87 @@ describe('Case note records integrity', () => {
     expect(r.ok).toBe(false)
     expect(r.error).toMatch(/Void it instead/)
     expect(testDb.db.prepare('SELECT COUNT(*) AS n FROM case_log WHERE id = ?').get(e.data.id)).toEqual({ n: 1 })
+  })
+})
+
+// ── When it happened (audit 1.22): occurred_at, created_at stays the write time ─
+describe('notes dated by when they happened', () => {
+  const day = (offset: number) => { const d = new Date(); d.setDate(d.getDate() + offset); return localDateString(d) }
+  const localDay = (ts: string) => localDateString(new Date(ts.replace(' ', 'T') + 'Z'))
+  const note = (id: number) => testDb.db.prepare('SELECT created_at, occurred_at FROM case_log WHERE id = ?').get(id) as { created_at: string; occurred_at: string }
+  let lastVisit: number
+  beforeEach(() => {
+    lastVisit = (testDb.db.prepare('SELECT id FROM columns WHERE grid_id = ? ORDER BY id LIMIT 1').get(gridId) as { id: number }).id
+    testDb.db.prepare("UPDATE columns SET column_type = 'date', config = ? WHERE id = ?").run(JSON.stringify({ note_updates: ['visit'] }), lastVisit)
+  })
+  const cellValue = () => (testDb.db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?').get(rowId, lastVisit) as { value: string } | undefined)?.value ?? null
+
+  it('a note happens today unless a day is given', async () => {
+    const r = await createEntry('Visit', 'visit')
+    expect(localDay(note(r.data.id).occurred_at)).toBe(localDateString())
+    expect(r.data.occurred_at).toBe(note(r.data.id).occurred_at)
+  })
+
+  it('a late write-up is dated the day it happened, keeps the write time, and sets the date column to that day', async () => {
+    const r = await invoke(IPC.CASE_LOG_CREATE, rowId, 'Home visit', 'visit', null, undefined, day(-3))
+    expect(r.ok).toBe(true)
+    const n = note(r.data.id)
+    expect(localDay(n.occurred_at)).toBe(day(-3))
+    expect(localDay(n.created_at)).toBe(localDateString())
+    expect(r.data.updated_dates).toEqual([expect.objectContaining({ column_id: lastVisit, new_value: day(-3) })])
+    expect(cellValue()).toBe(day(-3))
+  })
+
+  it('refuses a day in the future or a made-up date', async () => {
+    const future = await invoke(IPC.CASE_LOG_CREATE, rowId, 'x', 'visit', null, undefined, day(1))
+    expect(future.ok).toBe(false)
+    expect(future.error).toMatch(/hasn't happened yet/)
+    expect((await invoke(IPC.CASE_LOG_CREATE, rowId, 'x', 'visit', null, undefined, '2026-02-31')).ok).toBe(false)
+    expect((await invoke(IPC.CASE_LOG_CREATE, rowId, 'x', 'visit', null, undefined, 'last week')).ok).toBe(false)
+  })
+
+  it('lists notes in the order they happened', async () => {
+    const today = await createEntry('Today', 'visit')
+    const back = await invoke(IPC.CASE_LOG_CREATE, rowId, 'Last week', 'visit', null, undefined, day(-7))
+    const mid = await invoke(IPC.CASE_LOG_CREATE, rowId, 'Two days ago', 'visit', null, undefined, day(-2))
+    const r = await invoke(IPC.CASE_LOG_GET, rowId)
+    expect(r.data.map((e: { id: number }) => e.id)).toEqual([today.data.id, mid.data.id, back.data.id])
+  })
+
+  it('the day can be corrected later, keeping the day before in the edit history', async () => {
+    const r = await createEntry('Visit', 'visit')
+    const before = note(r.data.id).occurred_at
+    const set = await invoke(IPC.CASE_LOG_SET_OCCURRED, r.data.id, day(-5))
+    expect(set.ok).toBe(true)
+    expect(localDay(note(r.data.id).occurred_at)).toBe(day(-5))
+    const edits = await invoke(IPC.CASE_LOG_GET_EDITS, r.data.id)
+    expect(edits.data).toEqual([expect.objectContaining({ content: 'Visit', occurred_at: before })])
+    expect((await invoke(IPC.CASE_LOG_SET_OCCURRED, r.data.id, day(2))).ok).toBe(false)
+  })
+
+  it('a corrected later day moves the date column forward', async () => {
+    const r = await invoke(IPC.CASE_LOG_CREATE, rowId, 'Visit', 'visit', null, undefined, day(-10))
+    expect(cellValue()).toBe(day(-10))
+    const set = await invoke(IPC.CASE_LOG_SET_OCCURRED, r.data.id, day(-4))
+    expect(set.data.updated_dates).toEqual([expect.objectContaining({ new_value: day(-4) })])
+    expect(cellValue()).toBe(day(-4))
+  })
+
+  it("Pulse's own entries keep their date", async () => {
+    const r = await createEntry('Status changed', 'system')
+    expect((await invoke(IPC.CASE_LOG_SET_OCCURRED, r.data.id, day(-1))).ok).toBe(false)
+  })
+
+  it('notes written without a day (older code paths) happened when written', () => {
+    const id = Number(testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at) VALUES (?, 'x', 'note', '2026-01-05 10:00:00')").run(rowId).lastInsertRowid)
+    expect(note(id).occurred_at).toBe('2026-01-05 10:00:00')
+  })
+
+  it('restore (undo of a delete) keeps the day it happened', async () => {
+    const r = await invoke(IPC.CASE_LOG_CREATE, rowId, 'Visit', 'visit', null, undefined, day(-3))
+    const entry = (await invoke(IPC.CASE_LOG_GET, rowId)).data[0]
+    await invoke(IPC.CASE_LOG_DELETE, r.data.id)
+    expect((await invoke(IPC.CASE_LOG_RESTORE, entry)).ok).toBe(true)
+    expect(localDay(note(r.data.id).occurred_at)).toBe(day(-3))
   })
 })

@@ -379,9 +379,9 @@ export function renderProfileToDoc(
   // ── Case Log ──
   if (includeSections.caseLog) {
     const entries = sharedCtx?.caseLogByRow?.get(rowId) ?? db.prepare(`
-      SELECT content, log_type, created_at FROM case_log
+      SELECT content, log_type, occurred_at AS created_at FROM case_log
       WHERE row_id = ? AND voided_at IS NULL
-      ORDER BY created_at DESC LIMIT 10
+      ORDER BY occurred_at DESC, id DESC LIMIT 10
     `).all(rowId) as Array<{ content: string; log_type: string; created_at: string }>
     if (entries.length > 0) {
       addSection(`Recent ${term(v, 'activity', { many: true })} (last 10)`)
@@ -617,9 +617,9 @@ export async function exportPdfBatch(options: PdfBatchOptions): Promise<void> {
     if (includeSections.caseLog) {
       const batchCaseLog = chunkedInQuery<{ row_id: number; content: string; log_type: string; created_at: string }>(
         db,
-        `SELECT row_id, content, log_type, created_at FROM case_log
+        `SELECT row_id, content, log_type, occurred_at AS created_at FROM case_log
          WHERE row_id IN (__PLACEHOLDERS__) AND voided_at IS NULL
-         ORDER BY created_at DESC`,
+         ORDER BY occurred_at DESC, id DESC`,
         batchIds
       )
       for (const entry of batchCaseLog) {
