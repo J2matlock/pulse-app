@@ -67,10 +67,15 @@ interface UndoState {
   toast: { description: string } | null
   isUndoing: boolean  // true while executing undo/redo callbacks — suppresses new pushes
 
-  push: (item: UndoItem) => void
-  pushWithToast: (item: UndoItem) => void
+  /**
+   * Pushes are dropped while an undo runs (the callbacks re-run actions that
+   * would push again). A user action that merely overlaps an undo passes
+   * evenWhileUndoing, so it keeps its own undo entry (L-24).
+   */
+  push: (item: UndoItem, opts?: PushOptions) => void
+  pushWithToast: (item: UndoItem, opts?: PushOptions) => void
   /** Replace an existing undo entry (matched by predicate) with an updated one, preserving original undo callback. */
-  coalesce: (predicate: (item: UndoItem) => boolean, updated: UndoItem) => void
+  coalesce: (predicate: (item: UndoItem) => boolean, updated: UndoItem, opts?: PushOptions) => void
   undo: () => Promise<void>
   redo: () => Promise<void>
   undoTo: (itemId: string) => Promise<void>
@@ -79,6 +84,24 @@ interface UndoState {
 }
 
 const MAX_STACK = 100
+
+export interface PushOptions { evenWhileUndoing?: boolean }
+
+/** The reason an undo or redo failed, for the toast: handler messages are already plain English */
+function failureText(kind: 'Undo' | 'Redo', err: unknown): string {
+  const reason = err instanceof Error ? err.message.trim() : ''
+  const plain = reason && reason !== 'READ_ONLY' && reason.length < 200 && !/sqlite|ipc|undefined|null|TypeError/i.test(reason)
+  return plain ? `${kind} didn't work: ${reason}` : `${kind} failed — your change could not be ${kind === 'Undo' ? 'reverted' : 'reapplied'}`
+}
+
+/**
+ * For store actions that catch their own errors: while an undo or redo runs,
+ * rethrow instead of toasting, so the undo store reports the failure and
+ * keeps the item (L-08).
+ */
+export function rethrowIfUndoing(err: unknown): void {
+  if (useUndoStore.getState().isUndoing) throw err
+}
 
 // Module-scope mutex — set synchronously before any await in undo/redo.
 // Using a plain boolean outside Zustand ensures two rapid Ctrl+Z presses
@@ -110,8 +133,8 @@ export const useUndoStore = create<UndoState>((set, get) => {
     toast: null,
     isUndoing: false,
 
-    push(item: UndoItem) {
-      if (get().isUndoing) return  // don't push during undo/redo callbacks
+    push(item: UndoItem, opts?: PushOptions) {
+      if (get().isUndoing && !opts?.evenWhileUndoing) return  // don't push during undo/redo callbacks
       set(s => {
         const next = [...s.undoStack, item]
         if (next.length > MAX_STACK) next.shift()
@@ -119,8 +142,8 @@ export const useUndoStore = create<UndoState>((set, get) => {
       })
     },
 
-    pushWithToast(item: UndoItem) {
-      if (get().isUndoing) return
+    pushWithToast(item: UndoItem, opts?: PushOptions) {
+      if (get().isUndoing && !opts?.evenWhileUndoing) return
       set(s => {
         const next = [...s.undoStack, item]
         if (next.length > MAX_STACK) next.shift()
@@ -129,8 +152,8 @@ export const useUndoStore = create<UndoState>((set, get) => {
       showToast(item.description)
     },
 
-    coalesce(predicate: (item: UndoItem) => boolean, updated: UndoItem) {
-      if (get().isUndoing) return
+    coalesce(predicate: (item: UndoItem) => boolean, updated: UndoItem, opts?: PushOptions) {
+      if (get().isUndoing && !opts?.evenWhileUndoing) return
       set(s => {
         const idx = s.undoStack.findIndex(predicate)
         if (idx === -1) {
@@ -168,7 +191,7 @@ export const useUndoStore = create<UndoState>((set, get) => {
         rlog.error('UndoStore', 'Undo failed', err)
         // Revert stack mutation so the item isn't lost
         set({ undoStack: prevUndoStack, redoStack: prevRedoStack })
-        showToast('Undo failed — your change could not be reverted')
+        showToast(failureText('Undo', err))
       } finally {
         _undoMutex = false
         set({ isUndoing: false })
@@ -195,7 +218,7 @@ export const useUndoStore = create<UndoState>((set, get) => {
         rlog.error('UndoStore', 'Redo failed', err)
         // Revert stack mutation so the item isn't lost
         set({ undoStack: prevUndoStack, redoStack: prevRedoStack })
-        showToast('Redo failed — your change could not be reapplied')
+        showToast(failureText('Redo', err))
       } finally {
         _undoMutex = false
         set({ isUndoing: false })
@@ -226,10 +249,10 @@ export const useUndoStore = create<UndoState>((set, get) => {
             await applySideEffects(item.sideEffects, 'undo')
             await item.undo()
           } catch (err) {
-            // Don't restore original stacks — they no longer match reality
-            // The partially-undone state is the correct state
+            // Earlier steps really were undone; this one wasn't, so it goes back on the undo stack
             rlog.error('UndoStore', 'undoTo partial failure:', err)
-            showToast('Undo partially failed — some changes could not be reverted')
+            set(s => ({ undoStack: [...s.undoStack, item], redoStack: s.redoStack.filter(i => i.id !== item.id) }))
+            showToast(failureText('Undo', err))
             return
           }
         }

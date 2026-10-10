@@ -1,7 +1,7 @@
 import type { Column } from '../../shared/types'
 import { IPC } from '../../shared/ipc-channels'
 import type { GridState } from './gridTypes'
-import { useUndoStore } from './undoStore'
+import { useUndoStore, rethrowIfUndoing } from './undoStore'
 import { rlog } from '../utils/rendererLogger'
 import toast from 'react-hot-toast'
 import { storeInvoke as invoke } from '../utils/safeInvoke'
@@ -143,6 +143,7 @@ export const createColumnSlice = (set: Set, get: Get) => ({
         })
       }
     } catch (err) {
+      rethrowIfUndoing(err)
       rlog.error('GridColumnSlice', 'Failed to update column', err)
       toast.error('Could not update column — please try again')
     }
@@ -184,6 +185,7 @@ export const createColumnSlice = (set: Set, get: Get) => ({
               activeColId = newColId
               await get().loadGrid(gId)
             } catch (err) {
+              rethrowIfUndoing(err)
               rlog.error('GridColumnSlice', 'Failed to undo column delete', err)
             }
           },
@@ -193,6 +195,7 @@ export const createColumnSlice = (set: Set, get: Get) => ({
               const gId = get().activeGridId
               if (gId) await get().loadGrid(gId)
             } catch (err) {
+              rethrowIfUndoing(err)
               rlog.error('GridColumnSlice', 'Failed to redo column delete', err)
             }
           },
@@ -270,6 +273,7 @@ export const createColumnSlice = (set: Set, get: Get) => ({
             await invoke(IPC.COLUMN_REORDER, gId, prevOrderedIds)
             await get().loadGrid(gId)
           } catch (err) {
+            rethrowIfUndoing(err)
             rlog.error('GridColumnSlice', 'Failed to undo column reorder', err)
           }
         },
@@ -280,6 +284,7 @@ export const createColumnSlice = (set: Set, get: Get) => ({
             await invoke(IPC.COLUMN_REORDER, gId, orderedIds)
             await get().loadGrid(gId)
           } catch (err) {
+            rethrowIfUndoing(err)
             rlog.error('GridColumnSlice', 'Failed to redo column reorder', err)
           }
         },

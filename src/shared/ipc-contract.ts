@@ -172,7 +172,7 @@ export interface IPCContract {
   'row:unarchive':           { args: [rowId: number];                                                                      return: true }
   'row:reorder':             { args: [gridId: number, orderedIds: number[]];                                               return: true }
   'row:duplicate':           { args: [rowId: number];                                                                      return: number | bigint }
-  'row:bulk-action':         { args: [action: 'archive' | 'unarchive' | 'delete', rowIds: number[]];                       return: number }
+  'row:bulk-action':         { args: [action: 'archive' | 'unarchive' | 'delete' | 'restore', rowIds: number[]];           return: number }
   'row:hard-delete':         { args: [rowId: number];                                                                      return: true }
   'row:restore-deleted':     { args: [rowId: number];                                                                      return: true }
   'row:purge':               { args: [rowId: number];                                                                      return: true }

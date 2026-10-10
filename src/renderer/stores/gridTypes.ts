@@ -16,6 +16,11 @@ import type { FormatSliceState } from './gridFormatSlice'
 import type { AcuitySliceState } from './gridAcuitySlice'
 import type { CustomGroupSliceState } from './gridCustomGroupSlice'
 
+export interface UpdateCellOptions {
+  /** An undo or redo is putting a value back: push no undo entry, and throw on failure */
+  fromUndo?: boolean
+}
+
 export interface CoreGridState {
   grids: Grid[]
   gridListLoaded: boolean
@@ -63,7 +68,7 @@ export interface CoreGridState {
   updateRow: (rowId: number, updates: Partial<{ is_starred: 0 | 1 }>) => Promise<void>
   reorderRows: (orderedIds: number[]) => Promise<void>
 
-  updateCell: (rowId: number, columnId: number, value: string | null) => Promise<void>
+  updateCell: (rowId: number, columnId: number, value: string | null, opts?: UpdateCellOptions) => Promise<void>
 
   _loadVersion: number
 }

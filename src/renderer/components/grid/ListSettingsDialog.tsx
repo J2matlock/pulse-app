@@ -171,8 +171,8 @@ export function ListSettingsDialog({ gridId, onClose, onOpenRequirements }: Prop
         timestamp: Date.now(),
         category: 'silent',
         icon: 'settings',
-        undo: async () => { await applySettings(gridId, undo) },
-        redo: async () => { await applySettings(gridId, patch) },
+        undo: async () => { const e = await applySettings(gridId, undo); if (e) throw new Error(e) },
+        redo: async () => { const e = await applySettings(gridId, patch); if (e) throw new Error(e) },
       })
       toast.success(`Saved the ${t('list')} settings`)
       onClose()

@@ -54,7 +54,7 @@ describe('completeDeadlines', () => {
     expect(pushWithToast.mock.calls[0]![0].description).toMatch(/next due/)
 
     await pushWithToast.mock.calls[0]![0].undo()
-    expect(updateCell).toHaveBeenCalledWith(4, 9, '2025-09-01')
+    expect(updateCell).toHaveBeenCalledWith(4, 9, '2025-09-01', { fromUndo: true })
     expect(mockInvoke).toHaveBeenCalledWith('checklist:delete-item', 7)
     expect(mockInvoke).toHaveBeenCalledWith('checklist:delete-item', 8)
   })

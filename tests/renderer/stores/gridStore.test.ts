@@ -191,6 +191,34 @@ describe('gridStore', () => {
       expect(useUndoStore.getState().undoStack.length).toBe(1)
       expect(useUndoStore.getState().undoStack[0]!.category).toBe('silent')
     })
+
+    it('a failed undo of a cell edit stays undoable instead of looking done (L-08)', async () => {
+      useUndoStore.setState({ undoStack: [], redoStack: [], toast: null, isUndoing: false })
+      const row = makeRow(1)
+      ;(row as Record<string, unknown>)['col_5'] = 'old'
+      useGridStore.setState({ activeGridId: 1, rows: [row], columns: [makeColumn(5, 'Notes')] })
+      mockInvoke.mockResolvedValue({ ok: true, data: { sysLogId: null } })
+      await useGridStore.getState().updateCell(1, 5, 'new')
+      mockInvoke.mockResolvedValue({ ok: false, error: 'That record was deleted.' })
+      await useUndoStore.getState().undo()
+      expect(useUndoStore.getState().undoStack).toHaveLength(1)
+      expect(useUndoStore.getState().toast?.description).toBe("Undo didn't work: That record was deleted.")
+      expect((useGridStore.getState().rows[0] as Record<string, unknown>)['col_5']).toBe('new')
+    })
+
+    it('an edit typed while an undo runs gets its own undo entry (L-24)', async () => {
+      useUndoStore.setState({ undoStack: [], redoStack: [], toast: null, isUndoing: true })
+      const row = makeRow(1)
+      ;(row as Record<string, unknown>)['col_5'] = 'old'
+      useGridStore.setState({ activeGridId: 1, rows: [row], columns: [makeColumn(5, 'Notes')] })
+      mockInvoke.mockResolvedValue({ ok: true, data: { sysLogId: null } })
+      await useGridStore.getState().updateCell(1, 5, 'typed')
+      expect(useUndoStore.getState().undoStack).toHaveLength(1)
+      // The undo's own writes push nothing
+      await useGridStore.getState().updateCell(1, 5, 'old', { fromUndo: true })
+      expect(useUndoStore.getState().undoStack).toHaveLength(1)
+      useUndoStore.setState({ isUndoing: false })
+    })
   })
 
   describe('addRow', () => {

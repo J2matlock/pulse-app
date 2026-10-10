@@ -14,7 +14,7 @@ import { assignAutoNumbers } from '../auto-number'
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_ROWS = 5000
 const MAX_BULK_ROW_ACTION = 1000
-const ALLOWED_BULK_ACTIONS = new Set(['archive', 'unarchive', 'delete'])
+const ALLOWED_BULK_ACTIONS = new Set(['archive', 'unarchive', 'delete', 'restore'])
 
 // ── Shared column-mapping helpers ─────────────────────────────────────────
 
@@ -229,7 +229,7 @@ function recordWord(rowId: number): string {
 }
 
 export function registerRowHandlers(): void {
-  secureWrap(IPC.ROW_BULK_ACTION, 'ipc-row', (_e, action: 'archive' | 'unarchive' | 'delete', rowIds: number[]) => {
+  secureWrap(IPC.ROW_BULK_ACTION, 'ipc-row', (_e, action: 'archive' | 'unarchive' | 'delete' | 'restore', rowIds: number[]) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!ALLOWED_BULK_ACTIONS.has(action)) return fail(`Invalid bulk action: ${action}`)
     if (!Array.isArray(rowIds) || rowIds.length === 0) return fail('No rows specified')
@@ -263,6 +263,15 @@ export function registerRowHandlers(): void {
         rowIds.forEach(id => {
           stmt.run(id)
           logStmt.run(id, `${recordWord(id)} moved to trash`)
+        })
+      } else if (action === 'restore') {
+        // Undo of a bulk move to trash (G-34); archived records come back archived
+        const stmt = cachedStmt('row_bulk_restore', `
+          UPDATE rows SET is_active = CASE WHEN archived_at IS NULL THEN 1 ELSE 0 END, deleted_at = NULL,
+          updated_at = datetime('now') WHERE id = ? AND deleted_at IS NOT NULL
+        `)
+        rowIds.forEach(id => {
+          if (stmt.run(id).changes > 0) logStmt.run(id, `${recordWord(id)} restored from trash`)
         })
       }
     })

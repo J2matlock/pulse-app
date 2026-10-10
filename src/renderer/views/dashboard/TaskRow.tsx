@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import type { CaseloadTask } from '../../../shared/types'
 import { IPC } from '../../../shared/ipc-channels'
-import { safeInvoke } from '../../utils/safeInvoke'
+import { mustInvoke } from '../../utils/safeInvoke'
 import { useTaskStore } from '../../stores/taskStore'
 import { useUndoStore } from '../../stores/undoStore'
 
@@ -56,7 +56,7 @@ export function TaskRow({
         category: 'silent',
         icon: 'check',
         undo: async () => {
-          await safeInvoke(IPC.TASK_RESTORE, task.id)
+          await mustInvoke(IPC.TASK_RESTORE, task.id)
           onRestore?.(task)
         },
         redo: async () => {

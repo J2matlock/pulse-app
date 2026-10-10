@@ -27,7 +27,7 @@ import { ChecklistGroupHeader } from '../components/shared/GroupHeader'
 import { ScratchPad } from '../components/profile/ScratchPad'
 import { IPC } from '../../shared/ipc-channels'
 import type { CaseloadTask, TaskGroup as TaskGroupType, UrgentChecklistItem } from '../../shared/types'
-import { safeInvoke } from '../utils/safeInvoke'
+import { safeInvoke, mustInvoke } from '../utils/safeInvoke'
 import { rlog } from '../utils/rendererLogger'
 import { pulseEvents } from '../events'
 import { LoadingOverlay } from '../components/shared/LoadingSpinner'
@@ -151,12 +151,12 @@ export default function TasksView(): React.ReactElement {
           sideEffects: sysLogId != null ? [{ type: 'void_case_log', caseLogId: sysLogId }] : undefined,
           undo: async () => {
             setUrgentItems(prev => [...prev, item])
-            await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, item.id, { is_completed: 0, completed_at: null })
+            await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, item.id, { is_completed: 0, completed_at: null })
             pulseEvents.emit('urgentchecklist:changed')
           },
           redo: async () => {
             setUrgentItems(prev => prev.filter(i => i.id !== item.id))
-            await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, item.id, { is_completed: 1, completed_at: completedAt })
+            await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, item.id, { is_completed: 1, completed_at: completedAt })
             pulseEvents.emit('urgentchecklist:changed')
           },
         })
@@ -248,11 +248,11 @@ export default function TasksView(): React.ReactElement {
         category: 'structural',
         icon: 'folder-plus',
         undo: async () => {
-          await safeInvoke(IPC.TASK_GROUP_DELETE, created.id)
+          await mustInvoke(IPC.TASK_GROUP_DELETE, created.id)
           await loadTaskGroups()
         },
         redo: async () => {
-          await safeInvoke(IPC.TASK_GROUP_CREATE, created.name)
+          await mustInvoke(IPC.TASK_GROUP_CREATE, created.name)
           await loadTaskGroups()
         },
       })
@@ -271,11 +271,11 @@ export default function TasksView(): React.ReactElement {
       category: 'logged',
       icon: 'edit',
       undo: async () => {
-        await safeInvoke(IPC.TASK_GROUP_UPDATE, groupId, { name: prevName })
+        await mustInvoke(IPC.TASK_GROUP_UPDATE, groupId, { name: prevName })
         await loadTaskGroups()
       },
       redo: async () => {
-        await safeInvoke(IPC.TASK_GROUP_UPDATE, groupId, { name })
+        await mustInvoke(IPC.TASK_GROUP_UPDATE, groupId, { name })
         await loadTaskGroups()
       },
     })
@@ -296,17 +296,17 @@ export default function TasksView(): React.ReactElement {
         category: 'structural',
         icon: 'trash',
         undo: async () => {
-          const res = await safeInvoke<TaskGroupType>(IPC.TASK_GROUP_CREATE, deletedGroup.name)
+          const res = await mustInvoke<TaskGroupType>(IPC.TASK_GROUP_CREATE, deletedGroup.name)
           if (res.ok) {
             for (const t of affectedTasks) {
-              await safeInvoke(IPC.TASK_MOVE_TO_GROUP, t.id, res.data.id)
+              await mustInvoke(IPC.TASK_MOVE_TO_GROUP, t.id, res.data.id)
             }
           }
           await loadTaskGroups()
           await loadTasks()
         },
         redo: async () => {
-          await safeInvoke(IPC.TASK_GROUP_DELETE, groupId)
+          await mustInvoke(IPC.TASK_GROUP_DELETE, groupId)
           await loadTaskGroups()
           await loadTasks()
         },
@@ -409,13 +409,13 @@ export default function TasksView(): React.ReactElement {
           category: 'structural',
           icon: 'clipboard-list',
           undo: async () => {
-            for (const id of createdIds) await safeInvoke(IPC.TASK_DELETE, id)
-            if (createdGroupId) await safeInvoke(IPC.TASK_GROUP_DELETE, createdGroupId)
+            for (const id of createdIds) await mustInvoke(IPC.TASK_DELETE, id)
+            if (createdGroupId) await mustInvoke(IPC.TASK_GROUP_DELETE, createdGroupId)
             await loadTasks()
             await loadTaskGroups()
           },
           redo: async () => {
-            await safeInvoke(IPC.TASK_APPLY_TEMPLATE, templateId, groupId)
+            await mustInvoke(IPC.TASK_APPLY_TEMPLATE, templateId, groupId)
             await loadTasks()
           },
         })

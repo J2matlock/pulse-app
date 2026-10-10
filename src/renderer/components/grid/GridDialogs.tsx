@@ -4,7 +4,9 @@ import { IPC } from '../../../shared/ipc-channels'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { MoveToGridModal, BulkMoveToGridModal } from './MoveToGridModal'
 import { useGridStore } from '../../stores/gridStore'
-import { safeInvoke } from '../../utils/safeInvoke'
+import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
+import { useUndoStore } from '../../stores/undoStore'
+import toast from 'react-hot-toast'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
 
@@ -154,22 +156,31 @@ export function BulkDeleteDialog({
   setBulkDeleteTarget,
 }: BulkDeleteDialogProps): React.ReactElement {
   const { t } = useVocab()
+  // Trash can be emptied later, so this is a plain confirm with one Undo; typing is for permanent deletes (G-34)
   return (
     <ConfirmDialog
       open={open}
-      variant="typed"
-      requiredPhrase={`TRASH ${selectedCount}`}
       title={`Move ${selectedCount} ${t('record', { count: selectedCount })} to trash?`}
-      message={`This will move ${selectedCount} ${t('record', { count: selectedCount })} to Trash. You can recover them within 30 days. Type TRASH ${selectedCount} to confirm.`}
+      message={`You can undo this, or recover them from Trash within 30 days.`}
       confirmLabel="Move to Trash"
       onConfirm={async () => {
         const ids = Array.from(selectedRowIds)
         const result = await safeInvoke(IPC.ROW_BULK_ACTION, 'delete', ids)
-        if (result.ok) {
-          setSelectedRowIds(new Set())
-          setBulkDeleteTarget(false)
-          if (activeGridId) void useGridStore.getState().loadGrid(activeGridId)
-        }
+        if (!result.ok) { toast.error(result.error); return }
+        setSelectedRowIds(new Set())
+        setBulkDeleteTarget(false)
+        const reload = async () => { const g = useGridStore.getState().activeGridId; if (g) await useGridStore.getState().loadGrid(g) }
+        if (activeGridId) void useGridStore.getState().loadGrid(activeGridId)
+        const label = `${ids.length} ${t('record', { count: ids.length })}`
+        useUndoStore.getState().pushWithToast({
+          id: crypto.randomUUID(),
+          description: `Moved ${label} to trash`,
+          timestamp: Date.now(),
+          category: 'structural',
+          icon: 'Trash2',
+          undo: async () => { await mustInvoke(IPC.ROW_BULK_ACTION, 'restore', ids); await reload() },
+          redo: async () => { await mustInvoke(IPC.ROW_BULK_ACTION, 'delete', ids); await reload() },
+        })
       }}
       onCancel={() => setBulkDeleteTarget(false)}
     />

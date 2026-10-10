@@ -4,6 +4,11 @@ import security from 'eslint-plugin-security'
 import reactHooks from 'eslint-plugin-react-hooks'
 import { vocabRuleOptions, vocabNotYetConverted } from './eslint/vocab-rule.mjs'
 
+const undoInvokeRule = {
+  selector: "Property[key.name=/^(undo|redo)$/] CallExpression[callee.name='safeInvoke']",
+  message: 'Use mustInvoke() inside undo/redo callbacks so a failure is reported instead of looking like success.',
+}
+
 export default [
   {
     files: ['src/**/*.ts', 'src/**/*.tsx'],
@@ -45,10 +50,15 @@ export default [
     },
   },
   {
+    // Undo must fail loudly (audit L-08): safeInvoke never throws, so a failed undo looked like success
+    files: ['src/renderer/**/*.ts', 'src/renderer/**/*.tsx'],
+    rules: { 'no-restricted-syntax': ['error', undoInvokeRule] },
+  },
+  {
     // User-facing record/list/note words come from the vocabulary layer
     files: ['src/renderer/**/*.tsx'],
     ignores: vocabNotYetConverted,
-    rules: { 'no-restricted-syntax': ['error', ...vocabRuleOptions] },
+    rules: { 'no-restricted-syntax': ['error', ...vocabRuleOptions, undoInvokeRule] },
   },
   {
     ignores: ['out/**', 'dist/**', 'node_modules/**', '*.config.*', 'eslint/**'],

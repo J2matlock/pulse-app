@@ -16,7 +16,7 @@ import { useNoteTracking } from '../../hooks/useNoteTracking'
 import { CaseLogEntry } from './CaseLogEntry'
 import { expandVariables, detectTrigger, matchSnippets } from '../../utils/snippetExpander'
 import { useUndoStore } from '../../stores/undoStore'
-import { safeInvoke } from '../../utils/safeInvoke'
+import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { isMod } from '../../utils/keys'
 import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
@@ -290,14 +290,14 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         icon: 'plus',
         undo: async () => {
           // Past the delete window, undo voids the note instead (it stays in the record)
-          const res = await safeInvoke(IPC.CASE_LOG_DELETE, created.id)
-          if (!res.ok) await safeInvoke(IPC.CASE_LOG_VOID, created.id, 'Undone')
-          for (const u of updatedDates) await safeInvoke(IPC.CELL_UPDATE, rowId, u.column_id, u.old_value)
+          const res = await mustInvoke(IPC.CASE_LOG_DELETE, created.id)
+          if (!res.ok) await mustInvoke(IPC.CASE_LOG_VOID, created.id, 'Undone')
+          for (const u of updatedDates) await mustInvoke(IPC.CELL_UPDATE, rowId, u.column_id, u.old_value)
           applyDatesLocally(rowId, updatedDates.map(u => [u.column_id, u.old_value]))
         },
         redo: async () => {
-          await safeInvoke(IPC.CASE_LOG_RESTORE, created)
-          for (const u of updatedDates) await safeInvoke(IPC.CELL_UPDATE, rowId, u.column_id, u.new_value)
+          await mustInvoke(IPC.CASE_LOG_RESTORE, created)
+          for (const u of updatedDates) await mustInvoke(IPC.CELL_UPDATE, rowId, u.column_id, u.new_value)
           applyDatesLocally(rowId, updatedDates.map(u => [u.column_id, u.new_value]))
         },
       })
@@ -328,10 +328,10 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
       category: 'logged',
       icon: 'pin',
       undo: async () => {
-        await safeInvoke(IPC.CASE_LOG_TOGGLE_PIN, id, !pinned)
+        await mustInvoke(IPC.CASE_LOG_TOGGLE_PIN, id, !pinned)
       },
       redo: async () => {
-        await safeInvoke(IPC.CASE_LOG_TOGGLE_PIN, id, pinned)
+        await mustInvoke(IPC.CASE_LOG_TOGGLE_PIN, id, pinned)
       },
     })
   }
@@ -350,10 +350,10 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         category: 'logged',
         icon: 'edit',
         undo: async () => {
-          await safeInvoke(IPC.CASE_LOG_UPDATE, id, prevContent)
+          await mustInvoke(IPC.CASE_LOG_UPDATE, id, prevContent)
         },
         redo: async () => {
-          await safeInvoke(IPC.CASE_LOG_UPDATE, id, content)
+          await mustInvoke(IPC.CASE_LOG_UPDATE, id, content)
         },
       })
     }
@@ -372,10 +372,10 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         category: 'logged',
         icon: 'trash',
         undo: async () => {
-          await safeInvoke(IPC.CASE_LOG_RESTORE, entry)
+          await mustInvoke(IPC.CASE_LOG_RESTORE, entry)
         },
         redo: async () => {
-          await safeInvoke(IPC.CASE_LOG_DELETE, id)
+          await mustInvoke(IPC.CASE_LOG_DELETE, id)
         },
       })
     }
@@ -391,8 +391,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
       timestamp: Date.now(),
       category: 'logged',
       icon: 'trash',
-      undo: async () => { await safeInvoke(IPC.CASE_LOG_UNVOID, id) },
-      redo: async () => { await safeInvoke(IPC.CASE_LOG_VOID, id, reason) },
+      undo: async () => { await mustInvoke(IPC.CASE_LOG_UNVOID, id) },
+      redo: async () => { await mustInvoke(IPC.CASE_LOG_VOID, id, reason) },
     })
   }
 
@@ -410,11 +410,11 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         icon: 'check',
         sideEffects,
         undo: async () => {
-          await safeInvoke(IPC.CASE_LOG_UNCOMPLETE_FOLLOWUP, id)
+          await mustInvoke(IPC.CASE_LOG_UNCOMPLETE_FOLLOWUP, id)
           // CASE_LOG_CHANGED push from main will trigger CaseLog to reload
         },
         redo: async () => {
-          await safeInvoke(IPC.CASE_LOG_COMPLETE_FOLLOWUP, id)
+          await mustInvoke(IPC.CASE_LOG_COMPLETE_FOLLOWUP, id)
         },
       })
     }

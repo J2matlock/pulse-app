@@ -134,21 +134,27 @@ export function BulkEditDialog({
       icon: 'pencil',
       undo: async () => {
         const uc = useGridStore.getState().updateCell
+        let failed = 0
         for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
           const chunk = ids.slice(i, i + CHUNK_SIZE)
-          await Promise.allSettled(
-            chunk.map(rowId => uc(rowId, selectedColumnId, prevValues.get(rowId) ?? null))
+          const res = await Promise.allSettled(
+            chunk.map(rowId => uc(rowId, selectedColumnId, prevValues.get(rowId) ?? null, { fromUndo: true }))
           )
+          failed += res.filter(r => r.status === 'rejected').length
         }
+        if (failed) throw new Error(`${failed} of ${total} couldn't be changed back.`)
       },
       redo: async () => {
         const uc = useGridStore.getState().updateCell
+        let failed = 0
         for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
           const chunk = ids.slice(i, i + CHUNK_SIZE)
-          await Promise.allSettled(
-            chunk.map(rowId => uc(rowId, selectedColumnId, value || null))
+          const res = await Promise.allSettled(
+            chunk.map(rowId => uc(rowId, selectedColumnId, value || null, { fromUndo: true }))
           )
+          failed += res.filter(r => r.status === 'rejected').length
         }
+        if (failed) throw new Error(`${failed} of ${total} couldn't be changed again.`)
       },
     })
 

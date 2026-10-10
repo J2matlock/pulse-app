@@ -491,6 +491,19 @@ describe('IPC Row — ROW_BULK_ACTION', () => {
     expect(deleted.cnt).toBe(2)
   })
 
+  it('bulk restores trashed rows, keeping archived ones archived (undo of G-34)', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 3, columnCount: 1 })
+    await invoke(IPC.ROW_BULK_ACTION, 'archive', [rowIds[0]])
+    await invoke(IPC.ROW_BULK_ACTION, 'delete', [rowIds[0], rowIds[1]])
+    const result = await invoke(IPC.ROW_BULK_ACTION, 'restore', [rowIds[0], rowIds[1], rowIds[2]]) as any
+    expect(result.ok).toBe(true)
+    const rows = testDb.db.prepare('SELECT id, is_active, deleted_at FROM rows ORDER BY id').all() as Array<{ id: number; is_active: number; deleted_at: string | null }>
+    expect(rows.map(r => [r.is_active, r.deleted_at])).toEqual([[0, null], [1, null], [1, null]])
+    // Only the two that were in the trash get a "restored" note
+    const logs = testDb.db.prepare("SELECT COUNT(*) AS n FROM case_log WHERE content LIKE '%restored from trash'").get() as { n: number }
+    expect(logs.n).toBe(2)
+  })
+
   it('rejects invalid action', async () => {
     const result = await invoke(IPC.ROW_BULK_ACTION, 'nuke', [1]) as any
     expect(result.ok).toBe(false)

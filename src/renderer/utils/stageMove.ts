@@ -8,7 +8,7 @@ import { IPC } from '../../shared/ipc-channels'
 import type { StageMoveResult } from '../../shared/stages'
 import type { GridRow } from '../../shared/types'
 import { localDateString } from '../../shared/dates'
-import { safeInvoke } from './safeInvoke'
+import { safeInvoke, mustInvoke } from './safeInvoke'
 import { useUndoStore } from '../stores/undoStore'
 import { useGridStore } from '../stores/gridStore'
 import { getClientName } from './clientName'
@@ -42,12 +42,12 @@ export async function moveToStage(rowId: number, columnId: number, value: string
     sideEffects: result.sysLogIds.map(caseLogId => ({ type: 'void_case_log' as const, caseLogId })),
     undo: async () => {
       const grid = useGridStore.getState()
-      await grid.updateCell(rowId, columnId, result.previous)
-      if (result.stamped) await grid.updateCell(rowId, result.stamped.columnId, result.stamped.previous)
-      for (const id of result.checklistItemIds) await safeInvoke(IPC.CHECKLIST_DELETE_ITEM, id)
+      await grid.updateCell(rowId, columnId, result.previous, { fromUndo: true })
+      if (result.stamped) await grid.updateCell(rowId, result.stamped.columnId, result.stamped.previous, { fromUndo: true })
+      for (const id of result.checklistItemIds) await mustInvoke(IPC.CHECKLIST_DELETE_ITEM, id)
     },
     redo: async () => {
-      const again = await safeInvoke<StageMoveResult>(IPC.STAGE_MOVE, rowId, columnId, value)
+      const again = await mustInvoke<StageMoveResult>(IPC.STAGE_MOVE, rowId, columnId, value)
       if (again.ok && again.data.changed) { result = again.data; patchRow(rowId, columnId, value, result.stamped) }
     },
   })

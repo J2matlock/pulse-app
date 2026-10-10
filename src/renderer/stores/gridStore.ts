@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { Grid, Column, GridRow, SortConfig, CellFormat, CellFormatRule, AcuityLevel, CustomGroupDef } from '../../shared/types'
 import { isReadOnlyColumnType } from '../../shared/types'
 import { IPC } from '../../shared/ipc-channels'
-import { useUndoStore } from './undoStore'
+import { useUndoStore, rethrowIfUndoing } from './undoStore'
 import type { SideEffect, UndoItem } from './undoStore'
 import { getClientName } from '../utils/clientName'
 import { wordNow } from '../utils/vocab'
@@ -15,7 +15,7 @@ import { createFormatSlice } from './gridFormatSlice'
 import { createAcuitySlice } from './gridAcuitySlice'
 import { createCustomGroupSlice } from './gridCustomGroupSlice'
 import type { SavedView } from './gridFilterSlice'
-import type { GridState } from './gridTypes'
+import type { GridState, UpdateCellOptions } from './gridTypes'
 import type { GridDeadlineContext } from '../../shared/ipc-contract'
 import { stageConfigOf } from '../../shared/stages'
 
@@ -391,6 +391,7 @@ export const useGridStore = create<GridState>((set, get) => ({
         redo: async () => { await get().archiveRow(rowId, reason) },
       })
     } catch (err) {
+      rethrowIfUndoing(err)
       rlog.error('GridStore', 'Failed to archive row', err)
       toast.error(`Could not archive ${wordNow('record')} — please try again`)
     }
@@ -421,6 +422,7 @@ export const useGridStore = create<GridState>((set, get) => ({
         redo: async () => { await get().unarchiveRow(rowId) },
       })
     } catch (err) {
+      rethrowIfUndoing(err)
       rlog.error('GridStore', 'Failed to unarchive row', err)
       // The free-version limit already showed its own message
       toast.error(`Could not unarchive ${wordNow('record')} — please try again`)
@@ -503,12 +505,14 @@ export const useGridStore = create<GridState>((set, get) => ({
     }
   },
 
-  updateCell: async (rowId: number, columnId: number, value: string | null) => {
+  updateCell: async (rowId: number, columnId: number, value: string | null, opts?: UpdateCellOptions) => {
+    // fromUndo: an undo or redo is putting a value back; it pushes nothing and a failure throws (L-08, L-24)
+    const fromUndo = !!opts?.fromUndo
     // Computed and auto-number values are Pulse's to fill in (paste, Delete, bulk edit all land here)
     const column = get().columns.find(c => c.id === columnId)
     if (column && isReadOnlyColumnType(column.column_type)) return
     // The stage column (W06): moves run their on-enter actions as one undo step
-    if (column && stageConfigOf(column) && !useUndoStore.getState().isUndoing) {
+    if (column && stageConfigOf(column) && !fromUndo) {
       const { moveToStage } = await import('../utils/stageMove')
       await moveToStage(rowId, columnId, value === '' ? null : value)
       return
@@ -531,7 +535,7 @@ export const useGridStore = create<GridState>((set, get) => ({
       const result = await invoke<{ sysLogId: number | null }>(IPC.CELL_UPDATE, rowId, columnId, value)
       set({ isSaving: false })
       // Push undo for cell change (only if value actually changed)
-      if (prevValue !== value) {
+      if (prevValue !== value && !fromUndo) {
         const col = get().columns.find(c => c.id === columnId)
         const colName = col?.name ?? 'cell'
         const row = get().rows.find(r => r.row_id === rowId)
@@ -564,8 +568,8 @@ export const useGridStore = create<GridState>((set, get) => ({
             ...existingItem,
             timestamp: Date.now(),
             sideEffects: sideEffects.length > 0 ? sideEffects : existingItem.sideEffects,
-            redo: async () => { await get().updateCell(rowId, columnId, value) },
-          })
+            redo: async () => { await get().updateCell(rowId, columnId, value, { fromUndo: true }) },
+          }, { evenWhileUndoing: true })
         } else {
           const newItemId = crypto.randomUUID()
           _coalesceIndex.set(coalesceKey, newItemId)
@@ -583,9 +587,9 @@ export const useGridStore = create<GridState>((set, get) => ({
             contextLabel,
             contextId: rowId,
             sideEffects: sideEffects.length > 0 ? sideEffects : undefined,
-            undo: async () => { await get().updateCell(rowId, columnId, prevValue) },
-            redo: async () => { await get().updateCell(rowId, columnId, value) },
-          })
+            undo: async () => { await get().updateCell(rowId, columnId, prevValue, { fromUndo: true }) },
+            redo: async () => { await get().updateCell(rowId, columnId, value, { fromUndo: true }) },
+          }, { evenWhileUndoing: true })
         }
       }
     } catch (err) {
@@ -593,9 +597,10 @@ export const useGridStore = create<GridState>((set, get) => ({
       set(s => ({
         rows: s.rows.map(r => r.row_id === rowId ? { ...r, [key]: prevValue } : r),
         isSaving: false,
-        saveError: "We couldn't save your changes — please try again."
+        saveError: fromUndo ? null : "We couldn't save your changes — please try again."
       }))
       rlog.error('GridStore', 'Cell update failed', err)
+      if (fromUndo) throw err
       toast.error('Could not save — please try again')
     }
   },
