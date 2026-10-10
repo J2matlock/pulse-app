@@ -60,6 +60,12 @@ describe('sequence rules in main', () => {
     expect(loadDeadlines({ gridId, today: '2026-03-01' })[0]!.step).toBe(0)
   })
 
+  it('records the day a step was really done (audit 1.22)', () => {
+    const { sysLogId } = markStepDone(rowId, col, 0, '2026-01-20')
+    expect(t.db.prepare('SELECT done_at FROM deadline_progress WHERE row_id = ? AND column_id = ?').get(rowId, col)).toEqual({ done_at: '2026-01-20' })
+    expect((t.db.prepare('SELECT content FROM case_log WHERE id = ?').get(sysLogId) as { content: string }).content).toMatch(/IFSP meeting done on Jan 20, 2026 \(step 1 of 2\)/)
+  })
+
   it('starts over when the anchor date changes', () => {
     markStepDone(rowId, col, 0)
     t.db.prepare('UPDATE cells SET value = ? WHERE row_id = ? AND column_id = ?').run('2026-05-01', rowId, referral)

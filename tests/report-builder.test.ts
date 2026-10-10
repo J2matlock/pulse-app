@@ -146,6 +146,15 @@ describe('notes', () => {
     const thisMonth = runReport(gridId, { source: 'activities', dateRange: { field: 'act:date', preset: 'this_month' } }, NOW)
     expect(thisMonth.rows).toEqual([{ v0: 1 }])
   })
+
+  it('dates a late write-up by the day it happened (audit 1.22)', () => {
+    t.db.prepare(`INSERT INTO case_log (row_id, content, log_type, occurred_at, created_at, updated_at)
+      VALUES (?, 'x', 'repair', datetime('2026-09-29 12:00:00', 'utc'), datetime('2026-10-02 09:00:00', 'utc'), datetime('now'))`).run(rows[0])
+    const r = runReport(gridId, { source: 'activities', dateRange: { field: 'act:date', from: '2026-10-01', to: '2026-10-31' } }, NOW)
+    expect(r.rows).toEqual([{ v0: 1 }])
+    const sept = runReport(gridId, { source: 'activities', dateRange: { field: 'act:date', from: '2026-09-01', to: '2026-09-30' } }, NOW)
+    expect(sept.rows).toEqual([{ v0: 3 }])
+  })
 })
 
 describe('appointments and deadlines', () => {

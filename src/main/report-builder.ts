@@ -220,8 +220,8 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
   } else if (config.source === 'activities') {
     const types = listActivityTypes(true)
     const measures = listMeasures()
-    const notes = db.prepare(inRows(`SELECT cl.row_id, date(cl.created_at, 'localtime') AS d, cl.log_type, cl.minutes, cl.miles, cl.extra_measures
-      FROM case_log cl JOIN rs ON rs.id = cl.row_id WHERE cl.voided_at IS NULL AND cl.log_type != 'system' ORDER BY cl.created_at LIMIT ?`))
+    const notes = db.prepare(inRows(`SELECT cl.row_id, date(cl.occurred_at, 'localtime') AS d, cl.log_type, cl.minutes, cl.miles, cl.extra_measures
+      FROM case_log cl JOIN rs ON rs.id = cl.row_id WHERE cl.voided_at IS NULL AND cl.log_type != 'system' ORDER BY cl.occurred_at, cl.id LIMIT ?`))
       .all(JSON.stringify(rowIds), cap + 1) as Array<{ row_id: number; d: string; log_type: string; minutes: number | null; miles: number | null; extra_measures: string | null }>
     if (notes.length > cap) { notes.pop(); truncated = `Only the first ${cap.toLocaleString('en-US')} were counted.` }
     items = notes.map(n => {

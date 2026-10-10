@@ -93,6 +93,7 @@ export const IPC = {
   CASE_LOG_RESTORE: 'case-log:restore',
   CASE_LOG_GET_EDITS: 'case-log:get-edits',
   CASE_LOG_SET_MEASURES: 'case-log:set-measures',
+  CASE_LOG_SET_OCCURRED: 'case-log:set-occurred',
   MENU_COMMAND: 'menu:command', // push: main → renderer, arg: 'undo' | 'redo' (macOS menu bar)
   CASE_LOG_CHANGED: 'case-log:changed', // push: main → renderer, arg: rowId
 
@@ -278,6 +279,7 @@ export const IPC = {
   FORM_DELETE: 'forms:delete',
   FORM_SUBMIT: 'forms:submit',
   FORM_UNDO: 'forms:undo',
+  FORM_REDO: 'forms:redo',
   FORM_PRINT: 'forms:print',
 
   // Attachments (W09)
