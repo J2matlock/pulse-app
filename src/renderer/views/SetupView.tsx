@@ -14,9 +14,10 @@ import toast from 'react-hot-toast'
 import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardList, FileSpreadsheet, LayoutTemplate, Pencil, Sparkles, User } from 'lucide-react'
 import { IPC } from '../../shared/ipc-channels'
 import { PRODUCT_NAME } from '../../shared/constants'
-import type { DateRuleAnswer } from '../../shared/ipc-contract'
+import type { DateRuleAnswer, SetupProgress } from '../../shared/ipc-contract'
 import type { Column, RecordKind } from '../../shared/types'
 import { HUMAN_SERVICES_VOCAB, guessArticle } from '../../shared/vocab'
+import { wordsFromListName } from '../../shared/listWords'
 import { featuresForExistingInstall } from '../../shared/features'
 import { safeInvoke } from '../utils/safeInvoke'
 import { useWorkspaceStore } from '../stores/workspaceStore'
@@ -48,6 +49,22 @@ export const ROW_CHOICES: Array<{ one: string; many: string; kind: RecordKind }>
   { one: 'piece of equipment', many: 'equipment', kind: 'thing' },
   { one: 'job', many: 'jobs', kind: 'job' },
 ]
+
+type RowsAnswer = { choice: number | 'other' | null; one: string; many: string; kind: RecordKind }
+
+/** "What are these rows?" starts from the list's name ("Tenants" → other: tenant), or nothing for a generic name */
+export function guessRows(listName: string): RowsAnswer {
+  const g = wordsFromListName(listName)
+  if (['list', 'lists', 'record', 'records', 'sheet', 'spreadsheet'].includes(g.many)) return { choice: null, one: '', many: '', kind: 'person' }
+  const i = ROW_CHOICES.findIndex(c => c.one === g.one || c.many === g.many)
+  if (i >= 0) return { choice: i, one: '', many: '', kind: ROW_CHOICES[i]!.kind }
+  return { choice: 'other', one: g.one, many: g.many, kind: 'person' }
+}
+
+/** Remember where setup is, so a lock or a closed window picks it up again */
+function saveProgress(progress: SetupProgress | null): void {
+  void safeInvoke(IPC.ONBOARDING_SAVE_PROGRESS, progress).catch(() => { /* resuming is a nicety */ })
+}
 
 const KINDS: Array<{ kind: RecordKind; label: string; example: string }> = [
   { kind: 'person', label: 'People', example: 'clients, students, staff' },
@@ -92,15 +109,35 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
   const [listName, setListName] = useState('')
   const [gridId, setGridId] = useState<number | null>(null)
   const importDone = useRef(false)
-  const [rows, setRows] = useState<{ choice: number | 'other'; one: string; many: string; kind: RecordKind }>({ choice: 0, one: '', many: '', kind: 'person' })
+  const [rows, setRows] = useState<RowsAnswer>({ choice: null, one: '', many: '', kind: 'person' })
+  const [resumeBlank, setResumeBlank] = useState<{ gridId: number; name: string; kind: RecordKind; one: string; many: string } | null>(null)
+  const [resumed, setResumed] = useState(false)
   const [dateCols, setDateCols] = useState<Column[] | null>(null)
   const [dates, setDates] = useState<Record<number, DateAnswer>>({})
   const updateWorkspace = useWorkspaceStore(s => s.update)
 
   const go = (s: Step) => { setError(null); setStep(s) }
 
+  // Setup that was interrupted after making a list carries on where it stopped
+  useEffect(() => {
+    if (start !== 'welcome') return
+    let live = true
+    void safeInvoke(IPC.ONBOARDING_CHECK).then(r => {
+      const p = r.ok ? r.data.progress : null
+      if (!live || !p) return
+      setResumed(true)
+      setGridId(p.gridId)
+      if (p.listName) setListName(p.listName)
+      if (p.step === 'sheet-import') { importDone.current = false; setStep('sheet-import') }
+      else if (p.step === 'sheet-rows') { setRows(guessRows(p.listName ?? '')); setStep('sheet-rows') }
+      else if (p.blank) { setResumeBlank({ gridId: p.gridId, ...p.blank }); setStep('blank') }
+    }).catch(() => { /* start from the beginning */ })
+    return () => { live = false }
+  }, [start])
+
   const finish = useCallback(async () => {
     try { await safeInvoke(IPC.ONBOARDING_COMPLETE) } catch { /* the app still works; setup can be finished later */ }
+    setResumed(false)
     setStep('done')
   }, [])
 
@@ -134,6 +171,7 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
       if (!res.ok) { setError("We couldn't create the list. Please try again."); return }
       importDone.current = false
       setGridId(res.data)
+      saveProgress({ step: 'sheet-import', gridId: res.data, listName: listName.trim() })
       go('sheet-import')
     } finally { setBusy(false) }
   }
@@ -141,21 +179,25 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
   function cancelImport() {
     if (importDone.current) return
     if (gridId !== null) void safeInvoke(IPC.GRID_DELETE, gridId)
+    saveProgress(null)
     setGridId(null)
     go('sheet-name')
   }
 
   async function saveRows() {
     if (gridId === null) return
+    if (rows.choice === null) { setError('Pick what the rows are, or choose "Something else".'); return }
     const chosen = rows.choice === 'other'
       ? { one: rows.one.trim(), many: rows.many.trim() || rows.one.trim(), kind: rows.kind }
       : ROW_CHOICES[rows.choice]!
     if (!chosen.one) { setError('Type what you call one of them.'); return }
     setBusy(true)
     try {
-      const listRes = await safeInvoke(IPC.GRID_SETTINGS_UPDATE, gridId, { record_kind: chosen.kind })
+      const term = { one: chosen.one, many: chosen.many, article: guessArticle(chosen.one) }
+      // The list keeps its own words too (as the guided start does), so a later example's words don't rename it
+      const listRes = await safeInvoke(IPC.GRID_SETTINGS_UPDATE, gridId, { record_kind: chosen.kind, vocab: { record: term } })
       if (!listRes.ok) { setError(listRes.error); return }
-      await updateWorkspace({ vocab: { record: { one: chosen.one, many: chosen.many, article: guessArticle(chosen.one) } } })
+      await updateWorkspace({ vocab: { record: term } })
       const grid = await safeInvoke(IPC.GRID_GET, gridId)
       const found = grid.ok ? [...grid.data.columns, ...grid.data.hiddenColumns].filter(c => c.column_type === 'date') : []
       if (found.length === 0) { await finish(); return }
@@ -187,7 +229,12 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
   if (step === 'sheet-import' && gridId !== null) {
     return (
       <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center">
-        <ImportWizard open gridId={gridId} onClose={cancelImport} onImported={() => { importDone.current = true; go('sheet-rows') }} />
+        <ImportWizard open gridId={gridId} onClose={cancelImport} onImported={() => {
+          importDone.current = true
+          setRows(guessRows(listName))
+          saveProgress({ step: 'sheet-rows', gridId, listName: listName.trim() })
+          go('sheet-rows')
+        }} />
       </div>
     )
   }
@@ -254,7 +301,11 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
             </div>
           )}
 
-          {step === 'blank' && <GuidedBlankStart onBack={() => go('start')} onFinished={finish} />}
+          {resumed && step !== 'done' && (
+            <p role="status" className="px-8 pt-6 -mb-4 text-base text-slate-600 dark:text-slate-300">Picking up where you left off.</p>
+          )}
+          {step === 'blank' && <GuidedBlankStart onBack={() => go('start')} onFinished={finish} resume={resumeBlank ?? undefined}
+            onProgress={blank => saveProgress({ step: 'blank', gridId: blank.gridId, blank: { name: blank.name, kind: blank.kind, one: blank.one, many: blank.many } })} />}
 
           {step === 'sheet-name' && (
             <div className="p-8 space-y-5">
@@ -329,7 +380,8 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
               <h2 className={h2}>Which of these dates repeat?</h2>
               <p className={lead}>Dates that repeat get colors as they come due: green, then yellow, orange and red.</p>
               <DateRepeatPicker columns={dateCols} value={dates} onChange={setDates} />
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between">
+                <Back onClick={() => go('sheet-rows')} />
                 <button type="button" className="btn-primary inline-flex items-center gap-2" disabled={busy} onClick={() => void saveDates()}>
                   {busy ? 'Saving…' : 'Finish'} {!busy && <ArrowRight className="w-4 h-4" aria-hidden="true" />}
                 </button>

@@ -25,7 +25,16 @@ import type { MeasureDef, MeasureKind } from './measures'
 import type { RecordKind } from './types'
 
 /** Setup's "Which of these dates repeat?" answer for one date column */
-export type DateRuleAnswer = { columnId: number; repeat: 'due' } | { columnId: number; repeat: 'every'; n: number; unit: 'days' | 'months' | 'years' }
+/** Where an interrupted first-run setup stopped, once it has made a list */
+export interface SetupProgress {
+  step: 'sheet-import' | 'sheet-rows' | 'blank'
+  gridId: number
+  listName?: string
+  /** The guided blank start's answers so far */
+  blank?: { name: string; kind: RecordKind; one: string; many: string }
+}
+
+export type DateRuleAnswer ={ columnId: number; repeat: 'due' } | { columnId: number; repeat: 'every'; n: number; unit: 'days' | 'months' | 'years' }
 import type { StarterSummary, StarterRef, StarterPreview, ApplyOptions, ApplyResult } from './starters/schema'
 
 // ── Helper types for complex return shapes ────────────────────────────────
@@ -327,7 +336,8 @@ export interface IPCContract {
   'workspace:export-template': { args: [];                                        return: { filePath: string } | null }
 
   // ── Onboarding ──────────────────────────────────────────────────────────
-  'onboarding:check':      { args: [];                               return: { complete: boolean } }
+  'onboarding:check':      { args: [];                               return: { complete: boolean; progress: SetupProgress | null } }
+  'onboarding:save-progress': { args: [progress: SetupProgress | null]; return: true }
   'onboarding:complete':   { args: [];                               return: true }
   'onboarding:setup-grid': { args: [setup: Record<string, unknown>]; return: { gridId: number; colIdByName: Record<string, number> } }
   'onboarding:date-rules': { args: [gridId: number, answers: DateRuleAnswer[]]; return: number }
