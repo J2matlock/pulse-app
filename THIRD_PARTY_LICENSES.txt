@@ -1,7 +1,7 @@
 THIRD-PARTY SOFTWARE LICENSES
 ============================================================
 
-Pulse by BaringaSoft 2.0.0 includes the following third-party software.
+Pulse by BaringaSoft 2.0.1 includes the following third-party software.
 Each package's license is reproduced below. Electron also bundles Chromium
 and Node.js; their licenses ship with the app as LICENSES.chromium.html.
 
