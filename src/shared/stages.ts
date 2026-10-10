@@ -19,6 +19,8 @@ export const stageOptionSchema = z.object({
     checklistTemplateId: z.number().int().positive().optional(),
     /** Set this date column to today ("Picked up on"), which can start deadlines */
     stampColumnId: z.number().int().positive().optional(),
+    /** Fill in the date every time; otherwise only when it's empty, so re-entering keeps the first date */
+    restamp: z.boolean().optional(),
     /** Log a note of this type: "Moved to Ready" */
     activityTypeKey: z.string().regex(/^[a-z0-9_]{1,30}$/).optional(),
   }).strict().optional(),
@@ -67,9 +69,11 @@ export interface StageMoveResult {
   /** The stage before, for undo; unchanged moves change nothing */
   previous: string | null
   changed: boolean
-  /** Notes written (the change note and an on-enter note), voided on undo */
+  /** Notes written (the change note and an on-enter note), removed on undo */
   sysLogIds: number[]
   checklistItemIds: number[]
+  /** Change-history entries the move wrote, removed on undo so time in stage isn't reset */
+  historyIds?: number[]
   /** A date column filled in on entering, and what it held */
   stamped: { columnId: number; previous: string | null } | null
 }

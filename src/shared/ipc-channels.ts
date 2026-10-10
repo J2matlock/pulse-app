@@ -257,6 +257,7 @@ export const IPC = {
   // Stages and the board (W06)
   STAGE_CONFIG_SAVE: 'stages:config-save',
   STAGE_MOVE: 'stages:move',
+  STAGE_UNDO: 'stages:undo',
   STAGE_DURATIONS: 'stages:durations',
   STAGE_SUMMARY: 'stages:summary',
 
