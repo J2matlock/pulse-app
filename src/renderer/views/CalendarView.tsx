@@ -289,7 +289,7 @@ export default function CalendarView(): React.ReactElement {
       {selected && <AppointmentPanel appointment={selected} onClose={() => setSelected(null)} />}
       {newAt && <AppointmentDialog start={newAt} onClose={() => setNewAt(null)} />}
       {pendingDrop && (
-        <ScopeDialog verb="Change" onCancel={() => setPendingDrop(null)}
+        <ScopeDialog verb="Change" onCancel={() => setPendingDrop(null)} dateChanged={pendingDrop.times.start_at.slice(0, 10) !== pendingDrop.appt.start_at.slice(0, 10)}
           onChoose={scope => { const p = pendingDrop; setPendingDrop(null); void updateAppointment(p.appt, p.times, scope) }} />
       )}
     </div>

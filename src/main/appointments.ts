@@ -18,7 +18,7 @@ import { cleanExtraMeasures } from './measures'
 import { applyNoteDateUpdates } from './note-date-updates'
 import { featureOn, word } from './vocab'
 import {
-  addMinutes, addMonths, addDays, apptInputSchema, apptPatchSchema, minutesBetween, seriesDates, seriesRuleSchema,
+  addMinutes, addMonths, addDays, parseYmd, apptInputSchema, apptPatchSchema, minutesBetween, seriesDates, seriesRuleSchema,
   MATERIALIZE_MONTHS, MAX_HORIZON_MONTHS, DATE_RE, OPEN_RECORD_SQL,
   type Appointment, type ApptInput, type ApptPatch, type EditScope, type SeriesRule, type SeriesTemplate, type ApptStatus,
 } from '../shared/appointments'
@@ -41,8 +41,9 @@ export interface ApptChange { snapshot: ApptSnapshot; ids: number[] }
 
 const SELECT = `
   SELECT a.*, CASE WHEN r.deleted_at IS NULL THEN COALESCE(NULLIF(r.display_name, ''), '(unnamed)') END AS record_name,
-         r.grid_id, g.name AS grid_name
-  FROM appointments a LEFT JOIN rows r ON r.id = a.row_id LEFT JOIN grids g ON g.id = r.grid_id`
+         r.grid_id, g.name AS grid_name, ser.rule AS series_rule
+  FROM appointments a LEFT JOIN rows r ON r.id = a.row_id LEFT JOIN grids g ON g.id = r.grid_id
+  LEFT JOIN appointment_series ser ON ser.id = a.series_id`
 
 // ── Reading ──────────────────────────────────────────────────────────────────
 
@@ -91,9 +92,16 @@ export function restoreAppointments(snap: ApptSnapshot): void {
   const db = getDb()
   db.transaction(() => {
     for (const id of snap.createdAppointmentIds) db.prepare('DELETE FROM appointments WHERE id = ?').run(id)
+    // A series this change made may have made more since (browsing far ahead)
+    for (const id of snap.createdSeriesIds) db.prepare('DELETE FROM appointments WHERE series_id = ?').run(id)
+    // Never REPLACE a series row: that deletes it first, and its occurrences lose their series
     for (const s of snap.series) {
-      db.prepare('INSERT OR REPLACE INTO appointment_series (id, rule, template, materialized_until, created_at) VALUES (?, ?, ?, ?, ?)')
-        .run(s.id, s.rule, s.template, s.materialized_until, s.created_at)
+      const changed = db.prepare('UPDATE appointment_series SET rule = ?, template = ?, materialized_until = ?, created_at = ? WHERE id = ?')
+        .run(s.rule, s.template, s.materialized_until, s.created_at, s.id).changes
+      if (changed === 0) {
+        db.prepare('INSERT INTO appointment_series (id, rule, template, materialized_until, created_at) VALUES (?, ?, ?, ?, ?)')
+          .run(s.id, s.rule, s.template, s.materialized_until, s.created_at)
+      }
     }
     // Occurrences a change added to a series it then shortened, etc.
     for (const s of snap.series) {
@@ -142,6 +150,11 @@ function untilFromColumn(rule: SeriesRule, rowId: number | null): string | null 
   return v && DATE_RE.test(v.slice(0, 10)) ? v.slice(0, 10) : null
 }
 
+/** The furthest a series is filled in: two years past today, or past its first date if that's later */
+function horizonOf(first: string, today: string): string {
+  return addMonths(first > today ? first : today, MAX_HORIZON_MONTHS)
+}
+
 /**
  * Make a series' occurrences through `through`; dates already made, or
  * deleted on their own, are skipped. Future scheduled occurrences past a
@@ -158,7 +171,8 @@ function materialize(series: SeriesRow, through: string, today = localDateString
     db.prepare('DELETE FROM appointment_series WHERE id = ?').run(series.id)
     return []
   }
-  const target = [through, addMonths(t.first, MAX_HORIZON_MONTHS)].sort()[0]!
+  // Two years ahead of today (or of its first date), so long-running series keep going
+  const target = [through, horizonOf(t.first, today)].sort()[0]!
   const dates = seriesDates(rule, t.first, target, untilFromColumn(rule, t.row_id))
   const wanted = new Set(dates)
   const existing = new Set((db.prepare('SELECT series_date FROM appointments WHERE series_id = ? AND series_date IS NOT NULL').all(series.id) as Array<{ series_date: string }>).map(r => r.series_date))
@@ -258,6 +272,26 @@ function endSeriesBefore(s: SeriesRow, date: string): void {
   db.prepare("DELETE FROM appointments WHERE series_id = ? AND status = 'scheduled' AND COALESCE(series_date, substr(start_at, 1, 10)) >= ?").run(s.id, date)
 }
 
+/**
+ * The rule for the new series "This and following" starts on `newFirst`
+ * (moved from `from`): a "10 times" series keeps only the times it has
+ * left, and weekly days shift with the moved day (Tue/Thu moved to Wed
+ * becomes Wed/Fri). Null when no times are left.
+ */
+export function followingRule(rule: SeriesRule, first: string, from: string, newFirst: string, untilColumn?: string | null): SeriesRule | null {
+  const r: SeriesRule = { ...rule }
+  if (rule.count) {
+    const used = seriesDates(rule, first, addDays(from, -1), untilColumn).length
+    if (rule.count - used <= 0) return null
+    r.count = rule.count - used
+  }
+  if (rule.freq === 'weekly' && rule.byDay?.length && newFirst !== from) {
+    const shift = (parseYmd(newFirst).getDay() - parseYmd(from).getDay() + 7) % 7
+    if (shift) r.byDay = [...new Set(rule.byDay.map(d => (d + shift) % 7))].sort()
+  }
+  return r
+}
+
 export function updateAppointment(id: number, patch: ApptPatch, scope: EditScope = 'one'): ApptChange {
   const db = getDb()
   return db.transaction((): ApptChange => {
@@ -300,8 +334,8 @@ export function updateAppointment(id: number, patch: ApptPatch, scope: EditScope
     // This and following: the old series ends the day before; a new one starts here
     endSeriesBefore(s, from)
     const next = { ...templateOf({ ...v, row_id: rowId, end_at: v.end_at ?? null }) }
-    const r: SeriesRule = { ...rule }
-    delete r.count
+    const r = followingRule(rule, t.first, from, next.first, untilFromColumn(rule, t.row_id))
+    if (!r) return { snapshot, ids: [] }
     const newId = Number(db.prepare('INSERT INTO appointment_series (rule, template, materialized_until) VALUES (?, ?, ?)')
       .run(JSON.stringify(r), JSON.stringify(next), '0000-00-00').lastInsertRowid)
     const ids = materialize(seriesRow(newId), [s.materialized_until, next.first].sort().reverse()[0]!)

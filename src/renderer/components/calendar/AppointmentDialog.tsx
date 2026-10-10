@@ -262,7 +262,8 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
           <button type="button" className="btn-primary" disabled={saving || !title.trim() || !date} onClick={() => void save()}>{a ? 'Save' : 'Schedule'}</button>
         </div>
       </div>
-      {askScope && <ScopeDialog verb="Change" onChoose={scope => void save(scope, askScope)} onCancel={() => setAskScope(null)} />}
+      {askScope && <ScopeDialog verb="Change" onChoose={scope => void save(scope, askScope)} onCancel={() => setAskScope(null)}
+        dateChanged={!!a && askScope.start_at.slice(0, 10) !== a.start_at.slice(0, 10)} />}
     </div>
   )
 }

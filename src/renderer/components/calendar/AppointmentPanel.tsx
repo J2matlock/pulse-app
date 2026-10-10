@@ -5,7 +5,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, Check, UserX, Ban, Pencil, Trash2, RotateCcw } from 'lucide-react'
-import type { Appointment } from '../../../shared/appointments'
+import { seriesRuleText, type Appointment } from '../../../shared/appointments'
 import { formatTime, longDay } from '../../../shared/calendar'
 import { setAppointmentStatus, deleteAppointment } from '../../utils/appointmentActions'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -44,7 +44,8 @@ export function AppointmentPanel({ appointment: a, onClose }: { appointment: App
       )}
       {a.location && <p className="text-base text-slate-600 dark:text-slate-300">{a.location}</p>}
       {a.notes && <p className="text-base text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{a.notes}</p>}
-      <p className="text-sm text-slate-500 dark:text-slate-400">{STATUS_TEXT[a.status]}{a.series_id !== null ? ' · repeats' : ''}</p>
+      <p className="text-sm text-slate-500 dark:text-slate-400">{STATUS_TEXT[a.status]}</p>
+      {seriesRuleText(a) && <p className="text-base text-slate-600 dark:text-slate-300">{seriesRuleText(a)}</p>}
 
       {doneNote !== null ? (
         <div className="space-y-2">

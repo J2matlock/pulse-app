@@ -10,8 +10,8 @@ vi.mock('../src/main/database', () => ({
     ON CONFLICT(row_id, column_id) DO UPDATE SET value = excluded.value`).run(rowId, columnId, value),
 }))
 
-import { createAppointment, listAppointments, updateAppointment, deleteAppointment, restoreAppointments, ensureMaterialized, rematerializeForRecord, recordAppointments, ApptError, setAppointmentStatus, appointmentsToday, countUpcomingForRecords, cancelUpcomingForRecords } from '../src/main/appointments'
-import { seriesDates, addMinutes, minutesBetween, validWallTime, describeRule } from '../src/shared/appointments'
+import { createAppointment, followingRule, listAppointments, updateAppointment, deleteAppointment, restoreAppointments, ensureMaterialized, rematerializeForRecord, recordAppointments, ApptError, setAppointmentStatus, appointmentsToday, countUpcomingForRecords, cancelUpcomingForRecords } from '../src/main/appointments'
+import { seriesDates, addMinutes, addMonths, minutesBetween, validWallTime, describeRule } from '../src/shared/appointments'
 import { up as migration040 } from '../src/main/migrations/040_appointments'
 import { addMissingActivityTypes } from '../src/main/activity-types'
 import { localDateString } from '../src/shared/dates'
@@ -49,6 +49,8 @@ describe('date math', () => {
     expect(minutesBetween('2026-10-06T15:00', '2026-10-06T15:50')).toBe(50)
     expect(validWallTime('2026-02-30T10:00')).toBe(false)
     expect(describeRule({ freq: 'weekly', interval: 2, byDay: [4, 2] })).toBe('Every 2 weeks on Tue, Thu')
+    expect(describeRule({ freq: 'weekly', interval: 1, byDay: [2], until: '2027-03-03' })).toBe('Every week on Tue · until Mar 3, 2027')
+    expect(describeRule({ freq: 'monthly', interval: 1, count: 10 })).toBe('Every month · 10 times')
   })
 
   it('makes weekly, every-other-week and monthly dates, clamping the 31st', () => {
@@ -57,7 +59,9 @@ describe('date math', () => {
     expect(seriesDates({ freq: 'monthly', interval: 1 }, '2026-01-31', '2026-05-31')).toEqual(['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30', '2026-05-31'])
     expect(seriesDates({ freq: 'daily', interval: 1, count: 3 }, '2026-10-06', '2027-01-01')).toEqual(['2026-10-06', '2026-10-07', '2026-10-08'])
     expect(seriesDates({ freq: 'daily', interval: 1, until: '2026-10-07' }, '2026-10-06', '2027-01-01')).toHaveLength(2)
-    expect(seriesDates({ freq: 'daily', interval: 1 }, '2026-01-01', '2030-01-01')).toHaveLength(500)
+    // No end: as far as asked (the caller keeps it to two years past today)
+    expect(seriesDates({ freq: 'daily', interval: 1 }, '2026-01-01', '2030-01-01')).toHaveLength(1462)
+    expect(seriesDates({ freq: 'daily', interval: 1, count: 500 }, '2026-01-01', '2030-01-01')).toHaveLength(500)
   })
 })
 
@@ -162,6 +166,63 @@ describe('series', () => {
     expect(after.slice(2).every(a => a.title === 'New time' && a.series_id !== before[0]!.series_id)).toBe(true)
     restoreAppointments(change.snapshot)
     expect(all()).toEqual(before)
+  })
+
+  it('"this and following" keeps the times a "10 times" series has left', () => {
+    createAppointment({ row_id: g.rowIds[0]!, title: 'Session', start_at: `${today}T15:00` }, { freq: 'weekly', interval: 1, count: 10 })
+    expect(all()).toHaveLength(10)
+    const fourth = all()[3]!
+    updateAppointment(fourth.id, { start_at: `${fourth.series_date}T11:00` }, 'following')
+    ensureMaterialized(inDays(700))
+    const rows = all()
+    expect(rows).toHaveLength(10)
+    expect(rows.filter(a => a.start_at.endsWith('T11:00'))).toHaveLength(7)
+    const rule = JSON.parse((t.db.prepare('SELECT rule FROM appointment_series WHERE id = ?').get(rows[3]!.series_id) as { rule: string }).rule)
+    expect(rule.count).toBe(7)
+  })
+
+  it('"this and following" moved to another weekday keeps the moved one and shifts the days', () => {
+    expect(followingRule({ freq: 'weekly', interval: 1, byDay: [2, 4] }, '2026-10-06', '2026-10-13', '2026-10-14')).toEqual({ freq: 'weekly', interval: 1, byDay: [3, 5] })
+    expect(followingRule({ freq: 'weekly', interval: 1, byDay: [5, 6] }, '2026-10-02', '2026-10-09', '2026-10-11')).toEqual({ freq: 'weekly', interval: 1, byDay: [0, 1] })
+    expect(followingRule({ freq: 'weekly', interval: 1, count: 2 }, '2026-10-06', '2026-10-20', '2026-10-20')).toBeNull()
+    // Tue/Thu, moved from a Tue to the Wed after it
+    const tue = (() => { const d = new Date(); d.setDate(d.getDate() + ((2 - d.getDay() + 7) % 7)); return localDateString(d) })()
+    createAppointment({ row_id: g.rowIds[0]!, title: 'Session', start_at: `${tue}T15:00` }, { freq: 'weekly', interval: 1, byDay: [2, 4] })
+    const nextTue = all().find(a => a.series_date! > tue && new Date(`${a.series_date}T12:00`).getDay() === 2)!
+    const wed = (() => { const d = new Date(`${nextTue.series_date}T12:00`); d.setDate(d.getDate() + 1); return localDateString(d) })()
+    const change = updateAppointment(nextTue.id, { start_at: `${wed}T15:00` }, 'following')
+    expect(change.ids.length).toBeGreaterThan(0)
+    const moved = all().filter(a => a.start_at.slice(0, 10) >= wed)
+    expect(moved[0]!.start_at).toBe(`${wed}T15:00`)
+    expect(new Set(moved.map(a => new Date(`${a.start_at.slice(0, 10)}T12:00`).getDay()))).toEqual(new Set([3, 5]))
+  })
+
+  it('keep going past two years: the horizon moves with today', () => {
+    const start = addMonths(today, -30)
+    createAppointment({ row_id: g.rowIds[0]!, title: 'Session', start_at: `${start}T15:00` }, { freq: 'monthly', interval: 1 })
+    ensureMaterialized(inDays(365))
+    const dates = all().map(a => a.series_date!)
+    expect(dates.at(-1)! > addMonths(start, 24)).toBe(true)
+    expect(dates.at(-1)! >= inDays(330)).toBe(true)
+  })
+
+  it('undoing a new series removes copies made later, far ahead', () => {
+    const change = weekly()
+    ensureMaterialized(inDays(500))
+    expect(all().length).toBeGreaterThan(change.ids.length)
+    restoreAppointments(change.snapshot)
+    expect(all()).toEqual([])
+    expect(t.db.prepare('SELECT COUNT(*) AS n FROM appointment_series').get()).toEqual({ n: 0 })
+  })
+
+  it('undo keeps every occurrence in its series', () => {
+    weekly()
+    const rows = all()
+    const change = updateAppointment(rows[1]!.id, { title: 'Renamed' }, 'all')
+    ensureMaterialized(inDays(500))
+    restoreAppointments(change.snapshot)
+    expect(all().filter(a => a.series_id === null)).toHaveLength(0)
+    expect(all()).toEqual(rows)
   })
 
   it('delete the series but keep done ones; "this and following" ends it', () => {
