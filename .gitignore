@@ -60,3 +60,6 @@ plans/PLAN-licensing.md
 
 # Test output
 test-results/
+
+# Audit screenshots (large; regenerate with the UI tour)
+plans/audit-2026-10/screens/
