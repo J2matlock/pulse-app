@@ -283,6 +283,43 @@ describe('applying a starter', () => {
     expect(testDb.db.prepare('SELECT COUNT(*) AS n FROM appointment_series').get()).toEqual({ n: 0 })
   })
 
+  it('gives sample data a past: added dates over the year, older everyday notes, finished jobs in past months', async () => {
+    const { applyStarter, removeStarterSampleData, starterSampleRowIds } = await starters()
+    const res = applyStarter({ builtinId: 'tree-service' }, { lists: ['customers', 'jobs', 'equipment', 'crew'], applyWords: false, applyFeatures: false, sampleData: true })
+    const db = testDb.db
+    const added = db.prepare("SELECT COUNT(DISTINCT strftime('%Y-%m', created_at)) AS n FROM rows WHERE grid_id = ?").get(res.gridIds.customers) as { n: number }
+    expect(added.n).toBeGreaterThan(3)
+    // Generated notes are at least five weeks old, of everyday kinds, never newer than the record
+    const gen = db.prepare(`SELECT c.log_type, julianday('now') - julianday(c.created_at) AS age, julianday(c.created_at) - julianday(r.created_at) AS after
+      FROM case_log c JOIN rows r ON r.id = c.row_id WHERE julianday('now') - julianday(c.created_at) > 34`).all() as Array<{ log_type: string; age: number; after: number }>
+    expect(gen.length).toBeGreaterThan(20)
+    expect(gen.every(g => g.after >= 0)).toBe(true)
+    expect(new Set(gen.map(g => g.log_type)).size).toBeGreaterThan(1)
+    // Done jobs copied back into past months, with their customer, finished dates spread over the year
+    const jobs = db.prepare(`SELECT COUNT(*) AS n, COUNT(DISTINCT substr(v.value, 1, 7)) AS months FROM rows r
+      JOIN cells v ON v.row_id = r.id JOIN columns c ON c.id = v.column_id AND c.name = 'Completed on' WHERE r.grid_id = ?`).get(res.gridIds.jobs) as { n: number; months: number }
+    expect(jobs.n).toBeGreaterThan(12)
+    expect(jobs.months).toBeGreaterThan(8)
+    const unlinked = db.prepare(`SELECT COUNT(*) AS n FROM rows r WHERE r.grid_id = ? AND NOT EXISTS (SELECT 1 FROM record_links l WHERE l.from_row_id = r.id)`).get(res.gridIds.jobs) as { n: number }
+    expect(unlinked.n).toBe(0)
+    // Same every time, and all of it goes with "Remove sample data"
+    const tracked = starterSampleRowIds().length
+    expect(tracked).toBe((db.prepare('SELECT COUNT(*) AS n FROM rows').get() as { n: number }).n)
+    removeStarterSampleData()
+    expect(db.prepare('SELECT COUNT(*) AS n FROM rows').get()).toEqual({ n: 0 })
+    expect(db.prepare('SELECT COUNT(*) AS n FROM case_log').get()).toEqual({ n: 0 })
+  })
+
+  it('leaves note types that a quota counts out of the made-up history', async () => {
+    const { applyStarter } = await starters()
+    const res = applyStarter({ builtinId: 'therapy-practice' }, { lists: ['clients'], applyWords: false, applyFeatures: false, sampleData: true })
+    const { SAMPLE_HISTORY_TEXTS } = await import('../src/main/sample-history')
+    const made = (testDb.db.prepare(`SELECT c.log_type, c.content FROM case_log c JOIN rows r ON r.id = c.row_id WHERE r.grid_id = ?`).all(res.gridIds.clients) as Array<{ log_type: string; content: string }>)
+      .filter(n => SAMPLE_HISTORY_TEXTS.includes(n.content))
+    expect(made.length).toBeGreaterThan(10)
+    expect(made.map(n => n.log_type)).not.toContain('session')
+  })
+
   it('loads sample data that can be removed', async () => {
     const { applyStarter, removeStarterSampleData, starterSampleRowIds } = await starters()
     const res = applyStarter(fileSource(shop), { ...all, sampleData: true })
@@ -293,7 +330,8 @@ describe('applying a starter', () => {
     const date = (testDb.db.prepare("SELECT value FROM cells c JOIN columns col ON col.id = c.column_id WHERE c.row_id = ? AND col.name = 'Last oil change'").get(civic.id) as { value: string }).value
     const expected = new Date(); expected.setDate(expected.getDate() - 10)
     expect(date).toBe(`${expected.getFullYear()}-${String(expected.getMonth() + 1).padStart(2, '0')}-${String(expected.getDate()).padStart(2, '0')}`)
-    expect(testDb.db.prepare('SELECT log_type FROM case_log WHERE row_id = ?').all(civic.id)).toEqual([{ log_type: 'visit' }])
+    // The hand-written note is the newest; older everyday notes come from the sample history
+    expect(testDb.db.prepare('SELECT log_type FROM case_log WHERE row_id = ? ORDER BY created_at DESC LIMIT 1').all(civic.id)).toEqual([{ log_type: 'visit' }])
     expect(testDb.db.prepare("SELECT log_type FROM case_log WHERE content = 'Called'").get()).toEqual({ log_type: 'note' })
 
     // Removing samples keeps the lists and real records

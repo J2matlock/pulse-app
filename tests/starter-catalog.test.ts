@@ -399,7 +399,15 @@ describe('built-in starter catalog', () => {
 
       const sample = starterSampleData(s, variant)?.records[l.key] ?? []
       const rowCount = (db.prepare('SELECT COUNT(*) AS n FROM rows WHERE grid_id = ?').get(gridId) as { n: number }).n
-      expect(rowCount).toBe(sample.length)
+      // Job lists also get finished jobs from past months (sample history); other lists only their samples
+      if (l.kind === 'job') expect(rowCount).toBeGreaterThanOrEqual(sample.length)
+      else expect(rowCount, `${l.name}: sample records`).toBe(sample.length)
+      if (l.kind === 'job') {
+        // Finished jobs from past months come after the samples and leave nothing open on the dashboard
+        const copies = (db.prepare('SELECT id FROM rows WHERE grid_id = ? ORDER BY position').all(gridId) as Array<{ id: number }>).slice(sample.length).map(r => r.id)
+        const open = copies.length ? loadDeadlines({ gridId, rowIds: copies }).filter(d => d.state === 'overdue' || d.state === 'due' || d.state === 'soon') : []
+        expect(open.map(d => `${d.column_name} ${d.state}`), `${l.name}: past finished jobs`).toEqual([])
+      }
 
       deadlines.push(...loadDeadlines({ gridId }).filter(d => d.daysUntil !== null))
 
@@ -412,7 +420,7 @@ describe('built-in starter catalog', () => {
     }
     // Every sample link and every record has a name to show
     const sampleData = starterSampleData(s, variant)
-    expect((db.prepare('SELECT COUNT(*) AS n FROM record_links').get() as { n: number }).n).toBe(sampleData?.links?.length ?? 0)
+    expect((db.prepare('SELECT COUNT(*) AS n FROM record_links').get() as { n: number }).n).toBeGreaterThanOrEqual(sampleData?.links?.length ?? 0)
     // Every sample appointment is on the calendar (a weekly one as its whole series)
     const apptCount = (db.prepare('SELECT COUNT(*) AS n FROM appointments').get() as { n: number }).n
     expect(apptCount, 'sample appointments').toBe((sampleData?.appointments ?? []).reduce((n, a) => n + (a.repeatWeekly ?? 1), 0))

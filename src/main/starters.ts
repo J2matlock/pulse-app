@@ -22,6 +22,7 @@ import {
   type StarterSource, type ApplyOptions, type ApplyResult, type StarterPreview,
 } from '../shared/starters/schema'
 import { getSampleGridId, getStarterSampleRowIds, STARTER_SAMPLE_META_KEY } from './sample-data'
+import { addSampleHistory } from './sample-history'
 import { assignAutoNumbers, bumpAutoNumbersPastValues, freshAutoNumberConfig } from './auto-number'
 import { addMissingActivityTypes, listActivityTypes, userTypeKeys } from './activity-types'
 import { addMissingMeasures, listMeasures } from './measures'
@@ -473,7 +474,7 @@ export function applyStarter(src: StarterSource, opts: ApplyOptions): ApplyResul
   const sample = starterSampleData(s, opts.variant)
   if (opts.sampleData && sample) {
     try {
-      loadSampleData(sample, result.gridIds, result.warnings, linkTypes)
+      loadSampleData(sample, result.gridIds, result.warnings, linkTypes, `${s.id}:${opts.variant ?? ''}`)
     } catch (err) {
       logger.error('starters', 'Sample data failed to load', { error: err instanceof Error ? err.message : String(err) })
       result.warnings.push("The lists were added, but the sample data couldn't be loaded.")
@@ -486,11 +487,12 @@ export function applyStarter(src: StarterSource, opts: ApplyOptions): ApplyResul
 // ── Sample data ───────────────────────────────────────────────────────────────
 
 
-function loadSampleData(sd: SampleDataSpec, gridIds: Record<string, number>, warnings: string[], linkTypes: Map<string, number>): void {
+function loadSampleData(sd: SampleDataSpec, gridIds: Record<string, number>, warnings: string[], linkTypes: Map<string, number>, seed: string): void {
   const db = getDb()
   db.transaction(() => {
     const rowIds: number[] = []
     const byRef = new Map<string, number>()
+    const rowsByGrid = new Map<number, number[]>()
     const insRow = db.prepare("INSERT INTO rows (grid_id, position, created_at, updated_at) VALUES (?, ?, datetime('now'), datetime('now'))")
     const insCell = db.prepare("INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))")
     for (const [listKey, records] of Object.entries(sd.records)) {
@@ -518,6 +520,7 @@ function loadSampleData(sd: SampleDataSpec, gridIds: Record<string, number>, war
       bumpAutoNumbersPastValues(gridId)
       assignAutoNumbers(gridId, listRowIds)
       if (hasDisplayFormat(gridId)) refreshDisplayNames(gridId, listRowIds)
+      rowsByGrid.set(gridId, listRowIds)
     }
     const insNote = db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, ?, datetime('now', ?), datetime('now', ?))")
     // A sample note of a type this workspace doesn't have becomes its first type
@@ -573,6 +576,8 @@ function loadSampleData(sd: SampleDataSpec, gridIds: Record<string, number>, war
       for (let step = 0; step < done.steps; step++) insStep.run(rowId, col.id, step, localDateString(), anchor)
     }
     loadSampleAppointments(sd.appointments ?? [], byRef, warnings)
+    // About a year of everyday history, so reports have something to show
+    rowIds.push(...addSampleHistory(seed, rowsByGrid))
     db.prepare('INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)')
       .run(STARTER_SAMPLE_META_KEY, JSON.stringify({ rowIds: [...getStarterSampleRowIds(), ...rowIds] }))
   })()
