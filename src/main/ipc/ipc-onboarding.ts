@@ -8,7 +8,7 @@ import { logger } from '../logger'
 import { secureWrap, ok, fail, enforceWritable, logNonFatal, withCorrelation, validId } from './ipc-utils'
 import { getDb } from '../database'
 import { VALID_COLUMN_TYPES } from '../../shared/types'
-import { createSampleCaseload, removeSampleCaseload, getSampleGridId, countStarterSampleRows, removeStarterSampleData } from '../sample-data'
+import { createSampleCaseload, getSampleGridId, countSampleRows, planSampleRemoval, removeSampleData } from '../sample-data'
 import { z } from 'zod'
 import { applyDateRules, StarterError } from '../starters'
 
@@ -140,7 +140,12 @@ export function registerOnboardingHandlers(): void {
     }
   })
 
-  secureWrap(IPC.SAMPLE_DATA_STATUS, 'ipc-onboarding', () => ok({ gridId: getSampleGridId(), starterRows: countStarterSampleRows() }))
+  secureWrap(IPC.SAMPLE_DATA_STATUS, 'ipc-onboarding', () => ok({ gridId: getSampleGridId(), sampleRows: countSampleRows() }))
+
+  secureWrap(IPC.SAMPLE_DATA_PREVIEW, 'ipc-onboarding', () => {
+    const plan = planSampleRemoval()
+    return ok({ remove: plan.remove.length, keep: plan.keep.length, ownInSampleList: plan.ownInSampleList })
+  })
 
   secureWrap(IPC.SAMPLE_DATA_CREATE, 'ipc-onboarding', () => {
     const guard = enforceWritable(); if (guard) return guard
@@ -149,8 +154,11 @@ export function registerOnboardingHandlers(): void {
 
   secureWrap(IPC.SAMPLE_DATA_REMOVE, 'ipc-onboarding', () => {
     const guard = enforceWritable(); if (guard) return guard
-    const removedCaseload = removeSampleCaseload()
-    const removedRows = removeStarterSampleData()
-    return ok(removedCaseload || removedRows > 0)
+    try {
+      return ok(removeSampleData())
+    } catch (err) {
+      logger.error('ipc-onboarding', 'Removing sample data failed', { error: err instanceof Error ? err.message : String(err) })
+      return fail("We couldn't remove the sample data. Nothing was changed; please try again.")
+    }
   })
 }

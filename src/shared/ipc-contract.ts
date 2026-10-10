@@ -331,9 +331,10 @@ export interface IPCContract {
   'onboarding:complete':   { args: [];                               return: true }
   'onboarding:setup-grid': { args: [setup: Record<string, unknown>]; return: { gridId: number; colIdByName: Record<string, number> } }
   'onboarding:date-rules': { args: [gridId: number, answers: DateRuleAnswer[]]; return: number }
-  'sample-data:status':    { args: [];                               return: { gridId: number | null; starterRows: number } }
+  'sample-data:status':    { args: [];                               return: { gridId: number | null; sampleRows: number } }
+  'sample-data:preview':   { args: [];                               return: { remove: number; keep: number; ownInSampleList: number } }
   'sample-data:create':    { args: [];                               return: { gridId: number } }
-  'sample-data:remove':    { args: [];                               return: boolean }
+  'sample-data:remove':    { args: [];                               return: { removed: number; kept: number; keptListName: string | null } }
 
   // ── App Utilities ───────────────────────────────────────────────────────
   'app:get-info':           { args: [];                                   return: AppInfo }

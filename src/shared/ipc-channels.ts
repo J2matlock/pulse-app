@@ -330,6 +330,7 @@ export const IPC = {
   SAMPLE_DATA_STATUS: 'sample-data:status',
   SAMPLE_DATA_CREATE: 'sample-data:create',
   SAMPLE_DATA_REMOVE: 'sample-data:remove',
+  SAMPLE_DATA_PREVIEW: 'sample-data:preview',
 
   // App utilities
   APP_GET_INFO: 'app:get-info',

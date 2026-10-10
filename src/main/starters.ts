@@ -21,7 +21,7 @@ import {
   type Starter, type StarterList, type StarterSummary, type SampleDataSpec,
   type StarterSource, type ApplyOptions, type ApplyResult, type StarterPreview,
 } from '../shared/starters/schema'
-import { getSampleGridId, getStarterSampleRowIds, STARTER_SAMPLE_META_KEY } from './sample-data'
+import { getSampleGridId, markSampleRows } from './sample-data'
 import { addSampleHistory } from './sample-history'
 import { addStarterReports } from './starter-reports'
 import { assignAutoNumbers, bumpAutoNumbersPastValues, freshAutoNumberConfig } from './auto-number'
@@ -582,8 +582,8 @@ function loadSampleData(sd: SampleDataSpec, gridIds: Record<string, number>, war
     loadSampleAppointments(sd.appointments ?? [], byRef, warnings)
     // About a year of everyday history, so reports have something to show
     rowIds.push(...addSampleHistory(seed, rowsByGrid))
-    db.prepare('INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)')
-      .run(STARTER_SAMPLE_META_KEY, JSON.stringify({ rowIds: [...getStarterSampleRowIds(), ...rowIds] }))
+    // Tracked once everything is in, so the fingerprints match what the user first sees
+    markSampleRows(rowIds)
   })()
 }
 
@@ -617,7 +617,7 @@ function loadSampleAppointments(appts: NonNullable<SampleDataSpec['appointments'
   }
 }
 
-export { removeStarterSampleData, getStarterSampleRowIds as starterSampleRowIds } from './sample-data'
+export { removeSampleData, getSampleRowIds as sampleRowIds } from './sample-data'
 
 // ── Date rules from setup answers ─────────────────────────────────────────────
 

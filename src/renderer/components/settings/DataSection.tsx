@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import { noteUnencryptedExport } from '../../utils/exportNotice'
 import { pulseEvents } from '../../events'
 import { useGridStore } from '../../stores/gridStore'
-import { removeSampleData } from '../shared/SampleDataBanner'
+import { RemoveSampleDataDialog } from '../shared/SampleDataBanner'
 import { useVocab } from '../../hooks/useVocab'
 import { FilesStorageSection } from './FilesStorageSection'
 import { useFeature } from '../../hooks/useFeature'
@@ -17,8 +17,9 @@ function SampleDataControls(): React.ReactElement {
   const { t } = useVocab(null)
   const [hasSample, setHasSample] = useState<boolean | null>(null)
   const [busy, setBusy] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   useEffect(() => {
-    const refresh = () => void safeInvoke(IPC.SAMPLE_DATA_STATUS).then(r => setHasSample(r.ok && (r.data.gridId !== null || r.data.starterRows > 0)))
+    const refresh = () => void safeInvoke(IPC.SAMPLE_DATA_STATUS).then(r => setHasSample(r.ok && (r.data.gridId !== null || r.data.sampleRows > 0)))
     refresh()
     return pulseEvents.on('sample-data:changed', refresh)
   }, [])
@@ -39,7 +40,7 @@ function SampleDataControls(): React.ReactElement {
         {t('list', { cap: true, article: true })} of made-up {t('record', { many: true })} for trying features or training a coworker. It never mixes with your real {t('record', { many: true })}.
       </p>
       {hasSample === null ? null : hasSample ? (
-        <button type="button" className="btn-secondary" disabled={busy} onClick={() => { setBusy(true); void removeSampleData().finally(() => setBusy(false)) }}>
+        <button type="button" className="btn-secondary" disabled={busy} onClick={() => setConfirming(true)}>
           Remove sample data
         </button>
       ) : (
@@ -47,6 +48,7 @@ function SampleDataControls(): React.ReactElement {
           Add sample {t('list')}
         </button>
       )}
+      <RemoveSampleDataDialog open={confirming} onClose={() => setConfirming(false)} />
     </div>
   )
 }
