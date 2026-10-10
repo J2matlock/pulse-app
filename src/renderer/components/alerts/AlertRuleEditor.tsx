@@ -16,6 +16,7 @@ import { toRuleInterval, hasInterval, describeInterval, type RuleInterval } from
 import { useVocab } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
 import { draftFromRule, draftToConfig, draftToCondition, type RuleDraft } from './ruleDraft'
+import { useRuleList } from './useRuleList'
 import { KindCards, KindFields, ConditionFields, RulePreview, previewRule } from './RuleKindFields'
 
 // ── Color palette ──────────────────────────────────────────────────────────────
@@ -210,6 +211,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
   })))
   const isSystem = rule?.is_system === 1
   const isNew = !rule
+  const { t: w } = useVocab(null)
 
   const [name, setName] = useState(rule?.name ?? '')
   const [description, setDescription] = useState(rule?.description ?? '')
@@ -227,10 +229,12 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
   })
   const [businessDays, setBusinessDays] = useState(!!rule?.business_days)
   const patchDraft = (patch: Partial<RuleDraft>) => setDraft(d => ({ ...d, ...patch }))
-  const columns = useGridStore(s => s.columns)
-  const rows = useGridStore(s => s.rows)
+  // The list the rule works in: from the columns that use it, not whichever list is open (D-09)
+  const ruleList = useRuleList(rule?.id, columnId)
+  const { columns, rows } = ruleList
+  const ownColumnId = ruleList.columnId
   // Other columns to work from; the rule's own column is offered as "this column"
-  const otherColumns = columns.filter(c => c.id !== columnId)
+  const otherColumns = columns.filter(c => c.id !== ownColumnId)
 
   const [thresholds, setThresholds] = useState<AlertThreshold[]>(
     rule?.thresholds ?? [
@@ -363,13 +367,25 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
               disabled={isSystem} placeholder="Brief description of this rule" />
           </div>
 
+          {ruleList.choices.length > 0 && (
+            <div>
+              <label htmlFor="alert-rule-list" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
+                {ruleList.uses.length > 0 ? `Used in more than one ${w('list')}. Show the columns of` : `Columns from which ${w('list')}?`}
+              </label>
+              <select id="alert-rule-list" className="input" value={ruleList.gridId ?? ''} onChange={e => ruleList.setGridId(Number(e.target.value))}>
+                {ruleList.choices.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+          )}
+
           {/* How it's worked out */}
           <div>
             <h3 className="text-base font-medium text-slate-700 dark:text-slate-300 mb-2">How is this deadline worked out?</h3>
             <KindCards value={draft.kind} onChange={k => patchDraft({ kind: k })} disabled={isSystem} />
           </div>
 
-          {!isInterval && <KindFields d={draft} set={patchDraft} columns={otherColumns} disabled={isSystem} />}
+          {ruleList.loading ? <p className="text-base text-slate-500 dark:text-slate-400">Loading the {w('list')}'s columns…</p>
+            : !isInterval && <KindFields d={draft} set={patchDraft} columns={otherColumns} disabled={isSystem} />}
 
           {isInterval && (
           <div>
@@ -435,7 +451,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
           </label>
           )}
 
-          <ConditionFields d={draft} set={patchDraft} columns={columns} disabled={isSystem} />
+          {!ruleList.loading && <ConditionFields d={draft} set={patchDraft} columns={columns} disabled={isSystem} />}
 
           {/* Thresholds */}
           <div>
@@ -544,7 +560,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
             </div>
           </div>
 
-          <RulePreview rule={preview} rows={rows} columns={columns} columnId={columnId} />
+          <RulePreview key={ruleList.gridId ?? 0} rule={preview} rows={rows} columns={columns} columnId={ownColumnId} />
 
           {error && (
             <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm">

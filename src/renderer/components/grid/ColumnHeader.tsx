@@ -10,6 +10,7 @@ import type { Column, ParsedAlertRule } from '../../../shared/types'
 import { takesDeadlineRule } from '../../../shared/types'
 import { AlertRuleEditor } from '../alerts/AlertRuleEditor'
 import { DeleteRuleConfirm } from '../alerts/DeleteRuleConfirm'
+import { splitRulesByFit } from '../alerts/ruleFit'
 import { DoneChecklistPicker } from './DoneChecklistPicker'
 import { NoteUpdatePicker } from './NoteUpdatePicker'
 import { CellConditionalFormatPanel } from './CellConditionalFormatPanel'
@@ -66,6 +67,13 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
   const linkType = useLinkStore(s => column.column_type === 'link' ? s.types.find(lt => lt.id === (colConfig as { link_type_id?: number }).link_type_id) : undefined)
   const currentAlertRuleId: number | null = colConfig.alert_rule_id ?? null
   const currentAlertRule = alertRules.find(r => r.id === currentAlertRuleId)
+  // Only rules that can work on this list's columns are offered (D-10); the current one always is
+  const hiddenColumns = useGridStore(s => s.hiddenColumns)
+  const { fits: fittingRules, others: otherListRules } = splitRulesByFit(alertRules, new Set([...allColumns, ...hiddenColumns].map(c => c.id)))
+  if (currentAlertRule && !fittingRules.includes(currentAlertRule)) {
+    fittingRules.push(currentAlertRule)
+    otherListRules.splice(otherListRules.indexOf(currentAlertRule), 1)
+  }
 
   // Freeze/pin column state
   const colIndex = allColumns.findIndex(c => c.id === column.id)
@@ -428,7 +436,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                           No alert rules yet.
                         </p>
                       )}
-                      {alertRules.map(rule => (
+                      {fittingRules.map(rule => (
                         <div
                           key={rule.id}
                           className={`flex items-center gap-1 w-full rounded-sm ${
@@ -470,6 +478,20 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                           </button>
                         </div>
                       ))}
+                      {otherListRules.length > 0 && (
+                        <details className="mt-1">
+                          <summary className="hit-44 flex items-center px-2 py-1.5 text-base text-slate-600 dark:text-slate-300 cursor-pointer rounded-sm hover:bg-slate-50 dark:hover:bg-slate-700">
+                            Rules from other {t('list', { many: true })} (won't work here)
+                          </summary>
+                          <ul className="pl-2">
+                            {otherListRules.map(rule => (
+                              <li key={rule.id} className="px-2 py-1.5 text-base text-slate-500 dark:text-slate-400 truncate" title={`This rule reads columns this ${t('list')} doesn't have`}>
+                                {rule.name}
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
                       <hr className="my-1 border-slate-200 dark:border-slate-700" />
                       <button
                         className="hit-44 flex items-center gap-2 w-full px-2 py-1.5 text-base text-blue-600 dark:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-sm"
