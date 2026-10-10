@@ -1,0 +1,810 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "volunteer-manager",
+  "name": "Volunteer manager",
+  "description": "For any nonprofit that runs on volunteers: orientation within 30 days of signing up, background checks for the roles that need them, yearly training, a nudge when someone hasn’t been in for 60 days, hours given and thank-yous.",
+  "icon": "hand-helping",
+  "group": "Faith and community",
+  "vocab": {
+    "record": {
+      "one": "record",
+      "many": "records",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false,
+    "links": true,
+    "stages": false,
+    "measures": true,
+    "appointments": true,
+    "forms": true,
+    "attachments": true
+  },
+  "activityTypes": [
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    },
+    {
+      "key": "shift",
+      "label": "Shift",
+      "icon": "🙋",
+      "color": "green"
+    },
+    {
+      "key": "training",
+      "label": "Training",
+      "icon": "🎓",
+      "color": "purple"
+    },
+    {
+      "key": "thank_you",
+      "label": "Thank-you",
+      "icon": "💐",
+      "color": "amber"
+    },
+    {
+      "key": "call",
+      "label": "Call",
+      "icon": "📞",
+      "color": "blue"
+    }
+  ],
+  "measures": [
+    {
+      "key": "hours_given",
+      "label": "Hours given",
+      "kind": "hours",
+      "decimals": 1
+    }
+  ],
+  "documentTemplates": [
+    {
+      "name": "Welcome letter",
+      "content": "{{today}}\n\nDear {{name}},\n\nWelcome, and thank you for signing up to volunteer with us!\n\nYour next step is orientation, where you will meet the team, take a tour and get your badge. Please come to one within the next few weeks.\n\nIf you have any questions, just call or reply to this letter.\n\nWith thanks,\n\n{{my_name}}"
+    },
+    {
+      "name": "Thank-you letter",
+      "content": "{{today}}\n\nDear {{name}},\n\nWe wanted to stop and say thank you. You have now given {{field:Total hours}} hours to our community.\n\nThat time made a real difference to the people we serve, and to everyone who works beside you.\n\nWith gratitude,\n\n{{my_name}}"
+    }
+  ],
+  "helpTips": [
+    {
+      "title": "Hours",
+      "body": "Log each shift as a Shift note and fill in Hours given. Reports can total hours by volunteer or by month. Keep Total hours up to date, then sort or filter by it to see who has passed 100, 250 or 500 hours and send the Thank-you letter."
+    },
+    {
+      "title": "Background checks",
+      "body": "Set Needs background check to Yes for volunteers whose roles involve children, vulnerable adults, money or keys. Only they get the every-2-years reminder."
+    },
+    {
+      "title": "Keeping in touch",
+      "body": "Fill in Last shift when someone comes in. If an active volunteer has not been in for 60 days, Checked in comes due: give them a call. Volunteers on a break are left alone."
+    },
+    {
+      "title": "Paperwork",
+      "body": "Drop signed waivers and background check results into Files on the volunteer’s page. They are stored encrypted inside Pulse."
+    }
+  ],
+  "lists": [
+    {
+      "key": "volunteers",
+      "name": "Volunteers",
+      "description": "Everyone who gives their time, with orientation, checks and training due",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "volunteer",
+          "many": "volunteers",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 1,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 2,
+          "width": 200
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 3,
+          "width": 130,
+          "config": "{\"options\": [\"Active\", \"On a break\", \"Moved on\"]}",
+          "default_value": "Active"
+        },
+        {
+          "name": "Signed up",
+          "column_type": "date",
+          "position": 4,
+          "width": 140,
+          "description": "The day they signed up",
+          "config": "{\"log_changes\": true}"
+        },
+        {
+          "name": "Orientation done",
+          "column_type": "date",
+          "position": 5,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Orientation\", \"log_changes\": true}",
+          "description": "Date they finished orientation; due within 30 days of signing up"
+        },
+        {
+          "name": "Needs background check",
+          "column_type": "dropdown",
+          "position": 6,
+          "width": 190,
+          "config": "{\"options\": [\"Yes\", \"No\"]}",
+          "description": "Yes for roles with children, vulnerable adults, money or keys"
+        },
+        {
+          "name": "Background check",
+          "column_type": "date",
+          "position": 7,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Background check\", \"log_changes\": true}",
+          "description": "Date of the last check; renews every 2 years"
+        },
+        {
+          "name": "Last training",
+          "column_type": "date",
+          "position": 8,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
+          "description": "Date of the last yearly refresher"
+        },
+        {
+          "name": "Last shift",
+          "column_type": "date",
+          "position": 9,
+          "width": 140,
+          "description": "The last time they came in",
+          "config": "{\"log_changes\": true}"
+        },
+        {
+          "name": "Checked in",
+          "column_type": "date",
+          "position": 10,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Check-in\", \"log_changes\": true}",
+          "description": "Date you last called or wrote to someone you haven’t seen in 60 days"
+        },
+        {
+          "name": "Total hours",
+          "column_type": "number",
+          "position": 11,
+          "width": 120,
+          "description": "All the hours they have given; thank them at 100, 250 and 500"
+        },
+        {
+          "name": "Emergency contact",
+          "column_type": "text",
+          "position": 12,
+          "width": 200
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Orientation",
+          "description": "Due 30 days after signing up",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\": \"relative\", \"anchorColumnId\": {\"column\": \"Signed up\"}, \"offset\": {\"days\": 30, \"direction\": \"after\"}}"
+        },
+        {
+          "name": "Background check",
+          "description": "Every 2 years, only for volunteers who need one",
+          "interval_months": 24,
+          "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "rule_condition": "{\"columnId\": {\"column\": \"Needs background check\"}, \"op\": \"is\", \"values\": [\"Yes\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Check-in",
+          "description": "Reach out 60 days after their last shift, while they are active",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\": \"relative\", \"anchorColumnId\": {\"column\": \"Last shift\"}, \"offset\": {\"days\": 60, \"direction\": \"after\"}}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Status\"}, \"op\": \"is\", \"values\": [\"Active\"], \"whenFalse\": \"hide\"}"
+        }
+      ],
+      "checklists": [
+        {
+          "name": "New volunteer",
+          "description": "From sign-up to first shift",
+          "items": "[\"Application and emergency contact on file\", \"Signed waiver and confidentiality agreement in Files\", \"Background check sent (if their role needs one)\", \"Orientation done\", \"Name badge and shirt\", \"First shift scheduled with a buddy\", \"Welcome letter sent\"]"
+        }
+      ],
+      "links": [
+        {
+          "to": "programs",
+          "label_forward": "Serves in",
+          "label_backward": "Volunteers",
+          "cardinality": "many_to_many"
+        }
+      ],
+      "forms": [
+        {
+          "name": "Volunteer sign-up",
+          "intro": "Fill this in with a new volunteer, or print a blank for the front desk or an event table.",
+          "log_activity_type": "note",
+          "fields": [
+            {
+              "kind": "section",
+              "title": "About you"
+            },
+            {
+              "kind": "column",
+              "column": "Name",
+              "required": true
+            },
+            {
+              "kind": "column",
+              "column": "Phone",
+              "width": "half",
+              "required": true
+            },
+            {
+              "kind": "column",
+              "column": "Email",
+              "width": "half"
+            },
+            {
+              "kind": "column",
+              "column": "Emergency contact"
+            },
+            {
+              "kind": "section",
+              "title": "Helping out"
+            },
+            {
+              "kind": "note",
+              "label": "What would you like to help with?"
+            },
+            {
+              "kind": "note",
+              "label": "Which days and times usually work for you?"
+            },
+            {
+              "kind": "note",
+              "label": "Anything we should know (access needs, languages, skills)?"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "programs",
+      "name": "Programs",
+      "description": "Where volunteers help, and how many each one needs",
+      "kind": "thing",
+      "vocab": {
+        "record": {
+          "one": "program",
+          "many": "programs",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 200,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "When",
+          "column_type": "text",
+          "position": 1,
+          "width": 170,
+          "description": "Day and time, e.g. \"Saturdays 9–12\""
+        },
+        {
+          "name": "Where",
+          "column_type": "text",
+          "position": 2,
+          "width": 170
+        },
+        {
+          "name": "Volunteers needed",
+          "column_type": "number",
+          "position": 3,
+          "width": 150,
+          "description": "How many people a shift needs"
+        },
+        {
+          "name": "Lead",
+          "column_type": "text",
+          "position": 4,
+          "width": 150,
+          "description": "Staff member or lead volunteer in charge"
+        },
+        {
+          "name": "Background check needed",
+          "column_type": "dropdown",
+          "position": 5,
+          "width": 190,
+          "config": "{\"options\": [\"Yes\", \"No\"]}"
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 6,
+          "width": 220
+        }
+      ]
+    }
+  ],
+  "dashboardCards": [
+    "summary",
+    "today",
+    "missingInfo",
+    "recentActivity"
+  ],
+  "sampleData": {
+    "records": {
+      "volunteers": [
+        {
+          "Name": "Helen Brooks",
+          "Phone": "555-0113",
+          "Email": "helen.brooks@example.com",
+          "Status": "Active",
+          "Signed up": {
+            "daysFromToday": -900
+          },
+          "Needs background check": "Yes",
+          "Total hours": 512,
+          "Orientation done": {
+            "daysFromToday": -880
+          },
+          "Background check": {
+            "daysFromToday": -700
+          },
+          "Last training": {
+            "daysFromToday": -340
+          },
+          "Last shift": {
+            "daysFromToday": -2
+          },
+          "Emergency contact": "Sam Brooks 555-0190"
+        },
+        {
+          "Name": "Tom Nguyen",
+          "Phone": "555-0120",
+          "Email": "tom.nguyen@example.com",
+          "Status": "Active",
+          "Signed up": {
+            "daysFromToday": -400
+          },
+          "Needs background check": "No",
+          "Total hours": 238,
+          "Orientation done": {
+            "daysFromToday": -390
+          },
+          "Last training": {
+            "daysFromToday": -370
+          },
+          "Last shift": {
+            "daysFromToday": -5
+          }
+        },
+        {
+          "Name": "Grace Okafor",
+          "Phone": "555-0127",
+          "Email": "grace.okafor@example.com",
+          "Status": "Active",
+          "Signed up": {
+            "daysFromToday": -24
+          },
+          "Needs background check": "Yes",
+          "Total hours": 0
+        },
+        {
+          "Name": "Walter Johnson",
+          "Phone": "555-0134",
+          "Email": "walter.johnson@example.com",
+          "Status": "Active",
+          "Signed up": {
+            "daysFromToday": -620
+          },
+          "Needs background check": "Yes",
+          "Total hours": 96,
+          "Orientation done": {
+            "daysFromToday": -600
+          },
+          "Background check": {
+            "daysFromToday": -735
+          },
+          "Last training": {
+            "daysFromToday": -200
+          },
+          "Last shift": {
+            "daysFromToday": -64
+          },
+          "Emergency contact": "Lena Johnson 555-0191"
+        },
+        {
+          "Name": "Mei Ortiz",
+          "Phone": "555-0141",
+          "Email": "mei.ortiz@example.com",
+          "Status": "Active",
+          "Signed up": {
+            "daysFromToday": -40
+          },
+          "Needs background check": "No",
+          "Total hours": 4
+        },
+        {
+          "Name": "Diego Ferreira",
+          "Phone": "555-0148",
+          "Email": "diego.ferreira@example.com",
+          "Status": "Active",
+          "Signed up": {
+            "daysFromToday": -300
+          },
+          "Needs background check": "No",
+          "Total hours": 61,
+          "Orientation done": {
+            "daysFromToday": -290
+          },
+          "Last training": {
+            "daysFromToday": -290
+          },
+          "Last shift": {
+            "daysFromToday": -75
+          },
+          "Checked in": {
+            "daysFromToday": -10
+          }
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Phone": "555-0155",
+          "Email": "ruth.jackson@example.com",
+          "Status": "Active",
+          "Signed up": {
+            "daysFromToday": -1500
+          },
+          "Needs background check": "Yes",
+          "Total hours": 1040,
+          "Orientation done": {
+            "daysFromToday": -1480
+          },
+          "Background check": {
+            "daysFromToday": -360
+          },
+          "Last training": {
+            "daysFromToday": -20
+          },
+          "Last shift": {
+            "daysFromToday": -1
+          },
+          "Emergency contact": "Paul Walker 555-0192"
+        },
+        {
+          "Name": "Hannah Walker",
+          "Phone": "555-0162",
+          "Email": "hannah.walker@example.com",
+          "Status": "On a break",
+          "Signed up": {
+            "daysFromToday": -500
+          },
+          "Needs background check": "No",
+          "Total hours": 145,
+          "Orientation done": {
+            "daysFromToday": -480
+          },
+          "Last training": {
+            "daysFromToday": -480
+          },
+          "Last shift": {
+            "daysFromToday": -120
+          },
+          "Checked in": {
+            "daysFromToday": -50
+          }
+        },
+        {
+          "Name": "Ahmed Fischer",
+          "Phone": "555-0169",
+          "Email": "ahmed.fischer@example.com",
+          "Status": "Active",
+          "Signed up": {
+            "daysFromToday": -10
+          },
+          "Needs background check": "Yes",
+          "Total hours": 0,
+          "Background check": {
+            "daysFromToday": -5
+          }
+        },
+        {
+          "Name": "Yolanda Miller",
+          "Phone": "555-0176",
+          "Email": "yolanda.miller@example.com",
+          "Status": "Active",
+          "Signed up": {
+            "daysFromToday": -200
+          },
+          "Needs background check": "No",
+          "Total hours": 248,
+          "Orientation done": {
+            "daysFromToday": -185
+          },
+          "Last training": {
+            "daysFromToday": -185
+          },
+          "Last shift": {
+            "daysFromToday": -58
+          },
+          "Emergency contact": "Rosa Jackson 555-0193"
+        }
+      ],
+      "programs": [
+        {
+          "Name": "Food pantry: Saturday sort",
+          "When": "Saturdays 9–12",
+          "Where": "Warehouse, 50 Mill Street",
+          "Volunteers needed": 8,
+          "Lead": "Ruth Jackson",
+          "Background check needed": "No"
+        },
+        {
+          "Name": "Hospital front desk",
+          "When": "Weekdays, 4-hour shifts",
+          "Where": "Main lobby",
+          "Volunteers needed": 3,
+          "Lead": "Dana (volunteer office)",
+          "Background check needed": "Yes",
+          "Notes": "Flu shot required by November 1."
+        },
+        {
+          "Name": "Youth reading buddies",
+          "When": "Tuesdays 3:30–5",
+          "Where": "Branch library",
+          "Volunteers needed": 6,
+          "Lead": "Helen Brooks",
+          "Background check needed": "Yes"
+        },
+        {
+          "Name": "Shelter dog walking",
+          "When": "Daily, mornings",
+          "Where": "Animal shelter, 12 Kennel Road",
+          "Volunteers needed": 4,
+          "Lead": "Marcus (shelter staff)",
+          "Background check needed": "No"
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "volunteers#0",
+        "to": "programs#0",
+        "link": "Serves in"
+      },
+      {
+        "from": "volunteers#0",
+        "to": "programs#1",
+        "link": "Serves in"
+      },
+      {
+        "from": "volunteers#1",
+        "to": "programs#0",
+        "link": "Serves in"
+      },
+      {
+        "from": "volunteers#2",
+        "to": "programs#2",
+        "link": "Serves in"
+      },
+      {
+        "from": "volunteers#3",
+        "to": "programs#2",
+        "link": "Serves in"
+      },
+      {
+        "from": "volunteers#4",
+        "to": "programs#3",
+        "link": "Serves in"
+      },
+      {
+        "from": "volunteers#5",
+        "to": "programs#0",
+        "link": "Serves in"
+      },
+      {
+        "from": "volunteers#5",
+        "to": "programs#3",
+        "link": "Serves in"
+      },
+      {
+        "from": "volunteers#6",
+        "to": "programs#1",
+        "link": "Serves in"
+      },
+      {
+        "from": "volunteers#7",
+        "to": "programs#3",
+        "link": "Serves in"
+      },
+      {
+        "from": "volunteers#8",
+        "to": "programs#1",
+        "link": "Serves in"
+      },
+      {
+        "from": "volunteers#9",
+        "to": "programs#0",
+        "link": "Serves in"
+      }
+    ],
+    "activities": [
+      {
+        "record": "volunteers#0",
+        "type": "shift",
+        "daysAgo": 2,
+        "text": "Saturday sort. Trained two new people on the scale."
+      },
+      {
+        "record": "volunteers#0",
+        "type": "thank_you",
+        "daysAgo": 30,
+        "text": "Card and pin for passing 500 hours."
+      },
+      {
+        "record": "volunteers#1",
+        "type": "shift",
+        "daysAgo": 5,
+        "text": "Covered the loading dock."
+      },
+      {
+        "record": "volunteers#3",
+        "type": "call",
+        "daysAgo": 3,
+        "text": "Left a message. Haven’t seen him since the summer."
+      },
+      {
+        "record": "volunteers#5",
+        "type": "call",
+        "daysAgo": 10,
+        "text": "Busy with a new job; back in a few weeks."
+      },
+      {
+        "record": "volunteers#6",
+        "type": "training",
+        "daysAgo": 20,
+        "text": "Yearly refresher: privacy and fire safety."
+      },
+      {
+        "record": "volunteers#6",
+        "type": "shift",
+        "daysAgo": 1,
+        "text": "Front desk, morning. Very busy."
+      },
+      {
+        "record": "volunteers#8",
+        "type": "note",
+        "daysAgo": 10,
+        "text": "Signed up at the community fair. Wants weekday mornings."
+      },
+      {
+        "record": "volunteers#9",
+        "type": "shift",
+        "daysAgo": 58,
+        "text": "Saturday sort."
+      }
+    ],
+    "appointments": [
+      {
+        "record": "volunteers#0",
+        "title": "Saturday sort",
+        "dayOffset": 2,
+        "time": "09:00",
+        "minutes": 180,
+        "type": "shift",
+        "location": "50 Mill Street",
+        "repeatWeekly": 8
+      },
+      {
+        "record": "volunteers#6",
+        "title": "Front desk",
+        "dayOffset": 1,
+        "time": "08:00",
+        "minutes": 240,
+        "type": "shift",
+        "location": "Main lobby",
+        "repeatWeekly": 8
+      },
+      {
+        "record": "volunteers#1",
+        "title": "Saturday sort",
+        "dayOffset": 2,
+        "time": "09:00",
+        "minutes": 180,
+        "type": "shift",
+        "location": "50 Mill Street",
+        "repeatWeekly": 6
+      },
+      {
+        "record": "volunteers#2",
+        "title": "Orientation",
+        "dayOffset": 4,
+        "time": "18:00",
+        "minutes": 90,
+        "type": "training",
+        "location": "Volunteer office"
+      },
+      {
+        "record": "volunteers#4",
+        "title": "Orientation",
+        "dayOffset": 4,
+        "time": "18:00",
+        "minutes": 90,
+        "type": "training",
+        "location": "Volunteer office"
+      },
+      {
+        "record": "volunteers#0",
+        "title": "Saturday sort",
+        "dayOffset": -5,
+        "time": "09:00",
+        "minutes": 180,
+        "type": "shift",
+        "location": "50 Mill Street"
+      }
+    ]
+  }
+}

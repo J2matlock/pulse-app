@@ -1,0 +1,1508 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "rehab-therapy",
+  "name": "Speech, OT and PT practice",
+  "description": "For speech, occupational and physical therapists: plan of care recertification every 90 days, a progress note every 10 visits, authorized visits counted as you write notes, signed doctor orders within 30 days, twice-weekly visits on the calendar and an evaluation form. Pulse is a tracking aid, not your official record system.",
+  "icon": "activity",
+  "group": "Health",
+  "vocab": {
+    "record": {
+      "one": "patient",
+      "many": "patients",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    },
+    "worker": {
+      "one": "therapist",
+      "many": "therapists",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": true,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": true,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": true,
+    "links": true,
+    "stages": true,
+    "measures": false,
+    "appointments": true,
+    "forms": true,
+    "attachments": true
+  },
+  "activityTypes": [
+    {
+      "key": "evaluation",
+      "label": "Evaluation",
+      "icon": "📋",
+      "color": "purple"
+    },
+    {
+      "key": "visit",
+      "label": "Treatment visit",
+      "icon": "🤸",
+      "color": "teal"
+    },
+    {
+      "key": "progress",
+      "label": "Progress note",
+      "icon": "📈",
+      "color": "green"
+    },
+    {
+      "key": "phone",
+      "label": "Phone",
+      "icon": "📞",
+      "color": "blue"
+    },
+    {
+      "key": "no_show",
+      "label": "No-show",
+      "icon": "🚫",
+      "color": "red"
+    }
+  ],
+  "documentTemplates": [
+    {
+      "name": "Physician signature request",
+      "content": "{{today}}\n\nDear {{linked:Referred by.Name}},\n\nRe: {{name}}, born {{field:Date of birth}}\n\nWe evaluated {{name}} for {{field:Discipline}} on {{field:Evaluation date}}. The plan of care that started on {{field:Plan of care start}} is enclosed.\n\nPlease sign and return it so treatment can continue without a break. You can fax it back to us.\n\nThank you,\n\n{{my_name}}"
+    },
+    {
+      "name": "Authorization request",
+      "content": "{{today}}\n\nRe: {{name}}, born {{field:Date of birth}}\n\nThe current authorization of {{field:Visits authorized}} {{field:Discipline}} visits ends on {{field:Authorization end}}. {{name}} is making progress toward the goals in the plan of care, and we are asking for more visits to continue treatment.\n\nThe latest progress note was written on {{field:Last progress note}}.\n\nThank you,\n\n{{my_name}}"
+    }
+  ],
+  "helpTips": [
+    {
+      "title": "Twice-weekly visits",
+      "body": "On a patient's page, add an appointment and choose Repeat weekly; add a second one for the other day. Marking a visit done writes its Treatment visit note, which counts toward Visits left and Progress note due."
+    },
+    {
+      "title": "Progress notes",
+      "body": "Write a note of the kind Progress note, then change Last progress note to today. The count of treatment visits starts again, and Progress note due warns as you get close to 10."
+    },
+    {
+      "title": "Signed orders",
+      "body": "The order is due 30 days after the Evaluation date. Fill in Order signed on when it comes back, and drop the signed copy into Files on the patient's page."
+    },
+    {
+      "title": "Plan of care",
+      "body": "Change Plan of care start each time you recertify. Pulse reminds you 90 days later, and stops once the patient is discharged."
+    }
+  ],
+  "lists": [
+    {
+      "key": "patients",
+      "name": "Patients",
+      "description": "Everyone you treat, with their orders, plan of care and authorized visits",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "patient",
+          "many": "patients",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 180,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 1,
+          "width": 140
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 2,
+          "width": 140
+        },
+        {
+          "name": "Discipline",
+          "column_type": "dropdown",
+          "position": 3,
+          "width": 130,
+          "is_required": 1,
+          "config": "{\"options\": [\"Speech\", \"OT\", \"PT\"]}"
+        },
+        {
+          "name": "Stage",
+          "column_type": "status",
+          "position": 4,
+          "width": 140,
+          "config": "{\"options\": [{\"label\": \"Evaluation\", \"color\": \"#64748b\"}, {\"label\": \"Active\", \"color\": \"#3b82f6\"}, {\"label\": \"On hold\", \"color\": \"#f59e0b\"}, {\"label\": \"Discharged\", \"color\": \"#22c55e\"}]}"
+        },
+        {
+          "name": "Evaluation date",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "description": "Day of the first evaluation; the signed order is due 30 days later",
+          "is_required": 1
+        },
+        {
+          "name": "Order signed on",
+          "column_type": "date",
+          "position": 6,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Physician order\", \"log_changes\": true}",
+          "description": "Date the doctor signed the plan of care. Due within 30 days of the evaluation"
+        },
+        {
+          "name": "Plan of care start",
+          "column_type": "date",
+          "position": 7,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Plan of care recert\", \"log_changes\": true}",
+          "description": "Start of the current plan of care; recertify every 90 days"
+        },
+        {
+          "name": "Visits authorized",
+          "column_type": "number",
+          "position": 8,
+          "width": 130
+        },
+        {
+          "name": "Authorization start",
+          "column_type": "date",
+          "position": 9,
+          "width": 150
+        },
+        {
+          "name": "Authorization end",
+          "column_type": "date",
+          "position": 10,
+          "width": 150
+        },
+        {
+          "name": "Visits left",
+          "column_type": "deadline",
+          "position": 11,
+          "width": 140,
+          "description": "Visits used against the authorization, and when it ends",
+          "config": "{\"alert_rule_name\": \"Visits left\"}"
+        },
+        {
+          "name": "Last progress note",
+          "column_type": "date",
+          "position": 12,
+          "width": 150,
+          "description": "Date of the last progress note (or the evaluation). Update it each time you write one",
+          "config": "{\"log_changes\": true}"
+        },
+        {
+          "name": "Progress note due",
+          "column_type": "deadline",
+          "position": 13,
+          "width": 150,
+          "description": "Treatment visits since the last progress note; one is due every 10",
+          "config": "{\"alert_rule_name\": \"Progress note every 10 visits\"}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Physician order",
+          "description": "Signed order due 30 days after the evaluation",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\": \"relative\", \"anchorColumnId\": {\"column\": \"Evaluation date\"}, \"offset\": {\"days\": 30, \"direction\": \"after\"}}"
+        },
+        {
+          "name": "Plan of care recert",
+          "description": "Recertify the plan of care every 90 days",
+          "interval_days": 90,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is_not\", \"values\": [\"Discharged\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Visits left",
+          "description": "Counts visits between the authorization start and end dates",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "quota",
+          "rule_config": "{\"kind\": \"quota\", \"activityTypes\": [\"evaluation\", \"visit\", \"progress\"], \"limitColumnId\": {\"column\": \"Visits authorized\"}, \"startColumnId\": {\"column\": \"Authorization start\"}, \"endColumnId\": {\"column\": \"Authorization end\"}, \"warnRemaining\": 3, \"warnDaysBeforeEnd\": 14}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is_not\", \"values\": [\"Discharged\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Progress note every 10 visits",
+          "description": "Counts treatment visits since the last progress note; one is due by the 10th",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "quota",
+          "rule_config": "{\"kind\": \"quota\", \"activityTypes\": [\"visit\"], \"limit\": 10, \"startColumnId\": {\"column\": \"Last progress note\"}, \"endColumnId\": {\"column\": \"Authorization end\"}, \"warnRemaining\": 2, \"warnDaysBeforeEnd\": 0}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is_not\", \"values\": [\"Discharged\"], \"whenFalse\": \"hide\"}"
+        }
+      ],
+      "checklists": [
+        {
+          "name": "Discharge",
+          "description": "Wrapping up care",
+          "items": "[\"Discharge summary written\", \"Home exercise program given and explained\", \"Summary sent to the referring doctor\", \"Loaned equipment returned\", \"Patient or family told how to reach you\"]"
+        }
+      ],
+      "links": [
+        {
+          "to": "doctors",
+          "label_forward": "Referred by",
+          "label_backward": "Patients",
+          "cardinality": "many_to_one"
+        }
+      ],
+      "stage": {
+        "column": "Stage",
+        "options": [
+          {
+            "value": "Evaluation",
+            "color": "slate"
+          },
+          {
+            "value": "Active",
+            "color": "blue"
+          },
+          {
+            "value": "On hold",
+            "color": "amber"
+          },
+          {
+            "value": "Discharged",
+            "color": "green",
+            "done": true,
+            "onEnter": {
+              "checklist": "Discharge"
+            }
+          }
+        ],
+        "hideDoneAfterDays": 30
+      },
+      "forms": [
+        {
+          "name": "Evaluation",
+          "intro": "Fill this in at the first visit, or print a blank for the front desk.",
+          "log_activity_type": "evaluation",
+          "fields": [
+            {
+              "kind": "section",
+              "title": "About the patient"
+            },
+            {
+              "kind": "column",
+              "column": "Name",
+              "required": true
+            },
+            {
+              "kind": "column",
+              "column": "Date of birth",
+              "width": "half"
+            },
+            {
+              "kind": "column",
+              "column": "Phone",
+              "width": "half"
+            },
+            {
+              "kind": "column",
+              "column": "Discipline",
+              "width": "half"
+            },
+            {
+              "kind": "column",
+              "column": "Evaluation date",
+              "width": "half"
+            },
+            {
+              "kind": "section",
+              "title": "Why they were referred",
+              "text": "In the words of the patient or family, and the doctor's order."
+            },
+            {
+              "kind": "note",
+              "label": "Reason for referral",
+              "required": true
+            },
+            {
+              "kind": "note",
+              "label": "What the patient or family hopes to get back to"
+            },
+            {
+              "kind": "section",
+              "title": "Authorization"
+            },
+            {
+              "kind": "column",
+              "column": "Visits authorized",
+              "width": "half"
+            },
+            {
+              "kind": "column",
+              "column": "Authorization start",
+              "width": "half"
+            },
+            {
+              "kind": "column",
+              "column": "Authorization end",
+              "width": "half"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "doctors",
+      "name": "Referring doctors",
+      "description": "Doctors who send patients and sign plans of care",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "doctor",
+          "many": "doctors",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Practice",
+          "column_type": "text",
+          "position": 1,
+          "width": 200
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 2,
+          "width": 140
+        },
+        {
+          "name": "Fax",
+          "column_type": "phone",
+          "position": 3,
+          "width": 140,
+          "description": "Where to send plans of care for signature"
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 4,
+          "width": 200
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 5,
+          "width": 240
+        }
+      ]
+    }
+  ],
+  "dashboardCards": [
+    "today",
+    "summary",
+    "quotas",
+    "stages",
+    "missingInfo"
+  ],
+  "sampleData": {
+    "records": {
+      "patients": [
+        {
+          "Name": "Ava Martinez",
+          "Date of birth": {
+            "daysFromToday": -2900
+          },
+          "Phone": "555-0120",
+          "Discipline": "Speech",
+          "Stage": "Active",
+          "Evaluation date": {
+            "daysFromToday": -40
+          },
+          "Order signed on": {
+            "daysFromToday": -30
+          },
+          "Plan of care start": {
+            "daysFromToday": -40
+          },
+          "Visits authorized": 24,
+          "Authorization start": {
+            "daysFromToday": -40
+          },
+          "Authorization end": {
+            "daysFromToday": 50
+          },
+          "Last progress note": {
+            "daysFromToday": -25
+          }
+        },
+        {
+          "Name": "Noah Bennett",
+          "Date of birth": {
+            "daysFromToday": -24800
+          },
+          "Phone": "555-0124",
+          "Discipline": "PT",
+          "Stage": "Active",
+          "Evaluation date": {
+            "daysFromToday": -85
+          },
+          "Order signed on": {
+            "daysFromToday": -70
+          },
+          "Plan of care start": {
+            "daysFromToday": -85
+          },
+          "Visits authorized": 20,
+          "Authorization start": {
+            "daysFromToday": -85
+          },
+          "Authorization end": {
+            "daysFromToday": 5
+          },
+          "Last progress note": {
+            "daysFromToday": -20
+          }
+        },
+        {
+          "Name": "Grace Liu",
+          "Date of birth": {
+            "daysFromToday": -26100
+          },
+          "Phone": "555-0128",
+          "Discipline": "OT",
+          "Stage": "Active",
+          "Evaluation date": {
+            "daysFromToday": -20
+          },
+          "Plan of care start": {
+            "daysFromToday": -20
+          },
+          "Visits authorized": 12,
+          "Authorization start": {
+            "daysFromToday": -20
+          },
+          "Authorization end": {
+            "daysFromToday": 70
+          },
+          "Last progress note": {
+            "daysFromToday": -20
+          }
+        },
+        {
+          "Name": "Henry Adams",
+          "Date of birth": {
+            "daysFromToday": -21500
+          },
+          "Phone": "555-0132",
+          "Discipline": "PT",
+          "Stage": "Active",
+          "Evaluation date": {
+            "daysFromToday": -38
+          },
+          "Plan of care start": {
+            "daysFromToday": -38
+          },
+          "Visits authorized": 16,
+          "Authorization start": {
+            "daysFromToday": -38
+          },
+          "Authorization end": {
+            "daysFromToday": 52
+          },
+          "Last progress note": {
+            "daysFromToday": -38
+          }
+        },
+        {
+          "Name": "Maya Patel",
+          "Date of birth": {
+            "daysFromToday": -1900
+          },
+          "Phone": "555-0136",
+          "Discipline": "Speech",
+          "Stage": "On hold",
+          "Evaluation date": {
+            "daysFromToday": -100
+          },
+          "Order signed on": {
+            "daysFromToday": -90
+          },
+          "Plan of care start": {
+            "daysFromToday": -100
+          },
+          "Visits authorized": 24,
+          "Authorization start": {
+            "daysFromToday": -100
+          },
+          "Authorization end": {
+            "daysFromToday": -5
+          },
+          "Last progress note": {
+            "daysFromToday": -60
+          }
+        },
+        {
+          "Name": "Owen Brooks",
+          "Date of birth": {
+            "daysFromToday": -3300
+          },
+          "Phone": "555-0140",
+          "Discipline": "OT",
+          "Stage": "Evaluation",
+          "Evaluation date": {
+            "daysFromToday": -2
+          }
+        },
+        {
+          "Name": "Lily Chen",
+          "Date of birth": {
+            "daysFromToday": -17900
+          },
+          "Phone": "555-0144",
+          "Discipline": "PT",
+          "Stage": "Discharged",
+          "Evaluation date": {
+            "daysFromToday": -120
+          },
+          "Order signed on": {
+            "daysFromToday": -110
+          },
+          "Plan of care start": {
+            "daysFromToday": -120
+          },
+          "Visits authorized": 24,
+          "Authorization start": {
+            "daysFromToday": -120
+          },
+          "Authorization end": {
+            "daysFromToday": -10
+          },
+          "Last progress note": {
+            "daysFromToday": -30
+          }
+        },
+        {
+          "Name": "Eli Foster",
+          "Date of birth": {
+            "daysFromToday": -2500
+          },
+          "Phone": "555-0148",
+          "Discipline": "Speech",
+          "Stage": "Active",
+          "Evaluation date": {
+            "daysFromToday": -60
+          },
+          "Order signed on": {
+            "daysFromToday": -50
+          },
+          "Plan of care start": {
+            "daysFromToday": -60
+          },
+          "Visits authorized": 30,
+          "Authorization start": {
+            "daysFromToday": -60
+          },
+          "Authorization end": {
+            "daysFromToday": 120
+          },
+          "Last progress note": {
+            "daysFromToday": -10
+          }
+        }
+      ],
+      "doctors": [
+        {
+          "Name": "Dr. Helen Ward",
+          "Practice": "Maple Pediatrics",
+          "Phone": "555-0160",
+          "Fax": "555-0161",
+          "Email": "helen.ward@example.com"
+        },
+        {
+          "Name": "Dr. Raj Iyer",
+          "Practice": "Riverside Orthopedics",
+          "Phone": "555-0163",
+          "Fax": "555-0164",
+          "Email": "raj.iyer@example.com",
+          "Notes": "Prefers plans of care by fax; signs on Fridays."
+        },
+        {
+          "Name": "Dr. Carmen Diaz",
+          "Practice": "Lakeview Family Medicine",
+          "Phone": "555-0166",
+          "Fax": "555-0167",
+          "Email": "carmen.diaz@example.com"
+        },
+        {
+          "Name": "Dr. Paul Novak",
+          "Practice": "Northside Neurology",
+          "Phone": "555-0169",
+          "Fax": "555-0170",
+          "Email": "paul.novak@example.com"
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "patients#0",
+        "to": "doctors#0",
+        "link": "Referred by"
+      },
+      {
+        "from": "patients#1",
+        "to": "doctors#1",
+        "link": "Referred by"
+      },
+      {
+        "from": "patients#2",
+        "to": "doctors#2",
+        "link": "Referred by"
+      },
+      {
+        "from": "patients#3",
+        "to": "doctors#1",
+        "link": "Referred by"
+      },
+      {
+        "from": "patients#4",
+        "to": "doctors#0",
+        "link": "Referred by"
+      },
+      {
+        "from": "patients#5",
+        "to": "doctors#2",
+        "link": "Referred by"
+      },
+      {
+        "from": "patients#6",
+        "to": "doctors#3",
+        "link": "Referred by"
+      },
+      {
+        "from": "patients#7",
+        "to": "doctors#3",
+        "link": "Referred by"
+      }
+    ],
+    "activities": [
+      {
+        "record": "patients#0",
+        "type": "evaluation",
+        "daysAgo": 40,
+        "text": "Speech evaluation. Goals set with the patient and family; plan of care sent for signature."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 38,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 35,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 31,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 28,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 24,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 21,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 17,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 14,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 10,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 7,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 3,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#0",
+        "type": "visit",
+        "daysAgo": 1,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#0",
+        "type": "progress",
+        "daysAgo": 25,
+        "text": "Progress note: goals reviewed, steady gains, continue the plan of care."
+      },
+      {
+        "record": "patients#1",
+        "type": "evaluation",
+        "daysAgo": 85,
+        "text": "PT evaluation. Goals set with the patient and family; plan of care sent for signature."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 82,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 78,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 75,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 71,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 68,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 64,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 61,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 50,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 45,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 40,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 18,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 14,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 11,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 7,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#1",
+        "type": "visit",
+        "daysAgo": 4,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#1",
+        "type": "progress",
+        "daysAgo": 55,
+        "text": "Progress note: goals reviewed, steady gains, continue the plan of care."
+      },
+      {
+        "record": "patients#1",
+        "type": "progress",
+        "daysAgo": 20,
+        "text": "Progress note: goals reviewed, steady gains, continue the plan of care."
+      },
+      {
+        "record": "patients#2",
+        "type": "evaluation",
+        "daysAgo": 20,
+        "text": "OT evaluation. Goals set with the patient and family; plan of care sent for signature."
+      },
+      {
+        "record": "patients#2",
+        "type": "visit",
+        "daysAgo": 17,
+        "text": "Fine motor and dressing practice; updated the home program."
+      },
+      {
+        "record": "patients#2",
+        "type": "visit",
+        "daysAgo": 13,
+        "text": "Fine motor and dressing practice; updated the home program."
+      },
+      {
+        "record": "patients#2",
+        "type": "visit",
+        "daysAgo": 10,
+        "text": "Fine motor and dressing practice; updated the home program."
+      },
+      {
+        "record": "patients#2",
+        "type": "visit",
+        "daysAgo": 6,
+        "text": "Fine motor and dressing practice; updated the home program."
+      },
+      {
+        "record": "patients#2",
+        "type": "visit",
+        "daysAgo": 3,
+        "text": "Fine motor and dressing practice; updated the home program."
+      },
+      {
+        "record": "patients#3",
+        "type": "evaluation",
+        "daysAgo": 38,
+        "text": "PT evaluation. Goals set with the patient and family; plan of care sent for signature."
+      },
+      {
+        "record": "patients#3",
+        "type": "visit",
+        "daysAgo": 36,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#3",
+        "type": "visit",
+        "daysAgo": 33,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#3",
+        "type": "visit",
+        "daysAgo": 29,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#3",
+        "type": "visit",
+        "daysAgo": 26,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#3",
+        "type": "visit",
+        "daysAgo": 22,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#3",
+        "type": "visit",
+        "daysAgo": 19,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#3",
+        "type": "visit",
+        "daysAgo": 15,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#3",
+        "type": "visit",
+        "daysAgo": 12,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#3",
+        "type": "visit",
+        "daysAgo": 8,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#3",
+        "type": "visit",
+        "daysAgo": 5,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#4",
+        "type": "evaluation",
+        "daysAgo": 100,
+        "text": "Speech evaluation. Goals set with the patient and family; plan of care sent for signature."
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 95,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 91,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 88,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 84,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 81,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 77,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 74,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 70,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 56,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 53,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#4",
+        "type": "visit",
+        "daysAgo": 49,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#4",
+        "type": "progress",
+        "daysAgo": 60,
+        "text": "Progress note: goals reviewed, steady gains, continue the plan of care."
+      },
+      {
+        "record": "patients#5",
+        "type": "evaluation",
+        "daysAgo": 2,
+        "text": "OT evaluation. Goals set with the patient and family; plan of care sent for signature."
+      },
+      {
+        "record": "patients#6",
+        "type": "evaluation",
+        "daysAgo": 120,
+        "text": "PT evaluation. Goals set with the patient and family; plan of care sent for signature."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 115,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 110,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 104,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 100,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 95,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 90,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 84,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 77,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 70,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 63,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 56,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 49,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 42,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 35,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 28,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 21,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 14,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#6",
+        "type": "visit",
+        "daysAgo": 7,
+        "text": "Gait training and strengthening; walked farther with less help."
+      },
+      {
+        "record": "patients#6",
+        "type": "progress",
+        "daysAgo": 90,
+        "text": "Progress note: goals reviewed, steady gains, continue the plan of care."
+      },
+      {
+        "record": "patients#6",
+        "type": "progress",
+        "daysAgo": 60,
+        "text": "Progress note: goals reviewed, steady gains, continue the plan of care."
+      },
+      {
+        "record": "patients#6",
+        "type": "progress",
+        "daysAgo": 30,
+        "text": "Progress note: goals reviewed, steady gains, continue the plan of care."
+      },
+      {
+        "record": "patients#7",
+        "type": "evaluation",
+        "daysAgo": 60,
+        "text": "Speech evaluation. Goals set with the patient and family; plan of care sent for signature."
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 57,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 53,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 50,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 46,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 43,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 39,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 36,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 32,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 29,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 25,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 22,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 18,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 15,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 12,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 8,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#7",
+        "type": "visit",
+        "daysAgo": 4,
+        "text": "Worked on target sounds in words and short phrases; practiced at home with a parent."
+      },
+      {
+        "record": "patients#7",
+        "type": "progress",
+        "daysAgo": 10,
+        "text": "Progress note: goals reviewed, steady gains, continue the plan of care."
+      },
+      {
+        "record": "patients#3",
+        "type": "phone",
+        "daysAgo": 6,
+        "text": "Called Dr. Iyer's office about the unsigned plan of care; they will fax it back this week."
+      },
+      {
+        "record": "patients#4",
+        "type": "no_show",
+        "daysAgo": 42,
+        "text": "No-show. Family away; on hold until they are back."
+      },
+      {
+        "record": "patients#2",
+        "type": "phone",
+        "daysAgo": 15,
+        "text": "Left a message for Dr. Diaz to sign the order."
+      }
+    ],
+    "history": [
+      {
+        "record": "patients#4",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Evaluation",
+            "daysAgo": 100
+          },
+          {
+            "value": "Active",
+            "daysAgo": 98
+          },
+          {
+            "value": "On hold",
+            "daysAgo": 42
+          }
+        ]
+      },
+      {
+        "record": "patients#6",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Evaluation",
+            "daysAgo": 120
+          },
+          {
+            "value": "Active",
+            "daysAgo": 118
+          },
+          {
+            "value": "Discharged",
+            "daysAgo": 3
+          }
+        ]
+      }
+    ],
+    "appointments": [
+      {
+        "record": "patients#0",
+        "title": "Treatment visit",
+        "dayOffset": 1,
+        "time": "15:30",
+        "minutes": 45,
+        "type": "visit",
+        "location": "Speech room",
+        "repeatWeekly": 6
+      },
+      {
+        "record": "patients#0",
+        "title": "Treatment visit",
+        "dayOffset": 4,
+        "time": "15:30",
+        "minutes": 45,
+        "type": "visit",
+        "location": "Speech room",
+        "repeatWeekly": 6
+      },
+      {
+        "record": "patients#1",
+        "title": "Treatment visit",
+        "dayOffset": 0,
+        "time": "09:00",
+        "minutes": 45,
+        "type": "visit",
+        "location": "Gym",
+        "repeatWeekly": 6
+      },
+      {
+        "record": "patients#1",
+        "title": "Treatment visit",
+        "dayOffset": 3,
+        "time": "09:00",
+        "minutes": 45,
+        "type": "visit",
+        "location": "Gym",
+        "repeatWeekly": 6
+      },
+      {
+        "record": "patients#2",
+        "title": "Treatment visit",
+        "dayOffset": 2,
+        "time": "11:00",
+        "minutes": 45,
+        "type": "visit",
+        "location": "OT room",
+        "repeatWeekly": 6
+      },
+      {
+        "record": "patients#2",
+        "title": "Treatment visit",
+        "dayOffset": 5,
+        "time": "11:00",
+        "minutes": 45,
+        "type": "visit",
+        "location": "OT room",
+        "repeatWeekly": 6
+      },
+      {
+        "record": "patients#3",
+        "title": "Treatment visit",
+        "dayOffset": 1,
+        "time": "13:00",
+        "minutes": 45,
+        "type": "visit",
+        "location": "Gym",
+        "repeatWeekly": 6
+      },
+      {
+        "record": "patients#3",
+        "title": "Treatment visit",
+        "dayOffset": 4,
+        "time": "13:00",
+        "minutes": 45,
+        "type": "visit",
+        "location": "Gym",
+        "repeatWeekly": 6
+      },
+      {
+        "record": "patients#7",
+        "title": "Treatment visit",
+        "dayOffset": 2,
+        "time": "16:15",
+        "minutes": 45,
+        "type": "visit",
+        "location": "Speech room",
+        "repeatWeekly": 6
+      },
+      {
+        "record": "patients#7",
+        "title": "Treatment visit",
+        "dayOffset": 5,
+        "time": "16:15",
+        "minutes": 45,
+        "type": "visit",
+        "location": "Speech room",
+        "repeatWeekly": 6
+      },
+      {
+        "record": "patients#5",
+        "title": "First treatment visit",
+        "dayOffset": 3,
+        "time": "10:00",
+        "minutes": 45,
+        "type": "visit",
+        "location": "OT room"
+      }
+    ]
+  }
+}

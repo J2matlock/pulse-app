@@ -1,7 +1,8 @@
 import React from 'react'
 import {
   HeartHandshake, Wrench, GraduationCap, Building2, ShieldCheck, Stethoscope, Truck, Users,
-  FileBadge, UtensilsCrossed, Church, HardHat, Home, PawPrint, IdCard, Folder, HeartPulse, Sprout, Brain, HandHeart, TreeDeciduous, LayoutTemplate, type LucideIcon,
+  FileBadge, UtensilsCrossed, Church, HardHat, Home, PawPrint, IdCard, Folder, HeartPulse, Sprout, Brain, HandHeart, TreeDeciduous,
+  Handshake, FileCheck, Tractor, LifeBuoy, Calculator, Activity, Briefcase, Hammer, Baby, HandHelping, CarFront, House, LayoutTemplate, type LucideIcon,
 } from 'lucide-react'
 
 /**
@@ -13,7 +14,9 @@ const ICONS: Record<string, LucideIcon> = {
   'shield-check': ShieldCheck, stethoscope: Stethoscope, truck: Truck, users: Users, 'file-badge': FileBadge,
   'utensils-crossed': UtensilsCrossed, church: Church, 'hard-hat': HardHat, home: Home, 'paw-print': PawPrint,
   'id-card': IdCard, folder: Folder, 'heart-pulse': HeartPulse, sprout: Sprout,
-  brain: Brain, 'hand-heart': HandHeart, 'tree-deciduous': TreeDeciduous,
+  brain: Brain, 'hand-heart': HandHeart, 'tree-deciduous': TreeDeciduous, handshake: Handshake, 'file-check': FileCheck,
+  tractor: Tractor, 'life-buoy': LifeBuoy, calculator: Calculator, activity: Activity, briefcase: Briefcase,
+  hammer: Hammer, baby: Baby, 'hand-helping': HandHelping, 'car-front': CarFront, house: House,
 }
 
 export function StarterIcon({ name, className }: { name: string; className?: string }): React.ReactElement {

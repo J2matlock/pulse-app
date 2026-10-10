@@ -1,0 +1,701 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "subcontractor-compliance",
+  "name": "Subcontractor insurance & licenses",
+  "description": "For general contractors and builders: every subcontractor's certificates of insurance, workers' comp, licenses, W-9 and signed agreement, with 30-day warnings before anything runs out, and the subs on each job.",
+  "icon": "file-check",
+  "group": "Business",
+  "vocab": {
+    "record": {
+      "one": "record",
+      "many": "records",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false,
+    "links": true,
+    "stages": false,
+    "measures": false,
+    "appointments": false,
+    "forms": false,
+    "attachments": true
+  },
+  "activityTypes": [
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    },
+    {
+      "key": "call",
+      "label": "Call",
+      "icon": "📞",
+      "color": "blue"
+    },
+    {
+      "key": "email",
+      "label": "Email",
+      "icon": "✉️",
+      "color": "purple"
+    },
+    {
+      "key": "certificate",
+      "label": "Certificate received",
+      "icon": "📄",
+      "color": "green"
+    }
+  ],
+  "documentTemplates": [
+    {
+      "name": "Certificate of insurance request",
+      "content": "{{today}}\n\n{{name}}\nAttn: {{field:Contact person}}\n\nPlease send an updated certificate of insurance. Our records show your general liability coverage ends on {{field:General liability expires}} and your workers' comp coverage on {{field:Workers' comp expires}}.\n\nPlease have your agent list our company as certificate holder and additional insured. We can't schedule your crew on our sites until a current certificate is on file.\n\nThank you,\n\n{{my_name}}"
+    },
+    {
+      "name": "Missing paperwork request",
+      "content": "{{today}}\n\n{{name}}\nAttn: {{field:Contact person}}\n\nBefore your next job with us, we still need:\n\n- A completed W-9\n- Your signed subcontract agreement\n- A copy of your current contractor license\n\nYou can email them back or drop them off at the office.\n\nThank you,\n\n{{my_name}}"
+    }
+  ],
+  "helpTips": [
+    {
+      "title": "Keep the certificates",
+      "body": "Drop each certificate of insurance, W-9 and signed agreement into Files on the subcontractor's page. They are stored encrypted inside Pulse, and you can show them to your own insurance auditor."
+    },
+    {
+      "title": "Before a job starts",
+      "body": "Open the job to see every sub linked to it. Anything red on their page (an expired certificate, a missing W-9) should be sorted out before they start work."
+    },
+    {
+      "title": "Additional insured",
+      "body": "When you request a certificate, ask their agent to name your company as certificate holder and additional insured. The Certificate of insurance request letter already says so."
+    }
+  ],
+  "lists": [
+    {
+      "key": "subcontractors",
+      "name": "Subcontractors",
+      "description": "The trades you hire, with their insurance certificates, licenses and paperwork",
+      "kind": "thing",
+      "vocab": {
+        "record": {
+          "one": "subcontractor",
+          "many": "subcontractors",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Company",
+          "column_type": "text",
+          "position": 0,
+          "width": 210,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Trade",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 140,
+          "config": "{\"options\": [\"Electrical\", \"Plumbing\", \"HVAC\", \"Roofing\", \"Concrete\", \"Framing\", \"Drywall\", \"Painting\", \"Excavation\", \"Flooring\", \"Other\"]}"
+        },
+        {
+          "name": "Contact person",
+          "column_type": "text",
+          "position": 2,
+          "width": 160
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 3,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 4,
+          "width": 210
+        },
+        {
+          "name": "General liability expires",
+          "column_type": "date",
+          "position": 5,
+          "width": 170,
+          "config": "{\"alert_rule_name\": \"Expires (30-day warning)\", \"log_changes\": true}",
+          "is_required": 1,
+          "description": "From their certificate of insurance (COI)"
+        },
+        {
+          "name": "Workers' comp expires",
+          "column_type": "date",
+          "position": 6,
+          "width": 170,
+          "config": "{\"alert_rule_name\": \"Expires (30-day warning)\", \"log_changes\": true}",
+          "description": "Leave blank and add a note if they have an exemption certificate"
+        },
+        {
+          "name": "Auto liability expires",
+          "column_type": "date",
+          "position": 7,
+          "width": 170,
+          "config": "{\"alert_rule_name\": \"Expires (30-day warning)\", \"log_changes\": true}",
+          "description": "For subs who drive company vehicles to your sites"
+        },
+        {
+          "name": "Contractor license expires",
+          "column_type": "date",
+          "position": 8,
+          "width": 170,
+          "config": "{\"alert_rule_name\": \"Expires (30-day warning)\", \"log_changes\": true}",
+          "description": "State or local contractor license"
+        },
+        {
+          "name": "W-9 received",
+          "column_type": "date",
+          "position": 9,
+          "width": 140,
+          "is_required": 1,
+          "description": "Date you got their W-9; empty shows as missing"
+        },
+        {
+          "name": "Agreement signed",
+          "column_type": "date",
+          "position": 10,
+          "width": 150,
+          "is_required": 1,
+          "description": "Date they signed your subcontract agreement; empty shows as missing"
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 11,
+          "width": 130,
+          "config": "{\"options\": [\"Approved\", \"Waiting on paperwork\", \"On hold\", \"Do not use\"]}"
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 12,
+          "width": 220
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Expires (30-day warning)",
+          "description": "The date entered is when it runs out; warns 30 days ahead",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Renew soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 7, \"bgClass\": \"#f87171\", \"label\": \"Expiring\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Expires today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Expired\"}]"
+        }
+      ],
+      "checklists": [
+        {
+          "name": "New sub onboarding",
+          "description": "Before a new subcontractor sets foot on a site",
+          "items": "[\"W-9 received\", \"Certificate of insurance received, with your company named as additional insured\", \"Workers' comp certificate, or an exemption certificate\", \"Contractor license looked up on the state website\", \"Subcontract agreement signed\", \"Safety training cards on file\", \"Emergency contact on file\"]"
+        }
+      ]
+    },
+    {
+      "key": "jobs",
+      "name": "Jobs",
+      "description": "Projects and the subcontractors working on each one",
+      "kind": "job",
+      "vocab": {
+        "record": {
+          "one": "job",
+          "many": "jobs",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Job",
+          "column_type": "text",
+          "position": 0,
+          "width": 230,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 1,
+          "width": 190
+        },
+        {
+          "name": "Property owner",
+          "column_type": "text",
+          "position": 2,
+          "width": 170
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 3,
+          "width": 130,
+          "config": "{\"options\": [\"Bidding\", \"Signed\", \"Active\", \"Done\"]}"
+        },
+        {
+          "name": "Start date",
+          "column_type": "date",
+          "position": 4,
+          "width": 170,
+          "config": "{\"alert_rule_name\": \"Start date\", \"log_changes\": true}",
+          "description": "Check every sub on the job has current paperwork before this date"
+        },
+        {
+          "name": "Finish date",
+          "column_type": "date",
+          "position": 5,
+          "width": 170,
+          "config": "{\"alert_rule_name\": \"Finish date\", \"log_changes\": true}"
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 6,
+          "width": 220
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Start date",
+          "description": "The date entered is the start of the job; hidden once the job is done",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 14, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "rule_condition": "{\"columnId\": {\"column\": \"Status\"}, \"op\": \"is_not\", \"values\": [\"Active\", \"Done\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Finish date",
+          "description": "The date entered is when the job should be finished; hidden once it is done",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 14, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "rule_condition": "{\"columnId\": {\"column\": \"Status\"}, \"op\": \"is_not\", \"values\": [\"Done\"], \"whenFalse\": \"hide\"}"
+        }
+      ],
+      "links": [
+        {
+          "to": "subcontractors",
+          "label_forward": "Subs on this job",
+          "label_backward": "Jobs",
+          "cardinality": "many_to_many"
+        }
+      ]
+    }
+  ],
+  "dashboardCards": [
+    "summary",
+    "missingInfo",
+    "recentActivity"
+  ],
+  "sampleData": {
+    "records": {
+      "subcontractors": [
+        {
+          "Company": "Ridgeline Electric LLC",
+          "Trade": "Electrical",
+          "Contact person": "Dana Cole",
+          "Phone": "555-0113",
+          "Email": "office@ridgeline.example.com",
+          "General liability expires": {
+            "daysFromToday": -6
+          },
+          "Status": "Approved",
+          "Workers' comp expires": {
+            "daysFromToday": 140
+          },
+          "Auto liability expires": {
+            "daysFromToday": 95
+          },
+          "Contractor license expires": {
+            "daysFromToday": 310
+          },
+          "W-9 received": {
+            "daysFromToday": -400
+          },
+          "Agreement signed": {
+            "daysFromToday": -390
+          },
+          "Notes": "Requested a new COI from their agent."
+        },
+        {
+          "Company": "Bluewater Plumbing",
+          "Trade": "Plumbing",
+          "Contact person": "Marcus Lee",
+          "Phone": "555-0120",
+          "Email": "office@bluewater.example.com",
+          "General liability expires": {
+            "daysFromToday": 4
+          },
+          "Status": "Approved",
+          "Workers' comp expires": {
+            "daysFromToday": 4
+          },
+          "Contractor license expires": {
+            "daysFromToday": 220
+          },
+          "W-9 received": {
+            "daysFromToday": -300
+          },
+          "Agreement signed": {
+            "daysFromToday": -298
+          }
+        },
+        {
+          "Company": "Summit Roofing Co.",
+          "Trade": "Roofing",
+          "Contact person": "Ana Torres",
+          "Phone": "555-0127",
+          "Email": "office@summit.example.com",
+          "General liability expires": {
+            "daysFromToday": 22
+          },
+          "Status": "Waiting on paperwork",
+          "Workers' comp expires": {
+            "daysFromToday": -15
+          },
+          "Auto liability expires": {
+            "daysFromToday": 60
+          },
+          "Contractor license expires": {
+            "daysFromToday": 180
+          },
+          "W-9 received": {
+            "daysFromToday": -200
+          },
+          "Agreement signed": {
+            "daysFromToday": -195
+          },
+          "Notes": "Workers' comp lapsed; they say the renewal is in the mail."
+        },
+        {
+          "Company": "Keystone Concrete",
+          "Trade": "Concrete",
+          "Contact person": "Devon Price",
+          "Phone": "555-0134",
+          "Email": "office@keystone.example.com",
+          "General liability expires": {
+            "daysFromToday": 120
+          },
+          "Status": "Approved",
+          "Workers' comp expires": {
+            "daysFromToday": 120
+          },
+          "Auto liability expires": {
+            "daysFromToday": 75
+          },
+          "Contractor license expires": {
+            "daysFromToday": 12
+          },
+          "W-9 received": {
+            "daysFromToday": -500
+          },
+          "Agreement signed": {
+            "daysFromToday": -480
+          }
+        },
+        {
+          "Company": "Brightline HVAC",
+          "Trade": "HVAC",
+          "Contact person": "Sam Okafor",
+          "Phone": "555-0141",
+          "Email": "office@brightline.example.com",
+          "General liability expires": {
+            "daysFromToday": 250
+          },
+          "Status": "Waiting on paperwork",
+          "Workers' comp expires": {
+            "daysFromToday": 250
+          },
+          "Auto liability expires": {
+            "daysFromToday": 250
+          },
+          "Contractor license expires": {
+            "daysFromToday": 400
+          },
+          "W-9 received": {
+            "daysFromToday": -150
+          },
+          "Notes": "Agreement sent for signature."
+        },
+        {
+          "Company": "Oakview Drywall",
+          "Trade": "Drywall",
+          "Contact person": "Priya Bell",
+          "Phone": "555-0148",
+          "Email": "office@oakview.example.com",
+          "General liability expires": {
+            "daysFromToday": 45
+          },
+          "Status": "Approved",
+          "Contractor license expires": {
+            "daysFromToday": 90
+          },
+          "Agreement signed": {
+            "daysFromToday": -60
+          },
+          "Notes": "Sole owner; workers' comp exemption certificate in Files."
+        },
+        {
+          "Company": "Northfield Painting",
+          "Trade": "Painting",
+          "Contact person": "Frank Rivera",
+          "Phone": "555-0155",
+          "Email": "office@northfield.example.com",
+          "General liability expires": {
+            "daysFromToday": 9
+          },
+          "Status": "On hold",
+          "Workers' comp expires": {
+            "daysFromToday": 70
+          },
+          "Contractor license expires": {
+            "daysFromToday": -3
+          },
+          "W-9 received": {
+            "daysFromToday": -700
+          },
+          "Agreement signed": {
+            "daysFromToday": -690
+          },
+          "Notes": "License renewal pending with the state."
+        },
+        {
+          "Company": "Granite Excavating",
+          "Trade": "Excavation",
+          "Contact person": "Keisha Thompson",
+          "Phone": "555-0162",
+          "Email": "office@granite.example.com",
+          "General liability expires": {
+            "daysFromToday": 180
+          },
+          "Status": "Approved",
+          "Workers' comp expires": {
+            "daysFromToday": 33
+          },
+          "Auto liability expires": {
+            "daysFromToday": 33
+          },
+          "Contractor license expires": {
+            "daysFromToday": 260
+          },
+          "W-9 received": {
+            "daysFromToday": -90
+          },
+          "Agreement signed": {
+            "daysFromToday": -88
+          }
+        }
+      ],
+      "jobs": [
+        {
+          "Job": "Kitchen remodel – Maple Ave",
+          "Address": "100 Maple Ave\nSpringfield",
+          "Property owner": "Robert Dubois",
+          "Status": "Active",
+          "Start date": {
+            "daysFromToday": -20
+          },
+          "Finish date": {
+            "daysFromToday": 25
+          }
+        },
+        {
+          "Job": "Garage addition – Birch Lane",
+          "Address": "137 Birch Lane\nSpringfield",
+          "Property owner": "Linh Smith",
+          "Status": "Signed",
+          "Start date": {
+            "daysFromToday": 5
+          },
+          "Finish date": {
+            "daysFromToday": 70
+          }
+        },
+        {
+          "Job": "Office build-out – Willow Way",
+          "Address": "211 Willow Way\nSpringfield",
+          "Property owner": "Carlos Wong",
+          "Status": "Signed",
+          "Start date": {
+            "daysFromToday": 12
+          },
+          "Finish date": {
+            "daysFromToday": 60
+          }
+        },
+        {
+          "Job": "Roof replacement – Elm Street",
+          "Address": "248 Elm Street\nSpringfield",
+          "Property owner": "Priya Bell",
+          "Status": "Bidding",
+          "Start date": {
+            "daysFromToday": 30
+          },
+          "Finish date": {
+            "daysFromToday": 40
+          }
+        },
+        {
+          "Job": "Basement finish – Oak Terrace",
+          "Address": "322 Oak Terrace\nSpringfield",
+          "Property owner": "Keisha Thompson",
+          "Status": "Done",
+          "Start date": {
+            "daysFromToday": -90
+          },
+          "Finish date": {
+            "daysFromToday": -12
+          }
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "jobs#0",
+        "to": "subcontractors#0",
+        "link": "Subs on this job"
+      },
+      {
+        "from": "jobs#0",
+        "to": "subcontractors#1",
+        "link": "Subs on this job"
+      },
+      {
+        "from": "jobs#0",
+        "to": "subcontractors#5",
+        "link": "Subs on this job"
+      },
+      {
+        "from": "jobs#0",
+        "to": "subcontractors#6",
+        "link": "Subs on this job"
+      },
+      {
+        "from": "jobs#1",
+        "to": "subcontractors#3",
+        "link": "Subs on this job"
+      },
+      {
+        "from": "jobs#1",
+        "to": "subcontractors#0",
+        "link": "Subs on this job"
+      },
+      {
+        "from": "jobs#1",
+        "to": "subcontractors#2",
+        "link": "Subs on this job"
+      },
+      {
+        "from": "jobs#1",
+        "to": "subcontractors#7",
+        "link": "Subs on this job"
+      },
+      {
+        "from": "jobs#2",
+        "to": "subcontractors#0",
+        "link": "Subs on this job"
+      },
+      {
+        "from": "jobs#2",
+        "to": "subcontractors#4",
+        "link": "Subs on this job"
+      },
+      {
+        "from": "jobs#2",
+        "to": "subcontractors#5",
+        "link": "Subs on this job"
+      },
+      {
+        "from": "jobs#2",
+        "to": "subcontractors#6",
+        "link": "Subs on this job"
+      },
+      {
+        "from": "jobs#3",
+        "to": "subcontractors#2",
+        "link": "Subs on this job"
+      },
+      {
+        "from": "jobs#4",
+        "to": "subcontractors#0",
+        "link": "Subs on this job"
+      },
+      {
+        "from": "jobs#4",
+        "to": "subcontractors#1",
+        "link": "Subs on this job"
+      },
+      {
+        "from": "jobs#4",
+        "to": "subcontractors#5",
+        "link": "Subs on this job"
+      },
+      {
+        "from": "jobs#4",
+        "to": "subcontractors#6",
+        "link": "Subs on this job"
+      }
+    ],
+    "activities": [
+      {
+        "record": "subcontractors#0",
+        "type": "email",
+        "daysAgo": 10,
+        "text": "Asked their insurance agent for an updated certificate, with us as additional insured."
+      },
+      {
+        "record": "subcontractors#2",
+        "type": "call",
+        "daysAgo": 3,
+        "text": "Called about the workers' comp lapse. Off the Elm Street roof until we get the new certificate."
+      },
+      {
+        "record": "subcontractors#3",
+        "type": "certificate",
+        "daysAgo": 15,
+        "text": "New general liability certificate received; dates updated. PDF in Files."
+      },
+      {
+        "record": "subcontractors#6",
+        "type": "note",
+        "daysAgo": 6,
+        "text": "State website shows the license renewal as pending."
+      },
+      {
+        "record": "jobs#1",
+        "type": "note",
+        "daysAgo": 2,
+        "text": "Before start: check Ridgeline and Summit paperwork."
+      }
+    ]
+  }
+}

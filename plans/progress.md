@@ -1481,3 +1481,14 @@ Comprehensive audit identified 2 critical, 7 high, 10 medium, 15 low findings. A
 ## 2026-10-09 (cont.) — Pulse 2.0.1 released
 - Version 2.0.1 (tree service starter), tagged v2.0.1 in pulse-app
 - `pulse-releases` v2.0.1: `PULSE.exe`, `BaringaSoftPulse-2.0.1.AppImage`, `SHA256SUMS.txt`, marked latest; `latest.json` announces 2.0.1
+
+## 2026-10-09 (cont.) — 12 more starters (brainstorm round 2), 51 in all
+- New: `home-services` (5 variants: lawn & landscaping, pest control, HVAC, pool, chimney / gutters / windows), `tax-preparer`, `real-estate`, `rehab-therapy` (speech / OT / PT), `victim-advocate` (human-services words), `subcontractor-compliance`, `horse-barn`, `job-search`, `home-maintenance`, `family-health`, `driving-school`, `volunteer-manager`. Specs in `plans/starter-brainstorm-2026-10.md`
+- Generators kept in `scripts/starters/` (with `check_starter.py` cross-reference checks, `validate-starter.ts` and a README); tree service's generator too
+- Engine fix: a calendar rule done early within its lead time now counts for that date (irrigation started Apr 22 covers "by Apr 30"); grace capped at half the shortest gap. Found by the home services sample (17 overdue → 6)
+- Dashboard card "Running low on visits" → "Running low" (it also counts sessions and lesson packages)
+- Leak test: the starter gallery check skips the starters' own card text (a tax preparer's "Clients" is the right word there); it only passed before because card text ran together without spaces
+- Screenshots for all 12 reviewed (dashboards tiled), copied to `pulse-landing-page/img/starters/<id>/`; website copy regenerated (51 pages)
+- Known limits: sample notes can't carry measure values (driving and volunteer hours live in number columns); a rule has one condition; no rule fires at hour milestones
+- Not released yet
+- Build state: npm test 3586 pass / 4 skip; typecheck 0; eslint 0 errors

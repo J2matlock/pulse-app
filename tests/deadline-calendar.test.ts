@@ -32,6 +32,19 @@ describe('calendar rules', () => {
     expect(evaluate(anniversary, { today: '2026-10-02', columnDate: null, values: { 9: null } }).state).toBe('none')
   })
 
+  it('count a date as done when it was done early, within the lead time', () => {
+    const spring = calendar({ months: [4], day: 30, lead: 45 })
+    // Done Apr 22 for "by Apr 30": next is next year, not overdue
+    expect(evaluate(spring, { today: '2026-10-09', columnDate: '2026-04-22' }).due).toBeNull()
+    expect(evaluate(spring, { today: '2027-04-01', columnDate: '2026-04-22' }).due).toBe('2027-04-30')
+    // Done long before it was showing doesn't count
+    expect(evaluate(spring, { today: '2026-05-01', columnDate: '2026-01-10' }).due).toBe('2026-04-30')
+    // Never more than half the gap: quarterly with a 60-day lead gets at most 28 days of grace
+    const quarterlyLead = calendar({ months: [1, 4, 6, 9], day: 15, lead: 60 })
+    expect(evaluate(quarterlyLead, { today: '2026-05-01', columnDate: '2026-03-20' }).due).toBe('2026-06-15')
+    expect(evaluate(quarterlyLead, { today: '2026-05-01', columnDate: '2026-03-10' }).due).toBe('2026-04-15')
+  })
+
   it('stay hidden until the lead time', () => {
     const leaded = calendar({ months: [3], day: 31, lead: 30 })
     expect(evaluate(leaded, { today: '2026-10-02', columnDate: null }).due).toBeNull()

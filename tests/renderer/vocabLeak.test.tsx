@@ -166,6 +166,8 @@ import { GlobalTaskDialog } from '../../src/renderer/components/shared/GlobalTas
 import { ApplyStarterDialog } from '../../src/renderer/components/starters/ApplyStarterDialog'
 import { NewListDialog } from '../../src/renderer/components/grid/NewListDialog'
 import { ListSettingsDialog } from '../../src/renderer/components/grid/ListSettingsDialog'
+import { BUILTIN_STARTERS } from '../../src/shared/starters'
+import { parseStarter, summarizeStarter } from '../../src/shared/starters/schema'
 
 let seed: LeakSeed
 
@@ -189,6 +191,22 @@ function visibleWords(root: HTMLElement = document.body): string {
   const attrs = Array.from(root.querySelectorAll('[title],[aria-label],[placeholder],[alt],[aria-description]'))
     .flatMap(el => ['title', 'aria-label', 'placeholder', 'alt', 'aria-description'].map(a => el.getAttribute(a) ?? ''))
   return [root.textContent ?? '', ...attrs].join('\n')
+}
+
+/**
+ * Starter cards describe their own trade in its own words (a tax preparer's
+ * "Clients", a victim advocate's caseload); the dialog around them must not leak.
+ */
+function withoutStarterCards(text: string): string {
+  let out = text
+  for (const raw of BUILTIN_STARTERS) {
+    const r = parseStarter(raw)
+    if (!r.ok) continue
+    const s = summarizeStarter(r.starter)
+    const parts = [s.description, s.listNames.join(' · '), s.name, ...s.variants.flatMap(v => [v.description, v.listNames.join(' · '), v.name])]
+    for (const t of parts) if (t) out = out.split(t).join('\n')
+  }
+  return out
 }
 
 function leaksIn(text: string): string[] {
@@ -300,7 +318,7 @@ describe('screens use the workspace words', () => {
       </MemoryRouter>,
     )
     await settle()
-    expect(leaksIn(visibleWords())).toEqual([])
+    expect(leaksIn(withoutStarterCards(visibleWords()))).toEqual([])
   })
 
   // Catch-all for menus and dialogs: press every button on the screen, one at

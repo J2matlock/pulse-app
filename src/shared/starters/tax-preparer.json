@@ -1,0 +1,840 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "tax-preparer",
+  "name": "Bookkeeper & tax preparer",
+  "description": "For tax preparers and bookkeepers: clients, returns on a board from waiting on documents to filed, quarterly estimated taxes, 1099s, extensions, engagement letters and monthly closes. Pulse is a tracking aid, not your official record system.",
+  "icon": "calculator",
+  "group": "Business",
+  "vocab": {
+    "record": {
+      "one": "record",
+      "many": "records",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false,
+    "links": true,
+    "stages": true,
+    "measures": false,
+    "appointments": true,
+    "forms": false,
+    "attachments": true
+  },
+  "activityTypes": [
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    },
+    {
+      "key": "call",
+      "label": "Call",
+      "icon": "📞",
+      "color": "blue"
+    },
+    {
+      "key": "email",
+      "label": "Email",
+      "icon": "✉️",
+      "color": "teal"
+    },
+    {
+      "key": "meeting",
+      "label": "Meeting",
+      "icon": "🤝",
+      "color": "purple"
+    },
+    {
+      "key": "docs",
+      "label": "Documents received",
+      "icon": "📄",
+      "color": "green"
+    }
+  ],
+  "documentTemplates": [
+    {
+      "name": "Document request",
+      "content": "{{today}}\n\nHi {{linked:Client.Name}},\n\nWe are getting ready to prepare your {{field:Tax year}} return ({{name}}). To get started, please send us:\n\n- W-2s and 1099s\n- Form 1098 (mortgage interest) and your property tax bill\n- Receipts for charitable donations\n- Any estimated tax payments you made this year\n- A copy of last year's return, if we did not prepare it\n\nThe filing deadline is {{field:Filing deadline}}. The sooner we have everything, the sooner we can file.\n\nThanks,\n\n{{my_name}}"
+    },
+    {
+      "name": "Engagement letter reminder",
+      "content": "{{today}}\n\nDear {{name}},\n\nIt is time to renew our engagement letter for the coming year. Your last one was signed on {{field:Engagement letter signed}}.\n\nThe new letter is enclosed. Please sign and return it, and let us know if anything about your situation has changed: a new job, a new business, a move, or a new dependent.\n\nThank you for your trust,\n\n{{my_name}}"
+    }
+  ],
+  "helpTips": [
+    {
+      "title": "Waiting on documents",
+      "body": "Fill in \"Documents requested on\" when you send the request. If the return is still waiting a week later, the Documents follow-up column turns due. Once the return moves on, the reminder goes away."
+    },
+    {
+      "title": "Extensions",
+      "body": "When you file an extension, move the return to Extended and change its filing deadline to the extended date (October 15 for most individual returns), so the reminder follows the new date."
+    },
+    {
+      "title": "Calendar deadlines",
+      "body": "Estimated taxes (Jan, Apr, Jun and Sep 15), 1099s (Jan 31) and the monthly close show only for the clients they apply to. Mark each one done when it is paid or filed, and Pulse moves on to the next date."
+    },
+    {
+      "title": "Keep copies safe",
+      "body": "Drop signed engagement letters, 8879s and scanned documents into Files on the client or the return. They are stored encrypted inside Pulse. Copies you save elsewhere are not."
+    }
+  ],
+  "lists": [
+    {
+      "key": "clients",
+      "name": "Clients",
+      "description": "People, households and small businesses you prepare taxes or keep books for",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "client",
+          "many": "clients",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 200,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 1,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 2,
+          "width": 210
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 3,
+          "width": 180
+        },
+        {
+          "name": "Client type",
+          "column_type": "dropdown",
+          "position": 4,
+          "width": 150,
+          "config": "{\"options\": [\"Individual\", \"Household\", \"Sole proprietor\", \"Small business\"]}"
+        },
+        {
+          "name": "Services",
+          "column_type": "dropdown",
+          "position": 5,
+          "width": 180,
+          "config": "{\"options\": [\"Taxes only\", \"Taxes and bookkeeping\", \"Bookkeeping only\"]}"
+        },
+        {
+          "name": "Pays estimated taxes",
+          "column_type": "dropdown",
+          "position": 6,
+          "width": 150,
+          "config": "{\"options\": [\"Yes\", \"No\"]}"
+        },
+        {
+          "name": "Engagement letter signed",
+          "column_type": "date",
+          "position": 7,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
+          "description": "Date they signed this year's engagement letter; renew every year"
+        },
+        {
+          "name": "Estimated taxes",
+          "column_type": "deadline",
+          "position": 8,
+          "width": 150,
+          "description": "Quarterly payment reminder (Jan, Apr, Jun, Sep 15) for clients who pay estimated taxes; mark it done when they have paid",
+          "config": "{\"alert_rule_name\": \"Estimated taxes\"}"
+        },
+        {
+          "name": "1099s",
+          "column_type": "deadline",
+          "position": 9,
+          "width": 150,
+          "description": "Contractor 1099s are due Jan 31 for sole proprietors and businesses; mark it done when filed",
+          "config": "{\"alert_rule_name\": \"1099s due\"}"
+        },
+        {
+          "name": "Monthly close",
+          "column_type": "deadline",
+          "position": 10,
+          "width": 150,
+          "description": "Books reconciled and closed by the 15th of each month, for bookkeeping clients",
+          "config": "{\"alert_rule_name\": \"Monthly close\"}"
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 11,
+          "width": 220
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Estimated taxes",
+          "description": "Quarterly estimated taxes: Jan 15, Apr 15, Jun 15 and Sep 15",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "calendar",
+          "rule_config": "{\"kind\": \"calendar\", \"months\": [1, 4, 6, 9], \"day\": 15}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Pays estimated taxes\"}, \"op\": \"is\", \"values\": [\"Yes\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "1099s due",
+          "description": "Contractor 1099s are due every Jan 31",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "calendar",
+          "rule_config": "{\"kind\": \"calendar\", \"months\": [1], \"day\": 31}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Client type\"}, \"op\": \"is\", \"values\": [\"Sole proprietor\", \"Small business\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Monthly close",
+          "description": "Books closed by the 15th of every month",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "calendar",
+          "rule_config": "{\"kind\": \"calendar\", \"months\": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], \"day\": 15}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Services\"}, \"op\": \"is_not\", \"values\": [\"Taxes only\"], \"whenFalse\": \"hide\"}"
+        }
+      ]
+    },
+    {
+      "key": "returns",
+      "name": "Returns",
+      "description": "Each return or filing, from waiting on documents to filed",
+      "kind": "job",
+      "vocab": {
+        "record": {
+          "one": "return",
+          "many": "returns",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Return",
+          "column_type": "text",
+          "position": 0,
+          "width": 240,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Stage",
+          "column_type": "status",
+          "position": 1,
+          "width": 170,
+          "config": "{\"options\": [{\"label\": \"Waiting on documents\", \"color\": \"#64748b\"}, {\"label\": \"Documents in\", \"color\": \"#3b82f6\"}, {\"label\": \"Preparing\", \"color\": \"#f59e0b\"}, {\"label\": \"Review\", \"color\": \"#8b5cf6\"}, {\"label\": \"Extended\", \"color\": \"#f97316\"}, {\"label\": \"Filed\", \"color\": \"#22c55e\"}]}"
+        },
+        {
+          "name": "Return type",
+          "column_type": "dropdown",
+          "position": 2,
+          "width": 170,
+          "config": "{\"options\": [\"Individual (1040)\", \"S corporation (1120-S)\", \"Partnership (1065)\", \"Nonprofit (990)\", \"Amended return\", \"Sales tax\", \"Payroll (941)\"]}"
+        },
+        {
+          "name": "Tax year",
+          "column_type": "number",
+          "position": 3,
+          "width": 100
+        },
+        {
+          "name": "Documents requested on",
+          "column_type": "date",
+          "position": 4,
+          "width": 170,
+          "description": "The day you sent the document request"
+        },
+        {
+          "name": "Documents follow-up",
+          "column_type": "date",
+          "position": 5,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Documents follow-up\", \"log_changes\": true}",
+          "description": "Date you followed up about missing documents"
+        },
+        {
+          "name": "Filing deadline",
+          "column_type": "date",
+          "position": 6,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Filing deadline\", \"log_changes\": true}",
+          "description": "Apr 15 for most individual returns, Mar 15 for S corporations and partnerships. If you file an extension, change it to the extended date"
+        },
+        {
+          "name": "Filed on",
+          "column_type": "date",
+          "position": 7,
+          "width": 150,
+          "description": "Filled in when the return moves to Filed"
+        },
+        {
+          "name": "E-file accepted",
+          "column_type": "date",
+          "position": 8,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"E-file acceptance\", \"log_changes\": true}",
+          "description": "Date you confirmed the IRS or state accepted the e-file"
+        },
+        {
+          "name": "Fee",
+          "column_type": "currency",
+          "position": 9,
+          "width": 110
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Filing deadline",
+          "description": "The date entered is the filing deadline, until the return is filed",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is_not\", \"values\": [\"Filed\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Documents follow-up",
+          "description": "Follow up 7 days after requesting documents, while still waiting on them",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\": \"relative\", \"anchorColumnId\": {\"column\": \"Documents requested on\"}, \"offset\": {\"days\": 7, \"direction\": \"after\"}}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is\", \"values\": [\"Waiting on documents\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "E-file acceptance",
+          "description": "Check the e-file was accepted 3 days after filing",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\": \"relative\", \"anchorColumnId\": {\"column\": \"Filed on\"}, \"offset\": {\"days\": 3, \"direction\": \"after\"}}"
+        }
+      ],
+      "checklists": [
+        {
+          "name": "Documents still missing",
+          "description": "Tick each one off as it comes in",
+          "items": "[\"W-2s from every job\", \"1099s: interest, dividends, contract work, retirement\", \"Form 1098 mortgage interest and the property tax bill\", \"Last year's return (if we did not prepare it)\", \"Form 1095-A, if they bought insurance on the marketplace\", \"Childcare costs and the daycare's tax ID\", \"Charitable donation receipts\", \"Estimated tax payments made this year\", \"Bank account and routing number for the refund\"]"
+        },
+        {
+          "name": "Before filing",
+          "description": "Last checks before the return goes out",
+          "items": "[\"Prior-year carryovers checked\", \"Estimated payments match the IRS record\", \"Refund or payment bank details confirmed\", \"Client signed the e-file authorization (8879)\", \"Copy saved for the client and for your files\"]"
+        }
+      ],
+      "links": [
+        {
+          "to": "clients",
+          "label_forward": "Client",
+          "label_backward": "Returns",
+          "cardinality": "many_to_one"
+        }
+      ],
+      "stage": {
+        "column": "Stage",
+        "options": [
+          {
+            "value": "Waiting on documents",
+            "color": "slate",
+            "onEnter": {
+              "checklist": "Documents still missing"
+            }
+          },
+          {
+            "value": "Documents in",
+            "color": "blue"
+          },
+          {
+            "value": "Preparing",
+            "color": "amber"
+          },
+          {
+            "value": "Review",
+            "color": "purple",
+            "onEnter": {
+              "checklist": "Before filing"
+            }
+          },
+          {
+            "value": "Extended",
+            "color": "orange"
+          },
+          {
+            "value": "Filed",
+            "color": "green",
+            "done": true,
+            "onEnter": {
+              "stampColumn": "Filed on",
+              "activityType": "note"
+            }
+          }
+        ],
+        "hideDoneAfterDays": 60
+      }
+    }
+  ],
+  "dashboardCards": [
+    "summary",
+    "today",
+    "stages",
+    "missingInfo",
+    "recentActivity"
+  ],
+  "sampleData": {
+    "records": {
+      "clients": [
+        {
+          "Name": "Robert Dubois",
+          "Phone": "555-0113",
+          "Email": "robert.dubois@example.com",
+          "Address": "100 Maple Ave\nSpringfield",
+          "Client type": "Individual",
+          "Services": "Taxes only",
+          "Pays estimated taxes": "No",
+          "Engagement letter signed": {
+            "daysFromToday": -330
+          }
+        },
+        {
+          "Name": "Linh Smith",
+          "Phone": "555-0120",
+          "Email": "linh.smith@example.com",
+          "Address": "137 Birch Lane\nSpringfield",
+          "Client type": "Sole proprietor",
+          "Services": "Taxes and bookkeeping",
+          "Pays estimated taxes": "Yes",
+          "Engagement letter signed": {
+            "daysFromToday": -380
+          },
+          "Notes": "Freelance designer; quarterly estimates from her business account."
+        },
+        {
+          "Name": "Dorothy Kowalski",
+          "Phone": "555-0127",
+          "Email": "dorothy.kowalski@example.com",
+          "Address": "174 Cedar Court\nSpringfield",
+          "Client type": "Household",
+          "Services": "Taxes only",
+          "Pays estimated taxes": "No",
+          "Engagement letter signed": {
+            "daysFromToday": -200
+          },
+          "Notes": "Files jointly with her husband, Walter."
+        },
+        {
+          "Name": "Wong Family Bakery",
+          "Phone": "555-0134",
+          "Email": "wong.family.bakery@example.com",
+          "Address": "211 Willow Way\nSpringfield",
+          "Client type": "Small business",
+          "Services": "Taxes and bookkeeping",
+          "Pays estimated taxes": "Yes",
+          "Engagement letter signed": {
+            "daysFromToday": -350
+          },
+          "Notes": "Two locations. Payroll through the bank."
+        },
+        {
+          "Name": "Priya Bell",
+          "Phone": "555-0141",
+          "Email": "priya.bell@example.com",
+          "Address": "248 Elm Street\nSpringfield",
+          "Client type": "Individual",
+          "Services": "Taxes only",
+          "Pays estimated taxes": "Yes",
+          "Engagement letter signed": {
+            "daysFromToday": -90
+          }
+        },
+        {
+          "Name": "Rivera Landscaping LLC",
+          "Phone": "555-0148",
+          "Email": "rivera.landscaping.office@example.com",
+          "Address": "285 Pine Road\nSpringfield",
+          "Client type": "Small business",
+          "Services": "Bookkeeping only",
+          "Pays estimated taxes": "No",
+          "Engagement letter signed": {
+            "daysFromToday": -400
+          },
+          "Notes": "Owner: Frank Rivera. Prefers email."
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Phone": "555-0155",
+          "Email": "keisha.thompson@example.com",
+          "Address": "322 Oak Terrace\nSpringfield",
+          "Client type": "Sole proprietor",
+          "Services": "Taxes only",
+          "Pays estimated taxes": "Yes",
+          "Engagement letter signed": {
+            "daysFromToday": -150
+          },
+          "Notes": "Rideshare driver; keeps a mileage log."
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Phone": "555-0162",
+          "Email": "samuel.rahman@example.com",
+          "Address": "359 Aspen Drive\nSpringfield",
+          "Client type": "Individual",
+          "Services": "Taxes only",
+          "Pays estimated taxes": "No",
+          "Notes": "New this year."
+        }
+      ],
+      "returns": [
+        {
+          "Return": "2025 Form 1040 – Dubois",
+          "Stage": "Extended",
+          "Return type": "Individual (1040)",
+          "Tax year": 2025,
+          "Documents requested on": {
+            "daysFromToday": -200
+          },
+          "Filing deadline": {
+            "daysFromToday": 6
+          },
+          "Fee": 325
+        },
+        {
+          "Return": "2025 Form 1040 – Smith",
+          "Stage": "Review",
+          "Return type": "Individual (1040)",
+          "Tax year": 2025,
+          "Documents requested on": {
+            "daysFromToday": -190
+          },
+          "Filing deadline": {
+            "daysFromToday": 6
+          },
+          "Fee": 475
+        },
+        {
+          "Return": "2025 Form 1040 – Kowalski",
+          "Stage": "Filed",
+          "Return type": "Individual (1040)",
+          "Tax year": 2025,
+          "Documents requested on": {
+            "daysFromToday": -230
+          },
+          "Filing deadline": {
+            "daysFromToday": -177
+          },
+          "Filed on": {
+            "daysFromToday": -180
+          },
+          "E-file accepted": {
+            "daysFromToday": -178
+          },
+          "Fee": 350
+        },
+        {
+          "Return": "2025 Form 1120-S – Wong Family Bakery",
+          "Stage": "Preparing",
+          "Return type": "S corporation (1120-S)",
+          "Tax year": 2025,
+          "Documents requested on": {
+            "daysFromToday": -240
+          },
+          "Filing deadline": {
+            "daysFromToday": -24
+          },
+          "Fee": 1200
+        },
+        {
+          "Return": "Q3 Form 941 – Wong Family Bakery",
+          "Stage": "Filed",
+          "Return type": "Payroll (941)",
+          "Tax year": 2025,
+          "Filing deadline": {
+            "daysFromToday": 22
+          },
+          "Filed on": {
+            "daysFromToday": -1
+          },
+          "Fee": 90
+        },
+        {
+          "Return": "2025 Form 1040 – Bell",
+          "Stage": "Waiting on documents",
+          "Return type": "Individual (1040)",
+          "Tax year": 2025,
+          "Documents requested on": {
+            "daysFromToday": -10
+          },
+          "Filing deadline": {
+            "daysFromToday": 6
+          },
+          "Fee": 300
+        },
+        {
+          "Return": "2024 amended return – Thompson",
+          "Stage": "Waiting on documents",
+          "Return type": "Amended return",
+          "Tax year": 2024,
+          "Documents requested on": {
+            "daysFromToday": -4
+          },
+          "Filing deadline": {
+            "daysFromToday": 40
+          },
+          "Fee": 250
+        },
+        {
+          "Return": "2025 Form 1040 – Rahman",
+          "Stage": "Documents in",
+          "Return type": "Individual (1040)",
+          "Tax year": 2025,
+          "Documents requested on": {
+            "daysFromToday": -30
+          },
+          "Filing deadline": {
+            "daysFromToday": 6
+          },
+          "Fee": 300
+        },
+        {
+          "Return": "Q3 sales tax – Rivera Landscaping",
+          "Stage": "Preparing",
+          "Return type": "Sales tax",
+          "Tax year": 2025,
+          "Filing deadline": {
+            "daysFromToday": 11
+          },
+          "Fee": 75
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "returns#0",
+        "to": "clients#0",
+        "link": "Client"
+      },
+      {
+        "from": "returns#1",
+        "to": "clients#1",
+        "link": "Client"
+      },
+      {
+        "from": "returns#2",
+        "to": "clients#2",
+        "link": "Client"
+      },
+      {
+        "from": "returns#3",
+        "to": "clients#3",
+        "link": "Client"
+      },
+      {
+        "from": "returns#4",
+        "to": "clients#3",
+        "link": "Client"
+      },
+      {
+        "from": "returns#5",
+        "to": "clients#4",
+        "link": "Client"
+      },
+      {
+        "from": "returns#6",
+        "to": "clients#6",
+        "link": "Client"
+      },
+      {
+        "from": "returns#7",
+        "to": "clients#7",
+        "link": "Client"
+      },
+      {
+        "from": "returns#8",
+        "to": "clients#5",
+        "link": "Client"
+      }
+    ],
+    "activities": [
+      {
+        "record": "returns#5",
+        "type": "email",
+        "daysAgo": 10,
+        "text": "Sent the document request. Still need her 1099-INT and the mortgage statement."
+      },
+      {
+        "record": "returns#0",
+        "type": "note",
+        "daysAgo": 176,
+        "text": "Filed the extension (Form 4868) and moved the filing deadline to October 15."
+      },
+      {
+        "record": "returns#3",
+        "type": "call",
+        "daysAgo": 6,
+        "text": "Talked with Carlos about the new oven: depreciate it, don't expense it."
+      },
+      {
+        "record": "returns#7",
+        "type": "docs",
+        "daysAgo": 3,
+        "text": "Everything in: W-2, 1098, donation receipts."
+      },
+      {
+        "record": "returns#2",
+        "type": "note",
+        "daysAgo": 178,
+        "text": "E-file accepted by the IRS and the state."
+      },
+      {
+        "record": "clients#1",
+        "type": "meeting",
+        "daysAgo": 45,
+        "text": "Midyear check-in. Income up about 20%; raised her quarterly estimates."
+      },
+      {
+        "record": "clients#5",
+        "type": "note",
+        "daysAgo": 20,
+        "text": "September books closed. Two receipts still missing for equipment."
+      }
+    ],
+    "history": [
+      {
+        "record": "returns#1",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Waiting on documents",
+            "daysAgo": 190
+          },
+          {
+            "value": "Extended",
+            "daysAgo": 176
+          },
+          {
+            "value": "Documents in",
+            "daysAgo": 120
+          },
+          {
+            "value": "Preparing",
+            "daysAgo": 30
+          },
+          {
+            "value": "Review",
+            "daysAgo": 2
+          }
+        ]
+      },
+      {
+        "record": "returns#3",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Waiting on documents",
+            "daysAgo": 240
+          },
+          {
+            "value": "Documents in",
+            "daysAgo": 60
+          },
+          {
+            "value": "Preparing",
+            "daysAgo": 21
+          }
+        ]
+      },
+      {
+        "record": "returns#7",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Waiting on documents",
+            "daysAgo": 30
+          },
+          {
+            "value": "Documents in",
+            "daysAgo": 3
+          }
+        ]
+      }
+    ],
+    "appointments": [
+      {
+        "record": "returns#7",
+        "title": "Go over the return with Samuel",
+        "dayOffset": 2,
+        "time": "10:00",
+        "minutes": 45,
+        "type": "meeting"
+      },
+      {
+        "record": "returns#1",
+        "title": "Sign 8879 – Linh Smith",
+        "dayOffset": 1,
+        "time": "16:30",
+        "minutes": 30,
+        "type": "meeting"
+      },
+      {
+        "record": "returns#3",
+        "title": "Year-end planning – Wong Family Bakery",
+        "dayOffset": 8,
+        "time": "09:00",
+        "minutes": 60,
+        "type": "meeting"
+      },
+      {
+        "record": "returns#2",
+        "title": "Return pickup – Kowalski",
+        "dayOffset": -180,
+        "time": "11:00",
+        "minutes": 20,
+        "type": "meeting"
+      }
+    ]
+  }
+}

@@ -1,0 +1,673 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "home-maintenance",
+  "name": "Home maintenance",
+  "description": "For homeowners: furnace filters every 90 days, yearly service for the furnace and water heater, smoke detector batteries, gutters every spring and fall, warranties, home insurance and property tax due dates, and who to call for repairs.",
+  "icon": "hammer",
+  "group": "Personal",
+  "vocab": {
+    "record": {
+      "one": "item",
+      "many": "items",
+      "article": "an"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": false,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": false,
+    "summaryReport": false,
+    "handoff": false,
+    "links": true,
+    "stages": false,
+    "measures": false,
+    "appointments": true,
+    "forms": false,
+    "attachments": true
+  },
+  "activityTypes": [
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    },
+    {
+      "key": "call",
+      "label": "Call",
+      "icon": "📞",
+      "color": "blue"
+    },
+    {
+      "key": "repair",
+      "label": "Repair or service",
+      "icon": "🔧",
+      "color": "orange"
+    }
+  ],
+  "helpTips": [
+    {
+      "title": "Manuals and receipts",
+      "body": "Drop the manual, receipt and warranty card into Files on each item. They are stored encrypted inside Pulse, so they are there when something breaks."
+    },
+    {
+      "title": "Spring and fall",
+      "body": "Set Seasonal to \"Spring and fall\" on things like gutters and the AC. They come due at the end of April and the end of October. The spring and fall checklists cover the rest of the house."
+    },
+    {
+      "title": "Filters",
+      "body": "Write the filter size in Notes, so you buy the right one. When you change it, put today in Air filter changed and Pulse reminds you again in 90 days."
+    },
+    {
+      "title": "Bills that repeat",
+      "body": "After you pay a bill, change its Due date to the next one. Pulse warns you 30 days ahead."
+    }
+  ],
+  "lists": [
+    {
+      "key": "items",
+      "name": "Home items",
+      "description": "The things in your home that need regular care",
+      "kind": "thing",
+      "vocab": {
+        "record": {
+          "one": "item",
+          "many": "items",
+          "article": "an"
+        }
+      },
+      "columns": [
+        {
+          "name": "Item",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Where",
+          "column_type": "text",
+          "position": 1,
+          "width": 140,
+          "description": "Room or spot, e.g. Basement, Kitchen, North side of the house"
+        },
+        {
+          "name": "Brand and model",
+          "column_type": "text",
+          "position": 2,
+          "width": 170
+        },
+        {
+          "name": "Installed",
+          "column_type": "date",
+          "position": 3,
+          "width": 140
+        },
+        {
+          "name": "Warranty ends",
+          "column_type": "date",
+          "position": 4,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}"
+        },
+        {
+          "name": "Air filter changed",
+          "column_type": "date",
+          "position": 5,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every 90 days\", \"log_changes\": true}",
+          "description": "Furnace, AC or air purifier filter. Write the size in Notes"
+        },
+        {
+          "name": "Water filter changed",
+          "column_type": "date",
+          "position": 6,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every 6 months\", \"log_changes\": true}",
+          "description": "Refrigerator or under-sink water filter"
+        },
+        {
+          "name": "Last serviced",
+          "column_type": "date",
+          "position": 7,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
+          "description": "Yearly tune-up, flush or cleaning: furnace, water heater, dryer vent, roof check"
+        },
+        {
+          "name": "Batteries changed",
+          "column_type": "date",
+          "position": 8,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
+          "description": "Smoke and CO detectors. Press the test button once a month too"
+        },
+        {
+          "name": "Seasonal",
+          "column_type": "dropdown",
+          "position": 9,
+          "width": 140,
+          "description": "Choose \"Spring and fall\" for things that need care twice a year, like gutters",
+          "config": "{\"options\": [\"Spring and fall\"]}"
+        },
+        {
+          "name": "Spring and fall upkeep",
+          "column_type": "deadline",
+          "position": 10,
+          "width": 170,
+          "description": "Due at the end of April and the end of October; mark it done when it is done",
+          "config": "{\"alert_rule_name\": \"Spring and fall\"}"
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 11,
+          "width": 220
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every 90 days",
+          "description": "Due 90 days after the date entered",
+          "interval_days": 90,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Every 6 months",
+          "description": "Due 6 months after the date entered",
+          "interval_months": 6,
+          "thresholds": "[{\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Expires (60 days ahead)",
+          "description": "The date entered is when it runs out; warns 60 days ahead",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Spring and fall",
+          "description": "Due April 30 and October 30, for items marked Spring and fall",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "calendar",
+          "rule_config": "{\"kind\": \"calendar\", \"months\": [4, 10], \"day\": 30}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Seasonal\"}, \"op\": \"is\", \"values\": [\"Spring and fall\"], \"whenFalse\": \"hide\"}"
+        }
+      ],
+      "checklists": [
+        {
+          "name": "Spring home checklist",
+          "description": "Once the weather warms up",
+          "items": "[\"Clean the gutters and downspouts\", \"Test the sump pump with a bucket of water\", \"Have the AC serviced before the first hot week\", \"Change the furnace or AC filter\", \"Check the roof and siding for winter damage\", \"Turn the outdoor faucets back on and check for leaks\", \"Test smoke and CO detectors\"]"
+        },
+        {
+          "name": "Fall home checklist",
+          "description": "Before the first freeze",
+          "items": "[\"Clean the gutters after the leaves drop\", \"Have the furnace serviced\", \"Change the furnace filter\", \"Shut off and drain outdoor faucets\", \"Clean the dryer vent\", \"Change smoke and CO detector batteries\", \"Check weatherstripping on doors and windows\"]"
+        }
+      ],
+      "links": [
+        {
+          "to": "pros",
+          "label_forward": "Who services it",
+          "label_backward": "Takes care of",
+          "cardinality": "many_to_one"
+        }
+      ]
+    },
+    {
+      "key": "bills",
+      "name": "Bills and renewals",
+      "description": "Home insurance, property tax and other house bills that come due once or twice a year",
+      "kind": "thing",
+      "vocab": {
+        "record": {
+          "one": "bill",
+          "many": "bills",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Bill",
+          "column_type": "text",
+          "position": 0,
+          "width": 210,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Company",
+          "column_type": "text",
+          "position": 1,
+          "width": 170
+        },
+        {
+          "name": "Amount",
+          "column_type": "currency",
+          "position": 2,
+          "width": 120
+        },
+        {
+          "name": "Due",
+          "column_type": "date",
+          "position": 3,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Due date\", \"log_changes\": true}",
+          "description": "When it has to be paid or renewed. After paying, change it to the next due date"
+        },
+        {
+          "name": "How often",
+          "column_type": "dropdown",
+          "position": 4,
+          "width": 140,
+          "config": "{\"options\": [\"Monthly\", \"Twice a year\", \"Yearly\"]}"
+        },
+        {
+          "name": "Account or policy number",
+          "column_type": "text",
+          "position": 5,
+          "width": 190
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 6,
+          "width": 220
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Due date",
+          "description": "The date entered is when it is due",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        }
+      ]
+    },
+    {
+      "key": "pros",
+      "name": "Service people",
+      "description": "Who you call for repairs and yearly service",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "service person",
+          "many": "service people",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 200,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Trade",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 150,
+          "config": "{\"options\": [\"Plumber\", \"Heating and cooling\", \"Electrician\", \"Handyman\", \"Roofer\", \"Appliance repair\", \"Pest control\"]}"
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 2,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 3,
+          "width": 200
+        },
+        {
+          "name": "Last used",
+          "column_type": "date",
+          "position": 4,
+          "width": 140
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 5,
+          "width": 220
+        }
+      ]
+    }
+  ],
+  "dashboardCards": [
+    "summary",
+    "today"
+  ],
+  "sampleData": {
+    "records": {
+      "items": [
+        {
+          "Item": "Furnace",
+          "Where": "Basement",
+          "Brand and model": "Carrier 59SC5",
+          "Installed": {
+            "daysFromToday": -2900
+          },
+          "Warranty ends": {
+            "daysFromToday": 750
+          },
+          "Air filter changed": {
+            "daysFromToday": -95
+          },
+          "Last serviced": {
+            "daysFromToday": -340
+          },
+          "Notes": "Filter size 16x25x1, MERV 8."
+        },
+        {
+          "Item": "Central AC",
+          "Where": "North side of the house",
+          "Brand and model": "Carrier 24ACC6",
+          "Installed": {
+            "daysFromToday": -2900
+          },
+          "Last serviced": {
+            "daysFromToday": -300
+          },
+          "Seasonal": "Spring and fall"
+        },
+        {
+          "Item": "Water heater",
+          "Where": "Basement",
+          "Brand and model": "Rheem 50 gal",
+          "Installed": {
+            "daysFromToday": -1800
+          },
+          "Warranty ends": {
+            "daysFromToday": 345
+          },
+          "Last serviced": {
+            "daysFromToday": -370
+          },
+          "Notes": "Flush the tank yearly to clear sediment."
+        },
+        {
+          "Item": "Smoke and CO detectors",
+          "Where": "Every floor",
+          "Batteries changed": {
+            "daysFromToday": -358
+          },
+          "Notes": "5 detectors: basement, kitchen, hallway, two bedrooms."
+        },
+        {
+          "Item": "Gutters",
+          "Where": "Roof line",
+          "Seasonal": "Spring and fall"
+        },
+        {
+          "Item": "Dryer vent",
+          "Where": "Laundry room",
+          "Last serviced": {
+            "daysFromToday": -200
+          }
+        },
+        {
+          "Item": "Refrigerator",
+          "Where": "Kitchen",
+          "Brand and model": "LG LRMVS3006S",
+          "Installed": {
+            "daysFromToday": -900
+          },
+          "Warranty ends": {
+            "daysFromToday": 30
+          },
+          "Water filter changed": {
+            "daysFromToday": -170
+          }
+        },
+        {
+          "Item": "Sump pump",
+          "Where": "Basement",
+          "Brand and model": "Zoeller M53",
+          "Installed": {
+            "daysFromToday": -1500
+          },
+          "Seasonal": "Spring and fall",
+          "Notes": "Test it by pouring a bucket of water into the pit."
+        },
+        {
+          "Item": "Roof",
+          "Where": "House",
+          "Brand and model": "Architectural shingles",
+          "Installed": {
+            "daysFromToday": -4000
+          },
+          "Warranty ends": {
+            "daysFromToday": 3300
+          },
+          "Last serviced": {
+            "daysFromToday": -150
+          }
+        },
+        {
+          "Item": "Dishwasher",
+          "Where": "Kitchen",
+          "Brand and model": "Bosch 300 Series",
+          "Installed": {
+            "daysFromToday": -500
+          },
+          "Warranty ends": {
+            "daysFromToday": 230
+          }
+        }
+      ],
+      "bills": [
+        {
+          "Bill": "Home insurance",
+          "Company": "Example Mutual",
+          "Amount": 1450,
+          "Due": {
+            "daysFromToday": 24
+          },
+          "How often": "Yearly",
+          "Account or policy number": "HO-0042-118"
+        },
+        {
+          "Bill": "Property tax, first half",
+          "Company": "Springfield County",
+          "Amount": 2100,
+          "Due": {
+            "daysFromToday": 5
+          },
+          "How often": "Twice a year",
+          "Notes": "Pay online on the county site."
+        },
+        {
+          "Bill": "Property tax, second half",
+          "Company": "Springfield County",
+          "Amount": 2100,
+          "Due": {
+            "daysFromToday": 185
+          },
+          "How often": "Twice a year"
+        },
+        {
+          "Bill": "HOA dues",
+          "Company": "Maple Grove HOA",
+          "Amount": 85,
+          "Due": {
+            "daysFromToday": -2
+          },
+          "How often": "Monthly"
+        },
+        {
+          "Bill": "Home warranty plan",
+          "Company": "Example Home Shield",
+          "Amount": 540,
+          "Due": {
+            "daysFromToday": 80
+          },
+          "How often": "Yearly"
+        },
+        {
+          "Bill": "Flood insurance",
+          "Company": "Example Mutual",
+          "Amount": 620,
+          "Due": {
+            "daysFromToday": 150
+          },
+          "How often": "Yearly"
+        }
+      ],
+      "pros": [
+        {
+          "Name": "Dana Cole Plumbing",
+          "Trade": "Plumber",
+          "Phone": "555-0131",
+          "Email": "dana.cole@example.com",
+          "Last used": {
+            "daysFromToday": -120
+          }
+        },
+        {
+          "Name": "Aspen Heating and Air",
+          "Trade": "Heating and cooling",
+          "Phone": "555-0138",
+          "Email": "service@aspen.example.com",
+          "Last used": {
+            "daysFromToday": -340
+          },
+          "Notes": "Ask for Luis."
+        },
+        {
+          "Name": "Bright Spark Electric",
+          "Trade": "Electrician",
+          "Phone": "555-0145",
+          "Email": "office@brightspark.example.com"
+        },
+        {
+          "Name": "Greg Martin",
+          "Trade": "Handyman",
+          "Phone": "555-0152",
+          "Email": "greg.martin@example.com",
+          "Last used": {
+            "daysFromToday": -160
+          },
+          "Notes": "Does gutters and small repairs."
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "items#0",
+        "to": "pros#1",
+        "link": "Who services it"
+      },
+      {
+        "from": "items#1",
+        "to": "pros#1",
+        "link": "Who services it"
+      },
+      {
+        "from": "items#2",
+        "to": "pros#0",
+        "link": "Who services it"
+      },
+      {
+        "from": "items#4",
+        "to": "pros#3",
+        "link": "Who services it"
+      },
+      {
+        "from": "items#5",
+        "to": "pros#3",
+        "link": "Who services it"
+      },
+      {
+        "from": "items#7",
+        "to": "pros#0",
+        "link": "Who services it"
+      }
+    ],
+    "activities": [
+      {
+        "record": "items#0",
+        "type": "repair",
+        "daysAgo": 340,
+        "text": "Yearly tune-up. Cleaned the burners, replaced the igniter."
+      },
+      {
+        "record": "items#2",
+        "type": "note",
+        "daysAgo": 370,
+        "text": "Flushed the tank; a lot of sediment came out."
+      },
+      {
+        "record": "items#7",
+        "type": "call",
+        "daysAgo": 120,
+        "text": "Called Dana about the pump running a lot after rain. Said it is fine for now."
+      },
+      {
+        "record": "items#6",
+        "type": "note",
+        "daysAgo": 170,
+        "text": "New water filter, LT1000P."
+      },
+      {
+        "record": "bills#0",
+        "type": "call",
+        "daysAgo": 20,
+        "text": "Asked about a discount for the new roof. They will send a quote."
+      }
+    ],
+    "appointments": [
+      {
+        "record": "items#0",
+        "title": "Furnace tune-up",
+        "dayOffset": 5,
+        "time": "10:00",
+        "minutes": 60,
+        "type": "repair"
+      },
+      {
+        "record": "items#4",
+        "title": "Gutter cleaning",
+        "dayOffset": 12,
+        "time": "09:00",
+        "minutes": 120
+      }
+    ]
+  }
+}

@@ -1,0 +1,4347 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "home-services",
+  "name": "Home services",
+  "description": "For lawn care, pest control, heating and cooling, pool service, and chimney, gutter and window businesses: customers, their properties, visits on a board, seasonal and repeating service dates, and weekly routes on the calendar.",
+  "icon": "house",
+  "group": "Trades and service",
+  "vocab": {
+    "record": {
+      "one": "record",
+      "many": "records",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false,
+    "links": true,
+    "stages": true,
+    "measures": false,
+    "appointments": true,
+    "forms": true,
+    "attachments": true
+  },
+  "activityTypes": [
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    },
+    {
+      "key": "call",
+      "label": "Call",
+      "icon": "📞",
+      "color": "blue"
+    },
+    {
+      "key": "text",
+      "label": "Text",
+      "icon": "💬",
+      "color": "teal"
+    },
+    {
+      "key": "on_site",
+      "label": "On site",
+      "icon": "🏠",
+      "color": "green"
+    }
+  ],
+  "documentTemplates": [
+    {
+      "name": "Seasonal service reminder",
+      "content": "{{today}}\n\nHi {{linked:Customer.Name}},\n\nIt is that time of year again for {{name}}. Give us a call or reply to this letter and we will get you on the schedule.\n\nThanks,\n\n{{my_name}}"
+    }
+  ],
+  "helpTips": [
+    {
+      "title": "Seasonal dates",
+      "body": "For seasonal work like tune-ups, openings and gutter cleaning, enter the date you last did it. Pulse shows the next one when the season comes around."
+    },
+    {
+      "title": "Weekly routes",
+      "body": "Put each route stop on the calendar as a weekly appointment. Pick a day for each area of town, and the calendar becomes your route sheet."
+    },
+    {
+      "title": "Visits",
+      "body": "Move a visit to Done and Pulse fills in the date. Visits that are done or cancelled stop showing as due."
+    },
+    {
+      "title": "Photos",
+      "body": "Drop before-and-after photos or signed work orders into Files on the visit. They are stored encrypted inside Pulse."
+    }
+  ],
+  "variantQuestion": "What kind of service do you run?",
+  "variants": [
+    {
+      "key": "lawn-care",
+      "name": "Lawn care & landscaping",
+      "description": "Mowing routes, fertilizer rounds, sprinkler start-up and winterizing, and mower service by engine hours.",
+      "lists": [
+        {
+          "key": "customers",
+          "name": "Customers",
+          "description": "The people and businesses you work for",
+          "kind": "person",
+          "vocab": {
+            "record": {
+              "one": "customer",
+              "many": "customers",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 190,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 1,
+              "width": 140,
+              "is_required": 1
+            },
+            {
+              "name": "Email",
+              "column_type": "email",
+              "position": 2,
+              "width": 200
+            },
+            {
+              "name": "Preferred contact",
+              "column_type": "dropdown",
+              "position": 3,
+              "width": 150,
+              "config": "{\"options\": [\"Call\", \"Text\", \"Email\"]}"
+            },
+            {
+              "name": "Billing address",
+              "column_type": "address",
+              "position": 4,
+              "width": 180
+            },
+            {
+              "name": "Notes",
+              "column_type": "notes",
+              "position": 5,
+              "width": 220
+            }
+          ]
+        },
+        {
+          "key": "properties",
+          "name": "Properties",
+          "description": "Lawns and yards you look after, with their programs and seasonal dates",
+          "kind": "thing",
+          "vocab": {
+            "record": {
+              "one": "property",
+              "many": "properties",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "Property",
+              "column_type": "text",
+              "position": 0,
+              "width": 220,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1,
+              "description": "A short name, e.g. \"Dubois – 100 Maple Ave\""
+            },
+            {
+              "name": "Address",
+              "column_type": "address",
+              "position": 1,
+              "width": 180,
+              "is_required": 1
+            },
+            {
+              "name": "Gate and pet notes",
+              "column_type": "notes",
+              "position": 2,
+              "width": 220,
+              "description": "Gate code, dogs, where to park, anything the crew should know"
+            },
+            {
+              "name": "Service plan",
+              "column_type": "dropdown",
+              "position": 3,
+              "width": 170,
+              "config": "{\"options\": [\"Weekly mowing\", \"Every 2 weeks\", \"Fertilizer program only\", \"Full service\"]}"
+            },
+            {
+              "name": "Lawn size (sq ft)",
+              "column_type": "number",
+              "position": 4,
+              "width": 140
+            },
+            {
+              "name": "Last fertilizer round",
+              "column_type": "date",
+              "position": 5,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Fertilizer rounds\", \"log_changes\": true}",
+              "description": "Date of the last round; the next one is due in Apr, Jun, Aug or Oct"
+            },
+            {
+              "name": "Irrigation started",
+              "column_type": "date",
+              "position": 6,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Irrigation start-up\", \"log_changes\": true}",
+              "description": "Date the sprinklers were turned on; due again each April"
+            },
+            {
+              "name": "Irrigation winterized",
+              "column_type": "date",
+              "position": 7,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Winterize\", \"log_changes\": true}",
+              "description": "Date the lines were blown out; due again each October"
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Fertilizer rounds",
+              "description": "Four rounds a year: April, June, August and October 15",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+              "kind": "calendar",
+              "rule_config": "{\"kind\": \"calendar\", \"months\": [4, 6, 8, 10], \"day\": 15, \"lead\": 30}"
+            },
+            {
+              "name": "Irrigation start-up",
+              "description": "Turn the sprinklers on by the end of April",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+              "kind": "calendar",
+              "rule_config": "{\"kind\": \"calendar\", \"months\": [4], \"day\": 30, \"lead\": 45}"
+            },
+            {
+              "name": "Winterize",
+              "description": "Blow out the lines by the end of October",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+              "kind": "calendar",
+              "rule_config": "{\"kind\": \"calendar\", \"months\": [10], \"day\": 31, \"lead\": 45}"
+            }
+          ],
+          "links": [
+            {
+              "to": "customers",
+              "label_forward": "Customer",
+              "label_backward": "Properties",
+              "cardinality": "many_to_one"
+            }
+          ]
+        },
+        {
+          "key": "visits",
+          "name": "Visits",
+          "description": "Each visit from the request to done",
+          "kind": "job",
+          "vocab": {
+            "record": {
+              "one": "visit",
+              "many": "visits",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "Visit",
+              "column_type": "text",
+              "position": 0,
+              "width": 220,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1
+            },
+            {
+              "name": "Stage",
+              "column_type": "status",
+              "position": 1,
+              "width": 140,
+              "config": "{\"options\": [{\"label\": \"Requested\", \"color\": \"#64748b\"}, {\"label\": \"Scheduled\", \"color\": \"#3b82f6\"}, {\"label\": \"Done\", \"color\": \"#22c55e\"}, {\"label\": \"Cancelled\", \"color\": \"#ef4444\"}]}"
+            },
+            {
+              "name": "Service",
+              "column_type": "dropdown",
+              "position": 2,
+              "width": 170,
+              "config": "{\"options\": [\"Mowing\", \"Fertilizer\", \"Aeration\", \"Cleanup\", \"Irrigation\", \"Landscaping\"]}"
+            },
+            {
+              "name": "Scheduled for",
+              "column_type": "date",
+              "position": 3,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Visit date\", \"log_changes\": true}",
+              "description": "The day the visit is booked"
+            },
+            {
+              "name": "Completed on",
+              "column_type": "date",
+              "position": 4,
+              "width": 150,
+              "description": "Filled in when the visit moves to Done"
+            },
+            {
+              "name": "Price",
+              "column_type": "currency",
+              "position": 5,
+              "width": 110
+            },
+            {
+              "name": "Notes",
+              "column_type": "notes",
+              "position": 6,
+              "width": 220
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Visit date",
+              "description": "The date entered is the day of the visit, until it is done",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+              "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is_not\", \"values\": [\"Done\", \"Cancelled\"], \"whenFalse\": \"hide\"}"
+            }
+          ],
+          "links": [
+            {
+              "to": "properties",
+              "label_forward": "Property",
+              "label_backward": "Visits",
+              "cardinality": "many_to_one"
+            }
+          ],
+          "stage": {
+            "column": "Stage",
+            "options": [
+              {
+                "value": "Requested",
+                "color": "slate"
+              },
+              {
+                "value": "Scheduled",
+                "color": "blue"
+              },
+              {
+                "value": "Done",
+                "color": "green",
+                "done": true,
+                "onEnter": {
+                  "stampColumn": "Completed on",
+                  "activityType": "note"
+                }
+              },
+              {
+                "value": "Cancelled",
+                "color": "red",
+                "done": true
+              }
+            ],
+            "hideDoneAfterDays": 30
+          },
+          "forms": [
+            {
+              "name": "Service request",
+              "intro": "Take this down when someone calls to book a visit, or print a blank for the truck.",
+              "log_activity_type": "call",
+              "fields": [
+                {
+                  "kind": "column",
+                  "column": "Visit",
+                  "label": "What do they need?",
+                  "required": true
+                },
+                {
+                  "kind": "column",
+                  "column": "Service",
+                  "width": "half"
+                },
+                {
+                  "kind": "column",
+                  "column": "Scheduled for",
+                  "width": "half"
+                },
+                {
+                  "kind": "note",
+                  "label": "Anything the crew should know before they arrive?"
+                }
+              ]
+            }
+          ],
+          "checklists": [
+            {
+              "name": "Spring start-up",
+              "description": "First visit of the season",
+              "items": "[\"Walk the property for winter damage\", \"Turn on and test every sprinkler zone\", \"Sharpen mower blades\", \"Edge beds and walks\", \"Confirm the mowing day with the customer\"]"
+            }
+          ]
+        },
+        {
+          "key": "equipment",
+          "name": "Equipment",
+          "description": "Mowers, trimmers and trucks, with service due by engine hours",
+          "kind": "thing",
+          "vocab": {
+            "record": {
+              "one": "machine",
+              "many": "machines",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 200,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1
+            },
+            {
+              "name": "Type",
+              "column_type": "dropdown",
+              "position": 1,
+              "width": 140,
+              "config": "{\"options\": [\"Mower\", \"Trimmer\", \"Blower\", \"Aerator\", \"Truck\", \"Trailer\"]}"
+            },
+            {
+              "name": "Hour meter",
+              "column_type": "number",
+              "position": 2,
+              "width": 120,
+              "description": "Engine hours; update it now and then so Pulse can forecast service"
+            },
+            {
+              "name": "Hours at last service",
+              "column_type": "number",
+              "position": 3,
+              "width": 160
+            },
+            {
+              "name": "Last service",
+              "column_type": "date",
+              "position": 4,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Service\", \"log_changes\": true}"
+            },
+            {
+              "name": "Registration expires",
+              "column_type": "date",
+              "position": 5,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Expires\", \"log_changes\": true}"
+            },
+            {
+              "name": "Notes",
+              "column_type": "notes",
+              "position": 6,
+              "width": 220
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Service",
+              "description": "Every 50 engine hours or once a year, whichever comes first",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+              "kind": "meter",
+              "rule_config": "{\"kind\": \"meter\", \"readingColumnId\": {\"column\": \"Hour meter\"}, \"lastServiceReadingColumnId\": {\"column\": \"Hours at last service\"}, \"every\": 50, \"unit\": \"hours\", \"timeFallback\": {\"months\": 12}, \"typicalPerDay\": 1.5}"
+            },
+            {
+              "name": "Expires",
+              "description": "The date entered is when it runs out",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+            }
+          ]
+        }
+      ],
+      "sampleData": {
+        "records": {
+          "customers": [
+            {
+              "Name": "Robert Dubois",
+              "Phone": "555-0113",
+              "Email": "robert.dubois@example.com",
+              "Preferred contact": "Text",
+              "Billing address": "100 Maple Ave\nSpringfield"
+            },
+            {
+              "Name": "Linh Smith",
+              "Phone": "555-0120",
+              "Email": "linh.smith@example.com",
+              "Preferred contact": "Call",
+              "Billing address": "137 Birch Lane\nSpringfield"
+            },
+            {
+              "Name": "Dorothy Kowalski",
+              "Phone": "555-0127",
+              "Email": "dorothy.kowalski@example.com",
+              "Preferred contact": "Text",
+              "Billing address": "174 Cedar Court\nSpringfield"
+            },
+            {
+              "Name": "Carlos Wong",
+              "Phone": "555-0134",
+              "Email": "carlos.wong@example.com",
+              "Preferred contact": "Email",
+              "Billing address": "211 Willow Way\nSpringfield",
+              "Notes": "Bill the office monthly."
+            },
+            {
+              "Name": "Priya Bell",
+              "Phone": "555-0141",
+              "Email": "priya.bell@example.com",
+              "Preferred contact": "Call",
+              "Billing address": "248 Elm Street\nSpringfield"
+            },
+            {
+              "Name": "Frank Rivera",
+              "Phone": "555-0148",
+              "Email": "frank.rivera@example.com",
+              "Preferred contact": "Text",
+              "Billing address": "285 Pine Road\nSpringfield"
+            },
+            {
+              "Name": "Keisha Thompson",
+              "Phone": "555-0155",
+              "Email": "keisha.thompson@example.com",
+              "Preferred contact": "Call",
+              "Billing address": "322 Oak Terrace\nSpringfield"
+            },
+            {
+              "Name": "Samuel Rahman",
+              "Phone": "555-0162",
+              "Email": "samuel.rahman@example.com",
+              "Preferred contact": "Email",
+              "Billing address": "359 Aspen Drive\nSpringfield"
+            }
+          ],
+          "properties": [
+            {
+              "Property": "Dubois – 100 Maple Ave",
+              "Address": "100 Maple Ave\nSpringfield",
+              "Service plan": "Weekly mowing",
+              "Gate and pet notes": "Gate code 4471. Dog in the back yard.",
+              "Lawn size (sq ft)": 6500,
+              "Last fertilizer round": {
+                "daysFromToday": -60
+              },
+              "Irrigation started": {
+                "daysFromToday": -170
+              },
+              "Irrigation winterized": {
+                "daysFromToday": -360
+              }
+            },
+            {
+              "Property": "Smith – 137 Birch Lane",
+              "Address": "137 Birch Lane\nSpringfield",
+              "Service plan": "Weekly mowing",
+              "Lawn size (sq ft)": 4200,
+              "Last fertilizer round": {
+                "daysFromToday": -120
+              },
+              "Irrigation started": {
+                "daysFromToday": -170
+              },
+              "Irrigation winterized": {
+                "daysFromToday": -350
+              }
+            },
+            {
+              "Property": "Kowalski – 174 Cedar Court",
+              "Address": "174 Cedar Court\nSpringfield",
+              "Service plan": "Full service",
+              "Gate and pet notes": "Side gate sticks; lift and push.",
+              "Lawn size (sq ft)": 9800,
+              "Last fertilizer round": {
+                "daysFromToday": -50
+              }
+            },
+            {
+              "Property": "Wong – 211 Willow Way",
+              "Address": "211 Willow Way\nSpringfield",
+              "Service plan": "Every 2 weeks",
+              "Gate and pet notes": "Office park; check in at the front desk.",
+              "Lawn size (sq ft)": 12000,
+              "Last fertilizer round": {
+                "daysFromToday": -200
+              },
+              "Irrigation started": {
+                "daysFromToday": -540
+              },
+              "Irrigation winterized": {
+                "daysFromToday": -370
+              }
+            },
+            {
+              "Property": "Bell – 248 Elm Street",
+              "Address": "248 Elm Street\nSpringfield",
+              "Service plan": "Full service",
+              "Lawn size (sq ft)": 5200,
+              "Irrigation started": {
+                "daysFromToday": -170
+              }
+            },
+            {
+              "Property": "Rivera – 285 Pine Road",
+              "Address": "285 Pine Road\nSpringfield",
+              "Service plan": "Fertilizer program only",
+              "Gate and pet notes": "Park on the street, not the driveway.",
+              "Lawn size (sq ft)": 7300,
+              "Last fertilizer round": {
+                "daysFromToday": -55
+              },
+              "Irrigation started": {
+                "daysFromToday": -170
+              },
+              "Irrigation winterized": {
+                "daysFromToday": -350
+              }
+            },
+            {
+              "Property": "Thompson – 322 Oak Terrace",
+              "Address": "322 Oak Terrace\nSpringfield",
+              "Service plan": "Every 2 weeks",
+              "Gate and pet notes": "Two cats indoors; keep doors shut.",
+              "Lawn size (sq ft)": 3900,
+              "Last fertilizer round": {
+                "daysFromToday": -130
+              }
+            },
+            {
+              "Property": "Rahman – 359 Aspen Drive",
+              "Address": "359 Aspen Drive\nSpringfield",
+              "Service plan": "Weekly mowing",
+              "Lawn size (sq ft)": 8100,
+              "Last fertilizer round": {
+                "daysFromToday": -40
+              },
+              "Irrigation started": {
+                "daysFromToday": -170
+              },
+              "Irrigation winterized": {
+                "daysFromToday": -345
+              }
+            }
+          ],
+          "visits": [
+            {
+              "Visit": "Weekly mow – Dubois",
+              "Stage": "Scheduled",
+              "Service": "Mowing",
+              "Scheduled for": {
+                "daysFromToday": 1
+              },
+              "Price": 45
+            },
+            {
+              "Visit": "Weekly mow – Smith",
+              "Stage": "Scheduled",
+              "Service": "Mowing",
+              "Scheduled for": {
+                "daysFromToday": 2
+              },
+              "Price": 40
+            },
+            {
+              "Visit": "Fall cleanup and leaves",
+              "Stage": "Requested",
+              "Service": "Cleanup"
+            },
+            {
+              "Visit": "Aerate and overseed",
+              "Stage": "Scheduled",
+              "Service": "Aeration",
+              "Scheduled for": {
+                "daysFromToday": -2
+              },
+              "Price": 320
+            },
+            {
+              "Visit": "Mulch beds out front",
+              "Stage": "Scheduled",
+              "Service": "Landscaping",
+              "Scheduled for": {
+                "daysFromToday": 12
+              },
+              "Price": 480
+            },
+            {
+              "Visit": "Fertilizer round 3",
+              "Stage": "Done",
+              "Service": "Fertilizer",
+              "Scheduled for": {
+                "daysFromToday": -55
+              },
+              "Completed on": {
+                "daysFromToday": -55
+              },
+              "Price": 85
+            },
+            {
+              "Visit": "Sprinkler head repair",
+              "Stage": "Done",
+              "Service": "Irrigation",
+              "Scheduled for": {
+                "daysFromToday": -6
+              },
+              "Completed on": {
+                "daysFromToday": -6
+              },
+              "Price": 120
+            },
+            {
+              "Visit": "Hedge trim",
+              "Stage": "Cancelled",
+              "Service": "Landscaping",
+              "Scheduled for": {
+                "daysFromToday": -3
+              }
+            }
+          ],
+          "equipment": [
+            {
+              "Name": "Zero-turn mower 60\"",
+              "Type": "Mower",
+              "Hour meter": 412,
+              "Hours at last service": 366,
+              "Last service": {
+                "daysFromToday": -35
+              }
+            },
+            {
+              "Name": "Walk-behind mower 36\"",
+              "Type": "Mower",
+              "Hour meter": 905,
+              "Hours at last service": 880,
+              "Last service": {
+                "daysFromToday": -20
+              }
+            },
+            {
+              "Name": "Core aerator",
+              "Type": "Aerator",
+              "Hour meter": 61,
+              "Hours at last service": 40,
+              "Last service": {
+                "daysFromToday": -380
+              }
+            },
+            {
+              "Name": "Crew truck",
+              "Type": "Truck",
+              "Last service": {
+                "daysFromToday": -90
+              },
+              "Registration expires": {
+                "daysFromToday": 18
+              }
+            },
+            {
+              "Name": "Equipment trailer",
+              "Type": "Trailer",
+              "Last service": {
+                "daysFromToday": -200
+              },
+              "Registration expires": {
+                "daysFromToday": 210
+              }
+            }
+          ]
+        },
+        "links": [
+          {
+            "from": "properties#0",
+            "to": "customers#0",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#1",
+            "to": "customers#1",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#2",
+            "to": "customers#2",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#3",
+            "to": "customers#3",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#4",
+            "to": "customers#4",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#5",
+            "to": "customers#5",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#6",
+            "to": "customers#6",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#7",
+            "to": "customers#7",
+            "link": "Customer"
+          },
+          {
+            "from": "visits#0",
+            "to": "properties#0",
+            "link": "Property"
+          },
+          {
+            "from": "visits#1",
+            "to": "properties#1",
+            "link": "Property"
+          },
+          {
+            "from": "visits#2",
+            "to": "properties#2",
+            "link": "Property"
+          },
+          {
+            "from": "visits#3",
+            "to": "properties#3",
+            "link": "Property"
+          },
+          {
+            "from": "visits#4",
+            "to": "properties#4",
+            "link": "Property"
+          },
+          {
+            "from": "visits#5",
+            "to": "properties#5",
+            "link": "Property"
+          },
+          {
+            "from": "visits#6",
+            "to": "properties#6",
+            "link": "Property"
+          },
+          {
+            "from": "visits#7",
+            "to": "properties#7",
+            "link": "Property"
+          }
+        ],
+        "activities": [
+          {
+            "record": "visits#3",
+            "type": "call",
+            "daysAgo": 9,
+            "text": "Booked aeration; wants overseed with shade mix."
+          },
+          {
+            "record": "visits#6",
+            "type": "note",
+            "daysAgo": 6,
+            "text": "Replaced two broken heads in zone 3."
+          },
+          {
+            "record": "properties#2",
+            "type": "on_site",
+            "daysAgo": 14,
+            "text": "Walked the yard; lots of leaves coming down from the oaks."
+          }
+        ],
+        "history": [
+          {
+            "record": "equipment#0",
+            "column": "Hour meter",
+            "values": [
+              {
+                "value": "172",
+                "daysAgo": 150
+              },
+              {
+                "value": "220",
+                "daysAgo": 120
+              },
+              {
+                "value": "268",
+                "daysAgo": 90
+              },
+              {
+                "value": "316",
+                "daysAgo": 60
+              },
+              {
+                "value": "364",
+                "daysAgo": 30
+              },
+              {
+                "value": "410",
+                "daysAgo": 1
+              }
+            ]
+          },
+          {
+            "record": "equipment#1",
+            "column": "Hour meter",
+            "values": [
+              {
+                "value": "770",
+                "daysAgo": 150
+              },
+              {
+                "value": "797",
+                "daysAgo": 120
+              },
+              {
+                "value": "824",
+                "daysAgo": 90
+              },
+              {
+                "value": "851",
+                "daysAgo": 60
+              },
+              {
+                "value": "878",
+                "daysAgo": 30
+              },
+              {
+                "value": "904",
+                "daysAgo": 1
+              }
+            ]
+          },
+          {
+            "record": "visits#3",
+            "column": "Stage",
+            "values": [
+              {
+                "value": "Requested",
+                "daysAgo": 12
+              },
+              {
+                "value": "Scheduled",
+                "daysAgo": 9
+              }
+            ]
+          }
+        ],
+        "appointments": [
+          {
+            "record": "properties#0",
+            "title": "Mow – Dubois",
+            "dayOffset": 1,
+            "time": "08:00",
+            "minutes": 40,
+            "type": "on_site",
+            "repeatWeekly": 8
+          },
+          {
+            "record": "properties#1",
+            "title": "Mow – Smith",
+            "dayOffset": 1,
+            "time": "09:00",
+            "minutes": 35,
+            "type": "on_site",
+            "repeatWeekly": 8
+          },
+          {
+            "record": "properties#7",
+            "title": "Mow – Rahman",
+            "dayOffset": 2,
+            "time": "08:00",
+            "minutes": 45,
+            "type": "on_site",
+            "repeatWeekly": 8
+          },
+          {
+            "record": "visits#4",
+            "title": "Mulch beds",
+            "dayOffset": 12,
+            "time": "08:00",
+            "minutes": 240,
+            "type": "on_site",
+            "location": "248 Elm Street"
+          },
+          {
+            "record": "visits#2",
+            "title": "Look at the leaves",
+            "dayOffset": 3,
+            "time": "15:00",
+            "minutes": 30,
+            "type": "on_site",
+            "location": "174 Cedar Court"
+          }
+        ]
+      }
+    },
+    {
+      "key": "pest-control",
+      "name": "Pest control",
+      "description": "Quarterly service plans, a follow-up visit 14 days after each treatment, termite renewals and applicator licenses.",
+      "lists": [
+        {
+          "key": "customers",
+          "name": "Customers",
+          "description": "The people and businesses you work for",
+          "kind": "person",
+          "vocab": {
+            "record": {
+              "one": "customer",
+              "many": "customers",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 190,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 1,
+              "width": 140,
+              "is_required": 1
+            },
+            {
+              "name": "Email",
+              "column_type": "email",
+              "position": 2,
+              "width": 200
+            },
+            {
+              "name": "Preferred contact",
+              "column_type": "dropdown",
+              "position": 3,
+              "width": 150,
+              "config": "{\"options\": [\"Call\", \"Text\", \"Email\"]}"
+            },
+            {
+              "name": "Billing address",
+              "column_type": "address",
+              "position": 4,
+              "width": 180
+            },
+            {
+              "name": "Notes",
+              "column_type": "notes",
+              "position": 5,
+              "width": 220
+            }
+          ]
+        },
+        {
+          "key": "properties",
+          "name": "Properties",
+          "description": "Homes and buildings on a service plan, with what pests they have",
+          "kind": "thing",
+          "vocab": {
+            "record": {
+              "one": "property",
+              "many": "properties",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "Property",
+              "column_type": "text",
+              "position": 0,
+              "width": 220,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1,
+              "description": "A short name, e.g. \"Dubois – 100 Maple Ave\""
+            },
+            {
+              "name": "Address",
+              "column_type": "address",
+              "position": 1,
+              "width": 180,
+              "is_required": 1
+            },
+            {
+              "name": "Gate and pet notes",
+              "column_type": "notes",
+              "position": 2,
+              "width": 220,
+              "description": "Gate code, dogs, where to park, anything the crew should know"
+            },
+            {
+              "name": "Service plan",
+              "column_type": "dropdown",
+              "position": 3,
+              "width": 170,
+              "config": "{\"options\": [\"Quarterly\", \"Monthly\", \"One-time\", \"Termite protection\"]}"
+            },
+            {
+              "name": "Pests seen",
+              "column_type": "text",
+              "position": 4,
+              "width": 180,
+              "description": "What the customer has been seeing"
+            },
+            {
+              "name": "Last quarterly service",
+              "column_type": "date",
+              "position": 5,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Every 3 months\", \"log_changes\": true}",
+              "description": "Date of the last plan visit; the next is due 3 months later"
+            },
+            {
+              "name": "Termite protection renews",
+              "column_type": "date",
+              "position": 6,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Renews\", \"log_changes\": true}",
+              "description": "Yearly termite bond or warranty renewal"
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Every 3 months",
+              "description": "Due 3 months after the date entered",
+              "interval_months": 3,
+              "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+            },
+            {
+              "name": "Renews",
+              "description": "The date entered is when it renews",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+            }
+          ],
+          "links": [
+            {
+              "to": "customers",
+              "label_forward": "Customer",
+              "label_backward": "Properties",
+              "cardinality": "many_to_one"
+            }
+          ]
+        },
+        {
+          "key": "visits",
+          "name": "Visits",
+          "description": "Each visit from the request to done",
+          "kind": "job",
+          "vocab": {
+            "record": {
+              "one": "visit",
+              "many": "visits",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "Visit",
+              "column_type": "text",
+              "position": 0,
+              "width": 220,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1
+            },
+            {
+              "name": "Stage",
+              "column_type": "status",
+              "position": 1,
+              "width": 140,
+              "config": "{\"options\": [{\"label\": \"Requested\", \"color\": \"#64748b\"}, {\"label\": \"Scheduled\", \"color\": \"#3b82f6\"}, {\"label\": \"Done\", \"color\": \"#22c55e\"}, {\"label\": \"Cancelled\", \"color\": \"#ef4444\"}]}"
+            },
+            {
+              "name": "Service",
+              "column_type": "dropdown",
+              "position": 2,
+              "width": 170,
+              "config": "{\"options\": [\"Quarterly service\", \"Treatment\", \"Inspection\", \"Termite\"]}"
+            },
+            {
+              "name": "Scheduled for",
+              "column_type": "date",
+              "position": 3,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Visit date\", \"log_changes\": true}",
+              "description": "The day the visit is booked"
+            },
+            {
+              "name": "Completed on",
+              "column_type": "date",
+              "position": 4,
+              "width": 150,
+              "description": "Filled in when the visit moves to Done"
+            },
+            {
+              "name": "Follow-up visit",
+              "column_type": "date",
+              "position": 5,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Follow-up visit\", \"log_changes\": true}",
+              "description": "Date you went back to check the treatment worked"
+            },
+            {
+              "name": "Products used",
+              "column_type": "notes",
+              "position": 6,
+              "width": 200,
+              "description": "Product names and amounts, for your records"
+            },
+            {
+              "name": "Price",
+              "column_type": "currency",
+              "position": 7,
+              "width": 110
+            },
+            {
+              "name": "Notes",
+              "column_type": "notes",
+              "position": 8,
+              "width": 220
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Visit date",
+              "description": "The date entered is the day of the visit, until it is done",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+              "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is_not\", \"values\": [\"Done\", \"Cancelled\"], \"whenFalse\": \"hide\"}"
+            },
+            {
+              "name": "Follow-up visit",
+              "description": "Go back 14 days after a treatment",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+              "kind": "relative",
+              "rule_config": "{\"kind\": \"relative\", \"anchorColumnId\": {\"column\": \"Completed on\"}, \"offset\": {\"days\": 14, \"direction\": \"after\"}}",
+              "rule_condition": "{\"columnId\": {\"column\": \"Service\"}, \"op\": \"is\", \"values\": [\"Treatment\"], \"whenFalse\": \"hide\"}"
+            }
+          ],
+          "links": [
+            {
+              "to": "properties",
+              "label_forward": "Property",
+              "label_backward": "Visits",
+              "cardinality": "many_to_one"
+            }
+          ],
+          "stage": {
+            "column": "Stage",
+            "options": [
+              {
+                "value": "Requested",
+                "color": "slate"
+              },
+              {
+                "value": "Scheduled",
+                "color": "blue"
+              },
+              {
+                "value": "Done",
+                "color": "green",
+                "done": true,
+                "onEnter": {
+                  "stampColumn": "Completed on",
+                  "activityType": "note"
+                }
+              },
+              {
+                "value": "Cancelled",
+                "color": "red",
+                "done": true
+              }
+            ],
+            "hideDoneAfterDays": 30
+          },
+          "forms": [
+            {
+              "name": "Service request",
+              "intro": "Take this down when someone calls to book a visit, or print a blank for the truck.",
+              "log_activity_type": "call",
+              "fields": [
+                {
+                  "kind": "column",
+                  "column": "Visit",
+                  "label": "What do they need?",
+                  "required": true
+                },
+                {
+                  "kind": "column",
+                  "column": "Service",
+                  "width": "half"
+                },
+                {
+                  "kind": "column",
+                  "column": "Scheduled for",
+                  "width": "half"
+                },
+                {
+                  "kind": "note",
+                  "label": "Anything the crew should know before they arrive?"
+                }
+              ]
+            }
+          ],
+          "checklists": [
+            {
+              "name": "Treatment visit",
+              "description": "Every treatment",
+              "items": "[\"Ask about kids, pets and allergies\", \"Read the label for this site\", \"Note product, amount and where it was applied\", \"Leave the after-treatment sheet\", \"Book the follow-up visit\"]"
+            }
+          ]
+        },
+        {
+          "key": "technicians",
+          "name": "Technicians",
+          "description": "Your applicators, with licenses and training due",
+          "kind": "person",
+          "vocab": {
+            "record": {
+              "one": "technician",
+              "many": "technicians",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 180,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 1,
+              "width": 140
+            },
+            {
+              "name": "Applicator license number",
+              "column_type": "text",
+              "position": 2,
+              "width": 180,
+              "is_required": 1
+            },
+            {
+              "name": "Applicator license expires",
+              "column_type": "date",
+              "position": 3,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}"
+            },
+            {
+              "name": "Training credits this cycle",
+              "column_type": "number",
+              "position": 4,
+              "width": 180,
+              "description": "Continuing education credits toward renewal"
+            },
+            {
+              "name": "Last safety training",
+              "column_type": "date",
+              "position": 5,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}"
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Expires (60 days ahead)",
+              "description": "The date entered is when it runs out; warns 60 days ahead",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+            },
+            {
+              "name": "Every year",
+              "description": "Due on the same date a year later",
+              "interval_months": 12,
+              "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+            }
+          ]
+        }
+      ],
+      "sampleData": {
+        "records": {
+          "customers": [
+            {
+              "Name": "Robert Dubois",
+              "Phone": "555-0113",
+              "Email": "robert.dubois@example.com",
+              "Preferred contact": "Text",
+              "Billing address": "100 Maple Ave\nSpringfield"
+            },
+            {
+              "Name": "Linh Smith",
+              "Phone": "555-0120",
+              "Email": "linh.smith@example.com",
+              "Preferred contact": "Call",
+              "Billing address": "137 Birch Lane\nSpringfield"
+            },
+            {
+              "Name": "Dorothy Kowalski",
+              "Phone": "555-0127",
+              "Email": "dorothy.kowalski@example.com",
+              "Preferred contact": "Text",
+              "Billing address": "174 Cedar Court\nSpringfield"
+            },
+            {
+              "Name": "Carlos Wong",
+              "Phone": "555-0134",
+              "Email": "carlos.wong@example.com",
+              "Preferred contact": "Email",
+              "Billing address": "211 Willow Way\nSpringfield",
+              "Notes": "Bill the office monthly."
+            },
+            {
+              "Name": "Priya Bell",
+              "Phone": "555-0141",
+              "Email": "priya.bell@example.com",
+              "Preferred contact": "Call",
+              "Billing address": "248 Elm Street\nSpringfield"
+            },
+            {
+              "Name": "Frank Rivera",
+              "Phone": "555-0148",
+              "Email": "frank.rivera@example.com",
+              "Preferred contact": "Text",
+              "Billing address": "285 Pine Road\nSpringfield"
+            },
+            {
+              "Name": "Keisha Thompson",
+              "Phone": "555-0155",
+              "Email": "keisha.thompson@example.com",
+              "Preferred contact": "Call",
+              "Billing address": "322 Oak Terrace\nSpringfield"
+            },
+            {
+              "Name": "Samuel Rahman",
+              "Phone": "555-0162",
+              "Email": "samuel.rahman@example.com",
+              "Preferred contact": "Email",
+              "Billing address": "359 Aspen Drive\nSpringfield"
+            }
+          ],
+          "properties": [
+            {
+              "Property": "Dubois – 100 Maple Ave",
+              "Address": "100 Maple Ave\nSpringfield",
+              "Service plan": "Quarterly",
+              "Gate and pet notes": "Gate code 4471. Dog in the back yard.",
+              "Pests seen": "Spiders, ants",
+              "Last quarterly service": {
+                "daysFromToday": -92
+              }
+            },
+            {
+              "Property": "Smith – 137 Birch Lane",
+              "Address": "137 Birch Lane\nSpringfield",
+              "Service plan": "One-time",
+              "Pests seen": "Ants"
+            },
+            {
+              "Property": "Kowalski – 174 Cedar Court",
+              "Address": "174 Cedar Court\nSpringfield",
+              "Service plan": "One-time",
+              "Gate and pet notes": "Side gate sticks; lift and push.",
+              "Pests seen": "Wasps"
+            },
+            {
+              "Property": "Wong – 211 Willow Way",
+              "Address": "211 Willow Way\nSpringfield",
+              "Service plan": "Monthly",
+              "Gate and pet notes": "Office park; check in at the front desk.",
+              "Pests seen": "Roaches near the break room",
+              "Last quarterly service": {
+                "daysFromToday": -28
+              }
+            },
+            {
+              "Property": "Bell – 248 Elm Street",
+              "Address": "248 Elm Street\nSpringfield",
+              "Service plan": "One-time",
+              "Pests seen": "Mice"
+            },
+            {
+              "Property": "Rivera – 285 Pine Road",
+              "Address": "285 Pine Road\nSpringfield",
+              "Service plan": "Termite protection",
+              "Gate and pet notes": "Park on the street, not the driveway.",
+              "Pests seen": "Termite swarmers last spring",
+              "Termite protection renews": {
+                "daysFromToday": 25
+              }
+            },
+            {
+              "Property": "Thompson – 322 Oak Terrace",
+              "Address": "322 Oak Terrace\nSpringfield",
+              "Service plan": "One-time",
+              "Gate and pet notes": "Two cats indoors; keep doors shut.",
+              "Pests seen": "Bed bugs"
+            },
+            {
+              "Property": "Rahman – 359 Aspen Drive",
+              "Address": "359 Aspen Drive\nSpringfield",
+              "Service plan": "Quarterly",
+              "Pests seen": "Ants",
+              "Last quarterly service": {
+                "daysFromToday": -30
+              },
+              "Termite protection renews": {
+                "daysFromToday": 140
+              }
+            }
+          ],
+          "visits": [
+            {
+              "Visit": "Quarterly service – Dubois",
+              "Stage": "Scheduled",
+              "Service": "Quarterly service",
+              "Scheduled for": {
+                "daysFromToday": 0
+              },
+              "Price": 95
+            },
+            {
+              "Visit": "Ants in the kitchen",
+              "Stage": "Done",
+              "Service": "Treatment",
+              "Scheduled for": {
+                "daysFromToday": -11
+              },
+              "Completed on": {
+                "daysFromToday": -11
+              },
+              "Price": 150,
+              "Products used": "Gel bait and crack-and-crevice spray"
+            },
+            {
+              "Visit": "Wasp nest under the deck",
+              "Stage": "Done",
+              "Service": "Treatment",
+              "Scheduled for": {
+                "daysFromToday": -20
+              },
+              "Completed on": {
+                "daysFromToday": -20
+              },
+              "Price": 125,
+              "Products used": "Gel bait and crack-and-crevice spray"
+            },
+            {
+              "Visit": "Quarterly service – Wong offices",
+              "Stage": "Scheduled",
+              "Service": "Quarterly service",
+              "Scheduled for": {
+                "daysFromToday": -1
+              },
+              "Price": 240
+            },
+            {
+              "Visit": "Mice in the garage",
+              "Stage": "Requested",
+              "Service": "Inspection"
+            },
+            {
+              "Visit": "Termite inspection",
+              "Stage": "Scheduled",
+              "Service": "Termite",
+              "Scheduled for": {
+                "daysFromToday": 8
+              },
+              "Price": 0
+            },
+            {
+              "Visit": "Bed bug treatment",
+              "Stage": "Done",
+              "Service": "Treatment",
+              "Scheduled for": {
+                "daysFromToday": -40
+              },
+              "Completed on": {
+                "daysFromToday": -40
+              },
+              "Price": 600,
+              "Follow-up visit": {
+                "daysFromToday": -26
+              },
+              "Products used": "Gel bait and crack-and-crevice spray"
+            },
+            {
+              "Visit": "Quarterly service – Rahman",
+              "Stage": "Done",
+              "Service": "Quarterly service",
+              "Scheduled for": {
+                "daysFromToday": -30
+              },
+              "Completed on": {
+                "daysFromToday": -30
+              },
+              "Price": 95
+            }
+          ],
+          "technicians": [
+            {
+              "Name": "Marcus Lee",
+              "Phone": "555-0170",
+              "Applicator license number": "AP-20417",
+              "Applicator license expires": {
+                "daysFromToday": 45
+              },
+              "Training credits this cycle": 6,
+              "Last safety training": {
+                "daysFromToday": -300
+              }
+            },
+            {
+              "Name": "Ana Torres",
+              "Phone": "555-0173",
+              "Applicator license number": "AP-31882",
+              "Applicator license expires": {
+                "daysFromToday": 410
+              },
+              "Training credits this cycle": 10,
+              "Last safety training": {
+                "daysFromToday": -380
+              }
+            },
+            {
+              "Name": "Devon Price",
+              "Phone": "555-0176",
+              "Training credits this cycle": 2,
+              "Last safety training": {
+                "daysFromToday": -60
+              }
+            }
+          ]
+        },
+        "links": [
+          {
+            "from": "properties#0",
+            "to": "customers#0",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#1",
+            "to": "customers#1",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#2",
+            "to": "customers#2",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#3",
+            "to": "customers#3",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#4",
+            "to": "customers#4",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#5",
+            "to": "customers#5",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#6",
+            "to": "customers#6",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#7",
+            "to": "customers#7",
+            "link": "Customer"
+          },
+          {
+            "from": "visits#0",
+            "to": "properties#0",
+            "link": "Property"
+          },
+          {
+            "from": "visits#1",
+            "to": "properties#1",
+            "link": "Property"
+          },
+          {
+            "from": "visits#2",
+            "to": "properties#2",
+            "link": "Property"
+          },
+          {
+            "from": "visits#3",
+            "to": "properties#3",
+            "link": "Property"
+          },
+          {
+            "from": "visits#4",
+            "to": "properties#4",
+            "link": "Property"
+          },
+          {
+            "from": "visits#5",
+            "to": "properties#5",
+            "link": "Property"
+          },
+          {
+            "from": "visits#6",
+            "to": "properties#6",
+            "link": "Property"
+          },
+          {
+            "from": "visits#7",
+            "to": "properties#7",
+            "link": "Property"
+          }
+        ],
+        "activities": [
+          {
+            "record": "visits#1",
+            "type": "note",
+            "daysAgo": 11,
+            "text": "Treated along the baseboards and under the sink. Follow-up in two weeks."
+          },
+          {
+            "record": "visits#4",
+            "type": "call",
+            "daysAgo": 2,
+            "text": "Hearing scratching in the garage at night. Wants someone out this week."
+          },
+          {
+            "record": "visits#6",
+            "type": "note",
+            "daysAgo": 26,
+            "text": "Follow-up done; no live activity found."
+          }
+        ],
+        "history": [
+          {
+            "record": "visits#5",
+            "column": "Stage",
+            "values": [
+              {
+                "value": "Requested",
+                "daysAgo": 10
+              },
+              {
+                "value": "Scheduled",
+                "daysAgo": 6
+              }
+            ]
+          }
+        ],
+        "appointments": [
+          {
+            "record": "visits#0",
+            "title": "Quarterly – Dubois",
+            "dayOffset": 0,
+            "time": "09:00",
+            "minutes": 45,
+            "type": "on_site",
+            "location": "100 Maple Ave"
+          },
+          {
+            "record": "visits#3",
+            "title": "Quarterly – Wong offices",
+            "dayOffset": 1,
+            "time": "07:30",
+            "minutes": 90,
+            "type": "on_site",
+            "location": "211 Willow Way"
+          },
+          {
+            "record": "visits#4",
+            "title": "Mouse inspection",
+            "dayOffset": 2,
+            "time": "14:00",
+            "minutes": 45,
+            "type": "on_site",
+            "location": "248 Elm Street"
+          },
+          {
+            "record": "visits#5",
+            "title": "Termite inspection",
+            "dayOffset": 8,
+            "time": "10:00",
+            "minutes": 60,
+            "type": "on_site",
+            "location": "285 Pine Road"
+          },
+          {
+            "record": "visits#1",
+            "title": "Ant follow-up",
+            "dayOffset": 3,
+            "time": "11:00",
+            "minutes": 30,
+            "type": "on_site",
+            "location": "137 Birch Lane"
+          }
+        ]
+      }
+    },
+    {
+      "key": "hvac",
+      "name": "Heating & cooling (HVAC)",
+      "description": "Maintenance agreements with spring AC and fall furnace tune-ups, filters every 90 days, equipment warranties and tech licenses.",
+      "lists": [
+        {
+          "key": "customers",
+          "name": "Customers",
+          "description": "The people and businesses you work for",
+          "kind": "person",
+          "vocab": {
+            "record": {
+              "one": "customer",
+              "many": "customers",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 190,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 1,
+              "width": 140,
+              "is_required": 1
+            },
+            {
+              "name": "Email",
+              "column_type": "email",
+              "position": 2,
+              "width": 200
+            },
+            {
+              "name": "Preferred contact",
+              "column_type": "dropdown",
+              "position": 3,
+              "width": 150,
+              "config": "{\"options\": [\"Call\", \"Text\", \"Email\"]}"
+            },
+            {
+              "name": "Billing address",
+              "column_type": "address",
+              "position": 4,
+              "width": 180
+            },
+            {
+              "name": "Notes",
+              "column_type": "notes",
+              "position": 5,
+              "width": 220
+            }
+          ]
+        },
+        {
+          "key": "properties",
+          "name": "Properties",
+          "description": "Homes and buildings you service, with tune-ups and filters due",
+          "kind": "thing",
+          "vocab": {
+            "record": {
+              "one": "property",
+              "many": "properties",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "Property",
+              "column_type": "text",
+              "position": 0,
+              "width": 220,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1,
+              "description": "A short name, e.g. \"Dubois – 100 Maple Ave\""
+            },
+            {
+              "name": "Address",
+              "column_type": "address",
+              "position": 1,
+              "width": 180,
+              "is_required": 1
+            },
+            {
+              "name": "Gate and pet notes",
+              "column_type": "notes",
+              "position": 2,
+              "width": 220,
+              "description": "Gate code, dogs, where to park, anything the crew should know"
+            },
+            {
+              "name": "Service plan",
+              "column_type": "dropdown",
+              "position": 3,
+              "width": 170,
+              "config": "{\"options\": [\"Maintenance agreement\", \"Pay per visit\"]}"
+            },
+            {
+              "name": "AC tune-up",
+              "column_type": "date",
+              "position": 4,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Spring AC tune-up\", \"log_changes\": true}",
+              "description": "Date of the last cooling tune-up; due again each spring"
+            },
+            {
+              "name": "Furnace tune-up",
+              "column_type": "date",
+              "position": 5,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Fall furnace tune-up\", \"log_changes\": true}",
+              "description": "Date of the last heating tune-up; due again each fall"
+            },
+            {
+              "name": "Filter changed",
+              "column_type": "date",
+              "position": 6,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Every 90 days\", \"log_changes\": true}",
+              "description": "Date the filter was last changed"
+            },
+            {
+              "name": "Filter size",
+              "column_type": "text",
+              "position": 7,
+              "width": 120,
+              "description": "e.g. 16x25x1"
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Spring AC tune-up",
+              "description": "Cooling tune-up by mid-May",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+              "kind": "calendar",
+              "rule_config": "{\"kind\": \"calendar\", \"months\": [5], \"day\": 15, \"lead\": 60}"
+            },
+            {
+              "name": "Fall furnace tune-up",
+              "description": "Heating tune-up by the end of October",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+              "kind": "calendar",
+              "rule_config": "{\"kind\": \"calendar\", \"months\": [10], \"day\": 31, \"lead\": 60}"
+            },
+            {
+              "name": "Every 90 days",
+              "description": "Due 90 days after the date entered",
+              "interval_days": 90,
+              "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+            }
+          ],
+          "links": [
+            {
+              "to": "customers",
+              "label_forward": "Customer",
+              "label_backward": "Properties",
+              "cardinality": "many_to_one"
+            }
+          ]
+        },
+        {
+          "key": "visits",
+          "name": "Visits",
+          "description": "Each visit from the request to done",
+          "kind": "job",
+          "vocab": {
+            "record": {
+              "one": "visit",
+              "many": "visits",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "Visit",
+              "column_type": "text",
+              "position": 0,
+              "width": 220,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1
+            },
+            {
+              "name": "Stage",
+              "column_type": "status",
+              "position": 1,
+              "width": 140,
+              "config": "{\"options\": [{\"label\": \"Requested\", \"color\": \"#64748b\"}, {\"label\": \"Scheduled\", \"color\": \"#3b82f6\"}, {\"label\": \"Done\", \"color\": \"#22c55e\"}, {\"label\": \"Cancelled\", \"color\": \"#ef4444\"}]}"
+            },
+            {
+              "name": "Service",
+              "column_type": "dropdown",
+              "position": 2,
+              "width": 170,
+              "config": "{\"options\": [\"Tune-up\", \"Repair\", \"Install\", \"Filter change\"]}"
+            },
+            {
+              "name": "Scheduled for",
+              "column_type": "date",
+              "position": 3,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Visit date\", \"log_changes\": true}",
+              "description": "The day the visit is booked"
+            },
+            {
+              "name": "Completed on",
+              "column_type": "date",
+              "position": 4,
+              "width": 150,
+              "description": "Filled in when the visit moves to Done"
+            },
+            {
+              "name": "Price",
+              "column_type": "currency",
+              "position": 5,
+              "width": 110
+            },
+            {
+              "name": "Notes",
+              "column_type": "notes",
+              "position": 6,
+              "width": 220
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Visit date",
+              "description": "The date entered is the day of the visit, until it is done",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+              "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is_not\", \"values\": [\"Done\", \"Cancelled\"], \"whenFalse\": \"hide\"}"
+            }
+          ],
+          "links": [
+            {
+              "to": "properties",
+              "label_forward": "Property",
+              "label_backward": "Visits",
+              "cardinality": "many_to_one"
+            }
+          ],
+          "stage": {
+            "column": "Stage",
+            "options": [
+              {
+                "value": "Requested",
+                "color": "slate"
+              },
+              {
+                "value": "Scheduled",
+                "color": "blue"
+              },
+              {
+                "value": "Done",
+                "color": "green",
+                "done": true,
+                "onEnter": {
+                  "stampColumn": "Completed on",
+                  "activityType": "note"
+                }
+              },
+              {
+                "value": "Cancelled",
+                "color": "red",
+                "done": true
+              }
+            ],
+            "hideDoneAfterDays": 30
+          },
+          "forms": [
+            {
+              "name": "Service request",
+              "intro": "Take this down when someone calls to book a visit, or print a blank for the truck.",
+              "log_activity_type": "call",
+              "fields": [
+                {
+                  "kind": "column",
+                  "column": "Visit",
+                  "label": "What do they need?",
+                  "required": true
+                },
+                {
+                  "kind": "column",
+                  "column": "Service",
+                  "width": "half"
+                },
+                {
+                  "kind": "column",
+                  "column": "Scheduled for",
+                  "width": "half"
+                },
+                {
+                  "kind": "note",
+                  "label": "Anything the crew should know before they arrive?"
+                }
+              ]
+            }
+          ],
+          "checklists": [
+            {
+              "name": "Furnace tune-up",
+              "description": "Fall heating check",
+              "items": "[\"Replace or clean the filter\", \"Check the flame sensor and igniter\", \"Test the carbon monoxide detector\", \"Check the flue and venting\", \"Measure temperature rise\", \"Note the filter size on the property\"]"
+            }
+          ]
+        },
+        {
+          "key": "systems",
+          "name": "Systems",
+          "description": "Furnaces, air conditioners and heat pumps at each property",
+          "kind": "thing",
+          "vocab": {
+            "record": {
+              "one": "system",
+              "many": "systems",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "System",
+              "column_type": "text",
+              "position": 0,
+              "width": 220,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1,
+              "description": "e.g. \"Dubois – furnace\""
+            },
+            {
+              "name": "Type",
+              "column_type": "dropdown",
+              "position": 1,
+              "width": 140,
+              "config": "{\"options\": [\"Furnace\", \"Air conditioner\", \"Heat pump\", \"Boiler\", \"Mini-split\", \"Water heater\"]}"
+            },
+            {
+              "name": "Make and model",
+              "column_type": "text",
+              "position": 2,
+              "width": 180
+            },
+            {
+              "name": "Installed",
+              "column_type": "date",
+              "position": 3,
+              "width": 140
+            },
+            {
+              "name": "Warranty ends",
+              "column_type": "date",
+              "position": 4,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Warranty\", \"log_changes\": true}",
+              "description": "Parts or labor warranty end date"
+            },
+            {
+              "name": "Refrigerant",
+              "column_type": "dropdown",
+              "position": 5,
+              "width": 120,
+              "config": "{\"options\": [\"R-410A\", \"R-32\", \"R-454B\", \"R-22\", \"None\"]}"
+            },
+            {
+              "name": "Notes",
+              "column_type": "notes",
+              "position": 6,
+              "width": 220
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Warranty",
+              "description": "The date entered is when the warranty runs out",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+            }
+          ],
+          "links": [
+            {
+              "to": "properties",
+              "label_forward": "Property",
+              "label_backward": "Systems",
+              "cardinality": "many_to_one"
+            }
+          ]
+        },
+        {
+          "key": "technicians",
+          "name": "Technicians",
+          "description": "Your techs, with licenses and certifications",
+          "kind": "person",
+          "vocab": {
+            "record": {
+              "one": "technician",
+              "many": "technicians",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 180,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 1,
+              "width": 140
+            },
+            {
+              "name": "EPA 608 certification",
+              "column_type": "dropdown",
+              "position": 2,
+              "width": 170,
+              "config": "{\"options\": [\"Type I\", \"Type II\", \"Type III\", \"Universal\"]}",
+              "is_required": 1,
+              "description": "Does not expire, but you need it on file"
+            },
+            {
+              "name": "State license expires",
+              "column_type": "date",
+              "position": 3,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}"
+            },
+            {
+              "name": "Driver's license expires",
+              "column_type": "date",
+              "position": 4,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}"
+            },
+            {
+              "name": "Last safety training",
+              "column_type": "date",
+              "position": 5,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}"
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Expires (60 days ahead)",
+              "description": "The date entered is when it runs out; warns 60 days ahead",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+            },
+            {
+              "name": "Every year",
+              "description": "Due on the same date a year later",
+              "interval_months": 12,
+              "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+            }
+          ]
+        }
+      ],
+      "sampleData": {
+        "records": {
+          "customers": [
+            {
+              "Name": "Robert Dubois",
+              "Phone": "555-0113",
+              "Email": "robert.dubois@example.com",
+              "Preferred contact": "Text",
+              "Billing address": "100 Maple Ave\nSpringfield"
+            },
+            {
+              "Name": "Linh Smith",
+              "Phone": "555-0120",
+              "Email": "linh.smith@example.com",
+              "Preferred contact": "Call",
+              "Billing address": "137 Birch Lane\nSpringfield"
+            },
+            {
+              "Name": "Dorothy Kowalski",
+              "Phone": "555-0127",
+              "Email": "dorothy.kowalski@example.com",
+              "Preferred contact": "Text",
+              "Billing address": "174 Cedar Court\nSpringfield"
+            },
+            {
+              "Name": "Carlos Wong",
+              "Phone": "555-0134",
+              "Email": "carlos.wong@example.com",
+              "Preferred contact": "Email",
+              "Billing address": "211 Willow Way\nSpringfield",
+              "Notes": "Bill the office monthly."
+            },
+            {
+              "Name": "Priya Bell",
+              "Phone": "555-0141",
+              "Email": "priya.bell@example.com",
+              "Preferred contact": "Call",
+              "Billing address": "248 Elm Street\nSpringfield"
+            },
+            {
+              "Name": "Frank Rivera",
+              "Phone": "555-0148",
+              "Email": "frank.rivera@example.com",
+              "Preferred contact": "Text",
+              "Billing address": "285 Pine Road\nSpringfield"
+            },
+            {
+              "Name": "Keisha Thompson",
+              "Phone": "555-0155",
+              "Email": "keisha.thompson@example.com",
+              "Preferred contact": "Call",
+              "Billing address": "322 Oak Terrace\nSpringfield"
+            },
+            {
+              "Name": "Samuel Rahman",
+              "Phone": "555-0162",
+              "Email": "samuel.rahman@example.com",
+              "Preferred contact": "Email",
+              "Billing address": "359 Aspen Drive\nSpringfield"
+            }
+          ],
+          "properties": [
+            {
+              "Property": "Dubois – 100 Maple Ave",
+              "Address": "100 Maple Ave\nSpringfield",
+              "Service plan": "Maintenance agreement",
+              "Gate and pet notes": "Gate code 4471. Dog in the back yard.",
+              "AC tune-up": {
+                "daysFromToday": -150
+              },
+              "Furnace tune-up": {
+                "daysFromToday": -340
+              },
+              "Filter changed": {
+                "daysFromToday": -80
+              },
+              "Filter size": "16x25x1"
+            },
+            {
+              "Property": "Smith – 137 Birch Lane",
+              "Address": "137 Birch Lane\nSpringfield",
+              "Service plan": "Pay per visit",
+              "Furnace tune-up": {
+                "daysFromToday": -400
+              },
+              "Filter changed": {
+                "daysFromToday": -120
+              },
+              "Filter size": "20x25x4"
+            },
+            {
+              "Property": "Kowalski – 174 Cedar Court",
+              "Address": "174 Cedar Court\nSpringfield",
+              "Service plan": "Maintenance agreement",
+              "Gate and pet notes": "Side gate sticks; lift and push.",
+              "AC tune-up": {
+                "daysFromToday": -520
+              },
+              "Furnace tune-up": {
+                "daysFromToday": -360
+              },
+              "Filter changed": {
+                "daysFromToday": -95
+              },
+              "Filter size": "16x20x1"
+            },
+            {
+              "Property": "Wong – 211 Willow Way",
+              "Address": "211 Willow Way\nSpringfield",
+              "Service plan": "Maintenance agreement",
+              "Gate and pet notes": "Office park; check in at the front desk.",
+              "AC tune-up": {
+                "daysFromToday": -160
+              },
+              "Furnace tune-up": {
+                "daysFromToday": -350
+              },
+              "Filter changed": {
+                "daysFromToday": -40
+              },
+              "Filter size": "20x20x2"
+            },
+            {
+              "Property": "Bell – 248 Elm Street",
+              "Address": "248 Elm Street\nSpringfield",
+              "Service plan": "Pay per visit",
+              "AC tune-up": {
+                "daysFromToday": -150
+              }
+            },
+            {
+              "Property": "Rivera – 285 Pine Road",
+              "Address": "285 Pine Road\nSpringfield",
+              "Service plan": "Pay per visit",
+              "Gate and pet notes": "Park on the street, not the driveway."
+            },
+            {
+              "Property": "Thompson – 322 Oak Terrace",
+              "Address": "322 Oak Terrace\nSpringfield",
+              "Service plan": "Maintenance agreement",
+              "Gate and pet notes": "Two cats indoors; keep doors shut.",
+              "AC tune-up": {
+                "daysFromToday": -170
+              },
+              "Furnace tune-up": {
+                "daysFromToday": -20
+              },
+              "Filter changed": {
+                "daysFromToday": -88
+              },
+              "Filter size": "14x25x1"
+            },
+            {
+              "Property": "Rahman – 359 Aspen Drive",
+              "Address": "359 Aspen Drive\nSpringfield",
+              "Service plan": "Maintenance agreement",
+              "AC tune-up": {
+                "daysFromToday": -150
+              },
+              "Furnace tune-up": {
+                "daysFromToday": -345
+              },
+              "Filter changed": {
+                "daysFromToday": -10
+              },
+              "Filter size": "16x25x1"
+            }
+          ],
+          "visits": [
+            {
+              "Visit": "Furnace tune-up – Dubois",
+              "Stage": "Scheduled",
+              "Service": "Tune-up",
+              "Scheduled for": {
+                "daysFromToday": 2
+              },
+              "Price": 129
+            },
+            {
+              "Visit": "No heat upstairs",
+              "Stage": "Scheduled",
+              "Service": "Repair",
+              "Scheduled for": {
+                "daysFromToday": 0
+              },
+              "Price": 0
+            },
+            {
+              "Visit": "Furnace tune-up – Kowalski",
+              "Stage": "Requested",
+              "Service": "Tune-up"
+            },
+            {
+              "Visit": "Rooftop units – Wong offices",
+              "Stage": "Scheduled",
+              "Service": "Tune-up",
+              "Scheduled for": {
+                "daysFromToday": -2
+              },
+              "Price": 540
+            },
+            {
+              "Visit": "Replace condenser fan motor",
+              "Stage": "Done",
+              "Service": "Repair",
+              "Scheduled for": {
+                "daysFromToday": -15
+              },
+              "Completed on": {
+                "daysFromToday": -15
+              },
+              "Price": 410
+            },
+            {
+              "Visit": "New furnace install",
+              "Stage": "Scheduled",
+              "Service": "Install",
+              "Scheduled for": {
+                "daysFromToday": 16
+              },
+              "Price": 5800
+            },
+            {
+              "Visit": "Filter change",
+              "Stage": "Done",
+              "Service": "Filter change",
+              "Scheduled for": {
+                "daysFromToday": -88
+              },
+              "Completed on": {
+                "daysFromToday": -88
+              },
+              "Price": 35
+            },
+            {
+              "Visit": "AC tune-up – Rahman",
+              "Stage": "Done",
+              "Service": "Tune-up",
+              "Scheduled for": {
+                "daysFromToday": -150
+              },
+              "Completed on": {
+                "daysFromToday": -150
+              },
+              "Price": 129
+            }
+          ],
+          "systems": [
+            {
+              "System": "Dubois – furnace",
+              "Type": "Furnace",
+              "Make and model": "Carrier 59SC5",
+              "Installed": {
+                "daysFromToday": -2900
+              },
+              "Warranty ends": {
+                "daysFromToday": -10
+              },
+              "Refrigerant": "None"
+            },
+            {
+              "System": "Dubois – air conditioner",
+              "Type": "Air conditioner",
+              "Make and model": "Carrier 24ACC6",
+              "Installed": {
+                "daysFromToday": -2900
+              },
+              "Warranty ends": {
+                "daysFromToday": -10
+              },
+              "Refrigerant": "R-410A"
+            },
+            {
+              "System": "Smith – heat pump",
+              "Type": "Heat pump",
+              "Make and model": "Trane XR15",
+              "Installed": {
+                "daysFromToday": -1500
+              },
+              "Warranty ends": {
+                "daysFromToday": 2100
+              },
+              "Refrigerant": "R-410A"
+            },
+            {
+              "System": "Wong offices – rooftop unit 1",
+              "Type": "Air conditioner",
+              "Make and model": "Lennox LGH",
+              "Installed": {
+                "daysFromToday": -3300
+              },
+              "Warranty ends": {
+                "daysFromToday": 40
+              },
+              "Refrigerant": "R-410A",
+              "Notes": "Belt-drive blower; spare belt in the van."
+            },
+            {
+              "System": "Bell – air conditioner",
+              "Type": "Air conditioner",
+              "Make and model": "Goodman GSXN4",
+              "Installed": {
+                "daysFromToday": -700
+              },
+              "Warranty ends": {
+                "daysFromToday": 3000
+              },
+              "Refrigerant": "R-32"
+            }
+          ],
+          "technicians": [
+            {
+              "Name": "Marcus Lee",
+              "Phone": "555-0170",
+              "EPA 608 certification": "Universal",
+              "State license expires": {
+                "daysFromToday": 28
+              },
+              "Driver's license expires": {
+                "daysFromToday": 900
+              },
+              "Last safety training": {
+                "daysFromToday": -300
+              }
+            },
+            {
+              "Name": "Ana Torres",
+              "Phone": "555-0173",
+              "EPA 608 certification": "Type II",
+              "State license expires": {
+                "daysFromToday": 420
+              },
+              "Driver's license expires": {
+                "daysFromToday": -4
+              },
+              "Last safety training": {
+                "daysFromToday": -375
+              }
+            },
+            {
+              "Name": "Devon Price",
+              "Phone": "555-0176",
+              "Driver's license expires": {
+                "daysFromToday": 700
+              },
+              "Last safety training": {
+                "daysFromToday": -90
+              }
+            }
+          ]
+        },
+        "links": [
+          {
+            "from": "properties#0",
+            "to": "customers#0",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#1",
+            "to": "customers#1",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#2",
+            "to": "customers#2",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#3",
+            "to": "customers#3",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#4",
+            "to": "customers#4",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#5",
+            "to": "customers#5",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#6",
+            "to": "customers#6",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#7",
+            "to": "customers#7",
+            "link": "Customer"
+          },
+          {
+            "from": "visits#0",
+            "to": "properties#0",
+            "link": "Property"
+          },
+          {
+            "from": "visits#1",
+            "to": "properties#1",
+            "link": "Property"
+          },
+          {
+            "from": "visits#2",
+            "to": "properties#2",
+            "link": "Property"
+          },
+          {
+            "from": "visits#3",
+            "to": "properties#3",
+            "link": "Property"
+          },
+          {
+            "from": "visits#4",
+            "to": "properties#4",
+            "link": "Property"
+          },
+          {
+            "from": "visits#5",
+            "to": "properties#5",
+            "link": "Property"
+          },
+          {
+            "from": "visits#6",
+            "to": "properties#6",
+            "link": "Property"
+          },
+          {
+            "from": "visits#7",
+            "to": "properties#7",
+            "link": "Property"
+          },
+          {
+            "from": "systems#0",
+            "to": "properties#0",
+            "link": "Property"
+          },
+          {
+            "from": "systems#1",
+            "to": "properties#0",
+            "link": "Property"
+          },
+          {
+            "from": "systems#2",
+            "to": "properties#1",
+            "link": "Property"
+          },
+          {
+            "from": "systems#3",
+            "to": "properties#3",
+            "link": "Property"
+          },
+          {
+            "from": "systems#4",
+            "to": "properties#4",
+            "link": "Property"
+          }
+        ],
+        "activities": [
+          {
+            "record": "visits#1",
+            "type": "call",
+            "daysAgo": 0,
+            "text": "Upstairs stays at 60 degrees. Booked for this afternoon."
+          },
+          {
+            "record": "visits#4",
+            "type": "note",
+            "daysAgo": 15,
+            "text": "Replaced the fan motor and capacitor. Running fine."
+          },
+          {
+            "record": "properties#3",
+            "type": "call",
+            "daysAgo": 5,
+            "text": "Office manager asked for the rooftop units before the cold snap."
+          }
+        ],
+        "history": [
+          {
+            "record": "visits#5",
+            "column": "Stage",
+            "values": [
+              {
+                "value": "Requested",
+                "daysAgo": 20
+              },
+              {
+                "value": "Scheduled",
+                "daysAgo": 12
+              }
+            ]
+          }
+        ],
+        "appointments": [
+          {
+            "record": "visits#1",
+            "title": "No heat upstairs",
+            "dayOffset": 0,
+            "time": "14:00",
+            "minutes": 90,
+            "type": "on_site",
+            "location": "137 Birch Lane"
+          },
+          {
+            "record": "visits#0",
+            "title": "Furnace tune-up",
+            "dayOffset": 2,
+            "time": "09:00",
+            "minutes": 60,
+            "type": "on_site",
+            "location": "100 Maple Ave"
+          },
+          {
+            "record": "visits#5",
+            "title": "Furnace install",
+            "dayOffset": 16,
+            "time": "08:00",
+            "minutes": 480,
+            "type": "on_site",
+            "location": "285 Pine Road"
+          },
+          {
+            "record": "visits#3",
+            "title": "Rooftop units",
+            "dayOffset": -2,
+            "time": "07:00",
+            "minutes": 240,
+            "type": "on_site",
+            "location": "211 Willow Way",
+            "status": "scheduled"
+          }
+        ]
+      }
+    },
+    {
+      "key": "pool-service",
+      "name": "Pool service",
+      "description": "Weekly route visits, opening and closing each season, filter cleaning and water readings.",
+      "lists": [
+        {
+          "key": "customers",
+          "name": "Customers",
+          "description": "The people and businesses you work for",
+          "kind": "person",
+          "vocab": {
+            "record": {
+              "one": "customer",
+              "many": "customers",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 190,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 1,
+              "width": 140,
+              "is_required": 1
+            },
+            {
+              "name": "Email",
+              "column_type": "email",
+              "position": 2,
+              "width": 200
+            },
+            {
+              "name": "Preferred contact",
+              "column_type": "dropdown",
+              "position": 3,
+              "width": 150,
+              "config": "{\"options\": [\"Call\", \"Text\", \"Email\"]}"
+            },
+            {
+              "name": "Billing address",
+              "column_type": "address",
+              "position": 4,
+              "width": 180
+            },
+            {
+              "name": "Notes",
+              "column_type": "notes",
+              "position": 5,
+              "width": 220
+            }
+          ]
+        },
+        {
+          "key": "properties",
+          "name": "Properties",
+          "description": "Pools and spas you look after",
+          "kind": "thing",
+          "vocab": {
+            "record": {
+              "one": "property",
+              "many": "properties",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "Property",
+              "column_type": "text",
+              "position": 0,
+              "width": 220,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1,
+              "description": "A short name, e.g. \"Dubois – 100 Maple Ave\""
+            },
+            {
+              "name": "Address",
+              "column_type": "address",
+              "position": 1,
+              "width": 180,
+              "is_required": 1
+            },
+            {
+              "name": "Gate and pet notes",
+              "column_type": "notes",
+              "position": 2,
+              "width": 220,
+              "description": "Gate code, dogs, where to park, anything the crew should know"
+            },
+            {
+              "name": "Service plan",
+              "column_type": "dropdown",
+              "position": 3,
+              "width": 170,
+              "config": "{\"options\": [\"Weekly service\", \"Every 2 weeks\", \"Opening and closing only\"]}"
+            },
+            {
+              "name": "Pool type",
+              "column_type": "dropdown",
+              "position": 4,
+              "width": 130,
+              "config": "{\"options\": [\"Chlorine\", \"Salt\", \"Spa / hot tub\"]}"
+            },
+            {
+              "name": "Gallons",
+              "column_type": "number",
+              "position": 5,
+              "width": 110
+            },
+            {
+              "name": "Pump and filter",
+              "column_type": "text",
+              "position": 6,
+              "width": 180,
+              "description": "Make and model, filter type"
+            },
+            {
+              "name": "Opened",
+              "column_type": "date",
+              "position": 7,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Opening\", \"log_changes\": true}",
+              "description": "Date the pool was opened; due again each May"
+            },
+            {
+              "name": "Closed",
+              "column_type": "date",
+              "position": 8,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Closing\", \"log_changes\": true}",
+              "description": "Date the pool was closed; due again each September"
+            },
+            {
+              "name": "Filter cleaned",
+              "column_type": "date",
+              "position": 9,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Every 3 months\", \"log_changes\": true}",
+              "description": "Date the filter was last cleaned"
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Opening",
+              "description": "Open by Memorial Day weekend",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+              "kind": "calendar",
+              "rule_config": "{\"kind\": \"calendar\", \"months\": [5], \"day\": 25, \"lead\": 45}"
+            },
+            {
+              "name": "Closing",
+              "description": "Close by the end of September",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+              "kind": "calendar",
+              "rule_config": "{\"kind\": \"calendar\", \"months\": [9], \"day\": 30, \"lead\": 45}"
+            },
+            {
+              "name": "Every 3 months",
+              "description": "Due 3 months after the date entered",
+              "interval_months": 3,
+              "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+            }
+          ],
+          "links": [
+            {
+              "to": "customers",
+              "label_forward": "Customer",
+              "label_backward": "Properties",
+              "cardinality": "many_to_one"
+            }
+          ]
+        },
+        {
+          "key": "visits",
+          "name": "Visits",
+          "description": "Each visit from the request to done",
+          "kind": "job",
+          "vocab": {
+            "record": {
+              "one": "visit",
+              "many": "visits",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "Visit",
+              "column_type": "text",
+              "position": 0,
+              "width": 220,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1
+            },
+            {
+              "name": "Stage",
+              "column_type": "status",
+              "position": 1,
+              "width": 140,
+              "config": "{\"options\": [{\"label\": \"Requested\", \"color\": \"#64748b\"}, {\"label\": \"Scheduled\", \"color\": \"#3b82f6\"}, {\"label\": \"Done\", \"color\": \"#22c55e\"}, {\"label\": \"Cancelled\", \"color\": \"#ef4444\"}]}"
+            },
+            {
+              "name": "Service",
+              "column_type": "dropdown",
+              "position": 2,
+              "width": 170,
+              "config": "{\"options\": [\"Weekly cleaning\", \"Opening\", \"Closing\", \"Repair\", \"Green pool cleanup\"]}"
+            },
+            {
+              "name": "Scheduled for",
+              "column_type": "date",
+              "position": 3,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Visit date\", \"log_changes\": true}",
+              "description": "The day the visit is booked"
+            },
+            {
+              "name": "Completed on",
+              "column_type": "date",
+              "position": 4,
+              "width": 150,
+              "description": "Filled in when the visit moves to Done"
+            },
+            {
+              "name": "Free chlorine (ppm)",
+              "column_type": "number",
+              "position": 5,
+              "width": 150
+            },
+            {
+              "name": "pH",
+              "column_type": "number",
+              "position": 6,
+              "width": 90
+            },
+            {
+              "name": "Price",
+              "column_type": "currency",
+              "position": 7,
+              "width": 110
+            },
+            {
+              "name": "Notes",
+              "column_type": "notes",
+              "position": 8,
+              "width": 220
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Visit date",
+              "description": "The date entered is the day of the visit, until it is done",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+              "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is_not\", \"values\": [\"Done\", \"Cancelled\"], \"whenFalse\": \"hide\"}"
+            }
+          ],
+          "links": [
+            {
+              "to": "properties",
+              "label_forward": "Property",
+              "label_backward": "Visits",
+              "cardinality": "many_to_one"
+            }
+          ],
+          "stage": {
+            "column": "Stage",
+            "options": [
+              {
+                "value": "Requested",
+                "color": "slate"
+              },
+              {
+                "value": "Scheduled",
+                "color": "blue"
+              },
+              {
+                "value": "Done",
+                "color": "green",
+                "done": true,
+                "onEnter": {
+                  "stampColumn": "Completed on",
+                  "activityType": "note"
+                }
+              },
+              {
+                "value": "Cancelled",
+                "color": "red",
+                "done": true
+              }
+            ],
+            "hideDoneAfterDays": 30
+          },
+          "forms": [
+            {
+              "name": "Service request",
+              "intro": "Take this down when someone calls to book a visit, or print a blank for the truck.",
+              "log_activity_type": "call",
+              "fields": [
+                {
+                  "kind": "column",
+                  "column": "Visit",
+                  "label": "What do they need?",
+                  "required": true
+                },
+                {
+                  "kind": "column",
+                  "column": "Service",
+                  "width": "half"
+                },
+                {
+                  "kind": "column",
+                  "column": "Scheduled for",
+                  "width": "half"
+                },
+                {
+                  "kind": "note",
+                  "label": "Anything the crew should know before they arrive?"
+                }
+              ]
+            }
+          ],
+          "checklists": [
+            {
+              "name": "Weekly service",
+              "description": "Every stop on the route",
+              "items": "[\"Skim and empty baskets\", \"Brush walls and steps\", \"Vacuum\", \"Test chlorine and pH, and balance\", \"Check pump pressure\", \"Close and lock the gate\"]"
+            }
+          ]
+        }
+      ],
+      "sampleData": {
+        "records": {
+          "customers": [
+            {
+              "Name": "Robert Dubois",
+              "Phone": "555-0113",
+              "Email": "robert.dubois@example.com",
+              "Preferred contact": "Text",
+              "Billing address": "100 Maple Ave\nSpringfield"
+            },
+            {
+              "Name": "Linh Smith",
+              "Phone": "555-0120",
+              "Email": "linh.smith@example.com",
+              "Preferred contact": "Call",
+              "Billing address": "137 Birch Lane\nSpringfield"
+            },
+            {
+              "Name": "Dorothy Kowalski",
+              "Phone": "555-0127",
+              "Email": "dorothy.kowalski@example.com",
+              "Preferred contact": "Text",
+              "Billing address": "174 Cedar Court\nSpringfield"
+            },
+            {
+              "Name": "Carlos Wong",
+              "Phone": "555-0134",
+              "Email": "carlos.wong@example.com",
+              "Preferred contact": "Email",
+              "Billing address": "211 Willow Way\nSpringfield",
+              "Notes": "Bill the office monthly."
+            },
+            {
+              "Name": "Priya Bell",
+              "Phone": "555-0141",
+              "Email": "priya.bell@example.com",
+              "Preferred contact": "Call",
+              "Billing address": "248 Elm Street\nSpringfield"
+            },
+            {
+              "Name": "Frank Rivera",
+              "Phone": "555-0148",
+              "Email": "frank.rivera@example.com",
+              "Preferred contact": "Text",
+              "Billing address": "285 Pine Road\nSpringfield"
+            },
+            {
+              "Name": "Keisha Thompson",
+              "Phone": "555-0155",
+              "Email": "keisha.thompson@example.com",
+              "Preferred contact": "Call",
+              "Billing address": "322 Oak Terrace\nSpringfield"
+            },
+            {
+              "Name": "Samuel Rahman",
+              "Phone": "555-0162",
+              "Email": "samuel.rahman@example.com",
+              "Preferred contact": "Email",
+              "Billing address": "359 Aspen Drive\nSpringfield"
+            }
+          ],
+          "properties": [
+            {
+              "Property": "Dubois – 100 Maple Ave",
+              "Address": "100 Maple Ave\nSpringfield",
+              "Service plan": "Weekly service",
+              "Gate and pet notes": "Gate code 4471. Dog in the back yard.",
+              "Pool type": "Chlorine",
+              "Gallons": 18000,
+              "Opened": {
+                "daysFromToday": -140
+              },
+              "Closed": {
+                "daysFromToday": -380
+              },
+              "Filter cleaned": {
+                "daysFromToday": -70
+              },
+              "Pump and filter": "Hayward Super Pump, cartridge filter"
+            },
+            {
+              "Property": "Smith – 137 Birch Lane",
+              "Address": "137 Birch Lane\nSpringfield",
+              "Service plan": "Weekly service",
+              "Pool type": "Salt",
+              "Gallons": 22000,
+              "Opened": {
+                "daysFromToday": -135
+              },
+              "Closed": {
+                "daysFromToday": -375
+              },
+              "Filter cleaned": {
+                "daysFromToday": -100
+              }
+            },
+            {
+              "Property": "Kowalski – 174 Cedar Court",
+              "Address": "174 Cedar Court\nSpringfield",
+              "Service plan": "Opening and closing only",
+              "Gate and pet notes": "Side gate sticks; lift and push.",
+              "Pool type": "Chlorine",
+              "Gallons": 15000,
+              "Opened": {
+                "daysFromToday": -150
+              },
+              "Closed": {
+                "daysFromToday": -390
+              }
+            },
+            {
+              "Property": "Wong – 211 Willow Way",
+              "Address": "211 Willow Way\nSpringfield",
+              "Service plan": "Every 2 weeks",
+              "Gate and pet notes": "Office park; check in at the front desk.",
+              "Pool type": "Salt",
+              "Gallons": 30000,
+              "Opened": {
+                "daysFromToday": -500
+              },
+              "Closed": {
+                "daysFromToday": -400
+              },
+              "Filter cleaned": {
+                "daysFromToday": -85
+              },
+              "Pump and filter": "Pentair variable-speed, sand filter"
+            },
+            {
+              "Property": "Bell – 248 Elm Street",
+              "Address": "248 Elm Street\nSpringfield",
+              "Service plan": "Weekly service",
+              "Pool type": "Chlorine",
+              "Gallons": 20000,
+              "Opened": {
+                "daysFromToday": -130
+              },
+              "Filter cleaned": {
+                "daysFromToday": -40
+              }
+            },
+            {
+              "Property": "Rivera – 285 Pine Road",
+              "Address": "285 Pine Road\nSpringfield",
+              "Service plan": "Every 2 weeks",
+              "Gate and pet notes": "Park on the street, not the driveway.",
+              "Pool type": "Spa / hot tub",
+              "Gallons": 450,
+              "Filter cleaned": {
+                "daysFromToday": -200
+              }
+            },
+            {
+              "Property": "Thompson – 322 Oak Terrace",
+              "Address": "322 Oak Terrace\nSpringfield",
+              "Service plan": "Weekly service",
+              "Gate and pet notes": "Two cats indoors; keep doors shut.",
+              "Pool type": "Chlorine",
+              "Gallons": 16000,
+              "Opened": {
+                "daysFromToday": -138
+              },
+              "Closed": {
+                "daysFromToday": -385
+              },
+              "Filter cleaned": {
+                "daysFromToday": -88
+              }
+            },
+            {
+              "Property": "Rahman – 359 Aspen Drive",
+              "Address": "359 Aspen Drive\nSpringfield",
+              "Service plan": "Opening and closing only",
+              "Pool type": "Chlorine",
+              "Gallons": 25000,
+              "Opened": {
+                "daysFromToday": -142
+              },
+              "Closed": {
+                "daysFromToday": -12
+              },
+              "Filter cleaned": {
+                "daysFromToday": -30
+              }
+            }
+          ],
+          "visits": [
+            {
+              "Visit": "Weekly service – Dubois",
+              "Stage": "Scheduled",
+              "Service": "Weekly cleaning",
+              "Scheduled for": {
+                "daysFromToday": 1
+              },
+              "Price": 55
+            },
+            {
+              "Visit": "Weekly service – Smith",
+              "Stage": "Scheduled",
+              "Service": "Weekly cleaning",
+              "Scheduled for": {
+                "daysFromToday": 1
+              },
+              "Price": 55
+            },
+            {
+              "Visit": "Weekly service – Bell",
+              "Stage": "Scheduled",
+              "Service": "Weekly cleaning",
+              "Scheduled for": {
+                "daysFromToday": 2
+              },
+              "Price": 60
+            },
+            {
+              "Visit": "Close the pool",
+              "Stage": "Scheduled",
+              "Service": "Closing",
+              "Scheduled for": {
+                "daysFromToday": -3
+              },
+              "Price": 275
+            },
+            {
+              "Visit": "Pump making noise",
+              "Stage": "Requested",
+              "Service": "Repair"
+            },
+            {
+              "Visit": "Green pool cleanup",
+              "Stage": "Done",
+              "Service": "Green pool cleanup",
+              "Scheduled for": {
+                "daysFromToday": -12
+              },
+              "Completed on": {
+                "daysFromToday": -12
+              },
+              "Price": 350,
+              "Free chlorine (ppm)": 3,
+              "pH": 7.5
+            },
+            {
+              "Visit": "Close the pool",
+              "Stage": "Scheduled",
+              "Service": "Closing",
+              "Scheduled for": {
+                "daysFromToday": 9
+              },
+              "Price": 275
+            },
+            {
+              "Visit": "Salt cell cleaning",
+              "Stage": "Done",
+              "Service": "Repair",
+              "Scheduled for": {
+                "daysFromToday": -25
+              },
+              "Completed on": {
+                "daysFromToday": -25
+              },
+              "Price": 90,
+              "Free chlorine (ppm)": 3,
+              "pH": 7.5
+            }
+          ]
+        },
+        "links": [
+          {
+            "from": "properties#0",
+            "to": "customers#0",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#1",
+            "to": "customers#1",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#2",
+            "to": "customers#2",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#3",
+            "to": "customers#3",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#4",
+            "to": "customers#4",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#5",
+            "to": "customers#5",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#6",
+            "to": "customers#6",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#7",
+            "to": "customers#7",
+            "link": "Customer"
+          },
+          {
+            "from": "visits#0",
+            "to": "properties#0",
+            "link": "Property"
+          },
+          {
+            "from": "visits#1",
+            "to": "properties#1",
+            "link": "Property"
+          },
+          {
+            "from": "visits#2",
+            "to": "properties#4",
+            "link": "Property"
+          },
+          {
+            "from": "visits#3",
+            "to": "properties#2",
+            "link": "Property"
+          },
+          {
+            "from": "visits#4",
+            "to": "properties#5",
+            "link": "Property"
+          },
+          {
+            "from": "visits#5",
+            "to": "properties#6",
+            "link": "Property"
+          },
+          {
+            "from": "visits#6",
+            "to": "properties#7",
+            "link": "Property"
+          },
+          {
+            "from": "visits#7",
+            "to": "properties#3",
+            "link": "Property"
+          }
+        ],
+        "activities": [
+          {
+            "record": "visits#5",
+            "type": "note",
+            "daysAgo": 12,
+            "text": "Shocked twice and ran the filter 48 hours. Clear now."
+          },
+          {
+            "record": "visits#4",
+            "type": "call",
+            "daysAgo": 1,
+            "text": "Grinding noise from the pump since the weekend."
+          },
+          {
+            "record": "properties#7",
+            "type": "on_site",
+            "daysAgo": 12,
+            "text": "Pool closed; cover on and lines blown out."
+          }
+        ],
+        "history": [
+          {
+            "record": "visits#3",
+            "column": "Stage",
+            "values": [
+              {
+                "value": "Requested",
+                "daysAgo": 14
+              },
+              {
+                "value": "Scheduled",
+                "daysAgo": 10
+              }
+            ]
+          }
+        ],
+        "appointments": [
+          {
+            "record": "properties#0",
+            "title": "Pool – Dubois",
+            "dayOffset": 1,
+            "time": "08:00",
+            "minutes": 40,
+            "type": "on_site",
+            "repeatWeekly": 10
+          },
+          {
+            "record": "properties#1",
+            "title": "Pool – Smith",
+            "dayOffset": 1,
+            "time": "09:00",
+            "minutes": 40,
+            "type": "on_site",
+            "repeatWeekly": 10
+          },
+          {
+            "record": "properties#4",
+            "title": "Pool – Bell",
+            "dayOffset": 2,
+            "time": "08:30",
+            "minutes": 45,
+            "type": "on_site",
+            "repeatWeekly": 10
+          },
+          {
+            "record": "visits#4",
+            "title": "Look at the pump",
+            "dayOffset": 3,
+            "time": "13:00",
+            "minutes": 60,
+            "type": "on_site",
+            "location": "285 Pine Road"
+          },
+          {
+            "record": "visits#6",
+            "title": "Close the pool",
+            "dayOffset": 9,
+            "time": "10:00",
+            "minutes": 180,
+            "type": "on_site",
+            "location": "359 Aspen Drive"
+          }
+        ]
+      }
+    },
+    {
+      "key": "chimney-gutters-windows",
+      "name": "Chimney, gutters & windows",
+      "description": "Yearly chimney sweeps, gutter cleaning each spring and fall, window washing and dryer vents.",
+      "lists": [
+        {
+          "key": "customers",
+          "name": "Customers",
+          "description": "The people and businesses you work for",
+          "kind": "person",
+          "vocab": {
+            "record": {
+              "one": "customer",
+              "many": "customers",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 190,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 1,
+              "width": 140,
+              "is_required": 1
+            },
+            {
+              "name": "Email",
+              "column_type": "email",
+              "position": 2,
+              "width": 200
+            },
+            {
+              "name": "Preferred contact",
+              "column_type": "dropdown",
+              "position": 3,
+              "width": 150,
+              "config": "{\"options\": [\"Call\", \"Text\", \"Email\"]}"
+            },
+            {
+              "name": "Billing address",
+              "column_type": "address",
+              "position": 4,
+              "width": 180
+            },
+            {
+              "name": "Notes",
+              "column_type": "notes",
+              "position": 5,
+              "width": 220
+            }
+          ]
+        },
+        {
+          "key": "properties",
+          "name": "Properties",
+          "description": "Homes you service, with sweeps, gutters and windows due",
+          "kind": "thing",
+          "vocab": {
+            "record": {
+              "one": "property",
+              "many": "properties",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "Property",
+              "column_type": "text",
+              "position": 0,
+              "width": 220,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1,
+              "description": "A short name, e.g. \"Dubois – 100 Maple Ave\""
+            },
+            {
+              "name": "Address",
+              "column_type": "address",
+              "position": 1,
+              "width": 180,
+              "is_required": 1
+            },
+            {
+              "name": "Gate and pet notes",
+              "column_type": "notes",
+              "position": 2,
+              "width": 220,
+              "description": "Gate code, dogs, where to park, anything the crew should know"
+            },
+            {
+              "name": "Service plan",
+              "column_type": "dropdown",
+              "position": 3,
+              "width": 170,
+              "config": "{\"options\": [\"Yearly\", \"Twice a year\", \"One-time\"]}"
+            },
+            {
+              "name": "Stories",
+              "column_type": "number",
+              "position": 4,
+              "width": 90,
+              "description": "For ladders and gutter length"
+            },
+            {
+              "name": "Last chimney sweep",
+              "column_type": "date",
+              "position": 5,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
+              "description": "Date of the last sweep; due again a year later"
+            },
+            {
+              "name": "Gutters cleaned",
+              "column_type": "date",
+              "position": 6,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Spring and fall\", \"log_changes\": true}",
+              "description": "Date the gutters were last cleaned; due each May and November"
+            },
+            {
+              "name": "Windows washed",
+              "column_type": "date",
+              "position": 7,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}"
+            },
+            {
+              "name": "Dryer vent cleaned",
+              "column_type": "date",
+              "position": 8,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}"
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Every year",
+              "description": "Due on the same date a year later",
+              "interval_months": 12,
+              "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+            },
+            {
+              "name": "Spring and fall",
+              "description": "Gutter cleaning in mid-May and mid-November",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+              "kind": "calendar",
+              "rule_config": "{\"kind\": \"calendar\", \"months\": [5, 11], \"day\": 15, \"lead\": 45}"
+            }
+          ],
+          "links": [
+            {
+              "to": "customers",
+              "label_forward": "Customer",
+              "label_backward": "Properties",
+              "cardinality": "many_to_one"
+            }
+          ]
+        },
+        {
+          "key": "visits",
+          "name": "Visits",
+          "description": "Each visit from the request to done",
+          "kind": "job",
+          "vocab": {
+            "record": {
+              "one": "visit",
+              "many": "visits",
+              "article": "a"
+            }
+          },
+          "columns": [
+            {
+              "name": "Visit",
+              "column_type": "text",
+              "position": 0,
+              "width": 220,
+              "is_name_column": 1,
+              "is_identifier": 1,
+              "is_required": 1
+            },
+            {
+              "name": "Stage",
+              "column_type": "status",
+              "position": 1,
+              "width": 140,
+              "config": "{\"options\": [{\"label\": \"Requested\", \"color\": \"#64748b\"}, {\"label\": \"Scheduled\", \"color\": \"#3b82f6\"}, {\"label\": \"Done\", \"color\": \"#22c55e\"}, {\"label\": \"Cancelled\", \"color\": \"#ef4444\"}]}"
+            },
+            {
+              "name": "Service",
+              "column_type": "dropdown",
+              "position": 2,
+              "width": 170,
+              "config": "{\"options\": [\"Chimney sweep\", \"Chimney inspection\", \"Gutter cleaning\", \"Window washing\", \"Dryer vent\", \"Repair\"]}"
+            },
+            {
+              "name": "Scheduled for",
+              "column_type": "date",
+              "position": 3,
+              "width": 160,
+              "config": "{\"alert_rule_name\": \"Visit date\", \"log_changes\": true}",
+              "description": "The day the visit is booked"
+            },
+            {
+              "name": "Completed on",
+              "column_type": "date",
+              "position": 4,
+              "width": 150,
+              "description": "Filled in when the visit moves to Done"
+            },
+            {
+              "name": "Price",
+              "column_type": "currency",
+              "position": 5,
+              "width": 110
+            },
+            {
+              "name": "Notes",
+              "column_type": "notes",
+              "position": 6,
+              "width": 220
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Visit date",
+              "description": "The date entered is the day of the visit, until it is done",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+              "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is_not\", \"values\": [\"Done\", \"Cancelled\"], \"whenFalse\": \"hide\"}"
+            }
+          ],
+          "links": [
+            {
+              "to": "properties",
+              "label_forward": "Property",
+              "label_backward": "Visits",
+              "cardinality": "many_to_one"
+            }
+          ],
+          "stage": {
+            "column": "Stage",
+            "options": [
+              {
+                "value": "Requested",
+                "color": "slate"
+              },
+              {
+                "value": "Scheduled",
+                "color": "blue"
+              },
+              {
+                "value": "Done",
+                "color": "green",
+                "done": true,
+                "onEnter": {
+                  "stampColumn": "Completed on",
+                  "activityType": "note"
+                }
+              },
+              {
+                "value": "Cancelled",
+                "color": "red",
+                "done": true
+              }
+            ],
+            "hideDoneAfterDays": 30
+          },
+          "forms": [
+            {
+              "name": "Service request",
+              "intro": "Take this down when someone calls to book a visit, or print a blank for the truck.",
+              "log_activity_type": "call",
+              "fields": [
+                {
+                  "kind": "column",
+                  "column": "Visit",
+                  "label": "What do they need?",
+                  "required": true
+                },
+                {
+                  "kind": "column",
+                  "column": "Service",
+                  "width": "half"
+                },
+                {
+                  "kind": "column",
+                  "column": "Scheduled for",
+                  "width": "half"
+                },
+                {
+                  "kind": "note",
+                  "label": "Anything the crew should know before they arrive?"
+                }
+              ]
+            }
+          ],
+          "checklists": [
+            {
+              "name": "Chimney sweep",
+              "description": "Every sweep",
+              "items": "[\"Drop cloths down and fireplace sealed\", \"Sweep the flue\", \"Check the cap, crown and flashing\", \"Photograph anything that needs repair\", \"Leave the inspection report\"]"
+            }
+          ]
+        }
+      ],
+      "sampleData": {
+        "records": {
+          "customers": [
+            {
+              "Name": "Robert Dubois",
+              "Phone": "555-0113",
+              "Email": "robert.dubois@example.com",
+              "Preferred contact": "Text",
+              "Billing address": "100 Maple Ave\nSpringfield"
+            },
+            {
+              "Name": "Linh Smith",
+              "Phone": "555-0120",
+              "Email": "linh.smith@example.com",
+              "Preferred contact": "Call",
+              "Billing address": "137 Birch Lane\nSpringfield"
+            },
+            {
+              "Name": "Dorothy Kowalski",
+              "Phone": "555-0127",
+              "Email": "dorothy.kowalski@example.com",
+              "Preferred contact": "Text",
+              "Billing address": "174 Cedar Court\nSpringfield"
+            },
+            {
+              "Name": "Carlos Wong",
+              "Phone": "555-0134",
+              "Email": "carlos.wong@example.com",
+              "Preferred contact": "Email",
+              "Billing address": "211 Willow Way\nSpringfield",
+              "Notes": "Bill the office monthly."
+            },
+            {
+              "Name": "Priya Bell",
+              "Phone": "555-0141",
+              "Email": "priya.bell@example.com",
+              "Preferred contact": "Call",
+              "Billing address": "248 Elm Street\nSpringfield"
+            },
+            {
+              "Name": "Frank Rivera",
+              "Phone": "555-0148",
+              "Email": "frank.rivera@example.com",
+              "Preferred contact": "Text",
+              "Billing address": "285 Pine Road\nSpringfield"
+            },
+            {
+              "Name": "Keisha Thompson",
+              "Phone": "555-0155",
+              "Email": "keisha.thompson@example.com",
+              "Preferred contact": "Call",
+              "Billing address": "322 Oak Terrace\nSpringfield"
+            },
+            {
+              "Name": "Samuel Rahman",
+              "Phone": "555-0162",
+              "Email": "samuel.rahman@example.com",
+              "Preferred contact": "Email",
+              "Billing address": "359 Aspen Drive\nSpringfield"
+            }
+          ],
+          "properties": [
+            {
+              "Property": "Dubois – 100 Maple Ave",
+              "Address": "100 Maple Ave\nSpringfield",
+              "Service plan": "Yearly",
+              "Gate and pet notes": "Gate code 4471. Dog in the back yard.",
+              "Stories": 2,
+              "Last chimney sweep": {
+                "daysFromToday": -370
+              },
+              "Gutters cleaned": {
+                "daysFromToday": -330
+              },
+              "Windows washed": {
+                "daysFromToday": -200
+              }
+            },
+            {
+              "Property": "Smith – 137 Birch Lane",
+              "Address": "137 Birch Lane\nSpringfield",
+              "Service plan": "Twice a year",
+              "Stories": 1,
+              "Gutters cleaned": {
+                "daysFromToday": -150
+              },
+              "Dryer vent cleaned": {
+                "daysFromToday": -380
+              }
+            },
+            {
+              "Property": "Kowalski – 174 Cedar Court",
+              "Address": "174 Cedar Court\nSpringfield",
+              "Service plan": "One-time",
+              "Gate and pet notes": "Side gate sticks; lift and push.",
+              "Stories": 2,
+              "Last chimney sweep": {
+                "daysFromToday": -700
+              }
+            },
+            {
+              "Property": "Wong – 211 Willow Way",
+              "Address": "211 Willow Way\nSpringfield",
+              "Service plan": "Twice a year",
+              "Gate and pet notes": "Office park; check in at the front desk.",
+              "Stories": 3,
+              "Gutters cleaned": {
+                "daysFromToday": -160
+              },
+              "Windows washed": {
+                "daysFromToday": -370
+              }
+            },
+            {
+              "Property": "Bell – 248 Elm Street",
+              "Address": "248 Elm Street\nSpringfield",
+              "Service plan": "Yearly",
+              "Stories": 2,
+              "Last chimney sweep": {
+                "daysFromToday": -9
+              },
+              "Gutters cleaned": {
+                "daysFromToday": -140
+              },
+              "Dryer vent cleaned": {
+                "daysFromToday": -60
+              }
+            },
+            {
+              "Property": "Rivera – 285 Pine Road",
+              "Address": "285 Pine Road\nSpringfield",
+              "Service plan": "Yearly",
+              "Gate and pet notes": "Park on the street, not the driveway.",
+              "Stories": 1,
+              "Last chimney sweep": {
+                "daysFromToday": -200
+              },
+              "Windows washed": {
+                "daysFromToday": -100
+              },
+              "Dryer vent cleaned": {
+                "daysFromToday": -30
+              }
+            },
+            {
+              "Property": "Thompson – 322 Oak Terrace",
+              "Address": "322 Oak Terrace\nSpringfield",
+              "Service plan": "Twice a year",
+              "Gate and pet notes": "Two cats indoors; keep doors shut.",
+              "Stories": 2,
+              "Gutters cleaned": {
+                "daysFromToday": -150
+              },
+              "Windows washed": {
+                "daysFromToday": -345
+              }
+            },
+            {
+              "Property": "Rahman – 359 Aspen Drive",
+              "Address": "359 Aspen Drive\nSpringfield",
+              "Service plan": "Yearly",
+              "Stories": 2,
+              "Last chimney sweep": {
+                "daysFromToday": -355
+              },
+              "Gutters cleaned": {
+                "daysFromToday": -200
+              },
+              "Dryer vent cleaned": {
+                "daysFromToday": -300
+              }
+            }
+          ],
+          "visits": [
+            {
+              "Visit": "Chimney sweep – Dubois",
+              "Stage": "Scheduled",
+              "Service": "Chimney sweep",
+              "Scheduled for": {
+                "daysFromToday": 0
+              },
+              "Price": 189
+            },
+            {
+              "Visit": "Gutters front and back",
+              "Stage": "Scheduled",
+              "Service": "Gutter cleaning",
+              "Scheduled for": {
+                "daysFromToday": 4
+              },
+              "Price": 160
+            },
+            {
+              "Visit": "Smoke coming into the room",
+              "Stage": "Requested",
+              "Service": "Chimney inspection"
+            },
+            {
+              "Visit": "Windows inside and out",
+              "Stage": "Scheduled",
+              "Service": "Window washing",
+              "Scheduled for": {
+                "daysFromToday": -4
+              },
+              "Price": 420
+            },
+            {
+              "Visit": "Chimney cap replacement",
+              "Stage": "Done",
+              "Service": "Repair",
+              "Scheduled for": {
+                "daysFromToday": -9
+              },
+              "Completed on": {
+                "daysFromToday": -9
+              },
+              "Price": 275
+            },
+            {
+              "Visit": "Dryer vent cleaning",
+              "Stage": "Done",
+              "Service": "Dryer vent",
+              "Scheduled for": {
+                "daysFromToday": -30
+              },
+              "Completed on": {
+                "daysFromToday": -30
+              },
+              "Price": 110
+            },
+            {
+              "Visit": "Gutters and downspouts",
+              "Stage": "Scheduled",
+              "Service": "Gutter cleaning",
+              "Scheduled for": {
+                "daysFromToday": 20
+              },
+              "Price": 180
+            },
+            {
+              "Visit": "Chimney sweep – Rahman",
+              "Stage": "Cancelled",
+              "Service": "Chimney sweep",
+              "Scheduled for": {
+                "daysFromToday": -6
+              }
+            }
+          ]
+        },
+        "links": [
+          {
+            "from": "properties#0",
+            "to": "customers#0",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#1",
+            "to": "customers#1",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#2",
+            "to": "customers#2",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#3",
+            "to": "customers#3",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#4",
+            "to": "customers#4",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#5",
+            "to": "customers#5",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#6",
+            "to": "customers#6",
+            "link": "Customer"
+          },
+          {
+            "from": "properties#7",
+            "to": "customers#7",
+            "link": "Customer"
+          },
+          {
+            "from": "visits#0",
+            "to": "properties#0",
+            "link": "Property"
+          },
+          {
+            "from": "visits#1",
+            "to": "properties#1",
+            "link": "Property"
+          },
+          {
+            "from": "visits#2",
+            "to": "properties#2",
+            "link": "Property"
+          },
+          {
+            "from": "visits#3",
+            "to": "properties#3",
+            "link": "Property"
+          },
+          {
+            "from": "visits#4",
+            "to": "properties#4",
+            "link": "Property"
+          },
+          {
+            "from": "visits#5",
+            "to": "properties#5",
+            "link": "Property"
+          },
+          {
+            "from": "visits#6",
+            "to": "properties#6",
+            "link": "Property"
+          },
+          {
+            "from": "visits#7",
+            "to": "properties#7",
+            "link": "Property"
+          }
+        ],
+        "activities": [
+          {
+            "record": "visits#2",
+            "type": "call",
+            "daysAgo": 1,
+            "text": "Smoke rolls into the room when the fire is going. Wants an inspection before using it again."
+          },
+          {
+            "record": "visits#4",
+            "type": "note",
+            "daysAgo": 9,
+            "text": "New stainless cap installed; photos in Files."
+          },
+          {
+            "record": "properties#0",
+            "type": "on_site",
+            "daysAgo": 370,
+            "text": "Light creosote; good for a year."
+          }
+        ],
+        "history": [
+          {
+            "record": "visits#1",
+            "column": "Stage",
+            "values": [
+              {
+                "value": "Requested",
+                "daysAgo": 8
+              },
+              {
+                "value": "Scheduled",
+                "daysAgo": 5
+              }
+            ]
+          }
+        ],
+        "appointments": [
+          {
+            "record": "visits#0",
+            "title": "Chimney sweep",
+            "dayOffset": 0,
+            "time": "10:00",
+            "minutes": 90,
+            "type": "on_site",
+            "location": "100 Maple Ave"
+          },
+          {
+            "record": "visits#2",
+            "title": "Chimney inspection",
+            "dayOffset": 1,
+            "time": "13:00",
+            "minutes": 60,
+            "type": "on_site",
+            "location": "174 Cedar Court"
+          },
+          {
+            "record": "visits#1",
+            "title": "Gutters",
+            "dayOffset": 4,
+            "time": "09:00",
+            "minutes": 120,
+            "type": "on_site",
+            "location": "137 Birch Lane"
+          },
+          {
+            "record": "visits#6",
+            "title": "Gutters and downspouts",
+            "dayOffset": 20,
+            "time": "09:00",
+            "minutes": 150,
+            "type": "on_site",
+            "location": "322 Oak Terrace"
+          }
+        ]
+      }
+    }
+  ],
+  "dashboardCards": [
+    "summary",
+    "today",
+    "stages",
+    "missingInfo"
+  ]
+}

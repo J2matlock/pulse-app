@@ -1,0 +1,628 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "family-health",
+  "name": "Family health",
+  "description": "For keeping your family's health on track: kids' checkups by age, yearly physicals, dentist every 6 months, eye exams, flu shots, refills and insurance renewals, with doctors and appointments in one place. It isn't medical advice: follow your doctor's schedule. Pulse is a tracking aid, not your official record system.",
+  "icon": "baby",
+  "group": "Personal",
+  "vocab": {
+    "record": {
+      "one": "family member",
+      "many": "family members",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": false,
+    "checklists": false,
+    "tasks": true,
+    "focusMode": false,
+    "letters": false,
+    "summaryReport": true,
+    "handoff": true,
+    "links": true,
+    "stages": false,
+    "measures": false,
+    "appointments": true,
+    "forms": false,
+    "attachments": true
+  },
+  "activityTypes": [
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    },
+    {
+      "key": "doctor_visit",
+      "label": "Doctor visit",
+      "icon": "🩺",
+      "color": "blue"
+    },
+    {
+      "key": "dentist",
+      "label": "Dentist",
+      "icon": "🦷",
+      "color": "teal"
+    },
+    {
+      "key": "medication_change",
+      "label": "Medication change",
+      "icon": "💊",
+      "color": "purple"
+    },
+    {
+      "key": "sick_day",
+      "label": "Sick day",
+      "icon": "🤒",
+      "color": "amber"
+    }
+  ],
+  "helpTips": [
+    {
+      "title": "Checkups by age",
+      "body": "Enter each child's date of birth and Pulse shows their next well-child checkup. After the visit, mark it done and the next one appears. From age 3 it's once a year. Your doctor's schedule wins if it differs."
+    },
+    {
+      "title": "Private by design",
+      "body": "Your family's health details stay on this computer, encrypted with your password. Nothing goes to the cloud, and Pulse locks itself when you step away."
+    },
+    {
+      "title": "Vaccine records and insurance cards",
+      "body": "Drop a photo or PDF of vaccine records, insurance cards and test results into Files on each person's page. They're stored encrypted inside Pulse, ready when a school or camp asks."
+    },
+    {
+      "title": "Flu shots",
+      "body": "Each fall the Flu shot column comes due by the end of October. Mark it done when everyone has had theirs."
+    }
+  ],
+  "lists": [
+    {
+      "key": "family",
+      "name": "Family",
+      "description": "Everyone in the household, with checkups, cleanings and refills due",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "family member",
+          "many": "family members",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 180,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Who",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 110,
+          "is_required": 1,
+          "description": "Child or adult: decides which checkups apply",
+          "config": "{\"options\": [\"Child\", \"Adult\"]}"
+        },
+        {
+          "name": "Date of birth",
+          "column_type": "date",
+          "position": 2,
+          "width": 150,
+          "description": "Children's checkups count from here"
+        },
+        {
+          "name": "Checkups",
+          "column_type": "deadline",
+          "position": 3,
+          "width": 150,
+          "description": "The next well-child checkup; mark it done to move on",
+          "config": "{\"alert_rule_name\": \"Well-child checkups\"}"
+        },
+        {
+          "name": "Last physical",
+          "column_type": "date",
+          "position": 4,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Yearly physical\", \"log_changes\": true}",
+          "description": "For adults: date of the last yearly physical"
+        },
+        {
+          "name": "Last dental cleaning",
+          "column_type": "date",
+          "position": 5,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every 6 months\", \"log_changes\": true}"
+        },
+        {
+          "name": "Last eye exam",
+          "column_type": "date",
+          "position": 6,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}"
+        },
+        {
+          "name": "Flu shot",
+          "column_type": "deadline",
+          "position": 7,
+          "width": 150,
+          "description": "This season's flu shot; mark it done when they've had it",
+          "config": "{\"alert_rule_name\": \"Flu shot\"}"
+        },
+        {
+          "name": "Allergies",
+          "column_type": "notes",
+          "position": 8,
+          "width": 180
+        },
+        {
+          "name": "Medications",
+          "column_type": "notes",
+          "position": 9,
+          "width": 200,
+          "description": "Name, dose and how often"
+        },
+        {
+          "name": "Next refill",
+          "column_type": "date",
+          "position": 10,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Due date\", \"log_changes\": true}",
+          "description": "When the next prescription refill is needed"
+        },
+        {
+          "name": "Insurance renews",
+          "column_type": "date",
+          "position": 11,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Renewal\", \"log_changes\": true}",
+          "description": "Health or dental plan renewal, or when the card expires"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Well-child checkups",
+          "description": "Checkups by age, counted from the date of birth: 1, 2, 4, 6, 9, 12, 15, 18 months, 2 years, 30 months, then every year",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "sequence",
+          "rule_config": "{\"kind\": \"sequence\", \"anchorColumnId\": {\"column\": \"Date of birth\"}, \"steps\": [{\"label\": \"1 month\", \"offset\": {\"months\": 1}}, {\"label\": \"2 months\", \"offset\": {\"months\": 2}}, {\"label\": \"4 months\", \"offset\": {\"months\": 4}}, {\"label\": \"6 months\", \"offset\": {\"months\": 6}}, {\"label\": \"9 months\", \"offset\": {\"months\": 9}}, {\"label\": \"12 months\", \"offset\": {\"months\": 12}}, {\"label\": \"15 months\", \"offset\": {\"months\": 15}}, {\"label\": \"18 months\", \"offset\": {\"months\": 18}}, {\"label\": \"2 years\", \"offset\": {\"months\": 24}}, {\"label\": \"30 months\", \"offset\": {\"months\": 30}}, {\"label\": \"Yearly checkup\", \"offset\": {\"months\": 36}}], \"repeatLast\": {\"months\": 12}}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Who\"}, \"op\": \"is\", \"values\": [\"Child\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Yearly physical",
+          "description": "Due a year after the last physical (adults)",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\": 45, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 21, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "rule_condition": "{\"columnId\": {\"column\": \"Who\"}, \"op\": \"is\", \"values\": [\"Adult\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Every 6 months",
+          "description": "Due 6 months after the date entered",
+          "interval_months": 6,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\": 45, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 21, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Flu shot",
+          "description": "Every fall, by the end of October",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "calendar",
+          "rule_config": "{\"kind\": \"calendar\", \"months\": [10], \"day\": \"last\", \"lead\": 45}"
+        },
+        {
+          "name": "Due date",
+          "description": "The date entered is the deadline",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Renewal",
+          "description": "The date entered is when it renews or runs out",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        }
+      ],
+      "links": [
+        {
+          "to": "doctors",
+          "label_forward": "Doctors",
+          "label_backward": "Sees",
+          "cardinality": "many_to_many"
+        }
+      ]
+    },
+    {
+      "key": "doctors",
+      "name": "Doctors & dentists",
+      "description": "The doctors, dentists, eye doctors and pharmacy your family uses",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "doctor",
+          "many": "doctors",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 210,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Kind",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 150,
+          "config": "{\"options\": [\"Pediatrician\", \"Family doctor\", \"Dentist\", \"Eye doctor\", \"Specialist\", \"Pharmacy\"]}"
+        },
+        {
+          "name": "Practice",
+          "column_type": "text",
+          "position": 2,
+          "width": 180
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 3,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 4,
+          "width": 180
+        },
+        {
+          "name": "Patient portal",
+          "column_type": "url",
+          "position": 5,
+          "width": 200,
+          "description": "Website where you see results and send messages"
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 6,
+          "width": 220,
+          "description": "Office hours, after-hours line, who to ask for"
+        }
+      ]
+    }
+  ],
+  "dashboardCards": [
+    "summary",
+    "today",
+    "recentActivity",
+    "missingInfo"
+  ],
+  "sampleData": {
+    "records": {
+      "family": [
+        {
+          "Name": "Grace Okafor",
+          "Who": "Adult",
+          "Date of birth": {
+            "daysFromToday": -13020
+          },
+          "Last physical": {
+            "daysFromToday": -340
+          },
+          "Last dental cleaning": {
+            "daysFromToday": -170
+          },
+          "Last eye exam": {
+            "daysFromToday": -300
+          },
+          "Next refill": {
+            "daysFromToday": 20
+          },
+          "Medications": "Levothyroxine 50 mcg, every morning",
+          "Insurance renews": {
+            "daysFromToday": 55
+          }
+        },
+        {
+          "Name": "Samuel Okafor",
+          "Who": "Adult",
+          "Date of birth": {
+            "daysFromToday": -13540
+          },
+          "Last physical": {
+            "daysFromToday": -390
+          },
+          "Last dental cleaning": {
+            "daysFromToday": -200
+          },
+          "Last eye exam": {
+            "daysFromToday": -380
+          },
+          "Next refill": {
+            "daysFromToday": 3
+          },
+          "Medications": "Lisinopril 10 mg, once a day"
+        },
+        {
+          "Name": "Ruby Okafor",
+          "Who": "Child",
+          "Date of birth": {
+            "daysFromToday": -2100
+          },
+          "Last dental cleaning": {
+            "daysFromToday": -60
+          },
+          "Last eye exam": {
+            "daysFromToday": -330
+          },
+          "Allergies": "Penicillin (rash)"
+        },
+        {
+          "Name": "Maya Okafor",
+          "Who": "Child",
+          "Date of birth": {
+            "daysFromToday": -400
+          },
+          "Last dental cleaning": {
+            "daysFromToday": -100
+          }
+        },
+        {
+          "Name": "Leo Okafor",
+          "Who": "Child",
+          "Date of birth": {
+            "daysFromToday": -185
+          },
+          "Allergies": "None known"
+        }
+      ],
+      "doctors": [
+        {
+          "Name": "Dr. Hannah Walker",
+          "Kind": "Pediatrician",
+          "Practice": "Springfield Pediatrics",
+          "Phone": "555-0120",
+          "Address": "100 Maple Ave\nSpringfield",
+          "Patient portal": "https://portal.example.com",
+          "Notes": "Ask for the nurse line after 5 pm."
+        },
+        {
+          "Name": "Dr. Omar Brown",
+          "Kind": "Family doctor",
+          "Practice": "Birch Lane Family Medicine",
+          "Phone": "555-0126",
+          "Address": "137 Birch Lane\nSpringfield",
+          "Patient portal": "https://portal.example.com"
+        },
+        {
+          "Name": "Bright Smiles Dental",
+          "Kind": "Dentist",
+          "Practice": "Bright Smiles Dental",
+          "Phone": "555-0132",
+          "Address": "174 Cedar Court\nSpringfield",
+          "Patient portal": "https://portal.example.com",
+          "Notes": "Cleanings book up 2 months ahead."
+        },
+        {
+          "Name": "Clearview Eye Care",
+          "Kind": "Eye doctor",
+          "Practice": "Clearview Eye Care",
+          "Phone": "555-0138",
+          "Address": "211 Willow Way\nSpringfield",
+          "Patient portal": "https://portal.example.com"
+        },
+        {
+          "Name": "Springfield Pharmacy",
+          "Kind": "Pharmacy",
+          "Practice": "Springfield Pharmacy",
+          "Phone": "555-0144",
+          "Address": "248 Elm Street\nSpringfield",
+          "Patient portal": "https://portal.example.com",
+          "Notes": "Refills ready the next day after 2 pm."
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "family#0",
+        "to": "doctors#1",
+        "link": "Doctors"
+      },
+      {
+        "from": "family#0",
+        "to": "doctors#2",
+        "link": "Doctors"
+      },
+      {
+        "from": "family#0",
+        "to": "doctors#3",
+        "link": "Doctors"
+      },
+      {
+        "from": "family#0",
+        "to": "doctors#4",
+        "link": "Doctors"
+      },
+      {
+        "from": "family#1",
+        "to": "doctors#1",
+        "link": "Doctors"
+      },
+      {
+        "from": "family#1",
+        "to": "doctors#2",
+        "link": "Doctors"
+      },
+      {
+        "from": "family#1",
+        "to": "doctors#3",
+        "link": "Doctors"
+      },
+      {
+        "from": "family#1",
+        "to": "doctors#4",
+        "link": "Doctors"
+      },
+      {
+        "from": "family#2",
+        "to": "doctors#0",
+        "link": "Doctors"
+      },
+      {
+        "from": "family#2",
+        "to": "doctors#2",
+        "link": "Doctors"
+      },
+      {
+        "from": "family#2",
+        "to": "doctors#3",
+        "link": "Doctors"
+      },
+      {
+        "from": "family#3",
+        "to": "doctors#0",
+        "link": "Doctors"
+      },
+      {
+        "from": "family#3",
+        "to": "doctors#2",
+        "link": "Doctors"
+      },
+      {
+        "from": "family#4",
+        "to": "doctors#0",
+        "link": "Doctors"
+      }
+    ],
+    "stepsDone": [
+      {
+        "record": "family#2",
+        "column": "Checkups",
+        "steps": 13
+      },
+      {
+        "record": "family#3",
+        "column": "Checkups",
+        "steps": 6
+      },
+      {
+        "record": "family#4",
+        "column": "Checkups",
+        "steps": 3
+      }
+    ],
+    "activities": [
+      {
+        "record": "family#3",
+        "type": "doctor_visit",
+        "daysAgo": 35,
+        "text": "12-month checkup. Growing well; shots up to date. Next visit at 15 months."
+      },
+      {
+        "record": "family#1",
+        "type": "medication_change",
+        "daysAgo": 30,
+        "text": "Blood pressure a bit high. Started lisinopril 10 mg once a day."
+      },
+      {
+        "record": "family#2",
+        "type": "sick_day",
+        "daysAgo": 5,
+        "text": "Fever and sore throat, stayed home from school. Better by the next day."
+      },
+      {
+        "record": "family#0",
+        "type": "dentist",
+        "daysAgo": 170,
+        "text": "Cleaning, no cavities."
+      },
+      {
+        "record": "family#4",
+        "type": "doctor_visit",
+        "daysAgo": 63,
+        "text": "4-month checkup. Rolling over; next visit at 6 months."
+      }
+    ],
+    "appointments": [
+      {
+        "record": "family#4",
+        "title": "6-month checkup",
+        "dayOffset": 2,
+        "time": "10:30",
+        "minutes": 30,
+        "type": "doctor_visit",
+        "location": "Springfield Pediatrics"
+      },
+      {
+        "record": "family#1",
+        "title": "Yearly physical",
+        "dayOffset": 6,
+        "time": "09:00",
+        "minutes": 45,
+        "type": "doctor_visit",
+        "location": "Birch Lane Family Medicine"
+      },
+      {
+        "record": "family#0",
+        "title": "Dental cleaning",
+        "dayOffset": 12,
+        "time": "14:00",
+        "minutes": 60,
+        "type": "dentist",
+        "location": "Bright Smiles Dental"
+      },
+      {
+        "record": "family#2",
+        "title": "Eye exam",
+        "dayOffset": 20,
+        "time": "15:30",
+        "minutes": 45,
+        "type": "doctor_visit",
+        "location": "Clearview Eye Care"
+      },
+      {
+        "record": "family#3",
+        "title": "12-month checkup",
+        "dayOffset": -35,
+        "time": "11:00",
+        "minutes": 30,
+        "type": "doctor_visit",
+        "location": "Springfield Pediatrics"
+      }
+    ]
+  }
+}

@@ -1,0 +1,844 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "real-estate",
+  "name": "Real estate transactions",
+  "description": "For real estate agents: buyers and sellers, and each home on a board from showing to closing, with the inspection, appraisal, financing and closing dates counted from the contract date, pre-approval and listing expirations, and a note on every closing anniversary. Your contract sets the real dates. Pulse is a tracking aid, not your official record system.",
+  "icon": "handshake",
+  "group": "Business",
+  "vocab": {
+    "record": {
+      "one": "record",
+      "many": "records",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false,
+    "links": true,
+    "stages": true,
+    "measures": false,
+    "appointments": true,
+    "forms": false,
+    "attachments": true
+  },
+  "activityTypes": [
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    },
+    {
+      "key": "call",
+      "label": "Call",
+      "icon": "📞",
+      "color": "blue"
+    },
+    {
+      "key": "text",
+      "label": "Text",
+      "icon": "💬",
+      "color": "teal"
+    },
+    {
+      "key": "showing",
+      "label": "Showing",
+      "icon": "🏠",
+      "color": "green"
+    }
+  ],
+  "documentTemplates": [
+    {
+      "name": "Under contract: key dates",
+      "content": "{{today}}\n\nHi {{linked:Client.Name}},\n\nCongratulations, {{name}} is under contract! Here are the dates we are working toward:\n\n- Inspection: {{deadline:Inspection done}}\n- Appraisal: {{deadline:Appraisal received}}\n- Loan approval: {{deadline:Loan approved}}\n- Closing: {{field:Closing date}}\n\nI will keep you posted at every step. Call me any time with questions.\n\n{{my_name}}"
+    },
+    {
+      "name": "Closing anniversary note",
+      "content": "{{today}}\n\nHi {{linked:Client.Name}},\n\nHard to believe it has been a year since you closed on {{name}} ({{field:Closed on}}). I hope the place feels like home.\n\nIf you ever have questions about your home's value, or know someone thinking of buying or selling, I would love to help.\n\nWarmly,\n\n{{my_name}}"
+    }
+  ],
+  "helpTips": [
+    {
+      "title": "Dates from the contract",
+      "body": "Fill in the Contract date and Pulse counts the inspection (10 days), appraisal and financing (21 days) from it. Change the days under the column's deadline settings to match your contract. Fill in each date when it is done."
+    },
+    {
+      "title": "After closing",
+      "body": "Move a transaction to Closed and Pulse fills in Closed on. The contingency dates go away, and the closing anniversary comes up a month ahead every year, a good time to send the anniversary note."
+    },
+    {
+      "title": "Keep the paperwork",
+      "body": "Drop the signed contract, inspection report and closing disclosure into Files on the transaction. They are stored encrypted inside Pulse."
+    }
+  ],
+  "lists": [
+    {
+      "key": "clients",
+      "name": "Buyers & sellers",
+      "description": "The people you are helping buy or sell a home",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "client",
+          "many": "clients",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 1,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 2,
+          "width": 210
+        },
+        {
+          "name": "Buying or selling",
+          "column_type": "dropdown",
+          "position": 3,
+          "width": 160,
+          "config": "{\"options\": [\"Buying\", \"Selling\", \"Both\"]}"
+        },
+        {
+          "name": "Current address",
+          "column_type": "address",
+          "position": 4,
+          "width": 180
+        },
+        {
+          "name": "Price range",
+          "column_type": "text",
+          "position": 5,
+          "width": 140,
+          "description": "What they want to spend, or what they hope to get"
+        },
+        {
+          "name": "Pre-approval expires",
+          "column_type": "date",
+          "position": 6,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Expires\", \"log_changes\": true}",
+          "description": "Mortgage pre-approval letters usually run 60 to 90 days"
+        },
+        {
+          "name": "Listing agreement expires",
+          "column_type": "date",
+          "position": 7,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Expires\", \"log_changes\": true}",
+          "description": "For sellers: when your listing agreement ends"
+        },
+        {
+          "name": "Found you through",
+          "column_type": "dropdown",
+          "position": 8,
+          "width": 160,
+          "config": "{\"options\": [\"Referral\", \"Open house\", \"Website\", \"Past client\", \"Sign call\", \"Other\"]}"
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 9,
+          "width": 220
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Expires",
+          "description": "The date entered is when it runs out",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        }
+      ]
+    },
+    {
+      "key": "transactions",
+      "name": "Transactions",
+      "description": "Each home from the first showing to closing",
+      "kind": "job",
+      "vocab": {
+        "record": {
+          "one": "transaction",
+          "many": "transactions",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Property",
+          "column_type": "text",
+          "position": 0,
+          "width": 210,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1,
+          "description": "The street address"
+        },
+        {
+          "name": "Stage",
+          "column_type": "status",
+          "position": 1,
+          "width": 150,
+          "config": "{\"options\": [{\"label\": \"Showing\", \"color\": \"#64748b\"}, {\"label\": \"Offer made\", \"color\": \"#3b82f6\"}, {\"label\": \"Under contract\", \"color\": \"#f59e0b\"}, {\"label\": \"Clear to close\", \"color\": \"#14b8a6\"}, {\"label\": \"Closed\", \"color\": \"#22c55e\"}, {\"label\": \"Fell through\", \"color\": \"#ef4444\"}]}"
+        },
+        {
+          "name": "Side",
+          "column_type": "dropdown",
+          "position": 2,
+          "width": 120,
+          "config": "{\"options\": [\"Buyer side\", \"Listing side\"]}"
+        },
+        {
+          "name": "Price",
+          "column_type": "currency",
+          "position": 3,
+          "width": 130
+        },
+        {
+          "name": "Contract date",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "description": "The day the contract was fully signed. The contingency dates count from here"
+        },
+        {
+          "name": "Inspection done",
+          "column_type": "date",
+          "position": 5,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Inspection period\", \"log_changes\": true}",
+          "description": "Date the inspection was done and any repair requests sent"
+        },
+        {
+          "name": "Appraisal received",
+          "column_type": "date",
+          "position": 6,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Appraisal\", \"log_changes\": true}",
+          "description": "Date the appraisal came back"
+        },
+        {
+          "name": "Loan approved",
+          "column_type": "date",
+          "position": 7,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Financing contingency\", \"log_changes\": true}",
+          "description": "Date the lender gave final loan approval"
+        },
+        {
+          "name": "Closing date",
+          "column_type": "date",
+          "position": 8,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Closing\", \"log_changes\": true}",
+          "description": "The closing date in the contract"
+        },
+        {
+          "name": "Closed on",
+          "column_type": "date",
+          "position": 9,
+          "width": 150,
+          "description": "Filled in when the transaction moves to Closed"
+        },
+        {
+          "name": "Closing anniversary",
+          "column_type": "date",
+          "position": 10,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Closing anniversary\"}",
+          "description": "Date you last sent a closing-anniversary note"
+        },
+        {
+          "name": "Commission",
+          "column_type": "currency",
+          "position": 11,
+          "width": 130
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Inspection period",
+          "description": "Inspection done within 10 days of the contract date",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\": \"relative\", \"anchorColumnId\": {\"column\": \"Contract date\"}, \"offset\": {\"days\": 10, \"direction\": \"after\"}}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is\", \"values\": [\"Under contract\", \"Clear to close\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Appraisal",
+          "description": "Appraisal back within 21 days of the contract date",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\": \"relative\", \"anchorColumnId\": {\"column\": \"Contract date\"}, \"offset\": {\"days\": 21, \"direction\": \"after\"}}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is\", \"values\": [\"Under contract\", \"Clear to close\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Financing contingency",
+          "description": "Loan approval within 21 days of the contract date",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\": \"relative\", \"anchorColumnId\": {\"column\": \"Contract date\"}, \"offset\": {\"days\": 21, \"direction\": \"after\"}}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is\", \"values\": [\"Under contract\", \"Clear to close\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Closing",
+          "description": "The date entered is the closing, while the deal is open",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 14, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is\", \"values\": [\"Under contract\", \"Clear to close\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Closing anniversary",
+          "description": "Every year on the day it closed, 30 days ahead",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 14, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "calendar",
+          "rule_config": "{\"kind\": \"calendar\", \"fromColumnMonth\": {\"column\": \"Closed on\"}, \"lead\": 30}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is\", \"values\": [\"Closed\"], \"whenFalse\": \"hide\"}"
+        }
+      ],
+      "checklists": [
+        {
+          "name": "Under contract",
+          "description": "From signed contract to closing",
+          "items": "[\"Earnest money deposited\", \"Inspection scheduled\", \"Repair requests sent or waived\", \"Appraisal ordered\", \"Loan application and documents with the lender\", \"Title search ordered\", \"Homeowner's insurance quote\", \"Utilities transfer arranged\", \"Final walk-through scheduled\"]"
+        }
+      ],
+      "links": [
+        {
+          "to": "clients",
+          "label_forward": "Client",
+          "label_backward": "Transactions",
+          "cardinality": "many_to_one"
+        }
+      ],
+      "stage": {
+        "column": "Stage",
+        "options": [
+          {
+            "value": "Showing",
+            "color": "slate"
+          },
+          {
+            "value": "Offer made",
+            "color": "blue"
+          },
+          {
+            "value": "Under contract",
+            "color": "amber",
+            "onEnter": {
+              "checklist": "Under contract"
+            }
+          },
+          {
+            "value": "Clear to close",
+            "color": "teal"
+          },
+          {
+            "value": "Closed",
+            "color": "green",
+            "done": true,
+            "onEnter": {
+              "stampColumn": "Closed on",
+              "activityType": "note"
+            }
+          },
+          {
+            "value": "Fell through",
+            "color": "red",
+            "done": true
+          }
+        ],
+        "hideDoneAfterDays": 60
+      }
+    }
+  ],
+  "dashboardCards": [
+    "summary",
+    "today",
+    "stages",
+    "missingInfo"
+  ],
+  "sampleData": {
+    "records": {
+      "clients": [
+        {
+          "Name": "Robert Dubois",
+          "Phone": "555-0113",
+          "Email": "robert.dubois@example.com",
+          "Buying or selling": "Buying",
+          "Current address": "100 Maple Ave\nSpringfield",
+          "Price range": "$350k–$400k",
+          "Pre-approval expires": {
+            "daysFromToday": 20
+          },
+          "Found you through": "Referral"
+        },
+        {
+          "Name": "Linh Smith",
+          "Phone": "555-0120",
+          "Email": "linh.smith@example.com",
+          "Buying or selling": "Selling",
+          "Current address": "137 Birch Lane\nSpringfield",
+          "Price range": "Hoping for $425k",
+          "Listing agreement expires": {
+            "daysFromToday": 40
+          },
+          "Found you through": "Past client"
+        },
+        {
+          "Name": "Dorothy Kowalski",
+          "Phone": "555-0127",
+          "Email": "dorothy.kowalski@example.com",
+          "Buying or selling": "Buying",
+          "Current address": "174 Cedar Court\nSpringfield",
+          "Price range": "$300k–$330k",
+          "Pre-approval expires": {
+            "daysFromToday": -3
+          },
+          "Found you through": "Open house",
+          "Notes": "Needs a new pre-approval letter before the next offer."
+        },
+        {
+          "Name": "Carlos Wong",
+          "Phone": "555-0134",
+          "Email": "carlos.wong@example.com",
+          "Buying or selling": "Selling",
+          "Current address": "211 Willow Way\nSpringfield",
+          "Price range": "Hoping for $510k",
+          "Listing agreement expires": {
+            "daysFromToday": 12
+          },
+          "Found you through": "Sign call"
+        },
+        {
+          "Name": "Priya Bell",
+          "Phone": "555-0141",
+          "Email": "priya.bell@example.com",
+          "Buying or selling": "Buying",
+          "Current address": "248 Elm Street\nSpringfield",
+          "Price range": "Up to $280k",
+          "Pre-approval expires": {
+            "daysFromToday": 60
+          },
+          "Found you through": "Website",
+          "Notes": "First-time buyer. Wants a yard for the dog."
+        },
+        {
+          "Name": "Frank Rivera",
+          "Phone": "555-0148",
+          "Email": "frank.rivera@example.com",
+          "Buying or selling": "Both",
+          "Current address": "285 Pine Road\nSpringfield",
+          "Price range": "$450k–$500k",
+          "Found you through": "Referral"
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Phone": "555-0155",
+          "Email": "keisha.thompson@example.com",
+          "Buying or selling": "Selling",
+          "Current address": "322 Oak Terrace\nSpringfield",
+          "Price range": "Sold at $389k",
+          "Listing agreement expires": {
+            "daysFromToday": 150
+          },
+          "Found you through": "Past client"
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Phone": "555-0162",
+          "Email": "samuel.rahman@example.com",
+          "Buying or selling": "Buying",
+          "Current address": "359 Aspen Drive\nSpringfield",
+          "Price range": "$250k–$300k",
+          "Pre-approval expires": {
+            "daysFromToday": 45
+          },
+          "Found you through": "Open house"
+        }
+      ],
+      "transactions": [
+        {
+          "Property": "12 Larch Lane",
+          "Stage": "Under contract",
+          "Side": "Buyer side",
+          "Price": 372000,
+          "Contract date": {
+            "daysFromToday": -12
+          },
+          "Closing date": {
+            "daysFromToday": 33
+          }
+        },
+        {
+          "Property": "48 Juniper Court",
+          "Stage": "Under contract",
+          "Side": "Listing side",
+          "Price": 419000,
+          "Contract date": {
+            "daysFromToday": -8
+          },
+          "Inspection done": {
+            "daysFromToday": -3
+          },
+          "Closing date": {
+            "daysFromToday": 37
+          }
+        },
+        {
+          "Property": "7 Hawthorn Road",
+          "Stage": "Clear to close",
+          "Side": "Buyer side",
+          "Price": 318000,
+          "Contract date": {
+            "daysFromToday": -40
+          },
+          "Inspection done": {
+            "daysFromToday": -32
+          },
+          "Appraisal received": {
+            "daysFromToday": -25
+          },
+          "Loan approved": {
+            "daysFromToday": -20
+          },
+          "Closing date": {
+            "daysFromToday": 5
+          }
+        },
+        {
+          "Property": "301 Poplar Street",
+          "Stage": "Showing",
+          "Side": "Listing side",
+          "Price": 509000
+        },
+        {
+          "Property": "19 Sycamore Ave",
+          "Stage": "Offer made",
+          "Side": "Buyer side",
+          "Price": 275000
+        },
+        {
+          "Property": "88 Chestnut Drive",
+          "Stage": "Closed",
+          "Side": "Buyer side",
+          "Price": 468000,
+          "Contract date": {
+            "daysFromToday": -400
+          },
+          "Inspection done": {
+            "daysFromToday": -392
+          },
+          "Appraisal received": {
+            "daysFromToday": -385
+          },
+          "Loan approved": {
+            "daysFromToday": -380
+          },
+          "Closing date": {
+            "daysFromToday": -355
+          },
+          "Closed on": {
+            "daysFromToday": -355
+          },
+          "Commission": 11700
+        },
+        {
+          "Property": "5 Magnolia Way",
+          "Stage": "Closed",
+          "Side": "Listing side",
+          "Price": 389000,
+          "Contract date": {
+            "daysFromToday": -75
+          },
+          "Inspection done": {
+            "daysFromToday": -68
+          },
+          "Appraisal received": {
+            "daysFromToday": -55
+          },
+          "Loan approved": {
+            "daysFromToday": -50
+          },
+          "Closing date": {
+            "daysFromToday": -30
+          },
+          "Closed on": {
+            "daysFromToday": -30
+          },
+          "Commission": 9725
+        },
+        {
+          "Property": "66 Redwood Circle",
+          "Stage": "Fell through",
+          "Side": "Buyer side",
+          "Price": 262000,
+          "Contract date": {
+            "daysFromToday": -50
+          }
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "transactions#0",
+        "to": "clients#0",
+        "link": "Client"
+      },
+      {
+        "from": "transactions#1",
+        "to": "clients#1",
+        "link": "Client"
+      },
+      {
+        "from": "transactions#2",
+        "to": "clients#2",
+        "link": "Client"
+      },
+      {
+        "from": "transactions#3",
+        "to": "clients#3",
+        "link": "Client"
+      },
+      {
+        "from": "transactions#4",
+        "to": "clients#4",
+        "link": "Client"
+      },
+      {
+        "from": "transactions#5",
+        "to": "clients#5",
+        "link": "Client"
+      },
+      {
+        "from": "transactions#6",
+        "to": "clients#6",
+        "link": "Client"
+      },
+      {
+        "from": "transactions#7",
+        "to": "clients#7",
+        "link": "Client"
+      }
+    ],
+    "activities": [
+      {
+        "record": "transactions#0",
+        "type": "call",
+        "daysAgo": 12,
+        "text": "Offer accepted at $372k. Contract fully signed tonight."
+      },
+      {
+        "record": "transactions#0",
+        "type": "note",
+        "daysAgo": 4,
+        "text": "Inspector had to reschedule; asked the seller side for two extra days."
+      },
+      {
+        "record": "transactions#1",
+        "type": "note",
+        "daysAgo": 3,
+        "text": "Inspection report in. Buyer asking for a new water heater."
+      },
+      {
+        "record": "transactions#2",
+        "type": "call",
+        "daysAgo": 2,
+        "text": "Lender says clear to close. Walk-through set for the morning of closing."
+      },
+      {
+        "record": "transactions#4",
+        "type": "showing",
+        "daysAgo": 5,
+        "text": "Second showing. Loved the yard; writing an offer tonight."
+      },
+      {
+        "record": "transactions#7",
+        "type": "note",
+        "daysAgo": 38,
+        "text": "Buyer backed out after the inspection (foundation). Earnest money returned."
+      },
+      {
+        "record": "clients#5",
+        "type": "call",
+        "daysAgo": 60,
+        "text": "Checked in. Thinking about selling the old place next spring."
+      }
+    ],
+    "history": [
+      {
+        "record": "transactions#0",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Showing",
+            "daysAgo": 30
+          },
+          {
+            "value": "Offer made",
+            "daysAgo": 14
+          },
+          {
+            "value": "Under contract",
+            "daysAgo": 12
+          }
+        ]
+      },
+      {
+        "record": "transactions#1",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Showing",
+            "daysAgo": 45
+          },
+          {
+            "value": "Offer made",
+            "daysAgo": 10
+          },
+          {
+            "value": "Under contract",
+            "daysAgo": 8
+          }
+        ]
+      },
+      {
+        "record": "transactions#2",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Offer made",
+            "daysAgo": 42
+          },
+          {
+            "value": "Under contract",
+            "daysAgo": 40
+          },
+          {
+            "value": "Clear to close",
+            "daysAgo": 2
+          }
+        ]
+      },
+      {
+        "record": "transactions#3",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Showing",
+            "daysAgo": 21
+          }
+        ]
+      },
+      {
+        "record": "transactions#4",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Showing",
+            "daysAgo": 18
+          },
+          {
+            "value": "Offer made",
+            "daysAgo": 4
+          }
+        ]
+      }
+    ],
+    "appointments": [
+      {
+        "record": "transactions#3",
+        "title": "Showing",
+        "dayOffset": 1,
+        "time": "17:30",
+        "minutes": 45,
+        "type": "showing",
+        "location": "301 Poplar Street"
+      },
+      {
+        "record": "transactions#3",
+        "title": "Open house",
+        "dayOffset": 3,
+        "time": "13:00",
+        "minutes": 180,
+        "type": "showing",
+        "location": "301 Poplar Street"
+      },
+      {
+        "record": "transactions#0",
+        "title": "Home inspection",
+        "dayOffset": 1,
+        "time": "10:00",
+        "minutes": 150,
+        "location": "12 Larch Lane"
+      },
+      {
+        "record": "transactions#2",
+        "title": "Final walk-through",
+        "dayOffset": 5,
+        "time": "09:00",
+        "minutes": 45,
+        "location": "7 Hawthorn Road"
+      },
+      {
+        "record": "transactions#2",
+        "title": "Closing",
+        "dayOffset": 5,
+        "time": "11:00",
+        "minutes": 60,
+        "location": "Springfield Title Co."
+      },
+      {
+        "record": "transactions#4",
+        "title": "Second showing",
+        "dayOffset": -5,
+        "time": "18:00",
+        "minutes": 45,
+        "type": "showing",
+        "location": "19 Sycamore Ave"
+      }
+    ]
+  }
+}

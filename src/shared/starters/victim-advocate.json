@@ -1,0 +1,825 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "victim-advocate",
+  "name": "Victim advocate",
+  "description": "For victim advocates: safe ways to reach each person, protective order expiry, court dates with reminders, safety plan check-ins every 30 days and the crime victim compensation claim deadline. Pulse is a tracking aid, not your official record system.",
+  "icon": "life-buoy",
+  "group": "Human services",
+  "vocab": {
+    "record": {
+      "one": "client",
+      "many": "clients",
+      "article": "a"
+    },
+    "list": {
+      "one": "caseload",
+      "many": "caseloads",
+      "article": "a"
+    },
+    "activity": {
+      "one": "case note",
+      "many": "case notes",
+      "article": "a"
+    },
+    "activityLog": {
+      "one": "case log",
+      "many": "case logs",
+      "article": "a"
+    },
+    "contactDirectory": {
+      "one": "contacts",
+      "many": "contacts",
+      "article": "a",
+      "oneCap": "Contacts",
+      "manyCap": "Contacts"
+    },
+    "contact": {
+      "one": "provider",
+      "many": "providers",
+      "article": "a"
+    },
+    "priority": {
+      "one": "acuity level",
+      "many": "acuity levels",
+      "article": "an"
+    },
+    "archive": {
+      "one": "archive",
+      "many": "archives",
+      "article": "an"
+    },
+    "worker": {
+      "one": "advocate",
+      "many": "advocates",
+      "article": "an"
+    },
+    "requirement": {
+      "one": "contact requirement",
+      "many": "contact requirements",
+      "article": "a"
+    },
+    "appointment": {
+      "one": "appointment",
+      "many": "appointments",
+      "article": "an"
+    },
+    "stage": {
+      "one": "stage",
+      "many": "stages",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": true,
+    "priority": false,
+    "contactsDirectory": true,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": true,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": true,
+    "links": true,
+    "stages": false,
+    "measures": false,
+    "appointments": true,
+    "forms": true,
+    "attachments": true
+  },
+  "activityTypes": [
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    },
+    {
+      "key": "safety_check",
+      "label": "Safety check-in",
+      "icon": "🛡️",
+      "color": "green"
+    },
+    {
+      "key": "court",
+      "label": "Court accompaniment",
+      "icon": "⚖️",
+      "color": "purple"
+    },
+    {
+      "key": "phone",
+      "label": "Phone",
+      "icon": "📞",
+      "color": "blue"
+    },
+    {
+      "key": "referral",
+      "label": "Referral",
+      "icon": "🔗",
+      "color": "teal"
+    }
+  ],
+  "documentTemplates": [
+    {
+      "name": "Court date reminder",
+      "content": "{{today}}\n\nDear {{linked:Client.Name}},\n\nThis is a reminder about your court date:\n\n{{name}}\n{{field:Hearing date}}\n{{field:Court}}\n\nPlease arrive 30 minutes early. If you would like me to go with you, or if anything has changed, call me.\n\n{{my_name}}"
+    },
+    {
+      "name": "Protective order renewal reminder",
+      "content": "{{today}}\n\nDear {{name}},\n\nYour protective order runs out on {{field:Protective order expires}}. If you would like it extended, the request usually needs to be filed before then.\n\nCall me and we can go over it together.\n\n{{my_name}}"
+    }
+  ],
+  "helpTips": [
+    {
+      "title": "Safe contact comes first",
+      "body": "Check Safe contact method before every call, text, email or letter. Never leave a voicemail unless the notes say it is OK, and only mail a letter if mail is a safe way to reach them."
+    },
+    {
+      "title": "Court dates",
+      "body": "Add each hearing to Court dates and link it to the client. Pulse reminds you to contact them 2 days before. After the hearing, set Result (Held, Continued or Cancelled) and the reminders go away; for a continuance, add the new date as a new court date."
+    },
+    {
+      "title": "Compensation deadline",
+      "body": "The claim deadline is set to 1 year after the incident date. States differ: open the column's rule and change it to match yours. Fill in Compensation claim filed once it is in."
+    },
+    {
+      "title": "Keeping it private",
+      "body": "Everything in Pulse is encrypted and stays on this computer. Pulse locks itself when you step away; lock it yourself (Ctrl+L) before anyone else can see the screen."
+    }
+  ],
+  "lists": [
+    {
+      "key": "caseload",
+      "name": "Advocacy caseload",
+      "description": "People you support, with safe ways to reach them, protective orders and claims",
+      "kind": "person",
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 190,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Safe contact method",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 190,
+          "is_required": 1,
+          "description": "How it is safe to reach them. Check this every time before you call, text or mail anything",
+          "config": "{\"options\": [\"Call this number\", \"Text only\", \"Email only\", \"Through a trusted person\", \"Wait for them to call\"]}"
+        },
+        {
+          "name": "Safe phone",
+          "column_type": "phone",
+          "position": 2,
+          "width": 140,
+          "description": "A number they said is safe to use"
+        },
+        {
+          "name": "Safe times and notes",
+          "column_type": "notes",
+          "position": 3,
+          "width": 240,
+          "description": "When it is safe to reach them, and whether you may leave a message"
+        },
+        {
+          "name": "Referred by",
+          "column_type": "dropdown",
+          "position": 4,
+          "width": 150,
+          "config": "{\"options\": [\"Police\", \"Prosecutor's office\", \"Hospital\", \"Shelter\", \"Self\", \"Other\"]}"
+        },
+        {
+          "name": "Incident date",
+          "column_type": "date",
+          "position": 5,
+          "width": 150,
+          "description": "The date the crime happened. The compensation claim deadline is counted from it"
+        },
+        {
+          "name": "Compensation claim filed",
+          "column_type": "date",
+          "position": 6,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Compensation claim deadline\", \"log_changes\": true}",
+          "description": "Date the crime victim compensation claim was filed"
+        },
+        {
+          "name": "Protective order expires",
+          "column_type": "date",
+          "position": 7,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Protective order (30 days ahead)\", \"log_changes\": true}",
+          "description": "Leave blank if there is no order"
+        },
+        {
+          "name": "Last safety check-in",
+          "column_type": "date",
+          "position": 8,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every 30 days\", \"log_changes\": true}",
+          "description": "Date you last went over the safety plan together"
+        },
+        {
+          "name": "Restitution follow-up",
+          "column_type": "date",
+          "position": 9,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Due date\", \"log_changes\": true}",
+          "description": "Next time to check on restitution payments"
+        },
+        {
+          "name": "Status",
+          "column_type": "dropdown",
+          "position": 10,
+          "width": 130,
+          "config": "{\"options\": [\"Active\", \"Court pending\", \"Closed\"]}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Protective order (30 days ahead)",
+          "description": "The date the order runs out; warns 30 days ahead so there is time to ask for an extension",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Every 30 days",
+          "description": "Due 30 days after the date entered, while the case is open",
+          "interval_days": 30,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "rule_condition": "{\"columnId\": {\"column\": \"Status\"}, \"op\": \"is_not\", \"whenFalse\": \"hide\", \"values\": [\"Closed\"]}"
+        },
+        {
+          "name": "Compensation claim deadline",
+          "description": "Due 1 year after the incident date. Check your state's deadline and change this rule if it is different",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\": \"relative\", \"anchorColumnId\": {\"column\": \"Incident date\"}, \"offset\": {\"months\": 12, \"direction\": \"after\"}}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Status\"}, \"op\": \"is_not\", \"whenFalse\": \"hide\", \"values\": [\"Closed\"]}"
+        },
+        {
+          "name": "Due date",
+          "description": "The date entered is the deadline",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        }
+      ],
+      "checklists": [
+        {
+          "name": "Safety plan",
+          "description": "Go over these together; update them at each check-in",
+          "items": "[\"A safe place to go, and how to get there\", \"A bag ready with keys, medicine, cash and a phone charger\", \"Important papers copied: ID, birth certificates, the protective order\", \"A code word with trusted friends or family\", \"Emergency numbers written down, not only saved in the phone\", \"A plan for children and pets\", \"Safe ways to reach you, and times to avoid\"]"
+        }
+      ],
+      "forms": [
+        {
+          "name": "Intake",
+          "intro": "Fill this in at the first meeting. Ask about safe contact first.",
+          "log_activity_type": "note",
+          "fields": [
+            {
+              "kind": "section",
+              "title": "Staying safe",
+              "text": "Before anything else: how is it safe to reach you?"
+            },
+            {
+              "kind": "column",
+              "column": "Name",
+              "required": true
+            },
+            {
+              "kind": "column",
+              "column": "Safe contact method",
+              "required": true,
+              "width": "half"
+            },
+            {
+              "kind": "column",
+              "column": "Safe phone",
+              "width": "half"
+            },
+            {
+              "kind": "column",
+              "column": "Safe times and notes"
+            },
+            {
+              "kind": "section",
+              "title": "What happened and where things stand"
+            },
+            {
+              "kind": "column",
+              "column": "Incident date",
+              "width": "half"
+            },
+            {
+              "kind": "column",
+              "column": "Referred by",
+              "width": "half"
+            },
+            {
+              "kind": "column",
+              "column": "Protective order expires",
+              "width": "half"
+            },
+            {
+              "kind": "note",
+              "label": "What help are they asking for?",
+              "required": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "court-dates",
+      "name": "Court dates",
+      "description": "Hearings for the people you support, with reminders and results",
+      "kind": "job",
+      "vocab": {
+        "record": {
+          "one": "court date",
+          "many": "court dates",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Hearing",
+          "column_type": "text",
+          "position": 0,
+          "width": 220,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Type",
+          "column_type": "dropdown",
+          "position": 1,
+          "width": 170,
+          "config": "{\"options\": [\"Arraignment\", \"Pretrial\", \"Trial\", \"Sentencing\", \"Protective order hearing\", \"Restitution hearing\", \"Parole hearing\"]}"
+        },
+        {
+          "name": "Court",
+          "column_type": "text",
+          "position": 2,
+          "width": 200
+        },
+        {
+          "name": "Hearing date",
+          "column_type": "date",
+          "position": 3,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Hearing\", \"log_changes\": true}",
+          "description": "The date of the hearing; record the result afterwards"
+        },
+        {
+          "name": "Client reminded",
+          "column_type": "date",
+          "position": 4,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Remind 2 days before\", \"log_changes\": true}",
+          "description": "Date you reminded them, using their safe contact method"
+        },
+        {
+          "name": "Going with them",
+          "column_type": "checkbox",
+          "position": 5,
+          "width": 140,
+          "description": "You plan to go to court with them"
+        },
+        {
+          "name": "Result",
+          "column_type": "dropdown",
+          "position": 6,
+          "width": 140,
+          "config": "{\"options\": [\"Held\", \"Continued\", \"Cancelled\"]}"
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 7,
+          "width": 240
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Hearing",
+          "description": "The hearing date, until a result is recorded",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "rule_condition": "{\"columnId\": {\"column\": \"Result\"}, \"op\": \"empty\", \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Remind 2 days before",
+          "description": "Remind the client 2 days before the hearing, until a result is recorded",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 3, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 1, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\": \"relative\", \"anchorColumnId\": {\"column\": \"Hearing date\"}, \"offset\": {\"days\": 2, \"direction\": \"before\"}}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Result\"}, \"op\": \"empty\", \"whenFalse\": \"hide\"}"
+        }
+      ],
+      "links": [
+        {
+          "to": "caseload",
+          "label_forward": "Client",
+          "label_backward": "Court dates",
+          "cardinality": "many_to_one"
+        }
+      ]
+    }
+  ],
+  "dashboardCards": [
+    "summary",
+    "today",
+    "missingInfo",
+    "recentActivity"
+  ],
+  "sampleData": {
+    "records": {
+      "caseload": [
+        {
+          "Name": "Grace Okafor",
+          "Safe contact method": "Text only",
+          "Referred by": "Police",
+          "Incident date": {
+            "daysFromToday": -340
+          },
+          "Last safety check-in": {
+            "daysFromToday": -33
+          },
+          "Status": "Active",
+          "Safe phone": "555-0120",
+          "Safe times and notes": "Weekdays 9–3 only. Never leave a voicemail.",
+          "Protective order expires": {
+            "daysFromToday": 25
+          }
+        },
+        {
+          "Name": "Linh Smith",
+          "Safe contact method": "Call this number",
+          "Referred by": "Prosecutor's office",
+          "Incident date": {
+            "daysFromToday": -120
+          },
+          "Last safety check-in": {
+            "daysFromToday": -12
+          },
+          "Status": "Court pending",
+          "Safe phone": "555-0126",
+          "Safe times and notes": "Any time. OK to leave a short message: \"Calling from the clinic.\"",
+          "Compensation claim filed": {
+            "daysFromToday": -90
+          },
+          "Protective order expires": {
+            "daysFromToday": 160
+          },
+          "Restitution follow-up": {
+            "daysFromToday": 4
+          }
+        },
+        {
+          "Name": "Dorothy Kowalski",
+          "Safe contact method": "Through a trusted person",
+          "Referred by": "Hospital",
+          "Incident date": {
+            "daysFromToday": -400
+          },
+          "Last safety check-in": {
+            "daysFromToday": -45
+          },
+          "Status": "Active",
+          "Safe times and notes": "Through her sister; see contacts.",
+          "Compensation claim filed": {
+            "daysFromToday": -350
+          }
+        },
+        {
+          "Name": "Priya Bell",
+          "Safe contact method": "Call this number",
+          "Referred by": "Police",
+          "Incident date": {
+            "daysFromToday": -60
+          },
+          "Last safety check-in": {
+            "daysFromToday": -20
+          },
+          "Status": "Court pending",
+          "Safe phone": "555-0138",
+          "Safe times and notes": "Mornings. No messages.",
+          "Protective order expires": {
+            "daysFromToday": 8
+          }
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Safe contact method": "Wait for them to call",
+          "Referred by": "Shelter",
+          "Incident date": {
+            "daysFromToday": -200
+          },
+          "Last safety check-in": {
+            "daysFromToday": -28
+          },
+          "Status": "Active",
+          "Safe times and notes": "Do not call. She will call the office.",
+          "Protective order expires": {
+            "daysFromToday": -3
+          }
+        },
+        {
+          "Name": "Ruth Jackson",
+          "Safe contact method": "Email only",
+          "Referred by": "Self",
+          "Incident date": {
+            "daysFromToday": -355
+          },
+          "Last safety check-in": {
+            "daysFromToday": -5
+          },
+          "Status": "Active",
+          "Restitution follow-up": {
+            "daysFromToday": -6
+          }
+        },
+        {
+          "Name": "Mei Ortiz",
+          "Safe contact method": "Text only",
+          "Referred by": "Prosecutor's office",
+          "Incident date": {
+            "daysFromToday": -30
+          },
+          "Last safety check-in": {
+            "daysFromToday": -2
+          },
+          "Status": "Court pending",
+          "Safe phone": "555-0156",
+          "Safe times and notes": "After 6 pm. No messages.",
+          "Protective order expires": {
+            "daysFromToday": 300
+          }
+        },
+        {
+          "Name": "Hannah Walker",
+          "Safe contact method": "Call this number",
+          "Referred by": "Police",
+          "Incident date": {
+            "daysFromToday": -500
+          },
+          "Last safety check-in": {
+            "daysFromToday": -90
+          },
+          "Status": "Closed",
+          "Safe phone": "555-0162",
+          "Compensation claim filed": {
+            "daysFromToday": -460
+          }
+        }
+      ],
+      "court-dates": [
+        {
+          "Hearing": "Pretrial hearing",
+          "Type": "Pretrial",
+          "Court": "Springfield District Court, Room 2",
+          "Hearing date": {
+            "daysFromToday": 3
+          },
+          "Going with them": "true"
+        },
+        {
+          "Hearing": "Protective order hearing",
+          "Type": "Protective order hearing",
+          "Court": "Springfield District Court, Room 3",
+          "Hearing date": {
+            "daysFromToday": 1
+          },
+          "Going with them": "true",
+          "Client reminded": {
+            "daysFromToday": -1
+          }
+        },
+        {
+          "Hearing": "Sentencing",
+          "Type": "Sentencing",
+          "Court": "Springfield District Court, Room 4",
+          "Hearing date": {
+            "daysFromToday": 12
+          },
+          "Going with them": "true"
+        },
+        {
+          "Hearing": "Restitution hearing",
+          "Type": "Restitution hearing",
+          "Court": "Springfield District Court, Room 2",
+          "Hearing date": {
+            "daysFromToday": 8
+          },
+          "Going with them": "false"
+        },
+        {
+          "Hearing": "Arraignment",
+          "Type": "Arraignment",
+          "Court": "Springfield District Court, Room 3",
+          "Hearing date": {
+            "daysFromToday": -9
+          },
+          "Going with them": "true",
+          "Client reminded": {
+            "daysFromToday": -11
+          },
+          "Result": "Held"
+        },
+        {
+          "Hearing": "Pretrial hearing",
+          "Type": "Pretrial",
+          "Court": "Springfield District Court, Room 4",
+          "Hearing date": {
+            "daysFromToday": -20
+          },
+          "Going with them": "false",
+          "Client reminded": {
+            "daysFromToday": -22
+          },
+          "Result": "Continued"
+        },
+        {
+          "Hearing": "Trial",
+          "Type": "Trial",
+          "Court": "Springfield District Court, Room 2",
+          "Hearing date": {
+            "daysFromToday": 40
+          },
+          "Going with them": "true"
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "court-dates#0",
+        "to": "caseload#1",
+        "link": "Client"
+      },
+      {
+        "from": "court-dates#1",
+        "to": "caseload#3",
+        "link": "Client"
+      },
+      {
+        "from": "court-dates#2",
+        "to": "caseload#6",
+        "link": "Client"
+      },
+      {
+        "from": "court-dates#3",
+        "to": "caseload#5",
+        "link": "Client"
+      },
+      {
+        "from": "court-dates#4",
+        "to": "caseload#0",
+        "link": "Client"
+      },
+      {
+        "from": "court-dates#5",
+        "to": "caseload#6",
+        "link": "Client"
+      },
+      {
+        "from": "court-dates#6",
+        "to": "caseload#1",
+        "link": "Client"
+      }
+    ],
+    "activities": [
+      {
+        "record": "caseload#0",
+        "type": "safety_check",
+        "daysAgo": 33,
+        "text": "Went over the safety plan. Bag is packed; code word set with her brother."
+      },
+      {
+        "record": "caseload#1",
+        "type": "court",
+        "daysAgo": 20,
+        "text": "Went with her to the pretrial hearing. Continued; new date set."
+      },
+      {
+        "record": "caseload#2",
+        "type": "referral",
+        "daysAgo": 15,
+        "text": "Referred to legal aid for help with the custody paperwork."
+      },
+      {
+        "record": "caseload#3",
+        "type": "phone",
+        "daysAgo": 3,
+        "text": "Texted on her safe number about the protective order hearing; she will be there."
+      },
+      {
+        "record": "caseload#4",
+        "type": "phone",
+        "daysAgo": 6,
+        "text": "She called the office. Wants help with the compensation claim."
+      },
+      {
+        "record": "caseload#5",
+        "type": "safety_check",
+        "daysAgo": 5,
+        "text": "Check-in by email. Doing well; restitution payment is late again."
+      },
+      {
+        "record": "caseload#6",
+        "type": "court",
+        "daysAgo": 9,
+        "text": "Explained what to expect at sentencing and the victim impact statement."
+      }
+    ],
+    "appointments": [
+      {
+        "record": "court-dates#0",
+        "title": "Pretrial hearing (court)",
+        "dayOffset": 3,
+        "time": "09:00",
+        "minutes": 120,
+        "type": "court",
+        "location": "Springfield District Court, Room 2"
+      },
+      {
+        "record": "court-dates#1",
+        "title": "Protective order hearing (court)",
+        "dayOffset": 1,
+        "time": "09:00",
+        "minutes": 120,
+        "type": "court",
+        "location": "Springfield District Court, Room 3"
+      },
+      {
+        "record": "court-dates#2",
+        "title": "Sentencing (court)",
+        "dayOffset": 12,
+        "time": "09:00",
+        "minutes": 120,
+        "type": "court",
+        "location": "Springfield District Court, Room 4"
+      },
+      {
+        "record": "court-dates#3",
+        "title": "Restitution hearing (court)",
+        "dayOffset": 8,
+        "time": "09:00",
+        "minutes": 120,
+        "type": "court",
+        "location": "Springfield District Court, Room 2"
+      },
+      {
+        "record": "court-dates#4",
+        "title": "Arraignment (court)",
+        "dayOffset": -9,
+        "time": "09:00",
+        "minutes": 120,
+        "type": "court",
+        "location": "Springfield District Court, Room 3",
+        "status": "done"
+      },
+      {
+        "record": "court-dates#5",
+        "title": "Pretrial hearing (court)",
+        "dayOffset": -20,
+        "time": "09:00",
+        "minutes": 120,
+        "type": "court",
+        "location": "Springfield District Court, Room 4",
+        "status": "cancelled"
+      },
+      {
+        "record": "caseload#0",
+        "title": "Safety check-in",
+        "dayOffset": 2,
+        "time": "10:00",
+        "minutes": 45,
+        "type": "safety_check",
+        "location": "Office, room B"
+      },
+      {
+        "record": "caseload#4",
+        "title": "Compensation claim paperwork",
+        "dayOffset": 4,
+        "time": "13:30",
+        "minutes": 60,
+        "type": "note",
+        "location": "Office, room B"
+      }
+    ]
+  }
+}

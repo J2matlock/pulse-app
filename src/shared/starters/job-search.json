@@ -1,0 +1,836 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "job-search",
+  "name": "Job search",
+  "description": "For anyone looking for work: applications on a board from interested to an answer, follow-ups a week after applying, thank-you notes after interviews, offer deadlines, and the people who can help.",
+  "icon": "briefcase",
+  "group": "Personal",
+  "vocab": {
+    "record": {
+      "one": "record",
+      "many": "records",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": false,
+    "handoff": false,
+    "links": true,
+    "stages": true,
+    "measures": false,
+    "appointments": true,
+    "forms": false,
+    "attachments": true
+  },
+  "activityTypes": [
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    },
+    {
+      "key": "call",
+      "label": "Call",
+      "icon": "📞",
+      "color": "blue"
+    },
+    {
+      "key": "email",
+      "label": "Email",
+      "icon": "✉️",
+      "color": "teal"
+    },
+    {
+      "key": "interview",
+      "label": "Interview",
+      "icon": "🤝",
+      "color": "purple"
+    }
+  ],
+  "documentTemplates": [
+    {
+      "name": "Follow-up on my application",
+      "content": "Hello,\n\nI applied for the {{name}} position on {{field:Applied on}} and wanted to follow up. I am still very interested in the role and would be glad to share anything else that would help.\n\nThank you for your time,\n\n{{my_name}}"
+    },
+    {
+      "name": "Thank-you after an interview",
+      "content": "Hello,\n\nThank you for taking the time to talk with me about the {{name}} position. I enjoyed learning more about the team at {{linked:Company.Name}}, and I am excited about the chance to work with you.\n\nPlease let me know if there is anything else I can send.\n\nBest regards,\n\n{{my_name}}"
+    }
+  ],
+  "helpTips": [
+    {
+      "title": "The board",
+      "body": "Drag an application across the board as it moves. Moving it to Applied fills in the date, and a follow-up comes due a week later if you have not heard back. Moving it to Interviewing adds the Before the interview checklist."
+    },
+    {
+      "title": "Thank-you notes",
+      "body": "After an interview, put the date in Last interview. A thank-you note comes due the next day. The Thank-you after an interview letter fills in the job and company for you."
+    },
+    {
+      "title": "Interviews on the calendar",
+      "body": "Add each interview as an appointment on the application, so the dashboard shows what is coming up today and this week."
+    },
+    {
+      "title": "Your resume and cover letters",
+      "body": "Drop the resume and cover letter you sent into Files on the application, so you always know which version they have."
+    }
+  ],
+  "lists": [
+    {
+      "key": "applications",
+      "name": "Applications",
+      "description": "Every job you are looking at, from interested to an answer",
+      "kind": "job",
+      "vocab": {
+        "record": {
+          "one": "application",
+          "many": "applications",
+          "article": "an"
+        }
+      },
+      "columns": [
+        {
+          "name": "Job",
+          "column_type": "text",
+          "position": 0,
+          "width": 220,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1,
+          "description": "The job title"
+        },
+        {
+          "name": "Stage",
+          "column_type": "status",
+          "position": 1,
+          "width": 150,
+          "config": "{\"options\": [{\"label\": \"Interested\", \"color\": \"#64748b\"}, {\"label\": \"Applied\", \"color\": \"#3b82f6\"}, {\"label\": \"Interviewing\", \"color\": \"#8b5cf6\"}, {\"label\": \"Offer\", \"color\": \"#f59e0b\"}, {\"label\": \"Accepted\", \"color\": \"#22c55e\"}, {\"label\": \"Not this time\", \"color\": \"#ef4444\"}]}"
+        },
+        {
+          "name": "Found on",
+          "column_type": "dropdown",
+          "position": 2,
+          "width": 140,
+          "config": "{\"options\": [\"Job board\", \"Company website\", \"Referral\", \"Recruiter\", \"Networking\", \"Job fair\"]}"
+        },
+        {
+          "name": "Pay",
+          "column_type": "text",
+          "position": 3,
+          "width": 130,
+          "description": "What the posting says, e.g. $22/hour or $52–58k"
+        },
+        {
+          "name": "Posting link",
+          "column_type": "url",
+          "position": 4,
+          "width": 180
+        },
+        {
+          "name": "Apply by",
+          "column_type": "date",
+          "position": 5,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Apply by\", \"log_changes\": true}",
+          "description": "Closing date on the posting"
+        },
+        {
+          "name": "Applied on",
+          "column_type": "date",
+          "position": 6,
+          "width": 140,
+          "description": "Filled in when the application moves to Applied"
+        },
+        {
+          "name": "Follow-up sent",
+          "column_type": "date",
+          "position": 7,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Follow-up\", \"log_changes\": true}",
+          "description": "Date you checked in about your application"
+        },
+        {
+          "name": "Last interview",
+          "column_type": "date",
+          "position": 8,
+          "width": 150,
+          "description": "Date of your most recent interview for this job"
+        },
+        {
+          "name": "Thank-you sent",
+          "column_type": "date",
+          "position": 9,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Thank-you note\", \"log_changes\": true}",
+          "description": "Date you sent a thank-you after the interview"
+        },
+        {
+          "name": "Respond to offer by",
+          "column_type": "date",
+          "position": 10,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Respond by\", \"log_changes\": true}",
+          "description": "When they need your answer"
+        },
+        {
+          "name": "Closed on",
+          "column_type": "date",
+          "position": 11,
+          "width": 140,
+          "description": "Filled in when the application moves to Accepted or Not this time"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Apply by",
+          "description": "The closing date for applications, until you apply",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is\", \"values\": [\"Interested\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Follow-up",
+          "description": "Check in 7 days after applying, while you are still waiting to hear",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 2, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 1, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\": \"relative\", \"anchorColumnId\": {\"column\": \"Applied on\"}, \"offset\": {\"days\": 7, \"direction\": \"after\"}}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is\", \"values\": [\"Applied\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Thank-you note",
+          "description": "Send a thank-you the day after an interview",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 2, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 1, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\": \"relative\", \"anchorColumnId\": {\"column\": \"Last interview\"}, \"offset\": {\"days\": 1, \"direction\": \"after\"}}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is\", \"values\": [\"Interviewing\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Respond by",
+          "description": "The date they need your answer on an offer",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 2, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 1, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "rule_condition": "{\"columnId\": {\"column\": \"Stage\"}, \"op\": \"is\", \"values\": [\"Offer\"], \"whenFalse\": \"hide\"}"
+        }
+      ],
+      "checklists": [
+        {
+          "name": "Before the interview",
+          "description": "The day before",
+          "items": "[\"Read the job posting again\", \"Look up the company and the people you will meet\", \"Practice telling your story in two minutes\", \"Write down three questions to ask them\", \"Print copies of your resume\", \"Plan the route or test the video link\", \"Lay out what you will wear\"]"
+        }
+      ],
+      "links": [
+        {
+          "to": "companies",
+          "label_forward": "Company",
+          "label_backward": "Applications",
+          "cardinality": "many_to_one"
+        }
+      ],
+      "stage": {
+        "column": "Stage",
+        "options": [
+          {
+            "value": "Interested",
+            "color": "slate"
+          },
+          {
+            "value": "Applied",
+            "color": "blue",
+            "onEnter": {
+              "stampColumn": "Applied on",
+              "activityType": "note"
+            }
+          },
+          {
+            "value": "Interviewing",
+            "color": "purple",
+            "onEnter": {
+              "checklist": "Before the interview"
+            }
+          },
+          {
+            "value": "Offer",
+            "color": "amber"
+          },
+          {
+            "value": "Accepted",
+            "color": "green",
+            "done": true,
+            "onEnter": {
+              "stampColumn": "Closed on"
+            }
+          },
+          {
+            "value": "Not this time",
+            "color": "red",
+            "done": true,
+            "onEnter": {
+              "stampColumn": "Closed on"
+            }
+          }
+        ],
+        "hideDoneAfterDays": 30
+      }
+    },
+    {
+      "key": "companies",
+      "name": "Companies",
+      "description": "Places you have applied or want to work",
+      "kind": "thing",
+      "vocab": {
+        "record": {
+          "one": "company",
+          "many": "companies",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 200,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Website",
+          "column_type": "url",
+          "position": 1,
+          "width": 190
+        },
+        {
+          "name": "Contact person",
+          "column_type": "text",
+          "position": 2,
+          "width": 170,
+          "description": "Recruiter or hiring manager"
+        },
+        {
+          "name": "Contact email",
+          "column_type": "email",
+          "position": 3,
+          "width": 200
+        },
+        {
+          "name": "Contact phone",
+          "column_type": "phone",
+          "position": 4,
+          "width": 140
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 5,
+          "width": 180
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 6,
+          "width": 240,
+          "description": "What they do, who you know there, what you liked"
+        }
+      ]
+    },
+    {
+      "key": "people",
+      "name": "Contacts",
+      "description": "References and people in your network",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "contact",
+          "many": "contacts",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 180,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 1,
+          "width": 140
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 2,
+          "width": 200
+        },
+        {
+          "name": "Works at",
+          "column_type": "text",
+          "position": 3,
+          "width": 170
+        },
+        {
+          "name": "How you know them",
+          "column_type": "dropdown",
+          "position": 4,
+          "width": 170,
+          "config": "{\"options\": [\"Former manager\", \"Coworker\", \"Teacher\", \"Friend\", \"Met networking\"]}"
+        },
+        {
+          "name": "Reference",
+          "column_type": "checkbox",
+          "position": 5,
+          "width": 110,
+          "description": "They agreed to be a reference"
+        },
+        {
+          "name": "Last in touch",
+          "column_type": "date",
+          "position": 6,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every 3 months\", \"log_changes\": true}",
+          "description": "Pulse reminds you to check in every few months"
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 7,
+          "width": 220
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every 3 months",
+          "description": "Due 3 months after the date entered",
+          "interval_months": 3,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        }
+      ]
+    }
+  ],
+  "dashboardCards": [
+    "summary",
+    "today",
+    "stages",
+    "missingInfo"
+  ],
+  "sampleData": {
+    "records": {
+      "applications": [
+        {
+          "Job": "Front desk coordinator",
+          "Stage": "Interviewing",
+          "Found on": "Job board",
+          "Posting link": "https://jobs.example.com/front-desk-coordinator",
+          "Pay": "$21/hour",
+          "Applied on": {
+            "daysFromToday": -16
+          },
+          "Last interview": {
+            "daysFromToday": -1
+          }
+        },
+        {
+          "Job": "Office manager",
+          "Stage": "Applied",
+          "Found on": "Recruiter",
+          "Posting link": "https://jobs.example.com/office-manager",
+          "Pay": "$52–58k",
+          "Applied on": {
+            "daysFromToday": -9
+          }
+        },
+        {
+          "Job": "Library assistant",
+          "Stage": "Applied",
+          "Found on": "Company website",
+          "Posting link": "https://jobs.example.com/library-assistant",
+          "Pay": "$19/hour",
+          "Applied on": {
+            "daysFromToday": -5
+          }
+        },
+        {
+          "Job": "Program coordinator",
+          "Stage": "Interested",
+          "Found on": "Referral",
+          "Posting link": "https://jobs.example.com/program-coordinator",
+          "Pay": "$48k",
+          "Apply by": {
+            "daysFromToday": 3
+          }
+        },
+        {
+          "Job": "Patient access representative",
+          "Stage": "Interested",
+          "Found on": "Job board",
+          "Posting link": "https://jobs.example.com/patient-access-representative",
+          "Pay": "$20–23/hour",
+          "Apply by": {
+            "daysFromToday": 12
+          }
+        },
+        {
+          "Job": "Scheduling coordinator",
+          "Stage": "Offer",
+          "Found on": "Networking",
+          "Posting link": "https://jobs.example.com/scheduling-coordinator",
+          "Pay": "$50k",
+          "Applied on": {
+            "daysFromToday": -30
+          },
+          "Last interview": {
+            "daysFromToday": -10
+          },
+          "Thank-you sent": {
+            "daysFromToday": -9
+          },
+          "Respond to offer by": {
+            "daysFromToday": 2
+          }
+        },
+        {
+          "Job": "Shift supervisor",
+          "Stage": "Not this time",
+          "Found on": "Job fair",
+          "Posting link": "https://jobs.example.com/shift-supervisor",
+          "Pay": "$18/hour",
+          "Applied on": {
+            "daysFromToday": -40
+          },
+          "Closed on": {
+            "daysFromToday": -12
+          }
+        },
+        {
+          "Job": "Administrative assistant",
+          "Stage": "Interviewing",
+          "Found on": "Recruiter",
+          "Posting link": "https://jobs.example.com/administrative-assistant",
+          "Pay": "$45k",
+          "Applied on": {
+            "daysFromToday": -20
+          },
+          "Last interview": {
+            "daysFromToday": -8
+          },
+          "Thank-you sent": {
+            "daysFromToday": -7
+          }
+        }
+      ],
+      "companies": [
+        {
+          "Name": "Maple Street Dental",
+          "Website": "https://maplestreetdental.example.com",
+          "Contact email": "rita.gomez@example.com",
+          "Contact person": "Rita Gomez",
+          "Contact phone": "555-0181",
+          "Address": "42 Maple Street\nSpringfield",
+          "Notes": "Small office, close to home."
+        },
+        {
+          "Name": "Northwind Logistics",
+          "Website": "https://northwind.example.com",
+          "Contact email": "ben.carter@example.com",
+          "Contact person": "Ben Carter",
+          "Contact phone": "555-0184",
+          "Address": "900 Harbor Road\nSpringfield",
+          "Notes": "Warehouse and office jobs. Hiring all year."
+        },
+        {
+          "Name": "Springfield Library",
+          "Website": "https://library.example.com",
+          "Contact email": "hr@library.example.com",
+          "Contact person": "Ms. Patel",
+          "Contact phone": "555-0187",
+          "Address": "10 Commons Square\nSpringfield"
+        },
+        {
+          "Name": "Bright Path Learning",
+          "Website": "https://brightpath.example.com",
+          "Contact email": "jobs@brightpath.example.com",
+          "Notes": "Tutoring center; Jamie works here."
+        },
+        {
+          "Name": "Cedar Valley Hospital",
+          "Website": "https://cedarvalley.example.com",
+          "Contact email": "tom.nguyen@example.com",
+          "Contact person": "Tom Nguyen",
+          "Contact phone": "555-0193",
+          "Address": "1 Cedar Valley Way\nSpringfield",
+          "Notes": "Big employer. Online application only."
+        },
+        {
+          "Name": "Riverside Coffee Co.",
+          "Website": "https://riversidecoffee.example.com",
+          "Contact email": "ana.lima@example.com",
+          "Contact person": "Ana Lima",
+          "Contact phone": "555-0196",
+          "Address": "77 River Street\nSpringfield"
+        }
+      ],
+      "people": [
+        {
+          "Name": "Jamie Brooks",
+          "Phone": "555-0150",
+          "Email": "jamie.brooks@example.com",
+          "How you know them": "Friend",
+          "Last in touch": {
+            "daysFromToday": -20
+          },
+          "Works at": "Bright Path Learning",
+          "Notes": "Said they would pass my resume to the director."
+        },
+        {
+          "Name": "Linda Ortiz",
+          "Phone": "555-0153",
+          "Email": "linda.ortiz@example.com",
+          "How you know them": "Former manager",
+          "Last in touch": {
+            "daysFromToday": -100
+          },
+          "Reference": "true",
+          "Works at": "Northwind Logistics",
+          "Notes": "Happy to be a reference. Prefers a heads-up text first."
+        },
+        {
+          "Name": "Marcus Hale",
+          "Phone": "555-0156",
+          "Email": "marcus.hale@example.com",
+          "How you know them": "Coworker",
+          "Last in touch": {
+            "daysFromToday": -60
+          },
+          "Reference": "true"
+        },
+        {
+          "Name": "Grace Kim",
+          "Phone": "555-0159",
+          "Email": "grace.kim@example.com",
+          "How you know them": "Teacher",
+          "Last in touch": {
+            "daysFromToday": -95
+          },
+          "Reference": "true",
+          "Works at": "Springfield Community College",
+          "Notes": "Wrote my letter for the certificate program."
+        },
+        {
+          "Name": "Owen Price",
+          "Phone": "555-0162",
+          "Email": "owen.price@example.com",
+          "How you know them": "Met networking",
+          "Last in touch": {
+            "daysFromToday": -10
+          },
+          "Works at": "Cedar Valley Hospital",
+          "Notes": "Met at the career fair; works in scheduling."
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "applications#0",
+        "to": "companies#0",
+        "link": "Company"
+      },
+      {
+        "from": "applications#1",
+        "to": "companies#1",
+        "link": "Company"
+      },
+      {
+        "from": "applications#2",
+        "to": "companies#2",
+        "link": "Company"
+      },
+      {
+        "from": "applications#3",
+        "to": "companies#3",
+        "link": "Company"
+      },
+      {
+        "from": "applications#4",
+        "to": "companies#4",
+        "link": "Company"
+      },
+      {
+        "from": "applications#5",
+        "to": "companies#4",
+        "link": "Company"
+      },
+      {
+        "from": "applications#6",
+        "to": "companies#5",
+        "link": "Company"
+      },
+      {
+        "from": "applications#7",
+        "to": "companies#1",
+        "link": "Company"
+      }
+    ],
+    "activities": [
+      {
+        "record": "applications#0",
+        "type": "interview",
+        "daysAgo": 1,
+        "text": "Met the office manager and one of the dentists. Asked about weekend hours. Second interview likely."
+      },
+      {
+        "record": "applications#1",
+        "type": "call",
+        "daysAgo": 9,
+        "text": "Recruiter called; sent my resume over the same day."
+      },
+      {
+        "record": "applications#5",
+        "type": "call",
+        "daysAgo": 3,
+        "text": "Offer call: $50k, starts in two weeks. Asked for a couple of days to think it over."
+      },
+      {
+        "record": "applications#7",
+        "type": "interview",
+        "daysAgo": 8,
+        "text": "Phone screen went well. Waiting to hear about the panel interview."
+      },
+      {
+        "record": "people#1",
+        "type": "call",
+        "daysAgo": 100,
+        "text": "Asked Linda to be a reference; she said yes."
+      }
+    ],
+    "history": [
+      {
+        "record": "applications#0",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Interested",
+            "daysAgo": 20
+          },
+          {
+            "value": "Applied",
+            "daysAgo": 16
+          },
+          {
+            "value": "Interviewing",
+            "daysAgo": 4
+          }
+        ]
+      },
+      {
+        "record": "applications#5",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Applied",
+            "daysAgo": 30
+          },
+          {
+            "value": "Interviewing",
+            "daysAgo": 15
+          },
+          {
+            "value": "Offer",
+            "daysAgo": 3
+          }
+        ]
+      },
+      {
+        "record": "applications#7",
+        "column": "Stage",
+        "values": [
+          {
+            "value": "Applied",
+            "daysAgo": 20
+          },
+          {
+            "value": "Interviewing",
+            "daysAgo": 9
+          }
+        ]
+      }
+    ],
+    "appointments": [
+      {
+        "record": "applications#0",
+        "title": "Interview: front desk coordinator",
+        "dayOffset": -1,
+        "time": "10:00",
+        "minutes": 45,
+        "type": "interview",
+        "location": "42 Maple Street"
+      },
+      {
+        "record": "applications#0",
+        "title": "Second interview",
+        "dayOffset": 4,
+        "time": "14:00",
+        "minutes": 60,
+        "type": "interview",
+        "location": "42 Maple Street"
+      },
+      {
+        "record": "applications#7",
+        "title": "Panel interview (video)",
+        "dayOffset": 2,
+        "time": "11:00",
+        "minutes": 60,
+        "type": "interview",
+        "location": "Video call"
+      },
+      {
+        "record": "applications#7",
+        "title": "Phone screen",
+        "dayOffset": -8,
+        "time": "09:30",
+        "minutes": 30,
+        "type": "interview"
+      },
+      {
+        "record": "applications#3",
+        "title": "Coffee with Jamie about the opening",
+        "dayOffset": 1,
+        "time": "08:30",
+        "minutes": 30,
+        "type": "note",
+        "location": "Riverside Coffee Co."
+      }
+    ]
+  }
+}

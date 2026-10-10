@@ -1,0 +1,700 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "horse-barn",
+  "name": "Horse barn & small herd",
+  "description": "For barn managers and horse owners: farrier every 7 weeks, deworming, yearly Coggins, spring and fall shots, teeth, and breeding dates through to foaling, with each horse linked to its owner.",
+  "icon": "tractor",
+  "group": "Animals",
+  "vocab": {
+    "record": {
+      "one": "record",
+      "many": "records",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": false,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false,
+    "links": true,
+    "stages": false,
+    "measures": false,
+    "appointments": true,
+    "forms": false,
+    "attachments": true
+  },
+  "activityTypes": [
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    },
+    {
+      "key": "vet_visit",
+      "label": "Vet visit",
+      "icon": "🩺",
+      "color": "blue"
+    },
+    {
+      "key": "farrier",
+      "label": "Farrier",
+      "icon": "🔨",
+      "color": "orange"
+    },
+    {
+      "key": "feeding_change",
+      "label": "Feeding change",
+      "icon": "🌾",
+      "color": "amber"
+    },
+    {
+      "key": "injury",
+      "label": "Injury",
+      "icon": "🩹",
+      "color": "red"
+    }
+  ],
+  "documentTemplates": [
+    {
+      "name": "Vaccines coming up",
+      "content": "{{today}}\n\nHi {{linked:Owner.Name}},\n\n{{name}} is due for spring or fall shots: {{deadline:Last vaccines}}.\n\nThe vet is coming out soon, so let us know if you'd like {{name}} added to the list, or if your own vet will handle it.\n\nThanks,\n\n{{my_name}}"
+    },
+    {
+      "name": "Coggins due",
+      "content": "{{today}}\n\nHi {{linked:Owner.Name}},\n\n{{name}}'s Coggins test is coming due: {{deadline:Coggins test}}. We need a current negative Coggins on file for every horse in the barn.\n\nWe can have it drawn at the next vet visit, or you can drop off a copy from your own vet.\n\nThanks,\n\n{{my_name}}"
+    }
+  ],
+  "helpTips": [
+    {
+      "title": "Farrier and shots",
+      "body": "Fill in the date of each farrier visit, deworming, Coggins and set of shots. Pulse works out when the next one is due and colors it as it gets close."
+    },
+    {
+      "title": "Breeding",
+      "body": "Set a mare's Breeding status to Bred and enter the breeding date. The pregnancy check comes due about 15 days later and foaling about 340 days later. Change it to In foal once she's confirmed, and to Foaled when the foal arrives: the reminders go away on their own."
+    },
+    {
+      "title": "Papers",
+      "body": "Drop Coggins certificates, vaccine records and boarding agreements into Files on the horse or owner. They are stored encrypted inside Pulse."
+    }
+  ],
+  "lists": [
+    {
+      "key": "horses",
+      "name": "Horses",
+      "description": "Every horse in the barn, with hoof care, health and breeding dates",
+      "kind": "thing",
+      "vocab": {
+        "record": {
+          "one": "horse",
+          "many": "horses",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 170,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Breed",
+          "column_type": "text",
+          "position": 1,
+          "width": 150
+        },
+        {
+          "name": "Born",
+          "column_type": "date",
+          "position": 2,
+          "width": 130,
+          "description": "Year or date of birth, if known"
+        },
+        {
+          "name": "Stall",
+          "column_type": "text",
+          "position": 3,
+          "width": 100,
+          "description": "Stall or pasture"
+        },
+        {
+          "name": "Last farrier visit",
+          "column_type": "date",
+          "position": 4,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every 7 weeks\", \"log_changes\": true}",
+          "description": "Trim or shoes; the next visit comes due 7 weeks later"
+        },
+        {
+          "name": "Last deworming",
+          "column_type": "date",
+          "position": 5,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every 12 weeks\", \"log_changes\": true}"
+        },
+        {
+          "name": "Coggins test",
+          "column_type": "date",
+          "position": 6,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
+          "description": "Date the last negative Coggins was drawn; most shows and barns want one within 12 months"
+        },
+        {
+          "name": "Last vaccines",
+          "column_type": "date",
+          "position": 7,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every 6 months\", \"log_changes\": true}",
+          "description": "Spring and fall shots"
+        },
+        {
+          "name": "Teeth floated",
+          "column_type": "date",
+          "position": 8,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
+          "description": "Last dental visit"
+        },
+        {
+          "name": "Breeding status",
+          "column_type": "dropdown",
+          "position": 9,
+          "width": 150,
+          "config": "{\"options\": [\"Open\", \"Bred\", \"In foal\", \"Foaled\"]}",
+          "description": "For mares; leave blank for geldings and stallions"
+        },
+        {
+          "name": "Breeding date",
+          "column_type": "date",
+          "position": 10,
+          "width": 150,
+          "description": "Last cover or insemination date"
+        },
+        {
+          "name": "Pregnancy check",
+          "column_type": "date",
+          "position": 11,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Pregnancy check\", \"log_changes\": true}",
+          "description": "Date of the ultrasound check, about 15 days after breeding"
+        },
+        {
+          "name": "Foaled on",
+          "column_type": "date",
+          "position": 12,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Foaling due\", \"log_changes\": true}",
+          "description": "Foaling is due about 340 days after breeding; fill this in when the foal arrives"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every 7 weeks",
+          "description": "Due 49 days after the date entered",
+          "interval_days": 49,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Every 12 weeks",
+          "description": "Due 84 days after the date entered",
+          "interval_days": 84,
+          "thresholds": "[{\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Every 6 months",
+          "description": "Due 6 months after the date entered",
+          "interval_months": 6,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Pregnancy check",
+          "description": "Ultrasound 15 days after breeding, while the mare is marked Bred",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\": \"relative\", \"anchorColumnId\": {\"column\": \"Breeding date\"}, \"offset\": {\"days\": 15, \"direction\": \"after\"}}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Breeding status\"}, \"op\": \"is\", \"values\": [\"Bred\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Foaling due",
+          "description": "About 340 days after breeding, while the mare is Bred or In foal",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\": \"relative\", \"anchorColumnId\": {\"column\": \"Breeding date\"}, \"offset\": {\"days\": 340, \"direction\": \"after\"}}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Breeding status\"}, \"op\": \"is\", \"values\": [\"Bred\", \"In foal\"], \"whenFalse\": \"hide\"}"
+        }
+      ],
+      "checklists": [
+        {
+          "name": "New horse arriving",
+          "description": "Before a new boarder moves in",
+          "items": "[\"Copy of a negative Coggins from the last 12 months\", \"Vaccine record copied\", \"Owner's emergency contact and vet\", \"Quarantine stall ready\", \"Feeding plan written down\", \"Farrier schedule agreed\"]"
+        }
+      ],
+      "links": [
+        {
+          "to": "owners",
+          "label_forward": "Owner",
+          "label_backward": "Horses",
+          "cardinality": "many_to_one"
+        }
+      ]
+    },
+    {
+      "key": "owners",
+      "name": "Owners",
+      "description": "Boarders and owners of the horses in your care",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "owner",
+          "many": "owners",
+          "article": "an"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 180,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 1,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 2,
+          "width": 200
+        },
+        {
+          "name": "Address",
+          "column_type": "address",
+          "position": 3,
+          "width": 170
+        },
+        {
+          "name": "Board plan",
+          "column_type": "dropdown",
+          "position": 4,
+          "width": 140,
+          "config": "{\"options\": [\"Full board\", \"Pasture board\", \"Self-care\", \"Training\"]}"
+        },
+        {
+          "name": "Emergency contact",
+          "column_type": "text",
+          "position": 5,
+          "width": 170,
+          "is_required": 1,
+          "description": "Who to call if the owner can't be reached"
+        },
+        {
+          "name": "Emergency phone",
+          "column_type": "phone",
+          "position": 6,
+          "width": 140
+        },
+        {
+          "name": "Boarding agreement signed",
+          "column_type": "date",
+          "position": 7,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
+          "description": "Renew the agreement every year"
+        },
+        {
+          "name": "Notes",
+          "column_type": "notes",
+          "position": 8,
+          "width": 220
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        }
+      ]
+    }
+  ],
+  "dashboardCards": [
+    "summary",
+    "today",
+    "missingInfo",
+    "recentActivity"
+  ],
+  "sampleData": {
+    "records": {
+      "horses": [
+        {
+          "Name": "Biscuit",
+          "Breed": "Quarter Horse",
+          "Born": {
+            "daysFromToday": -4380
+          },
+          "Stall": "Stall 1",
+          "Last farrier visit": {
+            "daysFromToday": -52
+          },
+          "Last deworming": {
+            "daysFromToday": -80
+          },
+          "Coggins test": {
+            "daysFromToday": -340
+          },
+          "Last vaccines": {
+            "daysFromToday": -170
+          },
+          "Teeth floated": {
+            "daysFromToday": -200
+          }
+        },
+        {
+          "Name": "Captain Sprinkles",
+          "Breed": "Welsh pony",
+          "Born": {
+            "daysFromToday": -5475
+          },
+          "Stall": "Stall 2",
+          "Last farrier visit": {
+            "daysFromToday": -30
+          },
+          "Last deworming": {
+            "daysFromToday": -95
+          },
+          "Coggins test": {
+            "daysFromToday": -380
+          },
+          "Last vaccines": {
+            "daysFromToday": -100
+          },
+          "Teeth floated": {
+            "daysFromToday": -400
+          }
+        },
+        {
+          "Name": "Moonpie",
+          "Breed": "Morgan",
+          "Born": {
+            "daysFromToday": -3285
+          },
+          "Stall": "Stall 3",
+          "Last farrier visit": {
+            "daysFromToday": -45
+          },
+          "Last deworming": {
+            "daysFromToday": -20
+          },
+          "Coggins test": {
+            "daysFromToday": -100
+          },
+          "Last vaccines": {
+            "daysFromToday": -60
+          },
+          "Teeth floated": {
+            "daysFromToday": -300
+          },
+          "Breeding status": "Bred",
+          "Breeding date": {
+            "daysFromToday": -12
+          }
+        },
+        {
+          "Name": "Duchess",
+          "Breed": "Paint",
+          "Born": {
+            "daysFromToday": -4015
+          },
+          "Stall": "Foaling stall",
+          "Last farrier visit": {
+            "daysFromToday": -10
+          },
+          "Last deworming": {
+            "daysFromToday": -40
+          },
+          "Coggins test": {
+            "daysFromToday": -200
+          },
+          "Last vaccines": {
+            "daysFromToday": -175
+          },
+          "Teeth floated": {
+            "daysFromToday": -150
+          },
+          "Breeding status": "In foal",
+          "Breeding date": {
+            "daysFromToday": -300
+          },
+          "Pregnancy check": {
+            "daysFromToday": -285
+          }
+        },
+        {
+          "Name": "Tater Tot",
+          "Breed": "Miniature horse",
+          "Born": {
+            "daysFromToday": -2555
+          },
+          "Stall": "Paddock B",
+          "Last farrier visit": {
+            "daysFromToday": -60
+          },
+          "Last deworming": {
+            "daysFromToday": -10
+          },
+          "Coggins test": {
+            "daysFromToday": -20
+          },
+          "Last vaccines": {
+            "daysFromToday": -190
+          },
+          "Teeth floated": {
+            "daysFromToday": -30
+          }
+        },
+        {
+          "Name": "Rocket",
+          "Breed": "Thoroughbred",
+          "Born": {
+            "daysFromToday": -2190
+          },
+          "Stall": "Stall 4",
+          "Last farrier visit": {
+            "daysFromToday": -5
+          },
+          "Last deworming": {
+            "daysFromToday": -70
+          },
+          "Coggins test": {
+            "daysFromToday": -360
+          },
+          "Last vaccines": {
+            "daysFromToday": -20
+          },
+          "Teeth floated": {
+            "daysFromToday": -350
+          },
+          "Breeding status": "Open"
+        }
+      ],
+      "owners": [
+        {
+          "Name": "Priya Bell",
+          "Phone": "555-0141",
+          "Email": "priya.bell@example.com",
+          "Address": "248 Elm Street\nSpringfield",
+          "Board plan": "Full board",
+          "Emergency contact": "Raj Bell",
+          "Emergency phone": "555-0143",
+          "Boarding agreement signed": {
+            "daysFromToday": -370
+          }
+        },
+        {
+          "Name": "Frank Rivera",
+          "Phone": "555-0148",
+          "Email": "frank.rivera@example.com",
+          "Address": "285 Pine Road\nSpringfield",
+          "Board plan": "Pasture board",
+          "Emergency contact": "Maria Rivera",
+          "Emergency phone": "555-0150",
+          "Boarding agreement signed": {
+            "daysFromToday": -200
+          },
+          "Notes": "Pays board on the 1st. Prefers texts."
+        },
+        {
+          "Name": "Keisha Thompson",
+          "Phone": "555-0155",
+          "Email": "keisha.thompson@example.com",
+          "Address": "322 Oak Terrace\nSpringfield",
+          "Board plan": "Full board",
+          "Emergency contact": "Dana Thompson",
+          "Emergency phone": "555-0157",
+          "Boarding agreement signed": {
+            "daysFromToday": -350
+          }
+        },
+        {
+          "Name": "Samuel Rahman",
+          "Phone": "555-0162",
+          "Email": "samuel.rahman@example.com",
+          "Address": "359 Aspen Drive\nSpringfield",
+          "Board plan": "Self-care",
+          "Emergency contact": "Leah Rahman",
+          "Emergency phone": "555-0164",
+          "Boarding agreement signed": {
+            "daysFromToday": -30
+          }
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "horses#0",
+        "to": "owners#0",
+        "link": "Owner"
+      },
+      {
+        "from": "horses#1",
+        "to": "owners#1",
+        "link": "Owner"
+      },
+      {
+        "from": "horses#2",
+        "to": "owners#2",
+        "link": "Owner"
+      },
+      {
+        "from": "horses#3",
+        "to": "owners#2",
+        "link": "Owner"
+      },
+      {
+        "from": "horses#4",
+        "to": "owners#3",
+        "link": "Owner"
+      },
+      {
+        "from": "horses#5",
+        "to": "owners#0",
+        "link": "Owner"
+      }
+    ],
+    "activities": [
+      {
+        "record": "horses#0",
+        "type": "farrier",
+        "daysAgo": 52,
+        "text": "Front shoes reset, hinds trimmed. Left front wall a little thin."
+      },
+      {
+        "record": "horses#2",
+        "type": "vet_visit",
+        "daysAgo": 12,
+        "text": "Bred by AI. Ultrasound pencilled in for about two weeks out."
+      },
+      {
+        "record": "horses#3",
+        "type": "vet_visit",
+        "daysAgo": 285,
+        "text": "Ultrasound confirmed in foal. Single pregnancy."
+      },
+      {
+        "record": "horses#4",
+        "type": "feeding_change",
+        "daysAgo": 6,
+        "text": "Cut grain to half a scoop; grazing muzzle on in the afternoon."
+      },
+      {
+        "record": "horses#1",
+        "type": "injury",
+        "daysAgo": 3,
+        "text": "Small scrape on the right hind cannon. Cleaned, watching for swelling."
+      },
+      {
+        "record": "horses#5",
+        "type": "farrier",
+        "daysAgo": 5,
+        "text": "Full set of shoes before the show season."
+      }
+    ],
+    "appointments": [
+      {
+        "record": "horses#0",
+        "title": "Farrier",
+        "dayOffset": 1,
+        "time": "09:00",
+        "minutes": 60,
+        "type": "farrier",
+        "location": "Barn aisle"
+      },
+      {
+        "record": "horses#4",
+        "title": "Farrier: trim",
+        "dayOffset": 1,
+        "time": "10:00",
+        "minutes": 30,
+        "type": "farrier",
+        "location": "Barn aisle"
+      },
+      {
+        "record": "horses#2",
+        "title": "Pregnancy check ultrasound",
+        "dayOffset": 3,
+        "time": "14:00",
+        "minutes": 30,
+        "type": "vet_visit"
+      },
+      {
+        "record": "horses#1",
+        "title": "Coggins draw and teeth",
+        "dayOffset": 5,
+        "time": "11:00",
+        "minutes": 60,
+        "type": "vet_visit"
+      },
+      {
+        "record": "horses#3",
+        "title": "Pre-foaling vet check",
+        "dayOffset": 20,
+        "time": "10:00",
+        "minutes": 45,
+        "type": "vet_visit"
+      },
+      {
+        "record": "horses#5",
+        "title": "Farrier: shoes",
+        "dayOffset": -5,
+        "time": "09:00",
+        "minutes": 60,
+        "type": "farrier",
+        "location": "Barn aisle"
+      }
+    ]
+  }
+}

@@ -122,6 +122,54 @@ export const BLURBS = {
     headline: 'Estimates, crews and equipment, without the clipboard',
     problem: 'Estimate requests come in faster than you can call people back, and half the quotes you send never get a follow-up. Meanwhile the chipper is due for service by the hour meter, the bucket truck needs its yearly inspection, and somebody\'s CPR card ran out last month.',
   },
+  'real-estate': {
+    headline: 'Every deal from showing to closing, and every date in between',
+    problem: 'Once a contract is signed, the clock starts on the inspection, the appraisal, the loan and the closing, and each deal runs on its own dates. Miss a contingency and your buyer loses their protection. Meanwhile pre-approval letters expire, listing agreements run out, and the closing anniversaries you meant to remember slip by.',
+  },
+  'subcontractor-compliance': {
+    headline: 'Never let an uninsured sub on your job site',
+    problem: "Every sub owes you a current certificate of insurance, workers' comp, a license, a W-9 and a signed agreement, and every one of them runs out on its own date. The folder of PDFs doesn't warn you when the roofer's workers' comp lapsed last week, right before he starts on Monday.",
+  },
+  'horse-barn': {
+    headline: 'Every horse, every farrier visit, every shot, on time',
+    problem: 'The farrier comes every seven weeks, but not for every horse on the same week. Coggins papers run out, spring shots sneak up, and the breeding dates live on a calendar in the tack room. When an owner asks when their horse was last trimmed or wormed, you\'re flipping through a notebook.',
+  },
+  'victim-advocate': {
+    headline: 'Keep people safe, and keep every court date and deadline',
+    problem: 'Protective orders run out, hearings get continued, and the compensation claim has a deadline nobody mentions until it has passed. Every call has to go through the one safe number or the trusted sister, and that detail lives in your head or on a sticky note. One slip can put someone at risk.',
+  },
+  'tax-preparer': {
+    headline: 'Every client, every return, every deadline from January to October',
+    problem: 'Estimated taxes come due four times a year, 1099s at the end of January, returns in April and extensions in October, and half your clients still owe you a W-2. The spreadsheet holds the names, but it won\'t tell you who to chase this week or whose quarterly payment is coming up.',
+  },
+  'rehab-therapy': {
+    headline: 'Plans of care, progress notes and authorizations, counted for you',
+    problem: 'Every patient is on three clocks at once: a plan of care to recertify every 90 days, a progress note due by the 10th visit, and an authorization that runs out by date or by visits, whichever comes first. Then there is the signed order you are still chasing from the doctor\'s office. A spreadsheet holds the dates but can\'t count visits.',
+  },
+  'job-search': {
+    headline: 'Every application, follow-up and interview in one place',
+    problem: 'You have sent out a dozen applications and can\'t remember which ones you followed up on. One posting closes Friday, an interview is Tuesday, and the thank-you note you meant to send is still in your head. A spreadsheet holds the list, but it won\'t tell you who to call back today.',
+  },
+  'home-maintenance': {
+    headline: 'Filters, gutters and the furnace, before they become a repair',
+    problem: 'The furnace filter was due sometime last winter, nobody remembers when the water heater was last flushed, and the warranty paperwork is in a drawer somewhere. Gutters need cleaning every spring and fall, the property tax bill comes twice a year, and the number for the good plumber is on a magnet that fell behind the fridge.',
+  },
+  'family-health': {
+    headline: "Every checkup, cleaning and refill for the whole family",
+    problem: "The baby's next checkup is at some number of months, the dentist wants everyone back every six months, someone's prescription runs out next week, and flu shots are due again. It all lives in your head, a fridge calendar and three patient portals that don't talk to each other.",
+  },
+  'volunteer-manager': {
+    headline: 'Every volunteer welcomed, checked and thanked',
+    problem: 'People sign up at a fair and never make it to orientation. Background checks lapse for the roles that need them, and the regular who used to come every Saturday quietly stopped showing up two months ago. Hours live on a clipboard, so the thank-you for 500 hours never goes out.',
+  },
+  'driving-school': {
+    headline: 'From learner\'s permit to road test, without the paper log',
+    problem: 'Every student is on a different clock: a permit that has to be six months old before the road test, 50 practice hours with 10 at night, a lesson package running down, and parents who want to know how it\'s going. Meanwhile your instructors\' licenses, background checks and car insurance all renew on dates nobody wrote down.',
+  },
+  'home-services': {
+    headline: 'Every customer, every property, every season',
+    problem: 'The route lives in your head, the service plans live in a spreadsheet, and the reminders for spring tune-ups, pool openings or gutter season live nowhere at all. When a customer calls asking why nobody came back after the last treatment, you\'re digging through texts to find out.',
+  },
   'property-manager': {
     headline: 'Units, tenants and work orders, all connected',
     problem: 'Leases end on different dates across every unit, work orders come in by phone and text, and inspections are due on their own schedule. When a tenant calls, you want their unit, their lease and their open work orders in one place, not in three spreadsheets.',

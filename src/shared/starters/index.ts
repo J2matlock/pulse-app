@@ -43,6 +43,18 @@ import volunteerSafety from './volunteer-safety.json'
 import driverFiles from './driver-files.json'
 import personalDocuments from './personal-documents.json'
 import caringForAParent from './caring-for-a-parent.json'
+import realEstate from './real-estate.json'
+import subcontractorCompliance from './subcontractor-compliance.json'
+import horseBarn from './horse-barn.json'
+import victimAdvocate from './victim-advocate.json'
+import taxPreparer from './tax-preparer.json'
+import rehabTherapy from './rehab-therapy.json'
+import jobSearch from './job-search.json'
+import homeMaintenance from './home-maintenance.json'
+import familyHealth from './family-health.json'
+import volunteerManager from './volunteer-manager.json'
+import drivingSchool from './driving-school.json'
+import homeServices from './home-services.json'
 
 export const BUILTIN_STARTERS: readonly unknown[] = [
   // Human services
@@ -52,17 +64,20 @@ export const BUILTIN_STARTERS: readonly unknown[] = [
   peerRecovery,
   refugeeResettlement,
   vocationalRehab,
+  victimAdvocate,
   // Health
   providerCredentialing,
   priorAuthorization,
   behaviorAnalyst,
   therapyPractice,
+  rehabTherapy,
   // Education and youth
   schoolNurse,
   specialEducation,
   earlyIntervention,
   internationalStudents,
   childcareCenter,
+  drivingSchool,
   // Legal and government
   casaAdvocate,
   veteransServiceOfficer,
@@ -71,12 +86,16 @@ export const BUILTIN_STARTERS: readonly unknown[] = [
   // Business
   staffCredentials,
   businessLicenses,
+  subcontractorCompliance,
   foodService,
   hrGeneralist,
   grantManager,
+  taxPreparer,
   salesFollowUps,
+  realEstate,
   // Trades and service
   autoService,
+  homeServices,
   treeService,
   driverFiles,
   fleetManager,
@@ -86,12 +105,17 @@ export const BUILTIN_STARTERS: readonly unknown[] = [
   fireAlarmInspection,
   // Animals
   animalRescue,
+  horseBarn,
   // Faith and community
   volunteerSafety,
+  volunteerManager,
   pastoralCare,
   mentoringProgram,
   // Personal
   personalDocuments,
+  homeMaintenance,
+  familyHealth,
   personalVehicles,
+  jobSearch,
   caringForAParent,
 ]

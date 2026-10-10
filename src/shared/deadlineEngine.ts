@@ -313,11 +313,16 @@ function evaluateCalendar(rule: EngineRule, ctx: RecordContext): DeadlineResult 
   }
   if (months.length === 0) return NONE
   const doneOn = toYmd(ctx.columnDate)
-  // Strictly after the last time it was done; never done: on or after today
-  const after = doneOn ?? null
+  const sorted = [...new Set(months)].sort((a, b) => a - b)
+  // Done a little early, while it was already showing (within the lead time),
+  // counts for that date: irrigation started Apr 22 covers "by Apr 30". Capped
+  // at half the shortest gap between dates so it can't swallow the next one.
+  const gapMonths = Math.min(...sorted.map((m, i) => ((sorted[(i + 1) % sorted.length]! - m + 12) % 12) || 12))
+  const early = Math.min(cfg.lead ?? 0, Math.floor((gapMonths * 28) / 2))
+  // Strictly after the last time it was done (plus that grace); never done: on or after today
+  const after = doneOn ? addDaysYmd(doneOn, early) : null
   const from = doneOn ?? ctx.today
   const startYear = Number(from.slice(0, 4))
-  const sorted = [...new Set(months)].sort((a, b) => a - b)
   let due: string | null = null
   for (let y = startYear; y <= startYear + 2 && !due; y++) {
     for (const m of sorted) {
@@ -334,6 +339,13 @@ function evaluateCalendar(rule: EngineRule, ctx: RecordContext): DeadlineResult 
   // Not shown until the lead time, unless it's already late
   if (cfg.lead !== undefined && res.daysUntil !== null && res.daysUntil > cfg.lead) return { ...NONE, detail: `Next: ${formatDue(due)}` }
   return res
+}
+
+function addDaysYmd(ymd: string, days: number): string {
+  if (days === 0) return ymd
+  const d = ymdToDate(ymd)
+  d.setDate(d.getDate() + days)
+  return dateToYmd(d)
 }
 
 function ordinal(n: number): string {

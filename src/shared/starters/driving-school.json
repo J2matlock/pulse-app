@@ -1,0 +1,1376 @@
+{
+  "pulse_template": "2.0",
+  "type": "workspace",
+  "id": "driving-school",
+  "name": "Driving school",
+  "description": "For driving schools and instructors: students from learner's permit to road test, practice and night hours, lessons left on a package, monthly parent updates, and instructor licenses, background checks and training cars. Hour and permit rules vary by state, so check yours. Pulse is a tracking aid, not your official record system.",
+  "icon": "car-front",
+  "group": "Education and youth",
+  "vocab": {
+    "record": {
+      "one": "record",
+      "many": "records",
+      "article": "a"
+    },
+    "list": {
+      "one": "list",
+      "many": "lists",
+      "article": "a"
+    },
+    "activity": {
+      "one": "note",
+      "many": "notes",
+      "article": "a"
+    }
+  },
+  "suggestedFeatures": {
+    "personFields": false,
+    "priority": false,
+    "contactsDirectory": false,
+    "requirements": true,
+    "timeTracking": false,
+    "mileage": false,
+    "snippets": true,
+    "checklists": true,
+    "tasks": true,
+    "focusMode": false,
+    "letters": true,
+    "summaryReport": true,
+    "handoff": false,
+    "links": true,
+    "stages": true,
+    "measures": true,
+    "appointments": true,
+    "forms": true,
+    "attachments": true
+  },
+  "activityTypes": [
+    {
+      "key": "note",
+      "label": "Note",
+      "icon": "📝",
+      "color": "slate"
+    },
+    {
+      "key": "lesson",
+      "label": "Lesson",
+      "icon": "🚗",
+      "color": "blue"
+    },
+    {
+      "key": "road_test",
+      "label": "Road test",
+      "icon": "🏁",
+      "color": "green"
+    },
+    {
+      "key": "parent_update",
+      "label": "Parent update",
+      "icon": "👪",
+      "color": "teal"
+    }
+  ],
+  "measures": [
+    {
+      "key": "driving_hours",
+      "label": "Driving hours",
+      "kind": "hours",
+      "decimals": 1
+    },
+    {
+      "key": "night_hours",
+      "label": "Night hours",
+      "kind": "hours",
+      "decimals": 1
+    }
+  ],
+  "documentTemplates": [
+    {
+      "name": "Road test reminder",
+      "content": "{{today}}\n\nDear {{field:Parent / guardian}},\n\n{{name}}'s road test is on {{field:Road test date}}.\n\nPlease bring:\n- the learner's permit and photo ID\n- the signed practice log ({{field:Practice hours}} hours so far, {{field:Night hours}} at night)\n- the car's registration and insurance card, if {{name}} is testing in your car\n\nPlease arrive 20 minutes early. Good luck!\n\n{{my_name}}"
+    }
+  ],
+  "helpTips": [
+    {
+      "title": "Road test timing",
+      "body": "Enter the date on the learner's permit. Pulse shows when the student can book the road test (6 months later) and turns it due until you fill in Road test booked. Many states use 6 months; change the rule in the column menu if yours is different."
+    },
+    {
+      "title": "Practice hours",
+      "body": "Update Practice hours and Night hours from the signed log; the number chart on the student's page shows their progress. You can also log hours on each lesson note (Driving hours, Night hours) and see totals in reports."
+    },
+    {
+      "title": "Lesson packages",
+      "body": "Lessons left counts Lesson notes between the enrollment date and the permit expiry, out of Lessons paid for. It warns when one lesson is left."
+    },
+    {
+      "title": "Parent updates",
+      "body": "Log a Parent update note once a month. The dashboard shows which families are still owed one this month."
+    }
+  ],
+  "lists": [
+    {
+      "key": "students",
+      "name": "Students",
+      "description": "Learners from enrollment to their road test",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "student",
+          "many": "students",
+          "article": "a"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 180,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Status",
+          "column_type": "status",
+          "position": 1,
+          "width": 170,
+          "config": "{\"options\": [{\"label\": \"Enrolled\", \"color\": \"#64748b\"}, {\"label\": \"Learning\", \"color\": \"#3b82f6\"}, {\"label\": \"Ready for road test\", \"color\": \"#f59e0b\"}, {\"label\": \"Passed\", \"color\": \"#22c55e\"}, {\"label\": \"Withdrawn\", \"color\": \"#ef4444\"}]}"
+        },
+        {
+          "name": "Parent / guardian",
+          "column_type": "text",
+          "position": 2,
+          "width": 170,
+          "is_required": 1
+        },
+        {
+          "name": "Parent phone",
+          "column_type": "phone",
+          "position": 3,
+          "width": 140,
+          "is_required": 1
+        },
+        {
+          "name": "Permit issued",
+          "column_type": "date",
+          "position": 4,
+          "width": 150,
+          "is_required": 1,
+          "description": "Date on the learner's permit; the road test date is worked out from it"
+        },
+        {
+          "name": "Permit expires",
+          "column_type": "date",
+          "position": 5,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Expires\", \"log_changes\": true}",
+          "description": "When the learner's permit runs out"
+        },
+        {
+          "name": "Road test booked",
+          "column_type": "date",
+          "position": 6,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Road test eligible\", \"log_changes\": true}",
+          "description": "Date you booked the road test. Due once the permit is 6 months old"
+        },
+        {
+          "name": "Road test date",
+          "column_type": "date",
+          "position": 7,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Test day\", \"log_changes\": true}",
+          "description": "The day of the road test"
+        },
+        {
+          "name": "Passed on",
+          "column_type": "date",
+          "position": 8,
+          "width": 140,
+          "description": "Filled in when the student moves to Passed"
+        },
+        {
+          "name": "Practice hours",
+          "column_type": "number",
+          "position": 9,
+          "width": 130,
+          "description": "Supervised driving hours so far, from the practice log (most states ask for 50)"
+        },
+        {
+          "name": "Night hours",
+          "column_type": "number",
+          "position": 10,
+          "width": 120,
+          "description": "Of those, hours driven after dark (most states ask for 10)"
+        },
+        {
+          "name": "Enrolled on",
+          "column_type": "date",
+          "position": 11,
+          "width": 140,
+          "description": "Lessons are counted from this date until the permit expires"
+        },
+        {
+          "name": "Lessons paid for",
+          "column_type": "number",
+          "position": 12,
+          "width": 140
+        },
+        {
+          "name": "Lessons left",
+          "column_type": "deadline",
+          "position": 13,
+          "width": 140,
+          "config": "{\"alert_rule_name\": \"Lessons left\"}"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Road test eligible",
+          "description": "Book the road test once the permit is 6 months old",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "relative",
+          "rule_config": "{\"kind\": \"relative\", \"anchorColumnId\": {\"column\": \"Permit issued\"}, \"offset\": {\"months\": 6, \"direction\": \"after\"}}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Status\"}, \"op\": \"is_not\", \"values\": [\"Passed\", \"Withdrawn\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Test day",
+          "description": "The date entered is the day of the road test, until the student passes",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 7, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 3, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "rule_condition": "{\"columnId\": {\"column\": \"Status\"}, \"op\": \"is_not\", \"values\": [\"Passed\", \"Withdrawn\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Expires",
+          "description": "The date entered is when it runs out",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "rule_condition": "{\"columnId\": {\"column\": \"Status\"}, \"op\": \"is_not\", \"values\": [\"Passed\", \"Withdrawn\"], \"whenFalse\": \"hide\"}"
+        },
+        {
+          "name": "Lessons left",
+          "description": "Counts lessons between the enrollment date and the permit expiry",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 30, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 14, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 7, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]",
+          "kind": "quota",
+          "rule_config": "{\"kind\": \"quota\", \"activityTypes\": [\"lesson\"], \"limitColumnId\": {\"column\": \"Lessons paid for\"}, \"startColumnId\": {\"column\": \"Enrolled on\"}, \"endColumnId\": {\"column\": \"Permit expires\"}, \"warnRemaining\": 1, \"warnDaysBeforeEnd\": 30}",
+          "rule_condition": "{\"columnId\": {\"column\": \"Status\"}, \"op\": \"is_not\", \"values\": [\"Passed\", \"Withdrawn\"], \"whenFalse\": \"hide\"}"
+        }
+      ],
+      "requirements": [
+        {
+          "label": "Parent update",
+          "note_types": [
+            "parent_update"
+          ],
+          "per_month": 1,
+          "period": "month"
+        }
+      ],
+      "checklists": [
+        {
+          "name": "Road test day",
+          "description": "What to bring and check before the test",
+          "items": "[\"Learner's permit and photo ID\", \"Signed practice log (day and night hours)\", \"Car registration and insurance card\", \"Car passes the safety check: lights, signals, horn, mirrors\", \"Arrive 20 minutes early\", \"Parent or guardian present if under 18\"]"
+        }
+      ],
+      "links": [
+        {
+          "to": "instructors",
+          "label_forward": "Instructor",
+          "label_backward": "Students",
+          "cardinality": "many_to_one"
+        }
+      ],
+      "stage": {
+        "column": "Status",
+        "options": [
+          {
+            "value": "Enrolled",
+            "color": "slate"
+          },
+          {
+            "value": "Learning",
+            "color": "blue"
+          },
+          {
+            "value": "Ready for road test",
+            "color": "amber",
+            "onEnter": {
+              "checklist": "Road test day"
+            }
+          },
+          {
+            "value": "Passed",
+            "color": "green",
+            "done": true,
+            "onEnter": {
+              "stampColumn": "Passed on",
+              "activityType": "road_test"
+            }
+          },
+          {
+            "value": "Withdrawn",
+            "color": "red",
+            "done": true
+          }
+        ],
+        "hideDoneAfterDays": 60
+      },
+      "forms": [
+        {
+          "name": "Enrollment",
+          "intro": "Fill this in with a new student and their parent or guardian, or print a blank for the front desk.",
+          "log_activity_type": "parent_update",
+          "fields": [
+            {
+              "kind": "section",
+              "title": "Student"
+            },
+            {
+              "kind": "column",
+              "column": "Name",
+              "required": true
+            },
+            {
+              "kind": "column",
+              "column": "Permit issued",
+              "width": "half"
+            },
+            {
+              "kind": "column",
+              "column": "Permit expires",
+              "width": "half"
+            },
+            {
+              "kind": "section",
+              "title": "Parent or guardian"
+            },
+            {
+              "kind": "column",
+              "column": "Parent / guardian",
+              "width": "half",
+              "required": true
+            },
+            {
+              "kind": "column",
+              "column": "Parent phone",
+              "width": "half",
+              "required": true
+            },
+            {
+              "kind": "section",
+              "title": "Lessons"
+            },
+            {
+              "kind": "column",
+              "column": "Lessons paid for",
+              "width": "half"
+            },
+            {
+              "kind": "note",
+              "label": "Anything we should know? (nerves, glasses, best days for lessons)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "instructors",
+      "name": "Instructors",
+      "description": "Instructors and their training cars, with licenses and checks due",
+      "kind": "person",
+      "vocab": {
+        "record": {
+          "one": "instructor",
+          "many": "instructors",
+          "article": "an"
+        }
+      },
+      "columns": [
+        {
+          "name": "Name",
+          "column_type": "text",
+          "position": 0,
+          "width": 180,
+          "is_name_column": 1,
+          "is_identifier": 1,
+          "is_required": 1
+        },
+        {
+          "name": "Phone",
+          "column_type": "phone",
+          "position": 1,
+          "width": 140
+        },
+        {
+          "name": "Email",
+          "column_type": "email",
+          "position": 2,
+          "width": 200
+        },
+        {
+          "name": "Instructor license expires",
+          "column_type": "date",
+          "position": 3,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}"
+        },
+        {
+          "name": "Background check",
+          "column_type": "date",
+          "position": 4,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every 2 years\", \"log_changes\": true}",
+          "description": "Date of the last background check"
+        },
+        {
+          "name": "Training car",
+          "column_type": "text",
+          "position": 5,
+          "width": 200,
+          "description": "Make, model and plate of the dual-brake car"
+        },
+        {
+          "name": "Car insurance renews",
+          "column_type": "date",
+          "position": 6,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Expires (60 days ahead)\", \"log_changes\": true}"
+        },
+        {
+          "name": "Car safety inspection",
+          "column_type": "date",
+          "position": 7,
+          "width": 160,
+          "config": "{\"alert_rule_name\": \"Every year\", \"log_changes\": true}",
+          "description": "Date of the last inspection of the training car"
+        }
+      ],
+      "alertRules": [
+        {
+          "name": "Expires (60 days ahead)",
+          "description": "The date entered is when it runs out; warns 60 days ahead",
+          "interval_days": 0,
+          "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Every 2 years",
+          "description": "Due on the same date two years later",
+          "interval_months": 24,
+          "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        },
+        {
+          "name": "Every year",
+          "description": "Due on the same date a year later",
+          "interval_months": 12,
+          "thresholds": "[{\"daysBefore\": 60, \"bgClass\": \"#bbf7d0\", \"label\": \"Coming up\"}, {\"daysBefore\": 30, \"bgClass\": \"#facc15\", \"label\": \"Due soon\"}, {\"daysBefore\": 14, \"bgClass\": \"#fb923c\", \"label\": \"Urgent\"}, {\"daysBefore\": 0, \"bgClass\": \"#dc2626\", \"label\": \"Due today\"}, {\"daysBefore\": -1, \"bgClass\": \"alert-pulse-dark\", \"label\": \"Overdue\"}]"
+        }
+      ]
+    }
+  ],
+  "dashboardCards": [
+    "summary",
+    "today",
+    "stages",
+    "quotas",
+    "requirements",
+    "missingInfo"
+  ],
+  "sampleData": {
+    "records": {
+      "students": [
+        {
+          "Name": "Maya Chen",
+          "Status": "Learning",
+          "Parent / guardian": "Linda Chen",
+          "Parent phone": "555-0110",
+          "Permit issued": {
+            "daysFromToday": -150
+          },
+          "Permit expires": {
+            "daysFromToday": 580
+          },
+          "Practice hours": 31.5,
+          "Night hours": 6,
+          "Enrolled on": {
+            "daysFromToday": -140
+          },
+          "Lessons paid for": 6
+        },
+        {
+          "Name": "Jordan Ellis",
+          "Status": "Ready for road test",
+          "Parent / guardian": "Mark Ellis",
+          "Parent phone": "555-0114",
+          "Permit issued": {
+            "daysFromToday": -200
+          },
+          "Permit expires": {
+            "daysFromToday": 530
+          },
+          "Practice hours": 52,
+          "Night hours": 11,
+          "Enrolled on": {
+            "daysFromToday": -190
+          },
+          "Lessons paid for": 6,
+          "Road test booked": {
+            "daysFromToday": -10
+          },
+          "Road test date": {
+            "daysFromToday": 4
+          }
+        },
+        {
+          "Name": "Ava Patel",
+          "Status": "Learning",
+          "Parent / guardian": "Rina Patel",
+          "Parent phone": "555-0118",
+          "Permit issued": {
+            "daysFromToday": -175
+          },
+          "Permit expires": {
+            "daysFromToday": 555
+          },
+          "Practice hours": 44,
+          "Night hours": 8,
+          "Enrolled on": {
+            "daysFromToday": -160
+          },
+          "Lessons paid for": 10
+        },
+        {
+          "Name": "Leo Martinez",
+          "Status": "Enrolled",
+          "Parent / guardian": "Sofia Martinez",
+          "Parent phone": "555-0122",
+          "Permit issued": {
+            "daysFromToday": -20
+          },
+          "Permit expires": {
+            "daysFromToday": 710
+          },
+          "Practice hours": 2,
+          "Night hours": 0,
+          "Enrolled on": {
+            "daysFromToday": -14
+          },
+          "Lessons paid for": 6
+        },
+        {
+          "Name": "Grace Kim",
+          "Status": "Learning",
+          "Parent / guardian": "Daniel Kim",
+          "Parent phone": "555-0126",
+          "Permit issued": {
+            "daysFromToday": -190
+          },
+          "Permit expires": {
+            "daysFromToday": 540
+          },
+          "Practice hours": 50,
+          "Night hours": 10,
+          "Enrolled on": {
+            "daysFromToday": -185
+          },
+          "Lessons paid for": 8
+        },
+        {
+          "Name": "Noah Brooks",
+          "Status": "Ready for road test",
+          "Parent / guardian": "Tanya Brooks",
+          "Parent phone": "555-0130",
+          "Permit issued": {
+            "daysFromToday": -230
+          },
+          "Permit expires": {
+            "daysFromToday": 500
+          },
+          "Practice hours": 55,
+          "Night hours": 12,
+          "Enrolled on": {
+            "daysFromToday": -220
+          },
+          "Lessons paid for": 6,
+          "Road test booked": {
+            "daysFromToday": -20
+          },
+          "Road test date": {
+            "daysFromToday": -2
+          }
+        },
+        {
+          "Name": "Emma Walsh",
+          "Status": "Passed",
+          "Parent / guardian": "Kevin Walsh",
+          "Parent phone": "555-0134",
+          "Permit issued": {
+            "daysFromToday": -260
+          },
+          "Permit expires": {
+            "daysFromToday": 470
+          },
+          "Practice hours": 58,
+          "Night hours": 12,
+          "Enrolled on": {
+            "daysFromToday": -250
+          },
+          "Lessons paid for": 6,
+          "Road test booked": {
+            "daysFromToday": -60
+          },
+          "Road test date": {
+            "daysFromToday": -30
+          },
+          "Passed on": {
+            "daysFromToday": -30
+          }
+        },
+        {
+          "Name": "Ethan Ross",
+          "Status": "Learning",
+          "Parent / guardian": "Paula Ross",
+          "Parent phone": "555-0138",
+          "Permit issued": {
+            "daysFromToday": -320
+          },
+          "Permit expires": {
+            "daysFromToday": 45
+          },
+          "Practice hours": 20,
+          "Night hours": 2,
+          "Enrolled on": {
+            "daysFromToday": -300
+          },
+          "Lessons paid for": 6
+        }
+      ],
+      "instructors": [
+        {
+          "Name": "Dana Whitfield",
+          "Phone": "555-0160",
+          "Email": "dana.whitfield@example.com",
+          "Instructor license expires": {
+            "daysFromToday": 25
+          },
+          "Background check": {
+            "daysFromToday": -650
+          },
+          "Training car": "2021 Toyota Corolla, plate DRV-101",
+          "Car insurance renews": {
+            "daysFromToday": 120
+          },
+          "Car safety inspection": {
+            "daysFromToday": -340
+          }
+        },
+        {
+          "Name": "Marcus Greene",
+          "Phone": "555-0163",
+          "Email": "marcus.greene@example.com",
+          "Instructor license expires": {
+            "daysFromToday": 400
+          },
+          "Background check": {
+            "daysFromToday": -760
+          },
+          "Training car": "2020 Honda Civic, plate DRV-102",
+          "Car insurance renews": {
+            "daysFromToday": 10
+          },
+          "Car safety inspection": {
+            "daysFromToday": -100
+          }
+        },
+        {
+          "Name": "Rosa Alvarez",
+          "Phone": "555-0166",
+          "Email": "rosa.alvarez@example.com",
+          "Instructor license expires": {
+            "daysFromToday": 200
+          },
+          "Background check": {
+            "daysFromToday": -200
+          },
+          "Training car": "2022 Hyundai Elantra, plate DRV-103",
+          "Car insurance renews": {
+            "daysFromToday": -3
+          },
+          "Car safety inspection": {
+            "daysFromToday": -370
+          }
+        }
+      ]
+    },
+    "links": [
+      {
+        "from": "students#0",
+        "to": "instructors#0",
+        "link": "Instructor"
+      },
+      {
+        "from": "students#1",
+        "to": "instructors#0",
+        "link": "Instructor"
+      },
+      {
+        "from": "students#2",
+        "to": "instructors#1",
+        "link": "Instructor"
+      },
+      {
+        "from": "students#3",
+        "to": "instructors#1",
+        "link": "Instructor"
+      },
+      {
+        "from": "students#4",
+        "to": "instructors#2",
+        "link": "Instructor"
+      },
+      {
+        "from": "students#5",
+        "to": "instructors#2",
+        "link": "Instructor"
+      },
+      {
+        "from": "students#6",
+        "to": "instructors#0",
+        "link": "Instructor"
+      },
+      {
+        "from": "students#7",
+        "to": "instructors#1",
+        "link": "Instructor"
+      }
+    ],
+    "activities": [
+      {
+        "record": "students#0",
+        "type": "lesson",
+        "daysAgo": 3,
+        "text": "Parking lot: starting, stopping, turns."
+      },
+      {
+        "record": "students#0",
+        "type": "lesson",
+        "daysAgo": 13,
+        "text": "Neighborhood streets and stop signs."
+      },
+      {
+        "record": "students#0",
+        "type": "lesson",
+        "daysAgo": 23,
+        "text": "Lane changes on a 45 mph road."
+      },
+      {
+        "record": "students#0",
+        "type": "lesson",
+        "daysAgo": 33,
+        "text": "Parallel parking and three-point turns."
+      },
+      {
+        "record": "students#1",
+        "type": "lesson",
+        "daysAgo": 4,
+        "text": "Parking lot: starting, stopping, turns."
+      },
+      {
+        "record": "students#1",
+        "type": "lesson",
+        "daysAgo": 14,
+        "text": "Neighborhood streets and stop signs."
+      },
+      {
+        "record": "students#1",
+        "type": "lesson",
+        "daysAgo": 24,
+        "text": "Lane changes on a 45 mph road."
+      },
+      {
+        "record": "students#1",
+        "type": "lesson",
+        "daysAgo": 34,
+        "text": "Parallel parking and three-point turns."
+      },
+      {
+        "record": "students#1",
+        "type": "lesson",
+        "daysAgo": 44,
+        "text": "Highway merging."
+      },
+      {
+        "record": "students#1",
+        "type": "lesson",
+        "daysAgo": 54,
+        "text": "Night drive downtown."
+      },
+      {
+        "record": "students#2",
+        "type": "lesson",
+        "daysAgo": 5,
+        "text": "Parking lot: starting, stopping, turns."
+      },
+      {
+        "record": "students#2",
+        "type": "lesson",
+        "daysAgo": 15,
+        "text": "Neighborhood streets and stop signs."
+      },
+      {
+        "record": "students#2",
+        "type": "lesson",
+        "daysAgo": 25,
+        "text": "Lane changes on a 45 mph road."
+      },
+      {
+        "record": "students#2",
+        "type": "lesson",
+        "daysAgo": 35,
+        "text": "Parallel parking and three-point turns."
+      },
+      {
+        "record": "students#2",
+        "type": "lesson",
+        "daysAgo": 45,
+        "text": "Highway merging."
+      },
+      {
+        "record": "students#2",
+        "type": "lesson",
+        "daysAgo": 55,
+        "text": "Night drive downtown."
+      },
+      {
+        "record": "students#2",
+        "type": "lesson",
+        "daysAgo": 65,
+        "text": "Mock road test."
+      },
+      {
+        "record": "students#3",
+        "type": "lesson",
+        "daysAgo": 3,
+        "text": "Parking lot: starting, stopping, turns."
+      },
+      {
+        "record": "students#4",
+        "type": "lesson",
+        "daysAgo": 4,
+        "text": "Parking lot: starting, stopping, turns."
+      },
+      {
+        "record": "students#4",
+        "type": "lesson",
+        "daysAgo": 14,
+        "text": "Neighborhood streets and stop signs."
+      },
+      {
+        "record": "students#4",
+        "type": "lesson",
+        "daysAgo": 24,
+        "text": "Lane changes on a 45 mph road."
+      },
+      {
+        "record": "students#4",
+        "type": "lesson",
+        "daysAgo": 34,
+        "text": "Parallel parking and three-point turns."
+      },
+      {
+        "record": "students#4",
+        "type": "lesson",
+        "daysAgo": 44,
+        "text": "Highway merging."
+      },
+      {
+        "record": "students#4",
+        "type": "lesson",
+        "daysAgo": 54,
+        "text": "Night drive downtown."
+      },
+      {
+        "record": "students#5",
+        "type": "lesson",
+        "daysAgo": 5,
+        "text": "Parking lot: starting, stopping, turns."
+      },
+      {
+        "record": "students#5",
+        "type": "lesson",
+        "daysAgo": 15,
+        "text": "Neighborhood streets and stop signs."
+      },
+      {
+        "record": "students#5",
+        "type": "lesson",
+        "daysAgo": 25,
+        "text": "Lane changes on a 45 mph road."
+      },
+      {
+        "record": "students#5",
+        "type": "lesson",
+        "daysAgo": 35,
+        "text": "Parallel parking and three-point turns."
+      },
+      {
+        "record": "students#5",
+        "type": "lesson",
+        "daysAgo": 45,
+        "text": "Highway merging."
+      },
+      {
+        "record": "students#6",
+        "type": "lesson",
+        "daysAgo": 30,
+        "text": "Parking lot: starting, stopping, turns."
+      },
+      {
+        "record": "students#6",
+        "type": "lesson",
+        "daysAgo": 40,
+        "text": "Neighborhood streets and stop signs."
+      },
+      {
+        "record": "students#6",
+        "type": "lesson",
+        "daysAgo": 50,
+        "text": "Lane changes on a 45 mph road."
+      },
+      {
+        "record": "students#6",
+        "type": "lesson",
+        "daysAgo": 60,
+        "text": "Parallel parking and three-point turns."
+      },
+      {
+        "record": "students#6",
+        "type": "lesson",
+        "daysAgo": 70,
+        "text": "Highway merging."
+      },
+      {
+        "record": "students#6",
+        "type": "lesson",
+        "daysAgo": 80,
+        "text": "Night drive downtown."
+      },
+      {
+        "record": "students#7",
+        "type": "lesson",
+        "daysAgo": 4,
+        "text": "Parking lot: starting, stopping, turns."
+      },
+      {
+        "record": "students#7",
+        "type": "lesson",
+        "daysAgo": 14,
+        "text": "Neighborhood streets and stop signs."
+      },
+      {
+        "record": "students#7",
+        "type": "lesson",
+        "daysAgo": 24,
+        "text": "Lane changes on a 45 mph road."
+      },
+      {
+        "record": "students#0",
+        "type": "parent_update",
+        "daysAgo": 12,
+        "text": "Told Linda that Maya is doing well with turns; needs more highway time."
+      },
+      {
+        "record": "students#1",
+        "type": "parent_update",
+        "daysAgo": 10,
+        "text": "Road test booked. Sent the checklist home."
+      },
+      {
+        "record": "students#4",
+        "type": "parent_update",
+        "daysAgo": 40,
+        "text": "Grace has her 50 hours. Ready to book the road test."
+      },
+      {
+        "record": "students#7",
+        "type": "note",
+        "daysAgo": 20,
+        "text": "Missed two lessons. Permit runs out soon; called Paula about catching up."
+      },
+      {
+        "record": "students#6",
+        "type": "road_test",
+        "daysAgo": 30,
+        "text": "Passed on the first try."
+      }
+    ],
+    "history": [
+      {
+        "record": "students#0",
+        "column": "Practice hours",
+        "values": [
+          {
+            "value": "6.3",
+            "daysAgo": 112
+          },
+          {
+            "value": "12.6",
+            "daysAgo": 84
+          },
+          {
+            "value": "18.9",
+            "daysAgo": 56
+          },
+          {
+            "value": "25.2",
+            "daysAgo": 28
+          },
+          {
+            "value": "31.5",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "students#1",
+        "column": "Practice hours",
+        "values": [
+          {
+            "value": "10.4",
+            "daysAgo": 152
+          },
+          {
+            "value": "20.8",
+            "daysAgo": 114
+          },
+          {
+            "value": "31.2",
+            "daysAgo": 76
+          },
+          {
+            "value": "41.6",
+            "daysAgo": 38
+          },
+          {
+            "value": "52.0",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "students#2",
+        "column": "Practice hours",
+        "values": [
+          {
+            "value": "8.8",
+            "daysAgo": 128
+          },
+          {
+            "value": "17.6",
+            "daysAgo": 96
+          },
+          {
+            "value": "26.4",
+            "daysAgo": 64
+          },
+          {
+            "value": "35.2",
+            "daysAgo": 32
+          },
+          {
+            "value": "44.0",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "students#4",
+        "column": "Practice hours",
+        "values": [
+          {
+            "value": "10.0",
+            "daysAgo": 148
+          },
+          {
+            "value": "20.0",
+            "daysAgo": 111
+          },
+          {
+            "value": "30.0",
+            "daysAgo": 74
+          },
+          {
+            "value": "40.0",
+            "daysAgo": 37
+          },
+          {
+            "value": "50.0",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "students#5",
+        "column": "Practice hours",
+        "values": [
+          {
+            "value": "11.0",
+            "daysAgo": 176
+          },
+          {
+            "value": "22.0",
+            "daysAgo": 132
+          },
+          {
+            "value": "33.0",
+            "daysAgo": 88
+          },
+          {
+            "value": "44.0",
+            "daysAgo": 44
+          },
+          {
+            "value": "55.0",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "students#6",
+        "column": "Practice hours",
+        "values": [
+          {
+            "value": "11.6",
+            "daysAgo": 200
+          },
+          {
+            "value": "23.2",
+            "daysAgo": 150
+          },
+          {
+            "value": "34.8",
+            "daysAgo": 100
+          },
+          {
+            "value": "46.4",
+            "daysAgo": 50
+          },
+          {
+            "value": "58.0",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "students#7",
+        "column": "Practice hours",
+        "values": [
+          {
+            "value": "4.0",
+            "daysAgo": 240
+          },
+          {
+            "value": "8.0",
+            "daysAgo": 180
+          },
+          {
+            "value": "12.0",
+            "daysAgo": 120
+          },
+          {
+            "value": "16.0",
+            "daysAgo": 60
+          },
+          {
+            "value": "20.0",
+            "daysAgo": 1
+          }
+        ]
+      },
+      {
+        "record": "students#0",
+        "column": "Status",
+        "values": [
+          {
+            "value": "Enrolled",
+            "daysAgo": 140
+          },
+          {
+            "value": "Learning",
+            "daysAgo": 130
+          }
+        ]
+      },
+      {
+        "record": "students#1",
+        "column": "Status",
+        "values": [
+          {
+            "value": "Enrolled",
+            "daysAgo": 190
+          },
+          {
+            "value": "Learning",
+            "daysAgo": 180
+          },
+          {
+            "value": "Ready for road test",
+            "daysAgo": 10
+          }
+        ]
+      },
+      {
+        "record": "students#2",
+        "column": "Status",
+        "values": [
+          {
+            "value": "Enrolled",
+            "daysAgo": 160
+          },
+          {
+            "value": "Learning",
+            "daysAgo": 150
+          }
+        ]
+      },
+      {
+        "record": "students#3",
+        "column": "Status",
+        "values": [
+          {
+            "value": "Enrolled",
+            "daysAgo": 14
+          }
+        ]
+      },
+      {
+        "record": "students#4",
+        "column": "Status",
+        "values": [
+          {
+            "value": "Enrolled",
+            "daysAgo": 185
+          },
+          {
+            "value": "Learning",
+            "daysAgo": 175
+          }
+        ]
+      },
+      {
+        "record": "students#5",
+        "column": "Status",
+        "values": [
+          {
+            "value": "Enrolled",
+            "daysAgo": 220
+          },
+          {
+            "value": "Learning",
+            "daysAgo": 210
+          },
+          {
+            "value": "Ready for road test",
+            "daysAgo": 20
+          }
+        ]
+      },
+      {
+        "record": "students#6",
+        "column": "Status",
+        "values": [
+          {
+            "value": "Enrolled",
+            "daysAgo": 250
+          },
+          {
+            "value": "Learning",
+            "daysAgo": 240
+          },
+          {
+            "value": "Ready for road test",
+            "daysAgo": 60
+          },
+          {
+            "value": "Passed",
+            "daysAgo": 30
+          }
+        ]
+      },
+      {
+        "record": "students#7",
+        "column": "Status",
+        "values": [
+          {
+            "value": "Enrolled",
+            "daysAgo": 300
+          },
+          {
+            "value": "Learning",
+            "daysAgo": 290
+          }
+        ]
+      }
+    ],
+    "appointments": [
+      {
+        "record": "students#0",
+        "title": "Lesson: Maya Chen",
+        "dayOffset": 1,
+        "time": "16:00",
+        "minutes": 60,
+        "type": "lesson",
+        "repeatWeekly": 6
+      },
+      {
+        "record": "students#2",
+        "title": "Lesson: Ava Patel",
+        "dayOffset": 2,
+        "time": "15:30",
+        "minutes": 60,
+        "type": "lesson",
+        "repeatWeekly": 6
+      },
+      {
+        "record": "students#3",
+        "title": "Lesson: Leo Martinez",
+        "dayOffset": 3,
+        "time": "17:00",
+        "minutes": 60,
+        "type": "lesson",
+        "repeatWeekly": 8
+      },
+      {
+        "record": "students#7",
+        "title": "Lesson: Ethan Ross",
+        "dayOffset": 0,
+        "time": "18:00",
+        "minutes": 90,
+        "type": "lesson",
+        "repeatWeekly": 4
+      },
+      {
+        "record": "students#1",
+        "title": "Road test: Jordan Ellis",
+        "dayOffset": 4,
+        "time": "09:00",
+        "minutes": 60,
+        "type": "road_test",
+        "location": "Springfield DMV"
+      },
+      {
+        "record": "students#5",
+        "title": "Road test: Noah Brooks",
+        "dayOffset": -2,
+        "time": "10:30",
+        "minutes": 60,
+        "type": "road_test",
+        "location": "Springfield DMV"
+      }
+    ]
+  }
+}

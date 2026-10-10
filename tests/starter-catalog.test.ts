@@ -178,6 +178,90 @@ const EXPECTED: Record<string, Expected> = {
       crew: { columns: ['Arborist certification expires', 'CPR / first aid expires', 'CDL medical card expires'] },
     },
   },
+  'real-estate': {
+    disclaimer: true,
+    allowWords: ['client'],
+    lists: {
+      clients: { columns: ['Phone', 'Buying or selling', 'Pre-approval expires', 'Listing agreement expires'], rules: ['Expires'] },
+      transactions: { columns: ['Client', 'Stage', 'Contract date', 'Inspection done', 'Appraisal received', 'Loan approved', 'Closing date', 'Closed on', 'Closing anniversary'], rules: ['Inspection period', 'Appraisal', 'Financing contingency', 'Closing', 'Closing anniversary'] },
+    },
+  },
+  'subcontractor-compliance': {
+    lists: {
+      subcontractors: { columns: ['Jobs', 'General liability expires', "Workers' comp expires", 'Auto liability expires', 'Contractor license expires', 'W-9 received', 'Agreement signed'], rules: ['Expires (30-day warning)'], required: ['Phone', 'General liability expires', 'W-9 received', 'Agreement signed'] },
+      jobs: { columns: ['Subs on this job', 'Start date', 'Finish date'], rules: ['Start date', 'Finish date'] },
+    },
+  },
+  'horse-barn': {
+    lists: {
+      horses: { columns: ['Owner', 'Last farrier visit', 'Last deworming', 'Coggins test', 'Last vaccines', 'Teeth floated', 'Breeding status', 'Breeding date', 'Pregnancy check', 'Foaled on'], rules: ['Every 7 weeks', 'Every 12 weeks', 'Pregnancy check', 'Foaling due'] },
+      owners: { columns: ['Horses', 'Emergency contact', 'Boarding agreement signed'], required: ['Phone', 'Emergency contact'] },
+    },
+  },
+  'victim-advocate': {
+    humanServices: true,
+    disclaimer: true,
+    lists: {
+      caseload: { columns: ['Safe contact method', 'Incident date', 'Compensation claim filed', 'Protective order expires', 'Last safety check-in'], rules: ['Compensation claim deadline', 'Protective order (30 days ahead)', 'Every 30 days'], required: ['Safe contact method'] },
+      'court-dates': { columns: ['Client', 'Hearing date', 'Client reminded', 'Result'], rules: ['Hearing', 'Remind 2 days before'] },
+    },
+  },
+  'tax-preparer': {
+    disclaimer: true,
+    allowWords: ['client'],
+    lists: {
+      clients: { columns: ['Pays estimated taxes', 'Engagement letter signed', 'Estimated taxes', '1099s', 'Monthly close'], rules: ['Every year', 'Estimated taxes', '1099s due', 'Monthly close'], required: ['Phone'] },
+      returns: { columns: ['Client', 'Stage', 'Documents requested on', 'Documents follow-up', 'Filing deadline', 'Filed on', 'E-file accepted'], rules: ['Filing deadline', 'Documents follow-up', 'E-file acceptance'] },
+    },
+  },
+  'rehab-therapy': {
+    disclaimer: true,
+    lists: {
+      patients: { columns: ['Referred by', 'Stage', 'Evaluation date', 'Order signed on', 'Plan of care start', 'Visits authorized', 'Visits left', 'Last progress note', 'Progress note due'], rules: ['Physician order', 'Plan of care recert', 'Visits left', 'Progress note every 10 visits'], required: ['Discipline', 'Evaluation date'] },
+      doctors: { columns: ['Patients', 'Practice', 'Fax'] },
+    },
+  },
+  'job-search': {
+    lists: {
+      applications: { columns: ['Company', 'Stage', 'Apply by', 'Applied on', 'Follow-up sent', 'Last interview', 'Thank-you sent', 'Respond to offer by', 'Closed on'], rules: ['Apply by', 'Follow-up', 'Thank-you note', 'Respond by'] },
+      companies: { columns: ['Applications', 'Website', 'Contact person'] },
+      people: { columns: ['How you know them', 'Reference', 'Last in touch'], rules: ['Every 3 months'] },
+    },
+  },
+  'home-maintenance': {
+    lists: {
+      items: { columns: ['Who services it', 'Warranty ends', 'Air filter changed', 'Water filter changed', 'Last serviced', 'Batteries changed', 'Seasonal', 'Spring and fall upkeep'], rules: ['Every 90 days', 'Every 6 months', 'Every year', 'Spring and fall'] },
+      bills: { columns: ['Due', 'How often'], rules: ['Due date'] },
+      pros: { columns: ['Takes care of', 'Trade', 'Phone'], required: ['Phone'] },
+    },
+  },
+  'family-health': {
+    disclaimer: true,
+    lists: {
+      family: { columns: ['Who', 'Date of birth', 'Checkups', 'Last physical', 'Last dental cleaning', 'Flu shot', 'Doctors'], rules: ['Well-child checkups', 'Yearly physical', 'Every 6 months', 'Flu shot'], required: ['Who'] },
+      doctors: { columns: ['Kind', 'Phone', 'Sees'], required: ['Phone'] },
+    },
+  },
+  'volunteer-manager': {
+    lists: {
+      volunteers: { columns: ['Serves in', 'Signed up', 'Orientation done', 'Needs background check', 'Background check', 'Last training', 'Last shift', 'Checked in', 'Total hours'], rules: ['Orientation', 'Background check', 'Every year', 'Check-in'], required: ['Phone'] },
+      programs: { columns: ['Volunteers', 'Volunteers needed', 'Background check needed'] },
+    },
+  },
+  'driving-school': {
+    disclaimer: true,
+    lists: {
+      students: { columns: ['Instructor', 'Status', 'Permit issued', 'Permit expires', 'Road test booked', 'Road test date', 'Passed on', 'Practice hours', 'Night hours', 'Lessons left'], rules: ['Road test eligible', 'Lessons left'], required: ['Parent / guardian', 'Parent phone', 'Permit issued'] },
+      instructors: { columns: ['Students', 'Instructor license expires', 'Background check', 'Car insurance renews'], rules: ['Every 2 years'] },
+    },
+  },
+  'home-services': {
+    lists: {
+      customers: { columns: ['Phone', 'Preferred contact', 'Properties'], required: ['Phone'] },
+      properties: { columns: ['Customer', 'Address', 'Service plan', 'Gate and pet notes', 'Visits'], required: ['Address'] },
+      visits: { columns: ['Property', 'Stage', 'Service', 'Scheduled for', 'Completed on'], rules: ['Visit date'] },
+    },
+  },
   'property-manager': {
     lists: {
       units: { columns: ['Tenants', 'Work orders', 'Last inspection'] },

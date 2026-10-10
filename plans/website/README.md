@@ -8,35 +8,46 @@ Before publishing:
 | Starter | Group | Page |
 |-|-|-|
 | Animal rescue | Animals | [animal-rescue](animal-rescue.md) |
+| Horse barn & small herd | Animals | [horse-barn](horse-barn.md) |
+| Bookkeeper & tax preparer | Business | [tax-preparer](tax-preparer.md) |
 | Business licenses and permits | Business | [business-licenses](business-licenses.md) |
 | Food service compliance | Business | [food-service](food-service.md) |
 | Grant manager | Business | [grant-manager](grant-manager.md) |
 | HR generalist | Business | [hr-generalist](hr-generalist.md) |
+| Real estate transactions | Business | [real-estate](real-estate.md) |
 | Sales & follow-ups | Business | [sales-follow-ups](sales-follow-ups.md) |
 | Staff credentials | Business | [staff-credentials](staff-credentials.md) |
+| Subcontractor insurance & licenses | Business | [subcontractor-compliance](subcontractor-compliance.md) |
 | Childcare director | Education and youth | [childcare-center](childcare-center.md) |
+| Driving school | Education and youth | [driving-school](driving-school.md) |
 | Early intervention | Education and youth | [early-intervention](early-intervention.md) |
 | International student advisor | Education and youth | [international-students](international-students.md) |
 | School nurse | Education and youth | [school-nurse](school-nurse.md) |
 | Special education | Education and youth | [special-education](special-education.md) |
 | Mentoring program | Faith and community | [mentoring-program](mentoring-program.md) |
 | Pastoral care | Faith and community | [pastoral-care](pastoral-care.md) |
+| Volunteer manager | Faith and community | [volunteer-manager](volunteer-manager.md) |
 | Youth volunteer safety | Faith and community | [volunteer-safety](volunteer-safety.md) |
 | Behavior analyst (ABA) | Health | [behavior-analyst](behavior-analyst.md) |
 | Prior authorization tracker | Health | [prior-authorization](prior-authorization.md) |
 | Provider credentialing | Health | [provider-credentialing](provider-credentialing.md) |
+| Speech, OT and PT practice | Health | [rehab-therapy](rehab-therapy.md) |
 | Therapy & counseling | Health | [therapy-practice](therapy-practice.md) |
 | Community health worker | Human services | [community-health-worker](community-health-worker.md) |
 | Housing case manager | Human services | [housing-case-manager](housing-case-manager.md) |
 | Human services | Human services | [human-services](human-services.md) |
 | Peer recovery specialist | Human services | [peer-recovery](peer-recovery.md) |
 | Refugee resettlement | Human services | [refugee-resettlement](refugee-resettlement.md) |
+| Victim advocate | Human services | [victim-advocate](victim-advocate.md) |
 | Vocational rehabilitation | Human services | [vocational-rehab](vocational-rehab.md) |
 | CASA / guardian ad litem | Legal and government | [casa-advocate](casa-advocate.md) |
 | Guardianship & fiduciary | Legal and government | [guardianship](guardianship.md) |
 | Representative payee | Legal and government | [representative-payee](representative-payee.md) |
 | Veterans service officer | Legal and government | [veterans-service-officer](veterans-service-officer.md) |
 | Caring for a parent | Personal | [caring-for-a-parent](caring-for-a-parent.md) |
+| Family health | Personal | [family-health](family-health.md) |
+| Home maintenance | Personal | [home-maintenance](home-maintenance.md) |
+| Job search | Personal | [job-search](job-search.md) |
 | Personal documents | Personal | [personal-documents](personal-documents.md) |
 | Personal vehicles | Personal | [personal-vehicles](personal-vehicles.md) |
 | Fire & alarm inspection | Property and safety | [fire-alarm-inspection](fire-alarm-inspection.md) |
@@ -44,5 +55,6 @@ Before publishing:
 | Workplace safety training | Property and safety | [workplace-safety](workplace-safety.md) |
 | Auto & equipment service | Trades and service | [auto-service](auto-service.md) |
 | Fleet manager | Trades and service | [fleet-manager](fleet-manager.md) |
+| Home services | Trades and service | [home-services](home-services.md) |
 | Tree service | Trades and service | [tree-service](tree-service.md) |
 | Truck driver qualification files | Trades and service | [driver-files](driver-files.md) |

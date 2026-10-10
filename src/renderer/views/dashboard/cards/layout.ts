@@ -24,7 +24,7 @@ export const CARD_DEFS: CardDef[] = [
   { key: 'stages', title: '{Stage:many}', feature: 'stages', defaultOn: true },
   { key: 'missingInfo', title: 'Missing information', defaultOn: true },
   { key: 'dueForService', title: 'Due for service', needsRuleKind: 'meter', defaultOn: true },
-  { key: 'quotas', title: 'Running low on visits', needsRuleKind: 'quota', defaultOn: true },
+  { key: 'quotas', title: 'Running low', needsRuleKind: 'quota', defaultOn: true },
   { key: 'recentActivity', title: 'Recent {activity:many}', defaultOn: false },
 ]
 

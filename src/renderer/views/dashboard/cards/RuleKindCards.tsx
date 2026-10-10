@@ -1,7 +1,7 @@
 /**
  * Dashboard cards for by-usage and limited-visit deadlines (W10 §4):
- * "Due for service" (meter rules due within 30 days) and "Running low on
- * visits" (quota rules that are low, used up or ending).
+ * "Due for service" (meter rules due within 30 days) and "Running low"
+ * (quota rules — visits, sessions, lessons — that are low, used up or ending).
  */
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -67,7 +67,7 @@ export function QuotasCard(): React.ReactElement | null {
   if (items === null) return null
   const low = items.filter(d => d.state === 'soon' || d.state === 'due' || d.state === 'overdue').sort((a, b) => (a.daysUntil ?? 0) - (b.daysUntil ?? 0))
   return (
-    <CardShell id="quotas-title" icon={<Ticket className="w-5 h-5" aria-hidden="true" />} title="Running low on visits"
+    <CardShell id="quotas-title" icon={<Ticket className="w-5 h-5" aria-hidden="true" />} title="Running low"
       empty={low.length ? null : 'Nothing is running low or ending soon.'}>
       <ItemList items={low} />
     </CardShell>
