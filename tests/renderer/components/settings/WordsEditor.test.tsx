@@ -72,4 +72,18 @@ describe('WordsEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Use general words' }))
     expect((screen.getByLabelText('Outside contacts: one') as HTMLInputElement).value).toBe('contact')
   })
+
+  it('saves typed changes when the person leaves the tab (audit X-30)', async () => {
+    const { unmount } = render(<WordsEditor />)
+    fireEvent.change(screen.getByLabelText('What you track: one'), { target: { value: 'pet' } })
+    unmount()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.WORKSPACE_UPDATE, expect.objectContaining({ vocab: expect.objectContaining({ record: expect.objectContaining({ one: 'pet' }) }) })))
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Your word changes were saved.'))
+  })
+
+  it('leaves untouched words alone when the person leaves', () => {
+    const { unmount } = render(<WordsEditor />)
+    unmount()
+    expect(mockInvoke).not.toHaveBeenCalled()
+  })
 })

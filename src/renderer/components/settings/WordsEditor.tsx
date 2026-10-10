@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   GENERIC_VOCAB, HUMAN_SERVICES_VOCAB, VOCAB_WORD_MAX, guessArticle, resolveVocab, term,
@@ -32,6 +32,10 @@ function toStored(draft: Vocab): Partial<Vocab> {
   return out
 }
 
+function trimmed(draft: Vocab): Vocab {
+  return Object.fromEntries((Object.keys(draft) as VocabKey[]).map(k => [k, { ...draft[k], one: draft[k].one.trim(), many: draft[k].many.trim() }])) as Vocab
+}
+
 function wordError(word: string): string | null {
   const w = word.trim()
   if (!w) return 'Fill this in'
@@ -61,6 +65,19 @@ export function WordsEditor(): React.ReactElement {
   })) as Partial<Record<VocabKey, { one: string | null; many: string | null }>>, [draft])
   const hasErrors = Object.keys(errors).length > 0
 
+  // Leaving the tab (or Settings) with changes saves them instead of dropping them
+  const pending = useRef({ dirty, hasErrors, draft })
+  useEffect(() => { pending.current = { dirty, hasErrors, draft } })
+  useEffect(() => () => {
+    const p = pending.current
+    if (!p.dirty) return
+    if (p.hasErrors) { toast.error('Your word changes weren\'t saved: some boxes need fixing first.'); return }
+    update({ vocab: toStored(trimmed(p.draft)) }).then(
+      () => { toast.success('Your word changes were saved.') },
+      () => { toast.error('We couldn\'t save your word changes. Please try again.') },
+    )
+  }, [update])
+
   function setWord(key: VocabKey, form: 'one' | 'many', value: string) {
     setDraft(d => {
       const prev = d[key]
@@ -74,8 +91,7 @@ export function WordsEditor(): React.ReactElement {
   async function save() {
     setSaving(true)
     try {
-      const trimmed = Object.fromEntries((Object.keys(draft) as VocabKey[]).map(k => [k, { ...draft[k], one: draft[k].one.trim(), many: draft[k].many.trim() }])) as Vocab
-      await update({ vocab: toStored(trimmed) })
+      await update({ vocab: toStored(trimmed(draft)) })
       toast.success('Words saved. They now appear everywhere.')
     } catch (err) {
       toast.error(err instanceof Error && err.message !== 'READ_ONLY' ? err.message : "We couldn't save the words. Please try again.")
