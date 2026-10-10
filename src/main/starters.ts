@@ -286,7 +286,7 @@ export function previewStarter(src: StarterSource, variant?: string): StarterPre
     lists: lists.map(l => {
       const finalName = freeGridName(db, l.name, taken)
       taken.add(finalName.toLowerCase())
-      return { key: l.key, name: l.name, finalName, kind: l.kind, columns: l.columns.length, rules: (l.alertRules ?? []).map(r => r.name) }
+      return { key: l.key, name: l.name, finalName, kind: l.kind, columns: l.columns.length, columnNames: l.columns.map(c => c.name), rules: (l.alertRules ?? []).map(r => r.name) }
     }),
     words: s.vocab
       ? (Object.keys(s.vocab) as VocabKey[])

@@ -15,7 +15,7 @@ import { guessArticle } from '../../../shared/vocab'
 import { wordsFromListName } from '../../../shared/listWords'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
-import { DateRepeatPicker, type DateAnswer } from './DateRepeatPicker'
+import { DateRepeatPicker, suggestRepeat, type DateAnswer } from './DateRepeatPicker'
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6
 
@@ -124,7 +124,7 @@ export function GuidedBlankStart({ onBack, onFinished, resume, onProgress }: Pro
       const found = [...r.data.columns, ...r.data.hiddenColumns].filter(c => c.column_type === 'date').map(c => ({ id: c.id, name: c.name }))
       if (found.length === 0) return
       setDateCols(found)
-      setDates(Object.fromEntries(found.map(c => [c.id, { repeat: 'no' } as DateAnswer])))
+      setDates(Object.fromEntries(found.map(c => [c.id, suggestRepeat(c.name)])))
       setStep(5)
     }).catch(() => { /* stay on the last questions */ })
   }, [resume])
@@ -164,7 +164,7 @@ export function GuidedBlankStart({ onBack, onFinished, resume, onProgress }: Pro
         return id ? [{ id, name: c.name }] : []
       })
       setDateCols(found)
-      setDates(Object.fromEntries(found.map(c => [c.id, { repeat: 'no' } as DateAnswer])))
+      setDates(Object.fromEntries(found.map(c => [c.id, suggestRepeat(c.name)])))
       go(found.length > 0 ? 5 : 6)
     } finally { setBusy(false) }
   }

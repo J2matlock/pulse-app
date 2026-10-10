@@ -112,6 +112,8 @@ describe('starter validation', () => {
     for (const raw of BUILTIN_STARTERS) expect(parseStarter(raw)).toMatchObject({ ok: true })
     const list = (await starters()).listBuiltinStarters()
     expect(list.map(s => s.id)).toContain('human-services')
+    // The broad social-work layout is the default, not a state-specific one (audit F-19)
+    expect(list.find(s => s.id === 'human-services')!.variants[0]!.key).toBe('social-worker-caseload')
     expect(list[0]!.variants.length).toBe(11)
   })
 

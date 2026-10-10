@@ -346,7 +346,7 @@ export interface ApplyResult {
 export interface StarterPreview {
   summary: StarterSummary
   variant: string | null
-  lists: Array<{ key: string; name: string; finalName: string; kind: StarterList['kind']; columns: number; rules: string[] }>
+  lists: Array<{ key: string; name: string; finalName: string; kind: StarterList['kind']; columns: number; columnNames: string[]; rules: string[] }>
   /** Words that would change: current → proposed, plural forms */
   words: Array<{ key: VocabKey; current: string; proposed: string }>
   /** Features the starter would switch on that are off now */

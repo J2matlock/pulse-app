@@ -23,7 +23,7 @@ import { safeInvoke } from '../utils/safeInvoke'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { ImportWizard } from '../components/grid/ImportWizard'
 import { ApplyStarterDialog } from '../components/starters/ApplyStarterDialog'
-import { DateRepeatPicker, type DateAnswer } from './setup/DateRepeatPicker'
+import { DateRepeatPicker, suggestRepeat, type DateAnswer } from './setup/DateRepeatPicker'
 import { GuidedBlankStart } from './setup/GuidedBlankStart'
 
 type Step = 'welcome' | 'profile' | 'start' | 'sheet-name' | 'sheet-import' | 'sheet-rows' | 'sheet-dates' | 'blank' | 'done'
@@ -202,7 +202,7 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
       const found = grid.ok ? [...grid.data.columns, ...grid.data.hiddenColumns].filter(c => c.column_type === 'date') : []
       if (found.length === 0) { await finish(); return }
       setDateCols(found)
-      setDates(Object.fromEntries(found.map(c => [c.id, { repeat: 'no' } as DateAnswer])))
+      setDates(Object.fromEntries(found.map(c => [c.id, suggestRepeat(c.name)])))
       go('sheet-dates')
     } catch (err) {
       setError(err instanceof Error ? err.message : "We couldn't save that. Please try again.")

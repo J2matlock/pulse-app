@@ -88,420 +88,6 @@
   "variantQuestion": "Which describes your work best?",
   "variants": [
     {
-      "key": "opwdd-caseload",
-      "name": "OPWDD Caseload",
-      "description": "Office for People With Developmental Disabilities — standard columns for OPWDD care coordinators",
-      "lists": [
-        {
-          "key": "caseload",
-          "name": "OPWDD Caseload",
-          "description": "Standard grid for OPWDD care coordination",
-          "kind": "person",
-          "columns": [
-            {
-              "name": "Name",
-              "column_type": "text",
-              "position": 0,
-              "width": 180,
-              "is_name_column": 1,
-              "is_identifier": 1
-            },
-            {
-              "name": "CIN #",
-              "column_type": "text",
-              "position": 1,
-              "width": 120,
-              "is_identifier": 1
-            },
-            {
-              "name": "Date of Birth",
-              "column_type": "date",
-              "position": 2,
-              "width": 120
-            },
-            {
-              "name": "Annual Assessment Due",
-              "column_type": "date",
-              "position": 3,
-              "width": 150,
-              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
-            },
-            {
-              "name": "Quarterly Contact Due",
-              "column_type": "date",
-              "position": 4,
-              "width": 150,
-              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
-            },
-            {
-              "name": "Monthly Contact Due",
-              "column_type": "date",
-              "position": 5,
-              "width": 150,
-              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
-            },
-            {
-              "name": "Plan of Care Review",
-              "column_type": "date",
-              "position": 6,
-              "width": 150,
-              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
-            },
-            {
-              "name": "Phone",
-              "column_type": "phone",
-              "position": 7,
-              "width": 130
-            },
-            {
-              "name": "Guardian",
-              "column_type": "text",
-              "position": 8,
-              "width": 160
-            },
-            {
-              "name": "Guardian Phone",
-              "column_type": "phone",
-              "position": 9,
-              "width": 130
-            },
-            {
-              "name": "Residence",
-              "column_type": "text",
-              "position": 10,
-              "width": 160
-            },
-            {
-              "name": "HCBS Waiver",
-              "column_type": "dropdown",
-              "position": 11,
-              "width": 130,
-              "config": "{\"options\":[\"COMP\",\"NHTD\",\"TBI\",\"None\"]}"
-            },
-            {
-              "name": "Status",
-              "column_type": "dropdown",
-              "position": 12,
-              "width": 120,
-              "config": "{\"options\":[\"Active\",\"Transitioning\",\"On Hold\",\"Inactive\"]}"
-            }
-          ],
-          "alertRules": [
-            {
-              "name": "Due date",
-              "description": "The date entered is the deadline",
-              "interval_days": 0,
-              "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
-            }
-          ]
-        }
-      ],
-      "sampleData": {
-        "records": {
-          "caseload": [
-            {
-              "Name": "James Patel",
-              "CIN #": "AB12345C",
-              "Date of Birth": {
-                "daysFromToday": -13431
-              },
-              "Annual Assessment Due": {
-                "daysFromToday": -3
-              },
-              "Quarterly Contact Due": {
-                "daysFromToday": 16
-              },
-              "Monthly Contact Due": {
-                "daysFromToday": 110
-              },
-              "Plan of Care Review": {
-                "daysFromToday": -3
-              },
-              "Phone": "555-0191",
-              "Guardian": "Grace Okafor",
-              "Guardian Phone": "555-0117",
-              "Residence": "Family home",
-              "HCBS Waiver": "NHTD",
-              "Status": "Transitioning"
-            },
-            {
-              "Name": "Aisha Morales",
-              "CIN #": "AB13156C",
-              "Date of Birth": {
-                "daysFromToday": -9985
-              },
-              "Annual Assessment Due": {
-                "daysFromToday": 5
-              },
-              "Quarterly Contact Due": {
-                "daysFromToday": 55
-              },
-              "Monthly Contact Due": {
-                "daysFromToday": 300
-              },
-              "Plan of Care Review": {
-                "daysFromToday": 5
-              },
-              "Phone": "555-0198",
-              "Guardian": "Omar Brown",
-              "Guardian Phone": "555-0124",
-              "Residence": "Group home — Maple House",
-              "HCBS Waiver": "COMP",
-              "Status": "Active"
-            },
-            {
-              "Name": "Robert Dubois",
-              "CIN #": "AB13967C",
-              "Date of Birth": {
-                "daysFromToday": -12663
-              },
-              "Annual Assessment Due": {
-                "daysFromToday": 24
-              },
-              "Quarterly Contact Due": {
-                "daysFromToday": 160
-              },
-              "Monthly Contact Due": {
-                "daysFromToday": 0
-              },
-              "Plan of Care Review": {
-                "daysFromToday": 24
-              },
-              "Phone": "555-0105",
-              "Guardian": "Ruth Jackson",
-              "Guardian Phone": "555-0131",
-              "Residence": "Own apartment",
-              "HCBS Waiver": "COMP",
-              "Status": "Active"
-            },
-            {
-              "Name": "Linh Smith",
-              "CIN #": "AB14778C",
-              "Date of Birth": {
-                "daysFromToday": -27981
-              },
-              "Annual Assessment Due": {
-                "daysFromToday": 75
-              },
-              "Quarterly Contact Due": {
-                "daysFromToday": -14
-              },
-              "Monthly Contact Due": {
-                "daysFromToday": 9
-              },
-              "Plan of Care Review": {
-                "daysFromToday": 75
-              },
-              "Phone": "555-0112",
-              "Guardian": "Diego Ferreira",
-              "Guardian Phone": "555-0138",
-              "Residence": "Supervised apartment",
-              "HCBS Waiver": "COMP",
-              "Status": "Active"
-            },
-            {
-              "Name": "Dorothy Kowalski",
-              "CIN #": "AB15589C",
-              "Date of Birth": {
-                "daysFromToday": -24562
-              },
-              "Annual Assessment Due": {
-                "daysFromToday": 220
-              },
-              "Quarterly Contact Due": {
-                "daysFromToday": 2
-              },
-              "Monthly Contact Due": {
-                "daysFromToday": 38
-              },
-              "Plan of Care Review": {
-                "daysFromToday": 220
-              },
-              "Phone": "555-0119",
-              "Guardian": "Hannah Walker",
-              "Guardian Phone": "555-0145",
-              "Residence": "Family home",
-              "HCBS Waiver": "TBI",
-              "Status": "On Hold"
-            },
-            {
-              "Name": "Carlos Wong",
-              "CIN #": "AB16400C",
-              "Date of Birth": {
-                "daysFromToday": -11564
-              },
-              "Annual Assessment Due": {
-                "daysFromToday": -3
-              },
-              "Quarterly Contact Due": {
-                "daysFromToday": 16
-              },
-              "Monthly Contact Due": {
-                "daysFromToday": 110
-              },
-              "Plan of Care Review": {
-                "daysFromToday": -3
-              },
-              "Phone": "555-0126",
-              "Guardian": "Tyrone Haddad",
-              "Guardian Phone": "555-0152",
-              "Residence": "Group home — Maple House",
-              "HCBS Waiver": "COMP",
-              "Status": "Active"
-            },
-            {
-              "Name": "Priya Bell",
-              "CIN #": "AB17211C",
-              "Date of Birth": {
-                "daysFromToday": -8229
-              },
-              "Annual Assessment Due": {
-                "daysFromToday": 5
-              },
-              "Quarterly Contact Due": {
-                "daysFromToday": 55
-              },
-              "Monthly Contact Due": {
-                "daysFromToday": 300
-              },
-              "Plan of Care Review": {
-                "daysFromToday": 5
-              },
-              "Phone": "555-0133",
-              "Guardian": "Mei Ortiz",
-              "Guardian Phone": "555-0159",
-              "Residence": "Own apartment",
-              "HCBS Waiver": "COMP",
-              "Status": "Active"
-            },
-            {
-              "Name": "Frank Rivera",
-              "CIN #": "AB18022C",
-              "Date of Birth": {
-                "daysFromToday": -27011
-              },
-              "Annual Assessment Due": {
-                "daysFromToday": 24
-              },
-              "Quarterly Contact Due": {
-                "daysFromToday": 160
-              },
-              "Monthly Contact Due": {
-                "daysFromToday": 0
-              },
-              "Plan of Care Review": {
-                "daysFromToday": 24
-              },
-              "Phone": "555-0140",
-              "Guardian": "Walter Johnson",
-              "Guardian Phone": "555-0166",
-              "Residence": "Supervised apartment",
-              "HCBS Waiver": "COMP",
-              "Status": "Active"
-            }
-          ]
-        },
-        "activities": [
-          {
-            "record": "caseload#0",
-            "type": "visit",
-            "daysAgo": 2,
-            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
-          },
-          {
-            "record": "caseload#0",
-            "type": "meeting",
-            "daysAgo": 13,
-            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
-          },
-          {
-            "record": "caseload#1",
-            "type": "phone",
-            "daysAgo": 7,
-            "text": "Phone check-in with family. Confirmed upcoming appointment."
-          },
-          {
-            "record": "caseload#1",
-            "type": "email",
-            "daysAgo": 18,
-            "text": "Emailed the program for an updated progress report."
-          },
-          {
-            "record": "caseload#2",
-            "type": "meeting",
-            "daysAgo": 12,
-            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
-          },
-          {
-            "record": "caseload#2",
-            "type": "note",
-            "daysAgo": 23,
-            "text": "Received updated benefits letter; copied to file."
-          },
-          {
-            "record": "caseload#3",
-            "type": "email",
-            "daysAgo": 17,
-            "text": "Emailed the program for an updated progress report."
-          },
-          {
-            "record": "caseload#3",
-            "type": "visit",
-            "daysAgo": 28,
-            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
-          },
-          {
-            "record": "caseload#4",
-            "type": "note",
-            "daysAgo": 22,
-            "text": "Received updated benefits letter; copied to file."
-          },
-          {
-            "record": "caseload#4",
-            "type": "phone",
-            "daysAgo": 33,
-            "text": "Phone check-in with family. Confirmed upcoming appointment."
-          },
-          {
-            "record": "caseload#5",
-            "type": "visit",
-            "daysAgo": 27,
-            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
-          },
-          {
-            "record": "caseload#5",
-            "type": "meeting",
-            "daysAgo": 38,
-            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
-          },
-          {
-            "record": "caseload#6",
-            "type": "phone",
-            "daysAgo": 32,
-            "text": "Phone check-in with family. Confirmed upcoming appointment."
-          },
-          {
-            "record": "caseload#6",
-            "type": "email",
-            "daysAgo": 3,
-            "text": "Emailed the program for an updated progress report."
-          },
-          {
-            "record": "caseload#7",
-            "type": "meeting",
-            "daysAgo": 37,
-            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
-          },
-          {
-            "record": "caseload#7",
-            "type": "note",
-            "daysAgo": 8,
-            "text": "Received updated benefits letter; copied to file."
-          }
-        ]
-      }
-    },
-    {
       "key": "social-worker-caseload",
       "name": "Social Worker Caseload",
       "description": "General social work caseload with standard deadline tracking",
@@ -917,6 +503,420 @@
             "type": "visit",
             "daysAgo": 9,
             "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          }
+        ]
+      }
+    },
+    {
+      "key": "opwdd-caseload",
+      "name": "OPWDD Caseload",
+      "description": "Office for People With Developmental Disabilities — standard columns for OPWDD care coordinators",
+      "lists": [
+        {
+          "key": "caseload",
+          "name": "OPWDD Caseload",
+          "description": "Standard grid for OPWDD care coordination",
+          "kind": "person",
+          "columns": [
+            {
+              "name": "Name",
+              "column_type": "text",
+              "position": 0,
+              "width": 180,
+              "is_name_column": 1,
+              "is_identifier": 1
+            },
+            {
+              "name": "CIN #",
+              "column_type": "text",
+              "position": 1,
+              "width": 120,
+              "is_identifier": 1
+            },
+            {
+              "name": "Date of Birth",
+              "column_type": "date",
+              "position": 2,
+              "width": 120
+            },
+            {
+              "name": "Annual Assessment Due",
+              "column_type": "date",
+              "position": 3,
+              "width": 150,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Quarterly Contact Due",
+              "column_type": "date",
+              "position": 4,
+              "width": 150,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Monthly Contact Due",
+              "column_type": "date",
+              "position": 5,
+              "width": 150,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Plan of Care Review",
+              "column_type": "date",
+              "position": 6,
+              "width": 150,
+              "config": "{\"alert_rule_name\":\"Due date\",\"log_changes\":true}"
+            },
+            {
+              "name": "Phone",
+              "column_type": "phone",
+              "position": 7,
+              "width": 130
+            },
+            {
+              "name": "Guardian",
+              "column_type": "text",
+              "position": 8,
+              "width": 160
+            },
+            {
+              "name": "Guardian Phone",
+              "column_type": "phone",
+              "position": 9,
+              "width": 130
+            },
+            {
+              "name": "Residence",
+              "column_type": "text",
+              "position": 10,
+              "width": 160
+            },
+            {
+              "name": "HCBS Waiver",
+              "column_type": "dropdown",
+              "position": 11,
+              "width": 130,
+              "config": "{\"options\":[\"COMP\",\"NHTD\",\"TBI\",\"None\"]}"
+            },
+            {
+              "name": "Status",
+              "column_type": "dropdown",
+              "position": 12,
+              "width": 120,
+              "config": "{\"options\":[\"Active\",\"Transitioning\",\"On Hold\",\"Inactive\"]}"
+            }
+          ],
+          "alertRules": [
+            {
+              "name": "Due date",
+              "description": "The date entered is the deadline",
+              "interval_days": 0,
+              "thresholds": "[{\"daysBefore\":30,\"bgClass\":\"#bbf7d0\",\"label\":\"Coming up\"},{\"daysBefore\":14,\"bgClass\":\"#facc15\",\"label\":\"Due soon\"},{\"daysBefore\":7,\"bgClass\":\"#fb923c\",\"label\":\"Urgent\"},{\"daysBefore\":0,\"bgClass\":\"#dc2626\",\"label\":\"Due today\"},{\"daysBefore\":-1,\"bgClass\":\"alert-pulse-dark\",\"label\":\"Overdue\"}]"
+            }
+          ]
+        }
+      ],
+      "sampleData": {
+        "records": {
+          "caseload": [
+            {
+              "Name": "James Patel",
+              "CIN #": "AB12345C",
+              "Date of Birth": {
+                "daysFromToday": -13431
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": -3
+              },
+              "Quarterly Contact Due": {
+                "daysFromToday": 16
+              },
+              "Monthly Contact Due": {
+                "daysFromToday": 110
+              },
+              "Plan of Care Review": {
+                "daysFromToday": -3
+              },
+              "Phone": "555-0191",
+              "Guardian": "Grace Okafor",
+              "Guardian Phone": "555-0117",
+              "Residence": "Family home",
+              "HCBS Waiver": "NHTD",
+              "Status": "Transitioning"
+            },
+            {
+              "Name": "Aisha Morales",
+              "CIN #": "AB13156C",
+              "Date of Birth": {
+                "daysFromToday": -9985
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 5
+              },
+              "Quarterly Contact Due": {
+                "daysFromToday": 55
+              },
+              "Monthly Contact Due": {
+                "daysFromToday": 300
+              },
+              "Plan of Care Review": {
+                "daysFromToday": 5
+              },
+              "Phone": "555-0198",
+              "Guardian": "Omar Brown",
+              "Guardian Phone": "555-0124",
+              "Residence": "Group home — Maple House",
+              "HCBS Waiver": "COMP",
+              "Status": "Active"
+            },
+            {
+              "Name": "Robert Dubois",
+              "CIN #": "AB13967C",
+              "Date of Birth": {
+                "daysFromToday": -12663
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 24
+              },
+              "Quarterly Contact Due": {
+                "daysFromToday": 160
+              },
+              "Monthly Contact Due": {
+                "daysFromToday": 0
+              },
+              "Plan of Care Review": {
+                "daysFromToday": 24
+              },
+              "Phone": "555-0105",
+              "Guardian": "Ruth Jackson",
+              "Guardian Phone": "555-0131",
+              "Residence": "Own apartment",
+              "HCBS Waiver": "COMP",
+              "Status": "Active"
+            },
+            {
+              "Name": "Linh Smith",
+              "CIN #": "AB14778C",
+              "Date of Birth": {
+                "daysFromToday": -27981
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 75
+              },
+              "Quarterly Contact Due": {
+                "daysFromToday": -14
+              },
+              "Monthly Contact Due": {
+                "daysFromToday": 9
+              },
+              "Plan of Care Review": {
+                "daysFromToday": 75
+              },
+              "Phone": "555-0112",
+              "Guardian": "Diego Ferreira",
+              "Guardian Phone": "555-0138",
+              "Residence": "Supervised apartment",
+              "HCBS Waiver": "COMP",
+              "Status": "Active"
+            },
+            {
+              "Name": "Dorothy Kowalski",
+              "CIN #": "AB15589C",
+              "Date of Birth": {
+                "daysFromToday": -24562
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 220
+              },
+              "Quarterly Contact Due": {
+                "daysFromToday": 2
+              },
+              "Monthly Contact Due": {
+                "daysFromToday": 38
+              },
+              "Plan of Care Review": {
+                "daysFromToday": 220
+              },
+              "Phone": "555-0119",
+              "Guardian": "Hannah Walker",
+              "Guardian Phone": "555-0145",
+              "Residence": "Family home",
+              "HCBS Waiver": "TBI",
+              "Status": "On Hold"
+            },
+            {
+              "Name": "Carlos Wong",
+              "CIN #": "AB16400C",
+              "Date of Birth": {
+                "daysFromToday": -11564
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": -3
+              },
+              "Quarterly Contact Due": {
+                "daysFromToday": 16
+              },
+              "Monthly Contact Due": {
+                "daysFromToday": 110
+              },
+              "Plan of Care Review": {
+                "daysFromToday": -3
+              },
+              "Phone": "555-0126",
+              "Guardian": "Tyrone Haddad",
+              "Guardian Phone": "555-0152",
+              "Residence": "Group home — Maple House",
+              "HCBS Waiver": "COMP",
+              "Status": "Active"
+            },
+            {
+              "Name": "Priya Bell",
+              "CIN #": "AB17211C",
+              "Date of Birth": {
+                "daysFromToday": -8229
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 5
+              },
+              "Quarterly Contact Due": {
+                "daysFromToday": 55
+              },
+              "Monthly Contact Due": {
+                "daysFromToday": 300
+              },
+              "Plan of Care Review": {
+                "daysFromToday": 5
+              },
+              "Phone": "555-0133",
+              "Guardian": "Mei Ortiz",
+              "Guardian Phone": "555-0159",
+              "Residence": "Own apartment",
+              "HCBS Waiver": "COMP",
+              "Status": "Active"
+            },
+            {
+              "Name": "Frank Rivera",
+              "CIN #": "AB18022C",
+              "Date of Birth": {
+                "daysFromToday": -27011
+              },
+              "Annual Assessment Due": {
+                "daysFromToday": 24
+              },
+              "Quarterly Contact Due": {
+                "daysFromToday": 160
+              },
+              "Monthly Contact Due": {
+                "daysFromToday": 0
+              },
+              "Plan of Care Review": {
+                "daysFromToday": 24
+              },
+              "Phone": "555-0140",
+              "Guardian": "Walter Johnson",
+              "Guardian Phone": "555-0166",
+              "Residence": "Supervised apartment",
+              "HCBS Waiver": "COMP",
+              "Status": "Active"
+            }
+          ]
+        },
+        "activities": [
+          {
+            "record": "caseload#0",
+            "type": "visit",
+            "daysAgo": 2,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#0",
+            "type": "meeting",
+            "daysAgo": 13,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#1",
+            "type": "phone",
+            "daysAgo": 7,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#1",
+            "type": "email",
+            "daysAgo": 18,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#2",
+            "type": "meeting",
+            "daysAgo": 12,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#2",
+            "type": "note",
+            "daysAgo": 23,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#3",
+            "type": "email",
+            "daysAgo": 17,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#3",
+            "type": "visit",
+            "daysAgo": 28,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#4",
+            "type": "note",
+            "daysAgo": 22,
+            "text": "Received updated benefits letter; copied to file."
+          },
+          {
+            "record": "caseload#4",
+            "type": "phone",
+            "daysAgo": 33,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#5",
+            "type": "visit",
+            "daysAgo": 27,
+            "text": "Home visit. Doing well; reviewed goals and medication list. No new concerns."
+          },
+          {
+            "record": "caseload#5",
+            "type": "meeting",
+            "daysAgo": 38,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#6",
+            "type": "phone",
+            "daysAgo": 32,
+            "text": "Phone check-in with family. Confirmed upcoming appointment."
+          },
+          {
+            "record": "caseload#6",
+            "type": "email",
+            "daysAgo": 3,
+            "text": "Emailed the program for an updated progress report."
+          },
+          {
+            "record": "caseload#7",
+            "type": "meeting",
+            "daysAgo": 37,
+            "text": "Team meeting to review the service plan. Agreed to add a weekly day program."
+          },
+          {
+            "record": "caseload#7",
+            "type": "note",
+            "daysAgo": 8,
+            "text": "Received updated benefits letter; copied to file."
           }
         ]
       }

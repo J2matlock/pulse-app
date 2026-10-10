@@ -49,7 +49,8 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
   const [lists, setLists] = useState<Set<string>>(new Set())
   const [useWords, setUseWords] = useState(mode === 'setup')
   const [useFeatures, setUseFeatures] = useState(mode === 'setup')
-  const [sample, setSample] = useState(withSamples ?? false)
+  // First run starts with samples (the payoff shows at once); removing them is one click
+  const [sample, setSample] = useState(withSamples ?? mode === 'setup')
   const [working, setWorking] = useState(false)
   const [result, setResult] = useState<ApplyResult | null>(null)
 
@@ -74,6 +75,8 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
     for (const s of matches) byGroup.set(s.group ?? 'Other', [...(byGroup.get(s.group ?? 'Other') ?? []), s])
     return [...byGroup.entries()]
   }, [starters, query])
+  // A badge every card has tells nobody anything
+  const someLackSamples = (starters ?? []).some(s => !s.hasSampleData)
 
   async function loadPreview(src: StarterRef, v: string | undefined) {
     setPreview(null)
@@ -168,7 +171,7 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
                         <span className="block text-base text-slate-600 dark:text-slate-300">{s.description}</span>
                         <span className="block text-sm text-slate-500 dark:text-slate-400 mt-1">
                           {s.variants.length > 0 ? `${s.variants.length} layouts to choose from` : s.listNames.join(' · ')}
-                          {s.hasSampleData && <span className="ml-2 inline-block px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200">Includes sample data</span>}
+                          {s.hasSampleData && someLackSamples && <span className="ml-2 inline-block px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200">Includes sample data</span>}
                         </span>
                       </span>
                     </button>
@@ -206,17 +209,25 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
                 <fieldset className="space-y-2">
                   <legend className="text-base font-medium text-slate-800 dark:text-slate-100 mb-1">{t('list', { many: true, cap: true })} to add</legend>
                   {preview.lists.map(l => (
-                    <label key={l.key} className="flex items-start gap-3 cursor-pointer select-none" style={{ minHeight: 44 }}>
-                      <input type="checkbox" className={box} checked={lists.has(l.key)}
-                        onChange={e => setLists(prev => { const n = new Set(prev); if (e.target.checked) n.add(l.key); else n.delete(l.key); return n })} />
-                      <span>
-                        <span className="block text-base font-medium text-slate-900 dark:text-slate-100">{l.finalName}</span>
-                        <span className="block text-sm text-slate-600 dark:text-slate-300">
-                          {KIND_LABEL[l.kind]} · {l.columns} columns{l.rules.length > 0 ? ` · deadline rules: ${l.rules.join(', ')}` : ''}
-                          {l.finalName !== l.name && ` · renamed because you already have “${l.name}”`}
+                    <div key={l.key}>
+                      <label className="flex items-start gap-3 cursor-pointer select-none" style={{ minHeight: 44 }}>
+                        <input type="checkbox" className={box} checked={lists.has(l.key)}
+                          onChange={e => setLists(prev => { const n = new Set(prev); if (e.target.checked) n.add(l.key); else n.delete(l.key); return n })} />
+                        <span>
+                          <span className="block text-base font-medium text-slate-900 dark:text-slate-100">{l.finalName}</span>
+                          <span className="block text-sm text-slate-600 dark:text-slate-300">
+                            {KIND_LABEL[l.kind]} · {l.columns} columns{l.rules.length > 0 ? ` · deadline rules: ${l.rules.join(', ')}` : ''}
+                            {l.finalName !== l.name && ` · renamed because you already have “${l.name}”`}
+                          </span>
                         </span>
-                      </span>
-                    </label>
+                      </label>
+                      {l.columnNames.length > 0 && (
+                        <details className="ml-8">
+                          <summary className="hit-44 cursor-pointer text-base text-blue-700 dark:text-blue-300 rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">Show its columns</summary>
+                          <p className="text-base text-slate-700 dark:text-slate-200 pb-1">{l.columnNames.join(', ')}</p>
+                        </details>
+                      )}
+                    </div>
                   ))}
                 </fieldset>
 

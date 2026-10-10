@@ -25,7 +25,7 @@ const summary = {
 }
 const preview = {
   summary, variant: 'school-counselor',
-  lists: [{ key: 'caseload', name: 'School Counselor', finalName: 'School Counselor 2', kind: 'person', columns: 10, rules: ['Every 30 days', 'Due date'] }],
+  lists: [{ key: 'caseload', name: 'School Counselor', finalName: 'School Counselor 2', kind: 'person', columns: 3, columnNames: ['Student', 'Grade', 'Next check-in'], rules: ['Every 30 days', 'Due date'] }],
   words: [{ key: 'record', current: 'records', proposed: 'clients' }],
   features: [{ key: 'letters', label: 'Letters and documents' }],
   hasSampleData: false,
@@ -76,6 +76,38 @@ describe('ApplyStarterDialog', () => {
     expect((screen.getByRole('checkbox', { name: /Use this example's words/ }) as HTMLInputElement).checked).toBe(true)
     fireEvent.click(screen.getByRole('checkbox', { name: /School Counselor 2/ }))
     expect((screen.getByRole('button', { name: 'Add' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('first run ticks "Add sample data" and shows what a list holds (audit F-14)', async () => {
+    const withSamples = { ...preview, hasSampleData: true }
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === IPC.STARTER_LIST) return Promise.resolve({ ok: true, data: [{ ...summary, hasSampleData: true }] })
+      if (channel === IPC.STARTER_PREVIEW) return Promise.resolve({ ok: true, data: withSamples })
+      return Promise.resolve({ ok: true, data: [] })
+    })
+    renderDialog('setup')
+    // Every example has samples, so the badge says nothing and is left out
+    const card = await screen.findByRole('button', { name: /Human services/ })
+    expect(card.textContent).not.toMatch(/Includes sample data/)
+    fireEvent.click(card)
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByText('School Counselor 2')
+    expect((screen.getByRole('checkbox', { name: /Add sample data/ }) as HTMLInputElement).checked).toBe(true)
+    expect(screen.getByText(/remove them in one click/)).toBeTruthy()
+    expect(screen.getByText('Student, Grade, Next check-in')).toBeTruthy()
+  })
+
+  it('adding from the sidebar leaves sample data off unless asked', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === IPC.STARTER_LIST) return Promise.resolve({ ok: true, data: [summary] })
+      if (channel === IPC.STARTER_PREVIEW) return Promise.resolve({ ok: true, data: { ...preview, hasSampleData: true } })
+      return Promise.resolve({ ok: true, data: [] })
+    })
+    renderDialog('add')
+    fireEvent.click(await screen.findByRole('button', { name: /Human services/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByText('School Counselor 2')
+    expect((screen.getByRole('checkbox', { name: /Add sample data/ }) as HTMLInputElement).checked).toBe(false)
   })
 
   it('filters the gallery by search', async () => {
