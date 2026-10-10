@@ -17,6 +17,15 @@ interface ReleaseEntry {
 
 const RELEASES: ReleaseEntry[] = [
   {
+    version: '2.2.0',
+    date: '2026-10-10',
+    items: [
+      'Reports opens on your reports as cards: what each one answers and a glance at the answer',
+      'Every example now comes with ready-made reports, and its sample data has a year of history so reports have something to show',
+      'Reports split into lines are drawn as bars, and a sentence above each report says in plain words what it counts',
+    ],
+  },
+  {
     version: '2.1.1',
     date: '2026-10-10',
     items: [
