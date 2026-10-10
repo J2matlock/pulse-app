@@ -1,13 +1,15 @@
 import React, { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2, Edit2, EyeOff, GripVertical, Bell, BellOff, Plus, Pencil, Activity, List, Palette, ArrowUp, ArrowDown, Pin, PinOff, Asterisk, Link2, Columns3 } from 'lucide-react'
+import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2, Edit2, EyeOff, GripVertical, Bell, BellOff, Plus, Pencil, Activity, List, Palette, ArrowUp, ArrowDown, Pin, PinOff, Asterisk, Link2, Columns3, IdCard } from 'lucide-react'
 import { canBeRequired } from '../../../shared/requiredFields'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
 import { useAlertStore } from '../../stores/alertStore'
 import type { Column, ParsedAlertRule } from '../../../shared/types'
-import { takesDeadlineRule } from '../../../shared/types'
+import { takesDeadlineRule, canNameRecords } from '../../../shared/types'
+import { IPC } from '../../../shared/ipc-channels'
+import { safeInvoke } from '../../utils/safeInvoke'
 import { AlertRuleEditor } from '../alerts/AlertRuleEditor'
 import { DoneChecklistPicker } from './DoneChecklistPicker'
 import { NoteUpdatePicker } from './NoteUpdatePicker'
@@ -34,10 +36,11 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
     columns: s.columns,
     frozenColumnCount: s.frozenColumnCount,
   })))
-  const { setSortConfig, updateColumn, deleteColumn, toggleColumnVisibility, setFrozenColumnCount } = useGridStore(useShallow(s => ({
+  const { setSortConfig, updateColumn, deleteColumn, setNameColumn, toggleColumnVisibility, setFrozenColumnCount } = useGridStore(useShallow(s => ({
     setSortConfig: s.setSortConfig,
     updateColumn: s.updateColumn,
     deleteColumn: s.deleteColumn,
+    setNameColumn: s.setNameColumn,
     toggleColumnVisibility: s.toggleColumnVisibility,
     setFrozenColumnCount: s.setFrozenColumnCount,
   })))
@@ -54,6 +57,8 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
   const { t } = useVocab()
   const [editingRule, setEditingRule] = useState<ParsedAlertRule | undefined>(undefined)
   const [showDeleteColConfirm, setShowDeleteColConfirm] = useState(false)
+  // What uses this column (rules, forms, views…), listed before a delete
+  const [dependents, setDependents] = useState<string[]>([])
   const [deleteAlertRuleTarget, setDeleteAlertRuleTarget] = useState<ParsedAlertRule | null>(null)
   const [showEditOptions, setShowEditOptions] = useState(false)
   const [editOptionsText, setEditOptionsText] = useState('')
@@ -125,8 +130,10 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
     setIsRenaming(false)
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     setShowMenu(false)
+    const res = await safeInvoke(IPC.COLUMN_DEPENDENTS, column.id)
+    setDependents(res.ok ? res.data : [])
     setShowDeleteColConfirm(true)
   }
 
@@ -330,6 +337,16 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                 {isColumnFrozen ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
                 {isColumnFrozen ? 'Unpin column' : 'Pin column'}
               </button>
+              {column.is_name_column !== 1 && canNameRecords(column.column_type) && (
+                <button
+                  className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  onClick={() => { setShowMenu(false); void setNameColumn(column.id) }}
+                  title={`Show this column as each ${t('record')}'s name everywhere`}
+                >
+                  <IdCard className="w-4 h-4" />
+                  Use as name
+                </button>
+              )}
               <button
                 className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                 onClick={handleToggleLogChanges}
@@ -582,7 +599,17 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
             await deleteColumn(column.id)
           }}
           onCancel={() => setShowDeleteColConfirm(false)}
-        />
+        >
+          {dependents.length > 0 && (
+            <div className="mb-3 rounded-lg border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3" data-testid="column-dependents">
+              <p className="text-base font-medium text-amber-900 dark:text-amber-200">These use this column and will stop working as they do now:</p>
+              <ul className="mt-1 list-disc pl-5 text-base text-amber-900 dark:text-amber-200">
+                {dependents.slice(0, 8).map(d => <li key={d}>{d}</li>)}
+                {dependents.length > 8 && <li>and {dependents.length - 8} more</li>}
+              </ul>
+            </div>
+          )}
+        </ConfirmDialog>
 
         {/* Delete alert rule confirmation */}
         <ConfirmDialog

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 // ── Global mocks ────────────────────────────────────────────────────────────
 
@@ -75,7 +75,8 @@ vi.mock('../../../../src/renderer/components/grid/CellConditionalFormatPanel', (
 }))
 
 vi.mock('../../../../src/renderer/components/shared/ConfirmDialog', () => ({
-  ConfirmDialog: () => null,
+  ConfirmDialog: ({ open, title, children }: { open: boolean; title: string; children?: React.ReactNode }) =>
+    open ? <div role="dialog" aria-label={title}>{children}</div> : null,
 }))
 
 vi.mock('react-hot-toast', () => ({
@@ -89,6 +90,7 @@ import { useAlertStore } from '../../../../src/renderer/stores/alertStore'
 import { ColumnHeader } from '../../../../src/renderer/components/grid/ColumnHeader'
 import type { Column } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
+import { safeInvoke } from '../../../../src/renderer/utils/safeInvoke'
 
 function makeColumn(id: number, name: string, type = 'text', config = '{}'): Column {
   return {
@@ -163,6 +165,30 @@ describe('ColumnHeader', () => {
     expect(optionsBtn).toBeTruthy()
     fireEvent.click(optionsBtn)
     expect(screen.getByText('Rename')).toBeTruthy()
+  })
+
+  it('lists what uses a column before deleting it (1.8)', async () => {
+    vi.mocked(safeInvoke).mockResolvedValueOnce({ ok: true, data: ['Deadline rule "Within 30 days"', 'Form "Intake"'] })
+    render(<ColumnHeader column={makeColumn(2, 'Start date', 'date')} />)
+    fireEvent.contextMenu(screen.getByText('Start date').closest('div')!)
+    fireEvent.click(screen.getByText('Delete column'))
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy())
+    expect(vi.mocked(safeInvoke)).toHaveBeenCalledWith('column:dependents', 2)
+    expect(screen.getByText('Deadline rule "Within 30 days"')).toBeTruthy()
+    expect(screen.getByText('Form "Intake"')).toBeTruthy()
+  })
+
+  it('offers "Use as name" on other columns, not the name column (1.8)', () => {
+    const setNameColumn = vi.fn()
+    setupStores({ setNameColumn })
+    const { unmount } = render(<ColumnHeader column={makeColumn(3, 'Nickname')} />)
+    fireEvent.contextMenu(screen.getByText('Nickname').closest('div')!)
+    fireEvent.click(screen.getByText('Use as name'))
+    expect(setNameColumn).toHaveBeenCalledWith(3)
+    unmount()
+    render(<ColumnHeader column={{ ...makeColumn(1, 'Name'), is_name_column: 1 }} />)
+    fireEvent.contextMenu(screen.getByText('Name').closest('div')!)
+    expect(screen.queryByText('Use as name')).toBeNull()
   })
 
   it('shows column name as clickable sort button', () => {

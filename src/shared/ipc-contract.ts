@@ -161,6 +161,8 @@ export interface IPCContract {
   'column:delete':                  { args: [columnId: number];                                        return: true }
   'column:reorder':                 { args: [gridId: number, orderedIds: number[]];                    return: true }
   'column:number-existing':         { args: [columnId: number];                                        return: { numbered: number } }
+  'column:dependents':              { args: [columnId: number];                                        return: string[] }
+  'column:set-name':                { args: [columnId: number];                                        return: { previousId: number | null } }
 
   // ── Row ─────────────────────────────────────────────────────────────────
   'row:create':              { args: [gridId: number];                                                                    return: number | bigint }

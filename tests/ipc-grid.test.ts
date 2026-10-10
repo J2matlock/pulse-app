@@ -545,6 +545,80 @@ describe('COLUMN_DELETE', () => {
     expect(nameCol).toBeDefined()
     expect(nameCol!.id).not.toBe(columnIds[0])
   })
+
+  it('renames records everywhere when the name column goes, preferring a text column (L-10)', async () => {
+    const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { columnCount: 3, rowCount: 1, columnTypes: ['text', 'date', 'text'] })
+    const put = testDb.db.prepare("INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))")
+    put.run(rowIds[0], columnIds[0], 'Old Name')
+    put.run(rowIds[0], columnIds[1], '2026-01-01')
+    put.run(rowIds[0], columnIds[2], 'New Name')
+    expect((testDb.db.prepare('SELECT display_name FROM rows WHERE id = ?').get(rowIds[0]) as { display_name: string }).display_name).toBe('Old Name')
+
+    expect((await invoke(IPC.COLUMN_DELETE, columnIds[0]) as { ok: boolean }).ok).toBe(true)
+    const nameCol = testDb.db.prepare('SELECT id FROM columns WHERE grid_id = ? AND is_name_column = 1').get(gridId) as { id: number }
+    expect(nameCol.id).toBe(columnIds[2])
+    expect((testDb.db.prepare('SELECT display_name FROM rows WHERE id = ?').get(rowIds[0]) as { display_name: string }).display_name).toBe('New Name')
+  })
+})
+
+// ── COLUMN_DEPENDENTS / COLUMN_SET_NAME (audit 1.8) ─────────────────────────
+
+describe('COLUMN_DEPENDENTS', () => {
+  it('lists the rules, columns, sort, views, reports and forms that use a column', async () => {
+    const { gridId, columnIds } = seedGrid(testDb.db, { columnCount: 3, rowCount: 0, columnTypes: ['text', 'date', 'calculated_days'] })
+    const dateCol = columnIds[1]!
+    testDb.db.prepare("INSERT INTO alert_rules (name, thresholds, kind, rule_config) VALUES ('Within 30 days', '[]', 'relative', ?)")
+      .run(JSON.stringify({ anchorColumnId: dateCol, offset: 30, unit: 'days', direction: 'after' }))
+    testDb.db.prepare("INSERT INTO alert_rules (name, thresholds, rule_condition) VALUES ('Only open', '[]', ?)")
+      .run(JSON.stringify({ columnId: dateCol, op: 'is_not_empty' }))
+    testDb.db.prepare("INSERT INTO alert_rules (name, thresholds) VALUES ('Unrelated', '[]')").run()
+    testDb.db.prepare('UPDATE columns SET name = ?, config = ? WHERE id = ?').run('Days left', JSON.stringify({ source_column_id: dateCol }), columnIds[2])
+    testDb.db.prepare('UPDATE grids SET sort_config = ? WHERE id = ?').run(JSON.stringify([{ columnId: dateCol, direction: 'asc', priority: 1 }]), gridId)
+    testDb.db.prepare("INSERT INTO saved_views (grid_id, name, config) VALUES (?, 'By date', ?)").run(gridId, JSON.stringify({ sortConfig: [{ columnId: dateCol }] }))
+    testDb.db.prepare("INSERT INTO report_definitions (grid_id, name, config) VALUES (?, 'Monthly', ?)").run(gridId, JSON.stringify({ source: 'records', groupBy: [{ field: `col:${dateCol}`, bucket: 'month' }] }))
+    testDb.db.prepare("INSERT INTO forms (grid_id, name, fields) VALUES (?, 'Intake', ?)").run(gridId, JSON.stringify([{ kind: 'column', columnId: dateCol }]))
+
+    const res = await invoke(IPC.COLUMN_DEPENDENTS, dateCol) as { ok: true; data: string[] }
+    expect(res.ok).toBe(true)
+    expect(res.data).toEqual(expect.arrayContaining([
+      'Deadline rule "Within 30 days"', 'Deadline rule "Only open"', 'Column "Days left" (its settings use this column)',
+      'Saved view "By date"', 'Report "Monthly"', 'Form "Intake"',
+    ]))
+    expect(res.data.some(d => d.includes('sort order'))).toBe(true)
+    expect(res.data.join('|')).not.toContain('Unrelated')
+
+    const none = await invoke(IPC.COLUMN_DEPENDENTS, columnIds[0]) as { ok: true; data: string[] }
+    expect(none.data).toEqual([])
+  })
+
+  it('does not count a column id that only appears as a number elsewhere', async () => {
+    const { columnIds } = seedGrid(testDb.db, { columnCount: 2, rowCount: 0 })
+    testDb.db.prepare("INSERT INTO alert_rules (name, thresholds, kind, rule_config) VALUES ('Fixed', '[]', 'calendar', ?)")
+      .run(JSON.stringify({ day: columnIds[1], months: [columnIds[1]] }))
+    const res = await invoke(IPC.COLUMN_DEPENDENTS, columnIds[1]) as { ok: true; data: string[] }
+    expect(res.data).toEqual([])
+  })
+})
+
+describe('COLUMN_SET_NAME', () => {
+  it('makes a column the name and refreshes every record name', async () => {
+    const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { columnCount: 2, rowCount: 1 })
+    const put = testDb.db.prepare("INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))")
+    put.run(rowIds[0], columnIds[0], 'Program A')
+    put.run(rowIds[0], columnIds[1], 'Jane Doe')
+    const res = await invoke(IPC.COLUMN_SET_NAME, columnIds[1]) as { ok: true; data: { previousId: number | null } }
+    expect(res.ok).toBe(true)
+    expect(res.data.previousId).toBe(columnIds[0])
+    const names = testDb.db.prepare('SELECT id FROM columns WHERE grid_id = ? AND is_name_column = 1').all(gridId) as Array<{ id: number }>
+    expect(names.map(n => n.id)).toEqual([columnIds[1]])
+    expect((testDb.db.prepare('SELECT display_name FROM rows WHERE id = ?').get(rowIds[0]) as { display_name: string }).display_name).toBe('Jane Doe')
+  })
+
+  it('refuses a column that cannot name records', async () => {
+    const { columnIds } = seedGrid(testDb.db, { columnCount: 2, rowCount: 0, columnTypes: ['text', 'checkbox'] })
+    const res = await invoke(IPC.COLUMN_SET_NAME, columnIds[1]) as { ok: false; error: string }
+    expect(res.ok).toBe(false)
+  })
 })
 
 // ── COLUMN_REORDER ───────────────────────────────────────────────────────────

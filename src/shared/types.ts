@@ -33,6 +33,11 @@ export const VALID_COLUMN_TYPES = new Set<ColumnType>([
 ])
 
 /** Column types whose values Pulse fills in; people can't type into them. */
+/** Column types that can name a list's records ("Use as name") */
+export function canNameRecords(columnType: string): boolean {
+  return !['checkbox', 'age_from_dob', 'calculated_days', 'deadline', 'link', 'file_count', 'notes'].includes(columnType)
+}
+
 export const READ_ONLY_COLUMN_TYPES = new Set<string>(['age_from_dob', 'calculated_days', 'auto_number'])
 
 export function isReadOnlyColumnType(type: string): boolean {

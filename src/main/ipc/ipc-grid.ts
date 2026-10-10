@@ -9,7 +9,8 @@ import { getDb, buildGridQuery, cachedStmt, invalidateGridStmtCache } from '../d
 import { linkColumnSpecs, linkSpecKey } from '../../shared/links'
 import { fileCountColumnIds } from '../../shared/attachments'
 import type { Column, Grid, GridRow } from '../../shared/types'
-import { VALID_COLUMN_TYPES } from '../../shared/types'
+import { VALID_COLUMN_TYPES, canNameRecords } from '../../shared/types'
+import { columnDependents } from '../column-usage'
 import { invalidateColumnCache } from './ipc-cell'
 import { afterColumnRenamed, hasDisplayFormat, refreshDisplayNames } from '../display-names'
 import { numberExistingRows } from '../auto-number'
@@ -303,24 +304,47 @@ export function registerGridHandlers(): void {
 
     const doDelete = db.transaction(() => {
       if (col.is_name_column === 1) {
-        // Check if another column in this grid can take over as name column
+        // Another column takes over naming: a text column if there is one, else the first
         const other = db.prepare(
-          'SELECT id FROM columns WHERE grid_id = ? AND id != ? ORDER BY position LIMIT 1'
+          "SELECT id FROM columns WHERE grid_id = ? AND id != ? ORDER BY (column_type = 'text') DESC, position LIMIT 1"
         ).get(col.grid_id, columnId) as { id: number } | undefined
         if (!other) {
           throw new Error('Cannot delete the only column in this grid.')
         }
-        // Transfer name column status to the next column
         db.prepare('UPDATE columns SET is_name_column = 1 WHERE id = ?').run(other.id)
       }
       // Cascade deletes cells via FK
       db.prepare('DELETE FROM columns WHERE id = ?').run(columnId)
-      if (hasDisplayFormat(col.grid_id)) refreshDisplayNames(col.grid_id)
+      // Names elsewhere (dashboard, search, links) come from rows.display_name, which no trigger updates here
+      if (col.is_name_column === 1 || hasDisplayFormat(col.grid_id)) refreshDisplayNames(col.grid_id)
     })
     doDelete()
     invalidateGridStmtCache()
     invalidateColumnCache(columnId)
     return ok(true)
+  })
+
+  // Everything that points at this column, for the delete dialog (audit 1.8)
+  secureWrap(IPC.COLUMN_DEPENDENTS, 'ipc-grid', (_e, columnId: number) => {
+    if (!validId(columnId)) return fail('Invalid ID')
+    return ok(columnDependents(columnId))
+  })
+
+  // "Use as name": this column names the list's records everywhere
+  secureWrap(IPC.COLUMN_SET_NAME, 'ipc-grid', (_e, columnId: number) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(columnId)) return fail('Invalid ID')
+    const db = getDb()
+    const col = db.prepare('SELECT id, grid_id, column_type FROM columns WHERE id = ?').get(columnId) as { id: number; grid_id: number; column_type: string } | undefined
+    if (!col) return fail('Column not found')
+    if (!canNameRecords(col.column_type)) return fail("This kind of column can't be used as the name.")
+    const prev = db.prepare('SELECT id FROM columns WHERE grid_id = ? AND is_name_column = 1').get(col.grid_id) as { id: number } | undefined
+    db.transaction(() => {
+      db.prepare('UPDATE columns SET is_name_column = CASE WHEN id = ? THEN 1 ELSE 0 END WHERE grid_id = ?').run(columnId, col.grid_id)
+      refreshDisplayNames(col.grid_id)
+    })()
+    invalidateGridStmtCache()
+    return ok({ previousId: prev?.id ?? null })
   })
 
   // After adding an auto-number column: give the records already in the list a number

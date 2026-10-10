@@ -16,6 +16,8 @@ export const IPC = {
   COLUMN_DELETE: 'column:delete',
   COLUMN_REORDER: 'column:reorder',
   COLUMN_NUMBER_EXISTING: 'column:number-existing',
+  COLUMN_DEPENDENTS: 'column:dependents',
+  COLUMN_SET_NAME: 'column:set-name',
 
   // Rows
   ROW_CREATE: 'row:create',

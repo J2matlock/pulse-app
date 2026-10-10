@@ -19,6 +19,8 @@ export interface ColumnSliceState {
   addColumn: (name: string, columnType: string, config?: string, opts?: { numberExisting?: boolean }) => Promise<void>
   updateColumn: (columnId: number, updates: Partial<Column>) => Promise<void>
   deleteColumn: (columnId: number) => Promise<void>
+  /** "Use as name": this column names the records everywhere (undoable) */
+  setNameColumn: (columnId: number) => Promise<void>
   reorderColumns: (orderedIds: number[]) => Promise<void>
   toggleColumnVisibility: (columnId: number, visible: boolean) => Promise<void>
   /** Non-null when a column type change is waiting for user confirmation. */
@@ -199,6 +201,29 @@ export const createColumnSlice = (set: Set, get: Get) => ({
     } catch (err) {
       rlog.error('GridColumnSlice', 'Failed to delete column', err)
       toast.error('Could not delete column — please try again')
+    }
+  },
+
+  setNameColumn: async (columnId: number) => {
+    const col = get().columns.find(c => c.id === columnId) ?? get().hiddenColumns.find(c => c.id === columnId)
+    try {
+      const { previousId } = await invoke(IPC.COLUMN_SET_NAME, columnId)
+      const gridId = get().activeGridId
+      if (gridId) await get().loadGrid(gridId)
+      if (previousId === null || previousId === columnId) return
+      const reload = async () => { const g = get().activeGridId; if (g) await get().loadGrid(g) }
+      useUndoStore.getState().pushWithToast({
+        id: crypto.randomUUID(),
+        description: `Named by "${col?.name ?? 'column'}"`,
+        timestamp: Date.now(),
+        category: 'structural',
+        icon: 'type',
+        undo: async () => { await invoke(IPC.COLUMN_SET_NAME, previousId); await reload() },
+        redo: async () => { await invoke(IPC.COLUMN_SET_NAME, columnId); await reload() },
+      })
+    } catch (err) {
+      rlog.error('GridColumnSlice', 'Failed to set name column', err)
+      toast.error(err instanceof Error && err.message ? err.message : 'Could not change the name column — please try again')
     }
   },
 

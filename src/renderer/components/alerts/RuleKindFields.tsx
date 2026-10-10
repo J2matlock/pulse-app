@@ -10,6 +10,7 @@ import { evaluateRuleForRow } from '../../utils/deadlineCalc'
 import { getClientName } from '../../utils/clientName'
 import { useActivityTypes } from '../../hooks/useActivityTypes'
 import { useVocab } from '../../hooks/useVocab'
+import { useGridStore } from '../../stores/gridStore'
 import { draftToConfig, draftToCondition, type RuleDraft, type Anchor, type OffsetUnit } from './ruleDraft'
 
 export const KIND_CARDS: Array<{ kind: RuleKind; title: string; example: string }> = [
@@ -48,13 +49,22 @@ export function KindCards({ value, onChange, disabled }: { value: RuleKind; onCh
 function ColumnSelect({ value, onChange, columns, ariaLabel, allowSelf, disabled, placeholder = 'Choose a column…' }: {
   value: Anchor; onChange: (v: Anchor) => void; columns: Column[]; ariaLabel: string; allowSelf?: boolean; disabled: boolean; placeholder?: string
 }): React.ReactElement {
+  const { t } = useVocab(null)
+  const shown = useGridStore(s => s.columns)
+  const hidden = useGridStore(s => s.hiddenColumns)
+  // A saved setting can point at a column that was deleted since (D-25): say so instead of showing it as unset
+  const missing = typeof value === 'number' && !shown.some(c => c.id === value) && !hidden.some(c => c.id === value)
   return (
-    <select className="input" aria-label={ariaLabel} disabled={disabled} value={value === null ? '' : String(value)}
-      onChange={e => onChange(e.target.value === '' ? null : e.target.value === 'self' ? 'self' : Number(e.target.value))}>
-      <option value="">{placeholder}</option>
-      {allowSelf && <option value="self">This column (the one the rule is on)</option>}
-      {columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-    </select>
+    <span className="block">
+      <select className={`input ${missing ? 'border-red-500 dark:border-red-400' : ''}`} aria-label={ariaLabel} aria-invalid={missing || undefined} disabled={disabled} value={value === null ? '' : String(value)}
+        onChange={e => onChange(e.target.value === '' ? null : e.target.value === 'self' ? 'self' : Number(e.target.value))}>
+        <option value="">{placeholder}</option>
+        {allowSelf && <option value="self">This column (the one the rule is on)</option>}
+        {missing && <option value={String(value)}>(deleted column)</option>}
+        {columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+      </select>
+      {missing && <span className="block mt-1 text-sm font-medium text-red-600 dark:text-red-400" role="alert">The column this used is no longer in this {t('list')}. Choose another.</span>}
+    </span>
   )
 }
 
