@@ -11,6 +11,8 @@ import { getDb } from '../database'
 import type { ChecklistItem, ChecklistTemplate, ChecklistGroup } from '../../shared/types'
 import { seedChecklistTemplates } from '../templates'
 import { applyChecklistTemplate, ChecklistApplyError } from '../checklist-apply'
+import { parseRepeatRule, nextRepeatDate } from '../../shared/recurrence'
+import { localDateString } from '../../shared/dates'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_CHECKLIST = 500
@@ -60,9 +62,11 @@ export function registerChecklistHandlers(): void {
     // Wrap read-then-write in a transaction to prevent race conditions
     let sysLogId: number | null = null
     let rowIdForNotify: number | null = null
+    /** A repeating item ticked off comes straight back with its next due date (audit 1.26) */
+    let repeat: { previousDue: string | null; nextDue: string } | null = null
     const updateItem = db.transaction(() => {
       // Fetch item before update so we can detect completion transitions
-      const before = db.prepare('SELECT row_id, title, is_completed FROM checklist_items WHERE id = ?').get(id) as { row_id: number; title: string; is_completed: number } | undefined
+      const before = db.prepare('SELECT row_id, title, is_completed, due_date, recurrence_rule FROM checklist_items WHERE id = ?').get(id) as { row_id: number; title: string; is_completed: number; due_date: string | null; recurrence_rule: string | null } | undefined
 
       db.prepare(`UPDATE checklist_items SET ${result.setClause} WHERE id = ?`).run(...result.values, id)
 
@@ -74,6 +78,13 @@ export function registerChecklistHandlers(): void {
           const logResult = db.prepare(`INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`).run(before.row_id, `Completed checklist item: ${before.title}`)
           sysLogId = logResult.lastInsertRowid as number
           rowIdForNotify = before.row_id
+          const rule = parseRepeatRule('recurrence_rule' in updates ? updates.recurrence_rule : before.recurrence_rule)
+          const due = 'due_date' in updates ? updates.due_date : before.due_date
+          const next = rule ? nextRepeatDate(due, rule, localDateString()) : null
+          if (next) {
+            db.prepare('UPDATE checklist_items SET is_completed = 0, completed_at = NULL, completed_by = NULL, due_date = ? WHERE id = ?').run(next, id)
+            repeat = { previousDue: due ?? null, nextDue: next }
+          }
         } else if (wasComplete && !nowComplete) {
           const logResult = db.prepare(`INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`).run(before.row_id, `Reopened checklist item: ${before.title}`)
           sysLogId = logResult.lastInsertRowid as number
@@ -86,7 +97,7 @@ export function registerChecklistHandlers(): void {
     // Notify outside the transaction (renderer-side effect)
     if (rowIdForNotify !== null) notifyCaseLogChanged(rowIdForNotify)
 
-    return ok({ sysLogId })
+    return ok({ sysLogId, repeat })
   })
 
   secureWrap(IPC.CHECKLIST_DELETE_ITEM, 'ipc-checklists', (_e, id: number) => {

@@ -5,6 +5,8 @@ import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'vite
 import type { Database } from 'better-sqlite3'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
+import { localDateString } from '../src/shared/dates'
+import { addRepeats } from '../src/shared/recurrence'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
 
@@ -181,6 +183,43 @@ describe('CHECKLIST_UPDATE_ITEM', () => {
     const r = await invoke(IPC.CHECKLIST_UPDATE_ITEM, item.data.id, { is_completed: 1 }) as any
     expect(r.ok).toBe(true)
     expect(r.data.sysLogId).toBeTypeOf('number')
+  })
+
+  it('a repeating item ticked off logs it and comes back with its next due date (audit 1.26)', async () => {
+    const today = localDateString()
+    const item = await createItem('Monthly home safety check', { due_date: today, recurrence_rule: JSON.stringify({ type: 'monthly', interval: 1 }) })
+    const r = await invoke(IPC.CHECKLIST_UPDATE_ITEM, item.data.id, { is_completed: 1, completed_at: new Date().toISOString() }) as any
+    const next = addRepeats(today, { type: 'monthly', interval: 1 })
+    expect(r.data.repeat).toEqual({ previousDue: today, nextDue: next })
+    expect(r.data.sysLogId).toBeTypeOf('number')
+    const row = testDb.db.prepare('SELECT is_completed, completed_at, due_date FROM checklist_items WHERE id = ?').get(item.data.id) as any
+    expect(row).toEqual({ is_completed: 0, completed_at: null, due_date: next })
+    // Undo puts the old date back without another log entry
+    const u = await invoke(IPC.CHECKLIST_UPDATE_ITEM, item.data.id, { is_completed: 0, completed_at: null, due_date: today }) as any
+    expect(u.data.sysLogId).toBeNull()
+    expect((testDb.db.prepare('SELECT due_date FROM checklist_items WHERE id = ?').get(item.data.id) as any).due_date).toBe(today)
+  })
+
+  it('a late repeating item comes back due this cycle, not still overdue; one without a date counts from today', async () => {
+    const today = localDateString()
+    const weekly = { type: 'weekly', interval: 1 } as const
+    const late = await createItem('Weekly call', { due_date: addRepeats(today, weekly, -3), recurrence_rule: JSON.stringify(weekly) })
+    const r = await invoke(IPC.CHECKLIST_UPDATE_ITEM, late.data.id, { is_completed: 1 }) as any
+    expect(r.data.repeat.nextDue).toBe(today)
+    const undated = await createItem('Check in', { recurrence_rule: JSON.stringify(weekly) })
+    const r2 = await invoke(IPC.CHECKLIST_UPDATE_ITEM, undated.data.id, { is_completed: 1 }) as any
+    expect(r2.data.repeat.nextDue).toBe(addRepeats(today, weekly))
+  })
+
+  it('a repeating item past its end date, or one that doesn\'t repeat, stays done', async () => {
+    const today = localDateString()
+    const ended = await createItem('Last one', { due_date: today, recurrence_rule: JSON.stringify({ type: 'weekly', interval: 1, end_date: today }) })
+    const r = await invoke(IPC.CHECKLIST_UPDATE_ITEM, ended.data.id, { is_completed: 1 }) as any
+    expect(r.data.repeat).toBeNull()
+    expect((testDb.db.prepare('SELECT is_completed FROM checklist_items WHERE id = ?').get(ended.data.id) as any).is_completed).toBe(1)
+    const once = await createItem('Once', { due_date: today })
+    const r2 = await invoke(IPC.CHECKLIST_UPDATE_ITEM, once.data.id, { is_completed: 1 }) as any
+    expect(r2.data.repeat).toBeNull()
   })
 
   it('logs un-completion in case log', async () => {
@@ -384,6 +423,17 @@ describe('CHECKLIST_APPLY_TEMPLATE', () => {
     const r = await invoke(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId.id) as any
     expect(r.ok).toBe(true)
     expect(r.data.createdIds).toHaveLength(2)
+  })
+
+  it('a repeating template makes items that come back N days after they\'re ticked off', async () => {
+    testDb.db.prepare(`INSERT INTO checklist_templates (name, items, is_recurring, recurrence_days, is_system, created_at) VALUES (?, ?, 1, 30, 0, datetime('now'))`)
+      .run('Monthly', JSON.stringify(['Smoke alarms', 'Medications']))
+    const templateId = testDb.db.prepare('SELECT id FROM checklist_templates ORDER BY id DESC LIMIT 1').get() as any
+    const r = await invoke(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId.id) as any
+    const rules = testDb.db.prepare(`SELECT recurrence_rule FROM checklist_items WHERE id IN (${r.data.createdIds.join(',')})`).all() as any[]
+    expect(rules.map(x => JSON.parse(x.recurrence_rule))).toEqual([{ type: 'daily', interval: 30 }, { type: 'daily', interval: 30 }])
+    const done = await invoke(IPC.CHECKLIST_UPDATE_ITEM, r.data.createdIds[0], { is_completed: 1 }) as any
+    expect(done.data.repeat.nextDue).toBe(addRepeats(localDateString(), { type: 'daily', interval: 30 }))
   })
 
   it('fails for non-existent template', async () => {

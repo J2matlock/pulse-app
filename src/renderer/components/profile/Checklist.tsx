@@ -185,15 +185,23 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       ? { ...i, is_completed: isCompleted ? 1 : 0, completed_at: now }
       : i
     ))
-    const res = await safeInvoke<{ sysLogId: number | null }>(IPC.CHECKLIST_UPDATE_ITEM, id, {
+    const res = await safeInvoke<{ sysLogId: number | null; repeat?: { previousDue: string | null; nextDue: string } | null }>(IPC.CHECKLIST_UPDATE_ITEM, id, {
       is_completed: isCompleted ? 1 : 0,
       completed_at: now,
     })
     if (res.ok) {
       const sysLogId = res.data.sysLogId
+      // A repeating item came straight back, due again (audit 1.26)
+      let repeat = res.data.repeat ?? null
+      const showRepeat = (r: { nextDue: string }) => setItems(prev => prev.map(i => i.id === id
+        ? { ...i, is_completed: 0 as const, completed_at: null, completed_by: null, due_date: r.nextDue }
+        : i
+      ))
+      if (repeat) showRepeat(repeat)
+      const nextText = repeat ? ` · next due ${new Date(`${repeat.nextDue}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''
       useUndoStore.getState().pushWithToast({
         id: crypto.randomUUID(),
-        description: isCompleted ? `Completed "${itemTitle}"` : `Reopened "${itemTitle}"`,
+        description: isCompleted ? `Completed "${itemTitle}"${nextText}` : `Reopened "${itemTitle}"`,
         timestamp: Date.now(),
         category: sysLogId != null ? 'logged' : 'silent',
         icon: 'check-square',
@@ -201,13 +209,15 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
         contextId: rowId,
         sideEffects: sysLogId != null ? [{ type: 'void_case_log', caseLogId: sysLogId }] : undefined,
         undo: async () => {
+          const back = repeat ? { due_date: repeat.previousDue } : {}
           setItems(prev => prev.map(i => i.id === id
-            ? { ...i, is_completed: prevCompleted, completed_at: prevCompletedAt }
+            ? { ...i, is_completed: prevCompleted, completed_at: prevCompletedAt, ...back }
             : i
           ))
           await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, {
             is_completed: prevCompleted,
             completed_at: prevCompletedAt,
+            ...back,
           })
           pulseEvents.emit('checklist:changed', { rowId })
         },
@@ -216,10 +226,14 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
             ? { ...i, is_completed: isCompleted ? 1 : 0, completed_at: now }
             : i
           ))
-          await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, {
+          const again = await safeInvoke<{ sysLogId: number | null; repeat?: { previousDue: string | null; nextDue: string } | null }>(IPC.CHECKLIST_UPDATE_ITEM, id, {
             is_completed: isCompleted ? 1 : 0,
             completed_at: now,
           })
+          if (again.ok) {
+            repeat = again.data.repeat ?? null
+            if (repeat) showRepeat(repeat)
+          }
           pulseEvents.emit('checklist:changed', { rowId })
         },
       })
@@ -1146,12 +1160,12 @@ export function TemplateManager({ onApply, onClose }: {
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform
                                    ${draft.isRecurring ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
-                <span className="text-sm text-slate-700 dark:text-slate-300">
-                  Repeating template (for recurring workflows)
+                <span className="text-base text-slate-700 dark:text-slate-300">
+                  Items repeat
                 </span>
                 {draft.isRecurring && (
                   <div className="flex items-center gap-1.5 ml-2">
-                    <span className="text-sm text-slate-500">every</span>
+                    <span className="text-base text-slate-500 dark:text-slate-400">each comes back</span>
                     <input
                       type="number"
                       min={1}
@@ -1162,7 +1176,7 @@ export function TemplateManager({ onApply, onClose }: {
                                  bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100
                                  focus:outline-hidden focus:ring-3 focus:ring-blue-500"
                     />
-                    <span className="text-sm text-slate-500">days</span>
+                    <span className="text-base text-slate-500 dark:text-slate-400">days after it's ticked off</span>
                   </div>
                 )}
               </div>
