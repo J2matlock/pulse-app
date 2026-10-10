@@ -5,7 +5,7 @@
  * through here, so they all agree.
  */
 import { getDb } from './database'
-import { evaluate, engineRuleFrom, meterHistoryColumn, referencedColumns, sequenceAnchor, extensionAnchor, matchExtension, applyExtension, type StoredExtension, type QuotaConfig, type DeadlineResult, type EngineRule, type RecordContext, type RuleKind } from '../shared/deadlineEngine'
+import { evaluate, isUsedUp, engineRuleFrom, meterHistoryColumn, referencedColumns, sequenceAnchor, extensionAnchor, matchExtension, applyExtension, type StoredExtension, type QuotaConfig, type DeadlineResult, type EngineRule, type RecordContext, type RuleKind } from '../shared/deadlineEngine'
 import type { WorkCalendar } from '../shared/businessDays'
 import type { GridDeadlineContext } from '../shared/ipc-contract'
 import { workCalendarSetting } from './vocab'
@@ -148,6 +148,7 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
     const history = meterHistories(meterHistoryColumn(parsed))
     const counts = parsed.kind === 'quota' && parsed.config ? quotaCounts(rc.grid_id, parsed.config as QuotaConfig) : new Map<number, number>()
     const progress = parsed.kind === 'sequence' ? progressEntries(rc.column_id) : new Map<number, Array<{ step: number; anchor: string | null }>>()
+    const previous = parsed.kind === 'calendar' ? previousValues(rc.column_id) : null
     for (const rec of recs) {
       const values: Record<number, string | null> = {}
       refs.forEach((id, i) => { values[id] = (rec[`ref_${i}`] as string | null) ?? null })
@@ -155,7 +156,8 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
       const anchor = sequenceAnchor(parsed, rec.own, values)
       const steps = (progress.get(rec.row_id) ?? []).filter(p => p.anchor === anchor).map(p => p.step)
       add({ ...rc, row_id: rec.row_id, client_name: rec.client_name, record_kind: rec.record_kind, date_value: rec.own ?? '' },
-        { today, columnDate: rec.own, values, meterHistory: history.get(rec.row_id), activityCount: counts.get(rec.row_id) ?? 0, progress: steps, holidays: cal.holidays, weekend: cal.weekend })
+        { today, columnDate: rec.own, values, meterHistory: history.get(rec.row_id), activityCount: counts.get(rec.row_id) ?? 0, progress: steps, holidays: cal.holidays, weekend: cal.weekend,
+          ...(previous?.has(rec.row_id) ? { previousDone: previous.get(rec.row_id) ?? null } : {}) })
     }
   }
   // Soonest first; ties in a stable order so lists don't shuffle between loads
@@ -168,7 +170,8 @@ export function deadlineCounts(today: string = localDateString()): { overdue: nu
   let overdue = 0, dueToday = 0, dueThisWeek = 0
   for (const d of loadDeadlines({ today })) {
     if (d.daysUntil === null) continue
-    if (d.daysUntil < 0) overdue++
+    // A used-up quota is overdue, not "due today", until its end date
+    if (d.daysUntil < 0 || isUsedUp(d)) overdue++
     else if (d.daysUntil === 0) dueToday++
     else if (d.daysUntil <= 7) dueThisWeek++
   }
@@ -235,13 +238,26 @@ export function meterHistories(columnId: number | null): Map<number, Array<{ at:
 }
 
 
+/**
+ * For calendar rules: per record, what the column held before its latest
+ * change (the previous done date). Records with no recorded change are left
+ * out, which the engine reads as "not known".
+ */
+export function previousValues(columnId: number): Map<number, string | null> {
+  const rows = getDb().prepare(`
+    SELECT h.row_id, h.old_value FROM cell_history h
+    WHERE h.column_id = ? AND h.id = (SELECT MAX(h2.id) FROM cell_history h2 WHERE h2.row_id = h.row_id AND h2.column_id = h.column_id)
+  `).all(columnId) as Array<{ row_id: number; old_value: string | null }>
+  return new Map(rows.map(r => [r.row_id, r.old_value]))
+}
+
 export function loadGridDeadlineContext(gridId: number): GridDeadlineContext {
-  const ctx: GridDeadlineContext = { meter: {}, quota: {}, progress: {}, extensions: {} }
+  const ctx: GridDeadlineContext = { meter: {}, quota: {}, progress: {}, extensions: {}, previous: {} }
   for (const [key, exts] of activeExtensions()) ctx.extensions[key] = exts
   const ruleRows = getDb().prepare(`
     SELECT col.id AS column_id, ar.id, ar.kind, ar.rule_config, ar.rule_condition, ar.business_days, ar.interval_days, ar.interval_months, ar.end_of_month
     FROM columns col JOIN alert_rules ar ON ar.id = CAST(json_extract(col.config, '$.alert_rule_id') AS INTEGER)
-    WHERE col.grid_id = ? AND ar.kind IN ('meter', 'quota', 'sequence')
+    WHERE col.grid_id = ? AND ar.kind IN ('meter', 'quota', 'sequence', 'calendar')
   `).all(gridId) as Array<Parameters<typeof engineRuleFrom>[0] & { column_id: number }>
   for (const r of ruleRows) {
     const rule = engineRuleFrom(r)
@@ -252,6 +268,9 @@ export function loadGridDeadlineContext(gridId: number): GridDeadlineContext {
     }
     if (rule.kind === 'sequence') {
       for (const [rowId, entries] of progressEntries(r.column_id)) ctx.progress[`${rowId}:${r.column_id}`] = entries
+    }
+    if (rule.kind === 'calendar') {
+      for (const [rowId, prev] of previousValues(r.column_id)) ctx.previous![`${rowId}:${r.column_id}`] = prev
     }
   }
   return ctx

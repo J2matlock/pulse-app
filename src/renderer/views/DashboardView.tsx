@@ -26,7 +26,7 @@ import { wordNow } from '../utils/vocab'
 import type { FollowUpRow, RawDeadlineRow, ArchivedRow, ExtendedDeadlineInfo, TopTab, FilterTab, PriorityItem } from './dashboard/types'
 import { SummaryCard } from './dashboard/SummaryCard'
 import { DeadlineRow } from './dashboard/DeadlineRow'
-import { completeDeadlines } from './dashboard/completeDeadline'
+import { completeDeadlines, skippedForBulkDone } from './dashboard/completeDeadline'
 import { DashboardCards } from './dashboard/cards/DashboardCards'
 import { BatchDocumentsDialog } from '../components/documents/BatchDocumentsDialog'
 import { useGridStore } from '../stores/gridStore'
@@ -248,6 +248,8 @@ export default function DashboardView(): React.ReactElement {
         ruleKind: row.rule_kind,
         step: row.step,
         extensionId: row.extension_id,
+        state: row.state,
+        label: row.label,
       }]
     }).sort((a, b) => a.daysUntil - b.daysUntil)
   }, [rawDeadlines, alertRules])
@@ -384,15 +386,16 @@ export default function DashboardView(): React.ReactElement {
     const chosen = visible
       .filter((it): it is Extract<PriorityItem, { kind: 'deadline' }> => it.kind === 'deadline' && selectedDeadlines.has(deadlineKey(it.data)))
       .map(it => ({ rowId: it.data.rowId, columnId: it.data.columnId, columnName: it.data.columnName, clientName: it.data.clientName, dateValue: it.data.dateValue, interval: it.data.interval, checklistTemplateId: it.data.checklistTemplateId, ruleKind: it.data.ruleKind, step: it.data.step }))
-    // Readings are asked one at a time, so those wait for their own Mark done
-    const needReading = chosen.filter(c => c.ruleKind === 'meter').length
-    if (needReading > 0) toast(`${needReading} need a reading — mark ${needReading === 1 ? 'it' : 'them'} done one at a time.`)
-    // Limited-visit deadlines are renewed on the record, not marked done
-    chosen.splice(0, chosen.length, ...chosen.filter(c => c.ruleKind !== 'meter' && c.ruleKind !== 'quota'))
+    // Say what can't be marked done from here, and why, instead of quietly leaving it ticked
+    const skipped = skippedForBulkDone(chosen)
+    if (skipped.message) toast(skipped.message, { duration: 8000 })
+    chosen.splice(0, chosen.length, ...skipped.rest)
     if (chosen.length === 0) return
     setBulkBusy(true)
     try {
       const done = await completeDeadlines(chosen, { onUndone: reloadDeadlines })
+      const failed = chosen.length - done.length
+      if (failed > 0) toast.error(`${failed} couldn't be marked done. Try ${failed === 1 ? 'it' : 'them'} one at a time.`)
       setRawDeadlines(prev => prev.filter(r => !done.some(d => d.rowId === r.row_id && d.columnId === r.column_id)))
       setSelectedDeadlines(new Set())
       // Repeating deadlines come back with their next due date

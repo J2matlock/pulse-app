@@ -65,8 +65,10 @@ export function evaluateRuleForRow(rule: ParsedAlertRule, columnValue: string | 
   const progress = columnId !== undefined
     ? (context?.progress?.[`${String(row.row_id)}:${columnId}`] ?? []).filter(p => p.anchor === anchor).map(p => p.step)
     : undefined
+  const prevKey = `${String(row.row_id)}:${columnId}`
+  const previous = columnId !== undefined && context?.previous && prevKey in context.previous ? { previousDone: context.previous[prevKey] ?? null } : {}
   const res = evaluate(engineRule, {
-    today: localDateString(), columnDate: columnValue, values, meterHistory, activityCount, progress,
+    today: localDateString(), columnDate: columnValue, values, meterHistory, activityCount, progress, ...previous,
     holidays: new Set(cal?.holidays ?? []), weekend: cal?.weekend ?? [0, 6],
   })
   const ext = columnId !== undefined

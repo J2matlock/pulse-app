@@ -12,9 +12,29 @@ describe('calendar rules', () => {
   })
 
   it('move to the next date after the last time they were done, and go late when missed', () => {
-    expect(evaluate(quarterly, { today: '2026-05-01', columnDate: '2026-04-10' }).due).toBe('2026-04-15')
-    expect(evaluate(quarterly, { today: '2026-05-01', columnDate: '2026-04-10' }).state).toBe('overdue')
     expect(evaluate(quarterly, { today: '2026-05-01', columnDate: '2026-04-15' }).due).toBe('2026-06-15')
+    expect(evaluate(quarterly, { today: '2026-05-01', columnDate: '2026-01-15' })).toMatchObject({ due: '2026-04-15', state: 'overdue' })
+  })
+
+  it('count a date done a little before it as done, with no lead time set (D-04)', () => {
+    // Paid Apr 10 for "by Apr 15": the next is June, not Apr 15 again
+    expect(evaluate(quarterly, { today: '2026-05-01', columnDate: '2026-04-10' })).toMatchObject({ due: '2026-06-15', state: 'ok' })
+    // Up to half the gap between dates (28 days here), not more
+    expect(evaluate(quarterly, { today: '2026-05-01', columnDate: '2026-03-10' })).toMatchObject({ due: '2026-04-15', state: 'overdue' })
+    // A lead time of 0 still means no grace
+    expect(evaluate(calendar({ months: [1, 4, 6, 9], day: 15, lead: 0 }), { today: '2026-04-15', columnDate: '2026-04-10' }).due).toBe('2026-04-15')
+  })
+
+  it('count a late completion for the date still owed, not the next one (D-14)', () => {
+    const quarterlyLead = calendar({ months: [1, 4, 6, 9], day: 15, lead: 60 })
+    // April paid late on May 20 (last done in January): June is still due
+    expect(evaluate(quarterlyLead, { today: '2026-05-21', columnDate: '2026-05-20', previousDone: '2026-01-14' }).due).toBe('2026-06-15')
+    expect(evaluate(quarterly, { today: '2026-05-21', columnDate: '2026-05-20', previousDone: null }).due).toBe('2026-06-15')
+    // April was already paid (Apr 14), so May 20 is an early June payment
+    expect(evaluate(quarterlyLead, { today: '2026-07-20', columnDate: '2026-05-20', previousDone: '2026-04-14' }).due).toBe('2026-09-15')
+    // Monthly with a 14-day lead: March's item done Mar 20 doesn't hide Apr 1
+    const monthly = calendar({ months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], day: 1, lead: 14 })
+    expect(evaluate(monthly, { today: '2026-03-21', columnDate: '2026-03-20', previousDone: '2026-02-01' }).due).toBe('2026-04-01')
   })
 
   it('handle the last day and short months', () => {
@@ -54,6 +74,15 @@ describe('calendar rules', () => {
   it('need months and a day, or a date to repeat', () => {
     expect(parseRuleConfig('calendar', { kind: 'calendar', months: [3] }).ok).toBe(false)
     expect(parseRuleConfig('calendar', { kind: 'calendar', fromColumnMonth: 3 }).ok).toBe(true)
+  })
+})
+
+describe('relative "before" rules (D-24)', () => {
+  const report = engineRuleFrom({ id: 1, kind: 'relative', rule_config: JSON.stringify({ kind: 'relative', anchorColumnId: 9, offset: { days: 10, direction: 'before' } }) })
+  // Hearing Nov 30: report due Nov 20; done counts from one offset ahead of that (Nov 10)
+  it('count as done from one offset ahead of the due date', () => {
+    expect(evaluate(report, { today: '2026-11-01', columnDate: '2026-11-10', values: { 9: '2026-11-30' } }).state).toBe('done')
+    expect(evaluate(report, { today: '2026-11-01', columnDate: '2026-11-09', values: { 9: '2026-11-30' } })).toMatchObject({ due: '2026-11-20', state: 'ok' })
   })
 })
 

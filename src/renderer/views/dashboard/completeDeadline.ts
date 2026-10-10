@@ -37,6 +37,26 @@ export function startsNextCycle(iv: RuleInterval | undefined, kind?: RuleKind): 
   return !!iv && (iv.days > 0 || iv.months > 0)
 }
 
+/**
+ * Bulk "Mark done": meter readings are asked one at a time, quotas are renewed
+ * on the record, and a step that can't be told isn't marked. Returns what can
+ * go ahead, and a plain message naming what can't.
+ */
+export function skippedForBulkDone<T extends DeadlineToComplete>(items: T[]): { rest: T[]; message: string | null } {
+  const reading = items.filter(c => c.ruleKind === 'meter')
+  const quota = items.filter(c => c.ruleKind === 'quota')
+  const noStep = items.filter(c => c.ruleKind === 'sequence' && c.step === undefined)
+  const rest = items.filter(c => !reading.includes(c) && !quota.includes(c) && !noStep.includes(c))
+  const names = (xs: T[]) => [...new Set(xs.map(x => x.columnName))].join(', ')
+  const parts = [
+    reading.length ? `${names(reading)} (needs a reading; mark done one at a time)` : '',
+    quota.length ? `${names(quota)} (renew on the record)` : '',
+    noStep.length ? `${names(noStep)} (open the record to choose the step)` : '',
+  ].filter(Boolean)
+  const n = reading.length + quota.length + noStep.length
+  return { rest, message: n ? `${n} couldn't be marked done here: ${parts.join('; ')}.` : null }
+}
+
 function formatDate(d: string | Date): string {
   const date = typeof d === 'string' ? new Date(d.includes('T') ? d : `${d}T00:00:00`) : d
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })

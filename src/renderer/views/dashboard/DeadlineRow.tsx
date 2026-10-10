@@ -9,7 +9,7 @@ import type { ExtendedDeadlineInfo } from './types'
 import { MeterReadingDialog } from './MeterReadingDialog'
 import { ExtendDeadlineDialog } from './ExtendDeadlineDialog'
 import { extendDeadline, removeExtension } from './extendDeadline'
-import { ymdToDate } from '../../../shared/deadlineEngine'
+import { ymdToDate, isUsedUp } from '../../../shared/deadlineEngine'
 
 export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, onToggleSelect }: {
   deadline: ExtendedDeadlineInfo
@@ -28,9 +28,11 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
   const ruleKind = deadline.ruleKind ?? 'interval'
   // "Based on <date>" only makes sense when the due date counts from the date in this column
   const recurring = ruleKind === 'interval' && hasInterval(ruleInterval)
-  const bucket = classifyDeadline(daysUntil)
+  const usedUp = isUsedUp({ state: deadline.state, daysUntil })
+  const bucket = usedUp ? 'overdue' : classifyDeadline(daysUntil)
 
   const urgencyLabel =
+    usedUp && deadline.label ? deadline.label :
     bucket === 'overdue'    ? `${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? '' : 's'} overdue` :
     bucket === 'today'      ? 'Due today' :
     `${daysUntil} day${daysUntil === 1 ? '' : 's'}`

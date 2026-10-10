@@ -130,6 +130,8 @@ export interface GridDeadlineContext {
   progress: Record<string, Array<{ step: number; anchor: string | null }>>
   /** `${rowId}:${ruleColumnId}` → extensions in effect */
   extensions: Record<string, Array<{ id: number; newDue: string; reason: string; anchor: string | null; step: number | null }>>
+  /** `${rowId}:${ruleColumnId}` → calendar rules: the done date before its latest change */
+  previous?: Record<string, string | null>
 }
 
 /** GRID_SETTINGS_UPDATE: the "List settings…" fields; only those given change */

@@ -23,6 +23,15 @@ describe('sequence rules', () => {
     expect(evaluate(ei(), ctx([0, 1]))).toMatchObject({ due: '2027-01-10', step: 2 })
   })
 
+  it('keep the step when a step lands on a day off and working days are on (D-07)', () => {
+    const rule = engineRuleFrom({ id: 1, kind: 'sequence', business_days: 1, rule_config: JSON.stringify({
+      kind: 'sequence', anchorColumnId: 2, steps: [{ label: 'Plan', offset: { days: 7 } }, { label: 'Review', offset: { days: 30 } }],
+    }) })
+    // Jan 3, 2026 + 7 days = Sat Jan 10 → Fri Jan 9
+    const res = evaluate(rule, { today: '2026-01-05', columnDate: null, values: { 2: '2026-01-03' }, progress: [] })
+    expect(res).toMatchObject({ due: '2026-01-09', step: 0, label: 'Plan (step 1 of 2)', state: 'soon' })
+  })
+
   it('are done after the last step, or repeat it when set to', () => {
     expect(evaluate(ei(), ctx([0, 1, 2]))).toMatchObject({ state: 'done', due: null, label: 'All 3 steps done' })
     const forever = ei({ repeatLast: { months: 12 } })

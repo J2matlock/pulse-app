@@ -2,7 +2,7 @@ import React from 'react'
 import type { Column, GridRow } from '../../../shared/types'
 import { computeDaysUntil, computeAge, formatCalculatedDays, evaluateRuleForRow } from '../../utils/deadlineCalc'
 import { useAlertStore } from '../../stores/alertStore'
-import { formatDue } from '../../../shared/deadlineEngine'
+import { formatDue, isUsedUp } from '../../../shared/deadlineEngine'
 import { canBeRequired, isMissingValue } from '../../../shared/requiredFields'
 import { LinkCell } from './LinkCell'
 
@@ -222,6 +222,8 @@ function DeadlineCell({ column, value, row, parsedConfig }: { column: Column; va
   if (res.state === 'paused') return <span className="text-slate-500 dark:text-slate-400 italic" title={res.detail}>Paused</span>
   if (!res.due || res.daysUntil === null) return <span className="text-slate-300 dark:text-slate-500">—</span>
   const d = res.daysUntil
+  // A used-up quota: "All 12 used · ends Dec 31, 2026", not "today"
+  if (isUsedUp(res)) return <span className="tabular-nums" title={res.detail}>{res.label ?? 'All used'} · ends {formatDue(res.due)}</span>
   const when = d < 0 ? `${-d} day${d === -1 ? '' : 's'} late` : d === 0 ? 'today' : `in ${d} day${d === 1 ? '' : 's'}`
   return <span className="tabular-nums" title={res.detail}>{res.label ? `${res.label} · ` : ''}{formatDue(res.due)} · {when}</span>
 }

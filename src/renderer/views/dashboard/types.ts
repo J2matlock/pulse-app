@@ -1,6 +1,6 @@
 import type { DeadlineInfo, CaseloadTask, ChecklistDueItem } from '../../../shared/types'
 import type { RuleInterval } from '../../../shared/ruleInterval'
-import type { RuleKind } from '../../../shared/deadlineEngine'
+import type { RuleKind, DeadlineState } from '../../../shared/deadlineEngine'
 
 export interface FollowUpRow {
   id: number
@@ -29,6 +29,8 @@ export interface RawDeadlineRow {
   rule_kind?: RuleKind
   /** Sequence rules: the step that's due */
   step?: number
+  state?: DeadlineState
+  label?: string
   /** The extension in effect (W05) */
   extension_id?: number
   extended?: { from: string; reason: string }
@@ -59,6 +61,9 @@ export interface ExtendedDeadlineInfo extends DeadlineInfo {
   step?: number
   /** The extension in effect, so it can be removed */
   extensionId?: number
+  /** The engine's state and short status ("All 12 used", "IFSP meeting (step 1 of 4)") */
+  state?: DeadlineState
+  label?: string
 }
 
 export type TopTab = 'priority' | 'overdue' | 'week' | 'month' | 'archived'

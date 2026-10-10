@@ -292,7 +292,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
       kind: draft.kind,
       rule_config: cfg.value ? JSON.stringify(cfg.value) : null,
       rule_condition: cond.value ? JSON.stringify(cond.value) : null,
-      business_days: businessDays ? 1 : 0,
+      business_days: businessDays && draft.kind !== 'quota' ? 1 : 0,
     }
     setIsSaving(true)
     setError(null)
@@ -427,10 +427,13 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
           </div>
           )}
 
+          {/* A quota's date is the end of its period; moving it would only hide its warnings */}
+          {draft.kind !== 'quota' && (
           <label className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-300 cursor-pointer">
             <input type="checkbox" className="w-5 h-5" checked={businessDays} disabled={isSystem} onChange={e => setBusinessDays(e.target.checked)} />
             Count working days only <span className="text-sm text-slate-500 dark:text-slate-400">— a due date on a weekend or day off moves to the working day before</span>
           </label>
+          )}
 
           <ConditionFields d={draft} set={patchDraft} columns={columns} disabled={isSystem} />
 
