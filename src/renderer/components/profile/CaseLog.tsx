@@ -154,25 +154,38 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
     void safeInvoke(IPC.SETTINGS_UPDATE, 'note_format_last', id)
   }
 
+  // Search and sort run in the database so they cover every note, not just the
+  // loaded page (1.31). The box is debounced so each keystroke isn't a query.
+  const [query, setQuery] = useState('')
+  useEffect(() => {
+    const id = setTimeout(() => setQuery(search.trim()), 250)
+    return () => clearTimeout(id)
+  }, [search])
+  const [total, setTotal] = useState<number | null>(null)
   const load = useCallback(async () => {
     setLoading(true)
-    const res = await safeInvoke<CaseLogEntryType[]>(IPC.CASE_LOG_GET, rowId, false, false, PAGE_SIZE + 1, 0)
+    const opts = { query, oldestFirst }
+    const [res, count] = await Promise.all([
+      safeInvoke<CaseLogEntryType[]>(IPC.CASE_LOG_GET, rowId, false, false, PAGE_SIZE + 1, 0, opts),
+      safeInvoke<number>(IPC.CASE_LOG_COUNT, rowId, false, false, opts),
+    ])
     if (res.ok) {
       const data = res.data
       setHasMore(data.length > PAGE_SIZE)
       setEntries(data.slice(0, PAGE_SIZE))
     }
+    setTotal(count.ok ? count.data : null)
     setLoading(false)
-  }, [rowId, PAGE_SIZE])
+  }, [rowId, PAGE_SIZE, query, oldestFirst])
 
   const loadMore = useCallback(async () => {
-    const res = await safeInvoke<CaseLogEntryType[]>(IPC.CASE_LOG_GET, rowId, false, false, PAGE_SIZE + 1, entries.length)
+    const res = await safeInvoke<CaseLogEntryType[]>(IPC.CASE_LOG_GET, rowId, false, false, PAGE_SIZE + 1, entries.length, { query, oldestFirst })
     if (res.ok) {
       const data = res.data
       setHasMore(data.length > PAGE_SIZE)
       setEntries(prev => [...prev, ...data.slice(0, PAGE_SIZE)])
     }
-  }, [rowId, entries.length, PAGE_SIZE])
+  }, [rowId, entries.length, PAGE_SIZE, query, oldestFirst])
 
   useEffect(() => { load() }, [load])
 
@@ -431,17 +444,11 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
     }
   }
 
-  // Filter + sort
-  const filtered = entries.filter(e =>
-    !search || e.content.toLowerCase().includes(search.toLowerCase())
-  )
-
+  // Already searched and sorted by the database
+  const filtered = entries
   const pinned = filtered.filter(e => e.is_pinned === 1)
-  const unpinned = filtered.filter(e => e.is_pinned !== 1)
-
-  const sortedUnpinned = oldestFirst
-    ? [...unpinned].sort((a, b) => a.created_at.localeCompare(b.created_at))
-    : unpinned  // already newest-first from DB
+  const sortedUnpinned = filtered.filter(e => e.is_pinned !== 1)
+  const shownTotal = total ?? entries.length
 
   return (
     <section className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -450,8 +457,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         <MessageSquare className="w-4 h-4 text-slate-500 flex-shrink-0" />
         <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300 flex-1">
           {t('activityLog', { cap: true })}
-          {entries.length > 0 && (
-            <span className="ml-2 text-sm font-normal text-slate-500 dark:text-slate-400">({entries.length})</span>
+          {(shownTotal > 0 || query) && (
+            <span className="ml-2 text-base font-normal text-slate-500 dark:text-slate-400">({query ? `${shownTotal} found` : shownTotal})</span>
           )}
         </h2>
 
@@ -731,8 +738,9 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
             </div>
           ))}
         </div>
-        {hasMore && !search && (
-          <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700">
+        {hasMore && (
+          <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700 flex flex-wrap items-center gap-3">
+            {total != null && <span className="text-base text-slate-600 dark:text-slate-300">Showing {entries.length} of {total}</span>}
             <button
               onClick={() => void loadMore()}
               className="hit-44 text-base text-blue-600 dark:text-blue-400 hover:underline"

@@ -23,33 +23,53 @@ const FIXED_FILTERS: { value: FilterType; label: string }[] = [
   { value: 'system',     label: 'System' },
 ]
 
+/** The CASE_LOG_GET / CASE_LOG_COUNT filter for a chip: system entries in or out, or one kind only. */
+function filterArgs(filter: FilterType): { includeSystem: boolean; logType?: string } {
+  if (filter === 'all') return { includeSystem: true }
+  if (filter === 'non-system') return { includeSystem: false }
+  return { includeSystem: true, logType: filter }
+}
+
 export function ActivityTimeline({ rowId }: Props) {
   const [entries, setEntries] = useState<CaseLogEntry[]>([])
+  const [total, setTotal] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterType>('all')
-  const [page, setPage] = useState(1)
   const [auditMode, setAuditMode] = useState(false)
   const activity = useActivityTypes()
 
+  // Pages come from the database, so a long-term record's timeline never stops at 200 (1.31)
   const load = useCallback(async () => {
     setLoading(true)
-    // includeSystem=true, includeVoided follows auditMode
-    const res = await safeInvoke<CaseLogEntry[]>(IPC.CASE_LOG_GET, rowId, true, auditMode)
-    if (res.ok) setEntries(res.data)
+    const { includeSystem, logType } = filterArgs(filter)
+    const opts = logType ? { logType } : undefined
+    const [res, count] = await Promise.all([
+      safeInvoke<CaseLogEntry[]>(IPC.CASE_LOG_GET, rowId, includeSystem, auditMode, PAGE_SIZE + 1, 0, opts),
+      safeInvoke<number>(IPC.CASE_LOG_COUNT, rowId, includeSystem, auditMode, opts),
+    ])
+    if (res.ok) { setEntries(res.data.slice(0, PAGE_SIZE)); setHasMore(res.data.length > PAGE_SIZE) }
+    if (count.ok) setTotal(count.data)
     setLoading(false)
-  }, [rowId, auditMode])
+  }, [rowId, auditMode, filter])
 
-  useEffect(() => { load(); setPage(1) }, [load])
+  const loadMore = useCallback(async () => {
+    const { includeSystem, logType } = filterArgs(filter)
+    const res = await safeInvoke<CaseLogEntry[]>(IPC.CASE_LOG_GET, rowId, includeSystem, auditMode, PAGE_SIZE + 1, entries.length, logType ? { logType } : undefined)
+    if (res.ok) { setEntries(prev => [...prev, ...res.data.slice(0, PAGE_SIZE)]); setHasMore(res.data.length > PAGE_SIZE) }
+  }, [rowId, auditMode, filter, entries.length])
+
+  useEffect(() => { void load() }, [load])
 
   // Re-fetch when any case log entry is written (manual or system)
   useEffect(() => {
     return window.api.on(IPC.CASE_LOG_CHANGED, (changedRowId: unknown) => {
-      if (changedRowId === rowId) load()
+      if (changedRowId === rowId) void load()
     })
   }, [rowId, load])
 
   // Archived types get a chip only when this record has notes of that type
-  const present = new Set(entries.map(e => e.log_type))
+  const present = new Set([...entries.map(e => e.log_type), filter])
   const filters = [
     ...FIXED_FILTERS,
     ...activity.all
@@ -57,14 +77,8 @@ export function ActivityTimeline({ rowId }: Props) {
       .map(t => ({ value: t.key, label: t.is_archived ? `${t.label} (archived)` : t.label })),
   ]
 
-  const filtered = entries.filter(e => {
-    if (filter === 'all') return true
-    if (filter === 'non-system') return e.log_type !== 'system'
-    return e.log_type === filter
-  })
-
-  const paginated = filtered.slice(0, page * PAGE_SIZE)
-  const hasMore = paginated.length < filtered.length
+  const filtered = entries
+  const paginated = entries
 
   return (
     <section className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -72,8 +86,8 @@ export function ActivityTimeline({ rowId }: Props) {
         <Clock className="w-4 h-4 text-slate-500 flex-shrink-0" />
         <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300 flex-1">
           Activity Timeline
-          {filtered.length > 0 && (
-            <span className="ml-2 text-sm font-normal text-slate-500 dark:text-slate-400">({filtered.length})</span>
+          {total > 0 && (
+            <span className="ml-2 text-sm font-normal text-slate-500 dark:text-slate-400">({total})</span>
           )}
         </h2>
         {/* Audit mode toggle — reveals voided entries */}
@@ -97,7 +111,7 @@ export function ActivityTimeline({ rowId }: Props) {
         {filters.map(f => (
           <button
             key={f.value}
-            onClick={() => { setFilter(f.value); setPage(1) }}
+            onClick={() => setFilter(f.value)}
             className={`hit-44 px-2.5 py-1 rounded-full text-base transition-colors
               focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
               ${filter === f.value
@@ -205,13 +219,13 @@ export function ActivityTimeline({ rowId }: Props) {
         {hasMore && (
           <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700/50 text-center">
             <button
-              onClick={() => setPage(p => p + 1)}
+              onClick={() => void loadMore()}
               className="hit-44 flex items-center gap-1.5 mx-auto text-base text-blue-600 dark:text-blue-400
                          hover:text-blue-800 dark:hover:text-blue-200
                          focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
             >
               <ChevronDown className="w-4 h-4" />
-              Load more ({filtered.length - paginated.length} remaining)
+              Load more ({total - entries.length} remaining)
             </button>
           </div>
         )}

@@ -84,6 +84,8 @@ export const IPC = {
 
   // Case Log
   CASE_LOG_GET: 'case-log:get',
+  /** How many notes match (for "Showing 50 of 312") */
+  CASE_LOG_COUNT: 'case-log:count',
   CASE_LOG_CREATE: 'case-log:create',
   CASE_LOG_UPDATE: 'case-log:update',
   CASE_LOG_DELETE: 'case-log:delete',

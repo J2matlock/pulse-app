@@ -63,6 +63,18 @@ function makeEntry(overrides: Partial<CaseLogEntry> = {}): CaseLogEntry {
 
 beforeEach(() => { setWords() })
 
+/** Stands in for the database, which filters and counts the timeline (1.31). */
+function serve(entries: Array<{ log_type: string }>) {
+  mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+    const [, includeSystem] = args as [number, boolean]
+    const opts = (channel === 'case-log:count' ? args[3] : args[5]) as { logType?: string } | undefined
+    const list = entries.filter(e => (includeSystem || e.log_type !== 'system') && (!opts?.logType || e.log_type === opts.logType))
+    if (channel === 'case-log:get') return Promise.resolve({ ok: true, data: list })
+    if (channel === 'case-log:count') return Promise.resolve({ ok: true, data: list.length })
+    return Promise.resolve({ ok: true, data: [] })
+  })
+}
+
 describe('ActivityTimeline', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -126,7 +138,7 @@ describe('ActivityTimeline', () => {
       makeEntry({ id: 2, content: 'Message sent via email', log_type: 'email' }),
       makeEntry({ id: 3, content: 'System action', log_type: 'system' }),
     ]
-    mockInvoke.mockResolvedValue({ ok: true, data: entries })
+    serve(entries)
 
     render(<ActivityTimeline rowId={10} />)
     await waitFor(() => {
@@ -137,6 +149,7 @@ describe('ActivityTimeline', () => {
     const emailButtons = screen.getAllByText('Email')
     // The filter chip is the first one (in the filter bar)
     fireEvent.click(emailButtons[0]!)
+    await waitFor(() => expect(screen.queryByText('Phone call')).toBeNull())
     expect(screen.getByText('Message sent via email')).toBeTruthy()
     expect(screen.queryByText('Phone call')).toBeNull()
     expect(screen.queryByText('System action')).toBeNull()
@@ -176,7 +189,7 @@ describe('ActivityTimeline', () => {
       makeEntry({ id: 1, content: 'Entry one' }),
       makeEntry({ id: 2, content: 'Entry two' }),
     ]
-    mockInvoke.mockResolvedValue({ ok: true, data: entries })
+    serve(entries)
 
     render(<ActivityTimeline rowId={10} />)
     await waitFor(() => {

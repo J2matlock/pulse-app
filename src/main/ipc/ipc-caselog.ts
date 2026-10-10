@@ -6,6 +6,7 @@ import { IPC } from '../../shared/ipc-channels'
 import { secureWrap, ok, fail, validId, notifyCaseLogChanged, enforceWritable, logNonFatal } from './ipc-utils'
 import { getDb, cachedStmt } from '../database'
 import type { CaseLogEntry, NoteDateUpdate } from '../../shared/types'
+import type { CaseLogQuery } from '../../shared/ipc-contract'
 import { isValidLogType } from '../activity-types'
 import { cleanExtraMeasures } from '../measures'
 import { parseExtraMeasures } from '../../shared/measures'
@@ -25,21 +26,45 @@ function validMeasures(m: NoteMeasures | undefined | null): { minutes: number | 
   return { minutes: minutes || null, miles: miles ? Math.round(miles * 10) / 10 : null }
 }
 
+/** The WHERE clause shared by the note list and its count, plus a cache key for its shape. */
+function caseLogFilter(rowId: number, includeSystem?: boolean, includeVoided?: boolean, opts?: CaseLogQuery): { where: string; params: unknown[]; key: string } {
+  const parts = ['row_id = ?']
+  const params: unknown[] = [rowId]
+  if (!includeSystem) parts.push("log_type != 'system'")
+  if (!includeVoided) parts.push('voided_at IS NULL')
+  const logType = typeof opts?.logType === 'string' && opts.logType.length <= 100 ? opts.logType : ''
+  if (logType) { parts.push('log_type = ?'); params.push(logType) }
+  const query = typeof opts?.query === 'string' ? opts.query.trim().slice(0, 200) : ''
+  if (query) {
+    // Match the words literally: % and _ are ordinary characters in a search box
+    parts.push("content LIKE ? ESCAPE '\\'")
+    params.push(`%${query.replace(/[\\%_]/g, c => `\\${c}`)}%`)
+  }
+  return { where: parts.join(' AND '), params, key: `${includeSystem ? 1 : 0}${includeVoided ? 1 : 0}${logType ? 't' : ''}${query ? 'q' : ''}` }
+}
+
 export function registerCaseLogHandlers(): void {
-  secureWrap(IPC.CASE_LOG_GET, 'ipc-caselog', (_e, rowId: number, includeSystem?: boolean, includeVoided?: boolean, limit?: number, offset?: number) => {
+  secureWrap(IPC.CASE_LOG_GET, 'ipc-caselog', (_e, rowId: number, includeSystem?: boolean, includeVoided?: boolean, limit?: number, offset?: number, opts?: CaseLogQuery) => {
     if (!validId(rowId)) return fail('Invalid ID')
     const CASE_LOG_COLS = `id, row_id, content, log_type, created_at, updated_at,
       is_pinned, follow_up_date, follow_up_completed, original_content,
       edited_at, voided_at, voided_reason, source_action_id, minutes, miles, extra_measures`
-    const voidClause = includeVoided ? '' : 'AND voided_at IS NULL'
     const safeLimit = Math.min(Math.max(limit ?? 200, 1), 1000)
     const safeOffset = Math.max(offset ?? 0, 0)
-    const sql = includeSystem
-      ? `SELECT ${CASE_LOG_COLS} FROM case_log WHERE row_id = ? ${voidClause} ORDER BY is_pinned DESC, created_at DESC LIMIT ? OFFSET ?`
-      : `SELECT ${CASE_LOG_COLS} FROM case_log WHERE row_id = ? AND log_type != 'system' ${voidClause} ORDER BY is_pinned DESC, created_at DESC LIMIT ? OFFSET ?`
-    const cacheKey = `case_log_get_${includeSystem ? 1 : 0}_${includeVoided ? 1 : 0}`
-    const entries = cachedStmt(cacheKey, sql).all(rowId, safeLimit, safeOffset) as CaseLogEntry[]
+    const f = caseLogFilter(rowId, includeSystem, includeVoided, opts)
+    // Pinned first, then by date; searching and "oldest first" happen here so they
+    // cover every note, not just the page that happens to be loaded (1.31)
+    const order = opts?.oldestFirst ? 'is_pinned DESC, created_at ASC, id ASC' : 'is_pinned DESC, created_at DESC, id DESC'
+    const sql = `SELECT ${CASE_LOG_COLS} FROM case_log WHERE ${f.where} ORDER BY ${order} LIMIT ? OFFSET ?`
+    const entries = cachedStmt(`case_log_get_${f.key}_${opts?.oldestFirst ? 'asc' : 'desc'}`, sql).all(...f.params, safeLimit, safeOffset) as CaseLogEntry[]
     return ok(entries)
+  })
+
+  secureWrap(IPC.CASE_LOG_COUNT, 'ipc-caselog', (_e, rowId: number, includeSystem?: boolean, includeVoided?: boolean, opts?: CaseLogQuery) => {
+    if (!validId(rowId)) return fail('Invalid ID')
+    const f = caseLogFilter(rowId, includeSystem, includeVoided, opts)
+    const r = cachedStmt(`case_log_count_${f.key}`, `SELECT COUNT(*) AS n FROM case_log WHERE ${f.where}`).get(...f.params) as { n: number }
+    return ok(r.n)
   })
 
   secureWrap(IPC.CASE_LOG_CREATE, 'ipc-caselog', (_e, rowId: number, content: string, logType: string, followUpDate: string | null, measures?: NoteMeasures) => {

@@ -24,6 +24,9 @@ import type { ActivityType } from './activityTypes'
 import type { MeasureDef, MeasureKind } from './measures'
 import type { RecordKind } from './types'
 
+/** Search and filter for a record's notes (CASE_LOG_GET / CASE_LOG_COUNT) */
+export interface CaseLogQuery { query?: string; oldestFirst?: boolean; logType?: string }
+
 /** Where a record lives, so it can be opened from any screen */
 export interface RowLocation {
   gridId: number
@@ -234,7 +237,8 @@ export interface IPCContract {
   'cl-template:import':  { args: [filePath: string];                                       return: ChecklistTemplate }
 
   // ── Case Log ────────────────────────────────────────────────────────────
-  'case-log:get':                 { args: [rowId: number, includeSystem?: boolean, includeVoided?: boolean, limit?: number, offset?: number]; return: CaseLogEntry[] }
+  'case-log:get':                 { args: [rowId: number, includeSystem?: boolean, includeVoided?: boolean, limit?: number, offset?: number, opts?: CaseLogQuery]; return: CaseLogEntry[] }
+  'case-log:count':               { args: [rowId: number, includeSystem?: boolean, includeVoided?: boolean, opts?: CaseLogQuery]; return: number }
   'case-log:create':              { args: [rowId: number, content: string, logType: string, followUpDate: string | null, measures?: { minutes?: number | null; miles?: number | null; extra?: Record<string, number | null> | null }]; return: CaseLogEntry }
   'case-log:update':              { args: [id: number, content: string];                     return: true }
   'case-log:delete':              { args: [id: number];                                      return: true }
