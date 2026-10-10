@@ -114,7 +114,9 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
   }
 
   function saveDate() {
-    onUpdate({ due_date: dateDraft || null })
+    // A repeating task keeps a due date: an emptied box puts the old one back
+    if (!dateDraft && task.recurrence_rule) setDateDraft(task.due_date ?? '')
+    else onUpdate({ due_date: dateDraft || null })
     setEditingDate(false)
   }
 
@@ -228,7 +230,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
                            bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300
                            focus:outline-hidden focus:ring-3 focus:ring-blue-400"
               />
-              {task.due_date && (
+              {task.due_date && !hasRecurrence && (
                 <button onClick={clearDate} className="hit-44 text-slate-500 dark:text-slate-400 hover:text-red-500" title="Clear date">
                   <X className="w-3 h-3" />
                 </button>
@@ -312,7 +314,11 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
                   return (
                     <button
                       key={opt.label}
-                      onClick={() => { onUpdate({ recurrence_rule: opt.rule }); setShowRecurrenceMenu(false) }}
+                      onClick={() => {
+                        // A repeating task repeats from its due date, so it starts today when it has none (audit S-12)
+                        onUpdate(opt.rule && !task.due_date ? { recurrence_rule: opt.rule, due_date: localDateString() } : { recurrence_rule: opt.rule })
+                        setShowRecurrenceMenu(false)
+                      }}
                       className={`hit-44 w-full text-left px-2 py-1.5 rounded-sm text-base
                                  hover:bg-slate-50 dark:hover:bg-slate-700
                                  ${isActive ? 'font-semibold' : ''}`}

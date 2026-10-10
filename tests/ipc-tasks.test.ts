@@ -296,22 +296,22 @@ describe('IPC Tasks', () => {
 
     it('advances due_date for recurring task (weekly)', async () => {
       const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
-      const t = insertTask(gridId, 'Recurring', { due_date: '2026-03-01', recurrence_rule: '{"type":"weekly","interval":1}' })
+      const t = insertTask(gridId, 'Recurring', { due_date: '2030-03-01', recurrence_rule: '{"type":"weekly","interval":1}' })
       const id = t.lastInsertRowid as number
       const result = await invoke(IPC.TASK_COMPLETE, id) as any
       expect(result.ok).toBe(true)
       const row = testDb.db.prepare('SELECT is_completed, due_date FROM caseload_tasks WHERE id = ?').get(id) as any
       expect(row.is_completed).toBe(0)
-      expect(row.due_date).toBe('2026-03-08')
+      expect(row.due_date).toBe('2030-03-08')
     })
 
     it('advances due_date for recurring task (daily)', async () => {
       const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
-      const t = insertTask(gridId, 'Daily', { due_date: '2026-03-10', recurrence_rule: '{"type":"daily","interval":2}' })
+      const t = insertTask(gridId, 'Daily', { due_date: '2030-03-10', recurrence_rule: '{"type":"daily","interval":2}' })
       const id = t.lastInsertRowid as number
       await invoke(IPC.TASK_COMPLETE, id)
       const row = testDb.db.prepare('SELECT due_date FROM caseload_tasks WHERE id = ?').get(id) as any
-      expect(row.due_date).toBe('2026-03-12')
+      expect(row.due_date).toBe('2030-03-12')
     })
 
     it('marks complete when recurrence end_date is reached', async () => {

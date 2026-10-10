@@ -11,6 +11,8 @@ export const QUERY_LIMITS = {
   DASHBOARD_FOLLOWUPS: 300,
   DASHBOARD_ARCHIVED: 200,
   TASKS_LIST: 500,
+  /** Finished tasks shown under "Completed", most recent first */
+  TASKS_COMPLETED: 200,
   TASKS_HISTORY: 50,
   SAVED_FILTERS_PER_GRID: 20,
   CHECKLIST_ITEMS: 500,

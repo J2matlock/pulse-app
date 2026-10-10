@@ -34,7 +34,7 @@ import { LoadingOverlay } from '../components/shared/LoadingSpinner'
 
 import { ViewBreadcrumb } from '../components/shared/ViewBreadcrumb'
 import { isOverdue, isSnoozed } from './tasks/taskHelpers'
-import { TaskFormDialog } from './tasks/TaskFormDialog'
+import { TaskFormDialog, type NewTask } from './tasks/TaskFormDialog'
 import { SnoozeDialog } from './tasks/SnoozeDialog'
 import { TaskGroup } from './tasks/TaskGroup'
 import { UrgentChecklistSection } from './tasks/UrgentChecklistSection'
@@ -187,12 +187,13 @@ export default function TasksView(): React.ReactElement {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  async function handleSaveTask(taskData: Omit<CaseloadTask, 'id' | 'created_at' | 'updated_at'>) {
+  async function handleSaveTask(taskData: NewTask | Partial<CaseloadTask>) {
     if (editingTask) {
+      // Only what the form changed (audit S-05)
       await updateTask(editingTask.id, taskData)
       setEditingTask(null)
     } else {
-      await createTask(taskData)
+      await createTask(taskData as NewTask)
     }
   }
 
