@@ -56,9 +56,9 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'gs-dark-mode',
     question: 'How do I switch between light and dark mode?',
-    answer: 'Click the sun/moon icon in the top-right corner of the screen. Dark mode uses darker colors that are easier on the eyes, especially in low-light settings. Your preference is saved automatically.',
+    answer: 'Go to Settings (the gear in the sidebar) and open Appearance. Choose Light, Dark, or match your computer. Dark mode uses darker colors that are easier on the eyes, especially in low-light settings. Your choice is saved automatically.',
     category: 'getting-started',
-    tourStepIds: ['theme-toggle'],
+    tourStepIds: ['settings'],
   },
 
   {
@@ -546,7 +546,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'tips-focus-mode',
     question: 'What is focus mode?',
-    answer: 'Press Ctrl+Shift+F to enter focus mode, which hides the sidebar and other distractions so you can concentrate on your grid. Press Ctrl+Shift+F again or click the close button to return to the normal view. Great for working with large {list:many} on smaller screens.',
+    answer: 'Press Ctrl+Shift+F to open focus mode: a full-screen view of only what needs your attention today (deadlines due, tasks and checklist items), with a big button to mark each one done. Press Ctrl+Shift+F again or click the close button to go back.',
     category: 'tips-shortcuts',
   },
   // Deadlines: kinds, days off, extensions, reminders (W16, P2)

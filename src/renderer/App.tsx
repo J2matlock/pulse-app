@@ -280,7 +280,7 @@ export default function App(): React.ReactElement {
             element={
               <MainLayout>
                 <HelpView
-                  onStartTour={() => setShowTour(true)}
+                  onStartTour={() => setShowTour('full')}
                   onStartMiniTour={(steps) => setMiniTourSteps(steps)}
                 />
               </MainLayout>
@@ -293,12 +293,12 @@ export default function App(): React.ReactElement {
         <ErrorBoundary fallback={<></>}>
           <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} onFocusMode={() => { setFocusModeOpen(true); setCommandPaletteOpen(false) }} />
           <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-          <MorningBriefing suppressed={showTour || !!miniTourSteps || focusModeOpen} onFocusMode={() => setFocusModeOpen(true)} />
+          <MorningBriefing suppressed={!!showTour || !!miniTourSteps || focusModeOpen} onFocusMode={() => setFocusModeOpen(true)} />
           <WhatsNewModal open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
           <UndoToast />
           <GlobalTaskDialog open={globalTaskOpen} onClose={() => setGlobalTaskOpen(false)} />
           {showTour && (
-            <TourOverlay onComplete={() => {
+            <TourOverlay full={showTour === 'full'} onComplete={() => {
               setShowTour(false)
             }} />
           )}

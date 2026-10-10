@@ -529,6 +529,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
 
           {/* Calendar link (W07): always, since it shows deadlines too */}
           <button
+            data-tour="calendar"
             onClick={() => navigate('/calendar')}
             className={`
               relative flex items-center gap-3 w-full px-3 text-left transition-colors

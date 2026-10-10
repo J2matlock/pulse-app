@@ -2,8 +2,9 @@ import { useState, type Dispatch, type SetStateAction } from 'react'
 import type { TourStep } from '../components/shared/TourOverlay'
 
 interface UseModalManagerReturn {
-  showTour: boolean
-  setShowTour: Dispatch<SetStateAction<boolean>>
+  /** true: the short first-run tour; 'full': every step (Help → Retake full tour) */
+  showTour: boolean | 'full'
+  setShowTour: Dispatch<SetStateAction<boolean | 'full'>>
   commandPaletteOpen: boolean
   setCommandPaletteOpen: Dispatch<SetStateAction<boolean>>
   shortcutsOpen: boolean
@@ -17,7 +18,7 @@ interface UseModalManagerReturn {
 }
 
 export function useModalManager(): UseModalManagerReturn {
-  const [showTour, setShowTour] = useState(false)
+  const [showTour, setShowTour] = useState<boolean | 'full'>(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [whatsNewOpen, setWhatsNewOpen] = useState(false)

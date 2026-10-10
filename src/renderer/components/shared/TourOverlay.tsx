@@ -33,7 +33,7 @@ import {
   StickyNote,
   FileText,
   Clock,
-  Sun,
+  CalendarDays,
   HelpCircle,
   UserCheck,
   Shield,
@@ -42,6 +42,8 @@ import {
 } from 'lucide-react'
 import { useGridStore } from '../../stores/gridStore'
 import { useVocab } from '../../hooks/useVocab'
+import { featureNow } from '../../hooks/useFeature'
+import type { FeatureKey } from '../../../shared/features'
 
 export interface TourStep {
   id: string
@@ -54,10 +56,21 @@ export interface TourStep {
   position: 'top' | 'bottom' | 'left' | 'right'
   route?: string           // Hash route to navigate to before showing this step
   skipIf?: () => boolean   // Skip step if condition is true
+  feature?: FeatureKey     // Shown only while this feature is switched on
 }
 
 interface Props {
   onComplete: () => void
+  /** Every step (Help's "Retake full tour"); otherwise the short first-run tour */
+  full?: boolean
+}
+
+/** The first-run tour: about seven steps, the core of the app (audit F-05) */
+export const FIRST_RUN_TOUR = ['sidebar', 'add-client', 'deadline-colors', 'open-profile', 'dashboard', 'calendar', 'help']
+
+/** Steps to play: switched-off features and steps that don't apply are left out */
+export function tourSteps(steps: TourStep[]): TourStep[] {
+  return steps.filter(s => (!s.feature || featureNow(s.feature)) && (!s.skipIf || !s.skipIf()))
 }
 
 function getFirstRowId(): number | null {
@@ -131,7 +144,7 @@ export const STEPS: TourStep[] = [
     title: 'Find any {record} instantly',
     subtitle: 'Search as you type',
     description:
-      'Need to find someone fast? Start typing their name here to instantly filter your list. No need to scroll through hundreds of rows — just type a few letters.',
+      'Looking for one {record}? Start typing its name here to filter your {list} as you type. No need to scroll through hundreds of rows — just type a few letters.',
     tip: 'Press Ctrl+K from anywhere to open the full search palette, which can also navigate to other views.',
     icon: <Search className="w-6 h-6" />,
     position: 'bottom',
@@ -140,10 +153,10 @@ export const STEPS: TourStep[] = [
   {
     id: 'deadline-colors',
     target: '[data-tour="grid"]',
-    title: 'Deadline alerts',
+    title: 'Deadline colors',
     subtitle: 'Never miss a due date again',
     description:
-      'Any date column can become a deadline alert. Click the menu icon (⋯) on a date column header and choose "Deadline Alert" to set color-coded reminders — green when you have time, yellow as it approaches, orange when it\'s close, red when it\'s urgent, and pulsing red when overdue. Your dashboard uses these alerts to keep you on track.',
+      'Any date column can turn colors as it comes due — green when you have time, yellow as it approaches, orange when it\'s close, red when it\'s urgent, and pulsing red when overdue. Open the menu (⋯) on a date column\'s header and pick a rule under "Alert Rule". Your dashboard uses these colors to keep you on track.',
     icon: <Palette className="w-6 h-6" />,
     position: 'bottom',
     route: '#/grid',
@@ -187,7 +200,7 @@ export const STEPS: TourStep[] = [
     title: 'Export your data',
     subtitle: 'CSV, PDF, and summary reports',
     description:
-      'Need to share your {list}? Export as CSV for spreadsheets, PDF for printing, or make a summary report for your supervisor. You choose which columns to include.',
+      'Need to share your {list}? Export as CSV for spreadsheets, PDF for printing, or make a summary report to share. You choose which columns to include.',
     icon: <Download className="w-6 h-6" />,
     position: 'bottom',
     route: '#/grid',
@@ -258,11 +271,12 @@ export const STEPS: TourStep[] = [
     title: 'Checklist',
     subtitle: 'Track steps and to-dos per {record}',
     description:
-      'Every {record} gets a checklist for tracking action items — paperwork to file, referrals to make, forms to complete. Check items off as you go. You can use checklist templates to quickly add a standard set of items for new {record:many}.',
+      'Every {record} gets a checklist for tracking action items — steps to finish, forms to complete, things to order. Check items off as you go. You can use checklist templates to quickly add a standard set of items for new {record:many}.',
     icon: <CheckSquare className="w-6 h-6" />,
     position: 'right',
     get route() { const id = getFirstRowId(); return id ? `#/profile/${id}` : '#/grid' },
     skipIf: () => useGridStore.getState().rows.length === 0,
+    feature: 'checklists',
   },
   {
     id: 'case-log',
@@ -270,7 +284,7 @@ export const STEPS: TourStep[] = [
     title: '{ActivityLog}',
     subtitle: 'Document every interaction',
     description:
-      'Log phone calls, visits, emails, and notes with timestamps. Each entry is saved permanently so you have a complete record of your work with each {record}. Pin important entries to the top.',
+      'Write down calls, visits and anything else that happened, with the date. Each entry is kept so you have a complete record of your work with each {record}. Pin important entries to the top.',
     icon: <FileText className="w-6 h-6" />,
     position: 'left',
     get route() { const id = getFirstRowId(); return id ? `#/profile/${id}` : '#/grid' },
@@ -313,6 +327,17 @@ export const STEPS: TourStep[] = [
     position: 'bottom',
     route: '#/dashboard',
   },
+  {
+    id: 'calendar',
+    target: '[data-tour="calendar"]',
+    title: 'Calendar',
+    subtitle: 'Everything that\'s due, by day',
+    description:
+      'The calendar shows every deadline by day, week or month, so you can see a busy week coming. Click a day to see what\'s due and open any {record} from there.',
+    icon: <CalendarDays className="w-6 h-6" />,
+    position: 'right',
+    route: '#/calendar',
+  },
 
   // ── Tasks section (steps 18-19) ──
   {
@@ -325,6 +350,7 @@ export const STEPS: TourStep[] = [
     icon: <ClipboardList className="w-6 h-6" />,
     position: 'right',
     route: '#/tasks',
+    feature: 'tasks',
   },
   {
     id: 'tasks-area',
@@ -336,6 +362,7 @@ export const STEPS: TourStep[] = [
     icon: <ClipboardList className="w-6 h-6" />,
     position: 'bottom',
     route: '#/tasks',
+    feature: 'tasks',
   },
 
   // ── Contacts section (steps 20-21) ──
@@ -345,43 +372,34 @@ export const STEPS: TourStep[] = [
     title: '{Contact} directory',
     subtitle: 'Your private contact book',
     description:
-      'Build your own directory of {contact:many} — doctors, agencies, housing resources, legal aid. Track which {contact:many} are accepting new referrals, and link them to the {record:many} you\'ve referred.',
-    tip: 'Press Ctrl+Shift+P from anywhere to jump straight to Contacts.',
+      'Build your own directory of {contact:many} — the people and places you work with. Keep their details in one place and link them to the {record:many} they help with.',
+    tip: 'Press Ctrl+Shift+P from anywhere to jump straight to {contactDirectory}.',
     icon: <BookUser className="w-6 h-6" />,
     position: 'right',
     route: '#/contacts',
+    feature: 'contactsDirectory',
   },
   {
     id: 'add-provider',
     target: '[data-tour="add-provider"]',
     title: 'Add {contact:many}',
-    subtitle: 'Track availability and referrals',
+    subtitle: 'Phone numbers, availability and more',
     description:
-      'Click "Add {Contact}" to add a new contact. Track their availability status (Accepting, Waitlist, Full), referral process, phone numbers, and more. Link {contact:many} to {record:many} for easy reference.',
+      'Click "Add {Contact}" to add someone new. Keep their phone numbers, whether they\'re available, how to reach them, and more. Link {contact:many} to {record:many} for easy reference.',
     icon: <UserCheck className="w-6 h-6" />,
     position: 'bottom',
     route: '#/contacts',
+    feature: 'contactsDirectory',
   },
 
-  // ── Cross-cutting (steps 22-24) ──
-  {
-    id: 'theme-toggle',
-    target: '[data-tour="theme-toggle"]',
-    title: 'Light and dark mode',
-    subtitle: 'Easy on the eyes',
-    description:
-      'Switch between light and dark themes to suit your preference and lighting. Dark mode is great for reducing eye strain during long sessions. Your choice is remembered between sessions.',
-    icon: <Sun className="w-6 h-6" />,
-    position: 'bottom',
-    route: '#/grid',
-  },
+  // ── Cross-cutting ──
   {
     id: 'settings',
     target: '[data-tour="settings"]',
     title: 'Settings & help',
     subtitle: 'Make it yours',
     description:
-      'Manage themes, backups, security, and data. Visit the Help Center anytime to search for answers, browse FAQs, or retake this tour.',
+      'Light or dark mode (under Appearance), backups, security, and your data. Visit the Help Center anytime to search for answers, browse FAQs, or retake the tour.',
     tip: 'Press ? at any time to see all keyboard shortcuts.',
     icon: <Settings className="w-6 h-6" />,
     position: 'right',
@@ -504,18 +522,25 @@ export function computeTooltipPosition(
   return style
 }
 
-export function TourOverlay({ onComplete }: Props): React.ReactElement {
+export function TourOverlay({ onComplete, full = false }: Props): React.ReactElement {
   const { f } = useVocab(null)
   const [stepIndex, setStepIndex] = useState(0)
+  const nextRef = useRef<HTMLButtonElement>(null)
   const [rect, setRect] = useState<DOMRect | null>(null)
   const [isAnimating, setIsAnimating] = useState(false)
   const [tooltipHeight, setTooltipHeight] = useState(350)
   const tooltipRef = useRef<HTMLDivElement>(null)
   const prevStepRef = useRef(0)
 
-  // Build filtered steps (skip steps whose skipIf returns true)
-  const activeSteps = STEPS.filter(s => !s.skipIf || !s.skipIf())
+  // The short tour (or every step), minus switched-off features and steps that don't apply
+  const activeSteps = tourSteps(full ? STEPS : STEPS.filter(s => FIRST_RUN_TOUR.includes(s.id)))
   const step = activeSteps[stepIndex]
+
+  // Keyboard and screen-reader users land on Next at each step
+  useEffect(() => {
+    const t = setTimeout(() => nextRef.current?.focus(), 50)
+    return () => clearTimeout(t)
+  }, [stepIndex])
 
   // Navigate to the step's route if specified
   useEffect(() => {
@@ -589,7 +614,8 @@ export function TourOverlay({ onComplete }: Props): React.ReactElement {
         window.location.hash = '#/grid'
         onComplete()
       }
-      if (e.key === 'ArrowRight' || e.key === 'Enter') { next() }
+      // Enter is the focused button's own (Next, Back, Skip); arrows move from anywhere
+      if (e.key === 'ArrowRight') { next() }
       if (e.key === 'ArrowLeft') { prev() }
     }
     window.addEventListener('keydown', handler)
@@ -657,7 +683,8 @@ export function TourOverlay({ onComplete }: Props): React.ReactElement {
         }
       `}</style>
 
-      <div className="fixed inset-0 z-[9999]" onClick={next}>
+      {/* Clicks outside the card do nothing: only Next moves on */}
+      <div className="fixed inset-0 z-[9999]">
         {/* Spotlight cutout */}
         <div style={spotlightStyle} />
         {/* Pulse ring */}
@@ -667,8 +694,11 @@ export function TourOverlay({ onComplete }: Props): React.ReactElement {
         <div
           ref={tooltipRef}
           style={tooltipStyle}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="tour-step-title"
+          aria-describedby="tour-step-text"
           className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden"
-          onClick={e => e.stopPropagation()}
         >
           {/* Header with icon and step counter */}
           <div className="bg-linear-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 px-5 py-3 flex items-center gap-3">
@@ -679,14 +709,15 @@ export function TourOverlay({ onComplete }: Props): React.ReactElement {
               <div className="text-white/70 text-sm font-medium">
                 Step {stepIndex + 1} of {activeSteps.length}
               </div>
-              <div className="text-white text-base font-bold leading-tight truncate">
+              <h2 id="tour-step-title" className="text-white text-base font-bold leading-tight truncate">
                 {f(step.title)}
-              </div>
+              </h2>
             </div>
             <button
               onClick={() => { window.location.hash = '#/grid'; onComplete() }}
               className="hit-44 w-8 h-8 flex items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
               title="Skip tour (Esc)"
+              aria-label="Skip tour"
             >
               <X className="w-5 h-5" />
             </button>
@@ -701,7 +732,7 @@ export function TourOverlay({ onComplete }: Props): React.ReactElement {
               </span>
             </div>
 
-            <p className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
+            <p id="tour-step-text" className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
               {f(step.description)}
             </p>
 
@@ -713,12 +744,6 @@ export function TourOverlay({ onComplete }: Props): React.ReactElement {
               </div>
             )}
 
-            {/* Step indicator — text for many steps */}
-            <div className="flex justify-center mb-3">
-              <span className="text-sm text-slate-500 dark:text-slate-400">
-                Step {stepIndex + 1} of {activeSteps.length}
-              </span>
-            </div>
 
             {/* Navigation buttons */}
             <div className="flex items-center justify-between">
@@ -742,6 +767,7 @@ export function TourOverlay({ onComplete }: Props): React.ReactElement {
                   Skip tour
                 </button>
                 <button
+                  ref={nextRef}
                   onClick={next}
                   className="hit-44 flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-base font-semibold rounded-xl transition-colors shadow-xs"
                 >
