@@ -22,6 +22,7 @@ import { safeInvoke } from '../utils/safeInvoke'
 import toast from 'react-hot-toast'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import { ProfilePrintLayout } from '../components/profile/ProfilePrintLayout'
+import { ProfileExportDialog, type ProfileSections } from '../components/profile/ProfileExportDialog'
 import type { GridRow, SaveDialogResult, LetterTemplate } from '../../shared/types'
 import { useCopyFeedback } from '../hooks/useCopyFeedback'
 import { Tooltip } from '../components/shared/Tooltip'
@@ -189,6 +190,8 @@ export default function ProfileView(): React.ReactElement {
   const [showHandoff, setShowHandoff] = useState(false)
   const closeHandoff = useCallback(() => setShowHandoff(false), [])
   const [showPrintLayout, setShowPrintLayout] = useState(false)
+  const [showExportDialog, setShowExportDialog] = useState(false)
+  const closeExportDialog = useCallback(() => setShowExportDialog(false), [])
 
   const { rows, columns, hiddenColumns, grids, activeGridId, sortedRowIds } = useGridStore(useShallow(s => ({
     rows: s.rows, columns: s.columns, hiddenColumns: s.hiddenColumns,
@@ -284,7 +287,8 @@ export default function ProfileView(): React.ReactElement {
     [rowId, updateCell]
   )
 
-  async function handleExportPdf() {
+  async function handleExportPdf(sections: ProfileSections) {
+    setShowExportDialog(false)
     if (!rowId || !activeGridId) return
     const saveRes = await safeInvoke<SaveDialogResult>(IPC.APP_SHOW_SAVE_DIALOG, {
       title: 'Export Profile as PDF',
@@ -296,7 +300,7 @@ export default function ProfileView(): React.ReactElement {
       rowId,
       gridId: activeGridId,
       destPath: saveRes.data.filePath,
-      includeSections: { deadlines: true, checklist: true, caseLog: true, scratchPad: true, contactInfo: true, gridData: true }
+      includeSections: sections,
     })
     if (!result.ok) toast.error('We couldn\'t export this profile. Please try again.')
     else noteUnencryptedExport()
@@ -467,7 +471,7 @@ export default function ProfileView(): React.ReactElement {
               onRowUpdate={handleRowUpdate}
               onAddTask={showChecklists ? () => checklistFocusRef.current?.() : undefined}
               onPrint={() => setShowPrintLayout(true)}
-              onExportPdf={handleExportPdf}
+              onExportPdf={() => setShowExportDialog(true)}
               onGenerateLetter={showLetters ? () => setShowLetterModal(true) : undefined}
               onAuditTrail={() => setShowAuditTrail(true)}
               onHandoff={handoffOn ? () => setShowHandoff(true) : undefined}
@@ -566,6 +570,9 @@ export default function ProfileView(): React.ReactElement {
       {/* Generate Letter modal */}
       {showHandoff && rowId != null && activeGridId != null && (
         <HandoffDialog rowId={rowId} gridId={activeGridId} clientName={clientName} onClose={closeHandoff} />
+      )}
+      {showExportDialog && activeGridId != null && (
+        <ProfileExportDialog gridId={activeGridId} clientName={clientName} onSave={sections => void handleExportPdf(sections)} onClose={closeExportDialog} />
       )}
       {showAuditTrail && rowId != null && (
         <AuditReportDialog rowId={rowId} label={clientName} onClose={closeAuditTrail} />
