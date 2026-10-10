@@ -110,9 +110,16 @@ describe('reports view and dashboard card', () => {
   it('lists saved reports and opens one', async () => {
     render(<MemoryRouter initialEntries={['/reports']}><ReportsView /></MemoryRouter>)
     await wait()
-    fireEvent.change(screen.getByLabelText('Saved reports'), { target: { value: '5' } })
+    // The home page: what reports are for, and each saved report as a card with a glance at its answer
+    expect(screen.getByText(/A report answers a question/)).toBeTruthy()
+    const card = screen.getByRole('button', { name: /By make/ })
+    expect(card.textContent).toMatch(/Honda/)
+    fireEvent.click(card)
     await wait()
     expect((screen.getByLabelText('Report name') as HTMLInputElement).value).toBe('By make')
+    fireEvent.click(screen.getByRole('button', { name: /All reports/ }))
+    await wait()
+    expect(screen.getByRole('button', { name: /By make/ })).toBeTruthy()
   })
 
   it('asks before throwing away unsaved changes', async () => {

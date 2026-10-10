@@ -270,3 +270,50 @@ export function describeReport(config: ReportConfig, fields: ReportField[], list
   if (config.includeArchived) parts.push('including archived')
   return parts.join(' · ')
 }
+
+const VALUE_WORDS: Record<ValueFn, string> = { count: 'how many', sum: 'the total', avg: 'the average', min: 'the lowest', max: 'the highest' }
+const BUCKET_NOUNS: Record<DateBucket, string> = { day: 'day', week: 'week', month: 'month', quarter: 'quarter', year: 'year' }
+
+function andList(xs: string[]): string {
+  return xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`
+}
+
+/**
+ * The report in a sentence, for people who don't think in "group by":
+ * "Counting 10 jobs, one line per Stage, showing how many and the total Estimate."
+ */
+export function explainReport(config: ReportConfig, fields: ReportField[], sourceWord: string, listName: string, matched: number | null = null): string {
+  const label = (id: string) => fields.find(f => f.id === id)?.label ?? id
+  const src = sourceWord.toLowerCase()
+  const what = matched === null ? src : `${matched.toLocaleString('en-US')} ${matched === 1 ? src.replace(/s$/, '') : src}`
+  const listing = config.groupBy.length === 0 && !!config.columns?.length
+  let s = `${listing ? 'Listing' : 'Counting'} ${what}${config.source === 'records' ? '' : ` in ${listName}`}`
+  const conds = config.filters.filter(isFilterActive).map(f => {
+    const kind = fields.find(x => x.id === f.field)?.kind ?? 'text'
+    return `${label(f.field)} ${OPERATOR_LABELS[f.operator]}${filterNeedsValue(f.operator) ? ` ${kind === 'date' ? formatYmd(f.value) : f.value}` : ''}`
+  })
+  if (conds.length) s += ` where ${conds.join(' and ')}`
+  // A note's or appointment's own date goes without saying; any other date is named
+  const obvious = (id: string) => id === 'act:date' || id === 'appt:date' || id === 'dl:due'
+  if (config.dateRange) {
+    const r = config.dateRange
+    const when = r.preset ? PRESET_WORDS[r.preset] : [r.from && `from ${formatYmd(r.from)}`, r.to && `to ${formatYmd(r.to)}`].filter(Boolean).join(' ')
+    const sameAsGroup = config.groupBy.some(g => g.field === r.field)
+    if (when) s += obvious(r.field) || sameAsGroup ? `, ${when}` : `, with ${label(r.field)} ${when}`
+  }
+  if (config.groupBy.length) {
+    s += `, one line per ${andList(config.groupBy.map(g => g.bucket ? `${BUCKET_NOUNS[g.bucket]}${obvious(g.field) ? '' : ` of ${label(g.field)}`}` : label(g.field)))}`
+  } else if (listing) {
+    s += `, showing ${andList(config.columns!.map(label))}`
+    return `${s}.`
+  }
+  const values = config.values.length ? config.values : [{ fn: 'count' as const }]
+  s += `, showing ${andList(values.map(v => v.fn === 'count' ? VALUE_WORDS.count : `${VALUE_WORDS[v.fn]} ${label(v.field ?? '')}`))}`
+  return `${s}.`
+}
+
+/** A grouped report with one grouping and a number to show can also be drawn as bars */
+export function chartableReport(config: ReportConfig, result: ReportResult): boolean {
+  return config.groupBy.length === 1 && result.rows.length >= 2 && result.rows.length <= 40
+    && result.columns.some(c => /^v\d+$/.test(c.key) && (c.kind === 'number' || c.kind === 'currency'))
+}

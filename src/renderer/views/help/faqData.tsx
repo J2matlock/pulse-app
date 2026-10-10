@@ -671,8 +671,8 @@ export const FAQ_ITEMS: FAQItem[] = [
   },
   {
     id: 'reports-build',
-    question: 'How do I build my own report?',
-    answer: 'Click "Reports" in the sidebar, or choose "Build a report…" in the Export menu, then "New report". The quickest start is one of the common reports at the top, such as how many {record:many} are in each stage or overdue deadlines; change anything afterwards. To build your own, pick what to count ({record:many}, {activity:many}, {appointment:many} or deadlines), add filters and a date range, then group them, for example by month or by a column, or list them with the columns you want. Add values such as a count, total or average. The preview on the right updates as you go. Click Save to keep it (it suggests a name if you don\'t type one); your saved reports are in the "Saved reports" list at the top. Export any report as a PDF or CSV.',
+    question: 'How do I use reports?',
+    answer: 'A report answers a question about your work, like how many {record:many} are at each stage, how busy each month was, or what is overdue. Click "Reports" in the sidebar: your reports are shown as cards, each saying what it answers with a glance at the answer. Examples you start from come with a few ready-made reports. Click a card to see the whole answer, change it, export it as a PDF or CSV, or pin it to the dashboard. To ask your own question, click "New report" and either pick one of the common reports at the top or go through the four steps: which list and what to count, only some of them (optional), split into lines by stage, month or a column (optional), and which numbers to show. A sentence above the preview says in plain words what the report is counting, and split reports are drawn as bars too. Save it to keep it; it suggests a name if you don\'t type one.',
     category: 'import-export',
   },
   {

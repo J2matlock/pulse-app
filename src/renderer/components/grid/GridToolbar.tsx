@@ -522,7 +522,7 @@ export function GridToolbar(): React.ReactElement {
                 <button
                   className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
                   style={{ minHeight: 44 }}
-                  onClick={() => { setShowExportMenu(false); navigate('/reports') }}
+                  onClick={() => { setShowExportMenu(false); navigate('/reports?new=1') }}
                 >
                   Build a report…
                 </button>

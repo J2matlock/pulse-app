@@ -442,9 +442,6 @@ export function applyStarter(src: StarterSource, opts: ApplyOptions): ApplyResul
       }
     }
 
-    // 6c. Ready-made reports for the lists just added
-    result.warnings.push(...addStarterReports(s, result.gridIds, chosen.map(l => l.key)))
-
     // 7. Words and feature switches, only if chosen
     const saveSetting = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)')
     if (opts.applyWords && s.vocab) {
@@ -457,6 +454,9 @@ export function applyStarter(src: StarterSource, opts: ApplyOptions): ApplyResul
     }
     // A suggested dashboard goes with the suggested features
     if (opts.applyFeatures && s.dashboardCards?.length) saveSetting.run('dashboard_layout', JSON.stringify(s.dashboardCards))
+
+    // Ready-made reports for the lists just added, after the words so they're named in them
+    result.warnings.push(...addStarterReports(s, result.gridIds, chosen.map(l => l.key)))
 
     // Note formats and document templates are added next to the user's own
     if (s.noteFormats?.length) {

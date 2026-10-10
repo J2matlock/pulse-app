@@ -8,8 +8,8 @@ import toast from 'react-hot-toast'
 import { FileDown, Pin, PinOff, Plus, Save, Sparkles, Trash2 } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import {
-  DATE_BUCKETS, FN_LABELS, OPERATOR_LABELS, REPORT_LIMITS, SOURCE_LABELS, defaultFilterField, defaultGroupField, defaultValueField,
-  filterNeedsValue, operatorsFor, suggestReportName,
+  DATE_BUCKETS, FN_LABELS, OPERATOR_LABELS, REPORT_LIMITS, SOURCE_LABELS, chartableReport, defaultFilterField, defaultGroupField, defaultValueField,
+  explainReport, filterNeedsValue, operatorsFor, suggestReportName,
   type DatePreset, type ReportConfig, type ReportField, type ReportResult, type ReportSource, type SavedReport, type ValueFn,
 } from '../../../shared/reports'
 import { safeInvoke } from '../../utils/safeInvoke'
@@ -19,6 +19,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { loadPinnedReports, setReportPinned } from '../../utils/pinnedReports'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { ReportTable } from './ReportTable'
+import { ReportChart, chartValues } from './ReportChart'
 
 export const EMPTY_CONFIG: ReportConfig = { source: 'records', filters: [], groupBy: [], values: [{ fn: 'count' }] }
 
@@ -90,6 +91,8 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
   const [error, setError] = useState<string | null>(null)
   const [pinned, setPinned] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Which number the bars show, when a report has more than one
+  const [chartValue, setChartValue] = useState<string | undefined>(undefined)
   const { t, f } = useVocab(gridId)
   const fieldsKey = useRef('')
   const ids = { list: useId(), name: useId() }
@@ -173,12 +176,14 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
     const money = fields.find(x => x.kind === 'currency')
     const rec = words('records'), act = words('activities'), appt = words('appointments')
     const out: Preset[] = []
-    if (stage) out.push({ key: 'by-stage', label: `How many ${rec.toLowerCase()} by ${stage.label}`, config: { source: 'records', filters: [], groupBy: [{ field: stage.id }], values: [{ fn: 'count' }] } })
-    if (stage && money) out.push({ key: 'money', label: `Total ${money.label} by ${stage.label}`, config: { source: 'records', filters: [], groupBy: [{ field: stage.id }], values: [{ fn: 'count' }, { fn: 'sum', field: money.id }] } })
-    out.push({ key: 'added', label: `${rec} added per month`, config: { source: 'records', filters: [], groupBy: [{ field: 'rec:created', bucket: 'month' }], values: [{ fn: 'count' }], dateRange: { field: 'rec:created', preset: 'this_year' } } })
-    out.push({ key: 'notes', label: `${act} per month`, config: { source: 'activities', filters: [], groupBy: [{ field: 'act:date', bucket: 'month' }], values: [{ fn: 'count' }], dateRange: { field: 'act:date', preset: 'this_year' } } })
-    out.push({ key: 'overdue', label: 'Overdue deadlines', config: { source: 'deadlines', filters: [{ field: 'dl:state', operator: 'equals', value: 'Overdue' }], groupBy: [], values: [{ fn: 'count' }], columns: [...(nameField ? [nameField.id] : []), 'dl:rule', 'dl:due', 'dl:overdue'], sort: { field: 'dl:overdue', dir: 'desc' } } })
-    if (apptsOn) out.push({ key: 'appts', label: `${appt} this month by status`, config: { source: 'appointments', filters: [], groupBy: [{ field: 'appt:status' }], values: [{ fn: 'count' }], dateRange: { field: 'appt:date', preset: 'this_month' } } })
+    if (stage) out.push({ key: 'by-stage', label: `How many ${rec.toLowerCase()} by ${stage.label}`, config: { source: 'records', filters: [], groupBy: [{ field: stage.id }], values: [{ fn: 'count' }], about: `How many ${rec.toLowerCase()} are at each ${stage.label.toLowerCase()}.` } })
+    if (stage && money) out.push({ key: 'money', label: `Total ${money.label} by ${stage.label}`, config: { source: 'records', filters: [], groupBy: [{ field: stage.id }], values: [{ fn: 'count' }, { fn: 'sum', field: money.id }], about: `What the ${rec.toLowerCase()} at each ${stage.label.toLowerCase()} are worth.` } })
+    out.push({ key: 'added', label: `${rec} added per month`, config: { source: 'records', filters: [], groupBy: [{ field: 'rec:created', bucket: 'month' }], values: [{ fn: 'count' }], dateRange: { field: 'rec:created', preset: 'this_year' }, about: `How many new ${rec.toLowerCase()} came in each month this year.` } })
+    out.push({ key: 'notes', label: `${act} per month`, config: { source: 'activities', filters: [], groupBy: [{ field: 'act:date', bucket: 'month' }], values: [{ fn: 'count' }], dateRange: { field: 'act:date', preset: 'this_year' }, about: `How busy each month was, by the ${act.toLowerCase()} written.` } })
+    out.push({ key: 'notes-by-type', label: `${act} by kind`, config: { source: 'activities', filters: [], groupBy: [{ field: 'act:type' }], values: [{ fn: 'count' }], dateRange: { field: 'act:date', preset: 'this_year' }, about: `What kinds of ${act.toLowerCase()} you write most this year.` } })
+    out.push({ key: 'overdue', label: 'Overdue deadlines', config: { source: 'deadlines', filters: [{ field: 'dl:state', operator: 'equals', value: 'Overdue' }], groupBy: [], values: [{ fn: 'count' }], columns: [...(nameField ? [nameField.id] : []), 'dl:rule', 'dl:due', 'dl:overdue'], sort: { field: 'dl:overdue', dir: 'desc' }, about: 'Everything past due, the longest overdue first.' } })
+    out.push({ key: 'deadlines-by', label: 'Deadlines by kind and state', config: { source: 'deadlines', filters: [], groupBy: [{ field: 'dl:rule' }, { field: 'dl:state' }], values: [{ fn: 'count' }], about: 'For each kind of deadline, how many are overdue, coming up or on track.' } })
+    if (apptsOn) out.push({ key: 'appts', label: `${appt} this month by status`, config: { source: 'appointments', filters: [], groupBy: [{ field: 'appt:status' }], values: [{ fn: 'count' }], dateRange: { field: 'appt:date', preset: 'this_month' }, about: `How many ${appt.toLowerCase()} this month were kept, missed or cancelled.` } })
     return out
   // eslint-disable-next-line react-hooks/exhaustive-deps -- words() reads the same vocabulary as f
   }, [fields, config.source, apptsOn, nameField, f])
@@ -240,7 +245,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
           </section>
         )}
 
-        <Step n={1} title="What to report on">
+        <Step n={1} title="Which list, and what to count">
           <div>
             <label htmlFor={ids.list} className="block text-base text-slate-700 dark:text-slate-200">{t('list', { cap: true })}</label>
             <select id={ids.list} className="input w-full mt-1" value={gridId ?? ''} onChange={e => setGridId(Number(e.target.value))}>
@@ -264,7 +269,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
           </label>
         </Step>
 
-        <Step n={2} title="Which ones" hint={config.filters.length === 0 ? `All of them, unless you add a filter.` : undefined}>
+        <Step n={2} title="Only some of them? (optional)" hint={config.filters.length === 0 ? 'Leave this alone to count all of them. Add a filter to narrow it down, e.g. only Done.' : undefined}>
           {config.filters.map((flt, i) => {
             const field = byId.get(flt.field)
             const kind = field?.kind ?? 'text'
@@ -327,7 +332,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
           )}
         </Step>
 
-        <Step n={3} title="Group by (optional)" hint={grouped ? undefined : 'Group to get one line per stage, type, month…'}>
+        <Step n={3} title="Split into lines by… (optional)" hint={grouped ? undefined : 'Without this you get one total. Split it to get one line per stage, per month, per type…'}>
           {config.groupBy.map((g, i) => {
             const isDate = byId.get(g.field)?.kind === 'date'
             const set = (p: Partial<typeof g>) => patch({ groupBy: config.groupBy.map((x, j) => j === i ? { ...x, ...p } : x) })
@@ -369,7 +374,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
         </Step>
 
         {(grouped || !(config.columns?.length)) && (
-          <Step n={4} title="Values">
+          <Step n={4} title="Show these numbers" hint="How many is a count. Add a total or average of a money or number column.">
             {config.values.map((v, i) => {
               const set = (p: Partial<typeof v>) => patch({ values: config.values.map((x, j) => j === i ? { ...x, ...p } : x) })
               return (
@@ -420,8 +425,31 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
         <h3 id="report-preview" className="text-base font-semibold text-slate-800 dark:text-slate-100">
           Preview{result ? ` · ${result.matched.toLocaleString('en-US')} matched` : ''}
         </h3>
+        {config.about && <p className="text-base text-slate-700 dark:text-slate-200">{config.about}</p>}
+        {fields.length > 0 && (
+          <p className="text-sm text-slate-500 dark:text-slate-400" aria-live="polite">
+            {explainReport(config, fields, words(config.source), grids.find(g => g.id === gridId)?.name ?? '', result?.matched ?? null)}
+          </p>
+        )}
         {error ? <p role="alert" className="text-base text-red-700 dark:text-red-300">{error}</p>
-          : result ? <ReportTable result={result} sort={config.sort} onSort={onSort} caption={name || suggested || 'Report preview'} />
+          : result ? (
+            <div className="space-y-4">
+              {chartableReport(config, result) && (
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-2">
+                  {chartValues(result).length > 1 && (
+                    <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                      Bars show
+                      <select className="input w-auto" value={chartValues(result).some(c => c.key === chartValue) ? chartValue : chartValues(result)[0]!.key} onChange={e => setChartValue(e.target.value)}>
+                        {chartValues(result).map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  <ReportChart result={result} valueKey={chartValue} />
+                </div>
+              )}
+              <ReportTable result={result} sort={config.sort} onSort={onSort} caption={name || suggested || 'Report preview'} />
+            </div>
+          )
           : <p className="text-base text-slate-500 dark:text-slate-400">Working…</p>}
       </section>
 

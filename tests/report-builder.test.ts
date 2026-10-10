@@ -10,7 +10,7 @@ vi.mock('../src/main/database', async () => {
 })
 
 import { reportFields, runReport, validateReportConfig, saveReport, listReports, deleteReport, getReport, ReportError } from '../src/main/report-builder'
-import { bucketDate, presetRange, matchReportFilter, valueLabel, formatReportCell, defaultFilterField, defaultGroupField, defaultValueField, suggestReportName, describeReport } from '../src/shared/reports'
+import { bucketDate, presetRange, matchReportFilter, valueLabel, formatReportCell, defaultFilterField, defaultGroupField, defaultValueField, suggestReportName, describeReport, explainReport, chartableReport } from '../src/shared/reports'
 import { up as migration043 } from '../src/main/migrations/043_report_definitions'
 
 let gridId: number
@@ -220,6 +220,20 @@ describe('helpers', () => {
     expect(defaultGroupField(fields, 'records', ['col:2'])!.id).toBe('act:type')
     expect(defaultValueField(fields)!.id).toBe('col:4')
     expect(defaultValueField(fields.filter(f => f.kind !== 'currency'))!.id).toBe('col:3')
+  })
+
+  it('explains a report in a sentence', () => {
+    const fields = [{ id: 'col:2', label: 'Stage', kind: 'text' as const, group: 'Job' }, { id: 'col:4', label: 'Estimate', kind: 'currency' as const, group: 'Job' },
+      { id: 'act:date', label: 'Date', kind: 'date' as const, group: 'Note' }, { id: 'col:1', label: 'Job', kind: 'text' as const, group: 'Job' }]
+    expect(explainReport({ source: 'records', filters: [], groupBy: [{ field: 'col:2' }], values: [{ fn: 'count' }, { fn: 'sum', field: 'col:4' }] }, fields, 'Jobs', 'Jobs', 10))
+      .toBe('Counting 10 jobs, one line per Stage, showing how many and the total Estimate.')
+    expect(explainReport({ source: 'activities', filters: [], groupBy: [{ field: 'act:date', bucket: 'month' }], values: [{ fn: 'count' }], dateRange: { field: 'act:date', preset: 'this_year' } }, fields, 'Notes', 'Customers', 1))
+      .toBe('Counting 1 note in Customers, this year, one line per month, showing how many.')
+    expect(explainReport({ source: 'records', filters: [{ field: 'col:2', operator: 'equals', value: 'Done' }, { field: 'col:4', operator: 'gt', value: '' }], groupBy: [], values: [], columns: ['col:1', 'col:4'] }, fields, 'Jobs', 'Jobs', null))
+      .toBe('Listing jobs where Stage is Done, showing Job and Estimate.')
+    const grouped = { columns: [{ key: 'g0', label: 'Stage', kind: 'text' as const }, { key: 'v0', label: 'How many', kind: 'number' as const }], rows: [{ g0: 'A', v0: 1 }, { g0: 'B', v0: 2 }], totals: {}, matched: 3, truncated: null }
+    expect(chartableReport({ source: 'records', filters: [], groupBy: [{ field: 'col:2' }], values: [] }, grouped)).toBe(true)
+    expect(chartableReport({ source: 'records', filters: [], groupBy: [], values: [] }, grouped)).toBe(false)
   })
 
   it('suggests a name and describes what a report covers', () => {

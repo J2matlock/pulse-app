@@ -1518,3 +1518,19 @@ Comprehensive audit identified 2 critical, 7 high, 10 medium, 15 low findings. A
 ## 2026-10-10 (cont.) — Pulse 2.1.1 released
 - Version 2.1.1 (reports review fixes), tagged v2.1.1 in pulse-app
 - `pulse-releases` v2.1.1: `PULSE.exe`, `BaringaSoftPulse-2.1.1.AppImage`, `SHA256SUMS.txt`, marked latest; `latest.json` announces 2.1.1
+
+## 2026-10-10 (cont.) — Reports made intuitive (plans/reports-intuitive-2026-10.md)
+- Sample data has a past (`src/main/sample-history.ts`, all starters, no per-starter work):
+  - records added across the year
+  - everyday notes every 3–7 weeks, never quota-counted types, always older than five weeks
+  - done jobs copied into past months (money ±25%, links kept, open deadlines settled)
+  - seeded per starter; removed with the sample data
+- Ready-made reports when a starter is applied (`src/main/starter-reports.ts`): by stage (+ value), finished per month, notes per month, overdue deadlines. Saved after the words are applied, so they're named in the starter's words. Starters can bring their own (`reports`, columns by name): tree service, auto service, therapy, tax preparer, real estate. Reports gain an optional `about` line
+- Reports home page: cards with what each report answers and a glance at the answer (bars or a headline number). "All reports" back from the builder; Export → "Build a report…" opens a new one
+- In the builder:
+  - a plain sentence above the preview (`explainReport`)
+  - bars for one-grouping reports (`ReportChart`), money first, latest months on cards; also on pinned dashboard cards
+  - plainer step titles with hints; starting points say what they answer (plus notes by kind, deadlines by kind and state)
+- Help: "How do I use reports?" rewritten
+- Checked in the app with tree service and human services samples
+- Build state: npm test 3599 pass / 4 skip; typecheck 0; eslint 0 errors

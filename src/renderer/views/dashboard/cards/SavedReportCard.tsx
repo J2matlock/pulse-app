@@ -3,17 +3,18 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarChart3, PinOff } from 'lucide-react'
 import { IPC } from '../../../../shared/ipc-channels'
-import type { ReportResult, SavedReport } from '../../../../shared/reports'
+import { chartableReport, type ReportResult, type SavedReport } from '../../../../shared/reports'
 import { safeInvoke } from '../../../utils/safeInvoke'
 import { ReportTable } from '../../../components/reports/ReportTable'
+import { ReportChart } from '../../../components/reports/ReportChart'
 
 export function SavedReportCard({ id, onUnpin }: { id: number; onUnpin: (id: number) => void }): React.ReactElement | null {
   const navigate = useNavigate()
-  const [data, setData] = useState<{ report: SavedReport; result: ReportResult } | null>(null)
+  const [data, setData] = useState<{ report: SavedReport; result: ReportResult; explanation?: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
     let alive = true
-    void safeInvoke<{ report: SavedReport; result: ReportResult }>(IPC.REPORT_RUN_SAVED, id).then(r => {
+    void safeInvoke<{ report: SavedReport; result: ReportResult; explanation?: string }>(IPC.REPORT_RUN_SAVED, id).then(r => {
       if (!alive) return
       if (r.ok) setData(r.data); else setError(r.error)
     })
@@ -32,7 +33,15 @@ export function SavedReportCard({ id, onUnpin }: { id: number; onUnpin: (id: num
         </button>
       </div>
       {error ? <p className="text-base text-red-700 dark:text-red-300">{error}</p>
-        : data ? <ReportTable result={data.result} maxRows={10} caption={data.report.name} />
+        : data ? (
+          <>
+            {(data.report.config.about || data.explanation) && <p className="text-sm text-slate-600 dark:text-slate-300">{data.report.config.about ?? data.explanation}</p>}
+            {/* Grouped reports read best as bars; the full table is one click away */}
+            {chartableReport(data.report.config, data.result)
+              ? <ReportChart result={data.result} maxBars={10} />
+              : <ReportTable result={data.result} maxRows={10} caption={data.report.name} />}
+          </>
+        )
         : <p className="text-base text-slate-500 dark:text-slate-400">Working…</p>}
     </section>
   )
