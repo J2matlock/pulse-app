@@ -17,6 +17,15 @@ interface ReleaseEntry {
 
 const RELEASES: ReleaseEntry[] = [
   {
+    version: '2.1.1',
+    date: '2026-10-10',
+    items: [
+      'Reports are easier to build: start from a common report, filters and groupings start on sensible choices, and Save suggests a name',
+      'Report groups follow their own order (stages, statuses), and dates read like "Jul 31, 2026" or "Oct 2026"',
+      'Reports ask before deleting or before throwing away unsaved changes, and the PDF says what it covers',
+    ],
+  },
+  {
     version: '2.1.0',
     date: '2026-10-09',
     items: [
