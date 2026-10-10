@@ -47,11 +47,13 @@ export const ClientFocusItem = React.memo(function ClientFocusItem({ item, celeb
       <button
         onClick={onComplete}
         disabled={celebrating}
+        title={item.ruleKind === 'quota' ? 'Open the record to set new dates and how many are allowed'
+          : item.ruleKind === 'meter' ? 'Mark done: asks for the current reading' : undefined}
         className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-700 hover:bg-green-600 text-white text-base font-medium transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-green-400 disabled:opacity-50"
         style={{ minHeight: 44 }}
       >
         <CheckCircle2 className="w-4 h-4" />
-        Done ✓
+        {item.ruleKind === 'quota' ? 'Renew…' : 'Done ✓'}
       </button>
     </div>
   )
