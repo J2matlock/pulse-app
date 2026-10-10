@@ -154,6 +154,13 @@ describe('SortableRow', () => {
     expect(onToggleSelect).toHaveBeenCalled()
   })
 
+  it('redraws when meter, quota, step or extension data arrives (G-13)', () => {
+    const compare = (SortableRow as unknown as { compare: (a: SortableRowProps, b: SortableRowProps) => boolean }).compare
+    const props = makeProps({ deadlineContext: { meter: {} } })
+    expect(compare(props, { ...props })).toBe(true)
+    expect(compare(props, { ...props, deadlineContext: { meter: { '1:2': [] } } })).toBe(false)
+  })
+
   it('applies selected styling when isSelected is true', () => {
     const { container } = render(<SortableRow {...makeProps({ isSelected: true })} />)
     const row = container.querySelector('[role="row"]')!

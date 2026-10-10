@@ -178,8 +178,9 @@ export function deadlineCounts(today: string = localDateString()): { overdue: nu
 /**
  * For a quota rule: per record, the notes of the counted kinds between that
  * record's own start and end dates (local days; voided notes don't count).
+ * `until` (a stored UTC timestamp) counts only notes written by then, for reports as of a past day.
  */
-export function quotaCounts(gridId: number, cfg: QuotaConfig): Map<number, number> {
+export function quotaCounts(gridId: number, cfg: QuotaConfig, until?: string): Map<number, number> {
   const types = cfg.activityTypes
   const rows = getDb().prepare(`
     SELECT r.id AS row_id, COUNT(cl.id) AS n
@@ -189,9 +190,9 @@ export function quotaCounts(gridId: number, cfg: QuotaConfig): Map<number, numbe
     JOIN case_log cl ON cl.row_id = r.id AND cl.voided_at IS NULL
       AND cl.log_type IN (${types.map(() => '?').join(',')})
       AND date(cl.created_at, 'localtime') BETWEEN substr(s.value, 1, 10) AND substr(e.value, 1, 10)
-    WHERE r.grid_id = ?
+    WHERE r.grid_id = ? AND (? IS NULL OR cl.created_at <= ?)
     GROUP BY r.id
-  `).all(cfg.startColumnId, cfg.endColumnId, ...types, gridId) as Array<{ row_id: number; n: number }>
+  `).all(cfg.startColumnId, cfg.endColumnId, ...types, gridId, until ?? null, until ?? null) as Array<{ row_id: number; n: number }>
   return new Map(rows.map(r => [r.row_id, r.n]))
 }
 
@@ -208,9 +209,11 @@ export function activeExtensions(): Map<string, StoredExtension[]> {
 }
 
 /** Steps done on a sequence column, by record, with the anchor date each was done for. */
-export function progressEntries(columnId: number): Map<number, Array<{ step: number; anchor: string | null }>> {
+export function progressEntries(columnId: number, doneBy?: string): Map<number, Array<{ step: number; anchor: string | null }>> {
   const out = new Map<number, Array<{ step: number; anchor: string | null }>>()
-  const rows = getDb().prepare('SELECT row_id, step, anchor_value FROM deadline_progress WHERE column_id = ?').all(columnId) as Array<{ row_id: number; step: number; anchor_value: string | null }>
+  // doneBy ('YYYY-MM-DD'): only steps checked off by that day, for reports as of a past day
+  const rows = getDb().prepare('SELECT row_id, step, anchor_value FROM deadline_progress WHERE column_id = ? AND (? IS NULL OR done_at <= ?)')
+    .all(columnId, doneBy ?? null, doneBy ?? null) as Array<{ row_id: number; step: number; anchor_value: string | null }>
   for (const r of rows) out.set(r.row_id, [...(out.get(r.row_id) ?? []), { step: r.step, anchor: r.anchor_value }])
   return out
 }

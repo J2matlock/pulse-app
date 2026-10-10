@@ -26,6 +26,8 @@ export interface SortableRowProps {
   columns: Column[]
   columnMap: Map<number, Column>
   alertRuleMap: Map<number, ParsedAlertRule>
+  /** Meter readings, quota counts, steps and extensions; a new one redraws deadline colors */
+  deadlineContext?: unknown
   cellFormats: Map<string, CellFormatRule[]>
   parsedColumnConfigs: Map<number, { config: Record<string, unknown>; conditionalFormat: CellFormatRule[] }>
   hasAnyHighlightRules: boolean
@@ -458,6 +460,7 @@ export const SortableRow = React.memo(function SortableRow({
   if (prev.acuityEnabled !== next.acuityEnabled) return false
   if (prev.acuityLevels !== next.acuityLevels) return false
   if (prev.alertRuleMap !== next.alertRuleMap) return false
+  if (prev.deadlineContext !== next.deadlineContext) return false
   if (prev.searchQuery !== next.searchQuery) return false
   if (prev.findReplaceActiveRowId !== next.findReplaceActiveRowId) return false
   if (prev.findReplaceActiveColId !== next.findReplaceActiveColId) return false

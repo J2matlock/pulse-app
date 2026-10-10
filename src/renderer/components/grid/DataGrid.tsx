@@ -114,6 +114,8 @@ export function DataGrid(): React.ReactElement {
 
   const alertRules = useAlertStore(s => s.rules)
   const alertRuleMap = useMemo(() => new Map(alertRules.map(r => [r.id, r])), [alertRules])
+  // Colors for meter, quota, step and extension rules depend on this; it arrives after the rows
+  const deadlineContext = useGridStore(s => s.deadlineContext)
   const navigate = useNavigate()
   const addRecentProfile = useProfileStore(s => s.addRecentProfile)
   const saveScrollTop = useProfileStore(s => s.saveScrollTop)
@@ -619,6 +621,7 @@ export function DataGrid(): React.ReactElement {
       columns={columns}
       columnMap={columnMap}
       alertRuleMap={alertRuleMap}
+      deadlineContext={deadlineContext}
       cellFormats={cellFormats}
       parsedColumnConfigs={parsedColumnConfigs}
       hasAnyHighlightRules={hasAnyHighlightRules}
