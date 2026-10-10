@@ -38,7 +38,8 @@ export async function launchApp(options?: {
   }
 
   const electronApp = await _electron.launch({
-    args: [MAIN_ENTRY],
+    // Its own app folder too, so a copy of Pulse the person has open doesn't hold the one-at-a-time lock
+    args: [MAIN_ENTRY, `--user-data-dir=${join(dataDir, 'electron')}`],
     env: {
       ...process.env,
       PULSE_DATA_DIR: dataDir,
