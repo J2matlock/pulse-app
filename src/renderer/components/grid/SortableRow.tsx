@@ -12,6 +12,7 @@ import { CellDisplay } from './CellDisplay'
 import { AcuityBadge } from './AcuityBadge'
 import { alertShapeForThreshold, HANDLE_STYLE, HANDLE_WIDTH, PROFILE_BTN_WIDTH } from './gridConstants'
 import { useVocab } from '../../hooks/useVocab'
+import { SamplePill } from '../shared/SampleDataBanner'
 
 type CellCoord = { rowId: number; columnId: number }
 
@@ -53,6 +54,8 @@ export interface SortableRowProps {
   findReplaceActiveColId: number | null
   frozenLeftOffsets: Map<number, number>
   frozenColumnCount: number
+  /** A made-up sample entry (shows a "Sample" pill by its name) */
+  isSample?: boolean
 }
 
 export const SortableRow = React.memo(function SortableRow({
@@ -93,6 +96,7 @@ export const SortableRow = React.memo(function SortableRow({
   findReplaceActiveColId,
   frozenLeftOffsets,
   frozenColumnCount,
+  isSample = false,
 }: SortableRowProps): React.ReactElement {
   const { t } = useVocab()
   const rowId = propRowId
@@ -425,6 +429,7 @@ export const SortableRow = React.memo(function SortableRow({
               <>
                 {alertIcon}
                 <CellDisplay column={col} value={value} row={row.original} allColumns={columns} parsedConfig={parsedColumnConfigs.get(col.id)?.config} highlightText={searchQuery} isActiveMatch={findReplaceActiveRowId === rowId && findReplaceActiveColId === col.id} />
+                {isSample && col.is_name_column === 1 && <SamplePill />}
               </>
             )}
           </div>
@@ -463,6 +468,7 @@ export const SortableRow = React.memo(function SortableRow({
   if (prev.findReplaceActiveColId !== next.findReplaceActiveColId) return false
   if (prev.frozenLeftOffsets !== next.frozenLeftOffsets) return false
   if (prev.frozenColumnCount !== next.frozenColumnCount) return false
+  if (prev.isSample !== next.isSample) return false
 
   return true
 })

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { IPC } from '../../../shared/ipc-channels'
@@ -8,6 +8,51 @@ import { useGridStore } from '../../stores/gridStore'
 import { ConfirmDialog } from './ConfirmDialog'
 import { useVocab } from '../../hooks/useVocab'
 import { wordNow } from '../../utils/vocab'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
+
+/** The small "Sample" mark on made-up entries (list rows and the record page) */
+export function SamplePill(): React.ReactElement {
+  return (
+    <span className="ml-2 flex-shrink-0 inline-flex items-center px-2 rounded-full text-base leading-6 font-medium bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-100"
+      title="Made-up sample entry">
+      Sample
+    </span>
+  )
+}
+
+/**
+ * "Keep this as a real entry?" — asked once, the first time a sample entry is
+ * changed. Keep makes it real (no pill, never removed with the samples).
+ */
+export function SampleKeepPrompt(): React.ReactElement | null {
+  const { t } = useVocab()
+  const rowId = useGridStore(s => s.sampleKeepPrompt)
+  const answer = useGridStore(s => s.answerSampleRow)
+  const ref = useRef<HTMLDivElement>(null)
+  useFocusTrap(ref, rowId !== null)
+  useEffect(() => {
+    if (rowId === null) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); void answer(rowId, 'later') } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [rowId, answer])
+  if (rowId === null) return null
+  return (
+    <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/40 p-4">
+      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="sample-keep-title" aria-describedby="sample-keep-text"
+        className="w-full max-w-md rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
+        <h2 id="sample-keep-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100">Keep this as a real entry?</h2>
+        <p id="sample-keep-text" className="text-base text-slate-700 dark:text-slate-200">
+          You changed a made-up sample {t('record')}. If it's real now, we'll take off its Sample mark and keep it when the samples are removed.
+        </p>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button type="button" className="btn-secondary" onClick={() => void answer(rowId, 'sample')}>No, it's just a sample</button>
+          <button type="button" className="btn-primary" onClick={() => void answer(rowId, 'keep')}>Yes, keep it</button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 /** Remove sample data (keeping anything the user made their own) and point the grid at real data again. */
 export async function removeSampleData(): Promise<boolean> {
@@ -86,20 +131,23 @@ export function SampleDataBanner(): React.ReactElement | null {
     return pulseEvents.on('sample-data:changed', () => { void refresh() })
   }, [refresh])
 
-  if (!status || (status.gridId === null && status.sampleRows === 0)) return null
+  if (!status || (status.gridId === null && status.sampleRows === 0)) return <SampleKeepPrompt />
   const sampleList = status.gridId !== null
   return (
+    <>
+    <SampleKeepPrompt />
     <div role="status" className="flex items-center gap-3 px-4 py-2 border-b border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30 text-amber-900 dark:text-amber-100">
       <Sparkles className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
       <span className="text-base flex-1 min-w-0">
         {sampleList
           ? <>You're exploring a <strong>sample {t('list')}</strong> of made-up {t('record', { many: true })}. Your real {t('record', { many: true })} go in their own {t('list')}.</>
-          : <>Some {t('record', { many: true })} are <strong>made-up sample entries</strong> from an example. Add your own any time; remove the samples when you're done exploring.</>}
+          : <>{t('record', { many: true, cap: true })} marked <strong>Sample</strong> are made up. Add your own any time; remove the samples when you're done exploring.</>}
       </span>
       <button type="button" className="btn-compact-secondary" onClick={() => setConfirming(true)}>
         Remove sample data
       </button>
       <RemoveSampleDataDialog open={confirming} onClose={() => setConfirming(false)} />
     </div>
+    </>
   )
 }

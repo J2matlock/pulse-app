@@ -21,6 +21,13 @@ export function getSampleRowIds(): number[] {
   return (getDb().prepare('SELECT row_id FROM sample_rows ORDER BY row_id').all() as Array<{ row_id: number }>).map(r => r.row_id)
 }
 
+/** "Keep this as a real entry?": keep makes it real; otherwise remember the answer so it isn't asked again */
+export function answerSampleRow(rowId: number, answer: 'keep' | 'sample' | 'later'): void {
+  const db = getDb()
+  if (answer === 'keep') db.prepare('DELETE FROM sample_rows WHERE row_id = ?').run(rowId)
+  else db.prepare('UPDATE sample_rows SET asked = ? WHERE row_id = ?').run(answer === 'sample' ? 1 : 2, rowId)
+}
+
 /** Start tracking rows an example (or the sample list) just added */
 export function markSampleRows(rowIds: number[]): void {
   trackSampleRows(getDb(), rowIds)

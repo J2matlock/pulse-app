@@ -16,9 +16,9 @@ import { IPC } from '../../shared/ipc-channels'
 import { PRODUCT_NAME } from '../../shared/constants'
 import type { DateRuleAnswer, SetupProgress } from '../../shared/ipc-contract'
 import type { Column, RecordKind } from '../../shared/types'
-import { HUMAN_SERVICES_VOCAB, guessArticle } from '../../shared/vocab'
+import { guessArticle } from '../../shared/vocab'
 import { wordsFromListName } from '../../shared/listWords'
-import { featuresForExistingInstall } from '../../shared/features'
+
 import { safeInvoke } from '../utils/safeInvoke'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { ImportWizard } from '../components/grid/ImportWizard'
@@ -149,18 +149,6 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
     go('start')
   }
 
-  // "Just looking?": today's sample caseload with the human-services words it uses
-  async function trySample() {
-    setBusy(true)
-    try {
-      await updateWorkspace({ vocab: HUMAN_SERVICES_VOCAB, features: featuresForExistingInstall({ trackTime: false, trackMileage: false }) })
-      const res = await safeInvoke(IPC.SAMPLE_DATA_CREATE)
-      if (!res.ok) { setError("We couldn't add the sample data. Please try again."); return }
-      await finish()
-    } catch {
-      setError("We couldn't add the sample data. Please try again.")
-    } finally { setBusy(false) }
-  }
 
   // ── Spreadsheet path ──────────────────────────────────────────────────────
 
@@ -290,7 +278,8 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
                 description="Set up your first list step by step." onClick={() => go('blank')} />
               <p className="text-base text-slate-600 dark:text-slate-300 pt-2 flex flex-wrap items-center gap-2">
                 Just looking?
-                <button type="button" className="btn-compact-secondary inline-flex items-center gap-2" disabled={busy} onClick={() => void trySample()}>
+                {/* Any example can be a demo: the gallery opens with "Add sample data" ticked (Decision C (i)) */}
+                <button type="button" className="btn-compact-secondary inline-flex items-center gap-2" disabled={busy} onClick={() => setShowExamples(true)}>
                   <Sparkles className="w-4 h-4" aria-hidden="true" /> Try it with sample data
                 </button>
               </p>
@@ -409,7 +398,7 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
         </div>
       </div>
       {showExamples && (
-        <ApplyStarterDialog mode="setup" onClose={() => setShowExamples(false)} onApplied={() => { setShowExamples(false); void finish() }} />
+        <ApplyStarterDialog mode="setup" withSamples onClose={() => setShowExamples(false)} onApplied={() => { setShowExamples(false); void finish() }} />
       )}
     </div>
   )

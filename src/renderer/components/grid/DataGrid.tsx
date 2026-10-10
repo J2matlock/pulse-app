@@ -75,7 +75,7 @@ export function DataGrid(): React.ReactElement {
           rowTagsMap, showStarredOnly, cellFormats,
           acuityEnabled: acuityFlag, acuityLevels, groupByColumnId, isLoading,
           activeGridId, copiedFormatRules, customGroups, activeCustomGroupId,
-          lastAddedRowId, frozenColumnCount } = useGridStore(useShallow(s => ({
+          lastAddedRowId, frozenColumnCount, sampleRows } = useGridStore(useShallow(s => ({
     columns: s.columns, rows: s.rows, sortConfig: s.sortConfig,
     searchQuery: s.searchQuery, findReplaceQuery: s.findReplaceQuery,
     findReplaceActiveMatch: s.findReplaceActiveMatch,
@@ -89,6 +89,7 @@ export function DataGrid(): React.ReactElement {
     customGroups: s.customGroups, activeCustomGroupId: s.activeCustomGroupId,
     lastAddedRowId: s.lastAddedRowId,
     frozenColumnCount: s.frozenColumnCount,
+    sampleRows: s.sampleRows,
   })))
   // A list's own setting, shown only while the feature is switched on
   const priorityOn = useFeature('priority')
@@ -648,6 +649,7 @@ export function DataGrid(): React.ReactElement {
       findReplaceActiveColId={findReplaceActiveMatch?.colId ?? null}
       frozenLeftOffsets={frozenLeftOffsets}
       frozenColumnCount={frozenColumnCount}
+      isSample={sampleRows[row.original.row_id] !== undefined}
     />
   )
 

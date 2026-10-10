@@ -71,6 +71,8 @@ export interface GridGetFullResult extends GridGetResult {
   rowTagsMap: Record<number, string[]>
   savedViews: unknown[]
   customGroups: string | null
+  /** Sample entries in the list → 0 not asked yet, 1 "just a sample", 2 asked and dismissed */
+  sampleRows: Record<number, number>
 }
 
 /** Return shape for dashboard:get-all */
@@ -343,6 +345,7 @@ export interface IPCContract {
   'onboarding:date-rules': { args: [gridId: number, answers: DateRuleAnswer[]]; return: number }
   'sample-data:status':    { args: [];                               return: { gridId: number | null; sampleRows: number } }
   'sample-data:preview':   { args: [];                               return: { remove: number; keep: number; ownInSampleList: number } }
+  'sample-data:answer':    { args: [rowId: number, answer: 'keep' | 'sample' | 'later']; return: true }
   'sample-data:create':    { args: [];                               return: { gridId: number } }
   'sample-data:remove':    { args: [];                               return: { removed: number; kept: number; keptListName: string | null } }
 

@@ -56,12 +56,13 @@ describe('SetupView', () => {
     }
   })
 
-  it('sample data: human-services words and the sample caseload', async () => {
+  it('"Just looking?" opens the examples with sample data, instead of a social-work caseload (audit F-10)', async () => {
     toStart()
     fireEvent.click(await screen.findByRole('button', { name: /Try it with sample data/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'apply example' }))
     await screen.findByText('Your workspace is ready')
-    expect(mockInvoke).toHaveBeenCalledWith(IPC.WORKSPACE_UPDATE, expect.objectContaining({ vocab: HUMAN_SERVICES_VOCAB }))
-    expect(mockInvoke).toHaveBeenCalledWith(IPC.SAMPLE_DATA_CREATE)
+    expect(mockInvoke).not.toHaveBeenCalledWith(IPC.WORKSPACE_UPDATE, expect.objectContaining({ vocab: HUMAN_SERVICES_VOCAB }))
+    expect(mockInvoke).not.toHaveBeenCalledWith(IPC.SAMPLE_DATA_CREATE)
     expect(mockInvoke).toHaveBeenCalledWith(IPC.ONBOARDING_COMPLETE)
   })
 

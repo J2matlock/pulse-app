@@ -126,7 +126,12 @@ export function registerGridHandlers(): void {
     const customGroupsRow = db.prepare('SELECT value FROM settings WHERE key = ?').get(`custom_groups_${gridId}`) as { value: string } | undefined
     const customGroups = customGroupsRow?.value ?? null
 
-    return ok({ grid, columns, hiddenColumns, rows, acuityLevels, cellFormats, rowTagsMap, savedViews, customGroups })
+    // Made-up sample entries, so the list can mark them (audit 2.6)
+    const sampleRows: Record<number, number> = {}
+    for (const s of cachedStmt('grid_sample_rows', 'SELECT s.row_id, s.asked FROM sample_rows s JOIN rows r ON r.id = s.row_id WHERE r.grid_id = ?')
+      .all(gridId) as Array<{ row_id: number; asked: number }>) sampleRows[s.row_id] = s.asked
+
+    return ok({ grid, columns, hiddenColumns, rows, acuityLevels, cellFormats, rowTagsMap, savedViews, customGroups, sampleRows })
   })
 
   secureWrap(IPC.GRID_CREATE, 'ipc-grid', (_e, name: string) => {

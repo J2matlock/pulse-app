@@ -263,6 +263,7 @@ function setupStores(overrides: Record<string, unknown> = {}) {
     customGroups: [],
     activeCustomGroupId: null,
     sortedRowIds: [],
+    sampleRows: {},
     ...overrides,
   } as unknown as Parameters<typeof useGridStore.setState>[0])
   useSettingsStore.setState({ gridDensity: 'comfortable' })
@@ -338,6 +339,13 @@ describe('DataGrid', () => {
       fireEvent.click(screen.getByRole('button', { name: 'See an example with sample data' }))
       expect(opened).toEqual(['import', 'example:true'])
       offs.forEach(off => off())
+    })
+
+    it('marks made-up sample entries by their name (audit 2.6)', async () => {
+      setupStores({ sampleRows: { 2: 0 } })
+      renderDataGrid()
+      await flushEffects()
+      expect(screen.getAllByText('Sample')).toHaveLength(1)
     })
 
     it('says when filters hide every record, and clears them', async () => {

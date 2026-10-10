@@ -11,11 +11,13 @@ const invoke = vi.fn(async (channel: string, ..._args: unknown[]) => {
   if (channel === 'sample-data:status') return { ok: true, data: { gridId: null, sampleRows: 12 } }
   if (channel === 'sample-data:preview') return { ok: true, data: { remove: 10, keep: 2, ownInSampleList: 0 } }
   if (channel === 'sample-data:remove') return { ok: true, data: { removed: 10, kept: 2, keptListName: null } }
+  if (channel === 'sample-data:answer') return { ok: true, data: true }
   return { ok: false, error: 'not in tests' }
 })
 Object.defineProperty(window, 'api', { value: { invoke, on: () => () => {} }, writable: true, configurable: true })
 
-import { SampleDataBanner } from '../../../../src/renderer/components/shared/SampleDataBanner'
+import { SampleDataBanner, SampleKeepPrompt } from '../../../../src/renderer/components/shared/SampleDataBanner'
+import { useGridStore } from '../../../../src/renderer/stores/gridStore'
 import { DataSection } from '../../../../src/renderer/components/settings/DataSection'
 import { setWords } from '../../vocabFixture'
 
@@ -35,6 +37,24 @@ describe('remove sample data', () => {
     await tick()
     expect(invoke).toHaveBeenCalledWith('sample-data:remove')
     expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/We kept 2 you changed/), expect.anything())
+  })
+
+  it('asks once whether an edited sample entry is real now (audit 2.6)', async () => {
+    useGridStore.setState({ sampleRows: { 4: 0 }, sampleKeepPrompt: 4 })
+    render(<SampleKeepPrompt />)
+    expect(screen.getByRole('dialog', { name: 'Keep this as a real entry?' })).toBeTruthy()
+    expect(screen.getByText(/You changed a made-up sample client/)).toBeTruthy()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Yes, keep it' })) })
+    expect(invoke).toHaveBeenCalledWith('sample-data:answer', 4, 'keep')
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('Escape means "ask me later", and the prompt doesn\'t come back', async () => {
+    useGridStore.setState({ sampleRows: { 4: 0 }, sampleKeepPrompt: 4 })
+    render(<SampleKeepPrompt />)
+    await act(async () => { fireEvent.keyDown(window, { key: 'Escape' }) })
+    expect(invoke).toHaveBeenCalledWith('sample-data:answer', 4, 'later')
+    expect(useGridStore.getState().sampleRows).toEqual({ 4: 2 })
   })
 
   it('Settings → Data asks first, too', async () => {

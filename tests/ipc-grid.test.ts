@@ -190,6 +190,14 @@ describe('GRID_GET_FULL', () => {
     expect(result.data).toHaveProperty('rowTagsMap')
     expect(result.data).toHaveProperty('savedViews')
     expect(result.data).toHaveProperty('customGroups')
+    expect(result.data.sampleRows).toEqual({})
+  })
+
+  it('says which entries are made-up samples (audit 2.6)', async () => {
+    const { gridId, rowIds } = seedGrid(testDb.db, { columnCount: 2, rowCount: 3 })
+    testDb.db.prepare("INSERT INTO sample_rows (row_id, grid_id, fingerprint, asked) VALUES (?, ?, '', 0), (?, ?, '', 1)").run(rowIds[0], gridId, rowIds[2], gridId)
+    const result = await invoke(IPC.GRID_GET_FULL, gridId) as { ok: true; data: { sampleRows: Record<number, number> } }
+    expect(result.data.sampleRows).toEqual({ [rowIds[0]!]: 0, [rowIds[2]!]: 1 })
   })
 
   it('returns fail for invalid grid ID', async () => {

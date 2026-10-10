@@ -39,6 +39,13 @@ export interface CoreGridState {
 
   lastAddedRowId: number | null
 
+  /** Made-up sample entries in this list → whether "Keep this as a real entry?" was asked (0 = not yet) */
+  sampleRows: Record<number, number>
+  /** A sample entry just edited for the first time: ask once whether to keep it */
+  sampleKeepPrompt: number | null
+  /** The answer: keep it as real, it's just a sample, or decide later (don't ask again) */
+  answerSampleRow: (rowId: number, answer: 'keep' | 'sample' | 'later') => Promise<void>
+
   /** What deadline rules need besides each row (meter readings…), for grid coloring (W05) */
   deadlineContext: GridDeadlineContext
   /** Reload just the deadline context (after a step is checked off, a reading entered…) */

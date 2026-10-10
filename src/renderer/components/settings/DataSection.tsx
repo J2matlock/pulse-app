@@ -11,10 +11,13 @@ import { RemoveSampleDataDialog } from '../shared/SampleDataBanner'
 import { useVocab } from '../../hooks/useVocab'
 import { FilesStorageSection } from './FilesStorageSection'
 import { useFeature } from '../../hooks/useFeature'
+import { HUMAN_SERVICES_VOCAB } from '../../../shared/vocab'
 
 /** Add or remove the sample caseload (made-up clients for trying things out). */
 function SampleDataControls(): React.ReactElement {
   const { t } = useVocab(null)
+  // The sample list is written for social work; other workspaces try an example of their own kind instead
+  const humanServices = t('record') === HUMAN_SERVICES_VOCAB.record.one
   const [hasSample, setHasSample] = useState<boolean | null>(null)
   const [busy, setBusy] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -43,9 +46,13 @@ function SampleDataControls(): React.ReactElement {
         <button type="button" className="btn-secondary" disabled={busy} onClick={() => setConfirming(true)}>
           Remove sample data
         </button>
-      ) : (
+      ) : humanServices ? (
         <button type="button" className="btn-secondary" disabled={busy} onClick={() => void add()}>
           Add sample {t('list')}
+        </button>
+      ) : (
+        <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('starters:open', { sample: true })}>
+          See an example with sample data
         </button>
       )}
       <RemoveSampleDataDialog open={confirming} onClose={() => setConfirming(false)} />

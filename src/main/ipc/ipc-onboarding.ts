@@ -8,7 +8,7 @@ import { logger } from '../logger'
 import { secureWrap, ok, fail, enforceWritable, logNonFatal, withCorrelation, validId } from './ipc-utils'
 import { getDb } from '../database'
 import { VALID_COLUMN_TYPES } from '../../shared/types'
-import { createSampleCaseload, getSampleGridId, countSampleRows, planSampleRemoval, removeSampleData } from '../sample-data'
+import { createSampleCaseload, getSampleGridId, countSampleRows, planSampleRemoval, removeSampleData, answerSampleRow } from '../sample-data'
 import { z } from 'zod'
 import { applyDateRules, StarterError } from '../starters'
 import type { SetupProgress } from '../../shared/ipc-contract'
@@ -187,6 +187,15 @@ export function registerOnboardingHandlers(): void {
   })
 
   secureWrap(IPC.SAMPLE_DATA_STATUS, 'ipc-onboarding', () => ok({ gridId: getSampleGridId(), sampleRows: countSampleRows() }))
+
+  // "Keep this as a real entry?" after the first edit to a sample entry
+  secureWrap(IPC.SAMPLE_ROW_ANSWER, 'ipc-onboarding', (_e, rowId: unknown, answer: unknown) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(rowId)) return fail('Invalid ID')
+    if (answer !== 'keep' && answer !== 'sample' && answer !== 'later') return fail("We couldn't save that answer.")
+    answerSampleRow(rowId, answer)
+    return ok(true as const)
+  })
 
   secureWrap(IPC.SAMPLE_DATA_PREVIEW, 'ipc-onboarding', () => {
     const plan = planSampleRemoval()

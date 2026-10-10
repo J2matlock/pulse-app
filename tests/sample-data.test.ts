@@ -4,7 +4,7 @@ import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 let testDb: TestDb
 vi.mock('../src/main/database', () => ({ getDb: () => testDb.db }))
 
-import { createSampleCaseload, removeSampleData, planSampleRemoval, getSampleGridId, getSampleRowIds, countSampleRows, SAMPLE_GRID_NAME } from '../src/main/sample-data'
+import { createSampleCaseload, removeSampleData, planSampleRemoval, getSampleGridId, getSampleRowIds, countSampleRows, answerSampleRow, SAMPLE_GRID_NAME } from '../src/main/sample-data'
 
 const count = (sql: string, ...args: unknown[]) => (testDb.db.prepare(sql).get(...args) as { n: number }).n
 const live = (gridId: number) => count('SELECT COUNT(*) AS n FROM rows WHERE grid_id = ? AND deleted_at IS NULL', gridId)
@@ -105,6 +105,15 @@ describe('sample caseload', () => {
     testDb.db.prepare('INSERT INTO provider_client_links (provider_id, row_id, grid_id) VALUES (?, ?, ?)').run(provider, real.rowIds[0], real.gridId)
     removeSampleData()
     expect(count('SELECT COUNT(*) AS n FROM providers')).toBe(1)
+  })
+
+  it('"Keep this as a real entry?" answers', () => {
+    createSampleCaseload()
+    const [a, b] = getSampleRowIds() as [number, number]
+    answerSampleRow(a, 'keep')
+    answerSampleRow(b, 'later')
+    expect(getSampleRowIds()).not.toContain(a)
+    expect(count('SELECT asked AS n FROM sample_rows WHERE row_id = ?', b)).toBe(2)
   })
 
   it('a sample entry restored from the Trash is still a sample', () => {
