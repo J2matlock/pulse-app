@@ -1492,3 +1492,7 @@ Comprehensive audit identified 2 critical, 7 high, 10 medium, 15 low findings. A
 - Known limits: sample notes can't carry measure values (driving and volunteer hours live in number columns); a rule has one condition; no rule fires at hour milestones
 - Not released yet
 - Build state: npm test 3586 pass / 4 skip; typecheck 0; eslint 0 errors
+
+## 2026-10-10 — Pulse 2.1.0 released
+- Version 2.1.0 (twelve new starters, early-completion fix for fixed-date deadlines, "Running low" card), tagged v2.1.0 in pulse-app
+- `pulse-releases` v2.1.0: `PULSE.exe`, `BaringaSoftPulse-2.1.0.AppImage`, `SHA256SUMS.txt`, marked latest; `latest.json` announces 2.1.0
