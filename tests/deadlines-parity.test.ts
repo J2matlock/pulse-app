@@ -65,7 +65,7 @@ beforeAll(() => {
     const day = new Date(2025, (i * 5) % 12, 1 + ((i * 7) % 31))
     cols.forEach((c, j) => db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)').run(r, c, localDateString(new Date(day.getFullYear(), day.getMonth(), day.getDate() + j * 11))))
   }
-  // A column linked to a rule that no longer exists still shows its date as the deadline
+  // A column linked to a rule that no longer exists (filled in by the last test)
   db.prepare("INSERT INTO columns (grid_id, name, column_type, position, config) VALUES (?, 'Orphan', 'date', 9, '{\"alert_rule_id\":99999}')").run(g)
 })
 afterAll(() => cleanupTestDb(t))
@@ -151,5 +151,14 @@ describe('loader parity with the old SQL', () => {
     expect(items).toHaveLength(10_000)
     // Spec target 200 ms; measured about 120 ms. Some headroom for slower test machines
     expect(ms).toBeLessThan(400)
+  })
+
+  it('a column linked to a rule that no longer exists is not a deadline (D-05)', () => {
+    const db = t.db
+    const orphan = (db.prepare("SELECT id, grid_id FROM columns WHERE name = 'Orphan'").get() as { id: number; grid_id: number })
+    const rowIds = (db.prepare('SELECT id FROM rows WHERE grid_id = ? LIMIT 5').all(orphan.grid_id) as Array<{ id: number }>).map(r => r.id)
+    for (const r of rowIds) db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, '2024-01-01')").run(r, orphan.id)
+    expect(loadDeadlines().filter(d => d.column_id === orphan.id)).toEqual([])
+    expect(loadDeadlines({ includeDone: true, includePaused: true }).some(d => d.column_id === orphan.id)).toBe(false)
   })
 })

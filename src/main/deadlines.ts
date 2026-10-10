@@ -85,9 +85,9 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
     JOIN grids g  ON g.id = r.grid_id AND g.is_active = 1
     JOIN columns col ON col.id = c.column_id AND col.column_type IN ('date', 'deadline')
       AND json_extract(col.config, '$.alert_rule_id') IS NOT NULL
-    LEFT JOIN alert_rules ar ON ar.id = CAST(json_extract(col.config, '$.alert_rule_id') AS INTEGER)
+    JOIN alert_rules ar ON ar.id = CAST(json_extract(col.config, '$.alert_rule_id') AS INTEGER)
     WHERE c.value IS NOT NULL AND c.value != ''
-      AND (ar.id IS NULL OR (COALESCE(ar.kind, 'interval') = 'interval' AND ar.rule_condition IS NULL))
+      AND COALESCE(ar.kind, 'interval') = 'interval' AND ar.rule_condition IS NULL
       AND (? IS NULL OR r.grid_id = ?) ${rowFilter}
   `).all(q.gridId ?? null, q.gridId ?? null, ...(q.rowIds ?? [])) as Row[]
 

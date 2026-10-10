@@ -9,6 +9,7 @@ import { useAlertStore } from '../../stores/alertStore'
 import type { Column, ParsedAlertRule } from '../../../shared/types'
 import { takesDeadlineRule } from '../../../shared/types'
 import { AlertRuleEditor } from '../alerts/AlertRuleEditor'
+import { DeleteRuleConfirm } from '../alerts/DeleteRuleConfirm'
 import { DoneChecklistPicker } from './DoneChecklistPicker'
 import { NoteUpdatePicker } from './NoteUpdatePicker'
 import { CellConditionalFormatPanel } from './CellConditionalFormatPanel'
@@ -41,7 +42,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
     toggleColumnVisibility: s.toggleColumnVisibility,
     setFrozenColumnCount: s.setFrozenColumnCount,
   })))
-  const { rules: alertRules, deleteRule: deleteAlertRule } = useAlertStore()
+  const alertRules = useAlertStore(s => s.rules)
   const [isRenaming, setIsRenaming] = useState(false)
   const [renameName, setRenameName] = useState(column.name)
   const [showMenu, setShowMenu] = useState(false)
@@ -584,21 +585,8 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
           onCancel={() => setShowDeleteColConfirm(false)}
         />
 
-        {/* Delete alert rule confirmation */}
-        <ConfirmDialog
-          open={deleteAlertRuleTarget != null}
-          title={`Delete alert rule "${deleteAlertRuleTarget?.name}"?`}
-          message="This rule will be removed from all columns that use it."
-          confirmLabel="Delete Rule"
-          onConfirm={async () => {
-            if (deleteAlertRuleTarget) {
-              if (deleteAlertRuleTarget.id === currentAlertRuleId) await handleSetAlertRule(null)
-              await deleteAlertRule(deleteAlertRuleTarget.id)
-            }
-            setDeleteAlertRuleTarget(null)
-          }}
-          onCancel={() => setDeleteAlertRuleTarget(null)}
-        />
+        {/* Delete alert rule confirmation: unlinks it from every column that uses it */}
+        <DeleteRuleConfirm rule={deleteAlertRuleTarget} onDone={() => setDeleteAlertRuleTarget(null)} />
 
         {/* Column-level conditional format panel */}
         {showColFormat && (

@@ -10,6 +10,8 @@ const mockInvoke = vi.fn()
 ;(globalThis as Record<string, unknown>).window = { api: { invoke: mockInvoke } }
 
 import { useAlertStore } from '../../../src/renderer/stores/alertStore'
+import { useGridStore } from '../../../src/renderer/stores/gridStore'
+import { useUndoStore } from '../../../src/renderer/stores/undoStore'
 import type { AlertRule, AlertThreshold } from '../../../src/shared/types'
 
 function makeAlertRule(id: number, overrides: Partial<AlertRule> = {}): AlertRule {
@@ -140,7 +142,7 @@ describe('alertStore', () => {
   it('deleteRule removes rule from state', async () => {
     const parsed = { ...makeAlertRule(1), thresholds: [] as AlertThreshold[] }
     useAlertStore.setState({ rules: [parsed] })
-    mockInvoke.mockResolvedValue({ ok: true, data: true })
+    mockInvoke.mockResolvedValue({ ok: true, data: { rule: makeAlertRule(1), columnIds: [] } })
 
     let success = false
     await act(async () => {
@@ -149,6 +151,33 @@ describe('alertStore', () => {
 
     expect(success).toBe(true)
     expect(useAlertStore.getState().rules).toHaveLength(0)
+  })
+
+  it('deleteRule unlinks the open list\'s columns and can be undone (D-05)', async () => {
+    const rule = makeAlertRule(4)
+    useAlertStore.setState({ rules: [{ ...rule, thresholds: [] }] })
+    useGridStore.setState({
+      columns: [{ id: 10, config: JSON.stringify({ alert_rule_id: 4, log_changes: true }) } as never],
+      hiddenColumns: [{ id: 11, config: JSON.stringify({ alert_rule_id: 4 }) } as never],
+    })
+    useUndoStore.getState().clear()
+    mockInvoke.mockImplementation(async (channel: string) => {
+      if (channel === 'alert-rule:delete') return { ok: true, data: { rule, columnIds: [10, 11] } }
+      if (channel === 'alert-rule:restore') return { ok: true, data: 4 }
+      if (channel === 'alert-rule:get-all') return { ok: true, data: [rule] }
+      return { ok: true, data: [] }
+    })
+
+    await act(async () => { await useAlertStore.getState().deleteRule(4) })
+    const cfg = (c: { config: string }) => JSON.parse(c.config)
+    expect(cfg(useGridStore.getState().columns[0]!)).toEqual({ log_changes: true })
+    expect(cfg(useGridStore.getState().hiddenColumns[0]!)).toEqual({})
+    expect(useUndoStore.getState().undoStack.at(-1)?.description).toMatch(/Deleted deadline rule/)
+
+    await act(async () => { await useUndoStore.getState().undo() })
+    expect(mockInvoke).toHaveBeenCalledWith('alert-rule:restore', { rule, columnIds: [10, 11] })
+    expect(cfg(useGridStore.getState().columns[0]!).alert_rule_id).toBe(4)
+    expect(useAlertStore.getState().rules.map(r => r.id)).toEqual([4])
   })
 
   it('alert rules have required fields (columnId, thresholds, etc.)', () => {

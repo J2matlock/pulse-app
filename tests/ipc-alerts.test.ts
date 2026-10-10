@@ -292,4 +292,52 @@ describe('ALERT_RULE_DELETE', () => {
     const r = await invoke(IPC.ALERT_RULE_DELETE, 0) as any
     expect(r.ok).toBe(false)
   })
+
+  it('unlinks every column that uses the rule, in one step, and returns what Undo needs (D-05)', async () => {
+    const db = testDb.db
+    const cr = await invoke(IPC.ALERT_RULE_CREATE, { name: 'Every year', thresholds: validThresholds, interval_months: 12 }) as any
+    const g1 = Number(db.prepare("INSERT INTO grids (name, position) VALUES ('A', 1)").run().lastInsertRowid)
+    const g2 = Number(db.prepare("INSERT INTO grids (name, position) VALUES ('B', 2)").run().lastInsertRowid)
+    const col = (g: number, name: string, cfg: object) => Number(db.prepare("INSERT INTO columns (grid_id, name, column_type, position, config) VALUES (?, ?, 'date', 0, ?)").run(g, name, JSON.stringify(cfg)).lastInsertRowid)
+    const c1 = col(g1, 'Last visit', { alert_rule_id: cr.data, log_changes: true })
+    const c2 = col(g2, 'Lease renewal', { alert_rule_id: cr.data, alert_rule_name: 'Every year' })
+    const other = col(g2, 'Other', { alert_rule_id: 999 })
+
+    const usage = await invoke(IPC.ALERT_RULE_USAGE) as any
+    expect(usage.data.filter((u: any) => u.rule_id === cr.data).map((u: any) => [u.column_name, u.grid_name])).toEqual([['Last visit', 'A'], ['Lease renewal', 'B']])
+
+    const r = await invoke(IPC.ALERT_RULE_DELETE, cr.data) as any
+    expect(r.ok).toBe(true)
+    expect(r.data.rule.name).toBe('Every year')
+    expect(r.data.columnIds.sort()).toEqual([c1, c2].sort())
+    const cfg = (id: number) => JSON.parse((db.prepare('SELECT config FROM columns WHERE id = ?').get(id) as { config: string }).config)
+    expect(cfg(c1)).toEqual({ log_changes: true })
+    expect(cfg(c2)).toEqual({})
+    expect(cfg(other)).toEqual({ alert_rule_id: 999 })
+
+    // Undo brings the rule back with its id and relinks the columns
+    const back = await invoke(IPC.ALERT_RULE_RESTORE, r.data) as any
+    expect(back.ok).toBe(true)
+    expect(back.data).toBe(cr.data)
+    expect(cfg(c1).alert_rule_id).toBe(cr.data)
+    expect(cfg(c2).alert_rule_id).toBe(cr.data)
+    const rule = db.prepare('SELECT name, interval_months FROM alert_rules WHERE id = ?').get(cr.data)
+    expect(rule).toEqual({ name: 'Every year', interval_months: 12 })
+  })
+
+  it('restore leaves a column alone that was given another rule since', async () => {
+    const db = testDb.db
+    const cr = await invoke(IPC.ALERT_RULE_CREATE, { name: 'R', thresholds: validThresholds }) as any
+    const g = Number(db.prepare("INSERT INTO grids (name, position) VALUES ('A', 1)").run().lastInsertRowid)
+    const c = Number(db.prepare("INSERT INTO columns (grid_id, name, column_type, position, config) VALUES (?, 'D', 'date', 0, ?)").run(g, JSON.stringify({ alert_rule_id: cr.data })).lastInsertRowid)
+    const r = await invoke(IPC.ALERT_RULE_DELETE, cr.data) as any
+    db.prepare('UPDATE columns SET config = ? WHERE id = ?').run(JSON.stringify({ alert_rule_id: 77 }), c)
+    await invoke(IPC.ALERT_RULE_RESTORE, r.data)
+    expect(JSON.parse((db.prepare('SELECT config FROM columns WHERE id = ?').get(c) as { config: string }).config).alert_rule_id).toBe(77)
+  })
+
+  it('restore rejects a malformed snapshot', async () => {
+    expect((await invoke(IPC.ALERT_RULE_RESTORE, { rule: { id: 0, name: 'x', thresholds: '[]' }, columnIds: [] }) as any).ok).toBe(false)
+    expect((await invoke(IPC.ALERT_RULE_RESTORE, { rule: { id: 5, name: 'x', thresholds: '[]' }, columnIds: ['a'] }) as any).ok).toBe(false)
+  })
 })

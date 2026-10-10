@@ -3,8 +3,8 @@ import { Bell, Pencil, Trash2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useAlertStore } from '../../stores/alertStore'
 import type { ParsedAlertRule } from '../../../shared/types'
-import toast from 'react-hot-toast'
 import { AlertRuleEditor } from '../alerts/AlertRuleEditor'
+import { DeleteRuleConfirm } from '../alerts/DeleteRuleConfirm'
 import { IPC } from '../../../shared/ipc-channels'
 import { toRuleInterval, hasInterval, describeInterval } from '../../../shared/ruleInterval'
 import { ContactRequirementsSettings } from '../contact-req/ContactRequirementsSettings'
@@ -17,10 +17,11 @@ import { BackgroundSection } from './BackgroundSection'
 export function AlertsSection(): React.ReactElement {
   const showRequirements = useFeature('requirements')
   const showReminders = useFeature('notifications')
-  const { rules: alertRules, isLoaded: alertsLoaded, loadRules: loadAlertRules, deleteRule: deleteAlertRule } = useAlertStore(useShallow(s => ({
-    rules: s.rules, isLoaded: s.isLoaded, loadRules: s.loadRules, deleteRule: s.deleteRule,
+  const { rules: alertRules, isLoaded: alertsLoaded, loadRules: loadAlertRules } = useAlertStore(useShallow(s => ({
+    rules: s.rules, isLoaded: s.isLoaded, loadRules: s.loadRules,
   })))
   const [editingAlertRule, setEditingAlertRule] = useState<ParsedAlertRule | null | undefined>(undefined)
+  const [deleting, setDeleting] = useState<ParsedAlertRule | null>(null)
 
   useEffect(() => {
     if (!alertsLoaded) void loadAlertRules()
@@ -75,10 +76,7 @@ export function AlertsSection(): React.ReactElement {
               </button>
               {rule.is_system !== 1 && (
                 <button
-                  onClick={async () => {
-                    const ok = await deleteAlertRule(rule.id)
-                    if (ok) toast.success('Alert rule deleted.')
-                  }}
+                  onClick={() => setDeleting(rule)}
                   className="hit-44 p-2 rounded-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-500 dark:text-slate-400 hover:text-red-600"
                   title="Delete"
                   aria-label="Delete"
@@ -100,6 +98,8 @@ export function AlertsSection(): React.ReactElement {
         <Bell className="w-4 h-4" />
         Add Alert Rule
       </button>
+
+      <DeleteRuleConfirm rule={deleting} onDone={() => setDeleting(null)} />
 
       {editingAlertRule !== undefined && (
         <AlertRuleEditor

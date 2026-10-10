@@ -5,7 +5,7 @@
 import { IPC } from '../../shared/ipc-channels'
 import { secureWrap, logNonFatal, ok, fail, buildSafeSetClause, validId, enforceWritable } from './ipc-utils'
 import { getDb } from '../database'
-import type { AlertRule } from '../../shared/types'
+import type { AlertRule, AlertRuleUse, DeletedAlertRule } from '../../shared/types'
 import { RULE_KINDS, conditionSchema, parseRuleConfig, type RuleKind } from '../../shared/deadlineEngine'
 
 /** Calendar-month intervals: whole months up to 10 years (null/0 = not month-based). */
@@ -92,14 +92,70 @@ export function registerAlertHandlers(): void {
     return ok(true)
   })
 
+  secureWrap(IPC.ALERT_RULE_USAGE, 'ipc-alerts', () => ok(ruleUsage()))
+
   secureWrap(IPC.ALERT_RULE_DELETE, 'ipc-alerts', (_e, id: number) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(id)) return fail('Invalid ID')
-    // Don't delete system rules
-    const rule = getDb().prepare('SELECT is_system FROM alert_rules WHERE id = ?').get(id) as { is_system: number } | undefined
+    const db = getDb()
+    const rule = db.prepare('SELECT * FROM alert_rules WHERE id = ?').get(id) as AlertRule | undefined
     if (!rule) return fail('Alert rule not found')
     if (rule.is_system) return fail('Cannot delete a built-in alert rule')
-    getDb().prepare('DELETE FROM alert_rules WHERE id = ?').run(id)
-    return ok(true)
+    // Unlink every column in the same step: a column left pointing at a missing
+    // rule would stop being a deadline in the grid but not everywhere else
+    const columnIds = db.transaction(() => {
+      const cols = db.prepare(`SELECT id FROM columns WHERE CAST(json_extract(config, '$.alert_rule_id') AS INTEGER) = ?`).all(id) as Array<{ id: number }>
+      const unlink = db.prepare(`UPDATE columns SET config = json_remove(config, '$.alert_rule_id', '$.alert_rule_name') WHERE id = ?`)
+      for (const c of cols) unlink.run(c.id)
+      db.prepare('DELETE FROM alert_rules WHERE id = ?').run(id)
+      return cols.map(c => c.id)
+    })()
+    const snapshot: DeletedAlertRule = { rule, columnIds }
+    return ok(snapshot)
   })
+
+  // Undo of a delete: the rule comes back with its id, and the columns it was
+  // taken from use it again (unless they've been given another rule since)
+  secureWrap(IPC.ALERT_RULE_RESTORE, 'ipc-alerts', (_e, snapshot: DeletedAlertRule) => {
+    const guard = enforceWritable(); if (guard) return guard
+    const r = snapshot?.rule
+    if (!r || !validId(r.id) || typeof r.name !== 'string' || !r.name.trim() || r.name.length > 200) return fail('Invalid rule')
+    if (typeof r.thresholds !== 'string' || r.thresholds.length > 10_000) return fail('Thresholds too large')
+    if (!Array.isArray(snapshot.columnIds) || snapshot.columnIds.length > 10_000 || !snapshot.columnIds.every(validId)) return fail('Invalid columns')
+    if (!validMonths(r.interval_months)) return fail('Invalid interval_months')
+    const engine = validEngineFields({ kind: r.kind ?? 'interval', rule_config: r.rule_config ?? null, rule_condition: r.rule_condition ?? null })
+    if ('error' in engine) return fail(engine.error)
+    const f = engine.fields
+    const db = getDb()
+    const id = db.transaction(() => {
+      const taken = db.prepare('SELECT 1 FROM alert_rules WHERE id = ?').get(r.id)
+      const res = db.prepare(`
+        INSERT INTO alert_rules (id, name, description, is_system, thresholds, interval_days, interval_months, end_of_month,
+          kind, rule_config, rule_condition, business_days, created_at)
+        VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+      `).run(taken ? null : r.id, r.name, r.description ?? null, r.thresholds,
+        Number.isInteger(r.interval_days) ? r.interval_days : null, r.interval_months || null, r.end_of_month ? 1 : 0,
+        (f.kind as string | undefined) ?? 'interval', (f.rule_config as string | null | undefined) ?? null,
+        (f.rule_condition as string | null | undefined) ?? null, r.business_days ? 1 : 0,
+        typeof r.created_at === 'string' ? r.created_at : null)
+      const newId = Number(res.lastInsertRowid)
+      const relink = db.prepare(`UPDATE columns SET config = json_set(COALESCE(config, '{}'), '$.alert_rule_id', ?)
+        WHERE id = ? AND json_extract(COALESCE(config, '{}'), '$.alert_rule_id') IS NULL`)
+      for (const c of snapshot.columnIds) relink.run(newId, c)
+      return newId
+    })()
+    return ok(id)
+  })
+}
+
+/** Every column that uses a rule, in lists that are still in use. */
+export function ruleUsage(): AlertRuleUse[] {
+  const rows = getDb().prepare(`
+    SELECT CAST(json_extract(col.config, '$.alert_rule_id') AS INTEGER) AS rule_id, col.id AS column_id, col.name AS column_name,
+           g.id AS grid_id, g.name AS grid_name, col.is_visible
+    FROM columns col JOIN grids g ON g.id = col.grid_id AND g.is_active = 1
+    WHERE json_extract(col.config, '$.alert_rule_id') IS NOT NULL
+    ORDER BY g.position, g.id, col.position, col.id
+  `).all() as Array<Omit<AlertRuleUse, 'hidden'> & { is_visible: number }>
+  return rows.map(({ is_visible, ...u }) => ({ ...u, hidden: is_visible === 0 }))
 }

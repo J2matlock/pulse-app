@@ -10,7 +10,7 @@
 
 import type {
   Grid, Column, GridRow, AcuityLevel, CellFormat,
-  AlertRule, ChecklistItem, ChecklistTemplate, UrgentChecklistItem,
+  AlertRule, AlertRuleUse, DeletedAlertRule, ChecklistItem, ChecklistTemplate, UrgentChecklistItem,
   CaseLogEntry, ScrapNote,
   Snippet, CaseloadTask, CaseloadTaskHistory, DashboardStats,
   DeletedRow, AppInfo, SortConfig,
@@ -204,7 +204,9 @@ export interface IPCContract {
   'alert-rule:get-all': { args: [];                                             return: AlertRule[] }
   'alert-rule:create':  { args: [rule: Omit<AlertRule, 'id' | 'created_at'>];   return: number | bigint }
   'alert-rule:update':  { args: [id: number, updates: Partial<AlertRule>];      return: true }
-  'alert-rule:delete':  { args: [id: number];                                   return: true }
+  'alert-rule:delete':  { args: [id: number];                                   return: DeletedAlertRule }
+  'alert-rule:restore': { args: [snapshot: DeletedAlertRule];                   return: number }
+  'alert-rule:usage':   { args: [];                                             return: AlertRuleUse[] }
 
   // ── Checklists ──────────────────────────────────────────────────────────
   'checklist:get':            { args: [rowId: number];                                                   return: ChecklistItem[] }

@@ -59,6 +59,8 @@ export const IPC = {
   ALERT_RULE_CREATE: 'alert-rule:create',
   ALERT_RULE_UPDATE: 'alert-rule:update',
   ALERT_RULE_DELETE: 'alert-rule:delete',
+  ALERT_RULE_RESTORE: 'alert-rule:restore',
+  ALERT_RULE_USAGE: 'alert-rule:usage',
 
   // Checklists
   CHECKLIST_GET: 'checklist:get',

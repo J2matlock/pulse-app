@@ -229,6 +229,24 @@ export interface AlertRule {
   created_at: string
 }
 
+/** One column that uses a deadline rule (rules are shared; Decision F1) */
+export interface AlertRuleUse {
+  rule_id: number
+  column_id: number
+  column_name: string
+  grid_id: number
+  grid_name: string
+  /** The column is hidden in its list */
+  hidden: boolean
+}
+
+/** What a rule delete removed, so Undo can put it back */
+export interface DeletedAlertRule {
+  rule: AlertRule
+  /** Columns that used the rule and were cleared */
+  columnIds: number[]
+}
+
 // Alert rule with thresholds already parsed
 export interface ParsedAlertRule extends Omit<AlertRule, 'thresholds'> {
   thresholds: AlertThreshold[]
