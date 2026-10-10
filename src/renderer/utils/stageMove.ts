@@ -9,7 +9,7 @@ import type { StageMoveResult } from '../../shared/stages'
 import type { GridRow } from '../../shared/types'
 import { localDateString } from '../../shared/dates'
 import { safeInvoke, mustInvoke } from './safeInvoke'
-import { useUndoStore } from '../stores/undoStore'
+import { useUndoStore, type UndoItem } from '../stores/undoStore'
 import { useGridStore } from '../stores/gridStore'
 import { getClientName } from './clientName'
 
@@ -21,17 +21,23 @@ function patchRow(rowId: number, columnId: number, value: string | null, stamped
   }))
 }
 
-/** Returns whether the record moved. */
-export async function moveToStage(rowId: number, columnId: number, value: string | null): Promise<boolean> {
+/**
+ * Returns whether the record moved. With collect (a bulk move), the undo step
+ * is added there instead of pushed, and a failure throws instead of toasting.
+ */
+export async function moveToStage(rowId: number, columnId: number, value: string | null, opts?: { collect?: UndoItem[] }): Promise<boolean> {
   const res = await safeInvoke<StageMoveResult>(IPC.STAGE_MOVE, rowId, columnId, value)
-  if (!res.ok) { toast.error(res.error); return false }
+  if (!res.ok) {
+    if (opts?.collect) throw new Error(res.error)
+    toast.error(res.error); return false
+  }
   let result = res.data
   if (!result.changed) return false
   patchRow(rowId, columnId, value, result.stamped)
   const { rows, columns } = useGridStore.getState()
   const row = rows.find(r => r.row_id === rowId)
   const name = row ? getClientName(row, columns) : ''
-  useUndoStore.getState().pushWithToast({
+  const item: UndoItem = {
     id: crypto.randomUUID(),
     description: `Moved ${name ? `${name} ` : ''}to ${value ?? 'no stage'}`,
     timestamp: Date.now(),
@@ -50,6 +56,8 @@ export async function moveToStage(rowId: number, columnId: number, value: string
       const again = await mustInvoke<StageMoveResult>(IPC.STAGE_MOVE, rowId, columnId, value)
       if (again.ok && again.data.changed) { result = again.data; patchRow(rowId, columnId, value, result.stamped) }
     },
-  })
+  }
+  if (opts?.collect) opts.collect.push(item)
+  else useUndoStore.getState().pushWithToast(item)
   return true
 }

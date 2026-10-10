@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../stores/gridStore'
+import { useUndoStore, batchUndoItem, type UndoItem } from '../stores/undoStore'
+import toast from 'react-hot-toast'
 import { DataGrid } from '../components/grid/DataGrid'
 import { GridToolbar } from '../components/grid/GridToolbar'
 import { FilterBar } from '../components/grid/FilterBar'
@@ -61,10 +63,15 @@ export default function GridView(): React.ReactElement {
     await updateCell(rowId, colId, newVal)
   }, [updateCell])
 
+  // One undo step for the whole Replace All (G-26)
   const handleReplaceAll = useCallback(async (replacements: Array<{ rowId: number; colId: number; oldVal: string; newVal: string }>) => {
+    const steps: UndoItem[] = []
+    let failed = 0
     for (const r of replacements) {
-      await updateCell(r.rowId, r.colId, r.newVal)
+      if (!await updateCell(r.rowId, r.colId, r.newVal, { collect: steps })) failed++
     }
+    if (steps.length > 0) useUndoStore.getState().pushWithToast(batchUndoItem(`Replaced text in ${steps.length} ${steps.length === 1 ? 'cell' : 'cells'}`, steps))
+    if (failed > 0) toast.error(`${failed} ${failed === 1 ? 'cell' : 'cells'} couldn't be changed. The rest were.`)
   }, [updateCell])
 
   useEffect(() => {

@@ -16,6 +16,9 @@ import { createAcuitySlice } from './gridAcuitySlice'
 import { createCustomGroupSlice } from './gridCustomGroupSlice'
 import type { SavedView } from './gridFilterSlice'
 import type { GridState, UpdateCellOptions } from './gridTypes'
+
+/** Saves of the same cell closer together than this are one undo step (L-17) */
+const COALESCE_MS = 3000
 import type { GridDeadlineContext } from '../../shared/ipc-contract'
 import { stageConfigOf } from '../../shared/stages'
 
@@ -142,10 +145,8 @@ export const useGridStore = create<GridState>((set, get) => ({
   },
 
   loadGrid: async (gridId: number) => {
-    // Clear undo/redo when switching to a different grid — stale callbacks reference old row/column IDs
-    if (gridId !== get().activeGridId) {
-      useUndoStore.getState().clear()
-    }
+    // The undo stack survives switching lists (L-16): every step works by row and column id and
+    // reloads only the list it belongs to. It's cleared on lock, restore and sample removal.
     const version = get()._loadVersion + 1
     _coalesceIndex.clear()
     set({ isLoading: true, activeGridId: gridId, _loadVersion: version, sortedRowIds: [], selectedRowIds: new Set<number>() })
@@ -309,20 +310,7 @@ export const useGridStore = create<GridState>((set, get) => ({
         redo: async () => {
           const redoRowId = await invoke<number>(IPC.ROW_CREATE, gridId)
           ref.rowId = redoRowId
-          const redoFilled = await autoFilledValues(gridId, redoRowId, get().columns)
-          const redoRow: GridRow = {
-            ...redoFilled,
-            row_id: redoRowId,
-            position: get().rows.length,
-            is_active: 1,
-            is_starred: 0,
-    
-            acuity_level_id: null,
-            deleted_at: null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
-          set(s => ({ rows: [...s.rows, redoRow] }))
+          if (get().activeGridId === gridId) await get().loadGrid(gridId)
         },
       })
     } catch (err) {
@@ -508,14 +496,18 @@ export const useGridStore = create<GridState>((set, get) => ({
   updateCell: async (rowId: number, columnId: number, value: string | null, opts?: UpdateCellOptions) => {
     // fromUndo: an undo or redo is putting a value back; it pushes nothing and a failure throws (L-08, L-24)
     const fromUndo = !!opts?.fromUndo
+    // collect: a bulk action gathers each change's undo step and pushes one for all of them (G-26)
+    const collect = opts?.collect
     // Computed and auto-number values are Pulse's to fill in (paste, Delete, bulk edit all land here)
     const column = get().columns.find(c => c.id === columnId)
-    if (column && isReadOnlyColumnType(column.column_type)) return
+    if (column && isReadOnlyColumnType(column.column_type)) return false
     // The stage column (W06): moves run their on-enter actions as one undo step
     if (column && stageConfigOf(column) && !fromUndo) {
       const { moveToStage } = await import('../utils/stageMove')
-      await moveToStage(rowId, columnId, value === '' ? null : value)
-      return
+      try {
+        await moveToStage(rowId, columnId, value === '' ? null : value, collect ? { collect } : undefined)
+        return true
+      } catch { return false }
     }
     const key = `col_${columnId}` as `col_${number}`
     // Capture previous value for undo before optimistic update
@@ -543,65 +535,61 @@ export const useGridStore = create<GridState>((set, get) => ({
         const sideEffects: SideEffect[] = result.sysLogId != null
           ? [{ type: 'void_case_log', caseLogId: result.sysLogId }]
           : []
-        // During rapid edits to the same cell, keep the ORIGINAL prevValue
-        // so undo restores to the state before the first edit, not an intermediate one.
-        const undoState = useUndoStore.getState()
-        const undoDesc = `Changed ${colName} [${columnId}]`
-        const coalesceKey = `${rowId}:${columnId}`
-        const cachedItemId = _coalesceIndex.get(coalesceKey)
-
-        // Near-O(1) lookup: coalesce targets are usually near the top of the stack.
-        // Search from the end (most recent) for better average-case performance.
-        let existingItem: UndoItem | undefined
-        if (cachedItemId) {
-          const stack = undoState.undoStack
-          for (let i = stack.length - 1; i >= 0; i--) {
-            if (stack[i]!.id === cachedItemId) { existingItem = stack[i]; break }
-          }
-          if (!existingItem) _coalesceIndex.delete(coalesceKey) // stale entry
+        const item: UndoItem = {
+          id: crypto.randomUUID(),
+          description: `Changed ${colName}`,
+          timestamp: Date.now(),
+          category: sideEffects.length > 0 ? 'logged' : 'silent',
+          icon: 'pencil',
+          contextLabel,
+          contextId: rowId,
+          sideEffects: sideEffects.length > 0 ? sideEffects : undefined,
+          undo: async () => { await get().updateCell(rowId, columnId, prevValue, { fromUndo: true }) },
+          redo: async () => { await get().updateCell(rowId, columnId, value, { fromUndo: true }) },
         }
+        if (collect) {
+          collect.push(item)
+          return true
+        }
+        // Typing into the same cell in quick succession is one undo step, but only while it is the
+        // latest step and the last keystroke-save was moments ago (L-17); otherwise it's a new step
+        const undoState = useUndoStore.getState()
+        const coalesceKey = `${rowId}:${columnId}`
+        const top = undoState.undoStack[undoState.undoStack.length - 1]
+        const existingItem = top && _coalesceIndex.get(coalesceKey) === top.id && Date.now() - top.timestamp < COALESCE_MS ? top : undefined
 
         if (existingItem) {
           // Coalesce: keep original undo callback, update redo + sideEffects
-          const matchPredicate = (item: UndoItem) => item.id === existingItem!.id
-          useUndoStore.getState().coalesce(matchPredicate, {
+          useUndoStore.getState().coalesce(i => i.id === existingItem.id, {
             ...existingItem,
             timestamp: Date.now(),
-            sideEffects: sideEffects.length > 0 ? sideEffects : existingItem.sideEffects,
-            redo: async () => { await get().updateCell(rowId, columnId, value, { fromUndo: true }) },
+            sideEffects: sideEffects.length > 0 ? [...(existingItem.sideEffects ?? []), ...sideEffects] : existingItem.sideEffects,
+            category: sideEffects.length > 0 ? 'logged' : existingItem.category,
+            redo: item.redo,
           }, { evenWhileUndoing: true })
         } else {
-          const newItemId = crypto.randomUUID()
-          _coalesceIndex.set(coalesceKey, newItemId)
+          _coalesceIndex.set(coalesceKey, item.id)
           // Cap coalesce index size to prevent unbounded memory growth
           if (_coalesceIndex.size > 500) {
             const keys = [..._coalesceIndex.keys()]
             for (let i = 0; i < 100; i++) _coalesceIndex.delete(keys[i]!)
           }
-          useUndoStore.getState().push({
-            id: newItemId,
-            description: undoDesc,
-            timestamp: Date.now(),
-            category: sideEffects.length > 0 ? 'logged' : 'silent',
-            icon: 'pencil',
-            contextLabel,
-            contextId: rowId,
-            sideEffects: sideEffects.length > 0 ? sideEffects : undefined,
-            undo: async () => { await get().updateCell(rowId, columnId, prevValue, { fromUndo: true }) },
-            redo: async () => { await get().updateCell(rowId, columnId, value, { fromUndo: true }) },
-          }, { evenWhileUndoing: true })
+          useUndoStore.getState().push(item, { evenWhileUndoing: true })
         }
       }
+      return true
     } catch (err) {
       // Rollback optimistic update to previous value
       set(s => ({
         rows: s.rows.map(r => r.row_id === rowId ? { ...r, [key]: prevValue } : r),
         isSaving: false,
-        saveError: fromUndo ? null : "We couldn't save your changes — please try again."
+        saveError: fromUndo || collect ? null : "We couldn't save your changes — please try again."
       }))
       rlog.error('GridStore', 'Cell update failed', err)
       if (fromUndo) throw err
-      toast.error('Could not save — please try again')
+      // A bulk action counts its failures and says so once
+      if (!collect) toast.error('Could not save — please try again')
+      return false
     }
   },
 

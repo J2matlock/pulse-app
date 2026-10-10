@@ -206,6 +206,56 @@ describe('gridStore', () => {
       expect((useGridStore.getState().rows[0] as Record<string, unknown>)['col_5']).toBe('new')
     })
 
+    it('merges saves of one cell only while it is the latest step and moments apart (L-17)', async () => {
+      useUndoStore.setState({ undoStack: [], redoStack: [], toast: null, isUndoing: false })
+      const row = makeRow(1)
+      ;(row as Record<string, unknown>)['col_5'] = 'a'
+      useGridStore.setState({ activeGridId: 1, rows: [row], columns: [makeColumn(5, 'Phone'), makeColumn(6, 'Email')] })
+      mockInvoke.mockResolvedValue({ ok: true, data: { sysLogId: null } })
+      await useGridStore.getState().updateCell(1, 5, 'ab')
+      await useGridStore.getState().updateCell(1, 5, 'abc')
+      expect(useUndoStore.getState().undoStack).toHaveLength(1)
+      expect(useUndoStore.getState().undoStack[0]!.description).toBe('Changed Phone')
+      // Another cell in between: a later save of the first cell is its own step
+      await useGridStore.getState().updateCell(1, 6, 'x@y.z')
+      await useGridStore.getState().updateCell(1, 5, 'abcd')
+      expect(useUndoStore.getState().undoStack).toHaveLength(3)
+      // Long after: also its own step
+      const stack = useUndoStore.getState().undoStack
+      useUndoStore.setState({ undoStack: stack.map(i => ({ ...i, timestamp: i.timestamp - 60_000 })) })
+      await useGridStore.getState().updateCell(1, 5, 'abcde')
+      expect(useUndoStore.getState().undoStack).toHaveLength(4)
+    })
+
+    it('in a bulk action, collects the undo step and reports failure without a toast (G-26)', async () => {
+      useUndoStore.setState({ undoStack: [], redoStack: [], toast: null, isUndoing: false })
+      const toast = (await import('react-hot-toast')).default as unknown as { error: ReturnType<typeof vi.fn> }
+      toast.error.mockClear()
+      useGridStore.setState({ activeGridId: 1, rows: [makeRow(1), makeRow(2)], columns: [makeColumn(5, 'Notes')] })
+      const steps: import('../../../src/renderer/stores/undoStore').UndoItem[] = []
+      mockInvoke.mockResolvedValueOnce({ ok: true, data: { sysLogId: null } })
+      expect(await useGridStore.getState().updateCell(1, 5, 'x', { collect: steps })).toBe(true)
+      mockInvoke.mockResolvedValueOnce({ ok: false, error: 'nope' })
+      expect(await useGridStore.getState().updateCell(2, 5, 'x', { collect: steps })).toBe(false)
+      expect(steps).toHaveLength(1)
+      expect(useUndoStore.getState().undoStack).toHaveLength(0)
+      expect(toast.error).not.toHaveBeenCalled()
+    })
+
+    it('keeps the undo history when another list opens (L-16)', async () => {
+      useUndoStore.setState({ undoStack: [], redoStack: [], toast: null, isUndoing: false })
+      const row = makeRow(1)
+      useGridStore.setState({ activeGridId: 1, rows: [row], columns: [makeColumn(5, 'Notes')] })
+      mockInvoke.mockResolvedValue({ ok: true, data: { sysLogId: null } })
+      await useGridStore.getState().updateCell(1, 5, 'x')
+      mockInvoke.mockResolvedValue({
+        ok: true,
+        data: { grid: { id: 2, name: 'Other', sort_config: '[]' }, columns: [], hiddenColumns: [], rows: [], acuityLevels: [], cellFormats: [], rowTagsMap: {}, savedViews: [], customGroups: '[]' },
+      })
+      await useGridStore.getState().loadGrid(2)
+      expect(useUndoStore.getState().undoStack).toHaveLength(1)
+    })
+
     it('an edit typed while an undo runs gets its own undo entry (L-24)', async () => {
       useUndoStore.setState({ undoStack: [], redoStack: [], toast: null, isUndoing: true })
       const row = makeRow(1)

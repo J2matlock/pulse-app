@@ -29,7 +29,7 @@ export interface GridContextMenuProps {
   onMoveToGrid: (rowId: number) => void
   onCellFormatTarget: (target: { rowId: number; colId: number }) => void
   onCellHistoryTarget: (target: { rowId: number; colId: number; colName: string; x: number; y: number }) => void
-  updateCell: (rowId: number, colId: number, value: string | null) => Promise<void>
+  updateCell: (rowId: number, colId: number, value: string | null) => Promise<unknown>
   setCellFormat: (rowId: number, colId: number, rules: CellFormatRule[]) => Promise<void>
   batchSetCellFormat: (entries: Array<{ rowId: number; columnId: number; rules: CellFormatRule[] }>) => Promise<void>
   setCopiedFormatRules: (rules: CellFormatRule[] | null) => void

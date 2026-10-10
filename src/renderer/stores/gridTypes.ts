@@ -10,6 +10,7 @@ import type { GridDeadlineContext } from '../../shared/ipc-contract'
  */
 
 import type { Grid, Column, GridRow } from '../../shared/types'
+import type { UndoItem } from './undoStore'
 import type { FilterSliceState } from './gridFilterSlice'
 import type { ColumnSliceState } from './gridColumnSlice'
 import type { FormatSliceState } from './gridFormatSlice'
@@ -19,6 +20,8 @@ import type { CustomGroupSliceState } from './gridCustomGroupSlice'
 export interface UpdateCellOptions {
   /** An undo or redo is putting a value back: push no undo entry, and throw on failure */
   fromUndo?: boolean
+  /** A bulk action: add this change's undo step here instead of pushing it, and don't toast a failure */
+  collect?: UndoItem[]
 }
 
 export interface CoreGridState {
@@ -68,7 +71,8 @@ export interface CoreGridState {
   updateRow: (rowId: number, updates: Partial<{ is_starred: 0 | 1 }>) => Promise<void>
   reorderRows: (orderedIds: number[]) => Promise<void>
 
-  updateCell: (rowId: number, columnId: number, value: string | null, opts?: UpdateCellOptions) => Promise<void>
+  /** Resolves false when the change couldn't be saved (or the column can't be typed into) */
+  updateCell: (rowId: number, columnId: number, value: string | null, opts?: UpdateCellOptions) => Promise<boolean>
 
   _loadVersion: number
 }

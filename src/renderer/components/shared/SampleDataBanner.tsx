@@ -5,6 +5,7 @@ import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { pulseEvents } from '../../events'
 import { useGridStore } from '../../stores/gridStore'
+import { useUndoStore } from '../../stores/undoStore'
 import { ConfirmDialog } from './ConfirmDialog'
 import { useVocab } from '../../hooks/useVocab'
 import { wordNow } from '../../utils/vocab'
@@ -15,6 +16,8 @@ export async function removeSampleData(): Promise<boolean> {
   const sampleGridId = status.ok ? status.data.gridId : null
   const res = await safeInvoke(IPC.SAMPLE_DATA_REMOVE)
   if (!res.ok) { toast.error("We couldn't remove the sample data. Please try again."); return false }
+  // Undo steps may point at sample entries that are gone now (L-16)
+  useUndoStore.getState().clear()
   const activeGridId = useGridStore.getState().activeGridId
   if (sampleGridId !== null && activeGridId === sampleGridId) {
     useGridStore.setState({ activeGridId: null, rows: [], columns: [] })

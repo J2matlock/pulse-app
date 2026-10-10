@@ -41,7 +41,7 @@ export interface SortableRowProps {
   editingCellRef: React.RefObject<CellCoord | null>
   setEditingCell: (c: CellCoord | null) => void
   setFocusedCell: (c: CellCoord | null) => void
-  updateCell: (rowId: number, colId: number, value: string | null) => Promise<void>
+  updateCell: (rowId: number, colId: number, value: string | null) => Promise<unknown>
   onCellKeyDown: (e: React.KeyboardEvent, rowId: number, colId: number) => void
   onCellContextMenu: (e: React.MouseEvent, rowId: number, colId: number) => void
   onNavigateToProfile: (rowId: number) => void

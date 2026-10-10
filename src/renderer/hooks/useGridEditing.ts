@@ -7,7 +7,7 @@ import { useState, useCallback, useRef, useMemo } from 'react'
 
 export type CellCoord = { rowId: number; columnId: number }
 
-export type CellUpdateFn = (rowId: number, columnId: number, value: string) => void | Promise<void>
+export type CellUpdateFn = (rowId: number, columnId: number, value: string) => unknown
 
 interface UseGridEditingOptions {
   /** When true, all edit attempts are silently blocked. */

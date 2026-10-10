@@ -103,6 +103,34 @@ export function rethrowIfUndoing(err: unknown): void {
   if (useUndoStore.getState().isUndoing) throw err
 }
 
+/**
+ * One undo step for a bulk action made of many small ones (Bulk Edit,
+ * Replace All, bulk stage moves: G-26). Undo runs them last-first; a step
+ * that fails is counted and reported once at the end.
+ */
+export function batchUndoItem(description: string, items: UndoItem[], extra?: Partial<Pick<UndoItem, 'icon' | 'contextLabel' | 'contextId'>>): UndoItem {
+  const sideEffects = items.flatMap(i => i.sideEffects ?? [])
+  const runAll = async (steps: UndoItem[], dir: 'undo' | 'redo') => {
+    let failed = 0
+    for (const step of steps) {
+      try { await step[dir]() } catch (err) { failed++; rlog.warn('UndoStore', `Batch ${dir} step failed`, err) }
+    }
+    if (failed) throw new Error(`${failed} of ${steps.length} couldn't be ${dir === 'undo' ? 'changed back' : 'changed again'}.`)
+  }
+  return {
+    id: crypto.randomUUID(),
+    description,
+    timestamp: Date.now(),
+    category: items.some(i => i.category === 'logged') ? 'logged' : 'silent',
+    icon: extra?.icon ?? 'pencil',
+    contextLabel: extra?.contextLabel,
+    contextId: extra?.contextId,
+    sideEffects: sideEffects.length ? sideEffects : undefined,
+    undo: () => runAll([...items].reverse(), 'undo'),
+    redo: () => runAll(items, 'redo'),
+  }
+}
+
 // Module-scope mutex — set synchronously before any await in undo/redo.
 // Using a plain boolean outside Zustand ensures two rapid Ctrl+Z presses
 // cannot both pass the guard before the first setState propagates.

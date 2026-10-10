@@ -31,6 +31,11 @@ export interface ColumnSliceState {
   cancelColumnTypeChange: () => void
 }
 
+/** Undo steps act on their own list; only redraw it if it's the one on screen */
+async function reloadIfActive(get: () => GridState, gridId: number): Promise<void> {
+  if (get().activeGridId === gridId) await get().loadGrid(gridId)
+}
+
 type Set = (partial: Partial<GridState> | ((s: GridState) => Partial<GridState>)) => void
 type Get = () => GridState
 
@@ -91,17 +96,14 @@ export const createColumnSlice = (set: Set, get: Get) => ({
         icon: 'type',
         undo: async () => {
           await invoke(IPC.COLUMN_DELETE, activeColId)
-          const gId = get().activeGridId
-          if (gId) await get().loadGrid(gId)
+          await reloadIfActive(get, gridId)
         },
         redo: async () => {
-          const gId = get().activeGridId
-          if (!gId) return
-          const newColId = await invoke<number>(IPC.COLUMN_CREATE, gId, name, columnType)
+          const newColId = await invoke<number>(IPC.COLUMN_CREATE, gridId, name, columnType)
           if (config) await invoke(IPC.COLUMN_UPDATE, newColId, { config })
           if (numberExisting) await invoke(IPC.COLUMN_NUMBER_EXISTING, newColId)
           activeColId = newColId
-          await get().loadGrid(gId)
+          await reloadIfActive(get, gridId)
         },
       })
     } catch (err) {
@@ -267,22 +269,18 @@ export const createColumnSlice = (set: Set, get: Get) => ({
         icon: 'ArrowUpDown',
         contextLabel: 'Reorder columns',
         undo: async () => {
-          const gId = get().activeGridId
-          if (!gId) return
           try {
-            await invoke(IPC.COLUMN_REORDER, gId, prevOrderedIds)
-            await get().loadGrid(gId)
+            await invoke(IPC.COLUMN_REORDER, gridId, prevOrderedIds)
+            await reloadIfActive(get, gridId)
           } catch (err) {
             rethrowIfUndoing(err)
             rlog.error('GridColumnSlice', 'Failed to undo column reorder', err)
           }
         },
         redo: async () => {
-          const gId = get().activeGridId
-          if (!gId) return
           try {
-            await invoke(IPC.COLUMN_REORDER, gId, orderedIds)
-            await get().loadGrid(gId)
+            await invoke(IPC.COLUMN_REORDER, gridId, orderedIds)
+            await reloadIfActive(get, gridId)
           } catch (err) {
             rethrowIfUndoing(err)
             rlog.error('GridColumnSlice', 'Failed to redo column reorder', err)

@@ -16,7 +16,7 @@ interface Props {
   columns: Column[]
   alertRules: ParsedAlertRule[]
   gridId: number
-  onCellSave: (rowId: number, columnId: number, value: string | null) => Promise<void>
+  onCellSave: (rowId: number, columnId: number, value: string | null) => Promise<unknown>
 }
 
 function getColumnConfig(col: Column) {

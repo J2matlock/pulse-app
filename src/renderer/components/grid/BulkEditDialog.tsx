@@ -6,7 +6,7 @@ import { useFocusTrap } from '../../hooks/useFocusTrap'
 import type { Column, GridRow } from '../../../shared/types'
 import { READ_ONLY_COLUMN_TYPES } from '../../../shared/types'
 import { useGridStore } from '../../stores/gridStore'
-import { useUndoStore } from '../../stores/undoStore'
+import { useUndoStore, batchUndoItem, type UndoItem } from '../../stores/undoStore'
 import { getClientName } from '../../utils/clientName'
 import { useVocab } from '../../hooks/useVocab'
 
@@ -87,76 +87,38 @@ export function BulkEditDialog({
     setProgress({ done: 0, total })
     setError(null)
 
-    // Capture previous values for undo
-    const prevValues = new Map<number, string | null>()
-    const key = `col_${selectedColumnId}` as `col_${number}`
-    for (const rowId of ids) {
-      const row = rowById.get(rowId)
-      prevValues.set(rowId, row ? (row[key] as string | null) ?? null : null)
-    }
-
     const updateCell = useGridStore.getState().updateCell
-    const failures: number[] = []
+    // Each change's undo step lands here, so the whole edit is one undo step (G-26)
+    const steps: UndoItem[] = []
+    let failures = 0
     const CHUNK_SIZE = 50
 
     // Process in chunks to avoid overwhelming IPC
     for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
       const chunk = ids.slice(i, i + CHUNK_SIZE)
       const results = await Promise.allSettled(
-        chunk.map(rowId => updateCell(rowId, selectedColumnId, value || null))
+        chunk.map(rowId => updateCell(rowId, selectedColumnId, value || null, { collect: steps }))
       )
-      results.forEach((r, idx) => {
-        if (r.status === 'rejected') failures.push(chunk[idx]!)
-      })
+      failures += results.filter(r => r.status === 'rejected' || r.value === false).length
       setProgress({ done: Math.min(i + CHUNK_SIZE, total), total })
     }
 
     setApplying(false)
 
-    if (failures.length > 0) {
-      setError(`Couldn't update ${failures.length} of ${total} ${t('record', { many: true })}. The rest were updated.`)
-      return
+    // One undo step for everything that did change, even if some didn't
+    if (steps.length > 0) {
+      const names = ids.slice(0, 3).map(id => {
+        const r = rowById.get(id)
+        return r ? getClientName(r, columns, t('record', { cap: true })) : t('record', { cap: true })
+      })
+      const desc = `Bulk edited "${selectedColumn.name}" for ${total} ${t('record', { count: total })} (${names.join(', ')}${total > 3 ? '...' : ''})`
+      useUndoStore.getState().pushWithToast(batchUndoItem(desc, steps))
     }
 
-    // Push a single composite undo item
-    const colName = selectedColumn.name
-    const names = ids.slice(0, 3).map(id => {
-      const r = rowById.get(id)
-      return r ? getClientName(r, columns, t('record', { cap: true })) : t('record', { cap: true })
-    })
-    const desc = `Bulk edited "${colName}" for ${total} ${t('record', { count: total })} (${names.join(', ')}${total > 3 ? '...' : ''})`
-
-    useUndoStore.getState().pushWithToast({
-      id: crypto.randomUUID(),
-      description: desc,
-      timestamp: Date.now(),
-      category: 'logged',
-      icon: 'pencil',
-      undo: async () => {
-        const uc = useGridStore.getState().updateCell
-        let failed = 0
-        for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
-          const chunk = ids.slice(i, i + CHUNK_SIZE)
-          const res = await Promise.allSettled(
-            chunk.map(rowId => uc(rowId, selectedColumnId, prevValues.get(rowId) ?? null, { fromUndo: true }))
-          )
-          failed += res.filter(r => r.status === 'rejected').length
-        }
-        if (failed) throw new Error(`${failed} of ${total} couldn't be changed back.`)
-      },
-      redo: async () => {
-        const uc = useGridStore.getState().updateCell
-        let failed = 0
-        for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
-          const chunk = ids.slice(i, i + CHUNK_SIZE)
-          const res = await Promise.allSettled(
-            chunk.map(rowId => uc(rowId, selectedColumnId, value || null, { fromUndo: true }))
-          )
-          failed += res.filter(r => r.status === 'rejected').length
-        }
-        if (failed) throw new Error(`${failed} of ${total} couldn't be changed again.`)
-      },
-    })
+    if (failures > 0) {
+      setError(`Couldn't update ${failures} of ${total} ${t('record', { many: true })}. The rest were updated.`)
+      return
+    }
 
     onClose()
   }

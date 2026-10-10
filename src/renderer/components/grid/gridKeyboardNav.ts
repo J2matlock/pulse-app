@@ -14,7 +14,7 @@ export interface KeyboardNavDeps {
   selectedRowIdsRef: React.RefObject<Set<number>>
   columns: Column[]
   columnMap: Map<number, Column>
-  updateCell: (rowId: number, colId: number, value: string | null) => Promise<void>
+  updateCell: (rowId: number, colId: number, value: string | null) => Promise<unknown>
   navigateCell: (
     rowId: number,
     columnId: number,
