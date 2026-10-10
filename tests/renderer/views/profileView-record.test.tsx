@@ -144,3 +144,14 @@ describe('Escape on the record page (1.1)', () => {
     expect(screen.queryByText('LIST PAGE')).toBeNull()
   })
 })
+
+describe('Prev/Next starts each record clean (1.2)', () => {
+  it('does not carry a half-written note to the next record', async () => {
+    renderAt('/profile/1')
+    await flush()
+    fireEvent.change(screen.getByLabelText('note for 1'), { target: { value: 'About Maria' } })
+    fireEvent.click(screen.getByRole('button', { name: /Next/ }))
+    await flush()
+    expect((screen.getByLabelText('note for 2') as HTMLTextAreaElement).value).toBe('')
+  })
+})

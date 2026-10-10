@@ -434,8 +434,10 @@ export default function ProfileView(): React.ReactElement {
         </span>
       </div>
 
-      {/* Profile content area — two independent scroll regions */}
-      <div className="flex-1 flex overflow-hidden">
+      {/* Profile content area — two independent scroll regions. Keyed by record so
+          Prev/Next starts clean: no draft, edit or scroll position carries over to
+          the next person, and pending scratch-pad saves flush to the right row. */}
+      <div key={rowId} className="flex-1 flex overflow-hidden">
 
         {/* Left sidebar — Checklist + ScratchPad, scrolls independently */}
         <div className="w-1/4 min-w-[260px] flex-shrink-0 flex flex-col border-r border-slate-200 dark:border-slate-700 overflow-y-auto no-scrollbar bg-slate-50 dark:bg-slate-800/50">

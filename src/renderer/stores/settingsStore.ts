@@ -3,6 +3,7 @@ import type { Theme } from '../../shared/types'
 import { IPC } from '../../shared/ipc-channels'
 import { useUndoStore } from './undoStore'
 import { rlog } from '../utils/rendererLogger'
+import { pulseEvents } from '../events'
 import { storeInvoke } from '../utils/safeInvoke'
 import { normalizeAutoLockMinutes } from '../../shared/constants'
 
@@ -106,6 +107,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   },
 
   lock: async () => {
+    // Pending saves (scratch pad) go out before the lock closes the database
+    pulseEvents.emit('app:locking')
     try {
       await storeInvoke(IPC.AUTH_LOCK)
     } catch (err) {

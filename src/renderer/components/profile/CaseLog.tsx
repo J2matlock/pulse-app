@@ -23,6 +23,7 @@ import { useFeature } from '../../hooks/useFeature'
 import { FeatureOffer } from '../shared/FeatureOffer'
 import { NoteFiles } from './NoteFiles'
 import type { Attachment } from '../../../shared/attachments'
+import { getNoteDraft, setNoteDraft } from '../../utils/noteDrafts'
 
 /** Show dates the main process changed (notes that update deadline columns) without a reload. */
 function applyDatesLocally(rowId: number, values: Array<[columnId: number, value: string | null]>): void {
@@ -101,19 +102,24 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
     setNewType(key)
     void safeInvoke(IPC.SETTINGS_UPDATE, 'note_type_last', key)
   }
-  const [newContent, setNewContent] = useState('')
-  const [newFollowUp, setNewFollowUp] = useState('')
-  const [showFollowUp, setShowFollowUp] = useState(false)
+  // An unsaved draft for this record comes back when the record opens again (1.2)
+  const [draft0] = useState(() => getNoteDraft(rowId))
+  const [newContent, setNewContent] = useState(draft0?.content ?? '')
+  const [newFollowUp, setNewFollowUp] = useState(draft0?.followUp ?? '')
+  const [showFollowUp, setShowFollowUp] = useState(!!draft0?.followUp)
   const [adding, setAdding] = useState(false)
   const tracking = useNoteTracking()
-  const [newMinutes, setNewMinutes] = useState('')
-  const [newMiles, setNewMiles] = useState('')
+  const [newMinutes, setNewMinutes] = useState(draft0?.minutes ?? '')
+  const [newMiles, setNewMiles] = useState(draft0?.miles ?? '')
   const measures = useMeasures()
-  const [newExtra, setNewExtra] = useState<Record<string, string>>({})
+  const [newExtra, setNewExtra] = useState<Record<string, string>>(draft0?.extra ?? {})
   // Structured formats (DAP, SOAP…): one box per section, saved as one note
   const [customFormats, setCustomFormats] = useState<NoteFormat[]>([])
   const [formatId, setFormatId] = useState('')
-  const [fieldValues, setFieldValues] = useState<string[]>([])
+  const [fieldValues, setFieldValues] = useState<string[]>(draft0?.fieldValues ?? [])
+  useEffect(() => {
+    setNoteDraft(rowId, { content: newContent, fieldValues, followUp: newFollowUp, minutes: newMinutes, miles: newMiles, extra: newExtra })
+  }, [rowId, newContent, fieldValues, newFollowUp, newMinutes, newMiles, newExtra])
   const [editingFormats, setEditingFormats] = useState(false)
   const allFormats = [...BUILTIN_NOTE_FORMATS, ...customFormats]
   const format = allFormats.find(f => f.id === formatId)

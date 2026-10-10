@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import toast from 'react-hot-toast'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import DOMPurify from 'dompurify'
@@ -6,7 +7,8 @@ import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, StickyNote
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { expandVariables, detectTrigger, matchSnippets } from '../../utils/snippetExpander'
-import type { Snippet } from '../../../shared/types'
+import type { IPCResult, Snippet } from '../../../shared/types'
+import { pulseEvents } from '../../events'
 import { rlog } from '../../utils/rendererLogger'
 import { useFeature } from '../../hooks/useFeature'
 
@@ -28,6 +30,12 @@ interface Props {
 }
 
 const NO_SNIPPETS: Snippet[] = []
+
+function persistPad(globalScope: string | undefined, rowId: number | undefined, html: string): Promise<IPCResult<unknown>> {
+  if (globalScope) return safeInvoke(IPC.GLOBAL_NOTE_UPDATE, globalScope, html)
+  if (rowId != null) return safeInvoke(IPC.SCRAP_NOTE_UPDATE, rowId, html)
+  return Promise.resolve({ ok: true, data: null })
+}
 
 export function ScratchPad({ rowId, clientName, globalScope, snippets: externalSnippets }: Props) {
   const snippetsOn = useFeature('snippets')
@@ -112,21 +120,17 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
       dirtyRef.current = true
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
       saveTimerRef.current = setTimeout(async () => {
+        saveTimerRef.current = null
         setSaving(true)
-        try {
-          const cleanHtml = sanitizeHtml(editor.getHTML())
-          if (globalScopeRef.current) {
-            await safeInvoke(IPC.GLOBAL_NOTE_UPDATE, globalScopeRef.current, cleanHtml)
-          } else if (rowIdRef.current != null) {
-            await safeInvoke(IPC.SCRAP_NOTE_UPDATE, rowIdRef.current, cleanHtml)
-          }
-          dirtyRef.current = false
-          setSaveError(false)
-        } catch (err) {
-          rlog.warn('ScratchPad', 'Save failed', err)
+        // Anything typed while this save is on its way marks the pad dirty again
+        dirtyRef.current = false
+        const res = await persistPad(globalScopeRef.current, rowIdRef.current, sanitizeHtml(editor.getHTML()))
+        setSaving(false)
+        if (res.ok) setSaveError(false)
+        else {
+          rlog.warn('ScratchPad', 'Save failed', res.error)
+          dirtyRef.current = true
           setSaveError(true)
-        } finally {
-          setSaving(false)
         }
       }, 2000)
     },
@@ -156,20 +160,19 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
   // Keep editorRef in sync
   useEffect(() => { editorRef.current = editor }, [editor])
 
-  // Flush pending save on unmount instead of discarding it
-  useEffect(() => {
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-      if (dirtyRef.current && editorRef.current) {
-        const html = sanitizeHtml(editorRef.current.getHTML())
-        if (globalScopeRef.current) {
-          void safeInvoke(IPC.GLOBAL_NOTE_UPDATE, globalScopeRef.current, html)
-        } else if (rowIdRef.current != null) {
-          void safeInvoke(IPC.SCRAP_NOTE_UPDATE, rowIdRef.current, html)
-        }
-      }
-    }
+  // Save what's pending right away instead of waiting for the timer. Runs when the
+  // pad goes away (Prev/Next, leaving the page) and just before the app locks,
+  // while the database is still open (1.2).
+  const flushNow = useCallback(() => {
+    if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null }
+    if (!dirtyRef.current || !editorRef.current) return
+    dirtyRef.current = false
+    void persistPad(globalScopeRef.current, rowIdRef.current, sanitizeHtml(editorRef.current.getHTML())).then(res => {
+      if (!res.ok) toast.error('We couldn\'t save your last scratch pad changes. Please check them and try again.')
+    })
   }, [])
+  useEffect(() => pulseEvents.on('app:locking', flushNow), [flushNow])
+  useEffect(() => flushNow, [flushNow])
 
   function applySnippet(snippet: Snippet) {
     if (!editor) return
@@ -234,7 +237,7 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
         <StickyNote className="w-4 h-4 text-slate-500 dark:text-slate-400 flex-shrink-0" />
         <span className="text-sm font-medium text-slate-600 dark:text-slate-300 flex-1">Scrap Notes</span>
         {saving && <span className="text-sm text-slate-500 dark:text-slate-400 italic">Saving…</span>}
-        {saveError && !saving && <span className="text-sm text-red-600 dark:text-red-400">Save failed — changes may be lost</span>}
+        {saveError && !saving && <span role="alert" className="text-base text-red-700 dark:text-red-400">We couldn't save this — keep typing to try again</span>}
       </div>
 
       <div className="flex items-center gap-0.5 px-2 py-1 border-b border-slate-100 dark:border-slate-700/50">
