@@ -19,7 +19,7 @@ import { appointmentsToday } from './appointments'
 import { initials } from './export-ics'
 import { isOn } from '../shared/features'
 import { localDateString } from '../shared/dates'
-import { addDays } from '../shared/appointments'
+import { addDays, OPEN_RECORD_SQL } from '../shared/appointments'
 import { formatTime } from '../shared/calendar'
 import { isPersonKind } from '../shared/types'
 import { IPC } from '../shared/ipc-channels'
@@ -143,7 +143,7 @@ function upcomingAppointments(now: Date): ApptForReminder[] {
            CASE WHEN r.deleted_at IS NULL THEN NULLIF(r.display_name, '') END AS record_name, g.record_kind
     FROM appointments a LEFT JOIN rows r ON r.id = a.row_id LEFT JOIN grids g ON g.id = r.grid_id
     WHERE a.status = 'scheduled' AND a.all_day = 0 AND a.start_at >= ? AND a.start_at <= ?
-      AND (a.row_id IS NULL OR r.deleted_at IS NULL)
+      AND ${OPEN_RECORD_SQL}
     ORDER BY a.start_at, a.id
   `).all(today, `${addDays(today, 1)}T99:99`) as ApptForReminder[]
 }

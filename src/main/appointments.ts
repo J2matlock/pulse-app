@@ -19,7 +19,7 @@ import { applyNoteDateUpdates } from './note-date-updates'
 import { featureOn, word } from './vocab'
 import {
   addMinutes, addMonths, addDays, apptInputSchema, apptPatchSchema, minutesBetween, seriesDates, seriesRuleSchema,
-  MATERIALIZE_MONTHS, MAX_HORIZON_MONTHS, DATE_RE,
+  MATERIALIZE_MONTHS, MAX_HORIZON_MONTHS, DATE_RE, OPEN_RECORD_SQL,
   type Appointment, type ApptInput, type ApptPatch, type EditScope, type SeriesRule, type SeriesTemplate, type ApptStatus,
 } from '../shared/appointments'
 
@@ -46,13 +46,14 @@ const SELECT = `
 
 // ── Reading ──────────────────────────────────────────────────────────────────
 
+
 export interface ApptFilter { gridId?: number; rowId?: number; status?: ApptStatus[] }
 
-/** Appointments starting in a date range (inclusive), in time order; records in the trash are left out */
+/** Appointments starting in a date range (inclusive), in time order; records in the trash, and archived records' scheduled ones, are left out */
 export function listAppointments(range: { from: string; to: string }, filter: ApptFilter = {}): Appointment[] {
   if (!DATE_RE.test(range.from) || !DATE_RE.test(range.to)) throw new ApptError('Choose the dates to show.')
   ensureMaterialized(range.to)
-  const where = ["a.start_at >= ?", "a.start_at <= ?", '(a.row_id IS NULL OR r.deleted_at IS NULL)']
+  const where = ["a.start_at >= ?", "a.start_at <= ?", OPEN_RECORD_SQL]
   const params: unknown[] = [range.from, `${range.to}T99:99`]
   if (filter.gridId !== undefined) { where.push('r.grid_id = ?'); params.push(filter.gridId) }
   if (filter.rowId !== undefined) { where.push('a.row_id = ?'); params.push(filter.rowId) }
@@ -428,8 +429,48 @@ export function appointmentsToday(today = localDateString()): { appointmentsToda
   if (!featureOn('appointments')) return { appointmentsToday: 0, firstAppointment: null }
   const r = getDb().prepare(`
     SELECT COUNT(*) AS n, MIN(CASE WHEN a.all_day = 0 THEN a.start_at END) AS first
-    FROM appointments a LEFT JOIN rows r ON r.id = a.row_id
-    WHERE a.status = 'scheduled' AND a.start_at >= ? AND a.start_at <= ? AND (a.row_id IS NULL OR r.deleted_at IS NULL)
+    FROM appointments a LEFT JOIN rows r ON r.id = a.row_id LEFT JOIN grids g ON g.id = r.grid_id
+    WHERE a.status = 'scheduled' AND a.start_at >= ? AND a.start_at <= ? AND ${OPEN_RECORD_SQL}
   `).get(today, `${today}T99:99`) as { n: number; first: string | null }
   return { appointmentsToday: r.n, firstAppointment: r.first }
+}
+
+// ── Archiving a record (audit 1.13) ──────────────────────────────────────────
+
+/** The records' scheduled appointments from today on (including their series' future dates already made) */
+function upcomingIds(rowIds: number[], today: string): number[] {
+  if (rowIds.length === 0) return []
+  return (getDb().prepare(`SELECT id FROM appointments WHERE status = 'scheduled' AND substr(start_at, 1, 10) >= ?
+    AND row_id IN (${rowIds.map(() => '?').join(',')})`).all(today, ...rowIds) as Array<{ id: number }>).map(r => r.id)
+}
+
+/** The series made for these records */
+function seriesOfRecords(rowIds: number[]): SeriesRow[] {
+  const ids = new Set(rowIds)
+  return (getDb().prepare('SELECT * FROM appointment_series').all() as SeriesRow[]).filter(s => {
+    try { const r = (JSON.parse(s.template) as StoredTemplate).row_id; return r != null && ids.has(r) } catch { return false }
+  })
+}
+
+/** How many upcoming appointments archiving these records would leave behind */
+export function countUpcomingForRecords(rowIds: number[], today = localDateString()): number {
+  ensureMaterialized()
+  return upcomingIds(rowIds, today).length
+}
+
+/**
+ * Cancel the records' upcoming appointments: their series end yesterday
+ * (the way "This and following" delete ends one), and scheduled ones from
+ * today on are removed. What already happened stays. One snapshot undoes it.
+ */
+export function cancelUpcomingForRecords(rowIds: number[], today = localDateString()): ApptChange {
+  const db = getDb()
+  return db.transaction((): ApptChange => {
+    const series = seriesOfRecords(rowIds)
+    const ids = upcomingIds(rowIds, today)
+    const snapshot = tracker(series.map(s => s.id), ids)
+    for (const s of series) endSeriesBefore(s, today)
+    for (const id of ids) db.prepare('DELETE FROM appointments WHERE id = ?').run(id)
+    return { snapshot, ids }
+  })()
 }

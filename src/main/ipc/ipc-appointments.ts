@@ -7,6 +7,7 @@ import { APPT_STATUSES, DATE_RE, type ApptStatus, type EditScope } from '../../s
 import { secureWrap, ok, fail, enforceWritable, validId, notifyCaseLogChanged } from './ipc-utils'
 import {
   ApptError, listAppointments, recordAppointments, createAppointment, updateAppointment, deleteAppointment, restoreAppointments, setAppointmentStatus,
+  countUpcomingForRecords, cancelUpcomingForRecords,
   type ApptSnapshot,
 } from '../appointments'
 import { calendarItems } from '../calendar'
@@ -29,8 +30,12 @@ function validSnapshot(v: unknown): v is ApptSnapshot {
   const s = v as Record<string, unknown>
   return ['appointments', 'series', 'createdAppointmentIds', 'createdSeriesIds'].every(k => Array.isArray(s[k]))
     && (s.createdAppointmentIds as unknown[]).every(validId) && (s.createdSeriesIds as unknown[]).every(validId)
-    && (s.appointments as unknown[]).length <= 2000 && (s.series as unknown[]).length <= 20
+    // Archiving many records at once can end many series in one step
+    && (s.appointments as unknown[]).length <= 50_000 && (s.series as unknown[]).length <= 1000
 }
+
+const MAX_RECORDS = 1000
+const validRowIds = (v: unknown): v is number[] => Array.isArray(v) && v.length > 0 && v.length <= MAX_RECORDS && v.every(validId)
 
 export function registerAppointmentHandlers(): void {
   secureWrap(IPC.APPT_LIST, 'ipc-appointments', (_e, range: unknown, filter?: unknown) => {
@@ -99,6 +104,20 @@ export function registerAppointmentHandlers(): void {
       announceAppointments()
       if (res.data.rowId !== null && (res.data.caseLogId !== null || res.data.voidedNoteId !== null)) notifyCaseLogChanged(res.data.rowId)
     }
+    return res
+  })
+
+  secureWrap(IPC.APPT_UPCOMING_COUNT, 'ipc-appointments', (_e, rowIds: unknown) => {
+    if (!validRowIds(rowIds)) return fail('Invalid request')
+    return ok(countUpcomingForRecords(rowIds))
+  })
+
+  /** Archiving: end the records' series and remove their upcoming appointments (audit 1.13) */
+  secureWrap(IPC.APPT_CANCEL_UPCOMING, 'ipc-appointments', (_e, rowIds: unknown) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validRowIds(rowIds)) return fail('Invalid request')
+    const res = action(() => cancelUpcomingForRecords(rowIds))
+    if (res.ok) announceAppointments()
     return res
   })
 

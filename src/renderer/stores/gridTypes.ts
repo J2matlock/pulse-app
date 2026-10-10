@@ -57,7 +57,7 @@ export interface CoreGridState {
 
   addRow: () => Promise<void>
   deleteRow: (rowId: number) => Promise<void>
-  archiveRow: (rowId: number, reason?: string) => Promise<void>
+  archiveRow: (rowId: number, reason?: string, opts?: { cancelAppointments?: boolean }) => Promise<void>
   unarchiveRow: (rowId: number) => Promise<void>
   duplicateRow: (rowId: number) => Promise<void>
   updateRow: (rowId: number, updates: Partial<{ is_starred: 0 | 1 }>) => Promise<void>

@@ -31,6 +31,13 @@ export interface Appointment {
   grid_name: string | null
 }
 
+/**
+ * Scheduled appointments of an archived record, or of a record in a list
+ * that's gone, aren't upcoming work any more; what already happened
+ * (done, no-show, cancelled) still shows. Needs `r` (rows) and `g` (grids).
+ */
+export const OPEN_RECORD_SQL = "(a.row_id IS NULL OR (r.deleted_at IS NULL AND (a.status != 'scheduled' OR (r.is_active = 1 AND g.is_active = 1))))"
+
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 export const TIME_RE = /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/
 

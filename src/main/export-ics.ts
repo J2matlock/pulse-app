@@ -13,6 +13,7 @@ import { localDateFromToday } from '../shared/dates'
 import { featureOn, word } from './vocab'
 import { loadDeadlines } from './deadlines'
 import { isPersonKind } from '../shared/types'
+import { OPEN_RECORD_SQL } from '../shared/appointments'
 
 export interface IcsOptions {
   /** Full client names instead of initials (and caseload task titles) */
@@ -100,7 +101,7 @@ export function loadIcsItems(opts: IcsOptions = {}): IcsItem[] {
   const appointments = featureOn('appointments') ? db.prepare(`
     SELECT a.id, a.title, a.start_at, a.end_at, a.all_day, r.display_name AS name, g.record_kind AS kind
     FROM appointments a LEFT JOIN rows r ON r.id = a.row_id LEFT JOIN grids g ON g.id = r.grid_id
-    WHERE a.status = 'scheduled' AND a.start_at >= ? AND a.start_at <= ? AND (a.row_id IS NULL OR r.deleted_at IS NULL)
+    WHERE a.status = 'scheduled' AND a.start_at >= ? AND a.start_at <= ? AND ${OPEN_RECORD_SQL}
   `).all(from, `${to}T99:99`) as Array<{ id: number; title: string; start_at: string; end_at: string | null; all_day: number; name: string | null; kind: string | null }> : []
 
   const items: IcsItem[] = [

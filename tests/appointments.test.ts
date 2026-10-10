@@ -10,7 +10,7 @@ vi.mock('../src/main/database', () => ({
     ON CONFLICT(row_id, column_id) DO UPDATE SET value = excluded.value`).run(rowId, columnId, value),
 }))
 
-import { createAppointment, listAppointments, updateAppointment, deleteAppointment, restoreAppointments, ensureMaterialized, rematerializeForRecord, recordAppointments, ApptError, setAppointmentStatus, appointmentsToday } from '../src/main/appointments'
+import { createAppointment, listAppointments, updateAppointment, deleteAppointment, restoreAppointments, ensureMaterialized, rematerializeForRecord, recordAppointments, ApptError, setAppointmentStatus, appointmentsToday, countUpcomingForRecords, cancelUpcomingForRecords } from '../src/main/appointments'
 import { seriesDates, addMinutes, minutesBetween, validWallTime, describeRule } from '../src/shared/appointments'
 import { up as migration040 } from '../src/main/migrations/040_appointments'
 import { addMissingActivityTypes } from '../src/main/activity-types'
@@ -184,6 +184,48 @@ describe('series', () => {
     const r = recordAppointments(g.rowIds[0]!)
     expect(r.upcoming).toHaveLength(5)
     expect(r.past.map(a => a.status)).toEqual(['done'])
+  })
+})
+
+describe('archived records', () => {
+  const weekly = () => createAppointment({ row_id: g.rowIds[0]!, title: 'Session', start_at: `${inDays(-14)}T15:00`, end_at: `${inDays(-14)}T15:50` }, { freq: 'weekly', interval: 1 })
+
+  it('leave their scheduled appointments off the calendar and today, but keep what happened', () => {
+    weekly()
+    const first = all()[0]!
+    t.db.prepare("UPDATE appointments SET status = 'done' WHERE id = ?").run(first.id)
+    createAppointment({ row_id: g.rowIds[0]!, title: 'Today', start_at: `${today}T09:00` })
+    createAppointment({ title: 'Staff meeting', start_at: `${today}T10:00` })
+    t.db.prepare("UPDATE rows SET is_active = 0, archived_at = datetime('now') WHERE id = ?").run(g.rowIds[0])
+    const listed = listAppointments({ from: inDays(-30), to: inDays(60) })
+    expect(listed.map(a => a.title)).toEqual(['Session', 'Staff meeting'])
+    expect(listed[0]!.status).toBe('done')
+    t.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('workspace_features', ?)").run(JSON.stringify({ appointments: true }))
+    expect(appointmentsToday(today).appointmentsToday).toBe(1)
+  })
+
+  it('leave out records in a deleted list', () => {
+    createAppointment({ row_id: g.rowIds[0]!, title: 'Visit', start_at: `${today}T09:00` })
+    t.db.prepare('UPDATE grids SET is_active = 0 WHERE id = ?').run(g.gridId)
+    expect(listAppointments({ from: today, to: today })).toEqual([])
+  })
+
+  it('cancel upcoming ones on archive: the series ends, past ones stay, and undo puts them back', () => {
+    weekly()
+    createAppointment({ row_id: g.rowIds[0]!, title: 'One-off', start_at: `${inDays(3)}T09:00` })
+    createAppointment({ row_id: g.rowIds[1]!, title: 'Other record', start_at: `${inDays(3)}T10:00` })
+    const before = all()
+    const upcoming = before.filter(a => a.title !== 'Other record' && a.start_at.slice(0, 10) >= today).length
+    expect(countUpcomingForRecords([g.rowIds[0]!])).toBe(upcoming)
+    const change = cancelUpcomingForRecords([g.rowIds[0]!])
+    expect(change.ids).toHaveLength(upcoming)
+    expect(all().map(a => a.title).sort()).toEqual(['Other record', 'Session', 'Session'])
+    expect(countUpcomingForRecords([g.rowIds[0]!])).toBe(0)
+    // The series doesn't make more later
+    ensureMaterialized(inDays(500))
+    expect(all().filter(a => a.title === 'Session')).toHaveLength(2)
+    restoreAppointments(change.snapshot)
+    expect(all()).toEqual(before)
   })
 })
 

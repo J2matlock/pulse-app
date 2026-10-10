@@ -268,6 +268,8 @@ export const IPC = {
   APPT_DELETE: 'appointments:delete',
   APPT_RESTORE: 'appointments:restore',
   APPT_SET_STATUS: 'appointments:set-status',
+  APPT_UPCOMING_COUNT: 'appointments:upcoming-count',
+  APPT_CANCEL_UPCOMING: 'appointments:cancel-upcoming',
   CALENDAR_ITEMS: 'calendar:items',
   /** main → window: appointments changed */
   APPOINTMENTS_CHANGED: 'appointments:changed',

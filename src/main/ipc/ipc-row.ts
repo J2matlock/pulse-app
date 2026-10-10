@@ -333,7 +333,8 @@ export function registerRowHandlers(): void {
     if (!validId(rowId)) return fail('Invalid ID')
     const db = getDb()
     db.transaction(() => {
-      cachedStmt('row_restore', `UPDATE rows SET is_active = 1, deleted_at = NULL, updated_at = datetime('now') WHERE id = ?`).run(rowId)
+      // An archived record comes back archived (audit L-12)
+      cachedStmt('row_restore_v2', `UPDATE rows SET is_active = CASE WHEN archived_at IS NULL THEN 1 ELSE 0 END, deleted_at = NULL, updated_at = datetime('now') WHERE id = ?`).run(rowId)
       cachedStmt('row_sys_log', `INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`).run(rowId, `${recordWord(rowId)} restored from trash`)
     })()
     notifyCaseLogChanged(rowId)
