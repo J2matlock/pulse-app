@@ -91,11 +91,13 @@ vi.mock('../src/main/backup', () => ({
   setScheduledConfig: (cfg: unknown) => { backupMock.lastSet = cfg },
   checkAndRunScheduled: async () => {},
   runScheduledBackupNow: async () => ({ ran: true, destPath: '/old/dest/pulse-scheduled-x.pulse-backup', lastRunISO: '2026-10-10T09:00:00.000Z' }),
+  restoreOtherPulseBackup: (opts: unknown) => backupMock.restoreOther!(opts),
+  getBackupMadeInfo: async () => ({ madeAt: '2026-10-09T08:00:00.000Z', appVersion: '2.2.0' }),
   getBackupHealth: () => ({ lastOffsiteISO: null, trackingSinceISO: '2020-01-01T00:00:00.000Z', scheduled: { enabled: false, intervalHours: 24, lastRunISO: null, lastError: null, overdue: false } }),
   describeBackupError: () => 'The backup couldn\'t be saved.',
   runPreMigrationBackup: () => {},
 }))
-const backupMock = vi.hoisted(() => ({ lastSet: null as unknown }))
+const backupMock = vi.hoisted(() => ({ lastSet: null as unknown, restoreOther: null as null | ((opts: unknown) => Promise<unknown>) }))
 
 vi.mock('../src/main/export', () => ({
   exportCsv: async () => '/tmp/export.csv',
@@ -295,6 +297,31 @@ describe('BACKUP_VALIDATE_DESTINATION', () => {
     const result = await invoke(IPC.BACKUP_VALIDATE_DESTINATION, '/nonexistent/path/to/dir') as { ok: true; data: { valid: boolean } }
     expect(result.ok).toBe(true)
     expect(result.data.valid).toBe(false)
+  })
+})
+
+describe('BACKUP_RESTORE_OTHER', () => {
+  const path = join(tmpdir(), 'pulse-test-export', 'temp', 'old.pulse-backup')
+
+  it('rejects a weak new password before touching anything', async () => {
+    backupMock.restoreOther = vi.fn()
+    const result = await invoke(IPC.BACKUP_RESTORE_OTHER, path, 'old secret', 'short', '') as { ok: false }
+    expect(result.ok).toBe(false)
+    expect(backupMock.restoreOther).not.toHaveBeenCalled()
+  })
+
+  it('explains a wrong password in plain words', async () => {
+    backupMock.restoreOther = vi.fn(async () => { throw new Error('Incorrect password or recovery key') })
+    const result = await invoke(IPC.BACKUP_RESTORE_OTHER, path, 'wrong', 'A-Strong-New-Pass-42', '') as { ok: false; error: string }
+    expect(result.ok).toBe(false)
+    expect(result.error).toMatch(/doesn't match this backup/)
+  })
+
+  it('returns the safety copy path', async () => {
+    backupMock.restoreOther = vi.fn(async () => ({ safetyPath: '/b/pulse-pre-restore-x.pulse-backup', schemaVersion: 43 }))
+    const result = await invoke(IPC.BACKUP_RESTORE_OTHER, path, 'right', 'A-Strong-New-Pass-42', '') as { ok: true; data: { safetyPath: string } }
+    expect(result.ok).toBe(true)
+    expect(result.data.safetyPath).toBe('/b/pulse-pre-restore-x.pulse-backup')
   })
 })
 

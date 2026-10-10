@@ -17,6 +17,7 @@ import { setWords } from '../../vocabFixture'
 let scheduled: { enabled: boolean; intervalHours: number; destinationDir: string; lastRunISO: string | null; lastError?: string | null } = { enabled: false, intervalHours: 24, destinationDir: '/backups', lastRunISO: null }
 let settings: Record<string, string> = {}
 let lastOffsiteISO: string | null = null
+let verify: { valid: boolean; otherPulse?: boolean } = { valid: true }
 
 function respond(channel: string, ...args: unknown[]) {
   switch (channel) {
@@ -29,6 +30,10 @@ function respond(channel: string, ...args: unknown[]) {
     case 'backup:get-status': return { ok: true, data: { lastOffsiteISO, trackingSinceISO: '2026-01-01T00:00:00.000Z', scheduled: { enabled: scheduled.enabled, intervalHours: 24, lastRunISO: null, lastError: null, overdue: false }, reminderEnabled: true, remindAfterDays: 7, offsiteOverdue: false } }
     case 'app:show-save-dialog': return { ok: true, data: { canceled: false, filePath: '/usb/my.pulse-backup' } }
     case 'backup:manual-create': return { ok: true, data: { destPath: args[0], sizeBytes: 10 } }
+    case 'app:show-file-dialog': return { ok: true, data: { canceled: false, filePaths: ['/usb/old-laptop.pulse-backup'] } }
+    case 'backup:verify': return { ok: true, data: verify }
+    case 'backup:preview': return { ok: true, data: { gridCount: 2, rowCount: 40, schemaVersion: 43, madeAt: '2026-10-09T08:00:00.000Z', appVersion: '2.2.0' } }
+    case 'backup:restore-other': return { ok: true, data: { safetyPath: '/data/backups/pulse-pre-restore-1.pulse-backup' } }
     default: return { ok: false, error: 'unexpected' }
   }
 }
@@ -39,6 +44,7 @@ describe('BackupSection', () => {
     scheduled = { enabled: false, intervalHours: 24, destinationDir: '/backups', lastRunISO: null }
     settings = {}
     lastOffsiteISO = null
+    verify = { valid: true }
     mockInvoke.mockReset()
     mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => Promise.resolve(respond(channel, ...args)))
     toastFns.success.mockReset(); toastFns.error.mockReset()
@@ -88,5 +94,31 @@ describe('BackupSection', () => {
     render(<BackupSection saveSetting={vi.fn()} />)
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('settings:get-all'))
     expect((screen.getByLabelText('Enable backup reminders') as HTMLInputElement).checked).toBe(true)
+  })
+
+  it('previews when the backup was made, not a schema number', async () => {
+    render(<BackupSection saveSetting={vi.fn()} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Restore from file…' }))
+    expect(await screen.findByText('Backup made')).toBeTruthy()
+    expect(screen.getByText('Pulse 2.2.0')).toBeTruthy()
+    expect(screen.queryByText('Schema version')).toBeNull()
+  })
+
+  it('offers to unlock a backup from another Pulse instead of calling it invalid', async () => {
+    verify = { valid: false, otherPulse: true }
+    render(<BackupSection saveSetting={vi.fn()} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Restore from file…' }))
+    expect(await screen.findByText('This backup is from another Pulse')).toBeTruthy()
+    expect(toastFns.error).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByLabelText(/Password or recovery key for this backup/), { target: { value: 'old laptop pass' } })
+    fireEvent.change(screen.getByLabelText(/Your Pulse password from now on/), { target: { value: 'A-Strong-New-Pass-42' } })
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'A-Strong-New-Pass-42' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Restore backup' }))
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('backup:restore-other', '/usb/old-laptop.pulse-backup', 'old laptop pass', 'A-Strong-New-Pass-42', ''))
+    expect(await screen.findByText('Restore complete')).toBeTruthy()
+    expect(screen.getByText(/opens with your old password/)).toBeTruthy()
+    // Restart is the only way on: the window still shows the old settings until then
+    expect(screen.getByRole('button', { name: 'Restart now' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Later' })).toBeNull()
   })
 })

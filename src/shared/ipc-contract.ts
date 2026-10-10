@@ -364,8 +364,10 @@ export interface IPCContract {
   'backup:manual-create':        { args: [destPath: string];                return: unknown }
   'backup:restore-auto':         { args: [backupDbPath: string];            return: { safetyPath: string } }
   'backup:restore-file':         { args: [backupPath: string];              return: { safetyPath: string } }
+  'backup:restore-other':        { args: [backupPath: string, secret: string, newPassword: string, hint: string]; return: { safetyPath: string } }
+  'backup:preview':              { args: [backupPath: string];              return: { gridCount: number; rowCount: number; schemaVersion: number; madeAt: string | null; appVersion: string | null } }
   'backup:get-info':             { args: [];                                return: unknown }
-  'backup:verify':               { args: [backupPath: string];              return: { valid: boolean; error?: string; schemaVersion?: number; tableCount?: number } }
+  'backup:verify':               { args: [backupPath: string];              return: { valid: boolean; error?: string; schemaVersion?: number; tableCount?: number; otherPulse?: boolean } }
   'backup:scheduled-get-config': { args: [];                                return: unknown }
   'backup:scheduled-set-config': { args: [config: Record<string, unknown>]; return: true }
   'backup:get-status':           { args: [];                                return: BackupStatusResult }

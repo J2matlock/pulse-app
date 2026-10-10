@@ -180,6 +180,7 @@ export const IPC = {
   BACKUP_MANUAL_CREATE: 'backup:manual-create',
   BACKUP_RESTORE_AUTO: 'backup:restore-auto',
   BACKUP_RESTORE_FILE: 'backup:restore-file',
+  BACKUP_RESTORE_OTHER: 'backup:restore-other',
   BACKUP_GET_INFO: 'backup:get-info',
   BACKUP_VERIFY: 'backup:verify',
   BACKUP_SCHEDULED_GET_CONFIG: 'backup:scheduled-get-config',

@@ -12,15 +12,16 @@ import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { LoadingOverlay } from '../shared/LoadingSpinner'
 import { localDateString, parseDbTimestamp } from '../../../shared/dates'
 import { MoveComputerWizard } from './MoveComputerWizard'
+import { RestoreFromBackupForm } from '../shared/RestoreFromBackupForm'
 import { useVocab } from '../../hooks/useVocab'
 import { useBackupStatusStore } from '../../stores/backupStatusStore'
 
 interface BackupPreviewData {
   gridCount: number
   rowCount: number
-  schemaVersion: number
-  // null when the backup has no grids to date it by
-  createdAt: string | null
+  /** When the backup was made (null when it can't be told) */
+  madeAt: string | null
+  appVersion: string | null
 }
 
 interface AutoBackupEntry {
@@ -63,7 +64,11 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
   })
   const [restoreTarget, setRestoreTarget] = useState<{ path: string; label: string } | null>(null)
   const [restoring, setRestoring] = useState(false)
-  const [restoreResult, setRestoreResult] = useState<{ safetyPath: string } | null>(null)
+  const [restoreResult, setRestoreResult] = useState<{ safetyPath: string; otherPulse?: boolean } | null>(null)
+  // A backup made by another Pulse, waiting for that Pulse's password or recovery key
+  const [otherPulsePath, setOtherPulsePath] = useState<string | null>(null)
+  const otherPulseTrapRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(otherPulseTrapRef, otherPulsePath != null)
   const [runningBackup, setRunningBackup] = useState(false)
   const [runningScheduled, setRunningScheduled] = useState(false)
   // Reminders are on unless the user switched them off
@@ -135,8 +140,12 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
 
   async function initiateRestore(path: string, label: string) {
     const verifyRes = await safeInvoke(IPC.BACKUP_VERIFY, path)
+    if (verifyRes.ok && !verifyRes.data.valid && verifyRes.data.otherPulse) {
+      setOtherPulsePath(path)
+      return
+    }
     if (!verifyRes.ok || !verifyRes.data.valid) {
-      toast.error('This backup file appears to be invalid or from a different version.')
+      toast.error('Pulse can\'t open this file. It may be damaged, may not be a Pulse backup, or may have been made by an older Pulse on another computer (restore those on that computer).', { duration: 10000 })
       return
     }
     // Fetch preview info for the confirmation dialog
@@ -540,13 +549,15 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
                 <span className="font-medium text-slate-700 dark:text-slate-300">{backupPreview.rowCount}</span>
               </div>
               <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                <span>Schema version</span>
-                <span className="font-medium text-slate-700 dark:text-slate-300">{backupPreview.schemaVersion}</span>
+                <span>Backup made</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">{backupPreview.madeAt ? parseDbTimestamp(backupPreview.madeAt).toLocaleString() : 'Unknown'}</span>
               </div>
-              <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                <span>Created</span>
-                <span className="font-medium text-slate-700 dark:text-slate-300">{backupPreview.createdAt ? parseDbTimestamp(backupPreview.createdAt).toLocaleString() : '—'}</span>
-              </div>
+              {backupPreview.appVersion && (
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                  <span>Made by</span>
+                  <span className="font-medium text-slate-700 dark:text-slate-300">Pulse {backupPreview.appVersion}</span>
+                </div>
+              )}
             </div>
           )}
           {previewLoading && (
@@ -556,6 +567,30 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
             </div>
           )}
         </ConfirmDialog>
+      )}
+
+      {/* Backup from another Pulse: unlock it with that Pulse's password or recovery key */}
+      {otherPulsePath && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center" onKeyDown={e => { if (e.key === 'Escape') setOtherPulsePath(null) }}>
+          <div ref={otherPulseTrapRef} role="dialog" aria-modal="true" aria-labelledby="other-pulse-title"
+            className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-2xl max-w-lg w-full mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
+            <h3 id="other-pulse-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100">This backup is from another Pulse</h3>
+            <p className="text-base text-slate-600 dark:text-slate-300">
+              It was made on another computer, or before Pulse was set up again here. Enter the password or recovery key it was made with to restore it.
+              Your current data is saved as a safety copy first.
+            </p>
+            <RestoreFromBackupForm
+              mode="replace"
+              initialBackupPath={otherPulsePath}
+              onCancel={() => setOtherPulsePath(null)}
+              onRestored={info => {
+                setOtherPulsePath(null)
+                useUndoStore.getState().clear()
+                setRestoreResult({ safetyPath: info.safetyPath ?? '', otherPulse: true })
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {/* Restoring overlay */}
@@ -581,23 +616,24 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
             <p className="text-sm font-mono bg-slate-100 dark:bg-slate-700 rounded-sm px-3 py-2 break-all text-slate-700 dark:text-slate-300">
               {restoreResult.safetyPath}
             </p>
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              Restart the app now to load the restored data.
+            {restoreResult.otherPulse && (
+              <p className="text-base text-slate-600 dark:text-slate-300">
+                That safety copy opens with your old password. From now on, unlock Pulse with the new password you just chose.
+              </p>
+            )}
+            <p className="text-base text-slate-600 dark:text-slate-300">
+              Pulse needs to restart to show the restored data.
             </p>
             <div className="flex gap-2 pt-1">
+              {/* The only choice: until a restart, the window still shows the old words, features and settings */}
               <button
+                type="button"
                 onClick={() => void safeInvoke(IPC.APP_RELAUNCH)}
                 className="btn-primary flex-1"
                 style={{ minHeight: 44 }}
+                autoFocus
               >
                 Restart now
-              </button>
-              <button
-                onClick={() => setRestoreResult(null)}
-                className="btn-secondary flex-1"
-                style={{ minHeight: 44 }}
-              >
-                Later
               </button>
             </div>
           </div>

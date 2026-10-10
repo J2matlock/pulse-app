@@ -536,6 +536,8 @@ export async function withBackupDbFile<T>(backupPath: string, fn: (dbFile: strin
 export interface VerifyResult {
   valid: boolean
   error?: string
+  /** The archive opens but not with this install's key, and it carries its own key envelope */
+  otherPulse?: boolean
   schemaVersion?: number
   tableCount?: number
 }
@@ -546,6 +548,7 @@ export async function verifyBackup(backupPath: string): Promise<VerifyResult> {
   // For .pulse-backup files, extract DB to temp dir first
   let dbToCheck = backupPath
   let tmpDir: string | null = null
+  let hasEnvelope = false
 
   if (backupPath.endsWith('.pulse-backup')) {
     let zip: OpenZipResult | null = null
@@ -557,6 +560,7 @@ export async function verifyBackup(backupPath: string): Promise<VerifyResult> {
       zip = await openZip(backupPath)
       const dbEntry = zip.entries.find(e => isSafeDbEntryName(e.entryName))
       if (!dbEntry) return { valid: false, error: 'No database file found in archive' }
+      hasEnvelope = zip.entries.some(e => e.entryName === KEY_ENVELOPE_ENTRY)
       tmpDir = join(getBackupDir(), `verify-tmp-${Date.now()}`)
       mkdirSync(tmpDir, { recursive: true, mode: 0o700 })
       dbToCheck = join(tmpDir, dbEntry.entryName)
@@ -604,7 +608,10 @@ export async function verifyBackup(backupPath: string): Promise<VerifyResult> {
     const { schemaVersion, tableCount } = readEncryptedDbInfo(dbToCheck, getDbKey().toString('hex'))
     return { valid: true, schemaVersion, tableCount }
   } catch (err) {
-    return { valid: false, error: err instanceof Error ? err.message : 'Could not open backup database' }
+    // This install's key doesn't open it. With a key envelope inside, it was made
+    // by another Pulse (another computer, or before a reinstall) and can still be
+    // restored with that Pulse's password or recovery key.
+    return { valid: false, error: err instanceof Error ? err.message : 'Could not open backup database', otherPulse: hasEnvelope }
   } finally {
     if (tmpDir) {
       try { rmSync(tmpDir, { recursive: true, force: true }) } catch (err) {
@@ -612,6 +619,36 @@ export async function verifyBackup(backupPath: string): Promise<VerifyResult> {
       }
     }
   }
+}
+
+/**
+ * When a backup was made and by which Pulse, for the restore preview. Read from
+ * backup-meta.json in a .pulse-backup, or from the timestamp in a local
+ * backup's file name.
+ */
+export async function getBackupMadeInfo(backupPath: string): Promise<{ madeAt: string | null; appVersion: string | null }> {
+  if (backupPath.endsWith('.pulse-backup')) {
+    let zip: OpenZipResult | null = null
+    try {
+      zip = await openZip(backupPath)
+      if (!zip.entries.some(e => e.entryName === 'backup-meta.json')) return { madeAt: null, appVersion: null }
+      const meta = JSON.parse((await zip.readEntry('backup-meta.json')).toString('utf8')) as { created?: unknown; appVersion?: unknown }
+      const madeAt = typeof meta.created === 'string' && !isNaN(Date.parse(meta.created)) ? meta.created : null
+      const appVersion = typeof meta.appVersion === 'string' && /^[\w.+-]{1,40}$/.test(meta.appVersion) ? meta.appVersion : null
+      return { madeAt, appVersion }
+    } catch (err) {
+      logNonFatal('backup', 'read backup-meta.json for preview', err)
+      return { madeAt: null, appVersion: null }
+    } finally {
+      zip?.close()
+    }
+  }
+  const m = basename(backupPath).match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})\.db$/)
+  if (m) {
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6]))
+    return { madeAt: d.toISOString(), appVersion: null }
+  }
+  try { return { madeAt: statSync(backupPath).mtime.toISOString(), appVersion: null } } catch { return { madeAt: null, appVersion: null } }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -1187,13 +1224,27 @@ export async function restoreBackupOnNewInstall(opts: {
     const dbPath = resolveDatabasePath()
     const orphaned = moveAsideExistingDatabase(dbPath)
     if (orphaned) logger.warn('backup', `Existing database moved aside before restore: ${orphaned}`)
-    removeWalFiles(dbPath)
-    atomicCopyFileSync(extractedPath, dbPath)
-    if (process.platform !== 'win32') {
-      try { chmodSync(dbPath, 0o600) } catch (err) { logNonFatal('backup', 'chmod restored DB', err) }
+    try {
+      removeWalFiles(dbPath)
+      atomicCopyFileSync(extractedPath, dbPath)
+      if (process.platform !== 'win32') {
+        try { chmodSync(dbPath, 0o600) } catch (err) { logNonFatal('backup', 'chmod restored DB', err) }
+      }
+      await adoptRestoredDbKey(dbKey, envelope, newPassword, hint, dbPath)
+    } catch (err) {
+      // Put the database that was there back, so a failed restore changes nothing on disk
+      if (orphaned) {
+        try {
+          removeWalFiles(dbPath)
+          if (existsSync(dbPath)) unlinkSync(dbPath)
+          renameSync(orphaned, dbPath)
+          for (const suffix of ['-wal', '-shm']) {
+            if (existsSync(orphaned + suffix)) renameSync(orphaned + suffix, dbPath + suffix)
+          }
+        } catch (rollbackErr) { logger.error('backup', `Could not put the previous database back; it is at ${orphaned}`, rollbackErr) }
+      }
+      throw err
     }
-
-    await adoptRestoredDbKey(dbKey, envelope, newPassword, hint, dbPath)
     logger.info('backup', 'Backup restored on new install', { schemaVersion: info.schemaVersion })
     return { schemaVersion: info.schemaVersion }
   } finally {
@@ -1202,4 +1253,32 @@ export async function restoreBackupOnNewInstall(opts: {
     // Extracted DB is encrypted, but don't leave copies lying around
     try { rmSync(tmpDir, { recursive: true, force: true }) } catch (err) { logNonFatal('backup', 'cleanup restore temp dir', err) }
   }
+}
+
+/**
+ * Settings → Backup → Restore, for a backup made by another Pulse (another
+ * computer, or this one before a reinstall). This install's key can't open it,
+ * so it is unlocked with the password or recovery key it was made with, and
+ * protected with `newPassword` from now on.
+ *
+ * The current data is first saved as a .pulse-backup carrying the current key
+ * envelope, so it can be brought back the same way with the current password.
+ * The caller must reopen the database afterwards, whether this succeeds or not.
+ */
+export async function restoreOtherPulseBackup(opts: {
+  backupPath: string
+  secret: string
+  newPassword: string
+  hint: string
+}): Promise<{ safetyPath: string; schemaVersion: number }> {
+  const dbPath = getStoredDbPath()
+  if (!dbPath || !existsSync(dbPath)) throw new Error('No active database path found')
+  const safetyDir = getBackupDir()
+  mkdirSync(safetyDir, { recursive: true, mode: 0o700 })
+  const safetyPath = join(safetyDir, `pulse-pre-restore-${nowTimestamp()}.pulse-backup`)
+  await createPulseBackup(dbPath, safetyPath, 'pre-restore')
+  closeDatabaseIfOpen()
+  const { schemaVersion } = await restoreBackupOnNewInstall(opts)
+  logger.info('backup', 'Backup from another Pulse restored', { schemaVersion })
+  return { safetyPath, schemaVersion }
 }

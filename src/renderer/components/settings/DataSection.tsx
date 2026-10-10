@@ -11,6 +11,7 @@ import { removeSampleData } from '../shared/SampleDataBanner'
 import { useVocab } from '../../hooks/useVocab'
 import { FilesStorageSection } from './FilesStorageSection'
 import { useFeature } from '../../hooks/useFeature'
+import { localDateString } from '../../../shared/dates'
 
 /** Add or remove the sample caseload (made-up clients for trying things out). */
 function SampleDataControls(): React.ReactElement {
@@ -60,6 +61,24 @@ export function DataSection(): React.ReactElement {
   const [pulseRegistered, setPulseRegistered] = useState<boolean | null>(null)
   const [platform, setPlatform] = useState<string>('')
   const [exportingAllCsv, setExportingAllCsv] = useState(false)
+  const [backingUp, setBackingUp] = useState(false)
+
+  async function backUpFirst() {
+    setBackingUp(true)
+    try {
+      const saveRes = await safeInvoke(IPC.APP_SHOW_SAVE_DIALOG, {
+        title: 'Save a backup before erasing',
+        defaultPath: `pulse-backup-${localDateString()}.pulse-backup`,
+        filters: [{ name: 'Pulse Backup', extensions: ['pulse-backup'] }],
+      })
+      if (!saveRes.ok || saveRes.data.canceled || !saveRes.data.filePath) return
+      const res = await safeInvoke(IPC.BACKUP_MANUAL_CREATE, saveRes.data.filePath)
+      if (res.ok) toast.success('Backup saved. Keep it somewhere safe.')
+      else toast.error(res.error || 'The backup couldn\'t be saved. Try again, or choose a different folder.')
+    } finally {
+      setBackingUp(false)
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -267,6 +286,12 @@ export function DataSection(): React.ReactElement {
                 Permanently deletes all data on this computer, including every {t('record')}, column, setting, and the automatic backups. Backups you saved somewhere else (a USB drive or another folder) are not deleted.
               </p>
             </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <p className="text-base text-slate-700 dark:text-slate-300 flex-1 min-w-[12rem]">Not sure? Save a backup first, so you can get everything back.</p>
+              <button type="button" className="btn-secondary" style={{ minHeight: 44 }} disabled={backingUp} onClick={() => void backUpFirst()}>
+                {backingUp ? 'Backing up…' : 'Back up first…'}
+              </button>
+            </div>
             <div>
               <label htmlFor="settings-reset-confirm" className="block text-base font-medium text-red-700 dark:text-red-400 mb-1">
                 Type <strong>RESET EVERYTHING</strong> to enable:
@@ -298,8 +323,14 @@ export function DataSection(): React.ReactElement {
               disabled={resetTyped !== 'RESET EVERYTHING' || !resetPassword}
               onClick={async () => {
                 const res = await safeInvoke<boolean>(IPC.APP_FACTORY_RESET, resetPassword)
-                if (res.ok) { setResetPassword(''); toast.success('App reset. Please restart Pulse.') }
-                else { setResetPassword(''); toast.error(res.error || 'Reset failed. Please try again.') }
+                setResetPassword('')
+                if (res.ok) {
+                  // Nothing is left to show; start again at setup instead of leaving a broken window
+                  toast.success('Everything was erased. Pulse is restarting.')
+                  void safeInvoke(IPC.APP_RELAUNCH)
+                } else {
+                  toast.error(res.error || 'Reset failed. Please try again.')
+                }
               }}
               className="btn-primary bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed w-full"
               style={{ minHeight: 44 }}

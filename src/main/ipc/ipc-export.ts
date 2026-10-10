@@ -12,7 +12,7 @@ import {
   listAutoBackupsRich, runScheduledBackup, runManualBackup,
   restoreFromDb, restoreFromPulseBackup, getBackupInfo,
   verifyBackup, getScheduledConfig, setScheduledConfig, withBackupDbFile, runScheduledBackupNow,
-  describeBackupError, getBackupHealth,
+  describeBackupError, getBackupHealth, getBackupMadeInfo, restoreOtherPulseBackup,
   type ScheduledBackupConfig, type PersistentScheduledConfig
 } from '../backup'
 import { getDbKey } from '../auth'
@@ -33,6 +33,7 @@ import {
 import { statSync, copyFileSync, existsSync, mkdirSync } from 'fs'
 import { writeFile, unlink } from 'fs/promises'
 import { join } from 'path'
+import { checkNewPassword } from '../../shared/passwordPolicy'
 import { localDateString } from '../../shared/dates'
 import { MS_PER_DAY } from '../../shared/constants'
 import { word } from '../vocab'
@@ -162,6 +163,34 @@ export function registerExportHandlers(): void {
     })
   })
 
+  // A backup made by another Pulse: unlocked with that Pulse's password or recovery key
+  secureWrap(IPC.BACKUP_RESTORE_OTHER, 'ipc-export', async (_e, backupPath: string, secret: string, newPassword: string, hint: string) => {
+    return withCorrelation('backup-restore-other', async (corrId) => {
+      if (typeof backupPath !== 'string' || backupPath.length === 0 || backupPath.length > 4096) return fail('Choose a backup file')
+      if (typeof secret !== 'string' || secret.length === 0 || secret.length > 1024) return fail('Enter the password or recovery key used with this backup')
+      if (typeof newPassword !== 'string' || newPassword.length > 1024) return fail('Invalid password')
+      { const check = checkNewPassword(newPassword); if (!check.ok) return fail(check.message ?? 'Choose a stronger password') }
+      if (typeof hint !== 'string' || hint.length > 512) return fail('Hint too long')
+      assertSafePath(backupPath)
+      let result: { safetyPath: string }
+      try {
+        result = await restoreOtherPulseBackup({ backupPath, secret, newPassword, hint })
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Restore failed'
+        logger.warn('ipc-export', `[${corrId}] restore of another Pulse's backup failed: ${msg}`)
+        // Nothing was replaced; carry on with the current data
+        try { openDatabase() } catch (openErr) { logger.error('ipc-export', `[${corrId}] could not reopen the database after a failed restore`, openErr) }
+        if (msg === 'Incorrect password or recovery key') {
+          return fail("That password or recovery key doesn't match this backup. Use the password you had when the backup was made.")
+        }
+        return fail(msg)
+      }
+      openDatabase()
+      logger.info('ipc-export', `[${corrId}] restored another Pulse's backup, safety copy at ${result.safetyPath}`)
+      return ok({ safetyPath: result.safetyPath })
+    })
+  })
+
   secureWrap(IPC.BACKUP_VERIFY, 'ipc-export', async (_e, backupPath: string) => {
     assertSafePath(backupPath)
     const result = await verifyBackup(backupPath)
@@ -256,7 +285,9 @@ export function registerExportHandlers(): void {
 
     // .pulse-backup files are zips; preview the database inside (it used to try
     // to open the zip itself as a database, so previews never worked for them)
-    return withBackupDbFile(backupPath, (dbFile) => {
+    // When the backup was made, not when the first list in it was
+    const made = await getBackupMadeInfo(backupPath)
+    const counts = await withBackupDbFile(backupPath, (dbFile) => {
       let db: InstanceType<typeof BetterSqlite3> | null = null
       try {
         db = new BetterSqlite3(dbFile, { readonly: true })
@@ -278,17 +309,13 @@ export function registerExportHandlers(): void {
         const versionRow = db.prepare("SELECT value FROM app_meta WHERE key = 'schema_version'").get() as { value: string } | undefined
         const schemaVersion = versionRow ? parseInt(versionRow.value, 10) : 0
 
-        let createdAt: string | null = null
-        try {
-          const earliest = db.prepare("SELECT MIN(created_at) as ca FROM grids").get() as { ca: string | null }
-          createdAt = earliest?.ca ?? null
-        } catch (err) { logNonFatal('ipc-export', 'read earliest grid created_at from backup', err) }
-
-        return ok({ gridCount, rowCount, schemaVersion, createdAt })
+        return ok({ gridCount, rowCount, schemaVersion })
       } finally {
         try { db?.close() } catch (err) { logNonFatal('ipc-export', 'close backup preview db', err) }
       }
     })
+    if (!counts.ok) return counts
+    return ok({ ...counts.data, madeAt: made.madeAt, appVersion: made.appVersion })
   })
 
   // ── Export All CSV (Finding 3.24) ─────────────────────────────────────────
