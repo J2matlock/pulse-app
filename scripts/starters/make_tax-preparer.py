@@ -199,6 +199,8 @@ starter = {
     'sampleData': sample,
 }
 
+starter['reports'] = [{'name': 'Still waiting on documents', 'list': 'returns', 'description': 'Returns you can’t start yet, the longest waiting first.', 'config': {'source': 'records', 'filters': [{'field': 'col:Stage', 'operator': 'equals', 'value': 'Waiting on documents'}], 'groupBy': [], 'values': [{'fn': 'count'}], 'columns': ['col:Return', 'col:Client', 'col:Documents requested on', 'col:Filing deadline'], 'sort': {'field': 'col:Documents requested on', 'dir': 'asc'}}}, {'name': 'Fees by return type', 'list': 'returns', 'description': 'How many of each kind of return, and what they bring in.', 'config': {'source': 'records', 'filters': [], 'groupBy': [{'field': 'col:Return type'}], 'values': [{'fn': 'count', 'label': 'Returns'}, {'fn': 'sum', 'field': 'col:Fee', 'label': 'Fees'}]}}]
+
 json.dump(starter, open(sys.argv[1], 'w'), indent=2, ensure_ascii=False)
 open(sys.argv[1], 'a').write('\n')
 print('written')

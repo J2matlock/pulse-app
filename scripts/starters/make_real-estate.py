@@ -190,6 +190,8 @@ starter = {
     'sampleData': sample,
 }
 
+starter['reports'] = [{'name': 'Commission per month', 'list': 'transactions', 'description': 'Deals closed and commission earned each month this year.', 'config': {'source': 'records', 'filters': [], 'groupBy': [{'field': 'col:Closed on', 'bucket': 'month'}], 'values': [{'fn': 'count', 'label': 'Closed'}, {'fn': 'sum', 'field': 'col:Commission', 'label': 'Commission'}], 'dateRange': {'field': 'col:Closed on', 'preset': 'this_year'}}}, {'name': 'Where buyers and sellers come from', 'list': 'clients', 'description': 'How people found you, so you know what’s working.', 'config': {'source': 'records', 'filters': [], 'groupBy': [{'field': 'col:Found you through'}], 'values': [{'fn': 'count'}]}}]
+
 json.dump(starter, open(OUT, 'w'), indent=2, ensure_ascii=False)
 open(OUT, 'a').write('\n')
 print('written', OUT)

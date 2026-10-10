@@ -50,6 +50,8 @@ export const reportConfigSchema = z.object({
   values: z.array(z.object({ fn: z.enum(['count', 'sum', 'avg', 'min', 'max']), field: fieldId.optional(), label: z.string().max(60).optional() })).max(REPORT_LIMITS.values).default([]),
   columns: z.array(fieldId).max(REPORT_LIMITS.columns).optional(),
   sort: z.object({ field: z.string().max(80), dir: z.enum(['asc', 'desc']) }).optional(),
+  /** One line on the question it answers ("Which estimates still need a call back?") */
+  about: z.string().max(200).optional(),
 })
 export type ReportConfig = z.infer<typeof reportConfigSchema>
 

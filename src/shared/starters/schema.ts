@@ -211,6 +211,18 @@ export const starterSchema = z.object({
   helpTips: z.array(z.object({ title: text(100), body: text(2000) }).strict()).max(20).optional(),
   /** Suggested dashboard cards, in order (W10 §4); applied with the feature switches */
   dashboardCards: z.array(z.string().regex(/^[a-zA-Z]{1,40}$/)).max(20).optional(),
+  /**
+   * Ready-made reports for a trade's own questions, saved with the lists.
+   * Settings are a report's (shared/reports.ts) with columns named, not
+   * numbered: "col:Estimate sent on". Checked against the list when added.
+   */
+  reports: z.array(z.object({
+    name: text(100),
+    list: key,
+    /** One line on what it answers, shown with the report */
+    description: optionalText(200),
+    config: z.record(z.string(), z.unknown()),
+  }).strict()).max(20).optional(),
 }).strict().refine(s => (s.lists ? 1 : 0) + (s.variants ? 1 : 0) === 1, { message: 'A starter has either lists or variants' })
 
 export type Starter = z.infer<typeof starterSchema>

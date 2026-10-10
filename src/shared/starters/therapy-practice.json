@@ -1286,5 +1286,69 @@
         "type": "phone"
       }
     ]
-  }
+  },
+  "reports": [
+    {
+      "name": "Sessions per month",
+      "list": "clients",
+      "description": "How many sessions you held each month this year.",
+      "config": {
+        "source": "activities",
+        "filters": [
+          {
+            "field": "act:type",
+            "operator": "equals",
+            "value": "Session"
+          }
+        ],
+        "groupBy": [
+          {
+            "field": "act:date",
+            "bucket": "month"
+          }
+        ],
+        "values": [
+          {
+            "fn": "count",
+            "label": "Sessions"
+          }
+        ],
+        "dateRange": {
+          "field": "act:date",
+          "preset": "this_year"
+        }
+      }
+    },
+    {
+      "name": "No-shows per month",
+      "list": "clients",
+      "description": "Missed sessions each month this year.",
+      "config": {
+        "source": "activities",
+        "filters": [
+          {
+            "field": "act:type",
+            "operator": "equals",
+            "value": "No-show"
+          }
+        ],
+        "groupBy": [
+          {
+            "field": "act:date",
+            "bucket": "month"
+          }
+        ],
+        "values": [
+          {
+            "fn": "count",
+            "label": "No-shows"
+          }
+        ],
+        "dateRange": {
+          "field": "act:date",
+          "preset": "this_year"
+        }
+      }
+    }
+  ]
 }

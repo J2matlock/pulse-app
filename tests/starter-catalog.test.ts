@@ -354,13 +354,19 @@ describe('built-in starter catalog', () => {
   it.each(cases)('$label: applies with its sample data, rules linked, reports run', async ({ s, variant }) => {
     const { applyStarter } = await import('../src/main/starters')
     const { loadDeadlines } = await import('../src/main/deadlines')
-    const { runReport } = await import('../src/main/report-builder')
+    const { runReport, listReports } = await import('../src/main/report-builder')
     const { getMissingInfo } = await import('../src/main/missing-info')
     const { getComplianceSummary } = await import('../src/main/compliance')
     const db = testDb.db
     const lists = starterLists(s, variant)
     const res = applyStarter({ builtinId: s.id }, { lists: lists.map(l => l.key), variant, applyWords: true, applyFeatures: true, sampleData: true })
     expect(res.warnings).toEqual([])
+    // Ready-made reports: at least one, the starter's own all added, each runs; the main one shows more than a single line
+    const saved = listReports()
+    expect(saved.length, 'ready-made reports').toBeGreaterThan(0)
+    for (const own of s.reports ?? []) if (res.gridIds[own.list]) expect(saved.map(r => r.name), 'the starter’s own reports').toContain(own.name)
+    for (const r of saved) expect(() => runReport(r.grid_id, r.config), r.name).not.toThrow()
+    expect(saved.some(r => runReport(r.grid_id, r.config).rows.length > 1), 'a report with something to show').toBe(true)
     expect(Object.keys(res.gridIds).sort()).toEqual(lists.map(l => l.key).sort())
 
     const exp = EXPECTED[s.id]!

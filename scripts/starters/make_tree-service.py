@@ -254,6 +254,8 @@ starter = {
     'sampleData': sample,
 }
 
+starter['reports'] = [{'name': 'Estimates waiting on an answer', 'list': 'jobs', 'description': 'Quotes that still need a call back, oldest first.', 'config': {'source': 'records', 'filters': [{'field': 'col:Stage', 'operator': 'equals', 'value': 'Estimate sent'}], 'groupBy': [], 'values': [{'fn': 'count'}], 'columns': ['col:Job', 'col:Customer', 'col:Estimate', 'col:Estimate sent on'], 'sort': {'field': 'col:Estimate sent on', 'dir': 'asc'}}}, {'name': 'Invoiced per month', 'list': 'jobs', 'description': 'What you billed each month this year.', 'config': {'source': 'records', 'filters': [], 'groupBy': [{'field': 'col:Completed on', 'bucket': 'month'}], 'values': [{'fn': 'count', 'label': 'Jobs'}, {'fn': 'sum', 'field': 'col:Invoice total', 'label': 'Invoiced'}], 'dateRange': {'field': 'col:Completed on', 'preset': 'this_year'}}}, {'name': 'Work by type', 'list': 'jobs', 'description': 'Which kinds of work you do most, and what they bring in.', 'config': {'source': 'records', 'filters': [], 'groupBy': [{'field': 'col:Work type'}], 'values': [{'fn': 'count', 'label': 'Jobs'}, {'fn': 'sum', 'field': 'col:Invoice total', 'label': 'Invoiced'}]}}]
+
 json.dump(starter, open(sys.argv[1], 'w'), indent=2, ensure_ascii=False)
 open(sys.argv[1], 'a').write('\n')
 print('written')

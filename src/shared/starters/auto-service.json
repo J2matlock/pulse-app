@@ -1382,5 +1382,42 @@
     "stages",
     "dueForService",
     "missingInfo"
+  ],
+  "reports": [
+    {
+      "name": "Invoiced per month",
+      "list": "jobs",
+      "description": "Jobs picked up, labor hours and what you billed each month this year.",
+      "config": {
+        "source": "records",
+        "filters": [],
+        "groupBy": [
+          {
+            "field": "col:Picked up on",
+            "bucket": "month"
+          }
+        ],
+        "values": [
+          {
+            "fn": "count",
+            "label": "Jobs"
+          },
+          {
+            "fn": "sum",
+            "field": "col:Labor hours",
+            "label": "Labor hours"
+          },
+          {
+            "fn": "sum",
+            "field": "col:Invoice total",
+            "label": "Invoiced"
+          }
+        ],
+        "dateRange": {
+          "field": "col:Picked up on",
+          "preset": "this_year"
+        }
+      }
+    }
   ]
 }

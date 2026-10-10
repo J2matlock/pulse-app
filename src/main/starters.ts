@@ -23,6 +23,7 @@ import {
 } from '../shared/starters/schema'
 import { getSampleGridId, getStarterSampleRowIds, STARTER_SAMPLE_META_KEY } from './sample-data'
 import { addSampleHistory } from './sample-history'
+import { addStarterReports } from './starter-reports'
 import { assignAutoNumbers, bumpAutoNumbersPastValues, freshAutoNumberConfig } from './auto-number'
 import { addMissingActivityTypes, listActivityTypes, userTypeKeys } from './activity-types'
 import { addMissingMeasures, listMeasures } from './measures'
@@ -440,6 +441,9 @@ export function applyStarter(src: StarterSource, opts: ApplyOptions): ApplyResul
         linkTypes.set(`${l.key}:${link.label_forward.toLowerCase()}`, type.id)
       }
     }
+
+    // 6c. Ready-made reports for the lists just added
+    result.warnings.push(...addStarterReports(s, result.gridIds, chosen.map(l => l.key)))
 
     // 7. Words and feature switches, only if chosen
     const saveSetting = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)')
