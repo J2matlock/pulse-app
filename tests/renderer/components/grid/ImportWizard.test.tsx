@@ -100,4 +100,50 @@ describe('ImportWizard', () => {
     fireEvent.click(browseArea)
     expect(mockInvoke).toHaveBeenCalled()
   })
+
+  describe('a full import', () => {
+    const preview = {
+      sheets: ['Sheet1'], activeSheet: 0, headers: ['Name', 'Notes'],
+      rows: [['Al', 'Called Tuesday']],
+      detectedColumns: [
+        { index: 0, originalName: 'Name', detectedType: 'text', samples: ['Al'] },
+        { index: 1, originalName: 'Notes', detectedType: 'text', samples: ['Called Tuesday'] },
+      ],
+      detectedHeaderRow: 0, headerDetectionConfidence: 'high', rawRowCount: 2,
+    }
+    beforeEach(() => {
+      mockInvoke.mockImplementation((channel: string) => {
+        switch (channel) {
+          case 'app:show-file-dialog': return Promise.resolve({ ok: true, data: { canceled: false, filePaths: ['/home/me/list.csv'] } })
+          case 'import:file-preview': return Promise.resolve({ ok: true, data: preview })
+          case 'import:detect-columns': return Promise.resolve({ ok: true, data: [{ sourceIndex: 0, action: 7 }, { sourceIndex: 1, action: 'create', newName: 'Notes', newType: 'text' }] })
+          case 'grid:get': return Promise.resolve({ ok: true, data: { columns: [{ id: 7, name: 'Name', column_type: 'text' }] } })
+          case 'import:file': return Promise.resolve({ ok: true, data: { imported: 3, skipped: 2, warnings: [], skippedNames: ['Maria Garcia', 'Bob Lee'] } })
+          default: return Promise.resolve({ ok: true, data: null })
+        }
+      })
+    })
+
+    async function goToMapping() {
+      render(<ImportWizard open={true} gridId={1} onClose={onClose} onImported={onImported} />)
+      fireEvent.click(screen.getByLabelText('Click to browse for a file, or drop a file here'))
+      fireEvent.click(await screen.findByRole('button', { name: /Next/ }))
+      await screen.findByText(/Map each column/)
+    }
+
+    it('keeps a Notes column as text, and says why', async () => {
+      await goToMapping()
+      expect(screen.getByText('Notes come in as a text column, so nothing is lost.')).toBeTruthy()
+      const selects = screen.getAllByRole('combobox') as HTMLSelectElement[]
+      expect(selects.some(s => s.value === 'create')).toBe(true)
+      expect(selects.some(s => s.value === 'skip')).toBe(false)
+    })
+
+    it('lists who was skipped as already here', async () => {
+      await goToMapping()
+      fireEvent.click(screen.getByRole('button', { name: /Next/ }))
+      fireEvent.click(await screen.findByRole('button', { name: /^Import/ }))
+      expect(await screen.findByText(/2 skipped because they were already here: Maria Garcia, Bob Lee/)).toBeTruthy()
+    })
+  })
 })

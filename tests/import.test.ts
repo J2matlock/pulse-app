@@ -250,6 +250,29 @@ describe('Excel Parsing — Edge Cases', () => {
     return filePath
   }
 
+  it('going back and choosing another sheet shows that sheet (audit X-42)', async () => {
+    clearImportCache()
+    const filePath = await writeXlsx('backandforth.xlsx', (wb) => {
+      const ws1 = wb.addWorksheet('Clients')
+      ws1.addRow(['Name', 'Age'])
+      ws1.addRow(['Alice', 30])
+      const ws2 = wb.addWorksheet('Staff')
+      ws2.addRow(['Worker', 'Office'])
+      ws2.addRow(['Sam', 'North'])
+    })
+    expect((await parseImportFile(filePath)).headers).toEqual(['Name', 'Age'])
+    const second = await parseImportFile(filePath, 1)
+    expect(second.headers).toEqual(['Worker', 'Office'])
+    expect(second.activeSheet).toBe(1)
+    // Back to the first sheet: the cached second sheet must not be reused
+    expect((await parseImportFile(filePath, 0)).headers).toEqual(['Name', 'Age'])
+    // By name, as the import itself asks for it
+    const byName = await parseImportFile(filePath, 0, undefined, 'Staff')
+    expect(byName.headers).toEqual(['Worker', 'Office'])
+    expect(byName.activeSheet).toBe(1)
+    clearImportCache()
+  })
+
   it('multi-sheet workbook parses first sheet by default', async () => {
     const filePath = await writeXlsx('multi.xlsx', (wb) => {
       const ws1 = wb.addWorksheet('Sheet1')
@@ -601,10 +624,95 @@ describe('executeImport', () => {
     // Alice appears twice in CSV but already exists → both skipped; Bob is new → imported
     expect(result.imported).toBe(1)
     expect(result.skipped).toBe(2)
-    expect(result.warnings.length).toBe(2)
-    expect(result.warnings[0]).toContain('Alice')
+    expect(result.skippedNames).toEqual(['Alice', 'Alice'])
     // Total rows: 1 existing + 1 imported = 2
     expect(countRows(gridId)).toBe(2)
+  })
+
+  describe('duplicates (audit X-16)', () => {
+    function seedPerson(gridId: number, nameCol: number, name: string, dobCol?: number, dob?: string, inTrash = false): void {
+      const r = testDb.db.prepare(`INSERT INTO rows (grid_id, position, created_at, updated_at, deleted_at) VALUES (?, 0, datetime('now'), datetime('now'), ${inTrash ? "datetime('now')" : 'NULL'})`).run(gridId)
+      testDb.db.prepare(`INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))`).run(r.lastInsertRowid, nameCol, name)
+      if (dobCol && dob) testDb.db.prepare(`INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))`).run(r.lastInsertRowid, dobCol, dob)
+    }
+
+    it('Name + Date of Birth really compares both', async () => {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }, { name: 'Date of Birth', type: 'date' }])
+      seedPerson(gridId, columnIds[0], 'Maria Garcia', columnIds[1], '1950-01-01')
+      const filePath = writeImportCsv('dob.csv', 'Name,Date of Birth\nMaria Garcia,1/1/1950\nMaria Garcia,2/2/1960\n')
+      const preview = await parseImportFile(filePath)
+      const result = await executeImport({
+        gridId, filePath, cleanData: true, duplicateStrategy: 'name_and_dob',
+        columnMappings: [{ sourceIndex: 0, action: columnIds[0] }, { sourceIndex: 1, action: columnIds[1] }],
+      }, preview)
+      // The second Maria Garcia is a different person: imported, not skipped
+      expect(result.imported).toBe(1)
+      expect(result.skipped).toBe(1)
+      expect(result.skippedNames).toEqual(['Maria Garcia'])
+    })
+
+    it('says so when there is no birth date to compare', async () => {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }])
+      const filePath = writeImportCsv('nodob.csv', 'Name\nAl\n')
+      const preview = await parseImportFile(filePath)
+      const result = await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'name_and_dob', columnMappings: [{ sourceIndex: 0, action: columnIds[0] }] }, preview)
+      expect(result.warnings.join(' ')).toMatch(/matched by name only/)
+    })
+
+    it('ignores records in Trash', async () => {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }])
+      seedPerson(gridId, columnIds[0], 'Alice', undefined, undefined, true)
+      const filePath = writeImportCsv('trash.csv', 'Name\nAlice\n')
+      const preview = await parseImportFile(filePath)
+      const result = await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'by_name', columnMappings: [{ sourceIndex: 0, action: columnIds[0] }] }, preview)
+      expect(result.imported).toBe(1)
+    })
+
+    it('catches the same person twice in one file', async () => {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }])
+      const filePath = writeImportCsv('twice.csv', 'Name\nBob\nbob \nCarol\n')
+      const preview = await parseImportFile(filePath)
+      const result = await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'by_name', columnMappings: [{ sourceIndex: 0, action: columnIds[0] }] }, preview)
+      expect(result.imported).toBe(2)
+      expect(result.skippedNames).toEqual(['bob'])
+    })
+
+    it('"by column" compares that column, not the name', async () => {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }, { name: 'Case ID' }])
+      const r = testDb.db.prepare(`INSERT INTO rows (grid_id, position, created_at, updated_at) VALUES (?, 0, datetime('now'), datetime('now'))`).run(gridId)
+      testDb.db.prepare(`INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, 'A-1', datetime('now'))`).run(r.lastInsertRowid, columnIds[1])
+      const filePath = writeImportCsv('bycol.csv', 'Name,Case ID\nNew Person,A-1\nOther,A-2\n')
+      const preview = await parseImportFile(filePath)
+      const result = await executeImport({
+        gridId, filePath, cleanData: true, duplicateStrategy: 'by_column', duplicateColumnId: columnIds[1],
+        columnMappings: [{ sourceIndex: 0, action: columnIds[0] }, { sourceIndex: 1, action: columnIds[1] }],
+      }, preview)
+      expect(result.imported).toBe(1)
+      expect(result.skippedNames).toEqual(['New Person'])
+    })
+  })
+
+  describe('two-digit birth years (audit L-21)', () => {
+    it('reads them as 19xx when they would otherwise be in the future, and says so', async () => {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }, { name: 'DOB', type: 'date' }])
+      const soon = new Date(); soon.setDate(soon.getDate() + 40)
+      const yy = String(soon.getFullYear() % 100).padStart(2, '0')
+      const typed = `${soon.getMonth() + 1}/${soon.getDate()}/${yy}`
+      const expected = `${soon.getFullYear() - 100}-${String(soon.getMonth() + 1).padStart(2, '0')}-${String(soon.getDate()).padStart(2, '0')}`
+      const filePath = writeImportCsv('dob2.csv', `Name,DOB\nOld Timer,${typed}\nKid,1/5/2020\n`)
+      const preview = await parseImportFile(filePath)
+      const result = await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'none', columnMappings: [{ sourceIndex: 0, action: columnIds[0] }, { sourceIndex: 1, action: columnIds[1] }] }, preview)
+      const rows = testDb.db.prepare('SELECT id FROM rows WHERE grid_id = ? ORDER BY position').all(gridId) as Array<{ id: number }>
+      expect(getCellValue(rows[0].id, columnIds[1])).toBe(expected)
+      expect(getCellValue(rows[1].id, columnIds[1])).toBe('2020-01-05')
+      expect(result.warnings.join(' ')).toMatch(/two-digit year and was read as 19xx/)
+    })
+
+    it('uses this year as the cut-off for any two-digit year', () => {
+      const nextYy = (new Date().getFullYear() + 1) % 100
+      expect(normalizeDate(`3/15/${String(nextYy).padStart(2, '0')}`)).toBe(`19${String(nextYy).padStart(2, '0')}-03-15`)
+      expect(normalizeDate('3/15/30')).toBe('1930-03-15')
+    })
   })
 
   it('progress callback fires with correct counts', async () => {

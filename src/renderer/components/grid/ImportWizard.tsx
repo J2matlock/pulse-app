@@ -65,6 +65,7 @@ interface ImportResult {
   imported: number
   skipped: number
   warnings: string[]
+  skippedNames?: string[]
 }
 
 interface Props {
@@ -116,6 +117,11 @@ function parsePastedText(text: string): { headers: string[]; rows: string[][] } 
   const headers = lines[0]!.map(h => h.trim())
   const rows = lines.slice(1)
   return { headers, rows }
+}
+
+/** Notes, comments and remarks columns */
+function isNotesColumn(name: string): boolean {
+  return /^(notes?|comments?|remarks?)$/i.test(name.trim())
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -338,14 +344,12 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
   async function advanceToMapping() {
     if (!preview) return
     const detected = await detectMappings(preview.headers)
-    // Column names that should be auto-skipped (handled in profiles, not grid)
-    const skipNames = /^(notes?|comments?|remarks?)$/i
     // Fill in newName/newType for 'create' actions
     const filled: ColumnMapping[] = preview.detectedColumns.map((col, i) => {
       const d = detected[i] ?? { sourceIndex: i, action: 'create' }
-      // Auto-skip notes-like columns — content belongs in profile scratch pad
-      if (skipNames.test(col.originalName.trim()) && d.action === 'create') {
-        return { sourceIndex: col.index, action: 'skip' as const }
+      // Running notes are often the most valuable column: keep them as plain text
+      if (isNotesColumn(col.originalName) && d.action === 'create') {
+        return { sourceIndex: col.index, action: 'create' as const, newName: col.originalName, newType: 'text' }
       }
       return {
         sourceIndex: col.index,
@@ -760,6 +764,11 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                                 e.g. {col.samples.filter(Boolean).slice(0, 2).join(', ')}
                               </p>
                             )}
+                            {isNotesColumn(col.originalName) && mapping.action !== 'skip' && (
+                              <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+                                Notes come in as a text column, so nothing is lost.
+                              </p>
+                            )}
                           </td>
 
                           {/* Map-to controls */}
@@ -973,8 +982,11 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                         {importResult.imported} {t('record', { count: importResult.imported })} imported
                       </p>
                       {importResult.skipped > 0 && (
-                        <p className="text-sm text-green-600 dark:text-green-400 mt-0.5">
-                          {importResult.skipped} skipped (duplicate detection)
+                        <p className="text-base text-green-700 dark:text-green-300 mt-0.5">
+                          {importResult.skipped} skipped because {importResult.skipped === 1 ? 'it was' : 'they were'} already here
+                          {importResult.skippedNames && importResult.skippedNames.length > 0 && (
+                            <>: {importResult.skippedNames.slice(0, 10).join(', ')}{importResult.skippedNames.length > 10 ? `, and ${importResult.skippedNames.length - 10} more` : ''}</>
+                          )}
                         </p>
                       )}
                     </div>
