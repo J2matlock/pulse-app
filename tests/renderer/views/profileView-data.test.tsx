@@ -224,15 +224,15 @@ describe('ProfileView — data smoke tests (1 client)', () => {
     expect(screen.queryByTestId('linked-providers')).toBeNull()
   })
 
-  it('shows Client not found for non-existent row', async () => {
+  it('shows a not-found message for a non-existent row', async () => {
     renderProfile(999)
     await flushEffects()
-    expect(screen.getByText(/Client not found/)).toBeDefined()
+    expect(screen.getByText(/couldn't find this client/)).toBeDefined()
   })
 
-  it('shows Return to grid link for missing client', async () => {
+  it('shows a way back for missing client', async () => {
     renderProfile(999)
     await flushEffects()
-    expect(screen.getByText('Return to grid')).toBeDefined()
+    expect(screen.getByText('Back to the caseload')).toBeDefined()
   })
 })

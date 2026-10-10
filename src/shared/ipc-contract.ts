@@ -24,6 +24,13 @@ import type { ActivityType } from './activityTypes'
 import type { MeasureDef, MeasureKind } from './measures'
 import type { RecordKind } from './types'
 
+/** Where a record lives, so it can be opened from any screen */
+export interface RowLocation {
+  gridId: number
+  status: 'active' | 'archived' | 'trash' | 'list-deleted'
+  archivedReason: string | null
+}
+
 /** Setup's "Which of these dates repeat?" answer for one date column */
 export type DateRuleAnswer = { columnId: number; repeat: 'due' } | { columnId: number; repeat: 'every'; n: number; unit: 'days' | 'months' | 'years' }
 import type { StarterSummary, StarterRef, StarterPreview, ApplyOptions, ApplyResult } from './starters/schema'
@@ -168,6 +175,7 @@ export interface IPCContract {
   'row:delete':              { args: [rowId: number];                                                                      return: true }
   'row:archive':             { args: [rowId: number, reason?: string];                                                     return: true }
   'row:unarchive':           { args: [rowId: number];                                                                      return: true }
+  'row:locate':              { args: [rowId: number];                                                                      return: RowLocation | null }
   'row:reorder':             { args: [gridId: number, orderedIds: number[]];                                               return: true }
   'row:duplicate':           { args: [rowId: number];                                                                      return: number | bigint }
   'row:bulk-action':         { args: [action: 'archive' | 'unarchive' | 'delete', rowIds: number[]];                       return: number }

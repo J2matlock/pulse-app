@@ -15,37 +15,37 @@ Object.defineProperty(window, 'api', {
 })
 
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }))
-vi.mock('zustand/react/shallow', () => ({ useShallow: (fn: Function) => fn }))
 vi.mock('lucide-react', async () => (await import('../lucideMock')).lucideMock)
+const invokeMock = vi.hoisted(() => ({ fn: null as null | ((channel: string, ...args: unknown[]) => Promise<unknown>) }))
 vi.mock('../../../src/renderer/utils/safeInvoke', () => ({
-  safeInvoke: vi.fn().mockResolvedValue({ ok: false, error: 'test-mock' }),
-}))
-
-const grid = vi.hoisted(() => ({
-  state: {} as Record<string, unknown>,
+  safeInvoke: (channel: string, ...args: unknown[]) => invokeMock.fn ? invokeMock.fn(channel, ...args) : Promise.resolve({ ok: false, error: 'test-mock' }),
 }))
 
 const columns = [
   { id: 1, grid_id: 1, name: 'Name', column_type: 'text', width: 200, position: 0, is_visible: 1, is_required: 1, is_identifier: 1, is_name_column: 1, config: '{}', created_at: '', updated_at: '' },
 ]
-const rowOf = (id: number, name: string) => ({
+const rowOf = (id: number, name: string, extra: Record<string, unknown> = {}) => ({
   row_id: id, position: 0, is_active: 1, is_starred: 0, acuity_level_id: null, display_name: name,
-  deleted_at: null, created_at: '2026-01-01', updated_at: '2026-01-01', col_1: name,
+  deleted_at: null, created_at: '2026-01-01', updated_at: '2026-01-01', col_1: name, ...extra,
 })
 
+vi.mock('../../../src/renderer/stores/gridStore', async () => {
+  const { create } = await import('zustand')
+  return { useGridStore: create(() => ({}) as Record<string, unknown>) }
+})
+import { useGridStore } from '../../../src/renderer/stores/gridStore'
+
 function resetGrid() {
-  grid.state = {
-    grids: [{ id: 1, name: 'People', is_active: 1, position: 0 }],
+  (useGridStore as unknown as { setState: (s: Record<string, unknown>, replace: boolean) => void }).setState({
+    grids: [{ id: 1, name: 'People', is_active: 1, position: 0 }, { id: 2, name: 'Jobs', is_active: 1, position: 1 }],
     rows: [rowOf(1, 'Maria'), rowOf(2, 'Robert')],
     columns, hiddenColumns: [], activeGridId: 1, isLoading: false,
     sortedRowIds: [1, 2],
-    loadGrid: vi.fn(), updateRow: vi.fn(), updateCell: vi.fn(),
-  }
+    loadGrid: vi.fn(), updateRow: vi.fn(), updateCell: vi.fn(), unarchiveRow: vi.fn(),
+  }, true)
 }
+const setGrid = (patch: Record<string, unknown>) => (useGridStore as unknown as { setState: (s: Record<string, unknown>) => void }).setState(patch)
 
-vi.mock('../../../src/renderer/stores/gridStore', () => ({
-  useGridStore: Object.assign((sel: Function) => sel(grid.state), { getState: () => grid.state }),
-}))
 vi.mock('../../../src/renderer/stores/profileStore', () => ({
   useProfileStore: (sel: Function) => sel({ addRecentProfile: vi.fn(), recentProfiles: [] }),
 }))
@@ -100,6 +100,7 @@ function renderAt(path: string) {
 beforeEach(() => {
   setWords()
   resetGrid()
+  invokeMock.fn = null
   mockInvoke.mockReset()
   mockInvoke.mockResolvedValue({ ok: true, data: [] })
 })
@@ -153,5 +154,59 @@ describe('Prev/Next starts each record clean (1.2)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Next/ }))
     await flush()
     expect((screen.getByLabelText('note for 2') as HTMLTextAreaElement).value).toBe('')
+  })
+})
+
+describe('A record opens from anywhere (1.24)', () => {
+  it('opens a record from another list by switching to that list', async () => {
+    const loadGrid = vi.fn(async (gridId: number) => {
+      setGrid({ activeGridId: gridId, isLoading: true })
+      setGrid({ rows: [rowOf(7, 'J-0007')], sortedRowIds: [7], isLoading: false })
+    })
+    setGrid({ loadGrid })
+    invokeMock.fn = async (channel: string) => channel === 'row:locate'
+      ? { ok: true, data: { gridId: 2, status: 'active', archivedReason: null } }
+      : { ok: true, data: [] }
+    renderAt('/profile/7')
+    await flush()
+    await flush()
+    expect(loadGrid).toHaveBeenCalledWith(2)
+    expect(screen.getByLabelText('note for 7')).toBeTruthy()
+    expect(screen.queryByText(/couldn't find/)).toBeNull()
+  })
+
+  it('shows Loading while the list loads, not "not found"', async () => {
+    setGrid({ isLoading: true, rows: [] })
+    renderAt('/profile/7')
+    await flush()
+    expect(screen.getByText('Loading…')).toBeTruthy()
+    expect(screen.queryByText(/couldn't find/)).toBeNull()
+  })
+
+  it('shows an archived record with a way to unarchive it', async () => {
+    const unarchiveRow = vi.fn(async () => {})
+    setGrid({ unarchiveRow })
+    invokeMock.fn = async (channel: string) => {
+      if (channel === 'row:locate') return { ok: true, data: { gridId: 1, status: 'archived', archivedReason: 'Discharged' } }
+      if (channel === 'row:get') return { ok: true, data: rowOf(9, 'Ann', { is_active: 0 }) }
+      return { ok: true, data: [] }
+    }
+    renderAt('/profile/9')
+    await flush()
+    await flush()
+    expect(screen.getByText(/is archived \(Discharged\)/)).toBeTruthy()
+    expect(screen.getByLabelText('note for 9')).toBeTruthy()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Unarchive' })) })
+    expect(unarchiveRow).toHaveBeenCalledWith(9)
+  })
+
+  it('says when a record is in the Trash', async () => {
+    invokeMock.fn = async (channel: string) => channel === 'row:locate'
+      ? { ok: true, data: { gridId: 1, status: 'trash', archivedReason: null } }
+      : { ok: true, data: [] }
+    renderAt('/profile/9')
+    await flush()
+    expect(screen.getByText(/is in the Trash/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Open Trash' })).toBeTruthy()
   })
 })

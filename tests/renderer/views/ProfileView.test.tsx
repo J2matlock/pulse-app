@@ -173,7 +173,7 @@ describe('ProfileView', () => {
     expect(screen.getByText(/Invalid profile link/)).toBeDefined()
   })
 
-  it('shows "Client not found" when rowId does not match any row', async () => {
+  it('shows a not-found message when rowId does not match any row', async () => {
     render(
       <MemoryRouter initialEntries={['/profile/999']}>
         <Routes>
@@ -182,10 +182,10 @@ describe('ProfileView', () => {
       </MemoryRouter>,
     )
     await flushEffects()
-    expect(screen.getByText(/Client not found/)).toBeDefined()
+    expect(screen.getByText(/couldn't find this client/)).toBeDefined()
   })
 
-  it('shows "Return to grid" link when client not found', async () => {
+  it('shows a way back when client not found', async () => {
     render(
       <MemoryRouter initialEntries={['/profile/999']}>
         <Routes>
@@ -194,6 +194,6 @@ describe('ProfileView', () => {
       </MemoryRouter>,
     )
     await flushEffects()
-    expect(screen.getByText('Return to grid')).toBeDefined()
+    expect(screen.getByText('Back to the caseload')).toBeDefined()
   })
 })

@@ -89,8 +89,8 @@ export function ContactLinkedClients({ providerId }: Props) {
     }
   }
 
-  function handleClientClick(rowId: number) {
-    navigate(`/profile/${rowId}`)
+  function handleClientClick(rowId: number, gridId: number) {
+    navigate(`/profile/${rowId}?gridId=${gridId}`)
   }
 
   function formatDate(dateStr: string): string {
@@ -225,7 +225,7 @@ export function ContactLinkedClients({ providerId }: Props) {
               <Users size={16} className="text-slate-500 dark:text-slate-400 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <button
-                  onClick={() => handleClientClick(link.row_id)}
+                  onClick={() => handleClientClick(link.row_id, link.grid_id)}
                   className="hit-44 flex items-center gap-1.5 text-blue-600 dark:text-blue-400 hover:underline focus:outline-hidden focus:ring-3 focus:ring-blue-500 rounded-sm"
                   style={{ fontSize: 15 }}
                 >

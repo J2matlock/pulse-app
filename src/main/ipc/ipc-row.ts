@@ -4,6 +4,7 @@
 
 import { copyForwardLinks, dropLinksThatWontFit } from '../links'
 import { IPC } from '../../shared/ipc-channels'
+import type { RowLocation } from '../../shared/ipc-contract'
 import { secureWrap, logNonFatal, ok, fail, buildSafeSetClause, validId, notifyCaseLogChanged, enforceWritable } from './ipc-utils'
 import { getDb, getRow, cachedStmt } from '../database'
 import { logger } from '../logger'
@@ -278,6 +279,19 @@ export function registerRowHandlers(): void {
     const row = getRow(gridId, rowId)
     if (!row) return fail('Row not found')
     return ok(row)
+  })
+
+  secureWrap(IPC.ROW_LOCATE, 'ipc-row', (_e, rowId: number) => {
+    if (!validId(rowId)) return fail('Invalid ID')
+    const r = cachedStmt('row_locate', `
+      SELECT r.grid_id, r.is_active, r.deleted_at, r.archived_at, r.archived_reason, g.is_active AS grid_active
+      FROM rows r JOIN grids g ON g.id = r.grid_id WHERE r.id = ?
+    `).get(rowId) as { grid_id: number; is_active: number; deleted_at: string | null; archived_at: string | null; archived_reason: string | null; grid_active: number } | undefined
+    if (!r) return ok(null)
+    const status: RowLocation['status'] = r.deleted_at ? 'trash'
+      : !r.grid_active ? 'list-deleted'
+      : r.is_active ? 'active' : 'archived'
+    return ok({ gridId: r.grid_id, status, archivedReason: status === 'archived' ? r.archived_reason : null })
   })
 
   secureWrap(IPC.ROW_CREATE, 'ipc-row', (_e, gridId: number) => {

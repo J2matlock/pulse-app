@@ -24,6 +24,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap'
 import { ProfilePrintLayout } from '../components/profile/ProfilePrintLayout'
 import { ProfileExportDialog, type ProfileSections } from '../components/profile/ProfileExportDialog'
 import type { GridRow, SaveDialogResult, LetterTemplate } from '../../shared/types'
+import type { RowLocation } from '../../shared/ipc-contract'
 import { useCopyFeedback } from '../hooks/useCopyFeedback'
 import { Tooltip } from '../components/shared/Tooltip'
 import { clientFileName, noteUnencryptedExport } from '../utils/exportNotice'
@@ -193,12 +194,12 @@ export default function ProfileView(): React.ReactElement {
   const [showExportDialog, setShowExportDialog] = useState(false)
   const closeExportDialog = useCallback(() => setShowExportDialog(false), [])
 
-  const { rows, columns, hiddenColumns, grids, activeGridId, sortedRowIds } = useGridStore(useShallow(s => ({
+  const { rows, columns, hiddenColumns, grids, activeGridId, sortedRowIds, isLoading } = useGridStore(useShallow(s => ({
     rows: s.rows, columns: s.columns, hiddenColumns: s.hiddenColumns,
-    grids: s.grids, activeGridId: s.activeGridId, sortedRowIds: s.sortedRowIds,
+    grids: s.grids, activeGridId: s.activeGridId, sortedRowIds: s.sortedRowIds, isLoading: s.isLoading,
   })))
-  const { updateRow, updateCell, loadGrid } = useGridStore(useShallow(s => ({
-    updateRow: s.updateRow, updateCell: s.updateCell, loadGrid: s.loadGrid,
+  const { updateRow, updateCell, loadGrid, unarchiveRow } = useGridStore(useShallow(s => ({
+    updateRow: s.updateRow, updateCell: s.updateCell, loadGrid: s.loadGrid, unarchiveRow: s.unarchiveRow,
   })))
   const { addRecentProfile } = useProfileStore(useShallow(s => ({
     addRecentProfile: s.addRecentProfile,
@@ -246,8 +247,48 @@ export default function ProfileView(): React.ReactElement {
   const activeGrid = grids.find(g => g.id === activeGridId)
   const nameCol = columns.find(c => c.is_name_column === 1)
 
-  // Find the row in the loaded grid data
-  const row = rowId != null ? rows.find(r => r.row_id === rowId) : undefined
+  // Find the row in the loaded list. A record from another list (Recent, Contacts,
+  // Focus Mode, the palette…) or an archived one isn't there: ask main where it
+  // lives, open that list, and fetch an archived record on its own (1.24).
+  const rowInList = rowId != null ? rows.find(r => r.row_id === rowId) : undefined
+  const [lookup, setLookup] = useState<{ rowId: number; status: RowLocation['status'] | 'missing'; archivedRow?: GridRow; archivedReason?: string | null } | null>(null)
+  useEffect(() => {
+    if (rowId == null || rowInList || isLoading || lookup?.rowId === rowId) return
+    let live = true
+    void (async () => {
+      const res = await safeInvoke<RowLocation | null>(IPC.ROW_LOCATE, rowId)
+      if (!live) return
+      if (!res.ok || !res.data) { setLookup({ rowId, status: 'missing' }); return }
+      const loc = res.data
+      if ((loc.status === 'active' || loc.status === 'archived') && loc.gridId !== useGridStore.getState().activeGridId) {
+        await loadGrid(loc.gridId)
+        if (!live) return
+      }
+      if (loc.status === 'archived') {
+        const got = await safeInvoke<GridRow | null>(IPC.ROW_GET, loc.gridId, rowId)
+        if (!live) return
+        if (got.ok && got.data) { setLookup({ rowId, status: 'archived', archivedRow: got.data, archivedReason: loc.archivedReason }); return }
+        setLookup({ rowId, status: 'missing' })
+        return
+      }
+      setLookup({ rowId, status: loc.status === 'active' ? 'missing' : loc.status })
+    })()
+    return () => { live = false }
+  }, [rowId, rowInList, isLoading, lookup?.rowId, loadGrid])
+  const archivedRow = lookup?.rowId === rowId && !rowInList ? lookup.archivedRow : undefined
+  const row = rowInList ?? archivedRow
+  const isArchived = !!row && row.is_active === 0
+  const [unarchiving, setUnarchiving] = useState(false)
+  async function handleUnarchive() {
+    if (rowId == null) return
+    setUnarchiving(true)
+    try {
+      await unarchiveRow(rowId)
+      setLookup(null)
+    } finally {
+      setUnarchiving(false)
+    }
+  }
 
   const knownName = useMemo(() => {
     if (!row || !nameCol) return null
@@ -361,15 +402,33 @@ export default function ProfileView(): React.ReactElement {
   }
 
   if (!row) {
+    const status = lookup?.rowId === rowId ? lookup.status : null
+    if (status === null || isLoading) {
+      return (
+        <div className="flex items-center justify-center h-full text-base text-slate-500 dark:text-slate-400" role="status">
+          Loading…
+        </div>
+      )
+    }
+    const message = status === 'trash'
+      ? `This ${t('record')} is in the Trash. You can bring it back from there.`
+      : status === 'list-deleted'
+        ? `This ${t('record')} was on a ${t('list')} that has been deleted.`
+        : `We couldn't find this ${t('record')}. It may have been deleted.`
     return (
-      <div className="flex items-center justify-center h-full text-slate-500">
-        {t('record', { cap: true })} not found — it may have been archived or deleted.
-        <button
-          onClick={goBack}
-          className="hit-44 ml-4 text-blue-600 hover:underline focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
-        >
-          Return to grid
-        </button>
+      <div className="flex flex-col items-center justify-center gap-3 h-full text-base text-slate-600 dark:text-slate-300 px-6 text-center">
+        <p>{message}</p>
+        <div className="flex gap-3">
+          {status === 'trash' && (
+            <button onClick={() => navigate('/trash')} className="btn-secondary">Open Trash</button>
+          )}
+          <button
+            onClick={goBack}
+            className="hit-44 text-blue-600 dark:text-blue-400 hover:underline focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
+          >
+            Back to the {t('list')}
+          </button>
+        </div>
       </div>
     )
   }
@@ -437,6 +496,18 @@ export default function ProfileView(): React.ReactElement {
           Alt+←/→ to navigate
         </span>
       </div>
+
+      {isArchived && (
+        <div role="status" className="flex flex-wrap items-center gap-3 px-4 py-2 border-b border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 text-base text-amber-900 dark:text-amber-100 flex-shrink-0">
+          <span className="font-semibold">Archived</span>
+          <span className="flex-1 min-w-0">
+            This {t('record')} is archived{lookup?.rowId === rowId && lookup.archivedReason ? ` (${lookup.archivedReason})` : ''} and doesn't show in the {t('list')}.
+          </span>
+          <button type="button" className="btn-secondary" disabled={unarchiving} onClick={() => void handleUnarchive()}>
+            {unarchiving ? 'Unarchiving…' : 'Unarchive'}
+          </button>
+        </div>
+      )}
 
       {/* Profile content area — two independent scroll regions. Keyed by record so
           Prev/Next starts clean: no draft, edit or scroll position carries over to
