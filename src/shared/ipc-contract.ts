@@ -48,6 +48,19 @@ export interface WorkspacePatch {
 }
 
 /** Return shape for grid:get */
+/** backup:get-status — whether backups are actually happening */
+export interface BackupStatusResult {
+  lastAutoBackup: string | null
+  lastAutoBackupSuccess: boolean
+  lastAutoBackupError: string | null
+  lastOffsiteISO: string | null
+  trackingSinceISO: string
+  scheduled: { enabled: boolean; intervalHours: number; lastRunISO: string | null; lastError: string | null; overdue: boolean }
+  reminderEnabled: boolean
+  remindAfterDays: number
+  offsiteOverdue: boolean
+}
+
 export interface GridGetResult {
   grid: Grid
   columns: Column[]
@@ -355,6 +368,7 @@ export interface IPCContract {
   'backup:verify':               { args: [backupPath: string];              return: { valid: boolean; error?: string; schemaVersion?: number; tableCount?: number } }
   'backup:scheduled-get-config': { args: [];                                return: unknown }
   'backup:scheduled-set-config': { args: [config: Record<string, unknown>]; return: true }
+  'backup:get-status':           { args: [];                                return: BackupStatusResult }
 
   // ── Export / Import ─────────────────────────────────────────────────────
   'export:csv':               { args: [options: Record<string, unknown>];  return: true }

@@ -13,6 +13,7 @@ import { LoadingOverlay } from '../shared/LoadingSpinner'
 import { localDateString, parseDbTimestamp } from '../../../shared/dates'
 import { MoveComputerWizard } from './MoveComputerWizard'
 import { useVocab } from '../../hooks/useVocab'
+import { useBackupStatusStore } from '../../stores/backupStatusStore'
 
 interface BackupPreviewData {
   gridCount: number
@@ -34,6 +35,8 @@ interface ScheduledConfig {
   intervalHours: number
   destinationDir: string
   lastRunISO: string | null
+  lastError?: string | null
+  lastAttemptISO?: string | null
 }
 
 const LARGE_BACKUP_BYTES = 500 * 1024 * 1024
@@ -63,7 +66,9 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
   const [restoreResult, setRestoreResult] = useState<{ safetyPath: string } | null>(null)
   const [runningBackup, setRunningBackup] = useState(false)
   const [runningScheduled, setRunningScheduled] = useState(false)
-  const [backupReminderEnabled, setBackupReminderEnabled] = useState(false)
+  // Reminders are on unless the user switched them off
+  const [backupReminderEnabled, setBackupReminderEnabled] = useState(true)
+  const [lastOffsiteISO, setLastOffsiteISO] = useState<string | null>(null)
   const [backupReminderDays, setBackupReminderDays] = useState(7)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [validatingDestination, setValidatingDestination] = useState(false)
@@ -87,16 +92,25 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
       if (listRes.ok) setAutoBackups(listRes.data)
       const cfgRes = await safeInvoke<ScheduledConfig>(IPC.BACKUP_SCHEDULED_GET_CONFIG)
       if (cfgRes.ok) setScheduledConfig(cfgRes.data)
+      await refreshOffsite()
 
       // Load reminder settings
       const settingsRes = await safeInvoke<Record<string, string>>(IPC.SETTINGS_GET_ALL)
       if (settingsRes.ok) {
-        if (settingsRes.data.backup_reminder_enabled) setBackupReminderEnabled(settingsRes.data.backup_reminder_enabled === 'true')
+        setBackupReminderEnabled(settingsRes.data.backup_reminder_enabled !== 'false')
         if (settingsRes.data.backup_reminder_days) setBackupReminderDays(Number(settingsRes.data.backup_reminder_days) || 7)
       }
     }
     load()
   }, [])
+
+  async function refreshOffsite() {
+    const statusRes = await safeInvoke(IPC.BACKUP_GET_STATUS)
+    if (statusRes.ok) {
+      setLastOffsiteISO(statusRes.data.lastOffsiteISO)
+      useBackupStatusStore.setState({ status: statusRes.data, loadedAt: Date.now() })
+    }
+  }
 
   async function handleManualBackup() {
     setRunningBackup(true)
@@ -108,8 +122,12 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
       })
       if (!saveRes.ok || saveRes.data.canceled || !saveRes.data.filePath) return
       const res = await safeInvoke(IPC.BACKUP_MANUAL_CREATE, saveRes.data.filePath)
-      if (res.ok) toast.success('Backup saved successfully.')
-      else toast.error('Backup failed. Please try again.')
+      if (res.ok) {
+        toast.success('Backup saved.')
+        await refreshOffsite()
+      } else {
+        toast.error(res.error || 'The backup couldn\'t be saved. Try again, or choose a different folder.')
+      }
     } finally {
       setRunningBackup(false)
     }
@@ -210,9 +228,12 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
       const runRes = await safeInvoke(IPC.BACKUP_SCHEDULED_RUN_NOW)
       if (runRes.ok && runRes.data.ran) {
         toast.success(`Backup saved to ${runRes.data.destPath ?? 'your backup folder'}.`)
-        setScheduledConfig(prev => ({ ...prev, lastRunISO: runRes.data.lastRunISO ?? new Date().toISOString() }))
+        setScheduledConfig(prev => ({ ...prev, lastRunISO: runRes.data.lastRunISO ?? new Date().toISOString(), lastError: null }))
+        await refreshOffsite()
       } else {
-        toast.error(`The backup didn't run. ${runRes.ok ? (runRes.data.error ?? '') : runRes.error}`.trim())
+        const reason = runRes.ok ? (runRes.data.error ?? '') : runRes.error
+        toast.error(`The backup didn't run. ${reason}`.trim())
+        if (runRes.ok) setScheduledConfig(prev => ({ ...prev, lastError: reason || 'The backup couldn\'t be saved.' }))
       }
     } finally {
       setRunningScheduled(false)
@@ -230,9 +251,16 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
       {/* The one safety action everyone needs, always visible */}
       <div className="rounded-lg border-2 border-slate-200 dark:border-slate-700 p-4 space-y-2">
         <div className="flex items-center gap-3 flex-wrap">
-          <p className="text-base text-slate-700 dark:text-slate-300 flex-1 min-w-[12rem]">
-            Save a copy of everything to a USB drive or another folder.
-          </p>
+          <div className="flex-1 min-w-[12rem]">
+            <p className="text-base text-slate-700 dark:text-slate-300">
+              Save a copy of everything to a USB drive or another folder.
+            </p>
+            <p className="text-sm text-slate-600 dark:text-slate-400" data-testid="last-offsite">
+              {lastOffsiteISO
+                ? `Last backup saved to another place: ${parseDbTimestamp(lastOffsiteISO).toLocaleString()}`
+                : 'No backup saved to another place yet.'}
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => void handleManualBackup()}
@@ -259,6 +287,18 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
         <p className="rounded-lg border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-base text-amber-900 dark:text-amber-100">
           Your data is {formatBytes(backupInfo!.dbSize!)}, so each backup needs that much room and takes longer. Removing files you no longer need (Settings → Data) makes backups smaller.
         </p>
+      )}
+
+      {/* Scheduled backups that keep failing would otherwise only show up in a log file */}
+      {scheduledConfig.enabled && scheduledConfig.lastError && (
+        <div role="alert" className="rounded-lg border-2 border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/30 px-4 py-3">
+          <p className="text-base font-medium text-red-800 dark:text-red-200">
+            {scheduledConfig.lastRunISO
+              ? `Scheduled backup hasn't worked since ${parseDbTimestamp(scheduledConfig.lastRunISO).toLocaleString()}`
+              : 'Scheduled backup hasn\'t worked yet'}
+          </p>
+          <p className="text-base text-red-700 dark:text-red-300 mt-0.5">{scheduledConfig.lastError}</p>
+        </div>
       )}
 
       {/* Warning: last auto-backup failed */}
@@ -430,7 +470,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
         <div>
           <p className="text-base font-medium text-slate-700 dark:text-slate-300">Backup reminders</p>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Get a reminder after login if no backup has been made in a while.
+            After you unlock Pulse, get a reminder if you haven't saved a backup to a USB drive or another folder in a while.
           </p>
         </div>
         <label

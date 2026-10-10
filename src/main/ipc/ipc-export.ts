@@ -12,6 +12,7 @@ import {
   listAutoBackupsRich, runScheduledBackup, runManualBackup,
   restoreFromDb, restoreFromPulseBackup, getBackupInfo,
   verifyBackup, getScheduledConfig, setScheduledConfig, withBackupDbFile, runScheduledBackupNow,
+  describeBackupError, getBackupHealth,
   type ScheduledBackupConfig, type PersistentScheduledConfig
 } from '../backup'
 import { getDbKey } from '../auth'
@@ -33,6 +34,7 @@ import { statSync, copyFileSync, existsSync, mkdirSync } from 'fs'
 import { writeFile, unlink } from 'fs/promises'
 import { join } from 'path'
 import { localDateString } from '../../shared/dates'
+import { MS_PER_DAY } from '../../shared/constants'
 import { word } from '../vocab'
 import { placeholderFields } from '../placeholders'
 import { buildBatchPdf, buildLabelsPdf, DocumentError, MAX_BATCH, type DocTarget } from '../export-documents'
@@ -86,8 +88,12 @@ export function registerExportHandlers(): void {
 
   secureWrap(IPC.BACKUP_MANUAL_CREATE, 'ipc-export', async (_e, destPath: string) => {
     assertSafePath(destPath)
-    const result = await runManualBackup(destPath)
-    return ok(result)
+    try {
+      return ok(await runManualBackup(destPath))
+    } catch (err) {
+      logger.error('ipc-export', 'Manual backup failed', err)
+      return fail(describeBackupError(err))
+    }
   })
 
   secureWrap(IPC.BACKUP_RESTORE_AUTO, 'ipc-export', async (_e, backupDbPath: string) => {
@@ -185,10 +191,26 @@ export function registerExportHandlers(): void {
   secureWrap(IPC.BACKUP_GET_STATUS, 'ipc-export', () => {
     const info = getBackupInfo()
     const backups = listAutoBackupsRich()
+    // Reminders are on unless switched off, and count only copies kept somewhere else
+    let reminderEnabled = true
+    let remindAfterDays = 7
+    try {
+      const rows = getDb().prepare("SELECT key, value FROM settings WHERE key IN ('backup_reminder_enabled', 'backup_reminder_days')").all() as Array<{ key: string; value: string }>
+      for (const r of rows) {
+        if (r.key === 'backup_reminder_enabled') reminderEnabled = r.value !== 'false'
+        if (r.key === 'backup_reminder_days') remindAfterDays = Math.max(1, Math.min(365, Number(r.value) || 7))
+      }
+    } catch (err) { logNonFatal('ipc-export', 'read backup reminder settings', err) }
+    const health = getBackupHealth()
+    const lastOffsiteMs = Date.parse(health.lastOffsiteISO ?? health.trackingSinceISO)
     return ok({
       lastAutoBackup: backups.length > 0 ? backups[0]!.timestamp.toISOString() : null,
       lastAutoBackupSuccess: !info.lastAutoBackupFailed,
-      lastAutoBackupError: info.lastAutoBackupError
+      lastAutoBackupError: info.lastAutoBackupError,
+      ...health,
+      reminderEnabled,
+      remindAfterDays,
+      offsiteOverdue: reminderEnabled && Date.now() - lastOffsiteMs >= remindAfterDays * MS_PER_DAY,
     })
   })
 

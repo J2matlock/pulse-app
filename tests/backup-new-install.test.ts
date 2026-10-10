@@ -3,7 +3,7 @@
  * on a fresh install using only the old password or recovery key.
  * Uses the real auth.ts + backup.ts with a real SQLCipher database.
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mkdtempSync, existsSync, rmSync, readdirSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -57,7 +57,7 @@ vi.mock('../src/main/logger', () => ({
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const BetterSqlite3 = require('better-sqlite3-multiple-ciphers')
 import { setupPassword, generateRecoveryKey, getDbKey, lockApp, isPasswordSetup, verifyAndUnlock } from '../src/main/auth'
-import { runManualBackup, restoreBackupOnNewInstall, moveAsideExistingDatabase, withBackupDbFile, runScheduledBackupNow, setScheduledConfig, getScheduledConfig, describeBackupError } from '../src/main/backup'
+import { runManualBackup, restoreBackupOnNewInstall, moveAsideExistingDatabase, withBackupDbFile, runScheduledBackupNow, setScheduledConfig, getScheduledConfig, describeBackupError, getBackupHealth, checkAndRunScheduled, runAutoBackupOnLock, setMaxBackupBytesForTests, MAX_BACKUP_BYTES } from '../src/main/backup'
 
 function openWithKey(path: string, hex: string) {
   const db = new BetterSqlite3(path)
@@ -188,6 +188,68 @@ describe('Scheduled backup "Run now"', () => {
     expect(res.error).toMatch(/can't be found|isn't allowed|couldn't be saved/)
     expect(res.error).not.toMatch(/ENOTDIR|EEXIST/)
     expect(getScheduledConfig().lastRunISO).toBe('2026-01-01T00:00:00.000Z')
+  })
+})
+
+describe('Knowing whether backups are happening', () => {
+  it('counts a backup saved outside the Pulse folder as a copy somewhere else', async () => {
+    await makeBackupOnOldComputer() // saved under the data folder: doesn't count
+    expect(getBackupHealth().lastOffsiteISO).toBeNull()
+    const usb = mkdtempSync(join(tmpdir(), 'pulse-usb-'))
+    try {
+      await runManualBackup(join(usb, 'caseload'))
+      expect(getBackupHealth().lastOffsiteISO).not.toBeNull()
+    } finally { rmSync(usb, { recursive: true, force: true }) }
+  })
+
+  it('records why scheduled backups fail and flags them after two missed runs', async () => {
+    await makeBackupOnOldComputer()
+    const blocker = join(state.dir, 'not-a-folder')
+    writeFileSync(blocker, 'x')
+    const threeDaysAgo = new Date(Date.now() - 3 * 86_400_000).toISOString()
+    setScheduledConfig({ enabled: true, intervalHours: 24, destinationDir: join(blocker, 'b'), lastRunISO: threeDaysAgo })
+    await checkAndRunScheduled()
+    const cfg = getScheduledConfig()
+    expect(cfg.lastError).toBeTruthy()
+    expect(cfg.lastAttemptISO).toBeTruthy()
+    expect(cfg.lastRunISO).toBe(threeDaysAgo)
+    expect(getBackupHealth().scheduled.overdue).toBe(true)
+
+    // Fixing the folder clears the warning
+    setScheduledConfig({ ...getScheduledConfig(), destinationDir: join(state.dir, 'usb', 'ok') })
+    await checkAndRunScheduled()
+    expect(getScheduledConfig().lastError).toBeNull()
+    expect(getBackupHealth().scheduled.overdue).toBe(false)
+  })
+
+  it('makes an auto-backup on lock, at most once an hour', async () => {
+    await makeBackupOnOldComputer()
+    const autoFiles = () => (existsSync(join(state.dir, 'backups')) ? readdirSync(join(state.dir, 'backups')).filter(f => f.startsWith('pulse-auto-')) : [])
+    expect(autoFiles()).toHaveLength(0)
+    runAutoBackupOnLock()
+    expect(autoFiles()).toHaveLength(1)
+    runAutoBackupOnLock()
+    expect(autoFiles()).toHaveLength(1)
+  })
+})
+
+describe('Backup size limit', () => {
+  afterEach(() => setMaxBackupBytesForTests(null))
+
+  it('allows backups far bigger than the old 200 MB limit', () => {
+    expect(MAX_BACKUP_BYTES).toBeGreaterThan(4000 * 1024 * 1024)
+  })
+
+  it('refuses to write a backup that restore would reject, and says why', async () => {
+    const { backupPath } = await makeBackupOnOldComputer()
+    setMaxBackupBytesForTests(1024)
+    const dest = join(state.dir, 'usb', 'too-big')
+    await expect(runManualBackup(dest)).rejects.toThrow(/more than a backup can hold/)
+    expect(existsSync(dest + '.pulse-backup')).toBe(false)
+    // And restore applies the same limit
+    wipeToFreshInstall()
+    await expect(restoreBackupOnNewInstall({ backupPath, secret: PWD, newPassword: 'New-Computer-Pass', hint: '' }))
+      .rejects.toThrow(/larger than/)
   })
 })
 

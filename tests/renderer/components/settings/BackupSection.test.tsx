@@ -14,7 +14,9 @@ vi.mock('../../../../src/renderer/components/settings/MoveComputerWizard', () =>
 import { BackupSection } from '../../../../src/renderer/components/settings/BackupSection'
 import { setWords } from '../../vocabFixture'
 
-let scheduled = { enabled: false, intervalHours: 24, destinationDir: '/backups', lastRunISO: null as string | null }
+let scheduled: { enabled: boolean; intervalHours: number; destinationDir: string; lastRunISO: string | null; lastError?: string | null } = { enabled: false, intervalHours: 24, destinationDir: '/backups', lastRunISO: null }
+let settings: Record<string, string> = {}
+let lastOffsiteISO: string | null = null
 
 function respond(channel: string, ...args: unknown[]) {
   switch (channel) {
@@ -23,7 +25,8 @@ function respond(channel: string, ...args: unknown[]) {
     case 'backup:scheduled-get-config': return { ok: true, data: scheduled }
     case 'backup:scheduled-set-config': return { ok: true, data: true }
     case 'backup:scheduled-run-now': return { ok: true, data: { ran: true, destPath: '/backups/pulse-scheduled-1.pulse-backup', lastRunISO: '2026-10-10T12:00:00.000Z' } }
-    case 'settings:get-all': return { ok: true, data: {} }
+    case 'settings:get-all': return { ok: true, data: settings }
+    case 'backup:get-status': return { ok: true, data: { lastOffsiteISO, trackingSinceISO: '2026-01-01T00:00:00.000Z', scheduled: { enabled: scheduled.enabled, intervalHours: 24, lastRunISO: null, lastError: null, overdue: false }, reminderEnabled: true, remindAfterDays: 7, offsiteOverdue: false } }
     case 'app:show-save-dialog': return { ok: true, data: { canceled: false, filePath: '/usb/my.pulse-backup' } }
     case 'backup:manual-create': return { ok: true, data: { destPath: args[0], sizeBytes: 10 } }
     default: return { ok: false, error: 'unexpected' }
@@ -34,6 +37,8 @@ describe('BackupSection', () => {
   beforeEach(() => {
     setWords()
     scheduled = { enabled: false, intervalHours: 24, destinationDir: '/backups', lastRunISO: null }
+    settings = {}
+    lastOffsiteISO = null
     mockInvoke.mockReset()
     mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => Promise.resolve(respond(channel, ...args)))
     toastFns.success.mockReset(); toastFns.error.mockReset()
@@ -64,5 +69,24 @@ describe('BackupSection', () => {
     fireEvent.click(box)
     // No debounce: the save is sent before the user can switch tabs
     expect(mockInvoke).toHaveBeenCalledWith('backup:scheduled-set-config', expect.objectContaining({ enabled: true }))
+  })
+
+  it('shows when scheduled backups keep failing, with the reason', async () => {
+    scheduled = { ...scheduled, enabled: true, lastRunISO: '2026-09-01T10:00:00.000Z', lastError: 'The backup folder can\'t be found.' }
+    render(<BackupSection saveSetting={vi.fn()} />)
+    expect(await screen.findByText(/Scheduled backup hasn't worked since/)).toBeTruthy()
+    expect(screen.getByText('The backup folder can\'t be found.')).toBeTruthy()
+  })
+
+  it('shows the last backup saved to another place', async () => {
+    lastOffsiteISO = '2026-10-01T10:00:00.000Z'
+    render(<BackupSection saveSetting={vi.fn()} />)
+    await waitFor(() => expect(screen.getByTestId('last-offsite').textContent).toMatch(/^Last backup saved to another place:/))
+  })
+
+  it('has backup reminders on unless the user switched them off', async () => {
+    render(<BackupSection saveSetting={vi.fn()} />)
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('settings:get-all'))
+    expect((screen.getByLabelText('Enable backup reminders') as HTMLInputElement).checked).toBe(true)
   })
 })

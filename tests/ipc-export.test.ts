@@ -91,6 +91,8 @@ vi.mock('../src/main/backup', () => ({
   setScheduledConfig: (cfg: unknown) => { backupMock.lastSet = cfg },
   checkAndRunScheduled: async () => {},
   runScheduledBackupNow: async () => ({ ran: true, destPath: '/old/dest/pulse-scheduled-x.pulse-backup', lastRunISO: '2026-10-10T09:00:00.000Z' }),
+  getBackupHealth: () => ({ lastOffsiteISO: null, trackingSinceISO: '2020-01-01T00:00:00.000Z', scheduled: { enabled: false, intervalHours: 24, lastRunISO: null, lastError: null, overdue: false } }),
+  describeBackupError: () => 'The backup couldn\'t be saved.',
   runPreMigrationBackup: () => {},
 }))
 const backupMock = vi.hoisted(() => ({ lastSet: null as unknown }))
@@ -265,6 +267,20 @@ describe('BACKUP_GET_STATUS', () => {
     expect(result.ok).toBe(true)
     expect(result.data).toHaveProperty('lastAutoBackup')
     expect(result.data).toHaveProperty('lastAutoBackupSuccess')
+  })
+
+  it('reminds by default when nothing has been saved to another place', async () => {
+    const result = await invoke(IPC.BACKUP_GET_STATUS) as { ok: true; data: { reminderEnabled: boolean; offsiteOverdue: boolean; remindAfterDays: number } }
+    expect(result.data.reminderEnabled).toBe(true)
+    expect(result.data.remindAfterDays).toBe(7)
+    expect(result.data.offsiteOverdue).toBe(true)
+  })
+
+  it('stays quiet when the user switched reminders off', async () => {
+    testDb.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('backup_reminder_enabled', 'false')").run()
+    const result = await invoke(IPC.BACKUP_GET_STATUS) as { ok: true; data: { reminderEnabled: boolean; offsiteOverdue: boolean } }
+    expect(result.data.reminderEnabled).toBe(false)
+    expect(result.data.offsiteOverdue).toBe(false)
   })
 })
 
