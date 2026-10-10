@@ -351,6 +351,29 @@ describe('IPC Row — ROW_MOVE_TO_GRID', () => {
     expect(row.grid_id).toBe(tgt.gridId)
   })
 
+  it('parks values for columns the target lacks and brings them back on a move back (G-18)', async () => {
+    const src = seedGrid(testDb.db, { name: 'Waitlist', rowCount: 1, columnCount: 2 })
+    const tgt = seedGrid(testDb.db, { name: 'Active', rowCount: 0, columnCount: 1 })
+    testDb.db.prepare("UPDATE columns SET name = 'Name' WHERE id IN (?, ?)").run(src.columnIds[0], tgt.columnIds[0])
+    testDb.db.prepare("UPDATE columns SET name = 'Gate code' WHERE id = ?").run(src.columnIds[1])
+    const rowId = src.rowIds[0]!
+    const put = testDb.db.prepare("INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))")
+    put.run(rowId, src.columnIds[0], 'Alice')
+    const gate = Number(put.run(rowId, src.columnIds[1], '4321').lastInsertRowid)
+    testDb.db.prepare("INSERT INTO cell_history (cell_id, row_id, column_id, old_value, new_value, changed_at) VALUES (?, ?, ?, '1111', '4321', '2026-01-02 10:00:00')").run(gate, rowId, src.columnIds[1])
+
+    await invoke(IPC.ROW_MOVE_TO_GRID, rowId, tgt.gridId)
+    expect(testDb.db.prepare('SELECT COUNT(*) AS n FROM cells WHERE row_id = ? AND column_id = ?').get(rowId, src.columnIds[1])).toEqual({ n: 0 })
+    expect(testDb.db.prepare('SELECT value FROM parked_cells WHERE row_id = ?').get(rowId)).toEqual({ value: '4321' })
+
+    await invoke(IPC.ROW_MOVE_TO_GRID, rowId, src.gridId)
+    expect(testDb.db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?').get(rowId, src.columnIds[1])).toEqual({ value: '4321' })
+    expect(testDb.db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?').get(rowId, src.columnIds[0])).toEqual({ value: 'Alice' })
+    expect(testDb.db.prepare('SELECT old_value, new_value, changed_at FROM cell_history WHERE row_id = ? AND column_id = ?').all(rowId, src.columnIds[1]))
+      .toEqual([{ old_value: '1111', new_value: '4321', changed_at: '2026-01-02 10:00:00' }])
+    expect(testDb.db.prepare('SELECT COUNT(*) AS n FROM parked_cells').get()).toEqual({ n: 0 })
+  })
+
   it('returns same rowId when moving to same grid', async () => {
     const { gridId, rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
     const result = await invoke(IPC.ROW_MOVE_TO_GRID, rowIds[0], gridId) as any

@@ -59,6 +59,7 @@ import { up as migration040 } from './migrations/040_appointments'
 import { up as migration041 } from './migrations/041_forms'
 import { up as migration042 } from './migrations/042_attachments'
 import { up as migration043 } from './migrations/043_report_definitions'
+import { up as migration045 } from './migrations/045_list_trash'
 import { linkColumnSpecs, linkSelectSql, linkSpecKey, type LinkColumnSpec } from '../shared/links'
 import { fileCountColumnIds } from '../shared/attachments'
 
@@ -406,6 +407,7 @@ const migrations: Array<{ version: number; up: (db: BetterSqlite3DB) => void; no
   { version: 41, up: migration041 },
   { version: 42, up: migration042 },
   { version: 43, up: migration043 },
+  { version: 45, up: migration045 },
 ]
 
 // ── Migration failure tracking ────────────────────────────────────────────────

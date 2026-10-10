@@ -183,6 +183,20 @@ describe('auto-number columns', () => {
     expect(cell(x)).toBe('J-0003')
   })
 
+  it('a record moved away and back keeps its number in each list (L-11)', async () => {
+    const other = seedGrid(testDb.db, { name: 'Inbox', columnCount: 1, rowCount: 0 })
+    testDb.db.prepare("UPDATE columns SET name = 'Title' WHERE id = ?").run(other.columnIds[0])
+    const otherNum = await addAutoColumn(other.gridId, 'IN-', 2)
+    const x = await createRow()
+    expect(cell(x)).toBe('J-0001')
+    await invoke(IPC.ROW_MOVE_TO_GRID, x, other.gridId)
+    expect(cell(x, otherNum)).toBe('IN-01')
+    await invoke(IPC.ROW_MOVE_TO_GRID, x, gridId)
+    expect(cell(x)).toBe('J-0001')
+    await invoke(IPC.ROW_MOVE_TO_GRID, x, other.gridId)
+    expect(cell(x, otherNum)).toBe('IN-01')
+  })
+
   it('import keeps numbers it brings in and carries on after the highest', async () => {
     const file = join(testDb.tmpDir, 'jobs.csv')
     writeFileSync(file, 'Title,Number\nFix sink,J-0040\nPaint door,\n')

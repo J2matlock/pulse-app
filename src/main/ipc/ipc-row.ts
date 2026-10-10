@@ -182,40 +182,79 @@ function cleanupSourceSiblings(
   }
 }
 
-/** Re-map existing cells and cell_history in-place for a row being moved between grids. */
+interface ParkedHistory { old_value: string | null; new_value: string | null; changed_at: string }
+
+/** Keep a cell (and its edit history) aside under its own column, to come back on a return move (G-18, L-11). */
+function parkCell(rowId: number, columnId: number, cellId: number, value: string | null, withHistory: boolean): void {
+  const history = withHistory
+    ? cachedStmt('row_park_hist', 'SELECT old_value, new_value, changed_at FROM cell_history WHERE cell_id = ? ORDER BY id').all(cellId) as ParkedHistory[]
+    : []
+  cachedStmt('row_park_cell', `INSERT INTO parked_cells (row_id, column_id, value, history, parked_at) VALUES (?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(row_id, column_id) DO UPDATE SET value = excluded.value, history = excluded.history, parked_at = excluded.parked_at`)
+    .run(rowId, columnId, value, history.length ? JSON.stringify(history) : null)
+}
+
+/**
+ * Re-map existing cells and cell_history in place for a row being moved
+ * between grids. Cells with no same-named column in the target are parked,
+ * not deleted, and so is the row's own number in each auto-number column.
+ */
 function remapCellsForMove(
   rowId: number,
   mapping: ColumnMapping,
 ): void {
-  // Re-map cells
+  const autoSrc = new Set((cachedStmt('row_move_auto_cols', "SELECT c.id FROM columns c JOIN rows r ON r.grid_id = c.grid_id WHERE r.id = ? AND c.column_type = 'auto_number'")
+    .all(rowId) as Array<{ id: number }>).map(c => c.id))
   const srcCells = cachedStmt('row_remap_cells_select', 'SELECT id, column_id, value FROM cells WHERE row_id = ?').all(rowId) as { id: number; column_id: number; value: string | null }[]
   const updateCell = cachedStmt('row_remap_cell_col', 'UPDATE cells SET column_id = ? WHERE id = ?')
+  const updateHist = cachedStmt('row_remap_hist_by_cell', 'UPDATE cell_history SET column_id = ? WHERE cell_id = ?')
   const deleteCell = cachedStmt('row_remap_cell_delete', 'DELETE FROM cells WHERE id = ?')
   for (const cell of srcCells) {
     const colName = mapping.srcColMap.get(cell.column_id)
-    if (!colName) { deleteCell.run(cell.id); continue }
-    const tgtColId = mapping.tgtMap.get(colName.toLowerCase())
-    if (tgtColId !== undefined) {
-      updateCell.run(tgtColId, cell.id)
-    } else {
+    const tgtColId = colName === undefined ? undefined : mapping.tgtMap.get(colName.toLowerCase())
+    if (tgtColId === undefined) {
+      // A value for a column the target doesn't have: park it with its history (history cascades with the cell)
+      if (colName !== undefined) parkCell(rowId, cell.column_id, cell.id, cell.value, true)
       deleteCell.run(cell.id)
+      continue
     }
+    // The target issues its own numbers; this list's number waits here for a move back
+    if (autoSrc.has(cell.column_id) && cell.value?.trim()) parkCell(rowId, cell.column_id, cell.id, cell.value, false)
+    updateCell.run(tgtColId, cell.id)
+    updateHist.run(tgtColId, cell.id)
   }
+}
 
-  // Re-map cell_history entries
-  const srcHistCells = cachedStmt('row_remap_hist_select', 'SELECT id, column_id FROM cell_history WHERE row_id = ?').all(rowId) as { id: number; column_id: number }[]
-  const updateHist = cachedStmt('row_remap_hist_col', 'UPDATE cell_history SET column_id = ? WHERE id = ?')
-  const deleteHist = cachedStmt('row_remap_hist_delete', 'DELETE FROM cell_history WHERE id = ?')
-  for (const h of srcHistCells) {
-    const colName = mapping.srcColMap.get(h.column_id)
-    if (!colName) { deleteHist.run(h.id); continue }
-    const tgtColId = mapping.tgtMap.get(colName.toLowerCase())
-    if (tgtColId !== undefined) {
-      updateHist.run(tgtColId, h.id)
-    } else {
-      deleteHist.run(h.id)
+/**
+ * Put back what was parked for this row in the list it just moved into.
+ * A parked number wins over a carried one; other parked values only fill
+ * empty cells. Returns the auto-number columns that got their number back.
+ */
+function unparkCells(rowId: number, gridId: number): Set<number> {
+  const parked = cachedStmt('row_unpark_select', `SELECT p.id, p.column_id, p.value, p.history, c.column_type FROM parked_cells p
+    JOIN columns c ON c.id = p.column_id WHERE p.row_id = ? AND c.grid_id = ?`).all(rowId, gridId) as
+    Array<{ id: number; column_id: number; value: string | null; history: string | null; column_type: string }>
+  const restoredAuto = new Set<number>()
+  const current = cachedStmt('row_unpark_current', 'SELECT id, value FROM cells WHERE row_id = ? AND column_id = ?')
+  const setValue = cachedStmt('row_unpark_set', "UPDATE cells SET value = ?, updated_at = datetime('now') WHERE id = ?")
+  const insert = cachedStmt('row_unpark_insert', "INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))")
+  const insertHist = cachedStmt('row_unpark_hist', 'INSERT INTO cell_history (cell_id, row_id, column_id, old_value, new_value, changed_at) VALUES (?, ?, ?, ?, ?, ?)')
+  const drop = cachedStmt('row_unpark_drop', 'DELETE FROM parked_cells WHERE id = ?')
+  for (const p of parked) {
+    const isAuto = p.column_type === 'auto_number'
+    const cur = current.get(rowId, p.column_id) as { id: number; value: string | null } | undefined
+    let cellId: number | null = null
+    if (!cur) cellId = Number(insert.run(rowId, p.column_id, p.value).lastInsertRowid)
+    else if (isAuto || !cur.value?.trim()) { setValue.run(p.value, cur.id); cellId = cur.id }
+    if (cellId !== null) {
+      if (isAuto && p.value?.trim()) restoredAuto.add(p.column_id)
+      let history: ParkedHistory[] = []
+      try { history = p.history ? JSON.parse(p.history) as ParkedHistory[] : [] } catch { history = [] }
+      for (const h of history) insertHist.run(cellId, rowId, p.column_id, h.old_value, h.new_value, h.changed_at)
     }
+    drop.run(p.id)
   }
+  return restoredAuto
 }
 
 function gridOfRow(rowId: number): number | null {
@@ -481,8 +520,11 @@ export function registerRowHandlers(): void {
       // 7. Move the row itself — preserves row_id so all profile data stays
       cachedStmt('row_move_grid', 'UPDATE rows SET grid_id = ?, position = ?, updated_at = datetime(\'now\') WHERE id = ?').run(targetGridId, maxPos, rowId)
 
-      // 8. Number and name it the way the target list does
-      assignAutoNumbers(targetGridId, [rowId], { overwrite: true })
+      // 8. Values parked on an earlier move out of this list come back, number included
+      const restoredAuto = unparkCells(rowId, targetGridId)
+
+      // 9. Number and name it the way the target list does (keeping a number it had here before)
+      assignAutoNumbers(targetGridId, [rowId], { overwrite: true, keep: restoredAuto })
       refreshDisplayNames(targetGridId, [rowId])
 
       return rowId
