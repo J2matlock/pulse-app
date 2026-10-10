@@ -14,6 +14,7 @@ import { featureOn, word } from './vocab'
 import { loadDeadlines } from './deadlines'
 import { isPersonKind } from '../shared/types'
 import { OPEN_RECORD_SQL } from '../shared/appointments'
+import { removedAppointments } from './appointments'
 
 export interface IcsOptions {
   /** Full client names instead of initials (and caseload task titles) */
@@ -29,6 +30,8 @@ interface IcsItem {
   /** Timed events (appointments): local wall times, written as floating times */
   start?: string
   end?: string | null
+  /** Sent as cancelled, so a calendar that imported it before drops it */
+  cancelled?: boolean
 }
 
 /** "Jane Smith" → "J.S."; "Smith, Jane" → "J.S." */
@@ -42,7 +45,7 @@ export function initials(name: string): string {
 
 /** RFC 5545 text escaping. */
 function esc(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n')
+  return s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n')
 }
 
 /** Fold lines longer than 75 octets (RFC 5545 §3.1). */
@@ -79,7 +82,8 @@ export function loadIcsItems(opts: IcsOptions = {}): IcsItem[] {
     return opts.fullNames || !isPersonKind(kind) ? n : initials(n)
   }
 
-  const deadlines = loadDeadlines({ from, to }).map(d => ({
+  // Calendar rules with a lead time are in the file before the lead starts: the lead is about nagging, not about existing (audit D-33)
+  const deadlines = loadDeadlines({ from, to, includeUpcoming: true }).map(d => ({
     row_id: d.row_id, column_id: d.column_id, name: d.client_name, kind: d.record_kind, what: d.column_name, due: d.due!,
   }))
 
@@ -104,7 +108,24 @@ export function loadIcsItems(opts: IcsOptions = {}): IcsItem[] {
     WHERE a.status = 'scheduled' AND a.start_at >= ? AND a.start_at <= ? AND ${OPEN_RECORD_SQL}
   `).all(from, `${to}T99:99`) as Array<{ id: number; title: string; start_at: string; end_at: string | null; all_day: number; name: string | null; kind: string | null }> : []
 
+  // Cancelled ones, ones whose record was archived or deleted, and ones removed lately go out as
+  // cancelled with the same UID, so a calendar that imported them before drops them (audit S-30)
+  const cancelled: IcsItem[] = []
+  if (featureOn('appointments')) {
+    const gone = db.prepare(`
+      SELECT a.id, a.start_at, a.end_at, a.all_day FROM appointments a LEFT JOIN rows r ON r.id = a.row_id LEFT JOIN grids g ON g.id = r.grid_id
+      WHERE a.start_at >= ? AND a.start_at <= ? AND (a.status = 'cancelled' OR (a.status = 'scheduled' AND NOT ${OPEN_RECORD_SQL}))
+    `).all(from, `${to}T99:99`) as Array<{ id: number; start_at: string; end_at: string | null; all_day: number }>
+    for (const a of [...gone, ...removedAppointments().filter(r => r.start_at >= from && r.start_at <= `${to}T99:99`)]) {
+      cancelled.push({
+        uid: `appointment-${a.id}@pulse`, date: a.start_at.slice(0, 10), summary: `Cancelled: ${word('appointment', { cap: true })}`, cancelled: true,
+        ...(a.all_day ? {} : { start: a.start_at, end: a.end_at }),
+      })
+    }
+  }
+
   const items: IcsItem[] = [
+    ...cancelled,
     ...appointments.map(a => ({
       uid: `appointment-${a.id}@pulse`, date: a.start_at.slice(0, 10),
       summary: opts.fullNames ? `${a.title}${a.name ? ` (${a.name})` : ''}` : `${word('appointment', { cap: true })}${a.name ? ` with ${who(a.name, a.kind)}` : ''}`,
@@ -127,7 +148,7 @@ export function buildIcs(items: IcsItem[], now = new Date()): string {
     'PRODID:-//BaringaSoft//Pulse//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    'X-WR-CALNAME:Pulse deadlines',
+    'X-WR-CALNAME:Pulse',
   ]
   for (const it of items) {
     if (it.start) {
@@ -140,11 +161,7 @@ export function buildIcs(items: IcsItem[], now = new Date()): string {
         `DTSTART:${t(it.start)}`,
         ...(it.end ? [`DTEND:${t(it.end)}`] : [`DURATION:PT1H`]),
         `SUMMARY:${esc(it.summary)}`,
-        'BEGIN:VALARM',
-        'ACTION:DISPLAY',
-        `DESCRIPTION:${esc(it.summary)}`,
-        'TRIGGER:-PT30M',
-        'END:VALARM',
+        ...(it.cancelled ? ['STATUS:CANCELLED'] : ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc(it.summary)}`, 'TRIGGER:-PT30M', 'END:VALARM']),
         'END:VEVENT',
       )
       continue
@@ -157,11 +174,8 @@ export function buildIcs(items: IcsItem[], now = new Date()): string {
       `DTEND;VALUE=DATE:${nextDay(it.date)}`,
       `SUMMARY:${esc(it.summary)}`,
       'TRANSP:TRANSPARENT',
-      'BEGIN:VALARM',
-      'ACTION:DISPLAY',
-      `DESCRIPTION:${esc(it.summary)}`,
-      'TRIGGER:-PT15H',  // 9 AM the day before an all-day event
-      'END:VALARM',
+      // 9 AM the day before an all-day event
+      ...(it.cancelled ? ['STATUS:CANCELLED'] : ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc(it.summary)}`, 'TRIGGER:-PT15H', 'END:VALARM']),
       'END:VEVENT',
     )
   }

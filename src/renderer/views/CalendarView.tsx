@@ -5,7 +5,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CalendarDays, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { IPC } from '../../shared/ipc-channels'
 import type { Appointment } from '../../shared/appointments'
 import { addDays, addMonths } from '../../shared/appointments'
@@ -20,6 +20,7 @@ import { AppointmentDialog } from '../components/calendar/AppointmentDialog'
 import { TimeGrid } from '../components/calendar/TimeGrid'
 import { ScopeDialog } from '../components/calendar/ScopeDialog'
 import { updateAppointment } from '../utils/appointmentActions'
+import { CalendarExportDialog } from '../components/reports/CalendarExportDialog'
 
 export type CalendarMode = 'month' | 'week' | 'day' | 'agenda'
 const MODES: readonly CalendarMode[] = ['month', 'week', 'day', 'agenda']
@@ -95,6 +96,7 @@ export default function CalendarView(): React.ReactElement {
   const [items, setItems] = useState<CalendarItem[]>([])
   const [selected, setSelected] = useState<Appointment | null>(null)
   const [newAt, setNewAt] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
   const gridRef = useRef<HTMLDivElement>(null)
 
   // An appointment reminder was clicked (W11): open on that day
@@ -229,9 +231,13 @@ export default function CalendarView(): React.ReactElement {
               </button>
             ))}
           </div>
-          {apptsOn && (
-            <button type="button" className="btn-compact-primary ml-auto" onClick={() => setNewAt(`${focusDay}T09:00`)}><Plus className="w-4 h-4" />New {t('appointment')}</button>
-          )}
+          <div className="flex flex-wrap gap-2 ml-auto">
+            {/* Outlook or Google Calendar (audit S-30) */}
+            <button type="button" className="btn-compact-secondary" onClick={() => setExporting(true)}><CalendarPlus className="w-4 h-4" aria-hidden="true" />Add to my calendar…</button>
+            {apptsOn && (
+              <button type="button" className="btn-compact-primary" onClick={() => setNewAt(`${focusDay}T09:00`)}><Plus className="w-4 h-4" />New {t('appointment')}</button>
+            )}
+          </div>
         </div>
 
         {mode === 'week' || mode === 'day' ? (
@@ -288,6 +294,7 @@ export default function CalendarView(): React.ReactElement {
       </div>
       {selected && <AppointmentPanel appointment={selected} onClose={() => setSelected(null)} />}
       {newAt && <AppointmentDialog start={newAt} onClose={() => setNewAt(null)} />}
+      {exporting && <CalendarExportDialog onClose={() => setExporting(false)} />}
       {pendingDrop && (
         <ScopeDialog verb="Change" onCancel={() => setPendingDrop(null)} dateChanged={pendingDrop.times.start_at.slice(0, 10) !== pendingDrop.appt.start_at.slice(0, 10)}
           onChoose={scope => { const p = pendingDrop; setPendingDrop(null); void updateAppointment(p.appt, p.times, scope) }} />

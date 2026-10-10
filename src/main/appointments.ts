@@ -119,6 +119,48 @@ export function restoreAppointments(snap: ApptSnapshot): void {
   })()
 }
 
+// ── Removed appointments, for calendar files (audit 1.36) ────────────────────
+
+/**
+ * Scheduled appointments removed in the last 30 days, kept (times only, no
+ * names) so the next calendar file can send them as cancelled; otherwise
+ * Outlook or Google keeps showing them.
+ */
+export interface RemovedAppointment { id: number; start_at: string; end_at: string | null; all_day: number; removed: string }
+const REMOVED_KEY = 'calendar_removed_appointments'
+const REMOVED_DAYS = 30
+const REMOVED_MAX = 5000
+
+function readRemoved(): RemovedAppointment[] {
+  const raw = (getDb().prepare('SELECT value FROM settings WHERE key = ?').get(REMOVED_KEY) as { value: string } | undefined)?.value
+  try { const v = raw ? JSON.parse(raw) as unknown : []; return Array.isArray(v) ? v as RemovedAppointment[] : [] } catch { return [] }
+}
+
+/** Delete appointments, remembering the scheduled ones for the next calendar file */
+function removeAppointments(ids: number[]): void {
+  if (ids.length === 0) return
+  const db = getDb()
+  const today = localDateString()
+  const gone: RemovedAppointment[] = []
+  for (let i = 0; i < ids.length; i += 500) {
+    const chunk = ids.slice(i, i + 500)
+    gone.push(...(db.prepare(`SELECT id, start_at, end_at, all_day FROM appointments WHERE status = 'scheduled' AND id IN (${chunk.map(() => '?').join(',')})`)
+      .all(...chunk) as Array<Omit<RemovedAppointment, 'removed'>>).map(a => ({ ...a, removed: today })))
+    db.prepare(`DELETE FROM appointments WHERE id IN (${chunk.map(() => '?').join(',')})`).run(...chunk)
+  }
+  if (gone.length === 0) return
+  const since = addDays(today, -REMOVED_DAYS)
+  const kept = [...readRemoved().filter(r => r.removed >= since && !gone.some(g => g.id === r.id)), ...gone].slice(-REMOVED_MAX)
+  db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(REMOVED_KEY, JSON.stringify(kept))
+}
+
+/** Appointments removed lately (and not brought back by undo), for calendar files */
+export function removedAppointments(today = localDateString()): RemovedAppointment[] {
+  const since = addDays(today, -REMOVED_DAYS)
+  const exists = getDb().prepare('SELECT 1 FROM appointments WHERE id = ?')
+  return readRemoved().filter(r => r.removed >= since && !exists.get(r.id))
+}
+
 // ── Writing ──────────────────────────────────────────────────────────────────
 
 function checkRecord(rowId: number | null | undefined): number | null {
@@ -176,9 +218,8 @@ function materialize(series: SeriesRow, through: string, today = localDateString
   const dates = seriesDates(rule, t.first, target, untilFromColumn(rule, t.row_id))
   const wanted = new Set(dates)
   const existing = new Set((db.prepare('SELECT series_date FROM appointments WHERE series_id = ? AND series_date IS NOT NULL').all(series.id) as Array<{ series_date: string }>).map(r => r.series_date))
-  for (const r of db.prepare("SELECT id, series_date FROM appointments WHERE series_id = ? AND status = 'scheduled' AND is_exception = 0 AND series_date >= ?").all(series.id, today) as Array<{ id: number; series_date: string }>) {
-    if (r.series_date <= target && !wanted.has(r.series_date)) db.prepare('DELETE FROM appointments WHERE id = ?').run(r.id)
-  }
+  removeAppointments((db.prepare("SELECT id, series_date FROM appointments WHERE series_id = ? AND status = 'scheduled' AND is_exception = 0 AND series_date >= ?").all(series.id, today) as Array<{ id: number; series_date: string }>)
+    .filter(r => r.series_date <= target && !wanted.has(r.series_date)).map(r => r.id))
   const ex = new Set(t.exdates ?? [])
   const ins = db.prepare(insertSql)
   const ids: number[] = []
@@ -269,7 +310,7 @@ function endSeriesBefore(s: SeriesRow, date: string): void {
   const next: SeriesRule = { ...rule, until: rule.until && rule.until < until ? rule.until : until }
   delete next.count
   db.prepare('UPDATE appointment_series SET rule = ? WHERE id = ?').run(JSON.stringify(next), s.id)
-  db.prepare("DELETE FROM appointments WHERE series_id = ? AND status = 'scheduled' AND COALESCE(series_date, substr(start_at, 1, 10)) >= ?").run(s.id, date)
+  removeAppointments((db.prepare("SELECT id FROM appointments WHERE series_id = ? AND status = 'scheduled' AND COALESCE(series_date, substr(start_at, 1, 10)) >= ?").all(s.id, date) as Array<{ id: number }>).map(r => r.id))
 }
 
 /**
@@ -357,7 +398,7 @@ export function deleteAppointment(id: number, scope: EditScope = 'one'): ApptCha
         t.exdates = [...new Set([...(t.exdates ?? []), a.series_date])]
         db.prepare('UPDATE appointment_series SET template = ? WHERE id = ?').run(JSON.stringify(t), s.id)
       }
-      db.prepare('DELETE FROM appointments WHERE id = ?').run(id)
+      removeAppointments([id])
       return { snapshot, ids: [id] }
     }
     const s = seriesRow(a.series_id)
@@ -367,7 +408,7 @@ export function deleteAppointment(id: number, scope: EditScope = 'one'): ApptCha
       return { snapshot, ids: [id] }
     }
     // The whole series: done, missed and cancelled ones stay, as do scheduled ones already past
-    db.prepare("DELETE FROM appointments WHERE series_id = ? AND status = 'scheduled' AND substr(start_at, 1, 10) >= ?").run(s.id, localDateString())
+    removeAppointments((db.prepare("SELECT id FROM appointments WHERE series_id = ? AND status = 'scheduled' AND substr(start_at, 1, 10) >= ?").all(s.id, localDateString()) as Array<{ id: number }>).map(r => r.id))
     db.prepare('UPDATE appointments SET series_id = NULL WHERE series_id = ?').run(s.id)
     db.prepare('DELETE FROM appointment_series WHERE id = ?').run(s.id)
     return { snapshot, ids: [id] }
@@ -504,7 +545,7 @@ export function cancelUpcomingForRecords(rowIds: number[], today = localDateStri
     const ids = upcomingIds(rowIds, today)
     const snapshot = tracker(series.map(s => s.id), ids)
     for (const s of series) endSeriesBefore(s, today)
-    for (const id of ids) db.prepare('DELETE FROM appointments WHERE id = ?').run(id)
+    removeAppointments(ids)
     return { snapshot, ids }
   })()
 }
