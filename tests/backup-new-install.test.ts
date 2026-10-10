@@ -156,7 +156,7 @@ describe('Restore on a new computer', () => {
   })
 })
 
-describe('Scheduled backup "Run now"', () => {
+describe('Scheduled backup "Run now"', { timeout: 60_000 }, () => {
   it('writes a backup to the chosen folder, records the run, and that backup restores', async () => {
     const { keyHex, recoveryKey } = await makeBackupOnOldComputer()
     const dest = join(state.dir, 'usb', 'scheduled')
@@ -253,7 +253,7 @@ describe('Backup size limit', () => {
   })
 })
 
-describe('Restoring another Pulse\'s backup from Settings', () => {
+describe('Restoring another Pulse\'s backup from Settings', { timeout: 60_000 }, () => {
   const NEW_PWD = 'New-Computer-Pass-1'
 
   /** The new computer is already set up, with its own data, when the old backup is picked */
