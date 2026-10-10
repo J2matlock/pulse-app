@@ -1514,3 +1514,7 @@ Comprehensive audit identified 2 critical, 7 high, 10 medium, 15 low findings. A
 - Engine: `ReportField` gains `options` and `hint`; `ReportColumn` gains `bucket`; `defaultFilterField` / `defaultGroupField` / `defaultValueField`, `suggestReportName`, `describeReport`, `formatYmd` in `shared/reports.ts`. Saved report format unchanged
 - Help text updated. Checked with a scripted walkthrough in the app (tree service sample), screenshots reviewed
 - Build state: npm test 3596 pass / 4 skip; typecheck 0; eslint 0 errors
+
+## 2026-10-10 (cont.) — Pulse 2.1.1 released
+- Version 2.1.1 (reports review fixes), tagged v2.1.1 in pulse-app
+- `pulse-releases` v2.1.1: `PULSE.exe`, `BaringaSoftPulse-2.1.1.AppImage`, `SHA256SUMS.txt`, marked latest; `latest.json` announces 2.1.1
