@@ -646,9 +646,13 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
 
   const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
 
-  const VALID_IMPORT_EXTENSIONS = new Set(['csv', 'xlsx', 'xls', 'ods'])
+  // ExcelJS reads only .xlsx; .xls and .ods failed with a raw zip error
+  if (ext === 'xls' || ext === 'ods') {
+    throw new Error('This is an older spreadsheet file. Open it in Excel (or LibreOffice) and choose Save As → Excel Workbook (.xlsx), then try again.')
+  }
+  const VALID_IMPORT_EXTENSIONS = new Set(['csv', 'xlsx'])
   if (!VALID_IMPORT_EXTENSIONS.has(ext)) {
-    throw new Error(`Unsupported file format: .${ext}. Supported formats: CSV, XLSX, XLS, ODS.`)
+    throw new Error(`Pulse can't read .${ext} files. Save it as a .csv or .xlsx file, then try again.`)
   }
 
   logger.info('import', 'Parsing import file', { format: ext })

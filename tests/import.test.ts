@@ -239,6 +239,14 @@ describe('Excel Parsing', () => {
   it('nonexistent xlsx file throws', async () => {
     await expect(parseImportFile(join(tmpDir, 'nonexistent.xlsx'))).rejects.toThrow()
   })
+
+  it('.xls and .ods files get a plain "Save As .xlsx" message (audit X-18)', async () => {
+    for (const name of ['old.xls', 'old.ods']) {
+      const path = join(tmpDir, name)
+      writeFileSync(path, 'not really a spreadsheet')
+      await expect(parseImportFile(path)).rejects.toThrow(/Save As → Excel Workbook \(\.xlsx\)/)
+    }
+  })
 })
 
 describe('Excel Parsing — Edge Cases', () => {

@@ -72,7 +72,7 @@ describe('ImportWizard', () => {
   it('renders file selection step with browse area', () => {
     render(<ImportWizard open={true} gridId={1} onClose={onClose} onImported={onImported} />)
     expect(screen.getByText(/Drop a CSV or Excel file here/)).toBeTruthy()
-    expect(screen.getByText('Paste from clipboard')).toBeTruthy()
+    expect(screen.getByText('Supports .csv and .xlsx')).toBeTruthy()
   })
 
   it('renders step indicator with Select File active', () => {
@@ -99,6 +99,32 @@ describe('ImportWizard', () => {
     const browseArea = screen.getByLabelText('Click to browse for a file, or drop a file here')
     fireEvent.click(browseArea)
     expect(mockInvoke).toHaveBeenCalled()
+  })
+
+  describe('ways in that used to fail (audit X-14, X-15, X-18)', () => {
+    it('does not offer "Paste from clipboard", which could never work', () => {
+      render(<ImportWizard open={true} gridId={1} onClose={onClose} onImported={onImported} />)
+      expect(screen.queryByText('Paste from clipboard')).toBeNull()
+    })
+
+    it('reads a dropped file through the preload path bridge', async () => {
+      const pathForFile = vi.fn().mockReturnValue('/home/me/dropped.csv')
+      Object.assign(window.api as object, { pathForFile })
+      mockInvoke.mockResolvedValue({ ok: false, error: 'stop here' })
+      render(<ImportWizard open={true} gridId={1} onClose={onClose} onImported={onImported} />)
+      const file = new File(['Name\nAl'], 'dropped.csv', { type: 'text/csv' })
+      fireEvent.drop(screen.getByLabelText('Click to browse for a file, or drop a file here'), { dataTransfer: { files: [file] } })
+      await vi.waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('import:file-preview', '/home/me/dropped.csv', undefined, undefined))
+      expect(pathForFile).toHaveBeenCalledWith(file)
+    })
+
+    it('explains how to convert an old .xls file', async () => {
+      mockInvoke.mockResolvedValueOnce({ ok: true, data: { canceled: false, filePaths: ['/home/me/agency.xls'] } })
+      render(<ImportWizard open={true} gridId={1} onClose={onClose} onImported={onImported} />)
+      fireEvent.click(screen.getByLabelText('Click to browse for a file, or drop a file here'))
+      expect(await screen.findByText(/Save As → Excel Workbook \(\.xlsx\)/)).toBeTruthy()
+      expect(mockInvoke).not.toHaveBeenCalledWith('import:file-preview', expect.anything(), undefined, undefined)
+    })
   })
 
   describe('a full import', () => {

@@ -111,13 +111,9 @@ function TypeBadge({ type }: { type: string }): React.ReactElement {
   )
 }
 
-function parsePastedText(text: string): { headers: string[]; rows: string[][] } {
-  const lines = text.trim().split('\n').map(l => l.split('\t'))
-  if (lines.length === 0) return { headers: [], rows: [] }
-  const headers = lines[0]!.map(h => h.trim())
-  const rows = lines.slice(1)
-  return { headers, rows }
-}
+/** ExcelJS reads only .xlsx; older formats need saving again in Excel first */
+const OLD_SPREADSHEET = /\.(xls|ods)$/i
+const OLD_SPREADSHEET_MESSAGE = 'This is an older spreadsheet file. Open it in Excel (or LibreOffice) and choose Save As → Excel Workbook (.xlsx), then try again.'
 
 /** Notes, comments and remarks columns */
 function isNotesColumn(name: string): boolean {
@@ -233,7 +229,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
     const res = await safeInvoke<{ canceled: boolean; filePaths: string[] }>(IPC.APP_SHOW_FILE_DIALOG, {
       properties: ['openFile'],
       filters: [
-        { name: 'Spreadsheets', extensions: ['csv', 'xlsx', 'xls'] },
+        { name: 'Spreadsheets', extensions: ['csv', 'xlsx'] },
         { name: 'All Files', extensions: ['*'] },
       ],
     })
@@ -243,6 +239,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
   }
 
   async function handleFileChosen(path: string) {
+    if (OLD_SPREADSHEET.test(path)) { setError(OLD_SPREADSHEET_MESSAGE); return }
     setFilePath(path)
     const p = await loadPreview(path)
     if (!p) return
@@ -258,44 +255,6 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
     }
   }
 
-  async function handlePasteFromClipboard() {
-    setError(null)
-    try {
-      const text = await navigator.clipboard.readText()
-      if (!text.trim()) {
-        setError('Clipboard is empty. Copy some tab-separated data and try again.')
-        return
-      }
-      const parsed = parsePastedText(text)
-      if (!parsed.headers.length) {
-        setError('Could not detect columns in the pasted data.')
-        return
-      }
-      // Build a synthetic preview
-      const syntheticPreview: ImportPreview = {
-        sheets: ['Clipboard'],
-        activeSheet: 0,
-        headers: parsed.headers,
-        rows: parsed.rows.slice(0, 20),
-        detectedColumns: parsed.headers.map((h, i) => ({
-          index: i,
-          originalName: h,
-          detectedType: 'text',
-          samples: parsed.rows.slice(0, 5).map(r => r[i] ?? ''),
-        })),
-        detectedHeaderRow: 0,
-        headerDetectionConfidence: 'high',
-        rawRowCount: parsed.rows.length + 1,
-        rawPreviewRows: undefined,
-      }
-      setPreview(syntheticPreview)
-      setFilePath('__clipboard__')
-      await advanceToPreview(syntheticPreview)
-    } catch {
-      setError('Could not read clipboard. Make sure you have copied some data first.')
-    }
-  }
-
   // ── Drop zone ────────────────────────────────────────────────────────────
 
   function handleDragOver(e: React.DragEvent) {
@@ -308,8 +267,8 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
     setDragOver(false)
     const file = e.dataTransfer.files[0]
     if (!file) return
-    // Electron provides the path on the file object
-    const path = (file as File & { path?: string }).path
+    // File.path was removed from Electron; the preload's webUtils bridge gives the path
+    const path = window.api.pathForFile?.(file)
     if (path) {
       await handleFileChosen(path)
     } else {
@@ -388,12 +347,12 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
     try {
       const options: ImportOptions = {
         gridId,
-        filePath: filePath === '__clipboard__' ? '' : filePath,
+        filePath,
         sheetName: preview.sheets[selectedSheet] ?? undefined,
         columnMappings: mappings,
         duplicateStrategy,
         cleanData,
-        headerRowIndex: filePath === '__clipboard__' ? undefined : headerRowIndex,
+        headerRowIndex,
         flipLastFirst: flipNames,
         createMissingLinks,
       }
@@ -530,7 +489,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                   <p className="text-base font-medium text-slate-700 dark:text-slate-200">
                     Drop a CSV or Excel file here, or click to browse
                   </p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Supports .csv, .xlsx, .xls</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Supports .csv and .xlsx</p>
                 </div>
                 {loading && (
                   <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-white/70 dark:bg-slate-800/70">
@@ -539,21 +498,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                 )}
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
-                <span className="text-sm text-slate-500 dark:text-slate-400">or</span>
-                <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
-              </div>
-
-              <button
-                onClick={handlePasteFromClipboard}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border
-                           border-slate-300 dark:border-slate-600 text-base text-slate-700 dark:text-slate-200
-                           hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-hidden focus:ring-3 focus:ring-blue-500
-                           min-h-[44px]"
-              >
-                Paste from clipboard
-              </button>
+              {/* "Paste from clipboard" is hidden until main can read the clipboard and import it (audit X-14) */}
             </div>
           )}
 
@@ -592,7 +537,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
           {step === 3 && preview && (
             <div className="px-6 py-4 space-y-3">
               {/* Header Row Selector — hide for clipboard paste */}
-              {filePath !== '__clipboard__' && (
+              {filePath && (
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
