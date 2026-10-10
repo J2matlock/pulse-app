@@ -58,6 +58,22 @@ describe('the note composer', () => {
   })
 })
 
+describe('voiding a note (audit 1.23)', () => {
+  it('says which dates went back', async () => {
+    mockInvoke.mockImplementation(async (channel: string) => {
+      if (channel === IPC.CASE_LOG_GET) return { ok: true, data: [entry()] }
+      if (channel === IPC.SNIPPET_GET_ALL) return { ok: true, data: [] }
+      if (channel === IPC.CASE_LOG_VOID) return { ok: true, data: { reverted_dates: [{ row_id: 10, column_id: 7, column_name: 'Last Visit', old_value: '2026-09-30', new_value: '2026-09-02' }] } }
+      return { ok: true, data: null }
+    })
+    render(<CaseLog rowId={10} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Void' }))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Void' })) })
+    expect(mockInvoke).toHaveBeenCalledWith(IPC.CASE_LOG_VOID, 4, 'Voided')
+    expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/^Also set Last Visit back to Sep 2/), expect.anything())
+  })
+})
+
 describe('a written-up-later note', () => {
   it('shows the day it happened and when it was written', () => {
     const e = entry()

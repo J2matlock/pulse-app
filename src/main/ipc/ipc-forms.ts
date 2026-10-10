@@ -8,7 +8,7 @@ import { secureWrap, ok, fail, enforceWritable, validId, notifyCaseLogChanged, a
 import { buildFormPdf, FormPrintError } from '../export-forms'
 import { atomicWriteFileAsync } from '../export-shared'
 import { localDateString } from '../../shared/dates'
-import { FormError, listForms, getForm, saveForm, deleteForm, submitForm, undoFormSubmit, type FormValues } from '../forms'
+import { FormError, listForms, getForm, saveForm, deleteForm, submitForm, undoFormSubmit, redoFormSubmit, type FormValues } from '../forms'
 
 function action<T>(fn: () => T) {
   try { return ok(fn()) } catch (err) {
@@ -59,6 +59,15 @@ export function registerFormHandlers(): void {
     if (!validChange(change)) return fail('Invalid request')
     const res = action(() => undoFormSubmit(change))
     if (res.ok && change.noteId !== null) notifyCaseLogChanged(change.rowId)
+    return res
+  })
+
+  // Redo of a submit that made a record: bring it back from the Trash (false when it's gone)
+  secureWrap(IPC.FORM_REDO, 'ipc-forms', (_e, change: unknown) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validChange(change)) return fail('Invalid request')
+    const res = action(() => redoFormSubmit(change))
+    if (res.ok && res.data) notifyCaseLogChanged(change.rowId)
     return res
   })
 

@@ -279,6 +279,7 @@ export const IPC = {
   FORM_DELETE: 'forms:delete',
   FORM_SUBMIT: 'forms:submit',
   FORM_UNDO: 'forms:undo',
+  FORM_REDO: 'forms:redo',
   FORM_PRINT: 'forms:print',
 
   // Attachments (W09)

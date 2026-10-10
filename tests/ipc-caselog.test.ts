@@ -560,6 +560,37 @@ describe('notes dated by when they happened', () => {
     expect(note(id).occurred_at).toBe('2026-01-05 10:00:00')
   })
 
+  it('voiding a note puts back the date it moved, and unvoiding moves it again (audit 1.23)', async () => {
+    testDb.db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)").run(rowId, lastVisit, day(-20))
+    const r = await invoke(IPC.CASE_LOG_CREATE, rowId, 'Visit on the wrong person', 'visit', null, undefined, day(-1))
+    expect(cellValue()).toBe(day(-1))
+    const v = await invoke(IPC.CASE_LOG_VOID, r.data.id, 'Wrong person')
+    expect(v.data.reverted_dates).toEqual([expect.objectContaining({ column_id: lastVisit, old_value: day(-1), new_value: day(-20) })])
+    expect(cellValue()).toBe(day(-20))
+    const u = await invoke(IPC.CASE_LOG_UNVOID, r.data.id)
+    expect(u.data.updated_dates).toEqual([expect.objectContaining({ new_value: day(-1) })])
+    expect(cellValue()).toBe(day(-1))
+  })
+
+  it('deleting a note puts back the date it moved, and restoring moves it again', async () => {
+    const r = await createEntry('Visit', 'visit')
+    const entry = (await invoke(IPC.CASE_LOG_GET, rowId)).data[0]
+    const d = await invoke(IPC.CASE_LOG_DELETE, r.data.id)
+    expect(d.data.reverted_dates).toEqual([expect.objectContaining({ new_value: null })])
+    expect(cellValue()).toBeNull()
+    const back = await invoke(IPC.CASE_LOG_RESTORE, entry)
+    expect(back.data.updated_dates).toEqual([expect.objectContaining({ new_value: localDateString() })])
+    expect(cellValue()).toBe(localDateString())
+  })
+
+  it('moving a note to an earlier day moves the date back with it', async () => {
+    const r = await invoke(IPC.CASE_LOG_CREATE, rowId, 'Visit', 'visit', null, undefined, day(-2))
+    const set = await invoke(IPC.CASE_LOG_SET_OCCURRED, r.data.id, day(-6))
+    expect(set.data.reverted_dates).toEqual([expect.objectContaining({ new_value: null })])
+    expect(set.data.updated_dates).toEqual([expect.objectContaining({ new_value: day(-6) })])
+    expect(cellValue()).toBe(day(-6))
+  })
+
   it('restore (undo of a delete) keeps the day it happened', async () => {
     const r = await invoke(IPC.CASE_LOG_CREATE, rowId, 'Visit', 'visit', null, undefined, day(-3))
     const entry = (await invoke(IPC.CASE_LOG_GET, rowId)).data[0]

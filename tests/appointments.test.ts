@@ -204,9 +204,10 @@ describe('marking appointments', () => {
     expect(localDateString(new Date(n!.created_at.replace(' ', 'T') + 'Z'))).toBe(localDateString())
     expect(change).toMatchObject({ previous: 'scheduled', caseLogId: n!.id, updatedDates: [{ column_id: last, old_value: null, new_value: yesterday }] })
     expect(t.db.prepare('SELECT status, case_log_id FROM appointments WHERE id = ?').get(ids[0])).toEqual({ status: 'done', case_log_id: n!.id })
-    // Back to scheduled voids the note
-    expect(setAppointmentStatus(ids[0]!, 'scheduled')).toMatchObject({ voidedNoteId: n!.id, caseLogId: null })
+    // Back to scheduled voids the note and puts back the date it moved (audit 1.23)
+    expect(setAppointmentStatus(ids[0]!, 'scheduled')).toMatchObject({ voidedNoteId: n!.id, caseLogId: null, revertedDates: [{ column_id: last, old_value: yesterday, new_value: null }] })
     expect(notes()[0]!.voided_at).not.toBeNull()
+    expect(t.db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?').get(g.rowIds[0], last)).toEqual({ value: null })
   })
 
   it('done uses a visit when the kind is missing; no-show logs only if that kind exists', () => {

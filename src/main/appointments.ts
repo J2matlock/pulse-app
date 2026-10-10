@@ -12,10 +12,10 @@
  */
 import { getDb } from './database'
 import { localDateString } from '../shared/dates'
-import type { NoteDateUpdate } from '../shared/types'
+import type { NoteDateUpdate, NoteDateRevert } from '../shared/types'
 import { isValidLogType, userTypeKeys } from './activity-types'
 import { cleanExtraMeasures } from './measures'
-import { applyNoteDateUpdates } from './note-date-updates'
+import { applyNoteDateUpdates, revertNoteDates } from './note-date-updates'
 import { featureOn, word } from './vocab'
 import {
   addMinutes, addMonths, addDays, apptInputSchema, apptPatchSchema, minutesBetween, seriesDates, seriesRuleSchema,
@@ -358,6 +358,8 @@ export interface StatusChange {
   voidedNoteId: number | null
   /** Dates moved by the note (A1), with what they held, for undo */
   updatedDates: NoteDateUpdate[]
+  /** Dates put back because the earlier note was voided (audit 1.23) */
+  revertedDates: NoteDateRevert[]
   rowId: number | null
 }
 
@@ -388,12 +390,14 @@ export function setAppointmentStatus(id: number, status: ApptStatus, opts: Statu
   const db = getDb()
   return db.transaction((): StatusChange => {
     const a = rowOf(id)
-    const change: StatusChange = { previous: a.status, caseLogId: null, voidedNoteId: null, updatedDates: [], rowId: a.row_id }
+    const change: StatusChange = { previous: a.status, caseLogId: null, voidedNoteId: null, updatedDates: [], revertedDates: [], rowId: a.row_id }
     if (a.status === status) return change
     if (a.case_log_id !== null) {
       db.prepare("UPDATE case_log SET voided_at = datetime('now'), voided_reason = ? WHERE id = ? AND voided_at IS NULL")
         .run(`The appointment was changed to ${status.replace('_', '-')}`, a.case_log_id)
       change.voidedNoteId = a.case_log_id
+      // "Back to scheduled" (or a different outcome) puts back the dates the old note moved
+      change.revertedDates = revertNoteDates(a.case_log_id)
     }
     let noteId: number | null = null
     if (a.row_id !== null && !db.prepare('SELECT 1 FROM rows WHERE id = ? AND deleted_at IS NULL').get(a.row_id)) throw new ApptError('That record is no longer available.')
@@ -415,7 +419,7 @@ export function setAppointmentStatus(id: number, status: ApptStatus, opts: Statu
         // It happened at the appointment's time; created_at stays when it was recorded
         noteId = Number(db.prepare(`INSERT INTO case_log (row_id, content, log_type, minutes, miles, extra_measures, source_action_id, occurred_at, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`).run(a.row_id, content, type, minutes || null, miles, extra, `appt:${id}`, at).lastInsertRowid)
-        if (status === 'done') change.updatedDates = applyNoteDateUpdates(a.row_id, type, a.start_at.slice(0, 10) > localDateString() ? localDateString() : a.start_at.slice(0, 10))
+        if (status === 'done') change.updatedDates = applyNoteDateUpdates(a.row_id, type, a.start_at.slice(0, 10) > localDateString() ? localDateString() : a.start_at.slice(0, 10), noteId)
       }
     }
     db.prepare("UPDATE appointments SET status = ?, case_log_id = ?, updated_at = datetime('now') WHERE id = ?").run(status, noteId, id)

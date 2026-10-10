@@ -21,12 +21,13 @@ const calls = (ch: string) => invoke.mock.calls.filter(c => c[0] === ch).map(c =
 beforeEach(() => { invoke.mockClear(); useUndoStore.getState().clear() })
 
 describe('appointment actions', () => {
-  it('undo "done" puts the status and the moved dates back', async () => {
+  it('undo "done" puts the status back; main puts the moved dates back with the note (audit 1.23)', async () => {
     await act(async () => { await setAppointmentStatus(appt, 'done', { noteContent: 'Fine' }) })
     expect(calls('appointments:set-status')).toEqual([[5, 'done', { noteContent: 'Fine' }]])
     await act(async () => { await useUndoStore.getState().undo() })
     expect(calls('appointments:set-status').at(-1)).toEqual([5, 'scheduled'])
-    expect(calls('cell:update')).toEqual([[3, 4, '2026-09-01']])
+    // No second write from the screen, which could undo a date typed since
+    expect(calls('cell:update')).toEqual([])
   })
 
   it('undo a delete restores main\'s snapshot', async () => {

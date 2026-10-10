@@ -418,6 +418,15 @@ export interface NoteDateUpdate {
   new_value: string
 }
 
+/** A date put back because the note that moved it was voided or deleted (null: emptied). */
+export interface NoteDateRevert {
+  row_id: number
+  column_id: number
+  column_name: string
+  old_value: string | null
+  new_value: string | null
+}
+
 /** CASE_LOG_CREATE result: the new entry plus any dates it updated. */
 export type CreatedCaseLogEntry = CaseLogEntry & { updated_dates?: NoteDateUpdate[] }
 

@@ -23,7 +23,7 @@ import { useFeature } from '../../hooks/useFeature'
 import { FeatureOffer } from '../shared/FeatureOffer'
 import { NoteFiles } from './NoteFiles'
 import type { Attachment } from '../../../shared/attachments'
-import type { NoteDateUpdate } from '../../../shared/types'
+import type { NoteDateUpdate, NoteDateRevert } from '../../../shared/types'
 import { localDateString, parseDbTimestamp } from '../../../shared/dates'
 
 /** Show dates the main process changed (notes that update deadline columns) without a reload. */
@@ -55,6 +55,21 @@ function shortDay(day: string): string {
 function datesText(updates: NoteDateUpdate[]): string {
   const day = updates[0]!.new_value
   return `${updates.map(u => u.column_name).join(', ')} to ${day === localDateString() ? 'today' : shortDay(day)}`
+}
+
+/** "Also set Last Visit back to Sep 2" after a note is voided or deleted (audit 1.23) */
+function revertedText(reverted: NoteDateRevert[]): string {
+  return `Also set ${reverted.map(r => `${r.column_name} back to ${r.new_value ? shortDay(r.new_value.slice(0, 10)) : 'blank'}`).join(', ')}`
+}
+
+/** Dates main put back or moved again, shown without a reload */
+function showDateChanges(rowId: number, data: unknown): void {
+  const d = (data ?? {}) as { reverted_dates?: NoteDateRevert[]; updated_dates?: NoteDateUpdate[] }
+  const reverted = d.reverted_dates ?? []
+  const updated = d.updated_dates ?? []
+  if (reverted.length) applyDatesLocally(rowId, reverted.map(r => [r.column_id, r.new_value]))
+  if (updated.length) applyDatesLocally(rowId, updated.map(u => [u.column_id, u.new_value]))
+  if (reverted.length) toast.success(revertedText(reverted), { id: 'note-dates' })
 }
 
 interface Props {
@@ -316,17 +331,16 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         timestamp: Date.now(),
         category: 'logged',
         icon: 'plus',
+        // Removing the note puts back the dates it moved, and restoring it moves them again (main does both)
         undo: async () => {
           // Past the delete window, undo voids the note instead (it stays in the record)
-          const res = await safeInvoke(IPC.CASE_LOG_DELETE, created.id)
-          if (!res.ok) await safeInvoke(IPC.CASE_LOG_VOID, created.id, 'Undone')
-          for (const u of updatedDates) await safeInvoke(IPC.CELL_UPDATE, rowId, u.column_id, u.old_value)
-          applyDatesLocally(rowId, updatedDates.map(u => [u.column_id, u.old_value]))
+          let res = await safeInvoke(IPC.CASE_LOG_DELETE, created.id)
+          if (!res.ok) res = await safeInvoke(IPC.CASE_LOG_VOID, created.id, 'Undone')
+          if (res.ok) showDateChanges(rowId, res.data)
         },
         redo: async () => {
-          await safeInvoke(IPC.CASE_LOG_RESTORE, created)
-          for (const u of updatedDates) await safeInvoke(IPC.CELL_UPDATE, rowId, u.column_id, u.new_value)
-          applyDatesLocally(rowId, updatedDates.map(u => [u.column_id, u.new_value]))
+          const res = await safeInvoke(IPC.CASE_LOG_RESTORE, created)
+          if (res.ok) showDateChanges(rowId, res.data)
         },
       })
     } else {
@@ -352,13 +366,11 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
     if (!entry) return
     const prevDay = localDateString(parseDbTimestamp(happenedAt(entry)))
     const setDay = async (to: string): Promise<boolean> => {
-      const res = await safeInvoke<{ occurred_at: string; updated_dates: NoteDateUpdate[] }>(IPC.CASE_LOG_SET_OCCURRED, id, to)
+      const res = await safeInvoke<{ occurred_at: string; updated_dates: NoteDateUpdate[]; reverted_dates: NoteDateRevert[] }>(IPC.CASE_LOG_SET_OCCURRED, id, to)
       if (!res.ok) { toast.error(res.error); return false }
       setEntries(prev => prev.map(e => e.id === id ? { ...e, occurred_at: res.data.occurred_at } : e).sort(byHappened))
-      if (res.data.updated_dates.length > 0) {
-        applyDatesLocally(rowId, res.data.updated_dates.map(u => [u.column_id, u.new_value]))
-        toast.success(`Also updated ${datesText(res.data.updated_dates)}`, { id: 'note-dates' })
-      }
+      showDateChanges(rowId, res.data)
+      if (res.data.updated_dates.length > 0) toast.success(`Also updated ${datesText(res.data.updated_dates)}`, { id: 'note-dates' })
       return true
     }
     if (!await setDay(day)) return
@@ -419,6 +431,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
     const res = await safeInvoke(IPC.CASE_LOG_DELETE, id)
     if (!res.ok) { toast.error(res.error); return }
     setEntries(prev => prev.filter(e => e.id !== id))
+    showDateChanges(rowId, res.data)
     if (entry) {
       useUndoStore.getState().push({
         id: crypto.randomUUID(),
@@ -427,10 +440,12 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         category: 'logged',
         icon: 'trash',
         undo: async () => {
-          await safeInvoke(IPC.CASE_LOG_RESTORE, entry)
+          const back = await safeInvoke(IPC.CASE_LOG_RESTORE, entry)
+          if (back.ok) showDateChanges(rowId, back.data)
         },
         redo: async () => {
-          await safeInvoke(IPC.CASE_LOG_DELETE, id)
+          const again = await safeInvoke(IPC.CASE_LOG_DELETE, id)
+          if (again.ok) showDateChanges(rowId, again.data)
         },
       })
     }
@@ -440,14 +455,15 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
     const res = await safeInvoke(IPC.CASE_LOG_VOID, id, reason)
     if (!res.ok) { toast.error("We couldn't void that note. Please try again."); return }
     setEntries(prev => prev.filter(e => e.id !== id))
+    showDateChanges(rowId, res.data)
     useUndoStore.getState().pushWithToast({
       id: crypto.randomUUID(),
       description: `Voided ${t('activity')}`,
       timestamp: Date.now(),
       category: 'logged',
       icon: 'trash',
-      undo: async () => { await safeInvoke(IPC.CASE_LOG_UNVOID, id) },
-      redo: async () => { await safeInvoke(IPC.CASE_LOG_VOID, id, reason) },
+      undo: async () => { const r = await safeInvoke(IPC.CASE_LOG_UNVOID, id); if (r.ok) showDateChanges(rowId, r.data) },
+      redo: async () => { const r = await safeInvoke(IPC.CASE_LOG_VOID, id, reason); if (r.ok) showDateChanges(rowId, r.data) },
     })
   }
 
