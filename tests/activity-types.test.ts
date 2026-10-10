@@ -131,6 +131,31 @@ describe('ACTIVITY_TYPE_*', () => {
     expect((await invoke(IPC.ACTIVITY_TYPE_DELETE, email)).ok).toBe(false)
   })
 
+  it('counts deadline rules, forms, stage steps and appointments as uses, and names them (L-15)', async () => {
+    const db = testDb.db
+    const gridId = (db.prepare('SELECT id FROM grids LIMIT 1').get() as { id: number }).id
+    const mk = async (label: string) => (await invoke(IPC.ACTIVITY_TYPE_SAVE, { label })).data as { id: number; key: string }
+    const del = async (t: { id: number }) => invoke(IPC.ACTIVITY_TYPE_DELETE, t.id)
+
+    const visit = await mk('Auth visit')
+    db.prepare("INSERT INTO alert_rules (name, thresholds, kind, rule_config) VALUES ('Authorized visits', '[]', 'quota', ?)")
+      .run(JSON.stringify({ kind: 'quota', activityTypes: [visit.key], limit: 12, startColumnId: 1, endColumnId: 2, warnRemaining: 2, warnDaysBeforeEnd: 14 }))
+    expect((await del(visit)).error).toMatch(/deadline rule "Authorized visits".*Archive it instead/)
+
+    const intake = await mk('Intake note')
+    db.prepare("INSERT INTO forms (grid_id, name, fields, log_activity_type, position) VALUES (?, 'Intake', '[]', ?, 0)").run(gridId, intake.key)
+    expect((await del(intake)).error).toMatch(/form "Intake"/)
+
+    const moved = await mk('Moved on')
+    db.prepare("INSERT INTO columns (grid_id, name, column_type, position, config) VALUES (?, 'Status', 'status', 50, ?)")
+      .run(gridId, JSON.stringify({ stage: { options: [{ label: 'Open' }, { label: 'Closed', onEnter: { activityTypeKey: moved.key } }] } }))
+    expect((await del(moved)).error).toMatch(/column "Status"/)
+
+    const call = await mk('Booked call')
+    db.prepare("INSERT INTO appointments (row_id, title, start_at, all_day, activity_type_key) VALUES (?, 'Call', '2026-10-20T10:00', 0, ?)").run(rowId, call.key)
+    expect((await del(call)).error).toMatch(/1 appointment/)
+  })
+
   it('always keeps at least one type to choose from', async () => {
     const ids = (testDb.db.prepare('SELECT id FROM activity_types ORDER BY position').all() as Array<{ id: number }>).map(r => r.id)
     for (const id of ids.slice(1)) expect((await invoke(IPC.ACTIVITY_TYPE_ARCHIVE, id, true)).ok).toBe(true)
