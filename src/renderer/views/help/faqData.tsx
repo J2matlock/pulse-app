@@ -672,13 +672,13 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'reports-build',
     question: 'How do I build my own report?',
-    answer: 'Click "Reports" in the sidebar, or choose "Build a report…" in the Export menu, then "New report". Pick what each line counts ({record:many}, {activity:many}, {appointment:many} or deadlines), filter which ones and choose a date range, then group them, for example by month or by a column, or list them with the columns you want. Add values such as a count, total or average. The preview updates as you go. Save it to run again later, and export it as a PDF or CSV.',
+    answer: 'Click "Reports" in the sidebar, or choose "Build a report…" in the Export menu, then "New report". The quickest start is one of the common reports at the top, such as how many {record:many} are in each stage or overdue deadlines; change anything afterwards. To build your own, pick what to count ({record:many}, {activity:many}, {appointment:many} or deadlines), add filters and a date range, then group them, for example by month or by a column, or list them with the columns you want. Add values such as a count, total or average. The preview on the right updates as you go. Click Save to keep it (it suggests a name if you don\'t type one); your saved reports are in the "Saved reports" list at the top. Export any report as a PDF or CSV.',
     category: 'import-export',
   },
   {
     id: 'reports-pin',
     question: 'Can a report show on my dashboard?',
-    answer: 'Yes. Open a saved report and click "Pin to dashboard". The dashboard shows its first 10 lines as a card, with Open to see the whole report and Unpin to take it off. Deleting a report also takes it off the dashboard.',
+    answer: 'Yes. Click "Pin to dashboard" on any report (a new one is saved first). The dashboard shows its first 10 lines as a card, with Open to see the whole report and Unpin to take it off. Deleting a report, which asks first, also takes it off the dashboard.',
     category: 'dashboard-deadlines',
   },
   {

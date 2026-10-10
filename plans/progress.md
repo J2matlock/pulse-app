@@ -1496,3 +1496,21 @@ Comprehensive audit identified 2 critical, 7 high, 10 medium, 15 low findings. A
 ## 2026-10-10 — Pulse 2.1.0 released
 - Version 2.1.0 (twelve new starters, early-completion fix for fixed-date deadlines, "Running low" card), tagged v2.1.0 in pulse-app
 - `pulse-releases` v2.1.0: `PULSE.exe`, `BaringaSoftPulse-2.1.0.AppImage`, `SHA256SUMS.txt`, marked latest; `latest.json` announces 2.1.0
+
+## 2026-10-10 (cont.) — Reports review fixes (plans/reports-review-2026-10.md, all items)
+- Bugs:
+  - a new filter no longer empties the preview (filters wait for a value; new ones start on the stage or a choice field)
+  - groupings default to the stage, the note type, the appointment status or the deadline; totals default to money, never "Days in stage"
+  - groups follow the field's own order (stages, statuses, deadline states most urgent first)
+  - dates spelled out (Jul 31, 2026 · Oct 2026 · Week of … · Q4 2026) in the table, PDF and dashboard card; the CSV keeps ISO
+  - delete asks first; leaving with unsaved changes asks first
+- Clunk:
+  - Saved reports moved to a picker in the header; steps and preview scroll separately; name, Save, Export, Pin and Delete sit above the preview
+  - each filter, grouping and value is a tidy row; pick-lists for choice fields
+  - "What do you want to count?"; Save suggests a name; Pin saves a new report first
+  - starting points: by stage, money by stage, added per month, notes per month, overdue deadlines, appointments this month
+  - the PDF says what it covers ("Jobs · Stage is Done · Date added: this month")
+  - deadlines and appointments start as a list with useful columns
+- Engine: `ReportField` gains `options` and `hint`; `ReportColumn` gains `bucket`; `defaultFilterField` / `defaultGroupField` / `defaultValueField`, `suggestReportName`, `describeReport`, `formatYmd` in `shared/reports.ts`. Saved report format unchanged
+- Help text updated. Checked with a scripted walkthrough in the app (tree service sample), screenshots reviewed
+- Build state: npm test 3596 pass / 4 skip; typecheck 0; eslint 0 errors

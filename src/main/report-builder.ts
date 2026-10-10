@@ -13,12 +13,12 @@ import { stageDurations } from './stages'
 import { word } from './vocab'
 import { linkColumnSpecs, linkValueText } from '../shared/links'
 import { fileCountColumnIds } from '../shared/attachments'
-import { stageColumnOf } from '../shared/stages'
+import { stageColumnOf, columnOptionLabels } from '../shared/stages'
 import { labelFor } from '../shared/activityTypes'
 import { localDateString } from '../shared/dates'
 import type { Column, GridRow } from '../shared/types'
 import {
-  REPORT_LIMITS, bucketDate, matchReportFilter, presetRange, reportConfigSchema, toNumber, valueKey, valueLabel,
+  REPORT_LIMITS, bucketDate, isFilterActive, matchReportFilter, presetRange, reportConfigSchema, toNumber, valueKey, valueLabel,
   type ReportCell, type ReportColumn, type ReportConfig, type ReportField, type ReportFieldKind, type ReportResult, type ReportSource, type SavedReport,
 } from '../shared/reports'
 
@@ -27,6 +27,8 @@ export class ReportError extends Error {}
 
 const APPT_STATUS_LABELS: Record<string, string> = { scheduled: 'Scheduled', done: 'Done', cancelled: 'Cancelled', no_show: 'No-show' }
 const DEADLINE_STATE_LABELS: Record<string, string> = { none: 'Nothing due', ok: 'On track', soon: 'Coming up', due: 'Due', overdue: 'Overdue', paused: 'Paused', done: 'Done' }
+/** Most urgent first, so a report grouped by state reads top-down */
+const DEADLINE_STATE_ORDER = ['Overdue', 'Due', 'Coming up', 'On track', 'Paused', 'Done', 'Nothing due']
 
 /** Columns a report can read; read-only types Pulse works out in the window aren't stored, except age */
 const SKIP_TYPES = new Set(['calculated_days'])
@@ -44,16 +46,27 @@ function gridColumns(gridId: number): Column[] {
   return getDb().prepare('SELECT * FROM columns WHERE grid_id = ? ORDER BY position').all(gridId) as Column[]
 }
 
+/** A column's fixed choices, for pick-lists and grouping order */
+function columnOptions(c: Column): string[] | undefined {
+  if (c.column_type === 'checkbox') return ['Yes', 'No']
+  if (c.column_type === 'dropdown' || c.column_type === 'status') {
+    const opts = columnOptionLabels(c)
+    return opts.length ? opts : undefined
+  }
+  return undefined
+}
+
 /** Every field a report on this list and source can use */
 export function reportFields(gridId: number, source: ReportSource): ReportField[] {
   const cols = gridColumns(gridId).filter(c => !SKIP_TYPES.has(c.column_type))
   const rec = word('record', { cap: true }, gridId)
   const fields: ReportField[] = []
+  const typeLabels = () => listActivityTypes(true).filter(t => !t.is_archived).map(t => t.label)
   if (source === 'activities') {
     const act = word('activity', { cap: true }, gridId)
     fields.push(
       { id: 'act:date', label: 'Date', kind: 'date', group: act },
-      { id: 'act:type', label: 'Type', kind: 'text', group: act },
+      { id: 'act:type', label: 'Type', kind: 'text', group: act, options: typeLabels() },
       { id: 'act:minutes', label: 'Minutes', kind: 'number', group: act },
       { id: 'act:miles', label: 'Miles', kind: 'number', group: act },
     )
@@ -63,22 +76,44 @@ export function reportFields(gridId: number, source: ReportSource): ReportField[
     fields.push(
       { id: 'appt:date', label: 'Date', kind: 'date', group: ap },
       { id: 'appt:title', label: 'Title', kind: 'text', group: ap },
-      { id: 'appt:status', label: 'Status', kind: 'text', group: ap },
-      { id: 'appt:type', label: 'Type', kind: 'text', group: ap },
+      { id: 'appt:status', label: 'Status', kind: 'text', group: ap, options: Object.values(APPT_STATUS_LABELS) },
+      { id: 'appt:type', label: 'Type', kind: 'text', group: ap, options: typeLabels() },
       { id: 'appt:minutes', label: 'Length (minutes)', kind: 'number', group: ap },
     )
   } else if (source === 'deadlines') {
     fields.push(
-      { id: 'dl:rule', label: 'Deadline', kind: 'text', group: 'Deadline' },
-      { id: 'dl:state', label: 'State', kind: 'text', group: 'Deadline' },
+      { id: 'dl:rule', label: 'Deadline', kind: 'text', group: 'Deadline', options: cols.filter(isDeadlineColumn).map(c => c.name) },
+      { id: 'dl:state', label: 'State', kind: 'text', group: 'Deadline', options: DEADLINE_STATE_ORDER },
       { id: 'dl:due', label: 'Due date', kind: 'date', group: 'Deadline' },
-      { id: 'dl:overdue', label: 'Days overdue', kind: 'number', group: 'Deadline' },
+      { id: 'dl:overdue', label: 'Days overdue', kind: 'number', group: 'Deadline', hint: 'derived' },
     )
   }
+  const stage = stageColumnOf(cols)
   fields.push({ id: 'rec:created', label: 'Date added', kind: 'date', group: rec })
-  if (stageColumnOf(cols)) fields.push({ id: 'rec:stage_days', label: `Days in ${word('stage', {}, gridId)}`, kind: 'number', group: rec })
-  for (const c of cols) fields.push({ id: `col:${c.id}`, label: c.name, kind: columnKind(c), group: rec })
+  if (stage) fields.push({ id: 'rec:stage_days', label: `Days in ${word('stage', {}, gridId)}`, kind: 'number', group: rec, hint: 'derived' })
+  for (const c of cols) {
+    const options = columnOptions(c)
+    const hint = c.id === stage?.id ? 'stage' as const : c.is_name_column ? 'name' as const : c.column_type === 'age_from_dob' ? 'derived' as const : undefined
+    fields.push({ id: `col:${c.id}`, label: c.name, kind: columnKind(c), group: rec, ...(options ? { options } : {}), ...(hint ? { hint } : {}) })
+  }
   return fields
+}
+
+/** A column that carries a deadline (its own type, or a date with a rule) */
+function isDeadlineColumn(c: Column): boolean {
+  if (c.column_type === 'deadline') return true
+  if (c.column_type !== 'date' || !c.config) return false
+  try { return !!(JSON.parse(c.config) as { alert_rule_name?: string }).alert_rule_name } catch { return false }
+}
+
+/** What each line of a report is, in the list's words: "Jobs", "Notes", "Deadlines" */
+export function sourceWord(source: ReportSource, gridId: number): string {
+  switch (source) {
+    case 'records': return word('record', { many: true, cap: true }, gridId)
+    case 'activities': return word('activity', { many: true, cap: true }, gridId)
+    case 'appointments': return word('appointment', { many: true, cap: true }, gridId)
+    default: return 'Deadlines'
+  }
 }
 
 /** Check a config and every field it names against the list */
@@ -225,9 +260,11 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
   // ── Filters and date range ──
   let range: { from?: string; to?: string } | null = null
   if (config.dateRange) range = config.dateRange.preset ? presetRange(config.dateRange.preset, now) : { from: config.dateRange.from, to: config.dateRange.to }
+  // A filter still waiting for its value doesn't narrow anything yet
+  const activeFilters = config.filters.filter(isFilterActive)
   const matched = items.filter((item, i) => {
     if (i % 2000 === 0) tick()
-    for (const f of config.filters) if (!matchReportFilter(get(item, f.field), byId.get(f.field)!.kind, f.operator, f.value)) return false
+    for (const f of activeFilters) if (!matchReportFilter(get(item, f.field), byId.get(f.field)!.kind, f.operator, f.value)) return false
     if (range && config.dateRange) {
       const d = get(item, config.dateRange.field)
       if (typeof d !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(d)) return false
@@ -262,7 +299,7 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
   if (config.groupBy.length > 0) {
     const groupCols: ReportColumn[] = config.groupBy.map((g, i) => {
       const f = byId.get(g.field)!
-      return { key: `g${i}`, label: f.label, kind: g.bucket && g.bucket !== 'day' ? 'text' : f.kind }
+      return { key: `g${i}`, label: f.label, kind: f.kind, ...(g.bucket && f.kind === 'date' ? { bucket: g.bucket } : {}) }
     })
     const groups = new Map<string, { keys: ReportCell[]; items: Item[] }>()
     for (const item of matched) {
@@ -286,8 +323,13 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
       return row
     })
     if (!config.values.length) totals[valueKey(0)] = matched.length
+    // Choices keep their own order (Estimate requested → … → Done); the rest sort as values
+    const orders = config.groupBy.map(g => byId.get(g.field)!.options)
     rows.sort((a, b) => {
-      for (const c of groupCols) { const d = compare(a[c.key] ?? null, b[c.key] ?? null); if (d) return d }
+      for (const [i, c] of groupCols.entries()) {
+        const d = compareIn(orders[i], a[c.key] ?? null, b[c.key] ?? null)
+        if (d) return d
+      }
       return 0
     })
   } else if (config.columns?.length) {
@@ -312,6 +354,17 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
 }
 
 function round(n: number): number { return Math.round(n * 100) / 100 }
+
+/** In the order of a field's choices when it has them; values that aren't a choice follow, then blanks */
+function compareIn(order: string[] | undefined, a: ReportCell, b: ReportCell): number {
+  if (!order) return compare(a, b)
+  const blank = (v: ReportCell) => v === null || v === '' || v === '(blank)'
+  if (blank(a) || blank(b)) return blank(a) === blank(b) ? 0 : blank(a) ? 1 : -1
+  const ia = order.indexOf(String(a)), ib = order.indexOf(String(b))
+  if (ia === -1 && ib === -1) return compare(a, b)
+  if (ia === -1 || ib === -1) return ia === -1 ? 1 : -1
+  return ia - ib
+}
 
 /** Blanks last; numbers as numbers; text without regard to case */
 function compare(a: ReportCell, b: ReportCell): number {

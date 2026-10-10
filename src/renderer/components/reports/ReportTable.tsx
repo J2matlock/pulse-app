@@ -41,7 +41,7 @@ export function ReportTable({ result, sort, onSort, maxRows, caption }: {
           {rows.map((r, i) => (
             <tr key={i} className="border-b border-slate-200 dark:border-slate-700">
               {result.columns.map(c => (
-                <td key={c.key} className={`py-2 px-2 text-slate-800 dark:text-slate-100 ${numeric(c.kind) ? 'text-right tabular-nums' : ''}`}>{formatReportCell(r[c.key] ?? null, c.kind)}</td>
+                <td key={c.key} className={`py-2 px-2 text-slate-800 dark:text-slate-100 ${numeric(c.kind) ? 'text-right tabular-nums' : ''}`}>{formatReportCell(r[c.key] ?? null, c.kind, c.bucket)}</td>
               ))}
             </tr>
           ))}
@@ -51,7 +51,7 @@ export function ReportTable({ result, sort, onSort, maxRows, caption }: {
             <tr className="border-t-2 border-slate-300 dark:border-slate-600 font-semibold">
               {result.columns.map((c, i) => (
                 <td key={c.key} className={`py-2 px-2 text-slate-800 dark:text-slate-100 ${numeric(c.kind) ? 'text-right tabular-nums' : ''}`}>
-                  {c.key in result.totals ? formatReportCell(result.totals[c.key] ?? null, c.kind) : i === 0 ? 'Total' : ''}
+                  {c.key in result.totals ? formatReportCell(result.totals[c.key] ?? null, c.kind, c.bucket) : i === 0 ? 'Total' : ''}
                 </td>
               ))}
             </tr>

@@ -86,7 +86,8 @@ describe('report builder', () => {
     render(<ReportBuilder initial={saved as never} onSaved={onSaved} onDeleted={vi.fn()} />)
     await wait()
     fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Jobs by make' } })
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Save$/ })) })
+    expect(screen.getByRole('status').textContent).toMatch(/aren't saved/)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Save changes$/ })) })
     expect(calls('reports:save')[0]![1]).toMatchObject({ id: 5, name: 'Jobs by make', gridId: 1 })
     expect(onSaved).toHaveBeenCalled()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Export PDF/ })) })
@@ -109,9 +110,24 @@ describe('reports view and dashboard card', () => {
   it('lists saved reports and opens one', async () => {
     render(<MemoryRouter initialEntries={['/reports']}><ReportsView /></MemoryRouter>)
     await wait()
-    fireEvent.click(screen.getByRole('button', { name: /By make/ }))
+    fireEvent.change(screen.getByLabelText('Saved reports'), { target: { value: '5' } })
     await wait()
     expect((screen.getByLabelText('Report name') as HTMLInputElement).value).toBe('By make')
+  })
+
+  it('asks before throwing away unsaved changes', async () => {
+    render(<MemoryRouter initialEntries={['/reports?id=5']}><ReportsView /></MemoryRouter>)
+    await wait()
+    fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Changed' } })
+    await wait(50)
+    fireEvent.click(screen.getByRole('button', { name: /New report/ }))
+    expect(screen.getByText('Leave without saving?')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect((screen.getByLabelText('Report name') as HTMLInputElement).value).toBe('Changed')
+    fireEvent.click(screen.getByRole('button', { name: /New report/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Leave without saving' }))
+    await wait()
+    expect((screen.getByLabelText('Report name') as HTMLInputElement).value).toBe('')
   })
 
   it('a pinned report shows its lines and can be unpinned', async () => {
@@ -122,5 +138,64 @@ describe('reports view and dashboard card', () => {
     expect(screen.getByText('Honda')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /Unpin By make/ }))
     expect(onUnpin).toHaveBeenCalledWith(5)
+  })
+})
+
+describe('builder defaults and safety', () => {
+  const rich = [
+    { id: 'rec:created', label: 'Date added', kind: 'date', group: 'Job' },
+    { id: 'rec:stage_days', label: 'Days in stage', kind: 'number', group: 'Job', hint: 'derived' },
+    { id: 'col:1', label: 'Job', kind: 'text', group: 'Job', hint: 'name' },
+    { id: 'col:2', label: 'Stage', kind: 'text', group: 'Job', hint: 'stage', options: ['New', 'Done'] },
+    { id: 'col:3', label: 'Estimate', kind: 'currency', group: 'Job' },
+  ]
+  beforeEach(() => {
+    invoke.mockImplementation(async (channel: string, ...args: unknown[]) => {
+      if (channel === 'reports:fields') return { ok: true, data: rich }
+      if (channel === 'reports:run') return { ok: true, data: result }
+      if (channel === 'reports:save') return { ok: true, data: { ...saved, id: 9, name: (args[0] as { name: string }).name } }
+      if (channel === 'reports:delete') return { ok: true, data: null }
+      if (channel === 'settings:get') return { ok: true, data: settings[args[0] as string] ?? null }
+      if (channel === 'settings:update') { settings[args[0] as string] = args[1] as string; return { ok: true, data: null } }
+      return { ok: true, data: null }
+    })
+  })
+
+  it('starts filters on the stage with a pick-list, groupings on the stage and totals on money', async () => {
+    render(<ReportBuilder initial={null} onSaved={vi.fn()} onDeleted={vi.fn()} />)
+    await wait()
+    fireEvent.click(screen.getByRole('button', { name: /Add a filter/ }))
+    expect((screen.getByLabelText('Filter 1 field') as HTMLSelectElement).value).toBe('col:2')
+    const value = screen.getByLabelText('Filter 1 value') as HTMLSelectElement
+    expect(value.tagName).toBe('SELECT')
+    expect([...value.options].map(o => o.textContent)).toEqual(['Choose…', 'New', 'Done'])
+    expect(screen.getByText('Choose a value to use this filter.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Add a grouping/ }))
+    expect((screen.getByLabelText('Grouping 1', { selector: 'select' }) as HTMLSelectElement).value).toBe('col:2')
+    fireEvent.click(screen.getByRole('button', { name: /Add a value/ }))
+    expect((screen.getByLabelText('Value 2 field') as HTMLSelectElement).value).toBe('col:3')
+  })
+
+  it('offers common reports, and saves without a name under a suggested one', async () => {
+    const onSaved = vi.fn()
+    render(<ReportBuilder initial={null} onSaved={onSaved} onDeleted={vi.fn()} />)
+    await wait()
+    fireEvent.click(screen.getByRole('button', { name: /^How many .* by Stage$/i }))
+    await wait()
+    expect((screen.getByLabelText('Report name') as HTMLInputElement).placeholder).toMatch(/by Stage$/)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Save$/ })) })
+    expect((calls('reports:save').at(-1)![1] as { name: string }).name).toMatch(/by Stage$/)
+    expect(onSaved).toHaveBeenCalled()
+  })
+
+  it('asks before deleting a saved report', async () => {
+    const onDeleted = vi.fn()
+    render(<ReportBuilder initial={saved as never} onSaved={vi.fn()} onDeleted={onDeleted} />)
+    await wait()
+    fireEvent.click(screen.getByRole('button', { name: /^Delete$/ }))
+    expect(calls('reports:delete')).toHaveLength(0)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Delete report' })) })
+    expect(calls('reports:delete')).toHaveLength(1)
+    expect(onDeleted).toHaveBeenCalledWith(5)
   })
 })

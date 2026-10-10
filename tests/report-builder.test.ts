@@ -10,7 +10,7 @@ vi.mock('../src/main/database', async () => {
 })
 
 import { reportFields, runReport, validateReportConfig, saveReport, listReports, deleteReport, getReport, ReportError } from '../src/main/report-builder'
-import { bucketDate, presetRange, matchReportFilter, valueLabel } from '../src/shared/reports'
+import { bucketDate, presetRange, matchReportFilter, valueLabel, formatReportCell, defaultFilterField, defaultGroupField, defaultValueField, suggestReportName, describeReport } from '../src/shared/reports'
 import { up as migration043 } from '../src/main/migrations/043_report_definitions'
 
 let gridId: number
@@ -94,6 +94,28 @@ describe('records', () => {
     expect(runReport(gridId, { source: 'records', values: [{ fn: 'max', field: `col:${costCol}` }] }, NOW).rows).toEqual([{ v0: 2000 }])
   })
 
+  it('ignores a filter until its value is filled in', () => {
+    const blank = { source: 'records', filters: [{ field: 'rec:created', operator: 'before', value: '' }] }
+    expect(runReport(gridId, blank, NOW).matched).toBe(4)
+    expect(runReport(gridId, { source: 'records', filters: [{ field: `col:${costCol}`, operator: 'is_empty', value: '' }] }, NOW).matched).toBe(1)
+  })
+
+  it('groups a dropdown in its own order, with the choices offered for filters', () => {
+    t.db.prepare('UPDATE columns SET config = ? WHERE id = ?').run(JSON.stringify({ options: ['Toyota', 'Honda', 'Ford'] }), makeCol)
+    const make = reportFields(gridId, 'records').find(f => f.id === `col:${makeCol}`)!
+    expect(make.options).toEqual(['Toyota', 'Honda', 'Ford'])
+    const r = runReport(gridId, { source: 'records', groupBy: [{ field: `col:${makeCol}` }] }, NOW)
+    expect(r.rows.map(x => x.g0)).toEqual(['Toyota', 'Honda', 'Ford'])
+  })
+
+  it('marks the name and numbers Pulse works out, and keeps the period on date groups', () => {
+    const fields = reportFields(gridId, 'records')
+    expect(fields.find(f => f.id === `col:${nameCol}`)!.hint).toBe('name')
+    expect(reportFields(gridId, 'deadlines').find(f => f.id === 'dl:overdue')!.hint).toBe('derived')
+    const r = runReport(gridId, { source: 'records', groupBy: [{ field: 'rec:created', bucket: 'month' }] }, NOW)
+    expect(r.columns[0]).toMatchObject({ kind: 'date', bucket: 'month' })
+  })
+
   it('leaves out archived records unless asked', () => {
     t.db.prepare('UPDATE rows SET is_active = 0 WHERE id = ?').run(rows[0])
     expect(runReport(gridId, { source: 'records' }, NOW).rows).toEqual([{ v0: 3 }])
@@ -115,7 +137,7 @@ describe('notes', () => {
   it('totals your own numbers per month, leaving out system and voided entries', () => {
     const r = runReport(gridId, { source: 'activities', groupBy: [{ field: 'act:date', bucket: 'month' }], values: [{ fn: 'count' }, { fn: 'sum', field: 'act:m:parts' }, { fn: 'sum', field: 'act:m:labor' }] }, NOW)
     expect(r.rows).toEqual([{ g0: '2026-09', v0: 2, v1: 150.1, v2: 1.5 }, { g0: '2026-10', v0: 1, v1: 25.25, v2: 2 }])
-    expect(r.columns[0]).toMatchObject({ label: 'Date', kind: 'text' })
+    expect(r.columns[0]).toMatchObject({ label: 'Date', kind: 'date', bucket: 'month' })
   })
 
   it('groups by type and a record column together, within a date range', () => {
@@ -133,7 +155,8 @@ describe('appointments and deadlines', () => {
     ins.run(rows[1], 'Brakes', '2026-10-02T09:00', '2026-10-02T09:30', 'done')
     ins.run(rows[1], 'Check', '2026-10-20T09:00', null, 'scheduled')
     const r = runReport(gridId, { source: 'appointments', groupBy: [{ field: 'appt:status' }], values: [{ fn: 'count' }, { fn: 'sum', field: 'appt:minutes' }] }, NOW)
-    expect(r.rows).toEqual([{ g0: 'Done', v0: 2, v1: 120 }, { g0: 'Scheduled', v0: 1, v1: null }])
+    // Statuses in their own order: Scheduled before Done
+    expect(r.rows).toEqual([{ g0: 'Scheduled', v0: 1, v1: null }, { g0: 'Done', v0: 2, v1: 120 }])
   })
 
   it('reports deadlines through the deadline engine', () => {
@@ -170,6 +193,44 @@ describe('helpers', () => {
     expect(matchReportFilter('$1,200.50', 'currency', 'gt', '1000')).toBe(true)
     expect(matchReportFilter('2026-10-02', 'date', 'before', '2026-10-03')).toBe(true)
     expect(valueLabel({ fn: 'sum', field: 'x', label: ' Parts total ' }, [])).toBe('Parts total')
+  })
+
+  it('spells dates out for people', () => {
+    expect(formatReportCell('2026-07-31', 'date')).toBe('Jul 31, 2026')
+    expect(formatReportCell('2026-10', 'date', 'month')).toBe('Oct 2026')
+    expect(formatReportCell('2026-10-11', 'date', 'week')).toBe('Week of Oct 11, 2026')
+    expect(formatReportCell('2026 Q4', 'date', 'quarter')).toBe('Q4 2026')
+    expect(formatReportCell('(blank)', 'date', 'month')).toBe('(blank)')
+    expect(formatReportCell('Honda', 'text')).toBe('Honda')
+  })
+
+  it('picks sensible defaults: the stage or a choice to filter and group by, money to add up', () => {
+    const fields = [
+      { id: 'rec:created', label: 'Date added', kind: 'date' as const, group: 'Job' },
+      { id: 'rec:stage_days', label: 'Days in stage', kind: 'number' as const, group: 'Job', hint: 'derived' as const },
+      { id: 'col:1', label: 'Job', kind: 'text' as const, group: 'Job', hint: 'name' as const },
+      { id: 'col:2', label: 'Stage', kind: 'text' as const, group: 'Job', hint: 'stage' as const, options: ['New', 'Done'] },
+      { id: 'col:3', label: 'Hours', kind: 'number' as const, group: 'Job' },
+      { id: 'col:4', label: 'Estimate', kind: 'currency' as const, group: 'Job' },
+      { id: 'act:type', label: 'Type', kind: 'text' as const, group: 'Note', options: ['Call'] },
+    ]
+    expect(defaultFilterField(fields)!.id).toBe('col:2')
+    expect(defaultGroupField(fields, 'records')!.id).toBe('col:2')
+    expect(defaultGroupField(fields, 'activities')!.id).toBe('act:type')
+    expect(defaultGroupField(fields, 'records', ['col:2'])!.id).toBe('act:type')
+    expect(defaultValueField(fields)!.id).toBe('col:4')
+    expect(defaultValueField(fields.filter(f => f.kind !== 'currency'))!.id).toBe('col:3')
+  })
+
+  it('suggests a name and describes what a report covers', () => {
+    const fields = [{ id: 'col:2', label: 'Stage', kind: 'text' as const, group: 'Job' }, { id: 'col:4', label: 'Estimate', kind: 'currency' as const, group: 'Job' }, { id: 'act:date', label: 'Date', kind: 'date' as const, group: 'Note' }]
+    expect(suggestReportName({ source: 'records', filters: [], groupBy: [{ field: 'col:2' }], values: [{ fn: 'count' }] }, fields, 'Jobs')).toBe('Jobs by Stage')
+    expect(suggestReportName({ source: 'records', filters: [], groupBy: [{ field: 'col:2' }], values: [{ fn: 'sum', field: 'col:4' }] }, fields, 'Jobs')).toBe('Total Estimate by Stage')
+    expect(suggestReportName({ source: 'activities', filters: [], groupBy: [{ field: 'act:date', bucket: 'month' }], values: [{ fn: 'count' }], dateRange: { field: 'act:date', preset: 'this_year' } }, fields, 'Notes')).toBe('Notes per month, this year')
+    expect(suggestReportName({ source: 'records', filters: [], groupBy: [], values: [{ fn: 'count' }] }, fields, 'Jobs')).toBe('How many jobs')
+    expect(describeReport({ source: 'records', filters: [{ field: 'col:2', operator: 'equals', value: 'Done' }, { field: 'col:4', operator: 'gt', value: '' }], groupBy: [], values: [], dateRange: { field: 'act:date', preset: 'this_month' } }, fields, 'Jobs', 'Jobs'))
+      .toBe('Jobs · Stage is Done · Date: this month')
+    expect(describeReport({ source: 'activities', filters: [], groupBy: [], values: [] }, fields, 'Jobs', 'Notes')).toBe('Notes in Jobs')
   })
 })
 

@@ -6,9 +6,9 @@ import { IPC } from '../../shared/ipc-channels'
 import { localDateString } from '../../shared/dates'
 import { getDb } from '../database'
 import { writeReport } from '../export-report'
-import { REPORT_SOURCES, type ReportSource } from '../../shared/reports'
+import { REPORT_SOURCES, describeReport, type ReportSource } from '../../shared/reports'
 import { secureWrap, ok, fail, enforceWritable, validId, assertSafePath } from './ipc-utils'
-import { ReportError, reportFields, runReport, listReports, getReport, saveReport, deleteReport } from '../report-builder'
+import { ReportError, reportFields, runReport, listReports, getReport, saveReport, deleteReport, validateReportConfig, sourceWord } from '../report-builder'
 
 function action<T>(fn: () => T) {
   try { return ok(fn()) } catch (err) {
@@ -64,7 +64,8 @@ export function registerReportHandlers(): void {
     })
     if (canceled || !filePath) return ok(null)
     assertSafePath(filePath)
-    await writeReport(filePath, format, title, grid?.name ?? '', res.data)
+    const { config: valid, fields } = validateReportConfig(gridId, config)
+    await writeReport(filePath, format, title, describeReport(valid, fields, grid?.name ?? '', sourceWord(valid.source, gridId)), res.data)
     return ok(filePath)
   })
 

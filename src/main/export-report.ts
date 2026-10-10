@@ -24,13 +24,16 @@ export function buildReportPdf(title: string, subtitle: string, result: ReportRe
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
   const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-  doc.text(`${subtitle}  ·  ${today}  ·  ${result.matched.toLocaleString('en-US')} matched`, marginL, 25)
+  // What the report covers (list, filters, dates), then when and how many; long descriptions wrap
+  const lines = doc.splitTextToSize(`${subtitle}  ·  ${today}  ·  ${result.matched.toLocaleString('en-US')} matched`, doc.internal.pageSize.width - marginL * 2) as string[]
+  doc.text(lines, marginL, 25)
+  const tableTop = 25 + lines.length * 4.5 + 2
   const numeric = (k: string) => result.columns.find(c => c.key === k)?.kind === 'number' || result.columns.find(c => c.key === k)?.kind === 'currency'
-  const body = result.rows.map(r => result.columns.map(c => formatReportCell(r[c.key] ?? null, c.kind)))
+  const body = result.rows.map(r => result.columns.map(c => formatReportCell(r[c.key] ?? null, c.kind, c.bucket)))
   const hasTotals = result.columns.some(c => c.key in result.totals) && result.rows.length > 1
-  const foot = hasTotals ? [result.columns.map((c, i) => c.key in result.totals ? formatReportCell(result.totals[c.key] ?? null, c.kind) : i === 0 ? 'Total' : '')] : undefined
+  const foot = hasTotals ? [result.columns.map((c, i) => c.key in result.totals ? formatReportCell(result.totals[c.key] ?? null, c.kind, c.bucket) : i === 0 ? 'Total' : '')] : undefined
   autoTable(doc, {
-    startY: 31,
+    startY: tableTop,
     head: [result.columns.map(c => c.label)],
     body,
     ...(foot ? { foot } : {}),

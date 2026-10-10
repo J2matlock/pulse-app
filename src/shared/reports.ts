@@ -17,6 +17,10 @@ export interface ReportField {
   kind: ReportFieldKind
   /** Where it comes from, for grouping the picker ("Record", "Note"…) */
   group: string
+  /** The choices a status, dropdown, checkbox or type field can hold, in their own order */
+  options?: string[]
+  /** The record's name, its stage, or a number Pulse works out (not worth adding up) */
+  hint?: 'name' | 'stage' | 'derived'
 }
 
 export type DateBucket = 'day' | 'week' | 'month' | 'quarter' | 'year'
@@ -62,6 +66,8 @@ export interface ReportColumn {
   key: string
   label: string
   kind: ReportFieldKind
+  /** Dates grouped by month, week…: the cells hold "2026-10", "2026 Q4" and so on */
+  bucket?: DateBucket
 }
 
 export type ReportCell = string | number | null
@@ -136,6 +142,16 @@ export function toNumber(v: ReportCell): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+/** Operators that compare against a value (the rest stand alone) */
+export function filterNeedsValue(operator: ReportOperator): boolean {
+  return operator !== 'is_empty' && operator !== 'is_not_empty'
+}
+
+/** A filter still waiting for its value doesn't narrow anything yet */
+export function isFilterActive(f: { operator: ReportOperator; value: string }): boolean {
+  return !filterNeedsValue(f.operator) || f.value.trim() !== ''
+}
+
 /** Whether one value passes one filter (case-insensitive text; numbers and dates compared as such) */
 export function matchReportFilter(raw: ReportCell, kind: ReportFieldKind, operator: ReportOperator, value: string): boolean {
   const text = raw === null ? '' : String(raw)
@@ -163,17 +179,34 @@ export function matchReportFilter(raw: ReportCell, kind: ReportFieldKind, operat
   }
 }
 
-export function formatReportCell(v: ReportCell, kind: ReportFieldKind): string {
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** "2026-07-31" → "Jul 31, 2026"; anything else unchanged */
+export function formatYmd(v: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v)
+  return m ? `${MONTHS[Number(m[2]) - 1]} ${Number(m[3])}, ${m[1]}` : v
+}
+
+/** A value as people read it. Dates and date groups are spelled out ("Oct 2026", "Week of Oct 4, 2026"); the CSV keeps the raw values */
+export function formatReportCell(v: ReportCell, kind: ReportFieldKind, bucket?: DateBucket): string {
   if (v === null || v === '') return '—'
   if (typeof v === 'number') {
     if (kind === 'currency') return v.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
     return v.toLocaleString('en-US', { maximumFractionDigits: 2 })
   }
-  return v
+  if (kind !== 'date') return v
+  switch (bucket) {
+    case 'month': { const m = /^(\d{4})-(\d{2})$/.exec(v); return m ? `${MONTHS[Number(m[2]) - 1]} ${m[1]}` : v }
+    case 'quarter': { const m = /^(\d{4}) (Q\d)$/.exec(v); return m ? `${m[2]} ${m[1]}` : v }
+    case 'week': return /^\d{4}-\d{2}-\d{2}$/.test(v) ? `Week of ${formatYmd(v)}` : v
+    case 'year': return v
+    default: return formatYmd(v.slice(0, 10))
+  }
 }
 
-/** Which operators make sense for a field */
-export function operatorsFor(kind: ReportFieldKind): ReportOperator[] {
+/** Which operators make sense for a field (fields with a fixed set of choices: is / isn't) */
+export function operatorsFor(kind: ReportFieldKind, hasOptions = false): ReportOperator[] {
+  if (hasOptions) return ['equals', 'not_equals', 'is_empty', 'is_not_empty']
   if (kind === 'date') return ['before', 'after', 'equals', 'is_empty', 'is_not_empty']
   if (kind === 'number' || kind === 'currency') return ['equals', 'not_equals', 'gt', 'lt', 'is_empty', 'is_not_empty']
   return ['contains', 'not_contains', 'equals', 'not_equals', 'starts_with', 'is_empty', 'is_not_empty']
@@ -182,4 +215,56 @@ export function operatorsFor(kind: ReportFieldKind): ReportOperator[] {
 export const OPERATOR_LABELS: Record<ReportOperator, string> = {
   contains: 'contains', not_contains: "doesn't contain", equals: 'is', not_equals: "isn't", starts_with: 'starts with',
   is_empty: 'is empty', is_not_empty: 'is filled in', gt: 'is more than', lt: 'is less than', before: 'is before', after: 'is after',
+}
+
+// ── Sensible defaults for the builder ─────────────────────────────────────
+
+/** What a new filter starts on: the stage, then a field with choices, then the name, never a date */
+export function defaultFilterField(fields: ReportField[]): ReportField | undefined {
+  return fields.find(f => f.hint === 'stage') ?? fields.find(f => f.options?.length) ?? fields.find(f => f.hint === 'name')
+    ?? fields.find(f => f.kind === 'text') ?? fields[0]
+}
+
+/** What a new grouping starts on: the source's own kind (note type, status, deadline), the stage, a field with choices; dates last */
+export function defaultGroupField(fields: ReportField[], source: ReportSource, taken: string[] = []): ReportField | undefined {
+  const free = fields.filter(f => !taken.includes(f.id))
+  const own: Partial<Record<ReportSource, string>> = { activities: 'act:type', appointments: 'appt:status', deadlines: 'dl:rule' }
+  return free.find(f => f.id === own[source]) ?? free.find(f => f.hint === 'stage') ?? free.find(f => f.options?.length)
+    ?? free.find(f => f.kind === 'text' && f.hint !== 'name') ?? free.find(f => f.kind === 'date') ?? free[0]
+}
+
+/** What a new total starts on: money first, then a real number; never a number Pulse works out (days in stage) */
+export function defaultValueField(fields: ReportField[]): ReportField | undefined {
+  const real = fields.filter(f => f.hint !== 'derived')
+  return real.find(f => f.kind === 'currency') ?? real.find(f => f.kind === 'number')
+}
+
+const PRESET_WORDS: Record<DatePreset, string> = { this_month: 'this month', last_month: 'last month', this_quarter: 'this quarter', this_year: 'this year', last_year: 'last year' }
+const BUCKET_WORDS: Record<DateBucket, string> = { day: 'per day', week: 'per week', month: 'per month', quarter: 'per quarter', year: 'per year' }
+
+/** A name for a report from its settings: "Jobs by Stage", "Notes per month", "Total Estimate by Stage" */
+export function suggestReportName(config: ReportConfig, fields: ReportField[], sourceWord: string): string {
+  const label = (id: string) => fields.find(f => f.id === id)?.label ?? ''
+  const what = config.values.length === 1 && config.values[0]!.fn !== 'count' ? valueLabel(config.values[0]!, fields) : sourceWord
+  const groups = config.groupBy.map(g => g.bucket ? BUCKET_WORDS[g.bucket] : `by ${label(g.field)}`)
+  let name = groups.length ? `${what} ${groups.join(' and ').replace(/ and by /g, ' and ')}` : config.columns?.length ? `${sourceWord} list` : `How many ${sourceWord.toLowerCase()}`
+  if (config.dateRange?.preset) name += `, ${PRESET_WORDS[config.dateRange.preset]}`
+  return (name.charAt(0).toUpperCase() + name.slice(1)).slice(0, 100)
+}
+
+/** One line saying what a report covers, for the PDF: "Jobs · Stage is Done · Date added: this month" */
+export function describeReport(config: ReportConfig, fields: ReportField[], listName: string, sourceWord: string): string {
+  const label = (id: string) => fields.find(f => f.id === id)?.label ?? id
+  const parts = [config.source === 'records' ? listName : `${sourceWord} in ${listName}`]
+  for (const f of config.filters.filter(isFilterActive)) {
+    const kind = fields.find(x => x.id === f.field)?.kind ?? 'text'
+    parts.push(`${label(f.field)} ${OPERATOR_LABELS[f.operator]}${filterNeedsValue(f.operator) ? ` ${kind === 'date' ? formatYmd(f.value) : f.value}` : ''}`)
+  }
+  if (config.dateRange) {
+    const r = config.dateRange
+    const when = r.preset ? PRESET_WORDS[r.preset] : [r.from && `from ${formatYmd(r.from)}`, r.to && `to ${formatYmd(r.to)}`].filter(Boolean).join(' ') || 'any time'
+    parts.push(`${label(r.field)}: ${when}`)
+  }
+  if (config.includeArchived) parts.push('including archived')
+  return parts.join(' · ')
 }
