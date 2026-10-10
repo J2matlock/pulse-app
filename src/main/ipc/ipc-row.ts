@@ -624,9 +624,9 @@ export function registerRowHandlers(): void {
       SELECT r.id as rowId, r.grid_id as gridId, g.name as gridName,
              r.display_name AS clientName
       FROM rows r
-      JOIN grids g ON g.id = r.grid_id
+      JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
       WHERE r.is_active = 1
-        AND r.display_name LIKE ? ESCAPE '\'
+        AND r.display_name LIKE ? ESCAPE '\\'
       ORDER BY r.display_name
       LIMIT 20 OFFSET ?
     `).all(`%${search.replace(/[%_\\]/g, '\\$&')}%`, safeOffset)

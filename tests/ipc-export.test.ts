@@ -182,6 +182,14 @@ describe('BACKUP_GET_INFO', () => {
     expect(result.data).toHaveProperty('dbPath')
     expect(result.data).toHaveProperty('autoBackupCount')
   })
+
+  it('counts active records only in lists that still exist (X-11)', async () => {
+    const kept = seedGrid(testDb.db, { rowCount: 3, columnCount: 1 })
+    const gone = seedGrid(testDb.db, { rowCount: 2, columnCount: 1 })
+    testDb.db.prepare('UPDATE grids SET is_active = 0 WHERE id = ?').run(gone.gridId)
+    const result = await invoke(IPC.BACKUP_GET_INFO) as { ok: true; data: { totalClients: number } }
+    expect(result.data.totalClients).toBe(kept.rowIds.length)
+  })
 })
 
 describe('BACKUP_SCHEDULED_RUN', () => {

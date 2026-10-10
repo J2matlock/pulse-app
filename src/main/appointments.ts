@@ -52,7 +52,8 @@ export interface ApptFilter { gridId?: number; rowId?: number; status?: ApptStat
 export function listAppointments(range: { from: string; to: string }, filter: ApptFilter = {}): Appointment[] {
   if (!DATE_RE.test(range.from) || !DATE_RE.test(range.to)) throw new ApptError('Choose the dates to show.')
   ensureMaterialized(range.to)
-  const where = ["a.start_at >= ?", "a.start_at <= ?", '(a.row_id IS NULL OR r.deleted_at IS NULL)']
+  // Records in the trash, or in a deleted list, are left out (L-13)
+  const where = ["a.start_at >= ?", "a.start_at <= ?", '(a.row_id IS NULL OR (r.deleted_at IS NULL AND g.is_active = 1))']
   const params: unknown[] = [range.from, `${range.to}T99:99`]
   if (filter.gridId !== undefined) { where.push('r.grid_id = ?'); params.push(filter.gridId) }
   if (filter.rowId !== undefined) { where.push('a.row_id = ?'); params.push(filter.rowId) }

@@ -66,7 +66,7 @@ function queryArchived(): unknown[] {
     SELECT r.id, r.grid_id, r.archived_at, r.archived_reason, g.name AS grid_name,
            r.display_name AS client_name
     FROM rows r
-    JOIN grids g ON g.id = r.grid_id
+    JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
     WHERE r.is_active = 0 AND r.archived_at IS NOT NULL AND r.deleted_at IS NULL
     ORDER BY r.archived_at DESC
     LIMIT ${QUERY_LIMITS.DASHBOARD_COMPLETIONS}
@@ -87,7 +87,7 @@ function queryCompleted(): unknown[] {
         r.grid_id AS grid_id
       FROM checklist_items ci
       JOIN rows r  ON r.id = ci.row_id AND r.deleted_at IS NULL
-      JOIN grids g ON g.id = r.grid_id
+      JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
       WHERE ci.is_completed = 1
         AND ci.completed_at >= date('now', '-30 days')
       ORDER BY ci.completed_at DESC
@@ -106,7 +106,9 @@ function queryCompleted(): unknown[] {
         ct.grid_id AS grid_id
       FROM caseload_task_history th
       JOIN caseload_tasks ct ON ct.id = th.task_id
+      LEFT JOIN grids gt ON gt.id = ct.grid_id
       WHERE th.completed_at >= date('now', '-30 days')
+        AND (ct.grid_id IS NULL OR gt.is_active = 1)
       ORDER BY th.completed_at DESC
       LIMIT ${QUERY_LIMITS.DASHBOARD_COMPLETIONS}
 
@@ -123,7 +125,7 @@ function queryCompleted(): unknown[] {
         r2.grid_id AS grid_id
       FROM case_log cl
       JOIN rows r2  ON r2.id = cl.row_id AND r2.deleted_at IS NULL
-      JOIN grids g2 ON g2.id = r2.grid_id
+      JOIN grids g2 ON g2.id = r2.grid_id AND g2.is_active = 1
       WHERE cl.log_type = 'system'
         -- M20: No dedicated completion_type column exists. The log_type='system'
         -- filter above restricts to auto-generated entries only (never user-authored),
@@ -149,7 +151,7 @@ function queryCompleted(): unknown[] {
         r3.grid_id AS grid_id
       FROM case_log cl3
       JOIN rows r3  ON r3.id = cl3.row_id AND r3.deleted_at IS NULL
-      JOIN grids g3 ON g3.id = r3.grid_id
+      JOIN grids g3 ON g3.id = r3.grid_id AND g3.is_active = 1
       WHERE cl3.follow_up_date IS NOT NULL
         AND cl3.follow_up_completed = 1
         AND cl3.updated_at >= date('now', '-30 days')

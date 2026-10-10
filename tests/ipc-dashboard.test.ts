@@ -305,6 +305,14 @@ describe('DASHBOARD_GET_ARCHIVED', () => {
     expect(result.data[0].archived_reason).toBe('Completed')
   })
 
+  it('leaves out archived records of a deleted list (L-13)', async () => {
+    const { gridId, rowIds } = seedGrid(testDb.db, { rowCount: 1 })
+    testDb.db.prepare("UPDATE rows SET is_active = 0, archived_at = datetime('now') WHERE id = ?").run(rowIds[0])
+    testDb.db.prepare('UPDATE grids SET is_active = 0 WHERE id = ?').run(gridId)
+    const result = await invoke(IPC.DASHBOARD_GET_ARCHIVED) as { ok: true; data: unknown[] }
+    expect(result.data).toHaveLength(0)
+  })
+
   it('excludes soft-deleted rows from archived list', async () => {
     const { rowIds } = seedGrid(testDb.db, { rowCount: 1 })
     testDb.db.prepare("UPDATE rows SET is_active = 0, archived_at = datetime('now'), deleted_at = datetime('now') WHERE id = ?").run(rowIds[0])

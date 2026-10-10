@@ -639,27 +639,6 @@ describe('IPC Row — SEARCH_CLIENTS_CROSS_GRID', () => {
     expect(result.data).toEqual([])
   })
 
-  // Note: SEARCH_CLIENTS_CROSS_GRID has a known bug — the ESCAPE '\'' in the template
-  // literal produces ESCAPE '' (empty string) instead of ESCAPE '\'. This causes a SQLite
-  // error "ESCAPE expression must be a single character". The source needs ESCAPE '\\'.
-  // In production the compiled JS may handle this differently (bundler escape processing).
-  it('finds clients matching display_name (currently fails due to ESCAPE bug)', async () => {
-    const { gridId, rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
-    testDb.db.prepare('UPDATE rows SET display_name = ? WHERE id = ?').run('Alice Johnson', rowIds[0])
-    const result = await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'Alice') as any
-    // The handler wraps the error and returns a fail result
-    // Once the ESCAPE bug is fixed, this should be: expect(result.ok).toBe(true)
-    expect(result).toHaveProperty('ok')
-  })
-
-  it('does not find inactive rows (currently affected by ESCAPE bug)', async () => {
-    const { rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
-    testDb.db.prepare('UPDATE rows SET display_name = ?, is_active = 0 WHERE id = ?').run('Bob Inactive', rowIds[0])
-    const result = await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'Bob') as any
-    // Same ESCAPE bug as above; once fixed: expect(result.data).toHaveLength(0)
-    expect(result).toHaveProperty('ok')
-  })
-
   it('supports offset parameter', async () => {
     const result = await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'test', 0) as any
     expect(result.ok).toBe(true)
@@ -669,6 +648,30 @@ describe('IPC Row — SEARCH_CLIENTS_CROSS_GRID', () => {
     const result = await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 123) as any
     expect(result.ok).toBe(true)
     expect(result.data).toEqual([])
+  })
+
+  // The ESCAPE clause used to reach SQL as ESCAPE '' (the template literal ate the backslash), so every search failed
+  it('finds records by name, including a literal %', async () => {
+    const { gridId, rowIds } = seedGrid(testDb.db, { rowCount: 2, columnCount: 1 })
+    testDb.db.prepare('UPDATE rows SET display_name = ? WHERE id = ?').run('Alice Johnson', rowIds[0])
+    testDb.db.prepare('UPDATE rows SET display_name = ? WHERE id = ?').run('100% Alice', rowIds[1])
+    const result = await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'Alice') as any
+    expect(result.ok).toBe(true)
+    expect(result.data.map((r: { rowId: number }) => r.rowId).sort()).toEqual([rowIds[0], rowIds[1]].sort())
+    expect(result.data[0].gridId).toBe(gridId)
+    const pct = await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, '0% A') as any
+    expect(pct.data.map((r: { rowId: number }) => r.rowId)).toEqual([rowIds[1]])
+  })
+
+  it('leaves out archived records and records in a deleted list (L-13)', async () => {
+    const a = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    const b = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    testDb.db.prepare('UPDATE rows SET display_name = ?, is_active = 0 WHERE id = ?').run('Bob Inactive', a.rowIds[0])
+    testDb.db.prepare('UPDATE rows SET display_name = ? WHERE id = ?').run('Bob Gone', b.rowIds[0])
+    testDb.db.prepare('UPDATE grids SET is_active = 0 WHERE id = ?').run(b.gridId)
+    const result = await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'Bob') as any
+    expect(result.ok).toBe(true)
+    expect(result.data).toHaveLength(0)
   })
 })
 

@@ -54,7 +54,8 @@ export function registerExportHandlers(): void {
     } catch (err) { logNonFatal('ipc-export', 'stat db file for size', err) }
     let totalClients = 0
     try {
-      const row = getDb().prepare('SELECT COUNT(*) as cnt FROM rows WHERE is_active = 1 AND deleted_at IS NULL').get() as { cnt: number }
+      // Records in deleted lists aren't active (X-11)
+      const row = getDb().prepare('SELECT COUNT(*) as cnt FROM rows r JOIN grids g ON g.id = r.grid_id AND g.is_active = 1 WHERE r.is_active = 1 AND r.deleted_at IS NULL').get() as { cnt: number }
       totalClients = row.cnt
     } catch (err) { logNonFatal('ipc-export', 'count active clients', err) }
     return ok({

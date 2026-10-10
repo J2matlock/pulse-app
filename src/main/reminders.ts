@@ -143,7 +143,7 @@ function upcomingAppointments(now: Date): ApptForReminder[] {
            CASE WHEN r.deleted_at IS NULL THEN NULLIF(r.display_name, '') END AS record_name, g.record_kind
     FROM appointments a LEFT JOIN rows r ON r.id = a.row_id LEFT JOIN grids g ON g.id = r.grid_id
     WHERE a.status = 'scheduled' AND a.all_day = 0 AND a.start_at >= ? AND a.start_at <= ?
-      AND (a.row_id IS NULL OR r.deleted_at IS NULL)
+      AND (a.row_id IS NULL OR (r.deleted_at IS NULL AND g.is_active = 1))
     ORDER BY a.start_at, a.id
   `).all(today, `${addDays(today, 1)}T99:99`) as ApptForReminder[]
 }
