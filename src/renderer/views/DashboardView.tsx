@@ -11,7 +11,7 @@ import { localDateString } from '../../shared/dates'
 import { noteUnencryptedExport } from '../utils/exportNotice'
 import { IPC } from '../../shared/ipc-channels'
 import type { DashboardStats, AlertThreshold, ParsedAlertRule, CaseloadTask, ChecklistDueItem } from '../../shared/types'
-import { DEBOUNCE_SEARCH, DEBOUNCE_TASK_RELOAD, SPINNER_DELAY, MS_PER_DAY, DAYS_THIS_WEEK, DAYS_THIS_MONTH } from '../../shared/constants'
+import { DEBOUNCE_SEARCH, DEBOUNCE_TASK_RELOAD, SPINNER_DELAY, MS_PER_DAY } from '../../shared/constants'
 import { safeInvoke } from '../utils/safeInvoke'
 import { useShallow } from 'zustand/react/shallow'
 import { useAlertStore } from '../stores/alertStore'
@@ -27,6 +27,7 @@ import type { FollowUpRow, RawDeadlineRow, ArchivedRow, ExtendedDeadlineInfo, To
 import { SummaryCard } from './dashboard/SummaryCard'
 import { DeadlineRow } from './dashboard/DeadlineRow'
 import { completeDeadlines, skippedForBulkDone } from './dashboard/completeDeadline'
+import { countDeadlineTiles } from './dashboard/tileCounts'
 import { DashboardCards } from './dashboard/cards/DashboardCards'
 import { BatchDocumentsDialog } from '../components/documents/BatchDocumentsDialog'
 import { useGridStore } from '../stores/gridStore'
@@ -290,18 +291,13 @@ export default function DashboardView(): React.ReactElement {
     })
   }, [followUps])
 
+  // The tiles count deadlines the way the morning briefing and desktop reminder do
+  // (overdue includes a used-up quota); tasks, checklist items and follow-ups due
+  // or late get their own tile, the same as the briefing's "task due" lines
   const derivedCounts = useMemo(() => {
-    let overdue = 0, dueThisWeek = 0, dueThisMonth = 0
-    const countDays = (d: number) => {
-      if (d < 0) overdue++
-      else if (d <= DAYS_THIS_WEEK) dueThisWeek++
-      if (d >= 0 && d <= DAYS_THIS_MONTH) dueThisMonth++
-    }
-    for (const d of deadlines) countDays(d.daysUntil)
-    for (const t of tasksWithDays) countDays(t.daysUntil)
-    for (const c of checklistWithDays) countDays(c.daysUntil)
-    for (const f of followUpsWithDays) countDays(f.daysUntil)
-    return { overdue, dueThisWeek, dueThisMonth }
+    const c = countDeadlineTiles(deadlines)
+    const otherDue = [...tasksWithDays, ...checklistWithDays, ...followUpsWithDays].filter(x => x.daysUntil <= 0).length
+    return { ...c, otherDue }
   }, [deadlines, tasksWithDays, checklistWithDays, followUpsWithDays])
 
   const filteredItems = useMemo((): PriorityItem[] => {
@@ -471,31 +467,31 @@ export default function DashboardView(): React.ReactElement {
             colorClass="text-blue-600 dark:text-blue-400"
           />
           <SummaryCard
-            label="Overdue"
+            label="Overdue deadlines"
             value={isLoading ? '—' : derivedCounts.overdue}
             icon={<AlertTriangle className="w-5 h-5" />}
             colorClass={derivedCounts.overdue > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-500'}
             urgent={derivedCounts.overdue > 0}
           />
           <SummaryCard
-            label="Due This Week"
+            label="Due in the next 7 days"
             value={isLoading ? '—' : derivedCounts.dueThisWeek}
             icon={<Clock className="w-5 h-5" />}
             colorClass="text-orange-600 dark:text-orange-400"
           />
           <SummaryCard
-            label="Due This Month"
+            label="Due in the next 30 days"
             value={isLoading ? '—' : derivedCounts.dueThisMonth}
             icon={<Calendar className="w-5 h-5" />}
             colorClass="text-yellow-600 dark:text-yellow-400"
           />
           {(showTasks || showChecklists) && (<>
             <SummaryCard
-              label="Items Due Today"
-              value={isLoading ? '—' : tasksWithDays.filter(t => t.daysUntil <= 0).length + checklistWithDays.filter(c => c.daysUntil <= 0).length}
+              label="Tasks & follow-ups due or late"
+              value={isLoading ? '—' : derivedCounts.otherDue}
               icon={<ClipboardList className="w-5 h-5" />}
-              colorClass={tasksWithDays.length + checklistWithDays.length > 0 ? 'text-purple-600 dark:text-purple-400' : 'text-slate-500'}
-              urgent={tasksWithDays.some(t => t.daysUntil <= 0) || checklistWithDays.some(c => c.daysUntil <= 0)}
+              colorClass={derivedCounts.otherDue > 0 ? 'text-purple-600 dark:text-purple-400' : 'text-slate-500'}
+              urgent={derivedCounts.otherDue > 0}
               href="/tasks"
             />
           </>)}

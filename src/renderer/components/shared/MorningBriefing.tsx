@@ -73,7 +73,7 @@ export function MorningBriefing({ suppressed, onFocusMode }: { suppressed: boole
   const items: Array<[number, string, string]> = [
     [b.overdue, 'overdue deadline', 'text-red-700 dark:text-red-300'],
     [b.dueToday, 'deadline due today', 'text-orange-700 dark:text-orange-300'],
-    [b.dueThisWeek, 'more due this week', 'text-slate-800 dark:text-slate-100'],
+    [b.dueThisWeek, 'more due in the next 7 days', 'text-slate-800 dark:text-slate-100'],
     [b.followUpsDue, 'follow-up due', 'text-slate-800 dark:text-slate-100'],
     [b.tasksDue + b.checklistDue, 'task due', 'text-slate-800 dark:text-slate-100'],
   ]

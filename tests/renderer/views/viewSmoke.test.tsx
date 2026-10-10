@@ -391,10 +391,10 @@ describe('DashboardView', () => {
     expect(cards.length).toBe(5)
     const cardLabels = cards.map(c => c.textContent)
     expect(cardLabels).toContain('Active Clients')
-    expect(cardLabels).toContain('Overdue')
-    expect(cardLabels).toContain('Due This Week')
-    expect(cardLabels).toContain('Due This Month')
-    expect(cardLabels).toContain('Items Due Today')
+    expect(cardLabels).toContain('Overdue deadlines')
+    expect(cardLabels).toContain('Due in the next 7 days')
+    expect(cardLabels).toContain('Due in the next 30 days')
+    expect(cardLabels).toContain('Tasks & follow-ups due or late')
   })
 
   it('renders top tab bar with Priority List selected by default', async () => {

@@ -178,7 +178,7 @@ describe('DashboardView — data smoke tests (5 deadlines, 3 follow-ups)', () =>
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
     const cards = screen.getAllByTestId('summary-card')
-    const overdue = cards.find(c => c.getAttribute('data-label') === 'Overdue')
+    const overdue = cards.find(c => c.getAttribute('data-label') === 'Overdue deadlines')
     expect(overdue).toBeDefined()
   })
 
