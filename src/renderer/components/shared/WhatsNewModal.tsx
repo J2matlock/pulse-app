@@ -17,6 +17,15 @@ interface ReleaseEntry {
 
 const RELEASES: ReleaseEntry[] = [
   {
+    version: '2.1.0',
+    date: '2026-10-09',
+    items: [
+      'Twelve new examples: home services (lawn, pest control, HVAC, pool, chimney and gutters), bookkeeper and tax preparer, real estate transactions, speech / OT / PT practice, victim advocate, subcontractor insurance, horse barn, job search, home maintenance, family health, driving school and volunteer manager',
+      'Deadlines on fixed dates (like "by April 30") now count as done when you finish a little early',
+      'The dashboard card for visits, sessions or lessons running out is now called "Running low"',
+    ],
+  },
+  {
     version: '2.0.1',
     date: '2026-10-09',
     items: [

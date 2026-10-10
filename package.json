@@ -1,6 +1,6 @@
 {
   "name": "baringasoft-pulse",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "A free, private, offline tracker for people and things with deadlines",
   "engines": {
     "node": ">=22.0.0"
