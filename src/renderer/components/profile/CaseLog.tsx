@@ -325,7 +325,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
   }
 
   async function handlePin(id: number, pinned: boolean) {
-    await safeInvoke(IPC.CASE_LOG_TOGGLE_PIN, id, pinned)
+    const res = await safeInvoke(IPC.CASE_LOG_TOGGLE_PIN, id, pinned)
+    if (!res.ok) { toast.error(`We couldn't ${pinned ? 'pin' : 'unpin'} that ${t('activity')} — try again`); return }
     setEntries(prev => prev.map(e => e.id === id ? { ...e, is_pinned: pinned ? 1 : 0 } : e))
     useUndoStore.getState().push({
       id: crypto.randomUUID(),
@@ -342,11 +343,13 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
     })
   }
 
-  async function handleEdit(id: number, content: string) {
+  /** Returns false when the change wasn't saved, so the editor stays open with it. */
+  async function handleEdit(id: number, content: string): Promise<boolean> {
     const entry = entries.find(e => e.id === id)
     const prevContent = entry?.content ?? ''
     const res = await safeInvoke(IPC.CASE_LOG_UPDATE, id, content)
-    if (res.ok) {
+    if (!res.ok) { toast.error(`We couldn't save your changes to that ${t('activity')} — try again`); return false }
+    {
       const now = new Date().toISOString()
       setEntries(prev => prev.map(e => e.id === id ? { ...e, content, updated_at: now } : e))
       useUndoStore.getState().push({
@@ -363,6 +366,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         },
       })
     }
+    return true
   }
 
   async function handleDelete(id: number) {
@@ -404,8 +408,9 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
 
   async function handleCompleteFollowUp(id: number) {
     const res = await safeInvoke<{ sysLogId: number | null }>(IPC.CASE_LOG_COMPLETE_FOLLOWUP, id)
+    if (!res.ok) { toast.error('We couldn\'t mark that follow-up done — try again'); return }
     setEntries(prev => prev.map(e => e.id === id ? { ...e, follow_up_completed: 1 } : e))
-    if (res.ok) {
+    {
       const { sysLogId } = res.data
       const sideEffects = sysLogId ? [{ type: 'void_case_log' as const, caseLogId: sysLogId }] : undefined
       useUndoStore.getState().push({

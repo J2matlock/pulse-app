@@ -8,6 +8,7 @@ import { useHoldsPeople } from '../../hooks/useRecordKind'
 import { useFeature } from '../../hooks/useFeature'
 import { getClientName } from '../../utils/clientName'
 import { rlog } from '../../utils/rendererLogger'
+import toast from 'react-hot-toast'
 import { useCopyFeedbackKeyed } from '../../hooks/useCopyFeedback'
 import { useVocab } from '../../hooks/useVocab'
 
@@ -141,12 +142,18 @@ export function ProfileHeader({
     }
   }
 
-  async function saveManualContacts(contacts: ManualContact[]) {
+  /** Saves the list, showing it straight away; puts the old list back if the save fails. */
+  async function saveManualContacts(contacts: ManualContact[]): Promise<boolean> {
+    const before = manualContacts
     setManualContacts(contacts)
     try {
       await invoke(IPC.ROW_SET_MANUAL_CONTACTS, row.row_id, contacts)
+      return true
     } catch (err) {
+      setManualContacts(before)
       rlog.error('ProfileHeader', 'Failed to save manual contacts', err)
+      toast.error('We couldn\'t save that contact info — try again')
+      return false
     }
   }
 
@@ -155,7 +162,8 @@ export function ProfileHeader({
     if (!value) return
     const label = newContactLabel.trim() || (newContactType === 'phone' ? 'Phone' : newContactType === 'email' ? 'Email' : 'Address')
     const updated = [...manualContacts, { type: newContactType, label, value }]
-    await saveManualContacts(updated)
+    // Keep what was typed if the save failed, so it can be tried again
+    if (!await saveManualContacts(updated)) return
     setNewContactValue('')
     setNewContactLabel('')
     setNewContactType('phone')
@@ -175,6 +183,7 @@ export function ProfileHeader({
       } catch (err) {
         setRowTagIds(prev => [...prev, tagId])
         rlog.error('ProfileHeader', 'Failed to unassign tag', err)
+        toast.error('We couldn\'t remove that tag — try again')
       }
     } else {
       setRowTagIds(prev => [...prev, tagId])
@@ -183,6 +192,7 @@ export function ProfileHeader({
       } catch (err) {
         setRowTagIds(prev => prev.filter(id => id !== tagId))
         rlog.error('ProfileHeader', 'Failed to assign tag', err)
+        toast.error('We couldn\'t add that tag — try again')
       }
     }
   }
@@ -190,14 +200,23 @@ export function ProfileHeader({
   async function createAndAssignTag() {
     const name = newTagName.trim()
     if (!name) return
+    let newTag: Tag
     try {
-      const newTag = await invoke<Tag>(IPC.TAG_CREATE, gridId, name, '#6b7280')
-      setAllTags(prev => [...prev, newTag])
-      setNewTagName('')
-      setRowTagIds(prev => [...prev, newTag.id])
-      await invoke(IPC.TAG_ASSIGN, row.row_id, newTag.id)
+      newTag = await invoke<Tag>(IPC.TAG_CREATE, gridId, name, '#6b7280')
     } catch (err) {
       rlog.error('ProfileHeader', 'Failed to create tag', err)
+      toast.error('We couldn\'t create that tag — try again')
+      return
+    }
+    setAllTags(prev => [...prev, newTag])
+    setNewTagName('')
+    setRowTagIds(prev => [...prev, newTag.id])
+    try {
+      await invoke(IPC.TAG_ASSIGN, row.row_id, newTag.id)
+    } catch (err) {
+      setRowTagIds(prev => prev.filter(id => id !== newTag.id))
+      rlog.error('ProfileHeader', 'Failed to assign new tag', err)
+      toast.error('We created the tag but couldn\'t add it here — try again')
     }
   }
 
@@ -217,6 +236,7 @@ export function ProfileHeader({
       setEditingTagId(null)
     } catch (err) {
       rlog.error('ProfileHeader', 'Failed to update tag', err)
+      toast.error('We couldn\'t save that tag — try again')
     }
   }
 
@@ -227,6 +247,7 @@ export function ProfileHeader({
       setRowTagIds(prev => prev.filter(id => id !== tagId))
     } catch (err) {
       rlog.error('ProfileHeader', 'Failed to delete tag', err)
+      toast.error('We couldn\'t delete that tag — try again')
     }
   }
 

@@ -16,7 +16,8 @@ import { formatMeasure, parseExtraMeasures, type MeasureDef } from '../../../sha
 interface Props {
   entry: CaseLogEntryType
   onPin: (id: number, pinned: boolean) => void
-  onEdit: (id: number, content: string) => void
+  /** Resolves false when the change wasn't saved (the editor then stays open) */
+  onEdit: (id: number, content: string) => void | Promise<boolean>
   onDelete: (id: number) => void
   /** Older notes are voided (kept, hidden) instead of deleted */
   onVoid: (id: number, reason: string) => void
@@ -99,7 +100,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
     setEditExtra(Object.fromEntries(Object.entries(savedExtra).map(([k, v]) => [k, String(v)])))
   }
 
-  function handleSaveEdit() {
+  async function handleSaveEdit() {
     const minutes = editMinutes.trim() ? Math.round(Number(editMinutes)) : null
     const miles = editMiles.trim() ? Number(editMiles) : null
     const extra = Object.fromEntries(extraDefs.map(d => [d.key, editExtra[d.key]?.trim() ? Number(editExtra[d.key]) : null]))
@@ -108,7 +109,8 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
       && (minutes === null || Number.isFinite(minutes)) && (miles === null || Number.isFinite(miles))) {
       onSetMeasures(entry.id, { minutes, miles, ...(extraChanged ? { extra } : {}) })
     }
-    if (editContent.trim() !== entry.content) onEdit(entry.id, editContent.trim())
+    // Stay in the editor when the save fails, so the change isn't lost
+    if (editContent.trim() !== entry.content && await onEdit(entry.id, editContent.trim()) === false) return
     setEditing(false)
   }
 
@@ -237,7 +239,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
               value={editContent}
               onChange={e => setEditContent(e.target.value)}
               onKeyDown={e => {
-                if (e.key === 'Enter' && isMod(e)) { e.preventDefault(); handleSaveEdit() }
+                if (e.key === 'Enter' && isMod(e)) { e.preventDefault(); void handleSaveEdit() }
                 if (e.key === 'Escape') { setEditing(false); setEditContent(entry.content) }
               }}
               className="w-full rounded-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900
@@ -270,7 +272,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
                 Cancel
               </button>
               <button
-                onClick={handleSaveEdit}
+                onClick={() => void handleSaveEdit()}
                 className="btn-primary px-3 py-1.5 text-base"
               >
                 Save

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import toast from 'react-hot-toast'
 import { ChevronDown, ChevronRight, X, Plus, Trash2, Pencil, Check } from 'lucide-react'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
@@ -223,6 +224,11 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
           pulseEvents.emit('checklist:changed', { rowId })
         },
       })
+    } else {
+      // Put the tick back the way it was, so the list doesn't show something that wasn't saved
+      setItems(prev => prev.map(i => i.id === id ? { ...i, is_completed: prevCompleted, completed_at: prevCompletedAt } : i))
+      setRecentlyCheckedIds(prev => { const next = new Set(prev); next.delete(id); return next })
+      toast.error(`We couldn't ${isCompleted ? 'tick off' : 'reopen'} "${itemTitle}" — try again`)
     }
   }, [items, clientName, rowId])
 
