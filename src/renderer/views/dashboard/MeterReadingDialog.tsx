@@ -14,7 +14,7 @@ export function MeterReadingDialog({ title, onSave, onClose }: {
   const valid = text.trim() !== '' && Number.isFinite(value) && value >= 0
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])

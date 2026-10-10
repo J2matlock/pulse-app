@@ -886,7 +886,7 @@ export function TemplateManager({ onApply, onClose }: {
   useEffect(() => { void loadTemplates() }, [])
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') { if (view !== 'list') setView('list'); else onClose() } }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') { e.preventDefault(); if (view !== 'list') setView('list'); else onClose() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [view, onClose])

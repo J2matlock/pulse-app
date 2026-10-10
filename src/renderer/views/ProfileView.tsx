@@ -39,6 +39,7 @@ import { useFormStore } from '../stores/formStore'
 import { pulseEvents } from '../events'
 import type { Form } from '../../shared/forms'
 import { stageColumnOf } from '../../shared/stages'
+import { escapeBelongsElsewhere } from '../utils/domHelpers'
 
 function GenerateLetterModal({ rowId, gridId, clientName, onClose }: {
   rowId: number; gridId: number; clientName: string; onClose: () => void
@@ -53,6 +54,12 @@ function GenerateLetterModal({ rowId, gridId, clientName, onClose }: {
   const trapRef = useRef<HTMLDivElement>(null)
 
   useFocusTrap(trapRef, true)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   useEffect(() => {
     safeInvoke<LetterTemplate[]>(IPC.LETTER_TEMPLATE_GET_ALL).then(r => {
@@ -321,7 +328,9 @@ export default function ProfileView(): React.ReactElement {
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        // Don't navigate away if a modal is open — let the modal handle Escape
+        // Escape that closes a menu, cancels an edit or closes a dialog must not
+        // also leave the page and drop what was typed (R-01).
+        if (escapeBelongsElsewhere(e)) return
         if (showLetterModalRef.current || showPrintLayoutRef.current) return
         goBack()
       } else if (e.altKey && e.key === 'ArrowLeft') {

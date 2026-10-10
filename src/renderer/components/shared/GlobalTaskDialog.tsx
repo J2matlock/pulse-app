@@ -83,8 +83,8 @@ export function GlobalTaskDialog({ open, onClose }: Props): React.ReactElement |
       {open && (
         <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
              onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-          <motion.div ref={trapRef} variants={modalPanelVariants} initial="hidden" animate="visible" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+          <motion.div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="gtask-dialog-title" variants={modalPanelVariants} initial="hidden" animate="visible" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg p-6 space-y-4">
+        <h2 id="gtask-dialog-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100">
           Quick Add Task
         </h2>
 
