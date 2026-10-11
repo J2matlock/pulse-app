@@ -212,6 +212,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
 
   const titleRef = useRef<HTMLInputElement>(null)
   const dateRef = useRef<HTMLInputElement>(null)
+  const clearDateRef = useRef<HTMLButtonElement>(null)
   const priorityMenuRef = useRef<HTMLDivElement>(null)
   const prevCompletedRef = useRef(item.is_completed)
 
@@ -249,7 +250,8 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
   }
 
   function saveDate() {
-    onUpdate({ due_date: dateDraft || null })
+    // Opened and closed without a change: nothing to save or undo (bug sweep S2)
+    if (dateDraft !== (item.due_date ?? '')) onUpdate({ due_date: dateDraft || null })
     setEditingDate(false)
   }
 
@@ -350,7 +352,8 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
                 type="date"
                 value={dateDraft}
                 onChange={e => setDateDraft(e.target.value)}
-                onBlur={saveDate}
+                // Moving to the Clear button keeps the editor open, so its click lands (bug sweep S2)
+                onBlur={e => { if (e.relatedTarget !== clearDateRef.current) saveDate() }}
                 onKeyDown={e => {
                   if (e.key === 'Enter') saveDate()
                   if (e.key === 'Escape') { setDateDraft(item.due_date ?? ''); setEditingDate(false) }
@@ -360,7 +363,15 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
                            focus:outline-hidden focus:ring-3 focus:ring-blue-400"
               />
               {item.due_date && (
-                <button onClick={clearDate} className="hit-44 text-slate-500 dark:text-slate-400 hover:text-red-500" title="Clear date">
+                <button
+                  ref={clearDateRef}
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={clearDate}
+                  onBlur={e => { if (e.relatedTarget !== dateRef.current) saveDate() }}
+                  className="hit-44 text-slate-500 dark:text-slate-400 hover:text-red-500"
+                  title="Clear date"
+                  aria-label="Clear date"
+                >
                   <X className="w-3 h-3" />
                 </button>
               )}
