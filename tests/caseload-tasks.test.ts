@@ -202,13 +202,13 @@ describe('Caseload Tasks — Completion', () => {
     expect(task.due_date).toBe('2030-02-15')
   })
 
-  it('a late repeating task comes back due this cycle, not still overdue (audit S-12)', async () => {
+  it('a late repeating task comes back due after today, not still overdue or due today (audit S-12, AUDIT-113)', async () => {
     const today = localDateString()
     const weekly = { type: 'weekly' as const, interval: 1 }
     const created = await invoke(IPC.TASK_CREATE, { title: 'Timesheet', due_date: addRepeats(today, weekly, -3), recurrence_rule: JSON.stringify(weekly) }) as { ok: true; data: { id: number } }
     await invoke(IPC.TASK_COMPLETE, created.data.id)
     const task = testDb.db.prepare('SELECT is_completed, due_date FROM caseload_tasks WHERE id = ?').get(created.data.id) as { is_completed: number; due_date: string }
-    expect(task).toEqual({ is_completed: 0, due_date: today })
+    expect(task).toEqual({ is_completed: 0, due_date: addRepeats(today, weekly) })
   })
 
   it('a repeating task always has a due date: it starts today, and clearing it is refused (audit S-12)', async () => {

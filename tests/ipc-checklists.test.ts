@@ -207,12 +207,12 @@ describe('CHECKLIST_UPDATE_ITEM', () => {
     expect((await tick()).data.repeat.nextDue).toBe('2099-03-31')
   })
 
-  it('a late repeating item comes back due this cycle, not still overdue; one without a date counts from today', async () => {
+  it('a late repeating item comes back due after today, not still overdue or due today (AUDIT-113); one without a date counts from today', async () => {
     const today = localDateString()
     const weekly = { type: 'weekly', interval: 1 } as const
     const late = await createItem('Weekly call', { due_date: addRepeats(today, weekly, -3), recurrence_rule: JSON.stringify(weekly) })
     const r = await invoke(IPC.CHECKLIST_UPDATE_ITEM, late.data.id, { is_completed: 1 }) as any
-    expect(r.data.repeat.nextDue).toBe(today)
+    expect(r.data.repeat.nextDue).toBe(addRepeats(today, weekly))
     const undated = await createItem('Check in', { recurrence_rule: JSON.stringify(weekly) })
     const r2 = await invoke(IPC.CHECKLIST_UPDATE_ITEM, undated.data.id, { is_completed: 1 }) as any
     expect(r2.data.repeat.nextDue).toBe(addRepeats(today, weekly))

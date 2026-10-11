@@ -1,5 +1,5 @@
 /** Repeating tasks and checklist items (audit 1.26, 1.27): the next due date. */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { parseRepeatRule, addRepeats, nextRepeatDate, describeRepeat, withAnchorDay } from '../src/shared/recurrence'
 
 describe('repeat rules', () => {
@@ -23,7 +23,8 @@ describe('repeat rules', () => {
   it('rolls a late one forward to today or later, and stops after the end date', () => {
     const weekly = { type: 'weekly' as const, interval: 1 }
     expect(nextRepeatDate('2026-10-03', weekly, '2026-10-05')).toBe('2026-10-10')
-    expect(nextRepeatDate('2026-09-19', weekly, '2026-10-10')).toBe('2026-10-10')
+    // Late, and a repeat lands on today: it rolls on past today, not back as "due today" (AUDIT-113)
+    expect(nextRepeatDate('2026-09-19', weekly, '2026-10-10')).toBe('2026-10-17')
     expect(nextRepeatDate(null, weekly, '2026-10-10')).toBe('2026-10-17')
     // The end date itself still counts (audit L-26)
     expect(nextRepeatDate('2026-11-30', { type: 'monthly', interval: 1, end_date: '2026-12-30' }, '2026-11-30')).toBe('2026-12-30')
@@ -52,4 +53,38 @@ describe('repeat rules', () => {
     expect(withAnchorDay(monthly, null)).toBe(monthly)
     expect(parseRepeatRule('{"type":"monthly","interval":1,"day":40}')).toEqual({ type: 'monthly', interval: 1 })
   })
+})
+
+describe('ticking off a late repeating item (AUDIT-113)', () => {
+  const originalTz = process.env.TZ
+  afterEach(() => { if (originalTz === undefined) delete process.env.TZ; else process.env.TZ = originalTz })
+  const daily = { type: 'daily' as const, interval: 1 }
+  const weekly = { type: 'weekly' as const, interval: 1 }
+  const monthly = { type: 'monthly' as const, interval: 1 }
+  const cases: Array<[string, string | null, { type: 'daily' | 'weekly' | 'monthly' | 'yearly'; interval: number; end_date?: string; day?: number }, string, string | null]> = [
+    // Late: the first repeat strictly after today
+    ['weekly, late, a repeat lands on today', '2026-10-01', weekly, '2026-10-15', '2026-10-22'],
+    ['weekly, late, no repeat on today', '2026-10-01', weekly, '2026-10-12', '2026-10-15'],
+    ['daily, due yesterday', '2026-10-14', daily, '2026-10-15', '2026-10-16'],
+    ['monthly, late, a repeat lands on today', '2026-08-15', monthly, '2026-10-15', '2026-11-15'],
+    ['monthly on the 31st, late past a short month', '2026-01-31', { ...monthly, day: 31 }, '2026-02-28', '2026-03-31'],
+    ['late across a DST change', '2026-03-01', weekly, '2026-04-05', '2026-04-12'],
+    ['late, the only repeat left is today', '2026-10-08', { ...weekly, end_date: '2026-10-15' }, '2026-10-15', null],
+    // On time or early: one repeat on, as before
+    ['weekly, due today', '2026-10-15', weekly, '2026-10-15', '2026-10-22'],
+    ['daily, due today', '2026-10-15', daily, '2026-10-15', '2026-10-16'],
+    ['weekly, ticked early', '2026-10-20', weekly, '2026-10-15', '2026-10-27'],
+    ['monthly, due today on the 31st', '2026-01-31', monthly, '2026-01-31', '2026-02-28'],
+    ['no due date', null, weekly, '2026-10-15', '2026-10-22'],
+  ]
+  for (const tz of ['Pacific/Auckland', 'America/New_York', undefined]) {
+    describe(`in ${tz ?? 'the default time zone'}`, () => {
+      for (const [name, due, rule, today, want] of cases) {
+        it(name, () => {
+          if (tz) process.env.TZ = tz
+          expect(nextRepeatDate(due, rule, today)).toBe(want)
+        })
+      }
+    })
+  }
 })
