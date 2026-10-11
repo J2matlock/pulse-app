@@ -25,6 +25,8 @@ export interface DeadlineToComplete {
   reading?: number
   /** Sequence rules: the step to check off */
   step?: number
+  /** "Done on another day…": the day it was really done (YYYY-MM-DD); today when left out */
+  doneOn?: string
   /** One-off dates (no repeat): renewed with a new date, or finished (Decision E1) */
   oneOff?: { kind: 'renewed'; newDate: string } | { kind: 'finished' }
 }
@@ -77,6 +79,12 @@ export function skippedForBulkDone<T extends DeadlineToComplete>(items: T[]): { 
 
 const hasRepeat = (iv: RuleInterval) => iv.days > 0 || iv.months > 0
 
+/** The next due date counted from the day it was done */
+function nextDueFrom(day: string, iv: RuleInterval): Date {
+  const [y = NaN, m = NaN, d = NaN] = day.split('-').map(Number)
+  return addInterval(new Date(y, m - 1, d), iv)
+}
+
 function formatDate(d: string | Date): string {
   const date = typeof d === 'string' ? new Date(d.includes('T') ? d : `${d}T00:00:00`) : d
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -95,8 +103,8 @@ async function removeChecklistItems(ids: number[]): Promise<void> {
 /**
  * Mark one or more deadlines done and record it on each client's timeline.
  * - Repeating rules ("every 6 months after the last review"): the date becomes
- *   today, which starts the next cycle.
- * - Plain due dates: the date is cleared.
+ *   today (or the day it was really done), which starts the next cycle.
+ * - One-off dates: renewed with a new date, or finished (the date stays, marked done).
  * - If the column names a checklist, it's added to the client.
  * One undo step covers the whole batch. Returns the deadlines that were completed.
  */
@@ -109,7 +117,7 @@ export async function completeDeadlines(
   for (const item of items) {
     if (item.ruleKind === 'sequence') {
       if (item.step === undefined) continue
-      const res = await safeInvoke<{ sysLogId: number }>(IPC.DEADLINE_STEP_DONE, item.rowId, item.columnId, item.step)
+      const res = await safeInvoke<{ sysLogId: number }>(IPC.DEADLINE_STEP_DONE, item.rowId, item.columnId, item.step, item.doneOn ?? null)
       if (!res.ok) { toast.error(res.error); continue }
       const checklistIds = await addChecklist(item.rowId, item.checklistTemplateId)
       done.push({ ...item, sysLogId: res.data.sysLogId, newValue: item.dateValue, checklistIds, isStep: true })
@@ -117,16 +125,16 @@ export async function completeDeadlines(
     }
     if (item.ruleKind === 'meter') {
       if (item.reading === undefined) continue
-      const res = await safeInvoke<{ previous: Record<number, string | null>; sysLogId: number }>(IPC.DEADLINE_METER_DONE, item.rowId, item.columnId, item.reading)
+      const res = await safeInvoke<{ previous: Record<number, string | null>; sysLogId: number }>(IPC.DEADLINE_METER_DONE, item.rowId, item.columnId, item.reading, item.doneOn ?? null)
       if (!res.ok) { toast.error(res.error); continue }
       const checklistIds = await addChecklist(item.rowId, item.checklistTemplateId)
-      done.push({ ...item, sysLogId: res.data.sysLogId, newValue: today, checklistIds, previous: res.data.previous })
+      done.push({ ...item, sysLogId: res.data.sysLogId, newValue: item.doneOn ?? today, checklistIds, previous: res.data.previous })
       continue
     }
     // Everything else: one step in main (date, note, checklist) — L-25
     const oneOff = isOneOffDeadline(item)
     if (oneOff && !item.oneOff) continue
-    const res = await safeInvoke<MarkDoneSnap>(IPC.DEADLINE_MARK_DONE, item.rowId, item.columnId, oneOff ? item.oneOff : { kind: 'repeat' }, item.checklistTemplateId ?? null)
+    const res = await safeInvoke<MarkDoneSnap>(IPC.DEADLINE_MARK_DONE, item.rowId, item.columnId, oneOff ? item.oneOff : { kind: 'repeat' }, item.checklistTemplateId ?? null, oneOff ? null : item.doneOn ?? null)
     if (!res.ok) { toast.error(res.error); continue }
     patchCell(item.rowId, item.columnId, res.data.newValue)
     done.push({ ...item, sysLogId: res.data.sysLogId, newValue: res.data.newValue, checklistIds: [], snap: res.data })
@@ -138,11 +146,11 @@ export async function completeDeadlines(
   const first = done[0]!
   const nextDue = first.oneOff?.kind === 'renewed' ? `; now due ${formatDate(first.oneOff.newDate)}`
     : first.oneOff?.kind === 'finished' ? ' (finished)'
-    : first.newValue && first.interval && hasRepeat(first.interval) && (!first.ruleKind || first.ruleKind === 'interval') ? `; next due ${formatDate(addInterval(new Date(), first.interval))}` : ''
+    : first.newValue && first.interval && hasRepeat(first.interval) && (!first.ruleKind || first.ruleKind === 'interval') ? `; next due ${formatDate(nextDueFrom(first.newValue, first.interval))}` : ''
   useUndoStore.getState().pushWithToast({
     id: crypto.randomUUID(),
     description: done.length === 1
-      ? `Marked "${first.columnName}" done for ${first.clientName}${nextDue}`
+      ? `Marked "${first.columnName}" done for ${first.clientName}${first.doneOn && first.doneOn !== today ? ` on ${formatDate(first.doneOn)}` : ''}${nextDue}`
       : `Marked ${done.length} deadlines done`,
     timestamp: Date.now(),
     category: 'logged',
@@ -169,12 +177,12 @@ export async function completeDeadlines(
     redo: async () => {
       for (const d of done) {
         if (d.isStep) {
-          await safeInvoke(IPC.DEADLINE_STEP_DONE, d.rowId, d.columnId, d.step)
+          await safeInvoke(IPC.DEADLINE_STEP_DONE, d.rowId, d.columnId, d.step, d.doneOn ?? null)
         } else if (d.previous) {
-          const res = await safeInvoke<{ previous: Record<number, string | null>; sysLogId: number }>(IPC.DEADLINE_METER_DONE, d.rowId, d.columnId, d.reading)
+          const res = await safeInvoke<{ previous: Record<number, string | null>; sysLogId: number }>(IPC.DEADLINE_METER_DONE, d.rowId, d.columnId, d.reading, d.doneOn ?? null)
           if (res.ok) d.previous = res.data.previous
         } else if (d.snap) {
-          const again = await storeInvoke<MarkDoneSnap>(IPC.DEADLINE_MARK_DONE, d.rowId, d.columnId, isOneOffDeadline(d) ? d.oneOff : { kind: 'repeat' }, d.checklistTemplateId ?? null)
+          const again = await storeInvoke<MarkDoneSnap>(IPC.DEADLINE_MARK_DONE, d.rowId, d.columnId, isOneOffDeadline(d) ? d.oneOff : { kind: 'repeat' }, d.checklistTemplateId ?? null, isOneOffDeadline(d) ? null : d.doneOn ?? null)
           d.snap = again
           patchCell(d.rowId, d.columnId, again.newValue)
           continue

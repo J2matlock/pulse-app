@@ -13,8 +13,9 @@ vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.
 vi.mock('../../../src/renderer/components/grid/ImportWizard', () => ({
   ImportWizard: ({ onImported }: { onImported: () => void }) => <button onClick={onImported}>finish import</button>,
 }))
+const example = vi.hoisted(() => ({ warnings: [] as string[] }))
 vi.mock('../../../src/renderer/components/starters/ApplyStarterDialog', () => ({
-  ApplyStarterDialog: ({ onApplied }: { onApplied: () => void }) => <button onClick={onApplied}>apply example</button>,
+  ApplyStarterDialog: ({ onApplied }: { onApplied: (r: { warnings: string[] }) => void }) => <button onClick={() => onApplied({ warnings: example.warnings })}>apply example</button>,
 }))
 
 import SetupView from '../../../src/renderer/views/SetupView'
@@ -107,6 +108,16 @@ describe('SetupView', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Start blank/ }))
     expect(screen.getByText("What's your first list called?")).toBeTruthy()
     expect(screen.getByText('Step 1 of 6')).toBeTruthy()
+  })
+
+  it('example: shows what didn\'t come in (audit F-15)', async () => {
+    example.warnings = ['The lists were added, but the sample data couldn\'t be loaded.']
+    toStart()
+    fireEvent.click(await screen.findByRole('button', { name: /Start from an example/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'apply example' }))
+    await screen.findByText('Your workspace is ready')
+    expect(screen.getByText('The lists were added, but the sample data couldn\'t be loaded.')).toBeTruthy()
+    example.warnings = []
   })
 
   it('example: finishes setup once the example is added', async () => {

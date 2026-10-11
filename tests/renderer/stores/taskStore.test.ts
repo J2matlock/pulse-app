@@ -192,6 +192,20 @@ describe('taskStore', () => {
     })
   })
 
+  describe('deleteTasks', () => {
+    it('deletes several finished tasks as one undo step that brings them all back (audit S-22)', async () => {
+      useTaskStore.setState({ tasks: [makeTask(1, { is_completed: 1 }), makeTask(2, { is_completed: 1 }), makeTask(3)] })
+      mockInvoke.mockResolvedValue({ ok: true, data: true })
+      await useTaskStore.getState().deleteTasks([1, 2])
+      expect(useTaskStore.getState().tasks.map(t => t.id)).toEqual([3])
+      expect(useUndoStore.getState().undoStack).toHaveLength(1)
+      expect(useUndoStore.getState().undoStack[0]!.description).toBe('Deleted 2 completed tasks')
+      mockInvoke.mockClear()
+      await useUndoStore.getState().undo()
+      expect(mockInvoke.mock.calls.filter(c => c[0] === 'task:restore')).toHaveLength(2)
+    })
+  })
+
   describe('setSortMode', () => {
     it('updates sort mode in state', () => {
       useTaskStore.getState().setSortMode('due_date')

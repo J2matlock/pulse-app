@@ -30,7 +30,7 @@ const invoke = vi.fn(async (channel: string, ...args: unknown[]) => {
 })
 Object.defineProperty(window, 'api', { value: { invoke, on: () => () => {} }, writable: true, configurable: true })
 
-import { ReportBuilder } from '../../src/renderer/components/reports/ReportBuilder'
+import { ReportBuilder, forgetReportDraft } from '../../src/renderer/components/reports/ReportBuilder'
 import { SavedReportCard } from '../../src/renderer/views/dashboard/cards/SavedReportCard'
 import ReportsView from '../../src/renderer/views/ReportsView'
 import { useGridStore } from '../../src/renderer/stores/gridStore'
@@ -41,10 +41,36 @@ const calls = (ch: string) => invoke.mock.calls.filter(c => c[0] === ch)
 
 beforeEach(() => {
   setWords(); invoke.mockClear(); toast.success.mockClear(); toast.error.mockClear(); settings = {}
+  // Unsaved changes left by the previous test's builder shouldn't come back here
+  forgetReportDraft('new'); forgetReportDraft('r5')
   useGridStore.setState({ grids: [{ id: 1, name: 'Vehicles' }, { id: 2, name: 'Customers' }] as never, activeGridId: 1 })
 })
 
 describe('report builder', () => {
+  it('keeps unsaved changes when someone leaves through the sidebar, and brings them back (audit X-41)', async () => {
+    const first = render(<ReportBuilder initial={null} onSaved={vi.fn()} onDeleted={vi.fn()} />)
+    await wait(50)
+    fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Half-built report' } })
+    first.unmount()
+    render(<ReportBuilder initial={null} onSaved={vi.fn()} onDeleted={vi.fn()} />)
+    await wait(50)
+    expect((screen.getByLabelText('Report name') as HTMLInputElement).value).toBe('Half-built report')
+    expect(screen.getByText(/Your unsaved changes to this report are back/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Throw away changes' }))
+    expect((screen.getByLabelText('Report name') as HTMLInputElement).value).toBe('')
+  })
+
+  it('forgets them after "Leave without saving"', async () => {
+    const first = render(<ReportBuilder initial={null} onSaved={vi.fn()} onDeleted={vi.fn()} />)
+    await wait(50)
+    fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Not wanted' } })
+    forgetReportDraft('new')
+    first.unmount()
+    render(<ReportBuilder initial={null} onSaved={vi.fn()} onDeleted={vi.fn()} />)
+    await wait(50)
+    expect((screen.getByLabelText('Report name') as HTMLInputElement).value).toBe('')
+  })
+
   it('loads the fields, previews the report with a totals line and re-runs when a filter is added', async () => {
     render(<ReportBuilder initial={null} onSaved={vi.fn()} onDeleted={vi.fn()} />)
     await wait()

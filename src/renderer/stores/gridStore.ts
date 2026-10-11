@@ -370,11 +370,21 @@ export const useGridStore = create<GridState>((set, get) => ({
     }
   },
 
-  archiveRow: async (rowId: number, reason?: string) => {
+  archiveRow: async (rowId: number, reason?: string, opts?: { cancelAppointments?: boolean }) => {
     const row = get().rows.find(r => r.row_id === rowId)
     const clientName = row ? getClientName(row, get().columns) : wordNow('record', { cap: true })
     try {
       await invoke(IPC.ROW_ARCHIVE, rowId, reason)
+      // Its upcoming appointments end with it, in the same undo step (audit 1.13)
+      let apptSnapshot: unknown = null
+      if (opts?.cancelAppointments) {
+        try {
+          apptSnapshot = (await invoke<{ snapshot: unknown }>(IPC.APPT_CANCEL_UPCOMING, [rowId])).snapshot
+        } catch (err) {
+          rlog.error('GridStore', 'Failed to cancel appointments of archived row', err)
+          toast.error(`We couldn't cancel the upcoming ${wordNow('appointment', { many: true })}. You can delete them on the calendar.`)
+        }
+      }
       // If not showing archived, remove from view; otherwise update is_active flag
       set(s => s.showArchived
         ? { rows: s.rows.map(r => r.row_id === rowId ? { ...r, is_active: 0 as const } : r) }
@@ -388,8 +398,11 @@ export const useGridStore = create<GridState>((set, get) => ({
         icon: 'archive',
         contextLabel: clientName,
         contextId: rowId,
-        undo: async () => { await get().unarchiveRow(rowId) },
-        redo: async () => { await get().archiveRow(rowId, reason) },
+        undo: async () => {
+          await get().unarchiveRow(rowId)
+          if (apptSnapshot) await invoke(IPC.APPT_RESTORE, apptSnapshot)
+        },
+        redo: async () => { await get().archiveRow(rowId, reason, opts) },
       })
     } catch (err) {
       rlog.error('GridStore', 'Failed to archive row', err)

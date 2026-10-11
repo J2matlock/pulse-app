@@ -8,7 +8,14 @@ import { checkNewPassword } from '../../../shared/passwordPolicy'
 
 interface RestoreFromBackupFormProps {
   onCancel: () => void
-  onRestored: () => void
+  onRestored: (info: { safetyPath?: string }) => void
+  /**
+   * 'new-install' (default): no usable Pulse sign-in on this computer.
+   * 'replace': Pulse is set up and unlocked; the backup came from another
+   * Pulse, and the current data is kept as a safety copy first.
+   */
+  mode?: 'new-install' | 'replace'
+  initialBackupPath?: string
 }
 
 /**
@@ -17,8 +24,8 @@ interface RestoreFromBackupFormProps {
  * The backup is unlocked with the password or recovery key it was made with,
  * then protected with a password for this computer.
  */
-export function RestoreFromBackupForm({ onCancel, onRestored }: RestoreFromBackupFormProps): React.ReactElement {
-  const [backupPath, setBackupPath] = useState('')
+export function RestoreFromBackupForm({ onCancel, onRestored, mode = 'new-install', initialBackupPath = '' }: RestoreFromBackupFormProps): React.ReactElement {
+  const [backupPath, setBackupPath] = useState(initialBackupPath)
   const [secret, setSecret] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -48,19 +55,23 @@ export function RestoreFromBackupForm({ onCancel, onRestored }: RestoreFromBacku
     setIsSubmitting(true)
     setError(null)
     try {
-      const res = await safeInvoke(IPC.AUTH_RESTORE_FROM_BACKUP, backupPath, secret, password, hint)
-      if (!res.ok) {
-        setError(res.error)
-        return
+      let info: { safetyPath?: string } = {}
+      if (mode === 'replace') {
+        const res = await safeInvoke(IPC.BACKUP_RESTORE_OTHER, backupPath, secret, password, hint)
+        if (!res.ok) { setError(res.error); return }
+        info = { safetyPath: res.data.safetyPath }
+      } else {
+        const res = await safeInvoke(IPC.AUTH_RESTORE_FROM_BACKUP, backupPath, secret, password, hint)
+        if (!res.ok) { setError(res.error); return }
+        if (res.data.cloudWarning) {
+          toast(`Warning: Your data folder is inside ${res.data.cloudWarning}. Cloud sync can corrupt encrypted databases.`, { duration: 10000, icon: '⚠️' })
+        }
+        toast.success('Your backup has been restored.')
       }
-      if (res.data.cloudWarning) {
-        toast(`Warning: Your data folder is inside ${res.data.cloudWarning}. Cloud sync can corrupt encrypted databases.`, { duration: 10000, icon: '⚠️' })
-      }
-      toast.success('Your backup has been restored.')
       setSecret('')
       setPassword('')
       setConfirm('')
-      onRestored()
+      onRestored(info)
     } catch {
       setError("We couldn't restore that backup. Please try again.")
     } finally {
@@ -112,7 +123,7 @@ export function RestoreFromBackupForm({ onCancel, onRestored }: RestoreFromBacku
 
       <div>
         <label htmlFor="restore-new-password" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-2">
-          3. Password for this computer
+          {mode === 'replace' ? '3. Your Pulse password from now on' : '3. Password for this computer'}
         </label>
         <input
           id="restore-new-password"

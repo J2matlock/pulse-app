@@ -25,17 +25,31 @@ import { setWords } from './vocabFixture'
 beforeEach(() => { setWords(); invoke.mockClear() })
 
 describe('Today card', () => {
-  it('lists today\'s appointments in order, cancelled ones left out, with quick Done', async () => {
+  it('lists today\'s appointments in order, cancelled ones left out, with the calendar\'s actions', async () => {
     render(<MemoryRouter><TodayCard /></MemoryRouter>)
     await act(async () => { await new Promise(r => setTimeout(r, 0)) })
     const list = screen.getByRole('list')
     expect(within(list).getAllByRole('listitem').map(li => li.textContent)).toEqual([expect.stringMatching(/^9:00 amIntake · Jane/)])
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Intake: done' })) })
+    // The same actions everywhere (audit S-19): Done asks for an optional note
+    for (const name of ['No-show (Intake)', 'Mark cancelled (Intake)', 'Edit (Intake)', 'Delete (Intake)']) expect(screen.getByRole('button', { name })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Done… (Intake)' }))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Mark done' })) })
     expect(invoke).toHaveBeenCalledWith('appointments:set-status', 1, 'done', {})
   })
 })
 
 describe('profile appointments', () => {
+  it('have the same actions, and ask before marking a future one done (audit S-19)', async () => {
+    render(<MemoryRouter><RecordAppointments rowId={4} gridId={2} name="Jane" /></MemoryRouter>)
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    expect(screen.getByRole('button', { name: 'Mark cancelled (Review)' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Back to scheduled (Intake)' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Done… (Review)' }))
+    expect(screen.getByText(/Mark it done anyway\?/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Mark it done' }))
+    expect(screen.getByRole('button', { name: 'Mark done' })).toBeTruthy()
+  })
+
   it('shows what is coming up and what happened, and schedules for this record', async () => {
     render(<MemoryRouter><RecordAppointments rowId={4} gridId={2} name="Jane" /></MemoryRouter>)
     await act(async () => { await new Promise(r => setTimeout(r, 0)) })

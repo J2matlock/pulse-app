@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
-import { GripVertical, Trash2, Calendar, X, Pencil } from 'lucide-react'
+import { GripVertical, Trash2, Calendar, X, Pencil, Repeat } from 'lucide-react'
 import { relativeTime } from '../../utils/relativeTime'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import type { ChecklistItem as ChecklistItemType, ChecklistPriority } from '../../../shared/types'
 import { MS_PER_DAY } from '../../../shared/constants'
+import { parseRepeatRule, describeRepeat } from '../../../shared/recurrence'
 
 const PRIORITY_CONFIG: Record<ChecklistPriority, { label: string; dot: string; badge: string }> = {
   urgent: { label: 'Urgent', dot: '🔴', badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
@@ -78,7 +79,7 @@ function ChecklistEditDialog({ item, onSave, onClose }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
          onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div ref={trapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Edit Task</h2>
+        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Edit checklist item</h2>
 
         {/* Title */}
         <div>
@@ -272,6 +273,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
   }
 
   const dueDate = dueDateBadge(item.due_date)
+  const repeatRule = parseRepeatRule(item.recurrence_rule)
   const priority = (item.priority ?? 'normal') as ChecklistPriority
   const priorityCfg = PRIORITY_CONFIG[priority]
 
@@ -394,6 +396,14 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
               <Calendar className="w-3 h-3" />
               Add date
             </button>
+          )}
+
+          {/* Repeats: ticking it off brings it back with the next date */}
+          {repeatRule && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base text-slate-600 dark:text-slate-300">
+              <Repeat className="w-3 h-3" aria-hidden="true" />
+              {describeRepeat(repeatRule)}
+            </span>
           )}
 
           {/* Priority */}

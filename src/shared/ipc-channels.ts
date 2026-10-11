@@ -31,6 +31,8 @@ export const IPC = {
   ROW_PURGE: 'row:purge',
   ROW_GET_DELETED: 'row:get-deleted',
   ROW_GET: 'row:get',
+  /** Which list a record is on and whether it's active, archived or in the Trash (open a record from anywhere) */
+  ROW_LOCATE: 'row:locate',
   ROW_MOVE_TO_GRID: 'row:move-to-grid',
   ROW_COPY_TO_GRID: 'row:copy-to-grid',
   ROW_GET_MANUAL_CONTACTS: 'row:get-manual-contacts',
@@ -84,6 +86,8 @@ export const IPC = {
 
   // Case Log
   CASE_LOG_GET: 'case-log:get',
+  /** How many notes match (for "Showing 50 of 312") */
+  CASE_LOG_COUNT: 'case-log:count',
   CASE_LOG_CREATE: 'case-log:create',
   CASE_LOG_UPDATE: 'case-log:update',
   CASE_LOG_DELETE: 'case-log:delete',
@@ -95,6 +99,7 @@ export const IPC = {
   CASE_LOG_RESTORE: 'case-log:restore',
   CASE_LOG_GET_EDITS: 'case-log:get-edits',
   CASE_LOG_SET_MEASURES: 'case-log:set-measures',
+  CASE_LOG_SET_OCCURRED: 'case-log:set-occurred',
   MENU_COMMAND: 'menu:command', // push: main → renderer, arg: 'undo' | 'redo' (macOS menu bar)
   CASE_LOG_CHANGED: 'case-log:changed', // push: main → renderer, arg: rowId
 
@@ -119,6 +124,7 @@ export const IPC = {
   SETUP_TEMPLATE_GET_ALL: 'setup-template:get-all',
   SETUP_TEMPLATE_IMPORT: 'setup-template:import',
   SETUP_TEMPLATE_EXPORT: 'setup-template:export',
+  SETUP_TEMPLATE_EXPORT_SAVED: 'setup-template:export-saved',
   SETUP_TEMPLATE_APPLY: 'setup-template:apply',
   SETUP_TEMPLATE_CREATE: 'setup-template:create',
   SETUP_TEMPLATE_DELETE: 'setup-template:delete',
@@ -135,6 +141,7 @@ export const IPC = {
   LETTER_TEMPLATE_GENERATE: 'letter-template:generate',
   PLACEHOLDER_FIELDS: 'letter-template:placeholder-fields',
   DOC_BATCH: 'documents:batch',
+  DOC_BATCH_PREVIEW: 'documents:batch-preview',
   DOC_LABELS: 'documents:labels',
   LETTER_TEMPLATE_EXPORT_PDF: 'letter-template:export-pdf',
 
@@ -178,9 +185,11 @@ export const IPC = {
   // Backup (3 layers)
   BACKUP_AUTO_LIST: 'backup:auto-list',
   BACKUP_SCHEDULED_RUN: 'backup:scheduled-run',
+  BACKUP_SCHEDULED_RUN_NOW: 'backup:scheduled-run-now',
   BACKUP_MANUAL_CREATE: 'backup:manual-create',
   BACKUP_RESTORE_AUTO: 'backup:restore-auto',
   BACKUP_RESTORE_FILE: 'backup:restore-file',
+  BACKUP_RESTORE_OTHER: 'backup:restore-other',
   BACKUP_GET_INFO: 'backup:get-info',
   BACKUP_VERIFY: 'backup:verify',
   BACKUP_SCHEDULED_GET_CONFIG: 'backup:scheduled-get-config',
@@ -199,6 +208,7 @@ export const IPC = {
   EXPORT_PDF_DIRECTORY: 'export:pdf-directory',
   EXPORT_ALL_CSV: 'export:all-csv',
   IMPORT_FILE: 'import:file',
+  IMPORT_UNDO: 'import:undo',
   IMPORT_FILE_PREVIEW: 'import:file-preview',
   IMPORT_DETECT_COLUMNS: 'import:detect-columns',
   IMPORT_PROGRESS: 'import:progress',
@@ -262,6 +272,7 @@ export const IPC = {
   // Stages and the board (W06)
   STAGE_CONFIG_SAVE: 'stages:config-save',
   STAGE_MOVE: 'stages:move',
+  STAGE_UNDO: 'stages:undo',
   STAGE_DURATIONS: 'stages:durations',
   STAGE_SUMMARY: 'stages:summary',
 
@@ -273,6 +284,9 @@ export const IPC = {
   APPT_DELETE: 'appointments:delete',
   APPT_RESTORE: 'appointments:restore',
   APPT_SET_STATUS: 'appointments:set-status',
+  APPT_UPCOMING_COUNT: 'appointments:upcoming-count',
+  APPT_CANCEL_UPCOMING: 'appointments:cancel-upcoming',
+  APPT_END_SERIES: 'appointments:end-series',
   CALENDAR_ITEMS: 'calendar:items',
   /** main → window: appointments changed */
   APPOINTMENTS_CHANGED: 'appointments:changed',
@@ -283,6 +297,7 @@ export const IPC = {
   FORM_DELETE: 'forms:delete',
   FORM_SUBMIT: 'forms:submit',
   FORM_UNDO: 'forms:undo',
+  FORM_REDO: 'forms:redo',
   FORM_PRINT: 'forms:print',
 
   // Attachments (W09)

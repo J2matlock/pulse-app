@@ -6,7 +6,7 @@ let t: TestDb
 vi.mock('../src/main/database', () => ({ getDb: () => t.db, cachedStmt: (_k: string, sql: string) => t.db.prepare(sql) }))
 vi.mock('../src/main/logger', () => ({ logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } }))
 
-import { batchRowIds, buildBatchPdf, buildLabelsPdf, labelPositions, postcardPositions, DocumentError } from '../src/main/export-documents'
+import { batchRowIds, buildBatchPdf, buildLabelsPdf, labelPositions, postcardPositions, previewBatch, DocumentError } from '../src/main/export-documents'
 import { localDateFromToday } from '../src/shared/dates'
 
 let g: { gridId: number; rowIds: number[]; columnIds: number[] }
@@ -47,6 +47,13 @@ describe('batch documents', () => {
     expect(a!.w).toBeCloseTo(152.4)
     expect(a!.h).toBeCloseTo(101.6)
     expect(b!.y).toBeGreaterThan(a!.y + a!.h)
+  })
+
+  it('say how many they make and which tags won\'t fill in, before saving (audit X-37)', () => {
+    expect(previewBatch(template, { gridId: g.gridId })).toEqual({ count: 4, unknown: ['{{unknown_thing}}'] })
+    expect(previewBatch(null, { gridId: g.gridId, rowIds: g.rowIds.slice(0, 2) })).toEqual({ count: 2, unknown: [] })
+    expect(previewBatch(template, { gridId: g.gridId, rowIds: [999999] })).toEqual({ count: 0, unknown: [] })
+    expect(previewBatch(9999, { gridId: g.gridId }).error).toMatch(/no longer exists/)
   })
 
   it('explain when there is nothing to make', () => {

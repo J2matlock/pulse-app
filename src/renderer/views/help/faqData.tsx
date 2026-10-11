@@ -274,7 +274,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'profile-case-log',
     question: 'How do I log {a activity} or interaction?',
-    answer: 'Open {a record}\'s profile and scroll to the {ActivityLog} section. Click "Add Entry" to log a phone call, visit, email, or note. Each entry gets a timestamp and your name. You can pin important entries to the top and search through your log history.',
+    answer: 'Open {a record}\'s page. The box for a new {activity} is at the top, just under the name: click it (or the "+ {Activity}" button), pick the kind, type, and click "Add" or press Ctrl+Enter. Past {activity:many} are listed further down in the {activityLog}, where you can pin important ones to the top and search all of them.',
     category: 'client-profiles',
     tourStepIds: ['case-log'],
     demo: <DemoCaseLog />,
@@ -300,7 +300,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'profile-activity',
     question: 'How do I see {a record}\'s full activity history?',
-    answer: 'Open the {record}\'s profile \u2014 the Activity Timeline at the bottom shows a chronological feed of everything that\'s happened: {activityLog} entries, cell edits, status changes, and more. Use the audit toggle to see voided entries as well.',
+    answer: 'Open the {record}\'s page \u2014 below the note box, deadlines and details, the {activityLog} lists everything in date order. Set "Show" to "{Activity:many} and changes" to include what the app recorded (edits, status changes and more), pick one kind to see only that, and tick "Show voided {activity:many}" to see voided ones as well.',
     category: 'client-profiles',
     demo: <DemoActivityTimeline />,
   },
@@ -336,7 +336,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'dash-alert-rules',
     question: 'How do I set up deadline alerts for a column?',
-    answer: 'You can set deadline rules in two ways: click the menu icon (\u22ef) on any date column header and choose "Deadline rule," or go to Settings > Alerts to manage reusable rules. Rules determine when colors change \u2014 for example, "Turn yellow 14 days before due, orange 7 days before, red 3 days before."',
+    answer: 'You can set deadline rules in two ways: click the menu icon (\u22ef) on any date column header and choose "Deadline rule," or go to Settings > Deadlines &amp; reminders to manage reusable rules. Rules determine when colors change \u2014 for example, "Turn yellow 14 days before due, orange 7 days before, red 3 days before."',
     category: 'dashboard-deadlines',
     tourStepIds: ['settings'],
   },
@@ -372,7 +372,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'tasks-priorities',
     question: 'What do the priority levels mean?',
-    answer: 'Tasks have four priority levels: Low (gray), Medium (blue), High (orange), and Urgent (red). Use priorities to sort and organize your task list. Urgent tasks always appear at the top to make sure they get your attention. Checklist items marked Urgent on a profile checklist will also show up on the main task page.',
+    answer: 'Tasks have four priority levels: Low, Normal, High and Urgent. Tasks stay in the order you put them in; to put the most urgent first, choose Sort: Priority at the top of the Tasks page, or Sort: Due date to put overdue ones first. Checklist items marked Urgent on a profile checklist also show up on the Tasks page.',
     category: 'tasks',
     demo: <DemoTaskPriorities />,
   },
@@ -559,7 +559,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'dl-days-off',
     question: 'Can a deadline count working days only, or skip holidays?',
-    answer: 'Yes. In a deadline rule, tick "Count working days only" so a due date that lands on a weekend or day off moves to the working day before. Deadlines like "10 school days before" count working days too. Set your weekend and days off in Settings > Alerts > Days off, where you can add a single day, a break such as a school vacation, or the US federal holidays for this year or next.',
+    answer: 'Yes. In a deadline rule, tick "Count working days only" so a due date that lands on a weekend or day off moves to the working day before. Deadlines like "10 school days before" count working days too. Set your weekend and days off in Settings > Deadlines & reminders > Days off, where you can add a single day, a break such as a school vacation, or the US federal holidays for this year or next.',
     category: 'dashboard-deadlines',
   },
   {
@@ -571,7 +571,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'dl-reminders',
     question: 'Can Pulse remind me each morning?',
-    answer: 'Yes. In Settings > Alerts > Reminders, turn on "Desktop reminder each morning" and choose a time. While Pulse is open and unlocked, you get a notification like "3 due today, 1 overdue". It never shows names. Clicking it opens the dashboard. If nothing appears, click "Send a test reminder" and check that notifications are allowed for Pulse in your computer\'s settings.',
+    answer: 'Yes. In Settings > Deadlines & reminders > Reminders, turn on "Desktop reminder each morning" and choose a time. While Pulse is open and unlocked, you get a notification like "3 due today, 1 overdue". It never shows names. Clicking it opens the dashboard. If nothing appears, click "Send a test reminder" and check that notifications are allowed for Pulse in your computer\'s settings.',
     category: 'dashboard-deadlines',
     feature: 'notifications',
   },
@@ -614,7 +614,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'profile-number-chart',
     question: 'Can I see a number change over time, like scores?',
-    answer: 'Yes. On a {record}\'s page, a number or currency column that has changed shows a small line next to its value. Click it for a chart with every value and date. To keep the very first value too, right-click the column header and turn on "Log changes in timeline".',
+    answer: 'Yes. On a {record}\'s page, a number or currency column that has changed shows a small line next to its value. Click it for a chart of every value and date, starting from the first one entered.',
     category: 'client-profiles',
   },
 
@@ -684,7 +684,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'background-mode',
     question: 'Can Pulse remind me about things when its window is closed?',
-    answer: 'Yes. In Settings → Alerts, turn on "Keep Pulse running in the background". Closing the window then backs up and locks Pulse, and it keeps running next to the clock, where you can open it, lock it or quit. While it\'s locked, reminders show only counts and times, never names. You can also turn on "Open Pulse when I sign in" (Windows and Mac) so reminders start without opening it yourself.',
+    answer: 'Yes. In Settings → Deadlines & reminders, turn on "Keep Pulse running in the background". Closing the window then backs up and locks Pulse, and it keeps running next to the clock, where you can open it, lock it or quit. While it\'s locked, reminders show only counts and times, never names. You can also turn on "Open Pulse when I sign in" (Windows and Mac) so reminders start without opening it yourself.',
     category: 'tips-shortcuts',
   },
 ]

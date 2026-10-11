@@ -1,5 +1,5 @@
 /**
- * Settings → Alerts → "Reminders": a desktop notification each morning with
+ * Settings → Deadlines & reminders → "Reminders": a desktop notification each morning with
  * how much is due (W11 §2). Shown when the Reminders feature is on.
  */
 import React, { useEffect, useState } from 'react'

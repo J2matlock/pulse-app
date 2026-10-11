@@ -145,8 +145,8 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
     onOpenChange(false)
   }
 
-  const navigateToProfile = useCallback((rowId: number) => {
-    navigate(`/profile/${rowId}`)
+  const navigateToProfile = useCallback((rowId: number, gridId?: number) => {
+    navigate(gridId ? `/profile/${rowId}?gridId=${gridId}` : `/profile/${rowId}`)
     onOpenChange(false)
   }, [navigate, onOpenChange])
 
@@ -333,7 +333,7 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
                   <Command.Item
                     key={p.rowId}
                     value={`recent-${p.rowId}`}
-                    onSelect={() => navigateToProfile(p.rowId)}
+                    onSelect={() => navigateToProfile(p.rowId, p.gridId)}
                     className="flex items-center gap-3 px-3 py-2 mx-1 cursor-pointer rounded-sm
                                hover:bg-slate-100 dark:hover:bg-slate-700
                                aria-selected:bg-slate-100 dark:aria-selected:bg-slate-700"

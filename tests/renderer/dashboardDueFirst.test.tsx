@@ -37,7 +37,8 @@ describe('Today card', () => {
     const list = screen.getByRole('list', { name: 'Needs an outcome' })
     expect(list.textContent).toContain('Home visit')
     expect(list.textContent).not.toContain('Call')
-    expect(screen.getByRole('button', { name: 'Home visit: cancelled' })).toBeTruthy()
+    // The same actions as everywhere else (Done…, No-show, Mark cancelled)
+    expect(screen.getByRole('button', { name: 'Mark cancelled (Home visit)' })).toBeTruthy()
   })
 })
 

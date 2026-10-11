@@ -24,6 +24,16 @@ import type { ActivityType } from './activityTypes'
 import type { MeasureDef, MeasureKind } from './measures'
 import type { RecordKind } from './types'
 
+/** Search and filter for a record's notes (CASE_LOG_GET / CASE_LOG_COUNT) */
+export interface CaseLogQuery { query?: string; oldestFirst?: boolean; logType?: string }
+
+/** Where a record lives, so it can be opened from any screen */
+export interface RowLocation {
+  gridId: number
+  status: 'active' | 'archived' | 'trash' | 'list-deleted'
+  archivedReason: string | null
+}
+
 /** Setup's "Which of these dates repeat?" answer for one date column */
 export type DateRuleAnswer = { columnId: number; repeat: 'due' } | { columnId: number; repeat: 'every'; n: number; unit: 'days' | 'months' | 'years' }
 import type { StarterSummary, StarterRef, StarterPreview, ApplyOptions, ApplyResult } from './starters/schema'
@@ -48,6 +58,19 @@ export interface WorkspacePatch {
 }
 
 /** Return shape for grid:get */
+/** backup:get-status — whether backups are actually happening */
+export interface BackupStatusResult {
+  lastAutoBackup: string | null
+  lastAutoBackupSuccess: boolean
+  lastAutoBackupError: string | null
+  lastOffsiteISO: string | null
+  trackingSinceISO: string
+  scheduled: { enabled: boolean; intervalHours: number; lastRunISO: string | null; lastError: string | null; overdue: boolean }
+  reminderEnabled: boolean
+  remindAfterDays: number
+  offsiteOverdue: boolean
+}
+
 export interface GridGetResult {
   grid: Grid
   columns: Column[]
@@ -172,6 +195,7 @@ export interface IPCContract {
   'row:delete':              { args: [rowId: number];                                                                      return: true }
   'row:archive':             { args: [rowId: number, reason?: string];                                                     return: true }
   'row:unarchive':           { args: [rowId: number];                                                                      return: true }
+  'row:locate':              { args: [rowId: number];                                                                      return: RowLocation | null }
   'row:reorder':             { args: [gridId: number, orderedIds: number[]];                                               return: true }
   'row:duplicate':           { args: [rowId: number];                                                                      return: number | bigint }
   'row:bulk-action':         { args: [action: 'archive' | 'unarchive' | 'delete', rowIds: number[]];                       return: number }
@@ -232,8 +256,9 @@ export interface IPCContract {
   'cl-template:import':  { args: [filePath: string];                                       return: ChecklistTemplate }
 
   // ── Case Log ────────────────────────────────────────────────────────────
-  'case-log:get':                 { args: [rowId: number, includeSystem?: boolean, includeVoided?: boolean, limit?: number, offset?: number]; return: CaseLogEntry[] }
-  'case-log:create':              { args: [rowId: number, content: string, logType: string, followUpDate: string | null, measures?: { minutes?: number | null; miles?: number | null; extra?: Record<string, number | null> | null }]; return: CaseLogEntry }
+  'case-log:get':                 { args: [rowId: number, includeSystem?: boolean, includeVoided?: boolean, limit?: number, offset?: number, opts?: CaseLogQuery]; return: CaseLogEntry[] }
+  'case-log:count':               { args: [rowId: number, includeSystem?: boolean, includeVoided?: boolean, opts?: CaseLogQuery]; return: number }
+  'case-log:create':              { args: [rowId: number, content: string, logType: string, followUpDate: string | null, measures?: { minutes?: number | null; miles?: number | null; extra?: Record<string, number | null> | null }, occurredOn?: string | null]; return: CaseLogEntry }
   'case-log:update':              { args: [id: number, content: string];                     return: true }
   'case-log:delete':              { args: [id: number];                                      return: true }
   'case-log:toggle-pin':          { args: [id: number, pinned: boolean];                     return: true }
@@ -241,7 +266,7 @@ export interface IPCContract {
   'case-log:uncomplete-followup': { args: [id: number];                                      return: true }
   'case-log:void':                { args: [id: number, reason: string];                      return: true }
   'case-log:get-edits':           { args: [id: number];                                      return: Array<{ content: string; replaced_at: string }> }
-  'case-log:unvoid':              { args: [id: number];                                      return: true }
+  'case-log:unvoid':              { args: [id: number, opts?: { logRestore?: boolean }]; return: true }
   'case-log:restore':             { args: [entry: Record<string, unknown>];                  return: true }
 
   // ── Scrap Notes ─────────────────────────────────────────────────────────
@@ -353,13 +378,17 @@ export interface IPCContract {
   // ── Backup ──────────────────────────────────────────────────────────────
   'backup:auto-list':            { args: [];                                return: Array<{ path: string; filename: string; timestamp: Date; sizeBytes: number }> }
   'backup:scheduled-run':        { args: [config: Record<string, unknown>]; return: unknown }
+  'backup:scheduled-run-now':    { args: [];                                return: { ran: boolean; destPath?: string; lastRunISO?: string | null; error?: string } }
   'backup:manual-create':        { args: [destPath: string];                return: unknown }
   'backup:restore-auto':         { args: [backupDbPath: string];            return: { safetyPath: string } }
   'backup:restore-file':         { args: [backupPath: string];              return: { safetyPath: string } }
+  'backup:restore-other':        { args: [backupPath: string, secret: string, newPassword: string, hint: string]; return: { safetyPath: string } }
+  'backup:preview':              { args: [backupPath: string];              return: { gridCount: number; rowCount: number; schemaVersion: number; madeAt: string | null; appVersion: string | null } }
   'backup:get-info':             { args: [];                                return: unknown }
-  'backup:verify':               { args: [backupPath: string];              return: { valid: boolean; error?: string; schemaVersion?: number; tableCount?: number } }
+  'backup:verify':               { args: [backupPath: string];              return: { valid: boolean; error?: string; schemaVersion?: number; tableCount?: number; otherPulse?: boolean } }
   'backup:scheduled-get-config': { args: [];                                return: unknown }
   'backup:scheduled-set-config': { args: [config: Record<string, unknown>]; return: true }
+  'backup:get-status':           { args: [];                                return: BackupStatusResult }
 
   // ── Export / Import ─────────────────────────────────────────────────────
   'export:csv':               { args: [options: Record<string, unknown>];  return: true }
@@ -377,6 +406,9 @@ export interface IPCContract {
   'setup-template:get-all': { args: [];                                                                                  return: unknown[] }
   'setup-template:import':  { args: [filePath: string];                                                                  return: { pulse: unknown; preview: unknown } }
   'setup-template:export':  { args: [gridId: number, destPath: string];                                                  return: true }
+  'setup-template:export-saved': { args: [templateId: number, destPath: string];                                       return: true }
+  'documents:batch-preview': { args: [templateId: number | null, target: Record<string, unknown>]; return: { count: number; unknown: string[]; error?: string } }
+  'import:undo':             { args: [gridId: number, rowIds: number[]]; return: { moved: number } }
   'setup-template:apply':   { args: [pulseJson: string, mode: 'new' | 'existing', gridId?: number, saveToLibrary?: boolean]; return: number }
   'setup-template:create':  { args: [name: string, description: string | null, pulseJson: string];                       return: number }
   'setup-template:delete':  { args: [id: number];                                                                        return: true }

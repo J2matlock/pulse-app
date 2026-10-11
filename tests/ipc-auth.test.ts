@@ -85,11 +85,13 @@ const mockLockApp = vi.fn()
 const mockIsPasswordSetup = vi.fn(() => true)
 const mockCredentialsUnreadable = vi.fn(() => false)
 const mockRestoreOnNewInstall = vi.fn(async (_opts: unknown) => ({ schemaVersion: 31 }))
+const mockLockBackup = vi.fn()
 vi.mock('../src/main/backup', () => ({
   setDatabaseBridge: () => {},
   runPreMigrationBackup: () => {},
   moveAsideExistingDatabase: () => null,
   restoreBackupOnNewInstall: (opts: unknown) => mockRestoreOnNewInstall(opts),
+  runAutoBackupOnLock: () => mockLockBackup(),
 }))
 vi.mock('../src/main/auth', () => ({
   areCredentialsUnreadable: () => mockCredentialsUnreadable(),
@@ -314,6 +316,13 @@ describe('AUTH_LOCK', () => {
     const r = await invoke(IPC.AUTH_LOCK) as any
     expect(r.ok).toBe(true)
     expect(mockLockApp).toHaveBeenCalled()
+  })
+
+  it('makes an auto-backup before locking, while the database is open', async () => {
+    mockLockBackup.mockClear()
+    await invoke(IPC.AUTH_LOCK)
+    expect(mockLockBackup).toHaveBeenCalledTimes(1)
+    expect(mockLockBackup.mock.invocationCallOrder[0]!).toBeLessThan(mockLockApp.mock.invocationCallOrder.at(-1)!)
   })
 })
 

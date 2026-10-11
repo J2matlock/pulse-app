@@ -10,7 +10,9 @@ import { useGridStore } from '../../stores/gridStore'
 import { removeSampleData } from '../shared/SampleDataBanner'
 import { useVocab } from '../../hooks/useVocab'
 import { FilesStorageSection } from './FilesStorageSection'
+import { ImportWizard } from '../grid/ImportWizard'
 import { useFeature } from '../../hooks/useFeature'
+import { localDateString } from '../../../shared/dates'
 
 /** Add or remove the sample caseload (made-up clients for trying things out). */
 function SampleDataControls(): React.ReactElement {
@@ -60,6 +62,31 @@ export function DataSection(): React.ReactElement {
   const [pulseRegistered, setPulseRegistered] = useState<boolean | null>(null)
   const [platform, setPlatform] = useState<string>('')
   const [exportingAllCsv, setExportingAllCsv] = useState(false)
+  const [backingUp, setBackingUp] = useState(false)
+  const grids = useGridStore(s => s.grids)
+  const activeGridId = useGridStore(s => s.activeGridId)
+  const [importGridId, setImportGridId] = useState<number | null>(null)
+  const [importing, setImporting] = useState(false)
+  useEffect(() => {
+    if (importGridId == null && grids.length > 0) setImportGridId(grids.some(g => g.id === activeGridId) ? activeGridId : grids[0]!.id)
+  }, [grids, activeGridId, importGridId])
+
+  async function backUpFirst() {
+    setBackingUp(true)
+    try {
+      const saveRes = await safeInvoke(IPC.APP_SHOW_SAVE_DIALOG, {
+        title: 'Save a backup before erasing',
+        defaultPath: `pulse-backup-${localDateString()}.pulse-backup`,
+        filters: [{ name: 'Pulse Backup', extensions: ['pulse-backup'] }],
+      })
+      if (!saveRes.ok || saveRes.data.canceled || !saveRes.data.filePath) return
+      const res = await safeInvoke(IPC.BACKUP_MANUAL_CREATE, saveRes.data.filePath)
+      if (res.ok) toast.success('Backup saved. Keep it somewhere safe.')
+      else toast.error(res.error || 'The backup couldn\'t be saved. Try again, or choose a different folder.')
+    } finally {
+      setBackingUp(false)
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -115,10 +142,31 @@ export function DataSection(): React.ReactElement {
         <div>
           <p className="text-base font-medium text-slate-700 dark:text-slate-300">Import &amp; export data</p>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Use the <strong>Import</strong> button in the grid toolbar to import from Excel or CSV, and the <strong>Export</strong> button to export a single grid as CSV or PDF, or export all grids at once below.
+            Bring a spreadsheet into a {t('list')} here, or with <strong>Import</strong> above the {t('list')}. To save one {t('list')} as CSV or PDF, use <strong>Export</strong> there; to save every {t('list')} at once, use the button below.
           </p>
           {filesOn && <p className="text-sm text-slate-500 dark:text-slate-400">Files attached to {t('record', { many: true })} aren't included in CSV exports; open or save them from each profile.</p>}
         </div>
+        {grids.length > 0 && (
+          <div className="flex flex-wrap items-end gap-2">
+            <div>
+              <label htmlFor="settings-import-list" className="block text-base text-slate-700 dark:text-slate-300 mb-1">Import into</label>
+              <select id="settings-import-list" className="input" style={{ minHeight: 44, fontSize: 15 }}
+                value={importGridId ?? ''} onChange={e => setImportGridId(Number(e.target.value))}>
+                {grids.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+            </div>
+            <button type="button" className="btn-secondary" style={{ minHeight: 44 }} disabled={importGridId == null} onClick={() => setImporting(true)}>
+              Import a spreadsheet…
+            </button>
+          </div>
+        )}
+        {importing && importGridId != null && (
+          <ImportWizard open gridId={importGridId} onClose={() => setImporting(false)}
+            onImported={() => {
+              void useGridStore.getState().loadGridList()
+              if (useGridStore.getState().activeGridId === importGridId) void useGridStore.getState().loadGrid(importGridId)
+            }} />
+        )}
         <button
           onClick={async () => {
             const dialogRes = await safeInvoke<OpenDialogResult>(IPC.APP_SHOW_FILE_DIALOG, {
@@ -154,7 +202,7 @@ export function DataSection(): React.ReactElement {
           style={{ minHeight: 44 }}
         >
           <Download className="w-4 h-4" />
-          {exportingAllCsv ? 'Exporting…' : 'Export All as CSV'}
+          {exportingAllCsv ? 'Exporting…' : 'Export everything as CSV…'}
         </button>
       </div>
 
@@ -267,6 +315,12 @@ export function DataSection(): React.ReactElement {
                 Permanently deletes all data on this computer, including every {t('record')}, column, setting, and the automatic backups. Backups you saved somewhere else (a USB drive or another folder) are not deleted.
               </p>
             </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <p className="text-base text-slate-700 dark:text-slate-300 flex-1 min-w-[12rem]">Not sure? Save a backup first, so you can get everything back.</p>
+              <button type="button" className="btn-secondary" style={{ minHeight: 44 }} disabled={backingUp} onClick={() => void backUpFirst()}>
+                {backingUp ? 'Backing up…' : 'Back up first…'}
+              </button>
+            </div>
             <div>
               <label htmlFor="settings-reset-confirm" className="block text-base font-medium text-red-700 dark:text-red-400 mb-1">
                 Type <strong>RESET EVERYTHING</strong> to enable:
@@ -298,8 +352,14 @@ export function DataSection(): React.ReactElement {
               disabled={resetTyped !== 'RESET EVERYTHING' || !resetPassword}
               onClick={async () => {
                 const res = await safeInvoke<boolean>(IPC.APP_FACTORY_RESET, resetPassword)
-                if (res.ok) { setResetPassword(''); toast.success('App reset. Please restart Pulse.') }
-                else { setResetPassword(''); toast.error(res.error || 'Reset failed. Please try again.') }
+                setResetPassword('')
+                if (res.ok) {
+                  // Nothing is left to show; start again at setup instead of leaving a broken window
+                  toast.success('Everything was erased. Pulse is restarting.')
+                  void safeInvoke(IPC.APP_RELAUNCH)
+                } else {
+                  toast.error(res.error || 'Reset failed. Please try again.')
+                }
               }}
               className="btn-primary bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed w-full"
               style={{ minHeight: 44 }}

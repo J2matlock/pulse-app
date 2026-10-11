@@ -78,6 +78,8 @@ export interface DeadlineResult {
   /** Plain-English explanation for tooltips and PDFs */
   detail: string
   extended?: { from: string; reason: string }
+  /** Calendar rules before their lead time: the date it's next due, not shown yet (calendar files list it, audit D-33) */
+  upcoming?: string
 }
 
 // ── Rule settings per kind ──────────────────────────────────────────────────
@@ -370,7 +372,7 @@ function evaluateCalendar(rule: EngineRule, ctx: RecordContext): DeadlineResult 
   const detail = `Due ${formatDue(due)} (${when}${doneOn ? `; last done ${formatDue(doneOn)}` : ''})`
   const res = result(due, ctx.today, detail)
   // Not shown until the lead time, unless it's already late
-  if (cfg.lead !== undefined && res.daysUntil !== null && res.daysUntil > cfg.lead) return { ...NONE, detail: `Next: ${formatDue(due)}` }
+  if (cfg.lead !== undefined && res.daysUntil !== null && res.daysUntil > cfg.lead) return { ...NONE, detail: `Next: ${formatDue(due)}`, upcoming: due }
   return res
 }
 

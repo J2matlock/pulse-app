@@ -79,6 +79,14 @@ describe('contact status', () => {
     expect(contactsMissing([0, 1], g!.requirements)).toEqual(['Face-to-face (0 of 1)', 'Any contact (1 of 2)'])
   })
 
+  it('counts a late write-up in the month it happened, not the month it was written (audit 1.22)', () => {
+    // A visit on Feb 27, written up on Mar 2
+    testDb.db.prepare(`INSERT INTO case_log (row_id, content, log_type, occurred_at, created_at, updated_at)
+      VALUES (?, 'x', 'visit', datetime('2027-02-27 12:00:00', 'utc'), datetime('2027-03-02 09:00:00', 'utc'), datetime('now'))`).run(rowIds[0])
+    expect(getRequirementStatus('2027-03-15')[0]!.clients.find(c => c.rowId === rowIds[0])!.counts).toEqual([0, 0])
+    expect(getRequirementStatus('2027-02-15')[0]!.clients.find(c => c.rowId === rowIds[0])!.counts).toEqual([1, 1])
+  })
+
   it('leaves out archived and deleted clients and caseloads without requirements', () => {
     testDb.db.prepare('UPDATE rows SET is_active = 0 WHERE id = ?').run(rowIds[2])
     const other = seedGrid(testDb.db, { name: 'Other', rowCount: 2 })

@@ -11,6 +11,14 @@ import { localDateString } from '../shared/dates'
 import { setCellWithHistory } from './cell-write'
 import { applyChecklistTemplate } from './checklist-apply'
 import { addInterval } from '../shared/ruleInterval'
+import { checkOccurredOn } from './note-date-updates'
+
+/** "Done on another day…": a past day, or today when none is given */
+function doneDay(doneOn: string | null | undefined): string {
+  const day = checkOccurredOn(doneOn)
+  if (day && typeof day === 'object') throw new DeadlineActionError(day.error)
+  return day ?? localDateString()
+}
 
 /** A problem the person can fix; the message is shown as is. */
 export class DeadlineActionError extends Error {}
@@ -22,11 +30,12 @@ export interface MeterDoneResult {
 }
 
 /**
- * "Oil change done at 45,210 mi": the rule's date becomes today, and the
+ * "Oil change done at 45,210 mi": the rule's date becomes today (or the day
+ * it was really done), and the
  * last-service reading (and the current reading, if it was lower) becomes
  * the reading given.
  */
-export function markMeterDone(rowId: number, columnId: number, reading: number): MeterDoneResult {
+export function markMeterDone(rowId: number, columnId: number, reading: number, doneOn?: string | null): MeterDoneResult {
   const db = getDb()
   const col = db.prepare(`
     SELECT col.name, r.grid_id AS row_grid, col.grid_id AS col_grid, ar.id, ar.kind, ar.rule_config, ar.rule_condition, ar.business_days,
@@ -41,7 +50,7 @@ export function markMeterDone(rowId: number, columnId: number, reading: number):
   const cfg = rule.config as MeterConfig
   if (!Number.isFinite(reading) || reading < 0 || reading > 1e10) throw new DeadlineActionError('Enter the reading as a number.')
 
-  const today = localDateString()
+  const today = doneDay(doneOn)
   const text = String(reading)
   return db.transaction(() => {
     const previous: Record<number, string | null> = {}
@@ -78,14 +87,15 @@ export interface MarkDoneResult {
  * the column's checklist, all in one transaction. Meter readings, sequence
  * steps and quotas have their own actions.
  */
-export function markDone(rowId: number, columnId: number, choice: DoneChoice, checklistTemplateId: number | null = null): MarkDoneResult {
+export function markDone(rowId: number, columnId: number, choice: DoneChoice, checklistTemplateId: number | null = null, doneOn?: string | null): MarkDoneResult {
   const { name, rule } = ruleFor(rowId, columnId)
   if (rule.kind === 'meter' || rule.kind === 'sequence' || rule.kind === 'quota') throw new DeadlineActionError('That deadline is marked done another way.')
   const oneOff = isOneOff(rule)
   if (oneOff && choice.kind === 'repeat') throw new DeadlineActionError('Say whether it was renewed or finished.')
   if (!oneOff && choice.kind !== 'repeat') throw new DeadlineActionError("That deadline repeats; it's marked done with today's date.")
   const db = getDb()
-  const today = localDateString()
+  // "Done on another day…": the day it was done (a past day), else today
+  const today = doneDay(doneOn)
   const current = cellValue(rowId, columnId)
   return db.transaction((): MarkDoneResult => {
     let previous = current, newValue = current, finishedFor: string | null = null, content: string
@@ -147,7 +157,7 @@ function cellValue(rowId: number, columnId: number): string | null {
 }
 
 /** "IFSP meeting done (step 2 of 4)": checks off a step for the current anchor date. */
-export function markStepDone(rowId: number, columnId: number, step: number): { sysLogId: number } {
+export function markStepDone(rowId: number, columnId: number, step: number, doneOn?: string | null): { sysLogId: number } {
   const { name, rule } = ruleFor(rowId, columnId)
   if (rule.kind !== 'sequence' || !rule.config) throw new DeadlineActionError("That deadline doesn't have steps.")
   const cfg = rule.config as SequenceConfig
@@ -155,12 +165,14 @@ export function markStepDone(rowId: number, columnId: number, step: number): { s
   const anchorCol = cfg.anchorColumnId === 'self' ? columnId : cfg.anchorColumnId
   const anchor = sequenceAnchor(rule, cellValue(rowId, columnId), { [anchorCol]: cellValue(rowId, anchorCol) })
   if (!anchor) throw new DeadlineActionError('Enter the date the steps count from first.')
+  const day = doneDay(doneOn)
   const db = getDb()
   return db.transaction(() => {
     db.prepare('INSERT OR REPLACE INTO deadline_progress (row_id, column_id, step, done_at, anchor_value) VALUES (?, ?, ?, ?, ?)')
-      .run(rowId, columnId, step, localDateString(), anchor)
+      .run(rowId, columnId, step, day, anchor)
     const n = cfg.steps.length
-    const label = step < n ? `${cfg.steps[step]!.label} done (step ${step + 1} of ${n})` : `${cfg.steps[n - 1]!.label} done (repeat ${step - n + 1})`
+    const on = day === localDateString() ? '' : ` on ${formatDue(day)}`
+    const label = step < n ? `${cfg.steps[step]!.label} done${on} (step ${step + 1} of ${n})` : `${cfg.steps[n - 1]!.label} done${on} (repeat ${step - n + 1})`
     const sysLogId = Number(db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))")
       .run(rowId, `${name}: ${label}`).lastInsertRowid)
     db.prepare("UPDATE rows SET updated_at = datetime('now') WHERE id = ?").run(rowId)

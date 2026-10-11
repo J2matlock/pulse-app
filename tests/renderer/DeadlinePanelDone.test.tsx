@@ -33,7 +33,7 @@ describe('deadline cards on the record page', () => {
     render(<DeadlinePanel row={row} columns={columns} alertRules={[yearly]} onDateSave={async () => {}} />)
     expect(screen.getByText('Last done Sep 25, 2025')).toBeTruthy()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Done' })) })
-    expect(invoke).toHaveBeenCalledWith('deadlines:mark-done', 9, 3, { kind: 'repeat' }, null)
+    expect(invoke).toHaveBeenCalledWith('deadlines:mark-done', 9, 3, { kind: 'repeat' }, null, null)
     expect(invoke).toHaveBeenCalledWith('row:get', 1, 9)
   })
 
@@ -53,6 +53,6 @@ describe('deadline cards on the record page', () => {
     expect(screen.getByText('Done: License expires')).toBeTruthy()
     fireEvent.click(screen.getByLabelText(/Finished/))
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Mark done' })) })
-    expect(invoke).toHaveBeenCalledWith('deadlines:mark-done', 9, 3, { kind: 'finished' }, null)
+    expect(invoke).toHaveBeenCalledWith('deadlines:mark-done', 9, 3, { kind: 'finished' }, null, null)
   })
 })

@@ -6,12 +6,12 @@
 import toast from 'react-hot-toast'
 import { IPC } from '../../shared/ipc-channels'
 import type { Appointment, ApptInput, ApptPatch, ApptStatus, EditScope, SeriesRule } from '../../shared/appointments'
-import type { NoteDateUpdate } from '../../shared/types'
+import type { NoteDateUpdate, NoteDateRevert } from '../../shared/types'
 import { safeInvoke } from './safeInvoke'
 import { useUndoStore } from '../stores/undoStore'
 
 interface ApptChange { snapshot: unknown; ids: number[] }
-interface StatusChange { previous: ApptStatus; caseLogId: number | null; voidedNoteId: number | null; updatedDates: NoteDateUpdate[]; rowId: number | null }
+interface StatusChange { previous: ApptStatus; caseLogId: number | null; voidedNoteId: number | null; updatedDates: NoteDateUpdate[]; revertedDates?: NoteDateRevert[]; rowId: number | null }
 
 export interface StatusOptions { noteContent?: string; minutes?: number | null; miles?: number | null; extra?: Record<string, number> | null }
 
@@ -31,12 +31,24 @@ export async function createAppointment(input: ApptInput, rule?: SeriesRule | nu
   return res.data.ids
 }
 
-export async function updateAppointment(a: Appointment, patch: ApptPatch, scope: EditScope = 'one'): Promise<boolean> {
-  const res = await safeInvoke<ApptChange>(IPC.APPT_UPDATE, a.id, patch, scope)
+/** With `rule`, the series' pattern changes from this one on */
+export async function updateAppointment(a: Appointment, patch: ApptPatch, scope: EditScope = 'one', rule?: SeriesRule | null): Promise<boolean> {
+  const args = rule ? [a.id, patch, scope, rule] : [a.id, patch, scope]
+  const res = await safeInvoke<ApptChange>(IPC.APPT_UPDATE, ...args)
   if (!res.ok) { toast.error(res.error); return false }
   let snap = res.data.snapshot
   push(`Changed "${a.title}"`, () => restore(snap),
-    async () => { const again = await safeInvoke<ApptChange>(IPC.APPT_UPDATE, a.id, patch, scope); if (again.ok) snap = again.data.snapshot })
+    async () => { const again = await safeInvoke<ApptChange>(IPC.APPT_UPDATE, ...args); if (again.ok) snap = again.data.snapshot })
+  return true
+}
+
+/** "End this series on…" the last day */
+export async function endSeries(a: Appointment, lastDate: string): Promise<boolean> {
+  const res = await safeInvoke<ApptChange>(IPC.APPT_END_SERIES, a.id, lastDate)
+  if (!res.ok) { toast.error(res.error); return false }
+  let snap = res.data.snapshot
+  push(`Ended the "${a.title}" series`, () => restore(snap),
+    async () => { const again = await safeInvoke<ApptChange>(IPC.APPT_END_SERIES, a.id, lastDate); if (again.ok) snap = again.data.snapshot })
   return true
 }
 
@@ -56,12 +68,10 @@ export async function setAppointmentStatus(a: Appointment, status: ApptStatus, o
   if (!res.ok) { toast.error(res.error); return false }
   let change = res.data
   if (change.previous === status) return false
+  if (change.revertedDates?.length) toast.success(`Also set ${change.revertedDates.map(d => d.column_name).join(', ')} back`, { id: 'note-dates' })
   push(`Marked "${a.title}" ${STATUS_WORDS[status]}`,
-    async () => {
-      await safeInvoke(IPC.APPT_SET_STATUS, a.id, change.previous)
-      // Dates the note moved go back to what they were
-      if (change.rowId !== null) for (const d of change.updatedDates) await safeInvoke(IPC.CELL_UPDATE, change.rowId, d.column_id, d.old_value)
-    },
+    // Going back voids the note this made, which puts back the dates it moved (main does that)
+    async () => { await safeInvoke(IPC.APPT_SET_STATUS, a.id, change.previous) },
     async () => { const again = await safeInvoke<StatusChange>(IPC.APPT_SET_STATUS, a.id, status, opts); if (again.ok) change = again.data })
   return true
 }

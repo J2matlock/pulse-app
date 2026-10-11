@@ -122,7 +122,7 @@ describe('settingsStore', () => {
 
     it('ignores non-numeric autoLock values', () => {
       useSettingsStore.getState().hydrateFromSettings({ auto_lock_minutes: 'abc' })
-      expect(useSettingsStore.getState().autoLockMinutes).toBe(30)
+      expect(useSettingsStore.getState().autoLockMinutes).toBe(15)
     })
   })
 

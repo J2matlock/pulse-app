@@ -1,19 +1,19 @@
-/** Dashboard "Today" card (W07 §7): today's appointments in order, with quick Done / No-show. */
+/** Dashboard "Today" card (W07 §7): today's appointments in order, with the same actions as the calendar. */
 import React, { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CalendarClock, Check, UserX, X } from 'lucide-react'
+import { CalendarClock } from 'lucide-react'
 import { IPC } from '../../../../shared/ipc-channels'
 import type { Appointment } from '../../../../shared/appointments'
 import { formatTime } from '../../../../shared/calendar'
 import { localDateString, localDateFromToday } from '../../../../shared/dates'
 import { formatDue } from '../../../../shared/deadlineEngine'
+import { safeInvoke } from '../../../utils/safeInvoke'
+import { AppointmentActions } from '../../../components/calendar/AppointmentActions'
+import { useSettingsStore } from '../../../stores/settingsStore'
+import { useVocab } from '../../../hooks/useVocab'
 
 /** Same window as the briefing's count (main: OUTCOME_LOOKBACK_DAYS) */
 const OUTCOME_DAYS = 14
-import { safeInvoke } from '../../../utils/safeInvoke'
-import { setAppointmentStatus } from '../../../utils/appointmentActions'
-import { useSettingsStore } from '../../../stores/settingsStore'
-import { useVocab } from '../../../hooks/useVocab'
 
 export function TodayCard(): React.ReactElement {
   const navigate = useNavigate()
@@ -56,9 +56,7 @@ export function TodayCard(): React.ReactElement {
                     <> · <button type="button" className="text-blue-700 dark:text-blue-300 hover:underline" onClick={() => navigate(`/profile/${a.row_id}?gridId=${a.grid_id}`)}>{a.record_name}</button></>
                   )}
                 </span>
-                <button type="button" className="btn-compact-secondary" aria-label={`${a.title}: done`} onClick={() => void setAppointmentStatus(a, 'done')}><Check className="w-4 h-4" />Done</button>
-                <button type="button" className="btn-compact-secondary" aria-label={`${a.title}: no-show`} onClick={() => void setAppointmentStatus(a, 'no_show')}><UserX className="w-4 h-4" />No-show</button>
-                <button type="button" className="btn-compact-secondary" aria-label={`${a.title}: cancelled`} onClick={() => void setAppointmentStatus(a, 'cancelled')}><X className="w-4 h-4" />Cancelled</button>
+                <AppointmentActions appointment={a} />
               </li>
             ))}
           </ul>
@@ -69,18 +67,14 @@ export function TodayCard(): React.ReactElement {
         {(appts ?? []).map(a => (
           <li key={a.id} className="flex flex-wrap items-center gap-2 py-2" style={{ minHeight: 44 }}>
             <span className="w-20 text-base tabular-nums text-slate-600 dark:text-slate-300">{formatTime(a.start_at, clock)}</span>
-            <span className={`flex-1 min-w-0 text-base ${a.status === 'scheduled' ? 'text-slate-800 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400 line-through'}`}>
+            <span className={`flex-1 min-w-0 text-base ${a.status === 'scheduled' ? 'text-slate-800 dark:text-slate-100' : a.status === 'done' ? 'text-slate-600 dark:text-slate-300' : 'text-slate-500 dark:text-slate-400 line-through'}`}>
+              {a.status === 'done' && '✓ '}
               {a.title}
               {a.record_name && (
                 <> · <button type="button" className="text-blue-700 dark:text-blue-300 hover:underline" onClick={() => navigate(`/profile/${a.row_id}?gridId=${a.grid_id}`)}>{a.record_name}</button></>
               )}
             </span>
-            {a.status === 'scheduled' && (
-              <>
-                <button type="button" className="btn-compact-secondary" aria-label={`${a.title}: done`} onClick={() => void setAppointmentStatus(a, 'done')}><Check className="w-4 h-4" />Done</button>
-                <button type="button" className="btn-compact-secondary" aria-label={`${a.title}: no-show`} onClick={() => void setAppointmentStatus(a, 'no_show')}><UserX className="w-4 h-4" />No-show</button>
-              </>
-            )}
+            <AppointmentActions appointment={a} />
           </li>
         ))}
       </ul>

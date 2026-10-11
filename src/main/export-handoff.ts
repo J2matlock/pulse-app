@@ -26,6 +26,8 @@ export interface HandoffOptions {
   summary?: string
   /** Put PNG and JPEG files on their own pages, scaled to fit */
   includePictures?: boolean
+  /** Add the scrap notes. Off unless asked for: they're private jottings, and the packet leaves the app */
+  includeScratchPad?: boolean
 }
 
 /** Pictures jsPDF can draw without a canvas */
@@ -136,7 +138,7 @@ export async function exportHandoffPacket(opts: HandoffOptions, destPath: string
 
   // ── Profile ──
   doc.addPage()
-  renderProfileToDoc(doc, opts.rowId, opts.gridId, { deadlines: true, checklist: true, caseLog: true, scratchPad: true, contactInfo: true, gridData: true })
+  renderProfileToDoc(doc, opts.rowId, opts.gridId, { deadlines: true, checklist: true, caseLog: true, scratchPad: opts.includeScratchPad === true, contactInfo: true, gridData: true })
 
   // ── Files ──
   drawFiles(doc, opts.rowId, { includePictures: opts.includePictures })

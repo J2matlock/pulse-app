@@ -25,7 +25,7 @@ export function ExtendDeadlineDialog({ title, currentDue, onSave, onClose }: {
   const valid = /^\d{4}-\d{2}-\d{2}$/.test(date) && reason.trim().length > 0 && !tooEarly
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])

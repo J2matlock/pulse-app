@@ -296,9 +296,9 @@ export function DataGrid(): React.ReactElement {
     await duplicateRow(rowId)
   }, [duplicateRow])
 
-  const handleArchiveConfirm = useCallback(async () => {
+  const handleArchiveConfirm = useCallback(async (opts: { cancelAppointments: boolean }) => {
     if (archiveTarget == null) return
-    await archiveRow(archiveTarget, archiveReason.trim() || undefined)
+    await archiveRow(archiveTarget, archiveReason.trim() || undefined, opts)
     setArchiveTarget(null)
     setArchiveReason('')
   }, [archiveTarget, archiveReason, archiveRow])
@@ -929,7 +929,7 @@ export function DataGrid(): React.ReactElement {
         archiveTarget={archiveTarget}
         archiveReason={archiveReason}
         setArchiveReason={setArchiveReason}
-        onConfirm={() => void handleArchiveConfirm()}
+        onConfirm={opts => void handleArchiveConfirm(opts)}
         onCancel={() => { setArchiveTarget(null); setArchiveReason('') }}
       />
     </div>

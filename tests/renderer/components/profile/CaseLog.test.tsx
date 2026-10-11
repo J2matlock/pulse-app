@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import React from 'react'
 
 const mockInvoke = vi.fn()
@@ -82,7 +82,7 @@ describe('CaseLog', () => {
     fireEvent.change(screen.getByLabelText('Data'), { target: { value: 'Home visit' } })
     fireEvent.change(screen.getByLabelText('Plan'), { target: { value: 'Follow up Friday' } })
     fireEvent.click(screen.getByTitle('Add a case note'))
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('case-log:create', 10, 'Data: Home visit\n\nPlan: Follow up Friday', 'note', null, { minutes: null, miles: null, extra: {} }))
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('case-log:create', 10, 'Data: Home visit\n\nPlan: Follow up Friday', 'note', null, { minutes: null, miles: null, extra: {} }, null))
     expect(mockInvoke).toHaveBeenCalledWith('settings:update', 'note_format_last', 'dap')
   })
 
@@ -160,8 +160,9 @@ describe('CaseLog', () => {
       makeEntry({ id: 1, content: 'Called about housing' }),
       makeEntry({ id: 2, content: 'Meeting with doctor' }),
     ]
-    mockInvoke.mockImplementation((channel: string) => {
-      if (channel === 'case-log:get') return Promise.resolve({ ok: true, data: entries })
+    mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+      // Search runs in the database (1.31): this stands in for it
+      if (channel === 'case-log:get') { const q = (args[5] as { query?: string } | undefined)?.query ?? ''; return Promise.resolve({ ok: true, data: entries.filter(e => e.content.toLowerCase().includes(q.toLowerCase())) }) }
       if (channel === 'snippet:get-all') return Promise.resolve({ ok: true, data: [] })
       return Promise.resolve({ ok: true, data: null })
     })
@@ -174,14 +175,16 @@ describe('CaseLog', () => {
     const searchInput = screen.getByPlaceholderText('Search case log…')
     fireEvent.change(searchInput, { target: { value: 'doctor' } })
 
-    expect(screen.queryByText('Called about housing')).toBeNull()
+    await waitFor(() => expect(screen.queryByText('Called about housing')).toBeNull())
     expect(screen.getByText('Meeting with doctor')).toBeTruthy()
+    expect(mockInvoke).toHaveBeenCalledWith('case-log:get', 10, false, false, 51, 0, { query: 'doctor', oldestFirst: false })
   })
 
   it('shows "No entries match your search" when search has no results', async () => {
     const entries = [makeEntry({ id: 1, content: 'Some note' })]
-    mockInvoke.mockImplementation((channel: string) => {
-      if (channel === 'case-log:get') return Promise.resolve({ ok: true, data: entries })
+    mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+      // Search runs in the database (1.31): this stands in for it
+      if (channel === 'case-log:get') { const q = (args[5] as { query?: string } | undefined)?.query ?? ''; return Promise.resolve({ ok: true, data: entries.filter(e => e.content.toLowerCase().includes(q.toLowerCase())) }) }
       if (channel === 'snippet:get-all') return Promise.resolve({ ok: true, data: [] })
       return Promise.resolve({ ok: true, data: null })
     })
@@ -194,7 +197,7 @@ describe('CaseLog', () => {
     const searchInput = screen.getByPlaceholderText('Search case log…')
     fireEvent.change(searchInput, { target: { value: 'nonexistent' } })
 
-    expect(screen.getByText('No entries match your search.')).toBeTruthy()
+    expect(await screen.findByText('No entries match your search.')).toBeTruthy()
   })
 
   it('shows pinned section when entries are pinned', async () => {
@@ -224,10 +227,12 @@ describe('CaseLog', () => {
 
   it('renders type selector buttons', async () => {
     render(<CaseLog rowId={10} />)
-    expect(screen.getByText('Note')).toBeTruthy()
-    expect(screen.getByText('Phone')).toBeTruthy()
-    expect(screen.getByText('Meeting')).toBeTruthy()
-    expect(screen.getByText('Email')).toBeTruthy()
-    expect(screen.getByText('Visit')).toBeTruthy()
+    // The kinds also appear in the list's "Show" menu, so look in the note box
+    const box = within(screen.getByTestId('note-composer'))
+    expect(box.getByText('Note')).toBeTruthy()
+    expect(box.getByText('Phone')).toBeTruthy()
+    expect(box.getByText('Meeting')).toBeTruthy()
+    expect(box.getByText('Email')).toBeTruthy()
+    expect(box.getByText('Visit')).toBeTruthy()
   })
 })

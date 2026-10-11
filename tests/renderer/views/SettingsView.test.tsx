@@ -76,12 +76,6 @@ vi.mock('../../../src/renderer/components/settings/DataSection', () => ({
 vi.mock('../../../src/renderer/components/settings/AlertsSection', () => ({
   AlertsSection: () => <div data-testid="section-alerts">Alerts Section</div>,
 }))
-vi.mock('../../../src/renderer/components/settings/ShortcutsSection', () => ({
-  ShortcutsSection: () => <div data-testid="section-shortcuts">Shortcuts Section</div>,
-}))
-vi.mock('../../../src/renderer/components/settings/SnippetsSection', () => ({
-  SnippetsSection: () => <div data-testid="section-snippets">Snippets Section</div>,
-}))
 vi.mock('../../../src/renderer/components/settings/AboutSection', () => ({
   AboutSection: () => <div data-testid="section-about">About Section</div>,
 }))
@@ -104,7 +98,7 @@ describe('SettingsView', () => {
 
   it('renders all tab labels in the sidebar nav', () => {
     render(<SettingsView />)
-    const tabs = ['Profile', 'Appearance', 'Security', 'Backup', 'Data', 'Alerts', 'Shortcuts', 'Snippets', 'About']
+    const tabs = ['Profile', 'Appearance', 'Security', 'Backup', 'Data', 'Deadlines & reminders', 'About']
     for (const label of tabs) {
       expect(screen.getByRole('tab', { name: new RegExp(`^${label}\\b`, 'i') })).toBeDefined()
     }

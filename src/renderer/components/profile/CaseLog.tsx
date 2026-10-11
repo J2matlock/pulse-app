@@ -23,6 +23,9 @@ import { useFeature } from '../../hooks/useFeature'
 import { FeatureOffer } from '../shared/FeatureOffer'
 import { NoteFiles } from './NoteFiles'
 import type { Attachment } from '../../../shared/attachments'
+import { getNoteDraft, setNoteDraft } from '../../utils/noteDrafts'
+import type { NoteDateUpdate, NoteDateRevert } from '../../../shared/types'
+import { localDateString, parseDbTimestamp } from '../../../shared/dates'
 
 /** Show dates the main process changed (notes that update deadline columns) without a reload. */
 function applyDatesLocally(rowId: number, values: Array<[columnId: number, value: string | null]>): void {
@@ -33,11 +36,52 @@ function applyDatesLocally(rowId: number, values: Array<[columnId: number, value
   pulseEvents.emit('deadline:changed')
 }
 
+/** When a note happened (older entries without occurred_at happened when written) */
+export function happenedAt(e: CaseLogEntryType): string {
+  return e.occurred_at ?? e.created_at
+}
+
+/** Newest first by when it happened, then by when it was written */
+function byHappened(a: CaseLogEntryType, b: CaseLogEntryType): number {
+  return happenedAt(b).localeCompare(happenedAt(a)) || b.created_at.localeCompare(a.created_at) || b.id - a.id
+}
+
+/** "Oct 31" for a YYYY-MM-DD day */
+function shortDay(day: string): string {
+  const [y = NaN, m = NaN, d = NaN] = day.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+/** "Last Visit to Oct 31" for the toast after dates follow a note */
+function datesText(updates: NoteDateUpdate[]): string {
+  const day = updates[0]!.new_value
+  return `${updates.map(u => u.column_name).join(', ')} to ${day === localDateString() ? 'today' : shortDay(day)}`
+}
+
+/** "Also set Last Visit back to Sep 2" after a note is voided or deleted (audit 1.23) */
+function revertedText(reverted: NoteDateRevert[]): string {
+  return `Also set ${reverted.map(r => `${r.column_name} back to ${r.new_value ? shortDay(r.new_value.slice(0, 10)) : 'blank'}`).join(', ')}`
+}
+
+/** Dates main put back or moved again, shown without a reload */
+function showDateChanges(rowId: number, data: unknown): void {
+  const d = (data ?? {}) as { reverted_dates?: NoteDateRevert[]; updated_dates?: NoteDateUpdate[] }
+  const reverted = d.reverted_dates ?? []
+  const updated = d.updated_dates ?? []
+  if (reverted.length) applyDatesLocally(rowId, reverted.map(r => [r.column_id, r.new_value]))
+  if (updated.length) applyDatesLocally(rowId, updated.map(u => [u.column_id, u.new_value]))
+  if (reverted.length) toast.success(revertedText(reverted), { id: 'note-dates' })
+}
+
 interface Props {
   rowId: number
   clientName?: string
   /** Pre-loaded snippets from parent (avoids duplicate fetch when ScratchPad also needs them) */
   snippets?: Snippet[]
+  /** Set to a function that opens the note box and puts the cursor in it ("+ Note") */
+  focusRef?: React.MutableRefObject<(() => void) | null>
+  /** Shown between the note box and the list of past notes (the record page puts deadlines and details there) */
+  between?: React.ReactNode
 }
 
 /** Type chips shown before the rest go into "More…" */
@@ -54,7 +98,7 @@ export function offerFor(text: string, tracking: { trackTime: boolean; trackMile
 
 const NO_FILES: Attachment[] = []
 
-export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props) {
+export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRef, between }: Props) {
   const [offer, setOffer] = useState<'timeTracking' | 'mileage' | null>(null)
   const snippetsOn = useFeature('snippets')
   const { t } = useVocab()
@@ -101,19 +145,37 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
     setNewType(key)
     void safeInvoke(IPC.SETTINGS_UPDATE, 'note_type_last', key)
   }
-  const [newContent, setNewContent] = useState('')
-  const [newFollowUp, setNewFollowUp] = useState('')
-  const [showFollowUp, setShowFollowUp] = useState(false)
+  // An unsaved draft for this record comes back when the record opens again (1.2)
+  const [draft0] = useState(() => getNoteDraft(rowId))
+  const [newContent, setNewContent] = useState(draft0?.content ?? '')
+  const [newFollowUp, setNewFollowUp] = useState(draft0?.followUp ?? '')
+  // The day it happened; empty means today
+  const [newDay, setNewDay] = useState(draft0?.day ?? '')
+  const [showFollowUp, setShowFollowUp] = useState(!!draft0?.followUp)
   const [adding, setAdding] = useState(false)
   const tracking = useNoteTracking()
-  const [newMinutes, setNewMinutes] = useState('')
-  const [newMiles, setNewMiles] = useState('')
+  const [newMinutes, setNewMinutes] = useState(draft0?.minutes ?? '')
+  const [newMiles, setNewMiles] = useState(draft0?.miles ?? '')
   const measures = useMeasures()
-  const [newExtra, setNewExtra] = useState<Record<string, string>>({})
+  const [newExtra, setNewExtra] = useState<Record<string, string>>(draft0?.extra ?? {})
   // Structured formats (DAP, SOAP…): one box per section, saved as one note
   const [customFormats, setCustomFormats] = useState<NoteFormat[]>([])
   const [formatId, setFormatId] = useState('')
-  const [fieldValues, setFieldValues] = useState<string[]>([])
+  const [fieldValues, setFieldValues] = useState<string[]>(draft0?.fieldValues ?? [])
+  // The note box starts as one line, "Add a note…", and opens when used (3.4)
+  const [composerOpen, setComposerOpen] = useState(!!draft0)
+  const openComposer = useCallback(() => {
+    setComposerOpen(true)
+    setTimeout(() => contentRef.current?.focus(), 0)
+  }, [])
+  useEffect(() => {
+    if (!focusRef) return
+    focusRef.current = openComposer
+    return () => { focusRef.current = null }
+  }, [focusRef, openComposer])
+  useEffect(() => {
+    setNoteDraft(rowId, { content: newContent, fieldValues, followUp: newFollowUp, minutes: newMinutes, miles: newMiles, extra: newExtra, day: newDay })
+  }, [rowId, newContent, fieldValues, newFollowUp, newMinutes, newMiles, newExtra, newDay])
   const [editingFormats, setEditingFormats] = useState(false)
   const allFormats = [...BUILTIN_NOTE_FORMATS, ...customFormats]
   const format = allFormats.find(f => f.id === formatId)
@@ -148,25 +210,43 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
     void safeInvoke(IPC.SETTINGS_UPDATE, 'note_format_last', id)
   }
 
+  // Search and sort run in the database so they cover every note, not just the
+  // loaded page (1.31). The box is debounced so each keystroke isn't a query.
+  const [query, setQuery] = useState('')
+  useEffect(() => {
+    const id = setTimeout(() => setQuery(search.trim()), 250)
+    return () => clearTimeout(id)
+  }, [search])
+  const [total, setTotal] = useState<number | null>(null)
+  // One timeline (3.4): notes by default; changes the app made, one kind, or voided notes on request
+  const [show, setShow] = useState<string>('notes')
+  const [showVoided, setShowVoided] = useState(false)
+  const includeSystem = show === 'everything' || show === 'changes'
+  const kindFilter = show === 'changes' ? 'system' : show === 'notes' || show === 'everything' ? undefined : show
   const load = useCallback(async () => {
     setLoading(true)
-    const res = await safeInvoke<CaseLogEntryType[]>(IPC.CASE_LOG_GET, rowId, false, false, PAGE_SIZE + 1, 0)
+    const opts = { query, oldestFirst, ...(kindFilter ? { logType: kindFilter } : {}) }
+    const [res, count] = await Promise.all([
+      safeInvoke<CaseLogEntryType[]>(IPC.CASE_LOG_GET, rowId, includeSystem, showVoided, PAGE_SIZE + 1, 0, opts),
+      safeInvoke<number>(IPC.CASE_LOG_COUNT, rowId, includeSystem, showVoided, opts),
+    ])
     if (res.ok) {
       const data = res.data
       setHasMore(data.length > PAGE_SIZE)
       setEntries(data.slice(0, PAGE_SIZE))
     }
+    setTotal(count.ok ? count.data : null)
     setLoading(false)
-  }, [rowId, PAGE_SIZE])
+  }, [rowId, PAGE_SIZE, query, oldestFirst, includeSystem, showVoided, kindFilter])
 
   const loadMore = useCallback(async () => {
-    const res = await safeInvoke<CaseLogEntryType[]>(IPC.CASE_LOG_GET, rowId, false, false, PAGE_SIZE + 1, entries.length)
+    const res = await safeInvoke<CaseLogEntryType[]>(IPC.CASE_LOG_GET, rowId, includeSystem, showVoided, PAGE_SIZE + 1, entries.length, { query, oldestFirst, ...(kindFilter ? { logType: kindFilter } : {}) })
     if (res.ok) {
       const data = res.data
       setHasMore(data.length > PAGE_SIZE)
       setEntries(prev => [...prev, ...data.slice(0, PAGE_SIZE)])
     }
-  }, [rowId, entries.length, PAGE_SIZE])
+  }, [rowId, entries.length, PAGE_SIZE, query, oldestFirst, includeSystem, showVoided, kindFilter])
 
   useEffect(() => { load() }, [load])
 
@@ -213,7 +293,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         setSelectedIndex(i => Math.max(i - 1, 0))
         return
       }
-      if (e.key === 'Tab' || (e.key === 'Enter' && !isMod(e))) {
+      // Enter picks a snippet only once one was chosen with the arrow keys; otherwise it's a new line
+      if (e.key === 'Tab' || (e.key === 'Enter' && !isMod(e) && selectedIndexRef.current >= 0)) {
         e.preventDefault()
         const idx = selectedIndexRef.current >= 0 ? selectedIndexRef.current : 0
         applySnippet(menu.items[idx]!)
@@ -263,17 +344,19 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         minutes: tracking.trackTime && newMinutes.trim() ? Math.round(Number(newMinutes)) : null,
         miles: tracking.trackMileage && newMiles.trim() ? Number(newMiles) : null,
         extra: Object.fromEntries(measures.active.filter(d => newExtra[d.key]?.trim()).map(d => [d.key, Number(newExtra[d.key])])),
-      }
+      },
+      newDay && newDay !== localDateString() ? newDay : null
     )
     if (res.ok) {
       // Time or miles written into the text, while those boxes are off: offer them
       setOffer(offerFor(composedContent, tracking))
       const { updated_dates: updatedDates = [], ...created } = res.data
-      setEntries(prev => [created, ...prev])
+      setEntries(prev => [created, ...prev].sort(byHappened))
       if (updatedDates.length > 0) {
         applyDatesLocally(rowId, updatedDates.map(u => [u.column_id, u.new_value]))
-        toast.success(`Also updated ${updatedDates.map(u => u.column_name).join(', ')} to today`, { id: 'note-dates' })
+        toast.success(`Also updated ${datesText(updatedDates)}`, { id: 'note-dates' })
       }
+      setNewDay('')
       setNewContent('')
       setFieldValues([])
       setNewMinutes('')
@@ -288,17 +371,16 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         timestamp: Date.now(),
         category: 'logged',
         icon: 'plus',
+        // Removing the note puts back the dates it moved, and restoring it moves them again (main does both)
         undo: async () => {
           // Past the delete window, undo voids the note instead (it stays in the record)
-          const res = await safeInvoke(IPC.CASE_LOG_DELETE, created.id)
-          if (!res.ok) await safeInvoke(IPC.CASE_LOG_VOID, created.id, 'Undone')
-          for (const u of updatedDates) await safeInvoke(IPC.CELL_UPDATE, rowId, u.column_id, u.old_value)
-          applyDatesLocally(rowId, updatedDates.map(u => [u.column_id, u.old_value]))
+          let res = await safeInvoke(IPC.CASE_LOG_DELETE, created.id)
+          if (!res.ok) res = await safeInvoke(IPC.CASE_LOG_VOID, created.id, 'Undone')
+          if (res.ok) showDateChanges(rowId, res.data)
         },
         redo: async () => {
-          await safeInvoke(IPC.CASE_LOG_RESTORE, created)
-          for (const u of updatedDates) await safeInvoke(IPC.CELL_UPDATE, rowId, u.column_id, u.new_value)
-          applyDatesLocally(rowId, updatedDates.map(u => [u.column_id, u.new_value]))
+          const res = await safeInvoke(IPC.CASE_LOG_RESTORE, created)
+          if (res.ok) showDateChanges(rowId, res.data)
         },
       })
     } else {
@@ -318,8 +400,34 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
       : e))
   }
 
+  /** Correct the day a note happened; the day before is kept in its edit history */
+  async function handleSetDay(id: number, day: string) {
+    const entry = entries.find(e => e.id === id)
+    if (!entry) return
+    const prevDay = localDateString(parseDbTimestamp(happenedAt(entry)))
+    const setDay = async (to: string): Promise<boolean> => {
+      const res = await safeInvoke<{ occurred_at: string; updated_dates: NoteDateUpdate[]; reverted_dates: NoteDateRevert[] }>(IPC.CASE_LOG_SET_OCCURRED, id, to)
+      if (!res.ok) { toast.error(res.error); return false }
+      setEntries(prev => prev.map(e => e.id === id ? { ...e, occurred_at: res.data.occurred_at } : e).sort(byHappened))
+      showDateChanges(rowId, res.data)
+      if (res.data.updated_dates.length > 0) toast.success(`Also updated ${datesText(res.data.updated_dates)}`, { id: 'note-dates' })
+      return true
+    }
+    if (!await setDay(day)) return
+    useUndoStore.getState().push({
+      id: crypto.randomUUID(),
+      description: `Changed the day of ${t('activity', { article: true })}`,
+      timestamp: Date.now(),
+      category: 'logged',
+      icon: 'edit',
+      undo: async () => { await setDay(prevDay) },
+      redo: async () => { await setDay(day) },
+    })
+  }
+
   async function handlePin(id: number, pinned: boolean) {
-    await safeInvoke(IPC.CASE_LOG_TOGGLE_PIN, id, pinned)
+    const res = await safeInvoke(IPC.CASE_LOG_TOGGLE_PIN, id, pinned)
+    if (!res.ok) { toast.error(`We couldn't ${pinned ? 'pin' : 'unpin'} that ${t('activity')} — try again`); return }
     setEntries(prev => prev.map(e => e.id === id ? { ...e, is_pinned: pinned ? 1 : 0 } : e))
     useUndoStore.getState().push({
       id: crypto.randomUUID(),
@@ -336,11 +444,13 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
     })
   }
 
-  async function handleEdit(id: number, content: string) {
+  /** Returns false when the change wasn't saved, so the editor stays open with it. */
+  async function handleEdit(id: number, content: string): Promise<boolean> {
     const entry = entries.find(e => e.id === id)
     const prevContent = entry?.content ?? ''
     const res = await safeInvoke(IPC.CASE_LOG_UPDATE, id, content)
-    if (res.ok) {
+    if (!res.ok) { toast.error(`We couldn't save your changes to that ${t('activity')} — try again`); return false }
+    {
       const now = new Date().toISOString()
       setEntries(prev => prev.map(e => e.id === id ? { ...e, content, updated_at: now } : e))
       useUndoStore.getState().push({
@@ -357,6 +467,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         },
       })
     }
+    return true
   }
 
   async function handleDelete(id: number) {
@@ -364,6 +475,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
     const res = await safeInvoke(IPC.CASE_LOG_DELETE, id)
     if (!res.ok) { toast.error(res.error); return }
     setEntries(prev => prev.filter(e => e.id !== id))
+    showDateChanges(rowId, res.data)
     if (entry) {
       useUndoStore.getState().push({
         id: crypto.randomUUID(),
@@ -372,10 +484,12 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         category: 'logged',
         icon: 'trash',
         undo: async () => {
-          await safeInvoke(IPC.CASE_LOG_RESTORE, entry)
+          const back = await safeInvoke(IPC.CASE_LOG_RESTORE, entry)
+          if (back.ok) showDateChanges(rowId, back.data)
         },
         redo: async () => {
-          await safeInvoke(IPC.CASE_LOG_DELETE, id)
+          const again = await safeInvoke(IPC.CASE_LOG_DELETE, id)
+          if (again.ok) showDateChanges(rowId, again.data)
         },
       })
     }
@@ -385,21 +499,42 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
     const res = await safeInvoke(IPC.CASE_LOG_VOID, id, reason)
     if (!res.ok) { toast.error("We couldn't void that note. Please try again."); return }
     setEntries(prev => prev.filter(e => e.id !== id))
+    showDateChanges(rowId, res.data)
     useUndoStore.getState().pushWithToast({
       id: crypto.randomUUID(),
       description: `Voided ${t('activity')}`,
       timestamp: Date.now(),
       category: 'logged',
       icon: 'trash',
-      undo: async () => { await safeInvoke(IPC.CASE_LOG_UNVOID, id) },
-      redo: async () => { await safeInvoke(IPC.CASE_LOG_VOID, id, reason) },
+      undo: async () => { const r = await safeInvoke(IPC.CASE_LOG_UNVOID, id); if (r.ok) showDateChanges(rowId, r.data) },
+      redo: async () => { const r = await safeInvoke(IPC.CASE_LOG_VOID, id, reason); if (r.ok) showDateChanges(rowId, r.data) },
+    })
+  }
+
+  async function handleRestore(id: number) {
+    const entry = entries.find(e => e.id === id)
+    const res = await safeInvoke(IPC.CASE_LOG_UNVOID, id, { logRestore: true })
+    if (!res.ok) { toast.error(`We couldn't restore that ${t('activity')} — try again`); return }
+    setEntries(prev => prev.map(e => e.id === id ? { ...e, voided_at: null, voided_reason: null } : e))
+    // Counting again, it moves its dates again (Track B)
+    showDateChanges(rowId, res.data)
+    const reason = entry?.voided_reason ?? 'Voided'
+    useUndoStore.getState().pushWithToast({
+      id: crypto.randomUUID(),
+      description: `Restored ${t('activity')}`,
+      timestamp: Date.now(),
+      category: 'logged',
+      icon: 'undo',
+      undo: async () => { const r = await safeInvoke(IPC.CASE_LOG_VOID, id, reason); if (r.ok) showDateChanges(rowId, r.data) },
+      redo: async () => { const r = await safeInvoke(IPC.CASE_LOG_UNVOID, id); if (r.ok) showDateChanges(rowId, r.data) },
     })
   }
 
   async function handleCompleteFollowUp(id: number) {
     const res = await safeInvoke<{ sysLogId: number | null }>(IPC.CASE_LOG_COMPLETE_FOLLOWUP, id)
+    if (!res.ok) { toast.error('We couldn\'t mark that follow-up done — try again'); return }
     setEntries(prev => prev.map(e => e.id === id ? { ...e, follow_up_completed: 1 } : e))
-    if (res.ok) {
+    {
       const { sysLogId } = res.data
       const sideEffects = sysLogId ? [{ type: 'void_case_log' as const, caseLogId: sysLogId }] : undefined
       useUndoStore.getState().push({
@@ -420,45 +555,26 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
     }
   }
 
-  // Filter + sort
-  const filtered = entries.filter(e =>
-    !search || e.content.toLowerCase().includes(search.toLowerCase())
-  )
-
+  // Already searched and sorted by the database
+  const filtered = entries
   const pinned = filtered.filter(e => e.is_pinned === 1)
-  const unpinned = filtered.filter(e => e.is_pinned !== 1)
-
-  const sortedUnpinned = oldestFirst
-    ? [...unpinned].sort((a, b) => a.created_at.localeCompare(b.created_at))
-    : unpinned  // already newest-first from DB
+  // Sorted by the database, by the day each happened (a visit written up later sits on its own day)
+  const sortedUnpinned = filtered.filter(e => e.is_pinned !== 1)
+  const shownTotal = total ?? entries.length
 
   return (
-    <section className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-        <MessageSquare className="w-4 h-4 text-slate-500 flex-shrink-0" />
-        <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300 flex-1">
-          {t('activityLog', { cap: true })}
-          {entries.length > 0 && (
-            <span className="ml-2 text-sm font-normal text-slate-500 dark:text-slate-400">({entries.length})</span>
-          )}
-        </h2>
-
-        {/* Sort toggle */}
-        <button
-          onClick={() => setOldestFirst(p => !p)}
-          title={oldestFirst ? 'Showing oldest first' : 'Showing newest first'}
-          className="hit-44 flex items-center gap-1 px-2 py-1 rounded-sm text-base text-slate-500
-                     hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors
-                     focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-        >
-          <ArrowUpDown className="w-3.5 h-3.5" />
-          {oldestFirst ? 'Oldest first' : 'Newest first'}
+    <>
+    {/* The note box comes first on the record page (3.4); past notes follow further down */}
+    <section aria-label={`New ${t('activity')}`} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+      {!composerOpen && (
+        <button type="button" onClick={openComposer}
+          className="w-full text-left px-4 text-base text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+          style={{ minHeight: 52 }}>
+          <Plus className="inline w-4 h-4 mr-2" aria-hidden="true" />Add {t('activity', { article: true })}…
         </button>
-      </div>
-
+      )}
       {/* Quick-add form */}
-      <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700/50 space-y-2">
+      <div className={`px-4 py-3 space-y-2${composerOpen ? '' : ' hidden'}`} data-testid="note-composer">
         {/* Type selector: the first few as chips, the rest under "More…" */}
         <div className="flex gap-1 flex-wrap" role="group" aria-label={`Kind of ${t('activity')}`}>
           {visibleTypes.map(type => (
@@ -508,7 +624,18 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor={`note-day-${rowId}`} className="text-base text-slate-600 dark:text-slate-300">When</label>
+          <input id={`note-day-${rowId}`} type="date" className="input w-auto" max={localDateString()}
+            value={newDay || localDateString()} onChange={e => setNewDay(e.target.value)}
+            title="The day it happened, if that wasn't today" />
+          {newDay && newDay !== localDateString() && (
+            <button type="button" onClick={() => setNewDay('')}
+              className="hit-44 text-base text-blue-700 dark:text-blue-300 hover:underline rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+              Today
+            </button>
+          )}
+          <span className="w-2" aria-hidden />
           <label htmlFor={`note-format-${rowId}`} className="text-base text-slate-600 dark:text-slate-300">Format</label>
           <select id={`note-format-${rowId}`} className="input w-auto" value={formatId} onChange={e => chooseFormat(e.target.value)}>
             <option value="">Free text</option>
@@ -575,12 +702,12 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
                 </button>
               ))}
               <div className="px-3 py-1 border-t border-slate-100 dark:border-slate-700 mt-1">
-                <span className="text-sm text-slate-500 dark:text-slate-400">↑↓ navigate · Tab/Enter select · Esc dismiss</span>
+                <span className="text-base text-slate-500 dark:text-slate-400">Tab inserts · ↑↓ then Enter to pick another · Esc closes</span>
               </div>
             </div>
           )}
         </div>
-        <p className="text-xs text-slate-500 dark:text-slate-400">Type / to insert a snippet</p>
+        {snippetsOn && <p className="text-base text-slate-500 dark:text-slate-400">Type / to insert a snippet</p>}
         </>}
 
         {(tracking.trackTime || tracking.trackMileage || measures.active.length > 0) && (
@@ -645,6 +772,51 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         )}
       </div>
 
+    </section>
+
+    {between}
+
+    <section className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+      {/* Header */}
+      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+        <MessageSquare className="w-4 h-4 text-slate-500 flex-shrink-0" />
+        <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300 flex-1">
+          {t('activityLog', { cap: true })}
+          {(shownTotal > 0 || query) && (
+            <span className="ml-2 text-base font-normal text-slate-500 dark:text-slate-400">({query ? `${shownTotal} found` : shownTotal})</span>
+          )}
+        </h2>
+
+        {/* Sort toggle */}
+        <button
+          onClick={() => setOldestFirst(p => !p)}
+          title={oldestFirst ? 'Showing oldest first' : 'Showing newest first'}
+          className="hit-44 flex items-center gap-1 px-2 py-1 rounded-sm text-base text-slate-500
+                     hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors
+                     focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+        >
+          <ArrowUpDown className="w-3.5 h-3.5" />
+          {oldestFirst ? 'Oldest first' : 'Newest first'}
+        </button>
+      </div>
+
+      {/* What the timeline shows */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 border-b border-slate-100 dark:border-slate-700/50">
+        <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200">
+          Show:
+          <select className="input w-auto" value={show} onChange={e => setShow(e.target.value)} aria-label="What to show">
+            <option value="notes">All {t('activity', { many: true })}</option>
+            <option value="everything">{t('activity', { many: true, cap: true })} and changes</option>
+            <option value="changes">Changes only</option>
+            {activity.all.map(k => <option key={k.key} value={k.key}>{k.label}{k.is_archived ? ' (archived)' : ''}</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-200 cursor-pointer">
+          <input type="checkbox" className="w-5 h-5" checked={showVoided} onChange={e => setShowVoided(e.target.checked)} />
+          Show voided {t('activity', { many: true })}
+        </label>
+      </div>
+
       {/* Search */}
       <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50">
         <div className="relative">
@@ -692,8 +864,10 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
                     onDelete={handleDelete}
                     onVoid={handleVoid}
                     onCompleteFollowUp={handleCompleteFollowUp}
+                onRestore={handleRestore}
                     tracking={tracking}
                     onSetMeasures={handleSetMeasures}
+                    onSetDay={handleSetDay}
                   />
                   {filesOn && <NoteFiles rowId={rowId} noteId={entry.id} files={filesByNote.get(entry.id) ?? NO_FILES} canAttach={entry.log_type !== 'system' && !entry.voided_at} />}
                 </div>
@@ -713,15 +887,18 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
                 onDelete={handleDelete}
                 onVoid={handleVoid}
                 onCompleteFollowUp={handleCompleteFollowUp}
+                onRestore={handleRestore}
                 tracking={tracking}
                 onSetMeasures={handleSetMeasures}
+                onSetDay={handleSetDay}
               />
               {filesOn && <NoteFiles rowId={rowId} noteId={entry.id} files={filesByNote.get(entry.id) ?? NO_FILES} canAttach={entry.log_type !== 'system' && !entry.voided_at} />}
             </div>
           ))}
         </div>
-        {hasMore && !search && (
-          <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700">
+        {hasMore && (
+          <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700 flex flex-wrap items-center gap-3">
+            {total != null && <span className="text-base text-slate-600 dark:text-slate-300">Showing {entries.length} of {total}</span>}
             <button
               onClick={() => void loadMore()}
               className="hit-44 text-base text-blue-600 dark:text-blue-400 hover:underline"
@@ -738,5 +915,6 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         }} />
       )}
     </section>
+    </>
   )
 }

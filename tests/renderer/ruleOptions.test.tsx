@@ -27,7 +27,7 @@ describe('meter reading dialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mark done' }))
     expect(onSave).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Mark done anyway' }))
-    expect(onSave).toHaveBeenCalledWith(4521)
+    expect(onSave).toHaveBeenCalledWith(4521, undefined)
   })
 })
 

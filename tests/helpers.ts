@@ -54,6 +54,7 @@ import { up as migration040 } from '../src/main/migrations/040_appointments'
 import { up as migration041 } from '../src/main/migrations/041_forms'
 import { up as migration042 } from '../src/main/migrations/042_attachments'
 import { up as migration043 } from '../src/main/migrations/043_report_definitions'
+import { up as migration044 } from '../src/main/migrations/044_note_occurred_at'
 import { up as migration046 } from '../src/main/migrations/046_deadline_done'
 
 const TEST_PASSWORD = 'test-key-hex-0123456789abcdef'
@@ -127,6 +128,7 @@ export function createTestDb(): TestDb {
   migration041(db)
   migration042(db)
   migration043(db)
+  migration044(db)
   migration046(db)
 
   return { db, dbPath, tmpDir }
@@ -220,6 +222,7 @@ export const allMigrations = [
   { version: 41, up: migration041 },
   { version: 42, up: migration042 },
   { version: 43, up: migration043 },
+  { version: 44, up: migration044 },
   { version: 46, up: migration046 },
 ]
 
