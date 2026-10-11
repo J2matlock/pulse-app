@@ -104,7 +104,17 @@ describe('placeholders that used to print the wrong thing or nothing', () => {
     addLink(owner.id, vehicles.rowIds[0]!, customers.rowIds[0]!)
     const att = t.db.prepare("INSERT INTO attachments (row_id, file_name, mime_type, size_bytes, sha256, deleted_at) VALUES (?, 'a.pdf', 'application/pdf', 1, 'x', ?)")
     att.run(vehicles.rowIds[0], null); att.run(vehicles.rowIds[0], null); att.run(vehicles.rowIds[0], '2026-01-01')
-    expect(fill('{{field:Age}}|{{field:Until service}}|{{field:Files}}|{{field:Owner}}')).toEqual({ text: '25|12 days overdue|2|Jane Smith', unknown: [] })
+    // "Last service" Sep 20 has a 30-day rule: due Oct 20, 18 days after Oct 2, as the list says (AUDIT-027)
+    expect(fill('{{field:Age}}|{{field:Until service}}|{{field:Files}}|{{field:Owner}}')).toEqual({ text: '25|18 days|2|Jane Smith', unknown: [] })
+    expect(fill('{{until_service}}').text).toBe('18 days')
+  })
+
+  it('a Days-until column counts to the date itself when the date has no deadline rule', () => {
+    addCol(vehicles.gridId, 'Until birthday', 'calculated_days', JSON.stringify({ source_column_id: vehicles.columnIds[1]! }))
+    t.db.prepare('UPDATE cells SET value = ? WHERE column_id = ?').run('2026-10-05', vehicles.columnIds[1]!)
+    expect(fill('{{field:Until birthday}}').text).toBe('3 days')
+    t.db.prepare('UPDATE cells SET value = ? WHERE column_id = ?').run('2026-10-02', vehicles.columnIds[1]!)
+    expect(fill('{{field:Until birthday}}').text).toBe('Due today')
   })
 
   it('a linked column whose name has dots ("D.O.B.") fills in', () => {
