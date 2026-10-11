@@ -36,6 +36,7 @@ export const IPC = {
   ROW_GET_DELETED: 'row:get-deleted',
   ROW_GET: 'row:get',
   ROW_MOVE_TO_GRID: 'row:move-to-grid',
+  ROW_PURGE_ALL: 'row:purge-all',
   ROW_COPY_TO_GRID: 'row:copy-to-grid',
   ROW_GET_MANUAL_CONTACTS: 'row:get-manual-contacts',
   ROW_SET_MANUAL_CONTACTS: 'row:set-manual-contacts',

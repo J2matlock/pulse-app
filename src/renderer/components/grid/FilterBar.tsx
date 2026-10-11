@@ -8,7 +8,7 @@ import { dropdownVariants } from '../../utils/animations'
 import { ROW_TAG_COLUMN_ID, type ColumnFilter, type GridRow } from '../../../shared/types'
 import { parseLinkValue, type LinkChip } from '../../../shared/links'
 import { Tooltip } from '../shared/Tooltip'
-import { localDateString } from '../../../shared/dates'
+import { TODAY_TOKEN } from '../../utils/filterMatch'
 import { useVocab } from '../../hooks/useVocab'
 const ROW_TAG_OPS: FilterOperator[] = ['contains', 'not_contains', 'is_empty', 'is_not_empty']
 
@@ -82,7 +82,7 @@ const PRESETS_BY_TYPE: Record<string, FilterPreset[]> = {
     { label: 'Is empty', op: 'is_empty' },
   ],
   date: [
-    { label: 'In the past', op: 'before', value: localDateString() },
+    { label: 'In the past', op: 'before', value: TODAY_TOKEN },
     { label: 'Is empty', op: 'is_empty' },
   ],
   checkbox: [
@@ -121,6 +121,7 @@ function linkTargets(rows: GridRow[], columnId: number): LinkChip[] {
 }
 
 function filterValueLabel(f: ColumnFilter, rows: GridRow[]): string {
+  if (f.value === TODAY_TOKEN) return 'today'
   if (f.operator !== 'links_to') return f.value
   return linkTargets(rows, f.columnId).find(c => String(c.rowId) === f.value)?.name ?? f.value
 }

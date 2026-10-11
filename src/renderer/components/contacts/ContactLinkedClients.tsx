@@ -7,6 +7,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
 import { getClientName } from '../../utils/clientName'
 import { useVocab } from '../../hooks/useVocab'
+import { parseDbTimestamp } from '../../../shared/dates'
 
 interface Props {
   providerId: number
@@ -95,7 +96,7 @@ export function ContactLinkedClients({ providerId }: Props) {
 
   function formatDate(dateStr: string): string {
     try {
-      const d = new Date(dateStr)
+      const d = parseDbTimestamp(dateStr)
       return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
     } catch {
       return dateStr

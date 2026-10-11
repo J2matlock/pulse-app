@@ -177,6 +177,7 @@ export interface IPCContract {
   'row:bulk-action':         { args: [action: 'archive' | 'unarchive' | 'delete' | 'restore', rowIds: number[]];           return: number }
   'row:hard-delete':         { args: [rowId: number];                                                                      return: true }
   'row:restore-deleted':     { args: [rowId: number];                                                                      return: true }
+  'row:purge-all':           { args: [];                                                                                   return: number }
   'row:purge':               { args: [rowId: number];                                                                      return: true }
   'row:get-deleted':         { args: [];                                                                                   return: DeletedRow[] }
   'row:get':                 { args: [gridId: number, rowId: number];                                                      return: GridRow }

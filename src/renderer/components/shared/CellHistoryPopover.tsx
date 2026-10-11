@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { Clock } from 'lucide-react';
 import { IPC } from '../../../shared/ipc-channels';
+import { parseDbTimestamp } from '../../../shared/dates';
 import { safeInvoke } from '../../utils/safeInvoke';
 import { dropdownVariants } from '../../utils/animations';
 
@@ -21,7 +22,8 @@ interface CellHistoryPopoverProps {
 }
 
 function formatRelativeTime(dateStr: string): string {
-  const date = new Date(dateStr);
+  // SQLite times are UTC with no zone mark (L-29)
+  const date = parseDbTimestamp(dateStr);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffSec = Math.floor(diffMs / 1000);

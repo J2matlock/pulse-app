@@ -675,6 +675,16 @@ describe('IPC Row — SEARCH_CLIENTS_CROSS_GRID', () => {
   })
 })
 
+describe('IPC Row — ROW_PURGE_ALL', () => {
+  it('empties the Trash in one call and leaves everything else (X-38)', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 3, columnCount: 1 })
+    testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now') WHERE id IN (?, ?)").run(rowIds[0], rowIds[1])
+    const result = await invoke(IPC.ROW_PURGE_ALL) as any
+    expect(result).toEqual({ ok: true, data: 2 })
+    expect(testDb.db.prepare('SELECT id FROM rows').all()).toEqual([{ id: rowIds[2] }])
+  })
+})
+
 describe('IPC Row — handler registration', () => {
   it('registers all row channels', () => {
     const channels = [

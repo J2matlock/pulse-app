@@ -6,6 +6,10 @@
 import type { GridRow, Column, ColumnFilter } from '../../shared/types'
 import { ROW_TAG_COLUMN_ID } from '../../shared/types'
 import { linkValueText, parseLinkValue } from '../../shared/links'
+import { localDateString } from '../../shared/dates'
+
+/** A date filter value meaning "the day it's checked", so a saved "in the past" never freezes (G-40) */
+export const TODAY_TOKEN = '@today'
 
 export function matchFilter(
   row: GridRow,
@@ -39,7 +43,7 @@ export function matchFilter(
   const cellVal = col?.column_type === 'checkbox'
     ? ((rawVal === 'true' || rawVal === '1') ? 'true' : 'false')
     : rawVal
-  const v = filter.value
+  const v = filter.value === TODAY_TOKEN ? localDateString() : filter.value
   switch (filter.operator) {
     case 'is_empty':      return originalVal == null || originalVal === ''
     case 'is_not_empty':  return originalVal != null && originalVal !== ''

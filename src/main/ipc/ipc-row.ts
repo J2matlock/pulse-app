@@ -400,6 +400,13 @@ export function registerRowHandlers(): void {
     return ok(true)
   })
 
+  // Empty Trash: every record in the Trash, for good, in one transaction (X-38)
+  secureWrap(IPC.ROW_PURGE_ALL, 'ipc-row', () => {
+    const guard = enforceWritable(); if (guard) return guard
+    const info = getDb().transaction(() => getDb().prepare('DELETE FROM rows WHERE deleted_at IS NOT NULL').run())()
+    return ok(info.changes)
+  })
+
   secureWrap(IPC.ROW_GET_DELETED, 'ipc-row', () => {
     const rows = cachedStmt('row_get_deleted_v2', `
       SELECT r.id, r.grid_id, r.deleted_at, g.name AS grid_name,

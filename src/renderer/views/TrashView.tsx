@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { EmptyState } from '../components/shared/EmptyState'
 import { MS_PER_DAY } from '../../shared/constants'
 import { rlog } from '../utils/rendererLogger'
+import toast from 'react-hot-toast'
 import { parseDbTimestamp } from '../../shared/dates'
 import { useVocab, useVocabByList } from '../hooks/useVocab'
 import { useFeature } from '../hooks/useFeature'
@@ -64,26 +65,18 @@ export default function TrashView() {
     }
   }
 
+  // One call, one transaction (X-38)
   const emptyTrash = async () => {
-    const failed: number[] = []
-    for (const row of rows) {
-      try {
-        const result = await safeInvoke(IPC.ROW_PURGE, row.id)
-        if (!result.ok) failed.push(row.id)
-      } catch {
-        failed.push(row.id)
-      }
-    }
-    if (failed.length > 0) {
-      setRows(r => r.filter(row => failed.includes(row.id)))
-      rlog.error('TrashView', `Failed to purge ${failed.length} row(s)`)
-    } else {
-      setRows([])
+    const result = await safeInvoke(IPC.ROW_PURGE_ALL)
+    if (result.ok) setRows([])
+    else {
+      rlog.error('TrashView', 'Failed to empty trash', result.error)
+      toast.error("We couldn't empty the Trash. Please try again.")
     }
   }
 
   function daysRemaining(deletedAt: string): number {
-    const deletedMs = new Date(deletedAt).getTime()
+    const deletedMs = parseDbTimestamp(deletedAt).getTime()
     const nowMs = Date.now()
     const ageInDays = Math.floor((nowMs - deletedMs) / MS_PER_DAY)
     return Math.max(0, 30 - ageInDays)

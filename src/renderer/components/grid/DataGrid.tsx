@@ -30,6 +30,7 @@ import { useProfileStore } from '../../stores/profileStore'
 import type { GridRow, SortConfig, CellFormatRule } from '../../../shared/types'
 import { matchFilter } from '../../utils/filterMatch'
 import { computeDaysUntil } from '../../utils/deadlineCalc'
+import { deadlineCompare, numberCompare, dateCompare } from './gridSort'
 import { CellConditionalFormatPanel } from './CellConditionalFormatPanel'
 import { CellHistoryPopover } from '../shared/CellHistoryPopover'
 import { getClientName } from '../../utils/clientName'
@@ -58,7 +59,7 @@ import { BulkEditDialog } from './BulkEditDialog'
 import { GridLoadingSkeleton, GridEmptyColumns } from './GridLoadingState'
 import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
-import { ACUITY_GROUP_KEY, isNotTypedColumnType } from '../../../shared/types'
+import { ACUITY_GROUP_KEY, isNotTypedColumnType, takesDeadlineRule } from '../../../shared/types'
 
 // Stateless column helper — no dependency on props/state, safe at module level
 const columnHelper = createColumnHelper<GridRow>()
@@ -405,6 +406,12 @@ export function DataGrid(): React.ReactElement {
       const compCfg = (isCalcDays || isAge)
         ? (parsedColumnConfigs.get(col.id)?.config as { source_column_id?: number } | undefined) ?? {}
         : null
+      // A column with a deadline rule sorts by when it's due, like its colors (G-11)
+      const ruleId = takesDeadlineRule(col.column_type) ? (parsedColumnConfigs.get(col.id)?.config as { alert_rule_id?: number } | undefined)?.alert_rule_id : undefined
+      const deadlineRule = ruleId !== undefined ? alertRuleMap.get(ruleId) : undefined
+      const byDeadline = deadlineRule ? deadlineCompare(col.id, deadlineRule) : null
+      const byNumber = numberCompare(col.id)
+      const byDate = dateCompare(col.id)
 
       return columnHelper.accessor(`col_${col.id}` as keyof GridRow, {
         id: `col_${col.id}`,
@@ -437,6 +444,9 @@ export function DataGrid(): React.ReactElement {
               if (bDate == null) return -1
               return aDate.localeCompare(bDate)
             }
+          : deadlineRule ? (rowA, rowB) => byDeadline!(rowA.original, rowB.original)
+          : (col.column_type === 'number' || col.column_type === 'currency') ? (rowA, rowB) => byNumber(rowA.original, rowB.original)
+          : col.column_type === 'date' ? (rowA, rowB) => byDate(rowA.original, rowB.original)
           : (rowA, rowB, colId) => {
               // Link columns (W04) sort by the linked names, not the stored ids
               const a = isLink ? linkValueText(rowA.getValue(colId) as string | null) || null : rowA.getValue(colId) as string | null
@@ -453,7 +463,7 @@ export function DataGrid(): React.ReactElement {
         maxSize: 800,
       })
     })]
-  }, [columns, acuityEnabled, acuityLevels])
+  }, [columns, acuityEnabled, acuityLevels, alertRuleMap])
 
   // Custom global filter: only search name + text/dropdown columns
   const globalFilterFn = useCallback((row: Row<GridRow>, _columnId: string, filterValue: string) => {
