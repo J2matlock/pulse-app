@@ -65,6 +65,8 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
     } catch { return storedDateFormatted }
   })()
 
+  // "IFSP meeting (step 1 of 4)" → "IFSP meeting"
+  const stepName = ruleKind === 'sequence' && deadline.label ? deadline.label.replace(/ \((step|repeat) [^)]*\)$/, '') : null
   const tooltip = deadline.detail && ruleKind !== 'interval' ? deadline.detail : formatDeadlineTooltip(dateValue, ruleInterval, daysUntil)
 
   async function markDone(reading?: number) {
@@ -112,6 +114,8 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
         <div className="text-sm text-slate-600 dark:text-slate-300 truncate">
           {gridName}
           {recurring ? <span className="ml-2">· based on {storedDateFormatted}</span> : null}
+          {/* Which step, how many are used, how much use is left (D-08) */}
+          {ruleKind !== 'interval' && deadline.label && !usedUp ? <span className="ml-2">· {deadline.label}</span> : null}
         </div>
       </div>
       <div className="flex-shrink-0 text-right">
@@ -157,12 +161,12 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
             : startsNextCycle(ruleInterval)
             ? 'Mark done: sets the date to today, which starts the next cycle'
             : 'Mark done: clears the date. Enter a new date in the grid to bring it back.'}
-          aria-label="Mark done"
+          aria-label={stepName ? `Mark ${stepName} done` : 'Mark done'}
           className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 text-sm font-medium transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500 disabled:opacity-50"
           style={{ minHeight: 36 }}
         >
           <CheckCircle2 className="w-3.5 h-3.5" />
-          Done
+          {stepName ? `Mark ${stepName} done` : 'Done'}
         </button>
       )}
       {extending && (

@@ -403,12 +403,10 @@ describe('DashboardView', () => {
     const priorityTab = screen.getByRole('tab', { name: /Priority List/i })
     expect(priorityTab).toBeDefined()
     expect(priorityTab.getAttribute('aria-selected')).toBe('true')
-    expect(screen.getByRole('tab', { name: /Recently Archived/i })).toBeDefined()
-    // "Overdue" appears in both top tabs and filter tabs
-    expect(screen.getAllByRole('tab', { name: /^Overdue$/i }).length).toBeGreaterThanOrEqual(1)
-    const allTabs = screen.getAllByRole('tab')
-    // Top tabs (5) + filter tabs (2) = 7 total
-    expect(allTabs.length).toBe(7)
+    // Recently archived is a link now, and Overdue is one tab, not two (D-21)
+    expect(screen.getByRole('button', { name: /Recently archived/i })).toBeDefined()
+    expect(screen.getAllByRole('tab', { name: /^Overdue$/i }).length).toBe(1)
+    expect(screen.getAllByRole('tab').length).toBe(4)
   })
 
   it('renders search input on Priority List tab', async () => {
@@ -419,14 +417,11 @@ describe('DashboardView', () => {
     expect(searchInput.getAttribute('type')).toBe('search')
   })
 
-  it('renders filter sub-tabs (All, Overdue)', async () => {
+  it('has no duplicate All / Overdue sub-filter (D-21)', async () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
-    // Filter tabs are in the second tablist; use getAllByRole to find all tabs
-    const allTabs = screen.getAllByRole('tab')
-    const tabNames = allTabs.map(t => t.textContent?.trim())
-    expect(tabNames).toContain('All')
-    expect(tabNames).toContain('Overdue')
+    const tabNames = screen.getAllByRole('tab').map(t => t.textContent?.trim())
+    expect(tabNames).not.toContain('All')
   })
 })
 
