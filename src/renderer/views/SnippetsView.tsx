@@ -9,6 +9,7 @@ import { EmptyState } from '../components/shared/EmptyState'
 import { isMod } from '../utils/keys'
 import { useVocab } from '../hooks/useVocab'
 import toast from 'react-hot-toast'
+import { friendlyError } from '../utils/friendlyError'
 
 // ── Variable helper ───────────────────────────────────────────────────────────
 
@@ -244,9 +245,10 @@ export default function SnippetsView(): React.ReactElement {
   }
 
   async function handleDelete(id: number) {
-    await safeInvoke(IPC.SNIPPET_DELETE, id)
-    setSnippets(prev => prev.filter(s => s.id !== id))
+    const res = await safeInvoke(IPC.SNIPPET_DELETE, id)
     setConfirmDeleteId(null)
+    if (!res.ok) { toast.error(friendlyError(res.error, "We couldn't delete that snippet — try again")); return }
+    setSnippets(prev => prev.filter(s => s.id !== id))
   }
 
   const filtered = snippets

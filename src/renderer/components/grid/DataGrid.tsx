@@ -371,11 +371,9 @@ export function DataGrid(): React.ReactElement {
           }
         }
         if (widthUpdates.length > 0) {
-          try {
-            await safeInvoke(IPC.COLUMN_BATCH_UPDATE_WIDTHS, widthUpdates)
-          } catch (err) {
-            rlog.error('DataGrid', 'Failed to batch update column widths', err)
-          }
+          // The new widths stay for this visit either way; only reopening would lose them
+          const res = await safeInvoke(IPC.COLUMN_BATCH_UPDATE_WIDTHS, widthUpdates)
+          if (!res.ok) rlog.error('DataGrid', 'Failed to batch update column widths', res.error)
         }
       }, 500)
 

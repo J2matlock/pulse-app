@@ -202,7 +202,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
     setLoading(true)
     setError(null)
     try {
-      const res = await safeInvoke<ImportPreview>(
+      const res = await safeInvoke(
         IPC.IMPORT_FILE_PREVIEW, path, sheetIndex, hdrRowIdx
       )
       if (!res.ok) {

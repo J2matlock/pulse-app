@@ -1,9 +1,11 @@
 /**
- * deadlineCalc.ts — Pure deadline computation utilities.
- * No side effects, no store access. Can be used on main or renderer.
+ * deadlineCalc.ts — deadline helpers for the renderer.
+ * Most are pure, but evaluateRuleForRow reads the workspace's days off and the
+ * grid's deadline context from their stores at call time, so this module is
+ * renderer-only. Main works deadlines out in src/main/deadlines.ts.
  */
 
-import type { AlertThreshold, ParsedAlertRule } from '../../shared/types'
+import type { AlertThreshold, GridRow, ParsedAlertRule } from '../../shared/types'
 import { toRuleInterval, type RuleInterval } from '../../shared/ruleInterval'
 import { evaluate, isUsedUp, engineRuleFrom, meterHistoryColumn, referencedColumns, sequenceAnchor, extensionAnchor, matchExtension, applyExtension, ymdToDate, type DeadlineResult } from '../../shared/deadlineEngine'
 import { useGridStore } from '../stores/gridStore'
@@ -45,15 +47,18 @@ export function computeDaysUntil(dateValue: string, interval: IntervalInput = 0)
   return evaluateInterval(dateValue, interval).daysUntil
 }
 
+/** What a rule reads from a row: its id (for done flags and counts) and its column values */
+export type RuleRow = Partial<Pick<GridRow, 'row_id'>> & { [key: `col_${number}`]: string | null | undefined }
+
 /**
  * A rule's deadline for one grid row (W05): the engine with the row's other
  * columns and the workspace's days off. Read at call time, like the words.
  */
-export function evaluateRuleForRow(rule: ParsedAlertRule, columnValue: string | null, row: Record<string, unknown>, columnId?: number): DeadlineResult {
+export function evaluateRuleForRow(rule: ParsedAlertRule, columnValue: string | null, row: RuleRow, columnId?: number): DeadlineResult {
   const engineRule = engineRuleFrom(rule)
   const values: Record<number, string | null> = {}
   for (const id of referencedColumns(engineRule)) {
-    const v = row[`col_${id}`]
+    const v = row[`col_${id}` as const]
     values[id] = typeof v === 'string' ? v : null
   }
   const cal = useWorkspaceStore.getState().calendar

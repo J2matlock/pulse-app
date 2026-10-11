@@ -88,7 +88,7 @@ export function memoKey<K>(key: (r: GridRow) => K): (r: GridRow) => K {
 
 export function deadlineCompare(columnId: number, rule: ParsedAlertRule, desc: IsDesc = ASC): Cmp {
   const key = memoKey((r: GridRow): [number, number] => {
-    const res = evaluateRuleForRow(rule, (r[`col_${columnId}`] as string | null) ?? null, r as unknown as Record<string, unknown>, columnId)
+    const res = evaluateRuleForRow(rule, (r[`col_${columnId}`] as string | null) ?? null, r, columnId)
     if (res.state === 'done' || res.state === 'paused') return [2, 0]
     if (res.daysUntil === null) return [1, 0]
     return [0, res.daysUntil]
@@ -117,7 +117,7 @@ export function daysUntilSource(sourceId: number, row: GridRow, rules: readonly 
   const ruleId = ruleIdOf(source)
   const rule = ruleId !== undefined ? rules.find(r => r.id === ruleId) : undefined
   if (rule) {
-    const res = evaluateRuleForRow(rule, value, row as unknown as Record<string, unknown>, sourceId)
+    const res = evaluateRuleForRow(rule, value, row, sourceId)
     return res.state === 'done' || res.state === 'paused' ? null : res.daysUntil
   }
   return value ? computeDaysUntil(value) : null

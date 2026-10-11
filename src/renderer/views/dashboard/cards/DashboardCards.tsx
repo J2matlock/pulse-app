@@ -114,7 +114,7 @@ export function DashboardCards({ summary, whatsDue, customizing, onDoneCustomizi
                 {pinned.map(id => (
                   <li key={id} className="flex items-center gap-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3" style={{ minHeight: 44 }}>
                     <span className="flex-1 text-base text-slate-800 dark:text-slate-100">{reportNames[id] ?? 'Report'}</span>
-                    <button type="button" className="btn-compact-secondary" onClick={() => void setReportPinned(id, false).then(setPinned)}>Unpin</button>
+                    <button type="button" className="btn-compact-secondary" onClick={() => void setReportPinned(id, false).then(ids => { if (ids) setPinned(ids) })}>Unpin</button>
                   </li>
                 ))}
               </ul>
@@ -123,7 +123,7 @@ export function DashboardCards({ summary, whatsDue, customizing, onDoneCustomizi
         </section>
       )}
       {cards.filter(c => c.on).map(c => <React.Fragment key={c.def.key}>{render[c.def.key]()}</React.Fragment>)}
-      {pinned.map(id => <SavedReportCard key={id} id={id} onUnpin={rid => void setReportPinned(rid, false).then(setPinned)} />)}
+      {pinned.map(id => <SavedReportCard key={id} id={id} onUnpin={rid => void setReportPinned(rid, false).then(ids => { if (ids) setPinned(ids) })} />)}
     </>
   )
 }

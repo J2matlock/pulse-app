@@ -64,7 +64,7 @@ export function nearestDeadline(row: GridRow, columns: Column[], rules: ParsedAl
     try { ruleId = (JSON.parse(c.config || '{}') as { alert_rule_id?: number }).alert_rule_id } catch { continue }
     const rule = ruleId !== undefined ? rules.find(r => r.id === ruleId) : undefined
     if (!rule) continue
-    const res = evaluateRuleForRow(rule, row[`col_${c.id}`] ?? null, row as unknown as Record<string, unknown>, c.id)
+    const res = evaluateRuleForRow(rule, row[`col_${c.id}`] ?? null, row, c.id)
     if (res.daysUntil === null || res.state === 'paused' || res.state === 'done') continue
     if (!best || res.daysUntil < best.daysUntil) best = { daysUntil: res.daysUntil, column: c, rule, result: res }
   }

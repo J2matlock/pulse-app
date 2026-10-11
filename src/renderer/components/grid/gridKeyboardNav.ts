@@ -3,6 +3,7 @@ import { isNotTypedColumnType, storesNoCells } from '../../../shared/types'
 import { formatCellForClipboard, checkPaste } from './gridHelpers'
 import toast from 'react-hot-toast'
 import { friendlyError } from '../../utils/friendlyError'
+import { copyText } from '../../hooks/useCopyFeedback'
 
 type CellCoord = { rowId: number; columnId: number }
 
@@ -133,7 +134,7 @@ export function handleCellKeyDown(
           const bodyLines = currentFilteredRows
             .filter(r => currentSelectedRowIds.has(r.row_id))
             .map(r => visibleCols.map(c => formatCellForClipboard(c, r[`col_${c.id}` as keyof GridRow] as string | null, r)).join('\t'))
-          void window.api.copyToClipboard([header, ...bodyLines].join('\n'))
+          void copyText([header, ...bodyLines].join('\n'))
         } else {
           // Single-cell copy
           const row = currentRows.find(r => r.row_id === rowId)
@@ -143,9 +144,9 @@ export function handleCellKeyDown(
             const plainText = formatCellForClipboard(col, cellVal, row)
             if (e.shiftKey) {
               const labeled = `${col.name}: ${plainText}`
-              void window.api.copyToClipboard(labeled)
+              void copyText(labeled)
             } else {
-              void window.api.copyToClipboard(plainText)
+              void copyText(plainText)
             }
           }
         }

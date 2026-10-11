@@ -4,7 +4,7 @@ import {
   Star, Pencil, Trash2, Copy, Check, Phone, Mail, Globe, MapPin,
   Clock, CheckCircle, XCircle, Download, Printer
 } from 'lucide-react'
-import { useCopyFeedback } from '../../hooks/useCopyFeedback'
+import { useCopyFeedback, copyText } from '../../hooks/useCopyFeedback'
 import { AvailabilityBadge } from './AvailabilityBadge'
 import { ContactInteractionLog } from './ContactInteractionLog'
 import { ContactLinkedClients } from './ContactLinkedClients'
@@ -15,6 +15,8 @@ import { Tooltip } from '../shared/Tooltip'
 import { ANIM_STAR_BOUNCE, ANIM_CHECKED_FLASH } from '../../../shared/constants'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
+import toast from 'react-hot-toast'
+import { friendlyError } from '../../utils/friendlyError'
 import type { Provider, ProviderCustomField } from '../../../shared/types'
 import { useVocab } from '../../hooks/useVocab'
 
@@ -186,7 +188,8 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
             </Tooltip>
             <Tooltip content="Export PDF">
               <button onClick={async () => {
-                  await safeInvoke(IPC.EXPORT_PDF_CONTACT, p.id)
+                  const res = await safeInvoke(IPC.EXPORT_PDF_CONTACT, p.id)
+                  if (!res.ok) toast.error(friendlyError(res.error, "We couldn't export the PDF — try again"))
                 }}
                 className="hit-44 p-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700" title="Export PDF" aria-label="Export PDF">
                 <Printer size={16} className="text-slate-500" />
@@ -194,7 +197,8 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
             </Tooltip>
             <Tooltip content="Export vCard">
               <button onClick={async () => {
-                  await safeInvoke(IPC.CONTACTS_EXPORT_VCF, [p.id])
+                  const res = await safeInvoke(IPC.CONTACTS_EXPORT_VCF, [p.id])
+                  if (!res.ok) toast.error(friendlyError(res.error, "We couldn't export the vCard — try again"))
                 }}
                 className="hit-44 p-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700" title="Export vCard" aria-label="Export vCard">
                 <Download size={16} className="text-slate-500" />
@@ -318,7 +322,7 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
                   {p.referral_process}
                 </div>
                 <button
-                  onClick={() => window.api.copyToClipboard(p.referral_process!)}
+                  onClick={() => { if (p.referral_process) void copyText(p.referral_process) }}
                   className="hit-44 mt-1.5 flex items-center gap-1 text-base text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                   style={{ fontSize: 15 }}>
                   <Copy size={12} /> Copy Referral Process

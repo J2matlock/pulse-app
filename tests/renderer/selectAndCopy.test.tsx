@@ -6,7 +6,7 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 
-const copyToClipboard = vi.fn(async () => {})
+const copyToClipboard = vi.fn(async () => ({ ok: true as const, data: true as const }))
 Object.defineProperty(window, 'api', { value: { invoke: vi.fn(), on: () => () => {}, copyToClipboard }, writable: true, configurable: true })
 vi.mock('lucide-react', async () => (await import('./lucideMock')).lucideMock)
 

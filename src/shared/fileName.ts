@@ -5,7 +5,6 @@
  */
 export function safeFileName(name: string, fallback = 'contact'): string {
   const cleaned = name
-    // eslint-disable-next-line no-control-regex
     .replace(/[\\/:*?"<>|\x00-\x1f]/g, '')
     .replace(/\s+/g, ' ')
     .trim()

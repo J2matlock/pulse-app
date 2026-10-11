@@ -166,7 +166,7 @@ export function DeadlinePanel({
 
       // Other kinds than "date + interval" (W05) can be due with this cell empty: the engine decides
       if (rule && rule.kind && rule.kind !== 'interval') {
-        const result = evaluateRuleForRow(rule, rawValue, row as unknown as Record<string, unknown>, col.id)
+        const result = evaluateRuleForRow(rule, rawValue, row, col.id)
         const d = result.daysUntil
         const threshold = d !== null ? getAlertThreshold(d, rule) : null
         return { col, rawValue, rule, daysUntil: d, bgClass: threshold?.bgClass ?? null, urgencyScore: d ?? Infinity, result, engine: result }
@@ -177,7 +177,7 @@ export function DeadlinePanel({
       }
 
       // The engine too, so an extension (W05) moves the date here as everywhere else
-      const engineResult = rule ? evaluateRuleForRow(rule, rawValue, row as unknown as Record<string, unknown>, col.id) : null
+      const engineResult = rule ? evaluateRuleForRow(rule, rawValue, row, col.id) : null
       const daysUntil = engineResult ? engineResult.daysUntil : computeDaysUntil(rawValue, toRuleInterval(rule))
       // A one-off date marked Finished (Decision E1): say so, as the list's chip does
       if (engineResult?.state === 'done') {
