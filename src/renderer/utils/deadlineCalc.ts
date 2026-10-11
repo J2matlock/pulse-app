@@ -169,7 +169,7 @@ export function formatCalculatedDays(daysUntil: number | null): {
   if (daysUntil === null) return { text: '—', colorClass: 'text-slate-300 dark:text-slate-600', icon: null }
   if (daysUntil > DAYS_FAR_FUTURE) return { text: `${daysUntil} days`, colorClass: '', icon: null }
   if (daysUntil >= DAYS_APPROACHING)  return { text: `${daysUntil} days`, colorClass: '', icon: '📅' }
-  if (daysUntil >= DAYS_IMMINENT)  return { text: `${daysUntil} days`, colorClass: 'text-orange-600 dark:text-orange-400', icon: '⏰' }
+  if (daysUntil >= DAYS_IMMINENT)  return { text: `${daysUntil} days`, colorClass: 'text-orange-700 dark:text-orange-400', icon: '⏰' }
   if (daysUntil === DAYS_DUE_TODAY) return { text: 'Due today', colorClass: 'text-red-600 dark:text-red-400 font-semibold', icon: '⚠️' }
   if (daysUntil >= DAYS_RECENTLY_OVERDUE)  return { text: `${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? '' : 's'} overdue`, colorClass: 'text-red-600 dark:text-red-400 font-semibold', icon: '⚠️' }
   if (daysUntil >= DAYS_OVERDUE) return { text: `${Math.abs(daysUntil)} days overdue`, colorClass: 'text-red-700 dark:text-red-300 font-bold', icon: '⚠️' }

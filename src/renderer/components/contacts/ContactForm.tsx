@@ -19,7 +19,7 @@ interface ContactFormProps {
 
 const AVAILABILITY_OPTIONS: { value: AvailabilityStatus; label: string; colorClass: string }[] = [
   { value: 'accepting', label: 'Accepting new {record:many}', colorClass: 'text-green-600 dark:text-green-400' },
-  { value: 'waitlist', label: 'Waitlist', colorClass: 'text-amber-600 dark:text-amber-400' },
+  { value: 'waitlist', label: 'Waitlist', colorClass: 'text-amber-700 dark:text-amber-400' },
   { value: 'full', label: 'Not Accepting', colorClass: 'text-red-600 dark:text-red-400' },
   { value: 'unknown', label: 'Unknown', colorClass: 'text-slate-500 dark:text-slate-400' },
 ]

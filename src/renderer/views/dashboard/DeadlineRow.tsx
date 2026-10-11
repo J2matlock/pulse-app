@@ -48,8 +48,8 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
   const urgencyColor =
     bucket === 'overdue'   ? 'text-red-600 dark:text-red-400 font-semibold' :
     bucket === 'today'     ? 'text-red-600 dark:text-red-400 font-semibold' :
-    bucket === 'this-week' ? 'text-orange-600 dark:text-orange-400' :
-    'text-yellow-600 dark:text-yellow-400'
+    bucket === 'this-week' ? 'text-orange-700 dark:text-orange-400' :
+    'text-yellow-700 dark:text-yellow-400'
 
   const { className: alertBgClass, style: alertBgStyle } = threshold
     ? resolveAlertColor(threshold.bgClass)

@@ -75,7 +75,7 @@ describe('AvailabilityBadge', () => {
     const checkedAt = new Date(Date.now() - 50 * 86400000).toISOString()
     render(<AvailabilityBadge status="waitlist" checkedAt={checkedAt} />)
     const stalenessEl = screen.getByText(/Checked 50d ago/)
-    expect(stalenessEl.className).toContain('text-amber-500')
+    expect(stalenessEl.className).toContain('text-amber-700')
   })
 
   it('shows "Checked today" for same-day', () => {

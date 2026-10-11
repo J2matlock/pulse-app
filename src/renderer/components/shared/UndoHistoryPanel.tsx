@@ -96,7 +96,7 @@ const UndoItemButton = React.memo(function UndoItemButton({ item, onClick, title
       {/* Badges */}
       <div className="flex items-center gap-1 flex-shrink-0">
         {!isRedo && item.sideEffects && item.sideEffects.length > 0 && (
-          <span title={`Has a linked ${t('activity')} that will be voided`} className="text-amber-500 dark:text-amber-400">
+          <span title={`Has a linked ${t('activity')} that will be voided`} className="text-amber-700 dark:text-amber-400">
             <AlertTriangle className="w-3 h-3" />
           </span>
         )}

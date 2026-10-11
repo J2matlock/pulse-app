@@ -3,7 +3,7 @@ import { DemoWrapper } from './DemoWrapper'
 export function DemoDashboardOverview() {
   const cards = [
     { label: 'Overdue', count: 3, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20' },
-    { label: 'This Week', count: 8, color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20' },
+    { label: 'This Week', count: 8, color: 'text-orange-700 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20' },
     { label: 'Active Tasks', count: 12, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20' },
     { label: 'Completed', count: 5, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/20' },
   ]

@@ -752,13 +752,13 @@ export default function DashboardView(): React.ReactElement {
             label="Due in the next 7 days"
             value={isLoading ? '—' : derivedCounts.dueThisWeek}
             icon={<Clock className="w-5 h-5" />}
-            colorClass="text-orange-600 dark:text-orange-400"
+            colorClass="text-orange-700 dark:text-orange-400"
           />
           <SummaryCard
             label="Due in the next 30 days"
             value={isLoading ? '—' : derivedCounts.dueThisMonth}
             icon={<Calendar className="w-5 h-5" />}
-            colorClass="text-yellow-600 dark:text-yellow-400"
+            colorClass="text-yellow-700 dark:text-yellow-400"
           />
           {(showTasks || showChecklists) && (<>
             <SummaryCard

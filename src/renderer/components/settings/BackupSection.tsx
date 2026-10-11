@@ -314,7 +314,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
       {/* Warning: last auto-backup failed */}
       {backupInfo?.lastAutoBackupFailed && (
         <div className="flex items-start gap-3 rounded-lg border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 px-4 py-3">
-          <span className="text-amber-600 dark:text-amber-400 text-lg mt-0.5">&#9888;</span>
+          <span className="text-amber-700 dark:text-amber-400 text-lg mt-0.5">&#9888;</span>
           <div className="min-w-0">
             <p className="text-base font-medium text-amber-800 dark:text-amber-200">
               Your last auto-backup didn't complete

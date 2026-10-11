@@ -35,7 +35,7 @@ export function AvailabilityBadge({ status, checkedAt, compact }: Props) {
     else checkedLabel = `Checked ${days}d ago`
 
     if (days >= 90) checkedColorClass = 'text-red-600 dark:text-red-400'
-    else if (days >= 30) checkedColorClass = 'text-amber-500 dark:text-amber-400'
+    else if (days >= 30) checkedColorClass = 'text-amber-700 dark:text-amber-400'
   }
 
   return (
