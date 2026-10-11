@@ -4,6 +4,7 @@ import { edgeAwareRefCallback } from '../../utils/domHelpers'
 import { AnimatePresence, motion } from 'motion/react'
 import { Plus, Columns, Eye, EyeOff, Upload, ChevronDown, Archive, Gauge, Settings2, ClipboardPen, FileBarChart, Tags } from 'lucide-react'
 import { ListSettingsDialog } from './ListSettingsDialog'
+import { TOOLBAR_ICON, TOOLBAR_LABEL } from './gridConstants'
 import { ContactRequirementsDialog } from '../contact-req/ContactRequirementsDialog'
 import toast from 'react-hot-toast'
 import { useShallow } from 'zustand/react/shallow'
@@ -250,8 +251,9 @@ export function GridToolbar(): React.ReactElement {
   const allColumns = useMemo(() => [...columns, ...hiddenColumns].sort((a, b) => a.position - b.position), [columns, hiddenColumns])
 
   return (
-    <div className="flex items-center flex-wrap gap-2 px-4 py-2 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex-shrink-0">
-      {/* Up front: Add, the filters, Views and Group; the rest is grouped under View, Reports and More (G-22) */}
+    <div className="@container flex items-center flex-wrap gap-2 px-4 py-2 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex-shrink-0">
+      {/* Up front: Add, the filters, Views and Group; the rest is grouped under View, Reports and More (G-22).
+          Narrower than about 1150px the buttons drop their icons, so the row doesn't wrap and cost the list a row (V1) */}
       {/* Add row */}
       <Tooltip content={`Add a new ${t('record')}`} placement="bottom">
         <button
@@ -304,13 +306,14 @@ export function GridToolbar(): React.ReactElement {
       <div className="relative" data-tour="archived-toggle">
         <button
           onClick={() => { setShowViewMenu(v => !v); setShowMoreMenu(false); setShowReportsMenu(false) }}
+          aria-label="View" title="View"
           className="btn-secondary flex items-center gap-2"
             style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
           aria-expanded={showViewMenu}
           aria-haspopup="menu"
         >
-          <Eye className="w-4 h-4" />
-          View
+          <Eye className={`w-4 h-4 ${TOOLBAR_ICON}`} />
+          <span className={TOOLBAR_LABEL}>View</span>
           {(showArchived || viewMode === 'board') && <span className="w-2 h-2 rounded-full bg-amber-500" aria-label="(changed)" />}
           <ChevronDown className="w-3.5 h-3.5 opacity-60" />
         </button>
@@ -364,13 +367,14 @@ export function GridToolbar(): React.ReactElement {
       <div className="relative">
         <button
           onClick={() => { setShowReportsMenu(v => !v); setShowMoreMenu(false); setShowViewMenu(false) }}
+          aria-label="Reports" title="Reports"
           className="btn-secondary flex items-center gap-2"
             style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
           aria-expanded={showReportsMenu}
           aria-haspopup="menu"
         >
-          <FileBarChart className="w-4 h-4" />
-          Reports
+          <FileBarChart className={`w-4 h-4 ${TOOLBAR_ICON}`} />
+          <span className={TOOLBAR_LABEL}>Reports</span>
           <ChevronDown className="w-3.5 h-3.5 opacity-60" />
         </button>
         <AnimatePresence>

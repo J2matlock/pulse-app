@@ -157,6 +157,16 @@ describe('GridToolbar', () => {
     vi.mocked(safeInvoke).mockResolvedValue({ ok: false, error: 'test-mock' } as never)
   })
 
+  it('fits on one row in a narrow window: icons go first, then less-used names (V1)', () => {
+    const { container } = render(<GridToolbar />)
+    expect((container.firstElementChild as HTMLElement).className).toContain('@container')
+    const view = screen.getByRole('button', { name: 'View' })
+    expect(view.querySelector('span')!.className).toContain('@max-5xl:hidden')
+    expect(screen.getByRole('button', { name: 'Reports' })).toBeTruthy()
+    // Add keeps its name at every width
+    expect(screen.getByText('Add Client').className).not.toContain('@max-5xl:hidden')
+  })
+
   it('renders Add Client button', () => {
     render(<GridToolbar />)
     expect(screen.getByText('Add Client')).toBeTruthy()

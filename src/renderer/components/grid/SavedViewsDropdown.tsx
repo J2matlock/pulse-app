@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { clampLeft } from '../../utils/domHelpers'
 import { AnimatePresence, motion } from 'motion/react'
 import { Layers, Trash2, Plus, X } from 'lucide-react'
+import { TOOLBAR_ICON, TOOLBAR_LABEL } from './gridConstants'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
 import { dropdownVariants } from '../../utils/animations'
@@ -58,14 +59,15 @@ export function SavedViewsDropdown() {
         ref={btnRef}
         className={`btn-secondary ${open ? 'bg-purple-50 dark:bg-purple-900/30' : ''}`}
         style={{ minHeight: 36, padding: '0 12px', fontSize: 15, display: 'flex', alignItems: 'center', gap: 6 }}
+        title="Views"
         onClick={() => {
           setOpen(prev => !prev)
           setSaving(false)
           setName('')
         }}
       >
-        <Layers size={16} />
-        Views
+        <Layers size={16} className={TOOLBAR_ICON} />
+        <span className={TOOLBAR_LABEL}>Views</span>
         {savedViews.length > 0 && (
           <span
             className="bg-purple-500 text-white text-sm"

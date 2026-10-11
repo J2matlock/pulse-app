@@ -88,3 +88,12 @@ export function alertShapeForBand(daysUntil: number, threshold: { daysBefore: nu
 function withLabel(node: React.ReactElement, label: string): React.ReactElement {
   return React.cloneElement(node as React.ReactElement<{ 'aria-label'?: string }>, { 'aria-label': label })
 }
+
+/**
+ * List toolbar buttons on a narrow window (V1): the toolbar is a size container.
+ * Under about 1150px the buttons drop their icons; under about 1020px the
+ * less-used ones show only their icon (with the name as their label and tooltip).
+ * Either way the row doesn't wrap and take a row of the list.
+ */
+export const TOOLBAR_ICON = '@max-6xl:hidden @max-5xl:inline'
+export const TOOLBAR_LABEL = '@max-5xl:hidden'

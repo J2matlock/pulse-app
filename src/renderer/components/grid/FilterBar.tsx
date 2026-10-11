@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { clampLeft } from '../../utils/domHelpers'
 import { AnimatePresence, motion } from 'motion/react'
 import { X, Filter, Save, Trash2, Tag, Bookmark, Star } from 'lucide-react'
+import { TOOLBAR_ICON, TOOLBAR_LABEL } from './gridConstants'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore, type FilterOperator } from '../../stores/gridStore'
 import { dropdownVariants } from '../../utils/animations'
@@ -573,9 +574,10 @@ export function FilterControls(): React.ReactElement {
         style={{ minHeight: 36, padding: '0 10px', fontSize: 15 }}
         title={showStarredOnly ? `Showing starred ${t('record', { many: true })} only. Click to show all.` : `Show starred ${t('record', { many: true })} only`}
         aria-pressed={showStarredOnly}
+        aria-label="Starred"
       >
-        <Star className={`w-4 h-4 ${showStarredOnly ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-        Starred
+        <Star className={`w-4 h-4 ${TOOLBAR_ICON} ${showStarredOnly ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+        <span className={TOOLBAR_LABEL}>Starred</span>
       </button>
       {hasDeadlines && (
         // "Who's overdue?" in one click (G-12)
@@ -601,7 +603,7 @@ export function FilterControls(): React.ReactElement {
           style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
           title={`Filter ${t('record', { many: true })}`}
         >
-          <Filter className="w-4 h-4" />
+          <Filter className="w-4 h-4 @max-6xl:hidden" />
           Filter
           {activeFilters.length > 0 && (
             <span className="bg-blue-500 text-white text-sm font-semibold px-1.5 py-0.5 rounded-full">
@@ -616,9 +618,10 @@ export function FilterControls(): React.ReactElement {
         className={`btn-secondary flex items-center gap-1.5 ${showSaved ? 'bg-slate-100 dark:bg-slate-700' : ''}`}
         style={{ minHeight: 36, padding: '0 10px', fontSize: 15 }}
         title="Saved filter presets"
+        aria-label="Saved filters"
       >
-        <Bookmark className="w-3.5 h-3.5" />
-        Saved
+        <Bookmark className={`w-3.5 h-3.5 ${TOOLBAR_ICON}`} />
+        <span className={TOOLBAR_LABEL}>Saved</span>
         {savedFilters.length > 0 && (
           <span className="bg-slate-400 dark:bg-slate-500 text-white text-sm font-semibold px-1.5 py-0.5 rounded-full">
             {savedFilters.length}
