@@ -12,11 +12,25 @@ import { wordNow } from '../../utils/vocab'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 
 /** The small "Sample" mark on made-up entries (list rows and the record page) */
-export function SamplePill(): React.ReactElement {
+/**
+ * Marks a made-up sample entry. In the list it's a small sparkle so the name
+ * keeps its room ("Sample" is read out and shown on hover); on the record
+ * page, where there's space, it's spelled out.
+ */
+export function SamplePill({ compact = false }: { compact?: boolean }): React.ReactElement {
+  if (compact) {
+    return (
+      <span className="ml-1.5 flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-100"
+        title="Made-up sample entry">
+        <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+        <span className="sr-only">Sample</span>
+      </span>
+    )
+  }
   return (
-    <span className="ml-2 flex-shrink-0 inline-flex items-center px-2 rounded-full text-base leading-6 font-medium bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-100"
+    <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 rounded-full text-base leading-6 font-medium bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-100"
       title="Made-up sample entry">
-      Sample
+      <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />Sample
     </span>
   )
 }
@@ -146,7 +160,7 @@ export function SampleDataBanner(): React.ReactElement | null {
       <span className="text-base flex-1 min-w-0">
         {sampleList
           ? <>You're exploring a <strong>sample {t('list')}</strong> of made-up {t('record', { many: true })}. Your real {t('record', { many: true })} go in their own {t('list')}.</>
-          : <>{t('record', { many: true, cap: true })} marked <strong>Sample</strong> are made up. Add your own any time; remove the samples when you're done exploring.</>}
+          : <>{t('record', { many: true, cap: true })} with a <Sparkles className="inline w-4 h-4 -mt-0.5" aria-label="sparkle" /> by the name are made-up samples. Add your own any time; remove the samples when you're done exploring.</>}
       </span>
       <button type="button" className="btn-compact-secondary" onClick={() => setConfirming(true)}>
         Remove sample data

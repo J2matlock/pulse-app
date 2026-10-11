@@ -471,7 +471,7 @@ export const SortableRow = React.memo(function SortableRow({
               <>
                 {alertIcon}
                 <CellDisplay column={col} value={value} row={row.original} allColumns={columns} parsedConfig={parsedColumnConfigs.get(col.id)?.config} highlightText={searchQuery} isActiveMatch={findReplaceActiveRowId === rowId && findReplaceActiveColId === col.id} />
-                {isSample && col.is_name_column === 1 && <SamplePill />}
+                {isSample && col.is_name_column === 1 && <SamplePill compact />}
                 {alertChip && <span className="ml-1.5 text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap" data-testid="deadline-chip">{alertChip}</span>}
                 {alertSpoken && <span className="sr-only">{alertSpoken}</span>}
                 {col.is_name_column === 1 && (

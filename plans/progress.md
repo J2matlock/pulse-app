@@ -1554,3 +1554,24 @@ Comprehensive audit identified 2 critical, 7 high, 10 medium, 15 low findings. A
 - Build: seven tracks (B, D, G, R, S, X, F) in separate worktrees (`TRACKS.md`, `BUILDER.md`), merged in that order; Track A (polish) after the merge
 - E2E: each test launch gets its own `--user-data-dir`, so a copy of Pulse the person has open no longer blocks test runs
 - Reminder pending: update the website for 2.2.0 (saved in memory)
+
+## 2026-10-11 — Audit round 1 built and merged
+- Seven tracks merged into main (B note dates, X settings/backup/import, S scheduling, R record page, F first run/navigation/help, D deadlines/dashboard, G grid/lists/columns), then Track A (15px text, focus rings, keyboard, contrast, plain words, platform text). About 95 fix commits; every item in TRACKS.md except those noted below
+- Migrations 044 (note `occurred_at` + note date moves), 045 (list/column trash, highlight rules, tags column), 046 (deadline done flags), 047 (`sample_rows`); schema version 47
+- After the merge:
+  - E2E tests updated for the new screens (11 of 11 pass)
+  - Password setup reads the boxes on submit (autofill no longer shows a false "don't match")
+  - The grid's Sample tag became a small sparkle mark so names aren't truncated
+  - The unit-test config leaves agent worktrees (`.claude/**`) out
+- Left for later or partial (from the track reports):
+  - Clipboard import is hidden, not built (X)
+  - Undoing an import doesn't remove records it created in other lists through links (X)
+  - Shared PageHeader component (F)
+  - Undo kept across a link that opens another list (R-20 logic)
+  - Tags/edit-history parts of 1.8 (no track owned them)
+  - "Letters & documents" rename (D)
+  - The 3.10 "not met and nothing scheduled" filter (D)
+  - Decision G1 regroup (5.5–5.7)
+  - Contact rules (L-32)
+- Screens before and after: `plans/audit-2026-10/screens/ui-tour` and `screens/after` (git-ignored)
+- Build state: npm test 4088 pass / 4 skip; typecheck 0; eslint 0 errors; e2e 11/11
