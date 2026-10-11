@@ -635,6 +635,18 @@
   }
   [role="switch"] > span { background: ButtonText !important; }
   [role="switch"][aria-checked="true"] > span { background: HighlightText !important; }
+  /* Custom checkboxes (a filled square when ticked): outlined box, filled with
+     Highlight when ticked, a grey fill when partly ticked */
+  [role="checkbox"] > :is(span, div):first-child {
+    forced-color-adjust: none;
+    background: Canvas !important;
+    border: 2px solid ButtonText !important;
+  }
+  [role="checkbox"][aria-checked="true"] > :is(span, div):first-child {
+    background: Highlight !important;
+    border-color: Highlight !important;
+  }
+  [role="checkbox"][aria-checked="mixed"] > :is(span, div):first-child { background: GrayText !important; }
   /* Late and due-today rows keep a distinct left edge */
   .border-l-red-400, .border-l-red-500, .border-l-amber-400, .border-l-orange-400 {
     border-left-color: Highlight !important;

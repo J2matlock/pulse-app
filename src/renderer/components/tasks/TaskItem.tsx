@@ -139,6 +139,8 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
         className="hit-44 flex-shrink-0 flex items-start justify-center pt-[1px]
                    focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
                    focus-visible:ring-offset-3 rounded-sm"
+        role="checkbox"
+        aria-checked={!!task.is_completed}
         aria-label={task.is_completed ? 'Mark incomplete' : 'Mark complete'}
         title={task.is_completed ? 'Mark incomplete' : 'Mark complete'}
       >

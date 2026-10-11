@@ -39,4 +39,9 @@ describe('Windows High Contrast / forced colors (audit A06-20)', () => {
     expect(block).toMatch(/\[role="switch"\]\s*\{[^}]*border:\s*2px solid ButtonText/)
     expect(block).toMatch(/\[role="switch"\]\[aria-checked="true"\]\s*\{[^}]*background:\s*Highlight/)
   })
+
+  it('ticked custom checkboxes stay visible when fills are dropped', () => {
+    expect(block).toMatch(/\[role="checkbox"\] > :is\(span, div\):first-child\s*\{[^}]*border:\s*2px solid ButtonText/)
+    expect(block).toMatch(/\[role="checkbox"\]\[aria-checked="true"\] > :is\(span, div\):first-child\s*\{[^}]*background:\s*Highlight/)
+  })
 })
