@@ -124,6 +124,18 @@ describe('exportPdfGrid', () => {
     expect(isPdfBuffer(readFileSync(destPath))).toBe(true)
   })
 
+  it('prints cells starting with + or - as they are, without the CSV guard (AUDIT-121)', async () => {
+    const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 2 })
+    const insert = testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')
+    insert.run(rowIds[0], columnIds[0], '+1 555 0100')
+    insert.run(rowIds[0], columnIds[1], '-follow up')
+    const destPath = join(testDb.tmpDir, 'grid-guard.pdf')
+    await exportPdfGrid({ gridId, columnIds: [], activeRowIds: [], destPath })
+    const pdf = readFileSync(destPath).toString('latin1')
+    expect(pdf).toContain('(+1 555 0100)')
+    expect(pdf).toContain('(-follow up)')
+  })
+
   it('handles grid with zero rows', async () => {
     const { gridId } = seedGrid(testDb.db, { rowCount: 0, columnCount: 2 })
     const destPath = join(testDb.tmpDir, 'empty-grid.pdf')

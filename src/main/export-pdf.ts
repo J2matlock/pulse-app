@@ -15,7 +15,7 @@ import {
   atomicWriteFileAsync,
   stripHtml,
   formatDate,
-  formatCellValue,
+  cellDisplayText,
   loadGridData,
   pickColumns,
   pickRows,
@@ -95,7 +95,7 @@ export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
 
   const head = [selectedColumns.map(c => c.name)]
   const body = filteredRows.map(row =>
-    selectedColumns.map(col => formatCellValue(row[`col_${col.id}`] as string | null, col.column_type))
+    selectedColumns.map(col => cellDisplayText(row[`col_${col.id}`] as string | null, col.column_type))
   )
 
   // Compute column widths: Name gets more space
@@ -265,7 +265,7 @@ export function renderProfileToDoc(
     addSection(`${term(v, 'record', { cap: true })} information`)
     for (const col of columns) {
       if (col.id === nameColId) continue
-      const val = formatCellValue(cellMap.get(col.id) ?? null, col.column_type)
+      const val = cellDisplayText(cellMap.get(col.id) ?? null, col.column_type)
       addKeyValue(col.name, val)
     }
     y += 4

@@ -15,6 +15,7 @@ import {
   atomicWriteFileAsync,
   sanitizeCsvFormula,
   formatCellValue,
+  cellDisplayText,
   batchGetClientNames,
   stripHtml,
 } from './export-shared'
@@ -469,7 +470,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
 
   const rosterBody = rows.map(r => {
     const cellMap = cellsByRow.get(r.row_id) ?? new Map()
-    return selectedColumns.map(col => formatCellValue(cellMap.get(col.id) ?? null, col.column_type))
+    return selectedColumns.map(col => cellDisplayText(cellMap.get(col.id) ?? null, col.column_type))
   })
 
   const rosterMarginL = rosterLandscape ? 12 : marginL
