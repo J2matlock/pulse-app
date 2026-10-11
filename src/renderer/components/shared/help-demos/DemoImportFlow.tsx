@@ -27,7 +27,7 @@ export function DemoImportFlow() {
           80%, 100% { opacity: 0; }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3">Import wizard flow</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-3">Import wizard flow</div>
       <div className="flex items-center justify-between gap-1 mb-4">
         {steps.map((s, i) => (
           <React.Fragment key={i}>

@@ -23,7 +23,7 @@ export function DemoMultipleCaseloads() {
           52%, 100% { transform: scale(1); background: transparent; }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Multiple {t('list', { many: true })} in sidebar</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Multiple {t('list', { many: true })} in sidebar</div>
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 max-w-[200px]">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">

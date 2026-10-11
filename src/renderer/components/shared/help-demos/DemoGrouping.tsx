@@ -15,7 +15,7 @@ export function DemoGrouping() {
           85%, 100% { padding-left: 12px; }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Group by column value</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Group by column value</div>
       <div className="space-y-0.5" style={{ fontSize: 13 }}>
         {/* Group 1 header */}
         <div

@@ -23,7 +23,7 @@ export function DemoAvailabilityStatus() {
           95%, 100% { opacity: 0; }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">{t('contact', { cap: true })} availability statuses</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">{t('contact', { cap: true })} availability statuses</div>
       <div className="space-y-1.5">
         {statuses.map((s, i) => (
           <div

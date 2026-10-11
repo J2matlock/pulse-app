@@ -27,7 +27,7 @@ export function DemoContactLink() {
           80%, 100% { opacity: 0; }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3">Two-way {t('record')}–{t('contact')} linking</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-3">Two-way {t('record')}–{t('contact')} linking</div>
       <div className="flex items-center justify-between gap-2">
         {/* Client card */}
         <div
@@ -60,7 +60,7 @@ export function DemoContactLink() {
           <div className="text-xs text-green-500 dark:text-green-400">{t('contact', { cap: true })}</div>
         </div>
       </div>
-      <div className="text-xs text-slate-500 dark:text-slate-400 text-center mt-3">Links visible from both the {t('record')} profile and the {t('contact')} details</div>
+      <div className="text-sm text-slate-500 dark:text-slate-400 text-center mt-3">Links visible from both the {t('record')} profile and the {t('contact')} details</div>
     </DemoWrapper>
   )
 }

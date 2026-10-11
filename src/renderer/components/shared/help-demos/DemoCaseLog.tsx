@@ -25,7 +25,7 @@ export function DemoCaseLog() {
           55%, 100% { background: rgb(59,130,246); }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Adding {t('activity', { article: true })}</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Adding {t('activity', { article: true })}</div>
       {/* Input area */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 mb-2 flex items-center gap-2">
         <span

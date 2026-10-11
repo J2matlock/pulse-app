@@ -21,7 +21,7 @@ export function DemoDeadlineColors() {
           50% { opacity: 1; }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3">Deadline color progression</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-3">Deadline color progression</div>
       <div className="space-y-2">
         {stages.map((s, i) => (
           <div key={i} className="flex items-center gap-3">

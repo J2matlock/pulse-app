@@ -28,7 +28,7 @@ export function DemoUndoRedo() {
           65%, 100% { transform: scale(1); }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Undo / redo in action</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Undo / redo in action</div>
       <div className="flex items-center gap-4 mb-4">
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-3 relative" style={{ minWidth: 120 }}>
           <span className="text-[15px] text-green-600 dark:text-green-400 font-medium" style={{ animation: 'urOld 7s ease infinite' }}>Active</span>
@@ -45,7 +45,7 @@ export function DemoUndoRedo() {
           <span className="text-xs font-medium">Undo</span>
         </div>
       </div>
-      <div className="text-xs text-slate-500 dark:text-slate-400 text-center">{modHelp('Cell value reverts instantly with Ctrl+Z')}</div>
+      <div className="text-sm text-slate-500 dark:text-slate-400 text-center">{modHelp('Cell value reverts instantly with Ctrl+Z')}</div>
     </DemoWrapper>
   )
 }

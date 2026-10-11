@@ -19,7 +19,7 @@ export function DemoRecoveryKey() {
           50% { transform: scale(1.05); }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3">Recovery key — keep it safe!</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-3">Recovery key — keep it safe!</div>
       <div className="flex flex-col items-center gap-3">
         <div className="text-3xl" style={{ animation: 'rkShield 3s ease infinite' }}>🔑</div>
         <div
@@ -35,7 +35,7 @@ export function DemoRecoveryKey() {
           <span>✓</span>
           <span className="font-medium">Copied to clipboard!</span>
         </div>
-        <div className="text-xs text-amber-600 dark:text-amber-400 text-center max-w-[250px]">
+        <div className="text-sm text-amber-600 dark:text-amber-400 text-center max-w-[250px]">
           Store this key in a safe place. It's the only way to recover your data if you forget your password.
         </div>
       </div>

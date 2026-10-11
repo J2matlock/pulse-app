@@ -31,7 +31,7 @@ export function DemoCellEdit() {
           85%, 100% { opacity: 0; transform: scale(0.5); }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Inline cell editing</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Inline cell editing</div>
       <div className="grid grid-cols-3 gap-px bg-slate-300 dark:bg-slate-600 rounded-lg overflow-hidden" style={{ fontSize: 13 }}>
         {['Name', 'Status', 'Due Date'].map(h => (
           <div key={h} className="bg-slate-200 dark:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">{h}</div>

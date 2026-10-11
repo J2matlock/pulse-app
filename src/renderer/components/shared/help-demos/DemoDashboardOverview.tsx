@@ -23,7 +23,7 @@ export function DemoDashboardOverview() {
           80%, 100% { left: 0; }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Dashboard at a glance</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Dashboard at a glance</div>
       {/* Summary cards */}
       <div className="grid grid-cols-4 gap-2 mb-3">
         {cards.map((c, i) => (

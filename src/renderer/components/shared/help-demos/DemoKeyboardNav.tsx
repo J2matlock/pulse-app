@@ -20,7 +20,7 @@ export function DemoKeyboardNav() {
           40%, 100% { opacity: 0; }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Keyboard navigation</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Keyboard navigation</div>
       <div className="relative">
         <div className="grid grid-cols-3 gap-px bg-slate-300 dark:bg-slate-600 rounded-lg overflow-hidden" style={{ fontSize: 12 }}>
           {['Name', 'Status', 'Due'].map(h => (

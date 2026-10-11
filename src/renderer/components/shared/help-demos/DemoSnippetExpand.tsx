@@ -22,7 +22,7 @@ export function DemoSnippetExpand() {
           55%, 100% { background: transparent; }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Snippet expansion</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Snippet expansion</div>
       {/* Fake textarea */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3" style={{ minHeight: 100 }}>
         {/* Trigger text */}
@@ -40,7 +40,7 @@ export function DemoSnippetExpand() {
           Reported stable housing with no concerns.
         </div>
       </div>
-      <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 text-center">
+      <div className="mt-2 text-sm text-slate-500 dark:text-slate-400 text-center">
         Type <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded-sm">/hw</code> → expands to full note
       </div>
     </DemoWrapper>

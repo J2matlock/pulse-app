@@ -16,7 +16,7 @@ export function DemoPasswordChange() {
           90%, 100% { opacity: 0; transform: scale(0.8); }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3">Password change flow</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-3">Password change flow</div>
       <div className="space-y-2 mb-3">
         {fields.map((f, i) => (
           <div key={f} className="flex items-center gap-3">

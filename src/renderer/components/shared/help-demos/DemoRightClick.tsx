@@ -22,7 +22,7 @@ export function DemoRightClick() {
           78%, 100% { transform: scale(0.9); opacity: 0; }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Right-click context menu</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Right-click context menu</div>
       <div className="relative" style={{ height: 180 }}>
         {/* Fake row */}
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-3 mt-6 flex gap-4" style={{ fontSize: 13 }}>

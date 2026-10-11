@@ -20,7 +20,7 @@ export function DemoFilterChips() {
           85%, 100% { opacity: 1; height: 36px; }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Filter chips in action</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Filter chips in action</div>
       {/* Chips */}
       <div className="flex gap-2 mb-3">
         <div

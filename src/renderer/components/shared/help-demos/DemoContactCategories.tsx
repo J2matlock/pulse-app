@@ -24,7 +24,7 @@ export function DemoContactCategories() {
           90%, 100% { opacity: 0; max-width: 0; }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">{t('contact', { cap: true })} categories with colors</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">{t('contact', { cap: true })} categories with colors</div>
       <div className="flex flex-wrap gap-2 mb-3">
         {cats.map((c, i) => (
           <div
@@ -46,7 +46,7 @@ export function DemoContactCategories() {
           <span className="text-green-700 dark:text-green-300 font-medium whitespace-nowrap">Custom Category</span>
         </div>
       </div>
-      <div className="text-xs text-slate-500 dark:text-slate-400 text-center">
+      <div className="text-sm text-slate-500 dark:text-slate-400 text-center">
         Each category has a color and optional custom fields
       </div>
     </DemoWrapper>

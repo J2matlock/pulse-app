@@ -16,7 +16,7 @@ export function DemoTaskPriorities() {
           90%, 100% { opacity: 0; transform: translateX(-12px); }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Task priority levels</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Task priority levels</div>
       <div className="space-y-1.5">
         {tasks.map((t, i) => (
           <div

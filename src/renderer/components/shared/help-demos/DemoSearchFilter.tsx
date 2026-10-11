@@ -22,7 +22,7 @@ export function DemoSearchFilter() {
           85%, 100% { opacity: 1; height: 36px; }
         }
       `}</style>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Live search filtering</div>
+      <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Live search filtering</div>
       {/* Search bar */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 mb-3 flex items-center gap-2">
         <span className="text-slate-500 dark:text-slate-400 text-sm">🔍</span>
