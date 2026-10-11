@@ -357,7 +357,7 @@ export function FilterBar(): React.ReactElement | null {
                     value={newFilter.columnId}
                     onChange={e => handleColumnChange(parseInt(e.target.value, 10))}
                   >
-                    <option value={ROW_TAG_COLUMN_ID}>🏷 Row Tags</option>
+                    <option value={ROW_TAG_COLUMN_ID}>Tags</option>
                     {columns.map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
@@ -703,7 +703,7 @@ function FilterBarInline({
                 <div>
                   <label htmlFor="filter-inline-column" className="block text-base text-slate-500 dark:text-slate-400 mb-1">Column</label>
                   <select id="filter-inline-column" className="input w-full text-base" style={{ minHeight: 36 }} value={newFilter.columnId} onChange={e => handleColumnChange(parseInt(e.target.value, 10))}>
-                    <option value={ROW_TAG_COLUMN_ID}>🏷 Row Tags</option>
+                    <option value={ROW_TAG_COLUMN_ID}>Tags</option>
                     {columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>

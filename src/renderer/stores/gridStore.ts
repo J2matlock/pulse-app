@@ -9,7 +9,7 @@ import { wordNow } from '../utils/vocab'
 import { rlog } from '../utils/rendererLogger'
 import toast from 'react-hot-toast'
 import { storeInvoke as invoke } from '../utils/safeInvoke'
-import { createFilterSlice, viewModeKey } from './gridFilterSlice'
+import { createFilterSlice, viewModeKey, tagsColumnKey } from './gridFilterSlice'
 import { createColumnSlice } from './gridColumnSlice'
 import { createFormatSlice } from './gridFormatSlice'
 import { createAcuitySlice } from './gridAcuitySlice'
@@ -239,6 +239,11 @@ export const useGridStore = create<GridState>((set, get) => ({
         sampleRows: fullData.sampleRows ?? {},
         sampleKeepPrompt: null,
       })
+      // The Tags column: as last chosen for this list, else shown when any record has tags (G-37)
+      try {
+        const tagsCol = await invoke<string | null>(IPC.SETTINGS_GET, tagsColumnKey(gridId))
+        if (get()._loadVersion === version) set({ showTagsColumn: tagsCol === '1' || (tagsCol !== '0' && rowTagsMapParsed.size > 0) })
+      } catch { /* leave it as it was */ }
       // Table or board, as last left for this list (W06)
       // Awaited, so a caller that sets the mode after loading (dashboard → board) wins
       try {

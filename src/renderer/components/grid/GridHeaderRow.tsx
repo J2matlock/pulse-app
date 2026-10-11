@@ -12,11 +12,11 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { User } from 'lucide-react'
+import { User, EyeOff } from 'lucide-react'
 import type { Header } from '@tanstack/react-table'
 import type { GridRow, Column } from '../../../shared/types'
 import { ColumnHeader } from './ColumnHeader'
-import { HANDLE_WIDTH, PROFILE_BTN_WIDTH } from './gridConstants'
+import { HANDLE_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH } from './gridConstants'
 import { BADGE_WIDTH as ACUITY_BADGE_WIDTH } from './AcuityBadge'
 import { useVocab } from '../../hooks/useVocab'
 
@@ -96,6 +96,9 @@ export interface GridHeaderRowProps {
   frozenLeftOffsets: Map<number, number>
   frozenColumnCount: number
   setFrozenColumnCount: (count: number) => void
+  /** The built-in Tags column (G-37) */
+  showTags?: boolean
+  onHideTags?: () => void
 }
 
 export function GridHeaderRow({
@@ -115,6 +118,8 @@ export function GridHeaderRow({
   frozenLeftOffsets,
   frozenColumnCount,
   setFrozenColumnCount: _setFrozenColumnCount,
+  showTags,
+  onHideTags,
 }: GridHeaderRowProps): React.ReactElement {
   const { t } = useVocab()
   return (
@@ -210,6 +215,18 @@ export function GridHeaderRow({
                     : <path d="M6 4L2 8h8L6 4z" />
                   }
                 </svg>
+              )}
+            </div>
+          )}
+          {showTags && (
+            <div role="columnheader" className="flex-shrink-0 flex items-center gap-1 px-2 border-r border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-base font-semibold text-slate-700 dark:text-slate-200"
+              style={{ width: TAGS_COL_WIDTH, height: rowHeight, ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0), zIndex: 12 } : {}) }}>
+              <span className="flex-1 truncate" title={`Tags from each ${t('record')}'s page`}>Tags</span>
+              {onHideTags && (
+                <button type="button" className="hit-44 p-1 rounded text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 focus-visible:ring-3 focus-visible:ring-blue-500"
+                  onClick={onHideTags} aria-label="Hide the Tags column" title="Hide the Tags column">
+                  <EyeOff className="w-4 h-4" />
+                </button>
               )}
             </div>
           )}

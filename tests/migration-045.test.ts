@@ -27,4 +27,21 @@ describe('migration 045', () => {
     expect(() => migration045(t.db)).not.toThrow()
     expect((t.db.prepare("SELECT value FROM app_meta WHERE key = 'schema_version'").get() as { value: string }).value).toBe('45')
   })
+
+  it('turns "highlight all rows" copies into one column rule, and leaves a few chosen ones per cell (L-19)', () => {
+    const grid = Number(t.db.prepare("INSERT INTO grids (name) VALUES ('L')").run().lastInsertRowid)
+    const col = Number(t.db.prepare("INSERT INTO columns (grid_id, name, column_type, position) VALUES (?, 'Score', 'number', 0)").run(grid).lastInsertRowid)
+    const other = Number(t.db.prepare("INSERT INTO columns (grid_id, name, column_type, position) VALUES (?, 'Note', 'text', 1)").run(grid).lastInsertRowid)
+    const rows = [0, 1, 2, 3].map(i => Number(t.db.prepare('INSERT INTO rows (grid_id, position) VALUES (?, ?)').run(grid, i).lastInsertRowid))
+    const rule = { sourceType: 'self', operator: 'greater_than', value: '90', bgColor: '#fee2e2', originRowId: rows[0] }
+    const put = t.db.prepare('INSERT INTO cell_formats (row_id, column_id, rules) VALUES (?, ?, ?)')
+    for (const r of rows.slice(0, 3)) put.run(r, col, JSON.stringify([rule]))
+    // One record's own highlight stays on that cell
+    put.run(rows[3], other, JSON.stringify([{ ...rule, originRowId: rows[3] }]))
+    migration045(t.db)
+    const { conditional_format } = t.db.prepare('SELECT conditional_format FROM columns WHERE id = ?').get(col) as { conditional_format: string }
+    expect(JSON.parse(conditional_format)).toEqual([{ sourceType: 'self', operator: 'greater_than', value: '90', bgColor: '#fee2e2' }])
+    expect(t.db.prepare('SELECT COUNT(*) AS n FROM cell_formats WHERE column_id = ?').get(col)).toEqual({ n: 0 })
+    expect(t.db.prepare('SELECT COUNT(*) AS n FROM cell_formats WHERE column_id = ?').get(other)).toEqual({ n: 1 })
+  })
 })

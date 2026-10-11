@@ -8,6 +8,9 @@ import type { Database } from 'better-sqlite3'
  *   and comes back if the record moves back (items 1.11 / G-18 / L-11).
  * - deleted_columns: a deleted column's settings and every value in it, as
  *   JSON, restorable for 30 days (item 5.2).
+ * - "Highlight all rows" used to copy a rule onto every record (L-19). Copies
+ *   that cover most of a list become one column rule, so new records get it
+ *   too; a few copies (a highlight on chosen records) stay per cell.
  * - grids.deleted_at / deleted_snapshot: a deleted list waits in the Trash
  *   for 30 days with a copy of its links (item 5.2). Lists deleted before
  *   this version get their 30 days from now.
@@ -46,5 +49,62 @@ export function up(db: Database): void {
     db.exec('ALTER TABLE grids ADD COLUMN deleted_snapshot TEXT')
   }
 
+  migrateStampedHighlights(db)
+
   db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('schema_version', '45')").run()
+}
+
+type Rule = Record<string, unknown> & { originRowId?: number }
+
+function migrateStampedHighlights(db: Database): void {
+  const formats = db.prepare(`SELECT cf.row_id, cf.column_id, cf.rules, r.grid_id FROM cell_formats cf JOIN rows r ON r.id = cf.row_id`).all() as
+    Array<{ row_id: number; column_id: number; rules: string; grid_id: number }>
+  // column → (one copy's key) → the records carrying it and the rules
+  const groups = new Map<number, Map<string, { gridId: number; rows: Set<number>; rules: Rule[] }>>()
+  for (const f of formats) {
+    let rules: Rule[]
+    try { rules = JSON.parse(f.rules) as Rule[] } catch { continue }
+    if (!Array.isArray(rules)) continue
+    const stamped = rules.filter(r => r && typeof r === 'object' && r.originRowId != null)
+    if (!stamped.length) continue
+    const key = JSON.stringify(stamped)
+    const byKey = groups.get(f.column_id) ?? new Map()
+    const g = byKey.get(key) ?? { gridId: f.grid_id, rows: new Set<number>(), rules: stamped }
+    g.rows.add(f.row_id)
+    byKey.set(key, g)
+    groups.set(f.column_id, byKey)
+  }
+  const listSize = db.prepare('SELECT COUNT(*) AS n FROM rows WHERE grid_id = ? AND deleted_at IS NULL')
+  const colFmt = db.prepare('SELECT conditional_format FROM columns WHERE id = ?')
+  const saveCol = db.prepare('UPDATE columns SET conditional_format = ? WHERE id = ?')
+  const getCell = db.prepare('SELECT rules FROM cell_formats WHERE row_id = ? AND column_id = ?')
+  const setCell = db.prepare('UPDATE cell_formats SET rules = ? WHERE row_id = ? AND column_id = ?')
+  const delCell = db.prepare('DELETE FROM cell_formats WHERE row_id = ? AND column_id = ?')
+  for (const [columnId, byKey] of groups) {
+    for (const [key, g] of byKey) {
+      const n = (listSize.get(g.gridId) as { n: number }).n
+      if (g.rows.size < 2 || g.rows.size * 2 < n) continue
+      const col = colFmt.get(columnId) as { conditional_format: string | null } | undefined
+      if (!col) continue
+      let current: Rule[] = []
+      try { current = JSON.parse(col.conditional_format || '[]') as Rule[] } catch { current = [] }
+      if (!Array.isArray(current)) current = []
+      const seen = new Set(current.map(r => JSON.stringify(r)))
+      for (const r of g.rules) {
+        const { originRowId: _origin, ...clean } = r
+        void _origin
+        if (!seen.has(JSON.stringify(clean))) { current.push(clean); seen.add(JSON.stringify(clean)) }
+      }
+      saveCol.run(JSON.stringify(current), columnId)
+      for (const rowId of g.rows) {
+        const cell = getCell.get(rowId, columnId) as { rules: string } | undefined
+        if (!cell) continue
+        let rules: Rule[] = []
+        try { rules = JSON.parse(cell.rules) as Rule[] } catch { rules = [] }
+        const left = rules.filter(r => !(r && r.originRowId != null && key.includes(JSON.stringify(r))))
+        if (left.length) setCell.run(JSON.stringify(left), rowId, columnId)
+        else delCell.run(rowId, columnId)
+      }
+    }
+  }
 }

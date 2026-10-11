@@ -43,7 +43,7 @@ import { SortableRow } from './SortableRow'
 import { GridContextMenu } from './GridContextMenu'
 import { BulkActionBar } from './BulkActionBar'
 import { handleCellKeyDown as handleCellKeyDownImpl, type KeyboardNavDeps } from './gridKeyboardNav'
-import { ROW_HEIGHTS, HANDLE_WIDTH, PROFILE_BTN_WIDTH, CHAR_WIDTH_HEADER, CHAR_WIDTH_CELL, HEADER_PADDING, CELL_PADDING, MIN_COL_WIDTH, DEFAULT_COL_WIDTH, MAX_AUTO_FIT_WIDTH, GROUP_HEADER_HEIGHT } from './gridConstants'
+import { ROW_HEIGHTS, HANDLE_WIDTH, PROFILE_BTN_WIDTH, CHAR_WIDTH_HEADER, CHAR_WIDTH_CELL, HEADER_PADDING, CELL_PADDING, MIN_COL_WIDTH, DEFAULT_COL_WIDTH, MAX_AUTO_FIT_WIDTH, GROUP_HEADER_HEIGHT, TAGS_COL_WIDTH } from './gridConstants'
 import { rlog } from '../../utils/rendererLogger'
 import { useGridSelection } from '../../hooks/useGridSelection'
 import { useGridContextMenu } from '../../hooks/useGridContextMenu'
@@ -119,6 +119,9 @@ export function DataGrid(): React.ReactElement {
   const gridDensity = useSettingsStore(s => s.gridDensity)
   const rowHeight = ROW_HEIGHTS[gridDensity]
 
+  // The built-in Tags column (G-37)
+  const showTagsColumn = useGridStore(s => s.showTagsColumn)
+  const setShowTagsColumn = useGridStore(s => s.setShowTagsColumn)
   const alertRules = useAlertStore(s => s.rules)
   const alertRuleMap = useMemo(() => new Map(alertRules.map(r => [r.id, r])), [alertRules])
   // Colors for meter, quota, step and extension rules depend on this; it arrives after the rows
@@ -573,7 +576,7 @@ export function DataGrid(): React.ReactElement {
     if (findReplaceActiveMatch) scrollToRowId(findReplaceActiveMatch.rowId)
   }, [findReplaceActiveMatch]) // eslint-disable-line react-hooks/exhaustive-deps -- only when the match changes, not on every re-render of the rows
 
-  const totalWidth = HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0) + table.getTotalSize()
+  const totalWidth = HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0) + (showTagsColumn ? TAGS_COL_WIDTH : 0) + table.getTotalSize()
   const columnIds = useMemo(() => columns.map(c => `col_${c.id}`), [columns])
 
   // CSS custom properties for column widths
@@ -591,7 +594,7 @@ export function DataGrid(): React.ReactElement {
   const frozenLeftOffsets = useMemo(() => {
     const offsets = new Map<number, number>()
     if (frozenColumnCount <= 0) return offsets
-    const leadingWidth = HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0)
+    const leadingWidth = HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0) + (showTagsColumn ? TAGS_COL_WIDTH : 0)
     let cumLeft = leadingWidth
     for (let i = 0; i < Math.min(frozenColumnCount, columns.length); i++) {
       const col = columns[i]!
@@ -600,7 +603,7 @@ export function DataGrid(): React.ReactElement {
       cumLeft += Math.max(w, 60)
     }
     return offsets
-  }, [frozenColumnCount, columns, columnSizing, acuityEnabled])
+  }, [frozenColumnCount, columns, columnSizing, acuityEnabled, showTagsColumn])
 
   // Column drag-end: reorder columns
   const handleColumnDragEnd = useCallback((event: DragEndEvent) => {
@@ -703,6 +706,8 @@ export function DataGrid(): React.ReactElement {
       onCellContextMenu={handleCellContextMenu}
       onNavigateToProfile={handleNavigateToProfile}
       onToggleStar={handleToggleStarProp}
+      showTags={showTagsColumn}
+      rowTags={rowTagsMap.get(row.original.row_id)}
       onToggleSelect={handleToggleRowSelect}
       onNavigateAfterEdit={handleNavigateAfterEdit}
       rowId={row.original.row_id}
@@ -764,6 +769,8 @@ export function DataGrid(): React.ReactElement {
             selectedRowIds={selectedRowIds}
             filteredRows={visibleRows}
             setSelectedRowIds={setSelectedRowIds}
+            showTags={showTagsColumn}
+            onHideTags={() => setShowTagsColumn(false)}
             colSensors={colSensors}
             onColumnDragEnd={handleColumnDragEnd}
             autoFitColumn={autoFitColumn}

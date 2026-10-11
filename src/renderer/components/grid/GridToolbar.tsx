@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import React, { useCallback, useState, useRef, useEffect, useMemo } from 'react'
 import { edgeAwareRefCallback } from '../../utils/domHelpers'
 import { AnimatePresence, motion } from 'motion/react'
-import { Plus, Columns, Eye, EyeOff, Upload, ChevronDown, Archive, Gauge, Settings2, ClipboardPen, FileBarChart } from 'lucide-react'
+import { Plus, Columns, Eye, EyeOff, Upload, ChevronDown, Archive, Gauge, Settings2, ClipboardPen, FileBarChart, Tags } from 'lucide-react'
 import { ListSettingsDialog } from './ListSettingsDialog'
 import { ContactRequirementsDialog } from '../contact-req/ContactRequirementsDialog'
 import toast from 'react-hot-toast'
@@ -125,6 +125,8 @@ export function GridToolbar(): React.ReactElement {
   const stagesOn = useFeature('stages')
   const viewMode = useGridStore(s => s.viewMode)
   const setViewMode = useGridStore(s => s.setViewMode)
+  const showTagsColumn = useGridStore(s => s.showTagsColumn)
+  const setShowTagsColumn = useGridStore(s => s.setShowTagsColumn)
   const hasStage = useGridStore(s => s.columns.concat(s.hiddenColumns).some(c => stageConfigOf(c) !== null))
   const gridCount = useGridStore(s => s.grids.length)
   const [linkSetup, setLinkSetup] = useState(false)
@@ -327,6 +329,15 @@ export function GridToolbar(): React.ReactElement {
                 ))}
                 <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
               </>)}
+              {viewMode !== 'board' && (
+                <button role="menuitemcheckbox" aria-checked={showTagsColumn} className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                  style={{ minHeight: 44 }}
+                  onClick={() => { setShowTagsColumn(!showTagsColumn); setShowViewMenu(false) }}>
+                  <Tags className="w-4 h-4" />
+                  <span className="flex-1">Show the Tags column</span>
+                  {showTagsColumn && <span aria-hidden="true">✓</span>}
+                </button>
+              )}
               <button role="menuitemcheckbox" aria-checked={showArchived} className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
                   style={{ minHeight: 44 }}
                 onClick={() => { setShowArchived(!showArchived); setShowViewMenu(false) }}>

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 
 const mockInvoke = vi.fn().mockResolvedValue({ ok: true, data: null })
 Object.defineProperty(window, 'api', {
@@ -104,6 +104,19 @@ describe('CellConditionalFormatPanel', () => {
     render(<CellConditionalFormatPanel rowId={1} columnId={1} onClose={vi.fn()} />)
     expect(screen.getByText(/No highlight rules yet/)).toBeTruthy()
     expect(screen.getByText('Add highlight rule')).toBeTruthy()
+  })
+
+  it('"All rows in this column" saves a column rule, so new records get it too (L-19)', async () => {
+    render(<CellConditionalFormatPanel rowId={1} columnId={2} onClose={vi.fn()} />)
+    fireEvent.click(screen.getByText('Add highlight rule'))
+    fireEvent.change(screen.getByDisplayValue('This cell only'), { target: { value: 'all_rows' } })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Apply' })) })
+    const updateColumn = useGridStore.getState().updateColumn as unknown as ReturnType<typeof vi.fn>
+    expect(updateColumn).toHaveBeenCalledWith(2, { conditional_format: expect.any(String) })
+    const saved = JSON.parse((updateColumn.mock.calls[0]![1] as { conditional_format: string }).conditional_format) as Array<Record<string, unknown>>
+    expect(saved).toHaveLength(1)
+    expect(saved[0]).not.toHaveProperty('originRowId')
+    expect(useGridStore.getState().batchSetCellFormat).not.toHaveBeenCalled()
   })
 
   it('Close button calls onClose', () => {

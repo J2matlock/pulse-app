@@ -7,7 +7,6 @@ import { IPC } from '../../shared/ipc-channels'
 import type { RowLocation } from '../../shared/ipc-contract'
 import { secureWrap, logNonFatal, ok, fail, buildSafeSetClause, validId, notifyCaseLogChanged, enforceWritable } from './ipc-utils'
 import { getDb, getRow, cachedStmt } from '../database'
-import { logger } from '../logger'
 import { word } from '../vocab'
 import { refreshDisplayNames } from '../display-names'
 import { assignAutoNumbers } from '../auto-number'
@@ -100,86 +99,6 @@ function transferCellFormats(
     } else {
       cachedStmt('row_cellfmt_delete', 'DELETE FROM cell_formats WHERE row_id = ? AND column_id = ?').run(rowId, f.column_id)
     }
-  }
-}
-
-/** Stamp "all rows" cell_format rules from a moved row onto existing rows in the target grid. */
-function stampCellFormatsOnTarget(
-  rowId: number,
-  targetGridId: number,
-): void {
-  const tgtRows = cachedStmt('row_tgt_grid_ids', 'SELECT id FROM rows WHERE grid_id = ? AND id != ? LIMIT 2001').all(targetGridId, rowId) as { id: number }[]
-  if (tgtRows.length > 2000) {
-    logger.warn('ipc-row', 'ROW_MOVE_TO_GRID: target grid has >2000 rows, skipping cell_format stamping')
-    return
-  }
-  if (tgtRows.length === 0) return
-
-  const movedFmts = cachedStmt('row_cellfmt_colrules', 'SELECT column_id, rules FROM cell_formats WHERE row_id = ?').all(rowId) as { column_id: number; rules: string }[]
-  const insertOrReplace = cachedStmt('row_cellfmt_upsert', 'INSERT OR REPLACE INTO cell_formats (row_id, column_id, rules) VALUES (?, ?, ?)')
-  const selectFmt = cachedStmt('row_cellfmt_get_rules', 'SELECT rules FROM cell_formats WHERE row_id = ? AND column_id = ?')
-  for (const mf of movedFmts) {
-    try {
-      const parsed = JSON.parse(mf.rules) as Array<{ originRowId?: number }>
-      // Only stamp rules that have originRowId (i.e., "all rows" scope)
-      const allRowsRules = parsed.filter(r => r.originRowId != null)
-      if (allRowsRules.length === 0) continue
-      const rulesJson = JSON.stringify(allRowsRules)
-
-      // Batch-read existing formats (reuse prepared stmt instead of re-preparing per row)
-      const existingMap = new Map<number, string>()
-      for (const tr of tgtRows) {
-        const existing = selectFmt.get(tr.id, mf.column_id) as { rules: string } | undefined
-        if (existing) existingMap.set(tr.id, existing.rules)
-      }
-
-      // Batch-write merged rules
-      for (const tr of tgtRows) {
-        const existingJson = existingMap.get(tr.id)
-        if (existingJson) {
-          try {
-            const existingRules = JSON.parse(existingJson) as Array<Record<string, unknown>>
-            const mergedJson = JSON.stringify([...existingRules, ...allRowsRules])
-            if (mergedJson.length > 50_000) {
-              logger.warn('ipc-row', `ROW_MOVE_TO_GRID: merged cell_formats for row ${tr.id}, col ${mf.column_id} exceeds 50KB (${mergedJson.length}), skipping`)
-              continue
-            }
-            insertOrReplace.run(tr.id, mf.column_id, mergedJson)
-          } catch (e) {
-            logger.warn('ipc-row', `ROW_MOVE_TO_GRID: failed to parse existing cell_formats for row ${tr.id}, col ${mf.column_id}`, e)
-            insertOrReplace.run(tr.id, mf.column_id, rulesJson)
-          }
-        } else {
-          insertOrReplace.run(tr.id, mf.column_id, rulesJson)
-        }
-      }
-    } catch (e) { logger.warn('ipc-row', 'ROW_MOVE_TO_GRID: failed to process moved cell_formats for stamping', e) }
-  }
-}
-
-/** Remove cell_format rules originated by rowId from sibling rows in the source grid. */
-function cleanupSourceSiblings(
-  rowId: number,
-  sourceGridId: number,
-): void {
-  const siblingFmts = cachedStmt('row_cellfmt_siblings', `
-    SELECT cf.row_id, cf.column_id, cf.rules
-    FROM cell_formats cf
-    JOIN rows r ON r.id = cf.row_id
-    WHERE r.grid_id = ? AND cf.row_id != ?
-  `).all(sourceGridId, rowId) as { row_id: number; column_id: number; rules: string }[]
-  const deleteFmt = cachedStmt('row_cellfmt_delete', 'DELETE FROM cell_formats WHERE row_id = ? AND column_id = ?')
-  const updateFmt = cachedStmt('row_cellfmt_update_rules', 'UPDATE cell_formats SET rules = ? WHERE row_id = ? AND column_id = ?')
-  for (const sf of siblingFmts) {
-    try {
-      const parsed = JSON.parse(sf.rules) as Array<{ originRowId?: number }>
-      const filtered = parsed.filter(r => r.originRowId !== rowId)
-      if (filtered.length === 0) {
-        deleteFmt.run(sf.row_id, sf.column_id)
-      } else if (filtered.length < parsed.length) {
-        updateFmt.run(JSON.stringify(filtered), sf.row_id, sf.column_id)
-      }
-    } catch (e) { logger.warn('ipc-row', `ROW_MOVE_TO_GRID: failed to clean up sibling cell_formats for row ${sf.row_id}`, e) }
   }
 }
 
@@ -537,11 +456,7 @@ export function registerRowHandlers(): void {
       // 2. Re-map cell_formats entries — only carry rules that originated from this row
       transferCellFormats(rowId, mapping)
 
-      // 3. Stamp "all rows" rules onto existing rows in the target grid
-      stampCellFormatsOnTarget(rowId, targetGridId)
-
-      // 4. Clean up cell_formats on sibling rows in the source grid that were stamped by this row
-      cleanupSourceSiblings(rowId, srcRow.grid_id)
+      // "All rows" highlights are column rules now (L-19), so nothing is stamped on other records
 
       // 5. Update provider_client_links to reflect new grid
       cachedStmt('row_move_provider_links', 'UPDATE provider_client_links SET grid_id = ? WHERE row_id = ?')

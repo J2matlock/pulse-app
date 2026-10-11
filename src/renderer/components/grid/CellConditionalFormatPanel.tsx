@@ -258,11 +258,16 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
         await updateColumn(columnId, { conditional_format: JSON.stringify(rules) })
         toast.success('Column highlight rules saved')
       } else if (applyScope === 'all_rows') {
-        // Stamp originRowId so other cells can trace back to this cell
-        const stamped = rules.map(r => ({ ...r, originRowId: r.originRowId ?? rowId ?? undefined }))
-        const entries = rows.map(r => ({ rowId: r.row_id, columnId, rules: stamped }))
-        await batchSetCellFormat(entries)
-        toast.success(`Formatting applied to ${rows.length} ${t('record', { count: rows.length })}`)
+        // A column rule, so records added later are highlighted too (L-19)
+        let current: CellFormatRule[] = []
+        try { current = JSON.parse(thisColumn?.conditional_format || '[]') as CellFormatRule[] } catch { current = [] }
+        const clean = rules.map(({ originRowId: _o, ...r }) => r)
+        const seen = new Set(current.map(r => JSON.stringify(r)))
+        const merged = [...current, ...clean.filter(r => !seen.has(JSON.stringify(r)))]
+        await updateColumn(columnId, { conditional_format: JSON.stringify(merged) })
+        // This cell's own copy would show twice
+        if (rowId != null && (cellFormats.get(`${rowId}_${columnId}`) ?? []).length > 0) await setCellFormat(rowId, columnId, [])
+        toast.success(`Highlight saved for every ${t('record')} in "${thisColumn?.name ?? 'this column'}"`)
       } else if (applyScope === 'selected' && selectedRowIds && selectedRowIds.size > 0) {
         const stamped = rules.map(r => ({ ...r, originRowId: r.originRowId ?? rowId ?? undefined }))
         const entries = Array.from(selectedRowIds).map(rid => ({ rowId: rid, columnId, rules: stamped }))

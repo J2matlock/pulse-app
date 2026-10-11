@@ -691,4 +691,28 @@ describe('DataGrid', () => {
       expect(profileBtns.length).toBe(5)
     })
   })
+
+  describe('Tags column (L-19)', () => {
+    it('shows each record\'s tags, and its header hides the column', async () => {
+      const setShowTagsColumn = vi.fn()
+      setupStores({ showTagsColumn: true, setShowTagsColumn, rowTagsMap: new Map([[1, ['urgent', 'housing', 'new']]]) })
+      renderDataGrid()
+      await flushEffects()
+      const cells = screen.getAllByTestId('row-tags-cell')
+      expect(cells.length).toBe(5)
+      expect(cells[0]!.textContent).toContain('urgent')
+      expect(cells[0]!.textContent).toContain('housing')
+      expect(cells[0]!.textContent).toContain('+1')
+      fireEvent.click(screen.getByRole('button', { name: 'Hide the Tags column' }))
+      expect(setShowTagsColumn).toHaveBeenCalledWith(false)
+    })
+
+    it('is not shown when switched off', async () => {
+      setupStores({ showTagsColumn: false, rowTagsMap: new Map([[1, ['urgent']]]) })
+      renderDataGrid()
+      await flushEffects()
+      expect(screen.queryByTestId('row-tags-cell')).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Hide the Tags column' })).toBeNull()
+    })
+  })
 })
