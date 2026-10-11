@@ -156,7 +156,7 @@ export function LinkSetupDialog(props: Props): React.ReactElement {
             </label>
             <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200 cursor-pointer" style={{ minHeight: 44 }}>
               <input type="checkbox" className="w-5 h-5" checked={logChanges} onChange={e => setLogChanges(e.target.checked)} />
-              Write a note on both when links change
+              Write {t('activity', { article: true })} on both when links change
             </label>
           </div>
         )}

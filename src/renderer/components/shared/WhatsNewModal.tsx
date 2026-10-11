@@ -77,10 +77,10 @@ const RELEASES: ReleaseEntry[] = [
     version: '0.1.0',
     date: '2026-02-22',
     items: [
-      'Encrypted SQLite database with password protection and recovery keys',
-      'Grid view with virtual scrolling, inline editing, and auto-save',
+      'Encrypted data with password protection and recovery keys',
+      'Lists with fast scrolling and editing in place, saved automatically',
       'Dashboard with priority list and deadlines',
-      'Profiles with scratch notes, notes, checklists, and documents',
+      'Profiles with scratch notes, a log, checklists, and documents',
       'Tasks with recurrence and snooze',
       'Snippet library and letter templates',
       'Contacts directory with categories, availability tracking, and vCard import/export',

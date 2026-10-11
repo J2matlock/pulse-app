@@ -434,7 +434,7 @@ export const useGridStore = create<GridState>((set, get) => ({
       const gridId = get().activeGridId
       useUndoStore.getState().pushWithToast({
         id: crypto.randomUUID(),
-        description: `"${clientName}" moved to trash`,
+        description: `"${clientName}" moved to the Trash`,
         timestamp: Date.now(),
         category: 'structural',
         icon: 'trash',

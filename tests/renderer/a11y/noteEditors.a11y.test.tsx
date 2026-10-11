@@ -44,7 +44,7 @@ import { setWords } from '../vocabFixture'
 
 async function flush() { await act(async () => { await new Promise(r => setTimeout(r, 0)) }) }
 function editorOf(): Editor {
-  const dom = screen.getByRole('textbox', { name: 'Scratch pad' }) as HTMLElement & { editor?: Editor }
+  const dom = screen.getByRole('textbox', { name: 'Scratch notes' }) as HTMLElement & { editor?: Editor }
   if (!dom.editor) throw new Error('no editor on the element')
   return dom.editor
 }
@@ -81,7 +81,7 @@ describe('scratch pad "/" snippet menu (audit A06-32)', () => {
     const ed = editorOf()
     await act(async () => { ed.commands.insertContent('/l') })
     const listbox = screen.getByRole('listbox', { name: 'Snippets' })
-    const dom = screen.getByRole('textbox', { name: 'Scratch pad' })
+    const dom = screen.getByRole('textbox', { name: 'Scratch notes' })
     expect(dom.getAttribute('aria-controls')).toBe(listbox.id)
     expect(dom.getAttribute('aria-activedescendant')).toBeNull()
     expect(screen.getAllByRole('option')).toHaveLength(2)

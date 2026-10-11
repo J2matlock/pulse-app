@@ -216,8 +216,8 @@ export function registerRowHandlers(): void {
   secureWrap(IPC.ROW_BULK_ACTION, 'ipc-row', (_e, action: 'archive' | 'unarchive' | 'delete' | 'restore', rowIds: number[]) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!ALLOWED_BULK_ACTIONS.has(action)) return fail(`Invalid bulk action: ${action}`)
-    if (!Array.isArray(rowIds) || rowIds.length === 0) return fail('No rows specified')
-    if (rowIds.length > MAX_BULK_ROW_ACTION) return fail(`Bulk action limited to ${MAX_BULK_ROW_ACTION} rows`)
+    if (!Array.isArray(rowIds) || rowIds.length === 0) return fail(`Choose at least one ${word('record')}.`)
+    if (rowIds.length > MAX_BULK_ROW_ACTION) return fail(`You can change up to ${MAX_BULK_ROW_ACTION.toLocaleString('en-US')} ${word('record', { many: true })} at once.`)
     if (!rowIds.every(id => Number.isInteger(id) && id > 0)) return fail('Invalid row IDs')
     const db = getDb()
     const logStmt = cachedStmt('row_sys_log', `INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`)
@@ -246,7 +246,7 @@ export function registerRowHandlers(): void {
         `)
         rowIds.forEach(id => {
           stmt.run(id)
-          logStmt.run(id, `${recordWord(id)} moved to trash`)
+          logStmt.run(id, `${recordWord(id)} moved to the Trash`)
         })
       } else if (action === 'restore') {
         // Undo of a bulk move to trash (G-34); archived records come back archived
@@ -255,7 +255,7 @@ export function registerRowHandlers(): void {
           updated_at = datetime('now') WHERE id = ? AND deleted_at IS NOT NULL
         `)
         rowIds.forEach(id => {
-          if (stmt.run(id).changes > 0) logStmt.run(id, `${recordWord(id)} restored from trash`)
+          if (stmt.run(id).changes > 0) logStmt.run(id, `${recordWord(id)} restored from the Trash`)
         })
       }
     })
@@ -310,7 +310,7 @@ export function registerRowHandlers(): void {
       // Soft-delete: move to trash instead of hard delete
       cachedStmt('row_soft_delete', `UPDATE rows SET is_active = 0, deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`).run(rowId)
       // Log system event on the client's activity timeline
-      cachedStmt('row_sys_log', `INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`).run(rowId, `${recordWord(rowId)} moved to trash`)
+      cachedStmt('row_sys_log', `INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`).run(rowId, `${recordWord(rowId)} moved to the Trash`)
     })()
     notifyCaseLogChanged(rowId)
     return ok(true)
@@ -341,7 +341,7 @@ export function registerRowHandlers(): void {
     db.transaction(() => {
       // An archived record comes back archived (audit L-12)
       cachedStmt('row_restore_v2', `UPDATE rows SET is_active = CASE WHEN archived_at IS NULL THEN 1 ELSE 0 END, deleted_at = NULL, updated_at = datetime('now') WHERE id = ?`).run(rowId)
-      cachedStmt('row_sys_log', `INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`).run(rowId, `${recordWord(rowId)} restored from trash`)
+      cachedStmt('row_sys_log', `INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`).run(rowId, `${recordWord(rowId)} restored from the Trash`)
     })()
     notifyCaseLogChanged(rowId)
     return ok(true)

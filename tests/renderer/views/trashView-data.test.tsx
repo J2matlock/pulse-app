@@ -120,7 +120,7 @@ describe('TrashView — data smoke tests', () => {
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
 
-    expect(screen.getByText('Empty Trash')).toBeDefined()
+    expect(screen.getByText('Empty the Trash')).toBeDefined()
   })
 
   it('shows days remaining with red highlight for nearly expired rows', async () => {
@@ -138,6 +138,6 @@ describe('TrashView — data smoke tests', () => {
     await flushEffects()
 
     expect(screen.getByTestId('empty-state')).toBeDefined()
-    expect(screen.getByText('Trash is empty')).toBeDefined()
+    expect(screen.getByText('The Trash is empty')).toBeDefined()
   })
 })

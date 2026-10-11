@@ -14,6 +14,7 @@ import { IPC } from '../../../shared/ipc-channels'
 import type { Grid } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { reloadAfterApply } from '../../utils/reloadAfterApply'
+import { friendlyError } from '../../utils/friendlyError'
 
 export interface PulseImportPreview {
   name: string
@@ -80,7 +81,7 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
       )
 
       if (!res.ok) {
-        setError(res.error ?? 'Could not import the template. Please try again.')
+        setError(friendlyError(res.error, 'Could not import the template. Please try again.'))
         return
       }
 
@@ -93,7 +94,7 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
       )
 
       if (!applyRes.ok) {
-        setError(applyRes.error ?? 'Could not apply the template. Please try again.')
+        setError(friendlyError(applyRes.error, 'Could not apply the template. Please try again.'))
         return
       }
 

@@ -8,7 +8,7 @@ import { BrowserWindow, dialog } from 'electron'
 import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
 import { summarizeStarter, type StarterSource } from '../../shared/starters/schema'
-import { secureWrap, ok, fail, enforceWritable, assertSafePath } from './ipc-utils'
+import { secureWrap, ok, fail, enforceWritable, assertSafePath, rememberUserChosenPaths, PATH_REFUSED_MESSAGE } from './ipc-utils'
 import { applyStarter, exportWorkspaceStarter, listBuiltinStarters, loadStarter, previewStarter, StarterError } from '../starters'
 import { atomicWriteFileSync } from '../export-shared'
 import { notifyWorkspaceChanged } from './ipc-workspace'
@@ -96,7 +96,9 @@ export function registerStarterHandlers(): void {
     })
     const filePath = filePaths[0]
     if (canceled || !filePath) return ok(null)
-    try { assertSafePath(filePath) } catch { return fail('Pulse can only open files from your own folders, like Documents, Desktop or Downloads.') }
+    // Picked in Pulse's own dialog, so it may be anywhere but a system folder
+    rememberUserChosenPaths([filePath])
+    try { assertSafePath(filePath) } catch { return fail(PATH_REFUSED_MESSAGE) }
     try {
       const starter = loadStarter({ filePath })
       return ok({ source: { fileToken: registerStarterFile(filePath) }, summary: summarizeStarter(starter) })
@@ -119,7 +121,8 @@ export function registerStarterHandlers(): void {
     })
     if (canceled || !filePath) return ok(null)
     const dest = filePath.endsWith('.pulse') ? filePath : `${filePath}.pulse`
-    try { assertSafePath(dest) } catch { return fail('Save the template in one of your own folders, like Documents or Desktop.') }
+    rememberUserChosenPaths([dest])
+    try { assertSafePath(dest) } catch { return fail(PATH_REFUSED_MESSAGE) }
     atomicWriteFileSync(dest, json, 'utf8')
     return ok({ filePath: dest })
   })

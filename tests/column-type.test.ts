@@ -1,6 +1,6 @@
 /** Changing a column's type (audit 3.12 / G-19): values that fit are converted, the rest are kept, undo restores. */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
+import { createTestDb, cleanupTestDb, seedGrid, setDbWords, type TestDb } from './helpers'
 
 let t: TestDb
 vi.mock('../src/main/database', () => ({ getDb: () => t.db, cachedStmt: (_k: string, sql: string) => t.db.prepare(sql) }))
@@ -65,6 +65,13 @@ describe('changing a column type', () => {
     expect(() => changeColumnType(g.columnIds[1]!, 'checkbox')).toThrow(/names the records/)
     expect(() => changeColumnType(g.columnIds[1]!, 'notes')).toThrow(ColumnTypeError)
     expect(() => changeColumnType(g.columnIds[1]!, 'phone')).not.toThrow()
+  })
+
+  it('names the records with the workspace word (AUDIT-068)', () => {
+    setDbWords(t.db)
+    t.db.prepare('UPDATE columns SET is_name_column = 1 WHERE id = ?').run(g.columnIds[1])
+    t.db.prepare('UPDATE columns SET is_name_column = 0 WHERE id = ?').run(g.columnIds[0])
+    expect(() => changeColumnType(g.columnIds[1]!, 'checkbox')).toThrow(/This column names the clients, so/)
   })
 
   it('refuses worked-out types', () => {

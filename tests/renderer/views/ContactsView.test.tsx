@@ -190,7 +190,7 @@ describe('ContactsView — interactions', () => {
     render(<MemoryRouter><ContactsView /></MemoryRouter>)
     await flushEffects()
 
-    expect(screen.getByRole('heading', { name: 'Provider directory' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Contacts' })).toBeDefined()
     expect(screen.getByText('3 providers')).toBeDefined()
     expect(screen.getByText('Select a provider to view details')).toBeDefined()
   })
@@ -199,7 +199,7 @@ describe('ContactsView — interactions', () => {
     setWords({})
     render(<MemoryRouter><ContactsView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByRole('heading', { name: 'Contact directory' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Contacts' })).toBeDefined()
     expect(screen.getByText('3 contacts')).toBeDefined()
   })
 

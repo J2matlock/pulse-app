@@ -427,7 +427,7 @@ export function applyStarter(src: StarterSource, opts: ApplyOptions): ApplyResul
       // Requirements count note types by key; ones this workspace doesn't have are dropped
       ;(l.requirements ?? []).forEach((r, i) => {
         const types = r.note_types.filter(t => typeKeys.has(t))
-        if (types.length === 0) { result.warnings.push(`"${r.label}" in ${name} counts kinds of notes you don't have, so it wasn't added.`); return }
+        if (types.length === 0) { result.warnings.push(`"${r.label}" in ${name} counts kinds of ${word('activity', { many: true }, gridId)} you don't have, so it wasn't added.`); return }
         insReq.run(gridId, r.label, JSON.stringify(types), r.per_month, r.period ?? 'month', i)
       })
     }
@@ -468,7 +468,7 @@ export function applyStarter(src: StarterSource, opts: ApplyOptions): ApplyResul
       const names = new Set(existing.map(f => f.name.toLowerCase()))
       const added = s.noteFormats.filter(f => !names.has(f.name.toLowerCase()))
       const merged = [...existing, ...added].slice(0, MAX_CUSTOM_FORMATS)
-      if (merged.length < existing.length + added.length) result.warnings.push('Some note formats were not added: you already have the most allowed.')
+      if (merged.length < existing.length + added.length) result.warnings.push(`Some ${word('activity')} formats were not added: you already have the most allowed.`)
       saveSetting.run('note_formats', JSON.stringify(merged))
     }
     for (const d of s.documentTemplates ?? []) {

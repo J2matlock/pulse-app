@@ -5,6 +5,7 @@ import { useUndoStore, rethrowIfUndoing } from './undoStore'
 import { rlog } from '../utils/rendererLogger'
 import toast from 'react-hot-toast'
 import { storeInvoke as invoke } from '../utils/safeInvoke'
+import { friendlyError } from '../utils/friendlyError'
 
 /** Pending column type change awaiting user confirmation. */
 export interface PendingColumnTypeChange {
@@ -192,7 +193,7 @@ export const createColumnSlice = (set: Set, get: Get) => ({
       }
     } catch (err) {
       rlog.error('GridColumnSlice', 'Failed to delete column', err)
-      toast.error(err instanceof Error && err.message ? err.message : 'Could not delete column — please try again')
+      toast.error(friendlyError(err instanceof Error ? err.message : null, 'Could not delete column — please try again'))
     }
   },
 
@@ -215,7 +216,7 @@ export const createColumnSlice = (set: Set, get: Get) => ({
       })
     } catch (err) {
       rlog.error('GridColumnSlice', 'Failed to set name column', err)
-      toast.error(err instanceof Error && err.message ? err.message : 'Could not change the name column — please try again')
+      toast.error(friendlyError(err instanceof Error ? err.message : null, 'Could not change the name column — please try again'))
     }
   },
 

@@ -20,6 +20,7 @@ import { isEditableElement } from '../utils/domHelpers'
 import { isMod } from '../utils/keys'
 import { copyText } from '../hooks/useCopyFeedback'
 import { useVocab } from '../hooks/useVocab'
+import { friendlyError } from '../utils/friendlyError'
 
 export default function ContactsView() {
   const { t } = useVocab(null)
@@ -194,9 +195,9 @@ export default function ContactsView() {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Header bar */}
           <div className="px-4 pt-3 pb-3 border-b border-slate-200 dark:border-slate-700 flex flex-col gap-1">
-            <ViewBreadcrumb items={[{ label: 'Dashboard', to: '/dashboard' }, { label: `${t('contact', { cap: true })} directory` }]} />
+            <ViewBreadcrumb items={[{ label: 'Dashboard', to: '/dashboard' }, { label: t('contactDirectory', { cap: true }) }]} />
             <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-xl font-semibold text-slate-900 dark:text-white min-w-0">{t('contact', { cap: true })} directory</h1>
+            <h1 className="text-xl font-semibold text-slate-900 dark:text-white min-w-0">{t('contactDirectory', { cap: true })}</h1>
             <span className="text-sm text-slate-500 dark:text-slate-400 flex-shrink-0">
               {providers.length} {t('contact', { count: providers.length })}
             </span>
@@ -216,7 +217,7 @@ export default function ContactsView() {
               <button
                 onClick={async () => {
                   const res = await safeInvoke<string | null>(IPC.EXPORT_PDF_DIRECTORY, filterParams)
-                  if (!res.ok) toast.error(res.error || 'Export failed. Please try again.')
+                  if (!res.ok) toast.error(friendlyError(res.error, 'Export failed. Please try again.'))
                 }}
                 className="flex items-center gap-1.5 px-3 rounded-md border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-hidden focus:ring-3 focus:ring-blue-500"
                 style={{ minHeight: 44, fontSize: 15 }}

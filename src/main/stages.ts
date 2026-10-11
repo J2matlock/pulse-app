@@ -4,6 +4,7 @@
  * since time in each stage comes from its change history.
  */
 import { getDb } from './database'
+import { word } from './vocab'
 import { setCellWithHistory } from './cell-write'
 import { applyChecklistTemplate } from './checklist-apply'
 import { columnAffectsDisplayName, refreshDisplayNames } from './display-names'
@@ -62,7 +63,7 @@ export function saveStageConfig(columnId: number, input: unknown): number[] {
         throw new StageError(`The date to fill in for "${o.value}" must be a date column of this list.`)
       }
       if (e.activityTypeKey !== undefined && !db.prepare('SELECT 1 FROM activity_types WHERE key = ?').get(e.activityTypeKey)) {
-        throw new StageError(`The kind of note for "${o.value}" no longer exists.`)
+        throw new StageError(`The kind of ${word('activity', {}, col.grid_id)} for "${o.value}" no longer exists.`)
       }
     }
 
@@ -98,7 +99,7 @@ export function moveStage(rowId: number, columnId: number, value: string | null)
   const db = getDb()
   const col = db.prepare('SELECT c.id, c.grid_id, c.name, c.column_type, c.config, r.grid_id AS row_grid FROM columns c JOIN rows r ON r.id = ? WHERE c.id = ? AND r.deleted_at IS NULL')
     .get(rowId, columnId) as (ColumnRow & { row_grid: number }) | undefined
-  if (!col || col.row_grid !== col.grid_id) throw new StageError('That record or column no longer exists.')
+  if (!col || col.row_grid !== col.grid_id) throw new StageError(`That ${word('record', {}, col?.grid_id)} or column no longer exists.`)
   const stage = stageConfigOf(col)
   if (!stage) throw new StageError(`"${col.name}" isn't the stage.`)
   const option = value === null ? null : stage.options.find(o => o.value === value)

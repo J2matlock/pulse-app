@@ -17,6 +17,7 @@ import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import toast from 'react-hot-toast'
 import { friendlyError } from '../../utils/friendlyError'
+import { modHelp } from '../../utils/keys'
 import type { Provider, ProviderCustomField } from '../../../shared/types'
 import { useVocab } from '../../hooks/useVocab'
 
@@ -379,9 +380,9 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
       {/* Delete confirmation */}
       <ConfirmDialog
         open={showDeleteConfirm}
-        title={`Delete ${t('contact', { cap: true })}`}
-        message={`Are you sure you want to delete "${p.name}"? This will also remove all interactions, ${t('record')} links, and custom field values.`}
-        confirmLabel="Delete"
+        title={`Delete "${p.name}" forever?`}
+        message={`This deletes the ${t('contact')} for good, with everything in their log, their links to ${t('record', { many: true })}, and their extra details. It doesn't go to the Trash. You can undo it right away with ${modHelp('Ctrl+Z')}.`}
+        confirmLabel={`Delete ${t('contact')} forever`}
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteConfirm(false)}
         destructive

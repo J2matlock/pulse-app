@@ -78,6 +78,7 @@ if (!(window as Record<string, unknown>).api) {
 
 import { CommandPalette } from '../../../../src/renderer/components/shared/CommandPalette'
 import { setWords } from '../../vocabFixture'
+import { HUMAN_SERVICES_VOCAB } from '../../../../src/shared/vocab'
 
 beforeEach(() => { setWords() })
 
@@ -106,6 +107,13 @@ describe('CommandPalette', () => {
     expect(screen.getByText('Go to Dashboard')).toBeDefined()
     expect(screen.getByText('Go to Tasks')).toBeDefined()
     expect(screen.getByText('Lock App')).toBeDefined()
+  })
+
+  it('names the contacts page with the workspace word (AUDIT-067)', () => {
+    setWords({ ...HUMAN_SERVICES_VOCAB, contactDirectory: { one: 'resource list', many: 'resource lists', article: 'a' } })
+    render(<CommandPalette open={true} onOpenChange={onOpenChange} />)
+    expect(screen.getByText('Go to Resource list')).toBeDefined()
+    expect(screen.queryByText('Go to Contacts')).toBeNull()
   })
 
   it('does not show Navigation/Actions groups when input is empty', () => {

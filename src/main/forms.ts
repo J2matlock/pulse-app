@@ -53,7 +53,7 @@ export function saveForm(input: FormInput): Form {
   for (const f of v.fields) {
     if (f.kind !== 'column') continue
     const c = cols.get(f.columnId)
-    if (!c) throw new FormError('A field on this form is for a column that no longer exists.')
+    if (!c) throw new FormError('A question on this form is for a column that no longer exists.')
     if (seen.has(f.columnId)) throw new FormError(`"${c.name}" is on the form twice.`)
     if (NOT_FILLABLE.has(c.column_type)) throw new FormError(`"${c.name}" is filled in by Pulse, so it can't be on a form.`)
     seen.add(f.columnId)
@@ -214,7 +214,7 @@ export function undoFormSubmit(change: FormChange): void {
     if (!row) return
     if (change.created) {
       db.prepare("UPDATE rows SET is_active = 0, deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND deleted_at IS NULL").run(change.rowId)
-      db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, 'Moved to trash (the form was undone)', 'system', datetime('now'), datetime('now'))").run(change.rowId)
+      db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, 'Moved to the Trash (the form was undone)', 'system', datetime('now'), datetime('now'))").run(change.rowId)
       return
     }
     const cols = columnsOf(row.grid_id)
@@ -236,7 +236,7 @@ export function redoFormSubmit(change: FormChange): boolean {
     const row = db.prepare('SELECT deleted_at FROM rows WHERE id = ?').get(change.rowId) as { deleted_at: string | null } | undefined
     if (!row || row.deleted_at === null) return false
     db.prepare("UPDATE rows SET is_active = 1, deleted_at = NULL, updated_at = datetime('now') WHERE id = ?").run(change.rowId)
-    db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, 'Restored from trash (the form was redone)', 'system', datetime('now'), datetime('now'))").run(change.rowId)
+    db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, 'Restored from the Trash (the form was redone)', 'system', datetime('now'), datetime('now'))").run(change.rowId)
     if (change.noteId !== null) {
       const note = db.prepare('SELECT log_type, occurred_at FROM case_log WHERE id = ? AND row_id = ?').get(change.noteId, change.rowId) as { log_type: string; occurred_at: string } | undefined
       if (note) {

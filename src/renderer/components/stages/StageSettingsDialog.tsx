@@ -146,9 +146,9 @@ export function StageSettingsDialog({ column, onClose }: { column: Column; onClo
                       )}
                     </div>
                     <label className="block">
-                      <span className="block text-sm text-slate-600 dark:text-slate-300 mb-1">Log a note</span>
+                      <span className="block text-sm text-slate-600 dark:text-slate-300 mb-1">Log {t('activity', { article: true })}</span>
                       <select className="input w-full" value={o.onEnter?.activityTypeKey ?? ''} onChange={e => patchEnter(i, { activityTypeKey: e.target.value || undefined })}>
-                        <option value="">No note</option>
+                        <option value="">No {t('activity')}</option>
                         {noteTypes.map(nt => <option key={nt.key} value={nt.key}>{nt.label}</option>)}
                       </select>
                     </label>

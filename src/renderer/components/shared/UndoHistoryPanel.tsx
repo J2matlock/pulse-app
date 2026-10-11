@@ -273,7 +273,7 @@ export function UndoHistoryPanel({ anchorRef, onClose }: Props): React.ReactElem
           <div className="px-3 py-2 border-t border-slate-100 dark:border-slate-700/50 bg-amber-50 dark:bg-amber-900/10">
             <p className="text-sm text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-              Next undo has a log entry — it will be marked as voided (visible in audit mode).
+              Next undo has a log entry — it will be marked as voided (kept, and shown with "Show voided").
             </p>
           </div>
         )}
@@ -284,7 +284,7 @@ export function UndoHistoryPanel({ anchorRef, onClose }: Props): React.ReactElem
         <ConfirmDialog
           open
           title="Undo multiple actions"
-          message={`Some of the actions being undone have linked ${t('activity', { many: true })}. Those will be marked as voided (they stay visible in audit mode for record-keeping).`}
+          message={`Some of the actions being undone have linked ${t('activity', { many: true })}. Those will be marked as voided: kept, and shown when you tick "Show voided ${t('activity', { many: true })}".`}
           confirmLabel="Undo all"
           destructive={false}
           onConfirm={() => {

@@ -7,6 +7,7 @@ import { reloadAfterApply } from '../../utils/reloadAfterApply'
 import type { SetupTemplate } from './types'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
+import { friendlyError } from '../../utils/friendlyError'
 
 type ApplyMode = 'new' | 'existing'
 
@@ -51,7 +52,7 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
       )
 
       if (!res.ok) {
-        setError(res.error ?? 'Could not apply the template. Please try again.')
+        setError(friendlyError(res.error, 'Could not apply the template. Please try again.'))
         return
       }
       // Its deadline rules and, in an existing list, its new columns show straight away

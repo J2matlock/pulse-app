@@ -7,6 +7,7 @@ import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
 import { secureWrap, ok, fail, enforceWritable, logNonFatal, withCorrelation, validId } from './ipc-utils'
 import { getDb } from '../database'
+import { word } from '../vocab'
 import { VALID_COLUMN_TYPES } from '../../shared/types'
 import { createSampleCaseload, getSampleGridId, countSampleRows, planSampleRemoval, removeSampleData, answerSampleRow } from '../sample-data'
 import { z } from 'zod'
@@ -112,9 +113,9 @@ export function registerOnboardingHandlers(): void {
     return withCorrelation('onboarding-setup-grid', async (corrId) => {
     const guard = enforceWritable(); if (guard) return guard
     // Validate grid name
-    if (!setup.gridName || typeof setup.gridName !== 'string') return fail('Grid name is required')
+    if (!setup.gridName || typeof setup.gridName !== 'string') return fail(`Give the ${word('list')} a name.`)
     const gridName = setup.gridName.trim().slice(0, 200)
-    if (gridName.length === 0) return fail('Grid name cannot be empty')
+    if (gridName.length === 0) return fail(`Give the ${word('list')} a name.`)
     logger.info('ipc-onboarding', `[${corrId}] setting up grid "${gridName}" with ${setup.columns?.length ?? 0} columns`)
 
     const db = getDb()

@@ -122,9 +122,9 @@ export function DeleteRowDialog({
   return (
     <ConfirmDialog
       open={deleteTarget != null}
-      title="Move to trash?"
-      message={`This will move the ${t('record')} to Trash. Anything in Trash can be recovered within 30 days.`}
-      confirmLabel="Move to Trash"
+      title={`Move this ${t('record')} to the Trash?`}
+      message="You can undo this, or bring it back from the Trash within 30 days."
+      confirmLabel="Move to the Trash"
       onConfirm={async () => {
         if (deleteTarget != null) {
           await deleteRow(deleteTarget)
@@ -196,9 +196,9 @@ export function BulkDeleteDialog({
   return (
     <ConfirmDialog
       open={open}
-      title={`Move ${selectedCount} ${t('record', { count: selectedCount })} to trash?`}
-      message={`You can undo this, or recover them from Trash within 30 days.`}
-      confirmLabel="Move to Trash"
+      title={`Move ${selectedCount} ${t('record', { count: selectedCount })} to the Trash?`}
+      message={`You can undo this, or bring them back from the Trash within 30 days.`}
+      confirmLabel="Move to the Trash"
       onConfirm={async () => {
         const ids = Array.from(selectedRowIds)
         const result = await safeInvoke(IPC.ROW_BULK_ACTION, 'delete', ids)
@@ -210,7 +210,7 @@ export function BulkDeleteDialog({
         const label = `${ids.length} ${t('record', { count: ids.length })}`
         useUndoStore.getState().pushWithToast({
           id: crypto.randomUUID(),
-          description: `Moved ${label} to trash`,
+          description: `Moved ${label} to the Trash`,
           timestamp: Date.now(),
           category: 'structural',
           icon: 'Trash2',

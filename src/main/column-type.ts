@@ -5,6 +5,7 @@
  * columns get their choices from the values already there.
  */
 import { getDb } from './database'
+import { word } from './vocab'
 import { setCellWithHistory } from './cell-write'
 import { keepSamplesUntouched } from './sample-marks'
 import { parseDate } from '../shared/parseDate'
@@ -64,7 +65,7 @@ function load(columnId: number, to: string): { col: Col; cells: Array<{ row_id: 
   const db = getDb()
   const col = db.prepare('SELECT id, grid_id, name, column_type, config, is_name_column FROM columns WHERE id = ?').get(columnId) as Col | undefined
   if (!col) throw new ColumnTypeError('That column no longer exists.')
-  if (col.is_name_column === 1 && !canNameRecords(to)) throw new ColumnTypeError('This column names the records, so it can\'t become that type. Choose another name column first.')
+  if (col.is_name_column === 1 && !canNameRecords(to)) throw new ColumnTypeError(`This column names the ${word('record', { many: true }, col.grid_id)}, so it can't become that type. Choose another name column first.`)
   if (!CHANGEABLE_TYPES.has(col.column_type)) throw new ColumnTypeError("This kind of column can't be changed to another type.")
   if (!CHANGEABLE_TYPES.has(to)) throw new ColumnTypeError("A column can't be changed to that type. Add a new column instead.")
   const cells = db.prepare(`SELECT c.row_id, c.value FROM cells c JOIN rows r ON r.id = c.row_id

@@ -14,6 +14,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { UnknownPlaceholders } from '../../components/shared/UnknownPlaceholders'
 import { useGridStore } from '../../stores/gridStore'
 import { rememberedList, rememberList } from './templateList'
+import { friendlyError } from '../../utils/friendlyError'
 
 const SHOWN = 50
 
@@ -96,7 +97,7 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
         IPC.LETTER_TEMPLATE_GENERATE, template.id, rowId, Number(selectedGridId)
       )
       if (!res.ok) {
-        setError(res.error ?? `Could not generate the letter. Please check the ${t('record')} and try again.`)
+        setError(friendlyError(res.error, `Could not generate the letter. Please check the ${t('record')} and try again.`))
       } else {
         setResult(res.data.text)
         setUnknown(res.data.unknown)

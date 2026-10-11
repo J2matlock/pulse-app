@@ -598,7 +598,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                   title="Empty cells show 'Missing' and appear in the Missing information list"
                 >
                   <Asterisk className="w-4 h-4" />
-                  <span className="flex-1 text-left">Required field</span>
+                  <span className="flex-1 text-left">Required column</span>
                   <span className={`text-sm font-medium ${colConfig.required ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
                     {colConfig.required ? 'On' : 'Off'}
                   </span>

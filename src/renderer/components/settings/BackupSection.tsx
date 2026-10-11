@@ -15,6 +15,7 @@ import { MoveComputerWizard } from './MoveComputerWizard'
 import { RestoreFromBackupForm } from '../shared/RestoreFromBackupForm'
 import { useVocab } from '../../hooks/useVocab'
 import { useBackupStatusStore } from '../../stores/backupStatusStore'
+import { friendlyError } from '../../utils/friendlyError'
 
 interface BackupPreviewData {
   gridCount: number
@@ -131,7 +132,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
         toast.success('Backup saved.')
         await refreshOffsite()
       } else {
-        toast.error(res.error || 'The backup couldn\'t be saved. Try again, or choose a different folder.')
+        toast.error(friendlyError(res.error, 'The backup couldn\'t be saved. Try again, or choose a different folder.'))
       }
     } finally {
       setRunningBackup(false)
@@ -175,7 +176,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
         setRestoreResult({ safetyPath: res.data.safetyPath })
       } else {
         // Main says why in plain words ("This file is damaged…"); your data is unchanged either way
-        toast.error(res.error || 'Restore failed. Please try a different backup.')
+        toast.error(friendlyError(res.error, 'Restore failed. Please try a different backup.'))
       }
     } catch {
       toast.error('Restore failed. Please try again.')
@@ -533,7 +534,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
           title="Restore from backup?"
           message={`This will replace all your current data with the backup from "${restoreTarget.label}". Your current data will be saved as a safety backup first. This cannot be undone without the safety backup.\n\nType RESTORE to confirm.`}
           requiredPhrase="RESTORE"
-          confirmLabel="Restore"
+          confirmLabel="Replace my data with this backup"
           destructive
           onConfirm={() => { setBackupPreview(null); void executeRestore() }}
           onCancel={() => { setBackupPreview(null); setRestoreTarget(null) }}

@@ -118,7 +118,7 @@ describe('Sidebar', () => {
     renderSidebar(false, '/grid')
     fireEvent.click(screen.getAllByRole('button', { name: /options$/ })[0]!)
     fireEvent.click(screen.getByText(/^Delete .*…$/))
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Move to Trash' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Move to the Trash' })) })
     expect(mockDeleteGrid).toHaveBeenCalledWith(1)
     expect(mockNavigate).toHaveBeenCalledWith('/grid')
     expect(mockNavigate).not.toHaveBeenCalledWith('/dashboard')

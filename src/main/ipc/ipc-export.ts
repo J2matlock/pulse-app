@@ -417,7 +417,7 @@ export function registerExportHandlers(): void {
     const provider = getProvider(providerId)
     const defaultName = provider ? safeFileName(provider.name) : 'contact'
     const { canceled, filePath } = await dialog.showSaveDialog({
-      title: 'Export Contact as PDF',
+      title: `Export ${word('contact', { cap: true })} as PDF`,
       defaultPath: `${defaultName}-profile.pdf`,
       filters: [{ name: 'PDF', extensions: ['pdf'] }]
     })

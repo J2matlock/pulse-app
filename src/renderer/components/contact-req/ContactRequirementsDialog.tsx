@@ -8,6 +8,7 @@ import type { ContactRequirement } from '../../../shared/types'
 import { useVocab } from '../../hooks/useVocab'
 import { useActivityTypes } from '../../hooks/useActivityTypes'
 import { PERIODS, PERIOD_MAX, type Period } from '../../../shared/periods'
+import { friendlyError } from '../../utils/friendlyError'
 
 // Built on the five built-in types; only shown for the types this workspace still has
 const SUGGESTIONS: ContactRequirement[] = [
@@ -59,7 +60,7 @@ export function ContactRequirementsDialog({ gridId, gridName, onClose }: {
     const payload = drafts!.map(d => ({ label: d.label, note_types: d.note_types, per_month: parseInt(d.per_month, 10), period: d.period }))
     const res = await safeInvoke(IPC.CONTACT_REQ_SAVE, gridId, payload)
     setSaving(false)
-    if (!res.ok) { setError(res.error); return }
+    if (!res.ok) { setError(friendlyError(res.error, "We couldn't save these settings. Please try again.")); return }
     pulseEvents.emit('contact-req:changed')
     onClose()
   }
@@ -115,7 +116,7 @@ export function ContactRequirementsDialog({ gridId, gridName, onClose }: {
                 </button>
               </div>
               <div className="flex flex-wrap items-center gap-x-4">
-                <span className="text-sm text-slate-600 dark:text-slate-300">Counts these notes:</span>
+                <span className="text-sm text-slate-600 dark:text-slate-300">Counts these {t('activity', { many: true })}:</span>
                 {activity.all.filter(type => !type.is_archived || d.note_types.includes(type.key)).map(type => (
                   <label key={type.key} className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-200 cursor-pointer">
                     <input type="checkbox" className="w-5 h-5" checked={d.note_types.includes(type.key)}

@@ -2,6 +2,8 @@
 import { describe, it, expect } from 'vitest'
 import { EMPTY_DRAFT, draftFromRule, draftToConfig, draftToCondition, type RuleDraft } from '../src/renderer/components/alerts/ruleDraft'
 import { RULE_KINDS, engineRuleFrom } from '../src/shared/deadlineEngine'
+import { GENERIC_VOCAB } from '../src/shared/vocab'
+import { setWords } from './renderer/vocabFixture'
 
 const draft = (patch: Partial<RuleDraft>): RuleDraft => ({ ...EMPTY_DRAFT, ...patch })
 
@@ -38,6 +40,10 @@ describe('rule drafts', () => {
     expect(draftToConfig(draft({ kind: 'calendar' }))).toEqual({ ok: false, error: 'Choose at least one month.' })
     expect(draftToConfig(draft({ ...complete.meter, meterLast: 5 }))).toMatchObject({ ok: false, error: /different columns/ })
     expect(draftToConfig(draft({ ...complete.quota, quotaTypes: [] }))).toMatchObject({ ok: false, error: /kinds of notes/ })
+    // The workspace's activity word, not "notes" (AUDIT-155)
+    setWords()
+    expect(draftToConfig(draft({ ...complete.quota, quotaTypes: [] }))).toMatchObject({ ok: false, error: 'Choose which kinds of case notes count.' })
+    setWords(GENERIC_VOCAB)
     expect(draftToConfig(draft({ ...complete.sequence, seqSteps: [{ label: ' ', amount: '1', unit: 'days' }] }))).toMatchObject({ ok: false, error: /name/ })
   })
 

@@ -438,11 +438,11 @@ export function renderProfileToDoc(
     logger.error('export', 'PDF linked providers section failed', { error: err instanceof Error ? err.message : String(err) })
   }
 
-  // ── Scrap Notes ──
+  // ── Scratch notes ──
   if (includeSections.scratchPad) {
     const noteContent = (db.prepare('SELECT content FROM scrap_notes WHERE row_id = ?').get(rowId) as { content: string } | undefined)?.content
     if (noteContent) {
-      addSection('Scrap notes')
+      addSection('Scratch notes')
       addBodyText(noteContent)
       y += 4
     }
@@ -489,7 +489,7 @@ export async function exportContactPdf(providerId: number, destPath: string): Pr
   const db = getDb()
 
   const provider = getProvider(providerId)
-  if (!provider) throw new Error('Provider not found')
+  if (!provider) throw new Error(`That ${word('contact')} no longer exists.`)
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageW = doc.internal.pageSize.width

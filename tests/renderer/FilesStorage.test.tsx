@@ -44,9 +44,9 @@ describe('files storage settings', () => {
 
   it('empties the files trash', async () => {
     render(<FilesStorageSection />)
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Remove files in the trash now/ })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Remove files in the Trash now/ })) })
     expect(invoke).toHaveBeenCalledWith('attachments:purge')
-    expect(toast.success).toHaveBeenCalledWith('Removed 3 files from the trash')
+    expect(toast.success).toHaveBeenCalledWith('Removed 3 files from the Trash')
   })
 })
 
@@ -59,7 +59,7 @@ describe('trash files', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Restore/ })) })
     expect(invoke).toHaveBeenCalledWith('attachments:restore', 7)
     fireEvent.click(screen.getByRole('button', { name: /^Delete$/ }))
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Delete Permanently/ })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Delete forever/ })) })
     expect(invoke).toHaveBeenCalledWith('attachments:purge', 7)
   })
 
