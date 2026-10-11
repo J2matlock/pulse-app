@@ -265,7 +265,7 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
         aria-modal="true"
         aria-label="Command palette"
       >
-        <Command shouldFilter={false} className="flex flex-col">
+        <Command shouldFilter={false} className="flex flex-col" label={`Search ${t('record', { many: true })} and commands`}>
           {/* Search input */}
           <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
             <Search className="w-5 h-5 text-slate-500 dark:text-slate-400 flex-shrink-0" />
@@ -287,10 +287,9 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
 
             {/* Client search results */}
             {matchedClients.length > 0 && (
-              <Command.Group>
-                <p className="px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+              <Command.Group heading={<span className="block px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                   {tActive('record', { many: true, cap: true })} {activeGrid ? `— ${activeGrid.name}` : ''}
-                </p>
+                </span>}>
                 {matchedClients.map(row => {
                   const name = getClientName(row, columns, 'Unknown')
                   return (
@@ -323,10 +322,9 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
 
             {/* Cross-grid search results */}
             {crossGridResults.length > 0 && (
-              <Command.Group>
-                <p className="px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+              <Command.Group heading={<span className="block px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                   All {t('list', { many: true, cap: true })}
-                </p>
+                </span>}>
                 {crossGridResults.map(r => (
                   <Command.Item
                     key={`xgrid-${r.gridId}-${r.rowId}`}
@@ -353,10 +351,9 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
 
             {/* Recent profiles (empty query only) */}
             {showRecent && (
-              <Command.Group>
-                <p className="px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+              <Command.Group heading={<span className="block px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                   Recent {t('record', { many: true, cap: true })}
-                </p>
+                </span>}>
                 {recentProfiles.slice(0, 5).map(p => (
                   <Command.Item
                     key={p.rowId}
@@ -379,10 +376,9 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
 
             {/* Quick Actions (shown when input is empty, no query) */}
             {!q && quickActions.length > 0 && (
-              <Command.Group>
-                <p className="px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+              <Command.Group heading={<span className="block px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                   Quick Actions
-                </p>
+                </span>}>
                 {quickActions.map(cmd => (
                   <Command.Item
                     key={cmd.label}
@@ -405,10 +401,9 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
 
             {/* Help answers (shown when searching) */}
             {helpMatches.length > 0 && (
-              <Command.Group>
-                <p className="px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+              <Command.Group heading={<span className="block px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                   Help
-                </p>
+                </span>}>
                 {helpMatches.map(h => (
                   <Command.Item
                     key={`help-${h.id}`}
@@ -428,10 +423,9 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
 
             {/* Navigation commands (shown when searching) */}
             {q && filteredNav.length > 0 && (
-              <Command.Group>
-                <p className="px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+              <Command.Group heading={<span className="block px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                   Navigation
-                </p>
+                </span>}>
                 {filteredNav.map(cmd => (
                   <Command.Item
                     key={cmd.label}
@@ -454,10 +448,9 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
 
             {/* Actions (shown when searching) */}
             {q && filteredActions.length > 0 && (
-              <Command.Group>
-                <p className="px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+              <Command.Group heading={<span className="block px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                   Actions
-                </p>
+                </span>}>
                 {filteredActions.map(cmd => (
                   <Command.Item
                     key={cmd.label}

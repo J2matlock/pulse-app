@@ -29,6 +29,9 @@ import { useToday } from '../../hooks/useToday'
 import { useFeature } from '../../hooks/useFeature'
 import { FormsDialog } from '../forms/FormsDialog'
 
+/** What the Tasks count means, for screen readers and the collapsed tooltip */
+const TASKS_DUE_WORDS = 'due today or overdue'
+
 interface Props {
   collapsed: boolean
   onToggle: () => void
@@ -650,7 +653,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
                   : 'text-slate-700 dark:text-slate-300'}
               `}
               style={{ minHeight: 44 }}
-              title={collapsed ? modHelp('Tasks (Ctrl+Shift+T)') : undefined}
+              title={collapsed ? modHelp(`Tasks${todayDueCount > 0 ? ` (${todayDueCount} ${TASKS_DUE_WORDS})` : ''} (Ctrl+Shift+T)`) : undefined}
               aria-current={isTasks ? 'page' : undefined}
             >
               {isTasks && (
@@ -661,12 +664,22 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
                 />
               )}
               <ClipboardList className="relative z-10 w-5 h-5 flex-shrink-0" />
+              {collapsed && (
+                <>
+                  <span className="sr-only">Tasks{todayDueCount > 0 ? `, ${todayDueCount} ${TASKS_DUE_WORDS}` : ''}</span>
+                  {todayDueCount > 0 && (
+                    <span aria-hidden="true" className="absolute z-10 top-2 left-6 w-2.5 h-2.5 rounded-full bg-blue-600 ring-2 ring-white dark:ring-slate-800" />
+                  )}
+                </>
+              )}
               {!collapsed && (
                 <span className="relative z-10 text-base flex-1 flex items-center justify-between">
                   Tasks
                   {todayDueCount > 0 && (
-                    <span className="bg-blue-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
-                      {todayDueCount}
+                    <span className="bg-blue-600 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
+                      <span aria-hidden="true">{todayDueCount}</span>
+                      {/* Say what the number means; "Tasks 3" alone doesn't */}
+                      <span className="sr-only">, {todayDueCount} {TASKS_DUE_WORDS}</span>
                     </span>
                   )}
                 </span>

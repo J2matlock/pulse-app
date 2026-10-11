@@ -105,4 +105,26 @@ describe('the form builder', () => {
     // At the top now: focus moves to the arrow that still works
     expect(document.activeElement?.getAttribute('aria-label')).toMatch(/^Move Question for the .* down$/)
   })
+
+  it('an empty heading is flagged on its own box, in plain words, and not saved (audit A06-14)', async () => {
+    forms = []
+    render(<FormsDialog gridId={3} gridName="Clients" onClose={vi.fn()} />)
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    fireEvent.click(screen.getByRole('button', { name: /New form/ }))
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    fireEvent.change(screen.getByLabelText('Form name'), { target: { value: 'Test form' } })
+    fireEvent.click(screen.getByRole('button', { name: /Section heading/ }))
+    const heading = screen.getByLabelText('Heading')
+    fireEvent.change(heading, { target: { value: '' } })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Save form' })) })
+    const alert = screen.getByRole('alert')
+    expect(alert.textContent).toBe('Give this heading a title, or remove it.')
+    expect(heading.getAttribute('aria-invalid')).toBe('true')
+    expect(heading.getAttribute('aria-describedby')).toBe(alert.id)
+    expect(document.activeElement).toBe(heading)
+    expect(invoke.mock.calls.some(c => c[0] === 'forms:save')).toBe(false)
+    fireEvent.change(heading, { target: { value: 'About you' } })
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
 })
+

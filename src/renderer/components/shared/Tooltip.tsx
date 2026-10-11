@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useId, cloneElement, isValidElement } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { tooltipVariants } from '../../utils/animations'
 
@@ -9,17 +9,29 @@ interface TooltipProps {
   delay?: number
 }
 
+/** How long the tooltip waits after the pointer leaves, so it can move onto the tooltip (WCAG 1.4.13) */
+const HIDE_GRACE_MS = 150
+
 /**
  * Simple hover tooltip. Wraps a single child element.
  * Respects prefers-reduced-motion — tooltip appears instantly when motion is reduced.
+ * Escape hides it, and it stays while the pointer is over it (WCAG 1.4.13).
  */
 export function Tooltip({ content, children, placement = 'top', delay = 400 }: TooltipProps): React.ReactElement {
   const [visible, setVisible] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [pos, setPos] = useState({ top: 0, left: 0 })
   const wrapRef = useRef<HTMLDivElement>(null)
+  const tooltipId = useId()
+
+  function clearTimer() {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = null
+  }
 
   function show() {
+    clearTimer()
+    if (visible) return
     timerRef.current = setTimeout(() => {
       if (!wrapRef.current) return
       const rect = wrapRef.current.getBoundingClientRect()
@@ -38,11 +50,33 @@ export function Tooltip({ content, children, placement = 'top', delay = 400 }: T
   }
 
   function hide() {
-    if (timerRef.current) clearTimeout(timerRef.current)
+    clearTimer()
     setVisible(false)
   }
 
+  function hideSoon() {
+    if (!visible) { hide(); return }
+    clearTimer()
+    timerRef.current = setTimeout(() => setVisible(false), HIDE_GRACE_MS)
+  }
+
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])
+
+  useEffect(() => {
+    if (!visible) return
+    function onKey(e: KeyboardEvent) {
+      // Only hide the tooltip; let Escape keep doing its other jobs (closing a dialog etc.)
+      if (e.key === 'Escape') setVisible(false)
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [visible])
+
+  // Link the hint to its trigger while it shows, unless the trigger already says the same thing
+  const childProps = isValidElement(children) ? (children.props as { 'aria-label'?: string; title?: string; 'aria-describedby'?: string }) : {}
+  const describe = visible && !!content && typeof children.type === 'string'
+    && childProps['aria-label'] !== content && childProps.title !== content
+  const child = describe ? cloneElement(children as React.ReactElement<{ 'aria-describedby'?: string }>, { 'aria-describedby': [childProps['aria-describedby'], tooltipId].filter(Boolean).join(' ') }) : children
 
   const placementClass =
     placement === 'top'    ? '-translate-x-1/2 -translate-y-full -mt-1.5' :
@@ -52,14 +86,17 @@ export function Tooltip({ content, children, placement = 'top', delay = 400 }: T
 
   return (
     <>
-      <div ref={wrapRef} style={{ display: 'contents' }} onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide} onContextMenu={hide}>
-        {children}
+      <div ref={wrapRef} style={{ display: 'contents' }} onMouseEnter={show} onMouseLeave={hideSoon} onFocus={show} onBlur={hide} onContextMenu={hide}>
+        {child}
       </div>
       <AnimatePresence>
         {visible && content && (
           <motion.div
+            id={tooltipId}
             role="tooltip"
-            className={`fixed z-[300] pointer-events-none ${placementClass}`}
+            className={`fixed z-[300] ${placementClass}`}
+            onMouseEnter={clearTimer}
+            onMouseLeave={hide}
             style={{ top: pos.top, left: pos.left }}
             variants={tooltipVariants}
             initial="hidden"

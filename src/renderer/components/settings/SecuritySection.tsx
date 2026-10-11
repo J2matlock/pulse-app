@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { RecoveryKeyDisplayModal } from '../shared/RecoveryKeyDisplayModal'
 import { SecurityCheckup } from './SecurityCheckup'
 import { PasswordStrength } from '../shared/PasswordStrength'
+import { FieldError, fieldErrorProps } from '../shared/FieldError'
 import { checkNewPassword } from '../../../shared/passwordPolicy'
 import { modHelp } from '../../utils/keys'
 
@@ -20,7 +21,8 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
   const autoLockMinutes = useSettingsStore(s => s.autoLockMinutes)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '', hint: '' })
-  const [pwError, setPwError] = useState<string | null>(null)
+  // Which box the error is about, so that box can point at it (audit A06-14)
+  const [pwError, setPwError] = useState<{ text: string; field: 'current' | 'next' | 'confirm' | null } | null>(null)
   const [pwSaving, setPwSaving] = useState(false)
   const [hasRecovery, setHasRecovery] = useState<boolean | null>(null)
   const [showRecoveryKeyModal, setShowRecoveryKeyModal] = useState(false)
@@ -85,17 +87,23 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
     await saveSetting('auto_lock_minutes', String(minutes))
   }
 
+  const confirmMismatch = !!pwForm.next && !!pwForm.confirm && pwForm.next !== pwForm.confirm && 'Passwords do not match'
+
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault()
     if (pwSaving) return
     setPwError(null)
     const check = checkNewPassword(pwForm.next)
-    if (!check.ok) { setPwError(check.message ?? 'Choose a stronger password.'); return }
-    if (pwForm.next !== pwForm.confirm) { setPwError('Passwords do not match.'); return }
+    if (!check.ok) { setPwError({ text: check.message ?? 'Choose a stronger password.', field: 'next' }); return }
+    if (pwForm.next !== pwForm.confirm) { setPwError({ text: 'Passwords do not match.', field: 'confirm' }); return }
     setPwSaving(true)
     try {
       const res = await safeInvoke(IPC.AUTH_CHANGE_PASSWORD, pwForm.current, pwForm.next, pwForm.hint)
-      if (!res.ok) { setPwError(res.error === 'Incorrect password' ? 'Your current password is incorrect.' : (res.error ?? 'Current password is incorrect.')); return }
+      if (!res.ok) {
+        const wrong = res.error === 'Incorrect password'
+        setPwError({ text: wrong ? 'Your current password is incorrect.' : (res.error ?? 'Current password is incorrect.'), field: wrong ? 'current' : null })
+        return
+      }
       toast.success('Password changed successfully.')
       setPwForm({ current: '', next: '', confirm: '', hint: '' })
       setIsChangingPassword(false)
@@ -150,26 +158,28 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
         {isChangingPassword && (
           <form onSubmit={e => void handleChangePassword(e)} className="space-y-3 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
             {pwError && (
-              <p className="text-sm text-red-600 dark:text-red-400 font-medium">{pwError}</p>
+              <p id="settings-pw-error" role="alert" className="text-sm text-red-600 dark:text-red-400 font-medium">{pwError.text}</p>
             )}
             <div>
               <label htmlFor="settings-pw-current" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Current password</label>
               <input id="settings-pw-current" type="password" autoFocus className="input w-full" style={{ minHeight: 44 }}
+                aria-invalid={pwError?.field === 'current' || undefined} aria-describedby={pwError?.field === 'current' ? 'settings-pw-error' : undefined}
                 value={pwForm.current} onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))} required />
             </div>
             <div>
               <label htmlFor="settings-pw-new" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">New password</label>
               <input id="settings-pw-new" type="password" className="input w-full" style={{ minHeight: 44 }}
+                aria-invalid={pwError?.field === 'next' || undefined} aria-describedby={pwError?.field === 'next' ? 'settings-pw-strength settings-pw-error' : 'settings-pw-strength'}
                 value={pwForm.next} onChange={e => setPwForm(f => ({ ...f, next: e.target.value }))} required minLength={12} />
-              <PasswordStrength password={pwForm.next} />
+              <PasswordStrength password={pwForm.next} id="settings-pw-strength" />
             </div>
             <div>
               <label htmlFor="settings-pw-confirm" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Confirm new password</label>
               <input id="settings-pw-confirm" type="password" className="input w-full" style={{ minHeight: 44 }}
-                value={pwForm.confirm} onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))} required />
-              {pwForm.next && pwForm.confirm && pwForm.next !== pwForm.confirm && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-400">Passwords do not match</p>
-              )}
+                value={pwForm.confirm} onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))} required
+                {...fieldErrorProps('settings-pw-confirm', confirmMismatch, pwError?.field === 'confirm' ? 'settings-pw-error' : undefined)}
+                aria-invalid={confirmMismatch || pwError?.field === 'confirm' ? true : undefined} />
+              <FieldError fieldId="settings-pw-confirm" error={confirmMismatch} announce={false} />
             </div>
             <div>
               <label htmlFor="settings-pw-hint" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -264,8 +274,9 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
             onChange={e => setKeyActionPassword(e.target.value)}
             autoFocus
             autoComplete="current-password"
+            {...fieldErrorProps('key-action-password', keyActionError)}
           />
-          {keyActionError && <p role="alert" className="text-base text-red-600 dark:text-red-400">{keyActionError}</p>}
+          <FieldError fieldId="key-action-password" error={keyActionError} className="text-base text-red-600 dark:text-red-400" />
           <div className="flex gap-3">
             <button type="button" className="btn-secondary" style={{ minHeight: 44 }} onClick={closeKeyAction}>Cancel</button>
             <button

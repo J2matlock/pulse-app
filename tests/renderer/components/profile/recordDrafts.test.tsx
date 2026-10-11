@@ -31,6 +31,7 @@ vi.mock('@tiptap/react', async () => {
   return {
     useEditor: (opts: { onUpdate: (a: { editor: unknown }) => void }) => { editorState.onUpdate = opts.onUpdate; return editor },
     EditorContent: () => React.createElement('div'),
+    useEditorState: ({ selector }: { selector: (c: { editor: unknown }) => unknown }) => selector({ editor }),
   }
 })
 vi.mock('@tiptap/starter-kit', () => ({ default: {} }))

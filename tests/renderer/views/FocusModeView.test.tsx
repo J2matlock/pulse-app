@@ -116,6 +116,7 @@ describe('FocusModeView', () => {
     const { container } = render(<MemoryRouter><FocusModeView onClose={vi.fn()} /></MemoryRouter>)
     await flushEffects()
     expect(container.innerHTML.length).toBeGreaterThan(0)
+    expect(screen.getByRole('dialog', { name: 'Focus Mode' })).toBeTruthy()
   })
 
   it('does not call onClose on initial render', async () => {

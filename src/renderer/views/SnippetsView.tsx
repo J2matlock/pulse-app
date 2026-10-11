@@ -6,6 +6,7 @@ import type { Snippet } from '../../shared/types'
 import { safeInvoke } from '../utils/safeInvoke'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import { EmptyState } from '../components/shared/EmptyState'
+import { FieldError, fieldErrorProps } from '../components/shared/FieldError'
 import { isMod } from '../utils/keys'
 import { useVocab } from '../hooks/useVocab'
 import toast from 'react-hot-toast'
@@ -86,10 +87,10 @@ function SnippetEditor({ initial, onSave, onClose, takenTriggers }: EditorProps)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
          onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div ref={trapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="snippet-dialog-title" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
         <div className="flex items-center gap-2 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
           <Zap className="w-5 h-5 text-blue-500" />
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1">
+          <h2 id="snippet-dialog-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1">
             {initial ? 'Edit Snippet' : 'New Snippet'}
           </h2>
           <button onClick={onClose} aria-label="Close"
@@ -122,10 +123,12 @@ function SnippetEditor({ initial, onSave, onClose, takenTriggers }: EditorProps)
                             ${triggerError ? 'border-red-400' : 'border-slate-300 dark:border-slate-600'}`}
                 placeholder="lm"
                 style={{ fontSize: 15 }}
+                aria-required="true"
+                {...fieldErrorProps('snippet-trigger', triggerError, 'snippet-trigger-hint')}
               />
             </div>
-            {triggerError && <p className="text-sm text-red-600 dark:text-red-400 mt-1">{triggerError}</p>}
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            <FieldError fieldId="snippet-trigger" error={triggerError} className="text-sm text-red-600 dark:text-red-400 mt-1" />
+            <p id="snippet-trigger-hint" className="text-sm text-slate-500 dark:text-slate-400 mt-1">
               Type /{trigger || 'lm'} in any {t('activity')} or scratch note to expand.
             </p>
           </div>
@@ -138,6 +141,7 @@ function SnippetEditor({ initial, onSave, onClose, takenTriggers }: EditorProps)
             <textarea
               id="snippet-expansion"
               ref={expansionRef}
+              aria-required="true"
               value={expansion}
               onChange={e => setExpansion(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && isMod(e)) { e.preventDefault(); void handleSave() } }}

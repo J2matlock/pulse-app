@@ -2,7 +2,8 @@
  * ChecklistTemplateEditor — Modal for creating or editing a checklist template.
  * Supports drag-to-reorder items via @dnd-kit/sortable.
  */
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useId } from 'react'
+import { fieldErrorId, fieldErrorProps } from '../shared/FieldError'
 import { motion } from 'motion/react'
 import { X, Plus, Trash2, GripVertical } from 'lucide-react'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
@@ -104,6 +105,7 @@ function SortableItem({ item, index, onChange, onRemove, isOnly }: SortableItemP
           value={item.title}
           onChange={e => onChange(item.id, 'title', e.target.value)}
           placeholder="Item title"
+          aria-label={`Item ${index + 1} title`}
           className="w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800
                      text-slate-900 dark:text-slate-100 px-3 py-2 text-base
                      focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:border-transparent
@@ -115,6 +117,7 @@ function SortableItem({ item, index, onChange, onRemove, isOnly }: SortableItemP
           <select
             value={item.priority}
             onChange={e => onChange(item.id, 'priority', e.target.value)}
+            aria-label={`Item ${index + 1} priority`}
             className="rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800
                        text-slate-900 dark:text-slate-100 px-3 py-2 text-base
                        focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:border-transparent
@@ -165,7 +168,10 @@ function parseItems(itemsJson: string): TemplateItem[] {
   }
 }
 
+const NAME_REQUIRED = 'Name is required.'
+
 export function ChecklistTemplateEditor({ open, template, onClose, onSaved }: Props): React.ReactElement | null {
+  const dialogTitleId = useId()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [isRecurring, setIsRecurring] = useState(false)
@@ -247,7 +253,7 @@ export function ChecklistTemplateEditor({ open, template, onClose, onSaved }: Pr
 
     const trimmedName = name.trim()
     if (!trimmedName) {
-      setError('Name is required.')
+      setError(NAME_REQUIRED)
       nameRef.current?.focus()
       return
     }
@@ -302,13 +308,13 @@ export function ChecklistTemplateEditor({ open, template, onClose, onSaved }: Pr
       ref={trapRef}
       variants={backdropVariants} initial="hidden" animate="visible"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      role="dialog" aria-modal="true"
+      role="dialog" aria-modal="true" aria-labelledby={dialogTitleId}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <motion.div variants={modalPanelVariants} initial="hidden" animate="visible" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1">
+          <h2 id={dialogTitleId} className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1">
             {template ? (isSystem ? 'View Template' : 'Edit Template') : 'New Template'}
           </h2>
           <button
@@ -337,6 +343,8 @@ export function ChecklistTemplateEditor({ open, template, onClose, onSaved }: Pr
             <input
               id="checklist-tmpl-name"
               ref={nameRef}
+              aria-required="true"
+              {...fieldErrorProps('checklist-tmpl-name', error === NAME_REQUIRED && error)}
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
@@ -456,7 +464,7 @@ export function ChecklistTemplateEditor({ open, template, onClose, onSaved }: Pr
 
           {/* Error message */}
           {error && (
-            <div className="text-base text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-3">
+            <div id={fieldErrorId('checklist-tmpl-name')} role="alert" className="text-base text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-3">
               {error}
             </div>
           )}

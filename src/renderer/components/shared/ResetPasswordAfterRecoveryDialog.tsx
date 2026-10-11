@@ -7,6 +7,7 @@ import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { PasswordStrength } from './PasswordStrength'
+import { FieldError, fieldErrorProps } from './FieldError'
 import { checkNewPassword, MIN_PASSWORD_LENGTH } from '../../../shared/passwordPolicy'
 
 interface ResetPasswordAfterRecoveryDialogProps {
@@ -27,6 +28,7 @@ export function ResetPasswordAfterRecoveryDialog({ open, onComplete }: ResetPass
   useFocusTrap(trapRef, open)
 
   const passwordsMatch = password === confirm
+  const confirmMismatch = confirm.length > 0 && !passwordsMatch && 'Passwords do not match'
   const isValid = checkNewPassword(password).ok && passwordsMatch
 
   async function handleSubmit(e: React.FormEvent) {
@@ -54,10 +56,10 @@ export function ResetPasswordAfterRecoveryDialog({ open, onComplete }: ResetPass
     <>
       {open && (
         <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50">
-          <motion.div ref={trapRef} variants={modalPanelVariants} initial="hidden" animate="visible" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md mx-4 p-8">
+          <motion.div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="recovery-reset-title" variants={modalPanelVariants} initial="hidden" animate="visible" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md mx-4 p-8">
         <div className="flex items-center gap-3 mb-2">
           <KeyRound className="w-6 h-6 text-blue-600" />
-          <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+          <h2 id="recovery-reset-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100">
             Set a new password
           </h2>
         </div>
@@ -67,7 +69,7 @@ export function ResetPasswordAfterRecoveryDialog({ open, onComplete }: ResetPass
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
-            <p className="text-sm text-red-600 dark:text-red-400 font-medium">{error}</p>
+            <p role="alert" className="text-sm text-red-600 dark:text-red-400 font-medium">{error}</p>
           )}
 
           <div>
@@ -83,6 +85,7 @@ export function ResetPasswordAfterRecoveryDialog({ open, onComplete }: ResetPass
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+                aria-describedby="recovery-reset-strength"
                 autoFocus
                 autoComplete="new-password"
               />
@@ -95,7 +98,7 @@ export function ResetPasswordAfterRecoveryDialog({ open, onComplete }: ResetPass
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
-            <PasswordStrength password={password} />
+            <PasswordStrength password={password} id="recovery-reset-strength" />
           </div>
 
           <div>
@@ -111,10 +114,9 @@ export function ResetPasswordAfterRecoveryDialog({ open, onComplete }: ResetPass
               onChange={e => setConfirm(e.target.value)}
               placeholder="Re-enter your password"
               autoComplete="new-password"
+              {...fieldErrorProps('recovery-reset-confirm', confirmMismatch)}
             />
-            {confirm.length > 0 && !passwordsMatch && (
-              <p className="text-red-600 dark:text-red-400 text-sm mt-1">Passwords do not match</p>
-            )}
+            <FieldError fieldId="recovery-reset-confirm" error={confirmMismatch} className="text-red-600 dark:text-red-400 text-sm mt-1" announce={false} />
           </div>
 
           <div>

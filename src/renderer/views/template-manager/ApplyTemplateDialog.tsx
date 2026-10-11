@@ -133,7 +133,7 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
           )}
 
           {error && (
-            <div className="text-base text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-3">
+            <div role="alert" className="text-base text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-3">
               {error}
             </div>
           )}

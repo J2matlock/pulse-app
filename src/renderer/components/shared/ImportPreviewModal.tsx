@@ -4,7 +4,7 @@
  *
  * Used by TemplateManagerView (manual import) and App.tsx (file association open).
  */
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useId } from 'react'
 import { FileText, X, ChevronDown } from 'lucide-react'
 import { motion } from 'motion/react'
 import { backdropVariants, modalPanelVariants } from '../../utils/animations'
@@ -48,6 +48,7 @@ interface ImportPreviewModalProps {
 }
 
 export function ImportPreviewModal({ imported, grids, onClose, onApplied }: ImportPreviewModalProps): React.ReactElement {
+  const dialogTitleId = useId()
   const { filePath, preview } = imported
   const { t } = useVocab(null)
   const trapRef = useRef<HTMLDivElement>(null)
@@ -115,13 +116,14 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
         role="dialog"
         aria-modal="true"
+        aria-labelledby={dialogTitleId}
         onClick={e => { if (e.target === e.currentTarget) onClose() }}
       >
         <motion.div variants={modalPanelVariants} initial="hidden" animate="visible" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
           <FileText className="w-5 h-5 text-blue-500 flex-shrink-0" />
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1">
+          <h2 id={dialogTitleId} className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1">
             Import Template
           </h2>
           <button
@@ -236,7 +238,7 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
           </div>
 
           {error && (
-            <div className="text-base text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-3">
+            <div role="alert" className="text-base text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-3">
               {error}
             </div>
           )}

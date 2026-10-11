@@ -52,7 +52,7 @@ describe('setting up a link', () => {
     render(<LinkSetupDialog mode="edit" type={type} onClose={vi.fn()} />)
     expect((screen.getByLabelText('Name on Vehicles') as HTMLInputElement).value).toBe('Owner')
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Remove this link…' })) })
-    const confirm = screen.getByRole('dialog', { name: 'Remove this link?' })
+    const confirm = screen.getByRole('alertdialog', { name: 'Remove this link?' })
     expect(within(confirm).getByText(/removes 4 links between Vehicles and Customers/)).toBeTruthy()
     await act(async () => { fireEvent.click(within(confirm).getByRole('button', { name: 'Remove link' })) })
     expect(invoke).toHaveBeenCalledWith(IPC.LINK_TYPE_DELETE, 7)

@@ -3,7 +3,7 @@
  * Built-in (is_system=1) rules are view-only. Rule kinds, "Only when…",
  * working days and the live preview are in RuleKindFields (W05 §6).
  */
-import React, { useRef, useState } from 'react'
+import React, { useRef, useState, useId } from 'react'
 import { motion } from 'motion/react'
 import { X, Plus, Trash2, AlertCircle, Pipette } from 'lucide-react'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
@@ -207,6 +207,7 @@ function ColorPicker({
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.ReactElement {
+  const dialogTitleId = useId()
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, true)
   const { createRule, updateRule } = useAlertStore(useShallow(s => ({
@@ -360,12 +361,12 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
   }
 
   return (
-    <div ref={trapRef} className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div ref={trapRef} className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby={dialogTitleId}>
       <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 bg-black/50" onClick={() => onClose()} />
       <motion.div variants={modalPanelVariants} initial="hidden" animate="visible" className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+          <h2 id={dialogTitleId} className="text-lg font-semibold text-slate-800 dark:text-slate-100">
             {isNew ? 'New deadline rule' : isSystem ? 'View deadline rule' : 'Edit deadline rule'}
           </h2>
           <button type="button" aria-label="Close" title="Close" onClick={() => onClose()} className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
@@ -619,7 +620,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
           <RulePreview key={ruleList.gridId ?? 0} rule={preview} rows={rows} columns={columns} columnId={ownColumnId} />
 
           {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm">
+            <div role="alert" className="p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm">
               {error}
             </div>
           )}

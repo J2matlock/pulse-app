@@ -3,7 +3,7 @@
  * Automated accessibility checks (axe-core) on the screens before the app
  * opens: the lock screen, password setup and the first-run setup steps.
  */
-import { describe, it, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -60,6 +60,30 @@ describe('axe: entry screens', () => {
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Test Person' } })
     fireEvent.click(screen.getByRole('button', { name: /Continue/ }))
     await screen.findByText('How do you want to start?')
+    await expectNoAxeViolations(container)
+  })
+})
+
+describe('password setup errors are tied to their boxes (audit A06-14)', () => {
+  it('a short password, then a mismatched confirmation', async () => {
+    const { container } = render(<MemoryRouter><PasswordSetupView /></MemoryRouter>)
+    await flush()
+    const pw = screen.getByLabelText('Password')
+    const confirm = screen.getByLabelText('Confirm password')
+    fireEvent.change(pw, { target: { value: 'short' } })
+    fireEvent.submit(pw.closest('form') as HTMLFormElement)
+    const alert = await screen.findByRole('alert')
+    expect(pw.getAttribute('aria-invalid')).toBe('true')
+    expect(pw.getAttribute('aria-describedby')?.split(' ')).toContain(alert.id)
+    expect(confirm.getAttribute('aria-invalid')).toBeNull()
+    await expectNoAxeViolations(container)
+
+    fireEvent.change(pw, { target: { value: 'a long enough test password 42' } })
+    fireEvent.change(confirm, { target: { value: 'something else' } })
+    expect(confirm.getAttribute('aria-invalid')).toBe('true')
+    const described = (confirm.getAttribute('aria-describedby') ?? '').split(' ').map(id => document.getElementById(id)?.textContent)
+    expect(described).toContain('Passwords do not match')
+    expect(pw.getAttribute('aria-invalid')).toBeNull()
     await expectNoAxeViolations(container)
   })
 })

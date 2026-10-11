@@ -171,7 +171,7 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                               <span className="text-sm text-slate-500 dark:text-slate-400">{f.field_type}</span>
                               <button
                                 onClick={() => deleteCustomField(f.id, editingId!)}
-                                className="p-1 rounded-sm opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/30 transition-opacity"
+                                className="hit-44 p-1 rounded-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/30 transition-opacity focus:outline-hidden focus-visible:ring-3 focus-visible:ring-red-500"
                                 title="Remove field"
                                 aria-label={`Remove field ${f.field_name}`}
                               >
