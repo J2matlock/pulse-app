@@ -57,6 +57,20 @@ describe('remove sample data', () => {
     expect(useGridStore.getState().sampleRows).toEqual({ 4: 2 })
   })
 
+  it('offers setup again when removing the samples leaves no lists (audit 5.9)', async () => {
+    const { pulseEvents } = await import('../../../../src/renderer/events')
+    const { removeSampleData } = await import('../../../../src/renderer/components/shared/SampleDataBanner')
+    const opened = vi.fn()
+    const off = pulseEvents.on('setup:open', opened)
+    useGridStore.setState({ grids: [{ id: 3, name: 'Real' }] as never })
+    await removeSampleData()
+    expect(opened).not.toHaveBeenCalled()
+    useGridStore.setState({ grids: [] })
+    await removeSampleData()
+    expect(opened).toHaveBeenCalledWith({ step: 'start' })
+    off()
+  })
+
   it('Settings → Data asks first, too', async () => {
     render(<DataSection />)
     await tick()

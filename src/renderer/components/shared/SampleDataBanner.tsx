@@ -70,6 +70,8 @@ export async function removeSampleData(): Promise<boolean> {
   }
   await useGridStore.getState().loadGridList()
   pulseEvents.emit('sample-data:changed')
+  // Nothing left after the samples: offer setup again, so the next step is clear (audit 5.9)
+  if (useGridStore.getState().grids.length === 0) pulseEvents.emit('setup:open', { step: 'start' })
   const records = (n: number) => wordNow('record', { count: n }, null)
   const parts = [`Sample data removed: ${res.data.removed} made-up ${records(res.data.removed)} moved to the Trash.`]
   if (res.data.kept > 0) parts.push(`We kept ${res.data.kept} you changed or added to.`)
