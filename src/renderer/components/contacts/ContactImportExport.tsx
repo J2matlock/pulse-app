@@ -28,7 +28,8 @@ type ImportStep = 'pick' | 'preview' | 'done'
 export function ContactImportExport({ open, onClose, mode }: Props) {
   const { t } = useVocab(null)
   const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, open)
+  // Escape closes like the X (AUDIT-046)
+  useFocusTrap(trapRef, open, { onEscape: () => handleClose() })
   // Import state
   const [step, setStep] = useState<ImportStep>('pick')
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([])
