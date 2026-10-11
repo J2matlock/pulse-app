@@ -203,6 +203,20 @@ function recordWord(rowId: number): string {
   return word('record', { cap: true }, gridOfRow(rowId))
 }
 
+/**
+ * Archive, unarchive, delete and restore only change a record that's in the state
+ * they expect (AUDIT-101): a stale screen could otherwise bring a trashed record back
+ * into search and the dashboard, or restart its 30 days in the Trash.
+ */
+function rowState(rowId: number): 'missing' | 'trash' | 'kept' {
+  const r = cachedStmt('row_state', 'SELECT deleted_at FROM rows WHERE id = ?').get(rowId) as { deleted_at: string | null } | undefined
+  return !r ? 'missing' : r.deleted_at ? 'trash' : 'kept'
+}
+
+function rowGone(): ReturnType<typeof fail> {
+  return fail(`That ${word('record')} is no longer available.`)
+}
+
 /** A record's "Add contact info" list, tolerating old or damaged JSON */
 function parseManualContacts(raw: string | null): Array<{ type: string; label: string; value: string }> {
   if (!raw) return []
@@ -223,30 +237,27 @@ export function registerRowHandlers(): void {
     const logStmt = cachedStmt('row_sys_log', `INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`)
     const run = db.transaction(() => {
       if (action === 'archive') {
-        const stmt = cachedStmt('row_bulk_archive', `
+        const stmt = cachedStmt('row_bulk_archive_v2', `
           UPDATE rows SET is_active = 0, archived_at = datetime('now'),
-          archived_reason = 'Bulk action', updated_at = datetime('now') WHERE id = ?
+          archived_reason = 'Bulk action', updated_at = datetime('now') WHERE id = ? AND deleted_at IS NULL
         `)
         rowIds.forEach(id => {
-          stmt.run(id)
-          logStmt.run(id, `${recordWord(id)} archived: Bulk action`)
+          if (stmt.run(id).changes > 0) logStmt.run(id, `${recordWord(id)} archived: Bulk action`)
         })
       } else if (action === 'unarchive') {
-        const stmt = cachedStmt('row_bulk_unarchive', `
+        const stmt = cachedStmt('row_bulk_unarchive_v2', `
           UPDATE rows SET is_active = 1, archived_at = NULL, archived_reason = NULL,
-          updated_at = datetime('now') WHERE id = ?
+          updated_at = datetime('now') WHERE id = ? AND deleted_at IS NULL AND (is_active = 0 OR archived_at IS NOT NULL)
         `)
         rowIds.forEach(id => {
-          stmt.run(id)
-          logStmt.run(id, `${recordWord(id)} unarchived`)
+          if (stmt.run(id).changes > 0) logStmt.run(id, `${recordWord(id)} unarchived`)
         })
       } else if (action === 'delete') {
-        const stmt = cachedStmt('row_bulk_delete', `
-          UPDATE rows SET is_active = 0, deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?
+        const stmt = cachedStmt('row_bulk_delete_v2', `
+          UPDATE rows SET is_active = 0, deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND deleted_at IS NULL
         `)
         rowIds.forEach(id => {
-          stmt.run(id)
-          logStmt.run(id, `${recordWord(id)} moved to trash`)
+          if (stmt.run(id).changes > 0) logStmt.run(id, `${recordWord(id)} moved to trash`)
         })
       } else if (action === 'restore') {
         // Undo of a bulk move to trash (G-34); archived records come back archived
@@ -306,12 +317,14 @@ export function registerRowHandlers(): void {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(rowId)) return fail('Invalid ID')
     const db = getDb()
-    db.transaction(() => {
-      // Soft-delete: move to trash instead of hard delete
-      cachedStmt('row_soft_delete', `UPDATE rows SET is_active = 0, deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`).run(rowId)
+    const moved = db.transaction(() => {
+      // Soft-delete: move to trash instead of hard delete. Already there: leave its 30 days alone.
+      if (cachedStmt('row_soft_delete_v2', `UPDATE rows SET is_active = 0, deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND deleted_at IS NULL`).run(rowId).changes === 0) return false
       // Log system event on the client's activity timeline
       cachedStmt('row_sys_log', `INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`).run(rowId, `${recordWord(rowId)} moved to trash`)
+      return true
     })()
+    if (!moved) return rowState(rowId) === 'missing' ? rowGone() : ok(true)
     notifyCaseLogChanged(rowId)
     return ok(true)
   })
@@ -338,11 +351,14 @@ export function registerRowHandlers(): void {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(rowId)) return fail('Invalid ID')
     const db = getDb()
-    db.transaction(() => {
+    const restored = db.transaction(() => {
       // An archived record comes back archived (audit L-12)
-      cachedStmt('row_restore_v2', `UPDATE rows SET is_active = CASE WHEN archived_at IS NULL THEN 1 ELSE 0 END, deleted_at = NULL, updated_at = datetime('now') WHERE id = ?`).run(rowId)
+      if (cachedStmt('row_restore_v3', `UPDATE rows SET is_active = CASE WHEN archived_at IS NULL THEN 1 ELSE 0 END, deleted_at = NULL, updated_at = datetime('now') WHERE id = ? AND deleted_at IS NOT NULL`).run(rowId).changes === 0) return false
       cachedStmt('row_sys_log', `INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`).run(rowId, `${recordWord(rowId)} restored from trash`)
+      return true
     })()
+    // Removed for good meanwhile: say so, rather than a confusing database error
+    if (!restored) return rowState(rowId) === 'missing' ? rowGone() : ok(true)
     notifyCaseLogChanged(rowId)
     return ok(true)
   })
@@ -387,14 +403,16 @@ export function registerRowHandlers(): void {
     if (!validId(rowId)) return fail('Invalid ID')
     if (typeof reason === 'string' && reason.length > 1000) return fail('Reason too long')
     const db = getDb()
-    db.transaction(() => {
-      cachedStmt('row_archive', `
+    const archived = db.transaction(() => {
+      if (cachedStmt('row_archive_v2', `
         UPDATE rows SET is_active = 0, archived_at = datetime('now'), archived_reason = ?,
-        updated_at = datetime('now') WHERE id = ?
-      `).run(reason ?? null, rowId)
+        updated_at = datetime('now') WHERE id = ? AND deleted_at IS NULL
+      `).run(reason ?? null, rowId).changes === 0) return false
       const logMsg = reason ? `${recordWord(rowId)} archived: ${reason}` : `${recordWord(rowId)} archived`
       cachedStmt('row_sys_log', `INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`).run(rowId, logMsg)
+      return true
     })()
+    if (!archived) return rowGone()
     notifyCaseLogChanged(rowId)
     return ok(true)
   })
@@ -403,13 +421,16 @@ export function registerRowHandlers(): void {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(rowId)) return fail('Invalid ID')
     const db = getDb()
-    db.transaction(() => {
-      cachedStmt('row_unarchive', `
+    const unarchived = db.transaction(() => {
+      // A record in the Trash stays there; unarchiving it would show it in search and the dashboard
+      if (cachedStmt('row_unarchive_v2', `
         UPDATE rows SET is_active = 1, archived_at = NULL, archived_reason = NULL,
-        updated_at = datetime('now') WHERE id = ?
-      `).run(rowId)
+        updated_at = datetime('now') WHERE id = ? AND deleted_at IS NULL AND (is_active = 0 OR archived_at IS NOT NULL)
+      `).run(rowId).changes === 0) return false
       cachedStmt('row_sys_log', `INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`).run(rowId, `${recordWord(rowId)} unarchived`)
+      return true
     })()
+    if (!unarchived) return rowState(rowId) === 'kept' ? ok(true) : rowGone()
     notifyCaseLogChanged(rowId)
     return ok(true)
   })
