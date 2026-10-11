@@ -60,8 +60,14 @@ export function validateForColumnType(value: string, column: Column): string | n
 export function checkPaste(text: string, column: Column): { value: string } | { error: string } {
   if (isNotTypedColumnType(column.column_type)) return { error: `"${column.name}" is filled in by Pulse, so it can't be pasted into.` }
   const multiLineOk = column.column_type === 'notes' || column.column_type === 'address'
-  const body = text.replace(/\r?\n$/, '')
-  if (body.includes('\t') || (!multiLineOk && /\r?\n/.test(body))) {
+  let body = text.replace(/\r?\n$/, '')
+  // One spreadsheet cell holding a line break (or a tab or quote) arrives quoted:
+  // "line 1\nline 2", with any quotes inside doubled. It's one value, not several cells.
+  const quoted = /^"((?:[^"]|"")*)"$/.exec(body)
+  if (quoted && /[\r\n\t]|""/.test(quoted[1]!)) {
+    const inner = quoted[1]!.replace(/""/g, '"')
+    body = multiLineOk ? inner : inner.replace(/\s*\r?\n\s*/g, ' ').replace(/\t/g, ' ')
+  } else if (body.includes('\t') || (!multiLineOk && /\r?\n/.test(body))) {
     return { error: 'That looks like several cells from a spreadsheet. To bring in many records, use Import.' }
   }
   const value = validateForColumnType(body, column)

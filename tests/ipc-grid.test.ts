@@ -689,6 +689,17 @@ describe('COLUMN_REORDER', () => {
     expect(first.position).toBe(0)
   })
 
+  it('gives hidden columns their own place, so no two columns share a position (bug sweep S3)', async () => {
+    const { gridId, columnIds } = seedGrid(testDb.db, { columnCount: 4 })
+    const [a, b, hidden, d] = columnIds as [number, number, number, number]
+    testDb.db.prepare('UPDATE columns SET is_visible = 0 WHERE id = ?').run(hidden)
+    // The table sends only what it shows: D moved to the front
+    expect((await invoke(IPC.COLUMN_REORDER, gridId, [d, a, b]) as { ok: boolean }).ok).toBe(true)
+    const order = testDb.db.prepare('SELECT id, position FROM columns WHERE grid_id = ? ORDER BY position').all(gridId) as Array<{ id: number; position: number }>
+    expect(order.map(o => o.position)).toEqual([0, 1, 2, 3])
+    expect(order.map(o => o.id)).toEqual([d, a, hidden, b])
+  })
+
   it('rejects invalid grid ID', async () => {
     const result = await invoke(IPC.COLUMN_REORDER, -1, [1, 2]) as { ok: false }
     expect(result.ok).toBe(false)

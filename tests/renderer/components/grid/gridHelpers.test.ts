@@ -28,4 +28,14 @@ describe('checkPaste', () => {
     expect(checkPaste('Ann\nBob', col('text'))).toEqual({ error: expect.stringMatching(/use Import/) })
     expect(checkPaste('Line one\nLine two', col('notes'))).toEqual({ value: 'Line one\nLine two' })
   })
+
+  it('takes one spreadsheet cell with a line break, which arrives quoted (bug sweep S3)', () => {
+    expect(checkPaste('"Line one\nLine two"\n', col('notes'))).toEqual({ value: 'Line one\nLine two' })
+    expect(checkPaste('"She said ""hi""\nthen left"', col('address'))).toEqual({ value: 'She said "hi"\nthen left' })
+    expect(checkPaste('"12 Main St\nApt 4"', col('text'))).toEqual({ value: '12 Main St Apt 4' })
+    // Two quoted cells side by side are still a block
+    expect(checkPaste('"a\nb"\t"c"', col('notes'))).toEqual({ error: expect.stringMatching(/use Import/) })
+    // A plain quoted word keeps its quotes
+    expect(checkPaste('"VIP"', col('text'))).toEqual({ value: '"VIP"' })
+  })
 })

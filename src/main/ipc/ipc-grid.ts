@@ -467,10 +467,18 @@ export function registerGridHandlers(): void {
     if (!Array.isArray(orderedIds) || orderedIds.length > MAX_REORDER_COLUMNS) return fail('Invalid reorder payload')
     if (!orderedIds.every(id => Number.isInteger(id) && id > 0)) return fail('Invalid IDs in reorder payload')
     const db = getDb()
+    // The table sends only the columns it shows. Columns left out (hidden ones) keep
+    // their slots, and the sent ones fill the other slots in the new order, so every
+    // column of the list gets its own position and a hidden one shown again comes
+    // back where it was.
+    const current = (db.prepare('SELECT id FROM columns WHERE grid_id = ? ORDER BY position, id').all(gridId) as Array<{ id: number }>).map(c => c.id)
+    const sent = new Set(orderedIds)
+    const queue = orderedIds.filter(id => current.includes(id))
+    const full = current.map(id => sent.has(id) ? queue.shift()! : id)
     const stmt = cachedStmt('col_reorder', 'UPDATE columns SET position = ? WHERE id = ? AND grid_id = ?')
     const reorder = db.transaction(() => {
-      for (let i = 0; i < orderedIds.length; i++) {
-        stmt.run(i, orderedIds[i], gridId)
+      for (let i = 0; i < full.length; i++) {
+        stmt.run(i, full[i], gridId)
       }
     })
     reorder()
