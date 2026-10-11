@@ -449,7 +449,7 @@ export default function DashboardView(): React.ReactElement {
             title="Toggle deadline color guide"
             aria-label="Toggle deadline color guide"
             aria-expanded={showColorLegend}
-            style={{ minHeight: 36 }}
+            style={{ minHeight: 44 }}
           >
             <Info className="w-4 h-4" />
             Deadline Colors
@@ -511,7 +511,7 @@ export default function DashboardView(): React.ReactElement {
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   className="input w-48 py-1.5 text-base"
-                  style={{ minHeight: 36 }}
+                  style={{ minHeight: 44 }}
                 />
               </div>
               {isLoading ? (

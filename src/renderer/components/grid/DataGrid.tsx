@@ -571,6 +571,24 @@ export function DataGrid(): React.ReactElement {
     if (idx >= 0) scrollToRow(idx)
   }, [tableRows, displayItems, isGroupedFromHook, scrollToRow])
 
+  // Roving tab stop (audit G-32): the list is one Tab stop, and arrows move
+  // inside it. The stop is the focused cell while it's on screen, otherwise
+  // the first cell of the first record on screen.
+  const renderedRowIds: number[] = []
+  for (const vr of virtualRows) {
+    const item = isGroupedFromHook ? displayItems[vr.index] : undefined
+    const row = isGroupedFromHook
+      ? (item?.kind === 'row' ? tableRows[item.tableRowIndex] : undefined)
+      : tableRows[vr.index]
+    if (row) renderedRowIds.push(row.original.row_id)
+  }
+  const firstCol = columns.find(c => c.is_visible !== 0)
+  const tabStop = focusedCell && renderedRowIds.includes(focusedCell.rowId)
+    ? focusedCell
+    : renderedRowIds[0] !== undefined && firstCol
+      ? { rowId: renderedRowIds[0], columnId: firstCol.id }
+      : null
+
   // Find & Replace: the active match comes into view (G-27)
   useEffect(() => {
     if (findReplaceActiveMatch) scrollToRowId(findReplaceActiveMatch.rowId)
@@ -682,6 +700,7 @@ export function DataGrid(): React.ReactElement {
       editingColId={editingCell?.columnId ?? null}
       focusedRowId={focusedCell?.rowId ?? null}
       focusedColId={focusedCell?.columnId ?? null}
+      tabStopColId={tabStop?.rowId === row.original.row_id ? tabStop.columnId : null}
       columns={columns}
       columnMap={columnMap}
       alertRuleMap={alertRuleMap}

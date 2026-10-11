@@ -59,6 +59,16 @@ describe('the rule editor', () => {
     expect(onClose).toHaveBeenCalledWith(11)
   })
 
+  it('color steps can be changed and removed from the keyboard (D-27)', () => {
+    render(<AlertRuleEditor columnId={3} onClose={vi.fn()} />)
+    const swatches = screen.getAllByRole('button', { name: /^Change color for / })
+    expect(swatches.length).toBeGreaterThan(0)
+    expect(swatches[0]!.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(swatches[0]!)
+    expect(screen.getAllByRole('button', { name: /^Change color for / })[0]!.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getAllByRole('button', { name: 'Remove this color step' }).length).toBe(swatches.length)
+  })
+
   it('flags a setting that points at a deleted column in red (D-25)', () => {
     const rule = {
       id: 5, name: 'Plan due', description: null, thresholds: [], interval_days: null, interval_months: null, end_of_month: 0,

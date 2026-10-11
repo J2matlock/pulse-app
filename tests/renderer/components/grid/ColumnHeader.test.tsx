@@ -189,6 +189,27 @@ describe('ColumnHeader', () => {
     expect(screen.getByText('Delete column')).toBeTruthy()
   })
 
+  it('moves a column left or right without dragging, skipping hidden ones (G-32)', () => {
+    const reorderColumns = vi.fn()
+    const hidden = { ...makeColumn(2, 'Hidden'), is_visible: 0 } as Column
+    setupStores({ reorderColumns, columns: [makeColumn(1, 'Name'), hidden, makeColumn(3, 'Phone'), makeColumn(4, 'City')] })
+    render(<ColumnHeader column={makeColumn(3, 'Phone')} />)
+    fireEvent.contextMenu(screen.getByText('Phone').closest('div')!)
+    fireEvent.click(screen.getByText('Move left'))
+    expect(reorderColumns).toHaveBeenCalledWith([3, 1, 2, 4])
+    fireEvent.contextMenu(screen.getByText('Phone').closest('div')!)
+    fireEvent.click(screen.getByText('Move right'))
+    expect(reorderColumns).toHaveBeenLastCalledWith([1, 2, 4, 3])
+  })
+
+  it('has no Move left on the first column', () => {
+    setupStores({ columns: [makeColumn(1, 'Name'), makeColumn(3, 'Phone')] })
+    render(<ColumnHeader column={makeColumn(1, 'Name')} />)
+    fireEvent.contextMenu(screen.getByText('Name').closest('div')!)
+    expect(screen.queryByText('Move left')).toBeNull()
+    expect(screen.getByText('Move right')).toBeTruthy()
+  })
+
   it('column options button opens menu', () => {
     render(<ColumnHeader column={makeColumn(1, 'Name')} />)
     const optionsBtn = screen.getByLabelText('Column options')

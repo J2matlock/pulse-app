@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import { motion } from 'motion/react'
 import { Palette, Trash2, Pencil, Star, Archive, RotateCcw, Copy, ArrowRightLeft, Clipboard, X as XIcon, Clock, User as UserIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -10,6 +10,7 @@ import { isNotTypedColumnType } from '../../../shared/types'
 import { contextMenuVariants } from '../../utils/animations'
 import { getClientName } from '../../utils/clientName'
 import { useVocab } from '../../hooks/useVocab'
+import { useMenuKeys } from '../../hooks/useMenuKeys'
 
 export interface GridContextMenuProps {
   contextMenu: { x: number; y: number; rowId: number; colId: number }
@@ -68,6 +69,8 @@ export function GridContextMenu({
   updateColumn,
 }: GridContextMenuProps): React.ReactElement | null {
   const { t } = useVocab()
+  const menuRef = useRef<HTMLDivElement>(null)
+  const onMenuKeyDown = useMenuKeys(menuRef, true, onClose)
   const cmRules = cellFormats.get(`${contextMenu.rowId}_${contextMenu.colId}`) ?? []
   const cmRow = rowById.get(contextMenu.rowId)
   const cmCol = columns.find(c => c.id === contextMenu.colId)
@@ -122,7 +125,9 @@ export function GridContextMenu({
     <>
       <div className="fixed inset-0 z-40" onClick={() => { onClose() }} />
       <motion.div
+        ref={menuRef}
         role="menu"
+        onKeyDown={onMenuKeyDown}
         className="fixed z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-52 overflow-y-auto"
         style={{
           ...(contextMenu.y > window.innerHeight - 250

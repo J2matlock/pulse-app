@@ -321,6 +321,19 @@ describe('DataGrid', () => {
       expect(cells.length).toBe(20)
     })
 
+    it('is a single Tab stop: only one cell can be tabbed to (G-32)', async () => {
+      renderDataGrid()
+      await flushEffects()
+      const cells = screen.getAllByRole('gridcell')
+      const stops = cells.filter(c => c.tabIndex === 0)
+      expect(stops).toHaveLength(1)
+      expect(stops[0]).toBe(cells[0])
+      // Focusing another cell moves the stop there
+      act(() => { fireEvent.focus(cells[5]!) })
+      const after = screen.getAllByRole('gridcell')
+      expect(after.filter(c => c.tabIndex === 0)).toEqual([after[5]])
+    })
+
     it('shows empty state when no rows', async () => {
       setupStores({ rows: [] })
       renderDataGrid()

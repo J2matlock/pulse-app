@@ -175,7 +175,8 @@ function ColorPicker({
             disabled={disabled}
             value={isCustom ? value : '#ffffff'}
             onChange={e => onChange(e.target.value)}
-            className="w-8 h-8 rounded-lg cursor-pointer border-2 disabled:cursor-not-allowed p-0 overflow-hidden"
+            aria-label="Pick any color"
+            className="w-11 h-11 rounded-lg cursor-pointer border-2 disabled:cursor-not-allowed p-0 overflow-hidden"
             style={{
               borderColor: isCustom ? '#1e293b' : '#e2e8f0',
             }}
@@ -534,9 +535,14 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
                       }`}
                       onClick={() => setExpandedThreshold(isOpen ? null : i)}
                     >
-                      {/* Color preview swatch */}
-                      <div
-                        className={`w-6 h-6 rounded-sm flex-shrink-0 border border-slate-300 dark:border-slate-500 ${colorClass}`}
+                      {/* Color preview swatch — a real button, so keyboard users can change the color (D-27) */}
+                      <button
+                        type="button"
+                        aria-expanded={isOpen}
+                        aria-label={`Change color for ${t.label || 'this step'}`}
+                        disabled={isSystem}
+                        onClick={e => { e.stopPropagation(); setExpandedThreshold(isOpen ? null : i) }}
+                        className={`hit-44 w-6 h-6 rounded-sm flex-shrink-0 border border-slate-300 dark:border-slate-500 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 ${colorClass}`}
                         style={colorStyle}
                       />
 
@@ -547,7 +553,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
                             <input
                               type="number" min={0}
                               className="input w-14 text-center py-0.5 text-base"
-                              style={{ minHeight: 30 }}
+                              style={{ minHeight: 44 }}
                               value={absValue}
                               onChange={e => { e.stopPropagation(); setThresholdDays(i, parseInt(e.target.value, 10) || 0, direction) }}
                               onClick={e => e.stopPropagation()}
@@ -555,7 +561,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
                             />
                             <select
                               className="input py-0.5 text-base"
-                              style={{ minHeight: 30 }}
+                              style={{ minHeight: 44 }}
                               value={direction}
                               onChange={e => { e.stopPropagation(); setThresholdDays(i, absValue, e.target.value as 'before' | 'after') }}
                               onClick={e => e.stopPropagation()}
@@ -573,7 +579,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
                         <input
                           type="text"
                           className="input flex-1 py-0.5 text-base min-w-0"
-                          style={{ minHeight: 30 }}
+                          style={{ minHeight: 44 }}
                           value={t.label}
                           onChange={e => { e.stopPropagation(); updateThreshold(i, { label: e.target.value }) }}
                           onClick={e => e.stopPropagation()}
@@ -585,6 +591,8 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
                       {!isSystem && (
                         <button
                           onClick={e => { e.stopPropagation(); removeThreshold(i) }}
+                          aria-label="Remove this color step"
+                          title="Remove this color step"
                           className="hit-44 p-1 text-slate-500 dark:text-slate-400 hover:text-red-500 rounded-sm flex-shrink-0"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

@@ -133,7 +133,7 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
           onClick={() => void removeExtension(deadline.extensionId!, columnName, onUndoneMarkDone)}
           title={deadline.detail}
           className="flex-shrink-0 px-2.5 py-1.5 rounded-lg text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-          style={{ minHeight: 36 }}
+          style={{ minHeight: 44 }}
         >
           Remove extension
         </button>
@@ -142,7 +142,7 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
           onClick={() => setExtending(true)}
           title="Give it a new due date, with a reason"
           className="flex-shrink-0 px-2.5 py-1.5 rounded-lg text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-          style={{ minHeight: 36 }}
+          style={{ minHeight: 44 }}
         >
           Extend…
         </button>
@@ -152,7 +152,7 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
           onClick={() => navigate(`/profile/${rowId}?gridId=${gridId}`)}
           title="Open the record to set new dates and how many are allowed"
           className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm font-medium focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-          style={{ minHeight: 36 }}
+          style={{ minHeight: 44 }}
         >
           Renew…
         </button>
@@ -167,9 +167,9 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
             : startsNextCycle(ruleInterval)
             ? 'Mark done: sets the date to today, which starts the next cycle'
             : 'Mark done: asks whether it was renewed (a new date) or finished'}
-          aria-label={stepName ? `Mark ${stepName} done` : 'Mark done'}
+          aria-label={`Mark ${stepName ?? columnName} done for ${clientName}`}
           className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 text-sm font-medium transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500 disabled:opacity-50"
-          style={{ minHeight: 36 }}
+          style={{ minHeight: 44 }}
         >
           <CheckCircle2 className="w-3.5 h-3.5" />
           {stepName ? `Mark ${stepName} done` : 'Done'}
@@ -181,9 +181,9 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
           onClick={() => setAskDay(true)}
           disabled={marking}
           title="Done on another day…"
-          aria-label="Done on another day…"
+          aria-label={`${columnName} for ${clientName} was done on another day…`}
           className="hit-44 flex-shrink-0 -ml-3 px-1.5 py-1.5 rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500 disabled:opacity-50"
-          style={{ minHeight: 36 }}
+          style={{ minHeight: 44 }}
         >
           <ChevronDown className="w-4 h-4" />
         </button>

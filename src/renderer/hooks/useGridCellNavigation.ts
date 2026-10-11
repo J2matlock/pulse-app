@@ -33,7 +33,7 @@ interface UseGridCellNavigationReturn {
    * Move the selection from (rowId, columnId) in the given direction.
    * Wraps between rows for next-col/prev-col. Clamps at grid boundaries.
    */
-  navigateCell: (rowId: number, columnId: number, direction: NavDirection) => void
+  navigateCell: (rowId: number, columnId: number, direction: NavDirection) => boolean
   /**
    * Handle a keyboard event for pure navigation keys (Arrow, Tab, Home, End).
    * Returns true if the event was handled (caller should preventDefault).
@@ -66,7 +66,7 @@ export function useGridCellNavigation({
     rowId: number,
     columnId: number,
     direction: NavDirection,
-  ) => {
+  ): boolean => {
     const vIds = visualRowIdsRef.current
     const currentColIdx = columns.findIndex(c => c.id === columnId)
     const currentRowIdx = vIds.indexOf(rowId)
@@ -88,8 +88,8 @@ export function useGridCellNavigation({
       case 'last-col': newColIdx = columns.length - 1; break
     }
 
-    if (newRowIdx < 0 || newRowIdx >= vIds.length) return
-    if (newColIdx < 0 || newColIdx >= columns.length) return
+    if (newRowIdx < 0 || newRowIdx >= vIds.length) return false
+    if (newColIdx < 0 || newColIdx >= columns.length) return false
 
     const newRowId = vIds[newRowIdx]!
     const newColId = columns[newColIdx]!.id
@@ -105,6 +105,7 @@ export function useGridCellNavigation({
       el?.focus()
       el?.scrollIntoView({ block: 'nearest' })
     }, 0)
+    return true
   }, [columns, visualRowIdsRef, containerRef])
 
   const handleNavigationKey = useCallback((

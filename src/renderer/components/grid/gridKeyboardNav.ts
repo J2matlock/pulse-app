@@ -18,14 +18,31 @@ export interface KeyboardNavDeps {
   columns: Column[]
   columnMap: Map<number, Column>
   updateCell: (rowId: number, colId: number, value: string | null) => Promise<unknown>
+  /** Returns false when there's nowhere to move (the first or last cell) */
   navigateCell: (
     rowId: number,
     columnId: number,
     direction: 'next-col' | 'prev-col' | 'next-row' | 'prev-row' | 'first-col' | 'last-col'
-  ) => void
+  ) => boolean | void
   setEditingCell: (c: CellCoord | null) => void
   setSelectedRowIds: React.Dispatch<React.SetStateAction<Set<number>>>
   setClipboard: React.Dispatch<React.SetStateAction<string | null>>
+}
+
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+/** Move focus to the next (or previous) control outside the list, as Tab would. */
+export function focusOutsideGrid(from: Element, backwards: boolean): void {
+  const grid = from.closest('[role="grid"]')
+  if (!grid) return
+  const all = Array.from(document.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(el => !grid.contains(el))
+  const after = (el: HTMLElement) => (grid.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+  const candidates = backwards ? all.filter(el => !after(el)).reverse() : all.filter(after)
+  // Hidden controls refuse focus, so take the first one that accepts it
+  for (const el of candidates) {
+    el.focus()
+    if (document.activeElement === el) return
+  }
 }
 
 export function handleCellKeyDown(
@@ -74,8 +91,15 @@ export function handleCellKeyDown(
       }
       break
     case 'Tab': {
-      e.preventDefault()
-      navigateCell(rowId, columnId, e.shiftKey ? 'prev-col' : 'next-col')
+      // Ctrl+Tab always leaves the list. Tab on the last cell (Shift+Tab on
+      // the first) is left to the browser, so the list never traps focus (G-32).
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        if (e.currentTarget) focusOutsideGrid(e.currentTarget as Element, e.shiftKey)
+        break
+      }
+      const moved = navigateCell(rowId, columnId, e.shiftKey ? 'prev-col' : 'next-col')
+      if (moved !== false) e.preventDefault()
       break
     }
     case 'ArrowRight':
