@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { GripVertical, Trash2, Calendar, X, Pencil, Repeat } from 'lucide-react'
+import { GripVertical, Trash2, Calendar, X, Pencil, Repeat, AlertTriangle } from 'lucide-react'
 import { relativeTime } from '../../utils/relativeTime'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -381,7 +381,10 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
               onClick={() => { setDateDraft(item.due_date ?? ''); setEditingDate(true) }}
               className={`hit-44 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity ${dueDate.className}`}
             >
-              <Calendar className="w-3 h-3" />
+              {/* A shape as well as a color for late and due-today dates (A06-12), like the grid's warning icon */}
+              {dueDate.urgency === 'overdue' || dueDate.urgency === 'today'
+                ? <AlertTriangle className="w-3 h-3" aria-hidden="true" />
+                : <Calendar className="w-3 h-3" aria-hidden="true" />}
               {dueDate.text}
             </button>
           ) : (

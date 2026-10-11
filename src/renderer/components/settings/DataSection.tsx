@@ -225,6 +225,7 @@ export function DataSection(): React.ReactElement {
         <div className="flex items-center gap-3">
           <select
             id="history-retention"
+            aria-label="How much cell history to keep"
             className="input"
             style={{ minHeight: 44, width: 'auto' }}
             defaultValue="12"

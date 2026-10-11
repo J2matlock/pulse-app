@@ -91,9 +91,10 @@ export function AcuityConfigPanel({ onClose }: AcuityConfigPanelProps): React.Re
         <button
           onClick={handleToggle}
           className={`hit-44 relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-            ${acuityEnabled ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+            ${acuityEnabled ? 'bg-blue-500' : 'bg-slate-500 dark:bg-slate-500'}`}
           role="switch"
           aria-checked={acuityEnabled}
+          aria-label={t('priority', { many: true, cap: true })}
         >
           <span
             className={`inline-block h-4 w-4 rounded-full bg-white shadow-xs transition-transform

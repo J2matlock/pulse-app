@@ -39,7 +39,7 @@ export function MissingInfoDialog({ gridId, onClose }: { gridId?: number; onClos
       <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="missing-title" onClick={e => e.stopPropagation()}
         className="w-full max-w-2xl rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-          <FileWarning className="w-6 h-6 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+          <FileWarning className="w-6 h-6 text-amber-700 dark:text-amber-400" aria-hidden="true" />
           <h2 id="missing-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex-1">Missing information</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="hit-44 p-2 rounded-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
             <X className="w-5 h-5" />

@@ -91,7 +91,7 @@ function SnippetEditor({ initial, onSave, onClose, takenTriggers }: EditorProps)
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1">
             {initial ? 'Edit Snippet' : 'New Snippet'}
           </h2>
-          <button onClick={onClose}
+          <button onClick={onClose} aria-label="Close"
                   className="hit-44 p-1 rounded-sm text-slate-500 hover:text-slate-600 dark:hover:text-slate-200
                              focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
             <X className="w-5 h-5" />

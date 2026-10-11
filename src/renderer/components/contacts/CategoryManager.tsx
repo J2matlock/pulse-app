@@ -77,14 +77,15 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
   return (
     <>
     {open && (
-    <div ref={trapRef} className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
+    <div ref={trapRef} className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="category-manager-title">
       <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 bg-black/40" onClick={onClose} />
       <motion.div variants={modalPanelVariants} initial="hidden" animate="visible" className="relative bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Manage Categories</h2>
+          <h2 id="category-manager-title" className="text-lg font-semibold text-slate-900 dark:text-white">Manage Categories</h2>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus:ring-3 focus:ring-blue-500"
             style={{ minHeight: 44, minWidth: 44 }}
           >
@@ -119,10 +120,10 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                         style={{ fontSize: 15, minHeight: 40 }}
                         autoFocus
                       />
-                      <button onClick={commitEdit} className="hit-44 p-2 rounded-md bg-blue-600 text-white hover:bg-blue-700" style={{ minHeight: 40, minWidth: 40 }}>
+                      <button onClick={commitEdit} aria-label="Save name" className="hit-44 p-2 rounded-md bg-blue-600 text-white hover:bg-blue-700" style={{ minHeight: 40, minWidth: 40 }}>
                         <Check size={16} />
                       </button>
-                      <button onClick={() => setEditingId(null)} className="hit-44 p-2 rounded-md text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700" style={{ minHeight: 40, minWidth: 40 }}>
+                      <button onClick={() => setEditingId(null)} aria-label="Cancel" className="hit-44 p-2 rounded-md text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700" style={{ minHeight: 40, minWidth: 40 }}>
                         <XIcon size={16} />
                       </button>
                     </div>
@@ -172,6 +173,7 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                                 onClick={() => deleteCustomField(f.id, editingId!)}
                                 className="p-1 rounded-sm opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/30 transition-opacity"
                                 title="Remove field"
+                                aria-label={`Remove field ${f.field_name}`}
                               >
                                 <Trash2 size={12} className="text-red-400" />
                               </button>
@@ -214,6 +216,7 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                               }
                             }}
                             disabled={!newFieldName.trim()}
+                            aria-label="Add field"
                             className="hit-44 p-1.5 rounded-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"
                             style={{ minHeight: 32, minWidth: 32 }}
                           >

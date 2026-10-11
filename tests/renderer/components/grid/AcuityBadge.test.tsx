@@ -5,6 +5,7 @@ import React from 'react'
 
 // Mock motion/react
 vi.mock('motion/react', () => ({
+  useReducedMotionConfig: () => false,
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   motion: {
     div: React.forwardRef(

@@ -302,7 +302,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
                       {row.categoryName ? (
                         <span className="text-gray-600 dark:text-gray-400">{row.categoryName}</span>
                       ) : row.unmatchedCategory ? (
-                        <span className="text-amber-600 dark:text-amber-400" title={`"${row.unmatchedCategory}" doesn't match any category`}>
+                        <span className="text-amber-700 dark:text-amber-400" title={`"${row.unmatchedCategory}" doesn't match any category`}>
                           <span aria-hidden="true">⚠ </span><span className="sr-only">Warning: </span>Not found
                         </span>
                       ) : (

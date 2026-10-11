@@ -164,6 +164,8 @@ export default function GridView(): React.ReactElement {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {/* The page's heading for screen readers; the toolbar shows the name visually (audit A06-10) */}
+      <h1 className="sr-only">{grids.find(g => g.id === activeGridId)?.name ?? t('list', { cap: true })}</h1>
       <GridToolbar />
       <FilterBar />
       <div className="flex-1 overflow-hidden relative">

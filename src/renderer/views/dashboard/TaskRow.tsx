@@ -23,8 +23,8 @@ export function TaskRow({
   const urgencyColor =
     daysUntil < 0    ? 'text-red-600 dark:text-red-400 font-semibold' :
     daysUntil === 0  ? 'text-red-600 dark:text-red-400 font-semibold' :
-    daysUntil <= 7   ? 'text-orange-600 dark:text-orange-400' :
-    daysUntil <= 30  ? 'text-yellow-600 dark:text-yellow-400' :
+    daysUntil <= 7   ? 'text-orange-700 dark:text-orange-400' :
+    daysUntil <= 30  ? 'text-yellow-700 dark:text-yellow-400' :
     'text-slate-500 dark:text-slate-400'
 
   const barColor =

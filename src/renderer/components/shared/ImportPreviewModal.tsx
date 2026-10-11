@@ -158,7 +158,7 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
               <ul className="space-y-1">
                 {preview.columns.map((col, i) => (
                   <li key={i} className="flex items-center justify-between text-base">
-                    <span className={col.degraded ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300'}>
+                    <span className={col.degraded ? 'text-amber-700 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300'}>
                       {col.name}
                     </span>
                     <span className="text-sm text-slate-500 dark:text-slate-400">{col.column_type}{col.degraded ? ' (simplified)' : ''}</span>
@@ -174,7 +174,7 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
               <p className="text-sm font-medium text-amber-700 dark:text-amber-300 mb-2">Heads up</p>
               <ul className="space-y-1">
                 {preview.warnings.map((w, i) => (
-                  <li key={i} className="text-sm text-amber-600 dark:text-amber-400">{w}</li>
+                  <li key={i} className="text-sm text-amber-700 dark:text-amber-400">{w}</li>
                 ))}
               </ul>
             </div>

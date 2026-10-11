@@ -247,6 +247,7 @@ export function BulkActionBar({
         className="hit-44 text-base px-2 py-1.5 rounded-lg hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors text-slate-300"
         onClick={() => setSelectedRowIds(new Set())}
         title="Clear selection (Escape)"
+        aria-label="Clear selection"
       >
         ✕
       </button>

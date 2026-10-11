@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react'
 import type { AcuityLevel } from '../../../shared/types'
 import { dropdownVariants } from '../../utils/animations'
 import { useVocab } from '../../hooks/useVocab'
@@ -18,6 +18,8 @@ export { BADGE_WIDTH }
 
 export function AcuityBadge({ levels, currentLevelId, onSetLevel, bulkCount }: AcuityBadgeProps): React.ReactElement {
   const { t } = useVocab()
+  // Settings → Reduce motion or the computer's setting, via AppMotionConfig
+  const reduceMotion = useReducedMotionConfig() ?? false
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   const dropRef = useRef<HTMLDivElement>(null)
@@ -98,10 +100,12 @@ export function AcuityBadge({ levels, currentLevelId, onSetLevel, bulkCount }: A
                      text-blue-400 dark:text-blue-400 text-sm font-bold leading-none
                      cursor-pointer
                      focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-          animate={{ opacity: [0.5, 1, 0.5], scale: [0.92, 1.1, 0.92] }}
-          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+          // Reduced motion still animates opacity, so the endless pulse is dropped entirely
+          animate={reduceMotion ? undefined : { opacity: [0.5, 1, 0.5], scale: [0.92, 1.1, 0.92] }}
+          transition={reduceMotion ? undefined : { duration: 2, repeat: Infinity, ease: 'easeInOut' }}
           whileHover={{ opacity: 1, scale: 1.15 }}
           title={`Assign ${t('priority')}`}
+          aria-label={`Assign ${t('priority')}`}
         >+</motion.button>
       )}
 

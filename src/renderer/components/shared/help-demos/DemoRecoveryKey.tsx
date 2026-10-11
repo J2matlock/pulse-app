@@ -35,7 +35,7 @@ export function DemoRecoveryKey() {
           <span>✓</span>
           <span className="font-medium">Copied to clipboard!</span>
         </div>
-        <div className="text-sm text-amber-600 dark:text-amber-400 text-center max-w-[250px]">
+        <div className="text-sm text-amber-700 dark:text-amber-400 text-center max-w-[250px]">
           Store this key in a safe place. It's the only way to recover your data if you forget your password.
         </div>
       </div>

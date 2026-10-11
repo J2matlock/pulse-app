@@ -1,13 +1,13 @@
 import React, { lazy, Suspense } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
-import { MotionConfig } from 'motion/react'
 import { useSettingsStore } from './stores/settingsStore'
 import { useShallow } from 'zustand/react/shallow'
 import { ImportPreviewModal } from './components/shared/ImportPreviewModal'
 import { PasswordSetupView } from './views/PasswordSetupView'
 import { LockScreenView } from './views/LockScreenView'
 import { MainLayout } from './components/layout/MainLayout'
+import { AppMotionConfig } from './components/layout/AppMotionConfig'
 import GridView from './views/GridView'
 import SetupView from './views/SetupView'
 
@@ -179,7 +179,7 @@ export default function App(): React.ReactElement {
   }
 
   return (
-    <MotionConfig reducedMotion="user">
+    <AppMotionConfig>
       <HashRouter>
         <ErrorBoundary>
         <Suspense fallback={<div className="flex h-screen items-center justify-center"><div className="text-slate-500 text-base">Loading…</div></div>}>
@@ -354,6 +354,6 @@ export default function App(): React.ReactElement {
         )}
       </HashRouter>
       <Toaster position="bottom-right" toastOptions={{ duration: 5500 }} />
-    </MotionConfig>
+    </AppMotionConfig>
   )
 }

@@ -78,6 +78,7 @@ export function ContactFilterBar({ viewMode, onViewModeChange, searchInputRef }:
             // The "/" shortcut is in the tooltip; in the placeholder it got cut off mid-word
             placeholder={`Search ${t('contact', { many: true })}…`}
             title={`Search ${t('contact', { many: true })} (/)`}
+            aria-label={`Search ${t('contact', { many: true })}`}
             className="w-full pl-9 pr-8 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-3 focus:ring-blue-500"
             style={{ fontSize: 15, minHeight: 44 }}
           />

@@ -584,7 +584,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                           <Check className="w-3.5 h-3.5" /> Confident
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-sm text-amber-600 dark:text-amber-400">
+                        <span className="inline-flex items-center gap-1 text-sm text-amber-700 dark:text-amber-400">
                           <AlertTriangle className="w-3.5 h-3.5" /> Verify
                         </span>
                       )}
@@ -992,13 +992,13 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                   {importResult.warnings.length > 0 && (
                     <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 overflow-hidden">
                       <div className="flex items-center gap-2 px-4 py-3">
-                        <AlertTriangle className="w-4 h-4 text-amber-500 dark:text-amber-400 flex-shrink-0" />
+                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
                         <span className="text-base font-medium text-amber-700 dark:text-amber-300">
                           {importResult.warnings.length} warning{importResult.warnings.length !== 1 ? 's' : ''}
                         </span>
                         <button
                           onClick={() => setWarningsExpanded(v => !v)}
-                          className="ml-auto text-base text-amber-600 dark:text-amber-400 hover:underline
+                          className="ml-auto text-base text-amber-700 dark:text-amber-400 hover:underline
                                      focus:outline-hidden focus:ring-3 focus:ring-amber-400 rounded-sm min-h-[44px] px-2"
                         >
                           {warningsExpanded ? 'Hide' : 'Show'}
@@ -1012,7 +1012,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                             </li>
                           ))}
                           {importResult.warnings.length > 10 && (
-                            <li className="text-sm text-amber-500 dark:text-amber-400">
+                            <li className="text-sm text-amber-700 dark:text-amber-400">
                               ...and {importResult.warnings.length - 10} more
                             </li>
                           )}

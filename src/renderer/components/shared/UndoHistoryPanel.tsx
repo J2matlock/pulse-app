@@ -96,7 +96,7 @@ const UndoItemButton = React.memo(function UndoItemButton({ item, onClick, title
       {/* Badges */}
       <div className="flex items-center gap-1 flex-shrink-0">
         {!isRedo && item.sideEffects && item.sideEffects.length > 0 && (
-          <span title={`Has a linked ${t('activity')} that will be voided`} className="text-amber-500 dark:text-amber-400">
+          <span title={`Has a linked ${t('activity')} that will be voided`} className="text-amber-700 dark:text-amber-400">
             <AlertTriangle className="w-3 h-3" />
           </span>
         )}
@@ -188,6 +188,7 @@ export function UndoHistoryPanel({ anchorRef, onClose }: Props): React.ReactElem
           </button>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="hit-44 p-1 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500
                        focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
           >

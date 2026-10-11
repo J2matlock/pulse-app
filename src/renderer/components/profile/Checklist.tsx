@@ -1013,6 +1013,7 @@ export function TemplateManager({ onApply, onClose }: {
             {view !== 'list' && (
               <button
                 onClick={() => setView('list')}
+                aria-label="Back to templates"
                 className="hit-44 text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 mr-1
                            focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
               >
@@ -1025,6 +1026,7 @@ export function TemplateManager({ onApply, onClose }: {
           </div>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="hit-44 text-slate-500 hover:text-slate-600 dark:hover:text-slate-300
                        focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
           >
@@ -1164,9 +1166,10 @@ export function TemplateManager({ onApply, onClose }: {
                   onClick={() => setDraft(d => ({ ...d, isRecurring: !d.isRecurring }))}
                   className={`hit-44 relative inline-flex h-6 w-11 items-center rounded-full transition-colors
                              focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-                             ${draft.isRecurring ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+                             ${draft.isRecurring ? 'bg-blue-500' : 'bg-slate-500 dark:bg-slate-500'}`}
                   role="switch"
                   aria-checked={draft.isRecurring}
+                  aria-label="Items repeat"
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform
                                    ${draft.isRecurring ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -1230,6 +1233,7 @@ export function TemplateManager({ onApply, onClose }: {
                         </select>
                         <button
                           onClick={() => removeDraftItem(item.key)}
+                          aria-label="Remove item"
                           className="hit-44 p-1.5 text-slate-500 hover:text-red-500 rounded-sm
                                      focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400"
                         >
