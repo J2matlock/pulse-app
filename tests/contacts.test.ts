@@ -5,7 +5,7 @@
  * to redirect getDb() to our test DB, then call the real contact functions.
  */
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'vitest'
-import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
+import { createTestDb, cleanupTestDb, seedGrid, setDbWords, type TestDb } from './helpers'
 
 let testDb: TestDb
 
@@ -58,6 +58,7 @@ import type { Provider } from '../src/shared/types'
 
 beforeEach(() => {
   testDb = createTestDb()
+  setDbWords(testDb.db)
 })
 
 afterEach(() => {

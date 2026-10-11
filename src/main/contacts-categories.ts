@@ -4,6 +4,7 @@
 
 import { getDb, cachedStmt } from './database'
 import type { ProviderCategory, ProviderCustomField } from '../shared/types'
+import { HUMAN_SERVICES_VOCAB, parseVocab } from '../shared/vocab'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Categories
@@ -21,6 +22,17 @@ const DEFAULT_CATEGORIES: Array<{ name: string; color: string }> = [
   { name: 'Emergency Services', color: '#f43f5e' },
   { name: 'Other', color: '#64748b' },
 ]
+
+/**
+ * The default categories are social-work ones (Medical, Housing & Shelter…), so,
+ * like the built-in snippets and letters, they're only added to a workspace that
+ * calls its records "clients" (decision 2026-10-01). Read straight from settings:
+ * vocab.ts can't be imported here (database.ts imports this file through contacts.ts).
+ */
+function usesHumanServicesWords(): boolean {
+  const row = getDb().prepare("SELECT value FROM settings WHERE key = 'workspace_vocab'").get() as { value: string } | undefined
+  return parseVocab(row?.value)?.record?.one?.toLowerCase() === HUMAN_SERVICES_VOCAB.record.one
+}
 
 export function seedDefaultCategories(): void {
   const db = getDb()
@@ -41,8 +53,8 @@ export function getCategories(): ProviderCategory[] {
     'SELECT * FROM provider_categories ORDER BY position ASC'
   ).all() as ProviderCategory[]
 
-  // Lazy-seed defaults if table is empty
-  if (rows.length === 0) {
+  // Lazy-seed defaults if table is empty (human-services workspaces only; others start with none)
+  if (rows.length === 0 && usesHumanServicesWords()) {
     seedDefaultCategories()
     return cachedStmt('categories_get_all',
       'SELECT * FROM provider_categories ORDER BY position ASC'

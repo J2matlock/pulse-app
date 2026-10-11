@@ -7,7 +7,7 @@
  * getAllCustomFieldsByCategory, getBatchCustomValues, saveCustomValue upsert.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { createTestDb, cleanupTestDb, type TestDb } from './helpers'
+import { createTestDb, cleanupTestDb, setDbWords, type TestDb } from './helpers'
 
 let testDb: TestDb
 
@@ -40,8 +40,19 @@ import {
 // Need createProvider to test custom values with real providers
 import { createProvider } from '../src/main/contacts'
 
-beforeEach(() => { testDb = createTestDb() })
+beforeEach(() => { testDb = createTestDb(); setDbWords(testDb.db) })
 afterEach(() => { cleanupTestDb(testDb) })
+
+describe('default categories follow the workspace words (polish V1)', () => {
+  it('a workspace with other words starts with no categories, not Medical and Housing', () => {
+    setDbWords(testDb.db, { record: { one: 'job', many: 'jobs', article: 'a' } })
+    expect(getCategories()).toEqual([])
+  })
+
+  it('a workspace that says "clients" gets the social-work ones', () => {
+    expect(getCategories().map(c => c.name)).toContain('Housing & Shelter')
+  })
+})
 
 describe('seedDefaultCategories', () => {
   it('creates exactly 10 default categories with correct positions', () => {
