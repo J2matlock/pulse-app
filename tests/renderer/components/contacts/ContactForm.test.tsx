@@ -163,6 +163,31 @@ describe('ContactForm', () => {
     expect(callArgs.name).toBe('New Provider')
   })
 
+  describe('category fields (polish R7)', () => {
+    const invoke = window.api.invoke as ReturnType<typeof vi.fn>
+    beforeEach(() => {
+      invoke.mockImplementation(async (channel: string) => channel === 'contacts:get-custom-fields'
+        ? { ok: true, data: [{ id: 7, category_id: 1, field_name: 'NPI number', field_type: 'text', position: 0 }] }
+        : { ok: true, data: [] })
+    })
+
+    it('saves a value typed after the name, on a new contact', async () => {
+      render(<ContactForm {...defaultProps} />)
+      fireEvent.change(screen.getByLabelText(/Name/), { target: { value: 'New Provider' } })
+      fireEvent.change(screen.getByLabelText(/Category/), { target: { value: '1' } })
+      fireEvent.change(await screen.findByLabelText('NPI number'), { target: { value: '1234567890' } })
+      fireEvent.click(screen.getByText('Save'))
+      await waitFor(() => expect(invoke).toHaveBeenCalledWith('contacts:save-custom-value', 99, 7, '1234567890'))
+    })
+
+    it('a change to a category field alone asks before it is thrown away', async () => {
+      render(<ContactForm provider={makeProvider()} {...defaultProps} />)
+      fireEvent.change(await screen.findByLabelText('NPI number'), { target: { value: '1234567890' } })
+      fireEvent.click(screen.getByText('Cancel'))
+      expect(defaultProps.onClose).not.toHaveBeenCalled()
+    })
+  })
+
   it('submits form data via updateProvider on save for existing provider', async () => {
     const provider = makeProvider()
     render(<ContactForm provider={provider} {...defaultProps} />)

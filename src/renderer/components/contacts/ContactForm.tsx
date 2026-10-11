@@ -78,6 +78,7 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
   const [tagInput, setTagInput] = useState('')
   const [categoryFields, setCategoryFields] = useState<ProviderCustomField[]>([])
   const [customValues, setCustomValues] = useState<Record<number, string>>({})
+  const initialCustomRef = useRef<string>('{}')
 
   // Load custom fields when category changes
   useEffect(() => {
@@ -100,13 +101,15 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
         if (res.ok) {
           const vals: Record<number, string> = {}
           for (const cv of res.data) vals[cv.custom_field_id] = cv.value
+          initialCustomRef.current = JSON.stringify(vals)
           setCustomValues(vals)
         }
       })()
     }
   }, [provider])
 
-  const dirty = JSON.stringify(form) !== initialRef.current
+  // A change to a custom field alone counts too, so Escape asks before throwing it away
+  const dirty = JSON.stringify(form) !== initialRef.current || JSON.stringify(customValues) !== initialCustomRef.current
   const [validationErrors, setValidationErrors] = useState<Partial<Record<keyof FormState, string>>>({})
 
   const setField = useCallback(<K extends keyof FormState>(key: K, value: FormState[K]) => {
@@ -197,7 +200,7 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
     } finally {
       setSaving(false)
     }
-  }, [form, isEditing, provider, createProvider, updateProvider, onSaved, onClose])
+  }, [form, customValues, isEditing, provider, createProvider, updateProvider, onSaved, onClose, t])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
