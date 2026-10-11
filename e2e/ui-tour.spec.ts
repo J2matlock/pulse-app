@@ -137,7 +137,8 @@ async function seed(page: Page): Promise<{ firstRowId: number }> {
  *   → test-results/ui-tour/starters/therapy-practice/
  *
  * Light mode only: the list, the dashboard, the first sample record's page,
- * and the calendar when the starter has sample appointments.
+ * the calendar when the starter has sample appointments, the Reports page,
+ * and the first report that draws bars.
  */
 test('starter tour', async () => {
   const id = process.env.UI_TOUR_STARTER
@@ -193,6 +194,15 @@ test('starter tour', async () => {
     if (starter.sampleData?.appointments?.length) {
       await go(app, '#/calendar')
       await snap(app, '04-calendar')
+    }
+    // Reports: the home page of report cards, then the first report drawn as bars
+    await go(app, '#/reports')
+    await app.getByText('Working…').first().waitFor({ state: 'detached', timeout: 15000 }).catch(() => {})
+    await snap(app, '05-reports')
+    const charted = app.locator('button:has([class*="space-y-[2px]"])').first()
+    if (await charted.count()) {
+      await charted.click()
+      await snap(app, '06-report')
     }
   } finally {
     await cleanup(ctx)
