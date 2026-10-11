@@ -57,3 +57,28 @@ describe('useGridVirtualizer', () => {
     expect(result.current.totalSize).toBe(0)
   })
 })
+
+describe('items of different heights (AUDIT-132)', () => {
+  it('adds up each item at its own height, and again when the heights move', () => {
+    const parentRef = makeParentRef()
+    const headersAt = (set: Set<number>) => (i: number) => set.has(i) ? 44 : 52
+    const { result, rerender } = renderHook(({ sizeOf }) =>
+      useGridVirtualizer({ parentRef, count: 10, rowHeight: 52, sizeOf }),
+    { initialProps: { sizeOf: headersAt(new Set([0, 5])) } })
+    expect(result.current.totalSize).toBe(2 * 44 + 8 * 52)
+    rerender({ sizeOf: headersAt(new Set([0, 3, 6])) })
+    expect(result.current.totalSize).toBe(3 * 44 + 7 * 52)
+  })
+
+  it('counts the space above the list without padding it twice', () => {
+    const parentRef = makeParentRef()
+    Object.defineProperty(parentRef.current, 'offsetHeight', { value: 500 })
+    Object.defineProperty(parentRef.current, 'offsetWidth', { value: 800 })
+    const { result } = renderHook(() =>
+      useGridVirtualizer({ parentRef, count: 100, rowHeight: 44, scrollMargin: 37 }),
+    )
+    expect(result.current.totalSize).toBe(100 * 44)
+    expect(result.current.virtualRows[0]?.start).toBe(37)
+    expect(result.current.paddingTop).toBe(0)
+  })
+})

@@ -564,11 +564,21 @@ export function DataGrid(): React.ReactElement {
 
   visualRowIdsRef.current = visualRowIds
 
+  // Group headers are their own height, and the Collapse all bar sits above the list
+  // inside the scroll area: both count, so scrolling to a record lands on it (AUDIT-132)
+  const sizeOf = useMemo(() => isGroupedFromHook
+    ? (i: number) => displayItems[i]?.kind === 'group-header' ? GROUP_HEADER_HEIGHT : rowHeight
+    : undefined, [isGroupedFromHook, displayItems, rowHeight])
+  const [collapseBarHeight, setCollapseBarHeight] = useState(0)
+  const collapseBarRef = useCallback((el: HTMLDivElement | null) => setCollapseBarHeight(el?.offsetHeight ?? 0), [])
+
   // Virtual scrolling (extracted hook)
   const { virtualRows, totalSize: totalHeight, paddingTop, paddingBottom, scrollToRow } = useGridVirtualizer({
     parentRef: containerRef,
     count: isGroupedFromHook ? displayItems.length : tableRows.length,
     rowHeight,
+    sizeOf,
+    scrollMargin: collapseBarHeight,
   })
 
   /** Bring a record into view, whether or not the list is grouped */
@@ -841,7 +851,9 @@ export function DataGrid(): React.ReactElement {
         <div>
           {/* Collapse/Expand All toolbar (grouped mode only) */}
           {isGrouped && (
-            <CollapseExpandBar onCollapseAll={handleCollapseAll} onExpandAll={handleExpandAll} />
+            <div ref={collapseBarRef}>
+              <CollapseExpandBar onCollapseAll={handleCollapseAll} onExpandAll={handleExpandAll} />
+            </div>
           )}
           {/* ── Unified virtualized rendering (both grouped and ungrouped) ── */}
           <div style={{ position: 'relative', height: totalHeight }}>
