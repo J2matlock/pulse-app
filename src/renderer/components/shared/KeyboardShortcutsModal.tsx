@@ -1,79 +1,34 @@
-import React, { useRef } from 'react'
+import React, { useMemo, useRef } from 'react'
 import { X, Keyboard } from 'lucide-react'
 import { motion } from 'motion/react'
 import { backdropVariants, modalPanelVariants } from '../../utils/animations'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
+import { useWorkspaceStore } from '../../stores/workspaceStore'
+import { isOn } from '../../../shared/features'
+import { IS_MAC } from '../../utils/keys'
+import { SHORTCUT_SECTIONS, keyLabel, type ShortcutSection } from '../../../shared/shortcuts'
 
 interface Props {
   open: boolean
   onClose: () => void
 }
 
-export interface ShortcutRow {
-  keys: string[]
-  description: string
-}
+export type { ShortcutRow, ShortcutSection } from '../../../shared/shortcuts'
+/** The one shortcut list (src/shared/shortcuts.ts) */
+export const SECTIONS: ShortcutSection[] = SHORTCUT_SECTIONS
 
-export interface ShortcutSection {
-  title: string
-  shortcuts: ShortcutRow[]
+/** The shortcut list as this computer shows it: switched-off features left out, ⌘ on a Mac */
+export function useShortcutSections(): ShortcutSection[] {
+  const features = useWorkspaceStore(s => s.features)
+  return useMemo(() => SHORTCUT_SECTIONS
+    .map(sec => ({ ...sec, shortcuts: sec.shortcuts.filter(r => !r.feature || isOn(features, r.feature)).map(r => ({ ...r, keys: r.keys.map(k => keyLabel(k, IS_MAC)) })) }))
+    .filter(sec => sec.shortcuts.length > 0), [features])
 }
-
-export const SECTIONS: ShortcutSection[] = [
-  {
-    title: 'Global',
-    shortcuts: [
-      { keys: ['Ctrl', 'K'],          description: 'Open command palette' },
-      { keys: ['Ctrl', 'L'],          description: 'Lock the app' },
-      { keys: ['Ctrl', '\\'],         description: 'Toggle sidebar' },
-      { keys: ['?'],                   description: 'Show keyboard shortcuts' },
-      { keys: ['Ctrl', '='],          description: 'Zoom in' },
-      { keys: ['Ctrl', '-'],          description: 'Zoom out' },
-      { keys: ['Ctrl', '0'],          description: 'Reset zoom' },
-    ],
-  },
-  {
-    title: 'Grid Navigation',
-    shortcuts: [
-      { keys: ['Arrow keys'],          description: 'Move between cells' },
-      { keys: ['Tab'],                 description: 'Move to next cell (wraps to next row)' },
-      { keys: ['Shift', 'Tab'],        description: 'Move to previous cell' },
-      { keys: ['Home'],                description: 'Jump to first column in row' },
-      { keys: ['End'],                 description: 'Jump to last column in row' },
-    ],
-  },
-  {
-    title: 'Grid Editing',
-    shortcuts: [
-      { keys: ['Enter'],               description: 'Start editing focused cell' },
-      { keys: ['F2'],                  description: 'Start editing focused cell' },
-      { keys: ['Escape'],              description: 'Cancel edit' },
-      { keys: ['Ctrl', 'C'],          description: 'Copy cell value to clipboard' },
-      { keys: ['Ctrl', 'Shift', 'C'], description: 'Copy "Column: Value" to clipboard' },
-      { keys: ['Ctrl', 'V'],          description: 'Paste clipboard value into cell' },
-      { keys: ['Ctrl', 'H'],          description: 'Find and replace (in Grid view)' },
-      { keys: ['Ctrl', 'N'],          description: 'Add new {record} (in Grid view)' },
-    ],
-  },
-  {
-    title: 'Tasks',
-    shortcuts: [
-      { keys: ['Ctrl', 'Shift', 'T'], description: 'Add new task' },
-    ],
-  },
-  {
-    title: 'Contacts',
-    shortcuts: [
-      { keys: ['Ctrl', 'Shift', 'P'], description: 'Go to {ContactDirectory}' },
-      { keys: ['N'],                   description: 'Add new {contact} (in {ContactDirectory})' },
-      { keys: ['/'],                   description: 'Focus search (in Contacts view)' },
-    ],
-  },
-]
 
 export function KeyboardShortcutsModal({ open, onClose }: Props): React.ReactElement | null {
   const { t, f } = useVocab()
+  const sections = useShortcutSections()
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, open)
 
@@ -114,10 +69,10 @@ export function KeyboardShortcutsModal({ open, onClose }: Props): React.ReactEle
 
             {/* Content */}
             <div className="overflow-y-auto flex-1 px-6 py-4 space-y-6">
-              {SECTIONS.map(section => (
+              {sections.map(section => (
                 <section key={section.title}>
                   <h3 className="text-base font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
-                    {section.title}
+                    {f(section.title)}
                   </h3>
                   <div className="space-y-1">
                     {section.shortcuts.map((row, i) => (

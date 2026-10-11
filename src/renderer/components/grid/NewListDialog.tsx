@@ -15,6 +15,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { RECORD_KINDS, SUGGESTIONS } from '../../views/setup/GuidedBlankStart'
+import { friendlyError } from '../../utils/friendlyError'
 
 type StartWith = 'empty' | 'suggested' | 'example'
 
@@ -85,7 +86,7 @@ export function NewListDialog({ onClose, onCreated, onPickExample }: Props): Rea
         record_kind: kind,
         ...(sameWords ? {} : { vocab: { record: { one: one.trim(), many: many.trim(), article: guessArticle(one) } } }),
       })
-      if (!settings.ok) toast.error(settings.error)
+      if (!settings.ok) toast.error(friendlyError(settings.error))
 
       await useGridStore.getState().loadGridList()
       await useWorkspaceStore.getState().load()

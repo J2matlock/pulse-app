@@ -6,6 +6,11 @@
   "description": "For churches, clubs and youth programs: background checks every 3 years and child safety training every year for everyone who serves with children.",
   "icon": "church",
   "group": "Faith and community",
+  "keywords": [
+    "volunteer",
+    "background check",
+    "training"
+  ],
   "vocab": {
     "record": {
       "one": "volunteer",

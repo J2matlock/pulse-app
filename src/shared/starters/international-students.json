@@ -6,6 +6,12 @@
   "description": "For international student offices: program end dates, the OPT window (90 days before to 60 days after the program ends) and I-20, passport and visa expiries. Pulse is a tracking aid, not your official record system.",
   "icon": "graduation-cap",
   "group": "Education and youth",
+  "keywords": [
+    "visa",
+    "f-1",
+    "student",
+    "university"
+  ],
   "vocab": {
     "record": {
       "one": "student",

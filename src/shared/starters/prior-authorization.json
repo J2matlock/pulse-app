@@ -6,6 +6,13 @@
   "description": "For therapy and clinic offices: how many authorized visits each patient has left and when each authorization ends, so renewals go in on time.",
   "icon": "stethoscope",
   "group": "Health",
+  "keywords": [
+    "insurance",
+    "authorization",
+    "medicaid",
+    "visits",
+    "units"
+  ],
   "vocab": {
     "record": {
       "one": "patient",

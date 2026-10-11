@@ -7,7 +7,7 @@ import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { PasswordStrength } from './PasswordStrength'
-import { checkNewPassword } from '../../../shared/passwordPolicy'
+import { checkNewPassword, MIN_PASSWORD_LENGTH } from '../../../shared/passwordPolicy'
 
 interface ResetPasswordAfterRecoveryDialogProps {
   open: boolean
@@ -82,7 +82,7 @@ export function ResetPasswordAfterRecoveryDialog({ open, onComplete }: ResetPass
                 style={{ minHeight: 44 }}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="At least 8 characters"
+                placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
                 autoFocus
                 autoComplete="new-password"
               />

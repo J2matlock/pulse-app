@@ -35,7 +35,16 @@ export interface RowLocation {
 }
 
 /** Setup's "Which of these dates repeat?" answer for one date column */
-export type DateRuleAnswer = { columnId: number; repeat: 'due' } | { columnId: number; repeat: 'every'; n: number; unit: 'days' | 'months' | 'years' }
+/** Where an interrupted first-run setup stopped, once it has made a list */
+export interface SetupProgress {
+  step: 'sheet-import' | 'sheet-rows' | 'blank'
+  gridId: number
+  listName?: string
+  /** The guided blank start's answers so far */
+  blank?: { name: string; kind: RecordKind; one: string; many: string }
+}
+
+export type DateRuleAnswer ={ columnId: number; repeat: 'due' } | { columnId: number; repeat: 'every'; n: number; unit: 'days' | 'months' | 'years' }
 import type { StarterSummary, StarterRef, StarterPreview, ApplyOptions, ApplyResult } from './starters/schema'
 
 // ── Helper types for complex return shapes ────────────────────────────────
@@ -85,6 +94,8 @@ export interface GridGetFullResult extends GridGetResult {
   rowTagsMap: Record<number, string[]>
   savedViews: unknown[]
   customGroups: string | null
+  /** Sample entries in the list → 0 not asked yet, 1 "just a sample", 2 asked and dismissed */
+  sampleRows: Record<number, number>
 }
 
 /** Return shape for dashboard:get-all */
@@ -328,6 +339,7 @@ export interface IPCContract {
   'auth:verify-recovery-key':           { args: [recoveryKey: string];                                           return: true }
   'auth:revoke-recovery-key':           { args: [currentPassword?: string];                                      return: true }
   'auth:has-recovery-key':              { args: [];                                                              return: boolean }
+  'auth:lockout-remaining':             { args: [];                                                              return: number }
   'auth:reset-password-after-recovery': { args: [newPassword: string, newHint: string];                          return: true }
   'auth:credentials-unreadable':        { args: [];                                                              return: boolean }
   'auth:restore-from-backup':           { args: [backupPath: string, secret: string, newPassword: string, hint: string]; return: { cloudWarning: string | null } }
@@ -358,13 +370,17 @@ export interface IPCContract {
   'workspace:export-template': { args: [];                                        return: { filePath: string } | null }
 
   // ── Onboarding ──────────────────────────────────────────────────────────
-  'onboarding:check':      { args: [];                               return: { complete: boolean } }
+  'onboarding:check':      { args: [];                               return: { complete: boolean; progress: SetupProgress | null } }
+  'onboarding:save-progress': { args: [progress: SetupProgress | null]; return: true }
+  'onboarding:getting-started': { args: []; return: { show: boolean; record: boolean; reminder: boolean; note: boolean; recoverySnoozedUntil: string | null } }
   'onboarding:complete':   { args: [];                               return: true }
   'onboarding:setup-grid': { args: [setup: Record<string, unknown>]; return: { gridId: number; colIdByName: Record<string, number> } }
   'onboarding:date-rules': { args: [gridId: number, answers: DateRuleAnswer[]]; return: number }
-  'sample-data:status':    { args: [];                               return: { gridId: number | null; starterRows: number } }
+  'sample-data:status':    { args: [];                               return: { gridId: number | null; sampleRows: number } }
+  'sample-data:preview':   { args: [];                               return: { remove: number; keep: number; ownInSampleList: number } }
+  'sample-data:answer':    { args: [rowId: number, answer: 'keep' | 'sample' | 'later']; return: true }
   'sample-data:create':    { args: [];                               return: { gridId: number } }
-  'sample-data:remove':    { args: [];                               return: boolean }
+  'sample-data:remove':    { args: [];                               return: { removed: number; kept: number; keptListName: string | null } }
 
   // ── App Utilities ───────────────────────────────────────────────────────
   'app:get-info':           { args: [];                                   return: AppInfo }

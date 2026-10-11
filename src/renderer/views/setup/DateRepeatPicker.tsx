@@ -3,9 +3,34 @@ import React from 'react'
 export type DateAnswer = { repeat: 'no' } | { repeat: 'due' } | { repeat: 'every'; n: number; unit: 'days' | 'months' | 'years' }
 
 /**
+ * The likely answer from a column's name, so most people can just click on:
+ * "Due date", "Expires" → it's the due date; "Last service", "Annual review"
+ * → due again every year; a birthday or anything else → no reminder.
+ */
+export function suggestRepeat(name: string): DateAnswer {
+  const n = name.toLowerCase()
+  if (/birth|\bdob\b|born/.test(n)) return { repeat: 'no' }
+  if (/\bdue\b|expir|deadline|\bends?\b|renew/.test(n)) return { repeat: 'due' }
+  if (/\blast\b|service|review|inspect/.test(n)) return { repeat: 'every', n: 1, unit: 'years' }
+  return { repeat: 'no' }
+}
+
+/** A colored chip like the ones the list shows, so the choice has a visible result */
+function SampleChip({ answer }: { answer: DateAnswer }): React.ReactElement | null {
+  if (answer.repeat === 'no') return null
+  const when = answer.repeat === 'due' ? 'the date itself' : `${answer.n} ${answer.n === 1 ? answer.unit.slice(0, -1) : answer.unit} after the date`
+  return (
+    <span className="inline-flex items-center gap-2 text-base text-slate-600 dark:text-slate-300">
+      <span className="px-2 py-0.5 rounded-md font-medium bg-yellow-300 text-slate-900" aria-hidden="true">Due soon</span>
+      Turns yellow, then red as {when} comes near
+    </span>
+  )
+}
+
+/**
  * "Which of these dates repeat?" for setup: per date column, no reminder,
- * due again every N days/months/years after the date entered, or "it's the
- * due date".
+ * due again every N days/months/years after the date entered, or "this is
+ * when it's due".
  */
 export function DateRepeatPicker({ columns, value, onChange }: {
   columns: Array<{ id: number; name: string }>
@@ -24,8 +49,8 @@ export function DateRepeatPicker({ columns, value, onChange }: {
               <select id={`setup-date-${c.id}`} className="input w-auto" value={a.repeat}
                 onChange={e => set(e.target.value === 'every' ? { repeat: 'every', n: 1, unit: 'years' } : { repeat: e.target.value as 'no' | 'due' })}>
                 <option value="no">No reminder</option>
-                <option value="every">Repeats: due again every…</option>
-                <option value="due">It's the due date</option>
+                <option value="due">This is when it's due</option>
+                <option value="every">It happened on this date; due again every…</option>
               </select>
               {a.repeat === 'every' && (
                 <>
@@ -38,10 +63,10 @@ export function DateRepeatPicker({ columns, value, onChange }: {
                     <option value="months">months</option>
                     <option value="years">years</option>
                   </select>
-                  <span className="text-base text-slate-600 dark:text-slate-300">after the date entered</span>
                 </>
               )}
             </div>
+            <SampleChip answer={a} />
           </li>
         )
       })}

@@ -8,6 +8,7 @@ import { parseDbTimestamp } from '../../../shared/dates'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useVocab } from '../../hooks/useVocab'
 import { ConfirmDialog } from './ConfirmDialog'
+import { friendlyError } from '../../utils/friendlyError'
 
 type TrashedFile = Attachment & { record_name: string | null }
 
@@ -24,7 +25,7 @@ export function TrashFiles(): React.ReactElement | null {
 
   async function restore(f: TrashedFile) {
     const r = await safeInvoke(IPC.ATTACHMENT_RESTORE, f.id)
-    if (r.ok) { toast.success(`Restored ${f.file_name}`); void load() } else toast.error(r.error)
+    if (r.ok) { toast.success(`Restored ${f.file_name}`); void load() } else toast.error(friendlyError(r.error))
   }
 
   if (files.length === 0) return null
@@ -54,7 +55,7 @@ export function TrashFiles(): React.ReactElement | null {
         onConfirm={async () => {
           if (purge) {
             const r = await safeInvoke(IPC.ATTACHMENT_PURGE, purge.id)
-            if (r.ok) void load(); else toast.error(r.error)
+            if (r.ok) void load(); else toast.error(friendlyError(r.error))
           }
           setPurge(null)
         }}

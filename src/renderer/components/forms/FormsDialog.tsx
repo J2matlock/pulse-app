@@ -9,6 +9,7 @@ import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useFormStore } from '../../stores/formStore'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { FormBuilder } from './FormBuilder'
+import { friendlyError } from '../../utils/friendlyError'
 
 export function FormsDialog({ gridId, gridName, onClose }: { gridId: number; gridName: string; onClose: () => void }): React.ReactElement {
   const trapRef = useRef<HTMLDivElement>(null)
@@ -32,14 +33,14 @@ export function FormsDialog({ gridId, gridName, onClose }: { gridId: number; gri
 
   async function printBlank(f: Form) {
     const r = await safeInvoke<string | null>(IPC.FORM_PRINT, f.id, null)
-    if (!r.ok) toast.error(r.error)
+    if (!r.ok) toast.error(friendlyError(r.error))
     else if (r.data) toast.success('Saved the blank form')
   }
 
   async function remove(f: Form) {
     setDeleting(null)
     const r = await safeInvoke(IPC.FORM_DELETE, f.id)
-    if (!r.ok) { toast.error(r.error); return }
+    if (!r.ok) { toast.error(friendlyError(r.error)); return }
     void load()
   }
 

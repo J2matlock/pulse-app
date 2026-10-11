@@ -93,19 +93,16 @@ describe('PasswordSetupView', () => {
     expect(checkbox).toBeTruthy()
   })
 
-  it('submit button is disabled when form is incomplete', async () => {
+  it('says what is missing instead of a silently greyed-out button (audit F-25)', async () => {
     render(<MemoryRouter><PasswordSetupView /></MemoryRouter>)
     await flushEffects()
-    // Find the submit-type button (contains "Set Password" or similar text)
-    const buttons = screen.getAllByRole('button')
-    const submitBtn = buttons.find(b =>
-      b.textContent?.toLowerCase().includes('password') ||
-      b.textContent?.toLowerCase().includes('continue') ||
-      b.textContent?.toLowerCase().includes('set up')
-    )
-    // If a submit button is found, it should be disabled by default
-    if (submitBtn) {
-      expect(submitBtn.hasAttribute('disabled') || submitBtn.getAttribute('aria-disabled') === 'true').toBe(true)
-    }
+    const submit = screen.getByRole('button', { name: 'Create password & continue' })
+    expect(submit.hasAttribute('disabled')).toBe(false)
+    const [pw, confirm] = screen.getAllByPlaceholderText(/./).filter(el => (el as HTMLInputElement).type === 'password') as HTMLInputElement[]
+    fireEvent.change(pw!, { target: { value: 'a long enough passphrase' } })
+    fireEvent.change(confirm!, { target: { value: 'a long enough passphrase' } })
+    fireEvent.click(submit)
+    expect((await screen.findByRole('alert')).textContent).toMatch(/Tick the box to agree/)
+    expect(document.activeElement).toBe(screen.getByRole('checkbox'))
   })
 })

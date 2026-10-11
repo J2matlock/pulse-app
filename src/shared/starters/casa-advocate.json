@@ -6,6 +6,12 @@
   "description": "For court-appointed advocates: hearings, court reports due 10 business days before each hearing, and a visit every month.",
   "icon": "shield-check",
   "group": "Legal and government",
+  "keywords": [
+    "court",
+    "foster",
+    "child welfare",
+    "guardian ad litem"
+  ],
   "vocab": {
     "record": {
       "one": "child",

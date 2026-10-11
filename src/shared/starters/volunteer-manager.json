@@ -6,6 +6,11 @@
   "description": "For any nonprofit that runs on volunteers: orientation within 30 days of signing up, background checks for the roles that need them, yearly training, a nudge when someone hasn’t been in for 60 days, hours given and thank-yous.",
   "icon": "hand-helping",
   "group": "Faith and community",
+  "keywords": [
+    "volunteer",
+    "shifts",
+    "nonprofit"
+  ],
   "vocab": {
     "record": {
       "one": "record",

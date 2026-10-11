@@ -6,6 +6,13 @@
   "description": "Passports, licenses, insurance policies and warranties for your household, with warnings 90, 30 and 7 days before anything expires.",
   "icon": "folder",
   "group": "Personal",
+  "keywords": [
+    "passport",
+    "license",
+    "insurance",
+    "documents",
+    "renewal"
+  ],
   "vocab": {
     "record": {
       "one": "item",

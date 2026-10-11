@@ -8,6 +8,7 @@ import { FeaturesSection } from './FeaturesSection'
 import { ApplyStarterDialog } from '../starters/ApplyStarterDialog'
 import { useVocab } from '../../hooks/useVocab'
 import { WordsEditor } from './WordsEditor'
+import { friendlyError } from '../../utils/friendlyError'
 
 /**
  * Settings → Workspace (W01 §6): words, feature switches, adding lists from
@@ -23,7 +24,7 @@ export function WorkspaceSection(): React.ReactElement {
     setBusy(true)
     try {
       const r = await safeInvoke(IPC.WORKSPACE_EXPORT_TEMPLATE)
-      if (!r.ok) toast.error(r.error)
+      if (!r.ok) toast.error(friendlyError(r.error))
       else if (r.data) toast.success('Saved your setup as a template. Only lists, columns and rules are in it, no records or notes.')
     } finally { setBusy(false) }
   }
@@ -32,7 +33,7 @@ export function WorkspaceSection(): React.ReactElement {
     setBusy(true)
     try {
       const r = await safeInvoke(IPC.STARTER_OPEN_FILE)
-      if (!r.ok) toast.error(r.error)
+      if (!r.ok) toast.error(friendlyError(r.error))
       else if (r.data) setOpened(r.data)
     } finally { setBusy(false) }
   }

@@ -13,6 +13,7 @@ import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
 import { UnknownPlaceholders } from '../shared/UnknownPlaceholders'
+import { friendlyError } from '../../utils/friendlyError'
 
 type Who = 'selected' | 'deadline' | 'all'
 const label = 'block text-base font-semibold text-slate-800 dark:text-slate-100 mb-1'
@@ -38,6 +39,7 @@ export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMod
   const [gridId, setGridId] = useState(initialGridId)
   const grids = useGridStore(s => s.grids)
   const { t } = useVocab(gridId)
+  const listName = useGridStore(s => s.grids.find(g => g.id === gridId)?.name)
   const columns = useGridStore(s => s.columns)
   const hiddenColumns = useGridStore(s => s.hiddenColumns)
   const all = useMemo(() => [...columns, ...hiddenColumns].filter(c => c.grid_id === gridId), [columns, hiddenColumns, gridId])
@@ -95,14 +97,14 @@ export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMod
     try {
       if (mode === 'documents') {
         const res = await safeInvoke<{ filePath: string; count: number; unknown: string[] } | null>(IPC.DOC_BATCH, templateId, target, page)
-        if (!res.ok) { toast.error(res.error); return }
+        if (!res.ok) { toast.error(friendlyError(res.error)); return }
         if (!res.data) return
         noteUnencryptedExport()
         toast.success(`Saved ${res.data.count} ${res.data.count === 1 ? 'document' : 'documents'}`)
         if (res.data.unknown.length) { setUnknown(res.data.unknown); return }
       } else {
         const res = await safeInvoke<{ filePath: string; count: number; skipped: number } | null>(IPC.DOC_LABELS, target, addressCol, layout)
-        if (!res.ok) { toast.error(res.error); return }
+        if (!res.ok) { toast.error(friendlyError(res.error)); return }
         if (!res.data) return
         noteUnencryptedExport()
         toast.success(`Saved ${res.data.count} label${res.data.count === 1 ? '' : 's'}${res.data.skipped ? ` (${res.data.skipped} without an address left out)` : ''}`)
@@ -117,7 +119,7 @@ export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMod
         className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 id="batch-docs-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <FileStack className="w-5 h-5" aria-hidden="true" />Print documents or labels
+            <FileStack className="w-5 h-5" aria-hidden="true" />Print documents or labels{listName ? `: ${listName}` : ''}
           </h2>
           <button type="button" aria-label="Close" onClick={onClose}
             className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">

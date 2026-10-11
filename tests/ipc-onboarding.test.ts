@@ -153,9 +153,45 @@ describe('IPC Onboarding — ONBOARDING_SETUP_GRID', () => {
     expect(cols[0].is_name_column).toBe(1)
     expect(cols[1].column_type).toBe('date')
 
-    // Should set onboarding_complete
+    // Setup has more questions after making the list: it isn't complete yet (audit F-02)
     const meta = testDb.db.prepare("SELECT value FROM app_meta WHERE key = 'onboarding_complete'").get() as any
-    expect(meta.value).toBe('1')
+    expect(meta.value).toBe('0')
+    expect(((await invoke(IPC.ONBOARDING_CHECK)) as any).data.complete).toBe(false)
+  })
+
+  it('saves where an interrupted setup stopped, and forgets it once setup finishes', async () => {
+    const { gridId } = seedGrid(testDb.db, { rowCount: 0 })
+    const progress = { step: 'blank', gridId, blank: { name: 'Tenants', kind: 'person', one: 'tenant', many: 'tenants' } }
+    expect(((await invoke(IPC.ONBOARDING_SAVE_PROGRESS, progress)) as any).ok).toBe(true)
+    // A list exists, but setup isn't treated as done
+    expect(((await invoke(IPC.ONBOARDING_CHECK)) as any).data).toEqual({ complete: false, progress })
+    expect(((await invoke(IPC.ONBOARDING_SAVE_PROGRESS, { step: 'nope', gridId })) as any).ok).toBe(false)
+    await invoke(IPC.ONBOARDING_COMPLETE)
+    expect(((await invoke(IPC.ONBOARDING_CHECK)) as any).data).toEqual({ complete: true, progress: null })
+    expect(testDb.db.prepare("SELECT 1 FROM app_meta WHERE key = 'setup_progress'").get()).toBeUndefined()
+  })
+
+  it('"Getting started" shows for workspaces set up here, and counts only real entries (audit 2.9)', async () => {
+    const gs = async () => ((await invoke(IPC.ONBOARDING_GETTING_STARTED)) as any).data
+    expect((await gs()).show).toBe(false)
+    await invoke(IPC.ONBOARDING_COMPLETE)
+    expect(await gs()).toMatchObject({ show: true, record: false, reminder: false, note: false })
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 2 })
+    // A made-up sample entry doesn't count as "your first"
+    testDb.db.prepare("INSERT INTO sample_rows (row_id, grid_id, fingerprint) VALUES (?, 1, '')").run(rowIds[1])
+    testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type) VALUES (?, 'Made up', 'note')").run(rowIds[1])
+    expect(await gs()).toMatchObject({ record: true, note: false })
+    testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type) VALUES (?, 'Called', 'phone')").run(rowIds[0])
+    expect((await gs()).note).toBe(true)
+    testDb.db.prepare("INSERT INTO settings (key, value) VALUES ('onboarding_getting_started_dismissed', '1')").run()
+    expect((await gs()).show).toBe(false)
+  })
+
+  it('drops saved progress whose list was deleted', async () => {
+    const { gridId } = seedGrid(testDb.db, { rowCount: 0 })
+    await invoke(IPC.ONBOARDING_SAVE_PROGRESS, { step: 'sheet-rows', gridId, listName: 'X' })
+    testDb.db.prepare('UPDATE grids SET is_active = 0 WHERE id = ?').run(gridId)
+    expect(((await invoke(IPC.ONBOARDING_CHECK)) as any).data).toEqual({ complete: false, progress: null })
   })
 
   it('creates grid with alert rules', async () => {

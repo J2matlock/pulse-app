@@ -6,6 +6,12 @@
   "description": "For early intervention service coordinators: the IFSP within 45 days of referral, 6-month reviews, yearly IFSPs and transition planning at 33 months.",
   "icon": "sprout",
   "group": "Education and youth",
+  "keywords": [
+    "infant",
+    "toddler",
+    "ifsp",
+    "part c"
+  ],
   "vocab": {
     "record": {
       "one": "child",

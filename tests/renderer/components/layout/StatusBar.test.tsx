@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
+/** The status bar speaks only for what's on screen (audit 2.11 / N-03, N-15). */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 
 vi.mock('zustand/react/shallow', () => ({ useShallow: (fn: Function) => fn }))
 
@@ -17,9 +19,10 @@ vi.mock('../../../../src/renderer/stores/gridStore', () => ({
   useGridStore: (selector: Function) => selector(mockStoreState),
 }))
 
-// Trial status has its own tests; keep this suite focused on grid status
-import { StatusBar } from '../../../../src/renderer/components/layout/StatusBar'
+import { StatusBar, SAVED_SHOWN_MS } from '../../../../src/renderer/components/layout/StatusBar'
 import { setWords } from '../../vocabFixture'
+
+const at = (path: string) => <MemoryRouter initialEntries={[path]}><StatusBar /></MemoryRouter>
 
 describe('StatusBar', () => {
   beforeEach(() => {
@@ -37,51 +40,38 @@ describe('StatusBar', () => {
     }
   })
 
-  it('shows Saved indicator when not saving and no error', () => {
-    render(<StatusBar />)
-    expect(screen.getByText('Saved')).toBeDefined()
-    expect(screen.getByTestId('check-icon')).toBeDefined()
-  })
-
-  it('shows Saving indicator when isSaving is true', () => {
+  it('says nothing about saving until something is saved, then "Saved" for a few seconds', () => {
+    vi.useFakeTimers()
+    const view = render(at('/grid'))
+    expect(screen.queryByText('Saved')).toBeNull()
     mockStoreState = { ...mockStoreState, isSaving: true }
-    render(<StatusBar />)
-    expect(screen.getByText('Saving\u2026')).toBeDefined()
-    expect(screen.getByTestId('loader-icon')).toBeDefined()
+    view.rerender(at('/grid'))
+    expect(screen.getByText('Saving…')).toBeDefined()
+    mockStoreState = { ...mockStoreState, isSaving: false }
+    view.rerender(at('/grid'))
+    expect(screen.getByText('Saved')).toBeDefined()
+    act(() => { vi.advanceTimersByTime(SAVED_SHOWN_MS + 10) })
+    expect(screen.queryByText('Saved')).toBeNull()
+    vi.useRealTimers()
   })
 
   it('shows error when saveError is set', () => {
-    mockStoreState = { ...mockStoreState, saveError: 'Write failed' }
-    render(<StatusBar />)
-    expect(screen.getByText('Write failed')).toBeDefined()
-    expect(screen.getByTestId('alert-icon')).toBeDefined()
+    mockStoreState = { ...mockStoreState, saveError: 'Save failed' }
+    render(at('/grid'))
+    expect(screen.getByText('Save failed')).toBeDefined()
   })
 
-  it('shows client count', () => {
-    render(<StatusBar />)
-    expect(screen.getByText('3 clients')).toBeDefined()
-  })
-
-  it("uses the open list's own word", () => {
-    setWords({}, { 1: { record: { one: 'vehicle', many: 'vehicles', article: 'a' } } })
-    render(<StatusBar />)
-    expect(screen.getByText('3 vehicles')).toBeDefined()
-  })
-
-  it('shows singular client when count is 1', () => {
-    mockStoreState = { ...mockStoreState, rows: [{ row_id: 1 }] }
-    render(<StatusBar />)
-    expect(screen.getByText('1 client')).toBeDefined()
-  })
-
-  it('shows grid name', () => {
-    render(<StatusBar />)
+  it('shows the list name on the list and its records only', () => {
+    const view = render(at('/grid'))
+    expect(screen.getByText('My Caseload')).toBeDefined()
+    view.unmount()
+    render(at('/profile/2'))
     expect(screen.getByText('My Caseload')).toBeDefined()
   })
 
-  it('shows matching count when search is active', () => {
-    mockStoreState = { ...mockStoreState, searchQuery: 'john' }
-    render(<StatusBar />)
-    expect(screen.getByText('3 matching')).toBeDefined()
+  it('stays out of screens that cover every list', () => {
+    render(at('/calendar'))
+    expect(screen.queryByText('My Caseload')).toBeNull()
+    expect(screen.queryByText(/clients/)).toBeNull()
   })
 })

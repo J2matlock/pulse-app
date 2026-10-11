@@ -6,6 +6,13 @@
   "description": "For speech, occupational and physical therapists: plan of care recertification every 90 days, a progress note every 10 visits, authorized visits counted as you write notes, signed doctor orders within 30 days, twice-weekly visits on the calendar and an evaluation form. Pulse is a tracking aid, not your official record system.",
   "icon": "activity",
   "group": "Health",
+  "keywords": [
+    "speech",
+    "ot",
+    "pt",
+    "physical therapy",
+    "occupational therapy"
+  ],
   "vocab": {
     "record": {
       "one": "patient",

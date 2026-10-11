@@ -6,6 +6,13 @@
   "description": "For homeowners: furnace filters every 90 days, yearly service for the furnace and water heater, smoke detector batteries, gutters every spring and fall, warranties, home insurance and property tax due dates, and who to call for repairs.",
   "icon": "hammer",
   "group": "Personal",
+  "keywords": [
+    "house",
+    "home",
+    "repair",
+    "chores",
+    "homeowner"
+  ],
   "vocab": {
     "record": {
       "one": "item",

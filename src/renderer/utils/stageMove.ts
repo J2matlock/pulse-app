@@ -12,6 +12,7 @@ import { safeInvoke } from './safeInvoke'
 import { useUndoStore } from '../stores/undoStore'
 import { useGridStore } from '../stores/gridStore'
 import { getClientName } from './clientName'
+import { friendlyError } from './friendlyError'
 
 function patchRow(rowId: number, columnId: number, value: string | null, stamped: StageMoveResult['stamped']): void {
   useGridStore.setState(s => ({
@@ -24,7 +25,7 @@ function patchRow(rowId: number, columnId: number, value: string | null, stamped
 /** Returns whether the record moved. */
 export async function moveToStage(rowId: number, columnId: number, value: string | null): Promise<boolean> {
   const res = await safeInvoke<StageMoveResult>(IPC.STAGE_MOVE, rowId, columnId, value)
-  if (!res.ok) { toast.error(res.error); return false }
+  if (!res.ok) { toast.error(friendlyError(res.error)); return false }
   let result = res.data
   if (!result.changed) return false
   patchRow(rowId, columnId, value, result.stamped)

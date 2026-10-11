@@ -12,6 +12,7 @@ import { NOT_FILLABLE, formInputSchema, MAX_FORM_FIELDS, type Form, type FormFie
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useActivityTypes } from '../../hooks/useActivityTypes'
 import { useVocab } from '../../hooks/useVocab'
+import { friendlyError } from '../../utils/friendlyError'
 
 const label = 'block text-base font-semibold text-slate-800 dark:text-slate-100 mb-1'
 const small = 'block text-sm text-slate-600 dark:text-slate-300'
@@ -55,7 +56,7 @@ export function FormBuilder({ gridId, form, onSaved, onCancel }: { gridId: numbe
     setSaving(true)
     try {
       const res = await safeInvoke<Form>(IPC.FORM_SAVE, input)
-      if (!res.ok) { toast.error(res.error); return }
+      if (!res.ok) { toast.error(friendlyError(res.error)); return }
       onSaved(res.data)
     } finally { setSaving(false) }
   }

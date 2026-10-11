@@ -6,6 +6,12 @@
   "description": "For general contractors and builders: every subcontractor's certificates of insurance, workers' comp, licenses, W-9 and signed agreement, with 30-day warnings before anything runs out, and the subs on each job.",
   "icon": "file-check",
   "group": "Business",
+  "keywords": [
+    "contractor",
+    "insurance certificate",
+    "coi",
+    "construction"
+  ],
   "vocab": {
     "record": {
       "one": "record",

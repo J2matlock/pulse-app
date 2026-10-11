@@ -57,6 +57,8 @@ import { ArchiveDialog, DeleteRowDialog, MoveToGridDialog, BulkDeleteDialog, Bul
 import { BulkEditDialog } from './BulkEditDialog'
 import { GridLoadingSkeleton, GridEmptyColumns } from './GridLoadingState'
 import { useVocab } from '../../hooks/useVocab'
+import { pulseEvents } from '../../events'
+import { IS_MAC } from '../../utils/keys'
 import { useFeature } from '../../hooks/useFeature'
 import { ACUITY_GROUP_KEY, isNotTypedColumnType } from '../../../shared/types'
 
@@ -73,7 +75,7 @@ export function DataGrid(): React.ReactElement {
           rowTagsMap, showStarredOnly, cellFormats,
           acuityEnabled: acuityFlag, acuityLevels, groupByColumnId, isLoading,
           activeGridId, copiedFormatRules, customGroups, activeCustomGroupId,
-          lastAddedRowId, frozenColumnCount } = useGridStore(useShallow(s => ({
+          lastAddedRowId, frozenColumnCount, sampleRows } = useGridStore(useShallow(s => ({
     columns: s.columns, rows: s.rows, sortConfig: s.sortConfig,
     searchQuery: s.searchQuery, findReplaceQuery: s.findReplaceQuery,
     findReplaceActiveMatch: s.findReplaceActiveMatch,
@@ -87,6 +89,7 @@ export function DataGrid(): React.ReactElement {
     customGroups: s.customGroups, activeCustomGroupId: s.activeCustomGroupId,
     lastAddedRowId: s.lastAddedRowId,
     frozenColumnCount: s.frozenColumnCount,
+    sampleRows: s.sampleRows,
   })))
   // A list's own setting, shown only while the feature is switched on
   const priorityOn = useFeature('priority')
@@ -649,6 +652,7 @@ export function DataGrid(): React.ReactElement {
       findReplaceActiveColId={findReplaceActiveMatch?.colId ?? null}
       frozenLeftOffsets={frozenLeftOffsets}
       frozenColumnCount={frozenColumnCount}
+      isSample={sampleRows[row.original.row_id] !== undefined}
     />
   )
 
@@ -779,17 +783,39 @@ export function DataGrid(): React.ReactElement {
               <p className="text-base text-slate-500 dark:text-slate-400">
                 No {t('record', { many: true })} found matching &ldquo;{searchQuery}&rdquo;
               </p>
+            ) : rows.length > 0 ? (
+              <>
+                <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                  No {t('record', { many: true })} match your filters
+                </h3>
+                <button type="button" className="btn-secondary" onClick={() => {
+                  useGridStore.setState({ activeFilters: [], showStarredOnly: false })
+                  useGridStore.getState().setActiveCustomGroupId(null)
+                }}>
+                  Clear filters
+                </button>
+              </>
             ) : (
               <>
                 <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   No {t('record', { many: true })} yet
                 </h3>
-                <p className="text-base text-slate-500 dark:text-slate-400 mb-1">
-                  Click &ldquo;Add {t('record', { cap: true })}&rdquo; in the toolbar above, or press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-xs font-mono">Ctrl+Shift+R</kbd> to add your first {t('record')}.
+                <p className="text-base text-slate-500 dark:text-slate-400 mb-4">
+                  Add your first {t('record')}{' '}
+                  (or press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-base font-mono">{IS_MAC ? '⌘N' : 'Ctrl+N'}</kbd>),
+                  or bring them in from a spreadsheet.
                 </p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Tip: Right-click {t('record', { article: true })} for more options like archiving and duplicating.
-                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <button type="button" className="btn-primary" onClick={() => void useGridStore.getState().addRow()}>
+                    Add {t('record', { cap: true })}
+                  </button>
+                  <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('grid:open-import')}>
+                    Bring in a spreadsheet
+                  </button>
+                  <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('starters:open', { sample: true })}>
+                    See an example with sample data
+                  </button>
+                </div>
               </>
             )}
           </div>

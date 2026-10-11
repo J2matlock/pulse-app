@@ -265,4 +265,14 @@ describe('DashboardView — interactions', () => {
 
     expect(screen.getByText('All clear!')).toBeDefined()
   })
+
+  it('an empty workspace says how the dashboard fills up, not "All clear!" (audit 2.1)', async () => {
+    mockSafeInvoke.mockImplementation((channel: string) => channel === 'dashboard:get-all'
+      ? Promise.resolve({ ok: true, data: { stats: { totalActive: 0, totalGrids: 1 }, deadlines: [], followUps: [], archived: [] } })
+      : Promise.resolve({ ok: false, error: 'unknown' }))
+    render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.getByText(/Your dashboard fills up as you add clients with dates/)).toBeDefined()
+    expect(screen.queryByText('All clear!')).toBeNull()
+  })
 })

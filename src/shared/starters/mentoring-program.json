@@ -6,6 +6,11 @@
   "description": "For mentoring programs: mentors and mentees, one-to-one matches, mentees on a board from referral to match, background checks and a match check-in every month.",
   "icon": "users",
   "group": "Faith and community",
+  "keywords": [
+    "mentor",
+    "mentee",
+    "youth"
+  ],
   "vocab": {
     "record": {
       "one": "person",

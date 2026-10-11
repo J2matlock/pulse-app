@@ -6,13 +6,18 @@ import { useWorkspaceStore } from '../stores/workspaceStore'
 import { useActivityTypeStore } from '../stores/activityTypeStore'
 import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
-import { checkBackupReminder } from './useBackupReminder'
+import { checkBackupReminder, checkWhatsNew } from './useBackupReminder'
 import toast from 'react-hot-toast'
+import { pulseEvents } from '../events'
+
+export type SetupStart = 'welcome' | 'start' | 'examples' | 'sheet-name' | 'blank'
 
 export type AuthState = 'checking' | 'needs-setup' | 'locked' | 'recovery' | 'onboarding' | 'ready'
 
 interface UseAuthGatingReturn {
   authState: AuthState
+  /** Where setup starts: the welcome screen, or (shown again with no lists left) one of its starting points */
+  setupStart: SetupStart
   setShowOnboarding: (v: boolean) => void
   showTourAfterOnboarding: () => void
   completeOnboarding: () => void
@@ -29,6 +34,9 @@ export function useAuthGating(): UseAuthGatingReturn {
 
   const [isChecking, setIsChecking] = useState(true)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [setupStart, setSetupStart] = useState<SetupStart>('welcome')
+  // With no lists left (the last one deleted, or the sample removed), setup can be shown again
+  useEffect(() => pulseEvents.on('setup:open', ({ step }) => { setSetupStart(step); setShowOnboarding(true) }), [])
   const prevLockedRef = useRef(true)
 
   // On app load, check if password has been set up
@@ -76,6 +84,7 @@ export function useAuthGating(): UseAuthGatingReturn {
           }
         } catch { /* non-critical */ }
         await checkBackupReminder()
+        await checkWhatsNew()
       })()
     }
     if (isLocked) {
@@ -86,11 +95,13 @@ export function useAuthGating(): UseAuthGatingReturn {
 
   const completeOnboarding = useCallback(() => {
     setShowOnboarding(false)
+    setSetupStart('welcome')
     loadRules()
   }, [loadRules])
 
   const showTourAfterOnboarding = useCallback(() => {
     setShowOnboarding(false)
+    setSetupStart('welcome')
     loadRules()
   }, [loadRules])
 
@@ -114,6 +125,7 @@ export function useAuthGating(): UseAuthGatingReturn {
 
   return {
     authState,
+    setupStart,
     setShowOnboarding,
     showTourAfterOnboarding,
     completeOnboarding,

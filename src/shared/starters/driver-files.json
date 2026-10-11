@@ -6,6 +6,13 @@
   "description": "Driver qualification files for a small fleet: CDL and medical card expiry, yearly MVR and driving record reviews, road tests and drug testing enrollment. Pulse is a tracking aid, not your official record system.",
   "icon": "truck",
   "group": "Trades and service",
+  "keywords": [
+    "dot",
+    "cdl",
+    "truck",
+    "trucking",
+    "driver qualification"
+  ],
   "vocab": {
     "record": {
       "one": "driver",

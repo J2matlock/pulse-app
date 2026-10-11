@@ -91,6 +91,31 @@ export default function GridView(): React.ReactElement {
     }
   }, [gridListLoaded, grids, activeGridId, loadGrid, loadGridList])
 
+  // No lists at all: the same three ways to start as first-run setup
+  if (gridListLoaded && grids.length === 0) {
+    const start = (step: 'examples' | 'sheet-name' | 'blank') => pulseEvents.emit('setup:open', { step })
+    return (
+      <div className="flex flex-col h-full overflow-y-auto">
+        <div className="m-auto w-full max-w-xl px-6 py-10 space-y-4">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">You don't have any {t('list', { many: true })} yet</h2>
+          <p className="text-base text-slate-600 dark:text-slate-300">Pick a way to start. You can change everything later.</p>
+          {([
+            ['examples', 'Start from an example', 'Pick something close to your work, with sample data to try it out.'],
+            ['sheet-name', 'Bring in a spreadsheet', "Excel or CSV. We'll help you match the columns."],
+            ['blank', 'Start blank', `Set up your first ${t('list')} step by step.`],
+          ] as const).map(([step, title, description]) => (
+            <button key={step} type="button" onClick={() => start(step)}
+              className="w-full text-left p-5 rounded-xl border-2 border-slate-200 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+              style={{ minHeight: 44 }}>
+              <span className="block text-lg font-semibold text-slate-900 dark:text-slate-100">{title}</span>
+              <span className="block text-base text-slate-600 dark:text-slate-300">{description}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   // No grid selected — show helpful empty state
   if (gridListLoaded && !activeGridId) {
     return (

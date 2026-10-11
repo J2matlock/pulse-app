@@ -6,6 +6,13 @@
   "description": "For small fleets: service every 5,000 miles or 6 months (Pulse estimates the date from each vehicle's mileage), registrations and annual inspections.",
   "icon": "truck",
   "group": "Trades and service",
+  "keywords": [
+    "truck",
+    "van",
+    "car",
+    "vehicle",
+    "maintenance"
+  ],
   "vocab": {
     "record": {
       "one": "vehicle",

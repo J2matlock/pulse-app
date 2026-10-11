@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 // ── Global mocks ─────────────────────────────────────────────────────────────
@@ -157,8 +157,23 @@ describe('GridView', () => {
     expect(container.innerHTML.length).toBeGreaterThan(0)
   })
 
-  it('shows empty state when no grid is selected', async () => {
+  it('with no lists at all, offers the setup starting points (audit 2.1)', async () => {
     gridStoreOverride = { gridListLoaded: true, activeGridId: null, grids: [] }
+    const { pulseEvents } = await import('../../../src/renderer/events')
+    const steps: string[] = []
+    const off = pulseEvents.on('setup:open', e => steps.push(e.step))
+    render(<MemoryRouter><GridView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.getByText("You don't have any caseloads yet")).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: /Start from an example/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Bring in a spreadsheet/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Start blank/ }))
+    expect(steps).toEqual(['examples', 'sheet-name', 'blank'])
+    off()
+  })
+
+  it('shows empty state when no grid is selected', async () => {
+    gridStoreOverride = { gridListLoaded: true, activeGridId: null, grids: [{ id: 1, name: 'Test Grid', is_active: 1, position: 0, created_at: '', updated_at: '' }] }
     render(<MemoryRouter><GridView /></MemoryRouter>)
     await flushEffects()
     expect(screen.getByTestId('empty-state')).toBeDefined()

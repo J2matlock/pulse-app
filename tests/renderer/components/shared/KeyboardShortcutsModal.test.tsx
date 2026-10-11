@@ -36,20 +36,22 @@ describe('KeyboardShortcutsModal', () => {
 
   it('renders all shortcut section titles when open', () => {
     render(<KeyboardShortcutsModal open={true} onClose={onClose} />)
-    for (const section of SECTIONS) {
-      expect(screen.getByText(section.title)).toBeDefined()
-    }
+    // Titles go through the workspace words ("In a {list}")
+    expect(SECTIONS.length).toBeGreaterThan(3)
+    expect(screen.getByText('Everywhere')).toBeDefined()
+    expect(screen.getByText(/^In an? /)).toBeDefined()
   })
 
   it('does not render content when closed', () => {
     render(<KeyboardShortcutsModal open={false} onClose={onClose} />)
-    expect(screen.queryByText('Global')).toBeNull()
+    expect(screen.queryByText('Everywhere')).toBeNull()
   })
 
   it('shows correct key combinations', () => {
     render(<KeyboardShortcutsModal open={true} onClose={onClose} />)
     // Check a known shortcut: Ctrl+K for command palette
-    expect(screen.getByText('Open command palette')).toBeDefined()
+    expect(screen.getByText('Open the command palette')).toBeDefined()
+    expect(screen.getByText('Undo')).toBeDefined()
     // Check for the key elements
     const kbdElements = screen.getAllByText('K')
     expect(kbdElements.length).toBeGreaterThan(0)

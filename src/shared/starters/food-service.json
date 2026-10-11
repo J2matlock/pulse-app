@@ -6,6 +6,12 @@
   "description": "Food handler cards and manager certifications for your staff, plus hood cleaning, calibration, fire suppression, pest service and health inspections for your equipment. Pulse is a tracking aid, not your official record system.",
   "icon": "utensils-crossed",
   "group": "Business",
+  "keywords": [
+    "restaurant",
+    "kitchen",
+    "health inspection",
+    "cafe"
+  ],
   "vocab": {
     "record": {
       "one": "record",
