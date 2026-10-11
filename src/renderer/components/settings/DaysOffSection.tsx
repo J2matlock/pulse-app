@@ -1,5 +1,5 @@
 /**
- * Settings → Alerts → "Days off": the weekend and holidays that
+ * Settings → Deadlines & reminders → "Days off": the weekend and holidays that
  * business-day deadlines skip (W05 §3.7). US federal holidays are worked out
  * on this computer; nothing is downloaded.
  */
@@ -12,12 +12,13 @@ import { daysInRange, usFederalHolidays } from '../../../shared/businessDays'
 import { formatDue } from '../../../shared/deadlineEngine'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
+import { friendlyError } from '../../utils/friendlyError'
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 async function save(holidays: string[], weekend?: number[]): Promise<boolean> {
   const res = await safeInvoke<WorkspaceState>(IPC.HOLIDAYS_SET, holidays, ...(weekend ? [weekend] : []))
-  if (!res.ok) { toast.error(res.error); return false }
+  if (!res.ok) { toast.error(friendlyError(res.error)); return false }
   useWorkspaceStore.setState({ calendar: res.data.calendar })
   return true
 }

@@ -34,7 +34,7 @@ export function ProfileSection({
     <>
       <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Your Profile</h2>
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        This information is used to fill in letter template placeholders like {'{{case_manager_name}}'}.
+        This information is used to fill in letter template placeholders like {'{{my_name}}'}.
       </p>
 
       <div className="space-y-5">
@@ -62,11 +62,11 @@ export function ProfileSection({
       <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg px-4 py-3 border border-slate-200 dark:border-slate-700">
         <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">Available in letter templates</p>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
-          <code>{'{{case_manager_name}}'}</code>
-          <code>{'{{case_manager_title}}'}</code>
-          <code>{'{{case_manager_email}}'}</code>
-          <code>{'{{case_manager_phone}}'}</code>
-          <code>{'{{case_manager_org}}'}</code>
+          <code>{'{{my_name}}'}</code>
+          <code>{'{{my_title}}'}</code>
+          <code>{'{{my_email}}'}</code>
+          <code>{'{{my_phone}}'}</code>
+          <code>{'{{my_org}}'}</code>
         </div>
       </div>
     </>

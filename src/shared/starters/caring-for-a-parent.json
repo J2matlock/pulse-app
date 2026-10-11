@@ -6,6 +6,15 @@
   "description": "For family caregivers: a parent's doctor visits on the calendar, medication reviews every 3 months, yearly check-ups, insurance and benefits renewals, their care team, and copies of the power of attorney and insurance cards kept safe in Files.",
   "icon": "hand-heart",
   "group": "Personal",
+  "keywords": [
+    "elder",
+    "aging",
+    "senior",
+    "mom",
+    "dad",
+    "caregiver",
+    "medication"
+  ],
   "vocab": {
     "record": {
       "one": "parent",

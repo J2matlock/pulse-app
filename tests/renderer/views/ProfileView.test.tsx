@@ -100,7 +100,8 @@ vi.mock('../../../src/renderer/components/profile/DeadlinePanel', () => ({
   DeadlinePanel: () => <div data-testid="deadline-panel">Deadline Panel</div>,
 }))
 vi.mock('../../../src/renderer/components/profile/CaseLog', () => ({
-  CaseLog: () => <div data-testid="case-log">Case Log</div>,
+  // The record page puts deadlines and details between the note box and past notes
+  CaseLog: ({ between }: { between?: React.ReactNode }) => <><div data-testid="case-log">Case Log</div>{between}</>,
 }))
 vi.mock('../../../src/renderer/components/profile/GridDataSummary', () => ({
   GridDataSummary: () => <div data-testid="grid-data-summary" />,
@@ -110,9 +111,6 @@ vi.mock('../../../src/renderer/components/profile/RelatedDocuments', () => ({
 }))
 vi.mock('../../../src/renderer/components/profile/LinkedProviders', () => ({
   LinkedProviders: () => <div data-testid="linked-providers" />,
-}))
-vi.mock('../../../src/renderer/components/profile/ActivityTimeline', () => ({
-  ActivityTimeline: () => <div data-testid="activity-timeline" />,
 }))
 vi.mock('../../../src/renderer/components/profile/Checklist', () => ({
   Checklist: () => null, TemplateManager: () => null,
@@ -173,7 +171,7 @@ describe('ProfileView', () => {
     expect(screen.getByText(/Invalid profile link/)).toBeDefined()
   })
 
-  it('shows "Client not found" when rowId does not match any row', async () => {
+  it('shows a not-found message when rowId does not match any row', async () => {
     render(
       <MemoryRouter initialEntries={['/profile/999']}>
         <Routes>
@@ -182,10 +180,10 @@ describe('ProfileView', () => {
       </MemoryRouter>,
     )
     await flushEffects()
-    expect(screen.getByText(/Client not found/)).toBeDefined()
+    expect(screen.getByText(/couldn't find this client/)).toBeDefined()
   })
 
-  it('shows "Return to grid" link when client not found', async () => {
+  it('shows a way back when client not found', async () => {
     render(
       <MemoryRouter initialEntries={['/profile/999']}>
         <Routes>
@@ -194,6 +192,6 @@ describe('ProfileView', () => {
       </MemoryRouter>,
     )
     await flushEffects()
-    expect(screen.getByText('Return to grid')).toBeDefined()
+    expect(screen.getByText('Back to the caseload')).toBeDefined()
   })
 })

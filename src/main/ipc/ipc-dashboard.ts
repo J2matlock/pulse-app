@@ -9,7 +9,7 @@ import { cachedStmt } from '../database'
 import { loadDeadlines, deadlineCounts } from '../deadlines'
 import { stripHtml } from '../export-shared'
 import type { RecentActivityItem } from '../../shared/ipc-contract'
-import { appointmentsToday } from '../appointments'
+import { appointmentsToday, appointmentsNeedingOutcome } from '../appointments'
 
 // --- Shared query functions (each query defined exactly once) ---
 
@@ -181,6 +181,8 @@ export interface Briefing {
   followUpsDue: number
   tasksDue: number
   checklistDue: number
+  /** Past appointments still marked scheduled (S-09) */
+  needsOutcome?: number
 }
 
 function queryBriefing(): Briefing {
@@ -210,7 +212,7 @@ function queryBriefing(): Briefing {
       AND ci.due_date IS NOT NULL AND ci.due_date <= date('now', 'localtime')
   `).get() as { n: number }).n
 
-  return { ...deadlines, followUpsDue, tasksDue, checklistDue, ...appointmentsToday() }
+  return { ...deadlines, followUpsDue, tasksDue, checklistDue, ...appointmentsToday(), needsOutcome: appointmentsNeedingOutcome() }
 }
 
 // --- IPC handler registration ---

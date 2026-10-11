@@ -85,6 +85,13 @@ describe('detectTrigger', () => {
     expect(detectTrigger('Hello / foo')).toBeNull()
   })
 
+  it('ignores a slash inside a word (f/u, w/, 10/12)', () => {
+    expect(detectTrigger('Will f/u')).toBeNull()
+    expect(detectTrigger('Met w/')).toBeNull()
+    expect(detectTrigger('Seen 10/12')).toBeNull()
+    expect(detectTrigger('/fw')).toEqual({ trigger: '/fw', query: 'fw' })
+  })
+
   it('matches last slash in text', () => {
     const result = detectTrigger('path/to/thing /sn')
     expect(result).toEqual({ trigger: '/sn', query: 'sn' })

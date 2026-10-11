@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react'
-import { LayoutList, Settings2, Check, GripVertical } from 'lucide-react'
+import { LayoutList, Settings2, Check, GripVertical, Pencil } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { computeDaysUntil, getAlertThreshold } from '../../utils/deadlineCalc'
+import { evaluateRuleForRow } from '../../utils/deadlineCalc'
 import { IPC } from '../../../shared/ipc-channels'
-import type { Column, GridRow, ParsedAlertRule } from '../../../shared/types'
+import { isNotTypedColumnType, type Column, type GridRow, type ParsedAlertRule } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
-import { toRuleInterval } from '../../../shared/ruleInterval'
+import type { DeadlineState } from '../../../shared/deadlineEngine'
+import { CellDisplay } from '../grid/CellDisplay'
+import { CellEditor } from '../grid/CellEditor'
 import { useVocab } from '../../hooks/useVocab'
 import { Sparkline, NumberHistoryDialog, type SeriesPoint } from './NumberHistory'
 
@@ -24,33 +26,40 @@ function getColumnConfig(col: Column) {
   catch { return {} }
 }
 
-function resolveBadgeColor(bgClass: string): { bg: string; text: string; label: string } {
-  const classMap: Record<string, { bg: string; text: string; label: string }> = {
-    'alert-green': { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-300', label: 'On track' },
-    'alert-yellow': { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-700 dark:text-yellow-300', label: 'Approaching' },
-    'alert-orange': { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', label: 'Due soon' },
-    'alert-red': { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300', label: 'Urgent' },
-    'alert-pulse': { bg: 'bg-red-200 dark:bg-red-900/40', text: 'text-red-800 dark:text-red-200', label: 'Overdue' },
-    'alert-pulse-dark': { bg: 'bg-red-300 dark:bg-red-900/50', text: 'text-red-900 dark:text-red-100', label: 'Overdue' },
-  }
-  if (bgClass in classMap) return classMap[bgClass]!
-  return { bg: '', text: '', label: '' }
+/** The badge next to a rule-backed date, from the same deadline engine as the Deadlines panel (R-22) */
+const STATE_BADGE: Partial<Record<DeadlineState, { bg: string; text: string; label: string }>> = {
+  ok: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-200', label: 'On track' },
+  soon: { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-800 dark:text-orange-200', label: 'Due soon' },
+  due: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-200', label: 'Due today' },
+  overdue: { bg: 'bg-red-200 dark:bg-red-900/50', text: 'text-red-900 dark:text-red-100', label: 'Overdue' },
+  paused: { bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-700 dark:text-slate-200', label: 'Paused' },
+  done: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-200', label: 'Done' },
 }
 
-function deadlineBadge(col: Column, value: string, alertRules: ParsedAlertRule[]): string | null {
-  if (col.column_type !== 'date') return null
-  const cfg = getColumnConfig(col)
-  const ruleId = cfg.alert_rule_id as number | undefined
-  if (!ruleId) return null
-  const rule = alertRules.find(r => r.id === ruleId)
+function deadlineBadge(col: Column, value: string | null, row: GridRow, alertRules: ParsedAlertRule[]): { bg: string; text: string; label: string } | null {
+  if (col.column_type !== 'date' && col.column_type !== 'deadline') return null
+  const ruleId = getColumnConfig(col).alert_rule_id as number | undefined
+  const rule = ruleId ? alertRules.find(r => r.id === ruleId) : undefined
   if (!rule) return null
-  const daysUntil = computeDaysUntil(value, toRuleInterval(rule))
-  if (daysUntil === null) return null
-  const threshold = getAlertThreshold(daysUntil, rule)
-  return threshold?.bgClass ?? null
+  try {
+    const res = evaluateRuleForRow(rule, value, row as unknown as Record<string, unknown>, col.id)
+    if (res.state === 'none') return null
+    const badge = STATE_BADGE[res.state]
+    return badge ? { ...badge, label: res.extended ? 'Extended' : badge.label } : null
+  } catch { return null }
 }
 
+/** Plain names for column types, as in the add-column menu (R-22) */
+const TYPE_LABEL: Record<string, string> = {
+  text: 'Text', number: 'Number', date: 'Date', checkbox: 'Checkbox', dropdown: 'Dropdown', phone: 'Phone',
+  email: 'Email', url: 'Web link', currency: 'Money', address: 'Address', status: 'Status', tag: 'Tags', notes: 'Notes',
+  auto_number: 'Auto number', deadline: 'Deadline', age_from_dob: 'Age', calculated_days: 'Days count', link: 'Linked',
+  file_count: 'Files',
+}
+
+/** Older installs saved the columns to show; new columns never appeared. Now the hidden ones are saved. */
 const SETTINGS_KEY_PREFIX = 'client_details_columns_'
+const HIDDEN_KEY_PREFIX = 'client_details_hidden_'
 const ORDER_KEY_PREFIX = 'client_details_order_'
 
 // ── Sortable card for each data point ──────────────────────────────────────
@@ -58,13 +67,18 @@ const ORDER_KEY_PREFIX = 'client_details_order_'
 interface SortableCardProps {
   col: Column
   value: string | null
+  row: GridRow
+  allColumns: Column[]
   alertRules: ParsedAlertRule[]
   /** A number column's history, for the sparkline (W10 §5) */
   series?: SeriesPoint[]
+  /** Save a new value (undoable, like an edit in the list); absent for columns that can't be typed in */
+  onSave?: (value: string | null) => Promise<unknown>
 }
 
-function SortableCard({ col, value, alertRules, series }: SortableCardProps) {
+function SortableCard({ col, value, row, allColumns, alertRules, series, onSave }: SortableCardProps) {
   const [chart, setChart] = useState(false)
+  const [editing, setEditing] = useState(false)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: col.id })
 
   const style: React.CSSProperties = {
@@ -96,68 +110,52 @@ function SortableCard({ col, value, alertRules, series }: SortableCardProps) {
         {col.name}
       </dt>
       <dd className="min-h-[24px] flex items-center gap-2">
-        {renderValue(col, value, alertRules)}
-        {series && <Sparkline points={series} label={col.name} onOpen={() => setChart(true)} />}
+        {editing && onSave ? (
+          // The list's own editor, so each kind of value gets the same box as in the list (R-06)
+          <div className="w-full" style={{ minHeight: 44, height: col.column_type === 'notes' ? 88 : col.column_type === 'address' ? 72 : 44 }}>
+            <CellEditor column={col} value={value}
+              onSave={v => { setEditing(false); if ((v ?? '') !== (value ?? '')) void onSave(v) }}
+              onCancel={() => setEditing(false)} />
+          </div>
+        ) : onSave ? (
+          <button type="button" onClick={() => setEditing(true)} aria-label={`Edit ${col.name}`}
+            className="group/edit flex-1 min-w-0 flex items-center gap-2 text-left rounded-sm -mx-1 px-1 hover:bg-slate-50 dark:hover:bg-slate-700/50 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+            style={{ minHeight: 44 }}>
+            {renderValue(col, value, row, allColumns, alertRules)}
+            <Pencil className="w-3.5 h-3.5 flex-shrink-0 text-slate-400 opacity-0 group-hover/edit:opacity-100 group-focus-visible/edit:opacity-100" aria-hidden="true" />
+          </button>
+        ) : renderValue(col, value, row, allColumns, alertRules)}
+        {!editing && series && <Sparkline points={series} label={col.name} onOpen={() => setChart(true)} />}
       </dd>
       {chart && series && <NumberHistoryDialog label={col.name} points={series} currency={col.column_type === 'currency'} onClose={() => setChart(false)} />}
     </div>
   )
 }
 
-function renderValue(col: Column, rawValue: string | null, alertRules: ParsedAlertRule[]) {
-  if (rawValue == null || rawValue === '') {
-    return <span className="text-slate-300 dark:text-slate-500 italic text-sm">—</span>
+/** The value as the list shows it (money, tags, status colors, age…), plus a deadline badge. */
+function renderValue(col: Column, rawValue: string | null, row: GridRow, allColumns: Column[], alertRules: ParsedAlertRule[]) {
+  const empty = rawValue == null || rawValue === ''
+  // Worked-out columns (age, days, deadline, links) have a value even with an empty cell
+  if (empty && !isNotTypedColumnType(col.column_type)) {
+    return <span className="text-slate-400 dark:text-slate-500 italic text-base">—</span>
   }
-
-  const badge = rawValue ? deadlineBadge(col, rawValue, alertRules) : null
-
-  if (col.column_type === 'checkbox') {
-    return (
-      <span className={`inline-flex items-center justify-center w-5 h-5 rounded-sm border
-        ${rawValue === '1' || rawValue === 'true'
-          ? 'bg-blue-600 border-blue-600 text-white'
-          : 'border-slate-300 dark:border-slate-600'
-        }`}
-      >
-        {(rawValue === '1' || rawValue === 'true') && (
-          <svg viewBox="0 0 12 10" className="w-3 h-3 fill-none stroke-current stroke-2">
-            <polyline points="1,5 4.5,8.5 11,1" />
-          </svg>
-        )}
-      </span>
-    )
-  }
-
-  if (col.column_type === 'date' && rawValue) {
-    const [y = NaN, m = NaN, d = NaN] = rawValue.split('-').map(Number)
-    const display = new Date(y, m - 1, d).toLocaleDateString(undefined, {
-      month: 'short', day: 'numeric', year: 'numeric'
-    })
-    const resolved = badge ? resolveBadgeColor(badge) : null
-    return (
-      <span className="flex items-center gap-2">
-        <span className="text-base text-slate-900 dark:text-slate-100">{display}</span>
-        {resolved && resolved.label ? (
-          <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${resolved.bg} ${resolved.text}`}
-                style={{ fontSize: 15 }}>
-            {resolved.label}
-          </span>
-        ) : badge?.startsWith('#') ? (
-          <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: badge }} />
-        ) : null}
-      </span>
-    )
-  }
-
-  return <span className="text-base text-slate-900 dark:text-slate-100">{rawValue}</span>
+  const badge = deadlineBadge(col, rawValue, row, alertRules)
+  return (
+    <span className="flex items-center gap-2 min-w-0 text-base text-slate-900 dark:text-slate-100">
+      <span className="min-w-0"><CellDisplay column={col} value={rawValue} row={row} allColumns={allColumns} parsedConfig={getColumnConfig(col)} /></span>
+      {badge && (
+        <span className={`px-2 py-0.5 rounded-full text-base font-medium ${badge.bg} ${badge.text}`}>{badge.label}</span>
+      )}
+    </span>
+  )
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export function GridDataSummary({ row, columns, alertRules, gridId }: Props) {
+export function GridDataSummary({ row, columns, alertRules, gridId, onCellSave }: Props) {
   const { t } = useVocab(gridId)
   const [showColumnPicker, setShowColumnPicker] = useState(false)
-  const [visibleColumnIds, setVisibleColumnIds] = useState<Set<number> | null>(null)
+  const [hiddenColumnIds, setHiddenColumnIds] = useState<Set<number>>(new Set())
   const [columnOrder, setColumnOrder] = useState<number[] | null>(null)
 
   const allCols = columns
@@ -172,12 +170,14 @@ export function GridDataSummary({ row, columns, alertRules, gridId }: Props) {
       try {
         const res = await safeInvoke<Record<string, string>>(IPC.SETTINGS_GET_ALL)
         if (res.ok) {
-          const visKey = SETTINGS_KEY_PREFIX + gridId
-          const savedVis = res.data[visKey]
-          if (savedVis) {
-            setVisibleColumnIds(new Set(JSON.parse(savedVis) as number[]))
-          } else {
-            setVisibleColumnIds(new Set(allCols.map(c => c.id)))
+          const savedHidden = res.data[HIDDEN_KEY_PREFIX + gridId]
+          const savedVis = res.data[SETTINGS_KEY_PREFIX + gridId]
+          if (savedHidden) {
+            setHiddenColumnIds(new Set(JSON.parse(savedHidden) as number[]))
+          } else if (savedVis) {
+            // An older "show these" choice: keep it, but from now on columns added later show up
+            const visible = new Set(JSON.parse(savedVis) as number[])
+            setHiddenColumnIds(new Set(allCols.filter(c => !visible.has(c.id)).map(c => c.id)))
           }
 
           const ordKey = ORDER_KEY_PREFIX + gridId
@@ -187,16 +187,14 @@ export function GridDataSummary({ row, columns, alertRules, gridId }: Props) {
           }
         }
       } catch {
-        setVisibleColumnIds(new Set(allCols.map(c => c.id)))
+        setHiddenColumnIds(new Set())
       }
     })()
   }, [gridId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Display columns: filtered by visibility, then sorted by saved order
   const displayCols = (() => {
-    let cols = visibleColumnIds
-      ? allCols.filter(c => visibleColumnIds.has(c.id))
-      : allCols
+    let cols = allCols.filter(c => !hiddenColumnIds.has(c.id))
     if (columnOrder) {
       const orderMap = new Map(columnOrder.map((id, i) => [id, i]))
       cols = [...cols].sort((a, b) => {
@@ -209,12 +207,12 @@ export function GridDataSummary({ row, columns, alertRules, gridId }: Props) {
   })()
 
   async function toggleColumn(colId: number) {
-    const next = new Set(visibleColumnIds ?? allCols.map(c => c.id))
+    const next = new Set(hiddenColumnIds)
     if (next.has(colId)) next.delete(colId)
     else next.add(colId)
-    setVisibleColumnIds(next)
+    setHiddenColumnIds(next)
     try {
-      await safeInvoke(IPC.SETTINGS_UPDATE, SETTINGS_KEY_PREFIX + gridId, JSON.stringify([...next]))
+      await safeInvoke(IPC.SETTINGS_UPDATE, HIDDEN_KEY_PREFIX + gridId, JSON.stringify([...next]))
     } catch { /* ignore */ }
   }
 
@@ -249,7 +247,7 @@ export function GridDataSummary({ row, columns, alertRules, gridId }: Props) {
   const [series, setSeries] = useState<Record<number, SeriesPoint[]>>({})
   useEffect(() => {
     if (numberColIds.length === 0) { setSeries({}); return }
-    void safeInvoke<Record<number, SeriesPoint[]>>(IPC.CELL_HISTORY_SERIES, row.row_id, numberColIds).then(r => { if (r.ok) setSeries(r.data) })
+    void safeInvoke<Record<number, SeriesPoint[]>>(IPC.CELL_HISTORY_SERIES, row.row_id, numberColIds).then(r => { if (r.ok && r.data) setSeries(r.data) })
   }, [row.row_id, numberKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function getValue(col: Column): string | null {
@@ -282,7 +280,7 @@ export function GridDataSummary({ row, columns, alertRules, gridId }: Props) {
                               border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg
                               py-1 min-w-48 max-h-64 overflow-y-auto">
                 {allCols.map(col => {
-                  const isVisible = visibleColumnIds?.has(col.id) ?? true
+                  const isVisible = !hiddenColumnIds.has(col.id)
                   return (
                     <button
                       key={col.id}
@@ -298,7 +296,7 @@ export function GridDataSummary({ row, columns, alertRules, gridId }: Props) {
                         {isVisible && <Check className="w-3 h-3" />}
                       </span>
                       <span className="truncate">{col.name}</span>
-                      <span className="ml-auto text-sm text-slate-500 dark:text-slate-400">{col.column_type}</span>
+                      <span className="ml-auto text-sm text-slate-500 dark:text-slate-400">{TYPE_LABEL[col.column_type] ?? 'Other'}</span>
                     </button>
                   )
                 })}
@@ -321,8 +319,11 @@ export function GridDataSummary({ row, columns, alertRules, gridId }: Props) {
                   key={col.id}
                   col={col}
                   value={getValue(col)}
+                  row={row}
+                  allColumns={allCols}
                   alertRules={alertRules}
                   series={series[col.id]}
+                  onSave={isNotTypedColumnType(col.column_type) ? undefined : v => onCellSave(row.row_id, col.id, v)}
                 />
               ))}
             </dl>

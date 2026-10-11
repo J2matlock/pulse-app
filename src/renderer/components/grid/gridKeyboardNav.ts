@@ -2,6 +2,7 @@ import type { Column, GridRow } from '../../../shared/types'
 import { isNotTypedColumnType, storesNoCells } from '../../../shared/types'
 import { formatCellForClipboard, checkPaste } from './gridHelpers'
 import toast from 'react-hot-toast'
+import { friendlyError } from '../../utils/friendlyError'
 
 type CellCoord = { rowId: number; columnId: number }
 
@@ -138,7 +139,7 @@ export function handleCellKeyDown(
             const text = await navigator.clipboard.readText()
             if (!text) return
             const checked = checkPaste(text, pasteTargetCol)
-            if ('error' in checked) toast.error(checked.error)
+            if ('error' in checked) toast.error(friendlyError(checked.error))
             else void updateCell(pasteTargetRowId, pasteTargetColId, checked.value)
           } catch { /* clipboard access denied */ }
         })()

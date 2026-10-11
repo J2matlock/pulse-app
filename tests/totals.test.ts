@@ -53,6 +53,13 @@ describe('totals report', () => {
     expect(r.mileageRate).toBe(0.5)
   })
 
+  it('counts a late write-up in the month it happened (audit 1.22)', () => {
+    testDb.db.prepare(`INSERT INTO case_log (row_id, content, log_type, occurred_at, created_at, updated_at, minutes)
+      VALUES (?, 'Visit', 'visit', ?, ?, datetime('now'), 30)`).run(rows[0], utc('2026-02-27 12:00:00'), utc('2026-03-02 09:00:00'))
+    expect(getTotals('2026-03').totals.minutes).toBe(90)
+    expect(getTotals('2026-02').entries).toEqual([expect.objectContaining({ date: '2026-02-27', minutes: 30 })])
+  })
+
   it('shows note types as people see them, not as stored keys', async () => {
     testDb.db.prepare("UPDATE activity_types SET label = 'Home visit' WHERE key = 'visit'").run()
     const dest = join(testDb.tmpDir, 'tm-labels.csv')

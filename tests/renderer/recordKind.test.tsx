@@ -58,13 +58,13 @@ describe('list kinds', () => {
   it('offers "Discharged" for people and "Closed" for jobs when archiving after a handoff', () => {
     asKind('person')
     const { unmount } = render(<MemoryRouter><HandoffDialog rowId={7} gridId={1} clientName="Pat Doe" onClose={() => {}} /></MemoryRouter>)
-    fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByLabelText(/Archive this/))
     expect(screen.getByLabelText('Discharged')).toBeTruthy()
     unmount()
 
     asKind('job')
     render(<MemoryRouter><HandoffDialog rowId={7} gridId={1} clientName="J-0001" onClose={() => {}} /></MemoryRouter>)
-    fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByLabelText(/Archive this/))
     expect(screen.getByLabelText('Closed')).toBeTruthy()
     expect(screen.queryByLabelText('Discharged')).toBeNull()
   })

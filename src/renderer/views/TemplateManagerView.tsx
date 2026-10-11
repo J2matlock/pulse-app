@@ -7,6 +7,7 @@ import { Download, Upload, FileText, Plus, Check } from 'lucide-react'
 import { IPC } from '../../shared/ipc-channels'
 import type { ChecklistTemplate, Grid, SaveDialogResult, OpenDialogResult } from '../../shared/types'
 import { safeInvoke } from '../utils/safeInvoke'
+import toast from 'react-hot-toast'
 import { rlog } from '../utils/rendererLogger'
 import { ChecklistTemplateEditor } from '../components/profile/ChecklistTemplateEditor'
 import { ImportPreviewModal } from '../components/shared/ImportPreviewModal'
@@ -263,7 +264,7 @@ export default function TemplateManagerView(): React.ReactElement {
             </h2>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-            Saved as .pulse files. Captures your columns, column types, alert rules, deadline settings, activity tracking, and checklist assignments.
+            Saved as .pulse files. Captures your columns, column types, deadline rules, activity tracking, and checklist assignments.
             Use these to start a new {w('list')} with the same setup, or share your structure with a colleague.
           </p>
 
@@ -336,8 +337,9 @@ export default function TemplateManagerView(): React.ReactElement {
                       filters: [{ name: 'Pulse Templates', extensions: ['pulse'] }],
                     })
                     if (!saveRes.ok || !saveRes.data || saveRes.data.canceled || !saveRes.data.filePath) return
-                    const res = await safeInvoke<true>(IPC.SETUP_TEMPLATE_EXPORT, { templateId: id, outputPath: saveRes.data.filePath })
+                    const res = await safeInvoke<true>(IPC.SETUP_TEMPLATE_EXPORT_SAVED, id, saveRes.data.filePath)
                     if (!res.ok) setSetupError(res.error ?? 'Could not export the template.')
+                    else toast.success('Template saved.')
                   }}
                   onRefresh={loadSetupTemplates}
                 />

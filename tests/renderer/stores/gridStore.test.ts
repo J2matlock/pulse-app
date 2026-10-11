@@ -165,6 +165,37 @@ describe('gridStore', () => {
     })
   })
 
+  describe('sample entries (audit 2.6)', () => {
+    it('asks once, after the first edit to a sample entry, and remembers the answer', async () => {
+      const row = makeRow(1)
+      ;(row as Record<string, unknown>)['col_5'] = 'Sample Pat'
+      useGridStore.setState({ activeGridId: 1, rows: [row, makeRow(2)], columns: [makeColumn(5, 'Name')], sampleRows: { 1: 0 }, sampleKeepPrompt: null })
+      mockInvoke.mockResolvedValue({ ok: true, data: { sysLogId: null } })
+
+      await useGridStore.getState().updateCell(2, 5, 'Real person')
+      expect(useGridStore.getState().sampleKeepPrompt).toBeNull()
+      await useGridStore.getState().updateCell(1, 5, 'Pat Real')
+      expect(useGridStore.getState().sampleKeepPrompt).toBe(1)
+
+      mockInvoke.mockClear()
+      mockInvoke.mockResolvedValue({ ok: true, data: true })
+      await useGridStore.getState().answerSampleRow(1, 'keep')
+      expect(mockInvoke).toHaveBeenCalledWith('sample-data:answer', 1, 'keep')
+      expect(useGridStore.getState().sampleRows).toEqual({})
+      expect(useGridStore.getState().sampleKeepPrompt).toBeNull()
+    })
+
+    it('"just a sample" keeps the mark but never asks again', async () => {
+      useGridStore.setState({ activeGridId: 1, rows: [makeRow(1)], columns: [makeColumn(5, 'Name')], sampleRows: { 1: 0 }, sampleKeepPrompt: 1 })
+      mockInvoke.mockResolvedValue({ ok: true, data: true })
+      await useGridStore.getState().answerSampleRow(1, 'sample')
+      expect(useGridStore.getState().sampleRows).toEqual({ 1: 1 })
+      mockInvoke.mockResolvedValue({ ok: true, data: { sysLogId: null } })
+      await useGridStore.getState().updateCell(1, 5, 'Again')
+      expect(useGridStore.getState().sampleKeepPrompt).toBeNull()
+    })
+  })
+
   describe('updateCell', () => {
     it('performs optimistic update before IPC resolves', async () => {
       const row = makeRow(1)

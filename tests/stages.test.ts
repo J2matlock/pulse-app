@@ -5,7 +5,7 @@ import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 let t: TestDb
 vi.mock('../src/main/database', () => ({ getDb: () => t.db, cachedStmt: (_k: string, sql: string) => t.db.prepare(sql) }))
 
-import { saveStageConfig, StageError, moveStage, stageDurations, stageSummary } from '../src/main/stages'
+import { saveStageConfig, StageError, moveStage, undoStageMove, stageDurations, stageSummary } from '../src/main/stages'
 import { localDateString } from '../src/shared/dates'
 import { stageConfigOf, stageColumnOf, columnOptionLabels } from '../src/shared/stages'
 
@@ -73,7 +73,7 @@ describe('moving a record to a stage', () => {
     rowId = (t.db.prepare('SELECT id FROM rows WHERE grid_id = ?').get(grid.gridId) as { id: number }).id
     cl = Number(t.db.prepare("INSERT INTO checklist_templates (name, items) VALUES ('Pickup', '[\"Call customer\", {\"title\": \"Invoice\"}]')").run().lastInsertRowid)
     saveStageConfig(status, stage([{ value: 'Estimate' }, { value: 'In progress' },
-      { value: 'Done', done: true, onEnter: { checklistTemplateId: cl, stampColumnId: dateCol, activityTypeKey: 'note' } }]))
+      { value: 'Done', done: true, onEnter: { checklistTemplateId: cl, stampColumnId: dateCol, activityTypeKey: 'note', restamp: true } }]))
     t.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)').run(rowId, dateCol, '2026-01-02')
   })
   const notes = () => (t.db.prepare('SELECT content, log_type FROM case_log WHERE row_id = ? ORDER BY id').all(rowId) as Array<{ content: string; log_type: string }>)
@@ -98,6 +98,42 @@ describe('moving a record to a stage', () => {
     expect(cell(dateCol)).toBe(localDateString())
     expect(notes().slice(1)).toEqual([{ content: 'Status changed to "Done"', log_type: 'system' }, { content: 'Moved to Done', log_type: 'note' }])
     expect(r.sysLogIds).toHaveLength(2)
+  })
+
+  it('coming back to a stage keeps open checklist items and, by default, a filled-in date (audit S-15)', () => {
+    saveStageConfig(status, stage([{ value: 'Estimate' }, { value: 'In progress' },
+      { value: 'Done', done: true, onEnter: { checklistTemplateId: cl, stampColumnId: dateCol } }]))
+    moveStage(rowId, status, 'Done')
+    expect(cell(dateCol)).toBe('2026-01-02')
+    t.db.prepare("UPDATE checklist_items SET is_completed = 1 WHERE row_id = ? AND title = 'Invoice'").run(rowId)
+    moveStage(rowId, status, 'In progress')
+    const again = moveStage(rowId, status, 'Done')
+    expect(again.stamped).toBeNull()
+    expect(t.db.prepare('SELECT title, is_completed FROM checklist_items WHERE row_id = ? ORDER BY id').all(rowId))
+      .toEqual([{ title: 'Call customer', is_completed: 0 }, { title: 'Invoice', is_completed: 1 }, { title: 'Invoice', is_completed: 0 }])
+    // An empty date is still filled in
+    t.db.prepare('UPDATE cells SET value = NULL WHERE row_id = ? AND column_id = ?').run(rowId, dateCol)
+    moveStage(rowId, status, 'Estimate')
+    expect(moveStage(rowId, status, 'Done').stamped).toEqual({ columnId: dateCol, previous: null })
+    expect(cell(dateCol)).toBe(localDateString())
+  })
+
+  it('undo puts everything back without a new change, so time in stage is kept (audit S-16)', () => {
+    moveStage(rowId, status, 'In progress')
+    t.db.prepare("UPDATE cell_history SET changed_at = '2026-09-01 09:00:00' WHERE row_id = ?").run(rowId)
+    const before = stageDurations(grid.gridId, status)[rowId]!.current
+    const historyBefore = t.db.prepare('SELECT COUNT(*) AS n FROM cell_history WHERE row_id = ?').get(rowId)
+    const notesBefore = notes()
+    const r = moveStage(rowId, status, 'Done')
+    expect(r.historyIds).toHaveLength(2)
+    undoStageMove(rowId, status, r)
+    expect(cell(status)).toBe('In progress')
+    expect(cell(dateCol)).toBe('2026-01-02')
+    expect(notes()).toEqual(notesBefore)
+    expect(t.db.prepare('SELECT COUNT(*) AS n FROM cell_history WHERE row_id = ?').get(rowId)).toEqual(historyBefore)
+    expect(t.db.prepare('SELECT COUNT(*) AS n FROM checklist_items WHERE row_id = ?').get(rowId)).toEqual({ n: 0 })
+    expect(stageDurations(grid.gridId, status)[rowId]!.current).toEqual(before)
+    expect(before.since).toBe('2026-09-01 09:00:00')
   })
 
   it('refuses values that are not stages, and columns that are not the stage', () => {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** The calendar (W07 §6): month cells with events, "+N more", layers, agenda, keyboard, panel and new appointment. */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, onTestFinished } from 'vitest'
 import React from 'react'
 import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
@@ -22,6 +22,7 @@ const invoke = vi.fn(async (channel: string, ..._args: unknown[]) => {
 Object.defineProperty(window, 'api', { value: { invoke, on: () => () => {} }, writable: true, configurable: true })
 
 import CalendarView, { eventsByDay } from '../../src/renderer/views/CalendarView'
+import { AppointmentDialog } from '../../src/renderer/components/calendar/AppointmentDialog'
 import { useWorkspaceStore } from '../../src/renderer/stores/workspaceStore'
 import { setWords } from './vocabFixture'
 
@@ -56,6 +57,25 @@ describe('the calendar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Appointments' }))
     expect(within(cell).queryByText(/Intake/)).toBeNull()
     expect(within(cell).getByText('Jane: Review')).toBeTruthy()
+  })
+
+  it('labels the layers, shows done with a check, and opens a clicked task (audit S-28)', async () => {
+    appointments = [appt(1, '15:00', 'Session', { status: 'done' }), appt(2, '09:00', 'Intake', { status: 'cancelled' })]
+    const usual = invoke.getMockImplementation()!
+    onTestFinished(() => { invoke.mockImplementation(usual) })
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'appointments:list') return { ok: true, data: appointments }
+      if (channel === 'calendar:items') return { ok: true, data: [{ kind: 'task', key: 'task-7', date: today, title: 'Order forms', taskId: 7 }] }
+      return { ok: true, data: null }
+    })
+    await show()
+    expect(screen.getByText('Show:')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Agenda' }))
+    const done = screen.getByText('✓ 3:00 pm Session with Jane')
+    expect(done.className).not.toMatch(/line-through/)
+    expect(screen.getByText('9:00 am Intake with Jane').className).toMatch(/line-through/)
+    fireEvent.click(screen.getByText('Task: Order forms'))
+    expect(screen.getByTestId('where').textContent).toBe('/tasks?task=7')
   })
 
   it('agenda lists the day; an appointment opens its panel, a deadline its record', async () => {
@@ -108,5 +128,19 @@ describe('week view', () => {
     await act(async () => { window.dispatchEvent(new MouseEvent('pointermove', { clientX: 10, clientY: 100 + 50 })) })
     await act(async () => { window.dispatchEvent(new MouseEvent('pointerup')) })
     expect(invoke).toHaveBeenCalledWith('appointments:update', 2, { start_at: `${today}T10:00`, end_at: null }, 'one')
+  })
+})
+
+describe('editing a repeating appointment (audit S-18)', () => {
+  it('shows its pattern, and a changed pattern applies from this one on without asking', async () => {
+    const a = appt(5, '10:00', 'Session', { series_id: 3, series_rule: JSON.stringify({ freq: 'weekly', interval: 1, count: 10 }) })
+    render(<AppointmentDialog appointment={a as never} onClose={vi.fn()} />)
+    expect((screen.getByLabelText('Repeats') as HTMLSelectElement).value).toBe('weekly')
+    expect(screen.queryByRole('option', { name: "Doesn't repeat" })).toBeNull()
+    expect((screen.getByLabelText('How many times') as HTMLInputElement).value).toBe('10')
+    fireEvent.change(screen.getByLabelText('Every how many'), { target: { value: '2' } })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Save' })) })
+    const call = invoke.mock.calls.find(c => c[0] === 'appointments:update')!
+    expect(call.slice(3)).toEqual(['following', { freq: 'weekly', interval: 2, count: 10 }])
   })
 })

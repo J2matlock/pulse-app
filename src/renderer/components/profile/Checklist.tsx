@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import toast from 'react-hot-toast'
 import { ChevronDown, ChevronRight, X, Plus, Trash2, Pencil, Check } from 'lucide-react'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
@@ -185,45 +186,48 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       ? { ...i, is_completed: isCompleted ? 1 : 0, completed_at: now }
       : i
     ))
-    const res = await safeInvoke<{ sysLogId: number | null }>(IPC.CHECKLIST_UPDATE_ITEM, id, {
+    const res = await safeInvoke<{ sysLogId: number | null; repeat?: { previousDue: string | null; nextDue: string } | null }>(IPC.CHECKLIST_UPDATE_ITEM, id, {
       is_completed: isCompleted ? 1 : 0,
       completed_at: now,
     })
-    if (res.ok) {
-      const sysLogId = res.data.sysLogId
-      useUndoStore.getState().pushWithToast({
-        id: crypto.randomUUID(),
-        description: isCompleted ? `Completed "${itemTitle}"` : `Reopened "${itemTitle}"`,
-        timestamp: Date.now(),
-        category: sysLogId != null ? 'logged' : 'silent',
-        icon: 'check-square',
-        contextLabel: clientName,
-        contextId: rowId,
-        sideEffects: sysLogId != null ? [{ type: 'void_case_log', caseLogId: sysLogId }] : undefined,
-        undo: async () => {
-          setItems(prev => prev.map(i => i.id === id
-            ? { ...i, is_completed: prevCompleted, completed_at: prevCompletedAt }
-            : i
-          ))
-          await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, {
-            is_completed: prevCompleted,
-            completed_at: prevCompletedAt,
-          })
-          pulseEvents.emit('checklist:changed', { rowId })
-        },
-        redo: async () => {
-          setItems(prev => prev.map(i => i.id === id
-            ? { ...i, is_completed: isCompleted ? 1 : 0, completed_at: now }
-            : i
-          ))
-          await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, {
-            is_completed: isCompleted ? 1 : 0,
-            completed_at: now,
-          })
-          pulseEvents.emit('checklist:changed', { rowId })
-        },
-      })
+    if (!res.ok) {
+      // Put the tick back as it was, so the list doesn't show something that wasn't saved (audit L-28)
+      setItems(prev => prev.map(i => i.id === id ? { ...i, is_completed: prevCompleted, completed_at: prevCompletedAt } : i))
+      setRecentlyCheckedIds(prev => { const next = new Set(prev); next.delete(id); return next })
+      toast.error(`We couldn't ${isCompleted ? 'tick off' : 'reopen'} "${itemTitle}" — try again`)
+      return
     }
+    const sysLogId = res.data.sysLogId
+    // A repeating item came straight back, due again (audit 1.26)
+    const repeat = res.data.repeat ?? null
+    // What the item looked like before and after, so undo and redo can put it back silently
+    // (the log entry is voided or restored by the side effect, not written again; audit S-23)
+    const before = { is_completed: prevCompleted, completed_at: prevCompletedAt, ...(repeat ? { due_date: repeat.previousDue } : {}) }
+    const afterState = repeat
+      ? { is_completed: 0 as const, completed_at: null, completed_by: null, due_date: repeat.nextDue }
+      : { is_completed: (isCompleted ? 1 : 0) as 0 | 1, completed_at: now }
+    if (repeat) setItems(prev => prev.map(i => i.id === id ? { ...i, ...afterState } : i))
+    const nextText = repeat ? ` · next due ${new Date(`${repeat.nextDue}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''
+    useUndoStore.getState().pushWithToast({
+      id: crypto.randomUUID(),
+      description: isCompleted ? `Completed "${itemTitle}"${nextText}` : `Reopened "${itemTitle}"`,
+      timestamp: Date.now(),
+      category: sysLogId != null ? 'logged' : 'silent',
+      icon: 'check-square',
+      contextLabel: clientName,
+      contextId: rowId,
+      sideEffects: sysLogId != null ? [{ type: 'void_case_log', caseLogId: sysLogId }] : undefined,
+      undo: async () => {
+        setItems(prev => prev.map(i => i.id === id ? { ...i, ...before } : i))
+        await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, before, { silent: true })
+        pulseEvents.emit('checklist:changed', { rowId })
+      },
+      redo: async () => {
+        setItems(prev => prev.map(i => i.id === id ? { ...i, ...afterState } : i))
+        await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, afterState, { silent: true })
+        pulseEvents.emit('checklist:changed', { rowId })
+      },
+    })
   }, [items, clientName, rowId])
 
   const handleUpdate = useCallback(async (id: number, updates: Partial<ChecklistItemType>) => {
@@ -343,9 +347,10 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
         timestamp: Date.now(),
         category: 'logged',
         icon: 'reset',
+        // Ticked again quietly: they were done before, so no new "Completed" entries (audit S-23)
         undo: async () => {
           await Promise.all(completedSnapshot.map(i =>
-            mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, i.id, { is_completed: 1, completed_at: i.completed_at })
+            mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, i.id, { is_completed: 1, completed_at: i.completed_at }, { silent: true })
           ))
           pulseEvents.emit('checklist:changed', { rowId })
         },
@@ -591,7 +596,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
                     setNewTitle('')
                   }
                 }}
-                placeholder="+ Add task… (press Enter)"
+                placeholder="+ Add a checklist item… (press Enter)"
                 style={{ fontSize: 15 }}
                 spellCheck={false}
                 className="w-full px-3 py-2 text-slate-600 dark:text-slate-400
@@ -652,7 +657,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
                             setGroupAddTitles(prev => ({ ...prev, [group.id]: '' }))
                           }
                         }}
-                        placeholder="+ Add task… (press Enter)"
+                        placeholder="+ Add a checklist item… (press Enter)"
                         style={{ fontSize: 15 }}
                         spellCheck={false}
                         className="w-full px-3 py-1.5 text-base text-slate-500 dark:text-slate-400
@@ -685,7 +690,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
                   setNewTitle('')
                 }
               }}
-              placeholder="+ Add task… (press Enter)"
+              placeholder="+ Add a checklist item… (press Enter)"
               style={{ fontSize: 15 }}
               spellCheck={false}
               className="w-full px-3 py-2 text-slate-600 dark:text-slate-400
@@ -886,7 +891,7 @@ export function TemplateManager({ onApply, onClose }: {
   useEffect(() => { void loadTemplates() }, [])
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') { if (view !== 'list') setView('list'); else onClose() } }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') { e.preventDefault(); if (view !== 'list') setView('list'); else onClose() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [view, onClose])
@@ -1146,12 +1151,12 @@ export function TemplateManager({ onApply, onClose }: {
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform
                                    ${draft.isRecurring ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
-                <span className="text-sm text-slate-700 dark:text-slate-300">
-                  Repeating template (for recurring workflows)
+                <span className="text-base text-slate-700 dark:text-slate-300">
+                  Items repeat
                 </span>
                 {draft.isRecurring && (
                   <div className="flex items-center gap-1.5 ml-2">
-                    <span className="text-sm text-slate-500">every</span>
+                    <span className="text-base text-slate-500 dark:text-slate-400">each comes back</span>
                     <input
                       type="number"
                       min={1}
@@ -1162,7 +1167,7 @@ export function TemplateManager({ onApply, onClose }: {
                                  bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100
                                  focus:outline-hidden focus:ring-3 focus:ring-blue-500"
                     />
-                    <span className="text-sm text-slate-500">days</span>
+                    <span className="text-base text-slate-500 dark:text-slate-400">days after it's ticked off</span>
                   </div>
                 )}
               </div>

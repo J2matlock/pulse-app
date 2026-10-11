@@ -1,4 +1,4 @@
-import React, { useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import type { Column } from '../../../shared/types'
 import { IPC } from '../../../shared/ipc-channels'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
@@ -7,16 +7,47 @@ import { useGridStore } from '../../stores/gridStore'
 import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { useUndoStore } from '../../stores/undoStore'
 import toast from 'react-hot-toast'
+import { friendlyError } from '../../utils/friendlyError'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
 
 // ── Archive dialog ───────────────────────────────────────────────────────────
 
+/** How many upcoming appointments these records have (0 when it can't tell) */
+export function useUpcomingAppointments(rowIds: number[] | null): number {
+  const [count, setCount] = useState(0)
+  const key = rowIds?.join(',') ?? ''
+  useEffect(() => {
+    setCount(0)
+    if (!key) return
+    let live = true
+    void safeInvoke<number>(IPC.APPT_UPCOMING_COUNT, key.split(',').map(Number)).then(res => {
+      if (live && res.ok) setCount(res.data)
+    })
+    return () => { live = false }
+  }, [key])
+  return count
+}
+
+/** "Also cancel its 6 upcoming appointments" (ticked by default) */
+export function CancelAppointmentsCheckbox({ count, checked, onChange, many = false }: {
+  count: number; checked: boolean; onChange: (v: boolean) => void; many?: boolean
+}): React.ReactElement | null {
+  const { t } = useVocab()
+  if (count === 0) return null
+  return (
+    <label className="flex items-start gap-3 min-h-[44px] text-base text-slate-700 dark:text-slate-200 cursor-pointer">
+      <input type="checkbox" className="w-5 h-5 mt-0.5 shrink-0" checked={checked} onChange={e => onChange(e.target.checked)} />
+      <span>Also cancel {many ? 'their' : 'its'} {count} upcoming {t('appointment', { count })}</span>
+    </label>
+  )
+}
+
 export interface ArchiveDialogProps {
   archiveTarget: number | null
   archiveReason: string
   setArchiveReason: (v: string) => void
-  onConfirm: () => void
+  onConfirm: (opts: { cancelAppointments: boolean }) => void
   onCancel: () => void
 }
 
@@ -30,6 +61,10 @@ export function ArchiveDialog({
   const { t } = useVocab()
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, archiveTarget != null)
+  const upcoming = useUpcomingAppointments(archiveTarget == null ? null : [archiveTarget])
+  const [cancelAppts, setCancelAppts] = useState(true)
+  useEffect(() => { setCancelAppts(true) }, [archiveTarget])
+  const confirm = () => onConfirm({ cancelAppointments: upcoming > 0 && cancelAppts })
 
   if (archiveTarget == null) return null
   return (
@@ -51,14 +86,15 @@ export function ArchiveDialog({
             value={archiveReason}
             onChange={e => setArchiveReason(e.target.value)}
             placeholder="e.g. Case closed, Transferred, etc."
-            onKeyDown={e => { if (e.key === 'Enter') onConfirm() }}
+            onKeyDown={e => { if (e.key === 'Enter') confirm() }}
           />
         </div>
+        <CancelAppointmentsCheckbox count={upcoming} checked={cancelAppts} onChange={setCancelAppts} />
         <div className="flex gap-3 justify-end">
           <button onClick={onCancel} className="btn-secondary" style={{ minHeight: 44 }}>
             Cancel
           </button>
-          <button onClick={onConfirm} className="btn-primary" style={{ minHeight: 44 }}>
+          <button onClick={confirm} className="btn-primary" style={{ minHeight: 44 }}>
             Archive
           </button>
         </div>
@@ -166,7 +202,7 @@ export function BulkDeleteDialog({
       onConfirm={async () => {
         const ids = Array.from(selectedRowIds)
         const result = await safeInvoke(IPC.ROW_BULK_ACTION, 'delete', ids)
-        if (!result.ok) { toast.error(result.error); return }
+        if (!result.ok) { toast.error(friendlyError(result.error)); return }
         setSelectedRowIds(new Set())
         setBulkDeleteTarget(false)
         const reload = async () => { const g = useGridStore.getState().activeGridId; if (g) await useGridStore.getState().loadGrid(g) }

@@ -1,10 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   GENERIC_VOCAB, HUMAN_SERVICES_VOCAB, VOCAB_WORD_MAX, guessArticle, resolveVocab, term,
   type Term, type Vocab, type VocabKey,
 } from '../../../shared/vocab'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
+import { useGridStore } from '../../stores/gridStore'
+import { ListSettingsDialog } from '../grid/ListSettingsDialog'
+import { useVocab } from '../../hooks/useVocab'
 
 /** The words people can change, in the order they matter. (Appointments and stages arrive with their features.) */
 const ROWS: Array<{ key: VocabKey; label: string; hint: string }> = [
@@ -14,7 +17,7 @@ const ROWS: Array<{ key: VocabKey; label: string; hint: string }> = [
   { key: 'activityLog', label: 'Notes history', hint: 'Where those notes are listed' },
   { key: 'contact', label: 'Outside contacts', hint: 'People and organizations you work with' },
   { key: 'contactDirectory', label: 'Contacts page', hint: 'The page that lists them' },
-  { key: 'requirement', label: 'Requirements', hint: 'How many notes each one needs per month' },
+  { key: 'requirement', label: 'Requirements', hint: 'How many contacts each one needs in a period' },
   { key: 'priority', label: 'Priority', hint: 'How much attention each one needs' },
   { key: 'worker', label: 'Your role', hint: 'Used on letters and reports' },
 ]
@@ -30,6 +33,10 @@ function toStored(draft: Vocab): Partial<Vocab> {
     if (d.one !== g.one || d.many !== g.many || d.article !== g.article || d.oneCap !== g.oneCap || d.manyCap !== g.manyCap) out[k] = d
   }
   return out
+}
+
+function trimmed(draft: Vocab): Vocab {
+  return Object.fromEntries((Object.keys(draft) as VocabKey[]).map(k => [k, { ...draft[k], one: draft[k].one.trim(), many: draft[k].many.trim() }])) as Vocab
 }
 
 function wordError(word: string): string | null {
@@ -49,6 +56,14 @@ export function WordsEditor(): React.ReactElement {
   const update = useWorkspaceStore(s => s.update)
   const [draft, setDraft] = useState<Vocab>(() => resolveVocab(saved))
   const [saving, setSaving] = useState(false)
+  const { t } = useVocab(null)
+  const gridVocab = useWorkspaceStore(s => s.gridVocab)
+  const grids = useGridStore(s => s.grids)
+  const [editingList, setEditingList] = useState<number | null>(null)
+  // Lists with their own words keep them, whatever is saved here
+  const ownWords = grids
+    .filter(g => gridVocab[g.id] && Object.keys(gridVocab[g.id]!).length > 0)
+    .map(g => ({ id: g.id, name: g.name, word: gridVocab[g.id]!.record?.one }))
 
   // Words changed elsewhere (an example applied, another window): start from them
   useEffect(() => { setDraft(resolveVocab(saved)) }, [saved])
@@ -60,6 +75,19 @@ export function WordsEditor(): React.ReactElement {
     return one || many ? [[r.key, { one, many }]] : []
   })) as Partial<Record<VocabKey, { one: string | null; many: string | null }>>, [draft])
   const hasErrors = Object.keys(errors).length > 0
+
+  // Leaving the tab (or Settings) with changes saves them instead of dropping them
+  const pending = useRef({ dirty, hasErrors, draft })
+  useEffect(() => { pending.current = { dirty, hasErrors, draft } })
+  useEffect(() => () => {
+    const p = pending.current
+    if (!p.dirty) return
+    if (p.hasErrors) { toast.error('Your word changes weren\'t saved: some boxes need fixing first.'); return }
+    update({ vocab: toStored(trimmed(p.draft)) }).then(
+      () => { toast.success('Your word changes were saved.') },
+      () => { toast.error('We couldn\'t save your word changes. Please try again.') },
+    )
+  }, [update])
 
   function setWord(key: VocabKey, form: 'one' | 'many', value: string) {
     setDraft(d => {
@@ -74,9 +102,8 @@ export function WordsEditor(): React.ReactElement {
   async function save() {
     setSaving(true)
     try {
-      const trimmed = Object.fromEntries((Object.keys(draft) as VocabKey[]).map(k => [k, { ...draft[k], one: draft[k].one.trim(), many: draft[k].many.trim() }])) as Vocab
-      await update({ vocab: toStored(trimmed) })
-      toast.success('Words saved. They now appear everywhere.')
+      await update({ vocab: toStored(trimmed(draft)) })
+      toast.success(ownWords.length > 0 ? `Words saved. ${t('list', { many: true, cap: true })} with their own words keep them.` : 'Words saved. They now appear everywhere.')
     } catch (err) {
       toast.error(err instanceof Error && err.message !== 'READ_ONLY' ? err.message : "We couldn't save the words. Please try again.")
     } finally {
@@ -97,6 +124,25 @@ export function WordsEditor(): React.ReactElement {
         <span className="sr-only">Preview: </span>
         Add {term(v, 'record', { article: true })} · 3 {term(v, 'record', { many: true })} due this week · {term(v, 'record', { cap: true })} {term(v, 'activity', { many: true })} · New {term(v, 'list')}
       </div>
+
+      {ownWords.length > 0 && (
+        <div className="rounded-lg border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 space-y-1">
+          <p className="text-base text-slate-800 dark:text-slate-100">
+            These are the default words. {t('list', { many: true, cap: true })} with their own words keep them:
+          </p>
+          <ul className="space-y-1">
+            {ownWords.map(l => (
+              <li key={l.id} className="flex items-center gap-2 text-base text-slate-800 dark:text-slate-100">
+                <span>{l.name}{l.word ? ` (${l.word})` : ''}</span>
+                <button type="button" className="hit-44 text-base text-blue-700 dark:text-blue-300 underline" onClick={() => setEditingList(l.id)}>
+                  Edit its words
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {editingList !== null && <ListSettingsDialog gridId={editingList} onClose={() => setEditingList(null)} />}
 
       <div className="overflow-x-auto">
         <table className="w-full text-base">

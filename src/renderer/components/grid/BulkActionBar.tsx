@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { GridRow, Column, AcuityLevel } from '../../../shared/types'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
@@ -8,6 +9,8 @@ import { getClientName } from '../../utils/clientName'
 import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
 import { BatchDocumentsDialog } from '../documents/BatchDocumentsDialog'
+import { ConfirmDialog } from '../shared/ConfirmDialog'
+import { CancelAppointmentsCheckbox } from './GridDialogs'
 
 export interface BulkActionBarProps {
   selectedRowIds: Set<number>
@@ -40,6 +43,45 @@ export function BulkActionBar({
   const [batchDocs, setBatchDocs] = useState(false)
   const { t } = useVocab()
   const [bulkAcuityOpen, setBulkAcuityOpen] = useState(false)
+  // Archiving records that have upcoming appointments asks about them first (audit 1.13)
+  const [archiveAsk, setArchiveAsk] = useState<{ ids: number[]; upcoming: number } | null>(null)
+  const [cancelAppts, setCancelAppts] = useState(true)
+
+  async function archive(ids: number[], cancelAppointments: boolean) {
+    const names = ids.map(id => {
+      const r = rowById.get(id)
+      return r ? getClientName(r, columns, t('record', { cap: true })) : t('record', { cap: true })
+    })
+    const result = await safeInvoke(IPC.ROW_BULK_ACTION, 'archive', ids)
+    if (!result.ok) return
+    let apptSnapshot: unknown = null
+    if (cancelAppointments) {
+      const res = await safeInvoke<{ snapshot: unknown }>(IPC.APPT_CANCEL_UPCOMING, ids)
+      if (res.ok) apptSnapshot = res.data.snapshot
+    }
+    setSelectedRowIds(new Set())
+    if (activeGridId) await useGridStore.getState().loadGrid(activeGridId)
+    useUndoStore.getState().pushWithToast({
+      id: crypto.randomUUID(),
+      description: `Archived ${ids.length} ${t('record', { count: ids.length })} (${names.slice(0, 3).join(', ')}${ids.length > 3 ? '…' : ''})`,
+      timestamp: Date.now(),
+      category: 'structural',
+      icon: 'archive',
+      undo: async () => {
+        await mustInvoke(IPC.ROW_BULK_ACTION, 'unarchive', ids)
+        if (apptSnapshot) await mustInvoke(IPC.APPT_RESTORE, apptSnapshot)
+        if (activeGridId) await useGridStore.getState().loadGrid(activeGridId)
+      },
+      redo: async () => {
+        await mustInvoke(IPC.ROW_BULK_ACTION, 'archive', ids)
+        if (cancelAppointments) {
+          const res = await mustInvoke<{ snapshot: unknown }>(IPC.APPT_CANCEL_UPCOMING, ids)
+          if (res.ok) apptSnapshot = res.data.snapshot
+        }
+        if (activeGridId) await useGridStore.getState().loadGrid(activeGridId)
+      },
+    })
+  }
 
   const allArchived = Array.from(selectedRowIds).every(id => {
     const r = rowById.get(id)
@@ -94,29 +136,12 @@ export function BulkActionBar({
           className="hit-44 text-base px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 transition-colors font-medium"
           onClick={async () => {
             const ids = Array.from(selectedRowIds)
-            const names = ids.map(id => {
-              const r = rowById.get(id)
-              return r ? getClientName(r, columns, t('record', { cap: true })) : t('record', { cap: true })
-            })
-            const result = await safeInvoke(IPC.ROW_BULK_ACTION, 'archive', ids)
-            if (result.ok) {
-              setSelectedRowIds(new Set())
-              if (activeGridId) await useGridStore.getState().loadGrid(activeGridId)
-              useUndoStore.getState().pushWithToast({
-                id: crypto.randomUUID(),
-                description: `Archived ${ids.length} ${t('record', { count: ids.length })} (${names.slice(0, 3).join(', ')}${ids.length > 3 ? '…' : ''})`,
-                timestamp: Date.now(),
-                category: 'structural',
-                icon: 'archive',
-                undo: async () => {
-                  await mustInvoke(IPC.ROW_BULK_ACTION, 'unarchive', ids)
-                  if (activeGridId) await useGridStore.getState().loadGrid(activeGridId)
-                },
-                redo: async () => {
-                  await mustInvoke(IPC.ROW_BULK_ACTION, 'archive', ids)
-                  if (activeGridId) await useGridStore.getState().loadGrid(activeGridId)
-                },
-              })
+            const count = await safeInvoke<number>(IPC.APPT_UPCOMING_COUNT, ids)
+            if (count.ok && count.data > 0) {
+              setCancelAppts(true)
+              setArchiveAsk({ ids, upcoming: count.data })
+            } else {
+              await archive(ids, false)
             }
           }}
         >
@@ -189,6 +214,22 @@ export function BulkActionBar({
           )}
         </div>
       )}
+      {/* The bar is transformed, which would pin a fixed dialog to it */}
+      {createPortal(<ConfirmDialog
+        open={archiveAsk !== null}
+        title={`Archive ${archiveAsk?.ids.length ?? 0} ${t('record', { count: archiveAsk?.ids.length ?? 0 })}?`}
+        message={`They'll be hidden from the list. Unarchiving brings everything back.`}
+        confirmLabel="Archive"
+        destructive={false}
+        onConfirm={() => {
+          const ask = archiveAsk
+          setArchiveAsk(null)
+          if (ask) void archive(ask.ids, cancelAppts)
+        }}
+        onCancel={() => setArchiveAsk(null)}
+      >
+        <CancelAppointmentsCheckbox count={archiveAsk?.upcoming ?? 0} checked={cancelAppts} onChange={setCancelAppts} many />
+      </ConfirmDialog>, document.body)}
       <button
         className="hit-44 text-base px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 transition-colors font-medium"
         onClick={() => setBulkDeleteTarget(true)}

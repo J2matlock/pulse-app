@@ -75,14 +75,14 @@ describe('useZoom', () => {
     expect(setUiScale).not.toHaveBeenCalled()
   })
 
-  it('does nothing when focus is in an input element', () => {
+  it('works while typing in a text field too (audit N-30)', () => {
     render()
     const input = document.createElement('input')
     document.body.appendChild(input)
     input.focus()
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '=', ctrlKey: true, bubbles: true }))
-    expect(setUiScale).not.toHaveBeenCalled()
+    expect(setUiScale).toHaveBeenCalled()
 
     document.body.removeChild(input)
   })

@@ -6,6 +6,14 @@
   "description": "For landlords and small property managers: units with inspections, tenants with lease ends, and work orders on a board from new to done.",
   "icon": "building-2",
   "group": "Property and safety",
+  "keywords": [
+    "rental",
+    "landlord",
+    "tenant",
+    "lease",
+    "apartment",
+    "property"
+  ],
   "vocab": {
     "record": {
       "one": "record",

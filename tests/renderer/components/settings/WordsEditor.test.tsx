@@ -14,6 +14,7 @@ import { WordsEditor } from '../../../../src/renderer/components/settings/WordsE
 import { IPC } from '../../../../src/shared/ipc-channels'
 import { HUMAN_SERVICES_VOCAB } from '../../../../src/shared/vocab'
 import { setWords } from '../../vocabFixture'
+import { useGridStore } from '../../../../src/renderer/stores/gridStore'
 
 const preview = () => screen.getByText(/due this week/).textContent?.replace(/^Preview: /, '')
 const save = () => fireEvent.click(screen.getByRole('button', { name: 'Save words' }))
@@ -71,5 +72,32 @@ describe('WordsEditor', () => {
     expect((screen.getByLabelText('Outside contacts: one') as HTMLInputElement).value).toBe('provider')
     fireEvent.click(screen.getByRole('button', { name: 'Use general words' }))
     expect((screen.getByLabelText('Outside contacts: one') as HTMLInputElement).value).toBe('contact')
+  })
+
+  it('saves typed changes when the person leaves the tab (audit X-30)', async () => {
+    const { unmount } = render(<WordsEditor />)
+    fireEvent.change(screen.getByLabelText('What you track: one'), { target: { value: 'pet' } })
+    unmount()
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.WORKSPACE_UPDATE, expect.objectContaining({ vocab: expect.objectContaining({ record: expect.objectContaining({ one: 'pet' }) }) })))
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Your word changes were saved.'))
+  })
+
+  it('names the lists that keep their own words (audit X-29)', async () => {
+    useGridStore.setState({ grids: [{ id: 3, name: 'Customers' }, { id: 4, name: 'Notes pad' }] as never })
+    setWords({}, { 3: { record: { one: 'customer', many: 'customers', article: 'a' } } })
+    render(<WordsEditor />)
+    expect(screen.getByText(/Lists with their own words keep them/)).toBeTruthy()
+    expect(screen.getByText('Customers (customer)')).toBeTruthy()
+    expect(screen.queryByText(/Notes pad/)).toBeNull()
+    fireEvent.change(screen.getByLabelText('What you track: one'), { target: { value: 'client' } })
+    save()
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Words saved. Lists with their own words keep them.'))
+    useGridStore.setState({ grids: [] as never })
+  })
+
+  it('leaves untouched words alone when the person leaves', () => {
+    const { unmount } = render(<WordsEditor />)
+    unmount()
+    expect(mockInvoke).not.toHaveBeenCalled()
   })
 })

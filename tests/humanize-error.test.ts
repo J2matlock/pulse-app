@@ -22,7 +22,7 @@ describe('humanizeError', () => {
 
   it('SQLITE_CONSTRAINT UNIQUE → friendly duplicate message', () => {
     const err = new Error('SQLITE_CONSTRAINT: UNIQUE constraint failed: grids.name')
-    expect(humanizeError(err)).toBe('A record with that name already exists')
+    expect(humanizeError(err)).toBe("There's already a list called that.")
   })
 
   it('SQLITE_CONSTRAINT NOT NULL → missing field message', () => {
@@ -80,12 +80,29 @@ describe('humanizeError', () => {
 
   it('unknown SQLITE_ error → generic database error', () => {
     const err = new Error('SQLITE_CORRUPT: database disk image is malformed')
-    expect(humanizeError(err)).toBe('An unexpected database error occurred. Please try again.')
+    expect(humanizeError(err)).toBe("Something went wrong and the change wasn't saved. Please try again.")
   })
 
   it('SQLITE_IOERR → generic database error', () => {
     const err = new Error('SQLITE_IOERR: disk I/O error')
-    expect(humanizeError(err)).toBe('An unexpected database error occurred. Please try again.')
+    expect(humanizeError(err)).toBe("Something went wrong and the change wasn't saved. Please try again.")
+  })
+
+  // ── Real better-sqlite3 errors keep the code in err.code (audit L-20) ──
+
+  it('maps a real SqliteError by its code and table, never showing SQL text', () => {
+    const unique = Object.assign(new Error('UNIQUE constraint failed: tags.grid_id, tags.name'), { name: 'SqliteError', code: 'SQLITE_CONSTRAINT_UNIQUE' })
+    expect(humanizeError(unique)).toBe("There's already a tag called that.")
+    const other = Object.assign(new Error('UNIQUE constraint failed: widgets.name'), { name: 'SqliteError', code: 'SQLITE_CONSTRAINT_UNIQUE' })
+    expect(humanizeError(other)).toBe('A record with that name already exists')
+    const fk = Object.assign(new Error('FOREIGN KEY constraint failed'), { name: 'SqliteError', code: 'SQLITE_CONSTRAINT_FOREIGNKEY' })
+    expect(humanizeError(fk)).toBe('This record is referenced by other data')
+    const sql = Object.assign(new Error('no such column: foo'), { name: 'SqliteError', code: 'SQLITE_ERROR' })
+    expect(humanizeError(sql)).toBe("Something went wrong and the change wasn't saved. Please try again.")
+  })
+
+  it('a programming error becomes a plain sentence', () => {
+    expect(humanizeError(new TypeError("Cannot read properties of undefined (reading 'x')"))).toBe("Something went wrong and the change wasn't saved. Please try again.")
   })
 
   // ── App-level errors pass through unchanged ─────────────────────────────

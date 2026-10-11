@@ -6,6 +6,13 @@
   "description": "For barn managers and horse owners: farrier every 7 weeks, deworming, yearly Coggins, spring and fall shots, teeth, and breeding dates through to foaling, with each horse linked to its owner.",
   "icon": "tractor",
   "group": "Animals",
+  "keywords": [
+    "horse",
+    "stable",
+    "equine",
+    "farrier",
+    "boarding"
+  ],
   "vocab": {
     "record": {
       "one": "record",

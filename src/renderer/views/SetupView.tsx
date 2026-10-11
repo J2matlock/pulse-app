@@ -14,20 +14,26 @@ import toast from 'react-hot-toast'
 import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardList, FileSpreadsheet, LayoutTemplate, Pencil, Sparkles, User } from 'lucide-react'
 import { IPC } from '../../shared/ipc-channels'
 import { PRODUCT_NAME } from '../../shared/constants'
-import type { DateRuleAnswer } from '../../shared/ipc-contract'
+import type { DateRuleAnswer, SetupProgress } from '../../shared/ipc-contract'
 import type { Column, RecordKind } from '../../shared/types'
-import { HUMAN_SERVICES_VOCAB, guessArticle } from '../../shared/vocab'
-import { featuresForExistingInstall } from '../../shared/features'
+import { guessArticle } from '../../shared/vocab'
+import { wordsFromListName } from '../../shared/listWords'
+
 import { safeInvoke } from '../utils/safeInvoke'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { ImportWizard } from '../components/grid/ImportWizard'
 import { ApplyStarterDialog } from '../components/starters/ApplyStarterDialog'
-import { DateRepeatPicker, type DateAnswer } from './setup/DateRepeatPicker'
+import { DateRepeatPicker, suggestRepeat, type DateAnswer } from './setup/DateRepeatPicker'
 import { GuidedBlankStart } from './setup/GuidedBlankStart'
+import { friendlyError } from '../utils/friendlyError'
 
 type Step = 'welcome' | 'profile' | 'start' | 'sheet-name' | 'sheet-import' | 'sheet-rows' | 'sheet-dates' | 'blank' | 'done'
 
 interface Props {
+  /** Where to begin: the welcome screen (first run), or a starting point when shown again */
+  start?: 'welcome' | 'start' | 'examples' | 'sheet-name' | 'blank'
+  /** Shown again from the app: a way back without choosing anything */
+  onCancel?: () => void
   onComplete: () => void
   onStartTour: () => void
 }
@@ -44,6 +50,22 @@ export const ROW_CHOICES: Array<{ one: string; many: string; kind: RecordKind }>
   { one: 'piece of equipment', many: 'equipment', kind: 'thing' },
   { one: 'job', many: 'jobs', kind: 'job' },
 ]
+
+type RowsAnswer = { choice: number | 'other' | null; one: string; many: string; kind: RecordKind }
+
+/** "What are these rows?" starts from the list's name ("Tenants" → other: tenant), or nothing for a generic name */
+export function guessRows(listName: string): RowsAnswer {
+  const g = wordsFromListName(listName)
+  if (['list', 'lists', 'record', 'records', 'sheet', 'spreadsheet'].includes(g.many)) return { choice: null, one: '', many: '', kind: 'person' }
+  const i = ROW_CHOICES.findIndex(c => c.one === g.one || c.many === g.many)
+  if (i >= 0) return { choice: i, one: '', many: '', kind: ROW_CHOICES[i]!.kind }
+  return { choice: 'other', one: g.one, many: g.many, kind: 'person' }
+}
+
+/** Remember where setup is, so a lock or a closed window picks it up again */
+function saveProgress(progress: SetupProgress | null): void {
+  void safeInvoke(IPC.ONBOARDING_SAVE_PROGRESS, progress).catch(() => { /* resuming is a nicety */ })
+}
 
 const KINDS: Array<{ kind: RecordKind; label: string; example: string }> = [
   { kind: 'person', label: 'People', example: 'clients, students, staff' },
@@ -79,24 +101,46 @@ function Back({ onClick }: { onClick: () => void }) {
   )
 }
 
-export default function SetupView({ onComplete, onStartTour }: Props): React.ReactElement {
-  const [step, setStep] = useState<Step>('welcome')
+export default function SetupView({ start = 'welcome', onCancel, onComplete, onStartTour }: Props): React.ReactElement {
+  const [step, setStep] = useState<Step>(start === 'examples' ? 'start' : start)
   const [profile, setProfile] = useState({ name: '', title: '', org: '' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showExamples, setShowExamples] = useState(false)
+  // Problems while adding an example (e.g. sample data that couldn't load), shown on the done card
+  const [exampleWarnings, setExampleWarnings] = useState<string[]>([])
+  const [showExamples, setShowExamples] = useState(start === 'examples')
   const [listName, setListName] = useState('')
   const [gridId, setGridId] = useState<number | null>(null)
   const importDone = useRef(false)
-  const [rows, setRows] = useState<{ choice: number | 'other'; one: string; many: string; kind: RecordKind }>({ choice: 0, one: '', many: '', kind: 'person' })
+  const [rows, setRows] = useState<RowsAnswer>({ choice: null, one: '', many: '', kind: 'person' })
+  const [resumeBlank, setResumeBlank] = useState<{ gridId: number; name: string; kind: RecordKind; one: string; many: string } | null>(null)
+  const [resumed, setResumed] = useState(false)
   const [dateCols, setDateCols] = useState<Column[] | null>(null)
   const [dates, setDates] = useState<Record<number, DateAnswer>>({})
   const updateWorkspace = useWorkspaceStore(s => s.update)
 
   const go = (s: Step) => { setError(null); setStep(s) }
 
+  // Setup that was interrupted after making a list carries on where it stopped
+  useEffect(() => {
+    if (start !== 'welcome') return
+    let live = true
+    void safeInvoke(IPC.ONBOARDING_CHECK).then(r => {
+      const p = r.ok ? r.data.progress : null
+      if (!live || !p) return
+      setResumed(true)
+      setGridId(p.gridId)
+      if (p.listName) setListName(p.listName)
+      if (p.step === 'sheet-import') { importDone.current = false; setStep('sheet-import') }
+      else if (p.step === 'sheet-rows') { setRows(guessRows(p.listName ?? '')); setStep('sheet-rows') }
+      else if (p.blank) { setResumeBlank({ gridId: p.gridId, ...p.blank }); setStep('blank') }
+    }).catch(() => { /* start from the beginning */ })
+    return () => { live = false }
+  }, [start])
+
   const finish = useCallback(async () => {
     try { await safeInvoke(IPC.ONBOARDING_COMPLETE) } catch { /* the app still works; setup can be finished later */ }
+    setResumed(false)
     setStep('done')
   }, [])
 
@@ -108,18 +152,6 @@ export default function SetupView({ onComplete, onStartTour }: Props): React.Rea
     go('start')
   }
 
-  // "Just looking?": today's sample caseload with the human-services words it uses
-  async function trySample() {
-    setBusy(true)
-    try {
-      await updateWorkspace({ vocab: HUMAN_SERVICES_VOCAB, features: featuresForExistingInstall({ trackTime: false, trackMileage: false }) })
-      const res = await safeInvoke(IPC.SAMPLE_DATA_CREATE)
-      if (!res.ok) { setError("We couldn't add the sample data. Please try again."); return }
-      await finish()
-    } catch {
-      setError("We couldn't add the sample data. Please try again.")
-    } finally { setBusy(false) }
-  }
 
   // ── Spreadsheet path ──────────────────────────────────────────────────────
 
@@ -130,6 +162,7 @@ export default function SetupView({ onComplete, onStartTour }: Props): React.Rea
       if (!res.ok) { setError("We couldn't create the list. Please try again."); return }
       importDone.current = false
       setGridId(res.data)
+      saveProgress({ step: 'sheet-import', gridId: res.data, listName: listName.trim() })
       go('sheet-import')
     } finally { setBusy(false) }
   }
@@ -137,26 +170,30 @@ export default function SetupView({ onComplete, onStartTour }: Props): React.Rea
   function cancelImport() {
     if (importDone.current) return
     if (gridId !== null) void safeInvoke(IPC.GRID_DELETE, gridId)
+    saveProgress(null)
     setGridId(null)
     go('sheet-name')
   }
 
   async function saveRows() {
     if (gridId === null) return
+    if (rows.choice === null) { setError('Pick what the rows are, or choose "Something else".'); return }
     const chosen = rows.choice === 'other'
       ? { one: rows.one.trim(), many: rows.many.trim() || rows.one.trim(), kind: rows.kind }
       : ROW_CHOICES[rows.choice]!
     if (!chosen.one) { setError('Type what you call one of them.'); return }
     setBusy(true)
     try {
-      const listRes = await safeInvoke(IPC.GRID_SETTINGS_UPDATE, gridId, { record_kind: chosen.kind })
+      const term = { one: chosen.one, many: chosen.many, article: guessArticle(chosen.one) }
+      // The list keeps its own words too (as the guided start does), so a later example's words don't rename it
+      const listRes = await safeInvoke(IPC.GRID_SETTINGS_UPDATE, gridId, { record_kind: chosen.kind, vocab: { record: term } })
       if (!listRes.ok) { setError(listRes.error); return }
-      await updateWorkspace({ vocab: { record: { one: chosen.one, many: chosen.many, article: guessArticle(chosen.one) } } })
+      await updateWorkspace({ vocab: { record: term } })
       const grid = await safeInvoke(IPC.GRID_GET, gridId)
       const found = grid.ok ? [...grid.data.columns, ...grid.data.hiddenColumns].filter(c => c.column_type === 'date') : []
       if (found.length === 0) { await finish(); return }
       setDateCols(found)
-      setDates(Object.fromEntries(found.map(c => [c.id, { repeat: 'no' } as DateAnswer])))
+      setDates(Object.fromEntries(found.map(c => [c.id, suggestRepeat(c.name)])))
       go('sheet-dates')
     } catch (err) {
       setError(err instanceof Error ? err.message : "We couldn't save that. Please try again.")
@@ -172,7 +209,7 @@ export default function SetupView({ onComplete, onStartTour }: Props): React.Rea
     try {
       if (answers.length > 0) {
         const res = await safeInvoke(IPC.ONBOARDING_DATE_RULES, gridId, answers)
-        if (!res.ok) { toast.error(res.error) }
+        if (!res.ok) { toast.error(friendlyError(res.error)) }
       }
       await finish()
     } finally { setBusy(false) }
@@ -183,7 +220,12 @@ export default function SetupView({ onComplete, onStartTour }: Props): React.Rea
   if (step === 'sheet-import' && gridId !== null) {
     return (
       <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center">
-        <ImportWizard open gridId={gridId} onClose={cancelImport} onImported={() => { importDone.current = true; go('sheet-rows') }} />
+        <ImportWizard open gridId={gridId} onClose={cancelImport} onImported={() => {
+          importDone.current = true
+          setRows(guessRows(listName))
+          saveProgress({ step: 'sheet-rows', gridId, listName: listName.trim() })
+          go('sheet-rows')
+        }} />
       </div>
     )
   }
@@ -239,16 +281,23 @@ export default function SetupView({ onComplete, onStartTour }: Props): React.Rea
                 description="Set up your first list step by step." onClick={() => go('blank')} />
               <p className="text-base text-slate-600 dark:text-slate-300 pt-2 flex flex-wrap items-center gap-2">
                 Just looking?
-                <button type="button" className="btn-compact-secondary inline-flex items-center gap-2" disabled={busy} onClick={() => void trySample()}>
+                {/* Any example can be a demo: the gallery opens with "Add sample data" ticked (Decision C (i)) */}
+                <button type="button" className="btn-compact-secondary inline-flex items-center gap-2" disabled={busy} onClick={() => setShowExamples(true)}>
                   <Sparkles className="w-4 h-4" aria-hidden="true" /> Try it with sample data
                 </button>
               </p>
               {error && <p role="alert" className="text-base text-red-700 dark:text-red-300">{error}</p>}
-              <Back onClick={() => go('profile')} />
+              {onCancel
+                ? <button type="button" onClick={onCancel} className="hit-44 text-base text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100">Not now</button>
+                : <Back onClick={() => go('profile')} />}
             </div>
           )}
 
-          {step === 'blank' && <GuidedBlankStart onBack={() => go('start')} onFinished={finish} />}
+          {resumed && step !== 'done' && (
+            <p role="status" className="px-8 pt-6 -mb-4 text-base text-slate-600 dark:text-slate-300">Picking up where you left off.</p>
+          )}
+          {step === 'blank' && <GuidedBlankStart onBack={() => go('start')} onFinished={finish} resume={resumeBlank ?? undefined}
+            onProgress={blank => saveProgress({ step: 'blank', gridId: blank.gridId, blank: { name: blank.name, kind: blank.kind, one: blank.one, many: blank.many } })} />}
 
           {step === 'sheet-name' && (
             <div className="p-8 space-y-5">
@@ -323,7 +372,8 @@ export default function SetupView({ onComplete, onStartTour }: Props): React.Rea
               <h2 className={h2}>Which of these dates repeat?</h2>
               <p className={lead}>Dates that repeat get colors as they come due: green, then yellow, orange and red.</p>
               <DateRepeatPicker columns={dateCols} value={dates} onChange={setDates} />
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between">
+                <Back onClick={() => go('sheet-rows')} />
                 <button type="button" className="btn-primary inline-flex items-center gap-2" disabled={busy} onClick={() => void saveDates()}>
                   {busy ? 'Saving…' : 'Finish'} {!busy && <ArrowRight className="w-4 h-4" aria-hidden="true" />}
                 </button>
@@ -337,6 +387,14 @@ export default function SetupView({ onComplete, onStartTour }: Props): React.Rea
                 <CheckCircle2 className="text-green-600 dark:text-green-400 w-9 h-9" aria-hidden="true" />
               </div>
               <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-3">Your workspace is ready</h2>
+              {exampleWarnings.length > 0 && (
+                <div role="alert" className="text-left rounded-lg border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 mb-6 max-w-md mx-auto">
+                  <p className="text-base font-medium text-amber-900 dark:text-amber-100">Some of the example didn't come in:</p>
+                  <ul className="list-disc pl-5 mt-1 space-y-1">
+                    {exampleWarnings.map(w => <li key={w} className="text-base text-amber-900 dark:text-amber-100">{w}</li>)}
+                  </ul>
+                </div>
+              )}
               <p className="text-lg text-slate-600 dark:text-slate-300 mb-6 max-w-sm mx-auto">Would you like a quick tour of the main features?</p>
               <button type="button" className="btn-primary inline-flex items-center gap-2 px-8" onClick={onStartTour}>
                 Show me around <ArrowRight className="w-5 h-5" aria-hidden="true" />
@@ -351,7 +409,10 @@ export default function SetupView({ onComplete, onStartTour }: Props): React.Rea
         </div>
       </div>
       {showExamples && (
-        <ApplyStarterDialog mode="setup" onClose={() => setShowExamples(false)} onApplied={() => { setShowExamples(false); void finish() }} />
+        <ApplyStarterDialog mode="setup" withSamples onClose={() => setShowExamples(false)}
+          onStartBlank={() => { setShowExamples(false); go('blank') }}
+          onStartSpreadsheet={() => { setShowExamples(false); go('sheet-name') }}
+          onApplied={res => { setExampleWarnings(res?.warnings ?? []); setShowExamples(false); void finish() }} />
       )}
     </div>
   )

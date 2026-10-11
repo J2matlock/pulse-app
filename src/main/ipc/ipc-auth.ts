@@ -7,7 +7,7 @@ import { logger } from '../logger'
 import { secureWrap, ok, fail, withCorrelation, assertSafePath } from './ipc-utils'
 import { checkNewPassword } from '../../shared/passwordPolicy'
 import { openDatabase, closeDatabase, resolveDatabasePath, checkCloudSyncPath } from '../database'
-import { moveAsideExistingDatabase, restoreBackupOnNewInstall } from '../backup'
+import { moveAsideExistingDatabase, restoreBackupOnNewInstall, runAutoBackupOnLock } from '../backup'
 import { stopScheduledBackup, startScheduledBackup } from '../index'
 import { ensureMaterialized } from '../appointments'
 import {
@@ -22,6 +22,7 @@ import {
   lockApp,
   getPasswordHint,
   hasRecoveryKey,
+  getLoginLockoutRemaining,
   setStoredDbPath,
   areCredentialsUnreadable
 } from '../auth'
@@ -32,6 +33,9 @@ export function registerAuthHandlers(): void {
   secureWrap(IPC.AUTH_GET_HINT, 'ipc-auth', () => ok(getPasswordHint()))
 
   secureWrap(IPC.AUTH_HAS_RECOVERY_KEY, 'ipc-auth', () => ok(hasRecoveryKey()))
+
+  // Seconds left in a wrong-password lockout, so the lock screen can count down (audit F-27)
+  secureWrap(IPC.AUTH_LOCKOUT_REMAINING, 'ipc-auth', () => ok(getLoginLockoutRemaining()))
 
   secureWrap(IPC.AUTH_SETUP_PASSWORD, 'ipc-auth', async (_e, password: string, hint: string) => {
     return withCorrelation('auth-setup-password', async (corrId) => {
@@ -155,6 +159,8 @@ export function registerAuthHandlers(): void {
 
   secureWrap(IPC.AUTH_LOCK, 'ipc-auth', () => {
     stopScheduledBackup()
+    // Back up while the database is still open: many people lock and never quit
+    runAutoBackupOnLock()
     lockApp()
     closeDatabase()
     return ok(true)

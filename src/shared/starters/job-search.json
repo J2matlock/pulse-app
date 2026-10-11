@@ -6,6 +6,13 @@
   "description": "For anyone looking for work: applications on a board from interested to an answer, follow-ups a week after applying, thank-you notes after interviews, offer deadlines, and the people who can help.",
   "icon": "briefcase",
   "group": "Personal",
+  "keywords": [
+    "job",
+    "resume",
+    "interview",
+    "application",
+    "career"
+  ],
   "vocab": {
     "record": {
       "one": "record",

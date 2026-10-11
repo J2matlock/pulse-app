@@ -67,6 +67,9 @@ export function isTrustedSenderUrl(url: string): boolean {
 
 // ── Error humanization ────────────────────────────────────────────────────────
 const ERROR_MAP: Array<[RegExp, string]> = [
+  [/UNIQUE constraint failed/, 'A record with that name already exists'],
+  [/NOT NULL constraint failed/, 'A required field is missing'],
+  [/FOREIGN KEY constraint failed/, 'This record is referenced by other data'],
   [/SQLITE_CONSTRAINT.*UNIQUE/, 'A record with that name already exists'],
   [/SQLITE_CONSTRAINT.*NOT NULL/, 'A required field is missing'],
   [/SQLITE_CONSTRAINT.*FOREIGN KEY/, 'This record is referenced by other data'],
@@ -78,19 +81,61 @@ const ERROR_MAP: Array<[RegExp, string]> = [
   [/VACUUM INTO.*failed/, 'Backup failed — disk may be full'],
 ]
 
+/** "There's already a … called that", by the table a UNIQUE constraint names */
+const UNIQUE_BY_TABLE: Record<string, string> = {
+  tags: "There's already a tag called that.",
+  snippets: 'Another snippet already uses that shortcut.',
+  grids: "There's already a list called that.",
+  columns: "There's already a column called that.",
+  activity_types: "There's already a note type called that.",
+  saved_views: "There's already a view called that.",
+  saved_filters: "There's already a saved filter called that.",
+  report_definitions: "There's already a report called that.",
+  forms: "There's already a form called that.",
+}
+
+/** better-sqlite3 keeps the code in err.code; the message is just "UNIQUE constraint failed: tags.name" */
+const CODE_MAP: Record<string, string> = {
+  SQLITE_CONSTRAINT_UNIQUE: 'A record with that name already exists',
+  SQLITE_CONSTRAINT_PRIMARYKEY: 'A record with that name already exists',
+  SQLITE_CONSTRAINT_NOTNULL: 'A required field is missing',
+  SQLITE_CONSTRAINT_FOREIGNKEY: 'This record is referenced by other data',
+  SQLITE_BUSY: 'The database is temporarily busy — please try again',
+  SQLITE_READONLY: 'The database is in read-only mode',
+  SQLITE_FULL: 'The disk is full — free some space and try again',
+  ENOENT: 'The requested file was not found',
+  EACCES: 'Permission denied — check file permissions',
+  EPERM: 'Permission denied — check file permissions',
+  ENOSPC: 'The disk is full — free some space and try again',
+  ENOMEM: 'Not enough memory to complete the operation',
+}
+
+const GENERIC = "Something went wrong and the change wasn't saved. Please try again."
+
 /**
- * Map raw error messages to user-friendly strings.
- * Known system errors (SQLITE_*, ENOENT, etc.) are translated to friendly messages.
- * Application-level errors (e.g. "Task not found") pass through unchanged since
- * they're already human-readable.
+ * Map raw errors to sentences a person can act on (audit 2.15 / L-20).
+ * SQLite and file-system errors are mapped by their code (and a duplicate by
+ * its table); any other database or programming error becomes a plain
+ * sentence (the details go to the log). Application errors thrown with a
+ * message written for people (StarterError, "That record is no longer
+ * available.") pass through unchanged.
  */
 export function humanizeError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err)
+  const code = typeof (err as { code?: unknown })?.code === 'string' ? (err as { code: string }).code : ''
+  if (code.startsWith('SQLITE_CONSTRAINT_UNIQUE') || /UNIQUE constraint failed/.test(raw)) {
+    const table = /UNIQUE constraint failed: (\w+)\./.exec(raw)?.[1]
+    if (table && UNIQUE_BY_TABLE[table]) return UNIQUE_BY_TABLE[table]
+  }
+  if (code && CODE_MAP[code]) return CODE_MAP[code]
   for (const [pattern, friendly] of ERROR_MAP) {
     if (pattern.test(raw)) return friendly
   }
-  if (/^SQLITE_/.test(raw)) return 'An unexpected database error occurred. Please try again.'
-  return raw
+  const technical = code.startsWith('SQLITE') || /^SQLITE_/.test(raw)
+    || (err as Error | undefined)?.name === 'SqliteError'
+    || /constraint failed|no such (table|column)|syntax error|SQL logic error/i.test(raw)
+    || err instanceof TypeError || err instanceof RangeError || err instanceof ReferenceError
+  return technical ? GENERIC : raw
 }
 
 /**

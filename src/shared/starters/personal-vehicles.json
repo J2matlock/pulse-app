@@ -6,6 +6,13 @@
   "description": "Your household's cars: oil changes every 5,000 miles or 6 months, tire rotations, registration and insurance renewals.",
   "icon": "wrench",
   "group": "Personal",
+  "keywords": [
+    "car",
+    "truck",
+    "auto",
+    "registration",
+    "oil change"
+  ],
   "vocab": {
     "record": {
       "one": "vehicle",

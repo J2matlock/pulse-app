@@ -238,6 +238,24 @@ export interface AlertRule {
   created_at: string
 }
 
+/** One column that uses a deadline rule (rules are shared; Decision F1) */
+export interface AlertRuleUse {
+  rule_id: number
+  column_id: number
+  column_name: string
+  grid_id: number
+  grid_name: string
+  /** The column is hidden in its list */
+  hidden: boolean
+}
+
+/** What a rule delete removed, so Undo can put it back */
+export interface DeletedAlertRule {
+  rule: AlertRule
+  /** Columns that used the rule and were cleared */
+  columnIds: number[]
+}
+
 // Alert rule with thresholds already parsed
 export interface ParsedAlertRule extends Omit<AlertRule, 'thresholds'> {
   thresholds: AlertThreshold[]
@@ -405,6 +423,8 @@ export interface CaseLogEntry {
   extra_measures?: string | null
   created_at: string
   updated_at: string
+  /** When it happened (UTC timestamp like created_at); created_at is when it was written */
+  occurred_at?: string
   is_pinned: 0 | 1
   follow_up_date: string | null
   follow_up_completed: 0 | 1
@@ -423,6 +443,15 @@ export interface NoteDateUpdate {
   column_name: string
   old_value: string | null
   new_value: string
+}
+
+/** A date put back because the note that moved it was voided or deleted (null: emptied). */
+export interface NoteDateRevert {
+  row_id: number
+  column_id: number
+  column_name: string
+  old_value: string | null
+  new_value: string | null
 }
 
 /** CASE_LOG_CREATE result: the new entry plus any dates it updated. */
@@ -592,6 +621,10 @@ export interface ProviderClientLink {
   provider_category_color?: string | null
   provider_availability_status?: AvailabilityStatus
   provider_phone_main?: string | null
+  provider_email?: string | null
+  provider_org_name?: string | null
+  provider_title?: string | null
+  provider_category_name?: string | null
 }
 
 export interface ProviderInteraction {

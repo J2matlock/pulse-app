@@ -6,6 +6,13 @@
   "description": "For real estate agents: buyers and sellers, and each home on a board from showing to closing, with the inspection, appraisal, financing and closing dates counted from the contract date, pre-approval and listing expirations, and a note on every closing anniversary. Your contract sets the real dates. Pulse is a tracking aid, not your official record system.",
   "icon": "handshake",
   "group": "Business",
+  "keywords": [
+    "realtor",
+    "agent",
+    "closing",
+    "listing",
+    "house"
+  ],
   "vocab": {
     "record": {
       "one": "record",

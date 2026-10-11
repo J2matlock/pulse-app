@@ -49,6 +49,11 @@ import { useFormStore } from '../../stores/formStore'
 import { pulseEvents } from '../../events'
 import type { Form } from '../../../shared/forms'
 import { stageConfigOf } from '../../../shared/stages'
+import { DeadlineQuestion } from './DeadlineQuestion'
+import { ensurePlainRule, type DeadlineChoice } from '../alerts/plainRule'
+import { AlertRuleEditor } from '../alerts/AlertRuleEditor'
+import { useAlertStore } from '../../stores/alertStore'
+import { engineRuleFrom, needsDeadlineColumn } from '../../../shared/deadlineEngine'
 import { AUTO_NUMBER_PREFIX_MAX, DEFAULT_AUTO_NUMBER, formatAutoNumber, parseAutoNumberConfig } from '../../../shared/autoNumber'
 
 const EMPTY_FORMS: Form[] = []
@@ -85,6 +90,7 @@ export function GridToolbar(): React.ReactElement {
   const timeOn = useFeature('timeTracking')
   const mileageOn = useFeature('mileage')
   const measuresOn = useFeature('measures')
+  const requirementsOn = useFeature('requirements')
   const acuityEnabled = acuityFlag && priorityOn
   const activeGridName = useGridStore(s => s.grids.find(g => g.id === s.activeGridId)?.name)
   const { addRow, addColumn, toggleColumnVisibility, setShowArchived } = useGridStore(useShallow(s => ({
@@ -103,6 +109,12 @@ export function GridToolbar(): React.ReactElement {
   const [exportColumnSelect, setExportColumnSelect] = useState<'csv' | 'pdf' | null>(null)
   const [newColName, setNewColName] = useState('')
   const [newColType, setNewColType] = useState<ColumnType>('text')
+  const [deadlineChoice, setDeadlineChoice] = useState<DeadlineChoice>({ mode: 'none' })
+  // "More options…": the full rule editor for the column just added
+  const [ruleEditorFor, setRuleEditorFor] = useState<number | null>(null)
+  const alertRules = useAlertStore(s => s.rules)
+  const createRule = useAlertStore(s => s.createRule)
+  const updateColumn = useGridStore(s => s.updateColumn)
   const [dropdownOptions, setDropdownOptions] = useState('')
   const [autoPrefix, setAutoPrefix] = useState('')
   const [autoPad, setAutoPad] = useState(DEFAULT_AUTO_NUMBER.pad)
@@ -116,6 +128,8 @@ export function GridToolbar(): React.ReactElement {
   const [showFormMenu, setShowFormMenu] = useState(false)
   const listForms = useFormStore(s => (activeGridId != null ? s.byGrid[activeGridId] : undefined)) ?? EMPTY_FORMS
   useEffect(() => { if (formsOn && activeGridId != null) void useFormStore.getState().load(activeGridId) }, [formsOn, activeGridId])
+  // "Bring in a spreadsheet" from the empty list
+  useEffect(() => pulseEvents.on('grid:open-import', () => setShowImportWizard(true)), [])
   const [batchDocs, setBatchDocs] = useState(false)
   const selectedIds = useGridStore(s => s.selectedRowIds)
   const stagesOn = useFeature('stages')
@@ -220,9 +234,15 @@ export function GridToolbar(): React.ReactElement {
       config = JSON.stringify({ options })
     } else if (newColType === 'auto_number') {
       config = JSON.stringify(parseAutoNumberConfig({ prefix: autoPrefix, pad: autoPad, next: 1 }))
+    } else if (newColType === 'date' || newColType === 'deadline') {
+      // "Does this date come due again?": a plain rule now, or the full editor once the column exists
+      const ruleId = await ensurePlainRule(deadlineChoice, alertRules, createRule)
+      if (ruleId !== null) config = JSON.stringify({ alert_rule_id: ruleId })
     }
 
-    await addColumn(name, newColType, config, { numberExisting: rowCount > 0 && numberExisting })
+    const colId = await addColumn(name, newColType, config, { numberExisting: rowCount > 0 && numberExisting })
+    if (colId !== null && (newColType === 'date' || newColType === 'deadline') && deadlineChoice.mode === 'more') setRuleEditorFor(colId)
+    setDeadlineChoice({ mode: 'none' })
     setNewColName('')
     setNewColType('text')
     setDropdownOptions('')
@@ -344,6 +364,7 @@ export function GridToolbar(): React.ReactElement {
                         // A link column is set up in its own dialog (W04 §7.1)
                         if (e.target.value === 'link') { setShowAddColumn(false); setLinkSetup(true); return }
                         setNewColType(e.target.value as ColumnType); setDropdownOptions('')
+                        setDeadlineChoice(e.target.value === 'deadline' ? { mode: 'every', n: 12, unit: 'months' } : { mode: 'none' })
                       }}
                     >
                       {COLUMN_TYPES.map(({ type, label }) => (
@@ -355,6 +376,10 @@ export function GridToolbar(): React.ReactElement {
                   </div>
                   {!linksOn && gridCount > 1 && (
                     <FeatureOffer feature="links" message={`Connect your ${t('list', { many: true })}, like customers and their vehicles?`} />
+                  )}
+
+                  {(newColType === 'date' || newColType === 'deadline') && (
+                    <DeadlineQuestion type={newColType} value={deadlineChoice} onChange={setDeadlineChoice} />
                   )}
 
                   {(newColType === 'dropdown' || newColType === 'status') && (
@@ -425,6 +450,21 @@ export function GridToolbar(): React.ReactElement {
           )}
         </AnimatePresence>
       </div>
+
+      {ruleEditorFor !== null && (
+        <AlertRuleEditor columnId={ruleEditorFor} onClose={async createdRuleId => {
+          const colId = ruleEditorFor
+          setRuleEditorFor(null)
+          if (!createdRuleId) return
+          const col = useGridStore.getState().columns.find(c => c.id === colId)
+          let cfg: Record<string, unknown> = {}
+          try { cfg = JSON.parse(col?.config || '{}') as Record<string, unknown> } catch { /* start fresh */ }
+          const rule = useAlertStore.getState().rules.find(r => r.id === createdRuleId)
+          // A rule that reads the done date needs a Deadline column (Decision E1)
+          const toDeadline = col?.column_type === 'date' && !!rule && needsDeadlineColumn(engineRuleFrom(rule))
+          await updateColumn(colId, { config: JSON.stringify({ ...cfg, alert_rule_id: createdRuleId }), ...(toDeadline ? { column_type: 'deadline' } : {}) })
+        }} />
+      )}
 
       {/* Manage columns */}
       {hiddenColumns.length > 0 && (
@@ -553,6 +593,7 @@ export function GridToolbar(): React.ReactElement {
                     Summary report…
                   </button>
                 </>)}
+                {requirementsOn && (
                 <button
                   className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
                   style={{ minHeight: 44 }}
@@ -560,6 +601,7 @@ export function GridToolbar(): React.ReactElement {
                 >
                   {t('requirement', { many: true, cap: true })} summary…
                 </button>
+                )}
                 <button
                   className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
                   style={{ minHeight: 44 }}

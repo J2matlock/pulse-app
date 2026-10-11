@@ -48,6 +48,45 @@ const _ALERT_SHAPE_YELLOW = (
   </span>
 )
 
+const _ALERT_SHAPE_CIRCLE = (label: string) => (
+  <span className={_ALERT_BASE} aria-label={label}>
+    <svg className={_ALERT_SIZE} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <circle cx="8" cy="8" r="5.5"/>
+    </svg>
+  </span>
+)
+
+/**
+ * The shape for a deadline cell, chosen by where its color band sits in the
+ * rule's order, not by the color's name (N-04, G-10): built-in and custom
+ * rules store hex colors. Late = warning sign, due today = triangle, the
+ * nearest band before that = diamond, the next = square, further = circle.
+ * The band's own label ("Due soon") is what a screen reader hears.
+ */
+export function alertShapeForBand(daysUntil: number, threshold: { daysBefore: number; label?: string; bgClass: string }, thresholds: Array<{ daysBefore: number }>): React.ReactNode {
+  const label = threshold.label?.trim()
+  if (daysUntil < 0) {
+    return (
+      <span className={_ALERT_BASE} aria-label={`${label ? `${label}: ` : ''}${Math.abs(daysUntil)} day${daysUntil === -1 ? '' : 's'} overdue`}>
+        <svg className={_ALERT_SIZE} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M8 1L1 14h14L8 1z" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+          <path d="M8 6v4M8 11.5v1" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      </span>
+    )
+  }
+  if (daysUntil === 0) return withLabel(_ALERT_SHAPE_RED, label || 'Due today')
+  const ahead = [...new Set(thresholds.map(t => t.daysBefore).filter(n => n > 0))].sort((a, b) => a - b)
+  const rank = ahead.indexOf(threshold.daysBefore)
+  if (rank <= 0) return withLabel(_ALERT_SHAPE_ORANGE, label || 'Due soon')
+  if (rank === 1) return withLabel(_ALERT_SHAPE_YELLOW, label || 'Coming up')
+  return _ALERT_SHAPE_CIRCLE(label || 'Coming up')
+}
+
+function withLabel(node: React.ReactElement, label: string): React.ReactElement {
+  return React.cloneElement(node as React.ReactElement<{ 'aria-label'?: string }>, { 'aria-label': label })
+}
+
 /**
  * Returns a small shape indicator for alert thresholds so color is never the sole indicator.
  * Shapes: circle (green/safe), diamond (yellow/caution), triangle (orange/warning),

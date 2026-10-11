@@ -329,7 +329,8 @@ vi.mock('../../../src/renderer/components/profile/DeadlinePanel', () => ({
   DeadlinePanel: () => <div data-testid="deadline-panel">Deadline Panel</div>,
 }))
 vi.mock('../../../src/renderer/components/profile/CaseLog', () => ({
-  CaseLog: () => <div data-testid="case-log">Case Log</div>,
+  // The record page puts deadlines and details between the note box and past notes
+  CaseLog: ({ between }: { between?: React.ReactNode }) => <><div data-testid="case-log">Case Log</div>{between}</>,
 }))
 vi.mock('../../../src/renderer/components/profile/GridDataSummary', () => ({
   GridDataSummary: () => <div data-testid="grid-data-summary" />,
@@ -339,9 +340,6 @@ vi.mock('../../../src/renderer/components/profile/RelatedDocuments', () => ({
 }))
 vi.mock('../../../src/renderer/components/profile/LinkedProviders', () => ({
   LinkedProviders: () => <div data-testid="linked-providers" />,
-}))
-vi.mock('../../../src/renderer/components/profile/ActivityTimeline', () => ({
-  ActivityTimeline: () => <div data-testid="activity-timeline" />,
 }))
 vi.mock('../../../src/renderer/components/profile/ProfilePrintLayout', () => ({
   ProfilePrintLayout: () => null,
@@ -391,10 +389,10 @@ describe('DashboardView', () => {
     expect(cards.length).toBe(5)
     const cardLabels = cards.map(c => c.textContent)
     expect(cardLabels).toContain('Active Clients')
-    expect(cardLabels).toContain('Overdue')
-    expect(cardLabels).toContain('Due This Week')
-    expect(cardLabels).toContain('Due This Month')
-    expect(cardLabels).toContain('Items Due Today')
+    expect(cardLabels).toContain('Overdue deadlines')
+    expect(cardLabels).toContain('Due in the next 7 days')
+    expect(cardLabels).toContain('Due in the next 30 days')
+    expect(cardLabels).toContain('Tasks & follow-ups due or late')
   })
 
   it('renders top tab bar with Priority List selected by default', async () => {
@@ -403,12 +401,10 @@ describe('DashboardView', () => {
     const priorityTab = screen.getByRole('tab', { name: /Priority List/i })
     expect(priorityTab).toBeDefined()
     expect(priorityTab.getAttribute('aria-selected')).toBe('true')
-    expect(screen.getByRole('tab', { name: /Recently Archived/i })).toBeDefined()
-    // "Overdue" appears in both top tabs and filter tabs
-    expect(screen.getAllByRole('tab', { name: /^Overdue$/i }).length).toBeGreaterThanOrEqual(1)
-    const allTabs = screen.getAllByRole('tab')
-    // Top tabs (5) + filter tabs (2) = 7 total
-    expect(allTabs.length).toBe(7)
+    // Recently archived is a link now, and Overdue is one tab, not two (D-21)
+    expect(screen.getByRole('button', { name: /Recently archived/i })).toBeDefined()
+    expect(screen.getAllByRole('tab', { name: /^Overdue$/i }).length).toBe(1)
+    expect(screen.getAllByRole('tab').length).toBe(4)
   })
 
   it('renders search input on Priority List tab', async () => {
@@ -419,14 +415,11 @@ describe('DashboardView', () => {
     expect(searchInput.getAttribute('type')).toBe('search')
   })
 
-  it('renders filter sub-tabs (All, Overdue)', async () => {
+  it('has no duplicate All / Overdue sub-filter (D-21)', async () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
-    // Filter tabs are in the second tablist; use getAllByRole to find all tabs
-    const allTabs = screen.getAllByRole('tab')
-    const tabNames = allTabs.map(t => t.textContent?.trim())
-    expect(tabNames).toContain('All')
-    expect(tabNames).toContain('Overdue')
+    const tabNames = screen.getAllByRole('tab').map(t => t.textContent?.trim())
+    expect(tabNames).not.toContain('All')
   })
 })
 
@@ -615,7 +608,7 @@ describe('ProfileView', () => {
     expect(screen.getByText(/Invalid profile link/)).toBeDefined()
   })
 
-  it('shows "Client not found" when rowId does not match any row', async () => {
+  it('shows a not-found message when rowId does not match any row', async () => {
     render(
       <MemoryRouter initialEntries={['/profile/999']}>
         <Routes>
@@ -624,10 +617,10 @@ describe('ProfileView', () => {
       </MemoryRouter>,
     )
     await flushEffects()
-    expect(screen.getByText(/Client not found/)).toBeDefined()
+    expect(screen.getByText(/couldn't find this client/)).toBeDefined()
   })
 
-  it('shows "Return to grid" link when client not found', async () => {
+  it('shows a way back when the client is not found', async () => {
     render(
       <MemoryRouter initialEntries={['/profile/999']}>
         <Routes>
@@ -636,6 +629,6 @@ describe('ProfileView', () => {
       </MemoryRouter>,
     )
     await flushEffects()
-    expect(screen.getByText('Return to grid')).toBeDefined()
+    expect(screen.getByText('Back to the caseload')).toBeDefined()
   })
 })

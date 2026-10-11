@@ -7,6 +7,9 @@ import { VariableInsertMenu, type VariableGroup } from '../../components/shared/
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useGridStore } from '../../stores/gridStore'
+import { ConfirmDialog } from '../../components/shared/ConfirmDialog'
+import { useVocab } from '../../hooks/useVocab'
+import { rememberedList, rememberList } from './templateList'
 
 interface EditModalProps {
   template: LetterTemplate | null  // null = new
@@ -21,13 +24,21 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showVarMenu, setShowVarMenu] = useState(false)
-  // The open list's columns, deadlines and links for "Insert field" (W10 §3)
+  const { t } = useVocab(null)
+  // "Insert field" offers a list's columns, deadlines and links (W10 §3): the
+  // list this template was last used with, else the open one, and it can be changed
   const activeGridId = useGridStore(s => s.activeGridId)
+  const grids = useGridStore(s => s.grids)
+  const [fieldGridId, setFieldGridId] = useState<number | null>(() => rememberedList(template?.id) ?? activeGridId ?? grids[0]?.id ?? null)
   const [fieldGroups, setFieldGroups] = useState<VariableGroup[]>([])
   useEffect(() => {
-    if (!activeGridId) return
-    void safeInvoke<VariableGroup[]>(IPC.PLACEHOLDER_FIELDS, activeGridId).then(r => { if (r.ok) setFieldGroups(r.data) })
-  }, [activeGridId])
+    if (!fieldGridId) { setFieldGroups([]); return }
+    void safeInvoke<VariableGroup[]>(IPC.PLACEHOLDER_FIELDS, fieldGridId).then(r => { if (r.ok) setFieldGroups(r.data) })
+  }, [fieldGridId])
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const dirty = name !== (template?.name ?? '') || description !== (template?.description ?? '') || content !== (template?.content ?? '')
+  // Closing by Escape, the backdrop, X or Cancel asks first when something was typed
+  const requestClose = () => { if (dirty) setConfirmDiscard(true); else onClose() }
   const nameRef = useRef<HTMLInputElement>(null)
   const contentRef = useRef<HTMLTextAreaElement>(null)
   const trapRef = useRef<HTMLDivElement>(null)
@@ -37,13 +48,16 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
 
   useEffect(() => { nameRef.current?.focus() }, [])
 
+  const closeRef = useRef(requestClose)
+  useEffect(() => { closeRef.current = requestClose })
   useEffect(() => {
     function handler(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      // Escape closes the field menu or the question first, not the letter
+      if (e.key === 'Escape' && !showVarMenu && !confirmDiscard) closeRef.current()
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
+  }, [showVarMenu, confirmDiscard])
 
   function insertPlaceholder(key: string) {
     const el = contentRef.current
@@ -65,6 +79,7 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
     setError(null)
     try {
       await onSave(name.trim(), description.trim(), content.trim())
+      rememberList(template?.id, fieldGridId)
       onClose()
     } catch (err) {
       rlog.error('EditTemplateModal', 'Failed to save letter template:', err)
@@ -77,7 +92,7 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      onClick={e => { if (e.target === e.currentTarget) requestClose() }}
     >
       <div ref={trapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
@@ -87,7 +102,7 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
             {template ? 'Edit Template' : 'New Letter Template'}
           </h2>
           <button
-            onClick={onClose}
+            onClick={requestClose}
             className="p-2 rounded-sm text-slate-500 hover:text-slate-600 dark:hover:text-slate-200
                        focus:outline-hidden focus:ring-3 focus:ring-blue-500 min-h-[44px] min-w-[44px]
                        flex items-center justify-center"
@@ -144,7 +159,13 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
               <label htmlFor="letter-content" className="block text-base font-medium text-slate-700 dark:text-slate-300">
                 Content <span className="text-red-600 dark:text-red-400">*</span>
               </label>
-              <div className="relative">
+              <div className="relative flex items-center gap-2">
+                {grids.length > 1 && (
+                  <select aria-label={`Fields from which ${t('list')}`} className="input w-auto" style={{ minHeight: 44, fontSize: 15 }}
+                    value={fieldGridId ?? ''} onChange={e => setFieldGridId(Number(e.target.value))}>
+                    {grids.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                  </select>
+                )}
                 <button
                   ref={varButtonRef}
                   type="button"
@@ -173,7 +194,7 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
               value={content}
               onChange={e => setContent(e.target.value)}
               rows={15}
-              placeholder="Dear {{client_name}},&#10;&#10;This letter is to inform you..."
+              placeholder="Dear {{name}},&#10;&#10;This letter is to inform you..."
               className="w-full rounded-lg border border-slate-300 dark:border-slate-600
                          bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100
                          px-3 py-2 text-base font-mono focus:outline-hidden focus:ring-3 focus:ring-blue-500
@@ -186,7 +207,7 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
           <button
-            onClick={onClose}
+            onClick={requestClose}
             className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600
                        text-base text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700
                        focus:outline-hidden focus:ring-3 focus:ring-blue-500 min-h-[44px]"
@@ -204,6 +225,15 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
           </button>
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmDiscard}
+        title="Discard your changes?"
+        message="What you typed in this template hasn't been saved."
+        confirmLabel="Discard changes"
+        destructive
+        onConfirm={() => { setConfirmDiscard(false); onClose() }}
+        onCancel={() => setConfirmDiscard(false)}
+      />
     </div>
   )
 }

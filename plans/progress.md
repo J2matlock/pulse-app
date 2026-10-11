@@ -1538,3 +1538,19 @@ Comprehensive audit identified 2 critical, 7 high, 10 medium, 15 low findings. A
 ## 2026-10-10 (cont.) — Pulse 2.2.0 released
 - Version 2.2.0 (reports home page, ready-made reports, sample history, bars, plain sentence), tagged v2.2.0 in pulse-app
 - `pulse-releases` v2.2.0: `PULSE.exe`, `BaringaSoftPulse-2.2.0.AppImage`, `SHA256SUMS.txt`, marked latest; `latest.json` announces 2.2.0
+
+## 2026-10-10 (cont.) — Usability and logic audit
+- Eight reviewers (first run, grid, record page, deadlines, scheduling, settings and data, navigation, logic) wrote reports in `plans/audit-2026-10/`; 296 findings merged into 90 items in `PLAN.md` (phases 1–5, appendix mapping every finding)
+- Screenshots for the audit: `plans/audit-2026-10/screens/` (git-ignored); the UI tour and a newer-screens tour
+- Owner decisions (top of PLAN.md):
+  - A3: keep tasks, checklists and follow-ups separate, fix bugs
+  - B1: notes get `occurred_at`
+  - C3 + (i): sample removal keeps the user's work, Sample pill, "Just looking?" opens the gallery
+  - D1: lists and columns go to Trash
+  - E1: Renewed / Finished
+  - F1: shared rules with "Used by"
+  - G2 now, G1 later
+  - H2: merge the two broken duplicates
+- Build: seven tracks (B, D, G, R, S, X, F) in separate worktrees (`TRACKS.md`, `BUILDER.md`), merged in that order; Track A (polish) after the merge
+- E2E: each test launch gets its own `--user-data-dir`, so a copy of Pulse the person has open no longer blocks test runs
+- Reminder pending: update the website for 2.2.0 (saved in memory)

@@ -6,6 +6,11 @@
   "description": "For driving schools and instructors: students from learner's permit to road test, practice and night hours, lessons left on a package, monthly parent updates, and instructor licenses, background checks and training cars. Hour and permit rules vary by state, so check yours. Pulse is a tracking aid, not your official record system.",
   "icon": "car-front",
   "group": "Education and youth",
+  "keywords": [
+    "driver ed",
+    "student driver",
+    "lessons"
+  ],
   "vocab": {
     "record": {
       "one": "record",

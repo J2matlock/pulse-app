@@ -10,19 +10,27 @@
 
 import { getDb } from './database'
 import { localDateString } from '../shared/dates'
+import { word } from './vocab'
+import { parseSampleMarks, sampleFingerprint, sampleRowHasUserAdditions, trackSampleRows } from './sample-marks'
 
 export const SAMPLE_GRID_NAME = 'Sample Caseload (not real clients)'
 const META_KEY = 'sample_data'
-/** Sample rows a starter template added to real lists (see starters.ts) */
-export const STARTER_SAMPLE_META_KEY = 'starter_sample'
 
-/** Ids of rows added as starter sample data, so they can be removed together */
-export function getStarterSampleRowIds(): number[] {
-  const row = getDb().prepare('SELECT value FROM app_meta WHERE key = ?').get(STARTER_SAMPLE_META_KEY) as { value: string } | undefined
-  try {
-    const v = JSON.parse(row?.value ?? '{}') as { rowIds?: unknown }
-    return Array.isArray(v.rowIds) ? v.rowIds.filter((x): x is number => typeof x === 'number') : []
-  } catch { return [] }
+/** Ids of every sample entry still tracked (live or in the Trash) */
+export function getSampleRowIds(): number[] {
+  return (getDb().prepare('SELECT row_id FROM sample_rows ORDER BY row_id').all() as Array<{ row_id: number }>).map(r => r.row_id)
+}
+
+/** "Keep this as a real entry?": keep makes it real; otherwise remember the answer so it isn't asked again */
+export function answerSampleRow(rowId: number, answer: 'keep' | 'sample' | 'later'): void {
+  const db = getDb()
+  if (answer === 'keep') db.prepare('DELETE FROM sample_rows WHERE row_id = ?').run(rowId)
+  else db.prepare('UPDATE sample_rows SET asked = ? WHERE row_id = ?').run(answer === 'sample' ? 1 : 2, rowId)
+}
+
+/** Start tracking rows an example (or the sample list) just added */
+export function markSampleRows(rowIds: number[]): void {
+  trackSampleRows(getDb(), rowIds)
 }
 
 interface SampleRecord {
@@ -42,7 +50,7 @@ function readRecord(): SampleRecord | null {
 export function getSampleGridId(): number | null {
   const rec = readRecord()
   if (!rec) return null
-  const exists = getDb().prepare('SELECT 1 FROM grids WHERE id = ?').get(rec.gridId)
+  const exists = getDb().prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 1').get(rec.gridId)
   return exists ? rec.gridId : null
 }
 
@@ -57,26 +65,107 @@ const NOTES: Array<[string, string]> = [
   ['note', 'Received updated benefits letter; copied to file.'],
 ]
 
-/** How many starter sample rows still exist (the user may have deleted some). */
-export function countStarterSampleRows(): number {
-  const ids = getStarterSampleRowIds()
-  if (ids.length === 0) return 0
-  return (getDb().prepare('SELECT COUNT(*) AS n FROM rows WHERE id IN (SELECT value FROM json_each(?))').get(JSON.stringify(ids)) as { n: number }).n
+/** How many sample entries are still out (not in the Trash). */
+export function countSampleRows(): number {
+  return (getDb().prepare('SELECT COUNT(*) AS n FROM sample_rows s JOIN rows r ON r.id = s.row_id WHERE r.deleted_at IS NULL').get() as { n: number }).n
 }
 
-/** Remove all starter sample rows (with their notes and checklist items). Lists stay. */
-export function removeStarterSampleData(): number {
+export interface SampleRemovalPlan {
+  /** Untouched sample entries that go to the Trash */
+  remove: number[]
+  /** Sample entries the user changed, added to, or moved to another list: they stay as real ones */
+  keep: number[]
+  /** The user's own entries in the sample list (never removed; the list stays for them) */
+  ownInSampleList: number
+}
+
+/** What "Remove sample data" would do right now */
+export function planSampleRemoval(): SampleRemovalPlan {
   const db = getDb()
-  const ids = getStarterSampleRowIds()
-  db.transaction(() => {
-    const del = db.prepare('DELETE FROM rows WHERE id = ?')
-    for (const id of ids) del.run(id)
-    // Their appointments went with the records; the series they came from go too
-    const delSeries = db.prepare("DELETE FROM appointment_series WHERE json_extract(template, '$.row_id') = ?")
-    for (const id of ids) delSeries.run(id)
-    db.prepare('DELETE FROM app_meta WHERE key = ?').run(STARTER_SAMPLE_META_KEY)
+  const rows = db.prepare(`SELECT s.row_id, s.grid_id AS loaded_in, s.fingerprint, s.marks, s.asked, r.grid_id
+    FROM sample_rows s JOIN rows r ON r.id = s.row_id WHERE r.deleted_at IS NULL ORDER BY s.row_id`)
+    .all() as Array<{ row_id: number; loaded_in: number; fingerprint: string; marks: string; asked: number; grid_id: number }>
+  const remove: number[] = []
+  const keep: number[] = []
+  for (const r of rows) {
+    const moved = r.grid_id !== r.loaded_in
+    // "It's just a sample" (when asked) outweighs edits; a move to another list never does
+    const touched = moved || (r.asked !== 1 && (sampleFingerprint(db, r.row_id) !== r.fingerprint || sampleRowHasUserAdditions(db, r.row_id, parseSampleMarks(r.marks))))
+    ;(touched ? keep : remove).push(r.row_id)
+  }
+  const gridId = getSampleGridId()
+  const ownInSampleList = gridId === null ? 0 : (db.prepare(`SELECT COUNT(*) AS n FROM rows r WHERE r.grid_id = ? AND r.deleted_at IS NULL
+    AND NOT EXISTS (SELECT 1 FROM sample_rows s WHERE s.row_id = r.id)`).get(gridId) as { n: number }).n
+  return { remove, keep, ownInSampleList }
+}
+
+export interface SampleRemovalResult {
+  removed: number
+  kept: number
+  /** New name of the sample list when it stayed for the user's own entries */
+  keptListName: string | null
+}
+
+/**
+ * Remove sample data, keeping anything the user made their own: untouched
+ * sample entries go to the Trash, changed ones become real entries, and the
+ * sample list stays (renamed) while it still holds anything of theirs.
+ */
+export function removeSampleData(): SampleRemovalResult {
+  const db = getDb()
+  return db.transaction((): SampleRemovalResult => {
+    const plan = planSampleRemoval()
+    const trash = db.prepare("UPDATE rows SET is_active = 0, deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?")
+    for (const id of plan.remove) trash.run(id)
+    // Their weekly sample series stop making new visits (visits already made come back with a restore)
+    const delSeries = db.prepare("DELETE FROM appointment_series WHERE json_extract(template, '$.row_id') = ? AND id <= ?")
+    const marksOf = db.prepare('SELECT marks FROM sample_rows WHERE row_id = ?')
+    for (const id of plan.remove) delSeries.run(id, parseSampleMarks((marksOf.get(id) as { marks: string }).marks).series)
+    const untrack = db.prepare('DELETE FROM sample_rows WHERE row_id = ?')
+    for (const id of plan.keep) untrack.run(id)
+    const keptListName = removeSampleCaseload()
+    return { removed: plan.remove.length, kept: plan.keep.length, keptListName }
   })()
-  return ids.length
+}
+
+/**
+ * The sample list itself, once its entries are dealt with: deleted outright
+ * when nothing in it is the user's (every entry is a sample, so nothing is
+ * lost), otherwise kept under a plain name. Returns that name, if kept.
+ */
+function removeSampleCaseload(): string | null {
+  const rec = readRecord()
+  if (!rec) return null
+  const db = getDb()
+  let keptName: string | null = null
+  const grid = db.prepare('SELECT name, is_active FROM grids WHERE id = ?').get(rec.gridId) as { name: string; is_active: number } | undefined
+  if (grid) {
+    const theirs = (db.prepare(`SELECT COUNT(*) AS n FROM rows r WHERE r.grid_id = ?
+      AND (r.deleted_at IS NULL OR NOT EXISTS (SELECT 1 FROM sample_rows s WHERE s.row_id = r.id))`).get(rec.gridId) as { n: number }).n
+    const ownTasks = (db.prepare('SELECT COUNT(*) AS n FROM caseload_tasks WHERE grid_id = ? AND (id NOT IN (SELECT value FROM json_each(?)) OR updated_at != created_at)')
+      .get(rec.gridId, JSON.stringify(rec.taskIds)) as { n: number }).n
+    if (theirs === 0 && ownTasks === 0) {
+      // Grid delete cascades to columns, rows, cells, case notes, checklist items, tasks, links
+      db.prepare('DELETE FROM grids WHERE id = ?').run(rec.gridId)
+    } else {
+      keptName = grid.name === SAMPLE_GRID_NAME ? `My ${word('record', { many: true, cap: true }, rec.gridId)}` : grid.name
+      db.prepare("UPDATE grids SET name = ?, updated_at = datetime('now') WHERE id = ?").run(keptName, rec.gridId)
+      const delTask = db.prepare('DELETE FROM caseload_tasks WHERE id = ? AND updated_at = created_at')
+      for (const id of rec.taskIds) delTask.run(id)
+      if (!grid.is_active) keptName = null
+    }
+  }
+  // Sample contacts go unless the user edited them, linked them to someone or logged a call
+  const delProvider = db.prepare(`DELETE FROM providers WHERE id = ? AND updated_at = created_at
+    AND NOT EXISTS (SELECT 1 FROM provider_client_links l JOIN rows r ON r.id = l.row_id WHERE l.provider_id = providers.id AND r.deleted_at IS NULL)
+    AND NOT EXISTS (SELECT 1 FROM provider_interactions i WHERE i.provider_id = providers.id)`)
+  for (const id of rec.providerIds) delProvider.run(id)
+  // Only delete sample rules no remaining column still uses
+  const inUse = db.prepare("SELECT 1 FROM columns WHERE CAST(json_extract(config, '$.alert_rule_id') AS INTEGER) = ? LIMIT 1")
+  const delRule = db.prepare('DELETE FROM alert_rules WHERE id = ?')
+  for (const id of rec.alertRuleIds) if (!inUse.get(id)) delRule.run(id)
+  db.prepare('DELETE FROM app_meta WHERE key = ?').run(META_KEY)
+  return keptName
 }
 
 /** Create the sample caseload. Returns its grid id (existing one if already present). */
@@ -151,30 +240,10 @@ export function createSampleCaseload(): number {
     const providerIds = ([['Dr. Ellen Park (sample)', 'Riverside Behavioral Health', '(555) 010-3344'], ['Tom Alvarez (sample)', 'County Housing Authority', '(555) 010-1200'], ['Sarah Kim (sample)', 'Meals on Wheels', '(555) 010-7788']] as const)
       .map(([name, org, phone]) => Number(insProvider.run(name, org, phone).lastInsertRowid))
 
+    trackSampleRows(db, rowIds)
     const rec: SampleRecord = { gridId, alertRuleIds: [monthly, annual], providerIds, taskIds }
     db.prepare('INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)').run(META_KEY, JSON.stringify(rec))
     return rec
   })()
   return record.gridId
-}
-
-/** Remove everything the sample caseload created. Real data is never touched. */
-export function removeSampleCaseload(): boolean {
-  const rec = readRecord()
-  if (!rec) return false
-  const db = getDb()
-  db.transaction(() => {
-    // Grid delete cascades to columns, rows, cells, case notes, checklist items, tasks, links
-    db.prepare('DELETE FROM grids WHERE id = ?').run(rec.gridId)
-    const delTask = db.prepare('DELETE FROM caseload_tasks WHERE id = ?')
-    for (const id of rec.taskIds) delTask.run(id)
-    const delProvider = db.prepare('DELETE FROM providers WHERE id = ?')
-    for (const id of rec.providerIds) delProvider.run(id)
-    // Only delete sample rules no remaining column still uses
-    const inUse = db.prepare("SELECT 1 FROM columns WHERE CAST(json_extract(config, '$.alert_rule_id') AS INTEGER) = ? LIMIT 1")
-    const delRule = db.prepare('DELETE FROM alert_rules WHERE id = ?')
-    for (const id of rec.alertRuleIds) if (!inUse.get(id)) delRule.run(id)
-    db.prepare('DELETE FROM app_meta WHERE key = ?').run(META_KEY)
-  })()
-  return true
 }

@@ -69,7 +69,7 @@ const RELEASES: ReleaseEntry[] = [
       'Encrypted SQLite database with password protection and recovery keys',
       'Grid view with virtual scrolling, inline editing, and auto-save',
       'Dashboard with priority list and deadlines',
-      'Profiles with scrap notes, notes, checklists, and documents',
+      'Profiles with scratch notes, notes, checklists, and documents',
       'Tasks with recurrence and snooze',
       'Snippet library and letter templates',
       'Contacts directory with categories, availability tracking, and vCard import/export',

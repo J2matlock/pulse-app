@@ -1,12 +1,13 @@
 // Must stay the first import: pins the data folder and key-store name before anything reads them
 import './app-identity'
+import { isOpenableExternal } from './external-links'
 import { app, shell, BrowserWindow, dialog, session, protocol, net, clipboard, powerMonitor, Menu } from 'electron'
 import { buildMacMenuTemplate } from './app-menu'
 import { join, normalize, resolve, sep } from 'path'
 import { pathToFileURL } from 'url'
 import { initDatabase, closeDatabase, getDb } from './database'
 import { registerIpcHandlers } from './ipc-handlers'
-import { runAutoBackup, checkAndRunScheduled, recordAutoBackupFailure } from './backup'
+import { runAutoBackup, checkAndRunScheduled, recordAutoBackupFailure, runAutoBackupOnLock } from './backup'
 import { startReminders, stopReminders } from './reminders'
 import { initTray, isTrayMode, closeToTray, refreshTray } from './tray'
 import { prefs } from './prefs'
@@ -93,6 +94,8 @@ function currentAutoLockMinutes(): number {
 function forceLock(reason: string): void {
   if (!isUnlocked()) return
   logger.info('auto-lock', `Locking: ${reason}`)
+  // Back up while the database is still open: a sleeping laptop may never quit
+  runAutoBackupOnLock()
   try { lockApp() } catch (err) { logger.warn('auto-lock', 'lockApp failed', err) }
   try { closeDatabase() } catch (err) { logger.warn('auto-lock', 'closeDatabase failed', err) }
   stopScheduledBackup()
@@ -203,15 +206,10 @@ function createWindow(): void {
     mainWindow?.show()
   })
 
-  // Open external links in the system browser, not in Electron.
-  // Validate protocol before opening — only http/https allowed.
+  // Open external links in the system browser (or mail / phone app), not in Electron.
+  // Only http, https, mailto and tel are allowed.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    try {
-      const { protocol } = new URL(url)
-      if (protocol === 'https:' || protocol === 'http:') {
-        shell.openExternal(url)
-      }
-    } catch (err) { logNonFatal('app', 'Invalid URL in window-open handler', err) }
+    if (isOpenableExternal(url)) shell.openExternal(url).catch(err => logNonFatal('app', 'openExternal failed', err))
     return { action: 'deny' }
   })
 
@@ -347,6 +345,10 @@ app.whenReady().then(async () => {
     Menu.setApplicationMenu(Menu.buildFromTemplate(buildMacMenuTemplate(app.getName(), cmd => {
       BrowserWindow.getFocusedWindow()?.webContents.send(IPC.MENU_COMMAND, cmd)
     })))
+  } else {
+    // Electron's default (hidden) menu still answers Ctrl+R / Ctrl+Shift+R by
+    // reloading the page, which looks like a crash and drops unsaved typing
+    Menu.setApplicationMenu(null)
   }
   createWindow()
   initTray({ window: () => mainWindow, isUnlocked, lock: forceLock })

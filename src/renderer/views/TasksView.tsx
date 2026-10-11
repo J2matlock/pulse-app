@@ -18,7 +18,7 @@ import {
 import { useShallow } from 'zustand/react/shallow'
 import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { EmptyState } from '../components/shared/EmptyState'
-import { useTaskStore } from '../stores/taskStore'
+import { useTaskStore, type TaskSortMode } from '../stores/taskStore'
 import { useGridStore } from '../stores/gridStore'
 import { useUndoStore } from '../stores/undoStore'
 import { TaskItem, CompletedTaskItem } from '../components/tasks/TaskItem'
@@ -33,8 +33,8 @@ import { pulseEvents } from '../events'
 import { LoadingOverlay } from '../components/shared/LoadingSpinner'
 
 import { ViewBreadcrumb } from '../components/shared/ViewBreadcrumb'
-import { isOverdue, isSnoozed } from './tasks/taskHelpers'
-import { TaskFormDialog } from './tasks/TaskFormDialog'
+import { isOverdue, isSnoozed, PRIORITY_ORDER } from './tasks/taskHelpers'
+import { TaskFormDialog, type NewTask } from './tasks/TaskFormDialog'
 import { SnoozeDialog } from './tasks/SnoozeDialog'
 import { TaskGroup } from './tasks/TaskGroup'
 import { UrgentChecklistSection } from './tasks/UrgentChecklistSection'
@@ -45,11 +45,14 @@ import { useFeature } from '../hooks/useFeature'
 export default function TasksView(): React.ReactElement {
   const checklistsOn = useFeature('checklists')
   const { t: w } = useVocab(null)
-  const { tasks, loading, loadTasks, createTask, updateTask, deleteTask, completeTask, snoozeTask, reorderTasks } = useTaskStore(useShallow(s => ({
+  const { tasks, loading, loadTasks, createTask, updateTask, deleteTask, deleteTasks, completeTask, snoozeTask, reorderTasks, sortMode, setSortMode } = useTaskStore(useShallow(s => ({
     tasks: s.tasks, loading: s.loading, loadTasks: s.loadTasks,
     createTask: s.createTask, updateTask: s.updateTask, deleteTask: s.deleteTask,
     completeTask: s.completeTask, snoozeTask: s.snoozeTask,
     reorderTasks: s.reorderTasks,
+    deleteTasks: s.deleteTasks,
+    sortMode: s.sortMode,
+    setSortMode: s.setSortMode,
   })))
   const loadGrid = useGridStore(s => s.loadGrid)
   const navigate = useNavigate()
@@ -172,6 +175,16 @@ export default function TasksView(): React.ReactElement {
     }
   }, [searchParams, setSearchParams])
 
+  // A task clicked on the calendar (?task=12) opens for editing (audit S-28)
+  const taskParam = Number(searchParams.get('task'))
+  useEffect(() => {
+    if (!taskParam) return
+    const task = tasks.find(t => t.id === taskParam)
+    if (!task) return
+    setEditingTask(task)
+    setSearchParams({}, { replace: true })
+  }, [taskParam, tasks, setSearchParams])
+
   // Ctrl+Shift+T — open add dialog locally when already on Tasks page
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -187,12 +200,13 @@ export default function TasksView(): React.ReactElement {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  async function handleSaveTask(taskData: Omit<CaseloadTask, 'id' | 'created_at' | 'updated_at'>) {
+  async function handleSaveTask(taskData: NewTask | Partial<CaseloadTask>) {
     if (editingTask) {
+      // Only what the form changed (audit S-05)
       await updateTask(editingTask.id, taskData)
       setEditingTask(null)
     } else {
-      await createTask(taskData)
+      await createTask(taskData as NewTask)
     }
   }
 
@@ -350,6 +364,15 @@ export default function TasksView(): React.ReactElement {
     return map
   }, [activeManualItems])
 
+  // Sort: My order (with groups and dragging), Due date (overdue first, no date last), or Priority
+  const sortedActiveItems = useMemo(() => {
+    const byDue = (a: CaseloadTask, b: CaseloadTask) => (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999')
+    const byPriority = (a: CaseloadTask, b: CaseloadTask) => (PRIORITY_ORDER[a.priority ?? 'normal'] ?? 2) - (PRIORITY_ORDER[b.priority ?? 'normal'] ?? 2)
+    return [...activeManualItems].sort((a, b) => sortMode === 'priority'
+      ? byPriority(a, b) || byDue(a, b) || a.position - b.position
+      : byDue(a, b) || byPriority(a, b) || a.position - b.position)
+  }, [activeManualItems, sortMode])
+
   const activeManualRef = useRef(activeManualItems)
   activeManualRef.current = activeManualItems
 
@@ -435,7 +458,7 @@ export default function TasksView(): React.ReactElement {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div data-tour="tasks-area" className="flex flex-col gap-1 px-6 pt-3 pb-3 border-b border-slate-200 dark:border-slate-700">
-        <ViewBreadcrumb items={[{ label: 'Home', to: '/grid' }, { label: 'Tasks' }]} />
+        <ViewBreadcrumb items={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Tasks' }]} />
         <div className="flex items-center gap-3 flex-wrap">
         <ClipboardList className="w-5 h-5 text-slate-500" />
         <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 min-w-0">Tasks</h1>
@@ -450,6 +473,15 @@ export default function TasksView(): React.ReactElement {
         >
           + Add Task
         </button>
+
+        <label className="flex items-center gap-1.5 text-base text-slate-600 dark:text-slate-300">
+          Sort:
+          <select className="input" style={{ minHeight: 36 }} value={sortMode} onChange={e => setSortMode(e.target.value as TaskSortMode)}>
+            <option value="manual">My order</option>
+            <option value="due_date">Due date</option>
+            <option value="priority">Priority</option>
+          </select>
+        </label>
 
         <button
           onClick={handleAddGroup}
@@ -503,14 +535,6 @@ export default function TasksView(): React.ReactElement {
           )}
 
           {!loading && tasks.length === 0 && urgentItems.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
-              <ClipboardList className="w-12 h-12 text-slate-300 dark:text-slate-500" />
-              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300">No tasks yet</h3>
-              <p className="text-base text-slate-500 dark:text-slate-400 max-w-sm">Add your first task below to start tracking your to-do list.</p>
-            </div>
-          )}
-
-          {!loading && tasks.length === 0 && urgentItems.length === 0 && (
             <div className="flex flex-col items-center">
               <EmptyState
                 icon={<ClipboardList className="w-12 h-12" />}
@@ -535,7 +559,25 @@ export default function TasksView(): React.ReactElement {
 
           {!loading && (tasks.length > 0 || urgentItems.length > 0) && (
             <>
-              {(
+              {sortMode !== 'manual' ? (
+                /* Sorted by due date or priority: one list, no dragging (audit S-20) */
+                <DndContext sensors={sensors}>
+                  <SortableContext items={sortedActiveItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                  {sortedActiveItems.map(task => (
+                    <TaskItem
+                      key={task.id}
+                      task={task}
+                      isDragDisabled={true}
+                      onToggle={() => handleToggle(task.id)}
+                      onUpdate={updates => updateTask(task.id, updates)}
+                      onDelete={() => deleteTask(task.id)}
+                      onEdit={() => setEditingTask(task)}
+                      onSnooze={() => setSnoozeTaskId(task.id)}
+                    />
+                  ))}
+                  </SortableContext>
+                </DndContext>
+              ) : (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                   {!hasTaskGroups ? (
                     /* Flat mode (no groups) */
@@ -690,7 +732,7 @@ export default function TasksView(): React.ReactElement {
               )}
 
               {/* Inline add input (flat/no-groups mode only — grouped mode has its own above the groups) */}
-              {!hasTaskGroups && (
+              {(!hasTaskGroups || sortMode !== 'manual') && (
                 <div className="mx-2 mt-2">
                   <input
                     ref={addInputRef}
@@ -738,7 +780,7 @@ export default function TasksView(): React.ReactElement {
                                  hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors
                                  focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400"
                     >
-                      Clear All
+                      Delete completed
                     </button>
                   </div>
                   {showCompleted && (
@@ -798,10 +840,10 @@ export default function TasksView(): React.ReactElement {
       <ConfirmDialog
         open={showClearConfirm}
         title="Delete completed tasks"
-        message={`Delete ${completedTasks.length} completed task${completedTasks.length === 1 ? '' : 's'}? This cannot be undone.`}
+        message={`Delete ${completedTasks.length} completed task${completedTasks.length === 1 ? '' : 's'}? You can undo this.`}
         confirmLabel="Delete"
         destructive
-        onConfirm={async () => { setShowClearConfirm(false); for (const t of completedTasks) { await deleteTask(t.id) } setShowCompleted(false) }}
+        onConfirm={async () => { setShowClearConfirm(false); await deleteTasks(completedTasks.map(t => t.id)); setShowCompleted(false) }}
         onCancel={() => setShowClearConfirm(false)}
       />
 

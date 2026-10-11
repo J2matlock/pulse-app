@@ -7,7 +7,8 @@
 
 import { statSync, createReadStream } from 'fs'
 import Papa from 'papaparse'
-import { parseDate } from '../shared/parseDate'
+import { parseDate, toYmd } from '../shared/parseDate'
+import { localDateString } from '../shared/dates'
 import { VALID_COLUMN_TYPES } from '../shared/types'
 import type { ColumnType } from '../shared/types'
 import ExcelJS from 'exceljs'
@@ -93,6 +94,10 @@ export interface ImportResult {
   imported: number
   skipped: number
   warnings: string[]
+  /** Names of the rows skipped as duplicates, in file order */
+  skippedNames: string[]
+  /** The records this import added, so it can be undone (moved to Trash) */
+  newRowIds: number[]
 }
 
 export interface HeaderDetectionResult {
@@ -112,6 +117,17 @@ interface MergedCellInfo {
 // ──────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ──────────────────────────────────────────────────────────────────────────────
+
+/** The value ends in a two-digit year ("3/15/30", "15-Mar-30") */
+function hasTwoDigitYear(value: string): boolean {
+  const v = value.trim()
+  return !v.includes(':') && !/^\d{4}[-/.]/.test(v) && /(^|[^\d])\d{2}$/.test(v) && !/^\d+$/.test(v)
+}
+
+/** A column for birthdays, by its name */
+export function looksLikeBirthColumn(name: string): boolean {
+  return /\b(dob|d\.o\.b\.?|birth\w*|born)\b/i.test(name)
+}
 
 /** Guess column type from sample values */
 function looksLikeDate(s: string): boolean {
@@ -402,7 +418,8 @@ const MAX_CELL_VALUE_LENGTH = 10_000
 const MAX_IMPORT_ROWS = 50_000
 
 // Cache parsed file data between preview and execute to avoid re-parsing
-let _parsedCache: { filePath: string; mtime: number; rawRows: string[][]; sheets: string[]; mergedRanges?: MergedCellInfo[] } | null = null
+/** `sheet` is the sheet the rows came from, so going back and choosing another sheet re-reads it */
+let _parsedCache: { filePath: string; mtime: number; sheet: string; rawRows: string[][]; sheets: string[]; mergedRanges?: MergedCellInfo[] } | null = null
 let _parsedCacheTimer: ReturnType<typeof setTimeout> | null = null
 let _importInProgress = false // prevents concurrent executeImport calls
 const IMPORT_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
@@ -450,7 +467,9 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
   const mtime = statSync(filePath).mtimeMs
 
   // Derive from cache if available
-  if (!_importInProgress && _parsedCache && _parsedCache.filePath === filePath && _parsedCache.mtime === mtime) {
+  const cacheHit = !!_parsedCache && _parsedCache.filePath === filePath && _parsedCache.mtime === mtime
+    && (sheetName ? _parsedCache.sheet === sheetName : _parsedCache.sheet === (_parsedCache.sheets[0] ?? ''))
+  if (!_importInProgress && _parsedCache && cacheHit) {
     const rawRows = _parsedCache.rawRows
     const mergedRanges = _parsedCache.mergedRanges
     const clampedIdx = headerRowIndex != null ? Math.min(headerRowIndex, Math.max(rawRows.length - 2, 0)) : undefined
@@ -467,6 +486,7 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
   const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
   let rawRows: string[][] = []
   let sheets: string[] = []
+  let parsedSheet = ''
   let mergedRanges: MergedCellInfo[] | undefined
 
   if (ext === 'csv') {
@@ -485,6 +505,7 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
       })
     })
     sheets = ['Sheet1']
+    parsedSheet = 'Sheet1'
   } else {
     // M11: Reject Excel files over 50 MB to prevent excessive memory usage
     const fileSize = statSync(filePath).size
@@ -496,6 +517,7 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
     sheets = wb.worksheets.map(ws => ws.name)
     const targetSheetName = sheetName || sheets[0]
     const ws = wb.worksheets.find(s => s.name === targetSheetName) || wb.worksheets[0]
+    parsedSheet = ws?.name ?? ''
 
     if (ws && ws.rowCount > 0) {
       mergedRanges = extractMergedRanges(ws)
@@ -522,7 +544,7 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
 
   // Only cache if row count is within the size limit to avoid unbounded memory use
   if (rawRows.length <= MAX_CACHE_ROWS) {
-    _parsedCache = { filePath, mtime, rawRows, sheets, mergedRanges }
+    _parsedCache = { filePath, mtime, sheet: parsedSheet, rawRows, sheets, mergedRanges }
     resetImportCacheTTL()
   } else {
     clearImportCache()
@@ -547,7 +569,11 @@ function resetImportCacheTTL(): void {
   _parsedCacheTimer = setTimeout(() => clearImportCache(), IMPORT_CACHE_TTL_MS)
 }
 
-export async function parseImportFile(filePath: string, sheetIndex = 0, headerRowIndex?: number): Promise<ImportPreview> {
+/**
+ * `sheetNameOverride` picks the sheet by name (the import itself passes the
+ * sheet the user chose, so types and name flipping come from that sheet).
+ */
+export async function parseImportFile(filePath: string, sheetIndex = 0, headerRowIndex?: number, sheetNameOverride?: string): Promise<ImportPreview> {
   const fileSize = statSync(filePath).size
   if (fileSize > MAX_IMPORT_FILE_SIZE) {
     throw new Error(`File is too large (${Math.round(fileSize / 1024 / 1024)} MB). Maximum size is 100 MB.`)
@@ -555,32 +581,31 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
 
   const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
 
-  const VALID_IMPORT_EXTENSIONS = new Set(['csv', 'xlsx', 'xls', 'ods'])
+  // ExcelJS reads only .xlsx; .xls and .ods failed with a raw zip error
+  if (ext === 'xls' || ext === 'ods') {
+    throw new Error('This is an older spreadsheet file. Open it in Excel (or LibreOffice) and choose Save As → Excel Workbook (.xlsx), then try again.')
+  }
+  const VALID_IMPORT_EXTENSIONS = new Set(['csv', 'xlsx'])
   if (!VALID_IMPORT_EXTENSIONS.has(ext)) {
-    throw new Error(`Unsupported file format: .${ext}. Supported formats: CSV, XLSX, XLS, ODS.`)
+    throw new Error(`Pulse can't read .${ext} files. Save it as a .csv or .xlsx file, then try again.`)
   }
 
   logger.info('import', 'Parsing import file', { format: ext })
 
   // For Excel with non-default sheet index, we need the sheet name
-  let sheetName: string | undefined
-  let sheetNames: string[] = []
-  if (['xlsx', 'xls', 'ods'].includes(ext) && sheetIndex > 0) {
+  let sheetName: string | undefined = ext === 'csv' ? undefined : sheetNameOverride
+  if (ext !== 'csv' && !sheetName && sheetIndex > 0) {
     // Pre-parse to get sheet names for selecting the target sheet
     const preParsed = await getCachedOrParse(filePath, undefined, headerRowIndex)
-    sheetNames = preParsed.sheets
-    sheetName = sheetNames[sheetIndex] || sheetNames[0]
-    // Clear cache so we re-parse with the correct sheet
-    if (sheetName !== sheetNames[0]) {
-      _parsedCache = null
-    }
+    sheetName = preParsed.sheets[sheetIndex] || preParsed.sheets[0]
   }
 
   const cached = await getCachedOrParse(filePath, sheetName, headerRowIndex)
   const headers = cached.headers
   const dataRows = cached.allRows
-  const sheets = sheetNames.length > 0 ? sheetNames : cached.sheets
+  const sheets = cached.sheets
   const rawRows = cached.rawRows
+  if (sheetName) sheetIndex = Math.max(0, sheets.indexOf(sheetName))
 
   if (dataRows.length === 0) return {
     sheets, activeSheet: sheetIndex, headers, rows: [], detectedColumns: [],
@@ -781,25 +806,6 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
 
   const nameColId = setupColumns()
 
-    // Build duplicate-detection lookup
-    let existingValues: Map<string, number> | null = null // value → rowId
-
-    if (duplicateStrategy !== 'none') {
-      existingValues = new Map()
-      const checkColId = duplicateStrategy === 'by_column' ? (duplicateColumnId ?? nameColId) : nameColId
-
-      if (checkColId) {
-        const existing = db.prepare(`
-          SELECT r.id, c.value FROM rows r
-          JOIN cells c ON c.row_id = r.id AND c.column_id = ?
-          WHERE r.grid_id = ? AND r.is_active = 1
-        `).all(checkColId, gridId) as Array<{ id: number; value: string }>
-        for (const row of existing) {
-          existingValues.set((row.value || '').toLowerCase().trim(), row.id)
-        }
-      }
-    }
-
     // Find the name column mapping (source index for the name column in import)
     let nameSourceIndex: number | null = null
     for (const [srcIdx, info] of colMap.entries()) {
@@ -808,9 +814,72 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
         break
       }
     }
+    const sourceFor = (columnId: number | undefined): number | null => {
+      if (columnId === undefined) return null
+      for (const [srcIdx, info] of colMap.entries()) if (info.columnId === columnId) return srcIdx
+      return null
+    }
+
+    // Birth-date columns: a two-digit year that would land in the future means the 1900s
+    const birthCols = new Set<number>()
+    for (const [srcIdx, info] of colMap.entries()) {
+      if (info.type !== 'date') continue
+      const target = db.prepare('SELECT name FROM columns WHERE id = ?').get(info.columnId) as { name: string } | undefined
+      if (looksLikeBirthColumn(headers[srcIdx] ?? '') || looksLikeBirthColumn(target?.name ?? '')) birthCols.add(srcIdx)
+    }
+
+    // Duplicate detection. Keys are compared lower-cased and trimmed; rows in
+    // Trash don't count, and each imported row joins the lookup so the same
+    // person twice in one file is caught too.
+    let dupKeys: Set<string> | null = null
+    let dupKeyOf: ((row: string[]) => string | null) | null = null
+    let dupLabelSrc: number | null = null
+    if (duplicateStrategy !== 'none') {
+      const existingCells = (columnId: number) => db.prepare(`
+        SELECT r.id, c.value FROM rows r
+        JOIN cells c ON c.row_id = r.id AND c.column_id = ?
+        WHERE r.grid_id = ? AND r.is_active = 1 AND r.deleted_at IS NULL
+      `).all(columnId, gridId) as Array<{ id: number; value: string }>
+      const norm = (v: string) => v.toLowerCase().trim()
+
+      let keyColId: number | undefined = duplicateStrategy === 'by_column' ? (duplicateColumnId ?? nameColId) : nameColId
+      let keySrc = sourceFor(keyColId)
+      if (keySrc === null && duplicateStrategy === 'by_column') {
+        warnings.push('The column chosen for spotting duplicates wasn\'t imported, so duplicates were matched by name.')
+        keyColId = nameColId
+        keySrc = nameSourceIndex
+      }
+
+      let dobColId: number | undefined
+      let dobSrc: number | null = null
+      if (duplicateStrategy === 'name_and_dob') {
+        for (const srcIdx of birthCols) { dobSrc = srcIdx; dobColId = colMap.get(srcIdx)!.columnId; break }
+        if (dobSrc === null) {
+          warnings.push('No date-of-birth column was imported, so duplicates were matched by name only.')
+        }
+      }
+
+      if (keyColId && keySrc !== null) {
+        dupKeys = new Set()
+        const dobByRow = new Map<number, string>()
+        if (dobColId) for (const c of existingCells(dobColId)) dobByRow.set(c.id, norm(c.value || ''))
+        for (const c of existingCells(keyColId)) {
+          dupKeys.add(dobColId ? `${norm(c.value || '')}|${dobByRow.get(c.id) ?? ''}` : norm(c.value || ''))
+        }
+        const src = keySrc
+        dupLabelSrc = nameSourceIndex ?? keySrc
+        dupKeyOf = (row) => {
+          const name = norm(cellValue(row, src))
+          if (!name) return null
+          if (dobSrc === null) return name
+          return `${name}|${norm(importedDate(row, dobSrc))}`
+        }
+      }
+    }
 
     let imported = 0
     let skipped = 0
+    const skippedNames: string[] = []
 
     // Day-first or month-first, decided per date column from all of its values
     const dateOrders = new Map<number, 'mdy' | 'dmy'>()
@@ -824,6 +893,20 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
     const cellValue = (row: string[], srcIdx: number): string => {
       const raw = String(row[srcIdx] || '').trim()
       return flipCols.has(srcIdx) ? flipLastFirst(raw) : raw
+    }
+    const birthAs1900s = new Map<number, number>()
+    const today = localDateString()
+    /** A date cell as stored: YYYY-MM-DD where readable, and a birthday never in the future */
+    const importedDate = (row: string[], srcIdx: number, count = false): string => {
+      const raw = cellValue(row, srcIdx)
+      let v = normalizeValue(raw, 'date', cleanData, dateOrders.get(srcIdx))
+      if (!birthCols.has(srcIdx) || !/^\d{4}-\d{2}-\d{2}$/.test(v) || !hasTwoDigitYear(raw)) return v
+      if (v > today) {
+        const earlier = toYmd(Number(v.slice(0, 4)) - 100, Number(v.slice(5, 7)), Number(v.slice(8, 10)))
+        if (earlier) v = earlier
+      }
+      if (count && v.startsWith('19')) birthAs1900s.set(srcIdx, (birthAs1900s.get(srcIdx) ?? 0) + 1)
+      return v
     }
 
     // Link columns (W04): names are matched to the other list's records, exactly but ignoring case
@@ -891,12 +974,15 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
           if (importRow.every(c => String(c).trim() === '')) continue // skip blank rows
 
           // Duplicate detection
-          if (existingValues && nameSourceIndex !== null) {
-            const nameVal = cellValue(importRow, nameSourceIndex).toLowerCase()
-            if (existingValues.has(nameVal)) {
-              warnings.push(`Row ${i + 2}: "${cellValue(importRow, nameSourceIndex)}" already exists — skipped`)
-              skipped++
-              continue
+          if (dupKeys && dupKeyOf) {
+            const key = dupKeyOf(importRow)
+            if (key !== null) {
+              if (dupKeys.has(key)) {
+                skippedNames.push(cellValue(importRow, dupLabelSrc ?? 0) || `Row ${i + 2}`)
+                skipped++
+                continue
+              }
+              dupKeys.add(key)
             }
           }
 
@@ -913,7 +999,9 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
 
             // The destination column's type decides the format (an existing date
             // column gets YYYY-MM-DD even if the samples looked like text)
-            const normalized = normalizeValue(rawVal, info.type, cleanData, dateOrders.get(srcIdx))
+            const normalized = info.type === 'date'
+              ? importedDate(importRow, srcIdx, true)
+              : normalizeValue(rawVal, info.type, cleanData, dateOrders.get(srcIdx))
             if (info.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
               unreadableDates.set(srcIdx, (unreadableDates.get(srcIdx) ?? 0) + 1)
             }
@@ -986,6 +1074,9 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
   })()
   if (hasDisplayFormat(gridId)) db.transaction(() => refreshDisplayNames(gridId))()
 
+  for (const [srcIdx, n] of birthAs1900s) {
+    warnings.push(`${n} date${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" had a two-digit year and ${n === 1 ? 'was' : 'were'} read as 19xx. Check ${n === 1 ? 'it' : 'them'}.`)
+  }
   for (const [srcIdx, n] of unreadableDates) {
     warnings.push(`${n} value${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" didn't look like ${n === 1 ? 'a date' : 'dates'} and ${n === 1 ? 'was' : 'were'} kept as typed. Check ${n === 1 ? 'it' : 'them'} in the grid.`)
   }
@@ -1000,7 +1091,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
   clearImportCache()
 
   logger.info('import', 'Import complete', { rowsImported: imported, skipped, warningCount: warnings.length, durationMs: Date.now() - importStart })
-  return { imported, skipped, warnings }
+  return { imported, skipped, warnings, skippedNames, newRowIds }
   } catch (err) {
     logger.error('import', 'Import failed', { error: err instanceof Error ? err.message : String(err) })
     throw err

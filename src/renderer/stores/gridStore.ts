@@ -26,6 +26,7 @@ const DEFAULT_LIST_VIEW: ListView = { activeFilters: [], filterMode: 'and', sear
 const _listViews = new Map<number, ListView>()
 import type { GridDeadlineContext } from '../../shared/ipc-contract'
 import { stageConfigOf } from '../../shared/stages'
+import { pulseEvents } from '../events'
 
 export type { GridState } from './gridTypes'
 
@@ -77,6 +78,22 @@ export const useGridStore = create<GridState>((set, get) => ({
   groupByColumnId: null,
   lastAddedRowId: null,
   pinnedRowId: null,
+  sampleRows: {},
+  sampleKeepPrompt: null,
+  answerSampleRow: async (rowId: number, answer: 'keep' | 'sample' | 'later') => {
+    set(s => {
+      const sampleRows = { ...s.sampleRows }
+      if (answer === 'keep') delete sampleRows[rowId]
+      else if (rowId in sampleRows) sampleRows[rowId] = answer === 'sample' ? 1 : 2
+      return { sampleRows, sampleKeepPrompt: null }
+    })
+    try {
+      await invoke(IPC.SAMPLE_ROW_ANSWER, rowId, answer)
+      if (answer === 'keep') pulseEvents.emit('sample-data:changed')
+    } catch (err) {
+      rlog.warn('GridStore', 'Could not save the sample answer', err)
+    }
+  },
   deadlineContext: { meter: {}, quota: {}, progress: {}, extensions: {} },
   refreshDeadlineContext: async () => {
     const gridId = get().activeGridId
@@ -170,7 +187,7 @@ export const useGridStore = create<GridState>((set, get) => ({
       const fullData = await invoke<{
         grid: Grid, columns: Column[], hiddenColumns: Column[], rows: GridRow[], acuityLevels: AcuityLevel[],
         cellFormats: CellFormat[], rowTagsMap: Record<number, string[]>,
-        savedViews: SavedView[], customGroups: string | null,
+        savedViews: SavedView[], customGroups: string | null, sampleRows?: Record<number, number>,
       }>(IPC.GRID_GET_FULL, gridId, showArchived)
       // Discard stale response if another loadGrid was called while awaiting
       if (get()._loadVersion !== version) return
@@ -219,6 +236,8 @@ export const useGridStore = create<GridState>((set, get) => ({
         savedViews: fullData.savedViews as SavedView[],
         customGroups,
         frozenColumnCount: grid.frozen_columns ?? 0,
+        sampleRows: fullData.sampleRows ?? {},
+        sampleKeepPrompt: null,
       })
       // Table or board, as last left for this list (W06)
       // Awaited, so a caller that sets the mode after loading (dashboard → board) wins
@@ -378,11 +397,21 @@ export const useGridStore = create<GridState>((set, get) => ({
     }
   },
 
-  archiveRow: async (rowId: number, reason?: string) => {
+  archiveRow: async (rowId: number, reason?: string, opts?: { cancelAppointments?: boolean }) => {
     const row = get().rows.find(r => r.row_id === rowId)
     const clientName = row ? getClientName(row, get().columns) : wordNow('record', { cap: true })
     try {
       await invoke(IPC.ROW_ARCHIVE, rowId, reason)
+      // Its upcoming appointments end with it, in the same undo step (audit 1.13)
+      let apptSnapshot: unknown = null
+      if (opts?.cancelAppointments) {
+        try {
+          apptSnapshot = (await invoke<{ snapshot: unknown }>(IPC.APPT_CANCEL_UPCOMING, [rowId])).snapshot
+        } catch (err) {
+          rlog.error('GridStore', 'Failed to cancel appointments of archived row', err)
+          toast.error(`We couldn't cancel the upcoming ${wordNow('appointment', { many: true })}. You can delete them on the calendar.`)
+        }
+      }
       // If not showing archived, remove from view; otherwise update is_active flag
       set(s => s.showArchived
         ? { rows: s.rows.map(r => r.row_id === rowId ? { ...r, is_active: 0 as const } : r) }
@@ -396,8 +425,11 @@ export const useGridStore = create<GridState>((set, get) => ({
         icon: 'archive',
         contextLabel: clientName,
         contextId: rowId,
-        undo: async () => { await get().unarchiveRow(rowId) },
-        redo: async () => { await get().archiveRow(rowId, reason) },
+        undo: async () => {
+          await get().unarchiveRow(rowId)
+          if (apptSnapshot) await invoke(IPC.APPT_RESTORE, apptSnapshot)
+        },
+        redo: async () => { await get().archiveRow(rowId, reason, opts) },
       })
     } catch (err) {
       rethrowIfUndoing(err)
@@ -548,6 +580,10 @@ export const useGridStore = create<GridState>((set, get) => ({
     try {
       const result = await invoke<{ sysLogId: number | null }>(IPC.CELL_UPDATE, rowId, columnId, value)
       set({ isSaving: false })
+      // Lets a sequence ask "correction or new start?" when its start date changes (D-37)
+      if (prevValue !== value && !useUndoStore.getState().isUndoing) pulseEvents.emit('cell:changed', { rowId, columnId, from: prevValue, to: value })
+      // The first edit to a made-up sample entry: ask once whether it's real now
+      if (prevValue !== value && get().sampleRows[rowId] === 0 && !useUndoStore.getState().isUndoing) set({ sampleKeepPrompt: rowId })
       // Push undo for cell change (only if value actually changed)
       if (prevValue !== value && !fromUndo) {
         const col = get().columns.find(c => c.id === columnId)

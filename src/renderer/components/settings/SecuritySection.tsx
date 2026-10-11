@@ -20,6 +20,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '', hint: '' })
   const [pwError, setPwError] = useState<string | null>(null)
+  const [pwSaving, setPwSaving] = useState(false)
   const [hasRecovery, setHasRecovery] = useState<boolean | null>(null)
   const [showRecoveryKeyModal, setShowRecoveryKeyModal] = useState(false)
   const [generatedRecoveryKey, setGeneratedRecoveryKey] = useState('')
@@ -85,15 +86,21 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
 
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault()
+    if (pwSaving) return
     setPwError(null)
     const check = checkNewPassword(pwForm.next)
     if (!check.ok) { setPwError(check.message ?? 'Choose a stronger password.'); return }
     if (pwForm.next !== pwForm.confirm) { setPwError('Passwords do not match.'); return }
-    const res = await safeInvoke(IPC.AUTH_CHANGE_PASSWORD, pwForm.current, pwForm.next, pwForm.hint)
-    if (!res.ok) { setPwError(res.error ?? 'Current password is incorrect.'); return }
-    toast.success('Password changed successfully.')
-    setPwForm({ current: '', next: '', confirm: '', hint: '' })
-    setIsChangingPassword(false)
+    setPwSaving(true)
+    try {
+      const res = await safeInvoke(IPC.AUTH_CHANGE_PASSWORD, pwForm.current, pwForm.next, pwForm.hint)
+      if (!res.ok) { setPwError(res.error === 'Incorrect password' ? 'Your current password is incorrect.' : (res.error ?? 'Current password is incorrect.')); return }
+      toast.success('Password changed successfully.')
+      setPwForm({ current: '', next: '', confirm: '', hint: '' })
+      setIsChangingPassword(false)
+    } finally {
+      setPwSaving(false)
+    }
   }
 
   return (
@@ -113,9 +120,9 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
           value={autoLockMinutes}
           onChange={e => void handleAutoLockChange(Number(e.target.value))}
         >
-          <option value={5}>5 minutes (recommended)</option>
-          <option value={15}>15 minutes</option>
-          <option value={30}>30 minutes (default)</option>
+          <option value={5}>5 minutes</option>
+          <option value={15}>15 minutes (recommended)</option>
+          <option value={30}>30 minutes</option>
           <option value={60}>1 hour</option>
           <option value={120}>2 hours</option>
         </select>
@@ -172,8 +179,8 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
                 placeholder="A hint shown on the lock screen (not your password)" />
             </div>
             <button type="submit" className="btn-primary w-full" style={{ minHeight: 44 }}
-              disabled={isChangingPassword || (pwForm.next.length > 0 && pwForm.confirm.length > 0 && pwForm.next !== pwForm.confirm)}>
-              Save new password
+              disabled={pwSaving || (pwForm.next.length > 0 && pwForm.confirm.length > 0 && pwForm.next !== pwForm.confirm)}>
+              {pwSaving ? 'Saving…' : 'Save new password'}
             </button>
           </form>
         )}

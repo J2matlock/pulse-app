@@ -26,6 +26,9 @@ export function invalidateColumnCache(columnId?: number): void {
   }
 }
 
+/** Number columns always keep their first value, for the history chart on the record page */
+const NUMBER_TYPES = new Set(['number', 'currency'])
+
 function getColMeta(columnId: number): ColMeta | undefined {
   let cached = _colMetaCache.get(columnId)
   if (cached) return cached
@@ -108,8 +111,9 @@ export function registerCellHandlers(): void {
           INSERT INTO cell_history (cell_id, row_id, column_id, old_value, new_value, changed_at)
           VALUES (?, ?, ?, ?, ?, datetime('now'))
         `).run(existing.id, rowId, columnId, existing.value, value)
-      } else if (value !== null && getColMeta(columnId)?.config.log_changes) {
-        // A column that records every change keeps the first value too, so a number's history starts there (W10 §5)
+      } else if (value !== null && (getColMeta(columnId)?.config.log_changes || NUMBER_TYPES.has(getColMeta(columnId)?.column_type ?? ''))) {
+        // Number columns (and any column that records every change) keep the first value too,
+        // so a number's history chart is complete from the start (W10 §5, 3.5)
         const cellId = (cachedStmt('cell_id_for', 'SELECT id FROM cells WHERE row_id = ? AND column_id = ?').get(rowId, columnId) as { id: number }).id
         cachedStmt('cell_history_insert', `
           INSERT INTO cell_history (cell_id, row_id, column_id, old_value, new_value, changed_at)

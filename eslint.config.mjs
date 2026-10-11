@@ -9,6 +9,12 @@ const undoInvokeRule = {
   message: 'Use mustInvoke() inside undo/redo callbacks so a failure is reported instead of looking like success.',
 }
 
+// Error toasts never show a raw IPC error: wrap it in friendlyError() (audit 2.15 / N-28)
+const rawErrorToast = {
+  selector: "CallExpression[callee.object.name='toast'][callee.property.name='error'] > MemberExpression.arguments:first-child[property.name='error']",
+  message: 'Wrap the error in friendlyError(...) so people never see raw system text.',
+}
+
 export default [
   {
     files: ['src/**/*.ts', 'src/**/*.tsx'],
@@ -58,7 +64,11 @@ export default [
     // User-facing record/list/note words come from the vocabulary layer
     files: ['src/renderer/**/*.tsx'],
     ignores: vocabNotYetConverted,
-    rules: { 'no-restricted-syntax': ['error', ...vocabRuleOptions, undoInvokeRule] },
+    rules: { 'no-restricted-syntax': ['error', ...vocabRuleOptions, rawErrorToast, undoInvokeRule] },
+  },
+  {
+    files: ['src/renderer/**/*.ts'],
+    rules: { 'no-restricted-syntax': ['error', rawErrorToast, undoInvokeRule] },
   },
   {
     ignores: ['out/**', 'dist/**', 'node_modules/**', '*.config.*', 'eslint/**'],

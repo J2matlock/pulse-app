@@ -60,6 +60,8 @@ import { ArchiveDialog, DeleteRowDialog, MoveToGridDialog, BulkDeleteDialog, Bul
 import { BulkEditDialog } from './BulkEditDialog'
 import { GridLoadingSkeleton, GridEmptyColumns } from './GridLoadingState'
 import { useVocab } from '../../hooks/useVocab'
+import { pulseEvents } from '../../events'
+import { IS_MAC } from '../../utils/keys'
 import { useFeature } from '../../hooks/useFeature'
 import { ACUITY_GROUP_KEY, isNotTypedColumnType, takesDeadlineRule } from '../../../shared/types'
 
@@ -76,7 +78,7 @@ export function DataGrid(): React.ReactElement {
           rowTagsMap, showStarredOnly, cellFormats,
           acuityEnabled: acuityFlag, acuityLevels, groupByColumnId, isLoading,
           activeGridId, copiedFormatRules, customGroups, activeCustomGroupId,
-          lastAddedRowId, pinnedRowId, frozenColumnCount } = useGridStore(useShallow(s => ({
+          lastAddedRowId, pinnedRowId, frozenColumnCount, sampleRows } = useGridStore(useShallow(s => ({
     columns: s.columns, rows: s.rows, sortConfig: s.sortConfig,
     searchQuery: s.searchQuery, findReplaceQuery: s.findReplaceQuery,
     findReplaceActiveMatch: s.findReplaceActiveMatch,
@@ -91,6 +93,7 @@ export function DataGrid(): React.ReactElement {
     lastAddedRowId: s.lastAddedRowId,
     pinnedRowId: s.pinnedRowId,
     frozenColumnCount: s.frozenColumnCount,
+    sampleRows: s.sampleRows,
   })))
   // A list's own setting, shown only while the feature is switched on
   const priorityOn = useFeature('priority')
@@ -118,6 +121,8 @@ export function DataGrid(): React.ReactElement {
 
   const alertRules = useAlertStore(s => s.rules)
   const alertRuleMap = useMemo(() => new Map(alertRules.map(r => [r.id, r])), [alertRules])
+  // Colors for meter, quota, step and extension rules depend on this; it arrives after the rows
+  const deadlineContext = useGridStore(s => s.deadlineContext)
   const navigate = useNavigate()
   const addRecentProfile = useProfileStore(s => s.addRecentProfile)
   const saveScrollTop = useProfileStore(s => s.saveScrollTop)
@@ -308,9 +313,9 @@ export function DataGrid(): React.ReactElement {
     await duplicateRow(rowId)
   }, [duplicateRow])
 
-  const handleArchiveConfirm = useCallback(async () => {
+  const handleArchiveConfirm = useCallback(async (opts: { cancelAppointments: boolean }) => {
     if (archiveTarget == null) return
-    await archiveRow(archiveTarget, archiveReason.trim() || undefined)
+    await archiveRow(archiveTarget, archiveReason.trim() || undefined, opts)
     setArchiveTarget(null)
     setArchiveReason('')
   }, [archiveTarget, archiveReason, archiveRow])
@@ -677,6 +682,7 @@ export function DataGrid(): React.ReactElement {
       columns={columns}
       columnMap={columnMap}
       alertRuleMap={alertRuleMap}
+      deadlineContext={deadlineContext}
       cellFormats={cellFormats}
       parsedColumnConfigs={parsedColumnConfigs}
       hasAnyHighlightRules={hasAnyHighlightRules}
@@ -705,6 +711,7 @@ export function DataGrid(): React.ReactElement {
       findReplaceActiveColId={findReplaceActiveMatch?.colId ?? null}
       frozenLeftOffsets={frozenLeftOffsets}
       frozenColumnCount={frozenColumnCount}
+      isSample={sampleRows[row.original.row_id] !== undefined}
     />
   )
 
@@ -730,7 +737,7 @@ export function DataGrid(): React.ReactElement {
       {/* ── Hint banner for new users ─── */}
       {!hintDismissed && tableRows.length > 0 && (
         <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-600 dark:text-blue-300 px-3 py-1.5 flex-shrink-0">
-          <span>Tip: Click column headers to sort &middot; Right-click column headers for alerts, tracking &amp; more &middot; Right-click {t('record', { article: true })} for options &middot; Press <kbd className="px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-800/40 font-mono">Shift+?</kbd> for all shortcuts</span>
+          <span>Tip: Click column headers to sort &middot; Right-click column headers for deadline rules, tracking &amp; more &middot; Right-click {t('record', { article: true })} for options &middot; Press <kbd className="px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-800/40 font-mono">Shift+?</kbd> for all shortcuts</span>
           <button
             onClick={dismissHint}
             className="hit-44 ml-3 p-0.5 rounded hover:bg-blue-100 dark:hover:bg-blue-800/40 text-blue-400 dark:text-blue-400"
@@ -835,17 +842,39 @@ export function DataGrid(): React.ReactElement {
               <p className="text-base text-slate-500 dark:text-slate-400">
                 No {t('record', { many: true })} found matching &ldquo;{searchQuery}&rdquo;
               </p>
+            ) : rows.length > 0 ? (
+              <>
+                <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                  No {t('record', { many: true })} match your filters
+                </h3>
+                <button type="button" className="btn-secondary" onClick={() => {
+                  useGridStore.setState({ activeFilters: [], showStarredOnly: false })
+                  useGridStore.getState().setActiveCustomGroupId(null)
+                }}>
+                  Clear filters
+                </button>
+              </>
             ) : (
               <>
                 <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   No {t('record', { many: true })} yet
                 </h3>
-                <p className="text-base text-slate-500 dark:text-slate-400 mb-1">
-                  Click &ldquo;Add {t('record', { cap: true })}&rdquo; in the toolbar above, or press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-xs font-mono">Ctrl+Shift+R</kbd> to add your first {t('record')}.
+                <p className="text-base text-slate-500 dark:text-slate-400 mb-4">
+                  Add your first {t('record')}{' '}
+                  (or press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-base font-mono">{IS_MAC ? '⌘N' : 'Ctrl+N'}</kbd>),
+                  or bring them in from a spreadsheet.
                 </p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Tip: Right-click {t('record', { article: true })} for more options like archiving and duplicating.
-                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <button type="button" className="btn-primary" onClick={() => void useGridStore.getState().addRow()}>
+                    Add {t('record', { cap: true })}
+                  </button>
+                  <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('grid:open-import')}>
+                    Bring in a spreadsheet
+                  </button>
+                  <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('starters:open', { sample: true })}>
+                    See an example with sample data
+                  </button>
+                </div>
               </>
             )}
           </div>
@@ -986,7 +1015,7 @@ export function DataGrid(): React.ReactElement {
         archiveTarget={archiveTarget}
         archiveReason={archiveReason}
         setArchiveReason={setArchiveReason}
-        onConfirm={() => void handleArchiveConfirm()}
+        onConfirm={opts => void handleArchiveConfirm(opts)}
         onCancel={() => { setArchiveTarget(null); setArchiveReason('') }}
       />
     </div>

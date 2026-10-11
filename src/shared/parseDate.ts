@@ -15,15 +15,18 @@ function monthFromName(name: string): number | undefined {
   return MONTHS[n] ?? MONTHS[n.slice(0, 3)]
 }
 
-/** Two-digit years: up to 10 years ahead means this century, otherwise last ("01/05/45" is a birth date). */
+/**
+ * Two-digit years: up to this year means this century, otherwise last. A
+ * spreadsheet's "3/15/30" is far more often a 1930 birthday than a date four
+ * years away. Birth-date columns get a further check in executeImport.
+ */
 function fullYear(y: number): number {
   if (y >= 100) return y
-  const pivot = (new Date().getFullYear() % 100) + 10
-  return y <= pivot ? 2000 + y : 1900 + y
+  return y <= new Date().getFullYear() % 100 ? 2000 + y : 1900 + y
 }
 
 /** Validated YYYY-MM-DD from calendar parts (rejects 02/30 etc.), or null. */
-function toYmd(y: number, m: number, d: number): string | null {
+export function toYmd(y: number, m: number, d: number): string | null {
   const dt = new Date(Date.UTC(y, m - 1, d))
   if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null
   return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`

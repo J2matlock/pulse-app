@@ -6,6 +6,12 @@
   "description": "For nonprofit grant managers: quarterly reports, closeout reports 90 days after a grant ends, funders and program officers.",
   "icon": "building-2",
   "group": "Business",
+  "keywords": [
+    "grant",
+    "funding",
+    "nonprofit",
+    "report"
+  ],
   "vocab": {
     "record": {
       "one": "grant",

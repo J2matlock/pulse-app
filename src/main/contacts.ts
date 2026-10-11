@@ -383,7 +383,11 @@ export function getClientLinks(
         p.name AS provider_name,
         pc.color AS provider_category_color,
         p.availability_status AS provider_availability_status,
-        p.phone_main AS provider_phone_main
+        p.phone_main AS provider_phone_main,
+        p.email AS provider_email,
+        p.org_name AS provider_org_name,
+        p.title AS provider_title,
+        pc.name AS provider_category_name
       FROM provider_client_links pcl
       JOIN providers p ON pcl.provider_id = p.id
       LEFT JOIN provider_categories pc ON p.category_id = pc.id

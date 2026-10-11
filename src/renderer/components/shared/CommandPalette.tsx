@@ -3,7 +3,14 @@ import { Command } from 'cmdk'
 import { useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, ClipboardList, Zap, LayoutTemplate, FileText,
-  Settings, Lock, UserPlus, Search, Clock, Grid3X3, Focus, BookUser, ClipboardPen, BarChart3 } from 'lucide-react'
+  Settings, Lock, UserPlus, Search, Clock, Grid3X3, Focus, BookUser, ClipboardPen, BarChart3,
+  CalendarDays, HelpCircle, Trash2 } from 'lucide-react'
+import { FAQ_ITEMS } from '../../views/help/faqData'
+import { shortcutText } from '../../../shared/shortcuts'
+import { IS_MAC } from '../../utils/keys'
+
+/** A shortcut as this computer writes it (⌘ on a Mac) */
+const keys = (...k: string[]) => shortcutText(k, IS_MAC)
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
 import { useProfileStore } from '../../stores/profileStore'
@@ -51,7 +58,7 @@ interface CommandPaletteProps {
 export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPaletteProps): React.ReactElement | null {
   const features = useWorkspaceStore(s => s.features)
   // Results span lists, so headings use workspace words; the open list's group uses its own
-  const { t } = useVocab(null)
+  const { t, f } = useVocab(null)
   const { t: tActive } = useVocab()
   const navigate = useNavigate()
   const { rows, columns, grids, activeGridId } = useGridStore(useShallow(s => ({
@@ -145,8 +152,8 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
     onOpenChange(false)
   }
 
-  const navigateToProfile = useCallback((rowId: number) => {
-    navigate(`/profile/${rowId}`)
+  const navigateToProfile = useCallback((rowId: number, gridId?: number) => {
+    navigate(gridId ? `/profile/${rowId}?gridId=${gridId}` : `/profile/${rowId}`)
     onOpenChange(false)
   }, [navigate, onOpenChange])
 
@@ -170,26 +177,32 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
 
   // Memoize static command arrays — only rebuild when their dependencies change, not on every keystroke
   const navCommands = useMemo(() => ([
-    { label: 'Go to Dashboard', icon: LayoutDashboard, action: () => navigate('/dashboard'), shortcut: 'Ctrl+Shift+D' },
-    { label: 'Go to Grid', icon: Grid3X3, action: () => navigate('/grid'), shortcut: '' },
+    { label: 'Go to Dashboard', icon: LayoutDashboard, action: () => navigate('/dashboard'), shortcut: keys('Mod', 'Shift', 'D') },
+    // Every list by name, so switching lists is one search away (audit N-09)
+    ...grids.map(g => ({ label: `Go to ${g.name}`, icon: Grid3X3, action: () => { void useGridStore.getState().loadGrid(g.id); navigate('/grid') }, shortcut: '' })),
+    { label: 'Go to Calendar', icon: CalendarDays, action: () => navigate('/calendar'), shortcut: '' },
     { label: 'Go to Reports', icon: BarChart3, action: () => navigate('/reports'), shortcut: '' },
-    { label: 'Go to Tasks', icon: ClipboardList, action: () => navigate('/tasks'), shortcut: 'Ctrl+Shift+T', feature: 'tasks' as FeatureKey },
-    { label: 'Go to Contacts', icon: BookUser, action: () => navigate('/contacts'), shortcut: 'Ctrl+Shift+P', feature: 'contactsDirectory' as FeatureKey },
+    { label: 'Go to Tasks', icon: ClipboardList, action: () => navigate('/tasks'), shortcut: '', feature: 'tasks' as FeatureKey },
+    { label: 'Go to Contacts', icon: BookUser, action: () => navigate('/contacts'), shortcut: keys('Mod', 'Shift', 'P'), feature: 'contactsDirectory' as FeatureKey },
+    { label: 'Go to Help', icon: HelpCircle, action: () => navigate('/help'), shortcut: '' },
+    { label: 'Go to Trash', icon: Trash2, action: () => navigate('/trash'), shortcut: '' },
     { label: 'Go to Snippets', icon: Zap, action: () => navigate('/snippets'), shortcut: '', feature: 'snippets' as FeatureKey },
     { label: 'Go to Templates', icon: LayoutTemplate, action: () => navigate('/templates'), shortcut: '' },
     { label: 'Go to Letters', icon: FileText, action: () => navigate('/letter-templates'), shortcut: '', feature: 'letters' as FeatureKey },
     { label: 'Open Settings', icon: Settings, action: () => navigate('/settings'), shortcut: '' },
     ...(onFocusMode ? [{ label: 'Enter Focus Mode', icon: Focus, action: () => { onFocusMode(); onOpenChange(false) }, shortcut: '', feature: 'focusMode' as FeatureKey }] : []),
-  ] as Array<{ label: string; icon: typeof Focus; action: () => void; shortcut: string; feature?: FeatureKey }>).filter(c => !c.feature || isOn(features, c.feature)), [navigate, onFocusMode, onOpenChange, features])
+  ] as Array<{ label: string; icon: typeof Focus; action: () => void; shortcut: string; feature?: FeatureKey }>).filter(c => !c.feature || isOn(features, c.feature)), [navigate, onFocusMode, onOpenChange, features, grids])
 
+  const activeGridName = activeGrid?.name ?? null
   const paletteForms = useFormStore(s => (activeGridId ? s.byGrid[activeGridId] : undefined)) ?? NO_FORMS
   const actionCommands = useMemo(() => ([
-    { label: `Add New ${tActive('record', { cap: true })}`, icon: UserPlus, action: handleAddClient, shortcut: '' },
-    ...(isOn(features, 'tasks') ? [{ label: 'Add New Task', icon: ClipboardList, action: handleAddTask, shortcut: '' }] : []),
+    // Says which list it adds to, since the palette opens from any screen (audit N-03)
+    ...(activeGridName ? [{ label: `Add ${tActive('record', { article: true })} to ${activeGridName}`, icon: UserPlus, action: handleAddClient, shortcut: keys('Mod', 'N') }] : []),
+    ...(isOn(features, 'tasks') ? [{ label: 'Add New Task', icon: ClipboardList, action: handleAddTask, shortcut: keys('Mod', 'Shift', 'T') }] : []),
     // Fill a form (W08): a new record in the open list
     ...(isOn(features, 'forms') && activeGridId ? paletteForms.map(f => ({ label: `Fill form: ${f.name}`, icon: ClipboardPen, action: () => pulseEvents.emit('form:fill', { formId: f.id, gridId: activeGridId }), shortcut: '' })) : []),
-    { label: 'Lock App', icon: Lock, action: lock, shortcut: 'Ctrl+L' },
-  ]), [handleAddClient, handleAddTask, lock, tActive, features, paletteForms, activeGridId])
+    { label: 'Lock App', icon: Lock, action: lock, shortcut: keys('Mod', 'L') },
+  ]), [handleAddClient, handleAddTask, lock, tActive, features, paletteForms, activeGridId, activeGridName])
 
   // Quick actions shown when input is empty (subset of nav + action commands)
   const quickActions = useMemo(() => [
@@ -220,6 +233,21 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
       .map(c => c.cmd),
     [actionCommands, q])
   const showRecent = !q && recentProfiles.length > 0
+  // Help answers by question, opened in Help (audit N-09 / N-22)
+  const helpMatches = useMemo(() => {
+    if (q.trim().length < 3) return []
+    return FAQ_ITEMS
+      .filter(i => !i.feature || isOn(features, i.feature))
+      .map(i => ({ id: i.id, question: f(i.question) }))
+      // Every typed word appears in the question (a loose fuzzy match finds too much in long sentences)
+      .filter(i => q.trim().split(/\s+/).every(w => i.question.toLowerCase().includes(w)))
+      .slice(0, 5)
+  }, [q, f, features])
+  const openHelp = (id: string, question: string) => {
+    try { sessionStorage.setItem('pulse-help-view-state', JSON.stringify({ search: question, category: 'all', openIds: [id], scrollTop: 0 })) } catch { /* Help still opens */ }
+    navigate('/help')
+    onOpenChange(false)
+  }
 
   if (!open) return null
 
@@ -333,7 +361,7 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
                   <Command.Item
                     key={p.rowId}
                     value={`recent-${p.rowId}`}
-                    onSelect={() => navigateToProfile(p.rowId)}
+                    onSelect={() => navigateToProfile(p.rowId, p.gridId)}
                     className="flex items-center gap-3 px-3 py-2 mx-1 cursor-pointer rounded-sm
                                hover:bg-slate-100 dark:hover:bg-slate-700
                                aria-selected:bg-slate-100 dark:aria-selected:bg-slate-700"
@@ -370,6 +398,29 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
                     {cmd.shortcut && (
                       <kbd className="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded px-1.5 py-0.5 font-mono">{cmd.shortcut}</kbd>
                     )}
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+
+            {/* Help answers (shown when searching) */}
+            {helpMatches.length > 0 && (
+              <Command.Group>
+                <p className="px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                  Help
+                </p>
+                {helpMatches.map(h => (
+                  <Command.Item
+                    key={`help-${h.id}`}
+                    value={`help-${h.id}`}
+                    onSelect={() => openHelp(h.id, h.question)}
+                    className="flex items-center gap-3 px-3 py-2 mx-1 cursor-pointer rounded-sm
+                               hover:bg-slate-100 dark:hover:bg-slate-700
+                               aria-selected:bg-slate-100 dark:aria-selected:bg-slate-700"
+                    style={{ minHeight: 44 }}
+                  >
+                    <HelpCircle className="w-4 h-4 text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                    <span className="flex-1 text-slate-800 dark:text-slate-100" style={{ fontSize: 15 }}>{h.question}</span>
                   </Command.Item>
                 ))}
               </Command.Group>

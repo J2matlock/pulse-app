@@ -6,6 +6,13 @@
   "description": "A simple sales pipeline: leads on a board from new to won or lost, what each is worth, and when to follow up next.",
   "icon": "users",
   "group": "Business",
+  "keywords": [
+    "sales",
+    "leads",
+    "crm",
+    "customers",
+    "prospects"
+  ],
   "vocab": {
     "record": {
       "one": "lead",

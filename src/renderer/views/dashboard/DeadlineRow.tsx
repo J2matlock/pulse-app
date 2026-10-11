@@ -1,15 +1,17 @@
 import React, { useState } from 'react'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, ChevronDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { classifyDeadline, computeEffectiveDeadline, formatDeadlineTooltip } from '../../utils/deadlineCalc'
 import { resolveAlertColor } from '../../utils/alertColors'
-import { completeDeadlines, startsNextCycle } from './completeDeadline'
+import { completeDeadlines, startsNextCycle, isOneOffDeadline } from './completeDeadline'
+import { OneOffDoneDialog, type OneOffChoice } from './OneOffDoneDialog'
 import { hasInterval, toRuleInterval } from '../../../shared/ruleInterval'
 import type { ExtendedDeadlineInfo } from './types'
 import { MeterReadingDialog } from './MeterReadingDialog'
+import { DoneOnDayDialog } from './DoneOnDayDialog'
 import { ExtendDeadlineDialog } from './ExtendDeadlineDialog'
 import { extendDeadline, removeExtension } from './extendDeadline'
-import { ymdToDate } from '../../../shared/deadlineEngine'
+import { ymdToDate, isUsedUp } from '../../../shared/deadlineEngine'
 
 export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, onToggleSelect }: {
   deadline: ExtendedDeadlineInfo
@@ -22,15 +24,21 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
   const navigate = useNavigate()
   const [marking, setMarking] = useState(false)
   const [askReading, setAskReading] = useState(false)
+  const [askOneOff, setAskOneOff] = useState(false)
+  const [askDay, setAskDay] = useState(false)
   const [extending, setExtending] = useState(false)
   const { daysUntil, threshold, clientName, columnName, gridName, dateValue, intervalDays, interval, rowId, columnId, gridId } = deadline
   const ruleInterval = interval ?? toRuleInterval(intervalDays)
   const ruleKind = deadline.ruleKind ?? 'interval'
+  // A date that doesn't repeat: Done asks Renewed or Finished (Decision E1)
+  const oneOff = isOneOffDeadline({ ruleKind, interval: ruleInterval })
   // "Based on <date>" only makes sense when the due date counts from the date in this column
   const recurring = ruleKind === 'interval' && hasInterval(ruleInterval)
-  const bucket = classifyDeadline(daysUntil)
+  const usedUp = isUsedUp({ state: deadline.state, daysUntil })
+  const bucket = usedUp ? 'overdue' : classifyDeadline(daysUntil)
 
   const urgencyLabel =
+    usedUp && deadline.label ? deadline.label :
     bucket === 'overdue'    ? `${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? '' : 's'} overdue` :
     bucket === 'today'      ? 'Due today' :
     `${daysUntil} day${daysUntil === 1 ? '' : 's'}`
@@ -63,12 +71,14 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
     } catch { return storedDateFormatted }
   })()
 
+  // "IFSP meeting (step 1 of 4)" → "IFSP meeting"
+  const stepName = ruleKind === 'sequence' && deadline.label ? deadline.label.replace(/ \((step|repeat) [^)]*\)$/, '') : null
   const tooltip = deadline.detail && ruleKind !== 'interval' ? deadline.detail : formatDeadlineTooltip(dateValue, ruleInterval, daysUntil)
 
-  async function markDone(reading?: number) {
+  async function markDone(reading?: number, doneOn?: string, oneOff?: OneOffChoice) {
     setMarking(true)
     try {
-      const done = await completeDeadlines([{ rowId, columnId, columnName, clientName, dateValue, interval: ruleInterval, checklistTemplateId: deadline.checklistTemplateId, ruleKind, reading, step: deadline.step }], { onUndone: onUndoneMarkDone })
+      const done = await completeDeadlines([{ rowId, columnId, columnName, clientName, dateValue, interval: ruleInterval, checklistTemplateId: deadline.checklistTemplateId, ruleKind, reading, step: deadline.step, doneOn, oneOff }], { onUndone: onUndoneMarkDone })
       if (done.length > 0) onMarkDone?.(rowId, columnId)
     } finally {
       setMarking(false)
@@ -110,6 +120,8 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
         <div className="text-sm text-slate-600 dark:text-slate-300 truncate">
           {gridName}
           {recurring ? <span className="ml-2">· based on {storedDateFormatted}</span> : null}
+          {/* Which step, how many are used, how much use is left (D-08) */}
+          {ruleKind !== 'interval' && deadline.label && !usedUp ? <span className="ml-2">· {deadline.label}</span> : null}
         </div>
       </div>
       <div className="flex-shrink-0 text-right">
@@ -147,29 +159,50 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
       )}
       {onMarkDone && ruleKind !== 'quota' && (
         <button
-          onClick={() => { if (ruleKind === 'meter') setAskReading(true); else void markDone() }}
+          onClick={() => { if (ruleKind === 'meter') setAskReading(true); else if (oneOff) setAskOneOff(true); else void markDone() }}
           disabled={marking}
           title={ruleKind === 'meter' ? 'Mark done: asks for the current reading'
             : ruleKind === 'sequence' ? 'Mark this step done; the next step comes due'
             : ruleKind !== 'interval' ? 'Mark done: records today as the day it was done'
             : startsNextCycle(ruleInterval)
             ? 'Mark done: sets the date to today, which starts the next cycle'
-            : 'Mark done: clears the date. Enter a new date in the grid to bring it back.'}
-          aria-label="Mark done"
+            : 'Mark done: asks whether it was renewed (a new date) or finished'}
+          aria-label={stepName ? `Mark ${stepName} done` : 'Mark done'}
           className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 text-sm font-medium transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500 disabled:opacity-50"
           style={{ minHeight: 36 }}
         >
           <CheckCircle2 className="w-3.5 h-3.5" />
-          Done
+          {stepName ? `Mark ${stepName} done` : 'Done'}
+        </button>
+      )}
+      {/* The work happened on an earlier day (meter readings ask for the day in their dialog) */}
+      {onMarkDone && ruleKind !== 'quota' && ruleKind !== 'meter' && !oneOff && (
+        <button
+          onClick={() => setAskDay(true)}
+          disabled={marking}
+          title="Done on another day…"
+          aria-label="Done on another day…"
+          className="hit-44 flex-shrink-0 -ml-3 px-1.5 py-1.5 rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500 disabled:opacity-50"
+          style={{ minHeight: 36 }}
+        >
+          <ChevronDown className="w-4 h-4" />
         </button>
       )}
       {extending && (
         <ExtendDeadlineDialog title={`${columnName}: ${clientName}`} currentDue={deadline.due ?? null} onClose={() => setExtending(false)}
           onSave={(newDue, reason) => { setExtending(false); void extendDeadline(rowId, columnId, columnName, newDue, reason, onUndoneMarkDone) }} />
       )}
+      {askOneOff && (
+        <OneOffDoneDialog title={`${columnName}: ${clientName}`} currentDue={deadline.due ?? null} onClose={() => setAskOneOff(false)}
+          onSave={choice => { setAskOneOff(false); void markDone(undefined, undefined, choice) }} />
+      )}
       {askReading && (
-        <MeterReadingDialog title={`${columnName}: ${clientName}`} onClose={() => setAskReading(false)}
-          onSave={reading => { setAskReading(false); void markDone(reading) }} />
+        <MeterReadingDialog title={`${columnName}: ${clientName}`} info={deadline.meter} onClose={() => setAskReading(false)}
+          onSave={(reading, doneOn) => { setAskReading(false); void markDone(reading, doneOn) }} />
+      )}
+      {askDay && (
+        <DoneOnDayDialog title={`${columnName}: ${clientName}`} onClose={() => setAskDay(false)}
+          onSave={day => { setAskDay(false); void markDone(undefined, day) }} />
       )}
     </div>
   )

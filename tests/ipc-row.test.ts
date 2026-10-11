@@ -203,6 +203,17 @@ describe('IPC Row — ROW_RESTORE_DELETED', () => {
     expect(row.deleted_at).toBeNull()
   })
 
+  it('brings an archived record back archived, not active', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    await invoke(IPC.ROW_ARCHIVE, rowIds[0], 'Case closed')
+    await invoke(IPC.ROW_DELETE, rowIds[0])
+    await invoke(IPC.ROW_RESTORE_DELETED, rowIds[0])
+    const row = testDb.db.prepare('SELECT is_active, deleted_at, archived_at FROM rows WHERE id = ?').get(rowIds[0]) as any
+    expect(row.is_active).toBe(0)
+    expect(row.deleted_at).toBeNull()
+    expect(row.archived_at).not.toBeNull()
+  })
+
   it('rejects invalid ID', async () => {
     const result = await invoke(IPC.ROW_RESTORE_DELETED, 0) as any
     expect(result.ok).toBe(false)

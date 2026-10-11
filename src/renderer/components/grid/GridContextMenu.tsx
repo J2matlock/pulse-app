@@ -2,6 +2,7 @@ import React from 'react'
 import { motion } from 'motion/react'
 import { Palette, Trash2, Pencil, Star, Archive, RotateCcw, Copy, ArrowRightLeft, Clipboard, X as XIcon, Clock, User as UserIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { friendlyError } from '../../utils/friendlyError'
 import type { GridRow, Column, CellFormatRule } from '../../../shared/types'
 import { evalCellFormat } from './CellConditionalFormatPanel'
 import { formatCellForClipboard, checkPaste } from './gridHelpers'
@@ -171,7 +172,7 @@ export function GridContextMenu({
                   const col = columns.find(c => c.id === contextMenu.colId)
                   if (col) {
                     const checked = checkPaste(text, col)
-                    if ('error' in checked) toast.error(checked.error)
+                    if ('error' in checked) toast.error(friendlyError(checked.error))
                     else void updateCell(contextMenu.rowId, contextMenu.colId, checked.value)
                   }
                 } catch { /* clipboard access denied */ }

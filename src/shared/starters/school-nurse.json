@@ -6,6 +6,13 @@
   "description": "Students with health needs: allergies, conditions, medication authorizations, health plan reviews and yearly vision and hearing screenings.",
   "icon": "stethoscope",
   "group": "Education and youth",
+  "keywords": [
+    "school",
+    "nurse",
+    "student",
+    "medication",
+    "immunization"
+  ],
   "vocab": {
     "record": {
       "one": "student",

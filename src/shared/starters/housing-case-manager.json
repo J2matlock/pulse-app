@@ -6,6 +6,13 @@
   "description": "For housing and homeless services: monthly contacts, housing plan reviews every 6 months, lease end dates and yearly income recertification, with a one-contact-a-month requirement.",
   "icon": "home",
   "group": "Human services",
+  "keywords": [
+    "housing",
+    "homeless",
+    "shelter",
+    "rental",
+    "section 8"
+  ],
   "vocab": {
     "record": {
       "one": "client",

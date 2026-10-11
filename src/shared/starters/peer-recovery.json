@@ -6,6 +6,12 @@
   "description": "For peer recovery and recovery coaching: a weekly contact requirement, recovery plan reviews every 90 days and milestones at 30, 60 and 90 days, 6 months and every year.",
   "icon": "sprout",
   "group": "Human services",
+  "keywords": [
+    "recovery",
+    "substance use",
+    "addiction",
+    "peer support"
+  ],
   "vocab": {
     "record": {
       "one": "client",

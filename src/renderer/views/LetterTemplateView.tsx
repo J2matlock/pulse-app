@@ -3,7 +3,7 @@
  * Two-column layout: template list on left, selected template on right.
  */
 import React, { useCallback, useEffect, useState } from 'react'
-import { FileText, Plus, Pencil, Trash2, Copy, Check } from 'lucide-react'
+import { FileText, Plus, Pencil, Trash2, Copy, Check, FileStack } from 'lucide-react'
 import { IPC } from '../../shared/ipc-channels'
 import type { Grid } from '../../shared/types'
 import { safeInvoke } from '../utils/safeInvoke'
@@ -16,6 +16,27 @@ import { PlaceholderReference } from './letter-template/PlaceholderReference'
 import { useCopyFeedback } from '../hooks/useCopyFeedback'
 import { EmptyState } from '../components/shared/EmptyState'
 import { useVocab } from '../hooks/useVocab'
+import { useGridStore } from '../stores/gridStore'
+import { BatchDocumentsDialog } from '../components/documents/BatchDocumentsDialog'
+
+/** Template text with each {{field}} as a readable chip, so it doesn't look like code */
+export function TemplateText({ content }: { content: string }): React.ReactElement {
+  const parts = content.split(/(\{\{[^{}]+\}\})/g)
+  return (
+    <div className="whitespace-pre-wrap text-base text-slate-800 dark:text-slate-200 leading-relaxed" data-testid="template-text">
+      {parts.map((p, i) => {
+        const m = p.match(/^\{\{\s*([^{}]+?)\s*\}\}$/)
+        if (!m) return <React.Fragment key={i}>{p}</React.Fragment>
+        const label = m[1]!.replace(/^field:/, '').replace(/[_:]+/g, ' ').trim()
+        return (
+          <span key={i} title={p} className="inline-block px-1.5 mx-0.5 rounded-md border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200">
+            {label}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
 
 export default function LetterTemplateView(): React.ReactElement {
   const { t: w } = useVocab(null)
@@ -30,6 +51,8 @@ export default function LetterTemplateView(): React.ReactElement {
   const [editTarget, setEditTarget] = useState<LetterTemplate | null>(null)  // null = new
   const [showGenerate, setShowGenerate] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
+  const [showBatch, setShowBatch] = useState(false)
+  const activeGridId = useGridStore(s => s.activeGridId)
 
   // copy feedback managed by useCopyFeedback hook
 
@@ -241,19 +264,27 @@ export default function LetterTemplateView(): React.ReactElement {
                   <FileText className="w-4 h-4" />
                   Generate Letter
                 </button>
+                {grids.length > 0 && (
+                  <button
+                    onClick={() => setShowBatch(true)}
+                    title={`One PDF with a letter for each of many ${w('record', { many: true })}`}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300
+                               dark:border-slate-600 text-base text-slate-700 dark:text-slate-200
+                               hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-hidden focus:ring-3
+                               focus:ring-blue-500 min-h-[44px]"
+                  >
+                    <FileStack className="w-4 h-4" />
+                    Make letters for many…
+                  </button>
+                )}
               </div>
             </div>
 
             {/* Content preview + placeholder reference */}
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-              <pre
-                className="whitespace-pre-wrap font-mono text-base text-slate-700 dark:text-slate-300
-                           bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200
-                           dark:border-slate-700 p-4 leading-relaxed"
-                style={{ fontSize: 15 }}
-              >
-                {selected.content}
-              </pre>
+              <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                <TemplateText content={selected.content} />
+              </div>
 
               <PlaceholderReference />
             </div>
@@ -275,6 +306,15 @@ export default function LetterTemplateView(): React.ReactElement {
           template={selected}
           grids={grids}
           onClose={() => setShowGenerate(false)}
+        />
+      )}
+
+      {showBatch && selected && grids.length > 0 && (
+        <BatchDocumentsDialog
+          gridId={grids.some(g => g.id === activeGridId) ? activeGridId! : grids[0]!.id}
+          initialTemplateId={selected.id}
+          pickList
+          onClose={() => setShowBatch(false)}
         />
       )}
 

@@ -612,7 +612,8 @@ export async function unwrapKeyEnvelope(env: KeyEnvelope, secret: string): Promi
 export async function adoptRestoredDbKey(dbKey: Buffer, env: KeyEnvelope, newPassword: string, hint: string, dbPath: string): Promise<void> {
   assertNewPasswordOk(newPassword)
   if (isPasswordSetup()) {
-    // Only reached when credentials are unreadable (checked by the caller)
+    // Credentials unreadable, or Settings is restoring another Pulse's backup:
+    // the old credential file is moved aside, never deleted
     quarantineSecureStore()
     store.clear()
   }

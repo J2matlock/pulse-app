@@ -61,6 +61,24 @@ export function useAutoLock(
     }
   }, [isLocked, isPasswordSetup, autoLockMinutes])
 
+  // Before a password exists (password setup, the recovery-key step) there's
+  // nothing to lock, but the main process's fallback timer runs from launch:
+  // keep it from firing mid-setup and closing the new database.
+  useEffect(() => {
+    if (isPasswordSetup) return
+    let lastPing = 0
+    const ping = () => {
+      const now = Date.now()
+      if (now - lastPing < 30_000) return
+      lastPing = now
+      safeInvoke(IPC.AUTH_ACTIVITY_PING).catch(() => {/* ignore */})
+    }
+    const events = ['mousedown', 'keydown', 'touchstart', 'wheel', 'pointermove'] as const
+    events.forEach(ev => window.addEventListener(ev, ping, { passive: true }))
+    ping()
+    return () => events.forEach(ev => window.removeEventListener(ev, ping))
+  }, [isPasswordSetup])
+
   // Listen for main-process force-lock (fallback if renderer is unresponsive)
   useEffect(() => {
     if (isLocked || !isPasswordSetup) return
@@ -77,6 +95,8 @@ export function useAutoLock(
     const handler = (e: KeyboardEvent) => {
       if (isMod(e) && e.key === 'l') {
         e.preventDefault()
+        // Nothing to lock until a password exists
+        if (!useSettingsStore.getState().isPasswordSetup) return
         useSettingsStore.getState().lock()
         useSettingsStore.getState().setLocked(true)
       }

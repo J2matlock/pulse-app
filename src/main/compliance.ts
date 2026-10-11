@@ -12,8 +12,8 @@ import { jsPDF, autoTable, lastTableY, atomicWriteFileAsync } from './export-sha
 import { getRequirementStatus } from './contact-requirements'
 import { getMissingInfo } from './missing-info'
 import { contactsComplete, contactsMissing } from '../shared/contactRequirements'
-import { toRuleInterval } from '../shared/ruleInterval'
-import { evaluate } from '../shared/deadlineEngine'
+import { evaluate, engineRuleFrom, referencedColumns, meterHistoryColumn, sequenceAnchor, extensionAnchor, matchExtension, applyExtension, type QuotaConfig, type StoredExtension } from '../shared/deadlineEngine'
+import { loadWorkCalendar, meterHistories, quotaCounts, progressEntries, finishedDates } from './deadlines'
 import { localDateString } from '../shared/dates'
 import { vocabFor, word, featureOn } from './vocab'
 import { term } from '../shared/vocab'
@@ -41,10 +41,6 @@ function parseYmd(v: string): Date | null {
   return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null
 }
 
-function daysBetween(a: string, b: string): number {
-  return Math.round((parseYmd(b)!.getTime() - parseYmd(a)!.getTime()) / 86_400_000)
-}
-
 export function monthAsOf(month: string): string {
   const [y, m] = month.split('-').map(Number)
   const end = localDateString(new Date(y!, m!, 0))
@@ -65,22 +61,25 @@ export function getComplianceSummary(month: string, gridId?: number): Compliance
   const contactByGrid = new Map(requirementsOn ? getRequirementStatus(asOf, gridId).map(g => [g.gridId, g]) : [])
   const missingByGrid = new Map(getMissingInfo(gridId).map(g => [g.gridId, g]))
 
-  // What each tracked date was at the cutoff: the old value of the first change after it, else today's value
-  const deadlineStmt = db.prepare(`
-    SELECT COALESCE(NULLIF(r.display_name, ''), @unnamed) AS client_name, col.name AS column_name,
-           ar.interval_days, ar.interval_months, ar.end_of_month,
-           CASE WHEN EXISTS (SELECT 1 FROM cell_history h WHERE h.row_id = r.id AND h.column_id = col.id AND h.changed_at > @cutoff)
-                THEN (SELECT h.old_value FROM cell_history h WHERE h.row_id = r.id AND h.column_id = col.id AND h.changed_at > @cutoff
-                      ORDER BY h.changed_at ASC, h.id ASC LIMIT 1)
-                ELSE c.value END AS value_then
-    FROM rows r
-    JOIN columns col ON col.grid_id = r.grid_id AND col.column_type = 'date'
-      AND json_extract(col.config, '$.alert_rule_id') IS NOT NULL
-    JOIN alert_rules ar ON ar.id = CAST(json_extract(col.config, '$.alert_rule_id') AS INTEGER)
-    LEFT JOIN cells c ON c.row_id = r.id AND c.column_id = col.id
-    WHERE r.grid_id = @gridId AND r.is_active = 1 AND r.deleted_at IS NULL AND r.created_at <= @cutoff
-    ORDER BY client_name COLLATE NOCASE, col.position
+  const cal = loadWorkCalendar()
+  // Rule columns of either kind (dates and Deadline columns), with their rules
+  const ruleColsStmt = db.prepare(`
+    SELECT col.id AS column_id, col.name AS column_name, col.position, ar.id, ar.interval_days, ar.interval_months, ar.end_of_month,
+           ar.kind, ar.rule_config, ar.rule_condition, ar.business_days
+    FROM columns col JOIN alert_rules ar ON ar.id = CAST(json_extract(col.config, '$.alert_rule_id') AS INTEGER)
+    WHERE col.grid_id = ? AND col.column_type IN ('date', 'deadline')
   `)
+  const recordsStmt = db.prepare(`
+    SELECT r.id, COALESCE(NULLIF(r.display_name, ''), @unnamed) AS client_name FROM rows r
+    WHERE r.grid_id = @gridId AND r.is_active = 1 AND r.deleted_at IS NULL AND r.created_at <= @cutoff
+  `)
+  // What each cell was at the cutoff: the old value of the first change after it, else today's value
+  const cellsStmt = db.prepare('SELECT c.row_id, c.column_id, c.value FROM cells c JOIN rows r ON r.id = c.row_id WHERE r.grid_id = ?')
+  const laterStmt = db.prepare(`SELECT h.row_id, h.column_id, h.old_value FROM cell_history h JOIN rows r ON r.id = h.row_id
+    WHERE r.grid_id = ? AND h.changed_at > ? ORDER BY h.changed_at ASC, h.id ASC`)
+  // Extensions in force at the cutoff
+  const extStmt = db.prepare(`SELECT e.id, e.row_id, e.column_id, e.step, e.new_due, e.reason, e.anchor_value FROM deadline_extensions e JOIN rows r ON r.id = e.row_id
+    WHERE r.grid_id = ? AND e.created_at <= ? AND (e.revoked_at IS NULL OR e.revoked_at > ?) ORDER BY e.id DESC`)
 
   // Extensions given this month (still in effect or not), for "3 extended"
   const extendedStmt = db.prepare(`
@@ -100,16 +99,54 @@ export function getComplianceSummary(month: string, gridId?: number): Compliance
     } : null
 
     const deadlines: ComplianceGrid['deadlines'] = { total: 0, onTime: 0, extended: (extendedStmt.get(g.id, month) as { n: number }).n, exceptions: [] }
-    for (const d of deadlineStmt.all({ cutoff, gridId: g.id, unnamed: `Unnamed ${word('record', {}, g.id)}` }) as Array<{ client_name: string; column_name: string; interval_days: number | null; interval_months: number | null; end_of_month: number; value_then: string | null }>) {
-      // The shared engine works out the due date from what the date was at the time
-      const res = evaluate({ id: 0, kind: 'interval', interval: toRuleInterval(d), config: null, condition: null, businessDays: false },
-        { today: asOf, columnDate: d.value_then })
-      if (!res.due) continue
-      const due = res.due
-      deadlines.total++
-      if (due >= asOf) deadlines.onTime++
-      else deadlines.exceptions.push({ clientName: d.client_name, column: d.column_name, due, daysOverdue: daysBetween(due, asOf) })
+    const thenValues = new Map<string, string | null>()
+    for (const c of cellsStmt.all(g.id) as Array<{ row_id: number; column_id: number; value: string | null }>) thenValues.set(`${c.row_id}:${c.column_id}`, c.value)
+    const changed = new Set<string>()
+    for (const h of laterStmt.all(g.id, cutoff) as Array<{ row_id: number; column_id: number; old_value: string | null }>) {
+      const key = `${h.row_id}:${h.column_id}`
+      if (changed.has(key)) continue
+      changed.add(key)
+      thenValues.set(key, h.old_value)
     }
+    const valueThen = (rowId: number, colId: number) => thenValues.get(`${rowId}:${colId}`) ?? null
+    const extensions = new Map<string, StoredExtension[]>()
+    for (const e of extStmt.all(g.id, cutoff, cutoff) as Array<{ id: number; row_id: number; column_id: number; step: number | null; new_due: string; reason: string; anchor_value: string | null }>) {
+      const key = `${e.row_id}:${e.column_id}`
+      extensions.set(key, [...(extensions.get(key) ?? []), { id: e.id, newDue: e.new_due, reason: e.reason, anchor: e.anchor_value, step: e.step }])
+    }
+    const records = recordsStmt.all({ cutoff, gridId: g.id, unnamed: `Unnamed ${word('record', {}, g.id)}` }) as Array<{ id: number; client_name: string }>
+    const found: Array<{ clientName: string; position: number; column: string; due: string; daysOverdue: number }> = []
+    for (const rc of ruleColsStmt.all(g.id) as Array<Parameters<typeof engineRuleFrom>[0] & { column_id: number; column_name: string; position: number }>) {
+      // The real rule, as of the cutoff: the same engine every other screen uses
+      const rule = engineRuleFrom(rc)
+      const refs = referencedColumns(rule)
+      const meterCol = meterHistoryColumn(rule)
+      const history = meterHistories(meterCol)
+      const counts = rule.kind === 'quota' && rule.config ? quotaCounts(g.id, rule.config as QuotaConfig, cutoff) : new Map<number, number>()
+      const finished = rule.kind === 'interval' ? finishedDates(rc.column_id) : null
+      const progress = rule.kind === 'sequence' ? progressEntries(rc.column_id, asOf) : new Map<number, Array<{ step: number; anchor: string | null }>>()
+      for (const rec of records) {
+        const own = valueThen(rec.id, rc.column_id)
+        const values: Record<number, string | null> = {}
+        for (const id of refs) values[id] = valueThen(rec.id, id)
+        const anchor = sequenceAnchor(rule, own, values)
+        const steps = (progress.get(rec.id) ?? []).filter(p => p.anchor === anchor).map(p => p.step)
+        let res = evaluate(rule, {
+          today: asOf, columnDate: own, values, holidays: cal.holidays, weekend: cal.weekend,
+          meterHistory: history.get(rec.id)?.filter(h => h.at <= asOf), activityCount: counts.get(rec.id) ?? 0, progress: steps,
+          ...(finished?.has(rec.id) ? { finishedFor: finished.get(rec.id) } : {}),
+        })
+        const ext = matchExtension(extensions.get(`${rec.id}:${rc.column_id}`), extensionAnchor(rule, own, values), res.step)
+        if (ext) res = applyExtension(res, ext, asOf)
+        // Nothing due, hidden or paused by "only when…": not a tracked deadline that month
+        if (!res.due || res.state === 'none' || res.state === 'paused') continue
+        deadlines.total++
+        if (res.state !== 'overdue') deadlines.onTime++
+        else found.push({ clientName: rec.client_name, position: rc.position, column: rc.column_name, due: res.due, daysOverdue: Math.max(0, -(res.daysUntil ?? 0)) })
+      }
+    }
+    found.sort((a, b) => a.clientName.localeCompare(b.clientName, undefined, { sensitivity: 'base' }) || a.position - b.position)
+    deadlines.exceptions = found.map(({ clientName, column, due, daysOverdue }) => ({ clientName, column, due, daysOverdue }))
 
     const missing = missingByGrid.get(g.id)
     return {

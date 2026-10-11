@@ -2,8 +2,14 @@ import React, { useEffect, useRef } from 'react'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
 
-/** "Only this one / This and following / All" for a repeating appointment (W07 §3) */
-export function ScopeDialog({ verb, onChoose, onCancel }: { verb: 'Change' | 'Delete'; onChoose: (scope: 'one' | 'following' | 'all') => void; onCancel: () => void }): React.ReactElement {
+/**
+ * "Only this one / This and following / All" for a repeating appointment (W07 §3).
+ * Moving one to another day can't apply to "All" (past ones stay put), so
+ * `dateChanged` leaves that choice out.
+ */
+export function ScopeDialog({ verb, onChoose, onCancel, dateChanged = false }: {
+  verb: 'Change' | 'Delete'; onChoose: (scope: 'one' | 'following' | 'all') => void; onCancel: () => void; dateChanged?: boolean
+}): React.ReactElement {
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, true)
   const { t } = useVocab(null)
@@ -26,7 +32,7 @@ export function ScopeDialog({ verb, onChoose, onCancel }: { verb: 'Change' | 'De
         <h2 id="scope-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100">{verb} a repeating {t('appointment')}</h2>
         {choice('one', 'Only this one', 'The others stay as they are.')}
         {choice('following', 'This and following', verb === 'Delete' ? 'The series ends before this one.' : 'From this one on, as a new series.')}
-        {choice('all', 'All', verb === 'Delete' ? 'Upcoming ones go; done ones stay.' : 'Upcoming ones change; past and done ones stay.')}
+        {!dateChanged && choice('all', 'All', verb === 'Delete' ? 'Upcoming ones go; done ones stay.' : 'Upcoming ones change; past and done ones stay.')}
         <div className="flex justify-end"><button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button></div>
       </div>
     </div>

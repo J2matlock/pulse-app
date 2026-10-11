@@ -7,7 +7,7 @@ let t: TestDb
 vi.mock('../src/main/database', () => ({ getDb: () => t.db, cachedStmt: (_k: string, sql: string) => t.db.prepare(sql) }))
 
 import { loadDeadlines, loadGridDeadlineContext } from '../src/main/deadlines'
-import { markStepDone, undoStep } from '../src/main/deadline-actions'
+import { markStepDone, undoStep, reanchorProgress } from '../src/main/deadline-actions'
 
 const ei = (extra: object = {}) => engineRuleFrom({ id: 1, kind: 'sequence', rule_config: JSON.stringify({
   kind: 'sequence', anchorColumnId: 2,
@@ -21,6 +21,15 @@ describe('sequence rules', () => {
     expect(evaluate(ei(), ctx())).toMatchObject({ due: '2026-02-24', state: 'overdue', step: 0, label: 'IFSP meeting (step 1 of 3)' })
     expect(evaluate(ei(), ctx([0]))).toMatchObject({ due: '2026-07-10', step: 1, label: '6-month review (step 2 of 3)' })
     expect(evaluate(ei(), ctx([0, 1]))).toMatchObject({ due: '2027-01-10', step: 2 })
+  })
+
+  it('keep the step when a step lands on a day off and working days are on (D-07)', () => {
+    const rule = engineRuleFrom({ id: 1, kind: 'sequence', business_days: 1, rule_config: JSON.stringify({
+      kind: 'sequence', anchorColumnId: 2, steps: [{ label: 'Plan', offset: { days: 7 } }, { label: 'Review', offset: { days: 30 } }],
+    }) })
+    // Jan 3, 2026 + 7 days = Sat Jan 10 → Fri Jan 9
+    const res = evaluate(rule, { today: '2026-01-05', columnDate: null, values: { 2: '2026-01-03' }, progress: [] })
+    expect(res).toMatchObject({ due: '2026-01-09', step: 0, label: 'Plan (step 1 of 2)', state: 'soon' })
   })
 
   it('are done after the last step, or repeat it when set to', () => {
@@ -60,6 +69,12 @@ describe('sequence rules in main', () => {
     expect(loadDeadlines({ gridId, today: '2026-03-01' })[0]!.step).toBe(0)
   })
 
+  it('records the day a step was really done (audit 1.22)', () => {
+    const { sysLogId } = markStepDone(rowId, col, 0, '2026-01-20')
+    expect(t.db.prepare('SELECT done_at FROM deadline_progress WHERE row_id = ? AND column_id = ?').get(rowId, col)).toEqual({ done_at: '2026-01-20' })
+    expect((t.db.prepare('SELECT content FROM case_log WHERE id = ?').get(sysLogId) as { content: string }).content).toMatch(/IFSP meeting done on Jan 20, 2026 \(step 1 of 2\)/)
+  })
+
   it('starts over when the anchor date changes', () => {
     markStepDone(rowId, col, 0)
     t.db.prepare('UPDATE cells SET value = ? WHERE row_id = ? AND column_id = ?').run('2026-05-01', rowId, referral)
@@ -70,5 +85,18 @@ describe('sequence rules in main', () => {
     t.db.prepare('DELETE FROM cells WHERE column_id = ?').run(referral)
     expect(() => markStepDone(rowId, col, 0)).toThrow(/count from/)
     expect(() => markStepDone(rowId, col, -1)).toThrow(/step/)
+  })
+})
+
+describe('a corrected start date (D-37)', () => {
+  beforeEach(() => { t = createTestDb() })
+  afterEach(() => cleanupTestDb(t))
+  it('moves the steps done for the old date to the new one', () => {
+    const g = seedGrid(t.db, { columnTypes: ['text', 'date', 'deadline'], rowCount: 1 })
+    const [, , col] = g.columnIds as [number, number, number]
+    const ins = t.db.prepare("INSERT INTO deadline_progress (row_id, column_id, step, done_at, anchor_value) VALUES (?, ?, ?, '2026-02-01', ?)")
+    ins.run(g.rowIds[0], col, 0, '2026-01-10'); ins.run(g.rowIds[0], col, 1, '2026-01-10')
+    expect(reanchorProgress(g.rowIds[0]!, col, '2026-01-10', '2026-01-11')).toBe(2)
+    expect(t.db.prepare('SELECT DISTINCT anchor_value AS a FROM deadline_progress').all()).toEqual([{ a: '2026-01-11' }])
   })
 })

@@ -4,6 +4,8 @@
  * sections, so it reads (and prints, and exports) like any other note.
  */
 
+import { HUMAN_SERVICES_VOCAB } from './vocab'
+
 export interface NoteFormat {
   id: string
   name: string
@@ -17,6 +19,15 @@ export const BUILTIN_NOTE_FORMATS: NoteFormat[] = [
   { id: 'birp', name: 'BIRP', fields: ['Behavior', 'Intervention', 'Response', 'Plan'], builtIn: true },
   { id: 'contact', name: 'Contact note', fields: ['Who', 'Purpose', 'Outcome', 'Next steps'], builtIn: true },
 ]
+
+/**
+ * The built-in formats are clinical (DAP, SOAP, BIRP), so like the built-in
+ * snippets and letters they're offered only to workspaces that use the
+ * human-services words (Decision Log 2026-10-01).
+ */
+export function builtinFormatsFor(recordWord: string): NoteFormat[] {
+  return recordWord.trim().toLowerCase() === HUMAN_SERVICES_VOCAB.record.one ? BUILTIN_NOTE_FORMATS : []
+}
 
 export const MAX_CUSTOM_FORMATS = 20
 export const MAX_FORMAT_FIELDS = 8

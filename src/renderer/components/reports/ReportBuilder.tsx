@@ -20,6 +20,7 @@ import { loadPinnedReports, setReportPinned } from '../../utils/pinnedReports'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { ReportTable } from './ReportTable'
 import { ReportChart, chartValues } from './ReportChart'
+import { friendlyError } from '../../utils/friendlyError'
 
 export const EMPTY_CONFIG: ReportConfig = { source: 'records', filters: [], groupBy: [], values: [{ fn: 'count' }] }
 
@@ -73,6 +74,18 @@ function Row({ children, onRemove, removeLabel }: { children: React.ReactNode; o
 
 interface Preset { key: string; label: string; config: ReportConfig }
 
+/**
+ * Unsaved report changes, kept when someone leaves through the sidebar or the
+ * command palette. The app's router can't block that navigation (useBlocker
+ * needs a data router), so the changes wait here and come back when the
+ * report is opened again.
+ */
+const drafts = new Map<string, { g: number | null; c: ReportConfig; n: string }>()
+const forgotten = new Set<string>()
+export function reportDraftKey(report: { id: number } | null): string { return report ? `r${report.id}` : 'new' }
+/** The person chose "Leave without saving": don't keep these changes */
+export function forgetReportDraft(key: string): void { drafts.delete(key); forgotten.add(key) }
+
 export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
   initial: SavedReport | null
   onSaved: (r: SavedReport) => void
@@ -83,9 +96,12 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
   const grids = useGridStore(s => s.grids)
   const activeGridId = useGridStore(s => s.activeGridId)
   const apptsOn = useFeature('appointments')
-  const [gridId, setGridId] = useState<number | null>(initial?.grid_id ?? activeGridId ?? grids[0]?.id ?? null)
-  const [config, setConfig] = useState<ReportConfig>(initial?.config ?? EMPTY_CONFIG)
-  const [name, setName] = useState(initial?.name ?? '')
+  const draftKey = reportDraftKey(initial)
+  const [restored] = useState(() => drafts.get(draftKey) ?? null)
+  const [showRestored, setShowRestored] = useState(restored !== null)
+  const [gridId, setGridId] = useState<number | null>(restored ? restored.g : initial?.grid_id ?? activeGridId ?? grids[0]?.id ?? null)
+  const [config, setConfig] = useState<ReportConfig>(restored?.c ?? initial?.config ?? EMPTY_CONFIG)
+  const [name, setName] = useState(restored?.n ?? initial?.name ?? '')
   const [fields, setFields] = useState<ReportField[]>([])
   const [result, setResult] = useState<ReportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -100,6 +116,25 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
   const [baseline, setBaseline] = useState(() => JSON.stringify({ g: initial?.grid_id ?? activeGridId ?? grids[0]?.id ?? null, c: initial?.config ?? EMPTY_CONFIG, n: initial?.name ?? '' }))
   const dirty = JSON.stringify({ g: gridId, c: config, n: name }) !== baseline
   useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
+
+  // Keep unsaved changes if this builder goes away without a save or a "Leave without saving"
+  const latest = useRef({ dirty, g: gridId, c: config, n: name })
+  useEffect(() => { latest.current = { dirty, g: gridId, c: config, n: name } })
+  useEffect(() => {
+    forgotten.delete(draftKey)
+    return () => {
+      const s = latest.current
+      if (s.dirty && !forgotten.has(draftKey)) drafts.set(draftKey, { g: s.g, c: s.c, n: s.n })
+      else drafts.delete(draftKey)
+      forgotten.delete(draftKey)
+    }
+  }, [draftKey])
+  function discardRestored() {
+    const b = JSON.parse(baseline) as { g: number | null; c: ReportConfig; n: string }
+    setGridId(b.g); setConfig(b.c); setName(b.n)
+    drafts.delete(draftKey)
+    setShowRestored(false)
+  }
 
   useEffect(() => {
     if (gridId === null && grids[0]) {
@@ -193,7 +228,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
     if (gridId === null) return null
     const finalName = name.trim() || suggested || 'Report'
     const r = await safeInvoke<SavedReport>(IPC.REPORT_SAVE, { id: initial?.id, name: finalName, gridId, config })
-    if (!r.ok) { toast.error(r.error); return null }
+    if (!r.ok) { toast.error(friendlyError(r.error)); return null }
     toast.success(`Saved "${r.data.name}"`)
     setName(r.data.name)
     setBaseline(JSON.stringify({ g: gridId, c: config, n: r.data.name }))
@@ -203,7 +238,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
   async function exportAs(format: 'csv' | 'pdf') {
     if (gridId === null) return
     const r = await safeInvoke<string | null>(IPC.REPORT_EXPORT, gridId, config, format, name.trim() || suggested || 'Report')
-    if (!r.ok) toast.error(r.error)
+    if (!r.ok) toast.error(friendlyError(r.error))
     else if (r.data) toast.success(format === 'csv' ? 'Saved the CSV' : 'Saved the PDF')
   }
   async function togglePin() {
@@ -221,7 +256,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
     setConfirmDelete(false)
     if (!initial) return
     const r = await safeInvoke(IPC.REPORT_DELETE, initial.id)
-    if (r.ok) { toast.success(`Deleted "${initial.name}"`); onDeleted(initial.id) } else toast.error(r.error)
+    if (r.ok) { toast.success(`Deleted "${initial.name}"`); onDeleted(initial.id) } else toast.error(friendlyError(r.error))
   }
   function onSort(field: string) {
     patch({ sort: config.sort?.field === field && config.sort.dir === 'asc' ? { field, dir: 'desc' } : { field, dir: 'asc' } })
@@ -233,6 +268,12 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
     <div className="h-full min-h-0 flex flex-col lg:flex-row overflow-auto lg:overflow-hidden">
       {/* ── Steps ── */}
       <div className="lg:w-[430px] flex-shrink-0 lg:overflow-y-auto p-4 space-y-4 lg:border-r border-slate-200 dark:border-slate-700">
+        {showRestored && dirty && (
+          <div role="status" className="rounded-lg border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 p-3 space-y-2">
+            <p className="text-base text-amber-900 dark:text-amber-100">Your unsaved changes to this report are back. Save them, or throw them away.</p>
+            <button type="button" className="btn-compact-secondary" onClick={discardRestored}>Throw away changes</button>
+          </div>
+        )}
         {untouched && presets.length > 0 && (
           <section aria-labelledby="report-presets" className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3 space-y-2">
             <h3 id="report-presets" className="text-base font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2"><Sparkles className="w-4 h-4" aria-hidden="true" />Start from a common report</h3>

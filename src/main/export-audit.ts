@@ -85,11 +85,11 @@ export function loadAuditTrail(scope: AuditScope): AuditClient[] {
     WHERE h.row_id = ? AND ${inRange('h.changed_at')}
   `)
   const noteStmt = db.prepare(`
-    SELECT id, created_at, log_type, content, follow_up_date, voided_at, voided_reason
+    SELECT id, created_at, occurred_at, log_type, content, follow_up_date, voided_at, voided_reason
     FROM case_log WHERE row_id = ?
   `)
   const editStmt = db.prepare(`
-    SELECT e.case_log_id, e.content, e.replaced_at FROM case_log_edits e
+    SELECT e.case_log_id, e.content, e.occurred_at, e.replaced_at FROM case_log_edits e
     JOIN case_log cl ON cl.id = e.case_log_id
     WHERE cl.row_id = ? AND ${inRange('e.replaced_at')}
     ORDER BY e.replaced_at
@@ -125,19 +125,25 @@ export function loadAuditTrail(scope: AuditScope): AuditClient[] {
       events.push({ at: h.at, what: `${h.name} changed`, details: `From ${fmtValue(h.old_value, h.column_type)} to ${fmtValue(h.new_value, h.column_type)}` })
     }
 
-    const edits = editStmt.all(c.id, ...range) as Array<{ case_log_id: number; content: string; replaced_at: string }>
-    for (const n of noteStmt.all(c.id) as Array<{ id: number; created_at: string; log_type: string; content: string; follow_up_date: string | null; voided_at: string | null; voided_reason: string | null }>) {
+    const edits = editStmt.all(c.id, ...range) as Array<{ case_log_id: number; content: string; occurred_at: string | null; replaced_at: string }>
+    const localDay = (ts: string | null): string | null => ts ? (dayOf.get(ts) as { d: string | null }).d : null
+    for (const n of noteStmt.all(c.id) as Array<{ id: number; created_at: string; occurred_at: string | null; log_type: string; content: string; follow_up_date: string | null; voided_at: string | null; voided_reason: string | null }>) {
       const text = stripHtml(n.content)
+      const happened = localDay(n.occurred_at)
       if (within(n.created_at)) {
+        // Events are listed when written; a note written up later says when it happened
+        const backdated = happened && happened !== localDay(n.created_at) ? `Happened ${fmtDate(happened)}\n` : ''
         const followUp = n.follow_up_date ? `\nFollow-up: ${fmtDate(n.follow_up_date)}` : ''
         const voided = n.voided_at ? '\n(Later voided; see below)' : ''
-        events.push({ at: n.created_at, what: noteEventLabel(n.log_type), details: text + followUp + voided })
+        events.push({ at: n.created_at, what: noteEventLabel(n.log_type), details: backdated + text + followUp + voided })
       }
       if (within(n.voided_at)) {
         events.push({ at: n.voided_at!, what: 'Note voided', details: `${n.voided_reason ? `Reason: ${n.voided_reason}\n` : ''}Note: ${text}` })
       }
       for (const e of edits.filter(x => x.case_log_id === n.id)) {
-        events.push({ at: e.replaced_at, what: 'Note edited', details: `Before the edit: ${stripHtml(e.content)}` })
+        const before = localDay(e.occurred_at)
+        const dated = before && before !== happened ? `\nDated before the edit: ${fmtDate(before)}` : ''
+        events.push({ at: e.replaced_at, what: 'Note edited', details: `Before the edit: ${stripHtml(e.content)}${dated}` })
       }
     }
 

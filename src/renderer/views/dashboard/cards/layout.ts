@@ -5,7 +5,7 @@
  */
 import type { FeatureKey } from '../../../../shared/features'
 
-export type CardKey = 'summary' | 'today' | 'requirements' | 'stages' | 'missingInfo' | 'dueForService' | 'quotas' | 'recentActivity'
+export type CardKey = 'summary' | 'whatsDue' | 'today' | 'requirements' | 'stages' | 'missingInfo' | 'dueForService' | 'quotas' | 'recentActivity'
 
 export interface CardDef {
   key: CardKey
@@ -19,6 +19,7 @@ export interface CardDef {
 
 export const CARD_DEFS: CardDef[] = [
   { key: 'summary', title: 'Summary counts', defaultOn: true },
+  { key: 'whatsDue', title: "What's due", defaultOn: true },
   { key: 'today', title: "Today's {appointment:many}", feature: 'appointments', defaultOn: true },
   { key: 'requirements', title: '{Requirement:many} this period', feature: 'requirements', defaultOn: true },
   { key: 'stages', title: '{Stage:many}', feature: 'stages', defaultOn: true },
@@ -37,7 +38,8 @@ export function parseLayout(raw: string | null | undefined): SavedLayout | null 
     // Older or suggested layouts may be a plain list of the cards to show
     if (Array.isArray(v)) {
       const order = v.filter((x): x is string => typeof x === 'string')
-      return { order, hidden: CARD_DEFS.map(c => c.key).filter(k => !order.includes(k)) }
+      // The deadline list is never hidden by an older list of cards
+      return { order, hidden: CARD_DEFS.map(c => c.key).filter(k => !order.includes(k) && k !== 'whatsDue') }
     }
     if (v && typeof v === 'object') {
       const o = v as { order?: unknown; hidden?: unknown }
@@ -54,6 +56,12 @@ export function resolveLayout(saved: SavedLayout | null, available: (def: CardDe
   const byKey = new Map(defs.map(d => [d.key as string, d]))
   const ordered: CardDef[] = []
   for (const k of saved?.order ?? []) { const d = byKey.get(k); if (d && !ordered.includes(d)) ordered.push(d) }
+  // Layouts saved before "What's due" was a card get it right after the counts, where it used to sit
+  const due = byKey.get('whatsDue')
+  if (saved && due && !ordered.includes(due) && !saved.hidden.includes('whatsDue')) {
+    const at = ordered.findIndex(d => d.key === 'summary')
+    ordered.splice(at + 1, 0, due)
+  }
   for (const d of defs) if (!ordered.includes(d)) ordered.push(d)
   return ordered.map(def => ({
     def,

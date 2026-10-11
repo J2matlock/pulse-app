@@ -6,6 +6,15 @@
   "description": "For rescues and shelters: animals on a board from intake to adoption, which foster home each is with, vaccines and vet visits, and foster home checks.",
   "icon": "paw-print",
   "group": "Animals",
+  "keywords": [
+    "pet",
+    "dog",
+    "cat",
+    "shelter",
+    "adoption",
+    "foster",
+    "vet"
+  ],
   "vocab": {
     "record": {
       "one": "animal",

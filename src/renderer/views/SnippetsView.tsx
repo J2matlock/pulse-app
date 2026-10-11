@@ -8,6 +8,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap'
 import { EmptyState } from '../components/shared/EmptyState'
 import { isMod } from '../utils/keys'
 import { useVocab } from '../hooks/useVocab'
+import toast from 'react-hot-toast'
 
 // ── Variable helper ───────────────────────────────────────────────────────────
 
@@ -25,16 +26,20 @@ const VARIABLES = [
 
 interface EditorProps {
   initial?: Snippet
-  onSave: (trigger: string, expansion: string, category: string) => void
+  /** Resolves true when saved; the editor stays open (with the text) when it wasn't */
+  onSave: (trigger: string, expansion: string, category: string) => Promise<boolean>
   onClose: () => void
+  /** Triggers other snippets already use */
+  takenTriggers: string[]
 }
 
-function SnippetEditor({ initial, onSave, onClose }: EditorProps) {
+function SnippetEditor({ initial, onSave, onClose, takenTriggers }: EditorProps) {
   const { t, f } = useVocab(null)
   const [trigger, setTrigger] = useState(initial?.trigger_text ?? '')
   const [expansion, setExpansion] = useState(initial?.expansion ?? '')
   const [category] = useState(initial?.category ?? '')
   const [triggerError, setTriggerError] = useState('')
+  const [saving, setSaving] = useState(false)
   const expansionRef = useRef<HTMLTextAreaElement>(null)
   const triggerRef = useRef<HTMLInputElement>(null)
   const trapRef = useRef<HTMLDivElement>(null)
@@ -58,15 +63,21 @@ function SnippetEditor({ initial, onSave, onClose }: EditorProps) {
   function validateTrigger(val: string): string {
     if (!val) return 'Trigger is required.'
     if (/\s/.test(val)) return 'No spaces allowed in trigger.'
+    if (takenTriggers.some(t => t.toLowerCase() === val.trim().toLowerCase())) return `/${val.trim()} is already used by another snippet. Choose a different trigger.`
     return ''
   }
 
-  function handleSave() {
+  async function handleSave() {
+    if (saving) return
     const err = validateTrigger(trigger)
     if (err) { setTriggerError(err); return }
     if (!expansion.trim()) return
-    onSave(trigger.trim(), expansion.trim(), category.trim())
-    onClose()
+    setSaving(true)
+    try {
+      if (await onSave(trigger.trim(), expansion.trim(), category.trim())) onClose()
+    } finally {
+      setSaving(false)
+    }
   }
 
   const preview = expandVariables(expansion, 'Maria Rodriguez')
@@ -114,7 +125,7 @@ function SnippetEditor({ initial, onSave, onClose }: EditorProps) {
             </div>
             {triggerError && <p className="text-sm text-red-600 dark:text-red-400 mt-1">{triggerError}</p>}
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Type /{trigger || 'lm'} in any {t('activity')} or scrap note to expand.
+              Type /{trigger || 'lm'} in any {t('activity')} or scratch note to expand.
             </p>
           </div>
 
@@ -128,7 +139,7 @@ function SnippetEditor({ initial, onSave, onClose }: EditorProps) {
               ref={expansionRef}
               value={expansion}
               onChange={e => setExpansion(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && isMod(e)) { e.preventDefault(); handleSave() } }}
+              onKeyDown={e => { if (e.key === 'Enter' && isMod(e)) { e.preventDefault(); void handleSave() } }}
               rows={4}
               className="w-full rounded-lg border border-slate-300 dark:border-slate-600
                          bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100
@@ -177,7 +188,7 @@ function SnippetEditor({ initial, onSave, onClose }: EditorProps) {
         <div className="flex gap-3 justify-end px-6 py-4 border-t border-slate-200 dark:border-slate-700">
           <button onClick={onClose} className="btn-secondary">Cancel</button>
           <button
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={!trigger.trim() || !expansion.trim()}
             className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
           >
@@ -215,21 +226,21 @@ export default function SnippetsView(): React.ReactElement {
     setLoading(false)
   }
 
-  async function handleSave(trigger: string, expansion: string, category: string) {
+  async function handleSave(trigger: string, expansion: string, category: string): Promise<boolean> {
     if (editTarget) {
       const res = await safeInvoke<boolean>(IPC.SNIPPET_UPDATE, editTarget.id, {
         trigger_text: trigger, expansion, category: category || null
       })
-      if (res.ok) {
-        setSnippets(prev => prev.map(s =>
-          s.id === editTarget.id ? { ...s, trigger_text: trigger, expansion, category: category || null } : s
-        ))
-      }
-      setEditTarget(null)
-    } else {
-      const res = await safeInvoke<Snippet>(IPC.SNIPPET_CREATE, trigger, expansion, category || null)
-      if (res.ok) setSnippets(prev => [...prev, res.data])
+      if (!res.ok) { toast.error('We couldn\'t save the snippet. Check that its trigger isn\'t already used, then try again.'); return false }
+      setSnippets(prev => prev.map(s =>
+        s.id === editTarget.id ? { ...s, trigger_text: trigger, expansion, category: category || null } : s
+      ))
+      return true
     }
+    const res = await safeInvoke<Snippet>(IPC.SNIPPET_CREATE, trigger, expansion, category || null)
+    if (!res.ok) { toast.error('We couldn\'t save the snippet. Check that its trigger isn\'t already used, then try again.'); return false }
+    setSnippets(prev => [...prev, res.data])
+    return true
   }
 
   async function handleDelete(id: number) {
@@ -253,7 +264,7 @@ export default function SnippetsView(): React.ReactElement {
         <Zap className="w-5 h-5 text-slate-500" />
         <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 flex-1 min-w-0">Snippets</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 hidden sm:block">
-          Type <span className="font-mono bg-slate-100 dark:bg-slate-700 px-1 rounded-sm">/trigger</span> in any {t('activity')} or scrap note
+          Type <span className="font-mono bg-slate-100 dark:bg-slate-700 px-1 rounded-sm">/trigger</span> in any {t('activity')} or scratch note
         </p>
         <button
           onClick={() => { setEditTarget(null); setShowEditor(true) }}
@@ -378,6 +389,7 @@ export default function SnippetsView(): React.ReactElement {
         <SnippetEditor
           initial={editTarget ?? undefined}
           onSave={handleSave}
+          takenTriggers={snippets.filter(s => s.id !== editTarget?.id).map(s => s.trigger_text)}
           onClose={() => { setShowEditor(false); setEditTarget(null) }}
         />
       )}

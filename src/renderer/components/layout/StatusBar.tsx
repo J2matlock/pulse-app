@@ -1,25 +1,46 @@
-import React, { useMemo } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
-import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
-import { useShownCount, shownLabel } from '../../hooks/useShownCount'
+import { BackupStatusChip } from './BackupStatusChip'
 
+/** How long "Saved" stays after a real save */
+export const SAVED_SHOWN_MS = 3000
+
+/**
+ * The bottom bar. It speaks only for what's on screen (audit 2.11): the list's
+ * name and priority total on a list or record page, nothing about a hidden
+ * "current list" elsewhere, and "Saved" only for a few seconds after a save.
+ * The record count lives in the list's own footer, not here as well.
+ */
 export function StatusBar(): React.ReactElement {
   const { rows, grids, activeGridId, isSaving, saveError, acuityEnabled: acuityFlag, acuityLevels } = useGridStore(useShallow(s => ({
     rows: s.rows, grids: s.grids, activeGridId: s.activeGridId, isSaving: s.isSaving,
     saveError: s.saveError, acuityEnabled: s.acuityEnabled, acuityLevels: s.acuityLevels,
   })))
+  const { pathname } = useLocation()
+  const onList = pathname === '/' || pathname === '/grid' || pathname.startsWith('/grid/')
+  const onRecord = pathname.startsWith('/profile/')
   // A list's own setting, shown only while the feature is switched on
   const priorityOn = useFeature('priority')
   const acuityEnabled = acuityFlag && priorityOn
 
-  const { t } = useVocab()
   const activeGrid = useMemo(() => grids.find(g => g.id === activeGridId), [grids, activeGridId])
 
-  const { shown, total } = useShownCount()
-  const filteredLabel = useMemo(() => shownLabel(shown, total, n => t('record', { count: n })), [shown, total, t])
+  // "Saved" after a real save finishes, then it fades out
+  const [justSaved, setJustSaved] = useState(false)
+  const wasSaving = useRef(isSaving)
+  useEffect(() => {
+    if (wasSaving.current && !isSaving && !saveError) setJustSaved(true)
+    wasSaving.current = isSaving
+  }, [isSaving, saveError])
+  useEffect(() => {
+    if (!justSaved) return
+    const t = setTimeout(() => setJustSaved(false), SAVED_SHOWN_MS)
+    return () => clearTimeout(t)
+  }, [justSaved])
 
   const acuityTotal = useMemo(() => {
     if (!acuityEnabled || acuityLevels.length === 0) return 0
@@ -41,7 +62,7 @@ export function StatusBar(): React.ReactElement {
             <span>Saving…</span>
           </>
         )}
-        {!isSaving && !saveError && rows.length > 0 && (
+        {!isSaving && !saveError && justSaved && (
           <>
             <CheckCircle className="w-3.5 h-3.5 text-green-500" />
             <span className="text-green-600 dark:text-green-400">Saved</span>
@@ -55,26 +76,23 @@ export function StatusBar(): React.ReactElement {
         )}
       </div>
 
-      <div className="h-3 border-l border-slate-300 dark:border-slate-600" />
-
-      {/* Row count */}
-      <span className="text-sm" aria-live="polite" aria-atomic="true">{filteredLabel}</span>
-
-      {/* Acuity total */}
-      {acuityEnabled && acuityTotal > 0 && (
+      {/* Priority total */}
+      {onList && acuityEnabled && acuityTotal > 0 && (
         <>
           <div className="h-3 border-l border-slate-300 dark:border-slate-600" />
           <span className="text-sm">{acuityTotal} pts</span>
         </>
       )}
 
-      {/* Grid name */}
-      {activeGrid && (
+      {/* List name, only where the screen is that list */}
+      {(onList || onRecord) && activeGrid && (
         <>
           <div className="h-3 border-l border-slate-300 dark:border-slate-600" />
           <span className="text-sm truncate">{activeGrid.name}</span>
         </>
       )}
+
+      <BackupStatusChip />
     </footer>
   )
 }

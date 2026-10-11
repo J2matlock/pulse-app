@@ -1,12 +1,12 @@
 /** Quota deadlines (W05 §3.5): a limited number of visits between two dates. */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
-import { evaluate, engineRuleFrom, parseRuleConfig, referencedColumns } from '../src/shared/deadlineEngine'
+import { evaluate, engineRuleFrom, parseRuleConfig, referencedColumns, isUsedUp } from '../src/shared/deadlineEngine'
 
 let t: TestDb
 vi.mock('../src/main/database', () => ({ getDb: () => t.db, cachedStmt: (_k: string, sql: string) => t.db.prepare(sql) }))
 
-import { loadDeadlines, loadGridDeadlineContext } from '../src/main/deadlines'
+import { loadDeadlines, loadGridDeadlineContext, deadlineCounts } from '../src/main/deadlines'
 
 const auth = (extra: object = {}) => engineRuleFrom({ id: 1, kind: 'quota', rule_config: JSON.stringify({
   kind: 'quota', activityTypes: ['session'], startColumnId: 2, endColumnId: 3, limit: 12, warnRemaining: 2, warnDaysBeforeEnd: 14, ...extra,
@@ -19,6 +19,16 @@ describe('quota rules', () => {
       .toMatchObject({ due: '2026-12-31', state: 'ok', label: '5 of 12 used', detail: '7 of 12 left until Dec 31, 2026 (Jul 1, 2026 – Dec 31, 2026)' })
   })
 
+  it('keep their warning when "working days only" was ticked (D-07)', () => {
+    const withDays = engineRuleFrom({ id: 1, kind: 'quota', business_days: 1, rule_config: JSON.stringify({
+      kind: 'quota', activityTypes: ['session'], startColumnId: 2, endColumnId: 3, limit: 12, warnRemaining: 2, warnDaysBeforeEnd: 14,
+    }) })
+    // Ends on a Saturday: still overdue when used up, still "soon" when 1 is left
+    const sat = { 2: '2026-07-01', 3: '2027-01-02' }
+    expect(evaluate(withDays, { today: '2026-10-02', columnDate: null, values: sat, activityCount: 12 })).toMatchObject({ state: 'overdue', label: 'All 12 used' })
+    expect(evaluate(withDays, { today: '2026-10-02', columnDate: null, values: sat, activityCount: 11 }).state).toBe('soon')
+  })
+
   it('warn when few are left or the end is near', () => {
     expect(evaluate(auth(), { today: '2026-10-02', columnDate: null, values, activityCount: 10 }).state).toBe('soon')
     expect(evaluate(auth(), { today: '2026-12-20', columnDate: null, values, activityCount: 1 }).state).toBe('soon')
@@ -26,7 +36,8 @@ describe('quota rules', () => {
 
   it('are late when all are used or the end has passed', () => {
     const out = evaluate(auth(), { today: '2026-10-02', columnDate: null, values, activityCount: 12 })
-    expect(out).toMatchObject({ state: 'overdue', daysUntil: 0, detail: 'All 12 used (Jul 1, 2026 – Dec 31, 2026)' })
+    expect(out).toMatchObject({ state: 'overdue', daysUntil: 0, label: 'All 12 used', detail: 'All 12 used (Jul 1, 2026 – Dec 31, 2026)' })
+    expect(isUsedUp(out)).toBe(true)
     expect(evaluate(auth(), { today: '2027-01-05', columnDate: null, values, activityCount: 3 })).toMatchObject({ state: 'overdue', daysUntil: -5 })
   })
 
@@ -68,5 +79,19 @@ describe('quota rules in main', () => {
     expect(byRow.get(rowIds[0]!)).toMatchObject({ label: '2 of 3 used', state: 'soon', rule_kind: 'quota' })
     expect(byRow.get(rowIds[1]!)).toMatchObject({ label: '0 of 3 used', state: 'ok' })
     expect(loadGridDeadlineContext(gridId).quota).toEqual({ [`${rowIds[0]}:${ruleCol}`]: 2 })
+  })
+
+  it('a used-up quota counts as overdue in the briefing, not "due today" (D-13)', () => {
+    t.db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at) VALUES (?, 'x', 'session', datetime('2026-09-01 10:00:00', 'utc'))").run(rowIds[0])
+    expect(loadDeadlines({ gridId, today: '2026-10-02' }).find(d => d.row_id === rowIds[0])).toMatchObject({ label: 'All 3 used', state: 'overdue', daysUntil: 0 })
+    expect(deadlineCounts('2026-10-02')).toMatchObject({ overdue: 1, dueToday: 0 })
+  })
+
+  it('counts a session by the day it happened, not the day it was written (audit 1.22)', () => {
+    // Happened inside the dates, written up after the end
+    t.db.prepare(`INSERT INTO case_log (row_id, content, log_type, occurred_at, created_at) VALUES (?, 'x', 'session', datetime('2026-12-30 10:00:00', 'utc'), datetime('2027-01-03 10:00:00', 'utc'))`).run(rowIds[1])
+    // Written inside the dates about a session before the start
+    t.db.prepare(`INSERT INTO case_log (row_id, content, log_type, occurred_at, created_at) VALUES (?, 'x', 'session', datetime('2026-06-28 10:00:00', 'utc'), datetime('2026-07-02 10:00:00', 'utc'))`).run(rowIds[1])
+    expect(loadGridDeadlineContext(gridId).quota[`${rowIds[1]}:${ruleCol}`]).toBe(1)
   })
 })

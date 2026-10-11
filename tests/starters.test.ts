@@ -112,6 +112,8 @@ describe('starter validation', () => {
     for (const raw of BUILTIN_STARTERS) expect(parseStarter(raw)).toMatchObject({ ok: true })
     const list = (await starters()).listBuiltinStarters()
     expect(list.map(s => s.id)).toContain('human-services')
+    // The broad social-work layout is the default, not a state-specific one (audit F-19)
+    expect(list.find(s => s.id === 'human-services')!.variants[0]!.key).toBe('social-worker-caseload')
     expect(list[0]!.variants.length).toBe(11)
   })
 
@@ -254,7 +256,7 @@ describe('applying a starter', () => {
   })
 
   it('loads sample appointments and weekly series, past ones done, and removes them with the samples', async () => {
-    const { applyStarter, removeStarterSampleData } = await starters()
+    const { applyStarter, removeSampleData } = await starters()
     const withAppts = {
       ...shop,
       sampleData: {
@@ -278,13 +280,14 @@ describe('applying a starter', () => {
     expect(appts.find(a => a.title === 'Missed')).toMatchObject({ status: 'no_show', end_at: null })
     expect(appts.find(a => a.title === 'Paperwork day')).toMatchObject({ all_day: 1, status: 'scheduled' })
 
-    removeStarterSampleData()
-    expect(testDb.db.prepare('SELECT COUNT(*) AS n FROM appointments').get()).toEqual({ n: 0 })
+    removeSampleData()
+    // Their records are in the Trash, so their visits are hidden (and come back with a restore)
+    expect(testDb.db.prepare('SELECT COUNT(*) AS n FROM appointments a JOIN rows r ON r.id = a.row_id WHERE r.deleted_at IS NULL').get()).toEqual({ n: 0 })
     expect(testDb.db.prepare('SELECT COUNT(*) AS n FROM appointment_series').get()).toEqual({ n: 0 })
   })
 
   it('gives sample data a past: added dates over the year, older everyday notes, finished jobs in past months', async () => {
-    const { applyStarter, removeStarterSampleData, starterSampleRowIds } = await starters()
+    const { applyStarter, removeSampleData, sampleRowIds } = await starters()
     const res = applyStarter({ builtinId: 'tree-service' }, { lists: ['customers', 'jobs', 'equipment', 'crew'], applyWords: false, applyFeatures: false, sampleData: true })
     const db = testDb.db
     const added = db.prepare("SELECT COUNT(DISTINCT strftime('%Y-%m', created_at)) AS n FROM rows WHERE grid_id = ?").get(res.gridIds.customers) as { n: number }
@@ -303,11 +306,10 @@ describe('applying a starter', () => {
     const unlinked = db.prepare(`SELECT COUNT(*) AS n FROM rows r WHERE r.grid_id = ? AND NOT EXISTS (SELECT 1 FROM record_links l WHERE l.from_row_id = r.id)`).get(res.gridIds.jobs) as { n: number }
     expect(unlinked.n).toBe(0)
     // Same every time, and all of it goes with "Remove sample data"
-    const tracked = starterSampleRowIds().length
+    const tracked = sampleRowIds().length
     expect(tracked).toBe((db.prepare('SELECT COUNT(*) AS n FROM rows').get() as { n: number }).n)
-    removeStarterSampleData()
-    expect(db.prepare('SELECT COUNT(*) AS n FROM rows').get()).toEqual({ n: 0 })
-    expect(db.prepare('SELECT COUNT(*) AS n FROM case_log').get()).toEqual({ n: 0 })
+    expect(removeSampleData()).toEqual({ removed: tracked, kept: 0, keptListName: null })
+    expect(db.prepare('SELECT COUNT(*) AS n FROM rows WHERE deleted_at IS NULL').get()).toEqual({ n: 0 })
   })
 
   it('leaves note types that a quota counts out of the made-up history', async () => {
@@ -321,9 +323,9 @@ describe('applying a starter', () => {
   })
 
   it('loads sample data that can be removed', async () => {
-    const { applyStarter, removeStarterSampleData, starterSampleRowIds } = await starters()
+    const { applyStarter, removeSampleData, sampleRowIds } = await starters()
     const res = applyStarter(fileSource(shop), { ...all, sampleData: true })
-    expect(starterSampleRowIds()).toHaveLength(3)
+    expect(sampleRowIds()).toHaveLength(3)
     expect(res.warnings.join(' ')).toMatch(/"Nope"/)
 
     const civic = testDb.db.prepare("SELECT r.id FROM rows r WHERE r.grid_id = ? AND r.display_name = '2015 Civic'").get(res.gridIds.vehicles) as { id: number }
@@ -336,10 +338,9 @@ describe('applying a starter', () => {
 
     // Removing samples keeps the lists and real records
     testDb.db.prepare("INSERT INTO rows (grid_id, position) VALUES (?, 99)").run(res.gridIds.customers)
-    expect(removeStarterSampleData()).toBe(3)
-    expect(testDb.db.prepare('SELECT COUNT(*) AS n FROM rows').get()).toEqual({ n: 1 })
+    expect(removeSampleData().removed).toBe(3)
+    expect(testDb.db.prepare('SELECT COUNT(*) AS n FROM rows WHERE deleted_at IS NULL').get()).toEqual({ n: 1 })
     expect(testDb.db.prepare('SELECT COUNT(*) AS n FROM grids').get()).toEqual({ n: 2 })
-    expect(testDb.db.prepare('SELECT COUNT(*) AS n FROM case_log').get()).toEqual({ n: 0 })
   })
 })
 
@@ -380,6 +381,25 @@ describe('note types, numbers, periods and name formats in examples (W03 §5)', 
     expect(testDb.db.prepare('SELECT label, period, per_month FROM contact_requirements WHERE grid_id = ?').all(gridId))
       .toEqual([{ label: 'Sessions', period: 'week', per_month: 1 }])
     expect(res.warnings.join(' ')).toMatch(/"Unknown".*wasn't added/)
+  })
+
+  it('an example with its own full set replaces the starting types in a fresh workspace (audit R-17)', async () => {
+    const { applyStarter } = await starters()
+    applyStarter({ builtinId: 'tree-service' }, { lists: ['customers'], applyWords: false, applyFeatures: false, sampleData: false })
+    const active = (testDb.db.prepare('SELECT key FROM activity_types WHERE is_archived = 0 ORDER BY key').all() as Array<{ key: string }>).map(r => r.key)
+    expect(active).toEqual(['call', 'note', 'site_visit', 'text'])
+    // Archived, not deleted, so nothing that refers to them breaks
+    expect(testDb.db.prepare("SELECT is_archived FROM activity_types WHERE key = 'phone'").get()).toEqual({ is_archived: 1 })
+  })
+
+  it("keeps the starting types once the workspace has notes, or when the example only adds", async () => {
+    const { applyStarter } = await starters()
+    applyStarter(fileSource(therapy), { lists: ['clients'], applyWords: false, applyFeatures: false, sampleData: false })
+    expect(testDb.db.prepare("SELECT is_archived FROM activity_types WHERE key = 'visit'").get()).toEqual({ is_archived: 0 })
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 1 })
+    testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type) VALUES (?, 'Called', 'phone')").run(rowIds[0])
+    applyStarter({ builtinId: 'tree-service' }, { lists: ['customers'], applyWords: false, applyFeatures: false, sampleData: false })
+    expect(testDb.db.prepare("SELECT is_archived FROM activity_types WHERE key = 'visit'").get()).toEqual({ is_archived: 0 })
   })
 
   it('applying twice adds nothing new', async () => {

@@ -6,6 +6,13 @@
   "description": "For tree care companies: customers, jobs on a board from estimate request to done, estimate follow-ups, permits, equipment service by engine hours, aerial lift inspections and crew certifications.",
   "icon": "tree-deciduous",
   "group": "Trades and service",
+  "keywords": [
+    "tree",
+    "arborist",
+    "landscaping",
+    "jobs",
+    "crew"
+  ],
   "vocab": {
     "record": {
       "one": "record",

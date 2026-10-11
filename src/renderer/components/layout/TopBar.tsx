@@ -14,6 +14,36 @@ import { UndoHistoryPanel } from '../shared/UndoHistoryPanel'
 import { isMod } from '../../utils/keys'
 import { useVocab } from '../../hooks/useVocab'
 import { useShownCount } from '../../hooks/useShownCount'
+import type { FAQCategory } from '../../views/help/types'
+import { notePage } from '../../utils/navHistory'
+import { pulseEvents } from '../../events'
+
+/** The Help topic that goes with a page */
+export function helpCategoryFor(pathname: string): FAQCategory | 'all' {
+  const first = pathname.split('/')[1] ?? ''
+  const map: Record<string, FAQCategory> = {
+    grid: 'caseload-grid', profile: 'client-profiles', dashboard: 'dashboard-deadlines', calendar: 'dashboard-deadlines',
+    tasks: 'tasks', contacts: 'contacts', reports: 'import-export', settings: 'security-backups', trash: 'caseload-grid',
+    snippets: 'snippets-templates', templates: 'snippets-templates', 'letter-templates': 'snippets-templates',
+  }
+  return map[first] ?? (first === '' ? 'caseload-grid' : 'all')
+}
+
+function openHelpFor(pathname: string, navigate: (to: string) => void): void {
+  try { sessionStorage.setItem('pulse-help-view-state', JSON.stringify({ search: '', category: helpCategoryFor(pathname), openIds: [], scrollTop: 0 })) } catch { /* Help still opens */ }
+  navigate('/help')
+}
+
+/** A page's own name for the top bar (pages that aren't one list) */
+export function pageTitle(pathname: string, t: (key: 'contactDirectory', opts?: { cap?: boolean }) => string): string | null {
+  const first = pathname.split('/')[1] ?? ''
+  const names: Record<string, string> = {
+    dashboard: 'Dashboard', calendar: 'Calendar', reports: 'Reports', tasks: 'Tasks', settings: 'Settings',
+    help: 'Help', trash: 'Trash', snippets: 'Snippets', templates: 'Templates', 'letter-templates': 'Letters',
+    contacts: t('contactDirectory', { cap: true }),
+  }
+  return names[first] ?? null
+}
 
 export function TopBar(): React.ReactElement {
   const { t } = useVocab()
@@ -50,13 +80,15 @@ export function TopBar(): React.ReactElement {
   const params = useParams<{ rowId?: string }>()
 
   const isProfileView = location.pathname.startsWith('/profile/')
-  const isGridView = location.pathname === '/grid' || location.pathname === '/'
+  const isGridView = location.pathname === '/grid' || location.pathname === '/' || location.pathname.startsWith('/grid/')
   const rowId = params.rowId ? parseInt(params.rowId, 10) : null
 
   const activeGrid = useMemo(() => grids.find(g => g.id === activeGridId), [grids, activeGridId])
 
   // Each list keeps its own search (G-03): show that list's when another one opens
   useEffect(() => { setInputValue(searchQuery) }, [activeGridId]) // eslint-disable-line react-hooks/exhaustive-deps -- only on a list switch; typing updates the box itself
+  // Remember each page, so a record's Back can say where it goes (audit 3.18)
+  useEffect(() => { notePage(location.pathname) }, [location.pathname])
 
   // Debounce search: 150ms after last keystroke
   useEffect(() => {
@@ -69,6 +101,12 @@ export function TopBar(): React.ReactElement {
   // Ctrl+F focuses search
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Screens without a search box: Ctrl+F opens the palette, which searches everything (audit N-30)
+      if (isMod(e) && e.key === 'f' && !isGridView && !isProfileView) {
+        e.preventDefault()
+        pulseEvents.emit('palette:open')
+        return
+      }
       if (isMod(e) && e.key === 'f' && !isProfileView) {
         e.preventDefault()
         searchRef.current?.focus()
@@ -77,7 +115,7 @@ export function TopBar(): React.ReactElement {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [isProfileView])
+  }, [isProfileView, isGridView])
 
   // Close recent profiles dropdown on outside click
   useEffect(() => {
@@ -118,10 +156,10 @@ export function TopBar(): React.ReactElement {
           onGridClick={() => navigate('/grid')}
         />
       ) : (
-        /* Grid/Dashboard view: show grid name */
-        activeGrid && (
+        /* The list's name on the list; elsewhere, the page's own name (never a hidden "current list") */
+        (isGridView ? activeGrid?.name : pageTitle(location.pathname, t)) && (
           <span className="text-slate-600 dark:text-slate-400 text-base font-medium truncate min-w-0 hidden sm:block">
-            {activeGrid.name}
+            {isGridView ? activeGrid?.name : pageTitle(location.pathname, t)}
           </span>
         )
       )}
@@ -264,7 +302,7 @@ export function TopBar(): React.ReactElement {
                         key={p.rowId}
                         onClick={() => {
                           setShowRecent(false)
-                          navigate(`/profile/${p.rowId}`)
+                          navigate(`/profile/${p.rowId}?gridId=${p.gridId}`)
                         }}
                         className="hit-44 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300
                                    hover:bg-slate-50 dark:hover:bg-slate-700 flex flex-col gap-0.5
@@ -281,9 +319,18 @@ export function TopBar(): React.ReactElement {
           </div>
         )}
 
+        {/* Help for this page: Help opens on the matching topic (audit N-22) */}
+        {!location.pathname.startsWith('/help') && (
+          <button type="button" onClick={() => openHelpFor(location.pathname, navigate)}
+            className="hit-44 inline-flex items-center justify-center w-8 h-8 rounded-full border border-slate-300 dark:border-slate-600 text-base font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+            aria-label="Help for this page" title="Help for this page">
+            ?
+          </button>
+        )}
+
         {/* Shortcut discovery hint */}
         <span className="text-xs text-slate-500 dark:text-slate-400 select-none hidden sm:inline" aria-hidden="true">
-          Press <kbd className="px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">Shift+?</kbd> for shortcuts
+          Press <kbd className="px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">?</kbd> for shortcuts
         </span>
       </div>
     </header>

@@ -26,6 +26,27 @@ export function LockScreenView(): React.ReactElement {
   // Credentials exist but this computer's keystore can't read them (folder copied from another PC)
   const [credentialsUnreadable, setCredentialsUnreadable] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const keyRef = useRef<HTMLInputElement>(null)
+  // Feedback stays on screen, not in a toast that disappears (audit F-27, F-30)
+  const [error, setError] = useState<string | null>(null)
+  const [keyError, setKeyError] = useState<string | null>(null)
+  const [capsLock, setCapsLock] = useState(false)
+  const [lockoutLeft, setLockoutLeft] = useState(0)
+
+  // A wrong-password lockout counts down; Unlock waits until it's over
+  const checkLockout = async () => {
+    const r = await safeInvoke(IPC.AUTH_LOCKOUT_REMAINING)
+    if (r.ok && r.data > 0) setLockoutLeft(r.data)
+  }
+  useEffect(() => {
+    if (lockoutLeft <= 0) return
+    const t = setTimeout(() => setLockoutLeft(s => {
+      const next = s - 1
+      if (next <= 0) { setError(null); setTimeout(() => inputRef.current?.focus(), 0) }
+      return next
+    }), 1000)
+    return () => clearTimeout(t)
+  }, [lockoutLeft])
 
   const { setLocked, setRecoverySession, setPasswordSetup } = useSettingsStore()
 
@@ -48,13 +69,15 @@ export function LockScreenView(): React.ReactElement {
       }
     }
     loadMeta()
+    void checkLockout()
   }, [])
 
   async function handleUnlock(e: React.FormEvent) {
     e.preventDefault()
-    if (!password || isSubmitting) return
+    if (!password || isSubmitting || lockoutLeft > 0) return
 
     setIsSubmitting(true)
+    setError(null)
     try {
       const result = await safeInvoke(IPC.AUTH_VERIFY_PASSWORD, password)
       if (result.ok) {
@@ -68,12 +91,13 @@ export function LockScreenView(): React.ReactElement {
         setLocked(false)
       } else {
         // Lockout and unreadable-credential messages are already written for users
-        toast.error(result.error === 'Incorrect password' ? 'Incorrect password. Please try again.' : result.error, { duration: 8000 })
+        setError(result.error === 'Incorrect password' ? "That password didn't work. Check Caps Lock and try again." : result.error)
         setPassword('')
+        await checkLockout()
         inputRef.current?.focus()
       }
     } catch {
-      toast.error('Unlock failed. Please try again.')
+      setError("We couldn't unlock just now. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
@@ -91,11 +115,12 @@ export function LockScreenView(): React.ReactElement {
         setRecoverySession(true)
         setLocked(false)
       } else {
-        toast.error('Incorrect recovery key. Please try again.')
-        setRecoveryKey('')
+        // Keep what was typed: one typo shouldn't mean retyping 28 characters
+        setKeyError("That key didn't match. Check each group of 4.")
+        setTimeout(() => { keyRef.current?.focus(); keyRef.current?.select() }, 0)
       }
     } catch {
-      toast.error('Recovery failed. Please try again.')
+      setKeyError("We couldn't check the key just now. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
@@ -156,7 +181,11 @@ export function LockScreenView(): React.ReactElement {
                       className="input pr-12"
                       value={password}
                       onChange={e => setPassword(e.target.value)}
+                      onKeyDown={e => setCapsLock(e.getModifierState?.('CapsLock') ?? false)}
+                      onKeyUp={e => setCapsLock(e.getModifierState?.('CapsLock') ?? false)}
                       placeholder="Password"
+                      aria-label="Password"
+                      aria-describedby="unlock-feedback"
                       autoComplete="current-password"
                     />
                     <button
@@ -170,6 +199,12 @@ export function LockScreenView(): React.ReactElement {
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
+                  <div id="unlock-feedback">
+                    {capsLock && <p className="text-base text-amber-700 dark:text-amber-300 mt-2">Caps Lock is on</p>}
+                    {lockoutLeft > 0
+                      ? <p role="alert" className="text-base text-red-700 dark:text-red-300 mt-2">Too many tries. You can try again in {lockoutLeft} second{lockoutLeft === 1 ? '' : 's'}.</p>
+                      : error && <p role="alert" className="text-base text-red-700 dark:text-red-300 mt-2">{error}</p>}
+                  </div>
                   {hint && (
                     <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">
                       Hint: {hint}
@@ -180,9 +215,9 @@ export function LockScreenView(): React.ReactElement {
                 <button
                   type="submit"
                   className="btn-primary w-full"
-                  disabled={!password || isSubmitting}
+                  disabled={!password || isSubmitting || lockoutLeft > 0}
                 >
-                  {isSubmitting ? 'Unlocking…' : 'Unlock'}
+                  {isSubmitting ? 'Unlocking…' : lockoutLeft > 0 ? `Wait ${lockoutLeft}s` : 'Unlock'}
                 </button>
               </form>
 
@@ -219,15 +254,18 @@ export function LockScreenView(): React.ReactElement {
 
               <form onSubmit={handleRecoveryUnlock} className="space-y-5">
                 <input
+                  ref={keyRef}
                   autoFocus
                   type="text"
                   className="input font-mono tracking-wider uppercase"
                   value={recoveryKey}
-                  onChange={e => setRecoveryKey(formatRecoveryKey(e.target.value))}
+                  aria-label="Recovery key"
+                  onChange={e => { setKeyError(null); setRecoveryKey(formatRecoveryKey(e.target.value)) }}
                   placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
                   autoComplete="off"
                   spellCheck={false}
                 />
+                {keyError && <p role="alert" className="text-base text-red-700 dark:text-red-300">{keyError}</p>}
 
                 <button
                   type="submit"
@@ -267,14 +305,16 @@ export function LockScreenView(): React.ReactElement {
 
               <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg p-4 mb-6">
                 <p className="text-amber-800 dark:text-amber-300 text-base leading-relaxed">
-                  Your data is encrypted and no recovery key was set up during initial setup.
-                  Without your password, the data cannot be recovered.
+                  No recovery key was saved for this data. It's encrypted, so without your password it can't be opened by anyone, including us.
                 </p>
               </div>
 
-              <p className="text-slate-500 dark:text-slate-400 text-base mb-5">
-                If you have a backup, you can restore from it and try again.
-              </p>
+              {/* Honest next steps only: a backup needs the same password, so there's no restore button here (audit F-29) */}
+              <ul className="list-disc pl-5 space-y-2 text-slate-600 dark:text-slate-300 text-base mb-5">
+                {hint && <li>Your hint: <strong>{hint}</strong></li>}
+                <li>Check that Caps Lock is off, and try the passwords you use elsewhere.</li>
+                <li>Once you're back in, save a recovery key in Settings → Security so this can't happen again.</li>
+              </ul>
 
               <button
                 type="button"

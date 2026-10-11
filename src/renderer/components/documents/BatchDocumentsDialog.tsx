@@ -13,6 +13,7 @@ import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
 import { UnknownPlaceholders } from '../shared/UnknownPlaceholders'
+import { friendlyError } from '../../utils/friendlyError'
 
 type Who = 'selected' | 'deadline' | 'all'
 const label = 'block text-base font-semibold text-slate-800 dark:text-slate-100 mb-1'
@@ -22,16 +23,23 @@ function nextMonth(): { from: string; to: string } {
   return { from: localDateString(new Date(now.getFullYear(), now.getMonth() + 1, 1)), to: localDateString(new Date(now.getFullYear(), now.getMonth() + 2, 0)) }
 }
 
-export function BatchDocumentsDialog({ gridId, rowIds, initialMode = 'documents', onClose }: {
+export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMode = 'documents', initialTemplateId, pickList = false, onClose }: {
   gridId: number
   /** The selected records, if any */
   rowIds?: number[]
   initialMode?: 'documents' | 'labels'
+  /** Start with this template (from the Letters page) */
+  initialTemplateId?: number
+  /** Let the person choose the list (opened from outside a list) */
+  pickList?: boolean
   onClose: () => void
 }): React.ReactElement {
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, true)
+  const [gridId, setGridId] = useState(initialGridId)
+  const grids = useGridStore(s => s.grids)
   const { t } = useVocab(gridId)
+  const listName = useGridStore(s => s.grids.find(g => g.id === gridId)?.name)
   const columns = useGridStore(s => s.columns)
   const hiddenColumns = useGridStore(s => s.hiddenColumns)
   const all = useMemo(() => [...columns, ...hiddenColumns].filter(c => c.grid_id === gridId), [columns, hiddenColumns, gridId])
@@ -51,7 +59,7 @@ export function BatchDocumentsDialog({ gridId, rowIds, initialMode = 'documents'
 
   useEffect(() => {
     void safeInvoke<Array<{ id: number; name: string }>>(IPC.LETTER_TEMPLATE_GET_ALL).then(r => {
-      if (r.ok) { setTemplates(r.data); setTemplateId(r.data[0]?.id ?? null) }
+      if (r.ok) { setTemplates(r.data); setTemplateId(r.data.some(x => x.id === initialTemplateId) ? initialTemplateId! : r.data[0]?.id ?? null) }
     })
   }, [])
 
@@ -66,8 +74,22 @@ export function BatchDocumentsDialog({ gridId, rowIds, initialMode = 'documents'
     ...(who === 'selected' && rowIds?.length ? { rowIds } : {}),
     ...(who === 'deadline' && deadlineCol ? { deadline: { columnId: deadlineCol, ...range } } : {}),
   }
-  const ready = mode === 'documents' ? !!templateId : !!addressCol
   const many = t('record', { many: true })
+
+  // How many this makes, and template tags that won't fill in, before anything is saved
+  const [preview, setPreview] = useState<{ count: number; unknown: string[]; error?: string } | null>(null)
+  const targetKey = JSON.stringify(target)
+  const previewTemplate = mode === 'documents' ? templateId : null
+  useEffect(() => {
+    let alive = true
+    const timer = setTimeout(() => {
+      void safeInvoke(IPC.DOC_BATCH_PREVIEW, previewTemplate, JSON.parse(targetKey) as Record<string, unknown>).then(r => {
+        if (alive) setPreview(r.ok ? r.data : null)
+      })
+    }, 250)
+    return () => { alive = false; clearTimeout(timer) }
+  }, [previewTemplate, targetKey])
+  const ready = (mode === 'documents' ? !!templateId : !!addressCol) && (preview === null || (preview.count > 0 && !preview.error))
 
   async function make() {
     setBusy(true)
@@ -75,14 +97,14 @@ export function BatchDocumentsDialog({ gridId, rowIds, initialMode = 'documents'
     try {
       if (mode === 'documents') {
         const res = await safeInvoke<{ filePath: string; count: number; unknown: string[] } | null>(IPC.DOC_BATCH, templateId, target, page)
-        if (!res.ok) { toast.error(res.error); return }
+        if (!res.ok) { toast.error(friendlyError(res.error)); return }
         if (!res.data) return
         noteUnencryptedExport()
         toast.success(`Saved ${res.data.count} ${res.data.count === 1 ? 'document' : 'documents'}`)
         if (res.data.unknown.length) { setUnknown(res.data.unknown); return }
       } else {
         const res = await safeInvoke<{ filePath: string; count: number; skipped: number } | null>(IPC.DOC_LABELS, target, addressCol, layout)
-        if (!res.ok) { toast.error(res.error); return }
+        if (!res.ok) { toast.error(friendlyError(res.error)); return }
         if (!res.data) return
         noteUnencryptedExport()
         toast.success(`Saved ${res.data.count} label${res.data.count === 1 ? '' : 's'}${res.data.skipped ? ` (${res.data.skipped} without an address left out)` : ''}`)
@@ -97,7 +119,7 @@ export function BatchDocumentsDialog({ gridId, rowIds, initialMode = 'documents'
         className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 id="batch-docs-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <FileStack className="w-5 h-5" aria-hidden="true" />Print documents or labels
+            <FileStack className="w-5 h-5" aria-hidden="true" />Print documents or labels{listName ? `: ${listName}` : ''}
           </h2>
           <button type="button" aria-label="Close" onClick={onClose}
             className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
@@ -113,6 +135,15 @@ export function BatchDocumentsDialog({ gridId, rowIds, initialMode = 'documents'
             </button>
           ))}
         </div>
+
+        {pickList && grids.length > 1 && (
+          <label className="block">
+            <span className={label}>{t('list', { cap: true })}</span>
+            <select className="input w-full" value={gridId} onChange={e => { setGridId(Number(e.target.value)); setWho('all') }}>
+              {grids.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          </label>
+        )}
 
         <fieldset>
           <legend className={label}>For</legend>
@@ -188,7 +219,16 @@ export function BatchDocumentsDialog({ gridId, rowIds, initialMode = 'documents'
           </>
         )}
 
-        <UnknownPlaceholders unknown={unknown} />
+        {preview && (
+          <p role="status" className={`text-base font-medium ${preview.error || preview.count === 0 ? 'text-red-700 dark:text-red-300' : 'text-slate-800 dark:text-slate-100'}`}>
+            {preview.error ?? (preview.count === 0
+              ? `Nobody matches, so there's nothing to make.`
+              : mode === 'documents'
+                ? `This makes ${preview.count} ${page === 'postcard' ? (preview.count === 1 ? 'postcard' : 'postcards') : (preview.count === 1 ? 'document' : 'documents')}.`
+                : `This makes labels for up to ${preview.count} ${t('record', { count: preview.count })}.`)}
+          </p>
+        )}
+        <UnknownPlaceholders unknown={unknown.length ? unknown : mode === 'documents' ? preview?.unknown ?? [] : []} />
 
         <div className="flex justify-end gap-2">
           <button type="button" className="btn-secondary" onClick={onClose}>{unknown.length ? 'Close' : 'Cancel'}</button>

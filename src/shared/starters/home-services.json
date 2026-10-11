@@ -6,6 +6,17 @@
   "description": "For lawn care, pest control, heating and cooling, pool service, and chimney, gutter and window businesses: customers, their properties, visits on a board, seasonal and repeating service dates, and weekly routes on the calendar.",
   "icon": "house",
   "group": "Trades and service",
+  "keywords": [
+    "plumber",
+    "plumbing",
+    "electrician",
+    "hvac",
+    "lawn",
+    "pest control",
+    "pool",
+    "cleaning",
+    "handyman"
+  ],
   "vocab": {
     "record": {
       "one": "record",

@@ -161,7 +161,7 @@ describe('10G — humanizeError in wrapHandler flow', () => {
       throw new Error('SQLITE_CONSTRAINT: UNIQUE constraint failed: grids.name')
     })
     const result = await handler()
-    expect(result).toEqual({ ok: false, error: 'A record with that name already exists' })
+    expect(result).toEqual({ ok: false, error: "There's already a list called that." })
   })
 
   it('SQLITE_BUSY returns user-friendly message', async () => {

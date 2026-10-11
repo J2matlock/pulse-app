@@ -12,6 +12,7 @@ import { safeInvoke, mustInvoke } from './safeInvoke'
 import { useUndoStore, type UndoItem } from '../stores/undoStore'
 import { useGridStore } from '../stores/gridStore'
 import { getClientName } from './clientName'
+import { friendlyError } from './friendlyError'
 
 function patchRow(rowId: number, columnId: number, value: string | null, stamped: StageMoveResult['stamped']): void {
   useGridStore.setState(s => ({
@@ -28,8 +29,8 @@ function patchRow(rowId: number, columnId: number, value: string | null, stamped
 export async function moveToStage(rowId: number, columnId: number, value: string | null, opts?: { collect?: UndoItem[] }): Promise<boolean> {
   const res = await safeInvoke<StageMoveResult>(IPC.STAGE_MOVE, rowId, columnId, value)
   if (!res.ok) {
-    if (opts?.collect) throw new Error(res.error)
-    toast.error(res.error); return false
+    if (opts?.collect) throw new Error(friendlyError(res.error))
+    toast.error(friendlyError(res.error)); return false
   }
   let result = res.data
   if (!result.changed) return false
@@ -45,12 +46,15 @@ export async function moveToStage(rowId: number, columnId: number, value: string
     icon: 'columns',
     contextLabel: name || undefined,
     contextId: rowId,
-    sideEffects: result.sysLogIds.map(caseLogId => ({ type: 'void_case_log' as const, caseLogId })),
+    // Undo removes the move's notes, history and checklist items in main, so time in stage isn't reset (audit S-16)
     undo: async () => {
-      const grid = useGridStore.getState()
-      await grid.updateCell(rowId, columnId, result.previous, { fromUndo: true })
-      if (result.stamped) await grid.updateCell(rowId, result.stamped.columnId, result.stamped.previous, { fromUndo: true })
-      for (const id of result.checklistItemIds) await mustInvoke(IPC.CHECKLIST_DELETE_ITEM, id)
+      // Throwing lets Undo say it failed and keep the step
+      await mustInvoke(IPC.STAGE_UNDO, rowId, columnId, result)
+      useGridStore.setState(s => ({
+        rows: s.rows.map(row => row.row_id !== rowId ? row : {
+          ...row, [`col_${columnId}`]: result.previous, ...(result.stamped ? { [`col_${result.stamped.columnId}`]: result.stamped.previous } : {}),
+        } as GridRow),
+      }))
     },
     redo: async () => {
       const again = await mustInvoke<StageMoveResult>(IPC.STAGE_MOVE, rowId, columnId, value)

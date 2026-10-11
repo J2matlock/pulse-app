@@ -16,6 +16,8 @@ export interface CalendarItem {
   state?: DeadlineState
   daysUntil?: number | null
   columnId?: number
+  /** Tasks: which one, so clicking it opens it */
+  taskId?: number
 }
 
 /** The first day shown for a week containing `date` */

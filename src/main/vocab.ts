@@ -56,7 +56,7 @@ export function featureOn(key: FeatureKey): boolean {
   return isOn(workspaceFeatures(), key)
 }
 
-/** Holidays and weekend days as saved (Settings → Alerts → Days off). */
+/** Holidays and weekend days as saved (Settings → Deadlines & reminders → Days off). */
 export function workCalendarSetting(): { holidays: string[]; weekend: number[] } {
   const parse = (key: string): unknown => { try { return JSON.parse(readSetting(key) ?? 'null') } catch { return null } }
   const holidays = parse('workspace_holidays')

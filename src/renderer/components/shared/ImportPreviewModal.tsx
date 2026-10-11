@@ -141,7 +141,7 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
             )}
             <div className="mt-3 flex flex-wrap gap-2">
               <Badge>{preview.columnCount} column{preview.columnCount !== 1 ? 's' : ''}</Badge>
-              <Badge>{preview.alertRuleCount} alert rule{preview.alertRuleCount !== 1 ? 's' : ''}</Badge>
+              <Badge>{preview.alertRuleCount} deadline rule{preview.alertRuleCount !== 1 ? 's' : ''}</Badge>
               <Badge>{preview.checklistCount} checklist{preview.checklistCount !== 1 ? 's' : ''}</Badge>
             </div>
           </div>
