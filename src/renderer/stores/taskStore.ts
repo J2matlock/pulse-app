@@ -15,6 +15,8 @@ interface TaskStore {
   createTask: (task: Omit<CaseloadTask, 'id' | 'created_at' | 'updated_at'>) => Promise<CaseloadTask | null>
   updateTask: (id: number, updates: Partial<CaseloadTask>) => Promise<void>
   deleteTask: (id: number) => Promise<void>
+  /** Several at once, as one undo step ("Delete completed") */
+  deleteTasks: (ids: number[]) => Promise<void>
   completeTask: (id: number) => Promise<void>
   snoozeTask: (id: number, until: string) => Promise<void>
   setSortMode: (mode: TaskSortMode) => void
@@ -122,6 +124,32 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         },
       })
     }
+  },
+
+  deleteTasks: async (ids) => {
+    const gone = get().tasks.filter(t => ids.includes(t.id))
+    const deleted: CaseloadTask[] = []
+    for (const task of gone) {
+      try { await storeInvoke(IPC.TASK_DELETE, task.id); deleted.push(task) } catch { /* keep going; undo covers what went */ }
+    }
+    if (deleted.length === 0) return
+    const ids2 = new Set(deleted.map(t => t.id))
+    set(state => ({ tasks: state.tasks.filter(t => !ids2.has(t.id)) }))
+    useUndoStore.getState().pushWithToast({
+      id: crypto.randomUUID(),
+      description: `Deleted ${deleted.length} completed task${deleted.length === 1 ? '' : 's'}`,
+      timestamp: Date.now(),
+      category: 'logged',
+      icon: 'trash',
+      undo: async () => {
+        for (const task of deleted) await storeInvoke(IPC.TASK_RESTORE, task)
+        await useTaskStore.getState().loadTasks()
+      },
+      redo: async () => {
+        for (const task of deleted) await storeInvoke(IPC.TASK_DELETE, task.id)
+        await useTaskStore.getState().loadTasks()
+      },
+    })
   },
 
   completeTask: async (id) => {

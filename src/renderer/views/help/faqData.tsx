@@ -372,7 +372,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'tasks-priorities',
     question: 'What do the priority levels mean?',
-    answer: 'Tasks have four priority levels: Low (gray), Medium (blue), High (orange), and Urgent (red). Use priorities to sort and organize your task list. Urgent tasks always appear at the top to make sure they get your attention. Checklist items marked Urgent on a profile checklist will also show up on the main task page.',
+    answer: 'Tasks have four priority levels: Low, Normal, High and Urgent. Tasks stay in the order you put them in; to put the most urgent first, choose Sort: Priority at the top of the Tasks page, or Sort: Due date to put overdue ones first. Checklist items marked Urgent on a profile checklist also show up on the Tasks page.',
     category: 'tasks',
     demo: <DemoTaskPriorities />,
   },
