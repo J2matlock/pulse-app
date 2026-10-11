@@ -5,9 +5,11 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
 import { RestoreFromBackupForm } from '../components/shared/RestoreFromBackupForm'
+import { usePlatform, cloudFolderAdvice } from '../utils/platformText'
 import { PRODUCT_NAME } from '../../shared/constants'
+import { parseDbOpenFailure, type DbOpenFailureKind } from '../../shared/dbOpen'
 
-type LockView = 'password' | 'recovery-key' | 'no-recovery' | 'restore'
+type LockView = 'password' | 'recovery-key' | 'no-recovery' | 'restore' | 'open-failed'
 
 /** Strip non-alphanumeric, uppercase, cap at 28 chars, insert dashes every 4 */
 function formatRecoveryKey(raw: string): string {
@@ -26,29 +28,46 @@ export function LockScreenView(): React.ReactElement {
   // Credentials exist but this computer's keystore can't read them (folder copied from another PC)
   const [credentialsUnreadable, setCredentialsUnreadable] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const platform = usePlatform()
   const keyRef = useRef<HTMLInputElement>(null)
   // Feedback stays on screen, not in a toast that disappears (audit F-27, F-30)
   const [error, setError] = useState<string | null>(null)
   const [keyError, setKeyError] = useState<string | null>(null)
   const [capsLock, setCapsLock] = useState(false)
   const [lockoutLeft, setLockoutLeft] = useState(0)
+  // Screen readers hear the lockout once (its starting length) and again when it ends,
+  // not every second of the countdown (AUDIT-144)
+  const [lockoutTotal, setLockoutTotal] = useState(0)
+  const [lockoutOver, setLockoutOver] = useState(false)
+  // The password or key was right but the data wouldn't open (AUDIT-003)
+  const [openFailure, setOpenFailure] = useState<{ kind: DbOpenFailureKind; via: 'password' | 'recovery key' } | null>(null)
+  const openFailedRef = useRef<HTMLHeadingElement>(null)
+
+  function showOpenFailure(kind: DbOpenFailureKind, via: 'password' | 'recovery key') {
+    setOpenFailure({ kind, via })
+    setView('open-failed')
+    setTimeout(() => openFailedRef.current?.focus(), 0)
+  }
 
   // A wrong-password lockout counts down; Unlock waits until it's over
   const checkLockout = async () => {
     const r = await safeInvoke(IPC.AUTH_LOCKOUT_REMAINING)
-    if (r.ok && r.data > 0) setLockoutLeft(r.data)
+    if (r.ok && r.data > 0) { setLockoutLeft(r.data); setLockoutTotal(r.data); setLockoutOver(false) }
   }
   useEffect(() => {
     if (lockoutLeft <= 0) return
     const t = setTimeout(() => setLockoutLeft(s => {
       const next = s - 1
-      if (next <= 0) { setError(null); setTimeout(() => inputRef.current?.focus(), 0) }
+      if (next <= 0) { setError(null); setLockoutOver(true); setTimeout(() => inputRef.current?.focus(), 0) }
       return next
     }), 1000)
     return () => clearTimeout(t)
   }, [lockoutLeft])
 
-  const { setLocked, setRecoverySession, setPasswordSetup } = useSettingsStore()
+  // One selector each, so settings changes elsewhere don't re-render the lock screen (AUDIT-137)
+  const setLocked = useSettingsStore(s => s.setLocked)
+  const setRecoverySession = useSettingsStore(s => s.setRecoverySession)
+  const setPasswordSetup = useSettingsStore(s => s.setPasswordSetup)
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -78,17 +97,23 @@ export function LockScreenView(): React.ReactElement {
 
     setIsSubmitting(true)
     setError(null)
+    setLockoutOver(false)
     try {
       const result = await safeInvoke(IPC.AUTH_VERIFY_PASSWORD, password)
+      const openKind = result.ok ? null : parseDbOpenFailure(result.error)
       if (result.ok) {
         if (result.data.cloudWarning) {
-          toast(`Warning: Your data folder is inside ${result.data.cloudWarning}. Cloud sync can corrupt encrypted databases.`, { duration: 10000, icon: '⚠️' })
+          // Same advice as after a restore, with a next step (AUDIT-161)
+          toast(cloudFolderAdvice(result.data.cloudWarning, platform), { duration: 20000, icon: '⚠️' })
         }
         const failed = result.data.failedAttempts ?? 0
         if (failed > 0) {
           toast(`${failed} wrong password attempt${failed === 1 ? '' : 's'} since you last unlocked Pulse. If that wasn't you, change your password in Settings → Security.`, { duration: 12000, icon: '⚠️' })
         }
         setLocked(false)
+      } else if (openKind) {
+        setPassword('')
+        showOpenFailure(openKind, 'password')
       } else {
         // Lockout and unreadable-credential messages are already written for users
         setError(result.error === 'Incorrect password' ? "That password didn't work. Check Caps Lock and try again." : result.error)
@@ -110,10 +135,14 @@ export function LockScreenView(): React.ReactElement {
     setIsSubmitting(true)
     try {
       const result = await safeInvoke(IPC.AUTH_VERIFY_RECOVERY_KEY, recoveryKey)
+      const openKind = result.ok ? null : parseDbOpenFailure(result.error)
       if (result.ok && result.data) {
         toast.success('Recovery key accepted.')
         setRecoverySession(true)
         setLocked(false)
+      } else if (openKind) {
+        setRecoveryKey('')
+        showOpenFailure(openKind, 'recovery key')
       } else {
         // Keep what was typed: one typo shouldn't mean retyping 28 characters
         setKeyError("That key didn't match. Check each group of 4.")
@@ -156,11 +185,47 @@ export function LockScreenView(): React.ReactElement {
             </>
           )}
 
+          {view === 'open-failed' && openFailure && (
+            <>
+              <h2 ref={openFailedRef} tabIndex={-1} className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">
+                Your {openFailure.via} is right, but {PRODUCT_NAME} couldn't open your data
+              </h2>
+              <div role="alert" className="text-base text-slate-600 dark:text-slate-300 mb-6 leading-relaxed space-y-3">
+                {openFailure.kind === 'newer' && <>
+                  <p>Your data was last saved by a newer version of {PRODUCT_NAME} than this one. Nothing has been changed, and your data is safe.</p>
+                  <p>Install the newest version of {PRODUCT_NAME}, then unlock again.</p>
+                </>}
+                {openFailure.kind === 'migration' && <>
+                  <p>{PRODUCT_NAME} was updating how your data is stored, and the update didn't finish. It was undone, so your data is safe as it was.</p>
+                  <p>Restart your computer and try again. If it happens again, you can restore a backup file (.pulse-backup), or ask whoever supports {PRODUCT_NAME} for you.</p>
+                </>}
+                {openFailure.kind === 'unreadable' && <>
+                  <p>{PRODUCT_NAME} couldn't read your data file. It may be damaged, or another program may be using it. It hasn't been deleted.</p>
+                  <p>Restart your computer and try again. If that doesn't help, restore a backup file (.pulse-backup). Your current data file is kept to one side, not deleted.</p>
+                </>}
+              </div>
+              <div className="space-y-3">
+                {openFailure.kind !== 'newer' && (
+                  <button type="button" className="btn-primary w-full" onClick={() => setView('restore')}>
+                    Restore from a backup
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={openFailure.kind === 'newer' ? 'btn-primary w-full' : 'btn-secondary w-full'}
+                  onClick={() => { setView('password'); setTimeout(() => inputRef.current?.focus(), 0) }}
+                >
+                  Try again
+                </button>
+              </div>
+            </>
+          )}
+
           {view === 'restore' && (
             <>
               <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-6">Restore from a backup</h2>
               <RestoreFromBackupForm
-                onCancel={() => setView('password')}
+                onCancel={() => setView(openFailure ? 'open-failed' : 'password')}
                 onRestored={() => { setPasswordSetup(true); setLocked(false) }}
               />
             </>
@@ -201,8 +266,12 @@ export function LockScreenView(): React.ReactElement {
                   <div id="unlock-feedback">
                     {capsLock && <p className="text-base text-amber-700 dark:text-amber-300 mt-2">Caps Lock is on</p>}
                     {lockoutLeft > 0
-                      ? <p role="alert" className="text-base text-red-700 dark:text-red-300 mt-2">Too many tries. You can try again in {lockoutLeft} second{lockoutLeft === 1 ? '' : 's'}.</p>
+                      ? <>
+                          <p role="alert" className="sr-only">Too many tries. You can try again in {lockoutTotal} second{lockoutTotal === 1 ? '' : 's'}.</p>
+                          <p aria-hidden="true" className="text-base text-red-700 dark:text-red-300 mt-2">Too many tries. You can try again in {lockoutLeft} second{lockoutLeft === 1 ? '' : 's'}.</p>
+                        </>
                       : error && <p role="alert" className="text-base text-red-700 dark:text-red-300 mt-2">{error}</p>}
+                    <p role="status" className="sr-only">{lockoutOver ? 'You can try again now.' : ''}</p>
                   </div>
                   {hint && (
                     <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">

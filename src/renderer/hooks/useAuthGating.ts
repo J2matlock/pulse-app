@@ -9,7 +9,6 @@ import { useGridStore } from '../stores/gridStore'
 import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
 import { checkBackupReminder, checkWhatsNew } from './useBackupReminder'
-import toast from 'react-hot-toast'
 import { pulseEvents } from '../events'
 
 export type SetupStart = 'welcome' | 'start' | 'examples' | 'sheet-name' | 'blank'
@@ -72,19 +71,8 @@ export function useAuthGating(): UseAuthGatingReturn {
           }
         } catch { /* ignore — proceed normally on error */ }
         loadRules()
-        // Check for migration failure and warn user
-        try {
-          const migResult = await safeInvoke<{ version: number; error: string; timestamp: string } | null>(IPC.APP_MIGRATION_STATUS)
-          if (migResult.ok && migResult.data) {
-            const { version, error } = migResult.data
-            toast.error(
-              `A database migration (v${version}) failed: ${error}. Some features may not work correctly. You can restore from a pre-migration backup in Settings > Backup.`,
-              { duration: 15000 }
-            )
-            // Clear the flag so the warning only shows once per launch
-            await safeInvoke(IPC.APP_MIGRATION_STATUS, true)
-          }
-        } catch { /* non-critical */ }
+        // A failed data update is explained on the lock screen when it happens:
+        // a failed update leaves the data unopenable, so there is no unlock to toast after (AUDIT-003)
         await checkBackupReminder()
         await checkWhatsNew()
       })()

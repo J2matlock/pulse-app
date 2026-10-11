@@ -18,6 +18,7 @@ import { wipeOpenedFiles } from './attachment-files'
 import { extractPulseFileFromArgv, handleFileOpen } from './file-association'
 import { checkSafeStorageAvailability, getDbKey, lockApp } from './auth'
 import { PRODUCT_NAME, normalizeAutoLockMinutes } from '../shared/constants'
+import { startupFailureText } from '../shared/dbOpen'
 import { clearImportCache } from './import'
 import { logger, formatForwardedLogData } from './logger'
 import { IPC } from '../shared/ipc-channels'
@@ -305,11 +306,11 @@ app.whenReady().then(async () => {
     await initDatabase()
     logger.info('app', 'Database opened')
   } catch (err) {
-    // DB init failure is fatal — user must see an error
-    dialog.showErrorBox(
-      'Startup Error',
-      `Failed to initialize database:\n${err instanceof Error ? err.message : String(err)}\n\nThe app will exit.`
-    )
+    // DB init failure is fatal — user must see an error. Plain words and a next
+    // step in the box; the raw error goes to the log only (AUDIT-059).
+    logger.error('app', 'Database initialization failed at startup', err)
+    const { title, message } = startupFailureText(PRODUCT_NAME)
+    dialog.showErrorBox(title, message)
     app.exit(1)
     return
   }
