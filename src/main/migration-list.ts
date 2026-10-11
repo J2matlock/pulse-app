@@ -6,6 +6,7 @@
  * other. Only imports the migration files, so tests can load it without Electron.
  */
 import type { Database as BetterSqlite3DB } from 'better-sqlite3'
+import { removeOrphansBefore014 } from './migration-fixups'
 import { up as migration001 } from './migrations/001_initial_schema'
 import { up as migration002 } from './migrations/002_cell_formats'
 import { up as migration003 } from './migrations/003_alert_interval'
@@ -81,7 +82,8 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 11, up: migration011 },
   { version: 12, up: migration012 },
   { version: 13, up: migration013 },
-  { version: 14, up: migration014 },
+  // 014 can't be edited; the fix-up clears rows its foreign keys would reject
+  { version: 14, up: db => { removeOrphansBefore014(db); migration014(db) } },
   { version: 15, up: migration015 },
   { version: 16, up: migration016, noTransaction: true },  // contains VACUUM
   { version: 17, up: migration017 },
