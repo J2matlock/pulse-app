@@ -26,7 +26,7 @@ import { GettingStartedCard } from './dashboard/GettingStartedCard'
 import { ChooseListDialog } from '../components/shared/ChooseListDialog'
 import { wordNow } from '../utils/vocab'
 
-import type { FollowUpRow, RawDeadlineRow, ArchivedRow, ExtendedDeadlineInfo, TopTab, FilterTab, PriorityItem } from './dashboard/types'
+import type { FollowUpRow, RawDeadlineRow, ArchivedRow, ExtendedDeadlineInfo, TopTab, PriorityItem } from './dashboard/types'
 import { SummaryCard } from './dashboard/SummaryCard'
 import { DeadlineRow } from './dashboard/DeadlineRow'
 import { completeDeadlines, skippedForBulkDone } from './dashboard/completeDeadline'
@@ -83,8 +83,6 @@ export default function DashboardView(): React.ReactElement {
     })
   }, [])
   useEffect(() => { setSelectedDeadlines(new Set()) }, [topTab])
-  // The "All | Overdue" sub-filter is gone: the Overdue tab covers it (D-21)
-  const [filterTab] = useState<FilterTab>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [archiveSearch, setArchiveSearch] = useState('')
@@ -328,34 +326,26 @@ export default function DashboardView(): React.ReactElement {
     const q = debouncedSearch.toLowerCase()
     const items: PriorityItem[] = []
 
-    const matchesTab = (daysUntil: number, isDeadline?: boolean, threshold?: unknown) => {
-      if (filterTab === 'overdue') return daysUntil < 0
-      return isDeadline ? threshold !== null : true
-    }
-
     for (const d of deadlines) {
-      if (!matchesTab(d.daysUntil, true, d.threshold)) continue
+      if (d.threshold === null) continue
       if (q && !d.clientName.toLowerCase().includes(q) && !d.columnName.toLowerCase().includes(q) && !d.gridName.toLowerCase().includes(q)) continue
       items.push({ kind: 'deadline', data: d, sortKey: d.daysUntil })
     }
     for (const { task, daysUntil } of tasksWithDays) {
-      if (!matchesTab(daysUntil)) continue
       if (q && !task.title.toLowerCase().includes(q) && !(task.category ?? '').toLowerCase().includes(q)) continue
       items.push({ kind: 'task', data: task, daysUntil, sortKey: daysUntil })
     }
     for (const { item: ci, daysUntil } of checklistWithDays) {
-      if (!matchesTab(daysUntil)) continue
       if (q && !ci.title.toLowerCase().includes(q) && !(ci.client_name ?? '').toLowerCase().includes(q) && !ci.grid_name.toLowerCase().includes(q)) continue
       items.push({ kind: 'checklist', data: ci, daysUntil, sortKey: daysUntil })
     }
     for (const { followUp, daysUntil } of followUpsWithDays) {
-      if (!matchesTab(daysUntil)) continue
       if (q && !(followUp.client_name ?? '').toLowerCase().includes(q) && !followUp.content.toLowerCase().includes(q) && !followUp.grid_name.toLowerCase().includes(q)) continue
       items.push({ kind: 'followup', data: followUp, daysUntil, sortKey: daysUntil })
     }
 
     return items.sort((a, b) => a.sortKey - b.sortKey)
-  }, [deadlines, tasksWithDays, checklistWithDays, followUpsWithDays, filterTab, debouncedSearch])
+  }, [deadlines, tasksWithDays, checklistWithDays, followUpsWithDays, debouncedSearch])
 
   const overdueItems = useMemo((): PriorityItem[] => {
     const items: PriorityItem[] = []
@@ -524,7 +514,10 @@ export default function DashboardView(): React.ReactElement {
                 showSpinner ? <LoadingOverlay label="Loading dashboard…" /> : <div className="py-16" />
               ) : filteredItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-2 text-slate-500 dark:text-slate-400">
-                  {filterTab === 'all' && stats?.totalActive === 0 ? (
+                  {debouncedSearch.trim() ? (
+                    // A search that finds nothing isn't an empty dashboard
+                    <p className="text-base font-semibold text-slate-700 dark:text-slate-300">Nothing matches &ldquo;{debouncedSearch.trim()}&rdquo;</p>
+                  ) : stats?.totalActive === 0 ? (
                     <>
                       <p className="text-base font-semibold text-slate-700 dark:text-slate-300">Nothing here yet</p>
                       <p className="text-base text-slate-500 dark:text-slate-400">Your dashboard fills up as you add {t('record', { many: true })} with dates.</p>
@@ -532,17 +525,11 @@ export default function DashboardView(): React.ReactElement {
                         See an example with sample data
                       </button>
                     </>
-                  ) : filterTab === 'all' ? (
+                  ) : (
                     <>
                       <CheckCircle className="w-12 h-12 text-green-400 dark:text-green-500 opacity-60" />
                       <p className="text-base font-semibold text-slate-700 dark:text-slate-300">All clear!</p>
                       <p className="text-base text-slate-500 dark:text-slate-400">No deadlines, tasks, or follow-ups need attention right now.</p>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-12 h-12 text-green-400 dark:text-green-500 opacity-60" />
-                      <p className="text-base font-semibold text-slate-700 dark:text-slate-300">Nothing overdue</p>
-                      <p className="text-base text-slate-500 dark:text-slate-400">Great work — you're all caught up!</p>
                     </>
                   )}
                 </div>

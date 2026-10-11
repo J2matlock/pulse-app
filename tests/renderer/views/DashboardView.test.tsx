@@ -263,7 +263,9 @@ describe('DashboardView — interactions', () => {
     fireEvent.change(searchInput, { target: { value: 'ZZZNONEXISTENT' } })
     await flushEffects()
 
-    expect(screen.getByText('All clear!')).toBeDefined()
+    // A search with no matches says so, not "All clear!" (S1)
+    expect(screen.getByText(/Nothing matches .ZZZNONEXISTENT./)).toBeDefined()
+    expect(screen.queryByText('All clear!')).toBeNull()
   })
 
   it('an empty workspace says how the dashboard fills up, not "All clear!" (audit 2.1)', async () => {

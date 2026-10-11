@@ -70,7 +70,6 @@ export interface ExtendedDeadlineInfo extends DeadlineInfo {
 }
 
 export type TopTab = 'priority' | 'overdue' | 'week' | 'month' | 'archived'
-export type FilterTab = 'all' | 'overdue'
 
 export type PriorityItem =
   | { kind: 'deadline'; data: ExtendedDeadlineInfo; sortKey: number }
