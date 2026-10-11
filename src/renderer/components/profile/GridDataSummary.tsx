@@ -7,6 +7,8 @@ import { evaluateRuleForRow } from '../../utils/deadlineCalc'
 import { IPC } from '../../../shared/ipc-channels'
 import { isNotTypedColumnType, type Column, type GridRow, type ParsedAlertRule } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
+import toast from 'react-hot-toast'
+import { friendlyError } from '../../utils/friendlyError'
 import type { DeadlineState } from '../../../shared/deadlineEngine'
 import { CellDisplay } from '../grid/CellDisplay'
 import { CellEditor } from '../grid/CellEditor'
@@ -205,13 +207,16 @@ export function GridDataSummary({ row, columns, alertRules, gridId, onCellSave }
   })()
 
   async function toggleColumn(colId: number) {
+    const before = hiddenColumnIds
     const next = new Set(hiddenColumnIds)
     if (next.has(colId)) next.delete(colId)
     else next.add(colId)
     setHiddenColumnIds(next)
-    try {
-      await safeInvoke(IPC.SETTINGS_UPDATE, HIDDEN_KEY_PREFIX + gridId, JSON.stringify([...next]))
-    } catch { /* ignore */ }
+    const res = await safeInvoke(IPC.SETTINGS_UPDATE, HIDDEN_KEY_PREFIX + gridId, JSON.stringify([...next]))
+    if (!res.ok) {
+      setHiddenColumnIds(before)
+      toast.error(friendlyError(res.error, "We couldn't save which columns show here — try again"))
+    }
   }
 
   async function handleDragEnd(event: DragEndEvent) {
@@ -233,10 +238,13 @@ export function GridDataSummary({ row, columns, alertRules, gridId, onCellSave }
       if (!fullOrder.includes(col.id)) fullOrder.push(col.id)
     }
 
+    const before = columnOrder
     setColumnOrder(fullOrder)
-    try {
-      await safeInvoke(IPC.SETTINGS_UPDATE, ORDER_KEY_PREFIX + gridId, JSON.stringify(fullOrder))
-    } catch { /* ignore */ }
+    const res = await safeInvoke(IPC.SETTINGS_UPDATE, ORDER_KEY_PREFIX + gridId, JSON.stringify(fullOrder))
+    if (!res.ok) {
+      setColumnOrder(before)
+      toast.error(friendlyError(res.error, "We couldn't save the new column order — try again"))
+    }
   }
 
   // Number histories for the sparklines, one request per record; refreshed when a value changes

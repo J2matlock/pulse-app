@@ -170,9 +170,11 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
         savedId = created.id
       }
       // Save custom field values
+      let fieldFailures = 0
       if (savedId && Object.keys(customValues).length > 0) {
         for (const [fieldId, value] of Object.entries(customValues)) {
-          await safeInvoke(IPC.CONTACTS_SAVE_CUSTOM_VALUE, savedId, Number(fieldId), value || null)
+          const res = await safeInvoke(IPC.CONTACTS_SAVE_CUSTOM_VALUE, savedId, Number(fieldId), value || null)
+          if (!res.ok) fieldFailures++
         }
       }
       // Sync tags — add new tags, remove deleted ones (tags are plain strings)
@@ -193,7 +195,9 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
           }
         }
       }
-      if (tagFailures > 0) toast.error(`The ${t('contact')} was saved, but some tag changes didn't save — please try again`)
+      if (tagFailures > 0 && fieldFailures > 0) toast.error(`The ${t('contact')} was saved, but some tag and field changes didn't save — please try again`)
+      else if (tagFailures > 0) toast.error(`The ${t('contact')} was saved, but some tag changes didn't save — please try again`)
+      else if (fieldFailures > 0) toast.error(`The ${t('contact')} was saved, but some field changes didn't save — please try again`)
       // Tags and custom fields were saved after the store re-read the contact, so read it again.
       const store = useContactsStore.getState()
       if (savedId && store.selectedProviderId === savedId) await store.selectProvider(savedId)

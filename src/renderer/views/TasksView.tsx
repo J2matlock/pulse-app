@@ -28,6 +28,7 @@ import { IPC } from '../../shared/ipc-channels'
 import type { CaseloadTask, TaskGroup as TaskGroupType, UrgentChecklistItem } from '../../shared/types'
 import { safeInvoke, mustInvoke } from '../utils/safeInvoke'
 import { rlog } from '../utils/rendererLogger'
+import { friendlyError } from '../utils/friendlyError'
 import { pulseEvents } from '../events'
 import { tickChecklistItem } from '../utils/checklistTick'
 import { resolveGroupDrop, groupAwareCollision } from './tasks/groupDrag'
@@ -333,7 +334,9 @@ export default function TasksView(): React.ReactElement {
       else next.delete(groupId)
       return next
     })
-    await safeInvoke(IPC.TASK_GROUP_UPDATE, groupId, { is_collapsed: newCollapsed ? 1 : 0 })
+    // Only the open/closed look; the screen keeps it for this visit either way
+    const res = await safeInvoke(IPC.TASK_GROUP_UPDATE, groupId, { is_collapsed: newCollapsed ? 1 : 0 })
+    if (!res.ok) rlog.warn('TasksView', 'Could not save group collapse state', res.error)
   }, [collapsedGroups])
 
   const hasTaskGroups = taskGroups.length > 0
@@ -402,8 +405,13 @@ export default function TasksView(): React.ReactElement {
 
     if (drop.kind === 'groups') {
       const byId = new Map(taskGroups.map(g => [g.id, g]))
+      const before = taskGroups
       setTaskGroups(drop.order.map((id, i) => ({ ...byId.get(id)!, position: i })))
-      await safeInvoke(IPC.TASK_GROUP_REORDER, drop.order)
+      const res = await safeInvoke(IPC.TASK_GROUP_REORDER, drop.order)
+      if (!res.ok) {
+        setTaskGroups(before)
+        toast.error(friendlyError(res.error, "We couldn't move that group — try again"))
+      }
       return
     }
 
@@ -422,8 +430,13 @@ export default function TasksView(): React.ReactElement {
       await loadTasks()
       return
     }
-    await safeInvoke(IPC.TASK_REORDER, newOrder)
+    const reordered = await safeInvoke(IPC.TASK_REORDER, newOrder)
     await loadTasks()
+    if (!reordered.ok) {
+      // The move to the new group saved; only its place in the list didn't, so there's nothing to undo here
+      toast.error(friendlyError(reordered.error, "We couldn't save the new order — try again"))
+      return
+    }
     useUndoStore.getState().push({
       id: crypto.randomUUID(),
       description: `Moved task "${task?.title ?? ''}" to another group`,
