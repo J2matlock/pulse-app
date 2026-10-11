@@ -15,6 +15,7 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import { IPC } from '../../../shared/ipc-channels'
 import { extendDeadline, removeExtension } from '../../views/dashboard/extendDeadline'
 import { localDateString } from '../../../shared/dates'
+import { useToday } from '../../hooks/useToday'
 import { hasInterval, toRuleInterval } from '../../../shared/ruleInterval'
 
 /** Maps a bgClass to a solid (full-opacity) hex color for borders / progress bars. */
@@ -140,6 +141,8 @@ export function DeadlinePanel({
   const [askReading, setAskReading] = useState<{ col: Column; rawValue: string | null; rule: ParsedAlertRule } | null>(null)
   const [askOneOff, setAskOneOff] = useState<{ col: Column; rawValue: string | null; rule: ParsedAlertRule; due: string | null } | null>(null)
   const refreshContext = () => useGridStore.getState().refreshDeadlineContext()
+  // Days-until is worked out on every render: render again when the day changes at midnight
+  useToday()
 
   const deadlines: DateDeadline[] = columns
     .filter(c => {

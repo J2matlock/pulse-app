@@ -6,6 +6,7 @@ import { cellText } from '../../../shared/cellText'
 import { computedColumnText, isComputedColumnType } from '../../utils/computedColumns'
 import { useGridStore } from '../../stores/gridStore'
 import { useAlertStore } from '../../stores/alertStore'
+import { useSettingsStore } from '../../stores/settingsStore'
 
 // ── Clipboard format helper ────────────────────────────────────────────────────
 
@@ -29,8 +30,9 @@ export function validateForColumnType(value: string, column: Column): string | n
   switch (column.column_type) {
     case 'date':
       // Stored as YYYY-MM-DD, read the way Import reads dates; "March 3" (no year) is refused (G-14)
-      // A birth-date column reads "3/15/40" as 1940, never next decade
-      return parseDate(trimmed, 'mdy', { birth: looksLikeBirthColumn(column.name) })
+      // A birth-date column reads "3/15/40" as 1940, never next decade.
+      // 06/10/2026 is 6 October with the DD/MM/YYYY date format, June 10 otherwise
+      return parseDate(trimmed, useSettingsStore.getState().dateFormat === 'eu' ? 'dmy' : 'mdy', { birth: looksLikeBirthColumn(column.name) })
     case 'number':
     case 'currency': {
       // Strip currency symbols for currency type

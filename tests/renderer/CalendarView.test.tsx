@@ -60,6 +60,20 @@ describe('the calendar', () => {
     expect(within(cell).getByText('Jane: Review')).toBeTruthy()
   })
 
+  it('moves the today marker at midnight (AUDIT-025)', async () => {
+    await show()
+    const { pulseEvents } = await import('../../src/renderer/events')
+    const { localDateFromToday } = await import('../../src/shared/dates')
+    // A neighbouring day in the same month, so it's on screen
+    const next = Number(today.slice(8)) >= 15 ? localDateFromToday(-1) : localDateFromToday(1)
+    const marker = (d: string) => (document.querySelector(`[data-day="${d}"] button`) as HTMLElement).className
+    expect(marker(today)).toContain('bg-blue-600')
+    expect(marker(next)).not.toContain('bg-blue-600')
+    await act(async () => { pulseEvents.emit('day:changed', { date: next }) })
+    expect(marker(next)).toContain('bg-blue-600')
+    expect(marker(today)).not.toContain('bg-blue-600')
+  })
+
   it('leaves tasks off the calendar while the Tasks feature is switched off', async () => {
     useWorkspaceStore.setState({ features: { appointments: true, tasks: false } } as never)
     await show()

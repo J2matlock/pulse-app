@@ -23,6 +23,8 @@ interface SettingsState {
   highContrast: boolean
   clockFormat: '12h' | '24h'
   weekStart: 'sunday' | 'monday'
+  /** Settings → Date format: how exports write dates, and how a pasted 06/10/2026 is read */
+  dateFormat: 'us' | 'iso' | 'eu'
 
   setLocked: (locked: boolean) => void
   setPasswordSetup: (setup: boolean) => void
@@ -59,6 +61,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   highContrast: false,
   clockFormat: '12h',
   weekStart: 'sunday',
+  dateFormat: 'us',
 
   setLocked: (locked) => set({ isLocked: locked }),
   setPasswordSetup: (setup) => set({ isPasswordSetup: setup }),
@@ -91,6 +94,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     const clockFormat = (rawClockFormat === '12h' || rawClockFormat === '24h') ? rawClockFormat : undefined
     const rawWeekStart = settings.week_start
     const weekStart = (rawWeekStart === 'sunday' || rawWeekStart === 'monday') ? rawWeekStart : undefined
+    const rawDateFormat = settings.date_format
+    const dateFormat = (rawDateFormat === 'us' || rawDateFormat === 'iso' || rawDateFormat === 'eu') ? rawDateFormat : undefined
     set({
       ...(theme ? { theme } : {}),
       ...(Number.isFinite(autoLock) && autoLock >= 0 ? { autoLockMinutes: autoLock } : {}),
@@ -103,6 +108,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       ...(settings.high_contrast !== undefined ? { highContrast: settings.high_contrast === 'true' } : {}),
       ...(clockFormat ? { clockFormat } : {}),
       ...(weekStart ? { weekStart } : {}),
+      ...(dateFormat ? { dateFormat } : {}),
     })
   },
 

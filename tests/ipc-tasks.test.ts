@@ -219,6 +219,37 @@ describe('IPC Tasks', () => {
     })
   })
 
+  // ── Task dates (AUDIT-120) ───────────────────────────────────────────────
+  describe('task dates are plain calendar days', () => {
+    type Res = { ok: boolean; data?: { id: number; due_date: string | null } }
+    const dueOf = (id: number) => (testDb.db.prepare('SELECT due_date, snoozed_until FROM caseload_tasks WHERE id = ?').get(id) as { due_date: string | null; snoozed_until: string | null })
+
+    it.each([
+      ['2026-10-11', '2026-10-11'], ['2026-10-11T09:00', '2026-10-11'], [null, null], ['', null],
+    ])('TASK_CREATE keeps %j as %j', async (given, stored) => {
+      const r = await invoke(IPC.TASK_CREATE, { title: 'Task', due_date: given }) as Res
+      expect(r.ok).toBe(true)
+      expect(dueOf(r.data!.id).due_date).toBe(stored)
+    })
+
+    it.each(['tomorrow', '2026-02-30', '0026-10-11', '20266-01-01', 42])('TASK_CREATE and TASK_UPDATE refuse %j', async (bad) => {
+      expect((await invoke(IPC.TASK_CREATE, { title: 'Task', due_date: bad }) as Res).ok).toBe(false)
+      const created = await invoke(IPC.TASK_CREATE, { title: 'Task', due_date: '2026-10-11' }) as Res
+      expect((await invoke(IPC.TASK_UPDATE, created.data!.id, { due_date: bad }) as Res).ok).toBe(false)
+      expect((await invoke(IPC.TASK_UPDATE, created.data!.id, { snoozed_until: bad }) as Res).ok).toBe(false)
+      expect(dueOf(created.data!.id).due_date).toBe('2026-10-11')
+    })
+
+    it('TASK_UPDATE stores the day without a time', async () => {
+      const created = await invoke(IPC.TASK_CREATE, { title: 'Task' }) as Res
+      const id = created.data!.id
+      expect((await invoke(IPC.TASK_UPDATE, id, { due_date: '2026-10-11T09:00', snoozed_until: '2026-10-05T08:00' }) as Res).ok).toBe(true)
+      expect(dueOf(id)).toEqual({ due_date: '2026-10-11', snoozed_until: '2026-10-05' })
+      expect((await invoke(IPC.TASK_UPDATE, id, { due_date: null }) as Res).ok).toBe(true)
+      expect(dueOf(id).due_date).toBeNull()
+    })
+  })
+
   // ── TASK_UPDATE ──────────────────────────────────────────────────────────
   describe('TASK_UPDATE', () => {
     it('updates title', async () => {

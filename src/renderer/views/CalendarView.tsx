@@ -10,7 +10,7 @@ import { IPC } from '../../shared/ipc-channels'
 import type { Appointment } from '../../shared/appointments'
 import { addDays, addMonths } from '../../shared/appointments'
 import { CALENDAR_LAYERS, formatTime, longDay, monthGrid, monthTitle, sameMonth, startOfWeek, type CalendarItem, type CalendarLayer } from '../../shared/calendar'
-import { localDateString } from '../../shared/dates'
+import { useToday } from '../hooks/useToday'
 import { safeInvoke } from '../utils/safeInvoke'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useFeature } from '../hooks/useFeature'
@@ -90,7 +90,8 @@ export default function CalendarView(): React.ReactElement {
   const weekStart = useSettingsStore(s => s.weekStart)
   const clock = useSettingsStore(s => s.clockFormat)
   const { t, f } = useVocab(null)
-  const today = localDateString()
+  // Moves on at midnight, so the today marker does too
+  const today = useToday()
   const [mode, setMode] = useState<CalendarMode>(apptsOn ? 'week' : 'month')
   const [pendingDrop, setPendingDrop] = useState<{ appt: Appointment; times: { start_at: string; end_at: string | null } } | null>(null)
   const [anchor, setAnchor] = useState(today)

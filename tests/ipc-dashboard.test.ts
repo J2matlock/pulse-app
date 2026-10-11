@@ -271,6 +271,17 @@ describe('DASHBOARD_GET_FOLLOWUPS', () => {
     const result = await invoke(IPC.DASHBOARD_GET_FOLLOWUPS) as { ok: true; data: unknown[] }
     expect(result.data).toHaveLength(0)
   })
+
+  it('excludes follow-ups of records in the Trash, as the count does (AUDIT-115)', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 1 })
+    testDb.db.prepare(
+      "INSERT INTO case_log (row_id, content, log_type, follow_up_date, follow_up_completed, created_at, updated_at) VALUES (?, 'Pending', 'note', date('now', 'localtime', '-1 day'), 0, datetime('now'), datetime('now'))"
+    ).run(rowIds[0])
+    testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now') WHERE id = ?").run(rowIds[0])
+
+    const result = await invoke(IPC.DASHBOARD_GET_FOLLOWUPS) as { ok: true; data: unknown[] }
+    expect(result.data).toHaveLength(0)
+  })
 })
 
 describe('DASHBOARD_GET_ALL archived', () => {

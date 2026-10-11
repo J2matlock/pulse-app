@@ -3,6 +3,7 @@ import { Moon, Sun, Monitor } from 'lucide-react'
 import type { Theme } from '../../../shared/types'
 import { useVocab } from '../../hooks/useVocab'
 import { modHelp } from '../../utils/keys'
+import { useSettingsStore } from '../../stores/settingsStore'
 
 interface AppearanceSectionProps {
   theme: Theme
@@ -236,13 +237,18 @@ export function AppearanceSection({
         {/* Date Format */}
         <div className="space-y-1">
           <label htmlFor="settings-date-format" className="block text-base text-slate-700 dark:text-slate-300">Date Format</label>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">How dates are written in CSV and PDF exports</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">How dates are written in CSV and PDF exports, and how a pasted date like 06/10/2026 is read</p>
           <select
             id="settings-date-format"
             className="input"
             style={{ minHeight: 44, fontSize: 15 }}
             value={dateFormat}
-            onChange={e => { setDateFormatState(e.target.value); void saveSetting('date_format', e.target.value) }}
+            onChange={e => {
+              setDateFormatState(e.target.value)
+              void saveSetting('date_format', e.target.value)
+              const v = e.target.value
+              if (v === 'us' || v === 'iso' || v === 'eu') useSettingsStore.setState({ dateFormat: v })
+            }}
           >
             <option value="us">MM/DD/YYYY (US)</option>
             <option value="iso">YYYY-MM-DD (ISO)</option>

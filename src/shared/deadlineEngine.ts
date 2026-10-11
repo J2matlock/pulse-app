@@ -11,7 +11,8 @@
 import { z } from 'zod'
 import { addInterval, describeInterval, hasInterval, toRuleInterval, type RuleInterval } from './ruleInterval'
 import { addBusinessDays, rollBackToBusinessDay, rollForwardToBusinessDay, DEFAULT_WEEKEND, type WorkCalendar } from './businessDays'
-import { toYmd, ymdToDate, dateToYmd, daysBetween } from './ymd'
+import { toYmd, ymdToDate, dateToYmd, daysBetween, addDays } from './ymd'
+import { parseNumberCell } from './numbers'
 
 export { toYmd, ymdToDate, dateToYmd, daysBetween }
 
@@ -390,23 +391,14 @@ function occurrenceOnOrBefore(months: number[], day: number | 'last', ymd: strin
   return null
 }
 
-function addDaysYmd(ymd: string, days: number): string {
-  if (days === 0) return ymd
-  const d = ymdToDate(ymd)
-  d.setDate(d.getDate() + days)
-  return dateToYmd(d)
-}
+const addDaysYmd = addDays
 
-function ordinal(n: number): string {
+export function ordinal(n: number): string {
   const s = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th'
   return `${n}${s}`
 }
 
-function toNumber(v: string | null | undefined): number | null {
-  if (v == null || v.trim() === '') return null
-  const n = Number(v.replace(/,/g, ''))
-  return Number.isFinite(n) ? n : null
-}
+const toNumber = parseNumberCell
 
 /**
  * Usage per day from readings (least squares over the last 180 days). Needs
@@ -514,9 +506,17 @@ export function sequenceStepDue(cfg: SequenceConfig, anchor: string, i: number, 
   const n = cfg.steps.length
   if (i < n) return { due: applyOffset(anchor, { ...cfg.steps[i]!.offset, direction: 'after' }, cal), label: cfg.steps[i]!.label }
   if (!cfg.repeatLast) return null
-  const last = applyOffset(anchor, { ...cfg.steps[n - 1]!.offset, direction: 'after' }, cal)
+  const lastOffset = cfg.steps[n - 1]!.offset
   const times = i - n + 1
-  const d = addInterval(ymdToDate(last), { days: (cfg.repeatLast.days ?? 0) * times, months: (cfg.repeatLast.months ?? 0) * times, endOfMonth: false })
+  const repeatMonths = (cfg.repeatLast.months ?? 0) * times
+  const repeatDays = (cfg.repeatLast.days ?? 0) * times
+  // A last step of whole months is counted from the anchor in one go, so a
+  // Jan 31 anchor isn't clamped to Feb 28 and then stuck on the 28th forever.
+  // A last step with days in it already sits on its real day, so count from it.
+  const monthsOnly = !lastOffset.days && !lastOffset.businessDays
+  const base = monthsOnly ? anchor : applyOffset(anchor, { ...lastOffset, direction: 'after' }, cal)
+  const months = monthsOnly ? (lastOffset.months ?? 0) + repeatMonths : repeatMonths
+  const d = addInterval(ymdToDate(base), { days: repeatDays, months, endOfMonth: false })
   return { due: dateToYmd(d), label: cfg.steps[n - 1]!.label }
 }
 

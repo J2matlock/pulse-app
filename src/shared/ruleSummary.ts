@@ -3,15 +3,11 @@
  * Referral date", "Every Mar 31". Used for automatic rule names, header
  * tooltips and the Settings list.
  */
-import { engineRuleFrom, type RelativeConfig, type CalendarConfig, type MeterConfig, type QuotaConfig, type SequenceConfig } from './deadlineEngine'
+import { engineRuleFrom, ordinal, type RelativeConfig, type CalendarConfig, type MeterConfig, type QuotaConfig, type SequenceConfig } from './deadlineEngine'
 import { describeInterval } from './ruleInterval'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-function ordinal(n: number): string {
-  const s = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th'
-  return `${n}${s}`
-}
 
 function amount(o: { days?: number; months?: number; businessDays?: number }): string {
   const parts = [

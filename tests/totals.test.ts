@@ -7,7 +7,7 @@ let testDb: TestDb
 vi.mock('../src/main/database', () => ({ getDb: () => testDb.db }))
 vi.mock('electron', () => ({ app: { getPath: () => '/tmp', isPackaged: false } }))
 
-import { getTotals, exportTotalsCsv, measureHeading } from '../src/main/totals'
+import { getTotals, exportTotalsCsv, measureHeading, monthSearchRange, TOTALS_SQL } from '../src/main/totals'
 import { unitsFor, formatMinutes, formatMiles } from '../src/shared/timeMileage'
 
 let rows: number[]
@@ -51,6 +51,33 @@ describe('totals report', () => {
     expect(r.byClient.map(c => [c.minutes, c.units, c.miles])).toEqual([[30, 2, 10.5], [60, 4, 4]])
     expect(r.totals).toEqual({ minutes: 90, units: 6, miles: 14.5, extra: {} })
     expect(r.mileageRate).toBe(0.5)
+  })
+
+  it('leaves out notes of records and lists in the Trash, but counts archived records (AUDIT-022)', () => {
+    testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now') WHERE id = ?").run(rows[1])
+    expect(getTotals('2026-03').totals.minutes).toBe(30)
+    testDb.db.prepare('UPDATE rows SET deleted_at = NULL, is_active = 0 WHERE id = ?').run(rows[1])
+    expect(getTotals('2026-03').totals.minutes).toBe(90)
+    testDb.db.prepare('UPDATE grids SET is_active = 0').run()
+    expect(getTotals('2026-03').entries).toEqual([])
+  })
+
+  it('counts notes stored with an ISO timestamp at the edges of the month', () => {
+    testDb.db.prepare('DELETE FROM case_log').run()
+    const iso = (local: string) => new Date(local).toISOString()
+    for (const at of ['2026-03-01T00:05:00', '2026-03-31T23:55:00', '2026-02-28T23:55:00', '2026-04-01T00:05:00']) {
+      testDb.db.prepare(`INSERT INTO case_log (row_id, content, log_type, occurred_at, created_at, updated_at, minutes)
+        VALUES (?, 'Visit', 'visit', ?, ?, datetime('now'), 10)`).run(rows[0], iso(at), iso(at))
+    }
+    expect(getTotals('2026-03').entries.map(e => e.date)).toEqual(['2026-03-01', '2026-03-31'])
+  })
+
+  it('searches only around the month in the note-date index (AUDIT-110)', () => {
+    expect(monthSearchRange('2026-03')).toEqual(['2026-02-27', '2026-04-03'])
+    expect(monthSearchRange('2026-12')).toEqual(['2026-11-29', '2027-01-03'])
+    expect(monthSearchRange('2028-03')).toEqual(['2028-02-28', '2028-04-03'])
+    const plan = testDb.db.prepare(`EXPLAIN QUERY PLAN ${TOTALS_SQL}`).all('x', '2026-02-27', '2026-04-03', '2026-03', null, null) as Array<{ detail: string }>
+    expect(plan.map(p => p.detail).join('\n')).toMatch(/SEARCH cl USING INDEX idx_case_log_occurred \(occurred_at>\? AND occurred_at<\?\)/)
   })
 
   it('counts a late write-up in the month it happened (audit 1.22)', () => {

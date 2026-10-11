@@ -15,6 +15,7 @@ import { useGridStore } from '../stores/gridStore'
 import { useTaskStore } from '../stores/taskStore'
 import { useUndoStore } from '../stores/undoStore'
 import { pulseEvents } from '../events'
+import { useToday } from '../hooks/useToday'
 import { tickChecklistItem } from '../utils/checklistTick'
 import type { RawDeadlineRow, FocusItem, FocusTask, FocusFollowUp, UrgentChecklistItem } from './focus-mode/types'
 import { FocusSection } from './focus-mode/FocusSection'
@@ -79,6 +80,7 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
 
+  const today = useToday()
   useEffect(() => {
     async function load() {
       try {
@@ -150,7 +152,8 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
       }
     }
     load()
-  }, [])
+    // Loaded again at midnight: "due today" and "overdue" move on with the day
+  }, [today])
 
   const reloadClientItems = useCallback(async () => {
     const res = await safeInvoke<RawDeadlineRow[]>(IPC.DASHBOARD_GET_DEADLINES)

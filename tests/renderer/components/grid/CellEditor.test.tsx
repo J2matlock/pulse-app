@@ -71,6 +71,28 @@ describe('CellEditor', () => {
     expect((input as HTMLInputElement).value).toBe('2026-03-01')
   })
 
+  it('keeps the old date instead of saving a half-typed year (AUDIT-112)', () => {
+    const { container } = render(
+      <CellEditor column={makeColumn('date')} value="2026-03-01" onSave={onSave} onCancel={onCancel} />
+    )
+    const input = container.querySelector('input[type="date"]') as HTMLInputElement
+    expect(input.min).toBe('1900-01-01')
+    fireEvent.change(input, { target: { value: '0026-10-11' } })
+    fireEvent.blur(input)
+    expect(onSave).not.toHaveBeenCalled()
+    expect(onCancel).toHaveBeenCalled()
+  })
+
+  it('saves a real date from the date input', () => {
+    const { container } = render(
+      <CellEditor column={makeColumn('date')} value="2026-03-01" onSave={onSave} onCancel={onCancel} />
+    )
+    const input = container.querySelector('input[type="date"]') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '2026-10-11' } })
+    fireEvent.blur(input)
+    expect(onSave).toHaveBeenCalledWith('2026-10-11', undefined)
+  })
+
   it('renders a number input for number columns', () => {
     render(<CellEditor column={makeColumn('number')} value="42" onSave={onSave} onCancel={onCancel} />)
     const input = screen.getByRole('spinbutton')

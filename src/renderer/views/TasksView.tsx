@@ -42,6 +42,7 @@ import { UrgentChecklistSection } from './tasks/UrgentChecklistSection'
 import { isMod, modHelp } from '../utils/keys'
 import { useVocab } from '../hooks/useVocab'
 import { useFeature } from '../hooks/useFeature'
+import { useToday } from '../hooks/useToday'
 
 export default function TasksView(): React.ReactElement {
   const checklistsOn = useFeature('checklists')
@@ -135,6 +136,9 @@ export default function TasksView(): React.ReactElement {
     const timers = checkedTimersRef.current
     return () => { timers.forEach(t => clearTimeout(t)) }
   }, [])
+
+  // Which checklist items are urgent depends on the day
+  useEffect(() => pulseEvents.on('day:changed', () => { void loadUrgentItems() }), [loadUrgentItems])
 
   // Reload urgent items when undo/redo updates checklist state externally (cross-mount)
   useEffect(() => {
@@ -345,10 +349,13 @@ export default function TasksView(): React.ReactElement {
     [tasks, recentlyCheckedIds]
   )
 
+  // Moves on at midnight: overdue counts and snoozed tasks coming back
+  const today = useToday()
+
   const activeManualItems = useMemo(() => {
-    const nonSnoozed = activeRaw.filter(t => !isSnoozed(t))
+    const nonSnoozed = activeRaw.filter(t => !isSnoozed(t, today))
     return [...nonSnoozed].sort((a, b) => a.position - b.position)
-  }, [activeRaw])
+  }, [activeRaw, today])
 
   // Grouped items memo (only used in manual mode with groups)
   const groupedActiveTasks = useMemo(() => {
@@ -375,8 +382,8 @@ export default function TasksView(): React.ReactElement {
   const activeManualRef = useRef(activeManualItems)
   activeManualRef.current = activeManualItems
 
-  const overdueTasks = useMemo(() => activeRaw.filter(t => !isSnoozed(t) && isOverdue(t)), [activeRaw])
-  const snoozedTasks = useMemo(() => tasks.filter(t => t.is_completed !== 1 && isSnoozed(t)), [tasks])
+  const overdueTasks = useMemo(() => activeRaw.filter(t => !isSnoozed(t, today) && isOverdue(t, today)), [activeRaw, today])
+  const snoozedTasks = useMemo(() => tasks.filter(t => t.is_completed !== 1 && isSnoozed(t, today)), [tasks, today])
 
   const completedTasks = useMemo(() =>
     tasks.filter(t => t.is_completed === 1 && !recentlyCheckedIds.has(t.id))

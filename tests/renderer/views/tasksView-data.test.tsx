@@ -3,7 +3,7 @@
  * TasksView data smoke tests — renders with 5 tasks (2 overdue),
  * verifies task groups, counts, sort buttons, inline add.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -151,10 +151,8 @@ vi.mock('../../../src/renderer/components/shared/ConfirmDialog', () => ({
 }))
 vi.mock('../../../src/renderer/views/tasks/taskHelpers', () => ({
   PRIORITY_ORDER: { urgent: 0, high: 1, normal: 2, low: 3 } as Record<string, number>,
-  isOverdue: (t: { due_date: string | null }) => {
-    if (!t.due_date) return false
-    return new Date(t.due_date) < new Date('2026-03-10')
-  },
+  // Today comes from the view (useToday), so the overdue count can move on at midnight
+  isOverdue: (t: { due_date: string | null }, today: string) => !!t.due_date && t.due_date < today,
   isDueToday: () => false,
   isSnoozed: () => false,
 }))
@@ -186,6 +184,20 @@ describe('TasksView — data smoke tests (5 tasks, 2 overdue)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockInvoke.mockResolvedValue({ ok: true, data: [] })
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 2, 10, 12, 0))
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('counts a task as overdue once midnight passes, without a reload (AUDIT-025)', async () => {
+    const { pulseEvents } = await import('../../../src/renderer/events')
+    render(<MemoryRouter><TasksView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.getByText(/2 overdue/)).toBeTruthy()
+    await act(async () => { pulseEvents.emit('day:changed', { date: '2026-03-16' }) })
+    expect(screen.getByText(/3 overdue/)).toBeTruthy()
+    // Checklist items that just became urgent are fetched again too
+    expect(mockInvoke.mock.calls.filter(c => c[0] === 'checklist:get-urgent').length).toBeGreaterThanOrEqual(2)
   })
 
   it('renders the Tasks heading', async () => {
