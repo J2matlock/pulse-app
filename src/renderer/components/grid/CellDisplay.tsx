@@ -1,6 +1,7 @@
 import React from 'react'
 import type { Column, GridRow } from '../../../shared/types'
-import { computeDaysUntil, computeAge, formatCalculatedDays, evaluateRuleForRow } from '../../utils/deadlineCalc'
+import { computeAge, formatCalculatedDays, evaluateRuleForRow } from '../../utils/deadlineCalc'
+import { daysUntilSource } from './gridSort'
 import { useAlertStore } from '../../stores/alertStore'
 import { useGridStore } from '../../stores/gridStore'
 import { formatDue, isUsedUp } from '../../../shared/deadlineEngine'
@@ -96,21 +97,8 @@ export const CellDisplay = React.memo(function CellDisplay({ column, value, row,
 
     case 'calculated_days': {
       // Read-only computed: days until/since source date column
-      let sourceValue: string | null = null
       const daysCfg = parsedConfig as { source_column_id?: number; label?: string } | undefined
-      const label = daysCfg?.label ?? 'days until'
-      if (daysCfg?.source_column_id && row) {
-        sourceValue = row[`col_${daysCfg.source_column_id}` as keyof GridRow] as string | null
-      }
-      if (!sourceValue) return <span className="text-slate-300 dark:text-slate-500">—</span>
-      const days = computeDaysUntil(sourceValue)
-      const { text, colorClass, icon } = formatCalculatedDays(days)
-      return (
-        <span className={`tabular-nums ${colorClass}`} title={label}>
-          {icon && <span className="mr-1">{icon}</span>}
-          {text}
-        </span>
-      )
+      return <DaysUntilCell sourceId={daysCfg?.source_column_id} row={row} label={daysCfg?.label ?? 'days until'} />
     }
 
     case 'phone': {
@@ -212,6 +200,22 @@ export function formatDate(value: string): string {
   }
 }
 
+/** A "Days until" column: counts to when its date is due when that date has a rule (R4) */
+function DaysUntilCell({ sourceId, row, label }: { sourceId?: number; row?: GridRow; label: string }): React.ReactElement {
+  const rules = useAlertStore(s => s.rules)
+  // Counts and done flags for the rule arrive after the rows
+  useGridStore(s => s.deadlineContext)
+  const days = sourceId && row ? daysUntilSource(sourceId, row, rules) : null
+  if (days === null) return <span className="text-slate-300 dark:text-slate-500">—</span>
+  const { text, colorClass, icon } = formatCalculatedDays(days)
+  return (
+    <span className={`tabular-nums ${colorClass}`} title={label}>
+      {icon && <span className="mr-1">{icon}</span>}
+      {text}
+    </span>
+  )
+}
+
 /**
  * A deadline column (W05): no value of its own to type, just its rule's
  * status — the next due date, or when it was done. The stored value is the
@@ -233,6 +237,8 @@ function DeadlineCell({ column, value, row, parsedConfig }: { column: Column; va
   const res = evaluateRuleForRow(rule, value, (row ?? {}) as unknown as Record<string, unknown>, column.id)
   if (res.state === 'done') return <span className="truncate min-w-0 text-green-700 dark:text-green-300">Done{value ? ` ${formatDue(value.slice(0, 10))}` : ''}</span>
   if (res.state === 'paused') return <span className="truncate min-w-0 text-slate-500 dark:text-slate-400 italic" title={res.detail}>Paused</span>
+  // A calendar rule before its lead time: say when it's next due, rather than a bare dash
+  if (!res.due && res.upcoming) return <span className="truncate min-w-0 tabular-nums text-slate-500 dark:text-slate-400" title={res.detail}>Next {formatDue(res.upcoming)}</span>
   if (!res.due || res.daysUntil === null) return <span className="text-slate-300 dark:text-slate-500">—</span>
   const d = res.daysUntil
   // A used-up quota: "All 12 used · ends Dec 31, 2026", not "today"

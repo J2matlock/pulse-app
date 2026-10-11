@@ -39,6 +39,25 @@ describe('deadline cells', () => {
     off()
   })
 
+  it('say when a calendar rule is next due before its lead time, not a bare dash (R4)', () => {
+    const lead = { ...rule, rule_config: JSON.stringify({ kind: 'calendar', months: [1, 4, 6, 9], day: 15, lead: 30 }) } as ParsedAlertRule
+    useAlertStore.setState({ rules: [lead] } as never)
+    render(<CellDisplay column={column} value={null} row={{ row_id: 1 } as GridRow} allColumns={[column]} parsedConfig={{ alert_rule_id: 7 }} />)
+    const next = screen.getByText('Next Jan 15, 2027')
+    expect(next.getAttribute('title')).toBe('Next: Jan 15, 2027')
+  })
+
+  it('a "Days until" column counts to when its date is due when that date has a rule (R4)', () => {
+    const every30 = { ...rule, id: 8, kind: 'interval', interval_days: 30, rule_config: null } as unknown as ParsedAlertRule
+    const visit = { ...column, id: 2, name: 'Last visit', column_type: 'date', config: '{"alert_rule_id":8}' } as Column
+    const days = { ...column, id: 3, name: 'Days until visit', column_type: 'calculated_days', config: '{"source_column_id":2}' } as Column
+    useAlertStore.setState({ rules: [every30] } as never)
+    useGridStore.setState({ columns: [visit, days], hiddenColumns: [], deadlineContext: null } as never)
+    // Last visit Sep 7, every 30 days: due Oct 7, in 5 days (not "25 days overdue")
+    render(<CellDisplay column={days} value={null} row={{ row_id: 1, col_2: '2026-09-07' } as unknown as GridRow} allColumns={[visit, days]} parsedConfig={{ source_column_id: 2 }} />)
+    expect(screen.getByText('5 days')).toBeTruthy()
+  })
+
   it('show a used-up quota by its label, not "today" (D-13)', () => {
     const quota = { ...rule, kind: 'quota', rule_config: JSON.stringify({ kind: 'quota', activityTypes: ['visit'], startColumnId: 8, endColumnId: 9, limit: 2, warnRemaining: 0, warnDaysBeforeEnd: 0 }) } as ParsedAlertRule
     useAlertStore.setState({ rules: [quota] } as never)

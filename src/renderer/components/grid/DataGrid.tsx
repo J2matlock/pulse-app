@@ -30,8 +30,7 @@ import { useAlertStore } from '../../stores/alertStore'
 import { useProfileStore } from '../../stores/profileStore'
 import type { GridRow, SortConfig, CellFormatRule } from '../../../shared/types'
 import { matchFilter } from '../../utils/filterMatch'
-import { computeDaysUntil } from '../../utils/deadlineCalc'
-import { deadlineCompare, numberCompare, dateCompare } from './gridSort'
+import { deadlineCompare, numberCompare, dateCompare, daysUntilSource } from './gridSort'
 import { rowMatchesSearch } from '../../utils/searchMatch'
 import { CellConditionalFormatPanel } from './CellConditionalFormatPanel'
 import { CellHistoryPopover } from '../shared/CellHistoryPopover'
@@ -449,10 +448,9 @@ export function DataGrid(): React.ReactElement {
           ? (rowA, rowB) => {
               const srcId = compCfg?.source_column_id
               if (!srcId) return 0
-              const aDate = rowA.original[`col_${srcId}` as keyof GridRow] as string | null
-              const bDate = rowB.original[`col_${srcId}` as keyof GridRow] as string | null
-              const aVal = aDate ? computeDaysUntil(aDate) : null
-              const bVal = bDate ? computeDaysUntil(bDate) : null
+              // The same days the cell shows: to when it's due when the date has a rule (R4)
+              const aVal = daysUntilSource(srcId, rowA.original, alertRules)
+              const bVal = daysUntilSource(srcId, rowB.original, alertRules)
               if (aVal == null && bVal == null) return 0
               if (aVal == null) return 1
               if (bVal == null) return -1
@@ -488,7 +486,7 @@ export function DataGrid(): React.ReactElement {
         maxSize: 800,
       })
     })]
-  }, [columns, acuityEnabled, acuityLevels, alertRuleMap])
+  }, [columns, acuityEnabled, acuityLevels, alertRuleMap, alertRules])
 
   // Custom global filter: only search name + text/dropdown columns
   // Search: every column that holds text, plus tags, the same as the board (G-25)
