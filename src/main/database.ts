@@ -285,6 +285,8 @@ function asOpenError(err: unknown, kind: DbOpenFailureKind): DatabaseOpenError {
  * Throws DatabaseOpenError when the file can't be read or upgraded.
  */
 export function openDatabase(): void {
+  // A second unlock (or a reopen) must never leak the connection that is still open (AUDIT-020)
+  if (db && db.open) closeDatabase()
   if (cleanupTimer) { clearTimeout(cleanupTimer); cleanupTimer = null }
   const dbPath = resolveDatabasePath()
   mkdirSync(join(dbPath, '..'), { recursive: true })

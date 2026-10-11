@@ -293,6 +293,15 @@ describe('openDatabase refusing or failing safely', () => {
     expect(sha(dbPath)).toBe(before)
   })
 
+  it('opening again closes the connection that was still open (AUDIT-020)', () => {
+    openDatabase()
+    const first = getDb()
+    openDatabase()
+    expect(first.open).toBe(false)
+    expect(getDb()).not.toBe(first)
+    expect(versionOf(getDb())).toBe(latestSchemaVersion())
+  })
+
   it('re-opening an up-to-date database runs nothing and makes no copy', () => {
     openDatabase()
     closeDatabase()
