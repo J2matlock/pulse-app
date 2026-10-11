@@ -6,6 +6,7 @@ import { CSS } from '@dnd-kit/utilities'
 import type { CaseloadTask, TaskPriority } from '../../../shared/types'
 import { MS_PER_DAY } from '../../../shared/constants'
 import { localDateString } from '../../../shared/dates'
+import { snoozeDay } from '../../views/tasks/SnoozeDialog'
 
 const PRIORITY_CONFIG: Record<TaskPriority, { label: string; dot: string; badge: string }> = {
   urgent: { label: 'Urgent', dot: '!!!!', badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
@@ -248,7 +249,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
             <button
               onClick={() => { setDateDraft(''); setEditingDate(true) }}
               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base
-                         text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100
+                         text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100
                          hover:bg-slate-200 dark:hover:bg-slate-600 transition-opacity"
             >
               <Calendar className="w-3 h-3" />
@@ -262,7 +263,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
               onClick={() => setShowPriorityMenu(prev => !prev)}
               className={`px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity
                          ${priorityCfg.badge}
-                         ${priority === 'normal' ? 'opacity-0 group-hover:opacity-100' : ''}`}
+                         ${priority === 'normal' ? 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100' : ''}`}
             >
               {priority !== 'normal' ? priorityCfg.label : '+ Priority'}
             </button>
@@ -292,7 +293,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
               className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity
                          ${hasRecurrence
                            ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                           : 'text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100 hover:bg-slate-200 dark:hover:bg-slate-600'}`}
+                           : 'text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-slate-200 dark:hover:bg-slate-600'}`}
               title={hasRecurrence ? 'Change recurrence' : 'Set recurrence'}
             >
               <RotateCw className="w-3 h-3" />
@@ -350,14 +351,14 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
                          hover:text-amber-700 dark:hover:text-amber-300
                          focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
             >
-              Snoozed until {task.snoozed_until} ×
+              Snoozed until {task.snoozed_until ? snoozeDay(task.snoozed_until) : ''} ×
             </button>
           )}
         </div>
       </div>
 
       {/* Hover actions */}
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex-shrink-0">
         {snoozed ? (
           <button
             onClick={() => onUpdate({ snoozed_until: null })}
@@ -446,7 +447,7 @@ export function CompletedTaskItem({ task, onUncheck, onDelete }: {
         onClick={onDelete}
         className="flex-shrink-0 mt-0.5 text-slate-500 dark:text-slate-400
                    hover:text-red-500 dark:hover:text-red-400
-                   opacity-0 group-hover:opacity-100 focus-visible:opacity-100
+                   opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100
                    focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400 rounded-sm
                    transition-opacity"
         aria-label="Delete item"

@@ -366,6 +366,8 @@ export default function TasksView(): React.ReactElement {
   )
 
   const totalActive = activeRaw.filter(t => !recentlyCheckedIds.has(t.id)).length
+  // Urgent checklist items only count while the Checklists feature (and its section) is on
+  const shownUrgentCount = checklistsOn ? urgentItems.length : 0
   const totalAll = totalActive + completedTasks.length
   const progressPct = totalAll > 0 ? Math.round((completedTasks.length / totalAll) * 100) : 0
   const progressColor = progressPct === 100 ? '#22c55e' : progressPct >= 50 ? '#eab308' : '#94a3b8'
@@ -452,7 +454,7 @@ export default function TasksView(): React.ReactElement {
         <ClipboardList className="w-5 h-5 text-slate-500" />
         <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 min-w-0">Tasks</h1>
         <span className="text-sm text-slate-500 dark:text-slate-400">
-          {totalActive} active{urgentItems.length > 0 && ` · ${urgentItems.length} urgent`}{overdueTasks.length > 0 && ` · ${overdueTasks.length} overdue`}
+          {totalActive} active{shownUrgentCount > 0 && ` · ${shownUrgentCount} urgent`}{overdueTasks.length > 0 && ` · ${overdueTasks.length} overdue`}
         </span>
 
         <button
@@ -523,7 +525,7 @@ export default function TasksView(): React.ReactElement {
             <LoadingOverlay label="Loading tasks…" />
           )}
 
-          {!loading && tasks.length === 0 && urgentItems.length === 0 && (
+          {!loading && tasks.length === 0 && shownUrgentCount === 0 && (
             <div className="flex flex-col items-center">
               <EmptyState
                 icon={<ClipboardList className="w-12 h-12" />}
@@ -532,7 +534,7 @@ export default function TasksView(): React.ReactElement {
                 action={{ label: 'Add your first task', onClick: () => setShowAddDialog(true) }}
               />
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-                Tip: Press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-xs font-mono">Ctrl+Shift+T</kbd> to quickly add a task
+                Tip: Press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-sm font-mono">Ctrl+Shift+T</kbd> to quickly add a task
               </p>
             </div>
           )}
@@ -546,7 +548,7 @@ export default function TasksView(): React.ReactElement {
             />
           )}
 
-          {!loading && (tasks.length > 0 || urgentItems.length > 0) && (
+          {!loading && (tasks.length > 0 || shownUrgentCount > 0) && (
             <>
               {sortMode !== 'manual' ? (
                 /* Sorted by due date or priority: one list, no dragging (audit S-20) */

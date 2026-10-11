@@ -196,6 +196,23 @@ describe('TasksView — interactions', () => {
     expect(screen.getByText(/2 active/)).toBeDefined()
   })
 
+  it('counts urgent checklist items only while Checklists is on', async () => {
+    const { setWords, EXISTING_FEATURES } = await import('../vocabFixture')
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'checklist:get-urgent'
+      ? { ok: true, data: [{ id: 1, row_id: 2, title: 'Sign consent', client_name: 'Ann', is_completed: 0 }] }
+      : { ok: true, data: [] }))
+    setWords(undefined, {}, { ...EXISTING_FEATURES, checklists: true })
+    const first = render(<MemoryRouter><TasksView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.getByText(/2 active · 1 urgent/)).toBeDefined()
+    first.unmount()
+    setWords(undefined, {}, { ...EXISTING_FEATURES, checklists: false })
+    render(<MemoryRouter><TasksView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.queryByText(/urgent/)).toBeNull()
+    setWords()
+  })
+
   it('renders the inline add-task input', async () => {
     render(<MemoryRouter><TasksView /></MemoryRouter>)
     await flushEffects()
