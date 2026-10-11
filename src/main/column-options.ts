@@ -55,7 +55,8 @@ export function saveColumnOptions(columnId: number, change: OptionsChange): { up
         const hit = old.find(o => typeof o === 'object' && o?.label === label)
         return typeof hit === 'object' ? hit?.color : undefined
       }
-      cfg.options = options.map((label, i) => ({ label, color: colorOf(label) ?? colorOf(renamedFrom.get(label) ?? '') ?? STATUS_COLORS[i % STATUS_COLORS.length] }))
+      // A renamed choice keeps its own colour, even when its new label was another choice's old one (a swap)
+      cfg.options = options.map((label, i) => ({ label, color: (renamedFrom.has(label) ? colorOf(renamedFrom.get(label)!) : colorOf(label)) ?? STATUS_COLORS[i % STATUS_COLORS.length] }))
     } else {
       cfg.options = options
     }
@@ -65,7 +66,7 @@ export function saveColumnOptions(columnId: number, change: OptionsChange): { up
     if (stage && Array.isArray(stage.options)) {
       const before = new Map(stage.options.map(o => [o.value, o]))
       stage.options = options.map(value => {
-        const kept = before.get(value) ?? before.get(renamedFrom.get(value) ?? '')
+        const kept = renamedFrom.has(value) ? before.get(renamedFrom.get(value)!) : before.get(value)
         return kept ? { ...kept, value } : { value }
       })
     }
@@ -73,13 +74,17 @@ export function saveColumnOptions(columnId: number, change: OptionsChange): { up
 
     let updated = 0
     if (change.updateRecords && renames.length) {
-      const users = db.prepare(`SELECT c.row_id FROM cells c JOIN rows r ON r.id = c.row_id WHERE c.column_id = ? AND c.value = ? AND r.deleted_at IS NULL`)
+      // Records in the Trash are relabelled too, so they still hold a choice when restored.
+      // Every set is read before anything is written: with a swap (High ↔ Low) or a
+      // chain (A → B, B → C), renaming one at a time would merge them.
+      const users = db.prepare(`SELECT c.row_id, r.deleted_at IS NULL AS live FROM cells c JOIN rows r ON r.id = c.row_id WHERE c.column_id = ? AND c.value = ?`)
+      const plan = renames.map(([from, to]) => ({ to, rows: users.all(col.id, from) as Array<{ row_id: number; live: number }> }))
       const touched: number[] = []
-      for (const [from, to] of renames) {
-        for (const { row_id } of users.all(col.id, from) as Array<{ row_id: number }>) {
+      for (const { to, rows } of plan) {
+        for (const { row_id, live } of rows) {
           setCellWithHistory(row_id, col.id, to)
           touched.push(row_id)
-          updated++
+          if (live) updated++
         }
       }
       if (touched.length && columnAffectsDisplayName(col.grid_id, col.id)) refreshDisplayNames(col.grid_id, touched)
