@@ -3,7 +3,8 @@
  * Shown inside GridToolbar when grouping is active or when user opens the picker.
  * Also supports custom group bucket definitions.
  */
-import React, { useRef, useState, useEffect } from 'react'
+import React, { useRef, useState, useEffect, useCallback } from 'react'
+import { useMenuKeys } from '../../hooks/useMenuKeys'
 import { edgeAwareRefCallback } from '../../utils/domHelpers'
 import { Layers, X, ChevronDown, Shield, Star, Settings, Trash2 } from 'lucide-react'
 import { TOOLBAR_ICON, TOOLBAR_LABEL } from './gridConstants'
@@ -46,6 +47,10 @@ export function GroupingBar(): React.ReactElement {
   const [showCustomGroupEditor, setShowCustomGroupEditor] = useState(false)
   const [editingCustomGroup, setEditingCustomGroup] = useState<CustomGroupDef | undefined>(undefined)
   const pickerRef = useRef<HTMLDivElement>(null)
+  // The picker takes focus, closes on Escape and gives focus back (AUDIT-044)
+  const listRef = useRef<HTMLDivElement | null>(null)
+  const setListRef = useCallback((el: HTMLDivElement | null) => { listRef.current = el; edgeAwareRefCallback(el) }, [])
+  const listKeys = useMenuKeys(listRef, pickerOpen, useCallback(() => setPickerOpen(false), []), { kind: 'panel' })
 
   const isAcuityGrouped = groupByColumnId === ACUITY_GROUP_KEY && acuityEnabled
   const activeCol = isAcuityGrouped ? null : columns.find(c => c.id === groupByColumnId)
@@ -118,7 +123,7 @@ export function GroupingBar(): React.ReactElement {
           style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
           title={isGroupingActive ? `Grouped by: ${triggerLabel ?? '—'}` : `Group ${t('record', { many: true })} by a column`}
           aria-expanded={pickerOpen}
-          aria-haspopup="listbox"
+          aria-haspopup="dialog"
         >
           <Layers className={`w-4 h-4 ${TOOLBAR_ICON}`} />
           {isGroupingActive ? (
@@ -162,7 +167,7 @@ export function GroupingBar(): React.ReactElement {
 
       {/* Column picker dropdown */}
       {pickerOpen && (
-        <div ref={edgeAwareRefCallback} className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-52">
+        <div ref={setListRef} onKeyDown={listKeys} role="dialog" aria-label="Group by" className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-52">
           <p className="px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
             Group by
           </p>

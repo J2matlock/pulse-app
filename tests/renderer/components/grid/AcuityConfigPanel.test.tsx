@@ -95,6 +95,15 @@ describe('AcuityConfigPanel', () => {
     expect(screen.getByText('Acuity levels')).toBeTruthy()
   })
 
+  it('takes focus and closes on Escape (AUDIT-044)', () => {
+    const onClose = vi.fn()
+    render(<AcuityConfigPanel onClose={onClose} />)
+    const panel = screen.getByRole('dialog')
+    expect(panel.contains(document.activeElement)).toBe(true)
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalled()
+  })
+
   it('renders toggle switch', () => {
     render(<AcuityConfigPanel onClose={vi.fn()} />)
     expect(screen.getByRole('switch')).toBeTruthy()

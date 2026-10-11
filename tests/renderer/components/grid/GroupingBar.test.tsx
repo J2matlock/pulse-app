@@ -109,6 +109,18 @@ describe('GroupingBar', () => {
     expect(screen.getByText('Category')).toBeTruthy()
   })
 
+  it('the picker takes focus and closes on Escape, giving focus back (AUDIT-044)', () => {
+    render(<GroupingBar />)
+    const btn = screen.getByText('Group').closest('button')!
+    btn.focus()
+    fireEvent.click(btn)
+    const picker = screen.getByRole('dialog', { name: 'Group by' })
+    expect(picker.contains(document.activeElement)).toBe(true)
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'Group by' })).toBeNull()
+    expect(document.activeElement).toBe(btn)
+  })
+
   it('returns empty when no groupable columns and no acuity', () => {
     setupStore({ columns: [], acuityEnabled: false, customGroups: [] })
     const { container } = render(<GroupingBar />)

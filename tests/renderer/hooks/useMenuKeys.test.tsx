@@ -55,4 +55,35 @@ describe('useMenuKeys', () => {
     fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
     expect(document.activeElement).toBe(opener)
   })
+
+  it('Tab closes a menu (AUDIT-044)', () => {
+    const onClose = vi.fn()
+    render(<Menu onClose={onClose} />)
+    fireEvent.keyDown(document.activeElement!, { key: 'Tab' })
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it("a panel keeps its fields' arrows and Tab, and still closes on Escape (AUDIT-044)", () => {
+    const onClose = vi.fn()
+    function Panel() {
+      const ref = useRef<HTMLDivElement>(null)
+      const onKeyDown = useMenuKeys(ref, true, onClose, { kind: 'panel' })
+      return (
+        <div ref={ref} onKeyDown={onKeyDown}>
+          <select aria-label="Column"><option>A</option><option>B</option></select>
+          <button>Add</button>
+        </div>
+      )
+    }
+    render(<Panel />)
+    const select = screen.getByLabelText('Column')
+    expect(document.activeElement).toBe(select)
+    const down = fireEvent.keyDown(select, { key: 'ArrowDown' })
+    expect(down).toBe(true) // not prevented
+    expect(document.activeElement).toBe(select)
+    fireEvent.keyDown(select, { key: 'Tab' })
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.keyDown(select, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalled()
+  })
 })
