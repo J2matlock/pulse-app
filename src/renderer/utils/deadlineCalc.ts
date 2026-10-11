@@ -7,7 +7,7 @@
 
 import type { AlertThreshold, GridRow, ParsedAlertRule } from '../../shared/types'
 import { toRuleInterval, type RuleInterval } from '../../shared/ruleInterval'
-import { evaluate, isUsedUp, engineRuleFrom, meterHistoryColumn, referencedColumns, sequenceAnchor, extensionAnchor, matchExtension, applyExtension, ymdToDate, type DeadlineResult } from '../../shared/deadlineEngine'
+import { evaluate, isUsedUp, engineRuleFrom, meterHistoryColumn, referencedColumns, buildRecordContext, extensionAnchor, matchExtension, applyExtension, ymdToDate, type DeadlineResult } from '../../shared/deadlineEngine'
 import { useGridStore } from '../stores/gridStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { localDateString } from '../../shared/dates'
@@ -65,18 +65,16 @@ export function evaluateRuleForRow(rule: ParsedAlertRule, columnValue: string | 
   const meterCol = meterHistoryColumn(engineRule)
   const context = useGridStore.getState().deadlineContext
   const meterHistory = meterCol ? context?.meter?.[`${String(row.row_id)}:${meterCol}`] : undefined
-  const activityCount = columnId !== undefined ? context?.quota?.[`${String(row.row_id)}:${columnId}`] ?? 0 : undefined
-  const anchor = sequenceAnchor(engineRule, columnValue, values)
-  const progress = columnId !== undefined
-    ? (context?.progress?.[`${String(row.row_id)}:${columnId}`] ?? []).filter(p => p.anchor === anchor).map(p => p.step)
-    : undefined
-  const prevKey = `${String(row.row_id)}:${columnId}`
-  const previous = columnId !== undefined && context?.previous && prevKey in context.previous ? { previousDone: context.previous[prevKey] ?? null } : {}
-  const finished = columnId !== undefined && context?.finished?.[prevKey] ? { finishedFor: context.finished[prevKey] } : {}
-  const res = evaluate(engineRule, {
-    today: localDateString(), columnDate: columnValue, values, meterHistory, activityCount, progress, ...previous, ...finished,
+  const key = `${String(row.row_id)}:${columnId}`
+  const known = columnId !== undefined
+  const res = evaluate(engineRule, buildRecordContext(engineRule, {
+    today: localDateString(), columnDate: columnValue, values, meterHistory,
+    activityCount: known ? context?.quota?.[key] ?? 0 : undefined,
+    progress: known ? context?.progress?.[key] ?? [] : undefined,
+    previousDone: known && context?.previous && key in context.previous ? context.previous[key] ?? null : undefined,
+    finishedFor: known ? context?.finished?.[key] : undefined,
     holidays: new Set(cal?.holidays ?? []), weekend: cal?.weekend ?? [0, 6],
-  })
+  }))
   const ext = columnId !== undefined
     ? matchExtension(context?.extensions?.[`${String(row.row_id)}:${columnId}`], extensionAnchor(engineRule, columnValue, values), res.step)
     : undefined

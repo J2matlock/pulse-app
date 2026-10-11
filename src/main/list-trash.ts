@@ -11,6 +11,7 @@
  *   links to other lists are removed (they'd dangle) and kept as a copy so
  *   restoring the list brings them back.
  * Anything left after 30 days is removed for good when the database opens.
+ * A record deleted forever is taken out of these copies at once (AUDIT-108).
  */
 import { getDb } from './database'
 import { deleteLinksForGrid } from './links'
@@ -178,6 +179,84 @@ export function restoreColumn(deletedId: number): { columnId: number; gridId: nu
   return { columnId: entry.column_id, gridId: entry.grid_id }
 }
 
+// ── Records removed for good ─────────────────────────────────────────────────
+
+/**
+ * Drop saved rows that belong to records being removed for good, and anything
+ * saved under them (a value's history). A key the database would clear on
+ * delete is cleared instead. Returns whether anything changed.
+ */
+function stripRows(tables: Array<{ table: string; rows: Row[] }>, gone: Set<number>): { tables: Array<{ table: string; rows: Row[] }>; changed: boolean } {
+  const dropped = new Map<string, Row[]>()
+  const goneValues = (parent: string, to: string): Set<unknown> => {
+    if (parent === 'rows' && (to === 'id' || to === 'rowid')) return gone
+    return new Set((dropped.get(parent) ?? []).map(r => r[to]))
+  }
+  let changed = false
+  const out: Array<{ table: string; rows: Row[] }> = []
+  for (const { table, rows } of tables) {
+    const fks = foreignKeys(table).filter(fk => fk.from.length === 1 && (fk.parent === 'rows' || dropped.has(fk.parent)))
+      .map(fk => ({ col: fk.from[0]!, setNull: fk.setNull, values: goneValues(fk.parent, fk.to[0]!) }))
+    const keep: Row[] = []
+    for (const r of rows) {
+      let row = r
+      let drop = false
+      for (const fk of fks) {
+        if (row[fk.col] == null || !fk.values.has(row[fk.col])) continue
+        if (!fk.setNull) { drop = true; break }
+        row = { ...row, [fk.col]: null }
+      }
+      if (drop) { dropped.set(table, [...(dropped.get(table) ?? []), r]); changed = true; continue }
+      if (row !== r) changed = true
+      keep.push(row)
+    }
+    if (keep.length) out.push({ table, rows: keep })
+  }
+  return { tables: out, changed }
+}
+
+/**
+ * Records are about to be removed for good: take their values out of the
+ * copies kept for deleted columns and lists in the Trash, so "Delete forever"
+ * leaves nothing of them behind (AUDIT-108). Call in the purge's transaction,
+ * before the delete.
+ */
+export function forgetPurgedRows(rowIds: number[]): void {
+  if (!rowIds.length) return
+  const db = getDb()
+  const gone = new Set(rowIds)
+  const gridIds = new Set<number>()
+  for (let i = 0; i < rowIds.length; i += 500) {
+    const chunk = rowIds.slice(i, i + 500)
+    for (const r of db.prepare(`SELECT DISTINCT grid_id FROM rows WHERE id IN (${chunk.map(() => '?').join(',')})`).all(...chunk) as Array<{ grid_id: number }>) gridIds.add(r.grid_id)
+  }
+  const saveColumn = db.prepare('UPDATE deleted_columns SET snapshot = ? WHERE id = ?')
+  for (const gridId of gridIds) {
+    for (const e of db.prepare('SELECT id, snapshot FROM deleted_columns WHERE grid_id = ?').all(gridId) as Array<{ id: number; snapshot: string }>) {
+      let snap: ColumnSnapshot
+      try { snap = JSON.parse(e.snapshot) as ColumnSnapshot } catch { continue }
+      const res = stripRows(snap.tables, gone)
+      if (res.changed) saveColumn.run(JSON.stringify({ ...snap, tables: res.tables }), e.id)
+    }
+  }
+  // Lists in the Trash keep copies of link columns (any list's) and of links between records
+  const saveList = db.prepare('UPDATE grids SET deleted_snapshot = ? WHERE id = ?')
+  for (const g of db.prepare('SELECT id, deleted_snapshot FROM grids WHERE deleted_snapshot IS NOT NULL').all() as Array<{ id: number; deleted_snapshot: string }>) {
+    let snap: ListSnapshot
+    try { snap = JSON.parse(g.deleted_snapshot) as ListSnapshot } catch { continue }
+    let changed = false
+    const linkColumns = (snap.linkColumns ?? []).map(c => {
+      const res = stripRows(c.tables, gone)
+      if (!res.changed) return c
+      changed = true
+      return { ...c, tables: res.tables }
+    })
+    const links = stripRows([{ table: 'record_links', rows: snap.recordLinks ?? [] }], gone)
+    if (links.changed) changed = true
+    if (changed) saveList.run(JSON.stringify({ ...snap, linkColumns, recordLinks: links.tables[0]?.rows ?? [] }), g.id)
+  }
+}
+
 export function purgeDeletedColumn(deletedId: number): boolean {
   return getDb().prepare('DELETE FROM deleted_columns WHERE id = ?').run(deletedId).changes > 0
 }
@@ -252,5 +331,10 @@ export function restoreList(gridId: number): void {
 
 /** Remove a list in the Trash for good, with its records and everything on them */
 export function purgeList(gridId: number): boolean {
-  return getDb().prepare('DELETE FROM grids WHERE id = ? AND is_active = 0 AND deleted_at IS NOT NULL').run(gridId).changes > 0
+  const db = getDb()
+  return db.transaction(() => {
+    if (!db.prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 0 AND deleted_at IS NOT NULL').get(gridId)) return false
+    forgetPurgedRows((db.prepare('SELECT id FROM rows WHERE grid_id = ?').all(gridId) as Array<{ id: number }>).map(r => r.id))
+    return db.prepare('DELETE FROM grids WHERE id = ? AND is_active = 0 AND deleted_at IS NOT NULL').run(gridId).changes > 0
+  })()
 }

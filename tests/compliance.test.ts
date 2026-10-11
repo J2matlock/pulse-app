@@ -13,6 +13,7 @@ vi.mock('electron', () => ({ app: { getPath: () => '/tmp', isPackaged: false } }
 
 import { getComplianceSummary, exportComplianceSummary, monthAsOf } from '../src/main/compliance'
 import { saveRequirements } from '../src/main/contact-requirements'
+import { loadDeadlines } from '../src/main/deadlines'
 
 let gridId: number
 let rows: number[]
@@ -94,6 +95,30 @@ describe('compliance summary', () => {
     expect(ex).toContain('Cy|Plan due')
     // 3 Last Visit + 2 quarterly (Cy hidden) + 3 plan
     expect(g!.deadlines.total).toBe(8)
+  })
+
+  it('counts a late calendar completion the way the dashboard does (AUDIT-074)', () => {
+    vi.setSystemTime(new Date(2026, 6, 15, 12, 0, 0))
+    const db = testDb.db
+    const quarterly = db.prepare("INSERT INTO alert_rules (name, thresholds, kind, rule_config) VALUES ('Quarterly', '[]', 'calendar', ?)")
+      .run(JSON.stringify({ kind: 'calendar', months: [3, 6, 9, 12], day: 15 })).lastInsertRowid
+    const qCol = Number(db.prepare('INSERT INTO columns (grid_id, name, column_type, position, config) VALUES (?, ?, ?, ?, ?)')
+      .run(gridId, 'Quarterly check', 'date', 5, JSON.stringify({ alert_rule_id: Number(quarterly) })).lastInsertRowid)
+    // Ana's March check was done late, on May 20: it pays March, so June 15 is still owed
+    const cell = db.prepare("INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, '2026-05-20', datetime('now'))").run(rows[0], qCol).lastInsertRowid
+    const hist = db.prepare('INSERT INTO cell_history (cell_id, row_id, column_id, old_value, new_value, changed_at) VALUES (?, ?, ?, ?, ?, ?)')
+    hist.run(cell, rows[0], qCol, '2025-12-15', '2026-05-20', utc('2026-05-20 10:00:00'))
+    // A change after the cutoff doesn't decide what June looked like
+    hist.run(cell, rows[0], qCol, '2026-05-20', '2026-05-20', utc('2026-07-02 10:00:00'))
+
+    const [g] = getComplianceSummary('2026-06').grids
+    const row = g!.deadlines.exceptions.find(e => e.clientName === 'Ana' && e.column === 'Quarterly check')
+    expect(row).toEqual({ clientName: 'Ana', column: 'Quarterly check', due: '2026-06-15', daysOverdue: 15 })
+
+    // Before the second change the dashboard, as of June 30, agreed
+    db.prepare('DELETE FROM cell_history WHERE changed_at > ?').run(utc('2026-06-30 23:59:59'))
+    const dash = loadDeadlines({ today: '2026-06-30', gridId }).find(d => d.row_id === rows[0] && d.column_id === qCol)
+    expect(dash).toMatchObject({ due: '2026-06-15', state: 'overdue', daysUntil: -15 })
   })
 
   it('leaves requirements out while the feature is switched off', () => {

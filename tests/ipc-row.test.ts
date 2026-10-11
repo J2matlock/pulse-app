@@ -239,6 +239,19 @@ describe('IPC Row — ROW_PURGE', () => {
     expect(row).toBeDefined()
   })
 
+  it('takes its values out of deleted columns in the Trash (AUDIT-108)', async () => {
+    const { trashColumn } = await import('../src/main/list-trash')
+    const { rowIds, columnIds } = seedGrid(testDb.db, { rowCount: 2, columnCount: 2 })
+    const col = columnIds[1]!
+    testDb.db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, 'kept'), (?, ?, 'secret value')").run(rowIds[0], col, rowIds[1], col)
+    const deletedId = testDb.db.transaction(() => { const id = trashColumn(col); testDb.db.prepare('DELETE FROM columns WHERE id = ?').run(col); return id })()
+    await invoke(IPC.ROW_DELETE, rowIds[1])
+    expect((await invoke(IPC.ROW_PURGE, rowIds[1]) as any).ok).toBe(true)
+    const snap = (testDb.db.prepare('SELECT snapshot FROM deleted_columns WHERE id = ?').get(deletedId) as { snapshot: string }).snapshot
+    expect(snap).not.toContain('secret')
+    expect(snap).toContain('kept')
+  })
+
   it('rejects invalid ID', async () => {
     const result = await invoke(IPC.ROW_PURGE, -1) as any
     expect(result.ok).toBe(false)
@@ -735,6 +748,19 @@ describe('IPC Row — ROW_PURGE_ALL', () => {
     const result = await invoke(IPC.ROW_PURGE_ALL) as any
     expect(result).toEqual({ ok: true, data: 2 })
     expect(testDb.db.prepare('SELECT id FROM rows').all()).toEqual([{ id: rowIds[2] }])
+  })
+
+  it('takes the emptied records out of deleted columns in the Trash (AUDIT-108)', async () => {
+    const { trashColumn } = await import('../src/main/list-trash')
+    const { rowIds, columnIds } = seedGrid(testDb.db, { rowCount: 2, columnCount: 2 })
+    const col = columnIds[1]!
+    testDb.db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, 'kept'), (?, ?, 'secret value')").run(rowIds[0], col, rowIds[1], col)
+    const deletedId = testDb.db.transaction(() => { const id = trashColumn(col); testDb.db.prepare('DELETE FROM columns WHERE id = ?').run(col); return id })()
+    testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now') WHERE id = ?").run(rowIds[1])
+    expect(await invoke(IPC.ROW_PURGE_ALL)).toEqual({ ok: true, data: 1 })
+    const snap = (testDb.db.prepare('SELECT snapshot FROM deleted_columns WHERE id = ?').get(deletedId) as { snapshot: string }).snapshot
+    expect(snap).not.toContain('secret')
+    expect(snap).toContain('kept')
   })
 })
 

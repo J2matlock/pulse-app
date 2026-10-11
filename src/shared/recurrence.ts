@@ -79,11 +79,29 @@ export function withAnchorDay(json: string | null | undefined, due: string | nul
 }
 
 /**
+ * The stored rule JSON without its `day`, for when the due date is changed by
+ * hand: the new date sets the pattern from then on (moving a task anchored on
+ * the 31st to Feb 28 means "the 28th", AUDIT-114). Ticking it off writes a
+ * fresh `day` from the new date. Anything else comes back as it was.
+ */
+export function withoutAnchorDay(json: string | null | undefined): string | null {
+  if (!json) return json ?? null
+  try {
+    const parsed = JSON.parse(json) as unknown
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !('day' in parsed)) return json
+    const rest = { ...(parsed as Record<string, unknown>) }
+    delete rest.day
+    return JSON.stringify(rest)
+  } catch { return json }
+}
+
+/**
  * The next due date after ticking one off today. With a due date, the
- * next one after it, rolled forward until it's today or later (a weekly
- * item three weeks late comes back due this week, not still overdue).
- * Without one, one repeat from today. Null when the rule's end date has
- * passed (the end date itself still counts).
+ * next one after it. An item ticked off late rolls on past today (a weekly
+ * item three weeks late comes back next week, not still overdue, and not
+ * straight back as "due today": AUDIT-113). One ticked off on time or early
+ * just moves one repeat on. Without a due date, one repeat from today.
+ * Null when the rule's end date has passed (the end date itself still counts).
  */
 export function nextRepeatDate(due: string | null | undefined, rule: RepeatRule, today: string): string | null {
   const from = toYmd(due)
@@ -94,7 +112,8 @@ export function nextRepeatDate(due: string | null | undefined, rule: RepeatRule,
     let steps = 1
     next = addRepeats(from, rule, steps)
     // Counted from the due date each time, so month-end dates don't drift
-    while (next < today && steps < 100_000) next = addRepeats(from, rule, ++steps)
+    const late = from < today
+    while ((late ? next <= today : next < today) && steps < 100_000) next = addRepeats(from, rule, ++steps)
   }
   if (rule.end_date && next > rule.end_date) return null
   return next

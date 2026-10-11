@@ -202,13 +202,13 @@ describe('Caseload Tasks — Completion', () => {
     expect(task.due_date).toBe('2030-02-15')
   })
 
-  it('a late repeating task comes back due this cycle, not still overdue (audit S-12)', async () => {
+  it('a late repeating task comes back due after today, not still overdue or due today (audit S-12, AUDIT-113)', async () => {
     const today = localDateString()
     const weekly = { type: 'weekly' as const, interval: 1 }
     const created = await invoke(IPC.TASK_CREATE, { title: 'Timesheet', due_date: addRepeats(today, weekly, -3), recurrence_rule: JSON.stringify(weekly) }) as { ok: true; data: { id: number } }
     await invoke(IPC.TASK_COMPLETE, created.data.id)
     const task = testDb.db.prepare('SELECT is_completed, due_date FROM caseload_tasks WHERE id = ?').get(created.data.id) as { is_completed: number; due_date: string }
-    expect(task).toEqual({ is_completed: 0, due_date: today })
+    expect(task).toEqual({ is_completed: 0, due_date: addRepeats(today, weekly) })
   })
 
   it('a repeating task always has a due date: it starts today, and clearing it is refused (audit S-12)', async () => {
@@ -230,6 +230,20 @@ describe('Caseload Tasks — Completion', () => {
     await invoke(IPC.TASK_COMPLETE, created.data.id)
     const task = testDb.db.prepare('SELECT is_completed, due_date FROM caseload_tasks WHERE id = ?').get(created.data.id) as { is_completed: number; due_date: string }
     expect(task).toEqual({ is_completed: 0, due_date: '2030-12-30' })
+  })
+
+  it('a due date changed by hand drops the old day of the month, so the new date sets the pattern (AUDIT-114)', async () => {
+    const rule = (id: number) => (testDb.db.prepare('SELECT recurrence_rule FROM caseload_tasks WHERE id = ?').get(id) as { recurrence_rule: string }).recurrence_rule
+    const created = await invoke(IPC.TASK_CREATE, { title: 'Monthly', due_date: '2037-01-31', recurrence_rule: JSON.stringify({ type: 'monthly', interval: 1, day: 31, end_date: '2040-01-01' }) }) as { ok: true; data: { id: number } }
+    const id = created.data.id
+    // Other edits, and saving the same date, leave the day alone
+    await invoke(IPC.TASK_UPDATE, id, { title: 'Monthly report', due_date: '2037-01-31' })
+    expect(JSON.parse(rule(id))).toEqual({ type: 'monthly', interval: 1, day: 31, end_date: '2040-01-01' })
+    // Moved to Feb 28 by hand, with the form sending the rule it kept: "the 28th from now on"
+    await invoke(IPC.TASK_UPDATE, id, { due_date: '2037-02-28', recurrence_rule: JSON.stringify({ type: 'monthly', interval: 1, day: 31, end_date: '2040-01-01' }) })
+    expect(JSON.parse(rule(id))).toEqual({ type: 'monthly', interval: 1, end_date: '2040-01-01' })
+    await invoke(IPC.TASK_COMPLETE, id)
+    expect((testDb.db.prepare('SELECT due_date FROM caseload_tasks WHERE id = ?').get(id) as { due_date: string }).due_date).toBe('2037-03-28')
   })
 
   it('a second click on a task that already moved on is ignored (audit L-27)', async () => {

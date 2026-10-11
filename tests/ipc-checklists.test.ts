@@ -207,15 +207,31 @@ describe('CHECKLIST_UPDATE_ITEM', () => {
     expect((await tick()).data.repeat.nextDue).toBe('2099-03-31')
   })
 
-  it('a late repeating item comes back due this cycle, not still overdue; one without a date counts from today', async () => {
+  it('a late repeating item comes back due after today, not still overdue or due today (AUDIT-113); one without a date counts from today', async () => {
     const today = localDateString()
     const weekly = { type: 'weekly', interval: 1 } as const
     const late = await createItem('Weekly call', { due_date: addRepeats(today, weekly, -3), recurrence_rule: JSON.stringify(weekly) })
     const r = await invoke(IPC.CHECKLIST_UPDATE_ITEM, late.data.id, { is_completed: 1 }) as any
-    expect(r.data.repeat.nextDue).toBe(today)
+    expect(r.data.repeat.nextDue).toBe(addRepeats(today, weekly))
     const undated = await createItem('Check in', { recurrence_rule: JSON.stringify(weekly) })
     const r2 = await invoke(IPC.CHECKLIST_UPDATE_ITEM, undated.data.id, { is_completed: 1 }) as any
     expect(r2.data.repeat.nextDue).toBe(addRepeats(today, weekly))
+  })
+
+  it('a due date changed by hand drops the old day of the month; undo and redo leave it (AUDIT-114)', async () => {
+    const rule = (id: number) => JSON.parse((testDb.db.prepare('SELECT recurrence_rule FROM checklist_items WHERE id = ?').get(id) as { recurrence_rule: string }).recurrence_rule)
+    const item = await createItem('Monthly', { due_date: '2037-01-31', recurrence_rule: JSON.stringify({ type: 'monthly', interval: 1, day: 31 }) })
+    const id = item.data.id
+    // Undo and redo put an item back exactly as it was
+    await invoke(IPC.CHECKLIST_UPDATE_ITEM, id, { due_date: '2037-02-28' }, { silent: true })
+    expect(rule(id)).toEqual({ type: 'monthly', interval: 1, day: 31 })
+    await invoke(IPC.CHECKLIST_UPDATE_ITEM, id, { title: 'Monthly visit', due_date: '2037-02-28' })
+    expect(rule(id)).toEqual({ type: 'monthly', interval: 1, day: 31 })
+    // Moved by hand (from Feb 28 to Apr 30, with the dialog sending the rule it kept)
+    await invoke(IPC.CHECKLIST_UPDATE_ITEM, id, { due_date: '2037-04-30', recurrence_rule: JSON.stringify({ type: 'monthly', interval: 1, day: 31 }) })
+    expect(rule(id)).toEqual({ type: 'monthly', interval: 1 })
+    const r = await invoke(IPC.CHECKLIST_UPDATE_ITEM, id, { is_completed: 1 }) as any
+    expect(r.data.repeat.nextDue).toBe('2037-05-30')
   })
 
   it('a repeating item past its end date, or one that doesn\'t repeat, stays done', async () => {

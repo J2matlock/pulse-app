@@ -12,8 +12,8 @@ import { jsPDF, autoTable, lastTableY, atomicWriteFileAsync } from './export-sha
 import { getRequirementStatus } from './contact-requirements'
 import { getMissingInfo } from './missing-info'
 import { contactsComplete, contactsMissing } from '../shared/contactRequirements'
-import { evaluate, engineRuleFrom, referencedColumns, meterHistoryColumn, sequenceAnchor, extensionAnchor, matchExtension, applyExtension, type QuotaConfig, type StoredExtension } from '../shared/deadlineEngine'
-import { loadWorkCalendar, meterHistories, quotaCounts, progressEntries, finishedDates } from './deadlines'
+import { evaluate, engineRuleFrom, referencedColumns, meterHistoryColumn, extensionAnchor, buildRecordContext, matchExtension, applyExtension, type QuotaConfig, type StoredExtension } from '../shared/deadlineEngine'
+import { loadWorkCalendar, meterHistories, quotaCounts, progressEntries, finishedDates, previousValues } from './deadlines'
 import { localDateString } from '../shared/dates'
 import { vocabFor, word, featureOn } from './vocab'
 import { term } from '../shared/vocab'
@@ -125,17 +125,19 @@ export function getComplianceSummary(month: string, gridId?: number): Compliance
       const counts = rule.kind === 'quota' && rule.config ? quotaCounts(g.id, rule.config as QuotaConfig, cutoff) : new Map<number, number>()
       const finished = rule.kind === 'interval' ? finishedDates(rc.column_id) : null
       const progress = rule.kind === 'sequence' ? progressEntries(rc.column_id, asOf) : new Map<number, Array<{ step: number; anchor: string | null }>>()
+      // The done date before the latest change made by the cutoff, as the dashboard uses (AUDIT-074)
+      const previous = rule.kind === 'calendar' ? previousValues(rc.column_id, cutoff) : null
       for (const rec of records) {
         const own = valueThen(rec.id, rc.column_id)
         const values: Record<number, string | null> = {}
         for (const id of refs) values[id] = valueThen(rec.id, id)
-        const anchor = sequenceAnchor(rule, own, values)
-        const steps = (progress.get(rec.id) ?? []).filter(p => p.anchor === anchor).map(p => p.step)
-        let res = evaluate(rule, {
+        let res = evaluate(rule, buildRecordContext(rule, {
           today: asOf, columnDate: own, values, holidays: cal.holidays, weekend: cal.weekend,
-          meterHistory: history.get(rec.id)?.filter(h => h.at <= asOf), activityCount: counts.get(rec.id) ?? 0, progress: steps,
-          ...(finished?.has(rec.id) ? { finishedFor: finished.get(rec.id) } : {}),
-        })
+          meterHistory: history.get(rec.id)?.filter(h => h.at <= asOf), activityCount: counts.get(rec.id) ?? 0,
+          progress: progress.get(rec.id) ?? [],
+          previousDone: previous?.has(rec.id) ? previous.get(rec.id) ?? null : undefined,
+          finishedFor: finished?.get(rec.id),
+        }))
         const ext = matchExtension(extensions.get(`${rec.id}:${rc.column_id}`), extensionAnchor(rule, own, values), res.step)
         if (ext) res = applyExtension(res, ext, asOf)
         // Nothing due, hidden or paused by "only when…": not a tracked deadline that month
