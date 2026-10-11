@@ -25,13 +25,15 @@ import { useVocab } from '../../hooks/useVocab'
 interface SortableColHeaderProps {
   header: Header<GridRow, unknown>
   col: Column
+  /** This column's place, counting the leading columns (AUDIT-012) */
+  colIndex?: number
   onAutoFit: (colId: number) => void
   rowHeight: number
   frozenLeft: number | undefined
   isLastFrozen: boolean
 }
 
-export const SortableColHeader = React.memo(function SortableColHeader({ header, col, onAutoFit, rowHeight, frozenLeft, isLastFrozen }: SortableColHeaderProps): React.ReactElement {
+export const SortableColHeader = React.memo(function SortableColHeader({ header, col, colIndex, onAutoFit, rowHeight, frozenLeft, isLastFrozen }: SortableColHeaderProps): React.ReactElement {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `col_${col.id}`
   })
@@ -42,6 +44,7 @@ export const SortableColHeader = React.memo(function SortableColHeader({ header,
     <div
       ref={setNodeRef}
       role="columnheader"
+      aria-colindex={colIndex}
       aria-sort={header.column.getIsSorted() === 'asc' ? 'ascending' : header.column.getIsSorted() === 'desc' ? 'descending' : 'none'}
       className={`relative flex-shrink-0 border-r border-slate-300 dark:border-slate-600
                   bg-slate-50 dark:bg-slate-800 select-none`}
@@ -122,17 +125,20 @@ export function GridHeaderRow({
   onHideTags,
 }: GridHeaderRowProps): React.ReactElement {
   const { t } = useVocab()
+  // Screen readers pair each cell with the header in the same place (AUDIT-012)
+  const leadingColCount = 2 + (acuityEnabled ? 1 : 0) + (showTags ? 1 : 0)
   return (
     <DndContext
       sensors={colSensors}
       collisionDetection={closestCenter}
       onDragEnd={onColumnDragEnd}
     >
-      <div className="bg-slate-50 dark:bg-slate-800 border-b-2 border-slate-300 dark:border-slate-600">
-        <div className="flex" role="row">
+      <div role="rowgroup" className="bg-slate-50 dark:bg-slate-800 border-b-2 border-slate-300 dark:border-slate-600">
+        <div className="flex" role="row" aria-rowindex={1}>
           {/* Select-all checkbox in header */}
           <div
             role="columnheader"
+            aria-colindex={1}
             className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
             style={{
               width: HANDLE_WIDTH, height: rowHeight,
@@ -184,6 +190,7 @@ export function GridHeaderRow({
           {/* Profile column header */}
           <div
             role="columnheader"
+            aria-colindex={2}
             className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
             style={{
               width: PROFILE_BTN_WIDTH, height: rowHeight,
@@ -197,6 +204,7 @@ export function GridHeaderRow({
           {acuityEnabled && (
             <div
               role="columnheader"
+              aria-colindex={3}
               aria-sort={acuitySortDir === 'asc' ? 'ascending' : acuitySortDir === 'desc' ? 'descending' : 'none'}
               className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center text-sm font-semibold select-none cursor-pointer
                          hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors bg-slate-50 dark:bg-slate-800"
@@ -219,7 +227,7 @@ export function GridHeaderRow({
             </div>
           )}
           {showTags && (
-            <div role="columnheader" className="flex-shrink-0 flex items-center gap-1 px-2 border-r border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-base font-semibold text-slate-700 dark:text-slate-200"
+            <div role="columnheader" aria-colindex={3 + (acuityEnabled ? 1 : 0)} className="flex-shrink-0 flex items-center gap-1 px-2 border-r border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-base font-semibold text-slate-700 dark:text-slate-200"
               style={{ width: TAGS_COL_WIDTH, height: rowHeight, ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0), zIndex: 12 } : {}) }}>
               <span className="flex-1 truncate" title={`Tags from each ${t('record')}'s page`}>Tags</span>
               {onHideTags && (
@@ -239,6 +247,7 @@ export function GridHeaderRow({
                   key={header.id}
                   header={header}
                   col={col}
+                  colIndex={leadingColCount + i + 1}
                   onAutoFit={autoFitColumn}
                   rowHeight={rowHeight}
                   frozenLeft={frozenLeftOffsets.get(col.id)}
