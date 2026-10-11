@@ -9,16 +9,16 @@ import { secureWrap, ok, fail, assertSafePath, validId, enforceWritable, logNonF
 import { openDatabase, getDb, resolveDatabasePath, closeDatabase, setEncryptionKey } from '../database'
 import { getProvider } from '../contacts'
 import {
-  listAutoBackupsRich, runScheduledBackup, runManualBackup,
+  listAutoBackupsRich, runManualBackup,
   restoreFromDb, restoreFromPulseBackup, getBackupInfo,
   verifyBackup, getScheduledConfig, setScheduledConfig, withBackupDbFile, runScheduledBackupNow,
   describeBackupError, getBackupHealth, getBackupMadeInfo, restoreOtherPulseBackup,
-  type ScheduledBackupConfig, type PersistentScheduledConfig
+  type PersistentScheduledConfig
 } from '../backup'
 import { getDbKey } from '../auth'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const BetterSqlite3 = require('better-sqlite3-multiple-ciphers') as typeof import('better-sqlite3')
-import { exportCsv, exportPdfGrid, exportPdfProfile, exportPdfBatch, exportLetterPdf, exportSupervisorReport, exportContactPdf, exportDirectoryPdf, type CsvExportOptions, type PdfGridOptions, type PdfProfileOptions, type SupervisorReportOptions } from '../export'
+import { exportCsv, exportPdfGrid, exportPdfProfile, exportLetterPdf, exportSupervisorReport, exportContactPdf, exportDirectoryPdf, type CsvExportOptions, type PdfGridOptions, type PdfProfileOptions, type SupervisorReportOptions } from '../export'
 import { parseImportFile, autoMatchColumns, executeImport, type ImportOptions } from '../import'
 import { exportNotesCsv } from '../export-csv'
 import { exportWeeklyPlanner } from '../export-planner'
@@ -85,19 +85,6 @@ export function registerExportHandlers(): void {
       dbPath,
       autoBackupCount: info.layer1.count
     })
-  })
-
-  secureWrap(IPC.BACKUP_SCHEDULED_RUN, 'ipc-export', async (_e, config: ScheduledBackupConfig) => {
-    if (typeof config.enabled !== 'boolean') throw new Error('Invalid backup config: enabled must be boolean')
-    if (!Number.isInteger(config.intervalDays) || config.intervalDays < 1 || config.intervalDays > 365)
-      throw new Error('Invalid backup config: intervalDays must be 1-365')
-    if (config.lastRunDate !== null && config.lastRunDate !== undefined) {
-      const d = new Date(config.lastRunDate)
-      if (isNaN(d.getTime())) throw new Error('Invalid backup config: lastRunDate must be ISO date string or null')
-    }
-    if (config.destinationDir) assertSafePath(config.destinationDir)
-    const result = await runScheduledBackup(config)
-    return ok(result)
   })
 
   // "Run now" runs entirely in main, so the renderer never fakes a config to trigger it
@@ -413,22 +400,6 @@ export function registerExportHandlers(): void {
     return ok(true)
   })
 
-  secureWrap(IPC.EXPORT_PDF_BATCH, 'ipc-export', async (_e, options: {
-    rowIds: number[]; gridId: number; destPath: string
-    sortOrder: 'grid' | 'alpha' | 'urgency'
-    includeSections: { deadlines: boolean; checklist: boolean; caseLog: boolean; scratchPad: boolean; contactInfo: boolean; gridData: boolean }
-  }) => {
-    assertSafePath(options.destPath)
-    if (!validId(options.gridId)) return fail('Invalid grid ID')
-    if (!Array.isArray(options.rowIds) || options.rowIds.length > 1000) return fail('Invalid or too many row IDs (max 1000)')
-    if (!options.rowIds.every(id => validId(id))) return fail('All row IDs must be positive integers')
-    const validSortOrders = ['grid', 'alpha', 'urgency']
-    if (typeof options.sortOrder !== 'string' || !validSortOrders.includes(options.sortOrder)) return fail('Invalid sort order')
-    if (!options.includeSections || typeof options.includeSections !== 'object') return fail('Invalid includeSections')
-    await exportPdfBatch(options)
-    return ok(true)
-  })
-
   secureWrap(IPC.EXPORT_SUPERVISOR_REPORT, 'ipc-export', async (_e, options: SupervisorReportOptions) => {
     assertSafePath(options.destPath)
     if (!validId(options.gridId)) return fail('Invalid grid ID')
@@ -598,15 +569,6 @@ export function registerExportHandlers(): void {
   // ── Setup Templates (.pulse) ────────────────────────────────────────────────
   secureWrap(IPC.SETUP_TEMPLATE_GET_ALL, 'ipc-export', () => {
     return ok(getSetupTemplates())
-  })
-
-  secureWrap(IPC.SETUP_TEMPLATE_CREATE, 'ipc-export', (_e, name: string, description: string | null, pulseJson: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (typeof name !== 'string' || name.trim().length === 0 || name.length > 500) return fail('Template name required (max 500 chars)')
-    if (typeof pulseJson !== 'string' || pulseJson.length > 10_000_000) return fail('Template data too large (max 10 MB)')
-    if (description !== null && (typeof description !== 'string' || description.length > 2000)) return fail('Description too long')
-    const id = createSetupTemplate(name, description, pulseJson)
-    return ok(id)
   })
 
   secureWrap(IPC.SETUP_TEMPLATE_DELETE, 'ipc-export', (_e, id: number) => {

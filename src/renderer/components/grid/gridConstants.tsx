@@ -17,7 +17,6 @@ export const MAX_AUTO_FIT_WIDTH = 400
 
 // Virtual scrolling
 export const GROUP_HEADER_HEIGHT = 44
-export const VIRTUAL_OVERSCAN = 20
 
 // Pre-computed static style objects to avoid re-creating on each render
 export const HANDLE_STYLE: React.CSSProperties = { width: HANDLE_WIDTH }

@@ -224,13 +224,6 @@ export function registerTaskHandlers(): void {
     return ok(true)
   })
 
-  secureWrap(IPC.TASK_GET_HISTORY, 'ipc-tasks', (_e, taskId: number) => {
-    if (!validId(taskId)) return fail('Invalid ID')
-    const history = cachedStmt('task_history', `SELECT * FROM caseload_task_history WHERE task_id = ? ORDER BY completed_at DESC LIMIT ${QUERY_LIMITS.TASKS_HISTORY}`)
-      .all(taskId)
-    return ok(history)
-  })
-
   // ── Task Groups ─────────────────────────────────────────────────────────────
   secureWrap(IPC.TASK_GROUP_GET_ALL, 'ipc-tasks', () => {
     const groups = getDb().prepare('SELECT * FROM task_groups ORDER BY position, id').all() as TaskGroup[]

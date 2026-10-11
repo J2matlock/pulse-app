@@ -6,7 +6,7 @@ import { IPC } from '../../shared/ipc-channels'
 import { QUERY_LIMITS } from '../../shared/query-limits'
 import { secureWrap, ok, fail, validId, logNonFatal, notifyCaseLogChanged, enforceWritable } from './ipc-utils'
 import { getDb, upsertCell, cachedStmt, registerCloseHook } from '../database'
-import { storesNoCells, type CellFormat } from '../../shared/types'
+import { storesNoCells } from '../../shared/types'
 import { word } from '../vocab'
 import { columnAffectsDisplayName, refreshDisplayNames } from '../display-names'
 import { numberSeries } from '../number-history'
@@ -172,17 +172,6 @@ export function registerCellHandlers(): void {
   // CELL_BULK_UPDATE: removed — no multi-cell paste UI exists yet. Re-add when needed.
 
   // ── Cell Formats ──────────────────────────────────────────────────────────
-  secureWrap(IPC.CELL_FORMAT_GET_FOR_GRID, 'ipc-cell', (_e, gridId: number) => {
-    if (!validId(gridId)) return fail('Invalid ID')
-    const formats = cachedStmt('cell_format_get_for_grid', `
-      SELECT cf.row_id, cf.column_id, cf.rules
-      FROM cell_formats cf
-      JOIN rows r ON r.id = cf.row_id
-      WHERE r.grid_id = ?
-    `).all(gridId) as CellFormat[]
-    return ok(formats)
-  })
-
   secureWrap(IPC.CELL_FORMAT_SET, 'ipc-cell', (_e, rowId: number, columnId: number, rules: string) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(rowId) || !validId(columnId)) return fail('Invalid ID')

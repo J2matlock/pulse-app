@@ -102,55 +102,6 @@ describe('gridFormatSlice', () => {
     })
   })
 
-  describe('loadCellFormats', () => {
-    it('populates cellFormats from IPC data', async () => {
-      mockInvoke.mockResolvedValue({
-        ok: true,
-        data: [
-          { row_id: 1, column_id: 5, rules: JSON.stringify([sampleRule]) },
-          { row_id: 2, column_id: 3, rules: JSON.stringify([{ ...sampleRule, value: 'low' }]) },
-        ],
-      })
-
-      await useGridStore.getState().loadCellFormats()
-      const formats = useGridStore.getState().cellFormats
-      expect(formats.size).toBe(2)
-      expect(formats.get('1_5')).toEqual([sampleRule])
-      expect(formats.get('2_3')![0]!.value).toBe('low')
-    })
-
-    it('skips entries with malformed JSON', async () => {
-      mockInvoke.mockResolvedValue({
-        ok: true,
-        data: [
-          { row_id: 1, column_id: 1, rules: 'not-json' },
-          { row_id: 2, column_id: 2, rules: JSON.stringify([sampleRule]) },
-        ],
-      })
-
-      await useGridStore.getState().loadCellFormats()
-      const formats = useGridStore.getState().cellFormats
-      expect(formats.size).toBe(1)
-      expect(formats.has('1_1')).toBe(false)
-      expect(formats.has('2_2')).toBe(true)
-    })
-
-    it('skips entries with invalid rule shape', async () => {
-      mockInvoke.mockResolvedValue({
-        ok: true,
-        data: [
-          { row_id: 1, column_id: 1, rules: JSON.stringify([{ noOperator: true }]) },
-          { row_id: 2, column_id: 2, rules: JSON.stringify([sampleRule]) },
-        ],
-      })
-
-      await useGridStore.getState().loadCellFormats()
-      const formats = useGridStore.getState().cellFormats
-      expect(formats.size).toBe(1)
-      expect(formats.has('1_1')).toBe(false)
-    })
-  })
-
   describe('batchSetCellFormat', () => {
     it('sets multiple cell formats at once', async () => {
       mockInvoke.mockResolvedValue({ ok: true, data: true })

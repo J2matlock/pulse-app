@@ -74,12 +74,3 @@ export const tooltipVariants = {
     transition: { duration: 0.08, ease: 'easeIn' as const },
   },
 } satisfies Variants
-
-/** Page transitions — entrance only, fade (no transform to preserve sticky positioning) */
-export const pageVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { duration: 0.18, ease: 'easeOut' as const },
-  },
-} satisfies Variants

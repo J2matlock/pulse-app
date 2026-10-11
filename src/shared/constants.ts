@@ -46,7 +46,6 @@ export const MAX_ALERT_RULES = 50
 export const MAX_CACHE_ROWS = 10_000
 
 // Auto-lock (HIPAA automatic logoff). There is deliberately no "never" option.
-export const AUTO_LOCK_OPTIONS = [5, 15, 30, 60, 120] as const
 /** 15: what the security checkup and most organizations expect */
 export const AUTO_LOCK_DEFAULT_MINUTES = 15
 export const AUTO_LOCK_MAX_MINUTES = 120

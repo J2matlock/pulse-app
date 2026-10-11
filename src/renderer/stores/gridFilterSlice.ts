@@ -68,7 +68,6 @@ export interface FilterSliceState {
   sortedRowIds: number[]
   setSortedRowIds: (ids: number[]) => void
   rowTagsMap: Map<number, string[]>
-  loadRowTagsMap: () => Promise<void>
 }
 
 type Set = (partial: Partial<GridState> | ((s: GridState) => Partial<GridState>)) => void
@@ -283,27 +282,4 @@ export const createFilterSlice = (set: Set, get: Get) => ({
 
   // ── Row tags map ──────────────────────────────────────────────────────
   rowTagsMap: new Map<number, string[]>(),
-  loadRowTagsMap: async () => {
-    const { activeGridId, rowTagsMap: oldMap } = get()
-    if (!activeGridId) return
-    try {
-      const raw = await invoke<Record<number, string[]>>(IPC.TAG_GET_ROWS_FOR_GRID, activeGridId)
-      const newMap = new Map<number, string[]>(Object.entries(raw).map(([k, v]) => [Number(k), v]))
-      // Only replace the reference if content actually changed (avoids downstream memo invalidation)
-      if (newMap.size !== oldMap.size) {
-        set({ rowTagsMap: newMap })
-        return
-      }
-      for (const [key, val] of newMap) {
-        const oldVal = oldMap.get(key)
-        if (!oldVal || oldVal.length !== val.length || oldVal.some((t, i) => t !== val[i])) {
-          set({ rowTagsMap: newMap })
-          return
-        }
-      }
-      // Content identical — keep old reference
-    } catch (err) {
-      rlog.error('GridFilterSlice', 'Failed to load row tags map', err)
-    }
-  },
 })

@@ -23,13 +23,12 @@ import {
   getClientName,
   batchGetClientNames,
 } from './export-shared'
-import type { PdfProfileOptions, PdfGridOptions, PdfBatchOptions } from './export-shared'
+import type { PdfProfileOptions, PdfGridOptions } from './export-shared'
 import { parseDbTimestamp } from '../shared/dates'
 import { vocabFor, word } from './vocab'
 import { term } from '../shared/vocab'
-import { hasDisplayFormat } from './display-names'
 import { activityLabel } from './activity-types'
-import { loadDeadlines, type DeadlineItem } from './deadlines'
+import { loadDeadlines } from './deadlines'
 import { deadlineSummary } from '../shared/deadlineSummary'
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -140,50 +139,6 @@ export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
 // 4.6 — PDF Profile Export (single client)
 // ──────────────────────────────────────────────────────────────────────────────
 
-/**
- * Render a single client profile into an existing jsPDF document.
- * Does NOT write the file — the caller handles that.
- * Returns the final Y position on the last page.
- */
-/** Shared grid metadata that can be hoisted outside a batch loop */
-interface ProfileDocContext {
-  grid: Grid
-  columns: Column[]
-  nameColId: number | undefined
-  cellsByRow?: Map<number, Map<number, string | null>>
-  /** Pre-fetched checklist items grouped by row_id */
-  checklistByRow?: Map<number, Array<{ title: string; due_date: string | null; priority: string }>>
-  /** Pre-fetched case log entries grouped by row_id (already limited to 10 most recent per row) */
-  caseLogByRow?: Map<number, Array<{ content: string; log_type: string; created_at: string }>>
-  /** Pre-fetched scrap notes keyed by row_id */
-  scrapNotesByRow?: Map<number, string>
-  /** Pre-fetched deadlines (from the deadline engine) grouped by row_id */
-  deadlinesByRow?: Map<number, DeadlineItem[]>
-  /** Pre-fetched linked providers grouped by row_id */
-  providersByRow?: Map<number, Array<{
-    name: string; org_name: string | null; title: string | null;
-    phone_main: string | null; email: string | null;
-    availability_status: string | null; category_name: string | null
-  }>>
-}
-
-/**
- * Execute a query with IN-clause placeholders, chunking into groups of 200
- * to stay within SQLite's variable limit. Returns all results concatenated.
- */
-function chunkedInQuery<T>(db: ReturnType<typeof getDb>, sql: string, ids: number[], extraParamsBefore: unknown[] = []): T[] {
-  const CHUNK = 200
-  const results: T[] = []
-  for (let i = 0; i < ids.length; i += CHUNK) {
-    const chunk = ids.slice(i, i + CHUNK)
-    const placeholders = chunk.map(() => '?').join(',')
-    const query = sql.replace('__PLACEHOLDERS__', placeholders)
-    const rows = db.prepare(query).all(...extraParamsBefore, ...chunk) as T[]
-    results.push(...rows)
-  }
-  return results
-}
-
 export { deadlineSummary }
 
 /** Phone numbers, emails and the like added with "Add contact info" on the record page. */
@@ -199,27 +154,26 @@ function manualContactsOf(db: ReturnType<typeof getDb>, rowId: number): Array<{ 
   } catch { return [] }
 }
 
+/**
+ * Render a single client profile into an existing jsPDF document.
+ * Does NOT write the file — the caller handles that.
+ * Returns the final Y position on the last page.
+ */
 export function renderProfileToDoc(
   doc: InstanceType<typeof jsPDF>,
   rowId: number,
   gridId: number,
   includeSections: PdfProfileOptions['includeSections'],
-  sharedCtx?: ProfileDocContext
 ): number {
   const db = getDb()
   const clientName = getClientName(db, rowId, gridId)
   const v = vocabFor(gridId)
-  const grid = sharedCtx?.grid ?? db.prepare('SELECT * FROM grids WHERE id = ?').get(gridId) as Grid
-  const columns = sharedCtx?.columns ?? db.prepare('SELECT * FROM columns WHERE grid_id = ? AND is_visible = 1 ORDER BY position').all(gridId) as Column[]
-  const nameColId = sharedCtx ? sharedCtx.nameColId : (db.prepare('SELECT id FROM columns WHERE grid_id = ? AND is_name_column = 1 LIMIT 1').get(gridId) as { id: number } | undefined)?.id
+  const grid = db.prepare('SELECT * FROM grids WHERE id = ?').get(gridId) as Grid
+  const columns = db.prepare('SELECT * FROM columns WHERE grid_id = ? AND is_visible = 1 ORDER BY position').all(gridId) as Column[]
+  const nameColId = (db.prepare('SELECT id FROM columns WHERE grid_id = ? AND is_name_column = 1 LIMIT 1').get(gridId) as { id: number } | undefined)?.id
 
-  let cellMap: Map<number, string | null>
-  if (sharedCtx?.cellsByRow?.has(rowId)) {
-    cellMap = sharedCtx.cellsByRow.get(rowId)!
-  } else {
-    const cells = db.prepare('SELECT column_id, value FROM cells WHERE row_id = ?').all(rowId) as Array<{ column_id: number; value: string | null }>
-    cellMap = new Map(cells.map(c => [c.column_id, c.value]))
-  }
+  const cells = db.prepare('SELECT column_id, value FROM cells WHERE row_id = ?').all(rowId) as Array<{ column_id: number; value: string | null }>
+  const cellMap = new Map(cells.map(c => [c.column_id, c.value]))
 
   const pageW = doc.internal.pageSize.width
   const pageH = doc.internal.pageSize.height
@@ -317,9 +271,7 @@ export function renderProfileToDoc(
 
   // ── Deadlines: the same engine as the dashboard, so the PDF never disagrees with the app ──
   if (includeSections.deadlines) {
-    const items = sharedCtx?.deadlinesByRow
-      ? (sharedCtx.deadlinesByRow.get(rowId) ?? [])
-      : loadDeadlines({ gridId, rowIds: [rowId] })
+    const items = loadDeadlines({ gridId, rowIds: [rowId] })
     if (items.length > 0) {
       addSection('Deadlines')
       for (const d of items) addKeyValue(d.column_name, deadlineSummary(d))
@@ -339,7 +291,7 @@ export function renderProfileToDoc(
 
   // ── Checklist ──
   if (includeSections.checklist) {
-    const items = (sharedCtx?.checklistByRow?.get(rowId) ?? db.prepare(`
+    const items = (db.prepare(`
       SELECT * FROM checklist_items WHERE row_id = ? AND is_archived = 0 AND is_completed = 0
       ORDER BY position LIMIT 200
     `).all(rowId)) as Array<{ title: string; due_date: string | null; priority: string; group_id: number | null }>
@@ -394,7 +346,7 @@ export function renderProfileToDoc(
 
   // ── Case Log ──
   if (includeSections.caseLog) {
-    const entries = sharedCtx?.caseLogByRow?.get(rowId) ?? db.prepare(`
+    const entries = db.prepare(`
       SELECT content, log_type, occurred_at AS created_at FROM case_log
       WHERE row_id = ? AND voided_at IS NULL AND log_type != 'system'
       ORDER BY occurred_at DESC, id DESC LIMIT 10
@@ -419,7 +371,7 @@ export function renderProfileToDoc(
 
   // ── Linked Providers ──
   try {
-    const linkedProviders = sharedCtx?.providersByRow?.get(rowId) ?? db.prepare(`
+    const linkedProviders = db.prepare(`
       SELECT p.name, p.org_name, p.title, p.phone_main, p.email,
              p.availability_status, pc.name AS category_name
       FROM provider_client_links pcl
@@ -471,10 +423,7 @@ export function renderProfileToDoc(
 
   // ── Scrap Notes ──
   if (includeSections.scratchPad) {
-    const prefetchedContent = sharedCtx?.scrapNotesByRow?.get(rowId)
-    const noteContent = prefetchedContent !== undefined
-      ? prefetchedContent
-      : (db.prepare('SELECT content FROM scrap_notes WHERE row_id = ?').get(rowId) as { content: string } | undefined)?.content
+    const noteContent = (db.prepare('SELECT content FROM scrap_notes WHERE row_id = ?').get(rowId) as { content: string } | undefined)?.content
     if (noteContent) {
       addSection('Scrap notes')
       addBodyText(noteContent)
@@ -512,215 +461,6 @@ export async function exportPdfProfile(options: PdfProfileOptions): Promise<void
 
   // Yield before file write
   await new Promise(resolve => setImmediate(resolve))
-  await atomicWriteFileAsync(destPath, Buffer.from(doc.output('arraybuffer')))
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// 4.6 — Batch Print (multi-client PDF)
-// ──────────────────────────────────────────────────────────────────────────────
-
-const MAX_BATCH_PDF = 200
-
-export async function exportPdfBatch(options: PdfBatchOptions): Promise<void> {
-  const { rowIds, gridId, destPath, includeSections } = options
-  const v = vocabFor(gridId)
-  if (rowIds.length > MAX_BATCH_PDF) {
-    throw new Error(`Batch PDF limited to ${MAX_BATCH_PDF} ${term(v, 'record', { many: true })}. You selected ${rowIds.length}.`)
-  }
-  logger.info('export', 'PDF batch export started', { rowCount: rowIds.length })
-  const db = getDb()
-
-  // Sort rowIds if needed
-  let orderedRowIds = [...rowIds]
-  if (options.sortOrder === 'alpha' && hasDisplayFormat(gridId)) {
-    const names = batchGetClientNames(db, orderedRowIds, gridId)
-    orderedRowIds.sort((a, b) => (names.get(a) || '').localeCompare(names.get(b) || ''))
-  } else if (options.sortOrder === 'alpha') {
-    const nameColId = (db.prepare('SELECT id FROM columns WHERE grid_id = ? AND is_name_column = 1 LIMIT 1').get(gridId) as { id: number } | undefined)?.id
-    if (nameColId) {
-      // Only fetch names for selected rowIds (not the whole grid)
-      const placeholders = orderedRowIds.map(() => '?').join(',')
-      const names = new Map(
-        (db.prepare(`SELECT row_id, value FROM cells WHERE column_id = ? AND row_id IN (${placeholders})`).all(nameColId, ...orderedRowIds) as Array<{ row_id: number; value: string }>)
-          .map(r => [r.row_id, r.value])
-      )
-      orderedRowIds.sort((a, b) => (names.get(a) || '').localeCompare(names.get(b) || ''))
-    }
-  }
-
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-  const pageW = doc.internal.pageSize.width
-  const pageH = doc.internal.pageSize.height
-  const marginL = 16
-  const marginR = pageW - 16
-
-  // ── Cover Page ──
-  const grid = db.prepare('SELECT * FROM grids WHERE id = ?').get(gridId) as Grid
-  doc.setFillColor(71, 85, 105)
-  doc.rect(0, 0, pageW, 50, 'F')
-  doc.setTextColor(255)
-  doc.setFontSize(22)
-  doc.setFont('helvetica', 'bold')
-  doc.text(`${term(v, 'record', { cap: true })} batch report`, marginL, 22)
-  doc.setFontSize(12)
-  doc.setFont('helvetica', 'normal')
-  doc.text(grid.name, marginL, 32)
-  doc.setFontSize(9)
-  doc.text(`Generated ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}  ·  ${orderedRowIds.length} ${term(v, 'record', { count: orderedRowIds.length })}`, marginL, 42)
-  doc.setTextColor(0)
-
-  // Table of Contents
-  doc.setFontSize(13)
-  doc.setFont('helvetica', 'bold')
-  doc.text('Contents', marginL, 62)
-  doc.setLineWidth(0.3)
-  doc.setDrawColor(200)
-  doc.line(marginL, 64, marginR, 64)
-
-  const clientNames = batchGetClientNames(db, orderedRowIds, gridId)
-
-  let tocY = 70
-  const clientPages: number[] = []
-  for (let i = 0; i < orderedRowIds.length; i++) {
-    const name = clientNames.get(orderedRowIds[i]!) || `${term(v, 'record', { cap: true })} #${orderedRowIds[i]}`
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'normal')
-    doc.text(`${i + 1}.  ${name}`, marginL, tocY)
-    clientPages.push(i + 2) // cover = page 1, clients start page 2
-    tocY += 6
-    if (tocY > pageH - 20) break // truncate TOC if too many clients
-  }
-
-  // ── Pre-fetch shared grid metadata once (instead of per-client) ──
-  const columns = db.prepare('SELECT * FROM columns WHERE grid_id = ? AND is_visible = 1 ORDER BY position').all(gridId) as Column[]
-  const nameColId = (db.prepare('SELECT id FROM columns WHERE grid_id = ? AND is_name_column = 1 LIMIT 1').get(gridId) as { id: number } | undefined)?.id
-
-  // ── Process clients in batches of 10 to limit memory usage ──
-  const BATCH_SIZE = 10
-  for (let batchStart = 0; batchStart < orderedRowIds.length; batchStart += BATCH_SIZE) {
-    const batchIds = orderedRowIds.slice(batchStart, batchStart + BATCH_SIZE)
-
-    // Pre-fetch cells for this batch
-    const batchCellRows = chunkedInQuery<{row_id: number; column_id: number; value: string | null}>(
-      db,
-      'SELECT row_id, column_id, value FROM cells WHERE row_id IN (__PLACEHOLDERS__)',
-      batchIds
-    )
-    const cellsByRow = new Map<number, Map<number, string | null>>()
-    for (const c of batchCellRows) {
-      if (!cellsByRow.has(c.row_id)) cellsByRow.set(c.row_id, new Map())
-      cellsByRow.get(c.row_id)!.set(c.column_id, c.value)
-    }
-
-    // Pre-fetch checklist items for this batch
-    const checklistByRow = new Map<number, Array<{ title: string; due_date: string | null; priority: string }>>()
-    if (includeSections.checklist) {
-      const batchChecklist = chunkedInQuery<{ row_id: number; title: string; due_date: string | null; priority: string }>(
-        db,
-        `SELECT row_id, title, due_date, priority FROM checklist_items
-         WHERE row_id IN (__PLACEHOLDERS__) AND is_archived = 0 AND is_completed = 0
-         ORDER BY position`,
-        batchIds
-      )
-      for (const item of batchChecklist) {
-        if (!checklistByRow.has(item.row_id)) checklistByRow.set(item.row_id, [])
-        checklistByRow.get(item.row_id)!.push(item)
-      }
-    }
-
-    // Pre-fetch case log entries for this batch
-    const caseLogByRow = new Map<number, Array<{ content: string; log_type: string; created_at: string }>>()
-    if (includeSections.caseLog) {
-      const batchCaseLog = chunkedInQuery<{ row_id: number; content: string; log_type: string; created_at: string }>(
-        db,
-        `SELECT row_id, content, log_type, occurred_at AS created_at FROM case_log
-         WHERE row_id IN (__PLACEHOLDERS__) AND voided_at IS NULL AND log_type != 'system'
-         ORDER BY occurred_at DESC, id DESC`,
-        batchIds
-      )
-      for (const entry of batchCaseLog) {
-        if (!caseLogByRow.has(entry.row_id)) caseLogByRow.set(entry.row_id, [])
-        const arr = caseLogByRow.get(entry.row_id)!
-        if (arr.length < 10) arr.push(entry) // limit 10 per row
-      }
-    }
-
-    // Pre-fetch scrap notes for this batch
-    const scrapNotesByRow = new Map<number, string>()
-    if (includeSections.scratchPad) {
-      const batchNotes = chunkedInQuery<{ row_id: number; content: string }>(
-        db,
-        'SELECT row_id, content FROM scrap_notes WHERE row_id IN (__PLACEHOLDERS__)',
-        batchIds
-      )
-      for (const note of batchNotes) {
-        if (note.content) scrapNotesByRow.set(note.row_id, note.content)
-      }
-    }
-
-    // Pre-fetch linked providers for this batch
-    const providersByRow = new Map<number, Array<{
-      name: string; org_name: string | null; title: string | null;
-      phone_main: string | null; email: string | null;
-      availability_status: string | null; category_name: string | null
-    }>>()
-    {
-      const batchLinked = chunkedInQuery<{
-        row_id: number; name: string; org_name: string | null; title: string | null;
-        phone_main: string | null; email: string | null;
-        availability_status: string | null; category_name: string | null
-      }>(
-        db,
-        `SELECT pcl.row_id, p.name, p.org_name, p.title, p.phone_main, p.email,
-                p.availability_status, pc.name AS category_name
-         FROM provider_client_links pcl
-         JOIN providers p ON pcl.provider_id = p.id
-         LEFT JOIN provider_categories pc ON p.category_id = pc.id
-         WHERE pcl.row_id IN (__PLACEHOLDERS__)
-         ORDER BY p.name`,
-        batchIds
-      )
-      for (const prov of batchLinked) {
-        if (!providersByRow.has(prov.row_id)) providersByRow.set(prov.row_id, [])
-        providersByRow.get(prov.row_id)!.push(prov)
-      }
-    }
-
-    // Deadlines for the whole batch in one pass of the engine
-    const deadlinesByRow = new Map<number, DeadlineItem[]>()
-    if (includeSections.deadlines) {
-      for (const d of loadDeadlines({ gridId, rowIds: batchIds })) {
-        if (!deadlinesByRow.has(d.row_id)) deadlinesByRow.set(d.row_id, [])
-        deadlinesByRow.get(d.row_id)!.push(d)
-      }
-    }
-
-    const sharedCtx: ProfileDocContext = {
-      grid, columns, nameColId, cellsByRow,
-      checklistByRow, caseLogByRow, scrapNotesByRow, providersByRow, deadlinesByRow
-    }
-
-    // Render pages for this batch
-    for (const rowId of batchIds) {
-      doc.addPage()
-      renderProfileToDoc(doc, rowId, gridId, includeSections, sharedCtx)
-    }
-
-    // Yield to event loop between batches to avoid blocking UI
-    await new Promise(resolve => setTimeout(resolve, 0))
-  }
-
-  // ── Footer on all pages ──
-  const totalPages = doc.getNumberOfPages()
-  for (let p = 1; p <= totalPages; p++) {
-    doc.setPage(p)
-    doc.setFontSize(7)
-    doc.setTextColor(120)
-    doc.text(`CONFIDENTIAL — ${PRODUCT_NAME}`, marginL, pageH - 8)
-    doc.text(`Page ${p} of ${totalPages}`, marginR, pageH - 8, { align: 'right' })
-    doc.setTextColor(0)
-  }
-
   await atomicWriteFileAsync(destPath, Buffer.from(doc.output('arraybuffer')))
 }
 

@@ -14,15 +14,6 @@ export function isDueToday(task: CaseloadTask): boolean {
   return task.due_date === localDateString()
 }
 
-export function isDueThisWeek(task: CaseloadTask): boolean {
-  if (!task.due_date || task.is_completed) return false
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const due = new Date(task.due_date + 'T00:00:00')
-  const diffDays = Math.round((due.getTime() - today.getTime()) / MS_PER_DAY)
-  return diffDays > 0 && diffDays <= 7
-}
-
 /** Snoozed until a date: hidden before it, due again on it (the dashboard and briefing agree) */
 export function isSnoozed(task: CaseloadTask): boolean {
   if (!task.snoozed_until) return false

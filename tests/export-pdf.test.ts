@@ -28,7 +28,7 @@ vi.mock('electron', () => ({
   dialog: { showMessageBoxSync: () => 0 },
 }))
 
-import { exportLetterPdf, exportPdfGrid, exportPdfProfile, exportPdfBatch } from '../src/main/export-pdf'
+import { exportLetterPdf, exportPdfGrid, exportPdfProfile } from '../src/main/export-pdf'
 
 beforeEach(() => { testDb = createTestDb() })
 afterEach(() => { cleanupTestDb(testDb) })
@@ -188,76 +188,5 @@ describe('exportPdfProfile', () => {
 
     expect(existsSync(destPath)).toBe(true)
     expect(isPdfBuffer(readFileSync(destPath))).toBe(true)
-  })
-})
-
-describe('exportPdfBatch', () => {
-  it('produces a multi-client PDF with cover page', async () => {
-    const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 3, columnCount: 1 })
-    const insert = testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')
-    insert.run(rowIds[0], columnIds[0], 'Alice')
-    insert.run(rowIds[1], columnIds[0], 'Bob')
-    insert.run(rowIds[2], columnIds[0], 'Charlie')
-
-    const destPath = join(testDb.tmpDir, 'batch.pdf')
-    await exportPdfBatch({
-      rowIds: [rowIds[0], rowIds[1], rowIds[2]],
-      gridId,
-      destPath,
-      sortOrder: 'grid',
-      includeSections: {
-        deadlines: true,
-        checklist: true,
-        caseLog: true,
-        scratchPad: true,
-        contactInfo: true,
-        gridData: true,
-      },
-    })
-
-    expect(existsSync(destPath)).toBe(true)
-    const buf = readFileSync(destPath)
-    expect(isPdfBuffer(buf)).toBe(true)
-    // Batch PDF should be larger than a single profile
-    expect(buf.length).toBeGreaterThan(500)
-  })
-
-  it('sorts alphabetically when sortOrder is alpha', async () => {
-    const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 3, columnCount: 1 })
-    const insert = testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')
-    insert.run(rowIds[0], columnIds[0], 'Charlie')
-    insert.run(rowIds[1], columnIds[0], 'Alice')
-    insert.run(rowIds[2], columnIds[0], 'Bob')
-
-    const destPath = join(testDb.tmpDir, 'batch-alpha.pdf')
-    await exportPdfBatch({
-      rowIds: [rowIds[0], rowIds[1], rowIds[2]],
-      gridId,
-      destPath,
-      sortOrder: 'alpha',
-      includeSections: {
-        deadlines: false, checklist: false, caseLog: false,
-        scratchPad: false, contactInfo: false, gridData: true,
-      },
-    })
-
-    expect(existsSync(destPath)).toBe(true)
-    expect(isPdfBuffer(readFileSync(destPath))).toBe(true)
-  })
-
-  it('rejects batch exceeding 200 clients', async () => {
-    const { gridId } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
-    const fakeRowIds = Array.from({ length: 201 }, (_, i) => i + 1)
-
-    await expect(exportPdfBatch({
-      rowIds: fakeRowIds,
-      gridId,
-      destPath: join(testDb.tmpDir, 'too-many.pdf'),
-      sortOrder: 'grid',
-      includeSections: {
-        deadlines: false, checklist: false, caseLog: false,
-        scratchPad: false, contactInfo: false, gridData: false,
-      },
-    })).rejects.toThrow(/limited to 200/)
   })
 })

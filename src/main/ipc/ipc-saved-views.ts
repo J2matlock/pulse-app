@@ -28,20 +28,6 @@ export function registerSavedViewHandlers(): void {
     return ok(result.lastInsertRowid)
   })
 
-  secureWrap(IPC.SAVED_VIEW_UPDATE, 'ipc-saved-views', (_e, id: number, updates: { name?: string; config?: string }) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
-    if (updates.name !== undefined && (typeof updates.name !== 'string' || !updates.name.trim() || updates.name.length > 200)) return fail('Invalid view name')
-    if (updates.config !== undefined && (typeof updates.config !== 'string' || updates.config.length > 100_000)) return fail('View config too large')
-    const db = getDb()
-    const updateView = db.transaction(() => {
-      if (updates.name !== undefined) db.prepare('UPDATE saved_views SET name = ? WHERE id = ?').run(updates.name, id)
-      if (updates.config !== undefined) db.prepare('UPDATE saved_views SET config = ? WHERE id = ?').run(updates.config, id)
-    })
-    updateView()
-    return ok(true)
-  })
-
   secureWrap(IPC.SAVED_VIEW_DELETE, 'ipc-saved-views', (_e, id: number) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(id)) return fail('Invalid ID')

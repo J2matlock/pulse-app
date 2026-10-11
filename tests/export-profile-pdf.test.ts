@@ -20,7 +20,7 @@ vi.mock('electron', () => ({
   dialog: { showMessageBoxSync: () => 0 },
 }))
 
-import { exportPdfProfile, exportPdfBatch, deadlineSummary } from '../src/main/export-pdf'
+import { exportPdfProfile, deadlineSummary } from '../src/main/export-pdf'
 import { exportHandoffPacket } from '../src/main/export-handoff'
 
 const ALL = { deadlines: true, checklist: true, caseLog: true, scratchPad: true, contactInfo: true, gridData: true }
@@ -72,15 +72,6 @@ describe('profile PDF', () => {
     expect(pdf).toContain('Guardian cell')
     expect(pdf).toContain('555-0199')
     expect(pdf).not.toContain('check with mom')
-  })
-
-  it('agrees in a batch print too', async () => {
-    const { gridId, rowId } = seedRecord()
-    const dest = join(testDb.tmpDir, 'b.pdf')
-    await exportPdfBatch({ rowIds: [rowId], gridId, destPath: dest, sortOrder: 'grid', includeSections: ALL })
-    const pdf = text(dest)
-    expect(pdf).toContain('Due in 10 days')
-    expect(pdf).not.toContain('Stage changed to Active')
   })
 
   it('describes overdue, step and extended deadlines', () => {

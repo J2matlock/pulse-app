@@ -9,7 +9,6 @@ export type {
   CsvExportOptions,
   PdfProfileOptions,
   PdfGridOptions,
-  PdfBatchOptions,
   SupervisorReportOptions,
 } from './export-shared'
 
@@ -34,7 +33,6 @@ export {
   exportLetterPdf,
   exportPdfGrid,
   exportPdfProfile,
-  exportPdfBatch,
   exportContactPdf,
   exportDirectoryPdf,
 } from './export-pdf'

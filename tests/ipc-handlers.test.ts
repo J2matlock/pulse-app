@@ -139,7 +139,6 @@ vi.mock('../src/main/backup', () => ({
   runAutoBackup: async () => {},
   listAutoBackups: () => [],
   listAutoBackupsRich: () => [],
-  runScheduledBackup: async () => {},
   runManualBackup: () => ({ destPath: '/tmp/backup.pulse-backup', sizeBytes: 0 }),
   restoreFromDb: async () => {},
   restoreFromPulseBackup: async () => {},
@@ -524,9 +523,9 @@ describe('IPC Handlers — Dashboard Stats', () => {
     await invoke(IPC.ROW_CREATE, gridId)
     await invoke(IPC.ROW_CREATE, gridId)
 
-    const stats = await invoke(IPC.DASHBOARD_GET_STATS) as { ok: true; data: { totalActive: number } }
-    expect(stats.ok).toBe(true)
-    expect(stats.data.totalActive).toBe(3)
+    const all = await invoke(IPC.DASHBOARD_GET_ALL) as { ok: true; data: { stats: { totalActive: number } } }
+    expect(all.ok).toBe(true)
+    expect(all.data.stats.totalActive).toBe(3)
   })
 })
 

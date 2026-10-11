@@ -152,7 +152,6 @@ vi.mock('../../../src/renderer/views/tasks/taskHelpers', () => ({
   PRIORITY_ORDER: { urgent: 0, high: 1, normal: 2, low: 3 } as Record<string, number>,
   isOverdue: () => false,
   isDueToday: () => false,
-  isDueThisWeek: () => false,
   isSnoozed: () => false,
 }))
 

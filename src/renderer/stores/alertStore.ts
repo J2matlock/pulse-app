@@ -21,7 +21,6 @@ interface AlertState {
   /** Deletes the rule and unlinks every column that used it, with Undo */
   deleteRule: (id: number) => Promise<boolean>
   getRuleById: (id: number) => ParsedAlertRule | undefined
-  usageOf: (id: number) => AlertRuleUse[]
 }
 
 function parseRule(r: AlertRule): ParsedAlertRule {
@@ -149,7 +148,6 @@ export const useAlertStore = create<AlertState>((set, get) => ({
   },
 
   getRuleById: (id) => get().rules.find(r => r.id === id),
-  usageOf: (id) => get().usage.filter(u => u.rule_id === id),
 }))
 
 // Sample data brings its own rules and takes them away again: keep the rule

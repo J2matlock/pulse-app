@@ -46,7 +46,6 @@ import { ROW_HEIGHTS, HANDLE_WIDTH, PROFILE_BTN_WIDTH, CHAR_WIDTH_HEADER, CHAR_W
 import { rlog } from '../../utils/rendererLogger'
 import { useGridSelection } from '../../hooks/useGridSelection'
 import { useGridContextMenu } from '../../hooks/useGridContextMenu'
-import { useGridClipboard } from '../../hooks/useGridClipboard'
 import { useGridGrouping } from '../../hooks/useGridGrouping'
 import { useGridVirtualizer } from '../../hooks/useGridVirtualizer'
 import { useGridEditing } from '../../hooks/useGridEditing'
@@ -166,7 +165,6 @@ export function DataGrid(): React.ReactElement {
   )
 
   // Extracted hooks
-  const { setClipboard } = useGridClipboard()
   const { contextMenu, setContextMenu, handleCellContextMenu, closeContextMenu } = useGridContextMenu()
   const { selectedRowIds, setSelectedRowIds, selectedRowIdsRef, handleToggleRowSelect } = useGridSelection({ visualRowIdsRef, activeGridId })
 
@@ -649,7 +647,7 @@ export function DataGrid(): React.ReactElement {
   const keyNavDeps = useMemo<KeyboardNavDeps>(() => ({
     editingCellRef, rowsRef, filteredRowsRef, selectedRowIdsRef,
     columns, columnMap, updateCell, navigateCell,
-    setEditingCell, setSelectedRowIds, setClipboard, openRecord: handleNavigateToProfile,
+    setEditingCell, setSelectedRowIds, openRecord: handleNavigateToProfile,
   }), [columns, columnMap, updateCell, navigateCell, setEditingCell, handleNavigateToProfile])
   const handleCellKeyDown = useCallback((e: React.KeyboardEvent, rowId: number, columnId: number) => {
     handleCellKeyDownImpl(e, rowId, columnId, keyNavDeps)

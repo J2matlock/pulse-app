@@ -239,26 +239,13 @@ describe('CELL_HISTORY_COMPACT', () => {
   })
 })
 
-describe('CELL_FORMAT_GET_FOR_GRID', () => {
-  it('returns empty array for grid with no formats', async () => {
-    const r = await invoke(IPC.CELL_FORMAT_GET_FOR_GRID, gridId) as any
-    expect(r.ok).toBe(true)
-    expect(r.data).toEqual([])
-  })
-
-  it('fails for invalid grid ID', async () => {
-    const r = await invoke(IPC.CELL_FORMAT_GET_FOR_GRID, -1) as any
-    expect(r.ok).toBe(false)
-  })
-})
-
 describe('CELL_FORMAT_SET', () => {
   it('sets format rules on a cell', async () => {
     const rules = JSON.stringify([{ bold: true }])
     const r = await invoke(IPC.CELL_FORMAT_SET, rowId, columnId, rules) as any
     expect(r.ok).toBe(true)
 
-    const formats = (await invoke(IPC.CELL_FORMAT_GET_FOR_GRID, gridId) as any).data
+    const formats = testDb.db.prepare('SELECT row_id, column_id, rules FROM cell_formats').all() as any[]
     expect(formats).toHaveLength(1)
     expect(formats[0].rules).toBe(rules)
   })
@@ -269,7 +256,7 @@ describe('CELL_FORMAT_SET', () => {
     const r = await invoke(IPC.CELL_FORMAT_SET, rowId, columnId, '[]') as any
     expect(r.ok).toBe(true)
 
-    const formats = (await invoke(IPC.CELL_FORMAT_GET_FOR_GRID, gridId) as any).data
+    const formats = testDb.db.prepare('SELECT row_id, column_id, rules FROM cell_formats').all() as any[]
     expect(formats).toHaveLength(0)
   })
 

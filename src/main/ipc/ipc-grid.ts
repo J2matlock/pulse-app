@@ -495,10 +495,4 @@ export function registerGridHandlers(): void {
     return ok(true)
   })
 
-  secureWrap(IPC.SORT_CLEAR, 'ipc-grid', (_e, gridId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(gridId)) return fail('Invalid ID')
-    getDb().prepare("UPDATE grids SET sort_config = '[]' WHERE id = ?").run(gridId)
-    return ok(true)
-  })
 }

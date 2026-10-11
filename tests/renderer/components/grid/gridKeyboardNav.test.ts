@@ -17,7 +17,6 @@ function deps(columns: Column[]): KeyboardNavDeps & { updateCell: ReturnType<typ
     navigateCell: vi.fn(),
     setEditingCell: vi.fn(),
     setSelectedRowIds: vi.fn(),
-    setClipboard: vi.fn(),
     openRecord: vi.fn(),
   } as never
 }

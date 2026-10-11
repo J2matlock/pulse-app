@@ -3,10 +3,11 @@
  * Errors and warnings are forwarded to the main process via IPC
  * so they get written to the structured log file in production.
  */
+import { IPC } from '../../shared/ipc-channels'
 
 function forwardToMain(level: string, component: string, msg: string, data?: unknown): void {
   try {
-    window.api?.invoke('log:forward', { level, component, msg, data });
+    window.api?.invoke(IPC.LOG_FORWARD, { level, component, msg, data });
   } catch {
     console.error(`[Pulse:${component}] ${msg}`, data !== undefined ? data : '')
   }

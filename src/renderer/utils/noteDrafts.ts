@@ -33,10 +33,6 @@ export function setNoteDraft(rowId: number, draft: NoteDraft): void {
   else drafts.set(rowId, draft)
 }
 
-export function clearNoteDraft(rowId: number): void {
-  drafts.delete(rowId)
-}
-
 export function clearAllNoteDrafts(): void {
   drafts.clear()
 }

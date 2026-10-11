@@ -77,103 +77,6 @@ function queryArchived(): unknown[] {
   `).all()
 }
 
-function queryCompleted(): unknown[] {
-  // Each part keeps its own newest-first limit; SQLite allows ORDER BY/LIMIT per part only inside a subquery
-  return cachedStmt('dash_completed', `
-    SELECT * FROM (
-      SELECT * FROM (
-      SELECT
-        'checklist' AS type,
-        ci.id AS source_id,
-        ci.title AS title,
-        ci.completed_at AS completed_at,
-        r.display_name AS client_name,
-        g.name AS grid_name,
-        ci.row_id AS row_id,
-        r.grid_id AS grid_id
-      FROM checklist_items ci
-      JOIN rows r  ON r.id = ci.row_id AND r.deleted_at IS NULL
-      JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
-      WHERE ci.is_completed = 1
-        AND ci.completed_at >= date('now', '-30 days')
-      ORDER BY ci.completed_at DESC
-      LIMIT ${QUERY_LIMITS.DASHBOARD_COMPLETIONS}
-      )
-
-      UNION ALL
-
-      SELECT * FROM (
-      SELECT
-        'task' AS type,
-        th.id AS source_id,
-        ct.title AS title,
-        th.completed_at AS completed_at,
-        NULL AS client_name,
-        NULL AS grid_name,
-        NULL AS row_id,
-        ct.grid_id AS grid_id
-      FROM caseload_task_history th
-      JOIN caseload_tasks ct ON ct.id = th.task_id
-      LEFT JOIN grids gt ON gt.id = ct.grid_id
-      WHERE th.completed_at >= date('now', '-30 days')
-        AND (ct.grid_id IS NULL OR gt.is_active = 1)
-      ORDER BY th.completed_at DESC
-      LIMIT ${QUERY_LIMITS.DASHBOARD_COMPLETIONS}
-      )
-
-      UNION ALL
-
-      SELECT * FROM (
-      SELECT
-        'deadline' AS type,
-        cl.id AS source_id,
-        cl.content AS title,
-        cl.created_at AS completed_at,
-        r2.display_name AS client_name,
-        g2.name AS grid_name,
-        cl.row_id AS row_id,
-        r2.grid_id AS grid_id
-      FROM case_log cl
-      JOIN rows r2  ON r2.id = cl.row_id AND r2.deleted_at IS NULL
-      JOIN grids g2 ON g2.id = r2.grid_id AND g2.is_active = 1
-      WHERE cl.log_type = 'system'
-        -- Mark done tags its note (L-22); notes from before the tag matched on their wording
-        AND (cl.source_action_id LIKE 'deadline_done:%'
-             OR (cl.source_action_id IS NULL AND cl.content LIKE '% completed (was %)'))
-        AND cl.created_at >= date('now', '-30 days')
-        AND cl.voided_at IS NULL
-      ORDER BY cl.created_at DESC
-      LIMIT ${QUERY_LIMITS.DASHBOARD_COMPLETIONS}
-      )
-
-      UNION ALL
-
-      SELECT * FROM (
-      SELECT
-        'followup' AS type,
-        cl3.id AS source_id,
-        cl3.content AS title,
-        cl3.updated_at AS completed_at,
-        r3.display_name AS client_name,
-        g3.name AS grid_name,
-        cl3.row_id AS row_id,
-        r3.grid_id AS grid_id
-      FROM case_log cl3
-      JOIN rows r3  ON r3.id = cl3.row_id AND r3.deleted_at IS NULL
-      JOIN grids g3 ON g3.id = r3.grid_id AND g3.is_active = 1
-      WHERE cl3.follow_up_date IS NOT NULL
-        AND cl3.follow_up_completed = 1
-        AND cl3.updated_at >= date('now', '-30 days')
-        AND cl3.voided_at IS NULL
-      ORDER BY cl3.updated_at DESC
-      LIMIT ${QUERY_LIMITS.DASHBOARD_COMPLETIONS}
-      )
-    )
-    ORDER BY completed_at DESC
-    LIMIT ${QUERY_LIMITS.DASHBOARD_COMPLETIONS}
-  `).all()
-}
-
 /**
  * Counts for the morning briefing. Deadlines use the effective due date (stored
  * date + rule interval) and the local calendar day, like the dashboard.
@@ -248,22 +151,8 @@ export function registerDashboardHandlers(): void {
     }))
   })
 
-  secureWrap(IPC.DASHBOARD_GET_STATS, 'ipc-dashboard', () => {
-    // overdue / dueThisWeek / dueThisMonth are derived on the frontend from the
-    // DASHBOARD_GET_DEADLINES data, because they need interval_days math per rule.
-    return ok(queryStats())
-  })
-
   secureWrap(IPC.DASHBOARD_GET_FOLLOWUPS, 'ipc-dashboard', () => {
     return ok(queryFollowups())
-  })
-
-  secureWrap(IPC.DASHBOARD_GET_COMPLETED, 'ipc-dashboard', () => {
-    return ok(queryCompleted())
-  })
-
-  secureWrap(IPC.DASHBOARD_GET_ARCHIVED, 'ipc-dashboard', () => {
-    return ok(queryArchived())
   })
 
   secureWrap(IPC.DASHBOARD_GET_BRIEFING, 'ipc-dashboard', () => {

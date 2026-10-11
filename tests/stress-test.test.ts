@@ -127,7 +127,6 @@ vi.mock('../main/backup', () => ({
   runAutoBackup: vi.fn(),
   listAutoBackups: vi.fn().mockReturnValue([]),
   listAutoBackupsRich: vi.fn().mockReturnValue([]),
-  runScheduledBackup: vi.fn(),
   runManualBackup: vi.fn(),
   restoreFromDb: vi.fn(),
   restoreFromPulseBackup: vi.fn(),

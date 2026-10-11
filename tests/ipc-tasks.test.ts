@@ -484,32 +484,6 @@ describe('IPC Tasks', () => {
     })
   })
 
-  // ── TASK_GET_HISTORY ──────────────────────────────────────────────────────
-  describe('TASK_GET_HISTORY', () => {
-    it('returns empty array for task with no history', async () => {
-      const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
-      const t = insertTask(gridId, 'Task')
-      const result = await invoke(IPC.TASK_GET_HISTORY, t.lastInsertRowid) as any
-      expect(result.ok).toBe(true)
-      expect(result.data).toEqual([])
-    })
-
-    it('returns history after completion', async () => {
-      const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
-      const t = insertTask(gridId, 'Task')
-      const id = t.lastInsertRowid as number
-      await invoke(IPC.TASK_COMPLETE, id)
-      const result = await invoke(IPC.TASK_GET_HISTORY, id) as any
-      expect(result.ok).toBe(true)
-      expect(result.data).toHaveLength(1)
-    })
-
-    it('fails with invalid ID', async () => {
-      const result = await invoke(IPC.TASK_GET_HISTORY, -1) as any
-      expect(result.ok).toBe(false)
-    })
-  })
-
   // ── SNIPPET_GET_ALL ──────────────────────────────────────────────────────
   describe('SNIPPET_GET_ALL', () => {
     it('seeds pre-built snippets on first call', async () => {

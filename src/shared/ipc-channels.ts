@@ -55,19 +55,16 @@ export const IPC = {
   // Cells
   CELL_UPDATE: 'cell:update',
   CELL_GET_HISTORY: 'cell:get-history',
-  CELL_FORMAT_GET_FOR_GRID: 'cell-format:get-for-grid',
   CELL_FORMAT_SET: 'cell-format:set',
   CELL_FORMAT_BATCH_SET: 'cell-format:batch-set',
 
   // Sort & Filter
   SORT_UPDATE: 'sort:update',
-  SORT_CLEAR: 'sort:clear',
   SAVED_FILTER_GET_ALL: 'saved-filter:get-all',
   SAVED_FILTER_CREATE: 'saved-filter:create',
   SAVED_FILTER_DELETE: 'saved-filter:delete',
   SAVED_VIEW_GET_ALL: 'saved-view:get-all',
   SAVED_VIEW_CREATE: 'saved-view:create',
-  SAVED_VIEW_UPDATE: 'saved-view:update',
   SAVED_VIEW_DELETE: 'saved-view:delete',
 
   // Alerts
@@ -127,7 +124,6 @@ export const IPC = {
   // Tags
   TAG_GET_ALL: 'tag:get-all',
   TAG_GET_FOR_ROW: 'tag:get-for-row',
-  TAG_GET_ROWS_FOR_GRID: 'tag:get-rows-for-grid',
   TAG_CREATE: 'tag:create',
   TAG_UPDATE: 'tag:update',
   TAG_DELETE: 'tag:delete',
@@ -140,7 +136,6 @@ export const IPC = {
   SETUP_TEMPLATE_EXPORT: 'setup-template:export',
   SETUP_TEMPLATE_EXPORT_SAVED: 'setup-template:export-saved',
   SETUP_TEMPLATE_APPLY: 'setup-template:apply',
-  SETUP_TEMPLATE_CREATE: 'setup-template:create',
   SETUP_TEMPLATE_DELETE: 'setup-template:delete',
   CL_TEMPLATE_GET_ALL: 'cl-template:get-all',
   CL_TEMPLATE_CREATE: 'cl-template:create',
@@ -168,11 +163,8 @@ export const IPC = {
   // Dashboard
   DASHBOARD_GET_ALL: 'dashboard:get-all',
   DASHBOARD_GET_DEADLINES: 'dashboard:get-deadlines',
-  DASHBOARD_GET_STATS: 'dashboard:get-stats',
   DASHBOARD_RECENT_ACTIVITY: 'dashboard:recent-activity',
-  DASHBOARD_GET_COMPLETED: 'dashboard:get-completed',
   DASHBOARD_GET_FOLLOWUPS: 'dashboard:get-followups',
-  DASHBOARD_GET_ARCHIVED: 'dashboard:get-archived',
   DASHBOARD_GET_BRIEFING: 'dashboard:get-briefing',
   EXPORT_WEEKLY_PLANNER: 'export:weekly-planner',
   EXPORT_AUDIT_REPORT: 'export:audit-report',
@@ -198,7 +190,6 @@ export const IPC = {
 
   // Backup (3 layers)
   BACKUP_AUTO_LIST: 'backup:auto-list',
-  BACKUP_SCHEDULED_RUN: 'backup:scheduled-run',
   BACKUP_SCHEDULED_RUN_NOW: 'backup:scheduled-run-now',
   BACKUP_MANUAL_CREATE: 'backup:manual-create',
   BACKUP_RESTORE_AUTO: 'backup:restore-auto',
@@ -216,7 +207,6 @@ export const IPC = {
   EXPORT_CSV: 'export:csv',
   EXPORT_PDF_PROFILE: 'export:pdf-profile',
   EXPORT_PDF_GRID: 'export:pdf-grid',
-  EXPORT_PDF_BATCH: 'export:pdf-batch',
   EXPORT_SUPERVISOR_REPORT: 'export:supervisor-report',
   EXPORT_PDF_CONTACT: 'export:pdf-contact',
   EXPORT_PDF_DIRECTORY: 'export:pdf-directory',
@@ -414,7 +404,6 @@ export const IPC = {
   TASK_DELETE: 'task:delete',
   TASK_COMPLETE: 'task:complete',
   TASK_SNOOZE: 'task:snooze',
-  TASK_GET_HISTORY: 'task:get-history',
   TASK_GET_DUE: 'task:get-due',
   TASK_REORDER: 'task:reorder',
   TASK_RESTORE: 'task:restore',

@@ -19,26 +19,6 @@ export function registerTagHandlers(): void {
     return ok(rows.map(r => r.tag_id))
   })
 
-  secureWrap(IPC.TAG_GET_ROWS_FOR_GRID, 'ipc-tags', (_e, gridId: number) => {
-    if (!validId(gridId)) return fail('Invalid ID')
-    // Returns { rowId: number, tagNames: string[] }[] for the entire grid in one query
-    const rows = getDb().prepare(`
-      SELECT rt.row_id, t.name
-      FROM row_tags rt
-      JOIN tags t ON t.id = rt.tag_id
-      JOIN rows r ON r.id = rt.row_id
-      WHERE r.grid_id = ?
-      ORDER BY rt.row_id, t.name
-    `).all(gridId) as { row_id: number; name: string }[]
-    // Group by row_id
-    const map: Record<number, string[]> = {}
-    for (const r of rows) {
-      if (!map[r.row_id]) map[r.row_id] = []
-      map[r.row_id]!.push(r.name)
-    }
-    return ok(map)
-  })
-
   secureWrap(IPC.TAG_CREATE, 'ipc-tags', (_e, gridId: number, name: string, color: string) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(gridId)) return fail('Invalid ID')

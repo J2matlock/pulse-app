@@ -740,35 +740,6 @@ describe('SORT_UPDATE', () => {
   })
 })
 
-// ── SORT_CLEAR ───────────────────────────────────────────────────────────────
-
-describe('SORT_CLEAR', () => {
-  it('clears sort config to empty array', async () => {
-    const { gridId, columnIds } = seedGrid(testDb.db)
-    // Set a sort first
-    testDb.db.prepare("UPDATE grids SET sort_config = ? WHERE id = ?").run(
-      JSON.stringify([{ columnId: columnIds[0], direction: 'asc' }]), gridId
-    )
-
-    const result = await invoke(IPC.SORT_CLEAR, gridId) as { ok: boolean }
-    expect(result.ok).toBe(true)
-
-    const grid = testDb.db.prepare('SELECT sort_config FROM grids WHERE id = ?').get(gridId) as { sort_config: string }
-    expect(grid.sort_config).toBe('[]')
-  })
-
-  it('rejects invalid grid ID', async () => {
-    const result = await invoke(IPC.SORT_CLEAR, -1) as { ok: false }
-    expect(result.ok).toBe(false)
-  })
-
-  it('succeeds even on already-empty sort', async () => {
-    const { gridId } = seedGrid(testDb.db)
-    const result = await invoke(IPC.SORT_CLEAR, gridId) as { ok: boolean }
-    expect(result.ok).toBe(true)
-  })
-})
-
 // ── Handler registration check ───────────────────────────────────────────────
 
 describe('Handler registration', () => {
@@ -778,7 +749,7 @@ describe('Handler registration', () => {
       IPC.GRID_CREATE, IPC.GRID_UPDATE, IPC.GRID_DELETE, IPC.GRID_REORDER,
       IPC.COLUMN_CREATE, IPC.COLUMN_UPDATE, IPC.COLUMN_DELETE, IPC.COLUMN_REORDER,
       IPC.COLUMN_BATCH_UPDATE_VISIBILITY, IPC.COLUMN_BATCH_UPDATE_WIDTHS,
-      IPC.SORT_UPDATE, IPC.SORT_CLEAR,
+      IPC.SORT_UPDATE,
     ]
     for (const ch of expectedChannels) {
       expect(handlers.has(ch), `Handler missing for ${ch}`).toBe(true)

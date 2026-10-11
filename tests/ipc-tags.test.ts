@@ -123,36 +123,6 @@ describe('IPC Tags', () => {
     })
   })
 
-  // ── TAG_GET_ROWS_FOR_GRID ──────────────────────────────────────────────
-  describe('TAG_GET_ROWS_FOR_GRID', () => {
-    it('returns empty object when no tags assigned', async () => {
-      const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 2 })
-      const result = await invoke(IPC.TAG_GET_ROWS_FOR_GRID, gridId) as any
-      expect(result.ok).toBe(true)
-      expect(result.data).toEqual({})
-    })
-
-    it('groups tag names by row ID', async () => {
-      const { gridId, rowIds } = seedGrid(testDb.db, { columnCount: 1, rowCount: 2 })
-      const t1 = insertTag(gridId, 'Alpha')
-      const t2 = insertTag(gridId, 'Beta')
-      const tag1Id = t1.lastInsertRowid as number
-      const tag2Id = t2.lastInsertRowid as number
-      testDb.db.prepare('INSERT INTO row_tags (row_id, tag_id) VALUES (?, ?)').run(rowIds[0], tag1Id)
-      testDb.db.prepare('INSERT INTO row_tags (row_id, tag_id) VALUES (?, ?)').run(rowIds[0], tag2Id)
-      testDb.db.prepare('INSERT INTO row_tags (row_id, tag_id) VALUES (?, ?)').run(rowIds[1], tag1Id)
-      const result = await invoke(IPC.TAG_GET_ROWS_FOR_GRID, gridId) as any
-      expect(result.ok).toBe(true)
-      expect(result.data[rowIds[0]]).toEqual(['Alpha', 'Beta'])
-      expect(result.data[rowIds[1]]).toEqual(['Alpha'])
-    })
-
-    it('fails with invalid ID', async () => {
-      const result = await invoke(IPC.TAG_GET_ROWS_FOR_GRID, -5) as any
-      expect(result.ok).toBe(false)
-    })
-  })
-
   // ── TAG_CREATE ──────────────────────────────────────────────────────────
   describe('TAG_CREATE', () => {
     it('creates a tag and returns it', async () => {

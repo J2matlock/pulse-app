@@ -651,11 +651,6 @@ export function needsDeadlineColumn(rule: EngineRule): boolean {
   return false
 }
 
-/** Whether a rule needs more than the cell itself (loaders fetch every row, not only filled cells). */
-export function needsRowContext(rule: EngineRule): boolean {
-  return rule.kind !== 'interval' || rule.condition !== null
-}
-
 /** What the "current reading?" question needs for a meter rule: the unit, the interval and the readings now (D-31). */
 export interface MeterInfo { unit: string; every: number; current: number | null; lastService: number | null }
 

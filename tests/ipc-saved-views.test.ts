@@ -153,48 +153,6 @@ describe('IPC Saved Views', () => {
     })
   })
 
-  // ── SAVED_VIEW_UPDATE ─────────────────────────────────────────────────────
-  describe('SAVED_VIEW_UPDATE', () => {
-    it('updates name only', async () => {
-      const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
-      const r = testDb.db.prepare('INSERT INTO saved_views (grid_id, name, config) VALUES (?, ?, ?)').run(gridId, 'Old', '{}')
-      const id = r.lastInsertRowid as number
-      const result = await invoke(IPC.SAVED_VIEW_UPDATE, id, { name: 'New Name' }) as any
-      expect(result.ok).toBe(true)
-      const row = testDb.db.prepare('SELECT name FROM saved_views WHERE id = ?').get(id) as any
-      expect(row.name).toBe('New Name')
-    })
-
-    it('updates config only', async () => {
-      const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
-      const r = testDb.db.prepare('INSERT INTO saved_views (grid_id, name, config) VALUES (?, ?, ?)').run(gridId, 'View', '{}')
-      const id = r.lastInsertRowid as number
-      const result = await invoke(IPC.SAVED_VIEW_UPDATE, id, { config: '{"sort":"desc"}' }) as any
-      expect(result.ok).toBe(true)
-      const row = testDb.db.prepare('SELECT config FROM saved_views WHERE id = ?').get(id) as any
-      expect(row.config).toBe('{"sort":"desc"}')
-    })
-
-    it('fails with invalid ID', async () => {
-      const result = await invoke(IPC.SAVED_VIEW_UPDATE, -1, { name: 'X' }) as any
-      expect(result.ok).toBe(false)
-    })
-
-    it('fails with empty name', async () => {
-      const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
-      const r = testDb.db.prepare('INSERT INTO saved_views (grid_id, name, config) VALUES (?, ?, ?)').run(gridId, 'View', '{}')
-      const result = await invoke(IPC.SAVED_VIEW_UPDATE, r.lastInsertRowid, { name: '' }) as any
-      expect(result.ok).toBe(false)
-    })
-
-    it('fails with config too large', async () => {
-      const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
-      const r = testDb.db.prepare('INSERT INTO saved_views (grid_id, name, config) VALUES (?, ?, ?)').run(gridId, 'View', '{}')
-      const result = await invoke(IPC.SAVED_VIEW_UPDATE, r.lastInsertRowid, { config: 'x'.repeat(100_001) }) as any
-      expect(result.ok).toBe(false)
-    })
-  })
-
   // ── SAVED_VIEW_DELETE ─────────────────────────────────────────────────────
   describe('SAVED_VIEW_DELETE', () => {
     it('deletes an existing view', async () => {

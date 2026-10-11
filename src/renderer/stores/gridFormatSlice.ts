@@ -1,4 +1,4 @@
-import type { CellFormat, CellFormatRule } from '../../shared/types'
+import type { CellFormatRule } from '../../shared/types'
 import { IPC } from '../../shared/ipc-channels'
 import type { GridState } from './gridTypes'
 import { useUndoStore, rethrowIfUndoing } from './undoStore'
@@ -8,7 +8,6 @@ import { storeInvoke as invoke } from '../utils/safeInvoke'
 
 export interface FormatSliceState {
   cellFormats: Map<string, CellFormatRule[]>
-  loadCellFormats: () => Promise<void>
   setCellFormat: (rowId: number, columnId: number, rules: CellFormatRule[]) => Promise<void>
   batchSetCellFormat: (entries: Array<{ rowId: number; columnId: number; rules: CellFormatRule[] }>) => Promise<void>
   copiedFormatRules: CellFormatRule[] | null
@@ -22,30 +21,6 @@ export const createFormatSlice = (set: Set, get: Get) => ({
   cellFormats: new Map<string, CellFormatRule[]>(),
   copiedFormatRules: null as CellFormatRule[] | null,
   setCopiedFormatRules: (rules: CellFormatRule[] | null) => set({ copiedFormatRules: rules }),
-
-  loadCellFormats: async () => {
-    const gridId = get().activeGridId
-    if (!gridId) return
-    try {
-      const formats = await invoke<CellFormat[]>(IPC.CELL_FORMAT_GET_FOR_GRID, gridId)
-      const map = new Map<string, CellFormatRule[]>()
-      for (const f of formats) {
-        try {
-          const parsed = JSON.parse(f.rules)
-          if (!Array.isArray(parsed) || !parsed.every((r: unknown) => r && typeof r === 'object' && 'operator' in r)) {
-            rlog.error('GridFormatSlice', `Invalid cell format shape for row=${f.row_id} col=${f.column_id}`)
-            continue
-          }
-          map.set(`${f.row_id}_${f.column_id}`, parsed)
-        } catch (err) {
-          rlog.error('GridFormatSlice', `Malformed cell format rules for row=${f.row_id} col=${f.column_id}`, err)
-        }
-      }
-      set({ cellFormats: map })
-    } catch (err) {
-      rlog.error('GridFormatSlice', 'Failed to load cell formats', err)
-    }
-  },
 
   setCellFormat: async (rowId: number, columnId: number, rules: CellFormatRule[]) => {
     const rulesJson = JSON.stringify(rules)

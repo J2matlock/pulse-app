@@ -156,7 +156,6 @@ vi.mock('../../../src/renderer/views/tasks/taskHelpers', () => ({
     return new Date(t.due_date) < new Date('2026-03-10')
   },
   isDueToday: () => false,
-  isDueThisWeek: () => false,
   isSnoozed: () => false,
 }))
 

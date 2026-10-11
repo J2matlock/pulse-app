@@ -656,41 +656,6 @@ export async function getBackupMadeInfo(backupPath: string): Promise<{ madeAt: s
 // Layer 2 — Scheduled backup (interval-based, user destination, rolling 10)
 // ──────────────────────────────────────────────────────────────────────────────
 
-export interface ScheduledBackupConfig {
-  enabled: boolean
-  intervalDays: number       // 1, 3, or 7
-  destinationDir: string     // user-chosen folder
-  lastRunDate: string | null // ISO date YYYY-MM-DD
-}
-
-export async function runScheduledBackup(config: ScheduledBackupConfig): Promise<{ ran: boolean; destPath?: string; error?: string }> {
-  if (!config.enabled) return { ran: false, error: 'Backup not enabled' }
-
-  const dbPath = getStoredDbPath()
-  if (!dbPath || !existsSync(dbPath)) return { ran: false, error: `Database file not found: ${dbPath || '(empty)'}` }
-
-  // Check if interval has elapsed
-  if (config.lastRunDate) {
-    const lastRun = new Date(config.lastRunDate + 'T00:00:00')
-    const daysSince = Math.floor((Date.now() - lastRun.getTime()) / MS_PER_DAY)
-    if (daysSince < config.intervalDays) return { ran: false, error: `Interval not elapsed (${daysSince}d < ${config.intervalDays}d)` }
-  }
-
-  try {
-    const destDir = config.destinationDir || getBackupDir()
-    mkdirSync(destDir, { recursive: true, mode: 0o700 })
-
-    const destPath = join(destDir, `pulse-scheduled-${nowTimestamp()}.pulse-backup`)
-    await createPulseBackup(dbPath, destPath, 'scheduled')
-
-    pruneBackups(destDir, 'pulse-scheduled-', '.pulse-backup', MAX_SCHEDULED_BACKUPS)
-
-    return { ran: true, destPath }
-  } catch (err) {
-    return { ran: false, error: err instanceof Error ? err.message : 'Backup failed' }
-  }
-}
-
 export function listScheduledBackups(destinationDir: string): string[] {
   if (!destinationDir || !existsSync(destinationDir)) return []
   return readdirSync(destinationDir)

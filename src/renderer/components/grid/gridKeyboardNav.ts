@@ -26,7 +26,6 @@ export interface KeyboardNavDeps {
   ) => boolean | void
   setEditingCell: (c: CellCoord | null) => void
   setSelectedRowIds: React.Dispatch<React.SetStateAction<Set<number>>>
-  setClipboard: React.Dispatch<React.SetStateAction<string | null>>
 }
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -54,7 +53,7 @@ export function handleCellKeyDown(
   const {
     editingCellRef, isReadOnlyRef, rowsRef, filteredRowsRef, selectedRowIdsRef,
     columns, columnMap, updateCell, navigateCell,
-    setEditingCell, setSelectedRowIds, setClipboard,
+    setEditingCell, setSelectedRowIds,
   } = deps
 
   const editing = editingCellRef.current
@@ -145,7 +144,6 @@ export function handleCellKeyDown(
             } else {
               void window.api.copyToClipboard(plainText)
             }
-            setClipboard(cellVal)
           }
         }
       }

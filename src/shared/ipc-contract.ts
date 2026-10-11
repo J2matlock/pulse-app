@@ -12,7 +12,7 @@ import type {
   Grid, Column, GridRow, AcuityLevel, CellFormat,
   AlertRule, AlertRuleUse, DeletedAlertRule, ChecklistItem, ChecklistTemplate, UrgentChecklistItem,
   CaseLogEntry, ScrapNote,
-  Snippet, CaseloadTask, CaseloadTaskHistory, DashboardStats,
+  Snippet, CaseloadTask, DashboardStats,
   DeletedRow, AppInfo, SortConfig,
   Provider, ProviderCategory, ProviderInteraction, ProviderClientLink,
   ProviderCustomField, ProviderCustomValue, ContactFilterParams,
@@ -237,20 +237,17 @@ export interface IPCContract {
   // ── Cell ────────────────────────────────────────────────────────────────
   'cell:update':              { args: [rowId: number, columnId: number, value: string | null, opts?: { doneNote?: string }]; return: { sysLogId: number | null } }
   'cell:get-history':         { args: [rowId: number, columnId: number];                      return: CellHistoryEntry[] }
-  'cell-format:get-for-grid': { args: [gridId: number];                                       return: CellFormat[] }
   'cell-format:set':          { args: [rowId: number, columnId: number, rules: string];       return: true }
   'cell-format:batch-set':    { args: [entries: Array<{ rowId: number; columnId: number; rules: string }>]; return: true }
   'cell-history:compact':     { args: [retentionMonths: number];                              return: number }
 
   // ── Sort & Filter ───────────────────────────────────────────────────────
   'sort:update':          { args: [gridId: number, sortConfig: SortConfig[] | null]; return: true }
-  'sort:clear':           { args: [gridId: number];                                  return: true }
   'saved-filter:get-all': { args: [gridId: number];                                  return: SavedFilterRecord[] }
   'saved-filter:create':  { args: [gridId: number, name: string, definition: string]; return: number | bigint }
   'saved-filter:delete':  { args: [id: number];                                      return: true }
   'saved-view:get-all':   { args: [gridId: number];                                  return: SavedViewRecord[] }
   'saved-view:create':    { args: [gridId: number, name: string, config: string];    return: number | bigint }
-  'saved-view:update':    { args: [id: number, updates: { name?: string; config?: string }]; return: true }
   'saved-view:delete':    { args: [id: number];                                      return: true }
 
   // ── Alert Rules ─────────────────────────────────────────────────────────
@@ -304,7 +301,6 @@ export interface IPCContract {
   // ── Tags ────────────────────────────────────────────────────────────────
   'tag:get-all':           { args: [gridId: number];                                                return: TagRecord[] }
   'tag:get-for-row':       { args: [rowId: number];                                                 return: number[] }
-  'tag:get-rows-for-grid': { args: [gridId: number];                                                return: Record<number, string[]> }
   'tag:create':            { args: [gridId: number, name: string, color: string];                   return: TagRecord }
   'tag:update':            { args: [tagId: number, updates: { name?: string; color?: string }];     return: true }
   'tag:delete':            { args: [tagId: number];                                                 return: true }
@@ -324,7 +320,6 @@ export interface IPCContract {
   'task:delete':      { args: [id: number];                                                                                                          return: true }
   'task:complete':    { args: [id: number];                                                                                                          return: true }
   'task:snooze':      { args: [id: number, until: string];                                                                                           return: true }
-  'task:get-history': { args: [taskId: number];                                                                                                      return: CaseloadTaskHistory[] }
   'task:get-due':     { args: [];                                                                                                                    return: CaseloadTask[] }
   'task:reorder':     { args: [orderedIds: number[]];                                                                                                return: true }
   'task:restore':     { args: [task: Record<string, unknown>];                                                                                       return: true }
@@ -333,10 +328,7 @@ export interface IPCContract {
   // ── Dashboard ───────────────────────────────────────────────────────────
   'dashboard:get-all':       { args: [];  return: DashboardAllResult }
   'dashboard:get-deadlines': { args: [];  return: unknown[] }
-  'dashboard:get-stats':     { args: [];  return: DashboardStats }
-  'dashboard:get-completed': { args: [];  return: unknown[] }
   'dashboard:get-followups': { args: [];  return: unknown[] }
-  'dashboard:get-archived':  { args: [];  return: unknown[] }
   'dashboard:get-briefing': { args: []; return: { overdue: number; dueToday: number; dueThisWeek: number; followUpsDue: number; tasksDue: number; checklistDue: number } }
   'export:weekly-planner':  { args: [weekStart: string]; return: string | null }
 
@@ -407,7 +399,6 @@ export interface IPCContract {
 
   // ── Backup ──────────────────────────────────────────────────────────────
   'backup:auto-list':            { args: [];                                return: Array<{ path: string; filename: string; timestamp: Date; sizeBytes: number }> }
-  'backup:scheduled-run':        { args: [config: Record<string, unknown>]; return: unknown }
   'backup:scheduled-run-now':    { args: [];                                return: { ran: boolean; destPath?: string; lastRunISO?: string | null; error?: string } }
   'backup:manual-create':        { args: [destPath: string];                return: unknown }
   'backup:restore-auto':         { args: [backupDbPath: string];            return: { safetyPath: string } }
@@ -424,7 +415,6 @@ export interface IPCContract {
   'export:csv':               { args: [options: Record<string, unknown>];  return: true }
   'export:pdf-profile':       { args: [options: Record<string, unknown>];  return: true }
   'export:pdf-grid':          { args: [options: Record<string, unknown>];  return: true }
-  'export:pdf-batch':         { args: [options: Record<string, unknown>];  return: true }
   'export:supervisor-report': { args: [options: Record<string, unknown>];  return: true }
   'export:pdf-contact':       { args: [providerId: number];               return: string | null }
   'export:pdf-directory':     { args: [filterParams: Record<string, unknown>]; return: string | null }
@@ -440,7 +430,6 @@ export interface IPCContract {
   'documents:batch-preview': { args: [templateId: number | null, target: Record<string, unknown>]; return: { count: number; unknown: string[]; error?: string } }
   'import:undo':             { args: [gridId: number, rowIds: number[]]; return: { moved: number } }
   'setup-template:apply':   { args: [pulseJson: string, mode: 'new' | 'existing', gridId?: number, saveToLibrary?: boolean]; return: number }
-  'setup-template:create':  { args: [name: string, description: string | null, pulseJson: string];                       return: number }
   'setup-template:delete':  { args: [id: number];                                                                        return: true }
   'letter-template:get-all':    { args: [];                                                                              return: unknown[] }
   'letter-template:create':     { args: [name: string, description: string | null, content: string];                     return: number }

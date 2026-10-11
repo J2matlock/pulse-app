@@ -287,7 +287,6 @@ vi.mock('../../../src/renderer/views/tasks/taskHelpers', () => ({
   PRIORITY_ORDER: {},
   isOverdue: () => false,
   isDueToday: () => false,
-  isDueThisWeek: () => false,
   isSnoozed: () => false,
 }))
 

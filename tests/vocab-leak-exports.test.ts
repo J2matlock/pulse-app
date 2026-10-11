@@ -29,7 +29,7 @@ vi.mock('electron', () => ({
   dialog: { showMessageBoxSync: () => 0 },
 }))
 
-import { exportPdfGrid, exportPdfProfile, exportPdfBatch, exportContactPdf, exportDirectoryPdf } from '../src/main/export-pdf'
+import { exportPdfGrid, exportPdfProfile, exportContactPdf, exportDirectoryPdf } from '../src/main/export-pdf'
 import { exportSupervisorReport } from '../src/main/export-supervisor'
 import { exportHandoffPacket } from '../src/main/export-handoff'
 import { exportWeeklyPlanner } from '../src/main/export-planner'
@@ -76,11 +76,6 @@ describe('exports use the workspace words', () => {
     expect(leaks(dest('profile.pdf'))).toEqual([])
     // and the workspace's own words are there instead
     expect(readFileSync(dest('profile.pdf'), 'latin1')).toMatch(/jot/i)
-  })
-
-  it('batch print PDF', async () => {
-    await exportPdfBatch({ rowIds, gridId, destPath: dest('batch.pdf'), sortOrder: 'urgency', includeSections: allSections })
-    expect(leaks(dest('batch.pdf'))).toEqual([])
   })
 
   it('supervisor report (PDF and CSV)', async () => {

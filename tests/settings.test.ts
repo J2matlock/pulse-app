@@ -86,7 +86,6 @@ vi.mock('../src/main/backup', () => ({
   runAutoBackup: async () => {},
   listAutoBackups: () => [],
   listAutoBackupsRich: () => [],
-  runScheduledBackup: async () => {},
   runManualBackup: () => ({ destPath: '/tmp/backup.pulse-backup', sizeBytes: 0 }),
   restoreFromDb: async () => {},
   restoreFromPulseBackup: async () => {},

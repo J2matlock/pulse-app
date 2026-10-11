@@ -68,39 +68,6 @@ describe('gridCustomGroupSlice', () => {
     useUndoStore.setState({ undoStack: [], redoStack: [], toast: null, isUndoing: false })
   })
 
-  describe('loadCustomGroups', () => {
-    it('loads and parses custom groups from settings', async () => {
-      const groups = [makeCustomGroup('g1', 'By Status'), makeCustomGroup('g2', 'By Region')]
-      mockInvoke.mockResolvedValue({ ok: true, data: JSON.stringify(groups) })
-
-      await useGridStore.getState().loadCustomGroups(1)
-      expect(useGridStore.getState().customGroups).toEqual(groups)
-      expect(mockInvoke).toHaveBeenCalledWith('settings:get', 'custom_groups_1')
-    })
-
-    it('sets empty array when no saved groups exist', async () => {
-      mockInvoke.mockResolvedValue({ ok: true, data: null })
-
-      await useGridStore.getState().loadCustomGroups(1)
-      expect(useGridStore.getState().customGroups).toEqual([])
-    })
-
-    it('sets empty array on IPC error', async () => {
-      // storeInvoke throws on error, so the catch path runs
-      mockInvoke.mockResolvedValue({ ok: false, error: 'DB error' })
-
-      await useGridStore.getState().loadCustomGroups(1)
-      expect(useGridStore.getState().customGroups).toEqual([])
-    })
-
-    it('sets empty array on transport exception', async () => {
-      mockInvoke.mockRejectedValue(new Error('IPC failed'))
-
-      await useGridStore.getState().loadCustomGroups(1)
-      expect(useGridStore.getState().customGroups).toEqual([])
-    })
-  })
-
   describe('saveCustomGroup', () => {
     it('adds a new group and persists to settings', async () => {
       mockInvoke.mockResolvedValue({ ok: true, data: true })
@@ -228,26 +195,12 @@ describe('gridCustomGroupSlice', () => {
   })
 
   describe('edge cases', () => {
-    it('handles empty groups array on load', async () => {
-      mockInvoke.mockResolvedValue({ ok: true, data: '[]' })
-
-      await useGridStore.getState().loadCustomGroups(1)
-      expect(useGridStore.getState().customGroups).toEqual([])
-    })
-
     it('handles save with empty groups state', async () => {
       mockInvoke.mockResolvedValue({ ok: true, data: true })
       const group = makeCustomGroup('g1', 'First Group')
 
       await useGridStore.getState().saveCustomGroup(1, group)
       expect(useGridStore.getState().customGroups).toHaveLength(1)
-    })
-
-    it('uses correct settings key per grid', async () => {
-      mockInvoke.mockResolvedValue({ ok: true, data: null })
-
-      await useGridStore.getState().loadCustomGroups(42)
-      expect(mockInvoke).toHaveBeenCalledWith('settings:get', 'custom_groups_42')
     })
   })
 })

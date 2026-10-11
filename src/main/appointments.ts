@@ -62,10 +62,6 @@ export function listAppointments(range: { from: string; to: string }, filter: Ap
   return getDb().prepare(`${SELECT} WHERE ${where.join(' AND ')} ORDER BY a.start_at, a.id`).all(...params) as Appointment[]
 }
 
-export function getAppointment(id: number): Appointment | undefined {
-  return getDb().prepare(`${SELECT} WHERE a.id = ?`).get(id) as Appointment | undefined
-}
-
 /**
  * A record's next and last few appointments, for its page, with how many
  * there are in all (the lists stop at five; the section's count shouldn't).

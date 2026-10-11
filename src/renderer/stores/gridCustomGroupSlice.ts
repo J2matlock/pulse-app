@@ -6,7 +6,6 @@ import { storeInvoke as invoke } from '../utils/safeInvoke'
 export interface CustomGroupSliceState {
   customGroups: CustomGroupDef[]
   activeCustomGroupId: string | null
-  loadCustomGroups: (gridId: number) => Promise<void>
   saveCustomGroup: (gridId: number, def: CustomGroupDef) => Promise<void>
   deleteCustomGroup: (gridId: number, defId: string) => Promise<void>
   setActiveCustomGroupId: (id: string | null) => void
@@ -19,19 +18,6 @@ export const createCustomGroupSlice = (set: Set, get: Get) => ({
   // ── Custom Group Definitions ────────────────────────────────────────
   customGroups: [] as CustomGroupDef[],
   activeCustomGroupId: null as string | null,
-
-  loadCustomGroups: async (gridId: number) => {
-    try {
-      const raw = await invoke<string | null>(IPC.SETTINGS_GET, `custom_groups_${gridId}`)
-      if (raw) {
-        set({ customGroups: JSON.parse(raw) })
-      } else {
-        set({ customGroups: [] })
-      }
-    } catch {
-      set({ customGroups: [] })
-    }
-  },
 
   saveCustomGroup: async (gridId: number, def: CustomGroupDef) => {
     const prevGroups = get().customGroups

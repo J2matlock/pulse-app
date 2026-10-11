@@ -81,7 +81,6 @@ vi.mock('../src/main/backup', () => ({
   runAutoBackup: async () => {},
   listAutoBackups: () => [],
   listAutoBackupsRich: () => [{ timestamp: new Date(), path: '/tmp/backup.db', sizeBytes: 1024 }],
-  runScheduledBackup: async (config: unknown) => ({ ran: true }),
   runManualBackup: async (path: string) => ({ destPath: path, sizeBytes: 1024 }),
   restoreFromDb: async () => { if (backupMock.restoreError) throw backupMock.restoreError; return '/tmp/safety.db' },
   restoreFromPulseBackup: async () => { if (backupMock.restoreError) throw backupMock.restoreError; return '/tmp/safety.db' },
@@ -103,7 +102,6 @@ vi.mock('../src/main/export', () => ({
   exportCsv: vi.fn(async () => '/tmp/export.csv'),
   exportPdfGrid: async () => '/tmp/export.pdf',
   exportPdfProfile: async () => '/tmp/profile.pdf',
-  exportPdfBatch: async () => '/tmp/batch.pdf',
   exportSupervisorReport: async () => '/tmp/report.pdf',
   exportLetterPdf: async () => '/tmp/letter.pdf',
   exportContactPdf: async () => '/tmp/contact.pdf',
@@ -195,28 +193,6 @@ describe('BACKUP_GET_INFO', () => {
     testDb.db.prepare('UPDATE grids SET is_active = 0 WHERE id = ?').run(gone.gridId)
     const result = await invoke(IPC.BACKUP_GET_INFO) as { ok: true; data: { totalClients: number } }
     expect(result.data.totalClients).toBe(kept.rowIds.length)
-  })
-})
-
-describe('BACKUP_SCHEDULED_RUN', () => {
-  it('rejects invalid config — enabled not boolean', async () => {
-    const result = await invoke(IPC.BACKUP_SCHEDULED_RUN, { enabled: 'yes', intervalDays: 1 }) as { ok: false; error: string }
-    expect(result.ok).toBe(false)
-  })
-
-  it('rejects invalid intervalDays — 0', async () => {
-    const result = await invoke(IPC.BACKUP_SCHEDULED_RUN, { enabled: true, intervalDays: 0 }) as { ok: false; error: string }
-    expect(result.ok).toBe(false)
-  })
-
-  it('rejects intervalDays > 365', async () => {
-    const result = await invoke(IPC.BACKUP_SCHEDULED_RUN, { enabled: true, intervalDays: 400 }) as { ok: false; error: string }
-    expect(result.ok).toBe(false)
-  })
-
-  it('rejects non-ISO lastRunDate', async () => {
-    const result = await invoke(IPC.BACKUP_SCHEDULED_RUN, { enabled: true, intervalDays: 7, lastRunDate: 'not-a-date' }) as { ok: false; error: string }
-    expect(result.ok).toBe(false)
   })
 })
 
@@ -415,41 +391,6 @@ describe('EXPORT_PDF_PROFILE', () => {
   })
 })
 
-describe('EXPORT_PDF_BATCH', () => {
-  it('rejects too many row IDs', async () => {
-    const rowIds = Array.from({ length: 1001 }, (_, i) => i + 1)
-    const result = await invoke(IPC.EXPORT_PDF_BATCH, {
-      gridId: 1, rowIds, destPath: '/tmp/batch.pdf', sortOrder: 'grid',
-      includeSections: { deadlines: true, checklist: true, caseLog: true, scratchPad: true, contactInfo: true, gridData: true },
-    }) as { ok: false }
-    expect(result.ok).toBe(false)
-  })
-
-  it('rejects invalid sort order', async () => {
-    const result = await invoke(IPC.EXPORT_PDF_BATCH, {
-      gridId: 1, rowIds: [1], destPath: '/tmp/batch.pdf', sortOrder: 'invalid',
-      includeSections: { deadlines: true, checklist: true, caseLog: true, scratchPad: true, contactInfo: true, gridData: true },
-    }) as { ok: false }
-    expect(result.ok).toBe(false)
-  })
-
-  it('rejects non-positive integer row IDs', async () => {
-    const result = await invoke(IPC.EXPORT_PDF_BATCH, {
-      gridId: 1, rowIds: [1, -2, 3], destPath: '/tmp/batch.pdf', sortOrder: 'grid',
-      includeSections: { deadlines: true, checklist: true, caseLog: true, scratchPad: true, contactInfo: true, gridData: true },
-    }) as { ok: false }
-    expect(result.ok).toBe(false)
-  })
-
-  it('rejects missing includeSections', async () => {
-    const result = await invoke(IPC.EXPORT_PDF_BATCH, {
-      gridId: 1, rowIds: [1], destPath: '/tmp/batch.pdf', sortOrder: 'grid',
-      includeSections: null,
-    }) as { ok: false }
-    expect(result.ok).toBe(false)
-  })
-})
-
 describe('EXPORT_SUPERVISOR_REPORT', () => {
   it('rejects invalid grid ID', async () => {
     const result = await invoke(IPC.EXPORT_SUPERVISOR_REPORT, { gridId: -1, destPath: '/tmp/r.pdf' }) as { ok: false }
@@ -575,33 +516,6 @@ describe('SETUP_TEMPLATE_GET_ALL', () => {
     const result = await invoke(IPC.SETUP_TEMPLATE_GET_ALL) as { ok: boolean; data: unknown[] }
     expect(result.ok).toBe(true)
     expect(Array.isArray(result.data)).toBe(true)
-  })
-})
-
-describe('SETUP_TEMPLATE_CREATE', () => {
-  it('rejects empty name', async () => {
-    const result = await invoke(IPC.SETUP_TEMPLATE_CREATE, '', null, '{}') as { ok: false }
-    expect(result.ok).toBe(false)
-  })
-
-  it('rejects name > 500 chars', async () => {
-    const result = await invoke(IPC.SETUP_TEMPLATE_CREATE, 'x'.repeat(501), null, '{}') as { ok: false }
-    expect(result.ok).toBe(false)
-  })
-
-  it('rejects pulseJson > 10MB', async () => {
-    const result = await invoke(IPC.SETUP_TEMPLATE_CREATE, 'Big Template', null, 'x'.repeat(10_000_001)) as { ok: false }
-    expect(result.ok).toBe(false)
-  })
-
-  it('rejects description > 2000 chars', async () => {
-    const result = await invoke(IPC.SETUP_TEMPLATE_CREATE, 'Good Name', 'x'.repeat(2001), '{}') as { ok: false }
-    expect(result.ok).toBe(false)
-  })
-
-  it('accepts valid input', async () => {
-    const result = await invoke(IPC.SETUP_TEMPLATE_CREATE, 'My Template', 'Description', '{"columns":[]}') as { ok: true; data: number }
-    expect(result.ok).toBe(true)
   })
 })
 

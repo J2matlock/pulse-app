@@ -89,21 +89,6 @@ export interface PdfGridOptions {
   title?: string
 }
 
-export interface PdfBatchOptions {
-  rowIds: number[]
-  gridId: number
-  destPath: string
-  sortOrder: 'grid' | 'alpha' | 'urgency'
-  includeSections: {
-    deadlines: boolean
-    checklist: boolean
-    caseLog: boolean
-    scratchPad: boolean
-    contactInfo: boolean
-    gridData: boolean
-  }
-}
-
 export interface SupervisorReportOptions {
   gridId: number
   dateRange: { start: string; end: string }

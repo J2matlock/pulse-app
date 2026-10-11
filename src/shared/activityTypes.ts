@@ -47,7 +47,6 @@ export const SYSTEM_ACTIVITY_ICONS: Record<SystemActivityType, string> = {
 
 export const ACTIVITY_LABEL_MAX = 40
 export const ACTIVITY_ICON_MAX = 8
-export const ACTIVITY_KEY_PATTERN = /^[a-z0-9_]{1,30}$/
 
 /** A stable key for a new type: "No-show" → "no_show", then "no_show_2" if taken. */
 export function keyFromLabel(label: string, taken: Set<string>): string {
