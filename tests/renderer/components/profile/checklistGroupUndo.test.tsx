@@ -5,7 +5,7 @@
  * undo has to remove those, not the ones from the first time.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import React from 'react'
 
 const mockInvoke = vi.fn()
@@ -77,9 +77,9 @@ describe('checklist group undo and redo track the current ids', () => {
     await waitFor(() => expect(screen.getByText('Group')).toBeTruthy())
     fireEvent.click(screen.getByText('Group'))
     await waitFor(() => expect(pushed).toHaveLength(1))
-    await pushed[0]!.undo()
-    await pushed[0]!.redo()
-    await pushed[0]!.undo()
+    await act(async () => { await pushed[0]?.undo() })
+    await act(async () => { await pushed[0]?.redo() })
+    await act(async () => { await pushed[0]?.undo() })
     expect(calls('checklist:group-delete')).toEqual([[100], [101]])
   })
 
@@ -90,8 +90,8 @@ describe('checklist group undo and redo track the current ids', () => {
     fireEvent.click(screen.getByLabelText('Delete group Housing'))
     fireEvent.click(screen.getByText('Confirm'))
     await waitFor(() => expect(pushed).toHaveLength(1))
-    await pushed[0]!.undo()
-    await pushed[0]!.redo()
+    await act(async () => { await pushed[0]?.undo() })
+    await act(async () => { await pushed[0]?.redo() })
     expect(calls('checklist:group-delete')).toEqual([[5], [100]])
   })
 
@@ -103,11 +103,11 @@ describe('checklist group undo and redo track the current ids', () => {
     fireEvent.click(screen.getByText('Apply'))
     fireEvent.click(await screen.findByText('Make group'))
     await waitFor(() => expect(pushed).toHaveLength(1))
-    await pushed[0]!.undo()
-    await pushed[0]!.redo()
+    await act(async () => { await pushed[0]?.undo() })
+    await act(async () => { await pushed[0]?.redo() })
     // Redo makes the group again and applies into it, not into the deleted one
     expect(calls('checklist:apply-template')).toEqual([[10, 7, 100], [10, 7, 101]])
-    await pushed[0]!.undo()
+    await act(async () => { await pushed[0]?.undo() })
     expect(calls('checklist:delete-item').map(c => c[0])).toEqual([500, 501, 502, 503])
     expect(calls('checklist:group-delete')).toEqual([[100], [101]])
   })

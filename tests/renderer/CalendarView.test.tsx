@@ -26,12 +26,19 @@ import CalendarView, { eventsByDay } from '../../src/renderer/views/CalendarView
 import { AppointmentDialog } from '../../src/renderer/components/calendar/AppointmentDialog'
 import { useWorkspaceStore } from '../../src/renderer/stores/workspaceStore'
 import { setWords } from './vocabFixture'
+import { renderSettled } from './renderSettled'
 
 function Where() { const l = useLocation(); return <div data-testid="where">{l.pathname}{l.search}</div> }
+/** Let the reload a view switch starts finish before asserting on what it shows */
+const settle = () => act(async () => { await new Promise(r => setTimeout(r, 0)) })
+
 async function show(mode: 'Month' | 'Week' = 'Month') {
   render(<MemoryRouter><Routes><Route path="*" element={<><CalendarView /><Where /></>} /></Routes></MemoryRouter>)
   await act(async () => { await new Promise(r => setTimeout(r, 0)) })
-  if (mode === 'Month') fireEvent.click(screen.getByRole('button', { name: 'Month' }))
+  if (mode === 'Month') {
+    fireEvent.click(screen.getByRole('button', { name: 'Month' }))
+    await settle()
+  }
 }
 
 beforeEach(() => {
@@ -64,6 +71,7 @@ describe('the calendar', () => {
     useWorkspaceStore.setState({ features: { appointments: true, tasks: false } } as never)
     await show()
     fireEvent.click(screen.getByRole('button', { name: 'Agenda' }))
+    await settle()
     expect(screen.queryByText('Task: Order forms')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Tasks' })).toBeNull()
   })
@@ -80,6 +88,7 @@ describe('the calendar', () => {
     await show()
     expect(screen.getByText('Show:')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Agenda' }))
+    await settle()
     const done = screen.getByText('✓ 3:00 pm Session with Jane')
     expect(done.className).not.toMatch(/line-through/)
     expect(screen.getByText('9:00 am Intake with Jane').className).toMatch(/line-through/)
@@ -90,6 +99,7 @@ describe('the calendar', () => {
   it('agenda lists the day; an appointment opens its panel, a deadline its record', async () => {
     await show()
     fireEvent.click(screen.getByRole('button', { name: 'Agenda' }))
+    await settle()
     const day = screen.getByRole('region', { name: new RegExp(`^${new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date())}`) })
     expect(within(day).getAllByRole('button').map(b => b.textContent)).toEqual(['9:00 am Intake with Jane', '3:00 pm Session with Jane', 'Jane: Review', 'Task: Order forms'])
     fireEvent.click(within(day).getByRole('button', { name: /Intake with Jane/ }))
@@ -109,8 +119,9 @@ describe('the calendar', () => {
   it('N opens a new appointment on the focused day', async () => {
     await show()
     const cell = document.querySelector(`[data-day="${today}"]`) as HTMLElement
-    cell.focus()
+    act(() => { cell.focus() })
     fireEvent.keyDown(cell, { key: 'n' })
+    await settle()
     expect(screen.getByRole('heading', { name: 'New appointment' })).toBeTruthy()
     expect((screen.getByLabelText('Date') as HTMLInputElement).value).toBe(today)
   })
@@ -153,7 +164,7 @@ describe('week view', () => {
 describe('editing a repeating appointment (audit S-18)', () => {
   it('shows its pattern, and a changed pattern applies from this one on without asking', async () => {
     const a = appt(5, '10:00', 'Session', { series_id: 3, series_rule: JSON.stringify({ freq: 'weekly', interval: 1, count: 10 }) })
-    render(<AppointmentDialog appointment={a as never} onClose={vi.fn()} />)
+    await renderSettled(<AppointmentDialog appointment={a as never} onClose={vi.fn()} />)
     expect((screen.getByLabelText('Repeats') as HTMLSelectElement).value).toBe('weekly')
     expect(screen.queryByRole('option', { name: "Doesn't repeat" })).toBeNull()
     expect((screen.getByLabelText('How many times') as HTMLInputElement).value).toBe('10')
