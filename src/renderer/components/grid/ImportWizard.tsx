@@ -2,7 +2,7 @@
  * ImportWizard — Multi-step overlay modal for importing CSV/Excel files into a grid.
  * Steps: 1=Select File, 2=Sheet, 3=Preview, 4=Column Mapping, 5=Options, 6=Results
  */
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ChevronLeft,
   ChevronRight,
@@ -68,6 +68,8 @@ interface ImportResult {
   warnings: string[]
   skippedNames?: string[]
   newRowIds?: number[]
+  /** The user pressed "Undo this import" before closing: the imported records are in the Trash */
+  undone?: boolean
 }
 
 interface Props {
@@ -170,15 +172,25 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
     }
   }, [open])
 
+  // Every way out (Done, ✕, Escape, a click outside) reports a finished import, so the
+  // caller reloads the list, and setup doesn't throw away a list that was just filled
+  const closeRef = useRef<() => void>(() => {})
+  closeRef.current = () => {
+    if (step === 6 && loading) return // the import is still running
+    if (importResult) onImported(undo === 'done' ? { ...importResult, undone: true } : importResult)
+    onClose()
+  }
+  const close = useCallback(() => closeRef.current(), [])
+
   // Escape to close
   useEffect(() => {
     if (!open) return
     function handler(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') close()
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [open, onClose])
+  }, [open, close])
 
   // ── IPC helpers ──────────────────────────────────────────────────────────
 
@@ -410,7 +422,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
           role="dialog"
           aria-modal="true"
         >
-          <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 bg-black/60" onClick={onClose} />
+          <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 bg-black/60" onClick={close} />
           <motion.div variants={modalPanelVariants} initial="hidden" animate="visible" className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
@@ -419,7 +431,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
             Import {t('record', { many: true, cap: true })}
           </h2>
           <button
-            onClick={onClose}
+            onClick={close}
             className="p-2 rounded-sm text-slate-500 hover:text-slate-600 dark:hover:text-slate-200
                        focus:outline-hidden focus:ring-3 focus:ring-blue-500 min-h-[44px] min-w-[44px]
                        flex items-center justify-center"
@@ -1057,10 +1069,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
 
             {step === 6 && !loading && (
               <button
-                onClick={() => {
-                  if (importResult) onImported(importResult)
-                  onClose()
-                }}
+                onClick={close}
                 className="flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-500 hover:bg-blue-600
                            text-white text-base font-medium focus:outline-hidden focus:ring-3 focus:ring-blue-500
                            focus:ring-offset-3 min-h-[44px]"
