@@ -53,6 +53,7 @@ import { DeadlineQuestion } from './DeadlineQuestion'
 import { ensurePlainRule, type DeadlineChoice } from '../alerts/plainRule'
 import { AlertRuleEditor } from '../alerts/AlertRuleEditor'
 import { useAlertStore } from '../../stores/alertStore'
+import { engineRuleFrom, needsDeadlineColumn } from '../../../shared/deadlineEngine'
 import { AUTO_NUMBER_PREFIX_MAX, DEFAULT_AUTO_NUMBER, formatAutoNumber, parseAutoNumberConfig } from '../../../shared/autoNumber'
 
 const EMPTY_FORMS: Form[] = []
@@ -437,7 +438,10 @@ export function GridToolbar(): React.ReactElement {
           const col = useGridStore.getState().columns.find(c => c.id === colId)
           let cfg: Record<string, unknown> = {}
           try { cfg = JSON.parse(col?.config || '{}') as Record<string, unknown> } catch { /* start fresh */ }
-          await updateColumn(colId, { config: JSON.stringify({ ...cfg, alert_rule_id: createdRuleId }) })
+          const rule = useAlertStore.getState().rules.find(r => r.id === createdRuleId)
+          // A rule that reads the done date needs a Deadline column (Decision E1)
+          const toDeadline = col?.column_type === 'date' && !!rule && needsDeadlineColumn(engineRuleFrom(rule))
+          await updateColumn(colId, { config: JSON.stringify({ ...cfg, alert_rule_id: createdRuleId }), ...(toDeadline ? { column_type: 'deadline' } : {}) })
         }} />
       )}
 

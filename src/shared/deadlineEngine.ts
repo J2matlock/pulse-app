@@ -55,6 +55,8 @@ export interface RecordContext {
    * the next date. Undefined = not known.
    */
   previousDone?: string | null
+  /** One-off dates marked Finished (Decision E1): the dates they were finished for */
+  finishedFor?: string[]
   /** Business-day calendar */
   holidays?: Set<string>
   weekend?: number[]
@@ -297,6 +299,10 @@ function evaluateRelative(rule: EngineRule, ctx: RecordContext): DeadlineResult 
 function evaluateInterval(rule: EngineRule, ctx: RecordContext): DeadlineResult {
   const base = toYmd(ctx.columnDate)
   if (!base) return NONE
+  // A one-off date marked Finished keeps its date and is done; a new date is a new deadline
+  if (!hasInterval(rule.interval) && ctx.finishedFor?.includes(base)) {
+    return { due: base, state: 'done', daysUntil: null, estimated: false, detail: `Finished · was due ${formatDue(base)}` }
+  }
   const due = dateToYmd(addInterval(ymdToDate(base), rule.interval))
   const detail = hasInterval(rule.interval)
     ? `Due ${formatDue(due)} (${describeInterval(rule.interval).toLowerCase()}, from ${formatDue(base)})`
@@ -617,6 +623,23 @@ export function evaluate(rule: EngineRule, ctx: RecordContext): DeadlineResult {
     }
   }
   return res
+}
+
+/** A one-off date: "the date is the deadline", no repeat. Done asks Renewed or Finished (Decision E1). */
+export function isOneOff(rule: EngineRule): boolean {
+  return rule.kind === 'interval' && !hasInterval(rule.interval)
+}
+
+/**
+ * Rules whose own column holds the day it was done, not a due date: those
+ * belong on a Deadline column (Decision E1). Rules counted from their own
+ * column ('self') keep a Date column.
+ */
+export function needsDeadlineColumn(rule: EngineRule): boolean {
+  if (!rule.config) return false
+  if (rule.kind === 'calendar') return true
+  if (rule.kind === 'relative' || rule.kind === 'sequence') return (rule.config as RelativeConfig | SequenceConfig).anchorColumnId !== 'self'
+  return false
 }
 
 /** Whether a rule needs more than the cell itself (loaders fetch every row, not only filled cells). */

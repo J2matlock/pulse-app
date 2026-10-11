@@ -45,6 +45,8 @@ export interface FocusItem {
   step?: number
   checklistTemplateId: number | null
   meter?: MeterInfo
+  /** The engine's due date ('YYYY-MM-DD') */
+  dueYmd: string | null
 }
 
 export interface FocusTask {

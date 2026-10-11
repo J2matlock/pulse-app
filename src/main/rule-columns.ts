@@ -106,6 +106,25 @@ export function resolveRuleFields(r: RuleSpec, columnId: (name: string) => numbe
   return { fields: { kind, rule_config: ruleConfig, rule_condition: ruleCondition, business_days: workDays(r.business_days) }, missing }
 }
 
+/**
+ * Date columns whose rule reads the day it was done, not a due date (from
+ * another date, fixed dates, a series of steps; not counted from their own
+ * column), become Deadline columns (Decision E1). Returns the columns changed.
+ */
+export function convertDateColumnsToDeadline(db: Database, ruleId?: number): number[] {
+  const ids = (db.prepare(`
+    SELECT col.id FROM columns col
+    JOIN alert_rules ar ON ar.id = CAST(json_extract(col.config, '$.alert_rule_id') AS INTEGER)
+    WHERE col.column_type = 'date' AND (? IS NULL OR ar.id = ?) AND json_valid(ar.rule_config) AND (
+      ar.kind = 'calendar'
+      OR (ar.kind IN ('relative', 'sequence') AND COALESCE(json_extract(ar.rule_config, '$.anchorColumnId'), 'self') != 'self')
+    )
+  `).all(ruleId ?? null, ruleId ?? null) as Array<{ id: number }>).map(r => r.id)
+  const set = db.prepare("UPDATE columns SET column_type = 'deadline' WHERE id = ?")
+  for (const id of ids) set.run(id)
+  return ids
+}
+
 /** 0 = dates stay put, 1 = a day off moves to the working day before, 2 = to the next one */
 const workDays = (v: number | null | undefined): 0 | 1 | 2 => v === 2 ? 2 : v ? 1 : 0
 
@@ -169,5 +188,7 @@ export function linkColumnRules(db: Database, gridId: number, listName: string, 
       save.run(JSON.stringify({ ...cfg, alert_rule_id: rule.id, alert_rule_name: rule.name }), c.id)
     }
   }
+  // A list set up from a file or example gets Deadline columns where the rule reads the done date (Decision E1)
+  convertDateColumnsToDeadline(db)
   return warnings
 }

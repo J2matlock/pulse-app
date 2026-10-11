@@ -13,7 +13,7 @@ import { getRequirementStatus } from './contact-requirements'
 import { getMissingInfo } from './missing-info'
 import { contactsComplete, contactsMissing } from '../shared/contactRequirements'
 import { evaluate, engineRuleFrom, referencedColumns, meterHistoryColumn, sequenceAnchor, extensionAnchor, matchExtension, applyExtension, type QuotaConfig, type StoredExtension } from '../shared/deadlineEngine'
-import { loadWorkCalendar, meterHistories, quotaCounts, progressEntries } from './deadlines'
+import { loadWorkCalendar, meterHistories, quotaCounts, progressEntries, finishedDates } from './deadlines'
 import { localDateString } from '../shared/dates'
 import { vocabFor, word, featureOn } from './vocab'
 import { term } from '../shared/vocab'
@@ -123,6 +123,7 @@ export function getComplianceSummary(month: string, gridId?: number): Compliance
       const meterCol = meterHistoryColumn(rule)
       const history = meterHistories(meterCol)
       const counts = rule.kind === 'quota' && rule.config ? quotaCounts(g.id, rule.config as QuotaConfig, cutoff) : new Map<number, number>()
+      const finished = rule.kind === 'interval' ? finishedDates(rc.column_id) : null
       const progress = rule.kind === 'sequence' ? progressEntries(rc.column_id, asOf) : new Map<number, Array<{ step: number; anchor: string | null }>>()
       for (const rec of records) {
         const own = valueThen(rec.id, rc.column_id)
@@ -133,6 +134,7 @@ export function getComplianceSummary(month: string, gridId?: number): Compliance
         let res = evaluate(rule, {
           today: asOf, columnDate: own, values, holidays: cal.holidays, weekend: cal.weekend,
           meterHistory: history.get(rec.id)?.filter(h => h.at <= asOf), activityCount: counts.get(rec.id) ?? 0, progress: steps,
+          ...(finished?.has(rec.id) ? { finishedFor: finished.get(rec.id) } : {}),
         })
         const ext = matchExtension(extensions.get(`${rec.id}:${rc.column_id}`), extensionAnchor(rule, own, values), res.step)
         if (ext) res = applyExtension(res, ext, asOf)

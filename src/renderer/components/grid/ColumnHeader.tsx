@@ -14,6 +14,8 @@ import { splitRulesByFit } from '../alerts/ruleFit'
 import { ruleSummary } from '../../../shared/ruleSummary'
 import { RuleColorKey } from '../alerts/RuleColorKey'
 import { pulseEvents } from '../../events'
+import { engineRuleFrom, needsDeadlineColumn } from '../../../shared/deadlineEngine'
+import toast from 'react-hot-toast'
 import { DoneChecklistPicker } from './DoneChecklistPicker'
 import { NoteUpdatePicker } from './NoteUpdatePicker'
 import { CellConditionalFormatPanel } from './CellConditionalFormatPanel'
@@ -90,7 +92,14 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
 
   async function handleSetAlertRule(ruleId: number | null) {
     const newConfig = JSON.stringify({ ...colConfig, alert_rule_id: ruleId ?? undefined })
-    await updateColumn(column.id, { config: newConfig })
+    // A rule that reads the done date, not a due date, needs a Deadline column (Decision E1)
+    const rule = ruleId != null ? useAlertStore.getState().rules.find(r => r.id === ruleId) : undefined
+    if (rule && column.column_type === 'date' && needsDeadlineColumn(engineRuleFrom(rule))) {
+      await updateColumn(column.id, { config: newConfig, column_type: 'deadline' })
+      toast(`"${column.name}" is now a Deadline column: it shows when it's due, and when it was done.`, { duration: 8000 })
+    } else {
+      await updateColumn(column.id, { config: newConfig })
+    }
     setShowAlertPicker(false)
     setShowMenu(false)
   }

@@ -23,7 +23,8 @@ import { FollowUpFocusItem } from './focus-mode/FollowUpFocusItem'
 import { TaskFocusItem } from './focus-mode/TaskFocusItem'
 import { rlog } from '../utils/rendererLogger'
 import { focusDeadlineItems } from './focus-mode/focusItems'
-import { completeDeadlines } from './dashboard/completeDeadline'
+import { completeDeadlines, isOneOffDeadline } from './dashboard/completeDeadline'
+import { OneOffDoneDialog, type OneOffChoice } from './dashboard/OneOffDoneDialog'
 import { MeterReadingDialog } from './dashboard/MeterReadingDialog'
 import { useVocab } from '../hooks/useVocab'
 import { wordNow } from '../utils/vocab'
@@ -62,6 +63,7 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
   const [checklistDueExpanded, setChecklistDueExpanded] = useState(true)
   const [followUpsExpanded, setFollowUpsExpanded] = useState(true)
   const [askReading, setAskReading] = useState<FocusItem | null>(null)
+  const [askOneOff, setAskOneOff] = useState<FocusItem | null>(null)
 
   // Clean up celebration timer on unmount
   useEffect(() => () => { clearTimeout(celebrationTimerRef.current) }, [])
@@ -152,14 +154,14 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
   // Done goes through the deadline engine, like the dashboard: a repeating
   // rule starts its next cycle, a step is checked off, a meter asks for the
   // reading. Only a plain one-off date is cleared.
-  const completeClientItem = useCallback(async (item: FocusItem, reading?: number) => {
+  const completeClientItem = useCallback(async (item: FocusItem, reading?: number, oneOff?: OneOffChoice) => {
     setCelebratingId(item.id)
     let ok = false
     try {
       const done = await completeDeadlines([{
         rowId: item.rowId, columnId: item.columnId, columnName: item.columnName, clientName: item.clientName,
         dateValue: item.dateValue, interval: item.interval, checklistTemplateId: item.checklistTemplateId,
-        ruleKind: item.ruleKind, reading, step: item.step,
+        ruleKind: item.ruleKind, reading, step: item.step, oneOff,
       }], {
         onUndone: async () => {
           if (activeGridId) void loadGrid(activeGridId)
@@ -185,6 +187,7 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
     // Quotas are renewed with new dates and a new count, on the record
     if (item.ruleKind === 'quota') { onClose(); navigate(`/profile/${item.rowId}?gridId=${item.gridId}`); return }
     if (item.ruleKind === 'meter') { setAskReading(item); return }
+    if (isOneOffDeadline(item)) { setAskOneOff(item); return }
     void completeClientItem(item)
   }, [completeClientItem, onClose, navigate])
 
@@ -579,6 +582,10 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
         </div>
       </div>
 
+      {askOneOff && (
+        <OneOffDoneDialog title={`${askOneOff.columnName}: ${askOneOff.clientName}`} currentDue={askOneOff.dueYmd} onClose={() => setAskOneOff(null)}
+          onSave={choice => { const item = askOneOff; setAskOneOff(null); void completeClientItem(item, undefined, choice) }} />
+      )}
       {askReading && (
         <MeterReadingDialog title={`${askReading.columnName}: ${askReading.clientName}`} info={askReading.meter} onClose={() => setAskReading(null)}
           onSave={reading => { const item = askReading; setAskReading(null); void completeClientItem(item, reading) }} />

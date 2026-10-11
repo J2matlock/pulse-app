@@ -92,6 +92,12 @@ export const useAlertStore = create<AlertState>((set, get) => ({
     try {
       await storeInvoke(IPC.ALERT_RULE_UPDATE, id, updates)
       await get().loadRules()
+      // Main may have made the rule's Date columns Deadline columns (Decision E1): show that
+      const g = useGridStore.getState()
+      const usesIt = (c: { column_type: string; config: string | null }) => {
+        try { return c.column_type === 'date' && (JSON.parse(c.config || '{}') as { alert_rule_id?: number }).alert_rule_id === id } catch { return false }
+      }
+      if (g.activeGridId && [...g.columns, ...g.hiddenColumns].some(usesIt)) await g.loadGrid(g.activeGridId)
       return true
     } catch {
       toast.error('Could not save rule — please try again')

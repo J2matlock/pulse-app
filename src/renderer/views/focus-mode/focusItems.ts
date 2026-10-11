@@ -43,6 +43,7 @@ export function focusDeadlineItems(rows: RawDeadlineRow[]): FocusItem[] {
         step: r.step,
         checklistTemplateId,
         meter: r.meter,
+        dueYmd: due,
       }
     })
 }

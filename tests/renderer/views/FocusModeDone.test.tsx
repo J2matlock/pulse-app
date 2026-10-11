@@ -19,7 +19,10 @@ vi.mock('../../../src/renderer/hooks/useFocusTrap', () => ({ useFocusTrap: () =>
 const safeInvoke = vi.fn()
 vi.mock('../../../src/renderer/utils/safeInvoke', () => ({ safeInvoke: (...a: unknown[]) => safeInvoke(...a), storeInvoke: vi.fn() }))
 const completeDeadlines = vi.fn()
-vi.mock('../../../src/renderer/views/dashboard/completeDeadline', () => ({ completeDeadlines: (...a: unknown[]) => completeDeadlines(...a) }))
+vi.mock('../../../src/renderer/views/dashboard/completeDeadline', async () => ({
+  ...(await vi.importActual<Record<string, unknown>>('../../../src/renderer/views/dashboard/completeDeadline')),
+  completeDeadlines: (...a: unknown[]) => completeDeadlines(...a),
+}))
 vi.mock('../../../src/renderer/stores/gridStore', () => ({ useGridStore: (sel: (s: unknown) => unknown) => sel({ activeGridId: null, loadGrid: vi.fn() }) }))
 
 import FocusModeView from '../../../src/renderer/views/FocusModeView'

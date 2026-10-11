@@ -7,6 +7,7 @@ import { secureWrap, logNonFatal, ok, fail, buildSafeSetClause, validId, enforce
 import { getDb } from '../database'
 import type { AlertRule, AlertRuleUse, DeletedAlertRule } from '../../shared/types'
 import { RULE_KINDS, conditionSchema, parseRuleConfig, type RuleKind } from '../../shared/deadlineEngine'
+import { convertDateColumnsToDeadline } from '../rule-columns'
 
 /** Calendar-month intervals: whole months up to 10 years (null/0 = not month-based). */
 function validMonths(v: unknown): boolean {
@@ -89,7 +90,12 @@ export function registerAlertHandlers(): void {
       'kind', 'rule_config', 'rule_condition', 'business_days'] as const
     const result = buildSafeSetClause(normalized, allowed)
     if (!result) return fail('No valid fields to update')
-    getDb().prepare(`UPDATE alert_rules SET ${result.setClause} WHERE id = ?`).run(...result.values, id)
+    const db = getDb()
+    db.transaction(() => {
+      db.prepare(`UPDATE alert_rules SET ${result.setClause} WHERE id = ?`).run(...result.values, id)
+      // Now worked out from another date: its Date columns hold the done date, so they become Deadline columns
+      convertDateColumnsToDeadline(db, id)
+    })()
     return ok(true)
   })
 

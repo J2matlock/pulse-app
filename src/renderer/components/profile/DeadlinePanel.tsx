@@ -6,7 +6,8 @@ import { takesDeadlineRule } from '../../../shared/types'
 import { engineRuleFrom, referencedColumns, meterInfo, sequenceAnchor, sequenceStepDue, type DeadlineResult, type SequenceConfig } from '../../../shared/deadlineEngine'
 import { useGridStore } from '../../stores/gridStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
-import { completeDeadlines } from '../../views/dashboard/completeDeadline'
+import { completeDeadlines, isOneOffDeadline } from '../../views/dashboard/completeDeadline'
+import { OneOffDoneDialog, type OneOffChoice } from '../../views/dashboard/OneOffDoneDialog'
 import { ExtendDeadlineDialog } from '../../views/dashboard/ExtendDeadlineDialog'
 import { MeterReadingDialog } from '../../views/dashboard/MeterReadingDialog'
 import { getClientName } from '../../utils/clientName'
@@ -137,6 +138,7 @@ export function DeadlinePanel({
   const [extendingCol, setExtendingCol] = useState<{ col: Column; due: string | null } | null>(null)
   const [doneBusy, setDoneBusy] = useState<number | null>(null)
   const [askReading, setAskReading] = useState<{ col: Column; rawValue: string | null; rule: ParsedAlertRule } | null>(null)
+  const [askOneOff, setAskOneOff] = useState<{ col: Column; rawValue: string | null; rule: ParsedAlertRule; due: string | null } | null>(null)
   const refreshContext = () => useGridStore.getState().refreshDeadlineContext()
 
   const deadlines: DateDeadline[] = columns
@@ -233,15 +235,15 @@ export function DeadlinePanel({
     await useGridStore.getState().refreshDeadlineContext()
   }
 
-  /** Done, the same as on the dashboard: a repeating date starts its next cycle, a one-off is cleared (R-04, D-22) */
-  async function markDone(col: Column, rawValue: string | null, rule: ParsedAlertRule, reading?: number) {
+  /** Done, the same as on the dashboard: a repeating date starts its next cycle, a one-off is renewed or finished (R-04, D-22) */
+  async function markDone(col: Column, rawValue: string | null, rule: ParsedAlertRule, reading?: number, oneOff?: OneOffChoice) {
     setDoneBusy(col.id)
     try {
       let checklistTemplateId: number | null = null
       try { checklistTemplateId = (JSON.parse(col.config || '{}') as { done_checklist_id?: number }).done_checklist_id ?? null } catch { /* none */ }
       const done = await completeDeadlines([{
         rowId: row.row_id, columnId: col.id, columnName: col.name, clientName: getClientName(row, columns),
-        dateValue: rawValue ?? '', interval: toRuleInterval(rule), checklistTemplateId, ruleKind: rule.kind ?? 'interval', reading,
+        dateValue: rawValue ?? '', interval: toRuleInterval(rule), checklistTemplateId, ruleKind: rule.kind ?? 'interval', reading, oneOff,
       }], { onUndone: refreshRow })
       if (done.length > 0) await refreshRow()
     } finally {
@@ -420,10 +422,14 @@ export function DeadlinePanel({
                   <div className="mt-2 flex flex-wrap items-center gap-3">
                     {canMarkDone && (
                       <button type="button" disabled={doneBusy === col.id}
-                        onClick={() => { if (kind === 'meter') setAskReading({ col, rawValue, rule: rule! }); else void markDone(col, rawValue, rule!) }}
+                        onClick={() => {
+                          if (kind === 'meter') setAskReading({ col, rawValue, rule: rule! })
+                          else if (isOneOffDeadline({ ruleKind: kind, interval })) setAskOneOff({ col, rawValue, rule: rule!, due: engine?.due ?? null })
+                          else void markDone(col, rawValue, rule!)
+                        }}
                         title={kind === 'meter' ? 'Mark done: asks for the current reading'
                           : kind !== 'interval' || hasInterval(interval) ? 'Mark done: records today as the day it was done'
-                          : 'Mark done: clears the date. Enter a new date to bring it back.'}
+                          : 'Mark done: asks whether it was renewed (a new date) or finished'}
                         className="hit-44 px-3 py-1 rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-800 dark:text-green-200 text-base font-medium focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500 disabled:opacity-50"
                         style={{ minHeight: 36 }}>
                         Done
@@ -457,6 +463,10 @@ export function DeadlinePanel({
             setExtendingCol(null)
             void extendDeadline(row.row_id, target.id, target.name, newDue, reason, refreshContext)
           }} />
+      )}
+      {askOneOff && (
+        <OneOffDoneDialog title={askOneOff.col.name} currentDue={askOneOff.due} onClose={() => setAskOneOff(null)}
+          onSave={choice => { const a = askOneOff; setAskOneOff(null); void markDone(a.col, a.rawValue, a.rule, undefined, choice) }} />
       )}
       {askReading && (
         <MeterReadingDialog title={askReading.col.name} onClose={() => setAskReading(null)}
