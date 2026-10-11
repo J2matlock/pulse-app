@@ -80,6 +80,12 @@ export default function ContactsView() {
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       const active = document.activeElement
+      // While a dialog is open (e.g. "Delete this contact?"), arrows would switch the
+      // contact underneath it and Enter would then confirm on the wrong one.
+      if (document.querySelector('[role="dialog"][aria-modal="true"], [role="alertdialog"]')) return
+      if (active instanceof Element && active.closest('[role="dialog"], [role="alertdialog"]')) return
+      // In the detail panel, arrows scroll and Ctrl+C copies what's selected there.
+      if (active instanceof Element && active.closest('[data-contact-detail-panel]')) return
       const isInput = isEditableElement(active) || active instanceof HTMLSelectElement
 
       if (e.key === '/' && !isInput) {
@@ -125,7 +131,9 @@ export default function ContactsView() {
           e.preventDefault()
           handleEditProvider()
         }
-        if (e.key === 'c' && isMod(e) && focusedIndex >= 0 && currentProviders[focusedIndex]) {
+        // Only when nothing is selected: copying highlighted text must still work.
+        const hasSelection = (window.getSelection()?.toString() ?? '') !== ''
+        if (e.key === 'c' && isMod(e) && !hasSelection && focusedIndex >= 0 && currentProviders[focusedIndex]) {
           e.preventDefault()
           const p = currentProviders[focusedIndex]
           const phone = p.phone_main || p.phone_direct || ''
@@ -337,11 +345,12 @@ export default function ContactsView() {
         {/* Right panel. With no contacts at all there's nothing to pick, so the empty
             directory gets the whole width instead of two empty panels side by side */}
         {(showForm || providers.length > 0 || hasActiveFilters) && (
-        <div className="w-[420px] border-l border-slate-200 dark:border-slate-700 flex-shrink-0 overflow-hidden bg-white dark:bg-slate-900">
+        <div data-contact-detail-panel className="w-[420px] border-l border-slate-200 dark:border-slate-700 flex-shrink-0 overflow-hidden bg-white dark:bg-slate-900">
           {showForm ? (
             <ContactForm provider={editingProvider} onClose={handleFormClosed} onSaved={handleFormSaved} />
           ) : selectedProviderId && selectedProvider ? (
             <ContactDetail
+              key={selectedProvider.id}
               provider={selectedProvider}
               onEdit={handleEditProvider}
               onDeleted={() => selectProvider(null)}

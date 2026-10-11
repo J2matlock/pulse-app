@@ -128,7 +128,7 @@ function InteractionEntry({
           )}
         </div>
         {!editing && (
-          <div className="flex-shrink-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex-shrink-0 flex gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
             <button
               onClick={() => { setEditContent(interaction.content); setEditing(true) }}
               className="hit-44 p-2 rounded-md text-slate-500 dark:text-slate-400 hover:text-blue-600 hover:bg-white/60 dark:hover:bg-slate-700 focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:opacity-100"
@@ -222,7 +222,8 @@ export function ContactInteractionLog({ providerId }: Props) {
     <div className="flex flex-col gap-4">
       {/* Add interaction form */}
       <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
-        <div className="flex items-center gap-1 mb-3">
+        {/* Wraps: the detail panel is too narrow for all seven types on one line */}
+        <div className="flex flex-wrap items-center gap-1 mb-3" role="group" aria-label="Type">
           {CONTACT_TYPES.map(ct => {
             const Icon = ct.icon
             const selected = newType === ct.type
@@ -230,6 +231,7 @@ export function ContactInteractionLog({ providerId }: Props) {
               <button
                 key={ct.type}
                 onClick={() => setNewType(ct.type)}
+                aria-pressed={selected}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-base font-medium transition-colors focus:outline-hidden focus:ring-3 focus:ring-blue-500 ${
                   selected
                     ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
