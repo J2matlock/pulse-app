@@ -150,14 +150,14 @@ export function CellSwatchPicker({ value, onChange, allowNone }: {
   )
 }
 
-// ── Row label helper ──────────────────────────────────────────────────────────
+// ── Record label helper ──────────────────────────────────────────────────────────
 
-function rowLabel(row: GridRow, nameColId: number | null, position: number): string {
+function rowLabel(row: GridRow, nameColId: number | null, position: number, recordWord: string): string {
   if (nameColId != null) {
     const val = row[`col_${nameColId}` as keyof GridRow] as string | null
     if (val) return val
   }
-  return `Row ${position + 1}`
+  return `${recordWord} ${position + 1}`
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -285,7 +285,8 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
   const thisRowLabel = !isColumnMode && rowId != null ? rowLabel(
     rows.find(r => r.row_id === rowId) ?? { row_id: rowId, position: 0 } as GridRow,
     nameColId,
-    rows.findIndex(r => r.row_id === rowId)
+    rows.findIndex(r => r.row_id === rowId),
+    t('record', { cap: true })
   ) : ''
 
   return (
@@ -380,9 +381,9 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
                         sourceRowId: undefined,
                       })}>
                       <option value="self">This cell's own value</option>
-                      <option value="same_row_column">Another column in the same row (e.g. a checkbox)</option>
+                      <option value="same_row_column">Another column of the same {t('record')} (e.g. a checkbox)</option>
                       {!isColumnMode && (
-                        <option value="specific_cell">A specific cell in another row</option>
+                        <option value="specific_cell">A cell of another {t('record')}</option>
                       )}
                     </select>
 
@@ -402,9 +403,9 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
                       <select className="input w-full py-1 text-base" style={{ minHeight: 36 }}
                         value={rule.sourceRowId ?? ''}
                         onChange={e => updateRule(i, { sourceRowId: e.target.value ? parseInt(e.target.value, 10) : undefined })}>
-                        <option value="">— pick a row —</option>
+                        <option value="">— pick {t('record', { article: true })} —</option>
                         {rows.filter(r => rowId != null && r.row_id !== rowId).map((r, idx) => (
-                          <option key={r.row_id} value={r.row_id}>{rowLabel(r, nameColId, idx)}</option>
+                          <option key={r.row_id} value={r.row_id}>{rowLabel(r, nameColId, idx, t('record', { cap: true }))}</option>
                         ))}
                       </select>
                     )}
@@ -529,7 +530,7 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
                       <input type="checkbox" checked={!!rule.highlightRow}
                         onChange={e => updateRule(i, { highlightRow: e.target.checked })}
                         className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500" />
-                      Highlight entire row when matched
+                      Highlight the whole {t('record')} when matched
                     </label>
 
                     {/* Preview */}

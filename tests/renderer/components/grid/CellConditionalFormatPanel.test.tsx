@@ -106,6 +106,15 @@ describe('CellConditionalFormatPanel', () => {
     expect(screen.getByText('Add highlight rule')).toBeTruthy()
   })
 
+  it('talks about the list\'s records, not rows (R1)', () => {
+    render(<CellConditionalFormatPanel rowId={1} columnId={2} onClose={vi.fn()} />)
+    fireEvent.click(screen.getByText('Add highlight rule'))
+    expect(screen.getByText('Another column of the same client (e.g. a checkbox)')).toBeTruthy()
+    expect(screen.getByText('A cell of another client')).toBeTruthy()
+    expect(screen.getByText('Highlight the whole client when matched')).toBeTruthy()
+    expect(document.body.textContent).not.toMatch(/\brow\b/i)
+  })
+
   it('"All rows in this column" saves a column rule, so new records get it too (L-19)', async () => {
     render(<CellConditionalFormatPanel rowId={1} columnId={2} onClose={vi.fn()} />)
     fireEvent.click(screen.getByText('Add highlight rule'))

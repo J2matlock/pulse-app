@@ -128,11 +128,11 @@ export function GridContextMenu({
         ref={menuRef}
         role="menu"
         onKeyDown={onMenuKeyDown}
-        className="fixed z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-52 overflow-y-auto"
+        className="fixed z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 w-64 overflow-y-auto"
         style={{
           ...(contextMenu.y > window.innerHeight - 250
-            ? { bottom: Math.max(8, window.innerHeight - contextMenu.y), left: Math.min(contextMenu.x, window.innerWidth - 220), maxHeight: contextMenu.y - 8 }
-            : { top: contextMenu.y, left: Math.min(contextMenu.x, window.innerWidth - 220), maxHeight: window.innerHeight - contextMenu.y - 8 }),
+            ? { bottom: Math.max(8, window.innerHeight - contextMenu.y), left: Math.min(contextMenu.x, window.innerWidth - 264), maxHeight: contextMenu.y - 8 }
+            : { top: contextMenu.y, left: Math.min(contextMenu.x, window.innerWidth - 264), maxHeight: window.innerHeight - contextMenu.y - 8 }),
         }}
         variants={contextMenuVariants}
         initial="hidden"
@@ -142,7 +142,7 @@ export function GridContextMenu({
         {onOpenRecord && (
           <button
             role="menuitem"
-            className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base font-medium text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base font-medium text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700"
             onClick={() => { onClose(); onOpenRecord(contextMenu.rowId) }}
           >
             <UserIcon className="w-4 h-4 text-slate-500 dark:text-slate-400" />
@@ -153,8 +153,7 @@ export function GridContextMenu({
         {cmCol && (
           <>
             <button
-              className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-              style={{ minHeight: 36 }}
+              className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={() => {
                 if (cmCol && cmCellVal !== undefined) {
                   const text = formatCellForClipboard(cmCol, cmCellVal)
@@ -169,8 +168,7 @@ export function GridContextMenu({
             {/* Deadline and worked-out cells only change through their own actions (G-15) */}
             {!(cmCol && isNotTypedColumnType(cmCol.column_type)) && (<>
             <button
-              className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-              style={{ minHeight: 36 }}
+              className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={async () => {
                 try {
                   const text = await navigator.clipboard.readText()
@@ -188,8 +186,7 @@ export function GridContextMenu({
               Paste
             </button>
             <button
-              className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-              style={{ minHeight: 36 }}
+              className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={() => {
                 void updateCell(contextMenu.rowId, contextMenu.colId, '')
                 onClose()
@@ -200,8 +197,7 @@ export function GridContextMenu({
             </button>
             </>)}
             <button
-              className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-              style={{ minHeight: 36 }}
+              className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={() => {
                 onCellHistoryTarget({
                   rowId: contextMenu.rowId,
@@ -221,27 +217,24 @@ export function GridContextMenu({
         )}
         {/* Row actions */}
         <button
-          className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+          className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
           onClick={() => { onToggleStar(contextMenu.rowId); onClose() }}
-          style={{ minHeight: 36 }}
         >
           <Star className={`w-4 h-4 ${cmRow?.is_starred ? 'text-yellow-400 fill-yellow-400' : 'text-slate-500 dark:text-slate-400'}`} />
           {cmRow?.is_starred ? 'Remove star' : `Star ${t('record')}`}
         </button>
 
         <button
-          className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+          className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
           onClick={() => onDuplicateRow(contextMenu.rowId)}
-          style={{ minHeight: 36 }}
         >
           <Copy className="w-4 h-4 text-slate-500 dark:text-slate-400" />
           Duplicate {t('record')}
         </button>
 
         <button
-          className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+          className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
           onClick={() => { onMoveToGrid(contextMenu.rowId); onClose() }}
-          style={{ minHeight: 36 }}
         >
           <ArrowRightLeft className="w-4 h-4 text-slate-500 dark:text-slate-400" />
           Move / Copy to another {t('list')}…
@@ -302,7 +295,7 @@ export function GridContextMenu({
               </div>
             ))}
             <button
-              className="hit-44 flex items-center gap-2 w-full px-3 py-1.5 text-base text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
+              className="hit-44 flex items-center gap-2 w-full text-left px-3 py-1.5 text-base text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={async () => {
                 const allIds = [contextMenu.rowId, ...siblingRowIds]
                 if (allIds.length > 1) {
@@ -361,7 +354,7 @@ export function GridContextMenu({
                       onClick={() => { onCellFormatTarget({ rowId: contextMenu.rowId, colId: src.colId }); onClose() }}
                       title={`Edit rules on ${src.colName} column`}
                     >
-                      {src.matchedRule.name || 'Row highlight'}
+                      {src.matchedRule.name || 'Highlight'}
                     </button>
                     <button
                       className="hit-44 p-1 text-slate-500 dark:text-slate-400 hover:text-blue-500 rounded-sm flex-shrink-0"
@@ -402,7 +395,7 @@ export function GridContextMenu({
 
         {/* Add / edit conditional format */}
         <button
-          className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+          className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
           onClick={() => { onCellFormatTarget({ rowId: contextMenu.rowId, colId: contextMenu.colId }); onClose() }}
         >
           <Palette className="w-4 h-4 text-purple-500" />
@@ -412,7 +405,7 @@ export function GridContextMenu({
         {/* Copy / paste formatting */}
         {cmRules.length > 0 && (
           <button
-            className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
             onClick={() => {
               const portable = cmRules.map(r => ({
                 ...r,
@@ -430,7 +423,7 @@ export function GridContextMenu({
         )}
         {copiedFormatRules && (
           <button
-            className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
             onClick={async () => {
               const targetRows = selectedRowIds.size > 0
                 ? Array.from(selectedRowIds)
@@ -455,27 +448,24 @@ export function GridContextMenu({
 
         {isArchived ? (
           <button
-            className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30"
+            className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30"
             onClick={() => onUnarchiveRow(contextMenu.rowId)}
-            style={{ minHeight: 36 }}
           >
             <RotateCcw className="w-4 h-4" />
             Reactivate {t('record')}
           </button>
         ) : (
           <button
-            className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30"
+            className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30"
             onClick={() => { onArchiveRow(contextMenu.rowId); onClose() }}
-            style={{ minHeight: 36 }}
           >
             <Archive className="w-4 h-4" />
             Archive {t('record')}…
           </button>
         )}
         <button
-          className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+          className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
           onClick={() => onDeleteRow(contextMenu.rowId)}
-          style={{ minHeight: 36 }}
         >
           <Trash2 className="w-4 h-4" />
           Move to trash

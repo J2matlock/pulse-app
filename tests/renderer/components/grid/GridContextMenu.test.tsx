@@ -132,6 +132,13 @@ describe('GridContextMenu', () => {
     expect(screen.getByText('Move to trash')).toBeTruthy()
   })
 
+  it('left-aligns every item at full height, so a wrapped one reads like the rest (V1)', () => {
+    render(<GridContextMenu {...makeProps()} />)
+    const move = screen.getByText('Move / Copy to another caseload…').closest('button')!
+    expect(move.className).toContain('text-left')
+    expect(move.style.minHeight).toBe('')
+  })
+
   it('puts "Open client" first, and it opens the record (G-31)', () => {
     const onOpenRecord = vi.fn()
     render(<GridContextMenu {...makeProps({ onOpenRecord })} />)
