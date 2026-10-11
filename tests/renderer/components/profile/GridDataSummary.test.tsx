@@ -116,7 +116,7 @@ describe('GridDataSummary', () => {
     expect(container.innerHTML).toBe('')
   })
 
-  it('renders Client Details header', async () => {
+  it('says how many columns it shows, without repeating the section title', async () => {
     const col = makeColumn({ id: 2, name: 'Status' })
     render(
       <GridDataSummary
@@ -127,7 +127,8 @@ describe('GridDataSummary', () => {
         onCellSave={onCellSave}
       />
     )
-    expect(screen.getByText('Client details')).toBeTruthy()
+    expect(screen.getByText('Showing 1 of 1 columns')).toBeTruthy()
+    expect(screen.queryByText('Client details')).toBeNull()
   })
 
   it('renders column names as labels and values', async () => {
