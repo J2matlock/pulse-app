@@ -3,15 +3,24 @@
  * Numbers stay numbers in the CSV; text is guarded against spreadsheet formulas.
  */
 import Papa from 'papaparse'
-import { jsPDF, autoTable, atomicWriteFileAsync, sanitizeCsvFormula } from './export-shared'
-import { formatReportCell, type ReportCell, type ReportResult } from '../shared/reports'
+import { jsPDF, autoTable, atomicWriteFileAsync, sanitizeCsvFormula, savedDateFormat } from './export-shared'
+import { formatReportCell, type ReportCell, type ReportColumn, type ReportResult } from '../shared/reports'
+import { formatDateAs, type DateFormat } from '../shared/cellText'
 
-const csvCell = (v: ReportCell) => typeof v === 'number' ? v : sanitizeCsvFormula(v ?? '')
+/**
+ * Numbers stay numbers; dates follow Settings → Date format like every export
+ * (X-20). Month, quarter and year groups ("2026-10") aren't full dates and stay as they are.
+ */
+function csvCell(v: ReportCell, col: ReportColumn, dateFormat: DateFormat): string | number {
+  if (typeof v === 'number') return v
+  const text = v ?? ''
+  return sanitizeCsvFormula(col.kind === 'date' ? formatDateAs(text, dateFormat) : text)
+}
 
-export function reportToCsv(result: ReportResult): string {
-  const data: Array<Array<string | number>> = result.rows.map(r => result.columns.map(c => csvCell(r[c.key] ?? null)))
+export function reportToCsv(result: ReportResult, dateFormat: DateFormat = savedDateFormat()): string {
+  const data: Array<Array<string | number>> = result.rows.map(r => result.columns.map(c => csvCell(r[c.key] ?? null, c, dateFormat)))
   const hasTotals = result.columns.some(c => c.key in result.totals) && result.rows.length > 1
-  if (hasTotals) data.push(result.columns.map((c, i) => c.key in result.totals ? csvCell(result.totals[c.key] ?? null) : i === 0 ? 'Total' : ''))
+  if (hasTotals) data.push(result.columns.map((c, i) => c.key in result.totals ? csvCell(result.totals[c.key] ?? null, c, dateFormat) : i === 0 ? 'Total' : ''))
   return '﻿' + Papa.unparse({ fields: result.columns.map(c => sanitizeCsvFormula(c.label)), data })
 }
 

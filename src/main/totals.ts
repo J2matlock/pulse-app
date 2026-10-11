@@ -102,6 +102,6 @@ export async function exportTotalsCsv(month: string, gridId: number | undefined,
     'Total', '', '', '', r.totals.minutes, r.totals.units, r.totals.miles, ...(r.mileageRate ? [money(r.totals.miles)] : []),
     ...r.measures.map(d => r.totals.extra[d.key] ?? ''), '',
   ])
-  await atomicWriteFileAsync(destPath, '﻿' + Papa.unparse({ fields, data }), 'utf8')
+  await atomicWriteFileAsync(destPath, '﻿' + Papa.unparse({ fields: fields.map(sanitizeCsvFormula), data }), 'utf8')
   return r.entries.length
 }

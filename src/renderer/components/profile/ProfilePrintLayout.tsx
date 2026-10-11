@@ -9,6 +9,7 @@ import { rlog } from '../../utils/rendererLogger'
 import { parseDbTimestamp } from '../../../shared/dates'
 import { PRODUCT_NAME } from '../../../shared/constants'
 import { deadlineSummary } from '../../../shared/deadlineSummary'
+import { htmlToText } from '../../../shared/htmlText'
 import type { DeadlineResult } from '../../../shared/deadlineEngine'
 import { useVocab } from '../../hooks/useVocab'
 import { useActivityTypes } from '../../hooks/useActivityTypes'
@@ -26,12 +27,6 @@ interface ProfilePrintLayoutProps {
 
 type DeadlineLine = DeadlineResult & { column_id: number; column_name: string }
 interface ManualContact { type: string; label: string; value: string }
-
-function stripHtml(html: string): string {
-  if (!html) return ''
-  const doc = new DOMParser().parseFromString(html, 'text/html')
-  return doc.body.textContent || ''
-}
 
 /**
  * The record on paper, with the sections chosen in "Print / PDF…" (3.6).
@@ -67,7 +62,7 @@ export function ProfilePrintLayout({ rowId, gridId, clientName, row, sections, o
         if (cancelled) return
         if (clRes?.ok) setChecklist(clRes.data.filter(i => i.is_completed === 0 && i.is_archived === 0))
         if (logRes?.ok) setCaseLog(logRes.data.slice(0, 10))
-        if (noteRes?.ok && noteRes.data) setScrapNotes(stripHtml(noteRes.data.content))
+        if (noteRes?.ok && noteRes.data) setScrapNotes(htmlToText(noteRes.data.content))
         if (dlRes?.ok) setDeadlines(dlRes.data)
         if (contactRes?.ok) setContacts(contactRes.data.filter(c => c.value?.trim()))
       } catch (err) {

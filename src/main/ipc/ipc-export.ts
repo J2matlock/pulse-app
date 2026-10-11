@@ -349,8 +349,7 @@ export function registerExportHandlers(): void {
 
     for (const grid of grids) {
       try {
-        // Sanitize grid name for filesystem: replace unsafe chars with _
-        const base = grid.name.replace(/[/\\:*?"<>|]/g, '_').trim() || `grid_${grid.id}`
+        const base = listFileBase(grid.name) || `${word('list', { cap: true }, grid.id)} ${grid.id}`
         let safeName = base
         for (let n = 2; used.has(safeName.toLowerCase()); n++) safeName = `${base} (${n})`
         used.add(safeName.toLowerCase())
@@ -366,7 +365,9 @@ export function registerExportHandlers(): void {
         })
         exported++
       } catch (err) {
-        errors.push(`${grid.name}: ${err instanceof Error ? err.message : 'Export failed'}`)
+        // The raw error ("EINVAL: open …") means nothing to the person reading the results
+        logger.error('ipc-export', 'Export All list failed', { gridId: grid.id, error: err instanceof Error ? err.message : String(err) })
+        errors.push(`${grid.name}: we couldn't save this file. Try a different folder.`)
       }
     }
 
@@ -717,4 +718,15 @@ export function registerExportHandlers(): void {
     const result = generateLetter(templateId, rowId, gridId)
     return ok(result)
   })
+}
+
+/**
+ * A list name as a file name for Export All: characters no system allows become
+ * "_", trailing dots and spaces go (Windows drops them), and names Windows keeps
+ * for devices ("Con", "PRN", "Aux", "Nul", "COM1", "LPT1", also before a dot)
+ * get a "_" so the file can be written there.
+ */
+export function listFileBase(name: string): string {
+  const base = name.replace(/[/\\:*?"<>|]/g, '_').trim().replace(/[. ]+$/, '')
+  return /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i.test(base) ? base.replace(/^([^.]*)/, '$1_') : base
 }

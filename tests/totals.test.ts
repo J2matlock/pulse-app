@@ -110,6 +110,16 @@ describe('your own numbers in the totals', () => {
     expect(lines.pop()).toBe('Total,,,,90,6,14.5,7.25,1.8,10.3,')
   })
 
+  it('guards a number label that looks like a formula in the CSV heading (AUDIT-122)', async () => {
+    testDb.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('workspace_measures', ?)").run(JSON.stringify([
+      { key: 'labor', label: '=Labor', kind: 'hours', decimals: 2 },
+    ]))
+    const dest = join(testDb.tmpDir, 'guard.csv')
+    await exportTotalsCsv('2026-03', undefined, dest)
+    const [header] = readFileSync(dest, 'utf8').split('\n')
+    expect(header).toContain(',\t=Labor (hours),')
+  })
+
   it('names CSV columns by kind', () => {
     expect(measureHeading({ key: 'boxes', label: 'Boxes', unit: 'boxes', kind: 'number', decimals: 0 })).toBe('Boxes (boxes)')
     expect(measureHeading({ key: 'n', label: 'Count', kind: 'number', decimals: 0 })).toBe('Count')

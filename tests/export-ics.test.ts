@@ -80,6 +80,19 @@ describe('appointments in the calendar file (W07 §7)', () => {
   })
 })
 
+describe('all-day appointments over several days (AUDIT-116)', () => {
+  it('end the day after their last day, not after the first', () => {
+    testDb.db.prepare("INSERT INTO settings (key, value) VALUES ('workspace_features', ?)").run(JSON.stringify({ appointments: true }))
+    const first = localDateFromToday(3), last = localDateFromToday(5), oneDay = localDateFromToday(6)
+    testDb.db.prepare("INSERT INTO appointments (title, start_at, end_at, all_day) VALUES ('Respite stay', ?, ?, 1)").run(first, last)
+    testDb.db.prepare("INSERT INTO appointments (title, start_at, end_at, all_day) VALUES ('Day trip', ?, ?, 1)").run(oneDay, oneDay)
+    const ics = buildIcs(loadIcsItems().filter(i => i.uid.startsWith('appointment-')))
+    const compact = (ymd: string) => ymd.replace(/-/g, '')
+    expect(ics).toContain(`DTSTART;VALUE=DATE:${compact(first)}\r\nDTEND;VALUE=DATE:${compact(localDateFromToday(6))}\r\n`)
+    expect(ics).toContain(`DTSTART;VALUE=DATE:${compact(oneDay)}\r\nDTEND;VALUE=DATE:${compact(localDateFromToday(7))}\r\n`)
+  })
+})
+
 describe('keeping an imported calendar right (audit 1.36)', () => {
   const on = () => testDb.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('workspace_features', ?)").run(JSON.stringify({ appointments: true }))
 

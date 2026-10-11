@@ -540,6 +540,22 @@ describe('EXPORT_ALL_CSV', () => {
   })
 })
 
+describe('Export All file names (AUDIT-126)', () => {
+  it('keeps list names Windows reserves for devices from becoming file names', async () => {
+    const { listFileBase } = await import('../src/main/ipc/ipc-export')
+    expect(listFileBase('Con')).toBe('Con_')
+    expect(listFileBase('nul')).toBe('nul_')
+    expect(listFileBase('PRN')).toBe('PRN_')
+    expect(listFileBase('Aux.old')).toBe('Aux_.old')
+    expect(listFileBase('COM1')).toBe('COM1_')
+    expect(listFileBase('lpt9')).toBe('lpt9_')
+    expect(listFileBase('Consults')).toBe('Consults')
+    expect(listFileBase('Intake...  ')).toBe('Intake')
+    expect(listFileBase('A/B: C')).toBe('A_B_ C')
+    expect(listFileBase(' . ')).toBe('')
+  })
+})
+
 // ── Import handlers ──────────────────────────────────────────────────────────
 
 describe('IMPORT_DETECT_COLUMNS', () => {

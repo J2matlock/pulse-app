@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { mkdtempSync, existsSync, statSync, rmSync } from 'fs'
+import { mkdtempSync, existsSync, statSync, rmSync, readFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { createTestDb, cleanupTestDb, seedGrid, setDbWords, type TestDb } from './helpers'
@@ -52,7 +52,7 @@ describe('audit trail', () => {
     const [a] = loadAuditTrail({ rowId: rowA })
     expect(a!.clientName).toBe('Ana Bell')
     expect(a!.events.map(e => e.what)).toEqual([
-      'Client added', 'Column 2 changed', 'Visit note', 'Note edited', 'Phone note', 'Note voided', 'Checklist item done',
+      'Client added', 'Column 2 changed', 'Visit note', 'Case note edited', 'Phone note', 'Case note voided', 'Checklist item done',
     ])
     expect(a!.events[1]!.details).toBe('From Feb 1, 2027 to Mar 1, 2027')
     expect(a!.events[3]!.details).toBe('Before the edit: Visted at hme')
@@ -70,7 +70,7 @@ describe('audit trail', () => {
 
   it('filters by local date range, inclusive', () => {
     const [a] = loadAuditTrail({ rowId: rowA, from: '2027-03-02', to: '2027-03-02' })
-    expect(a!.events.map(e => e.what)).toEqual(['Phone note', 'Note voided'])
+    expect(a!.events.map(e => e.what)).toEqual(['Phone note', 'Case note voided'])
   })
 
   it('covers a whole caseload', () => {
@@ -83,6 +83,28 @@ describe('audit trail', () => {
     testDb.db.prepare('UPDATE grids SET vocab = ? WHERE id = ?').run(JSON.stringify({ record: { one: 'vehicle', many: 'vehicles', article: 'a' } }), gridId)
     const all = loadAuditTrail({ gridId })
     expect(all[1]!.events.map(e => e.what)).toEqual(['Vehicle added'])
+  })
+
+  it("words note events and the trash with the workspace's words (AUDIT-066)", () => {
+    setDbWords(testDb.db, { activity: { one: 'job note', many: 'job notes', article: 'a' } })
+    testDb.db.prepare("UPDATE rows SET deleted_at = ? WHERE id = ?").run(utc('2027-03-04 09:00:00'), rowA)
+    const events = loadAuditTrail({ rowId: rowA })[0]?.events ?? []
+    const whats = events.map(e => e.what)
+    expect(whats).toContain('Job note edited')
+    expect(whats).toContain('Job note voided')
+    expect(whats).toContain('Moved to the Trash')
+    expect(events.find(e => e.what === 'Job note voided')?.details).toContain('Job note: Wrong client')
+  })
+
+  it('counts entries, not records, under each name in the PDF (AUDIT-066)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'audit-'))
+    const dest = join(dir, 'audit.pdf')
+    await exportAuditReport({ rowId: rowA }, dest, 'Test Person')
+    const pdf = readFileSync(dest).toString('latin1')
+    expect(pdf).toContain('7 entries')
+    expect(pdf).not.toContain('7 records')
+    expect(pdf).toContain('Edited case notes keep every earlier version')
+    rmSync(dir, { recursive: true, force: true })
   })
 
   it('writes a PDF and reports the totals', async () => {

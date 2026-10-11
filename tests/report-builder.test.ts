@@ -333,6 +333,20 @@ describe('export', () => {
     expect(text).toContain('(Total Estimate by Stage')
   })
 
+  it('writes report CSV dates in the date format setting (AUDIT-128)', async () => {
+    const { reportToCsv } = await import('../src/main/export-report')
+    const [first = 0] = rows
+    cell(first, dueCol, '2026-10-06')
+    const r = runReport(gridId, { source: 'records', columns: [`col:${nameCol}`, `col:${dueCol}`] }, NOW)
+    const us = reportToCsv(r, 'us').slice(1).split('\r\n')
+    expect(us.some(l => l.endsWith(',10/06/2026'))).toBe(true)
+    t.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('date_format', 'eu')").run()
+    expect(reportToCsv(r).slice(1).split('\r\n').some(l => l.endsWith(',06/10/2026'))).toBe(true)
+    // Month groups aren't full dates and stay as they are
+    const byMonth = runReport(gridId, { source: 'records', groupBy: [{ field: `col:${dueCol}`, bucket: 'month' }], values: [{ fn: 'count' }] }, NOW)
+    expect(reportToCsv(byMonth, 'us')).toContain('2026-10')
+  })
+
   it('deleting a report takes it off the dashboard', () => {
     const a = saveReport({ name: 'A', gridId, config: { source: 'records' } })
     const b = saveReport({ name: 'B', gridId, config: { source: 'records' } })

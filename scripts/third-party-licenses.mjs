@@ -129,6 +129,13 @@ writeFileSync(join(root, 'THIRD_PARTY_LICENSES.txt'), [
   ]),
   '='.repeat(60),
   NATIVE_NOTICES,
+  // Not an npm package: the font PDFs use for names outside Windows-1252 (build/fonts)
+  rule,
+  'Font: Liberation Sans 2.1.5 (build/fonts, shipped as resources/fonts)',
+  'License: OFL-1.1',
+  'Repository: https://github.com/liberationfonts/liberation-fonts',
+  '',
+  readFileSync(join(root, 'build', 'fonts', 'OFL.txt'), 'utf-8').trim(),
   '',
 ].join('\n'))
 

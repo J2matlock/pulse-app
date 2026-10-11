@@ -140,6 +140,10 @@
       {
         "from": "THIRD_PARTY_LICENSES.txt",
         "to": "THIRD_PARTY_LICENSES.txt"
+      },
+      {
+        "from": "build/fonts",
+        "to": "fonts"
       }
     ],
     "linux": {
