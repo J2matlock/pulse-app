@@ -182,14 +182,27 @@ export function sanitizeCsvFormula(v: string): string {
 /** Columns whose text is a number or a date: a leading "-" there is a negative number, not a formula (X-21) */
 const NON_TEXT_TYPES = new Set(['number', 'currency', 'date', 'checkbox', 'auto_number', 'age_from_dob', 'calculated_days', 'file_count'])
 
+/** "-12.50", "$-1,234.00", "1e3": a number, so a leading "-" or "+" is a sign, not a formula */
+const NUMBER_TEXT = /^[-+]?\$?[-+]?(?:\d[\d,]*(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/
+
 /**
- * A cell as an export shows it: the same text as copying the cell (G-08).
- * Dates follow the date format setting unless one is given.
+ * A cell as a PDF or printout shows it: the same text as copying the cell (G-08),
+ * with nothing added. Dates follow the date format setting unless one is given.
+ */
+export function cellDisplayText(value: string | null, columnType: string, dateFormat: DateFormat = savedDateFormat()): string {
+  return cellText(columnType, value, { dateFormat })
+}
+
+/**
+ * A cell as a CSV export writes it: the display text, guarded against formula
+ * injection. A number or date column can still hold any text (an import keeps
+ * what it couldn't read, a type change keeps the old text), so only text that
+ * really is a number skips the guard (AUDIT-008).
  */
 export function formatCellValue(value: string | null, columnType: string, dateFormat: DateFormat = savedDateFormat()): string {
-  const text = cellText(columnType, value, { dateFormat })
+  const text = cellDisplayText(value, columnType, dateFormat)
   if (!text) return ''
-  if (NON_TEXT_TYPES.has(columnType) && (columnType !== 'number' || !isNaN(Number(text)))) return text
+  if (NON_TEXT_TYPES.has(columnType) && NUMBER_TEXT.test(text)) return text
   return sanitizeCsvFormula(text)
 }
 
