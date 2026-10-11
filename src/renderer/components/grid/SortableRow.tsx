@@ -299,7 +299,7 @@ export const SortableRow = React.memo(function SortableRow({
             hasRule = !!rule
             if (rule) {
               // The shared engine (W05): relative and other kinds can be due with this cell empty
-              const res = evaluateRuleForRow(rule, value, rowOriginal as unknown as Record<string, unknown>, col.id)
+              const res = evaluateRuleForRow(rule, value, rowOriginal, col.id)
               const days = res.daysUntil
               if (col.column_type === 'date') alertChip = deadlineChipText(res, value)
               // Cut-off words can still be read on hover, colored or not

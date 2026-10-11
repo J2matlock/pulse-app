@@ -39,7 +39,7 @@ export function ruleOfColumn(col: Column | undefined, rules: Map<number, ParsedA
 
 /** Whether a deadline is in a "due status" bucket, worked out by the engine like its color (G-12) */
 function dueStatusIs(row: GridRow, col: Column, rule: ParsedAlertRule, status: string): boolean {
-  const res = evaluateRuleForRow(rule, (row[`col_${col.id}` as keyof GridRow] as string | null) ?? null, row as unknown as Record<string, unknown>, col.id)
+  const res = evaluateRuleForRow(rule, (row[`col_${col.id}` as keyof GridRow] as string | null) ?? null, row, col.id)
   if (status === 'done') return res.state === 'done'
   if (status === 'paused') return res.state === 'paused'
   if (res.state === 'done' || res.state === 'paused' || res.daysUntil === null) return false

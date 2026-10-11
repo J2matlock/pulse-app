@@ -235,7 +235,7 @@ function DeadlineCell({ column, value, row, parsedConfig }: { column: Column; va
       Choose a deadline rule
     </button>
   )
-  const res = evaluateRuleForRow(rule, value, (row ?? {}) as unknown as Record<string, unknown>, column.id)
+  const res = evaluateRuleForRow(rule, value, row ?? {}, column.id)
   const text = deadlineCellText(res, value)
   if (res.state === 'done') return <span className="truncate min-w-0 text-green-700 dark:text-green-300">{text}</span>
   if (res.state === 'paused') return <span className="truncate min-w-0 text-slate-500 dark:text-slate-400 italic" title={res.detail}>{text}</span>
@@ -265,10 +265,10 @@ export function deadlineCellText(res: DeadlineResult, value: string | null): str
  */
 export function cellFitText(column: Column, value: string | null, row: GridRow, rule: ParsedAlertRule | undefined): string {
   if (column.column_type === 'deadline') {
-    return rule ? deadlineCellText(evaluateRuleForRow(rule, value, row as unknown as Record<string, unknown>, column.id), value) : 'Choose a deadline rule'
+    return rule ? deadlineCellText(evaluateRuleForRow(rule, value, row, column.id), value) : 'Choose a deadline rule'
   }
   if (column.column_type === 'date' && rule) {
-    const chip = deadlineChipText(evaluateRuleForRow(rule, value, row as unknown as Record<string, unknown>, column.id), value)
+    const chip = deadlineChipText(evaluateRuleForRow(rule, value, row, column.id), value)
     // Three characters or so for the shape in front of the date
     return `   ${value ? formatDate(value) : '—'}${chip ? `  ${chip}` : ''}`
   }

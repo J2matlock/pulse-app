@@ -43,7 +43,7 @@ function deadlineBadge(col: Column, value: string | null, row: GridRow, alertRul
   const rule = ruleId ? alertRules.find(r => r.id === ruleId) : undefined
   if (!rule) return null
   try {
-    const res = evaluateRuleForRow(rule, value, row as unknown as Record<string, unknown>, col.id)
+    const res = evaluateRuleForRow(rule, value, row, col.id)
     if (res.state === 'none') return null
     const badge = STATE_BADGE[res.state]
     return badge ? { ...badge, label: res.extended ? 'Extended' : badge.label } : null
