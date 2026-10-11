@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 const mockInvoke = vi.fn()
@@ -9,6 +9,7 @@ Object.defineProperty(window, 'api', { value: { invoke: mockInvoke }, writable: 
 
 import { MorningBriefing } from '../../../../src/renderer/components/shared/MorningBriefing'
 import { localDateString } from '../../../../src/shared/dates'
+import { setFeatures } from '../../vocabFixture'
 
 function setup(settings: Record<string, string | null>) {
   mockInvoke.mockImplementation((channel: string, key?: string) => {
@@ -41,5 +42,31 @@ describe('MorningBriefing', () => {
     const { container } = render(<MemoryRouter><MorningBriefing suppressed={false} onFocusMode={() => {}} /></MemoryRouter>)
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('settings:get', 'briefing_last_shown'))
     expect(container.textContent).toBe('')
+  })
+
+  it.each([
+    ['Start Focus Mode'],
+    ['Open dashboard'],
+  ])('unticking "show each day" is saved when leaving with %s', async (button) => {
+    setup({})
+    setFeatures()
+    const onFocusMode = vi.fn()
+    render(<MemoryRouter><MorningBriefing suppressed={false} onFocusMode={onFocusMode} /></MemoryRouter>)
+    fireEvent.click(await screen.findByRole('checkbox'))
+    fireEvent.click(screen.getByRole('button', { name: button }))
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('settings:update', 'briefing_enabled', 'false'))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    if (button === 'Start Focus Mode') expect(onFocusMode).toHaveBeenCalled()
+  })
+
+  it('closes on Escape and marks the key as handled', async () => {
+    setup({})
+    render(<MemoryRouter><MorningBriefing suppressed={false} onFocusMode={() => {}} /></MemoryRouter>)
+    const dialog = await screen.findByRole('dialog')
+    const ev = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    fireEvent(screen.getByRole('checkbox'), ev)
+    expect(ev.defaultPrevented).toBe(true)
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(dialog).toBeTruthy()
   })
 })

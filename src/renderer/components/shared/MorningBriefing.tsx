@@ -8,6 +8,7 @@ import { useFeature } from '../../hooks/useFeature'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useVocab } from '../../hooks/useVocab'
 import { formatTime } from '../../../shared/calendar'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 
 interface Briefing {
   overdue: number
@@ -39,7 +40,9 @@ export function MorningBriefing({ suppressed, onFocusMode }: { suppressed: boole
   const [name, setName] = useState('')
   const [keepShowing, setKeepShowing] = useState(true)
   const checked = useRef(false)
+  const panelRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+  useFocusTrap(panelRef, !!briefing && !suppressed)
 
   useEffect(() => {
     if (suppressed || checked.current) return
@@ -65,9 +68,11 @@ export function MorningBriefing({ suppressed, onFocusMode }: { suppressed: boole
 
   if (!briefing || suppressed) return null
 
-  async function close() {
-    if (!keepShowing) await safeInvoke(IPC.SETTINGS_UPDATE, 'briefing_enabled', 'false')
+  // Every way out saves the "show this each day" choice, the two buttons included
+  async function close(then?: () => void) {
     setBriefing(null)
+    then?.()
+    if (!keepShowing) await safeInvoke(IPC.SETTINGS_UPDATE, 'briefing_enabled', 'false')
   }
 
   const b = briefing
@@ -84,9 +89,16 @@ export function MorningBriefing({ suppressed, onFocusMode }: { suppressed: boole
 
   return (
     <div className="fixed inset-0 z-[150] flex items-center-safe justify-center bg-black/40 p-4 overflow-y-auto" onClick={() => void close()}>
-      <div role="dialog" aria-modal="true" aria-labelledby="briefing-title"
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="briefing-title"
         className="w-full max-w-md rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6"
-        onClick={e => e.stopPropagation()}>
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => {
+          if (e.key !== 'Escape') return
+          // preventDefault tells page-level Escape handlers (the record page) it's taken
+          e.preventDefault()
+          e.stopPropagation()
+          void close()
+        }}>
         <div className="flex items-start gap-3 mb-4">
           <Sun className="w-7 h-7 text-amber-500 flex-shrink-0" aria-hidden="true" />
           <h2 id="briefing-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex-1">
@@ -117,15 +129,15 @@ export function MorningBriefing({ suppressed, onFocusMode }: { suppressed: boole
         )}
         <div className="flex flex-wrap gap-3">
           {!nothingUrgent && showFocus && (
-            <button type="button" className="btn-primary" onClick={() => { setBriefing(null); onFocusMode() }}>
+            <button type="button" className="btn-primary" onClick={() => void close(onFocusMode)}>
               Start Focus Mode
             </button>
           )}
-          <button type="button" className="btn-secondary" onClick={() => { setBriefing(null); navigate('/dashboard') }}>
+          <button type="button" className="btn-secondary" onClick={() => void close(() => navigate('/dashboard'))}>
             Open dashboard
           </button>
         </div>
-        <label className="mt-5 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 cursor-pointer select-none" style={{ minHeight: 44 }}>
+        <label className="mt-5 flex items-center gap-2 text-base text-slate-600 dark:text-slate-300 cursor-pointer select-none" style={{ minHeight: 44 }}>
           <input type="checkbox" checked={keepShowing} onChange={e => setKeepShowing(e.target.checked)}
             className="w-5 h-5 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-3 focus:ring-blue-500" />
           Show this summary the first time I unlock each day
