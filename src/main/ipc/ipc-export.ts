@@ -555,7 +555,7 @@ export function registerExportHandlers(): void {
     if (options.sheetName !== undefined && (typeof options.sheetName !== 'string' || options.sheetName.length > 255)) return fail('Invalid sheet')
     // Preview of the chosen sheet (types and name flipping come from it)
     const preview = await parseImportFile(options.filePath, 0, options.headerRowIndex, options.sheetName)
-    const result = await executeImport({ ...options, createMissingLinks: options.createMissingLinks === true }, preview, onProgress)
+    const result = await executeImport({ ...options, createMissingLinks: options.createMissingLinks === true, skipHiddenRows: options.skipHiddenRows === true }, preview, onProgress)
     return ok(result)
   })
 

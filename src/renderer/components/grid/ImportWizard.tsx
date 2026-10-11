@@ -44,6 +44,8 @@ interface ImportPreview {
   rawRowCount: number
   rawPreviewRows?: string[][]
   warnings?: string[]
+  hiddenRowCount?: number
+  hiddenColumns?: string[]
 }
 
 interface ColumnMapping {
@@ -64,6 +66,7 @@ interface ImportOptions {
   headerRowIndex?: number
   flipLastFirst?: boolean
   createMissingLinks?: boolean
+  skipHiddenRows?: boolean
 }
 
 interface ImportResult {
@@ -144,6 +147,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
   const [cleanData, setCleanData] = useState(true)
   const [flipNames, setFlipNames] = useState(true)
   const [createMissingLinks, setCreateMissingLinks] = useState(false)
+  const [skipHiddenRows, setSkipHiddenRows] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
@@ -167,6 +171,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
       setExistingColumns([])
       setDuplicateStrategy('none')
       setCleanData(true)
+      setSkipHiddenRows(false)
       setLoading(false)
       setError(null)
       setImportResult(null)
@@ -375,6 +380,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
         headerRowIndex,
         flipLastFirst: flipNames,
         createMissingLinks,
+        skipHiddenRows: skipHiddenRows && (preview.hiddenRowCount ?? 0) > 0,
       }
       const res = await safeInvoke<ImportResult>(IPC.IMPORT_FILE, options)
       if (!res.ok) {
@@ -571,6 +577,35 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                   <p className="text-base text-amber-900 dark:text-amber-200">{w}</p>
                 </div>
               ))}
+              {/* Hidden rows and columns come in like the rest unless left out (AUDIT-127) */}
+              {((preview.hiddenRowCount ?? 0) > 0 || (preview.hiddenColumns?.length ?? 0) > 0) && (
+                <div role="status" className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 space-y-2">
+                  {(preview.hiddenRowCount ?? 0) > 0 && (() => {
+                    const n = preview.hiddenRowCount ?? 0
+                    return (
+                      <>
+                        <p className="text-base text-slate-700 dark:text-slate-200">
+                          This spreadsheet has {n} hidden {n === 1 ? 'row' : 'rows'} (for example, rows filtered out or hidden in Excel). {n === 1 ? 'It comes in' : 'They come in'} like the others unless you leave {n === 1 ? 'it' : 'them'} out.
+                        </p>
+                        <label className="flex items-center gap-3 cursor-pointer min-h-[44px]">
+                          <input
+                            type="checkbox"
+                            checked={skipHiddenRows}
+                            onChange={e => setSkipHiddenRows(e.target.checked)}
+                            className="w-5 h-5 rounded-sm text-blue-500 focus:ring-3 focus:ring-blue-500 focus:ring-offset-0"
+                          />
+                          <span className="text-base text-slate-700 dark:text-slate-200">Leave out {n} hidden {n === 1 ? 'row' : 'rows'}</span>
+                        </label>
+                      </>
+                    )
+                  })()}
+                  {(preview.hiddenColumns?.length ?? 0) > 0 && (
+                    <p className="text-base text-slate-700 dark:text-slate-200">
+                      Hidden {(preview.hiddenColumns?.length ?? 0) === 1 ? 'column' : 'columns'} in the spreadsheet: {preview.hiddenColumns?.join(', ')}. To leave {(preview.hiddenColumns?.length ?? 0) === 1 ? 'it' : 'them'} out, choose Skip on the next step.
+                    </p>
+                  )}
+                </div>
+              )}
               {/* Header Row Selector — hide for clipboard paste */}
               {filePath && (
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700">
