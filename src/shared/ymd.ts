@@ -27,6 +27,13 @@ export function ymdToDate(ymd: string): Date {
   return date
 }
 
+/** The calendar date `days` after a 'YYYY-MM-DD' date (negative for before), safe across daylight saving */
+export function addDays(ymd: string, days: number): string {
+  const d = ymdToDate(ymd)
+  d.setDate(d.getDate() + days)
+  return dateToYmd(d)
+}
+
 /** The same as localDateString, under the name the deadline code uses */
 export function dateToYmd(d: Date): string {
   return localDateString(d)

@@ -11,7 +11,7 @@
 import { z } from 'zod'
 import { addInterval, describeInterval, hasInterval, toRuleInterval, type RuleInterval } from './ruleInterval'
 import { addBusinessDays, rollBackToBusinessDay, rollForwardToBusinessDay, DEFAULT_WEEKEND, type WorkCalendar } from './businessDays'
-import { toYmd, ymdToDate, dateToYmd, daysBetween } from './ymd'
+import { toYmd, ymdToDate, dateToYmd, daysBetween, addDays } from './ymd'
 import { parseNumberCell } from './numbers'
 
 export { toYmd, ymdToDate, dateToYmd, daysBetween }
@@ -391,14 +391,9 @@ function occurrenceOnOrBefore(months: number[], day: number | 'last', ymd: strin
   return null
 }
 
-function addDaysYmd(ymd: string, days: number): string {
-  if (days === 0) return ymd
-  const d = ymdToDate(ymd)
-  d.setDate(d.getDate() + days)
-  return dateToYmd(d)
-}
+const addDaysYmd = addDays
 
-function ordinal(n: number): string {
+export function ordinal(n: number): string {
   const s = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th'
   return `${n}${s}`
 }

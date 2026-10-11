@@ -4,7 +4,7 @@
  *   TZ=Pacific/Auckland, America/New_York, Europe/London, Australia/Lord_Howe, UTC
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { toYmd, ymdToDate, dateToYmd, daysBetween } from '../src/shared/ymd'
+import { toYmd, ymdToDate, dateToYmd, daysBetween, addDays } from '../src/shared/ymd'
 import { localDateString, localDateFromToday } from '../src/shared/dates'
 import { addRepeats } from '../src/shared/recurrence'
 import { minutesBetween, addMinutes } from '../src/shared/appointments'
@@ -29,7 +29,11 @@ describe('calendar dates in this time zone (' + (process.env.TZ ?? 'default') + 
       expect(toYmd(d)).toBe(d)
       expect(dateToYmd(ymdToDate(d))).toBe(d)
       expect(localDateString(new Date(d + 'T00:00:00'))).toBe(d)
-      if (i > 0) expect(daysBetween(DAYS_2024_2027[i - 1]!, d)).toBe(1)
+      if (i > 0) {
+        expect(daysBetween(DAYS_2024_2027[i - 1]!, d)).toBe(1)
+        expect(addDays(DAYS_2024_2027[i - 1]!, 1)).toBe(d)
+        expect(addDays(d, -1)).toBe(DAYS_2024_2027[i - 1])
+      }
     }
   })
 

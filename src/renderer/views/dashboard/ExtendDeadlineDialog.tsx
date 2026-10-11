@@ -1,12 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
-import { formatDue, ymdToDate, dateToYmd } from '../../../shared/deadlineEngine'
-
-function addDays(ymd: string, n: number): string {
-  const d = ymdToDate(ymd)
-  d.setDate(d.getDate() + n)
-  return dateToYmd(d)
-}
+import { formatDue } from '../../../shared/deadlineEngine'
+import { addDays } from '../../../shared/ymd'
 
 /** "Extend…": a new due date and the reason, which goes on the timeline and the audit trail (W05 §4). */
 export function ExtendDeadlineDialog({ title, currentDue, onSave, onClose }: {

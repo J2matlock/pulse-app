@@ -4,7 +4,7 @@
  * with no zone: 'YYYY-MM-DDTHH:MM', or 'YYYY-MM-DD' when all-day.
  */
 import { z } from 'zod'
-import { dateToYmd } from './ymd'
+import { dateToYmd, addDays as addYmdDays } from './ymd'
 
 export type ApptStatus = 'scheduled' | 'done' | 'cancelled' | 'no_show'
 export const APPT_STATUSES: readonly ApptStatus[] = ['scheduled', 'done', 'cancelled', 'no_show']
@@ -120,8 +120,7 @@ export function addMonths(date: string, months: number): string {
 }
 
 export function addDays(date: string, days: number): string {
-  const d = parseYmd(date)
-  return ymd(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days))
+  return addYmdDays(date.slice(0, 10), days)
 }
 
 /** Minutes between two wall times on any days (DST doesn't change wall-clock length here) */
