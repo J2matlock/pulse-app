@@ -62,7 +62,7 @@ describe('not losing a filled-in form', () => {
     // A click on the dark area outside asks too; Discard closes
     fireEvent.click(document.querySelector('.bg-black\\/50')!)
     expect(screen.getByText('Discard your answers?')).toBeTruthy()
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Discard' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Discard answers' })) })
     expect(onClose).toHaveBeenCalled()
   })
 

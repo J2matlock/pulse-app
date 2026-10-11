@@ -882,8 +882,8 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       <ConfirmDialog
         open={confirmClear}
         title="Clear completed items"
-        message={`Delete ${completedItems.length} completed item${completedItems.length === 1 ? '' : 's'} permanently? This can be undone.`}
-        confirmLabel="Clear all"
+        message={`Delete ${completedItems.length} completed item${completedItems.length === 1 ? '' : 's'}? You can undo this.`}
+        confirmLabel={`Delete ${completedItems.length} item${completedItems.length === 1 ? '' : 's'}`}
         destructive={true}
         onConfirm={() => { setConfirmClear(false); void doClearCompleted() }}
         onCancel={() => setConfirmClear(false)}
@@ -1352,7 +1352,7 @@ export function TemplateManager({ onApply, onClose }: {
         open={!!deleteTarget}
         title="Delete template"
         message={`Delete the template "${deleteTarget?.name}"? This cannot be undone.`}
-        confirmLabel="Delete"
+        confirmLabel="Delete template"
         destructive
         onConfirm={() => { if (deleteTarget) { void handleDelete(deleteTarget.id); setDeleteTarget(null) } }}
         onCancel={() => setDeleteTarget(null)}

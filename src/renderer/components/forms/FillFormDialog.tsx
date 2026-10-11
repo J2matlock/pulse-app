@@ -293,7 +293,7 @@ export function FillFormDialog({ form, columns, row, onClose, onDone }: {
       open={askDiscard}
       title="Discard your answers?"
       message="What you've filled in on this form hasn't been saved."
-      confirmLabel="Discard"
+      confirmLabel="Discard answers"
       onConfirm={() => { setAskDiscard(false); onClose() }}
       onCancel={() => setAskDiscard(false)}
     />

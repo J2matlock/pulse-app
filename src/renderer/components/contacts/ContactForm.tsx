@@ -450,7 +450,7 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
         open={showDiscardConfirm}
         title="Unsaved changes"
         message="You have unsaved changes. Discard them?"
-        confirmLabel="Discard"
+        confirmLabel="Discard changes"
         destructive
         onConfirm={() => { setShowDiscardConfirm(false); onClose() }}
         onCancel={() => setShowDiscardConfirm(false)}

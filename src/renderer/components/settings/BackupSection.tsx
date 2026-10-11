@@ -534,7 +534,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
           title="Restore from backup?"
           message={`This will replace all your current data with the backup from "${restoreTarget.label}". Your current data will be saved as a safety backup first. This cannot be undone without the safety backup.\n\nType RESTORE to confirm.`}
           requiredPhrase="RESTORE"
-          confirmLabel="Restore"
+          confirmLabel="Replace my data with this backup"
           destructive
           onConfirm={() => { setBackupPreview(null); void executeRestore() }}
           onCancel={() => { setBackupPreview(null); setRestoreTarget(null) }}

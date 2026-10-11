@@ -169,7 +169,7 @@ export function PasswordSetupView(): React.ReactElement {
                 open={showSkipConfirm}
                 title="Skip recovery key?"
                 message="Without a recovery key, a forgotten password means permanent data loss. Are you sure you want to skip?"
-                confirmLabel="Skip"
+                confirmLabel="Skip without a recovery key"
                 destructive
                 onConfirm={() => { setShowSkipConfirm(false); finishSetup() }}
                 onCancel={() => setShowSkipConfirm(false)}
