@@ -495,6 +495,18 @@ describe('DataGrid', () => {
       expect(input).toBeTruthy()
     })
 
+    it('says when editing starts and stops, naming the column (AUDIT-043)', async () => {
+      renderDataGrid()
+      await flushEffects()
+      fireEvent.doubleClick(dataCells()[0]!)
+      await flushEffects()
+      expect(screen.getByTestId('grid-announcer').textContent).toBe('Editing Name')
+      expect(screen.getByRole('textbox', { name: 'Name' })).toBeTruthy()
+      fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' })
+      await flushEffects()
+      expect(screen.getByTestId('grid-announcer').textContent).toBe('Done editing Name')
+    })
+
     it('pressing Escape in edit mode cancels editing', async () => {
       renderDataGrid()
       await flushEffects()

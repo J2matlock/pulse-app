@@ -51,6 +51,18 @@ describe('CellEditor', () => {
     expect((input as HTMLInputElement).value).toBe('hello')
   })
 
+  it('names every editor by its column and says how to finish (AUDIT-043)', () => {
+    const types = ['text', 'date', 'number', 'dropdown', 'status', 'notes', 'address', 'tag', 'checkbox', 'phone', 'email', 'url', 'currency']
+    for (const type of types) {
+      const { container, unmount } = render(<CellEditor column={{ ...makeColumn(type), name: 'Due date' }} value={null} onSave={onSave} onCancel={onCancel} />)
+      const editor = container.querySelector<HTMLElement>('input, select, textarea')!
+      expect(editor.getAttribute('aria-label'), type).toBe('Due date')
+      const hint = document.getElementById(editor.getAttribute('aria-describedby') ?? '')
+      expect(hint?.textContent, type).toMatch(/Escape/)
+      unmount()
+    }
+  })
+
   it('follows dark mode instead of a hard-coded white box (V1)', () => {
     for (const type of ['text', 'date', 'number', 'dropdown', 'status', 'notes', 'tag', 'checkbox']) {
       const { container, unmount } = render(<CellEditor column={makeColumn(type)} value={null} onSave={onSave} onCancel={onCancel} />)

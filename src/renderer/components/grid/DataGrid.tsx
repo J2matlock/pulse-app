@@ -699,6 +699,18 @@ export function DataGrid(): React.ReactElement {
     return () => clearTimeout(timer)
   }, [lastAddedRowId, columns, setEditingCell]) // eslint-disable-line react-hooks/exhaustive-deps -- once per added record
 
+  // Said out loud for screen readers: entering and leaving a cell's editor (AUDIT-043)
+  const [announcement, setAnnouncement] = useState('')
+  const announcedEditRef = useRef<{ rowId: number; columnId: number } | null>(null)
+  useEffect(() => {
+    const prev = announcedEditRef.current
+    if (prev?.rowId === editingCell?.rowId && prev?.columnId === editingCell?.columnId) return
+    announcedEditRef.current = editingCell
+    const name = (id: number) => columnMap.get(id)?.name
+    if (editingCell) setAnnouncement(`Editing ${name(editingCell.columnId) ?? 'cell'}`)
+    else if (prev) setAnnouncement(`Done editing ${name(prev.columnId) ?? 'cell'}`)
+  }, [editingCell, columnMap])
+
   const handleBulkSetAcuityLevel = useCallback((levelId: number | null) => {
     const ids = Array.from(selectedRowIdsRef.current)
     void bulkSetRowAcuityLevel(ids, levelId)
@@ -960,6 +972,8 @@ export function DataGrid(): React.ReactElement {
           )}
         </div>
       )}
+
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="grid-announcer">{announcement}</div>
 
       {/* Right-click context menu */}
       <AnimatePresence>
