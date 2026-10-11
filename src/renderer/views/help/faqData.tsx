@@ -614,7 +614,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'profile-number-chart',
     question: 'Can I see a number change over time, like scores?',
-    answer: 'Yes. On a {record}\'s page, a number or currency column that has changed shows a small line next to its value. Click it for a chart with every value and date. To keep the very first value too, right-click the column header and turn on "Log changes in timeline".',
+    answer: 'Yes. On a {record}\'s page, a number or currency column that has changed shows a small line next to its value. Click it for a chart of every value and date, starting from the first one entered.',
     category: 'client-profiles',
   },
 

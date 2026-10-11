@@ -309,9 +309,11 @@ export function ProfileHeader({
 
   function getStatusStyle(col: Column, value: string): React.CSSProperties {
     try {
-      const config = JSON.parse(col.config) as { colors?: Record<string, string> }
-      const bg = config.colors?.[value]
-      if (bg) return { backgroundColor: `${bg}33`, color: bg, border: `1px solid ${bg}66` }
+      // Same colors as the list: status columns keep them on their options (R-21)
+      const config = JSON.parse(col.config) as { options?: Array<string | { label?: string; color?: string }>; colors?: Record<string, string> }
+      const option = config.options?.find(o => typeof o === 'object' && o.label === value) as { color?: string } | undefined
+      const bg = option?.color ?? config.colors?.[value]
+      if (bg) return { backgroundColor: bg, color: '#fff' }
     } catch { /* ignore */ }
     return { backgroundColor: 'rgb(var(--color-slate-100) / 1)', color: 'rgb(var(--color-slate-600) / 1)' }
   }
