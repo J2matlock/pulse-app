@@ -328,6 +328,7 @@ export const IPC = {
   ONBOARDING_SETUP_GRID: 'onboarding:setup-grid',
   ONBOARDING_DATE_RULES: 'onboarding:date-rules',
   ONBOARDING_SAVE_PROGRESS: 'onboarding:save-progress',
+  ONBOARDING_GETTING_STARTED: 'onboarding:getting-started',
   SAMPLE_DATA_STATUS: 'sample-data:status',
   SAMPLE_DATA_CREATE: 'sample-data:create',
   SAMPLE_DATA_REMOVE: 'sample-data:remove',

@@ -6,7 +6,7 @@ import { useWorkspaceStore } from '../stores/workspaceStore'
 import { useActivityTypeStore } from '../stores/activityTypeStore'
 import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
-import { checkBackupReminder } from './useBackupReminder'
+import { checkBackupReminder, checkWhatsNew } from './useBackupReminder'
 import toast from 'react-hot-toast'
 import { pulseEvents } from '../events'
 
@@ -84,6 +84,7 @@ export function useAuthGating(): UseAuthGatingReturn {
           }
         } catch { /* non-critical */ }
         await checkBackupReminder()
+        await checkWhatsNew()
       })()
     }
     if (isLocked) {

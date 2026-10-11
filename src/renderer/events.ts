@@ -17,6 +17,8 @@ type PulseEvents = {
   'grid:open-import': undefined
   /** Open the example gallery (adding to this workspace), optionally with sample data ticked */
   'starters:open': { sample: boolean }
+  /** Open What's New (from Help or Settings → About) */
+  'whats-new:open': undefined
   /** Show first-run setup again (no lists left), at one of its starting points */
   'setup:open': { step: 'start' | 'examples' | 'sheet-name' | 'blank' }
 }

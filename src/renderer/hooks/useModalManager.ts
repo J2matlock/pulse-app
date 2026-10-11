@@ -1,4 +1,5 @@
-import { useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
+import { pulseEvents } from '../events'
 import type { TourStep } from '../components/shared/TourOverlay'
 
 interface UseModalManagerReturn {
@@ -24,6 +25,8 @@ export function useModalManager(): UseModalManagerReturn {
   const [whatsNewOpen, setWhatsNewOpen] = useState(false)
   const [miniTourSteps, setMiniTourSteps] = useState<TourStep[] | null>(null)
   const [globalTaskOpen, setGlobalTaskOpen] = useState(false)
+  // Help, Settings → About, and the first unlock after an update open What's New
+  useEffect(() => pulseEvents.on('whats-new:open', () => setWhatsNewOpen(true)), [])
 
   return {
     showTour,

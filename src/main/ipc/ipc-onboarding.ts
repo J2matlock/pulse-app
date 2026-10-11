@@ -57,6 +57,23 @@ export function registerOnboardingHandlers(): void {
     return ok({ complete, progress: null })
   })
 
+  // "Getting started" card: which first steps have happened (the user's own data, not samples)
+  secureWrap(IPC.ONBOARDING_GETTING_STARTED, 'ipc-onboarding', () => {
+    const db = getDb()
+    const setting = (key: string) => (db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined)?.value ?? null
+    const any = (sql: string) => !!db.prepare(`${sql} LIMIT 1`).get()
+    const real = 'NOT EXISTS (SELECT 1 FROM sample_rows s WHERE s.row_id = r.id)'
+    return ok({
+      show: setting('onboarding_completed_at') !== null && setting('onboarding_getting_started_dismissed') !== '1',
+      record: any(`SELECT 1 FROM rows r JOIN grids g ON g.id = r.grid_id AND g.is_active = 1 WHERE r.deleted_at IS NULL AND ${real}`),
+      reminder: any(`SELECT 1 FROM cells c JOIN columns col ON col.id = c.column_id JOIN rows r ON r.id = c.row_id
+        WHERE r.deleted_at IS NULL AND ${real} AND COALESCE(c.value, '') != ''
+        AND (col.column_type = 'deadline' OR (json_valid(col.config) AND json_extract(col.config, '$.alert_rule_id') IS NOT NULL))`),
+      note: any(`SELECT 1 FROM case_log cl JOIN rows r ON r.id = cl.row_id WHERE cl.log_type != 'system' AND ${real}`),
+      recoverySnoozedUntil: setting('onboarding_recovery_snooze_until'),
+    })
+  })
+
   // Setup saves its place once it has made a list, so a lock or a closed window resumes it
   secureWrap(IPC.ONBOARDING_SAVE_PROGRESS, 'ipc-onboarding', (_e, progress: unknown) => {
     const guard = enforceWritable(); if (guard) return guard
@@ -79,6 +96,8 @@ export function registerOnboardingHandlers(): void {
     const guard = enforceWritable(); if (guard) return guard
     getDb().prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('onboarding_complete', '1')").run()
     getDb().prepare("DELETE FROM app_meta WHERE key = 'setup_progress'").run()
+    // New workspaces get the "Getting started" card on the dashboard (existing installs never set this)
+    getDb().prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('onboarding_completed_at', datetime('now'))").run()
     // No daily briefing on the day someone finishes setup: they just saw everything
     getDb().prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('briefing_last_shown', date('now', 'localtime'))").run()
     return ok(true)

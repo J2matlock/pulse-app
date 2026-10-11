@@ -6,6 +6,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Search, ChevronDown, Eye, BookOpen, Sparkles, ShieldCheck } from 'lucide-react'
 import { STEPS } from '../components/shared/TourOverlay'
 import { featureNow } from '../hooks/useFeature'
+import { pulseEvents } from '../events'
 import type { TourStep } from '../components/shared/TourOverlay'
 import { DEBOUNCE_SEARCH } from '../../shared/constants'
 import type { FAQCategory } from './help/types'
@@ -221,6 +222,10 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
           </button>
         </div>
         <SecuritySummaryDialog open={showSecuritySummary} onClose={() => setShowSecuritySummary(false)} />
+
+        <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('whats-new:open')}>
+          What's new in this version
+        </button>
 
         {/* Retake Full Tour card */}
         <button

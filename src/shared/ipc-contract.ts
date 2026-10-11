@@ -340,6 +340,7 @@ export interface IPCContract {
   // ── Onboarding ──────────────────────────────────────────────────────────
   'onboarding:check':      { args: [];                               return: { complete: boolean; progress: SetupProgress | null } }
   'onboarding:save-progress': { args: [progress: SetupProgress | null]; return: true }
+  'onboarding:getting-started': { args: []; return: { show: boolean; record: boolean; reminder: boolean; note: boolean; recoverySnoozedUntil: string | null } }
   'onboarding:complete':   { args: [];                               return: true }
   'onboarding:setup-grid': { args: [setup: Record<string, unknown>]; return: { gridId: number; colIdByName: Record<string, number> } }
   'onboarding:date-rules': { args: [gridId: number, answers: DateRuleAnswer[]]; return: number }

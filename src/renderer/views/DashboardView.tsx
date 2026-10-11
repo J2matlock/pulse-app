@@ -21,6 +21,7 @@ import { rlog } from '../utils/rendererLogger'
 import { LoadingOverlay } from '../components/shared/LoadingSpinner'
 import { pulseEvents } from '../events'
 import { useVocab } from '../hooks/useVocab'
+import { GettingStartedCard } from './dashboard/GettingStartedCard'
 import { wordNow } from '../utils/vocab'
 
 import type { FollowUpRow, RawDeadlineRow, ArchivedRow, ExtendedDeadlineInfo, TopTab, FilterTab, PriorityItem } from './dashboard/types'
@@ -457,6 +458,8 @@ export default function DashboardView(): React.ReactElement {
           {showCompliance && <ComplianceSummaryDialog onClose={closeCompliance} />}
           {showCalendar && <CalendarExportDialog onClose={closeCalendar} />}
         </div>
+
+        <GettingStartedCard />
 
         {/* Cards, in the order people chose (W10 §4) */}
         <DashboardCards customizing={customizing} onDoneCustomizing={() => setCustomizing(false)} summary={
