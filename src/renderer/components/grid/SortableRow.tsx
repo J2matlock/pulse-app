@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react'
 import { type Row } from '@tanstack/react-table'
-import { User, Star } from 'lucide-react'
+import { User, Star, AlertTriangle } from 'lucide-react'
 import { BADGE_WIDTH as ACUITY_BADGE_WIDTH } from './AcuityBadge'
 import type { GridRow, Column, ParsedAlertRule, CellFormatRule, AcuityLevel } from '../../../shared/types'
 import { isNotTypedColumnType, takesDeadlineRule } from '../../../shared/types'
+import { isNotADate } from '../../../shared/ymd'
 import { getMatchingThreshold, evaluateRuleForRow, formatResultTooltip, deadlineChipText } from '../../utils/deadlineCalc'
 import { resolveAlertColor } from '../../utils/alertColors'
 import { evalCellFormat } from './CellConditionalFormatPanel'
@@ -309,12 +310,18 @@ export const SortableRow = React.memo(function SortableRow({
         let alertChip: string | null = null
         let alertSpoken = ''
         let hasRule = false
+        // A value the deadline engine can't read ("TBD", "2/30/2026") would quietly show no deadline (AUDIT-026)
+        let notADate = false
         if (takesDeadlineRule(col.column_type)) {
           const cfg = parsedColumnConfigs.get(col.id)?.config as { alert_rule_id?: number } | undefined
           if (cfg?.alert_rule_id) {
             const rule = alertRuleMap.get(cfg.alert_rule_id)
             hasRule = !!rule
-            if (rule) {
+            if (rule && isNotADate(value)) {
+              notADate = true
+              alertTooltip = `Pulse can't read this as a date, so no deadline is shown for this ${t('record')}. Pick a date to fix it.`
+              alertSpoken = alertTooltip
+            } else if (rule) {
               // The shared engine (W05): relative and other kinds can be due with this cell empty
               const res = evaluateRuleForRow(rule, value, rowOriginal, col.id)
               const days = res.daysUntil
@@ -513,6 +520,11 @@ export const SortableRow = React.memo(function SortableRow({
               <>
                 {/* The sr-only words below already say how it stands, so the shape isn't read twice */}
                 {alertIcon && <span aria-hidden="true" className="contents">{alertIcon}</span>}
+                {notADate && (
+                  <span className="mr-1.5 inline-flex flex-shrink-0 items-center gap-1 text-sm font-medium text-red-800 dark:text-red-300" data-testid="not-a-date">
+                    <AlertTriangle className="w-4 h-4" aria-hidden="true" />Not a date
+                  </span>
+                )}
                 <CellDisplay column={col} value={value} row={row.original} allColumns={columns} parsedConfig={parsedColumnConfigs.get(col.id)?.config} highlightText={searchQuery} isActiveMatch={findReplaceActiveRowId === rowId && findReplaceActiveColId === col.id} />
                 {isSample && col.is_name_column === 1 && <SamplePill compact />}
                 {alertChip && <span className="ml-1.5 min-w-0 truncate text-sm text-slate-700 dark:text-slate-200" data-testid="deadline-chip">{alertChip}</span>}

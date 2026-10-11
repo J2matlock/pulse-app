@@ -10,7 +10,7 @@
 import { getDb } from './database'
 import { jsPDF, autoTable, lastTableY, atomicWriteFileAsync } from './export-shared'
 import { getRequirementStatus } from './contact-requirements'
-import { getMissingInfo } from './missing-info'
+import { getMissingInfo, missingInfoText } from './missing-info'
 import { contactsComplete, contactsMissing } from '../shared/contactRequirements'
 import { evaluate, engineRuleFrom, referencedColumns, meterHistoryColumn, sequenceAnchor, extensionAnchor, matchExtension, applyExtension, type QuotaConfig, type StoredExtension } from '../shared/deadlineEngine'
 import { loadWorkCalendar, meterHistories, quotaCounts, progressEntries, finishedDates } from './deadlines'
@@ -154,7 +154,7 @@ export function getComplianceSummary(month: string, gridId?: number): Compliance
       gridName: g.name,
       contacts,
       deadlines,
-      missingInfo: { clients: missing?.clients.length ?? 0, exceptions: (missing?.clients ?? []).map(c => ({ clientName: c.clientName, missing: c.missing })) },
+      missingInfo: { clients: missing?.clients.length ?? 0, exceptions: (missing?.clients ?? []).map(c => ({ clientName: c.clientName, missing: missingInfoText(c) })) },
     }
   })
   return { month, asOf, requirementsOn, grids: result }

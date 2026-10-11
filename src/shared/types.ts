@@ -505,8 +505,12 @@ export interface MissingInfoGrid {
   gridName: string
   /** Names of this caseload's required columns */
   requiredColumns: string[]
-  /** Only clients missing at least one required value */
-  clients: Array<{ rowId: number; clientName: string; missing: string[] }>
+  /** Only clients missing at least one required value, or with a date Pulse can't read */
+  clients: Array<{
+    rowId: number; clientName: string; missing: string[]
+    /** Columns with a deadline rule whose value isn't a date Pulse can read, so no deadline is shown (AUDIT-026) */
+    notADate?: string[]
+  }>
 }
 
 // ── Scrap Notes ───────────────────────────────────────────────────────────────

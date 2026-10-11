@@ -19,6 +19,14 @@ export function toYmd(value: string | null | undefined): string | null {
   return d.getMonth() === Number(m[2]) - 1 ? `${m[1]}-${m[2]}-${m[3]}` : null
 }
 
+/**
+ * A filled-in value that isn't a date toYmd can read ("TBD", "2/30/2026", a 5-digit year).
+ * In a column with a deadline rule it means no deadline can be worked out (AUDIT-026).
+ */
+export function isNotADate(value: string | null | undefined): boolean {
+  return !!value && value.trim() !== '' && toYmd(value) === null
+}
+
 export function ymdToDate(ymd: string): Date {
   const [y, m, d] = ymd.split('-').map(Number)
   const date = new Date(y!, m! - 1, d!)

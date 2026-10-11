@@ -6,6 +6,7 @@ import { useAlertStore } from '../../stores/alertStore'
 import { useGridStore } from '../../stores/gridStore'
 import { formatDue, isUsedUp, type DeadlineResult } from '../../../shared/deadlineEngine'
 import { cellText } from '../../../shared/cellText'
+import { isNotADate } from '../../../shared/ymd'
 import { canBeRequired, isMissingValue } from '../../../shared/requiredFields'
 import { LinkCell } from './LinkCell'
 import { pulseEvents } from '../../events'
@@ -268,6 +269,7 @@ export function cellFitText(column: Column, value: string | null, row: GridRow, 
     return rule ? deadlineCellText(evaluateRuleForRow(rule, value, row, column.id), value) : 'Choose a deadline rule'
   }
   if (column.column_type === 'date' && rule) {
+    if (isNotADate(value)) return `   Not a date ${value}`
     const chip = deadlineChipText(evaluateRuleForRow(rule, value, row, column.id), value)
     // Three characters or so for the shape in front of the date
     return `   ${value ? formatDate(value) : '—'}${chip ? `  ${chip}` : ''}`

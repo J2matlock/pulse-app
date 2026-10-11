@@ -234,4 +234,42 @@ describe('SortableRow', () => {
     const row = container.querySelector('[role="row"]')!
     expect(row.className).toContain('bg-blue-50')
   })
+
+  describe('a date Pulse can\'t read in a column with a deadline rule (AUDIT-026)', () => {
+    const rule = { id: 5, name: 'Every year', thresholds: [] } as unknown as import('../../../../src/shared/types').ParsedAlertRule
+    function propsWith(value: string | null, withRule = true): SortableRowProps {
+      const name = makeColumn(1, 'Name')
+      const review = { ...makeColumn(2, 'Annual review', 'date'), config: JSON.stringify(withRule ? { alert_rule_id: 5 } : {}) }
+      const row = { ...makeRow(1), col_2: value } as unknown as GridRow
+      const tanRow = { original: row, getVisibleCells: () => [{ id: 'col_1', column: { id: 'col_1' } }, { id: 'col_2', column: { id: 'col_2' } }] } as unknown as import('@tanstack/react-table').Row<GridRow>
+      return makeProps({
+        row: tanRow,
+        columns: [name, review],
+        columnMap: new Map([[1, name], [2, review]]),
+        alertRuleMap: new Map(withRule ? [[5, rule]] : []),
+        parsedColumnConfigs: new Map([[2, { config: withRule ? { alert_rule_id: 5 } : {}, conditionalFormat: [] }]]) as unknown as SortableRowProps['parsedColumnConfigs'],
+      })
+    }
+
+    it.each(['TBD', '2/30/2026', '2026-02-30', '20260-01-01'])('marks "%s" Not a date, in words, with a plain-language tooltip', value => {
+      const { container } = render(<SortableRow {...propsWith(value)} />)
+      const marker = screen.getByTestId('not-a-date')
+      expect(marker.textContent).toBe('Not a date')
+      const cell = container.querySelector('[data-col-id="2"]')!
+      expect(cell.getAttribute('title')).toBe("Pulse can't read this as a date, so no deadline is shown for this client. Pick a date to fix it.")
+      // The raw value is still shown, so the worker can see what to fix
+      expect(cell.textContent).toContain(value)
+    })
+
+    it('says nothing in a date column without a rule', () => {
+      render(<SortableRow {...propsWith('TBD', false)} />)
+      expect(screen.queryByTestId('not-a-date')).toBeNull()
+    })
+
+    it('uses the workspace words in the tooltip', () => {
+      setWords({ record: { one: 'vehicle', many: 'vehicles', article: 'a' } })
+      const { container } = render(<SortableRow {...propsWith('TBD')} />)
+      expect(container.querySelector('[data-col-id="2"]')!.getAttribute('title')).toContain('for this vehicle.')
+    })
+  })
 })
