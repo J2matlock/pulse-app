@@ -383,6 +383,10 @@ app.on('before-quit', async (event) => {
   clearImportCache()
 
   try {
+    // Quitting while locked: the database is closed (and was backed up when it
+    // locked). Trying again would only record a false "backup failed".
+    if (!isUnlocked()) return
+
     // Checkpoint WAL first to ensure data durability
     try { getDb()?.pragma('wal_checkpoint(PASSIVE)') } catch (err) { logNonFatal('app', 'WAL checkpoint on quit', err) }
 

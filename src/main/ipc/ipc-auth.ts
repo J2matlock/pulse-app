@@ -6,7 +6,7 @@ import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
 import { secureWrap, ok, fail, withCorrelation, assertSafePath } from './ipc-utils'
 import { checkNewPassword } from '../../shared/passwordPolicy'
-import { openDatabase, closeDatabase, resolveDatabasePath, checkCloudSyncPath } from '../database'
+import { openDatabase, closeDatabase, resolveDatabasePath, checkCloudSyncPath, getDb } from '../database'
 import { moveAsideExistingDatabase, restoreBackupOnNewInstall, runAutoBackupOnLock } from '../backup'
 import { describeRestoreError } from '../restore-errors'
 import { stopScheduledBackup, startScheduledBackup } from '../index'
@@ -27,6 +27,10 @@ import {
   setStoredDbPath,
   areCredentialsUnreadable
 } from '../auth'
+
+function databaseIsOpen(): boolean {
+  try { getDb(); return true } catch { return false }
+}
 
 export function registerAuthHandlers(): void {
   secureWrap(IPC.AUTH_IS_SETUP, 'ipc-auth', () => ok(isPasswordSetup()))
@@ -157,8 +161,10 @@ export function registerAuthHandlers(): void {
 
   secureWrap(IPC.AUTH_LOCK, 'ipc-auth', () => {
     stopScheduledBackup()
-    // Back up while the database is still open: many people lock and never quit
-    runAutoBackupOnLock()
+    // Back up while the database is still open: many people lock and never quit.
+    // Already locked (Ctrl+L on the lock screen): nothing to back up, and trying
+    // would record a false "backup failed".
+    if (databaseIsOpen()) runAutoBackupOnLock()
     lockApp()
     closeDatabase()
     return ok(true)

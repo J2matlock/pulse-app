@@ -51,12 +51,13 @@ vi.mock('electron-store', () => {
 })
 
 let testDb: TestDb
+let dbClosed = false
 
 vi.mock('../src/main/database', async () => {
   const actual = await vi.importActual<typeof import('../src/main/database')>('../src/main/database')
   return {
     ...actual,
-    getDb: () => testDb.db,
+    getDb: () => { if (dbClosed) throw new Error('Database is not open'); return testDb.db },
     openDatabase: () => {},
     closeDatabase: () => {},
     resolveDatabasePath: () => '/tmp/test.db',
@@ -323,6 +324,16 @@ describe('AUTH_LOCK', () => {
     await invoke(IPC.AUTH_LOCK)
     expect(mockLockBackup).toHaveBeenCalledTimes(1)
     expect(mockLockBackup.mock.invocationCallOrder[0]!).toBeLessThan(mockLockApp.mock.invocationCallOrder.at(-1)!)
+  })
+
+  it('skips the lock backup when already locked, so no false failure is recorded', async () => {
+    mockLockBackup.mockClear()
+    dbClosed = true
+    try {
+      const r = await invoke(IPC.AUTH_LOCK) as any
+      expect(r.ok).toBe(true)
+      expect(mockLockBackup).not.toHaveBeenCalled()
+    } finally { dbClosed = false }
   })
 })
 
