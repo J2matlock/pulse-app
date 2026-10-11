@@ -151,6 +151,8 @@ export default function TasksView(): React.ReactElement {
       onRedo: () => setUrgentItems(prev => prev.filter(i => i.id !== item.id)),
     })
     if (!done) setUrgentItems(prev => prev.some(i => i.id === item.id) ? prev : [...prev, item])
+    // A repeating one is still open and urgent at its next date: bring it back (bug sweep S2)
+    else if (item.recurrence_rule) void loadUrgentItems()
   }
 
   // Open new task dialog when navigated here via ?action=new

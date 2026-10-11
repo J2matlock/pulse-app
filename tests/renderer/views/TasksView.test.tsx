@@ -127,7 +127,11 @@ vi.mock('../../../src/renderer/views/tasks/TaskGroup', () => ({
   ),
 }))
 vi.mock('../../../src/renderer/views/tasks/UrgentChecklistSection', () => ({
-  UrgentChecklistSection: () => <div data-testid="urgent-section" />,
+  UrgentChecklistSection: ({ items, onToggle }: { items: Array<{ id: number; title: string }>; onToggle: (i: unknown) => void }) => (
+    <div data-testid="urgent-section">
+      {items.map(i => <button key={i.id} onClick={() => onToggle(i)}>{`Tick ${i.title}`}</button>)}
+    </div>
+  ),
 }))
 vi.mock('../../../src/renderer/components/tasks/TaskItem', () => ({
   TaskItem: ({ task }: { task: { title: string } }) => (
@@ -205,6 +209,26 @@ describe('TasksView — interactions', () => {
       await flushEffects()
       expect(screen.getByRole('alert').textContent).toMatch(/couldn.t load your tasks/)
     } finally { data.loadTasks = usual }
+  })
+
+  it('a repeating urgent checklist item ticked off comes back at its next date (bug sweep S2)', async () => {
+    const { setWords, EXISTING_FEATURES } = await import('../vocabFixture')
+    const item = { id: 1, row_id: 2, title: 'Sign consent', client_name: 'Ann', is_completed: 0, due_date: '2026-10-01', recurrence_rule: '{"type":"monthly","interval":1}' }
+    let urgentLoads = 0
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'checklist:get-urgent') { urgentLoads++; return Promise.resolve({ ok: true, data: [urgentLoads === 1 ? item : { ...item, due_date: '2026-11-01' }] }) }
+      if (channel === 'checklist:update-item') return Promise.resolve({ ok: true, data: { sysLogId: null, repeat: { previousDue: '2026-10-01', nextDue: '2026-11-01' } } })
+      return Promise.resolve({ ok: true, data: [] })
+    })
+    setWords(undefined, {}, { ...EXISTING_FEATURES, checklists: true })
+    try {
+      render(<MemoryRouter><TasksView /></MemoryRouter>)
+      await flushEffects()
+      await act(async () => { fireEvent.click(screen.getByText('Tick Sign consent')) })
+      await flushEffects()
+      expect(screen.getByText('Tick Sign consent')).toBeDefined()
+      expect(screen.getByText(/1 urgent/)).toBeDefined()
+    } finally { setWords() }
   })
 
   it('counts urgent checklist items only while Checklists is on', async () => {
