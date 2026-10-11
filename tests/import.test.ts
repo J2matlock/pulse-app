@@ -321,7 +321,7 @@ describe('Excel Parsing — Edge Cases', () => {
 
   describe('date cells west of UTC (S5)', () => {
     const originalTz = process.env.TZ
-    afterEach(() => { process.env.TZ = originalTz })
+    afterEach(() => { if (originalTz === undefined) delete process.env.TZ; else process.env.TZ = originalTz })
 
     for (const tz of ['America/New_York', 'America/Los_Angeles', 'UTC', 'Australia/Sydney']) {
       it(`keeps the calendar day of a real date cell and a date formula in ${tz}`, async () => {
@@ -1078,7 +1078,7 @@ describe('executeImport', () => {
 
 describe('normalizeDate across timezones', () => {
   const originalTz = process.env.TZ
-  afterEach(() => { process.env.TZ = originalTz })
+  afterEach(() => { if (originalTz === undefined) delete process.env.TZ; else process.env.TZ = originalTz })
 
   for (const tz of ['America/New_York', 'UTC', 'Europe/London', 'Australia/Sydney', 'Pacific/Kiritimati']) {
     it(`keeps the calendar day in ${tz}`, () => {

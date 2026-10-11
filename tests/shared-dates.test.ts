@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { localDateString, localDateFromToday, parseDbTimestamp } from '../src/shared/dates'
 
 const originalTz = process.env.TZ
-afterEach(() => { process.env.TZ = originalTz })
+afterEach(() => { if (originalTz === undefined) delete process.env.TZ; else process.env.TZ = originalTz })
 
 describe('localDateString', () => {
   it('uses the local calendar day, not UTC', () => {

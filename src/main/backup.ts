@@ -965,6 +965,18 @@ export async function restoreFromPulseBackup(backupZipPath: string): Promise<str
     await zip.extractEntry(dbEntry.entryName, extractedPath)
     if (!existsSync(extractedPath)) throw new Error('Extraction failed — file missing after extract')
 
+    // A damaged archive can still unzip without error, so check the recorded hash
+    // here too (not only in verifyBackup) before it replaces the current data
+    if (zip.entries.some(e => e.entryName === 'backup-meta.json')) {
+      let meta: { dbSha256?: unknown } | null = null
+      try { meta = JSON.parse((await zip.readEntry('backup-meta.json')).toString('utf8')) as { dbSha256?: unknown } } catch (err) {
+        logger.warn('backup', 'Could not read backup-meta.json — skipping hash check', err)
+      }
+      if (typeof meta?.dbSha256 === 'string' && (await streamHash(extractedPath)) !== meta.dbSha256) {
+        throw new Error('Database file hash mismatch — backup may be corrupted')
+      }
+    }
+
     // Remove stale WAL/SHM BEFORE overwriting, then atomic copy
     removeWalFiles(dbPath)
     atomicCopyFileSync(extractedPath, dbPath)

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { screen, fireEvent } from '@testing-library/react'
 import React from 'react'
 
 // Mock window.api
@@ -55,6 +55,7 @@ vi.mock('../../../../src/renderer/components/contacts/ContactLinkedClients', () 
 import { ContactDetail } from '../../../../src/renderer/components/contacts/ContactDetail'
 import type { Provider } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
+import { renderSettled } from '../../renderSettled'
 
 function makeProvider(overrides: Partial<Provider> = {}): Provider {
   return {
@@ -101,85 +102,85 @@ describe('ContactDetail', () => {
     vi.clearAllMocks()
   })
 
-  it('renders provider name and organization', () => {
+  it('renders provider name and organization', async () => {
     const provider = makeProvider()
-    render(<ContactDetail provider={provider} {...defaultProps} />)
+    await renderSettled(<ContactDetail provider={provider} {...defaultProps} />)
     expect(screen.getByText('Dr. Jane Smith')).toBeTruthy()
     expect(screen.getByText('City Health Clinic')).toBeTruthy()
   })
 
-  it('renders provider title', () => {
+  it('renders provider title', async () => {
     const provider = makeProvider()
-    render(<ContactDetail provider={provider} {...defaultProps} />)
+    await renderSettled(<ContactDetail provider={provider} {...defaultProps} />)
     expect(screen.getByText('Primary Care Physician')).toBeTruthy()
   })
 
-  it('shows availability badge', () => {
+  it('shows availability badge', async () => {
     const provider = makeProvider({ availability_status: 'accepting' })
-    render(<ContactDetail provider={provider} {...defaultProps} />)
+    await renderSettled(<ContactDetail provider={provider} {...defaultProps} />)
     expect(screen.getByText('Accepting')).toBeTruthy()
   })
 
-  it('shows contact info (phone, email, website) on info tab', () => {
+  it('shows contact info (phone, email, website) on info tab', async () => {
     const provider = makeProvider()
-    render(<ContactDetail provider={provider} {...defaultProps} />)
+    await renderSettled(<ContactDetail provider={provider} {...defaultProps} />)
     expect(screen.getByText('555-123-4567')).toBeTruthy()
     expect(screen.getByText('jane@clinic.org')).toBeTruthy()
     expect(screen.getByText('https://clinic.org')).toBeTruthy()
   })
 
-  it('shows category badge', () => {
+  it('shows category badge', async () => {
     const provider = makeProvider({ category_name: 'Medical' })
-    render(<ContactDetail provider={provider} {...defaultProps} />)
+    await renderSettled(<ContactDetail provider={provider} {...defaultProps} />)
     expect(screen.getByText('Medical')).toBeTruthy()
   })
 
-  it('has three tabs: Info, Log, Clients', () => {
+  it('has three tabs: Info, Log, Clients', async () => {
     const provider = makeProvider()
-    render(<ContactDetail provider={provider} {...defaultProps} />)
+    await renderSettled(<ContactDetail provider={provider} {...defaultProps} />)
     expect(screen.getByRole('tab', { name: /Info/ })).toBeTruthy()
     expect(screen.getByRole('tab', { name: /Log/ })).toBeTruthy()
     expect(screen.getByRole('tab', { name: /Clients/ })).toBeTruthy()
   })
 
-  it('switches to Log tab and shows interaction log', () => {
+  it('switches to Log tab and shows interaction log', async () => {
     const provider = makeProvider()
-    render(<ContactDetail provider={provider} {...defaultProps} />)
+    await renderSettled(<ContactDetail provider={provider} {...defaultProps} />)
     fireEvent.click(screen.getByRole('tab', { name: /Log/ }))
     expect(screen.getByTestId('interaction-log')).toBeTruthy()
   })
 
-  it('switches to Clients tab and shows linked clients', () => {
+  it('switches to Clients tab and shows linked clients', async () => {
     const provider = makeProvider()
-    render(<ContactDetail provider={provider} {...defaultProps} />)
+    await renderSettled(<ContactDetail provider={provider} {...defaultProps} />)
     fireEvent.click(screen.getByRole('tab', { name: /Clients/ }))
     expect(screen.getByTestId('linked-clients')).toBeTruthy()
   })
 
-  it('calls onEdit when Edit button is clicked', () => {
+  it('calls onEdit when Edit button is clicked', async () => {
     const provider = makeProvider()
-    render(<ContactDetail provider={provider} {...defaultProps} />)
+    await renderSettled(<ContactDetail provider={provider} {...defaultProps} />)
     fireEvent.click(screen.getByLabelText('Edit provider'))
     expect(defaultProps.onEdit).toHaveBeenCalledOnce()
   })
 
-  it('shows delete confirmation when Delete button clicked', () => {
+  it('shows delete confirmation when Delete button clicked', async () => {
     const provider = makeProvider()
-    render(<ContactDetail provider={provider} {...defaultProps} />)
+    await renderSettled(<ContactDetail provider={provider} {...defaultProps} />)
     fireEvent.click(screen.getByLabelText('Delete provider'))
     expect(screen.getByText(/Are you sure you want to delete/)).toBeTruthy()
   })
 
-  it('shows referral process when present', () => {
+  it('shows referral process when present', async () => {
     const provider = makeProvider({ referral_process: 'Call the front desk' })
-    render(<ContactDetail provider={provider} {...defaultProps} />)
+    await renderSettled(<ContactDetail provider={provider} {...defaultProps} />)
     expect(screen.getByText('Call the front desk')).toBeTruthy()
     expect(screen.getByText('Referral Process')).toBeTruthy()
   })
 
-  it('shows languages when present', () => {
+  it('shows languages when present', async () => {
     const provider = makeProvider({ languages: 'English, Spanish' })
-    render(<ContactDetail provider={provider} {...defaultProps} />)
+    await renderSettled(<ContactDetail provider={provider} {...defaultProps} />)
     expect(screen.getByText('English')).toBeTruthy()
     expect(screen.getByText('Spanish')).toBeTruthy()
   })

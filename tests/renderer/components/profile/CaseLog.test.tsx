@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { screen, fireEvent, waitFor, within } from '@testing-library/react'
 import React from 'react'
 
 const mockInvoke = vi.fn()
@@ -37,6 +37,7 @@ vi.mock('../../../../src/renderer/utils/snippetExpander', () => ({
 import { CaseLog } from '../../../../src/renderer/components/profile/CaseLog'
 import type { CaseLogEntry } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
+import { renderSettled } from '../../renderSettled'
 
 function makeEntry(overrides: Partial<CaseLogEntry> = {}): CaseLogEntry {
   return {
@@ -77,7 +78,7 @@ describe('CaseLog', () => {
       if (channel === 'case-log:create') return Promise.resolve({ ok: true, data: makeEntry({ id: 9 }) })
       return Promise.resolve({ ok: true, data: null })
     })
-    render(<CaseLog rowId={10} />)
+    await renderSettled(<CaseLog rowId={10} />)
     fireEvent.change(screen.getByLabelText('Format'), { target: { value: 'dap' } })
     fireEvent.change(screen.getByLabelText('Data'), { target: { value: 'Home visit' } })
     fireEvent.change(screen.getByLabelText('Plan'), { target: { value: 'Follow up Friday' } })
@@ -92,7 +93,7 @@ describe('CaseLog', () => {
       if (channel === 'case-log:create') return Promise.resolve({ ok: true, data: makeEntry({ id: 9 }) })
       return Promise.resolve({ ok: true, data: null })
     })
-    render(<CaseLog rowId={10} />)
+    await renderSettled(<CaseLog rowId={10} />)
     fireEvent.change(screen.getByPlaceholderText(/Add a note entry/), { target: { value: 'Phone call, 45 min' } })
     fireEvent.click(screen.getByTitle('Add a case note'))
     expect(await screen.findByText(/mentions time/)).toBeTruthy()
@@ -100,13 +101,13 @@ describe('CaseLog', () => {
   })
 
   it('renders the Case Log header', async () => {
-    render(<CaseLog rowId={10} />)
+    await renderSettled(<CaseLog rowId={10} />)
     expect(screen.getByText('Case log')).toBeTruthy()
   })
 
   it('uses generic words in a new workspace', async () => {
     setWords({})
-    render(<CaseLog rowId={10} />)
+    await renderSettled(<CaseLog rowId={10} />)
     expect(screen.getByText('Activity log')).toBeTruthy()
     expect(screen.getByTitle('Add a note')).toBeTruthy()
     await waitFor(() => expect(screen.getByText('No notes yet.')).toBeTruthy())
@@ -115,7 +116,7 @@ describe('CaseLog', () => {
   })
 
   it('shows empty state when no entries', async () => {
-    render(<CaseLog rowId={10} />)
+    await renderSettled(<CaseLog rowId={10} />)
     await waitFor(() => {
       expect(screen.getByText('No case notes yet.')).toBeTruthy()
     })
@@ -132,7 +133,7 @@ describe('CaseLog', () => {
       return Promise.resolve({ ok: true, data: null })
     })
 
-    render(<CaseLog rowId={10} />)
+    await renderSettled(<CaseLog rowId={10} />)
     await waitFor(() => {
       expect(screen.getByText('First entry')).toBeTruthy()
       expect(screen.getByText('Second entry')).toBeTruthy()
@@ -151,7 +152,7 @@ describe('CaseLog', () => {
       return Promise.resolve({ ok: true, data: null })
     })
 
-    render(<CaseLog rowId={10} />)
+    await renderSettled(<CaseLog rowId={10} />)
     await waitFor(() => {
       expect(screen.getByText('(3)')).toBeTruthy()
     })
@@ -169,7 +170,7 @@ describe('CaseLog', () => {
       return Promise.resolve({ ok: true, data: null })
     })
 
-    render(<CaseLog rowId={10} />)
+    await renderSettled(<CaseLog rowId={10} />)
     await waitFor(() => {
       expect(screen.getByText('Called about housing')).toBeTruthy()
     })
@@ -191,7 +192,7 @@ describe('CaseLog', () => {
       return Promise.resolve({ ok: true, data: null })
     })
 
-    render(<CaseLog rowId={10} />)
+    await renderSettled(<CaseLog rowId={10} />)
     await waitFor(() => {
       expect(screen.getByText('Some note')).toBeTruthy()
     })
@@ -213,7 +214,7 @@ describe('CaseLog', () => {
       return Promise.resolve({ ok: true, data: null })
     })
 
-    render(<CaseLog rowId={10} />)
+    await renderSettled(<CaseLog rowId={10} />)
     await waitFor(() => expect(screen.getByText('Some note')).toBeTruthy())
     fireEvent.change(screen.getByLabelText('What to show'), { target: { value: 'changes' } })
     expect(await screen.findByText(/Nothing of this kind yet/)).toBeTruthy()
@@ -231,14 +232,14 @@ describe('CaseLog', () => {
       return Promise.resolve({ ok: true, data: null })
     })
 
-    render(<CaseLog rowId={10} />)
+    await renderSettled(<CaseLog rowId={10} />)
     await waitFor(() => {
       expect(screen.getByText(/Pinned \(1\)/)).toBeTruthy()
     })
   })
 
   it('add button is disabled when content is empty', async () => {
-    render(<CaseLog rowId={10} />)
+    await renderSettled(<CaseLog rowId={10} />)
     await waitFor(() => {
       const addBtn = screen.getByText('Add')
       expect((addBtn as HTMLButtonElement).disabled).toBe(true)
@@ -246,7 +247,7 @@ describe('CaseLog', () => {
   })
 
   it('renders type selector buttons', async () => {
-    render(<CaseLog rowId={10} />)
+    await renderSettled(<CaseLog rowId={10} />)
     // The kinds also appear in the list's "Show" menu, so look in the note box
     const box = within(screen.getByTestId('note-composer'))
     expect(box.getByText('Note')).toBeTruthy()

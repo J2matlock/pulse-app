@@ -206,6 +206,9 @@ async function runStep(name: string, fn: () => string | void | Promise<string | 
     const elapsed = performance.now() - start
     const errMsg = err instanceof Error ? err.message : String(err)
     result = { name, passed: false, durationMs: Math.round(elapsed * 100) / 100, detail: '', error: errMsg }
+    results.push(result)
+    // Recorded for the summary, then rethrown so the step's test actually fails
+    throw err
   }
   results.push(result)
   return result

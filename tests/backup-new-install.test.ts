@@ -44,7 +44,7 @@ vi.mock('electron-store', () => ({
 vi.mock('../src/main/database', () => ({
   getPortableDataDir: () => state.dir,
   resolveDatabasePath: () => join(state.dir, 'pulse.db'),
-  latestSchemaVersion: () => 47,
+  latestSchemaVersion: () => LATEST_SCHEMA,
   setEncryptionKey: (db: { pragma: (s: string) => unknown }, hex: string) => {
     if (!/^[0-9a-f]{64}$/.test(hex)) throw new Error('Invalid database key format')
     db.pragma(`key='${hex}'`)
@@ -57,7 +57,9 @@ vi.mock('../src/main/logger', () => ({
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const BetterSqlite3 = require('better-sqlite3-multiple-ciphers')
-import { setupPassword, generateRecoveryKey, getDbKey, lockApp, isPasswordSetup, verifyAndUnlock } from '../src/main/auth'
+import { setupPassword, generateRecoveryKey, getDbKey, lockApp, isPasswordSetup, verifyAndUnlock, changePassword } from '../src/main/auth'
+import { allMigrations, seedGrid } from './helpers'
+import { createProdFormatDb } from './backupTestUtils'
 import { runManualBackup, restoreBackupOnNewInstall, moveAsideExistingDatabase, withBackupDbFile, runScheduledBackupNow, setScheduledConfig, getScheduledConfig, describeBackupError, getBackupHealth, checkAndRunScheduled, runAutoBackupOnLock, setMaxBackupBytesForTests, MAX_BACKUP_BYTES, verifyBackup, restoreOtherPulseBackup, getBackupMadeInfo } from '../src/main/backup'
 
 function openWithKey(path: string, hex: string) {
@@ -73,16 +75,30 @@ function openWithKey(path: string, hex: string) {
 
 const PWD = 'Old-Computer-Pass-1'
 
-async function makeBackupOnOldComputer(schemaVersion = '31'): Promise<{ backupPath: string; keyHex: string; recoveryKey: string }> {
+const LATEST_SCHEMA = allMigrations[allMigrations.length - 1]?.version ?? 0
+
+/** A real, fully migrated Pulse database (not a toy schema) holding one record named `person` */
+function makeRealDb(dbPath: string, keyHex: string, person: string, schemaVersion?: string): void {
+  const db = createProdFormatDb(dbPath, { hexKey: keyHex })
+  const { rowIds, columnIds } = seedGrid(db, { rowCount: 1, columnCount: 2 })
+  db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)').run(rowIds[0], columnIds[0], person)
+  if (schemaVersion) db.prepare("UPDATE app_meta SET value = ? WHERE key = 'schema_version'").run(schemaVersion)
+  db.pragma('wal_checkpoint(TRUNCATE)')
+  db.close()
+}
+
+/** The record names in the seeded list */
+function personNames(db: { prepare: (sql: string) => { all: () => unknown[] } }): string[] {
+  return (db.prepare(`SELECT c.value FROM cells c JOIN rows r ON r.id = c.row_id JOIN grids g ON g.id = r.grid_id
+    WHERE g.name = 'Test Caseload' ORDER BY c.id`).all() as Array<{ value: string }>).map(r => r.value)
+}
+
+async function makeBackupOnOldComputer(schemaVersion?: string): Promise<{ backupPath: string; keyHex: string; recoveryKey: string }> {
   const dbPath = join(state.dir, 'pulse.db')
   await setupPassword(PWD, 'old hint', dbPath)
   const recoveryKey = await generateRecoveryKey()
   const keyHex = getDbKey().toString('hex')
-  const db = openWithKey(dbPath, keyHex)
-  db.exec(`CREATE TABLE app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-           INSERT INTO app_meta VALUES ('schema_version', '${schemaVersion}');
-           CREATE TABLE clients (name TEXT); INSERT INTO clients VALUES ('Jane Doe');`)
-  db.close()
+  makeRealDb(dbPath, keyHex, 'Jane Doe', schemaVersion)
   const { destPath } = await runManualBackup(join(state.dir, 'usb', 'caseload'))
   return { backupPath: destPath, keyHex, recoveryKey }
 }
@@ -101,7 +117,7 @@ beforeEach(() => {
   state.dir = mkdtempSync(join(tmpdir(), 'pulse-newinstall-'))
 })
 
-describe('Restore on a new computer', () => {
+describe('Restore on a new computer', { timeout: 60_000 }, () => {
   it('opens a backup with the recovery key and re-protects it with a new password', async () => {
     const { backupPath, keyHex, recoveryKey } = await makeBackupOnOldComputer()
     wipeToFreshInstall()
@@ -111,7 +127,7 @@ describe('Restore on a new computer', () => {
 
     expect(getDbKey().toString('hex')).toBe(keyHex)
     const db = openWithKey(join(state.dir, 'pulse.db'), keyHex)
-    expect(db.prepare('SELECT name FROM clients').get()).toEqual({ name: 'Jane Doe' })
+    expect(personNames(db)).toEqual(['Jane Doe'])
     db.close()
 
     lockApp()
@@ -137,6 +153,35 @@ describe('Restore on a new computer', () => {
     expect(readdirSync(state.dir).filter(f => f.startsWith('restore-tmp-'))).toEqual([])
   })
 
+  it('a backup made before a password change still restores with the OLD password (the key is re-wrapped, not changed)', async () => {
+    const { backupPath, keyHex } = await makeBackupOnOldComputer()
+    await changePassword(PWD, 'Changed-Password-22', '')
+    expect(getDbKey().toString('hex')).toBe(keyHex)
+    wipeToFreshInstall()
+
+    await expect(restoreBackupOnNewInstall({ backupPath, secret: 'Changed-Password-22', newPassword: 'New-Computer-Pass', hint: '' }))
+      .rejects.toThrow('Incorrect password or recovery key')
+    expect(existsSync(join(state.dir, 'pulse.db'))).toBe(false)
+
+    await restoreBackupOnNewInstall({ backupPath, secret: PWD, newPassword: 'New-Computer-Pass', hint: '' })
+    expect(getDbKey().toString('hex')).toBe(keyHex)
+    const db = openWithKey(join(state.dir, 'pulse.db'), keyHex)
+    expect(personNames(db)).toEqual(['Jane Doe'])
+    db.close()
+  })
+
+  it('a backup made after a password change restores with the NEW password, not the old one', async () => {
+    const { keyHex } = await makeBackupOnOldComputer()
+    await changePassword(PWD, 'Changed-Password-22', '')
+    const { destPath: backupPath } = await runManualBackup(join(state.dir, 'usb', 'after-change'))
+    wipeToFreshInstall()
+
+    await expect(restoreBackupOnNewInstall({ backupPath, secret: PWD, newPassword: 'New-Computer-Pass', hint: '' }))
+      .rejects.toThrow('Incorrect password or recovery key')
+    await restoreBackupOnNewInstall({ backupPath, secret: 'Changed-Password-22', newPassword: 'New-Computer-Pass', hint: '' })
+    expect(getDbKey().toString('hex')).toBe(keyHex)
+  })
+
   it('moves an existing database aside instead of overwriting it', () => {
     const dbPath = join(state.dir, 'pulse.db')
     writeFileSync(dbPath, 'not empty')
@@ -150,7 +195,7 @@ describe('Restore on a new computer', () => {
     const { backupPath, keyHex } = await makeBackupOnOldComputer()
     const count = await withBackupDbFile(backupPath, (dbFile) => {
       const db = openWithKey(dbFile, keyHex)
-      try { return (db.prepare('SELECT COUNT(*) AS n FROM clients').get() as { n: number }).n } finally { db.close() }
+      try { return personNames(db).length } finally { db.close() }
     })
     expect(count).toBe(1)
     expect(readdirSync(join(state.dir, 'backups')).filter(f => f.startsWith('preview-tmp-'))).toEqual([])
@@ -175,7 +220,7 @@ describe('Scheduled backup "Run now"', { timeout: 60_000 }, () => {
     wipeToFreshInstall()
     await restoreBackupOnNewInstall({ backupPath, secret: recoveryKey, newPassword: 'New-Computer-Pass', hint: '' })
     const db = openWithKey(join(state.dir, 'pulse.db'), keyHex)
-    expect(db.prepare('SELECT name FROM clients').get()).toEqual({ name: 'Jane Doe' })
+    expect(personNames(db)).toEqual(['Jane Doe'])
     db.close()
   })
 
@@ -192,7 +237,7 @@ describe('Scheduled backup "Run now"', { timeout: 60_000 }, () => {
   })
 })
 
-describe('Knowing whether backups are happening', () => {
+describe('Knowing whether backups are happening', { timeout: 60_000 }, () => {
   it('counts a backup saved outside the Pulse folder as a copy somewhere else', async () => {
     await makeBackupOnOldComputer() // saved under the data folder: doesn't count
     expect(getBackupHealth().lastOffsiteISO).toBeNull()
@@ -234,7 +279,7 @@ describe('Knowing whether backups are happening', () => {
   })
 })
 
-describe('Backup size limit', () => {
+describe('Backup size limit', { timeout: 60_000 }, () => {
   afterEach(() => setMaxBackupBytesForTests(null))
 
   it('allows backups far bigger than the old 200 MB limit', () => {
@@ -262,11 +307,7 @@ describe('Restoring another Pulse\'s backup from Settings', { timeout: 60_000 },
     const dbPath = join(state.dir, 'pulse.db')
     await setupPassword(NEW_PWD, '', dbPath)
     const keyHex = getDbKey().toString('hex')
-    const db = openWithKey(dbPath, keyHex)
-    db.exec(`CREATE TABLE app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-             INSERT INTO app_meta VALUES ('schema_version', '43');
-             CREATE TABLE clients (name TEXT); INSERT INTO clients VALUES ('Sam New');`)
-    db.close()
+    makeRealDb(dbPath, keyHex, 'Sam New')
     return keyHex
   }
 
@@ -287,7 +328,7 @@ describe('Restoring another Pulse\'s backup from Settings', { timeout: 60_000 },
     const { safetyPath } = await restoreOtherPulseBackup({ backupPath, secret: PWD, newPassword: 'Chosen-After-Restore-1', hint: '' })
     expect(getDbKey().toString('hex')).toBe(oldKey)
     const db = openWithKey(join(state.dir, 'pulse.db'), oldKey)
-    expect(db.prepare('SELECT name FROM clients').get()).toEqual({ name: 'Jane Doe' })
+    expect(personNames(db)).toEqual(['Jane Doe'])
     db.close()
     lockApp()
     await verifyAndUnlock('Chosen-After-Restore-1')
@@ -297,7 +338,7 @@ describe('Restoring another Pulse\'s backup from Settings', { timeout: 60_000 },
     expect(safetyPath).toMatch(/pulse-pre-restore-.*\.pulse-backup$/)
     const safetyCount = await withBackupDbFile(safetyPath, (dbFile) => {
       const s = openWithKey(dbFile, newKey)
-      try { return (s.prepare("SELECT COUNT(*) AS n FROM clients WHERE name = 'Sam New'").get() as { n: number }).n } finally { s.close() }
+      try { return personNames(s).filter(n => n === 'Sam New').length } finally { s.close() }
     })
     expect(safetyCount).toBe(1)
     const usbCopy = join(state.dir, 'usb', 'safety.pulse-backup')
@@ -308,14 +349,14 @@ describe('Restoring another Pulse\'s backup from Settings', { timeout: 60_000 },
   })
 
   it('refuses a backup from a newer Pulse before changing the data or the password (S4)', async () => {
-    const { backupPath } = await makeBackupOnOldComputer('48')
+    const { backupPath } = await makeBackupOnOldComputer(String(LATEST_SCHEMA + 1))
     wipeToFreshInstall()
     const newKey = await setUpNewComputerWithData()
     await expect(restoreOtherPulseBackup({ backupPath, secret: PWD, newPassword: 'Chosen-After-Restore-1', hint: '' }))
       .rejects.toThrow('made by a newer version of Pulse')
     expect(getDbKey().toString('hex')).toBe(newKey)
     const db = openWithKey(join(state.dir, 'pulse.db'), newKey)
-    expect(db.prepare('SELECT name FROM clients').get()).toEqual({ name: 'Sam New' })
+    expect(personNames(db)).toEqual(['Sam New'])
     db.close()
     expect(readdirSync(state.dir).filter(f => f.startsWith('pulse-orphaned-'))).toEqual([])
     lockApp()
@@ -330,7 +371,7 @@ describe('Restoring another Pulse\'s backup from Settings', { timeout: 60_000 },
       .rejects.toThrow('Incorrect password or recovery key')
     expect(getDbKey().toString('hex')).toBe(newKey)
     const db = openWithKey(join(state.dir, 'pulse.db'), newKey)
-    expect(db.prepare('SELECT name FROM clients').get()).toEqual({ name: 'Sam New' })
+    expect(personNames(db)).toEqual(['Sam New'])
     db.close()
     expect(readdirSync(state.dir).filter(f => f.startsWith('pulse-orphaned-'))).toEqual([])
     lockApp()

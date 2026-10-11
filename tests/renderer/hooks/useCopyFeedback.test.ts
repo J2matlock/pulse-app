@@ -100,8 +100,10 @@ describe('useCopyFeedback (simple)', () => {
       await result.current.copyToClipboard('test')
     })
 
+    expect(vi.getTimerCount()).toBe(1)
     unmount()
-    // Should not throw when timer fires after unmount
+    // The reset timer is cleared, so nothing fires against an unmounted component
+    expect(vi.getTimerCount()).toBe(0)
     vi.advanceTimersByTime(COPY_FEEDBACK_MS)
   })
 })

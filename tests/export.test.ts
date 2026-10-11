@@ -3,59 +3,23 @@
  * special character handling, and supervisor report queries.
  * Tests the data-layer logic directly against real SQLCipher DB.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 import Papa from 'papaparse'
 
 let t: TestDb
+vi.mock('electron', () => ({ app: { getPath: () => '/tmp', isPackaged: false }, BrowserWindow: { getAllWindows: () => [] } }))
+vi.mock('../src/main/database', async () => {
+  const actual = await vi.importActual<typeof import('../src/main/database')>('../src/main/database')
+  return { ...actual, getDb: () => t.db, cachedStmt: (_k: string, sql: string) => t.db.prepare(sql) }
+})
+
+import { formatDate, sanitizeCsvFormula, formatCellValue, stripHtml } from '../src/main/export-shared'
 
 beforeEach(() => { t = createTestDb() })
 afterEach(() => { cleanupTestDb(t) })
 
-// ── Mirrors of export.ts pure functions (tested in isolation) ────────────────
-
-function formatDate(value: string | null, fmt: 'iso' | 'us' | 'eu'): string {
-  if (!value) return ''
-  const d = new Date(value.length === 10 ? value + 'T00:00:00' : value)
-  if (isNaN(d.getTime())) return value
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  if (fmt === 'iso') return `${y}-${m}-${day}`
-  if (fmt === 'us') return `${m}/${day}/${y}`
-  return `${day}/${m}/${y}`
-}
-
-function sanitizeCsvFormula(v: string): string {
-  if (/^[=+\-@\t\r]/.test(v)) return `\t${v}`
-  if (/\r?\n[=+\-@]/.test(v)) return `\t${v}`
-  return v
-}
-
-function formatCellValue(value: string | null, columnType: string, dateFormat: 'iso' | 'us' | 'eu' = 'iso'): string {
-  if (value === null || value === '') return ''
-  switch (columnType) {
-    case 'date': return formatDate(value, dateFormat)
-    case 'checkbox': return (value === 'true' || value === '1') ? 'Yes' : 'No'
-    case 'currency': {
-      const n = parseFloat(value)
-      return isNaN(n) ? sanitizeCsvFormula(value) : '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    }
-    default: return sanitizeCsvFormula(value)
-  }
-}
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-}
-
+// The real export helpers (the file used to test hand-copied mirrors of them)
 // ── CSV Export Logic ─────────────────────────────────────────────────────────
 
 describe('CSV Export Logic', () => {
@@ -194,6 +158,11 @@ describe('CSV Formula Injection Prevention', () => {
     expect(sanitizeCsvFormula('safe\n=evil')).toBe('\tsafe\n=evil')
   })
 
+  it('leaves a negative number in a number column alone, but guards it in a text column', () => {
+    expect(formatCellValue('-5', 'number')).toBe('-5')
+    expect(formatCellValue('-5', 'text')).toBe('\t-5')
+  })
+
   it('leaves normal text unchanged', () => {
     expect(sanitizeCsvFormula('Alice Smith')).toBe('Alice Smith')
     expect(sanitizeCsvFormula('123 Main St')).toBe('123 Main St')
@@ -210,6 +179,10 @@ describe('HTML Stripping', () => {
   it('decodes common HTML entities', () => {
     // &nbsp; → regular space ' ', so the result has a trailing space after the apostrophe space
     expect(stripHtml('&amp; &lt; &gt; &quot; &#39; &nbsp;')).toBe('& < > " \' '+ ' ')
+  })
+
+  it('decodes numeric entities', () => {
+    expect(stripHtml('caf&#233; &#x2014; ok')).toBe('café — ok')
   })
 
   it('handles empty string', () => {
