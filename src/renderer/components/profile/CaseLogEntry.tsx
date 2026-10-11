@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Pin, PinOff, Pencil, Trash2, Check, X, CheckCircle, Ban } from 'lucide-react'
+import { Pin, PinOff, Pencil, Trash2, Check, X, CheckCircle, Ban, Copy } from 'lucide-react'
 import type { CaseLogEntry as CaseLogEntryType } from '../../../shared/types'
 import { formatDateTime } from '../../utils/formatTime'
 import { relativeTime } from '../../utils/relativeTime'
@@ -12,6 +12,7 @@ import { useActivityTypes } from '../../hooks/useActivityTypes'
 import { useMeasures } from '../../hooks/useMeasures'
 import { MeasureInput } from './MeasureInput'
 import { CaseLogEditHistory } from './CaseLogEditHistory'
+import { useCopyFeedback } from '../../hooks/useCopyFeedback'
 import { formatMeasure, parseExtraMeasures, type MeasureDef } from '../../../shared/measures'
 
 interface Props {
@@ -67,6 +68,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
     return d ? [formatMeasure(d, v)] : []
   })
   const [editing, setEditing] = useState(false)
+  const { copied, copyToClipboard } = useCopyFeedback()
   const [editContent, setEditContent] = useState(entry.content)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [voidReason, setVoidReason] = useState('')
@@ -155,6 +157,19 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
         )}
         {isVoided && onRestore && (
           <button type="button" onClick={() => onRestore(entry.id)} className="btn-compact-secondary">Restore</button>
+        )}
+
+        {!editing && (
+          <button
+            type="button"
+            onClick={() => void copyToClipboard(entry.content)}
+            title="Copy the text"
+            aria-label={copied ? 'Copied' : 'Copy'}
+            className="hit-44 p-2 rounded-sm text-slate-500 hover:text-blue-600 hover:bg-slate-100
+                       dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+          >
+            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+          </button>
         )}
 
         {/* Actions (not for system entries or voided notes) */}

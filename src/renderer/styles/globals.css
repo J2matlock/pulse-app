@@ -128,11 +128,17 @@
     line-height: 1.5;
     margin: 0;
     overflow: hidden;  /* Electron app — no page scroll, only internal scroll */
-    user-select: none; /* Prevent accidental text selection on UI chrome */
   }
 
-  /* Allow text selection only inside grid cells and text inputs */
-  input, textarea, [data-selectable] {
+  /* Text can be selected and copied (notes, details, addresses: 3.8). Only the
+     chrome is left out, so clicking buttons and dragging in the list doesn't
+     highlight text. */
+  button, nav, label, summary, [role="tab"], [role="menuitem"], [role="toolbar"],
+  [role="grid"], [role="columnheader"], [draggable="true"], .select-none {
+    user-select: none;
+  }
+
+  input, textarea, [contenteditable="true"], [data-selectable], [role="grid"] input, [role="grid"] textarea {
     user-select: text;
   }
 }
