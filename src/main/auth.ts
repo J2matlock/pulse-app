@@ -324,6 +324,21 @@ async function writePasswordCredentials(
   dbPath: string,
   recovery?: { salt: string; wrapped: string; hash: string }
 ): Promise<void> {
+  commitPasswordCredentials(dbKey, await preparePasswordCredentials(dbKey, password, hint, dbPath, recovery))
+}
+
+/**
+ * Work out every stored value for a credential set without writing anything.
+ * The slow and fallible steps (bcrypt, PBKDF2, the OS vault) all happen here,
+ * so a caller can finish them before it clears the credentials it replaces.
+ */
+async function preparePasswordCredentials(
+  dbKey: Buffer,
+  password: string,
+  hint: string,
+  dbPath: string,
+  recovery?: { salt: string; wrapped: string; hash: string }
+): Promise<Partial<SecureStore>> {
   const normalized = normalizePassword(password)
   // Hash password for quick validation (bcrypt, 12 rounds)
   const passwordHash = await bcrypt.hash(normalized, 12)
@@ -331,21 +346,24 @@ async function writePasswordCredentials(
   const saltPassword = crypto.randomBytes(32)
   const wrapKey = await deriveWrappingKey(normalized, saltPassword)
   const wrappedDbKey = wrapKey256(dbKey.toString('hex'), wrapKey)
+  return {
+    password_hash: secureValue(passwordHash),
+    password_hint: secureValue(hint),
+    salt_password: saltPassword.toString('hex'),
+    wrapped_db_key_password: secureValue(wrappedDbKey),
+    db_path: dbPath,
+    ...(recovery ? {
+      recovery_key_hash: secureValue(recovery.hash),
+      salt_recovery: recovery.salt,
+      wrapped_db_key_recovery: secureValue(recovery.wrapped),
+    } : {}),
+  }
+}
 
+function commitPasswordCredentials(dbKey: Buffer, values: Partial<SecureStore>): void {
   // Atomic write: batch all credential keys into a single store.set() call
   // to prevent inconsistent state if the app crashes mid-write.
-  store.set({
-    password_hash: secureValue(passwordHash) as never,
-    password_hint: secureValue(hint) as never,
-    salt_password: saltPassword.toString('hex') as never,
-    wrapped_db_key_password: secureValue(wrappedDbKey) as never,
-    db_path: dbPath as never,
-    ...(recovery ? {
-      recovery_key_hash: secureValue(recovery.hash) as never,
-      salt_recovery: recovery.salt as never,
-      wrapped_db_key_recovery: secureValue(recovery.wrapped) as never,
-    } : {}),
-  })
+  store.set(values)
 
   // Restrict file permissions so wrapped key material isn't world-readable (0600 = owner only)
   if (process.platform !== 'win32' && existsSync(secureStorePath)) {
@@ -647,17 +665,20 @@ export async function unwrapKeyEnvelope(env: KeyEnvelope, secret: string): Promi
  */
 export async function adoptRestoredDbKey(dbKey: Buffer, env: KeyEnvelope, newPassword: string, hint: string, dbPath: string): Promise<void> {
   assertNewPasswordOk(newPassword)
+  const recovery = env.salt_recovery && env.wrapped_db_key_recovery && env.recovery_key_hash
+    ? { salt: env.salt_recovery, wrapped: env.wrapped_db_key_recovery, hash: env.recovery_key_hash }
+    : undefined
+  // Everything that can fail runs before the working credentials are touched: the
+  // restore puts the old database back on failure, and its password must still open it (A24-02)
+  const values = await preparePasswordCredentials(dbKey, newPassword, hint, dbPath, recovery)
   if (isPasswordSetup()) {
     // Credentials unreadable, or Settings is restoring another Pulse's backup:
     // the old credential file is moved aside, never deleted
     quarantineSecureStore()
     store.clear()
   }
-  const recovery = env.salt_recovery && env.wrapped_db_key_recovery && env.recovery_key_hash
-    ? { salt: env.salt_recovery, wrapped: env.wrapped_db_key_recovery, hash: env.recovery_key_hash }
-    : undefined
   resetFailedAttempts()
-  await writePasswordCredentials(dbKey, newPassword, hint, dbPath, recovery)
+  commitPasswordCredentials(dbKey, values)
   logger.info('auth', 'Credentials rebuilt from backup key envelope', { recoveryCarried: !!recovery })
 }
 

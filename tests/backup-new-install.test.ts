@@ -4,7 +4,7 @@
  * Uses the real auth.ts + backup.ts with a real SQLCipher database.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { mkdtempSync, existsSync, rmSync, readdirSync, writeFileSync, copyFileSync } from 'fs'
+import { mkdtempSync, existsSync, rmSync, readdirSync, writeFileSync, copyFileSync, readFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
@@ -60,6 +60,8 @@ const BetterSqlite3 = require('better-sqlite3-multiple-ciphers')
 import { setupPassword, generateRecoveryKey, getDbKey, lockApp, isPasswordSetup, verifyAndUnlock, changePassword } from '../src/main/auth'
 import { allMigrations, seedGrid } from './helpers'
 import { createProdFormatDb } from './backupTestUtils'
+import { seedWorkspace } from './seedWorkspace'
+import bcrypt from 'bcryptjs'
 import { runManualBackup, restoreBackupOnNewInstall, moveAsideExistingDatabase, withBackupDbFile, runScheduledBackupNow, setScheduledConfig, getScheduledConfig, describeBackupError, getBackupHealth, checkAndRunScheduled, runAutoBackupOnLock, setMaxBackupBytesForTests, MAX_BACKUP_BYTES, verifyBackup, restoreOtherPulseBackup, getBackupMadeInfo } from '../src/main/backup'
 
 function openWithKey(path: string, hex: string) {
@@ -404,5 +406,85 @@ describe('describeBackupError', () => {
     expect(describeBackupError(e('EACCES'))).toMatch(/isn't allowed/)
     expect(describeBackupError(e('ENOSPC'))).toMatch(/full/)
     expect(describeBackupError(new Error('weird'))).toMatch(/couldn't be saved/)
+  })
+})
+
+// ── Plan 1.4: a whole workspace survives the move to a new computer ─────────
+describe('A full workspace restored on a new computer (plan 1.4)', { timeout: 60_000 }, () => {
+  /** Every row of every table in rowid order, BLOBs as hex: equal dumps mean identical data */
+  function dumpAll(db: { prepare: (sql: string) => { all: (...a: unknown[]) => unknown[]; get: (...a: unknown[]) => unknown } }): Record<string, unknown[]> {
+    const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all() as Array<{ name: string }>).map(t => t.name)
+    return Object.fromEntries(tables.map(t => [t, (db.prepare(`SELECT * FROM "${t}" ORDER BY rowid`).all() as Array<Record<string, unknown>>)
+      .map(r => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, Buffer.isBuffer(v) ? `x'${v.toString('hex')}'` : v])))]))
+  }
+
+  async function seededBackupOnOldComputer(): Promise<{ backupPath: string; keyHex: string; recoveryKey: string; dump: Record<string, unknown[]>; blobs: Map<number, Buffer> }> {
+    const dbPath = join(state.dir, 'pulse.db')
+    await setupPassword(PWD, 'old hint', dbPath)
+    const recoveryKey = await generateRecoveryKey()
+    const keyHex = getDbKey().toString('hex')
+    const db = createProdFormatDb(dbPath, { hexKey: keyHex })
+    const seed = seedWorkspace(db, { records: 30, customColumns: 8, today: '2026-10-11' })
+    const dump = dumpAll(db)
+    db.pragma('wal_checkpoint(TRUNCATE)')
+    db.close()
+    const { destPath } = await runManualBackup(join(state.dir, 'usb', 'workspace'))
+    return { backupPath: destPath, keyHex, recoveryKey, dump, blobs: seed.attachmentBytes }
+  }
+
+  it.each(['password', 'recovery key'] as const)('with the old %s: every table identical, attachment bytes included', async (how) => {
+    const { backupPath, keyHex, recoveryKey, dump, blobs } = await seededBackupOnOldComputer()
+    expect(blobs.size).toBeGreaterThan(0)
+    wipeToFreshInstall()
+
+    await restoreBackupOnNewInstall({ backupPath, secret: how === 'password' ? PWD : recoveryKey, newPassword: 'New-Computer-Pass', hint: '' })
+    lockApp()
+    await verifyAndUnlock('New-Computer-Pass')
+    const db = openWithKey(join(state.dir, 'pulse.db'), getDbKey().toString('hex'))
+    try {
+      expect(getDbKey().toString('hex')).toBe(keyHex)
+      expect(dumpAll(db)).toEqual(dump)
+      for (const [id, bytes] of blobs) {
+        const row = db.prepare('SELECT data FROM attachment_blobs WHERE attachment_id = ?').get(id) as { data: Buffer }
+        expect(Buffer.compare(row.data, bytes)).toBe(0)
+      }
+      expect(db.pragma('integrity_check', { simple: true })).toBe('ok')
+    } finally { db.close() }
+  })
+
+  it('a wrong password changes nothing on a computer that already has data', async () => {
+    const { backupPath } = await seededBackupOnOldComputer()
+    wipeToFreshInstall()
+    const dbPath = join(state.dir, 'pulse.db')
+    await setupPassword('New-Computer-Pass-1', '', dbPath)
+    makeRealDb(dbPath, getDbKey().toString('hex'), 'Sam New')
+    const before = readFileSync(dbPath)
+
+    await expect(restoreOtherPulseBackup({ backupPath, secret: 'Not-The-Password-9', newPassword: 'Chosen-After-Restore-1', hint: '' }))
+      .rejects.toThrow('Incorrect password or recovery key')
+    expect(Buffer.compare(readFileSync(dbPath), before)).toBe(0)
+  })
+
+  it('when rebuilding the sign-in data fails, the current password still opens the current data (A24-02)', async () => {
+    const { backupPath } = await seededBackupOnOldComputer()
+    wipeToFreshInstall()
+    const dbPath = join(state.dir, 'pulse.db')
+    await setupPassword('New-Computer-Pass-1', '', dbPath)
+    const newKey = getDbKey().toString('hex')
+    makeRealDb(dbPath, newKey, 'Sam New')
+
+    // e.g. the keyring locks or the disk fills while the new password is being protected
+    const spy = vi.spyOn(bcrypt, 'hash').mockImplementationOnce(async () => { throw new Error('ENOSPC: no space left on device') })
+    try {
+      await expect(restoreOtherPulseBackup({ backupPath, secret: PWD, newPassword: 'Chosen-After-Restore-1', hint: '' })).rejects.toThrow(/ENOSPC/)
+    } finally { spy.mockRestore() }
+
+    expect(isPasswordSetup()).toBe(true)
+    lockApp()
+    await verifyAndUnlock('New-Computer-Pass-1')
+    expect(getDbKey().toString('hex')).toBe(newKey)
+    const db = openWithKey(dbPath, newKey)
+    expect(personNames(db)).toEqual(['Sam New'])
+    db.close()
   })
 })
