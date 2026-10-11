@@ -169,7 +169,7 @@ describe('10G — humanizeError in wrapHandler flow', () => {
       throw new Error('SQLITE_BUSY: database is locked')
     })
     const result = await handler()
-    expect(result).toEqual({ ok: false, error: 'The database is temporarily busy — please try again' })
+    expect(result).toEqual({ ok: false, error: 'Pulse is busy for a moment. Please try again.' })
   })
 })
 

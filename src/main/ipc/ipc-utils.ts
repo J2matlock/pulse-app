@@ -66,19 +66,43 @@ export function isTrustedSenderUrl(url: string): boolean {
 }
 
 // ── Error humanization ────────────────────────────────────────────────────────
+// Neutral wording on purpose: ipc-utils can't reach the vocabulary layer
+// (database.ts imports this file, see CLAUDE.md), and a duplicate or missing
+// value can be a list, a template or a category as easily as a record.
+const MSG = {
+  duplicate: "There's already one with that name. Choose a different name.",
+  missing: "Something that's needed is missing. Fill it in and try again.",
+  inUse: "This is still used somewhere else in Pulse, so it can't be removed yet.",
+  busy: 'Pulse is busy for a moment. Please try again.',
+  readOnly: "Pulse can't save changes because its data file can't be written to. Close Pulse and open it again. If your data is on a USB drive, check that it's connected and not locked.",
+  unreachable: "Pulse can't reach its data folder. If it's on a USB drive or network folder, reconnect it and restart Pulse.",
+  damaged: 'Your data file looks damaged. Restore your most recent backup (Settings → Backup).',
+  diskFull: 'The disk is full. Free up some space, then try again.',
+  notFound: "Pulse couldn't find that file. It may have been moved, renamed or deleted.",
+  noPermission: "Pulse isn't allowed to use that file or folder. Choose a different one.",
+  readOnlyDrive: "That drive can't be written to. Choose a different folder.",
+  noMemory: 'Your computer ran out of memory. Close some other programs and try again.',
+  backupDiskFull: "The backup couldn't be saved. The drive may be full or disconnected.",
+} as const
+
 const ERROR_MAP: Array<[RegExp, string]> = [
-  [/UNIQUE constraint failed/, 'A record with that name already exists'],
-  [/NOT NULL constraint failed/, 'A required field is missing'],
-  [/FOREIGN KEY constraint failed/, 'This record is referenced by other data'],
-  [/SQLITE_CONSTRAINT.*UNIQUE/, 'A record with that name already exists'],
-  [/SQLITE_CONSTRAINT.*NOT NULL/, 'A required field is missing'],
-  [/SQLITE_CONSTRAINT.*FOREIGN KEY/, 'This record is referenced by other data'],
-  [/SQLITE_BUSY/, 'The database is temporarily busy — please try again'],
-  [/SQLITE_READONLY/, 'The database is in read-only mode'],
-  [/ENOENT/, 'The requested file was not found'],
-  [/EACCES|EPERM/, 'Permission denied — check file permissions'],
-  [/ENOMEM/, 'Not enough memory to complete the operation'],
-  [/VACUUM INTO.*failed/, 'Backup failed — disk may be full'],
+  [/UNIQUE constraint failed/, MSG.duplicate],
+  [/NOT NULL constraint failed/, MSG.missing],
+  [/FOREIGN KEY constraint failed/, MSG.inUse],
+  [/SQLITE_CONSTRAINT.*UNIQUE/, MSG.duplicate],
+  [/SQLITE_CONSTRAINT.*NOT NULL/, MSG.missing],
+  [/SQLITE_CONSTRAINT.*FOREIGN KEY/, MSG.inUse],
+  [/VACUUM INTO.*failed/, MSG.backupDiskFull],
+  [/SQLITE_BUSY|database is locked/, MSG.busy],
+  [/SQLITE_READONLY|attempt to write a readonly database/, MSG.readOnly],
+  [/SQLITE_FULL|database or disk is full/, MSG.diskFull],
+  [/SQLITE_CORRUPT|SQLITE_NOTADB|database disk image is malformed|file is not a database/, MSG.damaged],
+  [/SQLITE_IOERR|SQLITE_CANTOPEN|disk I\/O error|unable to open database file/, MSG.unreachable],
+  [/ENOENT/, MSG.notFound],
+  [/EACCES|EPERM/, MSG.noPermission],
+  [/EROFS/, MSG.readOnlyDrive],
+  [/ENOSPC/, MSG.diskFull],
+  [/ENOMEM/, MSG.noMemory],
 ]
 
 /** "There's already a … called that", by the table a UNIQUE constraint names */
@@ -96,21 +120,36 @@ const UNIQUE_BY_TABLE: Record<string, string> = {
 
 /** better-sqlite3 keeps the code in err.code; the message is just "UNIQUE constraint failed: tags.name" */
 const CODE_MAP: Record<string, string> = {
-  SQLITE_CONSTRAINT_UNIQUE: 'A record with that name already exists',
-  SQLITE_CONSTRAINT_PRIMARYKEY: 'A record with that name already exists',
-  SQLITE_CONSTRAINT_NOTNULL: 'A required field is missing',
-  SQLITE_CONSTRAINT_FOREIGNKEY: 'This record is referenced by other data',
-  SQLITE_BUSY: 'The database is temporarily busy — please try again',
-  SQLITE_READONLY: 'The database is in read-only mode',
-  SQLITE_FULL: 'The disk is full — free some space and try again',
-  ENOENT: 'The requested file was not found',
-  EACCES: 'Permission denied — check file permissions',
-  EPERM: 'Permission denied — check file permissions',
+  SQLITE_CONSTRAINT_UNIQUE: MSG.duplicate,
+  SQLITE_CONSTRAINT_PRIMARYKEY: MSG.duplicate,
+  SQLITE_CONSTRAINT_NOTNULL: MSG.missing,
+  SQLITE_CONSTRAINT_FOREIGNKEY: MSG.inUse,
+  SQLITE_FULL: MSG.diskFull,
+  SQLITE_NOTADB: MSG.damaged,
+  ENOENT: MSG.notFound,
+  EACCES: MSG.noPermission,
+  EPERM: MSG.noPermission,
+  EROFS: MSG.readOnlyDrive,
   // Windows: the file is open in another program, most often a CSV still open in Excel
   EBUSY: 'That file is open in another program (such as Excel). Close it there and try again.',
-  ENOSPC: 'The disk is full — free some space and try again',
-  ENOMEM: 'Not enough memory to complete the operation',
+  ENOSPC: MSG.diskFull,
+  ENOMEM: MSG.noMemory,
 }
+
+/**
+ * SQLite extended codes (SQLITE_IOERR_WRITE, SQLITE_READONLY_DBMOVED, …) by
+ * family. Most of these won't go away on a retry, so each says what will help.
+ * Order matters: READONLY_DBMOVED means the data folder vanished, not a lock.
+ */
+const CODE_PREFIX_MAP: Array<[string, string]> = [
+  ['SQLITE_READONLY_DBMOVED', MSG.unreachable],
+  ['SQLITE_BUSY', MSG.busy],
+  ['SQLITE_LOCKED', MSG.busy],
+  ['SQLITE_READONLY', MSG.readOnly],
+  ['SQLITE_IOERR', MSG.unreachable],
+  ['SQLITE_CANTOPEN', MSG.unreachable],
+  ['SQLITE_CORRUPT', MSG.damaged],
+]
 
 const GENERIC = "Something went wrong and the change wasn't saved. Please try again."
 
@@ -130,6 +169,9 @@ export function humanizeError(err: unknown): string {
     if (table && UNIQUE_BY_TABLE[table]) return UNIQUE_BY_TABLE[table]
   }
   if (code && CODE_MAP[code]) return CODE_MAP[code]
+  for (const [prefix, friendly] of CODE_PREFIX_MAP) {
+    if (code.startsWith(prefix)) return friendly
+  }
   for (const [pattern, friendly] of ERROR_MAP) {
     if (pattern.test(raw)) return friendly
   }
