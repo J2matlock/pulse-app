@@ -122,10 +122,30 @@ describe('useGridSelection', () => {
     expect(event.stopPropagation).toHaveBeenCalled()
   })
 
-  it('exposes lastSelectedIndexRef', () => {
+  it('exposes the Shift+click starting record, empty at first', () => {
     const { result } = renderHook(() => useGridSelection({ visualRowIdsRef, activeGridId: 1 }))
-    expect(result.current.lastSelectedIndexRef).toBeDefined()
-    expect(result.current.lastSelectedIndexRef.current).toBeNull()
+    expect(result.current.anchorRowIdRef).toBeDefined()
+    expect(result.current.anchorRowIdRef.current).toBeNull()
+  })
+
+  it('a Shift+click range starts at the clicked record after a re-sort moves it (AUDIT-131)', () => {
+    const ids = { current: [10, 20, 30, 40, 50] } as React.RefObject<number[]>
+    const { result } = renderHook(() => useGridSelection({ visualRowIdsRef: ids, activeGridId: 1 }))
+    act(() => { result.current.handleToggleRowSelect(createMouseEvent(), 20) })
+    // A new sort puts record 20 last
+    ids.current = [50, 40, 30, 10, 20]
+    act(() => { result.current.handleToggleRowSelect(createMouseEvent({ shiftKey: true }), 30) })
+    const updater = mockSetSelectedRowIds.mock.calls[1]![0] as (prev: Set<number>) => Set<number>
+    expect([...updater(new Set())].sort()).toEqual([10, 20, 30])
+  })
+
+  it('switching lists forgets the Shift+click starting point (AUDIT-131)', () => {
+    const { result, rerender } = renderHook(({ gridId }) => useGridSelection({ visualRowIdsRef, activeGridId: gridId }), { initialProps: { gridId: 1 } })
+    act(() => { result.current.handleToggleRowSelect(createMouseEvent(), 50) })
+    rerender({ gridId: 2 })
+    act(() => { result.current.handleToggleRowSelect(createMouseEvent({ shiftKey: true }), 20) })
+    const updater = mockSetSelectedRowIds.mock.calls[1]![0] as (prev: Set<number>) => Set<number>
+    expect([...updater(new Set())]).toEqual([20])
   })
 
   it('exposes selectedRowIdsRef', () => {
