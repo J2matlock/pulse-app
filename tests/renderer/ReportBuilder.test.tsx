@@ -124,6 +124,20 @@ describe('report builder', () => {
     expect(screen.getByRole('button', { name: /Unpin from dashboard/ })).toBeTruthy()
   })
 
+  it('stays unpinned and says so when pinning did not save (A08-5)', async () => {
+    render(<ReportBuilder initial={saved as never} onSaved={vi.fn()} onDeleted={vi.fn()} />)
+    await wait()
+    const base = invoke.getMockImplementation()
+    if (!base) throw new Error('the invoke mock has no implementation')
+    invoke.mockImplementation(async (channel: string, ...args: unknown[]) =>
+      channel === 'settings:update' ? { ok: false, error: 'READ_ONLY' } as never : base(channel, ...args))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Pin to dashboard/ })) })
+    invoke.mockImplementation(base)
+    expect(toast.error).toHaveBeenCalled()
+    expect(toast.success).not.toHaveBeenCalledWith('Pinned to the dashboard')
+    expect(screen.getByRole('button', { name: /Pin to dashboard/ })).toBeTruthy()
+  })
+
   it('shows the engine’s message when a report can’t run', async () => {
     invoke.mockImplementationOnce(async () => ({ ok: true, data: fields }))
     invoke.mockImplementationOnce(async () => ({ ok: false, error: 'This report is taking too long.' }))

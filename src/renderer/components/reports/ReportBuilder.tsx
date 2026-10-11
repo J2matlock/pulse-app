@@ -247,6 +247,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
     const report = savedNow ? await save(false) : initial
     if (!report) return
     const ids = await setReportPinned(report.id, !pinned)
+    if (!ids) { if (savedNow) onSaved(report); return }
     setPinned(ids.includes(report.id))
     toast.success(ids.includes(report.id) ? 'Pinned to the dashboard' : 'Removed from the dashboard')
     // Tell the page about the save only now, so the reopened report sees it pinned
