@@ -202,6 +202,24 @@ describe('CaseLog', () => {
     expect(await screen.findByText('No entries match your search.')).toBeTruthy()
   })
 
+  it('with "Changes only" showing nothing, does not claim the record has no notes', async () => {
+    const entries = [makeEntry({ id: 1, content: 'Some note' })]
+    mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+      if (channel === 'case-log:get') {
+        const opts = args[5] as { logType?: string } | undefined
+        return Promise.resolve({ ok: true, data: opts?.logType === 'system' ? [] : entries })
+      }
+      if (channel === 'snippet:get-all') return Promise.resolve({ ok: true, data: [] })
+      return Promise.resolve({ ok: true, data: null })
+    })
+
+    render(<CaseLog rowId={10} />)
+    await waitFor(() => expect(screen.getByText('Some note')).toBeTruthy())
+    fireEvent.change(screen.getByLabelText('What to show'), { target: { value: 'changes' } })
+    expect(await screen.findByText(/Nothing of this kind yet/)).toBeTruthy()
+    expect(screen.queryByText('No case notes yet.')).toBeNull()
+  })
+
   it('shows pinned section when entries are pinned', async () => {
     const entries = [
       makeEntry({ id: 1, content: 'Pinned entry', is_pinned: 1 }),

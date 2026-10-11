@@ -843,12 +843,15 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
       {/* Entry list */}
       <div className="divide-y divide-slate-100 dark:divide-slate-700/50 max-h-[600px] overflow-y-auto">
         {loading && (
-          <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-8">Loading…</p>
+          <p className="text-base text-slate-500 dark:text-slate-400 text-center py-8">Loading…</p>
         )}
 
         {!loading && filtered.length === 0 && (
-          <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-8">
-            {search ? 'No entries match your search.' : `No ${t('activity', { many: true })} yet.`}
+          <p className="text-base text-slate-500 dark:text-slate-400 text-center py-8">
+            {search ? 'No entries match your search.'
+              : show === 'notes' || show === 'everything' ? `No ${t('activity', { many: true })} yet.`
+              // "Changes only" or one note type: the record may have plenty of other entries
+              : `Nothing of this kind yet. Choose "All ${t('activity', { many: true })}" under Show to see the rest.`}
           </p>
         )}
 
