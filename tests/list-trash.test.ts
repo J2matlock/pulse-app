@@ -5,7 +5,7 @@ import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 let t: TestDb
 vi.mock('../src/main/database', () => ({ getDb: () => t.db, cachedStmt: (_k: string, sql: string) => t.db.prepare(sql) }))
 
-import { trashColumn, restoreColumn, listDeletedColumns, purgeDeletedColumn, trashList, restoreList, listDeletedLists, purgeList } from '../src/main/list-trash'
+import { trashColumn, restoreColumn, listDeletedColumns, purgeDeletedColumn, trashList, restoreList, listDeletedLists, purgeList, forgetPurgedRows } from '../src/main/list-trash'
 
 beforeEach(() => { t = createTestDb() })
 afterEach(() => cleanupTestDb(t))
@@ -106,5 +106,61 @@ describe('a deleted list', () => {
     trashList(g.gridId)
     expect(purgeList(g.gridId)).toBe(true)
     expect(count('SELECT COUNT(*) AS n FROM rows WHERE grid_id = ?', g.gridId)).toBe(0)
+  })
+})
+
+describe('a record removed for good (AUDIT-108)', () => {
+  const snapshotOf = (deletedId: number) => (t.db.prepare('SELECT snapshot FROM deleted_columns WHERE id = ?').get(deletedId) as { snapshot: string }).snapshot
+
+  it('leaves nothing of its values in a deleted column, which still comes back for the others', () => {
+    const g = seedGrid(t.db, { rowCount: 2, columnCount: 2 })
+    const col = g.columnIds[1]!
+    const [keep, gone] = g.rowIds as [number, number]
+    const goneCell = Number(t.db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, 'secret value')").run(gone, col).lastInsertRowid)
+    t.db.prepare("INSERT INTO cell_history (cell_id, row_id, column_id, old_value, new_value) VALUES (?, ?, ?, 'older secret', 'secret value')").run(goneCell, gone, col)
+    const keepCell = Number(t.db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, 'kept')").run(keep, col).lastInsertRowid)
+    t.db.prepare("INSERT INTO cell_history (cell_id, row_id, column_id, old_value, new_value) VALUES (?, ?, ?, NULL, 'kept')").run(keepCell, keep, col)
+    const deletedId = t.db.transaction(() => { const id = trashColumn(col); t.db.prepare('DELETE FROM columns WHERE id = ?').run(col); return id })()
+    expect(snapshotOf(deletedId)).toContain('secret value')
+
+    t.db.transaction(() => { forgetPurgedRows([gone]); t.db.prepare('DELETE FROM rows WHERE id = ?').run(gone) })()
+    expect(snapshotOf(deletedId)).not.toContain('secret')
+    expect(listDeletedColumns(g.gridId)[0]!.values).toBe(1)
+
+    restoreColumn(deletedId)
+    expect(t.db.prepare('SELECT value FROM cells WHERE column_id = ?').all(col)).toEqual([{ value: 'kept' }])
+    expect(count('SELECT COUNT(*) AS n FROM cell_history WHERE cell_id = ?', keepCell)).toBe(1)
+  })
+
+  it('leaves nothing in a deleted list\'s copy of its link columns and links', () => {
+    const cars = seedGrid(t.db, { name: 'Vehicles', rowCount: 1, columnCount: 1 })
+    const people = seedGrid(t.db, { name: 'Customers', rowCount: 2, columnCount: 1 })
+    const typeId = Number(t.db.prepare("INSERT INTO link_types (from_grid_id, to_grid_id, label_forward, label_backward, cardinality) VALUES (?, ?, 'Owner', 'Vehicles', 'many_to_one')").run(cars.gridId, people.gridId).lastInsertRowid)
+    const linkCol = Number(t.db.prepare("INSERT INTO columns (grid_id, name, column_type, position, config) VALUES (?, 'Vehicles', 'link', 5, ?)").run(people.gridId, JSON.stringify({ link_type_id: typeId, direction: 'backward' })).lastInsertRowid)
+    const [keep, gone] = people.rowIds as [number, number]
+    t.db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, 'kept link'), (?, ?, 'secret link')").run(keep, linkCol, gone, linkCol)
+    t.db.prepare('INSERT INTO record_links (link_type_id, from_row_id, to_row_id) VALUES (?, ?, ?), (?, ?, ?)').run(typeId, cars.rowIds[0], keep, typeId, cars.rowIds[0], gone)
+    trashList(cars.gridId)
+
+    t.db.transaction(() => { forgetPurgedRows([gone]); t.db.prepare('DELETE FROM rows WHERE id = ?').run(gone) })()
+    const snap = JSON.parse((t.db.prepare('SELECT deleted_snapshot FROM grids WHERE id = ?').get(cars.gridId) as { deleted_snapshot: string }).deleted_snapshot) as { recordLinks: Array<{ to_row_id: number }> }
+    expect(JSON.stringify(snap)).not.toContain('secret')
+    expect(snap.recordLinks.map(l => l.to_row_id)).toEqual([keep])
+
+    restoreList(cars.gridId)
+    expect(t.db.prepare('SELECT value FROM cells WHERE column_id = ?').all(linkCol)).toEqual([{ value: 'kept link' }])
+    expect(t.db.prepare('SELECT to_row_id FROM record_links WHERE link_type_id = ?').all(typeId)).toEqual([{ to_row_id: keep }])
+  })
+
+  it('removing a list for good takes its records out of other lists\' copies', () => {
+    const cars = seedGrid(t.db, { name: 'Vehicles', rowCount: 1, columnCount: 1 })
+    const people = seedGrid(t.db, { name: 'Customers', rowCount: 1, columnCount: 1 })
+    const typeId = Number(t.db.prepare("INSERT INTO link_types (from_grid_id, to_grid_id, label_forward, label_backward, cardinality) VALUES (?, ?, 'Owner', 'Vehicles', 'many_to_one')").run(cars.gridId, people.gridId).lastInsertRowid)
+    t.db.prepare('INSERT INTO record_links (link_type_id, from_row_id, to_row_id) VALUES (?, ?, ?)').run(typeId, cars.rowIds[0], people.rowIds[0])
+    trashList(cars.gridId)
+    trashList(people.gridId)
+    expect(purgeList(people.gridId)).toBe(true)
+    const snap = JSON.parse((t.db.prepare('SELECT deleted_snapshot FROM grids WHERE id = ?').get(cars.gridId) as { deleted_snapshot: string }).deleted_snapshot) as { recordLinks: unknown[] }
+    expect(snap.recordLinks).toEqual([])
   })
 })
