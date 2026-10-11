@@ -30,7 +30,9 @@ describe('startup error box', () => {
 
   it('is what index.ts shows, with no raw exception text in the box', () => {
     const src = readFileSync(join(__dirname, '../src/main/index.ts'), 'utf8')
-    const box = src.slice(src.indexOf('await initDatabase()'), src.indexOf('app.exit(1)'))
+    const start = src.indexOf('await initDatabase()')
+    expect(start).toBeGreaterThan(-1)
+    const box = src.slice(start, src.indexOf('app.exit(1)', start))
     expect(box).toMatch(/startupFailureText\(PRODUCT_NAME\)/)
     expect(box).toMatch(/dialog\.showErrorBox\(title, message\)/)
     expect(box).not.toMatch(/showErrorBox\([^)]*err/)
