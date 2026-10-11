@@ -2,10 +2,13 @@
  * ipc-contract.ts — Typed IPC contract map.
  *
  * Maps each IPC channel string to its argument tuple and return type.
- * Used by safeInvoke/storeInvoke and window.api.invoke to provide
- * compile-time type checking without modifying existing call sites.
+ * Used by safeInvoke/storeInvoke/mustInvoke and window.api.invoke for
+ * compile-time type checking. Every invokable channel has an entry
+ * (ContractCoverage below fails to compile otherwise), and
+ * src/main/ipc/ipc-contract-check.ts checks the returns against main.
  *
- * Channels not listed here fall through to the untyped overload.
+ * Calls with an explicit generic (`safeInvoke<T>(...)`) still go through the
+ * untyped fallback overload and skip these types; see audit A08-2.
  */
 
 import type {
@@ -16,13 +19,13 @@ import type {
   DeletedRow, AppInfo, SortConfig,
   Provider, ProviderCategory, ProviderInteraction, ProviderClientLink,
   ProviderCustomField, ProviderCustomValue, ContactFilterParams,
-  SaveDialogResult, OpenDialogResult,
+  SaveDialogResult, OpenDialogResult, RecordKind,
+  ChecklistGroup, ChecklistDueItem, TaskGroup, NoteDateUpdate, NoteDateRevert, ContactRequirement, ContactStatusGrid, MissingInfoGrid,
 } from './types'
 import type { Vocab } from './vocab'
 import type { FeatureMap } from './features'
 import type { ActivityType } from './activityTypes'
 import type { MeasureDef, MeasureKind } from './measures'
-import type { ChecklistGroup, ChecklistDueItem, TaskGroup, NoteDateUpdate, NoteDateRevert, ContactRequirement, ContactStatusGrid, MissingInfoGrid } from './types'
 import type { DeadlineResult, MeterInfo, RuleKind } from './deadlineEngine'
 import type { LinkType, LinkTypeInput, LinkedRecord, RowLinks, LinkChange, LinkDirection } from './links'
 import type { StageConfig, StageMoveResult, StageDurations, StageSummary } from './stages'
@@ -32,7 +35,7 @@ import type { Form, FormInput, FormChange } from './forms'
 import type { Attachment, AttachmentUsage } from './attachments'
 import type { ReportSource, ReportField, ReportConfig, ReportResult, SavedReport } from './reports'
 import type { TotalsReport } from './timeMileage'
-import type { RecordKind } from './types'
+import type { StarterSummary, StarterRef, StarterPreview, ApplyOptions, ApplyResult } from './starters/schema'
 import type { IPC, IPCChannel } from './ipc-channels'
 
 /** Search and filter for a record's notes (CASE_LOG_GET / CASE_LOG_COUNT) */
@@ -45,7 +48,6 @@ export interface RowLocation {
   archivedReason: string | null
 }
 
-/** Setup's "Which of these dates repeat?" answer for one date column */
 /** Where an interrupted first-run setup stopped, once it has made a list */
 export interface SetupProgress {
   step: 'sheet-import' | 'sheet-rows' | 'blank'
@@ -55,8 +57,8 @@ export interface SetupProgress {
   blank?: { name: string; kind: RecordKind; one: string; many: string }
 }
 
-export type DateRuleAnswer ={ columnId: number; repeat: 'due' } | { columnId: number; repeat: 'every'; n: number; unit: 'days' | 'months' | 'years' }
-import type { StarterSummary, StarterRef, StarterPreview, ApplyOptions, ApplyResult } from './starters/schema'
+/** Setup's "Which of these dates repeat?" answer for one date column */
+export type DateRuleAnswer = { columnId: number; repeat: 'due' } | { columnId: number; repeat: 'every'; n: number; unit: 'days' | 'months' | 'years' }
 
 // ── Helper types for complex return shapes ────────────────────────────────
 
@@ -77,7 +79,6 @@ export interface WorkspacePatch {
   features?: FeatureMap
 }
 
-/** Return shape for grid:get */
 /** backup:get-status — whether backups are actually happening */
 export interface BackupStatusResult {
   lastAutoBackup: string | null
@@ -91,6 +92,7 @@ export interface BackupStatusResult {
   offsiteOverdue: boolean
 }
 
+/** Return shape for grid:get */
 export interface GridGetResult {
   grid: Grid
   columns: Column[]
@@ -190,8 +192,6 @@ export interface ManualContact {
   value: string
 }
 
-// ── The contract ──────────────────────────────────────────────────────────
-
 /** GRID_DEADLINE_CONTEXT: what the grid needs besides each row to work out deadlines (W05) */
 export interface GridDeadlineContext {
   /** `${rowId}:${readingColumnId}` → meter readings over the last 181 days */
@@ -218,6 +218,8 @@ export interface GridSettingsPatch {
   display_format?: string | null
   acuity_enabled?: boolean
 }
+
+// ── The contract ──────────────────────────────────────────────────────────
 
 export interface IPCContract {
   // ── Grid ────────────────────────────────────────────────────────────────

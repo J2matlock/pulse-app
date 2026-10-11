@@ -1,6 +1,8 @@
 /**
- * deadlineCalc.ts — Pure deadline computation utilities.
- * No side effects, no store access. Can be used on main or renderer.
+ * deadlineCalc.ts — deadline helpers for the renderer.
+ * Most are pure, but evaluateRuleForRow reads the workspace's days off and the
+ * grid's deadline context from their stores at call time, so this module is
+ * renderer-only. Main works deadlines out in src/main/deadlines.ts.
  */
 
 import type { AlertThreshold, GridRow, ParsedAlertRule } from '../../shared/types'
