@@ -317,7 +317,7 @@ export function normalizeDate(value: string, order: 'mdy' | 'dmy' = 'mdy'): stri
  * Day-first or month-first for a whole column: any value with a first number
  * over 12 means day-first (e.g. 25/03/2026). US order otherwise.
  */
-export function detectDateOrder(values: string[]): 'mdy' | 'dmy' {
+export function detectDateOrder(values: string[], fallback: 'mdy' | 'dmy' = 'mdy'): 'mdy' | 'dmy' {
   let dayFirst = 0, monthFirst = 0
   for (const v of values) {
     const m = v.trim().match(/^(\d{1,2})[/.-](\d{1,2})[/.-]\d{2,4}/)
@@ -325,7 +325,21 @@ export function detectDateOrder(values: string[]): 'mdy' | 'dmy' {
     if (Number(m[1]) > 12) dayFirst++
     else if (Number(m[2]) > 12) monthFirst++
   }
+  if (dayFirst === monthFirst) return fallback
   return dayFirst > monthFirst ? 'dmy' : 'mdy'
+}
+
+/** Column types that store a calendar date (a deadline column stores the date last done) */
+function holdsDate(type: string): boolean {
+  return type === 'date' || type === 'deadline'
+}
+
+/** Settings → Date format decides dates like 03/04/2026 that a column doesn't settle itself */
+function preferredDateOrder(): 'mdy' | 'dmy' {
+  try {
+    const v = (getDb().prepare("SELECT value FROM settings WHERE key = 'date_format'").get() as { value: string } | undefined)?.value
+    return v === 'eu' ? 'dmy' : 'mdy'
+  } catch { return 'mdy' }
 }
 
 const LAST_FIRST_RE = /^([A-Za-z][A-Za-z'’ .-]*),\s*([A-Za-z][A-Za-z'’ .-]*)$/
@@ -400,7 +414,8 @@ function normalizeValue(value: string, type: string, cleanData: boolean, dateOrd
   switch (type) {
     case 'phone': return cleanData ? normalizePhone(v) : v
     // Date columns always store YYYY-MM-DD; other text would sort and alert wrongly
-    case 'date': return normalizeDate(v, dateOrder)
+    case 'date':
+    case 'deadline': return normalizeDate(v, dateOrder)
     case 'checkbox': return normalizeCheckbox(v)
     case 'currency': return v.replace(/[$,]/g, '')
     default: return v
@@ -980,8 +995,9 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
 
     // Day-first or month-first, decided per date column from all of its values
     const dateOrders = new Map<number, 'mdy' | 'dmy'>()
+    const fallbackOrder = preferredDateOrder()
     for (const [srcIdx, info] of colMap.entries()) {
-      if (info.type === 'date') dateOrders.set(srcIdx, detectDateOrder(allRows.map(r => String(r[srcIdx] ?? ''))))
+      if (holdsDate(info.type)) dateOrders.set(srcIdx, detectDateOrder(allRows.map(r => String(r[srcIdx] ?? '')), fallbackOrder))
     }
     const flipCols = new Set(options.flipLastFirst
       ? preview.detectedColumns.filter(c => c.lastFirstNames).map(c => c.index)
@@ -1103,10 +1119,10 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
 
             // The destination column's type decides the format (an existing date
             // column gets YYYY-MM-DD even if the samples looked like text)
-            const normalized = info.type === 'date'
+            const normalized = holdsDate(info.type)
               ? importedDate(importRow, srcIdx, true)
               : normalizeValue(rawVal, info.type, cleanData, dateOrders.get(srcIdx))
-            if (info.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+            if (holdsDate(info.type) && !/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
               unreadableDates.set(srcIdx, (unreadableDates.get(srcIdx) ?? 0) + 1)
             }
 

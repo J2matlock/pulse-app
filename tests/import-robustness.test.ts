@@ -136,3 +136,35 @@ describe('CSV structure problems', () => {
     expect(preview.rows[0]).toEqual(['Smith, Jr.', 'He said "hi"'])
   })
 })
+
+// ── Date-like column types (AUDIT-007) ───────────────────────────────────────
+
+describe('dates into deadline columns', () => {
+  it('stores YYYY-MM-DD in an existing deadline column, and flags what it cannot read', async () => {
+    const { gridId, columnIds } = makeGrid([{ name: 'Name', isName: true }, { name: 'Annual review', type: 'deadline' }])
+    const filePath = writeCsv('deadline.csv', 'Name,Annual Review\nTest Person,3/15/2026\nTest Two,soon\n')
+    const preview = await parseImportFile(filePath)
+    const result = await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'none', columnMappings: [{ sourceIndex: 0, action: columnIds[0]! }, { sourceIndex: 1, action: columnIds[1]! }] }, preview)
+    expect(cellsOf(columnIds[1]!)).toEqual(['2026-03-15', 'soon'])
+    expect(result.warnings.join(' ')).toMatch(/didn't look like a date/)
+  })
+
+  it('reads ambiguous dates day-first when the date format setting is day-first', async () => {
+    testDb.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('date_format', 'eu')").run()
+    const { gridId, columnIds } = makeGrid([{ name: 'Name', isName: true }, { name: 'Start', type: 'date' }, { name: 'Review', type: 'deadline' }])
+    const filePath = writeCsv('eu.csv', 'Name,Start,Review\nTest Person,03/04/2026,05/06/2026\n')
+    const preview = await parseImportFile(filePath)
+    await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'none', columnMappings: [0, 1, 2].map(i => ({ sourceIndex: i, action: columnIds[i]! })) }, preview)
+    expect(cellsOf(columnIds[1]!)).toEqual(['2026-04-03'])
+    expect(cellsOf(columnIds[2]!)).toEqual(['2026-06-05'])
+  })
+
+  it('a column that settles the order itself wins over the setting', async () => {
+    testDb.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('date_format', 'eu')").run()
+    const { gridId, columnIds } = makeGrid([{ name: 'Name', isName: true }, { name: 'Start', type: 'date' }])
+    const filePath = writeCsv('us.csv', 'Name,Start\nTest Person,03/04/2026\nTest Two,03/25/2026\n')
+    const preview = await parseImportFile(filePath)
+    await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'none', columnMappings: [0, 1].map(i => ({ sourceIndex: i, action: columnIds[i]! })) }, preview)
+    expect(cellsOf(columnIds[1]!)).toEqual(['2026-03-04', '2026-03-25'])
+  })
+})
