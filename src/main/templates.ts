@@ -255,9 +255,16 @@ export function exportGridAsPulse(gridId: number): PulseFile {
   const ruleById = new Map((db.prepare('SELECT * FROM alert_rules WHERE is_system = 0').all() as AlertRule[]).map(r => [r.id, r]))
   const usedRuleIds = new Set<number>()
   const checklistById = new Map((db.prepare('SELECT id, name FROM checklist_templates').all() as Array<{ id: number; name: string }>).map(c => [c.id, c]))
+  const columnNameById = new Map(columns.map(c => [c.id, c.name]))
   const exportConfig = (config: string): string => {
     try {
       const cfg = JSON.parse(config || '{}') as Record<string, unknown>
+      // Age and Days-until read another column; by name, since its id means nothing elsewhere
+      if ('source_column_id' in cfg) {
+        const source = typeof cfg.source_column_id === 'number' ? columnNameById.get(cfg.source_column_id) : undefined
+        if (source !== undefined) cfg.source_column_name = source
+        delete cfg.source_column_id
+      }
       const rule = typeof cfg.alert_rule_id === 'number' ? ruleById.get(cfg.alert_rule_id) : undefined
       if (rule) { cfg.alert_rule_name = rule.name; usedRuleIds.add(rule.id) }
       const checklist = typeof cfg.done_checklist_id === 'number' ? checklistById.get(cfg.done_checklist_id) : undefined
@@ -501,6 +508,41 @@ function linkColumnConfig(db: ReturnType<typeof getDb>, config: string, ruleIds:
   return JSON.stringify(cfg)
 }
 
+/**
+ * Age and Days-until columns from a file or starter name the column they read
+ * (`source_column_name`); point them at this list's column of that name. An id
+ * from an older file belonged to the database that made it, so it's only kept
+ * when it is one of this list's columns. An Age column left with no source
+ * falls back to the list's birth-date column.
+ */
+export function linkSourceColumns(db: ReturnType<typeof getDb>, gridId: number): void {
+  const cols = db.prepare('SELECT id, name, column_type, config FROM columns WHERE grid_id = ? ORDER BY position, id').all(gridId) as
+    Array<{ id: number; name: string; column_type: string; config: string | null }>
+  const byName = new Map<string, number>()
+  for (const c of cols) if (!byName.has(c.name.trim().toLowerCase())) byName.set(c.name.trim().toLowerCase(), c.id)
+  const ownIds = new Set(cols.map(c => c.id))
+  const birthColumn = cols.find(c => c.column_type === 'date' && looksLikeBirthColumn(c.name))?.id
+  const update = db.prepare('UPDATE columns SET config = ? WHERE id = ?')
+  for (const c of cols) {
+    if (c.column_type !== 'age_from_dob' && c.column_type !== 'calculated_days') continue
+    let cfg: Record<string, unknown>
+    try { cfg = JSON.parse(c.config || '{}') as Record<string, unknown> } catch { continue }
+    if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) continue
+    const before = JSON.stringify(cfg)
+    if (typeof cfg.source_column_name === 'string') {
+      const id = byName.get(cfg.source_column_name.trim().toLowerCase())
+      if (id !== undefined) cfg.source_column_id = id
+      else delete cfg.source_column_id
+      delete cfg.source_column_name
+    } else if (cfg.source_column_id !== undefined && !(typeof cfg.source_column_id === 'number' && ownIds.has(cfg.source_column_id))) {
+      delete cfg.source_column_id
+    }
+    if (cfg.source_column_id === undefined && c.column_type === 'age_from_dob' && birthColumn !== undefined) cfg.source_column_id = birthColumn
+    const after = JSON.stringify(cfg)
+    if (after !== before) update.run(after, c.id)
+  }
+}
+
 /** A file column's stage (by names) becomes the list's stage */
 function applyFileStage(db: ReturnType<typeof getDb>, gridId: number, listName: string): void {
   const cols = db.prepare("SELECT id, name, config FROM columns WHERE grid_id = ? AND json_extract(config, '$.stage_portable') IS NOT NULL").all(gridId) as Array<{ id: number; name: string; config: string }>
@@ -557,6 +599,7 @@ export function applyPulseToNewGrid(pulse: PulseFile): number {
       )
     }
     for (const w of linkColumnRules(db, gridId, pulse.name, pulse.alert_rules, {})) logger.warn('templates', w)
+    linkSourceColumns(db, gridId)
     applyFileStage(db, gridId, pulse.name)
 
     return gridId
@@ -592,6 +635,7 @@ export function applyPulseToExistingGrid(pulse: PulseFile, gridId: number): void
     // Rules that point at columns resolve against this list's columns, new and existing
     const listName = (db.prepare('SELECT name FROM grids WHERE id = ?').get(gridId) as { name: string } | undefined)?.name ?? pulse.name
     for (const w of linkColumnRules(db, gridId, listName, pulse.alert_rules, {})) logger.warn('templates', w)
+    linkSourceColumns(db, gridId)
     // A list keeps the stage it has; a file's stage only lands on a list without one
     if (!stageColumnOf(db.prepare('SELECT column_type, config FROM columns WHERE grid_id = ?').all(gridId) as Array<{ column_type: string; config: string | null }>)) applyFileStage(db, gridId, listName)
     else db.prepare("UPDATE columns SET config = json_remove(config, '$.stage_portable') WHERE grid_id = ? AND json_extract(config, '$.stage_portable') IS NOT NULL").run(gridId)
@@ -672,6 +716,7 @@ import { applyPortableStage, portableStage } from './stage-portable'
 import { portableStageSchema, stageColumnOf, stageConfigOf } from '../shared/stages'
 import { resolvePlaceholders, type ResolveResult } from './placeholders'
 import { canBeRequired } from '../shared/requiredFields'
+import { looksLikeBirthColumn } from '../shared/parseDate'
 export type { LetterTemplate }
 
 export function getLetterTemplates(): LetterTemplate[] {

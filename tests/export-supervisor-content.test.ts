@@ -49,6 +49,23 @@ async function summaryCsv(): Promise<string> {
 }
 
 describe('summary report', () => {
+  it('labels the period with the days chosen, west of UTC too (S5)', async () => {
+    const originalTz = process.env.TZ
+    process.env.TZ = 'America/New_York'
+    try {
+      const destPath = join(testDb.tmpDir, 'period.csv')
+      await exportSupervisorReport({
+        gridId: grid.gridId, columnIds: [], dateRange: { start: '2026-10-01', end: '2026-10-31' },
+        includeActivityLog: false, includeSystemActivity: false, includeTaskSummary: false, format: 'csv', destPath,
+      })
+      const csv = readFileSync(destPath, 'utf8')
+      expect(csv).toContain('Oct 1, 2026 – Oct 31, 2026')
+      expect(csv).not.toContain('Sep 30')
+    } finally {
+      process.env.TZ = originalTz
+    }
+  })
+
   it('counts a task finished today, when the period ends today', async () => {
     testDb.db.prepare("INSERT INTO caseload_tasks (grid_id, title, is_completed, completed_at, position) VALUES (?, 'Finished this afternoon', 1, ?, 0)")
       .run(grid.gridId, new Date().toISOString())

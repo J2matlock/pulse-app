@@ -7,7 +7,7 @@
 
 import { statSync, createReadStream } from 'fs'
 import Papa from 'papaparse'
-import { parseDate, ymdFromParts } from '../shared/parseDate'
+import { parseDate, ymdFromParts, hasTwoDigitYear, looksLikeBirthColumn } from '../shared/parseDate'
 import { localDateString } from '../shared/dates'
 import { VALID_COLUMN_TYPES } from '../shared/types'
 import type { ColumnType } from '../shared/types'
@@ -118,25 +118,24 @@ interface MergedCellInfo {
 // Helpers
 // ──────────────────────────────────────────────────────────────────────────────
 
-/** The value ends in a two-digit year ("3/15/30", "15-Mar-30") */
-function hasTwoDigitYear(value: string): boolean {
-  const v = value.trim()
-  return !v.includes(':') && !/^\d{4}[-/.]/.test(v) && /(^|[^\d])\d{2}$/.test(v) && !/^\d+$/.test(v)
-}
+export { looksLikeBirthColumn }
 
-/** A column for birthdays, by its name */
-export function looksLikeBirthColumn(name: string): boolean {
-  return /\b(dob|d\.o\.b\.?|birth\w*|born)\b/i.test(name)
-}
-
-/** Guess column type from sample values */
-function looksLikeDate(s: string): boolean {
+/** An Excel date serial (5 digits, 1900–2100) */
+function looksLikeDateSerial(s: string): boolean {
   const v = s.trim()
-  // Excel serial date (5-digit number in a plausible date range: 1900-2100)
-  if (/^\d{5}$/.test(v)) {
-    const n = parseInt(v, 10)
-    return n >= 1 && n <= 73050 // 73050 ≈ year 2100
-  }
+  if (!/^\d{5}$/.test(v)) return false
+  const n = parseInt(v, 10)
+  return n >= 1 && n <= 73050 // 73050 ≈ year 2100
+}
+
+/**
+ * A written date. A bare 5-digit number counts only when `allowSerial` is set
+ * (the header names a date): otherwise zip codes and ID numbers would be read
+ * as dates. Real Excel date cells arrive as YYYY-MM-DD, not serials.
+ */
+function looksLikeDate(s: string, allowSerial = false): boolean {
+  const v = s.trim()
+  if (/^\d{5}$/.test(v)) return allowSerial && looksLikeDateSerial(v)
   return parseDate(v) !== null
 }
 
@@ -425,26 +424,32 @@ let _importInProgress = false // prevents concurrent executeImport calls
 const IMPORT_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 const MAX_CACHE_ROWS = 10_000 // Don't cache parsed data exceeding this row count
 
+/**
+ * ExcelJS hands a date cell over as UTC midnight of that calendar day, so the
+ * day is read with UTC getters. Local getters put it a day early west of UTC.
+ */
+function excelDateToYmd(d: Date): string {
+  if (isNaN(d.getTime())) return ''
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+}
+
 /** Convert an ExcelJS cell value to a plain string */
 function excelCellToString(cell: ExcelJS.Cell): string {
   const v = cell.value
   if (v === null || v === undefined) return ''
   if (typeof v === 'string') return v
   if (typeof v === 'number' || typeof v === 'boolean') return String(v)
-  if (v instanceof Date) {
-    // Format as YYYY-MM-DD for date cells
-    const y = v.getFullYear()
-    const m = String(v.getMonth() + 1).padStart(2, '0')
-    const d = String(v.getDate()).padStart(2, '0')
-    return `${y}-${m}-${d}`
-  }
+  if (v instanceof Date) return excelDateToYmd(v)
   // ExcelJS rich text: { richText: [{text: '...'}] }
   if (typeof v === 'object' && 'richText' in v && Array.isArray(v.richText)) {
     return v.richText.map((r: { text: string }) => r.text).join('')
   }
   // ExcelJS formula result
   if (typeof v === 'object' && 'result' in v) {
-    return String((v as { result: unknown }).result ?? '')
+    // =A2+90, =EDATE(...) and =TODAY() formatted as a date give a Date result
+    const result = (v as { result: unknown }).result
+    if (result instanceof Date) return excelDateToYmd(result)
+    return String(result ?? '')
   }
   // ExcelJS hyperlink
   if (typeof v === 'object' && 'hyperlink' in v && 'text' in v) {
@@ -626,16 +631,20 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
 
     // Header-name hint: if the column name strongly suggests a date, and at least some
     // non-empty/non-dash values parse as dates, override to 'date'
-    if (type === 'text') {
-      const nameLower = name.toLowerCase()
-      const dateKeywords = ['date', 'due', 'dob', 'birth', 'expir', 'review', 'deadline', 'assessment', 'contact due',
-        'plan of care', 'last contact', 'start date', 'end date', 'created', 'updated', 'scheduled']
-      const looksLikeDateCol = dateKeywords.some(kw => nameLower.includes(kw))
-      if (looksLikeDateCol) {
-        const meaningful = samples.filter(s => s !== '—' && s !== '-' && s !== 'N/A' && s !== '')
-        if (meaningful.length > 0 && meaningful.some(s => looksLikeDate(s))) {
-          type = 'date'
-        }
+    const nameLower = name.toLowerCase()
+    const dateKeywords = ['date', 'due', 'dob', 'birth', 'expir', 'review', 'deadline', 'assessment', 'contact due',
+      'plan of care', 'last contact', 'start date', 'end date', 'created', 'updated', 'scheduled']
+    const looksLikeDateCol = dateKeywords.some(kw => nameLower.includes(kw))
+    if (looksLikeDateCol) {
+      const meaningful = samples.filter(s => s !== '—' && s !== '-' && s !== 'N/A' && s !== '')
+      if (type === 'text' && meaningful.length > 0 && meaningful.some(s => looksLikeDate(s, true))) {
+        type = 'date'
+      }
+      // A date column saved as plain Excel serials (46096) reads as numbers. Only a header
+      // that says "date" or "birth" counts here, so "Amount due" stays a number.
+      if ((type === 'number' || type === 'currency') && (nameLower.includes('date') || looksLikeBirthColumn(name))
+        && meaningful.length > 0 && meaningful.every(looksLikeDateSerial)) {
+        type = 'date'
       }
     }
 
@@ -968,6 +977,13 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
 
       // Only rows from chunks that commit get numbers later
       const chunkRowIds: number[] = []
+      // The counts and notes from a chunk that rolls back are taken back out too,
+      // so the results screen matches what's in the list
+      const before = {
+        imported, skipped, skippedNames: skippedNames.length, warnings: warnings.length,
+        unreadableDates: new Map(unreadableDates), birthAs1900s: new Map(birthAs1900s),
+        unmatched: new Map([...linkCols].map(([k, lc]) => [k, new Set(lc.unmatched)])),
+      }
       const insertChunk = db.transaction(() => {
         for (let i = chunkStart; i < chunkEnd; i++) {
           const importRow = allRows[i]!
@@ -1024,6 +1040,13 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
         insertChunk()
         newRowIds.push(...chunkRowIds)
       } catch (chunkErr) {
+        imported = before.imported
+        skipped = before.skipped
+        skippedNames.length = before.skippedNames
+        warnings.length = before.warnings
+        unreadableDates.clear(); for (const [k, n] of before.unreadableDates) unreadableDates.set(k, n)
+        birthAs1900s.clear(); for (const [k, n] of before.birthAs1900s) birthAs1900s.set(k, n)
+        for (const [k, lc] of linkCols) lc.unmatched = before.unmatched.get(k) ?? new Set()
         // Chunk failed — log the error. Previously committed chunks are preserved.
         // This is acceptable: the user sees the imported count and can re-attempt.
         logger.error('import', `Chunk failed at rows ${chunkStart + 2}–${chunkEnd + 1}`, {

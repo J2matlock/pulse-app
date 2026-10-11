@@ -180,6 +180,31 @@ describe('applying a starter', () => {
     expect(required()).toEqual(['Name', 'Hired'])
   })
 
+  it('a shared Age column reads the new list\'s birth-date column (S4)', async () => {
+    const { applyStarter, exportWorkspaceStarter } = await starters()
+    const people = {
+      ...shop, lists: [{
+        key: 'people', name: 'People', kind: 'person',
+        columns: [
+          { name: 'Name', column_type: 'text', position: 0, is_name_column: 1 },
+          { name: 'Born', column_type: 'date', position: 1 },
+          { name: 'Age', column_type: 'age_from_dob', position: 2, config: JSON.stringify({ source_column_name: 'Born' }) },
+        ],
+      }], sampleData: undefined,
+    }
+    const res = applyStarter(fileSource(people), { ...all, lists: ['people'] })
+    const ageCfg = (gridId: number) => JSON.parse((testDb.db.prepare("SELECT config FROM columns WHERE grid_id = ? AND name = 'Age'").get(gridId) as { config: string }).config)
+    const bornId = (gridId: number) => (testDb.db.prepare("SELECT id FROM columns WHERE grid_id = ? AND name = 'Born'").get(gridId) as { id: number }).id
+    expect(ageCfg(res.gridIds.people!)).toEqual({ source_column_id: bornId(res.gridIds.people!) })
+
+    // Shared again and applied as a second list: it points at its own column, not the first list's
+    const shared = exportWorkspaceStarter().lists!.find(l => l.name === 'People')!
+    const again = applyStarter(fileSource({ ...people, lists: [shared] }), { ...all, lists: [shared.key] })
+    const second = Object.values(again.gridIds)[0]!
+    expect(second).not.toBe(res.gridIds.people)
+    expect(ageCfg(second)).toEqual({ source_column_id: bornId(second) })
+  })
+
   it('adds only the chosen lists and leaves words and features alone when asked', async () => {
     const { applyStarter } = await starters()
     const res = applyStarter(fileSource(shop), { ...all, lists: ['vehicles'], applyWords: false, applyFeatures: false })

@@ -23,7 +23,7 @@ import Store from 'electron-store'
 import { getStoredDbPath, getDbKey, getKeyEnvelope, isValidKeyEnvelope, unwrapKeyEnvelope, adoptRestoredDbKey } from './auth'
 import { MS_PER_DAY } from '../shared/constants'
 import { LIMIT_MB_RANGE, formatBytes } from '../shared/attachments'
-import { getPortableDataDir, setEncryptionKey, resolveDatabasePath } from './database'
+import { getPortableDataDir, setEncryptionKey, resolveDatabasePath, latestSchemaVersion } from './database'
 const BetterSqlite3 = require('better-sqlite3-multiple-ciphers') as typeof import('better-sqlite3')
 
 // ── Bridge to database.ts (avoids circular require that breaks in bundled builds) ──
@@ -810,6 +810,16 @@ export async function runManualBackup(destPath: string): Promise<ManualBackupRes
 
 const MAX_PRE_MIGRATION_BACKUPS = 5
 
+/** Safety copies made before a restore: the newest few are kept, since each is a whole database (files included) */
+const MAX_PRE_RESTORE_COPIES = 3
+
+function prunePreRestoreCopies(dir: string): void {
+  try {
+    pruneBackups(dir, 'pulse-pre-restore-', '.db', MAX_PRE_RESTORE_COPIES)
+    pruneBackups(dir, 'pulse-pre-restore-', '.pulse-backup', MAX_PRE_RESTORE_COPIES)
+  } catch (err) { logNonFatal('backup', 'prune pre-restore copies', err) }
+}
+
 /**
  * Called by runMigrations() before applying any pending schema upgrades.
  * Checkpoints the WAL so the DB file is self-consistent, then copies it.
@@ -878,6 +888,7 @@ export async function restoreFromDb(backupDbPath: string): Promise<string> {
   const safetyPath = join(safetyDir, `pulse-pre-restore-${nowTimestamp()}.db`)
   if (existsSync(dbPath)) {
     atomicCopyFileSync(dbPath, safetyPath)
+    prunePreRestoreCopies(safetyDir)
   }
 
   // Close DB before overwriting to avoid file-lock issues (especially on Windows)
@@ -926,6 +937,7 @@ export async function restoreFromPulseBackup(backupZipPath: string): Promise<str
   const safetyPath = join(safetyDir, `pulse-pre-restore-${nowTimestamp()}.db`)
   if (existsSync(dbPath)) {
     atomicCopyFileSync(dbPath, safetyPath)
+    prunePreRestoreCopies(safetyDir)
   }
 
   // Close DB before overwriting to avoid file-lock issues (especially on Windows)
@@ -1126,6 +1138,8 @@ export function moveAsideExistingDatabase(dbPath: string): string | null {
   return dest
 }
 
+export const NEWER_BACKUP = 'This backup was made by a newer version of Pulse. Update Pulse on this computer first, then restore it.'
+
 /**
  * Restore a .pulse-backup on a computer that has no usable Pulse credentials
  * (fresh install, or the data folder was copied from another machine).
@@ -1184,6 +1198,8 @@ export async function restoreBackupOnNewInstall(opts: {
 
     // Prove the key opens this exact database before touching anything on disk
     const info = readEncryptedDbInfo(extractedPath, dbKey.toString('hex'))
+    // Before anything is moved or the password changes: this Pulse can't open a newer one's data
+    if (info.schemaVersion > latestSchemaVersion()) throw new Error(NEWER_BACKUP)
 
     const dbPath = resolveDatabasePath()
     const orphaned = moveAsideExistingDatabase(dbPath)
@@ -1241,6 +1257,7 @@ export async function restoreOtherPulseBackup(opts: {
   mkdirSync(safetyDir, { recursive: true, mode: 0o700 })
   const safetyPath = join(safetyDir, `pulse-pre-restore-${nowTimestamp()}.pulse-backup`)
   await createPulseBackup(dbPath, safetyPath, 'pre-restore')
+  prunePreRestoreCopies(safetyDir)
   closeDatabaseIfOpen()
   const { schemaVersion } = await restoreBackupOnNewInstall(opts)
   logger.info('backup', 'Backup from another Pulse restored', { schemaVersion })

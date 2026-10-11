@@ -41,6 +41,7 @@ vi.mock('../src/main/database', () => ({
 // We import parseImportFile directly — it only depends on fs + papaparse + exceljs
 import { parseImportFile, autoMatchColumns, executeImport, clearImportCache, normalizeDate } from '../src/main/import'
 import type { ImportOptions, ImportPreview, ColumnMapping } from '../src/main/import'
+import { parseDate } from '../src/shared/parseDate'
 
 let tmpDir: string
 
@@ -316,6 +317,46 @@ describe('Excel Parsing — Edge Cases', () => {
     // The formula result should be resolved (10), not the formula string
     const doubleIdx = result.headers.indexOf('Double')
     expect(result.rows[0][doubleIdx]).toBe('10')
+  })
+
+  describe('date cells west of UTC (S5)', () => {
+    const originalTz = process.env.TZ
+    afterEach(() => { process.env.TZ = originalTz })
+
+    for (const tz of ['America/New_York', 'America/Los_Angeles', 'UTC', 'Australia/Sydney']) {
+      it(`keeps the calendar day of a real date cell and a date formula in ${tz}`, async () => {
+        process.env.TZ = tz
+        clearImportCache()
+        const filePath = await writeXlsx(`dates-${tz.replace('/', '-')}.xlsx`, (wb) => {
+          const ws = wb.addWorksheet('Data')
+          ws.addRow(['Name', 'Review date', 'Next review'])
+          ws.addRow(['Ann', new Date(Date.UTC(2026, 2, 15)), { formula: 'B2+90', result: new Date(Date.UTC(2026, 5, 13)) }])
+          ws.addRow(['Bo', new Date(Date.UTC(2026, 0, 1)), { formula: 'B3+90', result: new Date(Date.UTC(2026, 3, 1)) }])
+        })
+        const result = await parseImportFile(filePath)
+        expect(result.rows[0]).toEqual(['Ann', '2026-03-15', '2026-06-13'])
+        expect(result.rows[1]).toEqual(['Bo', '2026-01-01', '2026-04-01'])
+        expect(result.detectedColumns[1].detectedType).toBe('date')
+        expect(result.detectedColumns[2].detectedType).toBe('date')
+        clearImportCache()
+      })
+    }
+  })
+})
+
+describe('5-digit numbers (S5)', () => {
+  it('a zip code or ID column is not read as dates', async () => {
+    const csv = 'Zip,Client ID\n60614,10423\n10001,20877\n02139,31555\n'
+    const result = await parseImportFile(writeCsv('zips.csv', csv))
+    expect(result.detectedColumns[0].detectedType).not.toBe('date')
+    expect(result.detectedColumns[1].detectedType).not.toBe('date')
+  })
+
+  it('a column headed as a date that holds Excel serials is still a date', async () => {
+    const csv = 'Start date,Amount due\n46096,46096\n46100,46100\n'
+    const result = await parseImportFile(writeCsv('serials.csv', csv))
+    expect(result.detectedColumns[0].detectedType).toBe('date')
+    expect(result.detectedColumns[1].detectedType).not.toBe('date')
   })
 })
 
@@ -725,11 +766,41 @@ describe('executeImport', () => {
       expect(result.warnings.join(' ')).toMatch(/two-digit year and was read as 19xx/)
     })
 
-    it('uses this year as the cut-off for any two-digit year', () => {
-      const nextYy = (new Date().getFullYear() + 1) % 100
-      expect(normalizeDate(`3/15/${String(nextYy).padStart(2, '0')}`)).toBe(`19${String(nextYy).padStart(2, '0')}-03-15`)
-      expect(normalizeDate('3/15/30')).toBe('1930-03-15')
+    it('reads two-digit years up to 20 years ahead as this century, later ones as the last', () => {
+      const year = new Date().getFullYear()
+      const yy = (n: number) => String(n % 100).padStart(2, '0')
+      // Next year's review date is next year, not a century ago
+      expect(normalizeDate(`1/15/${yy(year + 1)}`)).toBe(`${year + 1}-01-15`)
+      expect(normalizeDate(`3/15/${yy(year + 20)}`)).toBe(`${year + 20}-03-15`)
+      // One past the window is the last century
+      expect(normalizeDate(`3/15/${yy(year + 21)}`)).toBe(`${year + 21 - 100}-03-15`)
+      expect(normalizeDate(`15-Mar-${yy(year + 21)}`)).toBe(`${year + 21 - 100}-03-15`)
+      expect(normalizeDate(`3/15/${yy(year)}`)).toBe(`${year}-03-15`)
     })
+
+    it('a birthday with a two-digit year never lands in the future', () => {
+      const year = new Date().getFullYear()
+      const yy = String((year + 5) % 100).padStart(2, '0')
+      expect(parseDate(`3/15/${yy}`)).toBe(`${year + 5}-03-15`)
+      expect(parseDate(`3/15/${yy}`, 'mdy', { birth: true })).toBe(`${year + 5 - 100}-03-15`)
+      // A past date and a four-digit year are left alone
+      expect(parseDate('3/15/01', 'mdy', { birth: true })).toBe('2001-03-15')
+      expect(parseDate(`3/15/${year + 5}`, 'mdy', { birth: true })).toBe(`${year + 5}-03-15`)
+    })
+  })
+
+  it('a chunk that fails is taken back out of the counts (S4)', async () => {
+    const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }])
+    let csv = 'Name\n'
+    for (let i = 0; i < 120; i++) csv += i === 76 ? 'Boom\n' : `Client ${i}\n`
+    const filePath = writeImportCsv('fails.csv', csv)
+    testDb.db.exec("CREATE TEMP TRIGGER boom BEFORE INSERT ON cells WHEN NEW.value = 'Boom' BEGIN SELECT RAISE(ABORT, 'boom'); END")
+    const preview = await parseImportFile(filePath)
+    const result = await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'none', columnMappings: [{ sourceIndex: 0, action: columnIds[0] }] }, preview)
+    expect(countRows(gridId)).toBe(50)
+    expect(result.imported).toBe(50)
+    expect(result.newRowIds).toHaveLength(50)
+    expect(result.warnings.join(' ')).toMatch(/stopped at row 52/)
   })
 
   it('progress callback fires with correct counts', async () => {

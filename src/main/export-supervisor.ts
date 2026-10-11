@@ -22,6 +22,7 @@ import type { SupervisorReportOptions } from './export-shared'
 import { parseDbTimestamp } from '../shared/dates'
 import { toRuleInterval } from '../shared/ruleInterval'
 import { localDateString } from '../shared/dates'
+import { toYmd, ymdToDate } from '../shared/ymd'
 import { evaluate } from '../shared/deadlineEngine'
 import { loadDeadlines } from './deadlines'
 import { PRODUCT_NAME } from '../shared/constants'
@@ -151,7 +152,12 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   const overdueCount = daysUntil.filter(n => n < 0).length
   const approachingCount = daysUntil.filter(n => n >= 0 && n <= 7).length
 
-  const dateRangeLabel = `${new Date(dateRange.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} \u2013 ${new Date(dateRange.end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+  // The period's ends are calendar days; new Date('2026-10-01') would be UTC midnight, a day early in the US
+  const periodDate = (s: string) => {
+    const ymd = toYmd(s)
+    return (ymd ? ymdToDate(ymd) : parseDbTimestamp(s)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+  const dateRangeLabel = `${periodDate(dateRange.start)} \u2013 ${periodDate(dateRange.end)}`
 
   // Build executive summary paragraph
   const summaryParts: string[] = []

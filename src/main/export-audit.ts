@@ -156,7 +156,9 @@ export function loadAuditTrail(scope: AuditScope): AuditClient[] {
       events.push({ at: ci.completed_at, what: 'Checklist item done', details: ci.title })
     }
 
-    events.sort((a, b) => a.at.localeCompare(b.at))
+    // Checklist ticks are stored as ISO ("…T13:00:00.000Z"), the rest as datetime('now') ("… 15:00:00"); compare instants, not text
+    const instant = (at: string) => { const t = parseDbTimestamp(at).getTime(); return Number.isNaN(t) ? 0 : t }
+    events.sort((a, b) => instant(a.at) - instant(b.at) || a.at.localeCompare(b.at))
     return { rowId: c.id, clientName: c.name, gridName: c.grid_name, events }
   })
 }
