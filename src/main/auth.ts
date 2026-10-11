@@ -418,7 +418,6 @@ export async function verifyAndUnlock(password: string): Promise<{ failedAttempt
   }
 
   const failedAttempts = _getFailedAttempts()
-  resetFailedAttempts()
   const saltHex = store.get('salt_password') as string
   if (!saltHex || !/^[0-9a-f]{64}$/.test(saltHex)) {
     logger.error('auth', 'Password salt missing or corrupted')
@@ -427,7 +426,19 @@ export async function verifyAndUnlock(password: string): Promise<{ failedAttempt
   const salt = Buffer.from(saltHex, 'hex')
   const wrapKey = await deriveWrappingKey(match.value, salt)
   const wrapped = secureGet('wrapped_db_key_password')
-  const rawDbKey = unwrapKey256(wrapped, wrapKey)
+  let rawDbKey: string
+  try {
+    rawDbKey = unwrapKey256(wrapped, wrapKey)
+  } catch (err) {
+    // A pre-1.1.7 hash is bcrypt over the raw password, which only looks at its
+    // first 72 bytes: a different password sharing them passes bcrypt, and only
+    // the key unwrap tells them apart. That's a wrong password, not an error (A24-09).
+    if (!match.legacy) throw err
+    recordFailedAttempt()
+    logger.warn('auth', 'Unlock failed: invalid password', { failedAttempts: _getFailedAttempts() })
+    throw new Error('Incorrect password')
+  }
+  resetFailedAttempts()
 
   setLiveKey(Buffer.from(rawDbKey, 'hex'))
   if (!existsSync(secureStoreBackupPath)) snapshotSecureStore()
