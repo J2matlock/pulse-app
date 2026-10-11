@@ -292,6 +292,12 @@ export default function DashboardView(): React.ReactElement {
     })
   }, [followUps])
 
+  // Done from the Week and Month tabs: like the Priority List, drop the row then reload
+  const dropAndReload = useCallback((rowId: number, columnId: number) => {
+    setRawDeadlines(prev => prev.filter(r => !(r.row_id === rowId && r.column_id === columnId)))
+    void reloadDeadlines()
+  }, [reloadDeadlines])
+
   const rulesInUse = useMemo(() => {
     const ids = new Set(deadlines.map(d => d.alertRuleId).filter((id): id is number => id != null))
     return alertRules.filter(r => ids.has(r.id))
@@ -732,12 +738,13 @@ export default function DashboardView(): React.ReactElement {
 
           {/* This Week tab */}
           {topTab === 'week' && (
-            <WeekViewTab deadlines={deadlines} tasksWithDays={tasksWithDays} checklistWithDays={checklistWithDays} followUpsWithDays={followUpsWithDays} isLoading={showSpinner} />
+            <WeekViewTab deadlines={deadlines} tasksWithDays={tasksWithDays} checklistWithDays={checklistWithDays} followUpsWithDays={followUpsWithDays} isLoading={showSpinner}
+              onMarkDone={dropAndReload} onUndone={reloadDeadlines} />
           )}
 
           {/* This Month tab */}
           {topTab === 'month' && (
-            <MonthViewTab deadlines={deadlines} isLoading={showSpinner} />
+            <MonthViewTab deadlines={deadlines} isLoading={showSpinner} onMarkDone={dropAndReload} onUndone={reloadDeadlines} />
           )}
 
           {/* Recently Archived tab */}

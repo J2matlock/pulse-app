@@ -8,6 +8,10 @@ import { useGridStore } from '../../stores/gridStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { completeDeadlines } from '../../views/dashboard/completeDeadline'
 import { ExtendDeadlineDialog } from '../../views/dashboard/ExtendDeadlineDialog'
+import { MeterReadingDialog } from '../../views/dashboard/MeterReadingDialog'
+import { getClientName } from '../../utils/clientName'
+import { safeInvoke } from '../../utils/safeInvoke'
+import { IPC } from '../../../shared/ipc-channels'
 import { extendDeadline, removeExtension } from '../../views/dashboard/extendDeadline'
 import { localDateString } from '../../../shared/dates'
 import { hasInterval, toRuleInterval } from '../../../shared/ruleInterval'
@@ -106,6 +110,8 @@ interface DateDeadline {
   urgencyScore: number  // lower = more urgent; Infinity for empty dates
   /** The engine's result (W05), for kinds that aren't "date + interval" */
   result: DeadlineResult | null
+  /** The engine's due date and state, for Done and Extend on every card */
+  engine: DeadlineResult | null
 }
 
 export interface DeadlinePanelProps {
@@ -128,7 +134,9 @@ export function DeadlinePanel({
   const progressContext = useGridStore(s => s.deadlineContext.progress)
   const extensionsContext = useGridStore(s => s.deadlineContext.extensions)
   const [stepBusy, setStepBusy] = useState(false)
-  const [extendingCol, setExtendingCol] = useState<Column | null>(null)
+  const [extendingCol, setExtendingCol] = useState<{ col: Column; due: string | null } | null>(null)
+  const [doneBusy, setDoneBusy] = useState<number | null>(null)
+  const [askReading, setAskReading] = useState<{ col: Column; rawValue: string | null; rule: ParsedAlertRule } | null>(null)
   const refreshContext = () => useGridStore.getState().refreshDeadlineContext()
 
   const deadlines: DateDeadline[] = columns
@@ -156,11 +164,11 @@ export function DeadlinePanel({
         const result = evaluateRuleForRow(rule, rawValue, row as unknown as Record<string, unknown>, col.id)
         const d = result.daysUntil
         const threshold = d !== null ? getAlertThreshold(d, rule) : null
-        return { col, rawValue, rule, daysUntil: d, bgClass: threshold?.bgClass ?? null, urgencyScore: d ?? Infinity, result }
+        return { col, rawValue, rule, daysUntil: d, bgClass: threshold?.bgClass ?? null, urgencyScore: d ?? Infinity, result, engine: result }
       }
 
       if (!rawValue) {
-        return { col, rawValue: null, rule, daysUntil: null, bgClass: null, urgencyScore: Infinity, result: null }
+        return { col, rawValue: null, rule, daysUntil: null, bgClass: null, urgencyScore: Infinity, result: null, engine: null }
       }
 
       // The engine too, so an extension (W05) moves the date here as everywhere else
@@ -168,7 +176,7 @@ export function DeadlinePanel({
       const daysUntil = engineResult ? engineResult.daysUntil : computeDaysUntil(rawValue, toRuleInterval(rule))
       // Unparseable date: no color, sort with the empties instead of as "due today"
       if (daysUntil === null) {
-        return { col, rawValue, rule, daysUntil: null, bgClass: null, urgencyScore: Infinity, result: null }
+        return { col, rawValue, rule, daysUntil: null, bgClass: null, urgencyScore: Infinity, result: null, engine: null }
       }
       const threshold = getAlertThreshold(daysUntil, rule)
       return {
@@ -180,6 +188,7 @@ export function DeadlinePanel({
         urgencyScore: daysUntil,
         // Only extended interval deadlines need the engine's text; the rest keep their own display
         result: engineResult?.extended ? engineResult : null,
+        engine: engineResult,
       }
     })
     .sort((a, b) => a.urgencyScore - b.urgencyScore)
@@ -214,6 +223,32 @@ export function DeadlinePanel({
     }
   }
 
+  /** Read the record back after Done (or its undo), so this page shows the new date */
+  async function refreshRow() {
+    const gridId = useGridStore.getState().activeGridId
+    if (gridId) {
+      const res = await safeInvoke<GridRow>(IPC.ROW_GET, gridId, row.row_id)
+      if (res.ok && res.data) useGridStore.setState(s => ({ rows: s.rows.map(r => r.row_id === row.row_id ? { ...r, ...res.data } : r) }))
+    }
+    await useGridStore.getState().refreshDeadlineContext()
+  }
+
+  /** Done, the same as on the dashboard: a repeating date starts its next cycle, a one-off is cleared (R-04, D-22) */
+  async function markDone(col: Column, rawValue: string | null, rule: ParsedAlertRule, reading?: number) {
+    setDoneBusy(col.id)
+    try {
+      let checklistTemplateId: number | null = null
+      try { checklistTemplateId = (JSON.parse(col.config || '{}') as { done_checklist_id?: number }).done_checklist_id ?? null } catch { /* none */ }
+      const done = await completeDeadlines([{
+        rowId: row.row_id, columnId: col.id, columnName: col.name, clientName: getClientName(row, columns),
+        dateValue: rawValue ?? '', interval: toRuleInterval(rule), checklistTemplateId, ruleKind: rule.kind ?? 'interval', reading,
+      }], { onUndone: refreshRow })
+      if (done.length > 0) await refreshRow()
+    } finally {
+      setDoneBusy(null)
+    }
+  }
+
   function startEdit(col: Column, currentValue: string | null) {
     setEditingColId(col.id)
     setEditValue(toInputDate(currentValue))
@@ -243,7 +278,7 @@ export function DeadlinePanel({
       </h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {deadlines.map(({ col, rawValue, rule, daysUntil, bgClass, result }) => {
+        {deadlines.map(({ col, rawValue, rule, daysUntil, bgClass, result, engine }) => {
           const isEditing = editingColId === col.id
           const accentColor = bgClass ? solidColor(bgClass) : '#94a3b8'
           const bgStyle = bgClass ? cardBg(bgClass) : {}
@@ -255,6 +290,10 @@ export function DeadlinePanel({
               : 'text-slate-700 dark:text-slate-200'
           const interval = toRuleInterval(rule)
           const nextDue = rawValue && hasInterval(interval) ? computeEffectiveDeadline(rawValue, interval) : null
+          // The stored date is when it was last done for repeating and worked-out rules; for a plain date it's the due date (R-23)
+          const storedIsLastDone = !!rule && ((rule.kind ?? 'interval') !== 'interval' || hasInterval(interval))
+          const kind = rule?.kind ?? 'interval'
+          const canMarkDone = !!rule && kind !== 'quota' && kind !== 'sequence' && !!engine?.due && engine.state !== 'done' && engine.state !== 'paused'
 
           return (
             <div
@@ -356,9 +395,9 @@ export function DeadlinePanel({
                       className="font-medium text-slate-900 dark:text-slate-100 group-hover:underline decoration-dotted"
                       style={{ fontSize: 15 }}
                     >
-                      {formatDate(rawValue)}
+                      {storedIsLastDone ? `Last done ${formatDate(rawValue)}` : formatDate(rawValue)}
                     </div>
-                    {daysUntil !== null && (
+                    {daysUntil !== null && !result && (
                       <div className={`mt-0.5 font-medium ${urgencyClass}`} style={{ fontSize: 15 }}>
                         {nextDue
                           ? `Next due ${nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · ${formatUrgency(daysUntil).replace(/^Due /, '')}`
@@ -377,9 +416,24 @@ export function DeadlinePanel({
                   </button>
                 )}
 
-                {rule && daysUntil !== null && !result?.extended && !isEditing && (
-                  <button type="button" onClick={() => setExtendingCol(col)}
-                    className="hit-44 mt-1 text-sm text-blue-700 dark:text-blue-300 underline">Extend…</button>
+                {!isEditing && (canMarkDone || (rule && daysUntil !== null && !result?.extended)) && (
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    {canMarkDone && (
+                      <button type="button" disabled={doneBusy === col.id}
+                        onClick={() => { if (kind === 'meter') setAskReading({ col, rawValue, rule: rule! }); else void markDone(col, rawValue, rule!) }}
+                        title={kind === 'meter' ? 'Mark done: asks for the current reading'
+                          : kind !== 'interval' || hasInterval(interval) ? 'Mark done: records today as the day it was done'
+                          : 'Mark done: clears the date. Enter a new date to bring it back.'}
+                        className="hit-44 px-3 py-1 rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-800 dark:text-green-200 text-base font-medium focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500 disabled:opacity-50"
+                        style={{ minHeight: 36 }}>
+                        Done
+                      </button>
+                    )}
+                    {rule && daysUntil !== null && !result?.extended && (
+                      <button type="button" onClick={() => setExtendingCol({ col, due: engine?.due ?? null })}
+                        className="hit-44 text-sm text-blue-700 dark:text-blue-300 underline">Extend…</button>
+                    )}
+                  </div>
                 )}
 
                 {/* Progress bar (only when we have a value and a rule) */}
@@ -397,12 +451,16 @@ export function DeadlinePanel({
         })}
       </div>
       {extendingCol && (
-        <ExtendDeadlineDialog title={extendingCol.name} currentDue={null} onClose={() => setExtendingCol(null)}
+        <ExtendDeadlineDialog title={extendingCol.col.name} currentDue={extendingCol.due} onClose={() => setExtendingCol(null)}
           onSave={(newDue, reason) => {
-            const target = extendingCol
+            const target = extendingCol.col
             setExtendingCol(null)
             void extendDeadline(row.row_id, target.id, target.name, newDue, reason, refreshContext)
           }} />
+      )}
+      {askReading && (
+        <MeterReadingDialog title={askReading.col.name} onClose={() => setAskReading(null)}
+          onSave={reading => { const a = askReading; setAskReading(null); void markDone(a.col, a.rawValue, a.rule, reading) }} />
       )}
     </section>
   )
