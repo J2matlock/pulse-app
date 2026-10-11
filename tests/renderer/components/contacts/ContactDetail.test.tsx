@@ -167,7 +167,10 @@ describe('ContactDetail', () => {
     const provider = makeProvider()
     render(<ContactDetail provider={provider} {...defaultProps} />)
     fireEvent.click(screen.getByLabelText('Delete provider'))
-    expect(screen.getByText(/Are you sure you want to delete/)).toBeTruthy()
+    // Contacts don't go to the Trash, so the dialog says so and the button names the action (AUDIT-060)
+    expect(screen.getByText(/This deletes the provider for good/)).toBeTruthy()
+    expect(screen.getByText(/doesn't go to the Trash/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Delete provider forever' })).toBeTruthy()
   })
 
   it('shows referral process when present', () => {
