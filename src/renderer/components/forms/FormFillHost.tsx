@@ -11,6 +11,8 @@ import { pulseEvents } from '../../events'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useGridStore } from '../../stores/gridStore'
 import { FillFormDialog } from './FillFormDialog'
+import toast from 'react-hot-toast'
+import { wordNow } from '../../utils/vocab'
 
 export function FormFillHost(): React.ReactElement | null {
   const [open, setOpen] = useState<{ form: Form; columns: Column[]; row?: GridRow } | null>(null)
@@ -31,7 +33,12 @@ export function FormFillHost(): React.ReactElement | null {
       columns = [...r.data.columns, ...r.data.hiddenColumns]
       row = rowId !== undefined ? r.data.rows.find(x => x.row_id === rowId) : undefined
     }
-    if (rowId !== undefined && !row) return
+    if (rowId !== undefined && !row) {
+      // An archived record isn't among the loaded rows: fetch it on its own
+      const got = await safeInvoke<GridRow | null>(IPC.ROW_GET, gridId, rowId)
+      if (got.ok && got.data) row = got.data
+      else { toast.error(`We couldn't open that form for this ${wordNow('record')} — try again`); return }
+    }
     setOpen({ form, columns, row })
   }), [])
 

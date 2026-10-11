@@ -57,11 +57,12 @@ export function RecordLetterDialog({ rowId, gridId, clientName, onClose }: {
     }
   }
 
-  /** Once per letter: a note on the timeline that it was sent */
+  /** Once per letter: Pulse's own entry on the timeline that it was sent. Not a user note, so it
+   *  neither counts toward requirements nor moves date columns that follow notes. */
   async function noteIt() {
     if (!logIt || loggedRef.current || !template) return
     loggedRef.current = true
-    const res = await safeInvoke(IPC.CASE_LOG_CREATE, rowId, `Letter: ${template.name}`, 'note', null)
+    const res = await safeInvoke(IPC.CASE_LOG_CREATE, rowId, `Letter: ${template.name}`, 'system', null)
     if (!res.ok) { loggedRef.current = false; toast.error(`We couldn't note the letter on the ${t('activityLog')}.`) }
   }
 

@@ -30,6 +30,7 @@ import type { CaseloadTask, TaskGroup as TaskGroupType, UrgentChecklistItem } fr
 import { safeInvoke, mustInvoke } from '../utils/safeInvoke'
 import { rlog } from '../utils/rendererLogger'
 import { pulseEvents } from '../events'
+import { tickChecklistItem } from '../utils/checklistTick'
 import { LoadingOverlay } from '../components/shared/LoadingSpinner'
 
 import { ViewBreadcrumb } from '../components/shared/ViewBreadcrumb'
@@ -92,11 +93,12 @@ export default function TasksView(): React.ReactElement {
   const loadUrgentItems = useCallback(async () => {
     try {
       const res = await safeInvoke<UrgentChecklistItem[]>(IPC.CHECKLIST_GET_URGENT)
-      if (res.ok) setUrgentItems(res.data)
-      else rlog.error('Tasks', 'CHECKLIST_GET_URGENT failed:', res.error)
+      if (res.ok) { setUrgentItems(res.data); return true }
+      rlog.error('Tasks', 'CHECKLIST_GET_URGENT failed:', res.error)
     } catch (err) {
       rlog.error('Tasks', 'CHECKLIST_GET_URGENT exception:', err)
     }
+    return false
   }, [])
 
   const loadTaskGroups = useCallback(async () => {
@@ -109,12 +111,16 @@ export default function TasksView(): React.ReactElement {
 
   const reloadAll = useCallback(async () => {
     setLoadError(null)
+    // safeInvoke and the store don't throw: a failed load comes back as false,
+    // and "no tasks" would be wrong then
+    const failed = () => setLoadError('We couldn\u2019t load your tasks \u2014 please try again.')
     try {
-      await Promise.all([loadTasks(), loadUrgentItems(), loadTaskGroups()])
+      const [tasksOk, urgentOk] = await Promise.all([loadTasks(), loadUrgentItems(), loadTaskGroups()])
+      if (tasksOk === false || (checklistsOn && !urgentOk)) failed()
     } catch {
-      setLoadError('We couldn\u2019t load your tasks \u2014 please try again.')
+      failed()
     }
-  }, [loadTasks, loadUrgentItems, loadTaskGroups])
+  }, [loadTasks, loadUrgentItems, loadTaskGroups, checklistsOn])
 
   useEffect(() => {
     void reloadAll()
@@ -135,36 +141,11 @@ export default function TasksView(): React.ReactElement {
   async function handleToggleUrgentItem(item: UrgentChecklistItem) {
     // Optimistically remove from list, then persist
     setUrgentItems(prev => prev.filter(i => i.id !== item.id))
-    try {
-      const completedAt = new Date().toISOString()
-      const res = await safeInvoke<{ sysLogId: number | null }>(IPC.CHECKLIST_UPDATE_ITEM, item.id, {
-        is_completed: 1,
-        completed_at: completedAt,
-      })
-      if (res.ok) {
-        const sysLogId = res.data.sysLogId
-        useUndoStore.getState().pushWithToast({
-          id: crypto.randomUUID(),
-          description: `Completed "${item.title}"`,
-          timestamp: Date.now(),
-          category: sysLogId != null ? 'logged' : 'silent',
-          icon: 'check-square',
-          contextLabel: item.client_name ?? undefined,
-          contextId: item.id,
-          sideEffects: sysLogId != null ? [{ type: 'void_case_log', caseLogId: sysLogId }] : undefined,
-          undo: async () => {
-            setUrgentItems(prev => [...prev, item])
-            await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, item.id, { is_completed: 0, completed_at: null })
-            pulseEvents.emit('urgentchecklist:changed')
-          },
-          redo: async () => {
-            setUrgentItems(prev => prev.filter(i => i.id !== item.id))
-            await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, item.id, { is_completed: 1, completed_at: completedAt })
-            pulseEvents.emit('urgentchecklist:changed')
-          },
-        })
-      }
-    } catch { /* ignore */ }
+    const done = await tickChecklistItem(item, {
+      onUndo: () => setUrgentItems(prev => prev.some(i => i.id === item.id) ? prev : [...prev, item]),
+      onRedo: () => setUrgentItems(prev => prev.filter(i => i.id !== item.id)),
+    })
+    if (!done) setUrgentItems(prev => prev.some(i => i.id === item.id) ? prev : [...prev, item])
   }
 
   // Open new task dialog when navigated here via ?action=new
@@ -255,6 +236,8 @@ export default function TasksView(): React.ReactElement {
     if (res.ok) {
       const created = res.data
       setTaskGroups(prev => [...prev, created])
+      // Redo makes the group again under a new id; undo must delete that one
+      let groupId = created.id
       useUndoStore.getState().push({
         id: crypto.randomUUID(),
         description: 'Added task group',
@@ -262,11 +245,12 @@ export default function TasksView(): React.ReactElement {
         category: 'structural',
         icon: 'folder-plus',
         undo: async () => {
-          await mustInvoke(IPC.TASK_GROUP_DELETE, created.id)
+          await mustInvoke(IPC.TASK_GROUP_DELETE, groupId)
           await loadTaskGroups()
         },
         redo: async () => {
-          await mustInvoke(IPC.TASK_GROUP_CREATE, created.name)
+          const again = await mustInvoke<TaskGroupType>(IPC.TASK_GROUP_CREATE, created.name)
+          groupId = again.data.id
           await loadTaskGroups()
         },
       })
@@ -302,6 +286,7 @@ export default function TasksView(): React.ReactElement {
     setTaskGroups(prev => prev.filter(g => g.id !== groupId))
     setConfirmDeleteGroup(null)
     void loadTasks() // Reload to reflect ungrouped tasks
+    let currentId = groupId
     if (deletedGroup) {
       useUndoStore.getState().push({
         id: crypto.randomUUID(),
@@ -310,17 +295,17 @@ export default function TasksView(): React.ReactElement {
         category: 'structural',
         icon: 'trash',
         undo: async () => {
+          // The group comes back under a new id; redo must delete that one
           const res = await mustInvoke<TaskGroupType>(IPC.TASK_GROUP_CREATE, deletedGroup.name)
-          if (res.ok) {
-            for (const t of affectedTasks) {
-              await mustInvoke(IPC.TASK_MOVE_TO_GROUP, t.id, res.data.id)
-            }
+          currentId = res.data.id
+          for (const t of affectedTasks) {
+            await mustInvoke(IPC.TASK_MOVE_TO_GROUP, t.id, currentId)
           }
           await loadTaskGroups()
           await loadTasks()
         },
         redo: async () => {
-          await mustInvoke(IPC.TASK_GROUP_DELETE, groupId)
+          await mustInvoke(IPC.TASK_GROUP_DELETE, currentId)
           await loadTaskGroups()
           await loadTasks()
         },
@@ -386,6 +371,8 @@ export default function TasksView(): React.ReactElement {
   )
 
   const totalActive = activeRaw.filter(t => !recentlyCheckedIds.has(t.id)).length
+  // Urgent checklist items only count while the Checklists feature (and its section) is on
+  const shownUrgentCount = checklistsOn ? urgentItems.length : 0
   const totalAll = totalActive + completedTasks.length
   const progressPct = totalAll > 0 ? Math.round((completedTasks.length / totalAll) * 100) : 0
   const progressColor = progressPct === 100 ? '#22c55e' : progressPct >= 50 ? '#eab308' : '#94a3b8'
@@ -419,10 +406,13 @@ export default function TasksView(): React.ReactElement {
     await reorderTasks(newOrder.map(i => i.id))
   }, [reorderTasks, taskGroups])
 
-  const applyTaskTemplate = useCallback(async (templateId: number, groupId: number | null, createdGroupId?: number | null) => {
+  /** createdGroupName: the template went into a group made just for it, which undo removes and redo makes again */
+  const applyTaskTemplate = useCallback(async (templateId: number, groupId: number | null, createdGroupName?: string) => {
     const result = await safeInvoke<{ createdIds: number[] }>(IPC.TASK_APPLY_TEMPLATE, templateId, groupId)
     if (result.ok) {
-      const { createdIds } = result.data
+      // Redo creates new tasks (and a new group), so undo and redo track the current ids
+      let createdIds = result.data.createdIds
+      let targetGroupId = groupId
       await loadTasks()
       if (createdIds.length > 0) {
         useUndoStore.getState().push({
@@ -433,13 +423,19 @@ export default function TasksView(): React.ReactElement {
           icon: 'clipboard-list',
           undo: async () => {
             for (const id of createdIds) await mustInvoke(IPC.TASK_DELETE, id)
-            if (createdGroupId) await mustInvoke(IPC.TASK_GROUP_DELETE, createdGroupId)
+            if (createdGroupName !== undefined && targetGroupId != null) await mustInvoke(IPC.TASK_GROUP_DELETE, targetGroupId)
             await loadTasks()
             await loadTaskGroups()
           },
           redo: async () => {
-            await mustInvoke(IPC.TASK_APPLY_TEMPLATE, templateId, groupId)
+            if (createdGroupName !== undefined) {
+              const group = await mustInvoke<TaskGroupType>(IPC.TASK_GROUP_CREATE, createdGroupName)
+              targetGroupId = group.data.id
+            }
+            const again = await mustInvoke<{ createdIds: number[] }>(IPC.TASK_APPLY_TEMPLATE, templateId, targetGroupId)
+            createdIds = again.data.createdIds
             await loadTasks()
+            await loadTaskGroups()
           },
         })
       }
@@ -463,7 +459,7 @@ export default function TasksView(): React.ReactElement {
         <ClipboardList className="w-5 h-5 text-slate-500" />
         <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 min-w-0">Tasks</h1>
         <span className="text-sm text-slate-500 dark:text-slate-400">
-          {totalActive} active{urgentItems.length > 0 && ` · ${urgentItems.length} urgent`}{overdueTasks.length > 0 && ` · ${overdueTasks.length} overdue`}
+          {totalActive} active{shownUrgentCount > 0 && ` · ${shownUrgentCount} urgent`}{overdueTasks.length > 0 && ` · ${overdueTasks.length} overdue`}
         </span>
 
         <button
@@ -534,7 +530,7 @@ export default function TasksView(): React.ReactElement {
             <LoadingOverlay label="Loading tasks…" />
           )}
 
-          {!loading && tasks.length === 0 && urgentItems.length === 0 && (
+          {!loading && !loadError && tasks.length === 0 && shownUrgentCount === 0 && (
             <div className="flex flex-col items-center">
               <EmptyState
                 icon={<ClipboardList className="w-12 h-12" />}
@@ -543,7 +539,7 @@ export default function TasksView(): React.ReactElement {
                 action={{ label: 'Add your first task', onClick: () => setShowAddDialog(true) }}
               />
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-                Tip: Press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-xs font-mono">Ctrl+Shift+T</kbd> to quickly add a task
+                Tip: Press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-sm font-mono">Ctrl+Shift+T</kbd> to quickly add a task
               </p>
             </div>
           )}
@@ -557,7 +553,7 @@ export default function TasksView(): React.ReactElement {
             />
           )}
 
-          {!loading && (tasks.length > 0 || urgentItems.length > 0) && (
+          {!loading && (tasks.length > 0 || shownUrgentCount > 0) && (
             <>
               {sortMode !== 'manual' ? (
                 /* Sorted by due date or priority: one list, no dragging (audit S-20) */
@@ -874,7 +870,7 @@ export default function TasksView(): React.ReactElement {
                 setTaskGroups(prev => [...prev, res.data])
                 const tid = pendingTemplateId
                 setPendingTemplateId(null)
-                void applyTaskTemplate(tid, res.data.id, res.data.id)
+                void applyTaskTemplate(tid, res.data.id, res.data.name)
               }
             }}
             onCancel={() => setPendingTemplateId(null)}

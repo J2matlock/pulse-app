@@ -87,6 +87,11 @@ describe('days off (D-18)', () => {
     expect(evaluate(rule(2), { today: '2026-01-05', columnDate: '2026-01-03' })).toMatchObject({ due: '2026-01-12', detail: expect.stringMatching(/working day after/) })
     expect(evaluate(rule(0), { today: '2026-01-05', columnDate: '2026-01-03' }).due).toBe('2026-01-10')
   })
+
+  it('words a last-day date without nested parentheses', () => {
+    const r = evaluate(calendar({ months: [10], day: 'last' }), { today: '2026-10-11', columnDate: null })
+    expect(r.detail).toBe('Due Oct 31, 2026 (last day of Oct)')
+  })
   it('can count working days after the date in this column', () => {
     const r = engineRuleFrom({ id: 1, kind: 'relative', rule_config: JSON.stringify({ kind: 'relative', anchorColumnId: 'self', offset: { businessDays: 10, direction: 'after' } }) })
     // Fri Jan 2, 2026 + 10 working days = Fri Jan 16

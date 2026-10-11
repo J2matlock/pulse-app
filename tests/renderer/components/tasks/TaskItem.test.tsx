@@ -109,4 +109,15 @@ describe('TaskItem', () => {
     render(<TaskItem task={task} {...baseProps} />)
     expect(screen.getByText('Call about housing referral')).toBeDefined()
   })
+
+  it('shows the snooze date in words, not the stored date', () => {
+    render(<TaskItem task={makeTask({ snoozed_until: '2099-10-14' })} {...baseProps} />)
+    expect(screen.getByText(/Snoozed until Wed, Oct 14 ×/)).toBeDefined()
+  })
+
+  it('shows its row actions when tabbed to, not only on hover', () => {
+    render(<TaskItem task={makeTask()} {...baseProps} />)
+    const edit = screen.getByTitle('Edit (full dialog)')
+    expect(edit.closest('div')!.className).toContain('group-focus-within:opacity-100')
+  })
 })

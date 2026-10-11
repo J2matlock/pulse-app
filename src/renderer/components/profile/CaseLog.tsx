@@ -500,7 +500,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
 
   async function handleVoid(id: number, reason: string) {
     const res = await safeInvoke(IPC.CASE_LOG_VOID, id, reason)
-    if (!res.ok) { toast.error("We couldn't void that note. Please try again."); return }
+    if (!res.ok) { toast.error(`We couldn't void that ${t('activity')}. Please try again.`); return }
     setEntries(prev => prev.filter(e => e.id !== id))
     showDateChanges(rowId, res.data)
     useUndoStore.getState().pushWithToast({
@@ -663,7 +663,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
                   style={{ fontSize: 15 }} />
               </div>
             ))}
-            <p className="text-sm text-slate-500 dark:text-slate-400">Saved as one note with these headings. Empty sections are left out. Ctrl+Enter saves.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Saved as one {t('activity')} with these headings. Empty sections are left out. Ctrl+Enter saves.</p>
           </div>
         )}
 

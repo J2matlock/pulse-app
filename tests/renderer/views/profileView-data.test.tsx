@@ -58,8 +58,8 @@ const sampleColumns = [
 
 // ── Store mocks ──────────────────────────────────────────────────────────────
 
-vi.mock('../../../src/renderer/stores/gridStore', () => ({
-  useGridStore: (sel: Function) => sel({
+vi.mock('../../../src/renderer/stores/gridStore', () => {
+  const state = () => ({
     grids: [{ id: 1, name: 'Main Caseload', is_active: 1, position: 0, created_at: '', updated_at: '' }],
     rows: [clientRow],
     columns: sampleColumns,
@@ -70,8 +70,9 @@ vi.mock('../../../src/renderer/stores/gridStore', () => ({
     acuityLevels: [], acuityEnabled: false,
     hiddenColumns: [], sortedRowIds: [42],
     updateRow: vi.fn(), updateCell: vi.fn(),
-  }),
-}))
+  })
+  return { useGridStore: Object.assign((sel: Function) => sel(state()), { getState: state }) }
+})
 
 vi.mock('../../../src/renderer/stores/profileStore', () => ({
   useProfileStore: (sel: Function) => sel({

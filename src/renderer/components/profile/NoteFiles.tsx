@@ -3,8 +3,10 @@ import React from 'react'
 import { Paperclip } from 'lucide-react'
 import { formatBytes, type Attachment } from '../../../shared/attachments'
 import { addFilesWithDialog, openAttachment } from '../../utils/attachmentActions'
+import { useVocab } from '../../hooks/useVocab'
 
 export function NoteFiles({ rowId, noteId, files, canAttach }: { rowId: number; noteId: number; files: Attachment[]; canAttach: boolean }): React.ReactElement | null {
+  const { t } = useVocab()
   if (!files.length && !canAttach) return null
   return (
     <div className="flex flex-wrap items-center gap-1.5 mt-1 pl-1">
@@ -16,7 +18,7 @@ export function NoteFiles({ rowId, noteId, files, canAttach }: { rowId: number; 
         </button>
       ))}
       {canAttach && (
-        <button type="button" aria-label="Attach a file to this note" title="Attach a file to this note" onClick={() => void addFilesWithDialog(rowId, { caseLogId: noteId })}
+        <button type="button" aria-label={`Attach a file to this ${t('activity')}`} title={`Attach a file to this ${t('activity')}`} onClick={() => void addFilesWithDialog(rowId, { caseLogId: noteId })}
           className="hit-44 inline-flex items-center gap-1 px-2 rounded-sm text-sm text-slate-500 hover:text-blue-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
           <Paperclip className="w-3.5 h-3.5" aria-hidden="true" />Attach
         </button>

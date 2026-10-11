@@ -3,7 +3,7 @@
  * viewSmoke.test.tsx — Meaningful render tests for main views.
  * Verifies each view renders key UI elements, empty states, and interactive controls.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, onTestFinished } from 'vitest'
 import React from 'react'
 import { render, screen, act } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -490,6 +490,10 @@ describe('TasksView', () => {
   })
 
   it('shows empty state when no tasks exist', async () => {
+    // Loaded fine, just empty (a failed load says so instead)
+    const { safeInvoke } = await import('../../../src/renderer/utils/safeInvoke')
+    vi.mocked(safeInvoke).mockResolvedValue({ ok: true, data: [] })
+    onTestFinished(() => { vi.mocked(safeInvoke).mockResolvedValue({ ok: false, error: 'test-mock' }) })
     render(<MemoryRouter><TasksView /></MemoryRouter>)
     await flushEffects()
     expect(screen.getByTestId('empty-state')).toBeDefined()

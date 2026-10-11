@@ -1,9 +1,6 @@
 import React, { useState } from 'react'
 import type { CaseloadTask } from '../../../shared/types'
-import { IPC } from '../../../shared/ipc-channels'
-import { mustInvoke } from '../../utils/safeInvoke'
 import { useTaskStore } from '../../stores/taskStore'
-import { useUndoStore } from '../../stores/undoStore'
 
 export function TaskRow({
   task,
@@ -47,24 +44,15 @@ export function TaskRow({
   async function handleComplete() {
     setCompleting(true)
     try {
-      await useTaskStore.getState().completeTask(task.id)
-      onComplete(task.id)
-      useUndoStore.getState().pushWithToast({
-        id: crypto.randomUUID(),
-        description: `Completed task "${task.title}"`,
-        timestamp: Date.now(),
-        category: 'silent',
-        icon: 'check',
-        undo: async () => {
-          await mustInvoke(IPC.TASK_RESTORE, task.id)
-          onRestore?.(task)
-        },
-        redo: async () => {
-          await useTaskStore.getState().completeTask(task.id)
-          onComplete(task.id)
-        },
+      // completeTask pushes the one undo step (with its toast); undo reopens the
+      // task through TASK_UNCOMPLETE, due date and all
+      const done = await useTaskStore.getState().completeTask(task.id, {
+        task, toast: true,
+        onUndo: () => onRestore?.(task),
+        onRedo: () => onComplete(task.id),
       })
-    } catch { /* ignore */ } finally {
+      if (done) onComplete(task.id)
+    } finally {
       setCompleting(false)
     }
   }
