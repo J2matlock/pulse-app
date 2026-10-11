@@ -192,6 +192,18 @@ describe('SortableRow', () => {
     off()
   })
 
+  it('the name cell\'s "Open" takes no room until the row is hovered (R1)', () => {
+    const onNavigateToProfile = vi.fn()
+    render(<SortableRow {...makeProps({ onNavigateToProfile })} />)
+    const open = screen.getByRole('button', { name: 'Open client', hidden: true })
+    // opacity-0 kept its width and cut short names; hidden doesn't
+    expect(open.className).toContain('hidden')
+    expect(open.className).toContain('group-hover:inline-flex')
+    expect(open.className).not.toContain('opacity-0')
+    fireEvent.click(open)
+    expect(onNavigateToProfile).toHaveBeenCalledWith(1)
+  })
+
   it('applies selected styling when isSelected is true', () => {
     const { container } = render(<SortableRow {...makeProps({ isSelected: true })} />)
     const row = container.querySelector('[role="row"]')!

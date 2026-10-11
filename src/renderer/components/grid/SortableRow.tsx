@@ -491,10 +491,11 @@ export const SortableRow = React.memo(function SortableRow({
                 {alertChip && <span className="ml-1.5 min-w-0 truncate text-sm text-slate-700 dark:text-slate-200" data-testid="deadline-chip">{alertChip}</span>}
                 {alertSpoken && <span className="sr-only">{alertSpoken}</span>}
                 {col.is_name_column === 1 && (
-                  // People click the name expecting it to open (G-31)
+                  // People click the name expecting it to open (G-31). It takes room only
+                  // while the row is hovered, so short names aren't cut to "Bis…"
                   <button type="button" tabIndex={-1}
                     onClick={e => { e.stopPropagation(); onNavigateToProfile(rowId) }}
-                    className="ml-auto pl-2 flex-shrink-0 text-base text-blue-600 dark:text-blue-400 underline opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                    className="hidden group-hover:inline-flex ml-auto pl-2 flex-shrink-0 text-base text-blue-600 dark:text-blue-400 underline"
                     aria-label={`Open ${t('record')}`}>
                     Open
                   </button>
