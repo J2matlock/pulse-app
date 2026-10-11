@@ -185,14 +185,6 @@ export interface AcuityLevel {
   created_at: string
 }
 
-export interface GridLoadResult {
-  grid: Grid
-  columns: Column[]
-  hiddenColumns: Column[]
-  rows: GridRow[]
-  acuityLevels: AcuityLevel[]
-}
-
 export interface DeletedRow {
   id: number
   grid_id: number
@@ -347,11 +339,6 @@ export interface CondFormatRuleRecord {
   column_type_hint: string | null  // optional hint: 'text'|'date'|'number'|'checkbox'|'dropdown'|null
   rule_json: string                // JSON: NamedRuleContent
   created_at: string
-}
-
-// Named rule with rule_json already parsed
-export interface ParsedCondFormatRule extends Omit<CondFormatRuleRecord, 'rule_json'> {
-  rule: NamedRuleContent
 }
 
 export interface DashboardStats {
@@ -559,14 +546,6 @@ export interface CaseloadTask {
   updated_at: string
 }
 
-export interface CaseloadTaskHistory {
-  id: number
-  task_id: number
-  completed_at: string
-  cycle_number: number | null
-  notes: string | null
-}
-
 // ── Provider Directory ───────────────────────────────────────────────────────
 
 export type AvailabilityStatus = 'accepting' | 'waitlist' | 'full' | 'unknown'
@@ -611,11 +590,6 @@ export interface Provider {
   category_color?: string | null
   last_interaction_at?: string | null
   tags?: string[]
-}
-
-export interface ProviderTag {
-  provider_id: number
-  tag: string
 }
 
 export interface ProviderClientLink {

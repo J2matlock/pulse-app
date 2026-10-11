@@ -187,7 +187,7 @@ This app is for social workers and care coordinators, many of whom are not tech-
 - **Grid borders: chunky and visible.** Use gray-300+ for gridlines, not hairline borders.
 - **Error messages: descriptive and human.** "We couldn't save your changes — try again" not "SQLITE_CONSTRAINT error"
 - **No jargon in the UI.** "Clients" not "rows." "Columns" not "fields." "Deadlines" not "alerts."
-- **Never hard-code record/list/note/contact words** ("client", "caseload", "case note", "provider", "acuity"). Use the vocabulary layer: `useVocab()` / `<V>` in components (`useVocab(null)` for screens spanning lists, `useVocabByList()` for mixed rows), `wordNow()` in stores, `{record:many}` tokens + `useVocab().f` for static text, `word()` / `vocabFor()` in main. An eslint rule enforces it in JSX; `tests/renderer/vocabStaticText.test.tsx` guards static text. Tests that check text call `setWords()` (renderer) or `setDbWords()` (main).
+- **Never hard-code record/list/note/contact words** ("client", "caseload", "case note", "provider", "acuity"). Use the vocabulary layer: `useVocab()` in components (`useVocab(null)` for screens spanning lists, `useVocabByList()` for mixed rows), `wordNow()` in stores, `{record:many}` tokens + `useVocab().f` for static text, `word()` / `vocabFor()` in main. An eslint rule enforces it in JSX; `tests/renderer/vocabStaticText.test.tsx` guards static text. Tests that check text call `setWords()` (renderer) or `setDbWords()` (main).
 - **Color system for deadlines**: green → yellow → orange → red → pulsing red (see spec Section 7.2 for exact thresholds)
 - **Dark mode**: full support, slate-900 backgrounds, same alert colors
 - **System font stack** — no custom fonts to load

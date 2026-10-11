@@ -1,6 +1,6 @@
 /**
  * Words like "client" and "caseload" (and the internal "grid") must come from the vocabulary layer
- * (src/shared/vocab.ts, useVocab / <V>), so users' own words show everywhere.
+ * (src/shared/vocab.ts, useVocab), so users' own words show everywhere.
  * See plans/generalization/W01-workspace.md §2.4.
  */
 const WORDS = String.raw`\b(clients?|caseloads?|case (notes?|log)|grids?)\b`
@@ -17,7 +17,7 @@ const WORDS = String.raw`\b(clients?|caseloads?|case (notes?|log)|grids?)\b`
  */
 const GENERIC = String.raw`\b(records?|contacts|(a|this|that|each|every|new|selected|no) contact(?! (info|date|requirement))|(a|this|that|each|every|new|no|or|and|your|the) notes?)\b`
 
-const MESSAGE = 'Use the vocabulary layer (useVocab / <V>) for record, list and note words.'
+const MESSAGE = 'Use the vocabulary layer (useVocab) for record, list and note words.'
 const ATTR = String.raw`^(placeholder|title|aria-label|label)$`
 
 /** Plain strings and template-literal text in labels and toast() calls */
