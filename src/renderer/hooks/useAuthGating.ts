@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useAlertStore } from '../stores/alertStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { useActivityTypeStore } from '../stores/activityTypeStore'
+import { useGridStore } from '../stores/gridStore'
 import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
 import { checkBackupReminder, checkWhatsNew } from './useBackupReminder'
@@ -93,17 +94,22 @@ export function useAuthGating(): UseAuthGatingReturn {
     prevLockedRef.current = isLocked
   }, [isLocked, isPasswordSetup, loadRules])
 
-  const completeOnboarding = useCallback(() => {
+  // Setup made lists the main screen hasn't fetched yet: fetch them and open the first,
+  // so the new list shows straight away instead of after a trip to another page
+  const finishSetup = useCallback(() => {
     setShowOnboarding(false)
     setSetupStart('welcome')
     loadRules()
+    void (async () => {
+      const store = useGridStore.getState()
+      await store.loadGridList()
+      const { grids, activeGridId, loadGrid } = useGridStore.getState()
+      if (grids.length > 0 && !grids.some(g => g.id === activeGridId)) await loadGrid(grids[0]!.id)
+    })()
   }, [loadRules])
 
-  const showTourAfterOnboarding = useCallback(() => {
-    setShowOnboarding(false)
-    setSetupStart('welcome')
-    loadRules()
-  }, [loadRules])
+  const completeOnboarding = finishSetup
+  const showTourAfterOnboarding = finishSetup
 
   // Words or features changed elsewhere (another window, applying a starter)
   useEffect(() => window.api.on(IPC.WORKSPACE_CHANGED, () => { void useWorkspaceStore.getState().load() }), [])

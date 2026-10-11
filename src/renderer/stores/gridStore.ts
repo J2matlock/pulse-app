@@ -41,6 +41,8 @@ export type { SavedFilter, SavedView, SavedViewConfig } from './gridFilterSlice'
 // Cleared when undo stack is cleared (new non-cell push clears redo, but coalesce
 // entries become stale naturally — we just check existence in the stack).
 const _coalesceIndex = new Map<string, string>()
+// Only the newest list-of-lists fetch may land, so a slow one from before setup can't wipe the new lists
+let _gridListSeq = 0
 
 /** Values main filled in on a new row (auto numbers), so it shows them straight away. */
 async function autoFilledValues(gridId: number, rowId: number, columns: Column[]): Promise<Partial<GridRow>> {
@@ -158,12 +160,14 @@ export const useGridStore = create<GridState>((set, get) => ({
   },
 
   loadGridList: async () => {
+    const seq = ++_gridListSeq
     try {
       const grids = await invoke<Grid[]>(IPC.GRID_GET_ALL)
+      if (seq !== _gridListSeq) return
       set({ grids, gridListLoaded: true })
     } catch (err) {
       rlog.error('GridStore', 'Failed to load grids', err)
-      set({ gridListLoaded: true })
+      if (seq === _gridListSeq) set({ gridListLoaded: true })
     }
   },
 

@@ -40,6 +40,16 @@ vi.mock('../../../src/renderer/stores/workspaceStore', () => ({
   useWorkspaceStore: { getState: () => ({ load: mockLoadWorkspace }) },
 }))
 
+const gridState = {
+  grids: [] as Array<{ id: number }>,
+  activeGridId: null as number | null,
+  loadGridList: vi.fn(async () => { gridState.grids = [{ id: 7 }, { id: 9 }] }),
+  loadGrid: vi.fn(async (id: number) => { gridState.activeGridId = id }),
+}
+vi.mock('../../../src/renderer/stores/gridStore', () => ({
+  useGridStore: { getState: () => gridState },
+}))
+
 vi.mock('../../../src/renderer/utils/safeInvoke', () => ({
   safeInvoke: (...args: unknown[]) => mockInvoke(...args),
 }))
@@ -127,6 +137,24 @@ describe('useAuthGating', () => {
     expect(result.current.authState).toBe('onboarding')
     act(() => { result.current.completeOnboarding() })
     expect(mockLoadRules).toHaveBeenCalled()
+  })
+
+  it('finishing setup fetches the new lists and opens the first one', async () => {
+    mockSettingsState = { isLocked: false, isPasswordSetup: true, recoverySession: false }
+    gridState.grids = []
+    gridState.activeGridId = null
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === IPC.AUTH_IS_SETUP) return Promise.resolve({ ok: true, data: true })
+      if (channel === IPC.ONBOARDING_CHECK) return Promise.resolve({ ok: true, data: { complete: true } })
+      return Promise.resolve({ ok: false })
+    })
+    const { result } = renderHook(() => useAuthGating())
+    await act(async () => {})
+    act(() => { result.current.setShowOnboarding(true) })
+    await act(async () => { result.current.completeOnboarding() })
+    expect(gridState.loadGridList).toHaveBeenCalled()
+    expect(gridState.loadGrid).toHaveBeenCalledWith(7)
+    expect(result.current.authState).toBe('ready')
   })
 
   it('showTourAfterOnboarding loads rules', async () => {
