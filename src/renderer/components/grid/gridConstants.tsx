@@ -2,7 +2,7 @@ import React from 'react'
 
 export const ROW_HEIGHTS = { compact: 44, comfortable: 44, spacious: 52 } as const
 export const HANDLE_WIDTH = 32  // Width of the row drag-handle column
-export const PROFILE_BTN_WIDTH = 32  // Width of per-row profile button column
+export const PROFILE_BTN_WIDTH = 64  // Width of per-row open + star buttons column
 
 // Auto-fit column sizing constants
 export const CHAR_WIDTH_HEADER = 9

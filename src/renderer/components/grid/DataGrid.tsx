@@ -300,6 +300,8 @@ export function DataGrid(): React.ReactElement {
     await updateRow(rowId, { is_starred: row.is_starred ? 0 : 1 })
   }, [updateRow])
 
+  const handleToggleStarProp = useCallback((rowId: number) => { void handleToggleStar(rowId) }, [handleToggleStar])
+
   const handleDuplicateRow = useCallback(async (rowId: number) => {
     setContextMenu(null)
     await duplicateRow(rowId)
@@ -620,8 +622,8 @@ export function DataGrid(): React.ReactElement {
   const keyNavDeps = useMemo<KeyboardNavDeps>(() => ({
     editingCellRef, rowsRef, filteredRowsRef, selectedRowIdsRef,
     columns, columnMap, updateCell, navigateCell,
-    setEditingCell, setSelectedRowIds, setClipboard,
-  }), [columns, columnMap, updateCell, navigateCell, setEditingCell])
+    setEditingCell, setSelectedRowIds, setClipboard, openRecord: handleNavigateToProfile,
+  }), [columns, columnMap, updateCell, navigateCell, setEditingCell, handleNavigateToProfile])
   const handleCellKeyDown = useCallback((e: React.KeyboardEvent, rowId: number, columnId: number) => {
     handleCellKeyDownImpl(e, rowId, columnId, keyNavDeps)
   }, [keyNavDeps])
@@ -702,6 +704,7 @@ export function DataGrid(): React.ReactElement {
       onCellKeyDown={handleCellKeyDown}
       onCellContextMenu={handleCellContextMenu}
       onNavigateToProfile={handleNavigateToProfile}
+      onToggleStar={handleToggleStarProp}
       onToggleSelect={handleToggleRowSelect}
       onNavigateAfterEdit={handleNavigateAfterEdit}
       rowId={row.original.row_id}
@@ -875,6 +878,7 @@ export function DataGrid(): React.ReactElement {
           onClose={closeContextMenu}
           onDeleteRow={handleDeleteRow}
           onToggleStar={id => void handleToggleStar(id)}
+          onOpenRecord={handleNavigateToProfile}
           onDuplicateRow={id => void handleDuplicateRow(id)}
           onArchiveRow={id => { setArchiveTarget(id); setContextMenu(null) }}
           onUnarchiveRow={id => void handleUnarchiveRow(id)}

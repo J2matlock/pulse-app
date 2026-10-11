@@ -531,10 +531,11 @@ export function FilterControls(): React.ReactElement {
         onClick={() => setShowStarredOnly(!showStarredOnly)}
         className={`btn-secondary flex items-center gap-1.5 ${showStarredOnly ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700 text-yellow-700 dark:text-yellow-300' : ''}`}
         style={{ minHeight: 36, padding: '0 10px', fontSize: 15 }}
-        title={showStarredOnly ? 'Show all rows' : 'Show starred only'}
-        aria-label={showStarredOnly ? 'Show all rows' : 'Show starred only'}
+        title={showStarredOnly ? `Showing starred ${t('record', { many: true })} only. Click to show all.` : `Show starred ${t('record', { many: true })} only`}
+        aria-pressed={showStarredOnly}
       >
         <Star className={`w-4 h-4 ${showStarredOnly ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+        Starred
       </button>
       <Tooltip content="Add a filter condition" placement="bottom">
         <button

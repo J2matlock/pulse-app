@@ -25,7 +25,7 @@ describe('gridConstants', () => {
     expect(typeof HANDLE_WIDTH).toBe('number')
     expect(typeof PROFILE_BTN_WIDTH).toBe('number')
     expect(HANDLE_WIDTH).toBe(32)
-    expect(PROFILE_BTN_WIDTH).toBe(32)
+    expect(PROFILE_BTN_WIDTH).toBe(64)
   })
 
   it('HANDLE_STYLE has width matching HANDLE_WIDTH', () => {

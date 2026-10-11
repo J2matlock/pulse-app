@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { type Row } from '@tanstack/react-table'
-import { User } from 'lucide-react'
+import { User, Star } from 'lucide-react'
 import type { GridRow, Column, ParsedAlertRule, CellFormatRule, AcuityLevel } from '../../../shared/types'
 import { isNotTypedColumnType, takesDeadlineRule } from '../../../shared/types'
 import { getMatchingThreshold, evaluateRuleForRow, formatResultTooltip } from '../../utils/deadlineCalc'
@@ -45,6 +45,7 @@ export interface SortableRowProps {
   onCellKeyDown: (e: React.KeyboardEvent, rowId: number, colId: number) => void
   onCellContextMenu: (e: React.MouseEvent, rowId: number, colId: number) => void
   onNavigateToProfile: (rowId: number) => void
+  onToggleStar?: (rowId: number) => void
   onToggleSelect: (e: React.MouseEvent, rowId: number) => void
   onNavigateAfterEdit: (rowId: number, colId: number, direction: NavDirection) => void
   rowId: number
@@ -85,6 +86,7 @@ export const SortableRow = React.memo(function SortableRow({
   onCellKeyDown,
   onCellContextMenu,
   onNavigateToProfile,
+  onToggleStar,
   onToggleSelect,
   onNavigateAfterEdit,
   rowId: propRowId,
@@ -197,6 +199,18 @@ export const SortableRow = React.memo(function SortableRow({
           {...(rowIndex === 0 ? { 'data-tour': 'profile-icon' } : {})}
         >
           <User className="w-4 h-4" />
+        </button>
+        {/* Starred records show it (G-30); a faint outline on hover stars one */}
+        <button
+          tabIndex={-1}
+          onClick={e => { e.stopPropagation(); onToggleStar?.(rowId) }}
+          className={`flex items-center justify-center w-7 h-7 rounded focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
+            ${row.original.is_starred ? '' : 'opacity-0 group-hover:opacity-60 hover:!opacity-100'}`}
+          title={row.original.is_starred ? 'Remove star' : `Star this ${t('record')}`}
+          aria-label={row.original.is_starred ? 'Remove star' : `Star this ${t('record')}`}
+          aria-pressed={!!row.original.is_starred}
+        >
+          <Star className={`w-4 h-4 ${row.original.is_starred ? 'fill-yellow-400 text-yellow-500' : 'text-slate-400'}`} />
         </button>
       </div>
 
@@ -425,6 +439,15 @@ export const SortableRow = React.memo(function SortableRow({
               <>
                 {alertIcon}
                 <CellDisplay column={col} value={value} row={row.original} allColumns={columns} parsedConfig={parsedColumnConfigs.get(col.id)?.config} highlightText={searchQuery} isActiveMatch={findReplaceActiveRowId === rowId && findReplaceActiveColId === col.id} />
+                {col.is_name_column === 1 && (
+                  // People click the name expecting it to open (G-31)
+                  <button type="button" tabIndex={-1}
+                    onClick={e => { e.stopPropagation(); onNavigateToProfile(rowId) }}
+                    className="ml-auto pl-2 flex-shrink-0 text-base text-blue-600 dark:text-blue-400 underline opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                    aria-label={`Open ${t('record')}`}>
+                    Open
+                  </button>
+                )}
               </>
             )}
           </div>

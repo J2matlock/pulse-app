@@ -6,6 +6,8 @@ import toast from 'react-hot-toast'
 type CellCoord = { rowId: number; columnId: number }
 
 export interface KeyboardNavDeps {
+  /** Open the record's page */
+  openRecord?: (rowId: number) => void
   editingCellRef: React.RefObject<CellCoord | null>
   /** Blocks editing from the keyboard when it holds true */
   isReadOnlyRef?: React.RefObject<boolean>
@@ -47,6 +49,11 @@ export function handleCellKeyDown(
     case 'Enter':
     case 'F2': {
       e.preventDefault()
+      // Ctrl+Enter or Shift+Enter opens the record, so keyboard users can get to it (G-31)
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || e.shiftKey) && !editing && deps.openRecord) {
+        deps.openRecord(rowId)
+        break
+      }
       if (readOnly) break
       const col = columnMap.get(columnId)
       if (col?.column_type === 'checkbox') {

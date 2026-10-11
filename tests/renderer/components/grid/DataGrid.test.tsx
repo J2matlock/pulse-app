@@ -264,6 +264,9 @@ function setupStores(overrides: Record<string, unknown> = {}) {
     customGroups: [],
     activeCustomGroupId: null,
     sortedRowIds: [],
+    selectedRowIds: new Set<number>(),
+    lastAddedRowId: null,
+    pinnedRowId: null,
     ...overrides,
   } as unknown as Parameters<typeof useGridStore.setState>[0])
   useSettingsStore.setState({ gridDensity: 'comfortable' })
@@ -530,6 +533,27 @@ describe('DataGrid', () => {
       act(() => { useGridStore.setState({ searchQuery: 'Client 3' }) })
       await flushEffects()
       expect([...useGridStore.getState().selectedRowIds]).toEqual([3])
+    })
+
+    it('ticking boxes one after another builds a selection, like checkboxes (G-06)', async () => {
+      renderDataGrid()
+      await flushEffects()
+      const boxes = screen.getAllByLabelText('Select client')
+      fireEvent.click(boxes[0]!)
+      fireEvent.click(boxes[2]!)
+      await flushEffects()
+      expect([...useGridStore.getState().selectedRowIds].sort()).toEqual([1, 3])
+    })
+
+    it('shows a star on starred records and stars one from the row (G-30)', async () => {
+      const updateRow = vi.fn()
+      setupStores({ rows: makeTestRows(2).map((r, i) => ({ ...r, is_starred: i === 0 ? 1 : 0 })), updateRow })
+      renderDataGrid()
+      await flushEffects()
+      expect(screen.getByLabelText('Remove star').getAttribute('aria-pressed')).toBe('true')
+      fireEvent.click(screen.getByLabelText('Star this client'))
+      await flushEffects()
+      expect(updateRow).toHaveBeenCalledWith(2, { is_starred: 1 })
     })
 
     it('clicking selected row deselects it', async () => {
