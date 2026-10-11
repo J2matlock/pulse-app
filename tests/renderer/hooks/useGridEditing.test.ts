@@ -6,7 +6,7 @@ import { useGridEditing } from '../../../src/renderer/hooks/useGridEditing'
 describe('useGridEditing', () => {
   it('starts with no editing cell and isEditing=false', () => {
     const { result } = renderHook(() =>
-      useGridEditing({ isReadOnly: false, onCellUpdate: vi.fn() })
+      useGridEditing({ onCellUpdate: vi.fn() })
     )
     expect(result.current.editingCell).toBeNull()
     expect(result.current.isEditing).toBe(false)
@@ -14,7 +14,7 @@ describe('useGridEditing', () => {
 
   it('startEditing sets editingCell', () => {
     const { result } = renderHook(() =>
-      useGridEditing({ isReadOnly: false, onCellUpdate: vi.fn() })
+      useGridEditing({ onCellUpdate: vi.fn() })
     )
     act(() => result.current.startEditing(1, 2))
     expect(result.current.editingCell).toEqual({ rowId: 1, columnId: 2 })
@@ -23,7 +23,7 @@ describe('useGridEditing', () => {
 
   it('stopEditing clears editingCell', () => {
     const { result } = renderHook(() =>
-      useGridEditing({ isReadOnly: false, onCellUpdate: vi.fn() })
+      useGridEditing({ onCellUpdate: vi.fn() })
     )
     act(() => result.current.startEditing(1, 2))
     act(() => result.current.stopEditing())
@@ -34,7 +34,7 @@ describe('useGridEditing', () => {
   it('handleCellSave calls onCellUpdate then clears editing', async () => {
     const onCellUpdate = vi.fn().mockResolvedValue(undefined)
     const { result } = renderHook(() =>
-      useGridEditing({ isReadOnly: false, onCellUpdate })
+      useGridEditing({ onCellUpdate })
     )
 
     act(() => result.current.startEditing(5, 10))
@@ -51,7 +51,7 @@ describe('useGridEditing', () => {
   it('handleCellSave does not clear editing if a different cell is active', async () => {
     const onCellUpdate = vi.fn().mockResolvedValue(undefined)
     const { result } = renderHook(() =>
-      useGridEditing({ isReadOnly: false, onCellUpdate })
+      useGridEditing({ onCellUpdate })
     )
 
     act(() => result.current.startEditing(5, 10))
@@ -66,35 +66,9 @@ describe('useGridEditing', () => {
     expect(result.current.editingCell).toEqual({ rowId: 6, columnId: 11 })
   })
 
-  it('isReadOnly blocks startEditing', () => {
-    const { result } = renderHook(() =>
-      useGridEditing({ isReadOnly: true, onCellUpdate: vi.fn() })
-    )
-    act(() => result.current.startEditing(1, 2))
-    expect(result.current.editingCell).toBeNull()
-    expect(result.current.isEditing).toBe(false)
-  })
-
-  it('isReadOnly blocks setEditingCell', () => {
-    const { result } = renderHook(() =>
-      useGridEditing({ isReadOnly: true, onCellUpdate: vi.fn() })
-    )
-    act(() => result.current.setEditingCell({ rowId: 1, columnId: 2 }))
-    expect(result.current.editingCell).toBeNull()
-  })
-
-  it('setEditingCell(null) works even in read-only mode', () => {
-    const { result } = renderHook(() =>
-      useGridEditing({ isReadOnly: true, onCellUpdate: vi.fn() })
-    )
-    // null should always be allowed
-    act(() => result.current.setEditingCell(null))
-    expect(result.current.editingCell).toBeNull()
-  })
-
   it('editingCellRef reflects current state', () => {
     const { result } = renderHook(() =>
-      useGridEditing({ isReadOnly: false, onCellUpdate: vi.fn() })
+      useGridEditing({ onCellUpdate: vi.fn() })
     )
     expect(result.current.editingCellRef.current).toBeNull()
 

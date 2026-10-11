@@ -1,7 +1,7 @@
 /**
  * useGridEditing — manages cell editing state for DataGrid.
- * Handles entering/exiting edit mode, saving cell values, and the
- * read-only gate. Extracted from DataGrid for reuse and testability.
+ * Handles entering/exiting edit mode and saving cell values.
+ * Extracted from DataGrid for reuse and testability.
  */
 import { useState, useCallback, useRef, useMemo } from 'react'
 
@@ -10,8 +10,6 @@ export type CellCoord = { rowId: number; columnId: number }
 export type CellUpdateFn = (rowId: number, columnId: number, value: string) => unknown
 
 interface UseGridEditingOptions {
-  /** When true, all edit attempts are silently blocked. */
-  isReadOnly?: boolean
   /** Called when a cell value is saved (e.g. gridStore.updateCell). */
   onCellUpdate: CellUpdateFn
 }
@@ -21,7 +19,7 @@ interface UseGridEditingReturn {
   editingCell: CellCoord | null
   /** Stable ref that always reflects the latest editingCell (for use in callbacks). */
   editingCellRef: React.RefObject<CellCoord | null>
-  /** Enter edit mode for a specific cell. No-op if read-only. */
+  /** Enter edit mode for a specific cell. */
   startEditing: (rowId: number, columnId: number) => void
   /** Exit edit mode without saving. */
   stopEditing: () => void
@@ -37,21 +35,19 @@ interface UseGridEditingReturn {
   isEditing: boolean
 }
 
-export function useGridEditing({ isReadOnly = false, onCellUpdate }: UseGridEditingOptions): UseGridEditingReturn {
+export function useGridEditing({ onCellUpdate }: UseGridEditingOptions): UseGridEditingReturn {
   const [editingCell, setEditingCellRaw] = useState<CellCoord | null>(null)
 
   const editingCellRef = useRef<CellCoord | null>(null)
   editingCellRef.current = editingCell
 
   const setEditingCell = useCallback((c: CellCoord | null) => {
-    if (c !== null && isReadOnly) return
     setEditingCellRaw(c)
-  }, [isReadOnly])
+  }, [])
 
   const startEditing = useCallback((rowId: number, columnId: number) => {
-    if (isReadOnly) return
     setEditingCellRaw({ rowId, columnId })
-  }, [isReadOnly])
+  }, [])
 
   const stopEditing = useCallback(() => {
     setEditingCellRaw(null)
