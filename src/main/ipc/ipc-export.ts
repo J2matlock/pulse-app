@@ -6,13 +6,13 @@ import { dialog, BrowserWindow } from 'electron'
 import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
 import { secureWrap, ok, fail, assertSafePath, validId, enforceWritable, logNonFatal, withCorrelation } from './ipc-utils'
-import { openDatabase, getDb, resolveDatabasePath, closeDatabase, setEncryptionKey } from '../database'
+import { openDatabase, getDb, resolveDatabasePath, closeDatabase, setEncryptionKey, latestSchemaVersion } from '../database'
 import { getProvider } from '../contacts'
 import {
   listAutoBackupsRich, runManualBackup,
   restoreFromDb, restoreFromPulseBackup, getBackupInfo,
   verifyBackup, getScheduledConfig, setScheduledConfig, withBackupDbFile, runScheduledBackupNow,
-  describeBackupError, getBackupHealth, getBackupMadeInfo, restoreOtherPulseBackup,
+  describeBackupError, getBackupHealth, getBackupMadeInfo, restoreOtherPulseBackup, NEWER_BACKUP,
   type PersistentScheduledConfig
 } from '../backup'
 import { getDbKey } from '../auth'
@@ -56,6 +56,22 @@ function failedBeforeReplace(corrId: string, err: unknown) {
   logger.warn('ipc-export', `[${corrId}] restore failed: ${err instanceof Error ? err.message : String(err)}`)
   try { openDatabase() } catch (openErr) { logger.error('ipc-export', `[${corrId}] could not reopen the database after a failed restore`, openErr) }
   return fail(describeRestoreError(err))
+}
+
+/**
+ * Check a backup made by this Pulse before it replaces anything: it must open with
+ * this install's key, every page must read back (a cut-off or damaged .db backup
+ * has no hash to catch it, A24-04), and it can't be from a newer Pulse (A24-03).
+ * Returns a plain failure, or null when it's safe to restore.
+ */
+async function refuseUnusableBackup(backupPath: string): Promise<ReturnType<typeof fail> | null> {
+  const check = await verifyBackup(backupPath)
+  if (!check.valid) {
+    const reason = check.error === 'File not found' ? 'Backup file not found' : (check.error ?? 'not a database')
+    return fail(describeRestoreError(new Error(reason)))
+  }
+  if ((check.schemaVersion ?? 0) > latestSchemaVersion()) return fail(NEWER_BACKUP)
+  return null
 }
 
 /**
@@ -136,6 +152,8 @@ export function registerExportHandlers(): void {
     return withCorrelation('backup-restore-auto', async (corrId) => {
       assertSafePath(backupDbPath)
       logger.info('ipc-export', `[${corrId}] restoring from auto backup: ${backupDbPath}`)
+      const unusable = await refuseUnusableBackup(backupDbPath)
+      if (unusable) return unusable
       let safetyPath: string
       try {
         safetyPath = await restoreFromDb(backupDbPath)
@@ -157,6 +175,8 @@ export function registerExportHandlers(): void {
       assertSafePath(backupPath)
       logger.info('ipc-export', `[${corrId}] restoring from file: ${backupPath}`)
       const isPulseBak = backupPath.endsWith('.pulse-backup')
+      const unusable = await refuseUnusableBackup(backupPath)
+      if (unusable) return unusable
       let safetyPath: string
       try {
         safetyPath = isPulseBak ? await restoreFromPulseBackup(backupPath) : await restoreFromDb(backupPath)

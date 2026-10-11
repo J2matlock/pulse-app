@@ -186,6 +186,10 @@ function readEncryptedDbInfo(dbFile: string, hexKey: string): { schemaVersion: n
     db.pragma("cipher_hmac_algorithm=HMAC_SHA512")
     db.pragma("cipher_kdf_algorithm=PBKDF2_HMAC_SHA512")
     const tableCount = (db.prepare("SELECT count(*) as n FROM sqlite_master WHERE type='table'").get() as { n: number }).n
+    // The first pages can decrypt while later ones are cut off or damaged; read every page
+    // before calling it usable, or a restore would put a broken database in place (A24-04)
+    const check = db.pragma('quick_check', { simple: true })
+    if (check !== 'ok') throw Object.assign(new Error('The backup database is malformed'), { code: 'SQLITE_CORRUPT' })
     // app_meta.schema_version is the app's migration level; PRAGMA schema_version is SQLite's schema cookie
     const row = db.prepare("SELECT value FROM app_meta WHERE key = 'schema_version'").get() as { value: string } | undefined
     return { schemaVersion: row ? parseInt(row.value, 10) : 0, tableCount }
@@ -605,8 +609,10 @@ export async function verifyBackup(backupPath: string): Promise<VerifyResult> {
   } catch (err) {
     // This install's key doesn't open it. With a key envelope inside, it was made
     // by another Pulse (another computer, or before a reinstall) and can still be
-    // restored with that Pulse's password or recovery key.
-    return { valid: false, error: err instanceof Error ? err.message : 'Could not open backup database', otherPulse: hasEnvelope }
+    // restored with that Pulse's password or recovery key. A file that opens but
+    // is damaged isn't another Pulse's.
+    const damaged = (err as { code?: unknown } | null)?.code === 'SQLITE_CORRUPT'
+    return { valid: false, error: err instanceof Error ? err.message : 'Could not open backup database', otherPulse: hasEnvelope && !damaged }
   } finally {
     if (tmpDir) {
       try { rmSync(tmpDir, { recursive: true, force: true }) } catch (err) {
