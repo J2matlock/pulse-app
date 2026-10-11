@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, ChevronRight, X, Plus, Trash2, Pencil, Check } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import {
@@ -189,55 +190,45 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       is_completed: isCompleted ? 1 : 0,
       completed_at: now,
     })
-    if (res.ok) {
-      const sysLogId = res.data.sysLogId
-      // A repeating item came straight back, due again (audit 1.26)
-      let repeat = res.data.repeat ?? null
-      const showRepeat = (r: { nextDue: string }) => setItems(prev => prev.map(i => i.id === id
-        ? { ...i, is_completed: 0 as const, completed_at: null, completed_by: null, due_date: r.nextDue }
-        : i
-      ))
-      if (repeat) showRepeat(repeat)
-      const nextText = repeat ? ` · next due ${new Date(`${repeat.nextDue}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''
-      useUndoStore.getState().pushWithToast({
-        id: crypto.randomUUID(),
-        description: isCompleted ? `Completed "${itemTitle}"${nextText}` : `Reopened "${itemTitle}"`,
-        timestamp: Date.now(),
-        category: sysLogId != null ? 'logged' : 'silent',
-        icon: 'check-square',
-        contextLabel: clientName,
-        contextId: rowId,
-        sideEffects: sysLogId != null ? [{ type: 'void_case_log', caseLogId: sysLogId }] : undefined,
-        undo: async () => {
-          const back = repeat ? { due_date: repeat.previousDue } : {}
-          setItems(prev => prev.map(i => i.id === id
-            ? { ...i, is_completed: prevCompleted, completed_at: prevCompletedAt, ...back }
-            : i
-          ))
-          await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, {
-            is_completed: prevCompleted,
-            completed_at: prevCompletedAt,
-            ...back,
-          })
-          pulseEvents.emit('checklist:changed', { rowId })
-        },
-        redo: async () => {
-          setItems(prev => prev.map(i => i.id === id
-            ? { ...i, is_completed: isCompleted ? 1 : 0, completed_at: now }
-            : i
-          ))
-          const again = await safeInvoke<{ sysLogId: number | null; repeat?: { previousDue: string | null; nextDue: string } | null }>(IPC.CHECKLIST_UPDATE_ITEM, id, {
-            is_completed: isCompleted ? 1 : 0,
-            completed_at: now,
-          })
-          if (again.ok) {
-            repeat = again.data.repeat ?? null
-            if (repeat) showRepeat(repeat)
-          }
-          pulseEvents.emit('checklist:changed', { rowId })
-        },
-      })
+    if (!res.ok) {
+      // Put the tick back as it was (audit L-28)
+      setItems(prev => prev.map(i => i.id === id ? { ...i, is_completed: prevCompleted, completed_at: prevCompletedAt } : i))
+      toast.error("We couldn't save that tick. Try again.")
+      return
     }
+    const sysLogId = res.data.sysLogId
+    // A repeating item came straight back, due again (audit 1.26)
+    const repeat = res.data.repeat ?? null
+    // What the item looked like before and after, so undo and redo can put it back silently
+    // (the log entry is voided or restored by the side effect, not written again; audit S-23)
+    const before = { is_completed: prevCompleted, completed_at: prevCompletedAt, ...(repeat ? { due_date: repeat.previousDue } : {}) }
+    const afterState = repeat
+      ? { is_completed: 0 as const, completed_at: null, completed_by: null, due_date: repeat.nextDue }
+      : { is_completed: (isCompleted ? 1 : 0) as 0 | 1, completed_at: now }
+    if (repeat) setItems(prev => prev.map(i => i.id === id ? { ...i, ...afterState } : i))
+    const nextText = repeat ? ` · next due ${new Date(`${repeat.nextDue}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''
+    useUndoStore.getState().pushWithToast({
+      id: crypto.randomUUID(),
+      description: isCompleted ? `Completed "${itemTitle}"${nextText}` : `Reopened "${itemTitle}"`,
+      timestamp: Date.now(),
+      category: sysLogId != null ? 'logged' : 'silent',
+      icon: 'check-square',
+      contextLabel: clientName,
+      contextId: rowId,
+      sideEffects: sysLogId != null ? [{ type: 'void_case_log', caseLogId: sysLogId }] : undefined,
+      undo: async () => {
+        setItems(prev => prev.map(i => i.id === id ? { ...i, ...before } : i))
+        const r = await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, before, { silent: true })
+        if (!r.ok) throw new Error(r.error)
+        pulseEvents.emit('checklist:changed', { rowId })
+      },
+      redo: async () => {
+        setItems(prev => prev.map(i => i.id === id ? { ...i, ...afterState } : i))
+        const r = await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, afterState, { silent: true })
+        if (!r.ok) throw new Error(r.error)
+        pulseEvents.emit('checklist:changed', { rowId })
+      },
+    })
   }, [items, clientName, rowId])
 
   const handleUpdate = useCallback(async (id: number, updates: Partial<ChecklistItemType>) => {
@@ -357,9 +348,10 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
         timestamp: Date.now(),
         category: 'logged',
         icon: 'reset',
+        // Ticked again quietly: they were done before, so no new "Completed" entries (audit S-23)
         undo: async () => {
           await Promise.all(completedSnapshot.map(i =>
-            safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, i.id, { is_completed: 1, completed_at: i.completed_at })
+            safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, i.id, { is_completed: 1, completed_at: i.completed_at }, { silent: true })
           ))
           pulseEvents.emit('checklist:changed', { rowId })
         },

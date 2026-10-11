@@ -157,6 +157,22 @@ describe('Checklist', () => {
     expect(screen.getByRole('checkbox', { name: 'Mark complete' })).toBeTruthy()
   })
 
+  it('a tick that fails to save is put back (audit L-28)', async () => {
+    const items = [makeItem({ id: 1, title: 'Call landlord' })]
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'checklist:get') return Promise.resolve({ ok: true, data: items })
+      if (channel === 'checklist:group-get-all') return Promise.resolve({ ok: true, data: [] })
+      if (channel === 'checklist:update-item') return Promise.resolve({ ok: false, error: 'Database is locked' })
+      return Promise.resolve({ ok: true, data: [] })
+    })
+    render(<Checklist rowId={10} clientName="Test Client" />)
+    await waitFor(() => expect(screen.getByText('Call landlord')).toBeTruthy())
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark complete' }))
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Mark complete' })).toBeTruthy())
+    await new Promise(r => setTimeout(r, 500))
+    expect(screen.getByRole('checkbox', { name: 'Mark complete' })).toBeTruthy()
+  })
+
   it('shows progress indicator with count', async () => {
     const items = [
       makeItem({ id: 1, title: 'Done', is_completed: 1, completed_at: new Date().toISOString(), position: 0 }),

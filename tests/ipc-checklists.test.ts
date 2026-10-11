@@ -222,6 +222,17 @@ describe('CHECKLIST_UPDATE_ITEM', () => {
     expect(r2.data.repeat).toBeNull()
   })
 
+  it('undo and redo put an item back quietly: no new log entry and no repeat (audit S-23)', async () => {
+    const item = await createItem('Monthly', { due_date: '2030-01-15', recurrence_rule: JSON.stringify({ type: 'monthly', interval: 1 }) })
+    const logs = () => (testDb.db.prepare('SELECT COUNT(*) AS n FROM case_log WHERE row_id = ?').get(rowId) as { n: number }).n
+    const before = logs()
+    const done = await invoke(IPC.CHECKLIST_UPDATE_ITEM, item.data.id, { is_completed: 1, completed_at: '2030-01-15T10:00:00Z' }, { silent: true }) as any
+    expect(done.data).toEqual({ sysLogId: null, repeat: null })
+    expect((testDb.db.prepare('SELECT is_completed, due_date FROM checklist_items WHERE id = ?').get(item.data.id) as any)).toEqual({ is_completed: 1, due_date: '2030-01-15' })
+    await invoke(IPC.CHECKLIST_UPDATE_ITEM, item.data.id, { is_completed: 0, completed_at: null }, { silent: true })
+    expect(logs()).toBe(before)
+  })
+
   it('logs un-completion in case log', async () => {
     const item = await createItem('Task')
     await invoke(IPC.CHECKLIST_UPDATE_ITEM, item.data.id, { is_completed: 1 })

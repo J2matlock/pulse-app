@@ -43,7 +43,13 @@ export function registerChecklistHandlers(): void {
     return ok(item)
   })
 
-  secureWrap(IPC.CHECKLIST_UPDATE_ITEM, 'ipc-checklists', (_e, id: number, updates: Partial<ChecklistItem>) => {
+  /**
+   * `silent` (undo and redo) puts an item back as it was: no "Completed" or
+   * "Reopened" entry in the activity log and no repeat, since undo voids or
+   * restores the original entry instead (audit S-23).
+   */
+  secureWrap(IPC.CHECKLIST_UPDATE_ITEM, 'ipc-checklists', (_e, id: number, updates: Partial<ChecklistItem>, opts?: { silent?: boolean }) => {
+    const silent = !!opts && typeof opts === 'object' && opts.silent === true
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(id)) return fail('Invalid ID')
     // Validate field values when present
@@ -71,7 +77,7 @@ export function registerChecklistHandlers(): void {
       db.prepare(`UPDATE checklist_items SET ${result.setClause} WHERE id = ?`).run(...result.values, id)
 
       // System log: completion and un-completion events
-      if (before && 'is_completed' in updates) {
+      if (before && 'is_completed' in updates && !silent) {
         const wasComplete = before.is_completed === 1
         const nowComplete = updates.is_completed === 1
         if (!wasComplete && nowComplete) {
