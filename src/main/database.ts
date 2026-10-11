@@ -18,6 +18,7 @@ import { detectCloudSyncService } from '../shared/cloudSync'
 import type { DbOpenFailureKind } from '../shared/dbOpen'
 import { runPreMigrationBackup, setDatabaseBridge } from './backup'
 import { MIGRATIONS, applyMigration } from './migration-list'
+import { rowsPurgedHooks } from './purge-hooks'
 import { linkColumnSpecs, linkSelectSql, linkSpecKey, type LinkColumnSpec } from '../shared/links'
 import { fileCountColumnIds } from '../shared/attachments'
 
@@ -250,6 +251,8 @@ function purgeExpiredTrash(): void {
     // 2. Delete the rows
     const deleteStmt = db.prepare('DELETE FROM rows WHERE id = ?')
     const runDelete = db.transaction(() => {
+      const ids = expiredRows.map(r => r.id)
+      for (const hook of rowsPurgedHooks) hook(ids)
       for (const row of expiredRows) {
         deleteStmt.run(row.id)
       }

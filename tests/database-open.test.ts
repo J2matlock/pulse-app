@@ -69,6 +69,7 @@ vi.mock('../src/main/migration-list', async () => {
 })
 
 import { openDatabase, closeDatabase, getDb, getMigrationFailure, latestSchemaVersion, DatabaseOpenError } from '../src/main/database'
+import { trashColumn, type ColumnSnapshot } from '../src/main/list-trash'
 
 let dir: string
 let dbPath: string
@@ -344,5 +345,30 @@ describe('openDatabase refusing or failing safely', () => {
     openDatabase()
     expect(versionOf(getDb())).toBe(latestSchemaVersion())
     expect(preMigrationCopies()).toEqual([])
+  })
+})
+
+describe('the 30-day Trash purge on open', () => {
+  it('also takes purged records out of deleted-column snapshots, like Delete forever (AUDIT-108)', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      openDatabase()
+      const { rowIds, colIds } = seedList(getDb())
+      trashColumn(colIds[1] as number)
+      // Record 1 has been in the Trash for 40 days; records 2 and 3 are fine
+      getDb().prepare("UPDATE rows SET deleted_at = datetime('now', '-40 days') WHERE id = ?").run(rowIds[0])
+      closeDatabase()
+
+      openDatabase()
+      vi.runOnlyPendingTimers()
+      const db = getDb()
+      expect(db.prepare('SELECT id FROM rows ORDER BY id').all().map(r => (r as { id: number }).id)).toEqual(rowIds.slice(1))
+      const snap = JSON.parse((db.prepare('SELECT snapshot FROM deleted_columns').get() as { snapshot: string }).snapshot) as ColumnSnapshot
+      const cells = snap.tables.find(t => t.table === 'cells')?.rows ?? []
+      expect(cells.map(c => c.row_id)).toEqual(rowIds.slice(1))
+      expectHealthy(db)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

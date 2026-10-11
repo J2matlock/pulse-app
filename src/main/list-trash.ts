@@ -14,6 +14,7 @@
  * A record deleted forever is taken out of these copies at once (AUDIT-108).
  */
 import { getDb } from './database'
+import { rowsPurgedHooks } from './purge-hooks'
 import { deleteLinksForGrid } from './links'
 import { hasDisplayFormat, isLastNameColumnName, refreshDisplayNames } from './display-names'
 import { keepSamplesUntouched } from './sample-marks'
@@ -338,3 +339,6 @@ export function purgeList(gridId: number): boolean {
     return db.prepare('DELETE FROM grids WHERE id = ? AND is_active = 0 AND deleted_at IS NOT NULL').run(gridId).changes > 0
   })()
 }
+
+// The 30-day Trash purge in database.ts scrubs snapshots the same way "Delete forever" does
+rowsPurgedHooks.push(forgetPurgedRows)
