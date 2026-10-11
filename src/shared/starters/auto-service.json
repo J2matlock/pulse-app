@@ -6,6 +6,14 @@
   "description": "For repair shops and service businesses: customers, their vehicles or equipment, and jobs on a board from estimate to pickup, with oil-change forecasts from mileage and a follow-up call 3 days after pickup.",
   "icon": "wrench",
   "group": "Trades and service",
+  "keywords": [
+    "car",
+    "mechanic",
+    "garage",
+    "repair shop",
+    "oil change",
+    "vehicle"
+  ],
   "vocab": {
     "record": {
       "one": "record",

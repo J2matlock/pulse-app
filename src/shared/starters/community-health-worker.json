@@ -6,6 +6,12 @@
   "description": "Outreach and follow-up for community health workers: two contacts a month, screenings due, health concerns and referrals.",
   "icon": "heart-pulse",
   "group": "Human services",
+  "keywords": [
+    "chw",
+    "outreach",
+    "medicaid",
+    "health"
+  ],
   "vocab": {
     "record": {
       "one": "client",

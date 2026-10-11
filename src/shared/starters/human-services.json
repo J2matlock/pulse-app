@@ -6,6 +6,16 @@
   "description": "Caseloads for care managers, social workers, coordinators and similar roles: contacts, reviews and reassessments with deadline colors.",
   "icon": "heart-handshake",
   "group": "Human services",
+  "keywords": [
+    "social work",
+    "social worker",
+    "case management",
+    "medicaid",
+    "waiver",
+    "caseload",
+    "care coordination",
+    "hospice"
+  ],
   "vocab": {
     "record": {
       "one": "client",

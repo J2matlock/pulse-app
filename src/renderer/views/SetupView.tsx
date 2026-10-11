@@ -398,7 +398,9 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
         </div>
       </div>
       {showExamples && (
-        <ApplyStarterDialog mode="setup" withSamples onClose={() => setShowExamples(false)} onApplied={() => { setShowExamples(false); void finish() }} />
+        <ApplyStarterDialog mode="setup" withSamples onClose={() => setShowExamples(false)}
+          onStartBlank={() => { setShowExamples(false); go('blank') }}
+          onStartSpreadsheet={() => { setShowExamples(false); go('sheet-name') }} onApplied={() => { setShowExamples(false); void finish() }} />
       )}
     </div>
   )

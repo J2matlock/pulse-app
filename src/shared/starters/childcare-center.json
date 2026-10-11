@@ -6,6 +6,13 @@
   "description": "For childcare centers: children with immunization records, physicals and emergency cards, and staff with CPR, background checks, TB tests and training hours.",
   "icon": "graduation-cap",
   "group": "Education and youth",
+  "keywords": [
+    "daycare",
+    "preschool",
+    "nursery",
+    "kids",
+    "children"
+  ],
   "vocab": {
     "record": {
       "one": "record",

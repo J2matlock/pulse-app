@@ -851,7 +851,8 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
           onPickExample={() => { setCreatingGrid(false); setPickingExample({ sample: false }) }}
         />
       )}
-      {pickingExample && <ApplyStarterDialog mode="add" withSamples={pickingExample.sample} onClose={() => setPickingExample(false)} />}
+      {pickingExample && <ApplyStarterDialog mode="add" withSamples={pickingExample.sample} onClose={() => setPickingExample(false)}
+        onStartBlank={() => { setPickingExample(false); setCreatingGrid(true) }} />}
       {settingsGridId !== null && (
         <ListSettingsDialog
           gridId={settingsGridId}

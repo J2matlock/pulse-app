@@ -6,6 +6,11 @@
   "description": "For VR counselors and employment specialists: the employment plan 90 days after eligibility, job starts and the 90-day follow-up before closing.",
   "icon": "users",
   "group": "Human services",
+  "keywords": [
+    "employment",
+    "job coach",
+    "disability"
+  ],
   "vocab": {
     "record": {
       "one": "client",

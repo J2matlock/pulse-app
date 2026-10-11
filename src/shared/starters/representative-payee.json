@@ -6,6 +6,12 @@
   "description": "For organizational payees: the yearly accounting report, a monthly budget review for each beneficiary, rent and benefit reviews. Pulse is a tracking aid, not your official record system.",
   "icon": "file-badge",
   "group": "Legal and government",
+  "keywords": [
+    "payee",
+    "ssi",
+    "benefits",
+    "budget"
+  ],
   "vocab": {
     "record": {
       "one": "beneficiary",

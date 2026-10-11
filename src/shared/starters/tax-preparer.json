@@ -6,6 +6,12 @@
   "description": "For tax preparers and bookkeepers: clients, returns on a board from waiting on documents to filed, quarterly estimated taxes, 1099s, extensions, engagement letters and monthly closes. Pulse is a tracking aid, not your official record system.",
   "icon": "calculator",
   "group": "Business",
+  "keywords": [
+    "tax",
+    "bookkeeper",
+    "accountant",
+    "cpa"
+  ],
   "vocab": {
     "record": {
       "one": "record",

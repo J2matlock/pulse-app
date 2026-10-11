@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { LayoutTemplate, Search, X, Sparkles, ArrowLeft } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
-import type { ApplyResult, StarterPreview, StarterRef, StarterSummary } from '../../../shared/starters/schema'
+import { searchStarters, type ApplyResult, type StarterPreview, type StarterRef, type StarterSummary } from '../../../shared/starters/schema'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
@@ -26,6 +26,9 @@ interface Props {
   initial?: { source: StarterRef; summary: StarterSummary }
   /** Start with "Add sample data" ticked (the "try it" paths) */
   withSamples?: boolean
+  /** Ways out when no example matches the search */
+  onStartBlank?: () => void
+  onStartSpreadsheet?: () => void
 }
 
 const KIND_LABEL = { person: 'People', thing: 'Things', job: 'Jobs' } as const
@@ -34,9 +37,11 @@ const KIND_LABEL = { person: 'People', thing: 'Things', job: 'Jobs' } as const
  * Pick an example (starter template), choose its variant, review what it adds,
  * and apply it. Nothing already in the workspace is changed or removed.
  */
-export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamples }: Props): React.ReactElement {
+export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamples, onStartBlank, onStartSpreadsheet }: Props): React.ReactElement {
   const { t, f } = useVocab(null)
   const trapRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+  const titleRef = useRef<HTMLHeadingElement>(null)
   useFocusTrap(trapRef, true)
 
   const [step, setStep] = useState<Step>(initial ? (initial.summary.variants.length > 0 ? 'variant' : 'review') : 'gallery')
@@ -69,14 +74,19 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
   }, [onClose, working])
 
   const groups = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const matches = (starters ?? []).filter(s => !q || [s.name, s.description, ...s.listNames, ...s.variants.map(v => v.name)].some(x => x.toLowerCase().includes(q)))
+    const matches = searchStarters(starters ?? [], query)
     const byGroup = new Map<string, StarterSummary[]>()
     for (const s of matches) byGroup.set(s.group ?? 'Other', [...(byGroup.get(s.group ?? 'Other') ?? []), s])
     return [...byGroup.entries()]
   }, [starters, query])
   // A badge every card has tells nobody anything
   const someLackSamples = (starters ?? []).some(s => !s.hasSampleData)
+
+  // Focus goes where the work is: the search box in the gallery, the heading on each later step (audit F-17)
+  useEffect(() => {
+    const id = setTimeout(() => (step === 'gallery' ? searchRef.current : titleRef.current)?.focus(), 60)
+    return () => clearTimeout(id)
+  }, [step])
 
   async function loadPreview(src: StarterRef, v: string | undefined) {
     setPreview(null)
@@ -132,7 +142,8 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
   const box = 'w-5 h-5 mt-0.5 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-3 focus:ring-blue-500 flex-shrink-0'
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center-safe justify-center bg-black/50 p-4 overflow-y-auto" onClick={() => { if (!working) onClose() }}>
+    // During setup a stray click outside doesn't throw away the choices (audit F-18); ✕ and Esc still close
+    <div className="fixed inset-0 z-[200] flex items-center-safe justify-center bg-black/50 p-4 overflow-y-auto" onClick={() => { if (!working && mode !== 'setup') onClose() }}>
       <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="starter-title" onClick={e => e.stopPropagation()}
         className="w-full max-w-2xl rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
@@ -143,7 +154,7 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
             </button>
           )}
           {chosen && step !== 'gallery' ? <StarterIcon name={chosen.icon} className="w-6 h-6 text-blue-600 dark:text-blue-400" /> : <LayoutTemplate className="w-6 h-6 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
-          <h2 id="starter-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex-1">{title}</h2>
+          <h2 id="starter-title" ref={titleRef} tabIndex={-1} className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex-1 focus:outline-hidden">{title}</h2>
           <button type="button" onClick={onClose} disabled={working} aria-label="Close" className="hit-44 p-2 rounded-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
             <X className="w-5 h-5" />
           </button>
@@ -154,10 +165,20 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
             <p className="text-base text-slate-700 dark:text-slate-200">Pick something close to your work. You can change everything afterwards.</p>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" aria-hidden="true" />
-              <input type="search" className="input w-full pl-9" placeholder="Search examples…" aria-label="Search examples" value={query} onChange={e => setQuery(e.target.value)} />
+              <input ref={searchRef} type="search" className="input w-full pl-9" placeholder="Search examples…" aria-label="Search examples" value={query} onChange={e => setQuery(e.target.value)} />
             </div>
             {starters === null ? <p className="text-base text-slate-500 dark:text-slate-400">Loading…</p>
-              : groups.length === 0 ? <p className="text-base text-slate-600 dark:text-slate-300">No examples match. Try another word.</p>
+              : groups.length === 0 ? (
+                <div className="space-y-3">
+                  <p className="text-base text-slate-600 dark:text-slate-300">No examples match. Try another word{onStartBlank || onStartSpreadsheet ? ', or start another way:' : '.'}</p>
+                  {(onStartBlank || onStartSpreadsheet) && (
+                    <div className="flex flex-wrap gap-2">
+                      {onStartBlank && <button type="button" className="btn-secondary" onClick={onStartBlank}>Start blank</button>}
+                      {onStartSpreadsheet && <button type="button" className="btn-secondary" onClick={onStartSpreadsheet}>Bring in a spreadsheet</button>}
+                    </div>
+                  )}
+                </div>
+              )
               : groups.map(([group, items]) => (
                 <section key={group} className="space-y-2" aria-label={group}>
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{group}</h3>

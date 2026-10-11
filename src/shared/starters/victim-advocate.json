@@ -6,6 +6,12 @@
   "description": "For victim advocates: safe ways to reach each person, protective order expiry, court dates with reminders, safety plan check-ins every 30 days and the crime victim compensation claim deadline. Pulse is a tracking aid, not your official record system.",
   "icon": "life-buoy",
   "group": "Human services",
+  "keywords": [
+    "victim",
+    "domestic violence",
+    "court",
+    "safety"
+  ],
   "vocab": {
     "record": {
       "one": "client",

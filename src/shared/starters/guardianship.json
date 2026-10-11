@@ -6,6 +6,12 @@
   "description": "For professional guardians and conservators: wards, where they live, their court cases and hearings, the yearly report to the court and a visit every month. Pulse is a tracking aid, not your official record system.",
   "icon": "shield-check",
   "group": "Legal and government",
+  "keywords": [
+    "guardian",
+    "conservator",
+    "court",
+    "ward"
+  ],
   "vocab": {
     "record": {
       "one": "record",
