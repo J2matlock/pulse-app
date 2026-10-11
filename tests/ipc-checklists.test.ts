@@ -404,6 +404,17 @@ describe('CHECKLIST_RESTORE_ITEM', () => {
     expect(back).toEqual({ title: 'Restored', created_at: '2026-03-01 12:00:00' })
   })
 
+  it('puts an item back ungrouped when its group is gone (bug sweep S2)', async () => {
+    const item = {
+      id: 99998, row_id: rowId, title: 'Restored', description: null,
+      is_completed: 0, due_date: null, completed_at: null, completed_by: null,
+      position: 0, category: null, priority: 'normal', is_archived: 0,
+      created_at: '2026-03-01 12:00:00', template_source_id: null, recurrence_rule: null, group_id: 424242,
+    }
+    expect((await invoke(IPC.CHECKLIST_RESTORE_ITEM, item) as any).ok).toBe(true)
+    expect((testDb.db.prepare('SELECT group_id FROM checklist_items WHERE id = 99998').get() as any).group_id).toBeNull()
+  })
+
   it('fails for duplicate ID', async () => {
     const existing = await createItem('Existing')
     const item = {

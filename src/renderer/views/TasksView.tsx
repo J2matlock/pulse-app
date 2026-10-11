@@ -343,13 +343,15 @@ export default function TasksView(): React.ReactElement {
   // Grouped items memo (only used in manual mode with groups)
   const groupedActiveTasks = useMemo(() => {
     const map = new Map<number | null, CaseloadTask[]>()
+    // A task whose group is gone shows ungrouped instead of nowhere (bug sweep S2)
+    const groupIds = new Set(taskGroups.map(g => g.id))
     for (const task of activeManualItems) {
-      const key = task.group_id ?? null
+      const key = task.group_id != null && groupIds.has(task.group_id) ? task.group_id : null
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(task)
     }
     return map
-  }, [activeManualItems])
+  }, [activeManualItems, taskGroups])
 
   // Sort: My order (with groups and dragging), Due date (overdue first, no date last), or Priority
   const sortedActiveItems = useMemo(() => {

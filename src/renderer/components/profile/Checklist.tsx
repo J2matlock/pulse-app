@@ -122,13 +122,15 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
   // ── Grouped items memo ──────────────────────────────────────────────────
   const groupedActiveItems = useMemo(() => {
     const map = new Map<number | null, ChecklistItemType[]>()
+    // An item whose group is gone shows ungrouped instead of nowhere (bug sweep S2)
+    const groupIds = new Set(groups.map(g => g.id))
     for (const item of activeItems) {
-      const key = item.group_id ?? null
+      const key = item.group_id != null && groupIds.has(item.group_id) ? item.group_id : null
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(item)
     }
     return map
-  }, [activeItems])
+  }, [activeItems, groups])
 
   const hasGroups = groups.length > 0
 
@@ -392,6 +394,8 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
     if (result.ok) {
       const created = result.data
       setGroups(prev => [...prev, created])
+      // Redo makes the group again under a new id; undo must delete that one (bug sweep S2)
+      let currentId = created.id
       useUndoStore.getState().push({
         id: crypto.randomUUID(),
         description: 'Added checklist group',
@@ -399,11 +403,12 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
         category: 'structural',
         icon: 'folder-plus',
         undo: async () => {
-          await mustInvoke(IPC.CHECKLIST_GROUP_DELETE, created.id)
+          await mustInvoke(IPC.CHECKLIST_GROUP_DELETE, currentId)
           pulseEvents.emit('checklist:changed', { rowId })
         },
         redo: async () => {
-          await mustInvoke(IPC.CHECKLIST_GROUP_CREATE, rowId, created.name)
+          const again = await mustInvoke<ChecklistGroup>(IPC.CHECKLIST_GROUP_CREATE, rowId, created.name)
+          currentId = again.data.id
           pulseEvents.emit('checklist:changed', { rowId })
         },
       })
@@ -439,6 +444,8 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
     setGroups(prev => prev.filter(g => g.id !== groupId))
     setItems(prev => prev.map(i => i.group_id === groupId ? { ...i, group_id: null } : i))
     await safeInvoke(IPC.CHECKLIST_GROUP_DELETE, groupId)
+    // Undo brings the group back under a new id; redo must delete that one (bug sweep S2)
+    let currentId = groupId
     useUndoStore.getState().push({
       id: crypto.randomUUID(),
       description: `Deleted group "${deletedGroup.name}"`,
@@ -448,16 +455,14 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       undo: async () => {
         // Recreate group and reassign items
         const res = await mustInvoke<ChecklistGroup>(IPC.CHECKLIST_GROUP_CREATE, rowId, deletedGroup.name)
-        if (res.ok) {
-          const newGroup = res.data
-          await Promise.all(affectedItems.map(i =>
-            mustInvoke(IPC.CHECKLIST_MOVE_ITEM_TO_GROUP, i.id, newGroup.id)
-          ))
-        }
+        currentId = res.data.id
+        await Promise.all(affectedItems.map(i =>
+          mustInvoke(IPC.CHECKLIST_MOVE_ITEM_TO_GROUP, i.id, currentId)
+        ))
         pulseEvents.emit('checklist:changed', { rowId })
       },
       redo: async () => {
-        await mustInvoke(IPC.CHECKLIST_GROUP_DELETE, groupId)
+        await mustInvoke(IPC.CHECKLIST_GROUP_DELETE, currentId)
         pulseEvents.emit('checklist:changed', { rowId })
       },
     })
@@ -478,10 +483,12 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
     })
   }, [])
 
-  const handleApplyTemplate = useCallback(async (templateId: number, groupId?: number | null, createdGroupId?: number | null) => {
+  const handleApplyTemplate = useCallback(async (templateId: number, groupId?: number | null, createdGroupName?: string) => {
     const result = await safeInvoke<{ createdIds: number[] }>(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId, groupId ?? null)
     if (result.ok) {
-      const { createdIds } = result.data
+      // Redo makes new items (and a new group), so undo and redo track the current ids (bug sweep S2)
+      let createdIds = result.data.createdIds
+      let targetGroupId = groupId ?? null
       // Reload items from DB to get full item objects
       const reloaded = await safeInvoke<ChecklistItemType[]>(IPC.CHECKLIST_GET, rowId)
       if (reloaded.ok) setItems(reloaded.data)
@@ -494,11 +501,16 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
           icon: 'check-square',
           undo: async () => {
             await Promise.all(createdIds.map(id => mustInvoke(IPC.CHECKLIST_DELETE_ITEM, id)))
-            if (createdGroupId) await mustInvoke(IPC.CHECKLIST_GROUP_DELETE, createdGroupId)
+            if (createdGroupName !== undefined && targetGroupId != null) await mustInvoke(IPC.CHECKLIST_GROUP_DELETE, targetGroupId)
             pulseEvents.emit('checklist:changed', { rowId })
           },
           redo: async () => {
-            await mustInvoke(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId, groupId ?? null)
+            if (createdGroupName !== undefined) {
+              const group = await mustInvoke<ChecklistGroup>(IPC.CHECKLIST_GROUP_CREATE, rowId, createdGroupName)
+              targetGroupId = group.data.id
+            }
+            const again = await mustInvoke<{ createdIds: number[] }>(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId, targetGroupId)
+            createdIds = again.data.createdIds
             pulseEvents.emit('checklist:changed', { rowId })
           },
         })
@@ -792,7 +804,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
                 setGroups(prev => [...prev, res.data])
                 const tid = pendingTemplateId
                 setPendingTemplateId(null)
-                void handleApplyTemplate(tid, res.data.id, res.data.id)
+                void handleApplyTemplate(tid, res.data.id, res.data.name)
               }
             }}
             onCancel={() => setPendingTemplateId(null)}

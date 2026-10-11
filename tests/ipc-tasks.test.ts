@@ -425,6 +425,16 @@ describe('IPC Tasks', () => {
       expect(row.title).toBe('Restored')
     })
 
+    it('puts a task back ungrouped when its group is gone, and keeps a group that is there (bug sweep S2)', async () => {
+      const g = testDb.db.prepare("INSERT INTO task_groups (name, position) VALUES ('Kept', 0)").run().lastInsertRowid as number
+      const base = { grid_id: null, title: 'Restored', description: null, priority: 'normal', category: null, due_date: null,
+        recurrence_rule: null, position: 0, is_completed: 0, completed_at: null, snoozed_until: null, created_at: '2026-03-01T00:00:00.000Z' }
+      expect((await invoke(IPC.TASK_RESTORE, { ...base, id: 9001, group_id: 424242 }) as any).ok).toBe(true)
+      expect((await invoke(IPC.TASK_RESTORE, { ...base, id: 9002, group_id: g }) as any).ok).toBe(true)
+      expect((testDb.db.prepare('SELECT group_id FROM caseload_tasks WHERE id = 9001').get() as any).group_id).toBeNull()
+      expect((testDb.db.prepare('SELECT group_id FROM caseload_tasks WHERE id = 9002').get() as any).group_id).toBe(g)
+    })
+
     it('fails if task ID already exists', async () => {
       const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
       const t = insertTask(gridId, 'Existing')

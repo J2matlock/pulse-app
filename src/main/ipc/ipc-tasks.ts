@@ -196,11 +196,14 @@ export function registerTaskHandlers(): void {
     // Verify the ID doesn't collide with an existing record to prevent overwriting
     const existing = db.prepare('SELECT id FROM caseload_tasks WHERE id = ?').get(task.id)
     if (existing) return fail('Task with this ID already exists')
+    // Its group may have been deleted (and brought back under a new id) since:
+    // put it back ungrouped rather than under a group that isn't there (bug sweep S2)
+    const groupId = task.group_id != null && db.prepare('SELECT 1 FROM task_groups WHERE id = ?').get(task.group_id) ? task.group_id : null
     db.prepare(`
       INSERT INTO caseload_tasks
       (id, grid_id, group_id, title, description, priority, category, due_date, recurrence_rule, position, is_completed, completed_at, snoozed_until, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-    `).run(task.id, task.grid_id ?? null, task.group_id ?? null, task.title, task.description ?? null, task.priority, task.category ?? null, task.due_date ?? null, task.recurrence_rule ?? null, task.position, task.is_completed, task.completed_at ?? null, task.snoozed_until ?? null, task.created_at)
+    `).run(task.id, task.grid_id ?? null, groupId, task.title, task.description ?? null, task.priority, task.category ?? null, task.due_date ?? null, task.recurrence_rule ?? null, task.position, task.is_completed, task.completed_at ?? null, task.snoozed_until ?? null, task.created_at)
     return ok(true)
   })
 

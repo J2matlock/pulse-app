@@ -203,11 +203,13 @@ export function registerChecklistHandlers(): void {
     // Verify the ID doesn't collide with an existing record to prevent overwriting
     const existing = db.prepare('SELECT id FROM checklist_items WHERE id = ?').get(item.id)
     if (existing) return fail('Item with this ID already exists')
+    // Its group may have been deleted since: put it back ungrouped (bug sweep S2)
+    const groupId = item.group_id != null && db.prepare('SELECT 1 FROM checklist_groups WHERE id = ? AND row_id = ?').get(item.group_id, item.row_id) ? item.group_id : null
     db.prepare(`
       INSERT INTO checklist_items
       (id, row_id, title, description, is_completed, due_date, completed_at, completed_by, position, category, priority, is_archived, created_at, template_source_id, recurrence_rule, group_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(item.id, item.row_id, item.title, item.description ?? null, item.is_completed, item.due_date ?? null, item.completed_at ?? null, item.completed_by ?? null, item.position, item.category ?? null, item.priority, item.is_archived, item.created_at, item.template_source_id ?? null, item.recurrence_rule ?? null, item.group_id ?? null)
+    `).run(item.id, item.row_id, item.title, item.description ?? null, item.is_completed, item.due_date ?? null, item.completed_at ?? null, item.completed_by ?? null, item.position, item.category ?? null, item.priority, item.is_archived, item.created_at, item.template_source_id ?? null, item.recurrence_rule ?? null, groupId)
     return ok(true)
   })
 
