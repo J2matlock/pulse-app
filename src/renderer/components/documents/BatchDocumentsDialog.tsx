@@ -13,6 +13,7 @@ import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
 import { UnknownPlaceholders } from '../shared/UnknownPlaceholders'
+import { friendlyError } from '../../utils/friendlyError'
 
 type Who = 'selected' | 'deadline' | 'all'
 const label = 'block text-base font-semibold text-slate-800 dark:text-slate-100 mb-1'
@@ -76,14 +77,14 @@ export function BatchDocumentsDialog({ gridId, rowIds, initialMode = 'documents'
     try {
       if (mode === 'documents') {
         const res = await safeInvoke<{ filePath: string; count: number; unknown: string[] } | null>(IPC.DOC_BATCH, templateId, target, page)
-        if (!res.ok) { toast.error(res.error); return }
+        if (!res.ok) { toast.error(friendlyError(res.error)); return }
         if (!res.data) return
         noteUnencryptedExport()
         toast.success(`Saved ${res.data.count} ${res.data.count === 1 ? 'document' : 'documents'}`)
         if (res.data.unknown.length) { setUnknown(res.data.unknown); return }
       } else {
         const res = await safeInvoke<{ filePath: string; count: number; skipped: number } | null>(IPC.DOC_LABELS, target, addressCol, layout)
-        if (!res.ok) { toast.error(res.error); return }
+        if (!res.ok) { toast.error(friendlyError(res.error)); return }
         if (!res.data) return
         noteUnencryptedExport()
         toast.success(`Saved ${res.data.count} label${res.data.count === 1 ? '' : 's'}${res.data.skipped ? ` (${res.data.skipped} without an address left out)` : ''}`)

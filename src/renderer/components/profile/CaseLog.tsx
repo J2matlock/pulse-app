@@ -23,6 +23,7 @@ import { useFeature } from '../../hooks/useFeature'
 import { FeatureOffer } from '../shared/FeatureOffer'
 import { NoteFiles } from './NoteFiles'
 import type { Attachment } from '../../../shared/attachments'
+import { friendlyError } from '../../utils/friendlyError'
 
 /** Show dates the main process changed (notes that update deadline columns) without a reload. */
 function applyDatesLocally(rowId: number, values: Array<[columnId: number, value: string | null]>): void {
@@ -305,14 +306,14 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
       })
     } else {
       // e.g. minutes or miles out of range; the note text is kept so nothing is lost
-      toast.error(res.error)
+      toast.error(friendlyError(res.error))
     }
     setAdding(false)
   }
 
   async function handleSetMeasures(id: number, values: NoteMeasureValues) {
     const res = await safeInvoke(IPC.CASE_LOG_SET_MEASURES, id, values)
-    if (!res.ok) { toast.error(res.error); return }
+    if (!res.ok) { toast.error(friendlyError(res.error)); return }
     const { extra, ...builtIn } = values
     const kept = Object.entries(extra ?? {}).filter(([, v]) => v != null)
     setEntries(prev => prev.map(e => e.id === id
@@ -364,7 +365,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
   async function handleDelete(id: number) {
     const entry = entries.find(e => e.id === id)
     const res = await safeInvoke(IPC.CASE_LOG_DELETE, id)
-    if (!res.ok) { toast.error(res.error); return }
+    if (!res.ok) { toast.error(friendlyError(res.error)); return }
     setEntries(prev => prev.filter(e => e.id !== id))
     if (entry) {
       useUndoStore.getState().push({

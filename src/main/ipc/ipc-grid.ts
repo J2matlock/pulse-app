@@ -81,7 +81,7 @@ export function registerGridHandlers(): void {
   secureWrap(IPC.GRID_GET, 'ipc-grid', (_e, gridId: number, showArchived = false) => {
     if (!validId(gridId)) return fail('Invalid ID')
     const grid = cachedStmt('grid_by_id', 'SELECT * FROM grids WHERE id = ?').get(gridId) as Grid | undefined
-    if (!grid) return fail(`Grid ${gridId} not found`)
+    if (!grid) return fail('That list no longer exists. It may have been deleted.')
 
     const { columns, hiddenColumns, rows, acuityLevels } = resolveGridColumns(gridId, showArchived)
 
@@ -92,7 +92,7 @@ export function registerGridHandlers(): void {
     if (!validId(gridId)) return fail('Invalid ID')
     const db = getDb()
     const grid = cachedStmt('grid_by_id', 'SELECT * FROM grids WHERE id = ?').get(gridId) as import('../../shared/types').Grid | undefined
-    if (!grid) return fail(`Grid ${gridId} not found`)
+    if (!grid) return fail('That list no longer exists. It may have been deleted.')
 
     const { columns, hiddenColumns, rows, acuityLevels } = resolveGridColumns(gridId, showArchived)
 

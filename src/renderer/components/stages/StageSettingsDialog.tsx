@@ -16,6 +16,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { useActivityTypes, ACTIVITY_SWATCH } from '../../hooks/useActivityTypes'
 import { useGridStore } from '../../stores/gridStore'
 import { DoneChecklistPicker } from '../grid/DoneChecklistPicker'
+import { friendlyError } from '../../utils/friendlyError'
 
 const DONE_WORDS = /^(done|closed|complete|completed|finished|picked up|won|lost|cancel+ed)$/i
 
@@ -64,7 +65,7 @@ export function StageSettingsDialog({ column, onClose }: { column: Column; onClo
     setSaving(true)
     try {
       const res = await safeInvoke(IPC.STAGE_CONFIG_SAVE, column.id, config)
-      if (!res.ok) { toast.error(res.error); return }
+      if (!res.ok) { toast.error(friendlyError(res.error)); return }
       const gridId = useGridStore.getState().activeGridId
       if (gridId) await useGridStore.getState().loadGrid(gridId)
       toast.success(config ? `"${column.name}" is now the ${t('stage')}` : `"${column.name}" is no longer the ${t('stage')}`)

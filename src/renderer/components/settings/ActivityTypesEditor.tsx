@@ -17,6 +17,7 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import { useActivityTypes, ACTIVITY_SWATCH } from '../../hooks/useActivityTypes'
 import { useActivityTypeStore } from '../../stores/activityTypeStore'
 import { useVocab } from '../../hooks/useVocab'
+import { friendlyError } from '../../utils/friendlyError'
 
 const COLOR_NAMES: Record<ActivityColor, string> = {
   slate: 'Gray', blue: 'Blue', green: 'Green', purple: 'Purple', orange: 'Orange', teal: 'Teal', amber: 'Yellow', red: 'Red',
@@ -25,7 +26,7 @@ const COLOR_NAMES: Record<ActivityColor, string> = {
 /** Run a change, then refresh the shared list; problems come back as plain messages. */
 async function run(channel: Parameters<typeof safeInvoke>[0], ...args: unknown[]): Promise<boolean> {
   const res = await safeInvoke(channel, ...args)
-  if (!res.ok) { toast.error(res.error); return false }
+  if (!res.ok) { toast.error(friendlyError(res.error)); return false }
   await useActivityTypeStore.getState().load()
   return true
 }

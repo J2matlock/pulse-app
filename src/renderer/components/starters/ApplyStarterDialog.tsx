@@ -10,6 +10,7 @@ import { useGridStore } from '../../stores/gridStore'
 import { useAlertStore } from '../../stores/alertStore'
 import { StarterIcon } from './StarterIcon'
 import { pulseEvents } from '../../events'
+import { friendlyError } from '../../utils/friendlyError'
 
 type Step = 'gallery' | 'variant' | 'review' | 'done'
 
@@ -92,7 +93,7 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
     setPreview(null)
     setStep('review')
     const r = await safeInvoke(IPC.STARTER_PREVIEW, src, v)
-    if (!r.ok) { toast.error(r.error); if (initial) onClose(); else setStep('gallery'); return }
+    if (!r.ok) { toast.error(friendlyError(r.error)); if (initial) onClose(); else setStep('gallery'); return }
     setPreview(r.data)
     setLists(new Set(r.data.lists.map(l => l.key)))
   }

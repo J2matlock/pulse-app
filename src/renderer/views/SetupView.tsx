@@ -25,6 +25,7 @@ import { ImportWizard } from '../components/grid/ImportWizard'
 import { ApplyStarterDialog } from '../components/starters/ApplyStarterDialog'
 import { DateRepeatPicker, suggestRepeat, type DateAnswer } from './setup/DateRepeatPicker'
 import { GuidedBlankStart } from './setup/GuidedBlankStart'
+import { friendlyError } from '../utils/friendlyError'
 
 type Step = 'welcome' | 'profile' | 'start' | 'sheet-name' | 'sheet-import' | 'sheet-rows' | 'sheet-dates' | 'blank' | 'done'
 
@@ -206,7 +207,7 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
     try {
       if (answers.length > 0) {
         const res = await safeInvoke(IPC.ONBOARDING_DATE_RULES, gridId, answers)
-        if (!res.ok) { toast.error(res.error) }
+        if (!res.ok) { toast.error(friendlyError(res.error)) }
       }
       await finish()
     } finally { setBusy(false) }

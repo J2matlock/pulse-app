@@ -17,6 +17,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { useUndoStore } from '../../stores/undoStore'
 import { useGridStore } from '../../stores/gridStore'
 import { useLinkStore } from '../../stores/linkStore'
+import { friendlyError } from '../../utils/friendlyError'
 
 type Value = string | number[]
 
@@ -167,7 +168,7 @@ export function FillFormDialog({ form, columns, row, onClose, onDone }: {
 
   async function print() {
     const res = await safeInvoke<string | null>(IPC.FORM_PRINT, form.id, row?.row_id ?? null)
-    if (!res.ok) { toast.error(res.error); return }
+    if (!res.ok) { toast.error(friendlyError(res.error)); return }
     if (res.data) { toast.success('Saved the PDF'); noteUnencryptedExport() }
   }
 

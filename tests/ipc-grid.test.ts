@@ -126,7 +126,7 @@ describe('GRID_GET', () => {
   it('returns fail for non-existent grid', async () => {
     const result = await invoke(IPC.GRID_GET, 999999) as { ok: false; error: string }
     expect(result.ok).toBe(false)
-    expect(result.error).toContain('not found')
+    expect(result.error).toBe('That list no longer exists. It may have been deleted.')
   })
 
   it('returns fail for invalid ID (negative)', async () => {

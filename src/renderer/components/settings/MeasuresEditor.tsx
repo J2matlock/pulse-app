@@ -11,6 +11,7 @@ import { MAX_ACTIVE_MEASURES, MEASURE_LABEL_MAX, MEASURE_UNIT_MAX, type MeasureD
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { useVocab } from '../../hooks/useVocab'
+import { friendlyError } from '../../utils/friendlyError'
 
 const KINDS: Array<{ kind: MeasureKind; label: string }> = [
   { kind: 'number', label: 'A count or amount' },
@@ -22,7 +23,7 @@ type Draft = { label: string; kind: MeasureKind; unit: string; decimals: 0 | 1 |
 
 async function send(channel: typeof IPC.MEASURE_SAVE | typeof IPC.MEASURE_ARCHIVE, ...args: unknown[]): Promise<boolean> {
   const res = await safeInvoke<WorkspaceState>(channel, ...args)
-  if (!res.ok) { toast.error(res.error); return false }
+  if (!res.ok) { toast.error(friendlyError(res.error)); return false }
   useWorkspaceStore.setState({ ...res.data, measures: res.data.measures ?? [] })
   return true
 }

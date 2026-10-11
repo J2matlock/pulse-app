@@ -5,6 +5,7 @@ import { safeInvoke } from '../utils/safeInvoke'
 import type { ImportedFile } from '../components/shared/ImportPreviewModal'
 import type { StarterRef, StarterSummary } from '../../shared/starters/schema'
 import toast from 'react-hot-toast'
+import { friendlyError } from '../utils/friendlyError'
 
 export interface PendingWorkspaceFile { source: StarterRef; summary: StarterSummary }
 
@@ -28,7 +29,7 @@ export function usePulseFileImport(
   const checkPendingPulseImport = useCallback(async () => {
     try {
       const res = await safeInvoke(IPC.FILE_ASSOC_GET_PENDING)
-      if (!res.ok) { if (res.error) toast.error(res.error); return }
+      if (!res.ok) { if (res.error) toast.error(friendlyError(res.error)); return }
       if (res.data?.workspace) {
         setPendingWorkspaceFile(res.data.workspace)
         return

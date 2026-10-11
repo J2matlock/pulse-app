@@ -8,6 +8,8 @@ import { useFocusTrap } from '../hooks/useFocusTrap'
 import { EmptyState } from '../components/shared/EmptyState'
 import { isMod } from '../utils/keys'
 import { useVocab } from '../hooks/useVocab'
+import toast from 'react-hot-toast'
+import { friendlyError } from '../utils/friendlyError'
 
 // ── Variable helper ───────────────────────────────────────────────────────────
 
@@ -224,11 +226,15 @@ export default function SnippetsView(): React.ReactElement {
         setSnippets(prev => prev.map(s =>
           s.id === editTarget.id ? { ...s, trigger_text: trigger, expansion, category: category || null } : s
         ))
+      } else {
+        // A duplicate shortcut used to fail with no word at all (audit L-20)
+        toast.error(friendlyError(res.error, "We couldn't save that snippet. Please try again."))
       }
       setEditTarget(null)
     } else {
       const res = await safeInvoke<Snippet>(IPC.SNIPPET_CREATE, trigger, expansion, category || null)
       if (res.ok) setSnippets(prev => [...prev, res.data])
+      else toast.error(friendlyError(res.error, "We couldn't save that snippet. Please try again."))
     }
   }
 

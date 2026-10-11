@@ -10,6 +10,7 @@ import type { ReminderSettings } from '../../../shared/ipc-contract'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useFeature } from '../../hooks/useFeature'
 import { useVocab } from '../../hooks/useVocab'
+import { friendlyError } from '../../utils/friendlyError'
 
 const LEADS = [0, 5, 10, 15, 30, 60]
 
@@ -25,12 +26,12 @@ export function RemindersSection(): React.ReactElement {
   async function save(patch: Partial<ReminderSettings>) {
     const res = await safeInvoke<ReminderSettings>(IPC.REMINDERS_SET, patch)
     if (res.ok) setSettings(res.data)
-    else toast.error(res.error)
+    else toast.error(friendlyError(res.error))
   }
 
   async function test() {
     const res = await safeInvoke(IPC.REMINDERS_TEST)
-    if (!res.ok) toast.error(res.error, { duration: 8000 })
+    if (!res.ok) toast.error(friendlyError(res.error), { duration: 8000 })
   }
 
   return (
