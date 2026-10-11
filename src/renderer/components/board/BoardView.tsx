@@ -24,6 +24,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { ACTIVITY_SWATCH } from '../../hooks/useActivityTypes'
 import { buildLanes, cardDueText, nearestDeadline, visibleRows, type Lane } from './boardLanes'
 import { moveToStage } from '../../utils/stageMove'
+import { memoKey } from '../grid/gridSort'
 import { isMod, modHelp } from '../../utils/keys'
 
 const PAGE = 50
@@ -60,7 +61,8 @@ interface CardProps {
   due: ReturnType<typeof nearestDeadline>
   linkColumn: Column | undefined
   acuity: { name: string; color: string } | null
-  onOpen: () => void
+  /** Opens the record; one handler for every card, so a card redraws only when its own record changes */
+  onOpen: (rowId: number) => void
   laneIndex: number
   index: number
   onKey: (e: React.KeyboardEvent, laneIndex: number, index: number, rowId: number) => void
@@ -80,7 +82,7 @@ const Card = React.memo(function Card({ row, name, number, fields, due, linkColu
   const links = linkColumn ? parseLinkValue(row[`col_${linkColumn.id}`]).slice(0, 2) : []
   return (
     <li ref={setNodeRef} style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50, position: 'relative' } : undefined}>
-      <button type="button" onClick={onOpen} data-row-id={row.row_id} data-lane={laneIndex} data-index={index}
+      <button type="button" onClick={() => onOpen(row.row_id)} data-row-id={row.row_id} data-lane={laneIndex} data-index={index}
         {...attributes} {...listeners} role="button" aria-roledescription="card"
         aria-describedby="board-keys-help"
         onKeyDown={e => onKey(e, laneIndex, index, row.row_id)}
@@ -191,16 +193,22 @@ export function BoardView(): React.ReactElement | null {
 
   const numberCol = allColumns.find(c => c.column_type === 'auto_number')
   const linkColumn = columns.find(c => c.column_type === 'link')
-  const fieldColumns = cardFields.map(id => allColumns.find(c => c.id === id)).filter((c): c is Column => !!c)
-  const levels = useMemo(() => new Map(acuityLevels.map(l => [l.id, l])), [acuityLevels])
+  const fieldColumns = useMemo(() => cardFields.map(id => allColumns.find(c => c.id === id)).filter((c): c is Column => !!c), [cardFields, allColumns])
+  // One badge object per priority level, so cards keep the same props between draws
+  const levelBadges = useMemo(() => new Map(acuityLevels.map(l => [l.id, { name: l.abbreviation || l.name, color: l.color }])), [acuityLevels])
+  const openRecord = useCallback((rowId: number) => navigate(`/profile/${rowId}`), [navigate])
+
+  // Each card's name and nearest deadline, worked out once per record rather than for every
+  // record on every change (AUDIT-134); an edited record is a new row object and is worked out again
+  const infoOf = useMemo(() => memoKey(r => ({ name: getClientName(r, allColumns), due: nearestDeadline(r, allColumns, rules) })), [allColumns, rules])
 
   const prepared = useMemo(() => {
     const visible = visibleRows(rows, allColumns, { activeFilters, filterMode, showStarredOnly, searchQuery, rowTagsMap, rules: new Map(rules.map(r => [r.id, r])) })
-    const info = new Map(visible.map(r => [r.row_id, { name: getClientName(r, allColumns), due: nearestDeadline(r, allColumns, rules) }]))
+    const info = new Map(visible.map(r => [r.row_id, infoOf(r)]))
     return { visible, info }
     // deadlineContext: meter, quota, step and extension data that arrives after the rows
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, allColumns, activeFilters, filterMode, showStarredOnly, searchQuery, rowTagsMap, rules, deadlineContext])
+  }, [rows, allColumns, activeFilters, filterMode, showStarredOnly, searchQuery, rowTagsMap, rules, deadlineContext, infoOf])
 
   // Time in stage (W06 §5), refreshed after changes settle
   const [durations, setDurations] = useState<Record<number, StageDurations>>({})
@@ -324,12 +332,12 @@ export function BoardView(): React.ReactElement | null {
                 <ul className="flex-1 overflow-y-auto px-2 pb-2 space-y-2" aria-label={label}>
                   {lane.rows.slice(0, limit).map((r, index) => {
                     const info = prepared.info.get(r.row_id)!
-                    const level = acuityEnabled && r.acuity_level_id != null ? levels.get(r.acuity_level_id) : undefined
+                    const badge = acuityEnabled && r.acuity_level_id != null ? levelBadges.get(r.acuity_level_id) : undefined
                     return (
                       <Card key={r.row_id} row={r} name={info.name} due={info.due}
                         number={numberCol ? (r[`col_${numberCol.id}`] ?? null) : null} fields={fieldColumns} linkColumn={linkColumn}
-                        acuity={level ? { name: level.abbreviation || level.name, color: level.color } : null}
-                        onOpen={() => navigate(`/profile/${r.row_id}`)} laneIndex={laneIndex} index={index} onKey={onKey}
+                        acuity={badge ?? null}
+                        onOpen={openRecord} laneIndex={laneIndex} index={index} onKey={onKey}
                         inStage={durations[r.row_id]?.current.stage === (r[`col_${stageCol.id}`] ?? null) ? durations[r.row_id]!.current : null}
                         moveTargets={moveTargets} currentLane={key} onMove={moveByKey} />
                     )
