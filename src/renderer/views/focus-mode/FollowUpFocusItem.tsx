@@ -23,7 +23,7 @@ export const FollowUpFocusItem = React.memo(function FollowUpFocusItem({ followU
     >
       <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${followUp.daysUntil <= 0 ? 'bg-red-500' : 'bg-sky-400'}`} />
       <div className="flex-1 min-w-0">
-        <button onClick={onNavigate} className="hit-44 font-medium text-white truncate hover:underline text-left focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-400 rounded-sm">{followUp.clientName}</button>
+        <button onClick={onNavigate} title={followUp.clientName} className="hit-44 block max-w-full font-medium text-white truncate hover:underline text-left focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-400 rounded-sm">{followUp.clientName}</button>
         <div className="text-sm text-slate-500 dark:text-slate-400 truncate">
           {followUp.content.length > 80 ? followUp.content.slice(0, 80) + '…' : followUp.content}
         </div>
