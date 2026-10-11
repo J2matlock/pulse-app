@@ -45,6 +45,24 @@ describe('a deleted column', () => {
     expect(purgeDeletedColumn(again)).toBe(true)
     expect(() => restoreColumn(again)).toThrow(/no longer in the Trash/)
   })
+  it('still comes back after a note that moved one of its dates was deleted (AUDIT-100)', () => {
+    const g = seedGrid(t.db, { rowCount: 1, columnCount: 2, columnTypes: ['text', 'date'] })
+    const col = g.columnIds[1]!
+    const cellId = Number(t.db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, '2026-10-06')").run(g.rowIds[0], col).lastInsertRowid)
+    t.db.prepare("INSERT INTO cell_history (cell_id, row_id, column_id, old_value, new_value) VALUES (?, ?, ?, NULL, '2026-10-06')").run(cellId, g.rowIds[0], col)
+    const noteId = Number(t.db.prepare("INSERT INTO case_log (row_id, log_type, content) VALUES (?, 'note', 'Visit')").run(g.rowIds[0]).lastInsertRowid)
+    const keptNote = Number(t.db.prepare("INSERT INTO case_log (row_id, log_type, content) VALUES (?, 'note', 'Visit')").run(g.rowIds[0]).lastInsertRowid)
+    t.db.prepare("INSERT INTO note_date_moves (case_log_id, row_id, column_id, old_value, new_value) VALUES (?, ?, ?, NULL, '2026-10-06'), (?, ?, ?, '2026-10-06', '2026-10-06')")
+      .run(noteId, g.rowIds[0], col, keptNote, g.rowIds[0], col)
+    const deletedId = t.db.transaction(() => { const id = trashColumn(col); t.db.prepare('DELETE FROM columns WHERE id = ?').run(col); return id })()
+    t.db.prepare('DELETE FROM case_log WHERE id = ?').run(noteId)
+
+    expect(() => restoreColumn(deletedId)).not.toThrow()
+    expect(t.db.prepare('SELECT value FROM cells WHERE id = ?').get(cellId)).toEqual({ value: '2026-10-06' })
+    expect(t.db.prepare('SELECT case_log_id FROM note_date_moves WHERE column_id = ?').all(col)).toEqual([{ case_log_id: keptNote }])
+    expect(t.db.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(listDeletedColumns(g.gridId)).toEqual([])
+  })
 })
 
 describe('a deleted list', () => {
