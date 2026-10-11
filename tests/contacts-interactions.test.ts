@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createTestDb, cleanupTestDb, type TestDb } from './helpers'
+import { parseDbTimestamp } from '../src/shared/dates'
 
 let testDb: TestDb
 
@@ -85,8 +86,10 @@ describe('addInteraction — custom created_at', () => {
     const ix = addInteraction(p.id, 'email', 'Auto-timestamped')
     expect(ix.created_at).toBeDefined()
     // Should be a recent timestamp
-    const dt = new Date(ix.created_at)
+    // SQLite's datetime('now') is UTC without a zone marker; new Date() would read it as local
+    const dt = parseDbTimestamp(ix.created_at)
     expect(dt.getTime()).toBeGreaterThan(Date.now() - 5000)
+    expect(dt.getTime()).toBeLessThanOrEqual(Date.now() + 1000)
   })
 })
 

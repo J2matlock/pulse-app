@@ -62,7 +62,8 @@ describe('summary report', () => {
       expect(csv).toContain('Oct 1, 2026 – Oct 31, 2026')
       expect(csv).not.toContain('Sep 30')
     } finally {
-      process.env.TZ = originalTz
+      if (originalTz === undefined) delete process.env.TZ
+      else process.env.TZ = originalTz
     }
   })
 
@@ -106,8 +107,13 @@ describe('summary report', () => {
 
 describe('notes CSV', () => {
   it('dates a backdated note by when it happened, not when it was typed', async () => {
-    testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type, occurred_at, created_at) VALUES (?, 'Backdated visit', 'note', '2026-09-30 15:00:00', '2026-10-02 15:00:00')")
-      .run(grid.rowIds[0])
+    // SQLite stores UTC; build the timestamps from local noon so the expected
+    // local calendar day holds in every time zone (Auckland is UTC+13)
+    const sqliteUtc = (d: Date) => d.toISOString().replace('T', ' ').slice(0, 19)
+    const occurred = sqliteUtc(new Date(2026, 8, 30, 12, 0, 0))
+    const created = sqliteUtc(new Date(2026, 9, 2, 12, 0, 0))
+    testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type, occurred_at, created_at) VALUES (?, 'Backdated visit', 'note', ?, ?)")
+      .run(grid.rowIds[0], occurred, created)
     const destPath = join(testDb.tmpDir, 'notes.csv')
     await exportNotesCsv(destPath, 'iso')
     const line = readFileSync(destPath, 'utf8').split('\n').find(l => l.includes('Backdated visit'))!
