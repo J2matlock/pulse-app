@@ -1164,9 +1164,10 @@ export function TemplateManager({ onApply, onClose }: {
                   onClick={() => setDraft(d => ({ ...d, isRecurring: !d.isRecurring }))}
                   className={`hit-44 relative inline-flex h-6 w-11 items-center rounded-full transition-colors
                              focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-                             ${draft.isRecurring ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+                             ${draft.isRecurring ? 'bg-blue-500' : 'bg-slate-500 dark:bg-slate-500'}`}
                   role="switch"
                   aria-checked={draft.isRecurring}
+                  aria-label="Items repeat"
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform
                                    ${draft.isRecurring ? 'translate-x-6' : 'translate-x-1'}`} />
