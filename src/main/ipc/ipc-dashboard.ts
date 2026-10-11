@@ -55,7 +55,7 @@ function queryFollowups(): unknown[] {
       g.name AS grid_name,
       r.display_name AS client_name
     FROM case_log cl
-    JOIN rows r       ON r.id = cl.row_id AND r.is_active = 1
+    JOIN rows r       ON r.id = cl.row_id AND r.is_active = 1 AND r.deleted_at IS NULL
     JOIN grids g      ON g.id = r.grid_id AND g.is_active = 1
     WHERE cl.follow_up_date IS NOT NULL
       AND cl.follow_up_completed = 0
