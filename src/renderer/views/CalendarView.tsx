@@ -123,6 +123,8 @@ export default function CalendarView(): React.ReactElement {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- once on open; a dated open keeps the day view
 
   const weeks = useMemo(() => monthGrid(anchor, weekStart), [anchor, weekStart])
+  // A month shows only the weeks it needs (often five), so the last row isn't cut off
+  const monthWeeks = useMemo(() => weeks.filter(w => w.some(d => sameMonth(d, anchor))), [weeks, anchor])
   const weekFrom = startOfWeek(anchor, weekStart)
   const range = mode === 'month' ? { from: weeks[0]![0]!, to: weeks[5]![6]! }
     : mode === 'week' ? { from: weekFrom, to: addDays(weekFrom, 6) }
@@ -238,29 +240,31 @@ export default function CalendarView(): React.ReactElement {
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-labelledby="calendar-show-label">
-            <span id="calendar-show-label" className="text-base text-slate-600 dark:text-slate-300">Show:</span>
-            {offered.map(l => (
-              <button key={l} type="button" aria-pressed={layers.has(l)} onClick={() => toggleLayer(l)}
-                className={`hit-44 px-3 rounded-full border text-sm ${layers.has(l) ? 'bg-slate-800 text-white border-slate-800 dark:bg-slate-100 dark:text-slate-900' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300'}`} style={{ minHeight: 32 }}>
-                {f(LAYER_LABELS[l])}
-              </button>
-            ))}
-          </div>
-          {grids.length > 1 && (
-            <label className="flex items-center gap-1.5 text-base text-slate-600 dark:text-slate-300">
-              {t('list', { cap: true })}:
-              <select className="input" style={{ minHeight: 36 }} value={shownList ?? ''} onChange={e => chooseList(e.target.value ? Number(e.target.value) : null)}>
-                <option value="">All</option>
-                {grids.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
-            </label>
-          )}
           <div className="flex flex-wrap gap-2 ml-auto">
             {/* Outlook or Google Calendar (audit S-30) */}
             <button type="button" className="btn-compact-secondary" onClick={() => setExporting(true)}><CalendarPlus className="w-4 h-4" aria-hidden="true" />Add to my calendar…</button>
             {apptsOn && (
               <button type="button" className="btn-compact-primary" onClick={() => setNewAt(`${focusDay}T09:00`)}><Plus className="w-4 h-4" />New {t('appointment')}</button>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 w-full">
+            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-labelledby="calendar-show-label">
+              <span id="calendar-show-label" className="text-base text-slate-600 dark:text-slate-300">Show:</span>
+              {offered.map(l => (
+                <button key={l} type="button" aria-pressed={layers.has(l)} onClick={() => toggleLayer(l)}
+                  className={`hit-44 px-3 rounded-full border text-sm ${layers.has(l) ? 'bg-slate-800 text-white border-slate-800 dark:bg-slate-100 dark:text-slate-900' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300'}`} style={{ minHeight: 32 }}>
+                  {f(LAYER_LABELS[l])}
+                </button>
+              ))}
+            </div>
+            {grids.length > 1 && (
+              <label className="flex items-center gap-1.5 text-base text-slate-600 dark:text-slate-300">
+                {t('list', { cap: true })}:
+                <select className="input" style={{ minHeight: 36 }} value={shownList ?? ''} onChange={e => chooseList(e.target.value ? Number(e.target.value) : null)}>
+                  <option value="">All</option>
+                  {grids.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </label>
             )}
           </div>
         </div>
@@ -275,12 +279,13 @@ export default function CalendarView(): React.ReactElement {
             onNew={startAt => apptsOn && setNewAt(startAt)}
             onDrop={dropped} />
         ) : mode === 'month' ? (
-          <div ref={gridRef} role="grid" aria-label={monthTitle(anchor)} className="flex-1 grid grid-rows-[auto_repeat(6,minmax(7rem,1fr))] overflow-auto">
+          <div ref={gridRef} role="grid" aria-label={monthTitle(anchor)} className="flex-1 grid overflow-auto"
+            style={{ gridTemplateRows: `auto repeat(${monthWeeks.length}, minmax(6.5rem, 1fr))` }}>
             <div role="row" className="grid grid-cols-7 border-b-2 border-slate-300 dark:border-slate-600">
               {dayNames.map(n => <div key={n} role="columnheader" className="px-2 py-1 text-sm font-semibold text-slate-600 dark:text-slate-300">{n}</div>)}
             </div>
-            {weeks.map(week => (
-              <div key={week[0]} role="row" className="grid grid-cols-7 min-h-[7rem]">
+            {monthWeeks.map(week => (
+              <div key={week[0]} role="row" className="grid grid-cols-7 min-h-[6.5rem]">
                 {week.map(d => {
                   const events = byDay.get(d) ?? []
                   const extra = events.length - MAX_IN_CELL

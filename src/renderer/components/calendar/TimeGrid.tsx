@@ -86,7 +86,7 @@ export function TimeGrid({ days, appointments, allDay, label, colorOf, onOpen, o
   }
 
   // Start the day at 7:00 rather than midnight
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 7 * HOUR_PX }, [])
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 7 * HOUR_PX - 12 }, []) // room for the "7 am" label above its line
 
   useEffect(() => {
     if (!drag) return
@@ -158,7 +158,7 @@ export function TimeGrid({ days, appointments, allDay, label, colorOf, onOpen, o
                   const text = label(appt)
                   const colW = 100 / lanes
                   return (
-                    <div key={appt.id} className={`absolute rounded-md border-2 px-1.5 py-0.5 overflow-hidden text-[15px] ${colorOf(appt)} ${dragging ? 'shadow-xl z-20 opacity-90' : 'z-10'}`}
+                    <div key={appt.id} className={`absolute rounded-md border-2 px-1.5 py-0.5 overflow-hidden text-[15px] leading-[18px] ${colorOf(appt)} ${dragging ? 'shadow-xl z-20 opacity-90' : 'z-10'}`}
                       style={{ top, height, left: `calc(${lane * colW}% + 2px)`, width: `calc(${colW}% - 4px)`, transform: dragging?.mode === 'move' ? `translateX(${dragging.dx}px)` : undefined }}>
                       <button type="button" aria-label={text.full} title={text.full} data-day-index={di}
                         onPointerDown={e => {
@@ -170,7 +170,7 @@ export function TimeGrid({ days, appointments, allDay, label, colorOf, onOpen, o
                         }}
                         onClick={() => { if (appt.status !== 'scheduled') onOpen(appt) }}
                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(appt) } }}
-                        className="block w-full h-full text-left cursor-grab focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm">
+                        className="flex flex-col justify-start w-full h-full text-left cursor-grab focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm">
                         {/* Tall enough for two lines: who it's with goes on the second (audit S-29) */}
                         {height >= 44 && appt.record_name ? (
                           <>
