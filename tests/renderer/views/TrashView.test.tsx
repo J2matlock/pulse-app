@@ -48,7 +48,7 @@ vi.mock('../../../src/renderer/components/shared/EmptyState', () => ({
 }))
 
 import TrashView from '../../../src/renderer/views/TrashView'
-import { setWords } from '../vocabFixture'
+import { setWords, setFeatures, EXISTING_FEATURES } from '../vocabFixture'
 
 // ── Sample data ──────────────────────────────────────────────────────────────
 
@@ -158,6 +158,55 @@ describe('TrashView — interactions', () => {
 
     expect(screen.getByTestId('empty-state')).toBeDefined()
     expect(screen.getByText('Trash is empty')).toBeDefined()
+  })
+})
+
+describe('TrashView — removed files (S1)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    setFeatures({ ...EXISTING_FEATURES, attachments: true })
+  })
+  const file = { id: 41, file_name: 'consent.pdf', size_bytes: 2048, record_name: 'Alice Johnson', deleted_at: '2026-10-08 10:00:00' }
+
+  it('a Trash holding only files is not "empty", and offers Empty Trash', async () => {
+    mockTrash([], [], (channel) => channel === 'attachments:trash-list' ? { ok: true, data: [file] } : { ok: true, data: true })
+    render(<MemoryRouter><TrashView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.getByText('consent.pdf')).toBeDefined()
+    expect(screen.queryByText('Trash is empty')).toBeNull()
+    expect(screen.getByText('Empty Trash')).toBeDefined()
+  })
+
+  it('Empty Trash removes the files too and reloads the Files list', async () => {
+    let filesLeft = [file]
+    mockTrash([], [], (channel) => {
+      if (channel === 'attachments:trash-list') return { ok: true, data: filesLeft }
+      if (channel === 'attachments:purge') { filesLeft = []; return { ok: true, data: 1 } }
+      return { ok: true, data: true }
+    })
+    render(<MemoryRouter><TrashView /></MemoryRouter>)
+    await flushEffects()
+    fireEvent.click(screen.getByText('Empty Trash'))
+    await act(async () => { fireEvent.click(screen.getByTestId('confirm-btn')) })
+    await flushEffects()
+    expect(mockInvoke).toHaveBeenCalledWith('attachments:purge')
+    expect(screen.queryByText('consent.pdf')).toBeNull()
+    expect(screen.getByText('Trash is empty')).toBeDefined()
+  })
+
+  it('deleting a record for good reloads the Files list (its files went with it)', async () => {
+    let listed = 0
+    mockTrash(sampleDeletedRows, [], (channel) => {
+      if (channel === 'attachments:trash-list') { listed++; return { ok: true, data: [] } }
+      return { ok: true, data: true }
+    })
+    render(<MemoryRouter><TrashView /></MemoryRouter>)
+    await flushEffects()
+    const before = listed
+    fireEvent.click(screen.getAllByTitle('Delete permanently')[0]!)
+    await act(async () => { fireEvent.click(screen.getByTestId('confirm-btn')) })
+    await flushEffects()
+    expect(listed).toBeGreaterThan(before)
   })
 })
 

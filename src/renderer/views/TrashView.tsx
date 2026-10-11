@@ -30,6 +30,12 @@ export default function TrashView() {
   // Deleted lists wait here too, for 30 days (D1)
   const [lists, setLists] = useState<DeletedList[]>([])
   const [purgeListTarget, setPurgeListTarget] = useState<DeletedList | null>(null)
+  // Removed files wait here too (W09); counted so a Trash holding only files isn't "empty"
+  const [fileCount, setFileCount] = useState(0)
+  const [filesReload, setFilesReload] = useState(0)
+  const files = filesOn ? fileCount : 0
+  // Purging records takes their files with them: the Files list must reload
+  const reloadFiles = () => setFilesReload(n => n + 1)
 
   const loadTrash = useCallback(async () => {
     try {
@@ -82,13 +88,14 @@ export default function TrashView() {
     const res = await safeInvoke(IPC.GRID_PURGE, gridId)
     if (!res.ok) { toast.error(friendlyError(res.error)); return }
     forgetUndoSteps()
+    reloadFiles()
     await loadTrash()
   }
 
   const purgeRow = async (rowId: number) => {
     try {
       const result = await safeInvoke(IPC.ROW_PURGE, rowId)
-      if (result.ok) { setRows(r => r.filter(row => row.id !== rowId)); forgetUndoSteps() }
+      if (result.ok) { setRows(r => r.filter(row => row.id !== rowId)); forgetUndoSteps(); reloadFiles() }
     } catch (err) {
       rlog.error('TrashView', 'Failed to purge row', err)
     }
@@ -101,7 +108,14 @@ export default function TrashView() {
     else {
       rlog.error('TrashView', 'Failed to empty trash', result.error)
       toast.error("We couldn't empty the Trash. Please try again.")
+      return
     }
+    // Removed files go too (no id: every file in the Trash)
+    if (files > 0) {
+      const res = await safeInvoke(IPC.ATTACHMENT_PURGE)
+      if (!res.ok) toast.error("We couldn't remove the files in the Trash. Please try again.")
+    }
+    reloadFiles()
   }
 
   function daysRemaining(deletedAt: string): number {
@@ -132,7 +146,7 @@ export default function TrashView() {
             Items are removed for good after 30 days
           </p>
         </div>
-        {(rows.length > 0 || lists.length > 0) && (
+        {(rows.length > 0 || lists.length > 0 || files > 0) && (
           <button
             onClick={() => setShowEmptyConfirm(true)}
             className="px-4 py-2 text-base font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
@@ -170,7 +184,7 @@ export default function TrashView() {
       )}
 
       {/* Content */}
-      {rows.length === 0 ? (lists.length > 0 ? null :
+      {rows.length === 0 ? (lists.length > 0 || files > 0 ? null :
         <EmptyState
           icon={<Trash2 className="w-12 h-12" />}
           title="Trash is empty"
@@ -248,7 +262,7 @@ export default function TrashView() {
         </div>
       )}
 
-      {filesOn && <TrashFiles />}
+      {filesOn && <TrashFiles reloadKey={filesReload} onCountChange={setFileCount} />}
 
       {/* Purge single row confirmation */}
       <ConfirmDialog
@@ -294,7 +308,11 @@ export default function TrashView() {
       <ConfirmDialog
         open={showEmptyConfirm}
         title="Empty trash?"
-        message={`This removes ${rows.length} ${t('record', { count: rows.length })}${lists.length ? ` and ${lists.length} ${t('list', { count: lists.length })} with their ${t('record', { many: true })}` : ''} for good, with everything on them. Type EMPTY to confirm.`}
+        message={`This removes ${[
+          rows.length ? `${rows.length} ${t('record', { count: rows.length })}` : '',
+          lists.length ? `${lists.length} ${t('list', { count: lists.length })} with their ${t('record', { many: true })}` : '',
+          files ? `${files} file${files === 1 ? '' : 's'}` : '',
+        ].filter(Boolean).join(' and ')} for good, with everything on them. Type EMPTY to confirm.`}
         confirmLabel="Empty Trash"
         variant="typed"
         requiredPhrase="EMPTY"

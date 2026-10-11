@@ -12,15 +12,23 @@ import { friendlyError } from '../../utils/friendlyError'
 
 type TrashedFile = Attachment & { record_name: string | null }
 
-export function TrashFiles(): React.ReactElement | null {
+interface Props {
+  /** Changing it reloads the list (the Trash page purged records, and their files with them) */
+  reloadKey?: number
+  /** How many files are listed, so the page can count them in its empty state and Empty Trash */
+  onCountChange?: (count: number) => void
+}
+
+export function TrashFiles({ reloadKey = 0, onCountChange }: Props = {}): React.ReactElement | null {
   const { t } = useVocab(null)
   const [files, setFiles] = useState<TrashedFile[]>([])
   const [purge, setPurge] = useState<TrashedFile | null>(null)
   const load = useCallback(async () => {
     const r = await safeInvoke<TrashedFile[]>(IPC.ATTACHMENT_TRASH_LIST)
-    if (r.ok) setFiles(r.data)
+    if (r.ok && Array.isArray(r.data)) setFiles(r.data)
   }, [])
-  useEffect(() => { void load() }, [load])
+  useEffect(() => { void load() }, [load, reloadKey])
+  useEffect(() => { onCountChange?.(files.length) }, [files.length, onCountChange])
   useEffect(() => window.api.on(IPC.ATTACHMENTS_CHANGED, () => { void load() }), [load])
 
   async function restore(f: TrashedFile) {
