@@ -333,12 +333,21 @@ export function followingRule(rule: SeriesRule, first: string, from: string, new
   return r
 }
 
-export function updateAppointment(id: number, patch: ApptPatch, scope: EditScope = 'one'): ApptChange {
+/**
+ * Change an appointment, or its series from here on. A new rule (how it
+ * repeats, or when it ends) always applies from this one on, as "This and
+ * following" does (audit S-18).
+ */
+export function updateAppointment(id: number, patch: ApptPatch, scope: EditScope = 'one', newRule?: SeriesRule | null): ApptChange {
   const db = getDb()
+  const ruleChange = newRule ? parsed(seriesRuleSchema.safeParse(newRule)) : null
+  if (ruleChange) scope = 'following'
   return db.transaction((): ApptChange => {
     const a = rowOf(id)
     const v = merged(a, patch)
     const rowId = checkRecord(v.row_id)
+    if (ruleChange && a.series_id === null) throw new ApptError('Only a repeating appointment has a pattern to change.')
+    if (ruleChange?.untilColumnId && rowId === null) throw new ApptError('Choose the record whose date ends the series.')
     if (a.series_id === null || scope === 'one') {
       const snapshot = tracker([], [id])
       db.prepare(`UPDATE appointments SET row_id = ?, title = ?, start_at = ?, end_at = ?, all_day = ?, location = ?, activity_type_key = ?, notes = ?,
@@ -375,14 +384,29 @@ export function updateAppointment(id: number, patch: ApptPatch, scope: EditScope
     // This and following: the old series ends the day before; a new one starts here
     endSeriesBefore(s, from)
     const next = { ...templateOf({ ...v, row_id: rowId, end_at: v.end_at ?? null }) }
-    const r = followingRule(rule, t.first, from, next.first, untilFromColumn(rule, t.row_id))
+    const r = ruleChange ?? followingRule(rule, t.first, from, next.first, untilFromColumn(rule, t.row_id))
     if (!r) return { snapshot, ids: [] }
     const newId = Number(db.prepare('INSERT INTO appointment_series (rule, template, materialized_until) VALUES (?, ?, ?)')
       .run(JSON.stringify(r), JSON.stringify(next), '0000-00-00').lastInsertRowid)
     const ids = materialize(seriesRow(newId), [s.materialized_until, next.first].sort().reverse()[0]!)
+    if (ruleChange && ids.length === 0) throw new ApptError('That pattern has no dates from this one on. Check the end date.')
     snapshot.createdSeriesIds.push(newId)
     snapshot.createdAppointmentIds.push(...ids)
     return { snapshot, ids }
+  })()
+}
+
+/** "End this series on…": the last day it happens; scheduled ones after it go (audit S-18) */
+export function endSeriesOn(id: number, lastDate: string): ApptChange {
+  if (!DATE_RE.test(lastDate)) throw new ApptError('Choose the last day.')
+  const db = getDb()
+  return db.transaction((): ApptChange => {
+    const a = rowOf(id)
+    if (a.series_id === null) throw new ApptError("That appointment doesn't repeat.")
+    const s = seriesRow(a.series_id)
+    const snapshot = tracker([s.id], [])
+    endSeriesBefore(s, addDays(lastDate, 1))
+    return { snapshot, ids: [id] }
   })()
 }
 

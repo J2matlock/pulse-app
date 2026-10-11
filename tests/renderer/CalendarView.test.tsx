@@ -22,6 +22,7 @@ const invoke = vi.fn(async (channel: string, ..._args: unknown[]) => {
 Object.defineProperty(window, 'api', { value: { invoke, on: () => () => {} }, writable: true, configurable: true })
 
 import CalendarView, { eventsByDay } from '../../src/renderer/views/CalendarView'
+import { AppointmentDialog } from '../../src/renderer/components/calendar/AppointmentDialog'
 import { useWorkspaceStore } from '../../src/renderer/stores/workspaceStore'
 import { setWords } from './vocabFixture'
 
@@ -127,5 +128,19 @@ describe('week view', () => {
     await act(async () => { window.dispatchEvent(new MouseEvent('pointermove', { clientX: 10, clientY: 100 + 50 })) })
     await act(async () => { window.dispatchEvent(new MouseEvent('pointerup')) })
     expect(invoke).toHaveBeenCalledWith('appointments:update', 2, { start_at: `${today}T10:00`, end_at: null }, 'one')
+  })
+})
+
+describe('editing a repeating appointment (audit S-18)', () => {
+  it('shows its pattern, and a changed pattern applies from this one on without asking', async () => {
+    const a = appt(5, '10:00', 'Session', { series_id: 3, series_rule: JSON.stringify({ freq: 'weekly', interval: 1, count: 10 }) })
+    render(<AppointmentDialog appointment={a as never} onClose={vi.fn()} />)
+    expect((screen.getByLabelText('Repeats') as HTMLSelectElement).value).toBe('weekly')
+    expect(screen.queryByRole('option', { name: "Doesn't repeat" })).toBeNull()
+    expect((screen.getByLabelText('How many times') as HTMLInputElement).value).toBe('10')
+    fireEvent.change(screen.getByLabelText('Every how many'), { target: { value: '2' } })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Save' })) })
+    const call = invoke.mock.calls.find(c => c[0] === 'appointments:update')!
+    expect(call.slice(3)).toEqual(['following', { freq: 'weekly', interval: 2, count: 10 }])
   })
 })

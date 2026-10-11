@@ -7,7 +7,7 @@ import { APPT_STATUSES, DATE_RE, type ApptStatus, type EditScope } from '../../s
 import { secureWrap, ok, fail, enforceWritable, validId, notifyCaseLogChanged } from './ipc-utils'
 import {
   ApptError, listAppointments, recordAppointments, createAppointment, updateAppointment, deleteAppointment, restoreAppointments, setAppointmentStatus,
-  countUpcomingForRecords, cancelUpcomingForRecords,
+  countUpcomingForRecords, cancelUpcomingForRecords, endSeriesOn,
   type ApptSnapshot,
 } from '../appointments'
 import { calendarItems } from '../calendar'
@@ -63,11 +63,20 @@ export function registerAppointmentHandlers(): void {
     return res
   })
 
-  secureWrap(IPC.APPT_UPDATE, 'ipc-appointments', (_e, id: unknown, patch: unknown, scope?: unknown) => {
+  secureWrap(IPC.APPT_UPDATE, 'ipc-appointments', (_e, id: unknown, patch: unknown, scope?: unknown, rule?: unknown) => {
     const guard = enforceWritable(); if (guard) return guard
     const sc = scopeOf(scope)
     if (!validId(id) || !sc || !patch || typeof patch !== 'object') return fail('Invalid request')
-    const res = action(() => updateAppointment(id, patch as never, sc))
+    if (rule != null && typeof rule !== 'object') return fail('Invalid request')
+    const res = action(() => updateAppointment(id, patch as never, sc, (rule ?? null) as never))
+    if (res.ok) announceAppointments()
+    return res
+  })
+
+  secureWrap(IPC.APPT_END_SERIES, 'ipc-appointments', (_e, id: unknown, lastDate: unknown) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(id) || typeof lastDate !== 'string' || !DATE_RE.test(lastDate)) return fail('Invalid request')
+    const res = action(() => endSeriesOn(id, lastDate))
     if (res.ok) announceAppointments()
     return res
   })

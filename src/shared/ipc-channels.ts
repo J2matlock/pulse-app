@@ -271,6 +271,7 @@ export const IPC = {
   APPT_SET_STATUS: 'appointments:set-status',
   APPT_UPCOMING_COUNT: 'appointments:upcoming-count',
   APPT_CANCEL_UPCOMING: 'appointments:cancel-upcoming',
+  APPT_END_SERIES: 'appointments:end-series',
   CALENDAR_ITEMS: 'calendar:items',
   /** main → window: appointments changed */
   APPOINTMENTS_CHANGED: 'appointments:changed',

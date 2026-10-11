@@ -1,15 +1,15 @@
 /**
  * Profile "Appointments" (W07 §7): the next five and the last five, with
- * Done / No-show for ones that have come, and "Schedule…".
+ * the same actions as the calendar, and "Schedule…".
  */
 import React, { useCallback, useEffect, useState } from 'react'
-import { Plus, Check, UserX } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import { seriesRuleText, type Appointment } from '../../../shared/appointments'
 import { formatTime, longDay } from '../../../shared/calendar'
 import { localDateString } from '../../../shared/dates'
 import { safeInvoke } from '../../utils/safeInvoke'
-import { setAppointmentStatus } from '../../utils/appointmentActions'
+import { AppointmentActions } from '../calendar/AppointmentActions'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { AppointmentDialog } from '../calendar/AppointmentDialog'
 
@@ -36,12 +36,7 @@ export function RecordAppointments({ rowId, gridId, name }: { rowId: number; gri
         <span className="block text-sm text-slate-500 dark:text-slate-400">{when(a)}{past || a.status !== 'scheduled' ? ` · ${STATUS[a.status]}` : ''}</span>
         {!past && seriesRuleText(a) && <span className="block text-sm text-slate-500 dark:text-slate-400">{seriesRuleText(a)}</span>}
       </button>
-      {a.status === 'scheduled' && a.start_at.slice(0, 10) <= today && (
-        <>
-          <button type="button" className="btn-compact-secondary" onClick={() => void setAppointmentStatus(a, 'done')}><Check className="w-4 h-4" />Done</button>
-          <button type="button" className="btn-compact-secondary" onClick={() => void setAppointmentStatus(a, 'no_show')}><UserX className="w-4 h-4" />No-show</button>
-        </>
-      )}
+      <AppointmentActions appointment={a} />
     </li>
   )
 

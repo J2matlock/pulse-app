@@ -10,7 +10,7 @@ vi.mock('../src/main/database', () => ({
     ON CONFLICT(row_id, column_id) DO UPDATE SET value = excluded.value`).run(rowId, columnId, value),
 }))
 
-import { createAppointment, followingRule, listAppointments, updateAppointment, deleteAppointment, restoreAppointments, ensureMaterialized, rematerializeForRecord, recordAppointments, ApptError, setAppointmentStatus, appointmentsToday, countUpcomingForRecords, cancelUpcomingForRecords } from '../src/main/appointments'
+import { createAppointment, endSeriesOn, followingRule, listAppointments, updateAppointment, deleteAppointment, restoreAppointments, ensureMaterialized, rematerializeForRecord, recordAppointments, ApptError, setAppointmentStatus, appointmentsToday, countUpcomingForRecords, cancelUpcomingForRecords } from '../src/main/appointments'
 import { seriesDates, addMinutes, addMonths, minutesBetween, validWallTime, describeRule } from '../src/shared/appointments'
 import { up as migration040 } from '../src/main/migrations/040_appointments'
 import { addMissingActivityTypes } from '../src/main/activity-types'
@@ -195,6 +195,26 @@ describe('series', () => {
     const moved = all().filter(a => a.start_at.slice(0, 10) >= wed)
     expect(moved[0]!.start_at).toBe(`${wed}T15:00`)
     expect(new Set(moved.map(a => new Date(`${a.start_at.slice(0, 10)}T12:00`).getDay()))).toEqual(new Set([3, 5]))
+  })
+
+  it('change how it repeats from one on, and end on a chosen day (audit S-18)', () => {
+    weekly()
+    const before = all()
+    const third = before[2]!
+    const change = updateAppointment(third.id, {}, 'one', { freq: 'weekly', interval: 2 })
+    const after = all()
+    expect(after.slice(0, 2).map(a => a.id)).toEqual(before.slice(0, 2).map(a => a.id))
+    const moved = after.slice(2).map(a => a.series_date!)
+    expect(moved[0]).toBe(third.series_date)
+    const twoWeeks = new Date(`${third.series_date}T12:00`); twoWeeks.setDate(twoWeeks.getDate() + 14)
+    expect(moved[1]).toBe(localDateString(twoWeeks))
+    restoreAppointments(change.snapshot)
+    expect(all()).toEqual(before)
+    expect(() => updateAppointment(createAppointment({ title: 'Once', start_at: `${today}T08:00` }).ids[0]!, {}, 'one', { freq: 'daily', interval: 1 })).toThrow(/repeating/)
+    const end = endSeriesOn(before[0]!.id, before[3]!.series_date!)
+    expect(all().filter(a => a.title === 'Session')).toHaveLength(4)
+    restoreAppointments(end.snapshot)
+    expect(all().filter(a => a.title === 'Session')).toHaveLength(before.length)
   })
 
   it('keep going past two years: the horizon moves with today', () => {
