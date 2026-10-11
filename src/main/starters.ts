@@ -6,6 +6,7 @@
  * It never changes or removes anything already there: name clashes get a
  * " 2" suffix, and rules/checklists are reused only when identical.
  */
+import { startingWidth } from '../shared/columnTypes'
 import { readFileSync, statSync } from 'fs'
 import { getDb } from './database'
 import { logger } from './logger'
@@ -416,7 +417,7 @@ export function applyStarter(src: StarterSource, opts: ApplyOptions): ApplyResul
           type = 'text'
         }
         if (type === 'auto_number') config = freshAutoNumberConfig(config)
-        insCol.run(gridId, c.name, type, c.width ?? 160, c.position, c.is_name_column ?? 0, c.is_identifier ?? 0, c.is_required && canBeRequired(type) ? 1 : 0,
+        insCol.run(gridId, c.name, type, startingWidth(type, config, c.width), c.position, c.is_name_column ?? 0, c.is_identifier ?? 0, c.is_required && canBeRequired(type) ? 1 : 0,
           c.default_value ?? null, c.description ?? null, config)
       }
       if (later.size) result.warnings.push(...linkColumnRules(db, gridId, name, l.alertRules ?? [], result.renamed))

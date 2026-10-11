@@ -293,6 +293,8 @@ export const SortableRow = React.memo(function SortableRow({
               const res = evaluateRuleForRow(rule, value, rowOriginal as unknown as Record<string, unknown>, col.id)
               const days = res.daysUntil
               if (col.column_type === 'date') alertChip = deadlineChipText(res, value)
+              // Cut-off words can still be read on hover, colored or not
+              alertTooltip = (res.state === 'done' || res.state === 'paused' ? alertChip : formatResultTooltip(res) || alertChip) ?? ''
               // Unparseable dates yield null — don't let them coerce to "due today"
               const threshold = days !== null ? getMatchingThreshold(days, rule.thresholds) : undefined
               if (days !== null && threshold) {

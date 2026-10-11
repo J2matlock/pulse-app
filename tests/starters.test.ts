@@ -286,6 +286,17 @@ describe('applying a starter', () => {
     expect(testDb.db.prepare('SELECT COUNT(*) AS n FROM appointment_series').get()).toEqual({ n: 0 })
   })
 
+  it('makes dates with a rule wide enough for the deadline words', async () => {
+    const { applyStarter } = await starters()
+    const res = applyStarter({ builtinId: 'tree-service' }, { lists: ['customers', 'jobs', 'equipment', 'crew'], applyWords: false, applyFeatures: false, sampleData: false })
+    const cols = testDb.db.prepare(`SELECT column_type, width, config FROM columns WHERE grid_id IN (${Object.values(res.gridIds).join(',')})`).all() as Array<{ column_type: string; width: number; config: string }>
+    const ruled = cols.filter(c => c.column_type === 'deadline' || (c.column_type === 'date' && 'alert_rule_name' in JSON.parse(c.config)))
+    expect(ruled.length).toBeGreaterThan(0)
+    expect(ruled.every(c => c.width >= 250)).toBe(true)
+    // Plain dates keep the width the starter gave them
+    expect(cols.some(c => c.column_type === 'date' && !('alert_rule_name' in JSON.parse(c.config)) && c.width < 250)).toBe(true)
+  })
+
   it('gives sample data a past: added dates over the year, older everyday notes, finished jobs in past months', async () => {
     const { applyStarter, removeSampleData, sampleRowIds } = await starters()
     const res = applyStarter({ builtinId: 'tree-service' }, { lists: ['customers', 'jobs', 'equipment', 'crew'], applyWords: false, applyFeatures: false, sampleData: true })
