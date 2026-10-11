@@ -190,7 +190,7 @@ describe('ContactsView — data smoke tests (5 providers, 2 categories)', () => 
   it('renders Provider Directory heading', async () => {
     render(<MemoryRouter><ContactsView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByRole('heading', { name: 'Provider directory' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Contacts' })).toBeDefined()
   })
 
   it('shows correct provider count (5 providers)', async () => {

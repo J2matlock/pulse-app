@@ -82,7 +82,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
       }
 
       if (!parseRes.data || parseRes.data.length === 0) {
-        setError('No contacts found in the selected file.')
+        setError(`No ${t('contact', { many: true })} found in that file.`)
         return
       }
 
@@ -188,7 +188,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
               <Download className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             )}
             <h2 id="contact-import-export-title" className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              {mode === 'import' ? 'Import Contacts (vCard)' : 'Export Contacts (vCard)'}
+              {mode === 'import' ? `Import ${t('contact', { many: true, cap: true })} (vCard)` : `Export ${t('contact', { many: true, cap: true })} (vCard)`}
             </h2>
           </div>
           <button
@@ -246,7 +246,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
       return (
         <div className="flex flex-col gap-4">
           <p className="text-gray-600 dark:text-gray-300" style={{ fontSize: 15 }}>
-            {parsedRows.length} contact{parsedRows.length !== 1 ? 's' : ''} found.
+            {parsedRows.length} {t('contact', { count: parsedRows.length })} found.
             Select which ones to import.
           </p>
 
@@ -284,7 +284,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
                         checked={row.selected}
                         onChange={() => toggleRow(i)}
                         className="h-4 w-4 rounded-sm border-gray-300 text-blue-600 focus:ring-blue-500"
-                        aria-label={`Select ${row.data.name ?? 'contact'}`}
+                        aria-label={`Select ${row.data.name ?? t('contact')}`}
                       />
                     </td>
                     <td className="px-3 py-2 text-gray-900 dark:text-gray-100">
@@ -354,11 +354,11 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
             <Check className="h-7 w-7 text-green-600 dark:text-green-400" />
           </div>
           <p className="text-center text-gray-900 dark:text-gray-100" style={{ fontSize: 15 }}>
-            Successfully imported {importCount} contact{importCount !== 1 ? 's' : ''}.
+            Imported {importCount} {t('contact', { count: importCount })}.
           </p>
           {uncategorizedCount > 0 && (
             <p className="text-center text-amber-700 dark:text-amber-400 max-w-sm" style={{ fontSize: 15 }}>
-              {uncategorizedCount} contact{uncategorizedCount !== 1 ? 's were' : ' was'} imported without a category because the category in the file didn't match any existing category. You can open each contact and add a category manually.
+              {uncategorizedCount} {t('contact', { count: uncategorizedCount })} {uncategorizedCount !== 1 ? 'were' : 'was'} imported without a category because the category in the file didn't match any existing category. You can open each {t('contact')} and add a category.
             </p>
           )}
           <button
@@ -385,7 +385,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
             <Check className="h-7 w-7 text-green-600 dark:text-green-400" />
           </div>
           <p className="text-center text-gray-900 dark:text-gray-100" style={{ fontSize: 15 }}>
-            Export complete! Your contacts have been saved.
+            Done. Your {t('contact', { many: true })} were saved.
           </p>
           <button
             onClick={handleClose}
@@ -418,7 +418,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
           ) : (
             <>
               <Download className="h-4 w-4" />
-              Export All Contacts
+              Export all {t('contact', { many: true })}
             </>
           )}
         </button>

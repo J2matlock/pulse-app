@@ -54,6 +54,8 @@ const PLAIN = new Set<string>([
   "A Files column can't be changed to another type, or made from one. Add a new column instead.",
   'A repeating task needs a due date. Turn off Repeat to remove the date.',
   'Abbreviation is required',
+  "You can export up to 5,000 ${word('contact', { many: true })} at a time.",
+  "You can import up to 1,000 ${word('contact', { many: true })} at a time.",
   'An item can only move to a group on the same checklist.',
   'Save it as a Pulse checklist file (the name ends in .pulse-checklist).',
   'Choose a Pulse checklist file (the name ends in .pulse-checklist).',
