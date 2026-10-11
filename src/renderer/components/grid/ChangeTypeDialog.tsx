@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import toast from 'react-hot-toast'
 import type { Column } from '../../../shared/types'
+import { canNameRecords } from '../../../shared/types'
 import { IPC } from '../../../shared/ipc-channels'
 import { CHANGEABLE_TYPES, COLUMN_TYPE_INFO, columnTypeLabel } from '../../../shared/columnTypes'
 import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
@@ -19,7 +20,9 @@ interface Props { column: Column; onClose: () => void }
 export function ChangeTypeDialog({ column, onClose }: Props): React.ReactElement {
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, true)
-  const choices = COLUMN_TYPE_INFO.filter(t => CHANGEABLE_TYPES.has(t.type) && t.type !== column.column_type)
+  // The name column can only become a type that can name records (no checkbox or notes)
+  const choices = COLUMN_TYPE_INFO.filter(t => CHANGEABLE_TYPES.has(t.type) && t.type !== column.column_type
+    && (column.is_name_column !== 1 || canNameRecords(t.type)))
   const [to, setTo] = useState(choices[0]?.type ?? 'text')
   const [preview, setPreview] = useState<{ total: number; clean: number; examples: string[] } | null>(null)
   const [busy, setBusy] = useState(false)

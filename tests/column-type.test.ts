@@ -38,6 +38,28 @@ describe('changing a column type', () => {
     expect((JSON.parse(col(g.columnIds[1]!).config).options as Array<{ label: string }>).map(o => o.label)).toEqual(['10/6/2026', 'soon', 'Feb 19, 2026'])
   })
 
+  it('reads tags and checkboxes as the text they show first (bug sweep S3)', () => {
+    const c = g.columnIds[1]!
+    t.db.prepare("UPDATE columns SET column_type = 'tag' WHERE id = ?").run(c)
+    t.db.prepare('UPDATE cells SET value = ? WHERE row_id = ? AND column_id = ?').run('["urgent","new"]', g.rowIds[0], c)
+    t.db.prepare('UPDATE cells SET value = ? WHERE row_id = ? AND column_id = ?').run('["urgent"]', g.rowIds[1], c)
+    t.db.prepare('UPDATE cells SET value = ? WHERE row_id = ? AND column_id = ?').run('["new"]', g.rowIds[2], c)
+    changeColumnType(c, 'dropdown')
+    expect(JSON.parse(col(c).config).options).toEqual(['urgent, new', 'urgent', 'new'])
+    expect(cell(g.rowIds[1]!, c)).toBe('urgent')
+    expect(convertValue('["urgent","new"]', 'text', 'tag')).toBe('urgent, new')
+    expect(convertValue('true', 'text', 'checkbox')).toBe('Yes')
+    expect(convertValue('false', 'dropdown', 'checkbox')).toBe('No')
+  })
+
+  it('keeps the name column a type that can name records', () => {
+    t.db.prepare('UPDATE columns SET is_name_column = 1 WHERE id = ?').run(g.columnIds[1])
+    t.db.prepare('UPDATE columns SET is_name_column = 0 WHERE id = ?').run(g.columnIds[0])
+    expect(() => changeColumnType(g.columnIds[1]!, 'checkbox')).toThrow(/names the records/)
+    expect(() => changeColumnType(g.columnIds[1]!, 'notes')).toThrow(ColumnTypeError)
+    expect(() => changeColumnType(g.columnIds[1]!, 'phone')).not.toThrow()
+  })
+
   it('refuses worked-out types', () => {
     expect(() => changeColumnType(g.columnIds[1]!, 'auto_number')).toThrow(ColumnTypeError)
   })
