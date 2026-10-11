@@ -23,6 +23,7 @@ const invoke = vi.fn(async (channel: string, ..._args: unknown[]) => {
     { row_id: 21, column_name: 'Inspection', daysUntil: 40, state: 'ok' },
     { row_id: 22, column_name: 'Registration', daysUntil: 3, state: 'paused' },
   ] }
+  if (channel === 'links:create-record') return { ok: true, data: { rowId: 30, change: { added: null, removed: [], sysLogIds: [], rowIds: [30, 5] } } }
   if (channel === 'links:remove') return { ok: true, data: { added: null, removed: [{ typeId: 7, fromRowId: 21, toRowId: 5 }], sysLogIds: [], rowIds: [21, 5] } }
   return { ok: true, data: null }
 })
@@ -31,6 +32,7 @@ Object.defineProperty(window, 'api', { value: { invoke, on: () => () => {} }, wr
 import { LinkedRecords } from '../../src/renderer/components/profile/LinkedRecords'
 import { IPC } from '../../src/shared/ipc-channels'
 import { setWords } from './vocabFixture'
+import { useGridStore } from '../../src/renderer/stores/gridStore'
 
 function Where() { const l = useLocation(); return <div data-testid="where">{l.pathname}{l.search}</div> }
 
@@ -61,5 +63,15 @@ describe('linked records on the profile', () => {
     expect(invoke).toHaveBeenCalledWith(IPC.RECORD_LINK_REMOVE, 7, 21, 5)
     fireEvent.click(screen.getByRole('button', { name: '2017 Civic' }))
     expect(screen.getByTestId('where').textContent).toBe('/profile/21?gridId=3')
+  })
+
+  it('reload the open list after "New" adds a record to it, so the new name opens', async () => {
+    const loadGrid = vi.fn(async () => {})
+    useGridStore.setState({ activeGridId: 3, loadGrid })
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: /New/ }))
+    fireEvent.change(screen.getByLabelText('New in Vehicles: name'), { target: { value: '2024 Truck' } })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Add and link' })) })
+    expect(loadGrid).toHaveBeenCalledWith(3)
   })
 })

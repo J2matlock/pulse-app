@@ -53,7 +53,7 @@ describe('letter from the record page', () => {
     expect(mockInvoke).toHaveBeenCalledWith('letter-template:export-pdf', { text: 'Dear Maria, welcome.' })
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Copy/ })) })
     const notes = mockInvoke.mock.calls.filter(c => c[0] === 'case-log:create')
-    expect(notes).toEqual([['case-log:create', 4, 'Letter: Welcome', 'note', null]])
+    expect(notes).toEqual([['case-log:create', 4, 'Letter: Welcome', 'system', null]])
   })
 })
 

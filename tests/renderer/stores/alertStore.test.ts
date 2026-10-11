@@ -44,6 +44,16 @@ describe('alertStore', () => {
     })
   })
 
+  it('reloads its rules when sample data is added or removed, once loaded', async () => {
+    const { pulseEvents } = await import('../../../src/renderer/events')
+    mockInvoke.mockResolvedValue({ ok: true, data: [] })
+    pulseEvents.emit('sample-data:changed')
+    expect(mockInvoke).not.toHaveBeenCalled()
+    useAlertStore.setState({ isLoaded: true })
+    pulseEvents.emit('sample-data:changed')
+    expect(mockInvoke).toHaveBeenCalledWith('alert-rule:get-all')
+  })
+
   it('loadRules populates rules and parses thresholds', async () => {
     const rules = [makeAlertRule(1), makeAlertRule(2)]
     mockInvoke.mockResolvedValue({ ok: true, data: rules })

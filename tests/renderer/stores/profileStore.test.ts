@@ -3,8 +3,10 @@
  * The profileStore is a simple client-side store (no IPC), managing
  * recent profiles and scroll position.
  */
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useProfileStore, type RecentProfile } from '../../../src/renderer/stores/profileStore'
+import { useGridStore } from '../../../src/renderer/stores/gridStore'
+import { pulseEvents } from '../../../src/renderer/events'
 
 function makeProfile(rowId: number, overrides: Partial<RecentProfile> = {}): RecentProfile {
   return {
@@ -104,5 +106,38 @@ describe('profileStore', () => {
     const profiles = useProfileStore.getState().recentProfiles
     expect(profiles).toHaveLength(1)
     expect(profiles[0].gridName).toBe('Grid B')
+  })
+})
+
+describe('pruning Recent', () => {
+  const invoke = vi.fn()
+  beforeEach(() => {
+    ;(globalThis as Record<string, unknown>).window = { api: { invoke } }
+    invoke.mockReset()
+    useProfileStore.setState({ recentProfiles: [makeProfile(1), makeProfile(2), makeProfile(3), makeProfile(4)] })
+    useGridStore.setState({ grids: [{ id: 1, name: 'Waitlist' }, { id: 7, name: 'Active' }] as never })
+  })
+
+  it('drops records in the Trash or on a deleted list, follows moved ones, keeps what it cannot check', async () => {
+    invoke.mockImplementation(async (_channel: string, rowId: number) => {
+      if (rowId === 1) return { ok: true, data: { gridId: 1, status: 'trash', archivedReason: null } }
+      if (rowId === 2) return { ok: true, data: { gridId: 7, status: 'active', archivedReason: null } }
+      if (rowId === 3) return { ok: true, data: null }
+      return { ok: false, error: 'busy' }
+    })
+    await useProfileStore.getState().pruneRecentProfiles()
+    expect(useProfileStore.getState().recentProfiles.map(p => [p.rowId, p.gridId, p.gridName])).toEqual([[2, 7, 'Active'], [4, 1, 'Test Grid']])
+  })
+
+  it('runs when the sample data changes', async () => {
+    invoke.mockResolvedValue({ ok: true, data: null })
+    pulseEvents.emit('sample-data:changed')
+    await new Promise(r => setTimeout(r, 0))
+    expect(useProfileStore.getState().recentProfiles).toEqual([])
+  })
+
+  it('removeRecentProfile drops one record', () => {
+    useProfileStore.getState().removeRecentProfile(2)
+    expect(useProfileStore.getState().recentProfiles.map(p => p.rowId)).toEqual([1, 3, 4])
   })
 })

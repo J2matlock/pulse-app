@@ -138,4 +138,11 @@ describe('FocusModeView', () => {
     await flushEffects()
     expect(screen.getByText('Focus Mode')).toBeDefined()
   })
+
+  it('says it could not load, instead of an empty "all clear", when loading fails', async () => {
+    // safeInvoke is mocked to fail here
+    render(<MemoryRouter><FocusModeView onClose={vi.fn()} /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.getByText(/Could not load your focus items/)).toBeDefined()
+  })
 })

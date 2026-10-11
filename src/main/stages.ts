@@ -58,7 +58,7 @@ export function saveStageConfig(columnId: number, input: unknown): number[] {
       if (e.checklistTemplateId !== undefined && !db.prepare('SELECT 1 FROM checklist_templates WHERE id = ?').get(e.checklistTemplateId)) {
         throw new StageError(`The checklist for "${o.value}" no longer exists.`)
       }
-      if (e.stampColumnId !== undefined && !db.prepare("SELECT 1 FROM columns WHERE id = ? AND grid_id = ? AND column_type = 'date'").get(e.stampColumnId, col.grid_id)) {
+      if (e.stampColumnId !== undefined && !db.prepare("SELECT 1 FROM columns WHERE id = ? AND grid_id = ? AND column_type IN ('date', 'deadline')").get(e.stampColumnId, col.grid_id)) {
         throw new StageError(`The date to fill in for "${o.value}" must be a date column of this list.`)
       }
       if (e.activityTypeKey !== undefined && !db.prepare('SELECT 1 FROM activity_types WHERE key = ?').get(e.activityTypeKey)) {
@@ -123,7 +123,7 @@ export function moveStage(rowId: number, columnId: number, value: string | null)
       result.checklistItemIds = applyChecklistTemplate(rowId, enter.checklistTemplateId, null, { skipOpen: true })
     }
     // ...nor change a date already filled in, unless the stage says to (audit S-15)
-    if (enter?.stampColumnId !== undefined && db.prepare("SELECT 1 FROM columns WHERE id = ? AND grid_id = ? AND column_type = 'date'").get(enter.stampColumnId, col.grid_id)) {
+    if (enter?.stampColumnId !== undefined && db.prepare("SELECT 1 FROM columns WHERE id = ? AND grid_id = ? AND column_type IN ('date', 'deadline')").get(enter.stampColumnId, col.grid_id)) {
       const held = (db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?').get(rowId, enter.stampColumnId) as { value: string | null } | undefined)?.value ?? null
       if (enter.restamp || !held) {
         result.stamped = { columnId: enter.stampColumnId, previous: setCellWithHistory(rowId, enter.stampColumnId, localDateString()) }

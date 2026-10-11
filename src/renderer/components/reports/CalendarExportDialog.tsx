@@ -13,6 +13,7 @@ import { useFeature } from '../../hooks/useFeature'
 /** Save upcoming deadlines and follow-ups as a calendar file for Outlook or Google Calendar. */
 export function CalendarExportDialog({ onClose }: { onClose: () => void }): React.ReactElement {
   const { t } = useVocab(null)
+  const noteText = `${t('activity', { cap: true })} text is never included.`
   // Only lists of people use initials; things and jobs are shown by name
   const kinds = useGridStore(useShallow(s => s.grids.map(g => isPersonKind(g.record_kind))))
   const anyPeople = kinds.length === 0 || kinds.some(Boolean)
@@ -55,9 +56,9 @@ export function CalendarExportDialog({ onClose }: { onClose: () => void }): Reac
         </div>
         <div className="px-6 py-5 space-y-3 text-base text-slate-700 dark:text-slate-200">
           <p>Saves a calendar file with your {apptsOn ? `${t('appointment', { many: true })}, ` : ''}deadlines and follow-ups for the next six months, each with a reminder. Open it in Outlook, or import it in Google Calendar (Settings → Import).</p>
-          {anyPeople && !anyOther && <p>{t('record', { many: true, cap: true })} are shown by initials, like <strong>J.S.: Annual Review</strong>. Note text is never included.</p>}
-          {anyPeople && anyOther && <p>People are shown by initials, like <strong>J.S.: Annual Review</strong>; things and jobs by name. Note text is never included.</p>}
-          {!anyPeople && <p>Each one is shown by name. Note text is never included.</p>}
+          {anyPeople && !anyOther && <p>{t('record', { many: true, cap: true })} are shown by initials, like <strong>J.S.: Annual Review</strong>. {noteText}</p>}
+          {anyPeople && anyOther && <p>People are shown by initials, like <strong>J.S.: Annual Review</strong>; things and jobs by name. {noteText}</p>}
+          {!anyPeople && <p>Each one is shown by name. {noteText}</p>}
           <label className="flex items-start gap-3 min-h-[44px] cursor-pointer">
             <input type="checkbox" className="mt-1 w-5 h-5" checked={fullNames} onChange={e => setFullNames(e.target.checked)} />
             {anyPeople ? (

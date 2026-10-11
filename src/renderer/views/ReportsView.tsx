@@ -124,7 +124,11 @@ export default function ReportsView(): React.ReactElement {
             key={current ? `r${current.id}` : `new${fresh}`}
             initial={current}
             onDirtyChange={setDirty}
-            onSaved={r => { void load(); setDirty(false); setParams({ id: String(r.id) }) }}
+            onSaved={r => {
+              // Known before the list reloads, so the new id never reads as "no longer available"
+              setReports(rs => [...(rs ?? []).filter(x => x.id !== r.id), r])
+              void load(); setDirty(false); setParams({ id: String(r.id) })
+            }}
             onDeleted={() => go('home')}
           />
         </div>

@@ -32,3 +32,18 @@ export function columnTypeLabel(type: string): string {
 
 /** Types a column can be changed to and from: ones that store what people type */
 export const CHANGEABLE_TYPES = new Set<string>(['text', 'notes', 'number', 'currency', 'date', 'checkbox', 'dropdown', 'status', 'tag', 'phone', 'email', 'url', 'address'])
+
+// A date with a rule, and a deadline column, show words beside the date ("due Mar 4 · in 52 days"):
+// the narrow widths starters and setup templates were written with cut those words to "i…"
+const RULE_DATE_MIN_WIDTH = 250
+
+/** The width a column from a starter or setup template opens at */
+export function startingWidth(type: string, config: string | undefined, width: number | undefined): number {
+  const w = width ?? 160
+  if (type === 'deadline') return Math.max(w, RULE_DATE_MIN_WIDTH)
+  if (type !== 'date' || !config) return w
+  try {
+    const cfg = JSON.parse(config) as Record<string, unknown>
+    return cfg.alert_rule_name != null || cfg.alert_rule_id != null ? Math.max(w, RULE_DATE_MIN_WIDTH) : w
+  } catch { return w }
+}

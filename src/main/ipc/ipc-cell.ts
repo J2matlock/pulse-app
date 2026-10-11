@@ -135,7 +135,7 @@ export function registerCellHandlers(): void {
         const col = getColMeta(columnId)
         if (col && col.config.log_changes) {
           let content: string
-          if (col.column_type === 'date') {
+          if (col.column_type === 'date' || col.column_type === 'deadline') {
             const fmt = (d: string) => {
               const [y = NaN, m = NaN, day = NaN] = d.split('-').map(Number)
               return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })

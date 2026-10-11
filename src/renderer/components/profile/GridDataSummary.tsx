@@ -10,7 +10,6 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import type { DeadlineState } from '../../../shared/deadlineEngine'
 import { CellDisplay } from '../grid/CellDisplay'
 import { CellEditor } from '../grid/CellEditor'
-import { useVocab } from '../../hooks/useVocab'
 import { Sparkline, NumberHistoryDialog, type SeriesPoint } from './NumberHistory'
 
 interface Props {
@@ -153,7 +152,6 @@ function renderValue(col: Column, rawValue: string | null, row: GridRow, allColu
 // ── Main component ─────────────────────────────────────────────────────────
 
 export function GridDataSummary({ row, columns, alertRules, gridId, onCellSave }: Props) {
-  const { t } = useVocab(gridId)
   const [showColumnPicker, setShowColumnPicker] = useState(false)
   const [hiddenColumnIds, setHiddenColumnIds] = useState<Set<number>>(new Set())
   const [columnOrder, setColumnOrder] = useState<number[] | null>(null)
@@ -260,8 +258,8 @@ export function GridDataSummary({ row, columns, alertRules, gridId, onCellSave }
     <section className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-visible">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
         <LayoutList className="w-4 h-4 text-slate-500 flex-shrink-0" />
-        <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300">{t('record', { cap: true })} details</h2>
-        <span className="text-sm text-slate-500 dark:text-slate-400">{displayCols.length} of {allCols.length}</span>
+        {/* The record page's section already says "Client details"; this line says what's shown */}
+        <span className="text-base text-slate-600 dark:text-slate-300">Showing {displayCols.length} of {allCols.length} columns</span>
         <div className="ml-auto relative">
           <button
             onClick={() => setShowColumnPicker(v => !v)}

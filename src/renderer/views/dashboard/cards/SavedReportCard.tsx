@@ -7,19 +7,22 @@ import { chartableReport, type ReportResult, type SavedReport } from '../../../.
 import { safeInvoke } from '../../../utils/safeInvoke'
 import { ReportTable } from '../../../components/reports/ReportTable'
 import { ReportChart } from '../../../components/reports/ReportChart'
+import { useDeadlinesVersion } from '../useDashboardRefresh'
 
 export function SavedReportCard({ id, onUnpin }: { id: number; onUnpin: (id: number) => void }): React.ReactElement | null {
   const navigate = useNavigate()
   const [data, setData] = useState<{ report: SavedReport; result: ReportResult; explanation?: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Its rows change with deadlines marked done, sample data and lists going to the Trash
+  const version = useDeadlinesVersion()
   useEffect(() => {
     let alive = true
     void safeInvoke<{ report: SavedReport; result: ReportResult; explanation?: string }>(IPC.REPORT_RUN_SAVED, id).then(r => {
       if (!alive) return
-      if (r.ok) setData(r.data); else setError(r.error)
+      if (r.ok) { setData(r.data); setError(null) } else setError(r.error)
     })
     return () => { alive = false }
-  }, [id])
+  }, [id, version])
   if (error === 'That report is no longer available.') return null
   return (
     <section aria-labelledby={`saved-report-${id}`} className="mb-6 rounded-lg border-2 border-slate-200 dark:border-slate-700 p-4 space-y-2">

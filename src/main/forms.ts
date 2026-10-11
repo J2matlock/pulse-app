@@ -88,7 +88,7 @@ function cleanValue(c: Col, raw: unknown): string | null {
   const v = raw.replace(/\0/g, '').trim()
   if (v === '') return null
   if (v.length > 100_000) throw new FormError(`"${c.name}" is too long.`)
-  if (c.column_type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new FormError(`"${c.name}" needs a date.`)
+  if ((c.column_type === 'date' || c.column_type === 'deadline') && !/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new FormError(`"${c.name}" needs a date.`)
   if ((c.column_type === 'number' || c.column_type === 'currency') && !/^-?[\d,]*\.?\d+$/.test(v.replace(/^\$/, ''))) throw new FormError(`"${c.name}" needs a number.`)
   if (c.column_type === 'checkbox') return v === 'true' || v === '1' ? 'true' : 'false'
   return v

@@ -13,6 +13,7 @@ import { formatDue } from '../../../shared/deadlineEngine'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { unlinkRecords, createAndLink } from '../../utils/linkActions'
 import { LinkPicker } from '../links/LinkPicker'
+import { useGridStore } from '../../stores/gridStore'
 
 /** A linked record's deadline worth mentioning, as DEADLINES_GET returns it */
 type Rollup = DeadlineResult & { row_id: number; column_name: string }
@@ -96,7 +97,13 @@ export function LinkedRecords({ rowId, onCount }: { rowId: number; onCount?: (n:
               <form className="flex flex-wrap gap-2" onSubmit={e => {
                 e.preventDefault()
                 if (!newName.trim()) return
-                void createAndLink(block.type.id, block.direction, rowId, newName).then(id => { if (id !== null) { setAdding(null); setNewName('') } })
+                void createAndLink(block.type.id, block.direction, rowId, newName).then(id => {
+                  if (id === null) return
+                  setAdding(null); setNewName('')
+                  // A link within one list: the new record belongs to the open list too
+                  const grid = useGridStore.getState()
+                  if (block.other_grid_id === grid.activeGridId) void grid.loadGrid(block.other_grid_id)
+                })
               }}>
                 <input className="input flex-1 min-w-[12rem]" autoFocus aria-label={`New in ${block.other_grid_name}: name`} value={newName}
                   onChange={e => setNewName(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') setAdding(null) }}

@@ -348,6 +348,8 @@ export interface ParsedCondFormatRule extends Omit<CondFormatRuleRecord, 'rule_j
 export interface DashboardStats {
   totalActive: number
   followUpsPending: number
+  /** Active records per open list (lists with none are left out) */
+  activeByList?: Array<{ grid_id: number; n: number }>
   // overdue / dueThisWeek / dueThisMonth are derived on the frontend from deadlines
   // (they require interval_days math that can't easily run in SQL)
 }

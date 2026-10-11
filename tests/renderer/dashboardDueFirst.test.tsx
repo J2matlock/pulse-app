@@ -50,6 +50,14 @@ describe('deadline rows', () => {
     expect(screen.getByText(/IFSP meeting \(step 1 of 4\)/)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Mark IFSP meeting done for Frank' })).toBeTruthy()
   })
+
+  it('take the tooltip from the engine, so a working-day move or extension shows (R4)', () => {
+    const d = { rowId: 1, clientName: 'Gail', gridId: 1, gridName: 'Families', columnId: 4, columnName: 'Review', dateValue: '2026-09-10', daysUntil: 1,
+      alertRuleId: 7, threshold: null, intervalDays: 30, ruleKind: 'interval', due: '2026-10-09',
+      detail: 'Due Oct 9, 2026, the working day before Oct 10, 2026 · Due Oct 10, 2026 (every 30 days, from Sep 10, 2026)' } as ExtendedDeadlineInfo
+    const { container } = render(<MemoryRouter><div role="list"><DeadlineRow deadline={d} onMarkDone={vi.fn()} /></div></MemoryRouter>)
+    expect(container.querySelector('[title^="Due Oct 9, 2026, the working day before"]')).toBeTruthy()
+  })
 })
 
 describe('requirement line', () => {

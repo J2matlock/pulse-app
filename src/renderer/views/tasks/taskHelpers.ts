@@ -29,18 +29,35 @@ export function isSnoozed(task: CaseloadTask): boolean {
   return task.snoozed_until > localDateString()
 }
 
-export function dueDateLabel(dateStr: string | null): { text: string; className: string } | null {
-  if (!dateStr) return null
+/** "Oct 14" (with the year when it isn't this one) and how many days away it is */
+function dueDateParts(dateStr: string): { text: string; diffDays: number } {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const due = new Date(dateStr + 'T00:00:00')
   const diffDays = Math.round((due.getTime() - today.getTime()) / MS_PER_DAY)
   const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
   if (due.getFullYear() !== today.getFullYear()) opts.year = 'numeric'
-  const text = due.toLocaleDateString(undefined, opts)
+  return { text: due.toLocaleDateString(undefined, opts), diffDays }
+}
+
+/** A due date as colored text: late, today, this week, later */
+export function dueDateLabel(dateStr: string | null): { text: string; className: string } | null {
+  if (!dateStr) return null
+  const { text, diffDays } = dueDateParts(dateStr)
   let className = 'text-slate-500'
   if (diffDays < 0) className = 'text-red-600 dark:text-red-400'
   else if (diffDays === 0) className = 'text-amber-600 dark:text-amber-400'
   else if (diffDays <= 7) className = 'text-yellow-600 dark:text-yellow-500'
+  return { text, className }
+}
+
+/** The same due date as a pill, for task and checklist rows */
+export function dueDateBadge(dateStr: string | null): { text: string; className: string } | null {
+  if (!dateStr) return null
+  const { text, diffDays } = dueDateParts(dateStr)
+  let className = 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+  if (diffDays < 0) className = 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+  else if (diffDays === 0) className = 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
+  else if (diffDays <= 7) className = 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-600'
   return { text, className }
 }

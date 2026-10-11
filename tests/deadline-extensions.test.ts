@@ -1,7 +1,7 @@
 /** Extensions (W05 §4): a new date with a reason, tied to the cycle it extends. */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
-import { evaluate, engineRuleFrom, applyExtension, matchExtension } from '../src/shared/deadlineEngine'
+import { evaluate, engineRuleFrom, applyExtension, matchExtension, extensionAnchor } from '../src/shared/deadlineEngine'
 
 let t: TestDb
 vi.mock('../src/main/database', () => ({ getDb: () => t.db, cachedStmt: (_k: string, sql: string) => t.db.prepare(sql) }))
@@ -24,6 +24,24 @@ describe('extensions in the engine', () => {
     expect(matchExtension(exts, '2026-09-01', undefined)?.id).toBe(1)
     expect(matchExtension(exts, '2026-10-01', undefined)).toBeUndefined()
     expect(matchExtension([{ ...exts[0]!, step: 1 }], '2026-09-01', 0)).toBeUndefined()
+  })
+
+  const quota = engineRuleFrom({ id: 2, kind: 'quota', rule_config: JSON.stringify({
+    kind: 'quota', activityTypes: ['session'], startColumnId: 2, endColumnId: 3, limit: 12, warnRemaining: 2, warnDaysBeforeEnd: 14,
+  }) })
+
+  it('tie a quota extension to the authorization end date, so a renewal drops it', () => {
+    const before = extensionAnchor(quota, null, { 2: '2026-01-01', 3: '2026-10-31' })
+    expect(before).toBe('2026-10-31')
+    const exts = [{ id: 1, newDue: '2026-11-30', reason: 'x', anchor: before, step: null }]
+    const renewed = extensionAnchor(quota, null, { 2: '2026-11-01', 3: '2027-04-30' })
+    expect(matchExtension(exts, renewed, undefined)).toBeUndefined()
+  })
+
+  it('keep a used-up quota overdue when it is extended', () => {
+    const res = evaluate(quota, { today: '2026-10-02', columnDate: null, values: { 2: '2026-01-01', 3: '2026-10-31' }, activityCount: 12 })
+    const moved = applyExtension(res, { newDue: '2026-11-30', reason: 'Waiting on renewal' }, '2026-10-02')
+    expect(moved).toMatchObject({ due: '2026-11-30', state: 'overdue', label: 'All 12 used', daysUntil: 0 })
   })
 })
 

@@ -3,7 +3,7 @@
  * viewSmoke.test.tsx — Meaningful render tests for main views.
  * Verifies each view renders key UI elements, empty states, and interactive controls.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, onTestFinished } from 'vitest'
 import React from 'react'
 import { render, screen, act } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -348,6 +348,7 @@ vi.mock('../../../src/renderer/components/profile/ProfilePrintLayout', () => ({
 // ── Top-level imports (after all vi.mock calls) ──────────────────────────────
 
 import DashboardView from '../../../src/renderer/views/DashboardView'
+import { safeInvoke } from '../../../src/renderer/utils/safeInvoke'
 import ContactsView from '../../../src/renderer/views/ContactsView'
 import TasksView from '../../../src/renderer/views/TasksView'
 import TrashView from '../../../src/renderer/views/TrashView'
@@ -375,6 +376,14 @@ async function flushEffects() {
 // ── DashboardView ─────────────────────────────────────────────────────────────
 
 describe('DashboardView', () => {
+  // A failed dashboard load shows an error instead, so give it an empty one
+  beforeEach(() => {
+    vi.mocked(safeInvoke).mockImplementation(((channel: string) => Promise.resolve(channel === 'dashboard:get-all'
+      ? { ok: true, data: { stats: { totalActive: 0, totalGrids: 0 }, deadlines: [], followUps: [], archived: [] } }
+      : { ok: false, error: 'test-mock' })) as never)
+  })
+  afterEach(() => { vi.mocked(safeInvoke).mockResolvedValue({ ok: false, error: 'test-mock' } as never) })
+
   it('renders the Dashboard heading', async () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
@@ -388,7 +397,7 @@ describe('DashboardView', () => {
     const cards = screen.getAllByTestId('summary-card')
     expect(cards.length).toBe(5)
     const cardLabels = cards.map(c => c.textContent)
-    expect(cardLabels).toContain('Active Clients')
+    expect(cardLabels).toContain('Active clients')
     expect(cardLabels).toContain('Overdue deadlines')
     expect(cardLabels).toContain('Due in the next 7 days')
     expect(cardLabels).toContain('Due in the next 30 days')
@@ -481,6 +490,10 @@ describe('TasksView', () => {
   })
 
   it('shows empty state when no tasks exist', async () => {
+    // Loaded fine, just empty (a failed load says so instead)
+    const { safeInvoke } = await import('../../../src/renderer/utils/safeInvoke')
+    vi.mocked(safeInvoke).mockResolvedValue({ ok: true, data: [] })
+    onTestFinished(() => { vi.mocked(safeInvoke).mockResolvedValue({ ok: false, error: 'test-mock' }) })
     render(<MemoryRouter><TasksView /></MemoryRouter>)
     await flushEffects()
     expect(screen.getByTestId('empty-state')).toBeDefined()

@@ -293,6 +293,8 @@ export const SortableRow = React.memo(function SortableRow({
               const res = evaluateRuleForRow(rule, value, rowOriginal as unknown as Record<string, unknown>, col.id)
               const days = res.daysUntil
               if (col.column_type === 'date') alertChip = deadlineChipText(res, value)
+              // Cut-off words can still be read on hover, colored or not
+              alertTooltip = (res.state === 'done' || res.state === 'paused' ? alertChip : formatResultTooltip(res) || alertChip) ?? ''
               // Unparseable dates yield null — don't let them coerce to "due today"
               const threshold = days !== null ? getMatchingThreshold(days, rule.thresholds) : undefined
               if (days !== null && threshold) {
@@ -364,7 +366,7 @@ export const SortableRow = React.memo(function SortableRow({
             key={cell.id}
             className={`flex-shrink-0 grid-cell select-text ${cursorClass}
                         ${isFocused ? 'ring-3 ring-inset ring-blue-500' : ''}
-                        ${isEditing ? 'p-0' : ''}
+                        ${isEditing ? 'p-0' : 'overflow-hidden'}
                         ${alertBgClass} ${cellExtraClass}`}
             style={cellStyle}
             title={alertTooltip || undefined}
@@ -472,7 +474,7 @@ export const SortableRow = React.memo(function SortableRow({
                 {alertIcon}
                 <CellDisplay column={col} value={value} row={row.original} allColumns={columns} parsedConfig={parsedColumnConfigs.get(col.id)?.config} highlightText={searchQuery} isActiveMatch={findReplaceActiveRowId === rowId && findReplaceActiveColId === col.id} />
                 {isSample && col.is_name_column === 1 && <SamplePill compact />}
-                {alertChip && <span className="ml-1.5 text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap" data-testid="deadline-chip">{alertChip}</span>}
+                {alertChip && <span className="ml-1.5 min-w-0 truncate text-sm text-slate-700 dark:text-slate-200" data-testid="deadline-chip">{alertChip}</span>}
                 {alertSpoken && <span className="sr-only">{alertSpoken}</span>}
                 {col.is_name_column === 1 && (
                   // People click the name expecting it to open (G-31)

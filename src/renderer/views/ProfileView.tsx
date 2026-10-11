@@ -26,6 +26,7 @@ import { ProfileExportDialog, type ProfileSections } from '../components/profile
 import { RecordLetterDialog } from '../components/profile/RecordLetterDialog'
 import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { MoveToGridModal } from '../components/grid/MoveToGridModal'
+import { CancelAppointmentsCheckbox, useUpcomingAppointments } from '../components/grid/GridDialogs'
 import type { MoreMenuItem } from '../components/profile/ProfileMoreMenu'
 import type { GridRow, SaveDialogResult } from '../../shared/types'
 import type { RowLocation } from '../../shared/ipc-contract'
@@ -44,6 +45,7 @@ import { pulseEvents } from '../events'
 import type { Form } from '../../shared/forms'
 import { stageColumnOf } from '../../shared/stages'
 import { escapeBelongsElsewhere } from '../utils/domHelpers'
+import { getClientName } from '../utils/clientName'
 
 const NO_FORMS: Form[] = []
 
@@ -90,6 +92,8 @@ export default function ProfileView(): React.ReactElement {
   // "More ▾" actions (3.6)
   const [askArchive, setAskArchive] = useState(false)
   const [archiveReason, setArchiveReason] = useState('')
+  // Archiving here offers to cancel upcoming appointments, like the list's Archive (1.13)
+  const [cancelAppts, setCancelAppts] = useState(true)
   const [askTrash, setAskTrash] = useState(false)
   const [showMove, setShowMove] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)
@@ -103,8 +107,8 @@ export default function ProfileView(): React.ReactElement {
     updateRow: s.updateRow, updateCell: s.updateCell, loadGrid: s.loadGrid, unarchiveRow: s.unarchiveRow,
     archiveRow: s.archiveRow, deleteRow: s.deleteRow, duplicateRow: s.duplicateRow,
   })))
-  const { addRecentProfile } = useProfileStore(useShallow(s => ({
-    addRecentProfile: s.addRecentProfile,
+  const { addRecentProfile, removeRecentProfile } = useProfileStore(useShallow(s => ({
+    addRecentProfile: s.addRecentProfile, removeRecentProfile: s.removeRecentProfile,
   })))
   const { rules: alertRules, isLoaded: alertsLoaded, loadRules } = useAlertStore(useShallow(s => ({
     rules: s.rules, isLoaded: s.isLoaded, loadRules: s.loadRules,
@@ -123,16 +127,21 @@ export default function ProfileView(): React.ReactElement {
     })
   }, [])
 
-  // If navigated from dashboard with a gridId param, switch grids if needed
+  // A ?gridId= hint (Dashboard, Calendar, links) opens that list once per record.
+  // Applying it again whenever the list changes fought the lookup below when the
+  // record had since moved to another list: the two reloaded each other forever.
+  const appliedGridParam = useRef<string | null>(null)
   useEffect(() => {
     const gridIdParam = searchParams.get('gridId')
-    if (gridIdParam) {
-      const targetGridId = parseInt(gridIdParam, 10)
-      if (!isNaN(targetGridId) && targetGridId !== activeGridId) {
-        void loadGrid(targetGridId)
-      }
+    if (!gridIdParam || rowId == null) return
+    const key = `${rowId}:${gridIdParam}`
+    if (appliedGridParam.current === key) return
+    appliedGridParam.current = key
+    const targetGridId = parseInt(gridIdParam, 10)
+    if (!isNaN(targetGridId) && targetGridId !== useGridStore.getState().activeGridId) {
+      void loadGrid(targetGridId)
     }
-  }, [searchParams, activeGridId, loadGrid])
+  }, [searchParams, rowId, loadGrid])
 
   const stagesOn = useFeature('stages')
   const apptsOn = useFeature('appointments')
@@ -146,6 +155,7 @@ export default function ProfileView(): React.ReactElement {
   const hasLinkTypes = useLinkStore(s => s.types.some(lt => lt.from_grid_id === activeGridId || lt.to_grid_id === activeGridId))
   useEffect(() => { if (linksOn && !linkTypesLoaded) void useLinkStore.getState().load() }, [linksOn, linkTypesLoaded])
 
+  const upcomingAppts = useUpcomingAppointments(askArchive && rowId != null ? [rowId] : null)
   const activeGrid = grids.find(g => g.id === activeGridId)
   const nameCol = columns.find(c => c.is_name_column === 1)
 
@@ -154,6 +164,9 @@ export default function ProfileView(): React.ReactElement {
   // lives, open that list, and fetch an archived record on its own (1.24).
   const rowInList = rowId != null ? rows.find(r => r.row_id === rowId) : undefined
   const [lookup, setLookup] = useState<{ rowId: number; status: RowLocation['status'] | 'missing'; archivedRow?: GridRow; archivedReason?: string | null } | null>(null)
+  // The record whose list was reloaded for it, so a record that still isn't there
+  // after one reload counts as missing instead of reloading again
+  const reloadedFor = useRef<number | null>(null)
   useEffect(() => {
     if (rowId == null || rowInList || isLoading || lookup?.rowId === rowId) return
     let live = true
@@ -163,8 +176,15 @@ export default function ProfileView(): React.ReactElement {
       if (!res.ok || !res.data) { setLookup({ rowId, status: 'missing' }); return }
       const loc = res.data
       if ((loc.status === 'active' || loc.status === 'archived') && loc.gridId !== useGridStore.getState().activeGridId) {
+        reloadedFor.current = rowId
         await loadGrid(loc.gridId)
         if (!live) return
+      } else if (loc.status === 'active' && reloadedFor.current !== rowId) {
+        // Active in the open list but not in its loaded rows: the record was added
+        // somewhere else (a linked "New", another window). Reload the list once.
+        reloadedFor.current = rowId
+        await loadGrid(loc.gridId)
+        if (!live || useGridStore.getState().rows.some(r => r.row_id === rowId)) return
       }
       if (loc.status === 'archived') {
         const got = await safeInvoke<GridRow | null>(IPC.ROW_GET, loc.gridId, rowId)
@@ -177,6 +197,9 @@ export default function ProfileView(): React.ReactElement {
     })()
     return () => { live = false }
   }, [rowId, rowInList, isLoading, lookup?.rowId, loadGrid])
+  // A record that's gone leaves Recent, so it stops leading here
+  const goneStatus = lookup?.rowId === rowId && !rowInList && lookup.status !== 'active' && lookup.status !== 'archived' ? lookup.status : null
+  useEffect(() => { if (rowId != null && goneStatus) removeRecentProfile?.(rowId) }, [rowId, goneStatus, removeRecentProfile])
   const archivedRow = lookup?.rowId === rowId && !rowInList ? lookup.archivedRow : undefined
   const row = rowInList ?? archivedRow
   const isArchived = !!row && row.is_active === 0
@@ -192,10 +215,12 @@ export default function ProfileView(): React.ReactElement {
     }
   }
 
+  // The same name the header shows (last name, the list's display format), so
+  // "Archive …?", the PDF file name and Recent don't say just the first name
   const knownName = useMemo(() => {
     if (!row || !nameCol) return null
-    return (row[`col_${nameCol.id}` as keyof GridRow] as string | null) ?? null
-  }, [row, nameCol])
+    return getClientName(row, columns, '') || null
+  }, [row, nameCol, columns])
   const clientName = knownName ?? `Unknown ${t('record')}`
 
   // Track as recently visited
@@ -277,8 +302,9 @@ export default function ProfileView(): React.ReactElement {
   async function confirmArchive() {
     setAskArchive(false)
     if (rowId == null) return
-    await archiveRow(rowId, archiveReason.trim() || undefined)
+    await archiveRow(rowId, archiveReason.trim() || undefined, { cancelAppointments: upcomingAppts > 0 && cancelAppts })
     setArchiveReason('')
+    setCancelAppts(true)
     leaveRecord()
   }
 
@@ -454,7 +480,7 @@ export default function ProfileView(): React.ReactElement {
       <div key={rowId} className="flex-1 flex overflow-hidden">
 
         {/* Left sidebar — Checklist + ScratchPad, scrolls independently */}
-        <div className="w-1/4 min-w-[260px] flex-shrink-0 flex flex-col border-r border-slate-200 dark:border-slate-700 overflow-y-auto bg-slate-50 dark:bg-slate-800/50">
+        <div className="w-[28%] min-w-[300px] max-w-[420px] flex-shrink-0 flex flex-col border-r border-slate-200 dark:border-slate-700 overflow-y-auto bg-slate-50 dark:bg-slate-800/50">
           <div className="p-4 space-y-4">
             {showChecklists && (
               <div data-tour="checklist">
@@ -585,11 +611,12 @@ export default function ProfileView(): React.ReactElement {
         confirmLabel="Archive"
         destructive={false}
         onConfirm={() => void confirmArchive()}
-        onCancel={() => { setAskArchive(false); setArchiveReason('') }}
+        onCancel={() => { setAskArchive(false); setArchiveReason(''); setCancelAppts(true) }}
       >
         <label htmlFor="archive-reason" className="block text-base font-medium text-slate-700 dark:text-slate-200 mb-1">Reason (optional)</label>
         <input id="archive-reason" className="input w-full" value={archiveReason} maxLength={1000}
           onChange={e => setArchiveReason(e.target.value)} placeholder="e.g. Discharged, Moved away, Job finished" />
+        <div className="mt-3"><CancelAppointmentsCheckbox count={upcomingAppts} checked={cancelAppts} onChange={setCancelAppts} /></div>
       </ConfirmDialog>
 
       <ConfirmDialog

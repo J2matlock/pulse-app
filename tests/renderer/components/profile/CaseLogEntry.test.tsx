@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import React from 'react'
 
 import { CaseLogEntry } from '../../../../src/renderer/components/profile/CaseLogEntry'
@@ -81,13 +81,48 @@ describe('CaseLogEntry', () => {
     expect((textarea as HTMLTextAreaElement).value).toBe('Called client about appointment.')
   })
 
-  it('shows "edited" tag when updated_at differs from created_at', () => {
+  it('shows "edited" tag when the text was edited', () => {
     const entry = makeEntry({
       created_at: '2026-01-01T10:00:00Z',
       updated_at: '2026-01-02T10:00:00Z',
+      edited_at: '2026-01-02T10:00:00Z',
     })
     render(<CaseLogEntry entry={entry} {...handlers} />)
     expect(screen.getByText('edited')).toBeTruthy()
+  })
+
+  it('uses the workspace word for notes on the attach button', async () => {
+    const { NoteFiles } = await import('../../../../src/renderer/components/profile/NoteFiles')
+    render(<NoteFiles rowId={10} noteId={1} files={[]} canAttach />)
+    expect(screen.getByRole('button', { name: 'Attach a file to this case note' })).toBeTruthy()
+  })
+
+  it('fetches the earlier versions again after another edit', async () => {
+    const invoke = vi.fn(async (_channel: string) => ({ ok: true, data: [{ content: 'v1', replaced_at: '2026-01-02 10:00:00' }] }))
+    Object.defineProperty(window, 'api', { value: { invoke, on: () => () => {} }, writable: true, configurable: true })
+    const first = makeEntry({ content: 'v2', edited_at: '2026-01-02 10:00:00' })
+    const { rerender, container } = render(<CaseLogEntry entry={first} {...handlers} />)
+    const open = async () => {
+      const details = container.querySelector('details')!
+      details.open = true
+      await act(async () => { details.dispatchEvent(new Event('toggle')) })
+      details.open = false
+    }
+    await open()
+    rerender(<CaseLogEntry entry={{ ...first, content: 'v3', edited_at: '2026-01-03 10:00:00' }} {...handlers} />)
+    await open()
+    expect(invoke.mock.calls.filter(c => c[0] === 'case-log:get-edits')).toHaveLength(2)
+  })
+
+  it('does not say "edited" when only a follow-up was ticked (updated_at moved, edited_at did not)', () => {
+    const entry = makeEntry({
+      created_at: '2026-01-01T10:00:00Z',
+      updated_at: '2026-01-02T10:00:00Z',
+      follow_up_date: '2026-01-05',
+      follow_up_completed: 1,
+    })
+    render(<CaseLogEntry entry={entry} {...handlers} />)
+    expect(screen.queryByText('edited')).toBeNull()
   })
 
   it('does not show action buttons for system entries', () => {
