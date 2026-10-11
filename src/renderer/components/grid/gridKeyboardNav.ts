@@ -104,7 +104,15 @@ export function handleCellKeyDown(
       if (!editing) { e.preventDefault(); navigateCell(rowId, columnId, 'next-col') }
       break
     case 'ArrowLeft':
-      if (!editing) { e.preventDefault(); navigateCell(rowId, columnId, 'prev-col') }
+      if (!editing) {
+        e.preventDefault()
+        // From the first column, Left reaches the record's priority badge, if the list has one (AUDIT-045)
+        const badge = columns[0]?.id === columnId && e.currentTarget instanceof HTMLElement
+          ? e.currentTarget.closest('[role="row"]')?.querySelector<HTMLElement>('[data-acuity-badge]')
+          : null
+        if (badge) badge.focus()
+        else navigateCell(rowId, columnId, 'prev-col')
+      }
       break
     case 'ArrowDown':
       if (!editing) { e.preventDefault(); navigateCell(rowId, columnId, 'next-row') }

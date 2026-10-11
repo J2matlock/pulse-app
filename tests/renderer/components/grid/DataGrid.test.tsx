@@ -623,6 +623,24 @@ describe('DataGrid', () => {
       expect(dataCells().length).toBe(20)
     })
 
+    it('Left from the first column reaches the priority badge, and Right goes back (AUDIT-045)', async () => {
+      setupStores({
+        acuityEnabled: true,
+        acuityLevels: [{ id: 1, grid_id: 1, name: 'High', abbreviation: 'H', points: 3, color: '#dc2626', position: 0, created_at: '' }],
+      })
+      renderDataGrid()
+      await flushEffects()
+      const first = dataCells()[0]!
+      act(() => { first.focus() })
+      fireEvent.keyDown(first, { key: 'ArrowLeft' })
+      const badge = screen.getAllByRole('button', { name: /^Set acuity level$/ })[0]!
+      expect(document.activeElement).toBe(badge)
+      fireEvent.keyDown(badge, { key: 'ArrowDown' })
+      expect(document.activeElement).toBe(screen.getAllByRole('button', { name: /^Set acuity level$/ })[1])
+      fireEvent.keyDown(document.activeElement!, { key: 'ArrowRight' })
+      expect(document.activeElement).toBe(dataCells()[TEST_COLUMNS.length])
+    })
+
     it('Tab key navigates to next cell', async () => {
       renderDataGrid()
       await flushEffects()

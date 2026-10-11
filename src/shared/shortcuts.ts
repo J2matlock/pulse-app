@@ -54,6 +54,7 @@ export const SHORTCUT_SECTIONS: ShortcutSection[] = [
       { keys: ['F2'], description: 'Start editing the cell' },
       { keys: ['Escape'], description: 'Cancel the edit' },
       { keys: ['Shift', 'Space'], description: 'Select or unselect the {record}, for bulk actions' },
+      { keys: ['←'], description: 'From the first column: set the {priority} (Enter opens the list)', feature: 'priority' },
       { keys: ['Mod', 'A'], description: 'Select all the {record:many} shown' },
       { keys: ['Mod', 'C'], description: "Copy the cell's value" },
       { keys: ['Mod', 'Shift', 'C'], description: 'Copy "Column: Value"' },
