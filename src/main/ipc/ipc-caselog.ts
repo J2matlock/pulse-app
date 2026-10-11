@@ -97,6 +97,8 @@ export function registerCaseLogHandlers(): void {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(id)) return fail('Invalid ID')
     if (typeof content !== 'string' || content.length > 100_000) return fail(`That ${word('activity')} is too long (max 100,000 characters).`)
+    // Emptying a note isn't a way to remove it: it would leave a blank entry in the record (R-13)
+    if (!content.trim()) return fail(`${word('activity', { cap: true })} can't be empty. To remove one, use Void.`)
     const db = getDb()
     db.transaction(() => {
       // Keep every earlier version (case_log_edits) so edits never erase the record.
@@ -172,13 +174,19 @@ export function registerCaseLogHandlers(): void {
     return ok(true)
   })
 
-  secureWrap(IPC.CASE_LOG_UNVOID, 'ipc-caselog', (_e, id: number) => {
+  secureWrap(IPC.CASE_LOG_UNVOID, 'ipc-caselog', (_e, id: number, opts?: { logRestore?: boolean }) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(id)) return fail('Invalid ID')
     const db = getDb()
     const rowId = db.transaction(() => {
-      const entry = cachedStmt('case_log_row_id', 'SELECT row_id FROM case_log WHERE id = ?').get(id) as { row_id: number } | undefined
+      const entry = db.prepare('SELECT row_id, voided_at, voided_reason FROM case_log WHERE id = ?').get(id) as { row_id: number; voided_at: string | null; voided_reason: string | null } | undefined
       db.prepare(`UPDATE case_log SET voided_at = NULL, voided_reason = NULL WHERE id = ?`).run(id)
+      // "Restore" on a voided note leaves a trace on the timeline and in the audit trail (R-14);
+      // Undo of a void just puts it back
+      if (entry?.voided_at && opts?.logRestore === true) {
+        db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))")
+          .run(entry.row_id, `A voided ${word('activity')} was restored${entry.voided_reason ? ` (it was voided: ${entry.voided_reason})` : ''}`)
+      }
       return entry?.row_id ?? null
     })()
     if (rowId) notifyCaseLogChanged(rowId)

@@ -203,7 +203,8 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
       setSelectedIndex(i => Math.max(i - 1, 0))
       return
     }
-    if (e.key === 'Tab' || e.key === 'Enter') {
+    // Enter picks a snippet only once one was chosen with the arrow keys; otherwise it's a new line
+    if (e.key === 'Tab' || (e.key === 'Enter' && selectedIndexRef.current >= 0)) {
       e.preventDefault()
       const idx = selectedIndexRef.current >= 0 ? selectedIndexRef.current : 0
       applySnippet(menu.items[idx]!)
@@ -247,7 +248,7 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
         <div className="w-px h-5 bg-slate-200 dark:bg-slate-600 mx-1" />
         {toolbarBtn(editor?.isActive('bulletList') ?? false, () => editor?.chain().focus().toggleBulletList().run(), <List className="w-4 h-4" />, 'Bullet list (Ctrl+Shift+8)')}
         {toolbarBtn(editor?.isActive('orderedList') ?? false, () => editor?.chain().focus().toggleOrderedList().run(), <ListOrdered className="w-4 h-4" />, 'Numbered list (Ctrl+Shift+7)')}
-        <div className="ml-2 text-sm text-slate-400/70 dark:text-slate-400">Type / for snippets</div>
+        {snippetsOn && <div className="ml-2 text-base text-slate-500 dark:text-slate-400">Type / for snippets</div>}
       </div>
 
       {/* onKeyDownCapture fires before tiptap sees the event */}
@@ -282,7 +283,7 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
               </button>
             ))}
             <div className="px-3 py-1 border-t border-slate-100 dark:border-slate-700 mt-1">
-              <span className="text-sm text-slate-500 dark:text-slate-400">↑↓ navigate · Tab/Enter select · Esc dismiss</span>
+              <span className="text-base text-slate-500 dark:text-slate-400">Tab inserts · ↑↓ then Enter to pick another · Esc closes</span>
             </div>
           </div>
         )}

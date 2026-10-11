@@ -247,7 +247,7 @@ export interface IPCContract {
   'case-log:uncomplete-followup': { args: [id: number];                                      return: true }
   'case-log:void':                { args: [id: number, reason: string];                      return: true }
   'case-log:get-edits':           { args: [id: number];                                      return: Array<{ content: string; replaced_at: string }> }
-  'case-log:unvoid':              { args: [id: number];                                      return: true }
+  'case-log:unvoid':              { args: [id: number, opts?: { logRestore?: boolean }]; return: true }
   'case-log:restore':             { args: [entry: Record<string, unknown>];                  return: true }
 
   // ── Scrap Notes ─────────────────────────────────────────────────────────

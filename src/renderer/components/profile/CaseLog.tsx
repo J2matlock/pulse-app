@@ -252,7 +252,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
         setSelectedIndex(i => Math.max(i - 1, 0))
         return
       }
-      if (e.key === 'Tab' || (e.key === 'Enter' && !isMod(e))) {
+      // Enter picks a snippet only once one was chosen with the arrow keys; otherwise it's a new line
+      if (e.key === 'Tab' || (e.key === 'Enter' && !isMod(e) && selectedIndexRef.current >= 0)) {
         e.preventDefault()
         const idx = selectedIndexRef.current >= 0 ? selectedIndexRef.current : 0
         applySnippet(menu.items[idx]!)
@@ -439,6 +440,23 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     })
   }
 
+  async function handleRestore(id: number) {
+    const entry = entries.find(e => e.id === id)
+    const res = await safeInvoke(IPC.CASE_LOG_UNVOID, id, { logRestore: true })
+    if (!res.ok) { toast.error(`We couldn't restore that ${t('activity')} — try again`); return }
+    setEntries(prev => prev.map(e => e.id === id ? { ...e, voided_at: null, voided_reason: null } : e))
+    const reason = entry?.voided_reason ?? 'Voided'
+    useUndoStore.getState().pushWithToast({
+      id: crypto.randomUUID(),
+      description: `Restored ${t('activity')}`,
+      timestamp: Date.now(),
+      category: 'logged',
+      icon: 'undo',
+      undo: async () => { await safeInvoke(IPC.CASE_LOG_VOID, id, reason) },
+      redo: async () => { await safeInvoke(IPC.CASE_LOG_UNVOID, id) },
+    })
+  }
+
   async function handleCompleteFollowUp(id: number) {
     const res = await safeInvoke<{ sysLogId: number | null }>(IPC.CASE_LOG_COMPLETE_FOLLOWUP, id)
     if (!res.ok) { toast.error('We couldn\'t mark that follow-up done — try again'); return }
@@ -599,12 +617,12 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
                 </button>
               ))}
               <div className="px-3 py-1 border-t border-slate-100 dark:border-slate-700 mt-1">
-                <span className="text-sm text-slate-500 dark:text-slate-400">↑↓ navigate · Tab/Enter select · Esc dismiss</span>
+                <span className="text-base text-slate-500 dark:text-slate-400">Tab inserts · ↑↓ then Enter to pick another · Esc closes</span>
               </div>
             </div>
           )}
         </div>
-        <p className="text-xs text-slate-500 dark:text-slate-400">Type / to insert a snippet</p>
+        {snippetsOn && <p className="text-base text-slate-500 dark:text-slate-400">Type / to insert a snippet</p>}
         </>}
 
         {(tracking.trackTime || tracking.trackMileage || measures.active.length > 0) && (
@@ -761,6 +779,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
                     onDelete={handleDelete}
                     onVoid={handleVoid}
                     onCompleteFollowUp={handleCompleteFollowUp}
+                onRestore={handleRestore}
                     tracking={tracking}
                     onSetMeasures={handleSetMeasures}
                   />
@@ -782,6 +801,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
                 onDelete={handleDelete}
                 onVoid={handleVoid}
                 onCompleteFollowUp={handleCompleteFollowUp}
+                onRestore={handleRestore}
                 tracking={tracking}
                 onSetMeasures={handleSetMeasures}
               />

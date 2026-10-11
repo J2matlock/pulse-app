@@ -23,6 +23,8 @@ interface Props {
   /** Older notes are voided (kept, hidden) instead of deleted */
   onVoid: (id: number, reason: string) => void
   onCompleteFollowUp: (id: number) => void
+  /** Bring back a voided note (shown on voided notes only) */
+  onRestore?: (id: number) => void
   /** Time/mileage tracking (Settings → Case notes) */
   tracking?: NoteTracking
   onSetMeasures?: (id: number, measures: NoteMeasureValues) => void
@@ -46,7 +48,7 @@ function formatDate(dateStr: string): string {
   })
 }
 
-export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onCompleteFollowUp, tracking, onSetMeasures }: Props) {
+export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onCompleteFollowUp, onRestore, tracking, onSetMeasures }: Props) {
   const [editMinutes, setEditMinutes] = useState('')
   const [editMiles, setEditMiles] = useState('')
   const showTime = !!tracking?.trackTime || entry.minutes != null
@@ -111,6 +113,8 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
       && (minutes === null || Number.isFinite(minutes)) && (miles === null || Number.isFinite(miles))) {
       onSetMeasures(entry.id, { minutes, miles, ...(extraChanged ? { extra } : {}) })
     }
+    // An emptied note would leave a blank entry; Save is disabled then, and Void removes notes
+    if (!editContent.trim()) return
     // Stay in the editor when the save fails, so the change isn't lost
     if (editContent.trim() !== entry.content && await onEdit(entry.id, editContent.trim()) === false) return
     setEditing(false)
@@ -148,6 +152,9 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
 
         {isVoided && (
           <span className="px-1.5 py-0.5 rounded-sm text-sm font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">Voided</span>
+        )}
+        {isVoided && onRestore && (
+          <button type="button" onClick={() => onRestore(entry.id)} className="btn-compact-secondary">Restore</button>
         )}
 
         {/* Actions (not for system entries or voided notes) */}
@@ -236,6 +243,12 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
         )}
       </div>
 
+      {confirmDelete && !canDelete && (
+        <p className="px-3 pt-2 text-base text-slate-600 dark:text-slate-300">
+          Notes older than {CASE_NOTE_DELETE_WINDOW_MINUTES} minutes can't be deleted: voiding keeps it in the record, hidden, and you can restore it later.
+        </p>
+      )}
+
       {/* Content */}
       <div className="px-3 py-3">
         {editing ? (
@@ -270,6 +283,9 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
                 ))}
               </div>
             )}
+            {!editContent.trim() && (
+              <p className="text-base text-amber-800 dark:text-amber-300">A note can't be empty. To remove it, use Void.</p>
+            )}
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => { setEditing(false); setEditContent(entry.content) }}
@@ -279,7 +295,8 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
               </button>
               <button
                 onClick={() => void handleSaveEdit()}
-                className="btn-primary px-3 py-1.5 text-base"
+                disabled={!editContent.trim()}
+                className="btn-primary px-3 py-1.5 text-base disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Save
               </button>
