@@ -178,7 +178,7 @@ describe('DashboardView — interactions', () => {
     const cards = screen.getAllByTestId('summary-card')
     expect(cards.length).toBe(5)
     // Active Clients should show 15
-    const activeCard = cards.find(c => c.getAttribute('data-label') === 'Active Clients')
+    const activeCard = cards.find(c => c.getAttribute('data-label') === 'Active clients')
     expect(activeCard?.getAttribute('data-value')).toBe('15')
   })
 
@@ -313,5 +313,17 @@ describe('DashboardView — interactions', () => {
       .find(t => t.textContent?.includes('Overdue'))! as HTMLElement
     fireEvent.click(overdueTab)
     expect(screen.getAllByTestId('deadline-row').map(r => r.textContent)).toEqual(['Used Up'])
+  })
+
+  it("names the Active tile in each list's own words, lower case like the other tiles", async () => {
+    const w = (one: string, many: string) => ({ one, many, article: 'a' as const })
+    setWords(undefined, { 1: { record: w('customer', 'customers') }, 2: { record: w('job', 'jobs') } })
+    mockSafeInvoke.mockImplementation((channel: string) => channel === 'dashboard:get-all'
+      ? Promise.resolve({ ok: true, data: { stats: { totalActive: 49, activeByList: [{ grid_id: 1, n: 12 }, { grid_id: 2, n: 37 }] }, deadlines: [], followUps: [], archived: [] } })
+      : Promise.resolve({ ok: true, data: [] }))
+    render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await flushEffects()
+    const labels = screen.getAllByTestId('summary-card').map(c => c.getAttribute('data-label'))
+    expect(labels).toContain('Active customers and jobs')
   })
 })

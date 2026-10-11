@@ -93,8 +93,9 @@ describe('DASHBOARD_GET_ALL', () => {
   it('counts active rows across multiple grids', async () => {
     seedGrid(testDb.db, { name: 'Grid A', rowCount: 3 })
     seedGrid(testDb.db, { name: 'Grid B', rowCount: 5 })
-    const result = await invoke(IPC.DASHBOARD_GET_ALL) as { ok: true; data: { stats: { totalActive: number } } }
+    const result = await invoke(IPC.DASHBOARD_GET_ALL) as { ok: true; data: { stats: { totalActive: number; activeByList: Array<{ n: number }> } } }
     expect(result.data.stats.totalActive).toBe(8)
+    expect(result.data.stats.activeByList.map(l => l.n).sort()).toEqual([3, 5])
   })
 
   it('excludes soft-deleted rows from totalActive', async () => {

@@ -397,7 +397,7 @@ describe('DashboardView', () => {
     const cards = screen.getAllByTestId('summary-card')
     expect(cards.length).toBe(5)
     const cardLabels = cards.map(c => c.textContent)
-    expect(cardLabels).toContain('Active Clients')
+    expect(cardLabels).toContain('Active clients')
     expect(cardLabels).toContain('Overdue deadlines')
     expect(cardLabels).toContain('Due in the next 7 days')
     expect(cardLabels).toContain('Due in the next 30 days')

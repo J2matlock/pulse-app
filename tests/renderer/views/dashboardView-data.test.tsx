@@ -166,11 +166,11 @@ describe('DashboardView — data smoke tests (5 deadlines, 3 follow-ups)', () =>
     expect(cards.length).toBe(5)
   })
 
-  it('Active Clients card shows 42', async () => {
+  it('Active clients card shows 42', async () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
     const cards = screen.getAllByTestId('summary-card')
-    const active = cards.find(c => c.getAttribute('data-label') === 'Active Clients')
+    const active = cards.find(c => c.getAttribute('data-label') === 'Active clients')
     expect(active?.getAttribute('data-value')).toBe('42')
   })
 

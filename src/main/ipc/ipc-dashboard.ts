@@ -9,16 +9,20 @@ import { cachedStmt } from '../database'
 import { loadDeadlines, deadlineCounts } from '../deadlines'
 import { stripHtml } from '../export-shared'
 import type { RecentActivityItem } from '../../shared/ipc-contract'
+import type { DashboardStats } from '../../shared/types'
 import { appointmentsToday, appointmentsNeedingOutcome } from '../appointments'
 
 // --- Shared query functions (each query defined exactly once) ---
 
-function queryStats(): { totalActive: number; followUpsPending: number } {
-  const totalActive = (cachedStmt('dash_total_active', `
-    SELECT COUNT(DISTINCT r.id) as n FROM rows r
+function queryStats(): DashboardStats {
+  // Per list, so the tile can use each list's own word ("customers and jobs")
+  const activeByList = cachedStmt('dash_active_by_list', `
+    SELECT r.grid_id, COUNT(*) as n FROM rows r
     JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
     WHERE r.is_active = 1 AND r.deleted_at IS NULL
-  `).get() as { n: number }).n
+    GROUP BY r.grid_id
+  `).all() as Array<{ grid_id: number; n: number }>
+  const totalActive = activeByList.reduce((sum, l) => sum + l.n, 0)
 
   // Same client filter as queryFollowups() so the count matches the list.
   // follow_up_date is a local calendar date, so compare against the local "today".
@@ -32,7 +36,7 @@ function queryStats(): { totalActive: number; followUpsPending: number } {
       AND cl.voided_at IS NULL
   `).get() as { n: number }).n
 
-  return { totalActive, followUpsPending }
+  return { totalActive, followUpsPending, activeByList }
 }
 
 /** The soonest deadlines for the dashboard, worked out by the shared engine */

@@ -21,7 +21,7 @@ import { useTaskStore } from '../stores/taskStore'
 import { rlog } from '../utils/rendererLogger'
 import { LoadingOverlay } from '../components/shared/LoadingSpinner'
 import { pulseEvents } from '../events'
-import { useVocab } from '../hooks/useVocab'
+import { useVocab, useVocabByList } from '../hooks/useVocab'
 import { GettingStartedCard } from './dashboard/GettingStartedCard'
 import { ChooseListDialog } from '../components/shared/ChooseListDialog'
 import { wordNow } from '../utils/vocab'
@@ -297,6 +297,17 @@ export default function DashboardView(): React.ReactElement {
     setRawDeadlines(prev => prev.filter(r => !(r.row_id === rowId && r.column_id === columnId)))
     void deadlinesChanged()
   }, [deadlinesChanged])
+
+  // In each list's own words, lower case like the other tiles: "Active clients",
+  // "Active customers and jobs"; more kinds than that read as a count of lists
+  const tFor = useVocabByList()
+  const activeLabel = useMemo(() => {
+    const lists = stats?.activeByList ?? []
+    const words = [...new Set(lists.map(l => tFor(l.grid_id)('record', { many: true })))]
+    if (words.length <= 1) return `Active ${words[0] ?? t('record', { many: true })}`
+    if (words.length === 2) return `Active ${words[0]} and ${words[1]}`
+    return `Active, in ${lists.length} ${t('list', { many: true })}`
+  }, [stats, tFor, t])
 
   const rulesInUse = useMemo(() => {
     const ids = new Set(deadlines.map(d => d.alertRuleId).filter((id): id is number => id != null))
@@ -687,40 +698,43 @@ export default function DashboardView(): React.ReactElement {
   return (
     <div className="h-full overflow-auto bg-white dark:bg-slate-900">
       <div className="max-w-4xl xl:max-w-6xl mx-auto px-6 py-6">
-        <div className="flex flex-wrap items-center gap-3 mb-6">
-          <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 flex-1">Dashboard</h1>
-          <button type="button" className="btn-compact-secondary" onClick={() => void printWeeklyPlanner()} title="A one-page PDF of everything due this week, to print or carry">
-            <Printer className="w-4 h-4" aria-hidden="true" />
-            Print this week
-          </button>
-          <button type="button" className="btn-compact-secondary" onClick={() => setShowCompliance(true)} title={`${t('activity', { many: true, cap: true })} and deadlines for a month, with exceptions, as a PDF`}>
-            <ShieldCheck className="w-4 h-4" aria-hidden="true" />
-            Monthly summary
-          </button>
-          <button type="button" className="btn-compact-secondary" onClick={() => setShowCalendar(true)} title="Save deadlines and follow-ups to Outlook or Google Calendar">
-            <CalendarPlus className="w-4 h-4" aria-hidden="true" />
-            Add to calendar
-          </button>
-          {lettersOn && allGrids.length > 0 && (
-            <button type="button" className="btn-compact-secondary" onClick={() => setPickingLettersList(true)} title="Letters or postcards for everyone with a deadline next month">
-              <Mail className="w-4 h-4" aria-hidden="true" />
-              Print reminder letters
+        {/* The buttons wrap among themselves, right-aligned, instead of dropping under the title */}
+        <div className="flex items-start gap-3 mb-6">
+          <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 shrink-0 py-2">Dashboard</h1>
+          <div className="flex flex-1 min-w-0 flex-wrap justify-end gap-3">
+            <button type="button" className="btn-compact-secondary" onClick={() => void printWeeklyPlanner()} title="A one-page PDF of everything due this week, to print or carry">
+              <Printer className="w-4 h-4" aria-hidden="true" />
+              Print this week
             </button>
-          )}
-          {/* The dashboard covers every list, so ask which one the letters are for (audit D-35) */}
-          {pickingLettersList && (
-            <ChooseListDialog title="Print reminder letters" grids={allGrids} initialId={openGridId} confirmLabel="Continue"
-              onCancel={() => setPickingLettersList(false)}
-              onChoose={id => {
-                setPickingLettersList(false)
-                void useGridStore.getState().loadGrid(id).then(() => setReminderLetters(true))
-              }} />
-          )}
-          {reminderLetters && openGridId != null && <BatchDocumentsDialog gridId={openGridId} onClose={() => setReminderLetters(false)} />}
-          <button type="button" className="btn-compact-secondary" aria-pressed={customizing} onClick={() => setCustomizing(c => !c)} title="Choose which cards show, and their order">
-            <LayoutGrid className="w-4 h-4" aria-hidden="true" />
-            Customize
-          </button>
+            <button type="button" className="btn-compact-secondary" onClick={() => setShowCompliance(true)} title={`${t('activity', { many: true, cap: true })} and deadlines for a month, with exceptions, as a PDF`}>
+              <ShieldCheck className="w-4 h-4" aria-hidden="true" />
+              Monthly summary
+            </button>
+            <button type="button" className="btn-compact-secondary" onClick={() => setShowCalendar(true)} title="Save deadlines and follow-ups to Outlook or Google Calendar">
+              <CalendarPlus className="w-4 h-4" aria-hidden="true" />
+              Add to calendar
+            </button>
+            {lettersOn && allGrids.length > 0 && (
+              <button type="button" className="btn-compact-secondary" onClick={() => setPickingLettersList(true)} title="Letters or postcards for everyone with a deadline next month">
+                <Mail className="w-4 h-4" aria-hidden="true" />
+                Print reminder letters
+              </button>
+            )}
+            {/* The dashboard covers every list, so ask which one the letters are for (audit D-35) */}
+            {pickingLettersList && (
+              <ChooseListDialog title="Print reminder letters" grids={allGrids} initialId={openGridId} confirmLabel="Continue"
+                onCancel={() => setPickingLettersList(false)}
+                onChoose={id => {
+                  setPickingLettersList(false)
+                  void useGridStore.getState().loadGrid(id).then(() => setReminderLetters(true))
+                }} />
+            )}
+            {reminderLetters && openGridId != null && <BatchDocumentsDialog gridId={openGridId} onClose={() => setReminderLetters(false)} />}
+            <button type="button" className="btn-compact-secondary" aria-pressed={customizing} onClick={() => setCustomizing(c => !c)} title="Choose which cards show, and their order">
+              <LayoutGrid className="w-4 h-4" aria-hidden="true" />
+              Customize
+            </button>
+          </div>
           {showCompliance && <ComplianceSummaryDialog onClose={closeCompliance} />}
           {showCalendar && <CalendarExportDialog onClose={closeCalendar} />}
         </div>
@@ -731,7 +745,7 @@ export default function DashboardView(): React.ReactElement {
         <DashboardCards customizing={customizing} onDoneCustomizing={() => setCustomizing(false)} whatsDue={whatsDue} summary={
         <div className="grid grid-cols-2 gap-4 mb-6 sm:grid-cols-3 xl:grid-cols-5">
           <SummaryCard
-            label={`Active ${t('record', { many: true, cap: true })}`}
+            label={activeLabel}
             value={stats?.totalActive ?? '—'}
             icon={<Users className="w-5 h-5" />}
             colorClass="text-blue-600 dark:text-blue-400"
