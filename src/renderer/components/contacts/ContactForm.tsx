@@ -282,7 +282,7 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
           <div>
             <label htmlFor="contact-title" className={labelClasses} style={{ fontSize: 15 }}>Title / Role</label>
             <input id="contact-title" type="text" value={form.title} onChange={e => setField('title', e.target.value)}
-              placeholder="e.g. Case Manager, Therapist" className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} />
+              placeholder="e.g. Manager, Coordinator" className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} />
           </div>
           <div>
             <label htmlFor="contact-category" className={labelClasses} style={{ fontSize: 15 }}>Category</label>

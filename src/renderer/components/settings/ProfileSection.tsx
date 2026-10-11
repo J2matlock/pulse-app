@@ -1,4 +1,5 @@
 import React from 'react'
+import { useVocab } from '../../hooks/useVocab'
 
 interface ProfileSectionProps {
   profileName: string
@@ -22,9 +23,10 @@ export function ProfileSection({
   profilePhone, setProfilePhone,
   saveSetting,
 }: ProfileSectionProps): React.ReactElement {
+  const { t } = useVocab(null)
   const fields = [
     { label: 'Full Name', key: 'profile_name', value: profileName, setter: setProfileName, placeholder: 'Jane Smith' },
-    { label: 'Title', key: 'profile_title', value: profileTitle, setter: setProfileTitle, placeholder: 'Case Manager' },
+    { label: 'Title', key: 'profile_title', value: profileTitle, setter: setProfileTitle, placeholder: t('worker', { cap: true }) },
     { label: 'Organization', key: 'profile_org', value: profileOrg, setter: setProfileOrg, placeholder: 'Community Services Agency' },
     { label: 'Email', key: 'profile_email', value: profileEmail, setter: setProfileEmail, placeholder: 'jane.smith@agency.org' },
     { label: 'Phone', key: 'profile_phone', value: profilePhone, setter: setProfilePhone, placeholder: '(555) 123-4567' },
