@@ -138,10 +138,9 @@ export function GridToolbar(): React.ReactElement {
   const [pdfRowCount, setPdfRowCount] = useState(0)
   const [scopeCounts, setScopeCounts] = useState<RowScopeCounts>({ shown: 0, selected: 0, all: 0 })
 
-  // The records on screen, in screen order; the board shows every record
+  // The records on screen, in screen order (the table's rows or the board's cards)
   function shownRowIds(): number[] {
-    const s = useGridStore.getState()
-    return s.viewMode === 'board' ? s.rows.map(r => r.row_id) : s.sortedRowIds
+    return useGridStore.getState().sortedRowIds
   }
 
   function openExport(format: 'csv' | 'pdf') {

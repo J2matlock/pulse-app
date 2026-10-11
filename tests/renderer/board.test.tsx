@@ -16,7 +16,7 @@ const invoke = vi.fn(async (channel: string, ..._args: unknown[]) => {
 Object.defineProperty(window, 'api', { value: { invoke, on: () => () => {} }, writable: true, configurable: true })
 
 import { BoardView } from '../../src/renderer/components/board/BoardView'
-import { buildLanes, visibleRows } from '../../src/renderer/components/board/boardLanes'
+import { buildLanes, cardDueText, visibleRows } from '../../src/renderer/components/board/boardLanes'
 import { useGridStore } from '../../src/renderer/stores/gridStore'
 import { useAlertStore } from '../../src/renderer/stores/alertStore'
 import { localDateString } from '../../src/shared/dates'
@@ -74,7 +74,8 @@ describe('the board', () => {
     expect(within(board).getAllByRole('listitem').filter(li => li.tagName === 'SECTION').map(s => s.getAttribute('aria-label'))).toEqual(['Estimate, 1', 'In progress, 2', 'Done, 1', 'No status, 1'])
     const lane = screen.getByRole('list', { name: 'In progress' })
     const cards = within(lane).getAllByRole('button').filter(b => b.getAttribute('aria-roledescription') === 'card')
-    expect(cards.map(c => c.textContent)).toEqual([expect.stringMatching(/^Oil.*Promised: Overdue 2 days/), expect.stringMatching(/^BrakesBay: Bay 2Promised: Due in 5 days/)])
+    // The same words as the list's deadline chips (R1)
+    expect(cards.map(c => c.textContent)).toEqual([expect.stringMatching(/^Oil.*Promised: due \w+ \d+ · 2 days late/), expect.stringMatching(/^BrakesBay: Bay 2Promised: due \w+ \d+ · in 5 days/)])
     fireEvent.click(cards[1]!)
     expect(screen.getByTestId('where').textContent).toBe('/profile/1')
   })
@@ -89,6 +90,19 @@ describe('the board', () => {
     expect([...select.options].map(o => o.text)).toEqual(['Move to…', 'In progress', 'Done'])
     await act(async () => { fireEvent.change(select, { target: { value: 'Done' } }) })
     expect(invoke).toHaveBeenCalledWith('stages:move', 3, 2, 'Done')
+  })
+
+  it('counts, exports and steps through the cards on screen, in lane order (R1)', async () => {
+    useGridStore.setState({ sortedRowIds: [], viewMode: 'board', searchQuery: 'r' } as never)
+    render(<MemoryRouter><BoardView /></MemoryRouter>)
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    // "r" matches Tires, Brakes, Oil ("In progress") and Wipers, which is hidden: done a while ago
+    expect(useGridStore.getState().sortedRowIds).toEqual([3, 2, 1])
+  })
+
+  it('says a used-up quota is used up, not "Due today" (R1)', () => {
+    const res = { due: '2026-12-31', state: 'overdue', daysUntil: 0, estimated: false, detail: '12 of 12 used', label: 'All 12 used', usedUp: true }
+    expect(cardDueText({ daysUntil: 0, column: columns[2]!, rule: {} as never, result: res as never })).toBe('Promised: All 12 used')
   })
 
   it('remembers board mode in saved views', () => {

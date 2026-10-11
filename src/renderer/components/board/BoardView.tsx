@@ -22,7 +22,7 @@ import { resolveAlertColor } from '../../utils/alertColors'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useVocab } from '../../hooks/useVocab'
 import { ACTIVITY_SWATCH } from '../../hooks/useActivityTypes'
-import { buildLanes, nearestDeadline, visibleRows, type Lane } from './boardLanes'
+import { buildLanes, cardDueText, nearestDeadline, visibleRows, type Lane } from './boardLanes'
 import { moveToStage } from '../../utils/stageMove'
 
 const PAGE = 50
@@ -49,12 +49,6 @@ function fieldText(row: GridRow, c: Column): string {
   if (c.column_type === 'date' && /^\d{4}-\d{2}-\d{2}/.test(v)) return formatDue(v.slice(0, 10))
   if (c.column_type === 'checkbox') return v === 'true' || v === '1' ? 'Yes' : 'No'
   return v
-}
-
-function dueText(d: number): string {
-  if (d < 0) return `Overdue ${-d} day${d === -1 ? '' : 's'}`
-  if (d === 0) return 'Due today'
-  return `Due in ${d} day${d === 1 ? '' : 's'}`
 }
 
 interface CardProps {
@@ -109,8 +103,8 @@ const Card = React.memo(function Card({ row, name, number, fields, due, linkColu
           <span className="flex flex-wrap items-center gap-1">
             {due && (
               <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${color?.className ?? 'bg-slate-100 dark:bg-slate-700'}`} style={color?.style}
-                title={`${due.column.name}: ${dueText(due.daysUntil)}`}>
-                {due.column.name}: {dueText(due.daysUntil)}
+                title={due.result.detail || cardDueText(due)}>
+                {cardDueText(due)}
               </span>
             )}
             {acuity && <span className="px-2 py-0.5 rounded-full text-sm text-white" style={{ backgroundColor: acuity.color }}>{acuity.name}</span>}
@@ -226,6 +220,11 @@ export function BoardView(): React.ReactElement | null {
       sinceOf: r => durations[r.row_id]?.current.since ?? null,
     })
   }, [prepared, stageCol, config, durations, showOlder])
+
+  // The cards on screen, in lane order: the footer count, export "shown", Find & Replace
+  // and a record's previous/next all go by these, as they do by the table's rows
+  const setSortedRowIds = useGridStore(s => s.setSortedRowIds)
+  useEffect(() => { setSortedRowIds(lanes.flatMap(l => l.rows.map(r => r.row_id))) }, [lanes, setSortedRowIds])
 
   const [announcement, setAnnouncement] = useState('')
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))

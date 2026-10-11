@@ -8,7 +8,8 @@ import { DEFAULT_HIDE_DONE_DAYS } from '../../../shared/stages'
 import { parseDbTimestamp } from '../../../shared/dates'
 import { rowMatchesSearch } from '../../utils/searchMatch'
 import { matchFilter } from '../../utils/filterMatch'
-import { evaluateRuleForRow } from '../../utils/deadlineCalc'
+import { evaluateRuleForRow, deadlineChipText } from '../../utils/deadlineCalc'
+import type { DeadlineResult } from '../../../shared/deadlineEngine'
 
 export interface Lane {
   /** null = "No stage" */
@@ -43,9 +44,20 @@ export function visibleRows(rows: GridRow[], columns: Column[], f: BoardFilters)
   return result
 }
 
+export interface NearestDeadline { daysUntil: number; column: Column; rule: ParsedAlertRule; result: DeadlineResult }
+
+/**
+ * What a card says about its deadline, in the list's own words: "in 4 days",
+ * "3 days late", "All 12 used" (never "Due today" for a used-up quota)
+ */
+export function cardDueText(due: NearestDeadline): string {
+  // The card doesn't show the stored date, so the chip always names the due date
+  return `${due.column.name}: ${deadlineChipText(due.result, null) ?? ''}`
+}
+
 /** The nearest deadline on a record, across its columns with rules */
-export function nearestDeadline(row: GridRow, columns: Column[], rules: ParsedAlertRule[]): { daysUntil: number; column: Column; rule: ParsedAlertRule } | null {
-  let best: { daysUntil: number; column: Column; rule: ParsedAlertRule } | null = null
+export function nearestDeadline(row: GridRow, columns: Column[], rules: ParsedAlertRule[]): NearestDeadline | null {
+  let best: NearestDeadline | null = null
   for (const c of columns) {
     if (c.column_type !== 'date' && c.column_type !== 'deadline') continue
     let ruleId: number | undefined
@@ -54,7 +66,7 @@ export function nearestDeadline(row: GridRow, columns: Column[], rules: ParsedAl
     if (!rule) continue
     const res = evaluateRuleForRow(rule, row[`col_${c.id}`] ?? null, row as unknown as Record<string, unknown>, c.id)
     if (res.daysUntil === null || res.state === 'paused' || res.state === 'done') continue
-    if (!best || res.daysUntil < best.daysUntil) best = { daysUntil: res.daysUntil, column: c, rule }
+    if (!best || res.daysUntil < best.daysUntil) best = { daysUntil: res.daysUntil, column: c, rule, result: res }
   }
   return best
 }
