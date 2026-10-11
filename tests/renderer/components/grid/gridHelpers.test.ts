@@ -13,6 +13,12 @@ describe('checkPaste', () => {
     expect(checkPaste('March 3', col('date'))).toEqual({ error: expect.stringMatching(/isn't a full date/) })
   })
 
+  it('refuses a pasted date with a year outside 1900–2999, as saving would (AUDIT-112)', () => {
+    expect(checkPaste('1/1/1850', col('date'))).toEqual({ error: expect.stringMatching(/isn't a full date/) })
+    expect(checkPaste('0026-10-11', col('date'))).toEqual({ error: expect.stringMatching(/isn't a full date/) })
+    expect(checkPaste('1/1/1900', col('date'))).toEqual({ value: '1900-01-01' })
+  })
+
   it('reads a pasted 06/10/2026 as 6 October with the DD/MM/YYYY date format (AUDIT-117)', () => {
     useSettingsStore.getState().hydrateFromSettings({ date_format: 'eu' })
     try {
