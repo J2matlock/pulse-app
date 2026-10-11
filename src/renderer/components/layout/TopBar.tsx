@@ -11,7 +11,7 @@ import { useUndoStore } from '../../stores/undoStore'
 import { Breadcrumb } from '../profile/Breadcrumb'
 import { Tooltip } from '../shared/Tooltip'
 import { UndoHistoryPanel } from '../shared/UndoHistoryPanel'
-import { isMod } from '../../utils/keys'
+import { isMod, modHelp } from '../../utils/keys'
 import { useVocab } from '../../hooks/useVocab'
 import { useShownCount } from '../../hooks/useShownCount'
 import type { FAQCategory } from '../../views/help/types'
@@ -185,14 +185,14 @@ export function TopBar(): React.ReactElement {
             placeholder={`Search ${t('record', { many: true })}…`}
             value={inputValue}
             onChange={e => setInputValue(e.target.value)}
-            title={`Search ${t('record', { many: true })} (Ctrl+F)`}
+            title={modHelp(`Search ${t('record', { many: true })} (Ctrl+F)`)}
           />
           {/* Screen reader announcement for search result count */}
           <div aria-live="polite" aria-atomic="true" className="sr-only">
             {announcedCount !== null ? `${announcedCount} result${announcedCount !== 1 ? 's' : ''} found` : ''}
           </div>
           <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-600 pointer-events-none">
-            Ctrl+F
+            {modHelp('Ctrl+F')}
           </kbd>
         </div>
       )}
@@ -201,11 +201,11 @@ export function TopBar(): React.ReactElement {
         {/* Undo / Redo controls */}
         <div className="flex items-center relative" data-tour="undo-redo" ref={historyAnchorRef as React.RefObject<HTMLDivElement>}>
           {/* Undo button */}
-          <Tooltip content={lastAction ? `Undo: ${lastAction.description} (Ctrl+Z)` : 'Nothing to undo (Ctrl+Z)'} placement="bottom">
+          <Tooltip content={modHelp(lastAction ? `Undo: ${lastAction.description} (Ctrl+Z)` : 'Nothing to undo (Ctrl+Z)')} placement="bottom">
             <button
               onClick={() => void undo()}
               disabled={!canUndo}
-              aria-label={lastAction ? `Undo: ${lastAction.description} (Ctrl+Z)` : 'Nothing to undo (Ctrl+Z)'}
+              aria-label={modHelp(lastAction ? `Undo: ${lastAction.description} (Ctrl+Z)` : 'Nothing to undo (Ctrl+Z)')}
               className="hit-44 flex items-center gap-1 px-2 py-1.5 rounded-l-md
                          text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200
                          hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors
@@ -240,11 +240,11 @@ export function TopBar(): React.ReactElement {
             </button>
           </Tooltip>
           {/* Redo button (separate) */}
-          <Tooltip content="Redo (Ctrl+Y)" placement="bottom">
+          <Tooltip content={modHelp('Redo (Ctrl+Y)')} placement="bottom">
             <button
               onClick={() => void redo()}
               disabled={!canRedo}
-              aria-label="Redo (Ctrl+Y)"
+              aria-label={modHelp('Redo (Ctrl+Y)')}
               className="hit-44 flex items-center px-2 py-1.5 rounded-md ml-0.5
                          text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200
                          hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors

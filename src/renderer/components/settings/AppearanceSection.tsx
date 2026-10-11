@@ -2,6 +2,7 @@ import React from 'react'
 import { Moon, Sun, Monitor } from 'lucide-react'
 import type { Theme } from '../../../shared/types'
 import { useVocab } from '../../hooks/useVocab'
+import { modHelp } from '../../utils/keys'
 
 interface AppearanceSectionProps {
   theme: Theme
@@ -125,7 +126,7 @@ export function AppearanceSection({
         {uiScale < 100 && (
           <p className="text-sm text-amber-600 dark:text-amber-400">Smaller sizes may reduce readability</p>
         )}
-        <p className="text-sm text-slate-500 dark:text-slate-400">Ctrl+= / Ctrl+- to zoom, Ctrl+0 to reset</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{modHelp('Ctrl+= / Ctrl+- to zoom, Ctrl+0 to reset')}</p>
       </div>
 
       {/* Subsection 3: list display */}

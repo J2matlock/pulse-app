@@ -1,4 +1,5 @@
 import { DemoWrapper } from './DemoWrapper'
+import { modHelp } from '../../../utils/keys'
 
 export function DemoUndoRedo() {
   return (
@@ -44,7 +45,7 @@ export function DemoUndoRedo() {
           <span className="text-xs font-medium">Undo</span>
         </div>
       </div>
-      <div className="text-xs text-slate-500 dark:text-slate-400 text-center">Cell value reverts instantly with Ctrl+Z</div>
+      <div className="text-xs text-slate-500 dark:text-slate-400 text-center">{modHelp('Cell value reverts instantly with Ctrl+Z')}</div>
     </DemoWrapper>
   )
 }

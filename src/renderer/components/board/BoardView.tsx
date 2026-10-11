@@ -24,6 +24,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { ACTIVITY_SWATCH } from '../../hooks/useActivityTypes'
 import { buildLanes, cardDueText, nearestDeadline, visibleRows, type Lane } from './boardLanes'
 import { moveToStage } from '../../utils/stageMove'
+import { isMod, modHelp } from '../../utils/keys'
 
 const PAGE = 50
 const MAX_CARD_FIELDS = 3
@@ -257,7 +258,7 @@ export function BoardView(): React.ReactElement | null {
 
   const onKey = useCallback((e: React.KeyboardEvent, laneIndex: number, index: number, rowId: number) => {
     const stageLanes = lanes.filter(l => l.option)
-    if (e.ctrlKey && e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    if (isMod(e) && e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
       // Ctrl+Shift+←/→: the previous or next stage
       e.preventDefault()
       const current = lanes[laneIndex]
@@ -299,7 +300,7 @@ export function BoardView(): React.ReactElement | null {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-end gap-2 px-4 py-2">
-        <p className="flex-1 text-base text-slate-500 dark:text-slate-400">Drag a card, use “Move to…”, or press Ctrl+Shift+← / → on a card.</p>
+        <p className="flex-1 text-base text-slate-500 dark:text-slate-400">{modHelp("Drag a card, use “Move to…”, or press Ctrl+Shift+← / → on a card.")}</p>
         <CardFieldsPicker columns={allColumns.filter(c => c.id !== stageCol.id && !c.is_name_column)} chosen={cardFields} onChange={saveCardFields} />
       </div>
       <p id="board-keys-help" className="sr-only">Arrow keys move between cards. Control Shift Left or Right moves this card to the previous or next stage. Enter opens it.</p>

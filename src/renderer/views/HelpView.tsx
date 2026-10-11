@@ -18,6 +18,7 @@ import { useVocab } from '../hooks/useVocab'
 import toast from 'react-hot-toast'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { FEATURES, isOn, type FeatureKey } from '../../shared/features'
+import { modHelp } from '../utils/keys'
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -47,7 +48,7 @@ function loadPersistedState(): { search: string; category: FAQCategory | 'all'; 
 export default function HelpView({ onStartTour, onStartMiniTour }: Props): React.ReactElement {
   const { t, f } = useVocab(null)
   // Help text carries {word} tokens; fill them before searching so search matches what's shown
-  const faqItems = useMemo(() => FAQ_ITEMS.map(it => ({ ...it, question: f(it.question), answer: f(it.answer) })), [f])
+  const faqItems = useMemo(() => FAQ_ITEMS.map(it => ({ ...it, question: f(it.question), answer: modHelp(f(it.answer)) })), [f])
   const persisted = useRef(loadPersistedState())
   const [search, setSearch] = useState(persisted.current?.search ?? '')
   const [debouncedSearch, setDebouncedSearch] = useState(persisted.current?.search ?? '')

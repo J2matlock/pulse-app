@@ -15,6 +15,7 @@ import type { UndoItem } from '../../stores/undoStore'
 import { ConfirmDialog } from './ConfirmDialog'
 import { relativeTime } from '../../utils/relativeTime'
 import { useVocab } from '../../hooks/useVocab'
+import { modHelp } from '../../utils/keys'
 
 interface Props {
   anchorRef: React.RefObject<HTMLElement>
@@ -199,7 +200,7 @@ export function UndoHistoryPanel({ anchorRef, onClose }: Props): React.ReactElem
           <button
             onClick={() => { void undo() }}
             disabled={!canUndo}
-            title="Undo (Ctrl+Z)"
+            title={modHelp('Undo (Ctrl+Z)')}
             className="hit-44 flex items-center gap-1.5 flex-1 justify-center py-1.5 rounded-md text-base
                        bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300
                        hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors
@@ -212,7 +213,7 @@ export function UndoHistoryPanel({ anchorRef, onClose }: Props): React.ReactElem
           <button
             onClick={() => { void redo() }}
             disabled={!canRedo}
-            title="Redo (Ctrl+Y)"
+            title={modHelp('Redo (Ctrl+Y)')}
             className="hit-44 flex items-center gap-1.5 flex-1 justify-center py-1.5 rounded-md text-base
                        bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300
                        hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors

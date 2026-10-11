@@ -39,7 +39,7 @@ import { TaskFormDialog, type NewTask } from './tasks/TaskFormDialog'
 import { SnoozeDialog } from './tasks/SnoozeDialog'
 import { TaskGroup } from './tasks/TaskGroup'
 import { UrgentChecklistSection } from './tasks/UrgentChecklistSection'
-import { isMod } from '../utils/keys'
+import { isMod, modHelp } from '../utils/keys'
 import { useVocab } from '../hooks/useVocab'
 import { useFeature } from '../hooks/useFeature'
 
@@ -464,7 +464,7 @@ export default function TasksView(): React.ReactElement {
 
         <button
           onClick={() => setShowAddDialog(true)}
-          title="Add a new task (Ctrl+Shift+T)"
+          title={modHelp('Add a new task (Ctrl+Shift+T)')}
           className="btn-compact-primary"
         >
           + Add Task
@@ -539,7 +539,7 @@ export default function TasksView(): React.ReactElement {
                 action={{ label: 'Add your first task', onClick: () => setShowAddDialog(true) }}
               />
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-                Tip: Press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-sm font-mono">Ctrl+Shift+T</kbd> to quickly add a task
+                Tip: Press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-sm font-mono">{modHelp('Ctrl+Shift+T')}</kbd> to quickly add a task
               </p>
             </div>
           )}

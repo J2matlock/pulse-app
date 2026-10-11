@@ -24,7 +24,7 @@ import { useGridStore } from '../../stores/gridStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useTaskStore } from '../../stores/taskStore'
 import { localDateString } from '../../../shared/dates'
-import { isMod } from '../../utils/keys'
+import { isMod, modHelp } from '../../utils/keys'
 import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
 import { FormsDialog } from '../forms/FormsDialog'
@@ -457,8 +457,8 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
           onClick={onToggle}
           className="hit-44 p-1.5 rounded-sm hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400
                      focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-          title={collapsed ? 'Expand sidebar (Ctrl+\\)' : 'Collapse sidebar (Ctrl+\\)'}
-          aria-label={collapsed ? 'Expand sidebar (Ctrl+\\)' : 'Collapse sidebar (Ctrl+\\)'}
+          title={modHelp(collapsed ? 'Expand sidebar (Ctrl+\\)' : 'Collapse sidebar (Ctrl+\\)')}
+          aria-label={modHelp(collapsed ? 'Expand sidebar (Ctrl+\\)' : 'Collapse sidebar (Ctrl+\\)')}
         >
           <motion.div animate={{ rotate: collapsed ? 180 : 0 }} transition={{ duration: 0.25 }}>
             <ChevronLeft className="w-5 h-5" />
@@ -495,7 +495,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
                 : 'text-slate-700 dark:text-slate-300'}
             `}
             style={{ minHeight: 44 }}
-            title="Dashboard (Ctrl+Shift+D)"
+            title={modHelp('Dashboard (Ctrl+Shift+D)')}
             aria-current={isDashboard ? 'page' : undefined}
           >
             {isDashboard && (
@@ -645,7 +645,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
                   : 'text-slate-700 dark:text-slate-300'}
               `}
               style={{ minHeight: 44 }}
-              title={collapsed ? 'Tasks (Ctrl+Shift+T)' : undefined}
+              title={collapsed ? modHelp('Tasks (Ctrl+Shift+T)') : undefined}
               aria-current={isTasks ? 'page' : undefined}
             >
               {isTasks && (
@@ -683,7 +683,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
                   : 'text-slate-700 dark:text-slate-300'}
               `}
               style={{ minHeight: 44 }}
-              title={collapsed ? `${t('contactDirectory', { cap: true })} (Ctrl+Shift+P)` : undefined}
+              title={collapsed ? modHelp(`${t('contactDirectory', { cap: true })} (Ctrl+Shift+P)`) : undefined}
               aria-current={isContacts ? 'page' : undefined}
             >
               {isContacts && (
@@ -828,7 +828,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
                        hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors
                        focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
             style={{ minHeight: 44 }}
-            title="Focus Mode (Ctrl+Shift+F)"
+            title={modHelp('Focus Mode (Ctrl+Shift+F)')}
           >
             <Focus className="w-5 h-5 flex-shrink-0" />
             {!collapsed && <span className="text-base">Focus Mode</span>}
@@ -886,7 +886,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
                      hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors
                      focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
           style={{ minHeight: 44 }}
-          title="Lock app (Ctrl+L)"
+          title={modHelp('Lock app (Ctrl+L)')}
         >
           <Lock className="w-5 h-5 flex-shrink-0" />
           {!collapsed && <span className="text-base">Lock</span>}

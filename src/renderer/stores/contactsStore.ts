@@ -14,6 +14,7 @@ import type {
   ProviderCustomField,
   ContactFilterParams,
 } from '../../shared/types'
+import { modHelp } from '../utils/keys'
 
 type ViewMode = 'cards' | 'list'
 
@@ -231,7 +232,7 @@ export const useContactsStore = create<ContactsStore>((set, get) => ({
       set({ selectedProviderId: null, selectedProvider: null })
     }
     await get().loadProviders()
-    toast(`${wordNow('contact', { cap: true }, null)} deleted. Press Ctrl+Z to undo.`, { duration: 5000 })
+    toast(`${wordNow('contact', { cap: true }, null)} deleted. Press ${modHelp('Ctrl+Z')} to undo.`, { duration: 5000 })
     const providerSnapshot = {
       name: provider.name, org_name: provider.org_name,
       title: provider.title, phone_main: provider.phone_main,

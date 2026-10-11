@@ -9,6 +9,7 @@ import type { Provider, AvailabilityStatus, ProviderCategory, ProviderCustomFiel
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useVocab } from '../../hooks/useVocab'
+import { modHelp } from '../../utils/keys'
 
 interface ContactFormProps {
   provider?: Provider | null
@@ -248,7 +249,7 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
             disabled={saving || !form.name.trim()}
             className="flex items-center gap-1 rounded-md bg-blue-600 px-4 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-hidden focus:ring-3 focus:ring-blue-500"
             style={{ fontSize: 15, minHeight: 44 }}
-            title={`Save ${t('contact')} (Ctrl+Enter)`}
+            title={modHelp(`Save ${t('contact')} (Ctrl+Enter)`)}
           >
             <Save size={16} /> {saving ? 'Saving...' : 'Save'}
           </button>
@@ -434,7 +435,7 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
 
       {/* Footer */}
       <div className="border-t border-slate-200 dark:border-slate-700 px-4 py-2 text-sm text-slate-500 dark:text-slate-400">
-        <kbd className="rounded-sm bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 font-mono text-sm">Ctrl+Enter</kbd> to save &middot;{' '}
+        <kbd className="rounded-sm bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 font-mono text-sm">{modHelp('Ctrl+Enter')}</kbd> to save &middot;{' '}
         <kbd className="rounded-sm bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 font-mono text-sm">Esc</kbd> to cancel
       </div>
       <ConfirmDialog

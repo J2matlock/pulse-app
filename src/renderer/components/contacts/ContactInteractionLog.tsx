@@ -6,7 +6,7 @@ import type { ProviderInteraction, ProviderContactType } from '../../../shared/t
 import { DEBOUNCE_SEARCH } from '../../../shared/constants'
 import { relativeTime } from '../../utils/relativeTime'
 import { parseDbTimestamp } from '../../../shared/dates'
-import { isMod } from '../../utils/keys'
+import { isMod, modHelp } from '../../utils/keys'
 
 interface Props {
   providerId: number
@@ -256,7 +256,7 @@ export function ContactInteractionLog({ providerId }: Props) {
         />
         <div className="flex items-center justify-between mt-2">
           <span className="text-sm text-slate-500 dark:text-slate-400" style={{ fontSize: 15 }}>
-            Ctrl+Enter to submit
+            {modHelp('Ctrl+Enter to submit')}
           </span>
           <button
             onClick={handleSubmit}

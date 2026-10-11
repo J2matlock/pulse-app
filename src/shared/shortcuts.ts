@@ -93,3 +93,13 @@ export function keyLabel(key: string, mac: boolean): string {
 export function shortcutText(keys: string[], mac: boolean): string {
   return keys.map(k => keyLabel(k, mac)).join('+')
 }
+
+/**
+ * Help text written with "Ctrl+…" for the Mod key, as it reads on this
+ * computer: "Ctrl+K" stays on Windows and Linux and becomes "⌘+K" on a Mac.
+ * Only for shortcuts handled with isMod; a key that needs Ctrl itself on a
+ * Mac shouldn't go through here.
+ */
+export function modText(text: string, mac: boolean): string {
+  return mac ? text.replace(/\bCtrl\+/g, `${keyLabel('Mod', mac)}+`) : text
+}

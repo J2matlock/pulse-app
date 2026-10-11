@@ -1,8 +1,8 @@
 /** The one shortcut list is true: every listed key has a handler (audit 2.14 / N-08). */
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'fs'
+import { readFileSync, readdirSync } from 'fs'
 import { join } from 'path'
-import { SHORTCUT_SECTIONS, shortcutText, keyLabel } from '../src/shared/shortcuts'
+import { SHORTCUT_SECTIONS, shortcutText, keyLabel, modText } from '../src/shared/shortcuts'
 
 describe('shortcut list', () => {
   const rows = SHORTCUT_SECTIONS.flatMap(s => s.shortcuts)
@@ -33,5 +33,35 @@ describe('shortcut list', () => {
     expect(shortcutText(['Mod', 'Shift', 'T'], false)).toBe('Ctrl+Shift+T')
     expect(shortcutText(['Mod', 'Shift', 'T'], true)).toBe('⌘+Shift+T')
     expect(keyLabel('Alt', true)).toBe('⌥')
+  })
+
+  it('help text says ⌘ instead of Ctrl on a Mac', () => {
+    expect(modText('Press Ctrl+K, then Ctrl+Shift+T', false)).toBe('Press Ctrl+K, then Ctrl+Shift+T')
+    expect(modText('Press Ctrl+K, then Ctrl+Shift+T', true)).toBe('Press ⌘+K, then ⌘+Shift+T')
+  })
+
+  // Tooltips and help used to hard-code "Ctrl+", so a Mac showed two answers (R7)
+  it('screen text names shortcuts through modHelp, not a bare "Ctrl+"', () => {
+    const root = join(__dirname, '../src/renderer')
+    // Text these files hold is shown through modHelp where it's rendered (HelpView, TourOverlay);
+    // What's New lists past releases as they were written.
+    const shownElsewhere = new Set(['views/help/faqData.tsx', 'components/shared/TourOverlay.tsx', 'components/shared/WhatsNewModal.tsx'])
+    const bare: string[] = []
+    const walk = (dir: string): void => {
+      for (const ent of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, ent.name)
+        if (ent.isDirectory()) { walk(full); continue }
+        if (!/\.tsx?$/.test(ent.name)) continue
+        const rel = full.slice(root.length + 1).replace(/\\/g, '/')
+        if (shownElsewhere.has(rel)) continue
+        readFileSync(full, 'utf8').split('\n').forEach((line, i) => {
+          const code = line.trim()
+          if (code.startsWith('//') || code.startsWith('*') || code.startsWith('/*')) return
+          if (/Ctrl\+/.test(code.replace(/\/\/.*$/, '').replace(/\{?\s*\/\*.*?\*\/\s*\}?/g, '')) && !/modHelp\(|IS_MAC \?/.test(code)) bare.push(`${rel}:${i + 1}`)
+        })
+      }
+    }
+    walk(root)
+    expect(bare).toEqual([])
   })
 })

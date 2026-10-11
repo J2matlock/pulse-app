@@ -17,7 +17,7 @@ import { CaseLogEntry } from './CaseLogEntry'
 import { expandVariables, detectTrigger, matchSnippets } from '../../utils/snippetExpander'
 import { useUndoStore } from '../../stores/undoStore'
 import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
-import { isMod } from '../../utils/keys'
+import { isMod, modHelp } from '../../utils/keys'
 import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
 import { FeatureOffer } from '../shared/FeatureOffer'
@@ -663,7 +663,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
                   style={{ fontSize: 15 }} />
               </div>
             ))}
-            <p className="text-sm text-slate-500 dark:text-slate-400">Saved as one {t('activity')} with these headings. Empty sections are left out. Ctrl+Enter saves.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Saved as one {t('activity')} with these headings. Empty sections are left out. {modHelp('Ctrl+Enter')} saves.</p>
           </div>
         )}
 
@@ -675,7 +675,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             value={newContent}
             onChange={handleContentInput}
             onKeyDown={handleTextareaKeyDown}
-            placeholder={`Add ${guessArticle(activity.label(chosenType))} ${activity.label(chosenType).toLowerCase()} entry… (Ctrl+Enter to save, type / for snippets)`}
+            placeholder={modHelp(`Add ${guessArticle(activity.label(chosenType))} ${activity.label(chosenType).toLowerCase()} entry… (Ctrl+Enter to save, type / for snippets)`)}
             rows={3}
             className="w-full rounded-lg border border-slate-300 dark:border-slate-600
                        bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100

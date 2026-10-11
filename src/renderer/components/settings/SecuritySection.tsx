@@ -8,6 +8,7 @@ import { RecoveryKeyDisplayModal } from '../shared/RecoveryKeyDisplayModal'
 import { SecurityCheckup } from './SecurityCheckup'
 import { PasswordStrength } from '../shared/PasswordStrength'
 import { checkNewPassword } from '../../../shared/passwordPolicy'
+import { modHelp } from '../../utils/keys'
 
 interface SecuritySectionProps {
   saveSetting: (key: string, value: string) => Promise<void>
@@ -127,7 +128,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
           <option value={120}>2 hours</option>
         </select>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Pulse also locks when your computer sleeps or you lock your screen. Press Ctrl+L to lock immediately.
+          Pulse also locks when your computer sleeps or you lock your screen. Press {modHelp('Ctrl+L')} to lock immediately.
         </p>
       </div>
 

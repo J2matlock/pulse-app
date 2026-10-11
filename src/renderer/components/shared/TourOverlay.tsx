@@ -44,6 +44,7 @@ import { useGridStore } from '../../stores/gridStore'
 import { useVocab } from '../../hooks/useVocab'
 import { featureNow } from '../../hooks/useFeature'
 import type { FeatureKey } from '../../../shared/features'
+import { modHelp } from '../../utils/keys'
 
 export interface TourStep {
   id: string
@@ -733,13 +734,13 @@ export function TourOverlay({ onComplete, full = false }: Props): React.ReactEle
             </div>
 
             <p id="tour-step-text" className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-300 mb-3">
-              {f(step.description)}
+              {modHelp(f(step.description))}
             </p>
 
             {step.tip && (
               <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-lg px-3 py-2 mb-3">
                 <p className="text-sm text-blue-800 dark:text-blue-300">
-                  <span className="font-semibold">Tip:</span> {f(step.tip)}
+                  <span className="font-semibold">Tip:</span> {modHelp(f(step.tip))}
                 </p>
               </div>
             )}
