@@ -192,7 +192,6 @@ export function LockScreenView(): React.ReactElement {
                       type="button"
                       className="hit-44 absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                       onClick={() => setShowPassword(v => !v)}
-                      tabIndex={-1}
                       title={showPassword ? 'Hide password' : 'Show password'}
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
@@ -239,6 +238,7 @@ export function LockScreenView(): React.ReactElement {
                 <button
                   type="button"
                   onClick={() => setView('password')}
+                  aria-label="Back to password"
                   className="hit-44 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 >
                   ←
@@ -294,6 +294,7 @@ export function LockScreenView(): React.ReactElement {
                 <button
                   type="button"
                   onClick={() => setView('password')}
+                  aria-label="Back to password"
                   className="hit-44 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 >
                   ←

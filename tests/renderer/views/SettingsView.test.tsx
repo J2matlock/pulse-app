@@ -96,6 +96,21 @@ describe('SettingsView', () => {
     expect(appearanceTab.getAttribute('aria-selected')).toBe('true')
   })
 
+  it('moves between tabs with the arrow keys', () => {
+    render(<SettingsView />)
+    const tabs = screen.getAllByRole('tab')
+    const start = tabs.findIndex(t => t.getAttribute('aria-selected') === 'true')
+    expect(tabs[start]!.tabIndex).toBe(0)
+    tabs[start]!.focus()
+    fireEvent.keyDown(tabs[start]!, { key: 'ArrowDown' })
+    const next = screen.getAllByRole('tab')[start + 1]!
+    expect(next.getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(next)
+    expect(screen.getAllByRole('tab')[start]!.tabIndex).toBe(-1)
+    fireEvent.keyDown(next, { key: 'Home' })
+    expect(screen.getAllByRole('tab')[0]!.getAttribute('aria-selected')).toBe('true')
+  })
+
   it('renders all tab labels in the sidebar nav', () => {
     render(<SettingsView />)
     const tabs = ['Profile', 'Appearance', 'Security', 'Backup', 'Data', 'Deadlines & reminders', 'About']

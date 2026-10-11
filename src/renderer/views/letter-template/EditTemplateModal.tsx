@@ -94,11 +94,11 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
       onClick={e => { if (e.target === e.currentTarget) requestClose() }}
     >
-      <div ref={trapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="letter-edit-title" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
           <FileText className="w-5 h-5 text-blue-500 flex-shrink-0" />
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1">
+          <h2 id="letter-edit-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1">
             {template ? 'Edit Template' : 'New Letter Template'}
           </h2>
           <button

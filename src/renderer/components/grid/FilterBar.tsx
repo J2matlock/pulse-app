@@ -271,7 +271,7 @@ export function FilterBar(): React.ReactElement | null {
                 )}
                 <button
                   onClick={() => removeFilter(i)}
-                  className="hit-44 ml-0.5 text-blue-400 hover:text-blue-700 dark:hover:text-blue-100 focus:outline-hidden"
+                  className="hit-44 ml-0.5 text-blue-400 hover:text-blue-700 dark:hover:text-blue-100"
                   title="Remove this filter"
                   aria-label={`Remove filter: ${f.columnId === ROW_TAG_COLUMN_ID ? 'Tags' : (col?.name ?? `Col ${f.columnId}`)} ${OPERATOR_LABELS[f.operator]}${!NO_VALUE_OPS.includes(f.operator) ? ` ${filterValueLabel(f, rows)}` : ''}`}
                 >

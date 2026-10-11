@@ -151,7 +151,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
         tabIndex={-1}
         style={{ touchAction: 'none' }}
         className={`hit-44 mt-0.5 flex-shrink-0 text-slate-300 dark:text-slate-500 cursor-grab active:cursor-grabbing
-                   hover:text-slate-500 focus:outline-hidden
+                   hover:text-slate-500
                    ${isDragDisabled ? 'invisible' : 'opacity-40 group-hover:opacity-100 transition-opacity'}`}
         aria-label="Drag to reorder"
         title="Drag to reorder"
@@ -195,7 +195,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
             }}
             onBlur={saveTitle}
             style={{ fontSize: 15 }}
-            className="w-full text-base bg-transparent border-b border-blue-400 focus:outline-hidden
+            className="w-full text-base bg-transparent border-b border-blue-400
                        text-slate-900 dark:text-slate-100 pb-0.5"
           />
         ) : (

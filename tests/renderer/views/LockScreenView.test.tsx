@@ -52,6 +52,13 @@ describe('LockScreenView', () => {
     expect(screen.getByText('Unlock')).toBeDefined()
   })
 
+  it('lets keyboard users reach the show-password button (audit F-28)', () => {
+    render(<LockScreenView />)
+    expect(screen.getByLabelText('Password')).toBeDefined()
+    const show = screen.getByRole('button', { name: 'Show password' })
+    expect(show.getAttribute('tabindex')).toBeNull()
+  })
+
   it('disables unlock button when password is empty', () => {
     render(<LockScreenView />)
     const btn = screen.getByText('Unlock')

@@ -121,7 +121,7 @@ export function CellSwatchPicker({ value, onChange, allowNone }: {
             {row.colors.map(c => (
               <button key={c.hex} type="button" title={c.name}
                 onClick={() => onChange(c.hex)}
-                className={`hit-44 w-7 h-7 rounded-lg border-2 transition-all focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 ${
+                className={`hit-44 w-7 h-7 rounded-lg border-2 transition-all focus-visible:ring-3 focus-visible:ring-blue-500 ${
                   value === c.hex
                     ? 'border-slate-800 dark:border-white scale-110 shadow-md'
                     : 'border-transparent hover:scale-110 hover:border-slate-400'
@@ -342,7 +342,7 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
                   <span className="text-sm font-semibold text-slate-500 uppercase tracking-wide flex-shrink-0">Highlight rule {i + 1}</span>
                   <input
                     type="text"
-                    className="flex-1 bg-transparent border-0 border-b border-transparent focus:border-blue-500 outline-hidden text-base text-slate-700 dark:text-slate-200 placeholder:text-slate-500 py-0"
+                    className="flex-1 bg-transparent border-0 border-b border-transparent focus:border-blue-500 text-base text-slate-700 dark:text-slate-200 placeholder:text-slate-500 py-0"
                     placeholder="Name this rule (optional)"
                     value={rule.name ?? ''}
                     onChange={e => updateRule(i, { name: e.target.value || undefined })}
@@ -480,7 +480,7 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
                         {BORDER_COLORS.map(c => (
                           <button key={c.hex} type="button" title={c.name}
                             onClick={() => updateRule(i, { borderColor: c.hex })}
-                            className={`hit-44 w-7 h-7 rounded-lg border-2 transition-all focus:outline-hidden ${
+                            className={`hit-44 w-7 h-7 rounded-lg border-2 transition-all ${
                               rule.borderColor === c.hex
                                 ? 'border-slate-800 dark:border-white scale-110 shadow-md'
                                 : 'border-transparent hover:scale-110 hover:border-slate-400'

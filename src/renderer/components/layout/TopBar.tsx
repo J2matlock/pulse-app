@@ -306,7 +306,7 @@ export function TopBar(): React.ReactElement {
                         }}
                         className="hit-44 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300
                                    hover:bg-slate-50 dark:hover:bg-slate-700 flex flex-col gap-0.5
-                                   focus-visible:outline-hidden focus-visible:bg-slate-50 dark:focus-visible:bg-slate-700"
+                                   focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-blue-500 focus-visible:bg-slate-50 dark:focus-visible:bg-slate-700"
                       >
                         <span className="truncate font-medium">{p.name}</span>
                         <span className="text-sm text-slate-500 dark:text-slate-400 truncate">{p.gridName}</span>

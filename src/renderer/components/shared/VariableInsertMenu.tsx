@@ -143,7 +143,7 @@ export function VariableInsertMenu({ open, onClose, onInsert, anchorRef, extraGr
               aria-selected={isFocused}
               onClick={() => { onInsert(item.key); onClose() }}
               className={`w-full text-left px-3 py-2 rounded cursor-pointer flex flex-col gap-0.5
-                          focus:outline-hidden min-h-[44px] justify-center
+                          focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-blue-500 min-h-[44px] justify-center
                           ${isFocused
                             ? 'bg-blue-50 dark:bg-blue-900/30'
                             : 'hover:bg-slate-100 dark:hover:bg-slate-700'

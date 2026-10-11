@@ -585,7 +585,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
                       {!isSystem && (
                         <button
                           onClick={e => { e.stopPropagation(); removeThreshold(i) }}
-                          className="hit-44 p-1 text-slate-500 dark:text-slate-400 hover:text-red-500 focus:outline-hidden rounded-sm flex-shrink-0"
+                          className="hit-44 p-1 text-slate-500 dark:text-slate-400 hover:text-red-500 rounded-sm flex-shrink-0"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { onTabListKeyDown } from '../../utils/tabListKeys'
 import {
   Star, Pencil, Trash2, Copy, Check, Phone, Mail, Globe, MapPin,
   Clock, CheckCircle, XCircle, Download, Printer
@@ -216,13 +217,13 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-200 dark:border-slate-700 px-4" role="tablist">
+      <div className="flex border-b border-slate-200 dark:border-slate-700 px-4" role="tablist" onKeyDown={onTabListKeyDown}>
         {([
           { key: 'info' as DetailTab, label: 'Info' },
           { key: 'interactions' as DetailTab, label: 'Log' },
           { key: 'clients' as DetailTab, label: t('record', { many: true, cap: true }) },
         ]).map(tb => (
-          <button key={tb.key} role="tab" id={`tab-${tb.key}`} aria-selected={tab === tb.key}
+          <button key={tb.key} role="tab" id={`tab-${tb.key}`} aria-selected={tab === tb.key} tabIndex={tab === tb.key ? 0 : -1}
             aria-controls={`panel-${tb.key}`} title={tb.label} onClick={() => setTab(tb.key)}
             className={`px-3 py-2.5 text-base font-medium border-b-2 transition-colors ${
               tab === tb.key

@@ -106,7 +106,7 @@ export function ChecklistGroupHeader({
           {...listeners}
           className="hit-44 cursor-grab active:cursor-grabbing text-slate-500 opacity-30
                      hover:opacity-100 transition-opacity hover:text-slate-600
-                     dark:hover:text-slate-200 focus:outline-hidden p-0.5"
+                     dark:hover:text-slate-200 p-0.5"
           aria-label={`Drag group ${group.name}`}
           tabIndex={-1}
         >
@@ -118,7 +118,7 @@ export function ChecklistGroupHeader({
       <button
         onClick={onToggleCollapse}
         className="hit-44 p-0.5 text-slate-500 dark:text-slate-400 hover:text-slate-700
-                   dark:hover:text-slate-200 transition-colors focus:outline-hidden
+                   dark:hover:text-slate-200 transition-colors
                    focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
         aria-expanded={!isCollapsed}
         aria-label={isCollapsed ? `Expand ${group.name}` : `Collapse ${group.name}`}
@@ -156,7 +156,7 @@ export function ChecklistGroupHeader({
           <button
             onClick={startEditing}
             className={`hit-44 text-left font-medium text-slate-700 dark:text-slate-300
-                       text-[15px] truncate min-w-0 focus:outline-hidden
+                       text-[15px] truncate min-w-0
                        focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm px-1 cursor-text
                        border-b ${hovering
                          ? 'border-solid border-slate-400 dark:border-slate-500'
@@ -168,7 +168,7 @@ export function ChecklistGroupHeader({
           <button
             onClick={startEditing}
             className={`p-0.5 text-slate-500 hover:text-slate-600 dark:hover:text-slate-300
-                       transition-opacity flex-shrink-0 focus:outline-hidden
+                       transition-opacity flex-shrink-0
                        ${hovering ? 'opacity-100' : 'opacity-0'}`}
             title="Rename group"
             tabIndex={-1}

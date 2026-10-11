@@ -83,6 +83,13 @@
   /* Default placeholder text readable in both themes (preflight uses 50% of the
      text color, which is too faint for this audience). Utilities still override. */
   input::placeholder, textarea::placeholder { color: var(--color-slate-500); opacity: 1; }
+
+  /* Every keyboard-focused control shows a 3px ring (spec accessibility rule),
+     including ones that set no focus style of their own. Zero specificity, so
+     any component's own ring or outline wins; controls that draw a ring with
+     focus:ring-* / focus-visible:ring-* don't get a second one. */
+  :where(:focus-visible) { outline: 3px solid var(--ring-color); outline-offset: 2px; }
+  :where([class*="focus:ring-"], [class*="focus-visible:ring-"]):focus-visible { outline: none; }
   :root.dark input::placeholder, :root.dark textarea::placeholder { color: var(--color-slate-400); }
 
   :root {

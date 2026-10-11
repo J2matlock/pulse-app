@@ -90,7 +90,6 @@ export function ResetPasswordAfterRecoveryDialog({ open, onComplete }: ResetPass
                 type="button"
                 className="hit-44 absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 onClick={() => setShowPassword(v => !v)}
-                tabIndex={-1}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}

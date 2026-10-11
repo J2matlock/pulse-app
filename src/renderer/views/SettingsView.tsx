@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { onTabListKeyDown } from '../utils/tabListKeys'
 import {
   Monitor, Shield, Database,
   HardDrive, Info, User,
@@ -131,13 +132,14 @@ export default function SettingsView(): React.ReactElement {
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar nav */}
         {/* Scrolls on short screens (1366×768, zoomed in) so every tab can be reached */}
-        <nav aria-label="Settings tabs" className="w-56 flex-shrink-0 overflow-y-auto border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 py-4" role="tablist" aria-orientation="vertical">
+        <nav aria-label="Settings tabs" className="w-56 flex-shrink-0 overflow-y-auto border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 py-4" role="tablist" aria-orientation="vertical" onKeyDown={onTabListKeyDown}>
           {navItems.map(item => (
             <button
               key={item.id}
               role="tab"
               id={`settings-tab-${item.id}`}
               aria-selected={activeSection === item.id}
+              tabIndex={activeSection === item.id ? 0 : -1}
               aria-controls={`settings-panel-${item.id}`}
               onClick={() => setActiveSection(item.id)}
               className={`flex items-start gap-3 w-full px-4 py-2 text-left transition-colors
@@ -164,7 +166,7 @@ export default function SettingsView(): React.ReactElement {
           id={`settings-panel-${activeSection}`}
           aria-labelledby={`settings-tab-${activeSection}`}
           tabIndex={0}
-          className="flex-1 overflow-y-auto focus:outline-hidden"
+          className="flex-1 overflow-y-auto focus:outline-hidden focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-blue-500"
         >
           <div className="max-w-xl mx-auto px-8 py-8 space-y-8">
 

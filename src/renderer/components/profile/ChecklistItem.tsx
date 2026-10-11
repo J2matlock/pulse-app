@@ -293,7 +293,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
         tabIndex={-1}
         style={{ touchAction: 'none' }}
         className={`hit-44 mt-0.5 flex-shrink-0 text-slate-300 dark:text-slate-500 cursor-grab active:cursor-grabbing
-                   hover:text-slate-500 focus:outline-hidden
+                   hover:text-slate-500
                    ${isDragDisabled ? 'invisible' : 'opacity-40 group-hover:opacity-100 transition-opacity'}`}
         title="Drag to reorder"
         aria-label="Drag to reorder"
@@ -338,7 +338,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
             }}
             onBlur={saveTitle}
             spellCheck={false}
-            className="w-full text-base bg-transparent border-b border-blue-400 focus:outline-hidden
+            className="w-full text-base bg-transparent border-b border-blue-400
                        text-slate-900 dark:text-slate-100 pb-0.5"
           />
         ) : (

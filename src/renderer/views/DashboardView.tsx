@@ -1,6 +1,7 @@
 /**
  * DashboardView — Four tabs: Priority List, This Month, Completion, Recently Archived
  */
+import { onTabListKeyDown } from '../utils/tabListKeys'
 import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { AlertTriangle, Calendar, CheckCircle, Clock, Users, Archive, ClipboardList, RefreshCw, Info, Printer, ShieldCheck, CalendarPlus, LayoutGrid, Mail } from 'lucide-react'
 import { CalendarExportDialog } from '../components/reports/CalendarExportDialog'
@@ -473,12 +474,13 @@ export default function DashboardView(): React.ReactElement {
 
         {/* Top tab bar */}
         <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-          <div data-tour="dashboard-tabs" className="flex border-b border-slate-200 dark:border-slate-700 overflow-x-auto overflow-y-hidden" role="tablist">
+          <div data-tour="dashboard-tabs" className="flex border-b border-slate-200 dark:border-slate-700 overflow-x-auto overflow-y-hidden" role="tablist" onKeyDown={onTabListKeyDown}>
             {TOP_TABS.map(tab => (
               <button
                 key={tab.key}
                 role="tab"
                 aria-selected={topTab === tab.key}
+                tabIndex={topTab === tab.key || (topTab === 'archived' && tab.key === 'priority') ? 0 : -1}
                 onClick={() => setTopTab(tab.key)}
                 className={`flex items-center gap-2 px-4 py-3 text-base font-medium border-b-2 whitespace-nowrap transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
                   ${topTab === tab.key

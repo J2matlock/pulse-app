@@ -38,9 +38,9 @@ export function DeleteConfirmModal({ template, onConfirm, onClose }: DeleteConfi
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div ref={trapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md flex flex-col">
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="letter-delete-title" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md flex flex-col">
         <div className="px-6 py-5">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
+          <h2 id="letter-delete-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">
             Delete Template
           </h2>
           <p className="text-base text-slate-600 dark:text-slate-300">

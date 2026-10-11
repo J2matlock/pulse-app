@@ -231,7 +231,7 @@ function LevelRow({ level, index, total, onUpdate, onDelete, onMoveUp, onMoveDow
         onChange={e => setLocalName(e.target.value)}
         onBlur={commitName}
         onKeyDown={e => { if (e.key === 'Enter') commitName() }}
-        className="flex-1 min-w-0 text-base bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-500 focus:border-blue-500 focus:outline-hidden px-1 py-0.5 text-slate-700 dark:text-slate-200"
+        className="flex-1 min-w-0 text-base bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-500 focus:border-blue-500 px-1 py-0.5 text-slate-700 dark:text-slate-200"
         style={{ maxWidth: 80 }}
         title="Level name"
       />
@@ -243,7 +243,7 @@ function LevelRow({ level, index, total, onUpdate, onDelete, onMoveUp, onMoveDow
         onChange={e => setLocalAbbr(e.target.value.slice(0, 4))}
         onBlur={commitAbbr}
         onKeyDown={e => { if (e.key === 'Enter') commitAbbr() }}
-        className="w-10 text-base text-center bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-500 focus:border-blue-500 focus:outline-hidden px-0.5 py-0.5 text-slate-700 dark:text-slate-200"
+        className="w-10 text-base text-center bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-500 focus:border-blue-500 px-0.5 py-0.5 text-slate-700 dark:text-slate-200"
         title="Abbreviation (1-4 chars)"
         maxLength={4}
       />
@@ -255,7 +255,7 @@ function LevelRow({ level, index, total, onUpdate, onDelete, onMoveUp, onMoveDow
         onChange={e => setLocalPoints(e.target.value)}
         onBlur={commitPoints}
         onKeyDown={e => { if (e.key === 'Enter') commitPoints() }}
-        className="w-12 text-base text-center bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-500 focus:border-blue-500 focus:outline-hidden px-0.5 py-0.5 text-slate-700 dark:text-slate-200"
+        className="w-12 text-base text-center bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-500 focus:border-blue-500 px-0.5 py-0.5 text-slate-700 dark:text-slate-200"
         title="Points"
         min={0}
       />

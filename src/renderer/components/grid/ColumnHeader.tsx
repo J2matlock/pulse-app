@@ -200,7 +200,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
           {...dragHandleProps}
           className="hit-44 flex-shrink-0 p-0.5 rounded-sm text-slate-300 dark:text-slate-500 hover:text-slate-500 dark:hover:text-slate-400
                      opacity-40 group-hover:opacity-100 cursor-grab active:cursor-grabbing touch-none
-                     focus:outline-hidden transition-opacity"
+                     transition-opacity"
           tabIndex={-1}
           aria-label="Drag to reorder column"
           onPointerDown={e => { dragHandleProps.onPointerDown?.(e); e.stopPropagation() }}
@@ -215,7 +215,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
             ref={renameRef}
             autoFocus
             type="text"
-            className="w-full bg-transparent border-b border-blue-500 outline-hidden text-base font-semibold"
+            className="w-full bg-transparent border-b border-blue-500 text-base font-semibold"
             value={renameName}
             onChange={e => setRenameName(e.target.value)}
             onBlur={e => {
@@ -228,7 +228,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
       ) : (
         <Tooltip content="Click to sort · Double-click to rename" placement="bottom" delay={600}>
           <button
-            className="hit-44 flex-1 text-left text-base font-semibold text-slate-700 dark:text-slate-200 truncate focus:outline-hidden min-w-0 px-1"
+            className="hit-44 flex-1 text-left text-base font-semibold text-slate-700 dark:text-slate-200 truncate min-w-0 px-1"
             onClick={e => {
               // Wait a moment, so a double-click renames instead of sorting twice
               const shift = e.shiftKey

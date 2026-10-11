@@ -89,7 +89,7 @@ function SortableItem({ item, index, onChange, onRemove, isOnly }: SortableItemP
         type="button"
         {...attributes}
         {...listeners}
-        className="hit-44 mt-2.5 cursor-grab active:cursor-grabbing text-slate-500 dark:text-slate-400 opacity-30 hover:opacity-100 transition-opacity hover:text-slate-600 dark:hover:text-slate-200 focus:outline-hidden"
+        className="hit-44 mt-2.5 cursor-grab active:cursor-grabbing text-slate-500 dark:text-slate-400 opacity-30 hover:opacity-100 transition-opacity hover:text-slate-600 dark:hover:text-slate-200"
         aria-label={`Drag item ${index + 1}`}
         title="Drag to reorder"
         tabIndex={-1}

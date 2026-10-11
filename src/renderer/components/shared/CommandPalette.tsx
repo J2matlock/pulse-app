@@ -300,7 +300,7 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
                       onSelect={() => navigateToProfile(row.row_id)}
                       className="flex items-center gap-3 px-3 py-2 mx-1 cursor-pointer rounded-sm
                                  hover:bg-slate-100 dark:hover:bg-slate-700
-                                 aria-selected:bg-slate-100 dark:aria-selected:bg-slate-700"
+                                 aria-selected:bg-slate-100 dark:aria-selected:bg-slate-700 aria-selected:ring-3 aria-selected:ring-inset aria-selected:ring-blue-500"
                       style={{ minHeight: 44 }}
                     >
                       <div
@@ -334,7 +334,7 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
                     onSelect={() => void navigateToCrossGridProfile(r.gridId, r.rowId)}
                     className="flex items-center gap-3 px-3 py-2 mx-1 cursor-pointer rounded-sm
                                hover:bg-slate-100 dark:hover:bg-slate-700
-                               aria-selected:bg-slate-100 dark:aria-selected:bg-slate-700"
+                               aria-selected:bg-slate-100 dark:aria-selected:bg-slate-700 aria-selected:ring-3 aria-selected:ring-inset aria-selected:ring-blue-500"
                     style={{ minHeight: 44 }}
                   >
                     <div
@@ -364,7 +364,7 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
                     onSelect={() => navigateToProfile(p.rowId, p.gridId)}
                     className="flex items-center gap-3 px-3 py-2 mx-1 cursor-pointer rounded-sm
                                hover:bg-slate-100 dark:hover:bg-slate-700
-                               aria-selected:bg-slate-100 dark:aria-selected:bg-slate-700"
+                               aria-selected:bg-slate-100 dark:aria-selected:bg-slate-700 aria-selected:ring-3 aria-selected:ring-inset aria-selected:ring-blue-500"
                     style={{ minHeight: 44 }}
                   >
                     <Clock className="w-4 h-4 text-slate-500 dark:text-slate-400 flex-shrink-0" />
@@ -390,7 +390,7 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
                     onSelect={() => runAndClose(cmd.action)}
                     className="flex items-center gap-3 px-3 py-2 mx-1 cursor-pointer rounded-sm
                                hover:bg-slate-100 dark:hover:bg-slate-700
-                               aria-selected:bg-slate-100 dark:aria-selected:bg-slate-700"
+                               aria-selected:bg-slate-100 dark:aria-selected:bg-slate-700 aria-selected:ring-3 aria-selected:ring-inset aria-selected:ring-blue-500"
                     style={{ minHeight: 44 }}
                   >
                     <cmd.icon className="w-4 h-4 text-slate-500 dark:text-slate-400 flex-shrink-0" />
@@ -416,7 +416,7 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
                     onSelect={() => openHelp(h.id, h.question)}
                     className="flex items-center gap-3 px-3 py-2 mx-1 cursor-pointer rounded-sm
                                hover:bg-slate-100 dark:hover:bg-slate-700
-                               aria-selected:bg-slate-100 dark:aria-selected:bg-slate-700"
+                               aria-selected:bg-slate-100 dark:aria-selected:bg-slate-700 aria-selected:ring-3 aria-selected:ring-inset aria-selected:ring-blue-500"
                     style={{ minHeight: 44 }}
                   >
                     <HelpCircle className="w-4 h-4 text-slate-500 dark:text-slate-400 flex-shrink-0" />
@@ -439,7 +439,7 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
                     onSelect={() => runAndClose(cmd.action)}
                     className="flex items-center gap-3 px-3 py-2 mx-1 cursor-pointer rounded-sm
                                hover:bg-slate-100 dark:hover:bg-slate-700
-                               aria-selected:bg-slate-100 dark:aria-selected:bg-slate-700"
+                               aria-selected:bg-slate-100 dark:aria-selected:bg-slate-700 aria-selected:ring-3 aria-selected:ring-inset aria-selected:ring-blue-500"
                     style={{ minHeight: 44 }}
                   >
                     <cmd.icon className="w-4 h-4 text-slate-500 dark:text-slate-400 flex-shrink-0" />
@@ -465,7 +465,7 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
                     onSelect={() => runAndClose(cmd.action)}
                     className="flex items-center gap-3 px-3 py-2 mx-1 cursor-pointer rounded-sm
                                hover:bg-slate-100 dark:hover:bg-slate-700
-                               aria-selected:bg-slate-100 dark:aria-selected:bg-slate-700"
+                               aria-selected:bg-slate-100 dark:aria-selected:bg-slate-700 aria-selected:ring-3 aria-selected:ring-inset aria-selected:ring-blue-500"
                     style={{ minHeight: 44 }}
                   >
                     <cmd.icon className="w-4 h-4 text-slate-500 dark:text-slate-400 flex-shrink-0" />

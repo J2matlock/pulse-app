@@ -693,7 +693,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
                   type="button"
                   onMouseDown={e => { e.preventDefault(); applySnippet(s) }}
                   className={`hit-44 flex items-start gap-2 w-full px-3 py-2 text-left
-                             focus-visible:outline-hidden
+                             focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-blue-500
                              ${i === selectedIndex
                                ? 'bg-blue-100 dark:bg-blue-900/40'
                                : 'hover:bg-blue-50 dark:hover:bg-blue-900/20'
