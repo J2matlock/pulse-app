@@ -32,7 +32,7 @@ vi.mock('cmdk', () => {
         List: (p: Record<string, unknown>) => el('div', null, p.children),
         Item: (p: Record<string, unknown>) =>
           el('div', { onClick: p.onSelect }, p.children),
-        Group: (p: Record<string, unknown>) => el('div', null, p.children),
+        Group: (p: Record<string, unknown>) => el('div', null, p.heading as React.ReactNode, p.children),
         Empty: (p: Record<string, unknown>) => el('div', null, p.children),
       },
     ),
