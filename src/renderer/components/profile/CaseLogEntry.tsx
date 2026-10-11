@@ -11,6 +11,7 @@ import { isMod } from '../../utils/keys'
 import { useActivityTypes } from '../../hooks/useActivityTypes'
 import { useMeasures } from '../../hooks/useMeasures'
 import { MeasureInput } from './MeasureInput'
+import { CaseLogEditHistory } from './CaseLogEditHistory'
 import { formatMeasure, parseExtraMeasures, type MeasureDef } from '../../../shared/measures'
 
 interface Props {
@@ -88,6 +89,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
   }
   const isEdited = entry.updated_at !== entry.created_at
   const isSystem = entry.log_type === 'system'
+  const isVoided = entry.voided_at != null
 
   const followUpOverdue = entry.follow_up_date && !entry.follow_up_completed &&
     entry.follow_up_date < localDateString()
@@ -144,8 +146,12 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
           <span className="block text-slate-400/70 dark:text-slate-500/70">{formatDateTime(entry.created_at)}</span>
         </time>
 
-        {/* Actions (not for system entries) */}
-        {!isSystem && !editing && (
+        {isVoided && (
+          <span className="px-1.5 py-0.5 rounded-sm text-sm font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">Voided</span>
+        )}
+
+        {/* Actions (not for system entries or voided notes) */}
+        {!isSystem && !isVoided && !editing && (
           <div className="flex items-center gap-0.5">
             <button
               onClick={() => onPin(entry.id, entry.is_pinned !== 1)}
@@ -283,9 +289,9 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
           <>
             <p
               ref={contentTextRef}
-              className={`text-base text-slate-900 dark:text-slate-100 whitespace-pre-wrap leading-relaxed${
+              className={`text-base whitespace-pre-wrap leading-relaxed${
                 !contentExpanded ? ' line-clamp-2' : ''
-              }`}
+              }${isVoided ? ' line-through text-slate-500 dark:text-slate-400' : ' text-slate-900 dark:text-slate-100'}`}
               style={{ fontSize: 15 }}
             >
               {entry.content}
@@ -298,6 +304,13 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
               >
                 {contentExpanded ? 'Show less' : 'Show more'}
               </button>
+            )}
+            {isVoided && entry.voided_reason && (
+              <p className="mt-1 text-base text-red-700 dark:text-red-300">Voided: {entry.voided_reason}</p>
+            )}
+            {/* Earlier versions live on the note itself (3.4) */}
+            {!isVoided && entry.edited_at && (
+              <CaseLogEditHistory entryId={entry.id} editedAt={entry.edited_at} originalContent={entry.original_content ?? null} />
             )}
           </>
         )}

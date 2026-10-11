@@ -13,7 +13,6 @@ vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMoc
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }))
 
 import { CaseLog } from '../../../../src/renderer/components/profile/CaseLog'
-import { ActivityTimeline } from '../../../../src/renderer/components/profile/ActivityTimeline'
 import { setWords } from '../../vocabFixture'
 
 const note = (id: number) => ({
@@ -43,14 +42,13 @@ describe('note paging', () => {
     expect(await screen.findByText('Showing 100 of 312', undefined, { timeout: 5000 })).toBeTruthy()
   })
 
-  it('pages the timeline past 200 entries', async () => {
-    render(<ActivityTimeline rowId={10} />)
-    expect(await screen.findByText('(312)', undefined, { timeout: 5000 })).toBeTruthy()
-    for (let i = 0; i < 4; i++) {
-      const more = await screen.findByRole('button', { name: /Load more/ })
-      await act(async () => { fireEvent.click(more) })
-    }
-    expect(await screen.findByText('Note 250', undefined, { timeout: 5000 })).toBeTruthy()
-    expect(mockInvoke).toHaveBeenCalledWith('case-log:get', 10, true, false, 51, 200, undefined)
+  it('pages notes and changes together from the database', async () => {
+    render(<CaseLog rowId={10} />)
+    await screen.findByText('Showing 50 of 312', undefined, { timeout: 5000 })
+    await act(async () => { fireEvent.change(screen.getByLabelText('What to show'), { target: { value: 'everything' } }) })
+    expect(mockInvoke).toHaveBeenCalledWith('case-log:get', 10, true, false, 51, 0, { query: '', oldestFirst: false })
+    expect(mockInvoke).toHaveBeenCalledWith('case-log:count', 10, true, false, { query: '', oldestFirst: false })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Load more/ })) })
+    expect(mockInvoke).toHaveBeenCalledWith('case-log:get', 10, true, false, 51, 50, { query: '', oldestFirst: false })
   })
 })

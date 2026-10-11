@@ -16,7 +16,6 @@ import { ScratchPad } from '../components/profile/ScratchPad'
 import { CaseLog } from '../components/profile/CaseLog'
 import { GridDataSummary } from '../components/profile/GridDataSummary'
 import { LinkedProviders } from '../components/profile/LinkedProviders'
-import { ActivityTimeline } from '../components/profile/ActivityTimeline'
 import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
 import toast from 'react-hot-toast'
@@ -185,6 +184,13 @@ export default function ProfileView(): React.ReactElement {
   const [searchParams] = useSearchParams()
 
   const checklistFocusRef = useRef<(() => void) | null>(null)
+  const noteFocusRef = useRef<(() => void) | null>(null)
+  // Section counts reported by the sections themselves ("Files (2)")
+  const [counts, setCounts] = useState<{ files?: number; appointments?: number; upcoming?: number; linked?: number; contacts?: number }>({})
+  const countFiles = useCallback((n: number) => setCounts(c => c.files === n ? c : { ...c, files: n }), [])
+  const countAppointments = useCallback((n: number, upcoming: number) => setCounts(c => c.appointments === n && c.upcoming === upcoming ? c : { ...c, appointments: n, upcoming }), [])
+  const countLinked = useCallback((n: number) => setCounts(c => c.linked === n ? c : { ...c, linked: n }), [])
+  const countContacts = useCallback((n: number) => setCounts(c => c.contacts === n ? c : { ...c, contacts: n }), [])
   const [showLetterModal, setShowLetterModal] = useState(false)
   const [showAuditTrail, setShowAuditTrail] = useState(false)
   const closeAuditTrail = useCallback(() => setShowAuditTrail(false), [])
@@ -515,32 +521,29 @@ export default function ProfileView(): React.ReactElement {
       <div key={rowId} className="flex-1 flex overflow-hidden">
 
         {/* Left sidebar — Checklist + ScratchPad, scrolls independently */}
-        <div className="w-1/4 min-w-[260px] flex-shrink-0 flex flex-col border-r border-slate-200 dark:border-slate-700 overflow-y-auto no-scrollbar bg-slate-50 dark:bg-slate-800/50">
+        <div className="w-1/4 min-w-[260px] flex-shrink-0 flex flex-col border-r border-slate-200 dark:border-slate-700 overflow-y-auto bg-slate-50 dark:bg-slate-800/50">
           <div className="p-4 space-y-4">
-            {/* 3.4 — Checklist */}
             {showChecklists && (
-              <div data-tour="checklist" title={`Checklist — track tasks for this ${t('record')}`}>
+              <div data-tour="checklist">
                 <Checklist rowId={rowId} clientName={clientName} focusAddRef={checklistFocusRef} />
               </div>
             )}
-
-            {/* 3.5 — Scrap Notes */}
-            <div data-tour="scratch-pad" title={`Scratch pad — quick notes for this ${t('record')}`}>
+            <div data-tour="scratch-pad">
               <ScratchPad rowId={rowId} clientName={clientName} snippets={snippets} />
             </div>
           </div>
         </div>
 
-        {/* Main column — scrolls independently */}
-        <div className="flex-1 overflow-y-auto no-scrollbar">
+        {/* Main column: the note box first, then deadlines and details, then past
+            notes and everything else (3.4). Normal scrollbars, so it's clear it scrolls. */}
+        <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
-            {/* 3.2 — Profile Header */}
             <ProfileHeader
               row={row}
               columns={[...columns, ...hiddenColumns]}
               gridId={activeGridId!}
               onRowUpdate={handleRowUpdate}
-              onAddTask={showChecklists ? () => checklistFocusRef.current?.() : undefined}
+              onAddNote={() => noteFocusRef.current?.()}
               onPrint={() => setShowPrintLayout(true)}
               onExportPdf={() => setShowExportDialog(true)}
               onGenerateLetter={showLetters ? () => setShowLetterModal(true) : undefined}
@@ -561,78 +564,61 @@ export default function ProfileView(): React.ReactElement {
               </div>
             )}
 
-            {/* 3.3 — Deadline Panel */}
-            <div data-tour="deadline-panel" title="Deadlines — upcoming dates and alerts">
-            <DeadlinePanel
-              row={row}
-              columns={[...columns, ...hiddenColumns]}
-              alertRules={alertRules}
-              onDateSave={handleDateSave}
-            />
+            <div data-tour="case-log" className="space-y-6">
+              <CaseLog rowId={rowId} clientName={clientName} snippets={snippets} focusRef={noteFocusRef} between={<>
+                <div data-tour="deadline-panel">
+                  <DeadlinePanel
+                    row={row}
+                    columns={[...columns, ...hiddenColumns]}
+                    alertRules={alertRules}
+                    onDateSave={handleDateSave}
+                  />
+                </div>
+
+                <CollapsibleSection title={`${t('record', { cap: true })} details`} sectionKey={`profile-client-data-${activeGridId}`} defaultExpanded>
+                  <GridDataSummary
+                    row={row}
+                    columns={[...columns, ...hiddenColumns]}
+                    alertRules={alertRules}
+                    gridId={activeGridId!}
+                    onCellSave={updateCell}
+                  />
+                </CollapsibleSection>
+              </>} />
             </div>
 
-            {/* W09 — Files */}
+            {/* The rest: collapsed when empty, with counts in the titles; open/closed is remembered per list */}
             {filesOn && (
-              <CollapsibleSection title="Files" sectionKey="profile-files" defaultExpanded>
-                <RecordFiles rowId={rowId} />
+              <CollapsibleSection title="Files" sectionKey={`profile-files-${activeGridId}`} count={counts.files} keepMounted>
+                <RecordFiles rowId={rowId} onCount={countFiles} />
               </CollapsibleSection>
             )}
 
-            {/* W07 — Appointments */}
             {apptsOn && activeGridId && (
-              <CollapsibleSection title={t('appointment', { many: true, cap: true })} sectionKey="profile-appointments" defaultExpanded>
-                <RecordAppointments rowId={rowId} gridId={activeGridId} name={clientName} />
+              <CollapsibleSection title={t('appointment', { many: true, cap: true })} sectionKey={`profile-appointments-${activeGridId}`}
+                count={counts.appointments} countLabel={counts.upcoming ? `${counts.upcoming} coming up` : undefined} keepMounted>
+                <RecordAppointments rowId={rowId} gridId={activeGridId} name={clientName} onCount={countAppointments} />
               </CollapsibleSection>
             )}
 
-            {/* W06 — Stage history */}
             {stageColumn && activeGridId && (
-              <CollapsibleSection title={`${stageColumn.name} history`} sectionKey="profile-stage-history" defaultExpanded={false}>
+              <CollapsibleSection title={`${stageColumn.name} history`} sectionKey={`profile-stage-history-${activeGridId}`} defaultExpanded={false}>
                 <StageHistory gridId={activeGridId} columnId={stageColumn.id} columnName={stageColumn.name} rowId={rowId}
                   value={(row[`col_${stageColumn.id}` as keyof typeof row] as string | null) ?? null} />
               </CollapsibleSection>
             )}
 
-            {/* W04 — Linked records */}
             {linksOn && hasLinkTypes && (
-              <CollapsibleSection title="Linked" sectionKey="profile-linked-records" defaultExpanded>
-                <LinkedRecords rowId={rowId} />
+              <CollapsibleSection title="Linked" sectionKey={`profile-linked-records-${activeGridId}`} count={counts.linked} keepMounted>
+                <LinkedRecords rowId={rowId} onCount={countLinked} />
               </CollapsibleSection>
             )}
 
-            {/* 7.x — Linked Providers */}
             {activeGridId && showContacts && (
-              <CollapsibleSection title={`Linked ${t('contact', { many: true, cap: true })}`} sectionKey="profile-linked-providers" defaultExpanded>
-                <LinkedProviders rowId={rowId} gridId={activeGridId} />
+              <CollapsibleSection title={`Linked ${t('contact', { many: true, cap: true })}`} sectionKey={`profile-linked-providers-${activeGridId}`} count={counts.contacts} keepMounted>
+                <LinkedProviders rowId={rowId} gridId={activeGridId} onCount={countContacts} />
               </CollapsibleSection>
             )}
-
-            {/* 3.6 — Case Log */}
-            <CollapsibleSection title={t('activityLog', { cap: true })} sectionKey="profile-case-log" defaultExpanded>
-              <div data-tour="case-log" title={`${t('activityLog', { cap: true })} — chronological record of interactions`}>
-                <CaseLog rowId={rowId} clientName={clientName} snippets={snippets} />
-              </div>
-            </CollapsibleSection>
-
-            {/* 3.10 — Grid Data Summary */}
-            <CollapsibleSection title={`${t('record', { cap: true })} details`} sectionKey="profile-client-data" defaultExpanded>
-              <GridDataSummary
-                row={row}
-                columns={[...columns, ...hiddenColumns]}
-                alertRules={alertRules}
-                gridId={activeGridId!}
-                onCellSave={updateCell}
-              />
-            </CollapsibleSection>
-
-          </div>
-        </div>
-
-        {/* Right sidebar — Activity Timeline, scrolls independently */}
-        <div className="w-1/4 min-w-[260px] flex-shrink-0 flex flex-col border-l border-slate-200 dark:border-slate-700 overflow-y-auto no-scrollbar bg-slate-50 dark:bg-slate-800/50">
-          <div className="p-4">
-            {/* 3.9 — Activity Timeline */}
-            <ActivityTimeline rowId={rowId} />
           </div>
         </div>
 

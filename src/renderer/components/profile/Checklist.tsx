@@ -597,7 +597,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
                     setNewTitle('')
                   }
                 }}
-                placeholder="+ Add task… (press Enter)"
+                placeholder="+ Add a checklist item… (press Enter)"
                 style={{ fontSize: 15 }}
                 spellCheck={false}
                 className="w-full px-3 py-2 text-slate-600 dark:text-slate-400
@@ -658,7 +658,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
                             setGroupAddTitles(prev => ({ ...prev, [group.id]: '' }))
                           }
                         }}
-                        placeholder="+ Add task… (press Enter)"
+                        placeholder="+ Add a checklist item… (press Enter)"
                         style={{ fontSize: 15 }}
                         spellCheck={false}
                         className="w-full px-3 py-1.5 text-base text-slate-500 dark:text-slate-400
@@ -691,7 +691,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
                   setNewTitle('')
                 }
               }}
-              placeholder="+ Add task… (press Enter)"
+              placeholder="+ Add a checklist item… (press Enter)"
               style={{ fontSize: 15 }}
               spellCheck={false}
               className="w-full px-3 py-2 text-slate-600 dark:text-slate-400

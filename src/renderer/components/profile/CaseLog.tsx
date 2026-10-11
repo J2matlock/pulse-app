@@ -39,6 +39,10 @@ interface Props {
   clientName?: string
   /** Pre-loaded snippets from parent (avoids duplicate fetch when ScratchPad also needs them) */
   snippets?: Snippet[]
+  /** Set to a function that opens the note box and puts the cursor in it ("+ Note") */
+  focusRef?: React.MutableRefObject<(() => void) | null>
+  /** Shown between the note box and the list of past notes (the record page puts deadlines and details there) */
+  between?: React.ReactNode
 }
 
 /** Type chips shown before the rest go into "More…" */
@@ -55,7 +59,7 @@ export function offerFor(text: string, tracking: { trackTime: boolean; trackMile
 
 const NO_FILES: Attachment[] = []
 
-export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props) {
+export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRef, between }: Props) {
   const [offer, setOffer] = useState<'timeTracking' | 'mileage' | null>(null)
   const snippetsOn = useFeature('snippets')
   const { t } = useVocab()
@@ -117,6 +121,17 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
   const [customFormats, setCustomFormats] = useState<NoteFormat[]>([])
   const [formatId, setFormatId] = useState('')
   const [fieldValues, setFieldValues] = useState<string[]>(draft0?.fieldValues ?? [])
+  // The note box starts as one line, "Add a note…", and opens when used (3.4)
+  const [composerOpen, setComposerOpen] = useState(!!draft0)
+  const openComposer = useCallback(() => {
+    setComposerOpen(true)
+    setTimeout(() => contentRef.current?.focus(), 0)
+  }, [])
+  useEffect(() => {
+    if (!focusRef) return
+    focusRef.current = openComposer
+    return () => { focusRef.current = null }
+  }, [focusRef, openComposer])
   useEffect(() => {
     setNoteDraft(rowId, { content: newContent, fieldValues, followUp: newFollowUp, minutes: newMinutes, miles: newMiles, extra: newExtra })
   }, [rowId, newContent, fieldValues, newFollowUp, newMinutes, newMiles, newExtra])
@@ -162,12 +177,17 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
     return () => clearTimeout(id)
   }, [search])
   const [total, setTotal] = useState<number | null>(null)
+  // One timeline (3.4): notes by default; changes the app made, one kind, or voided notes on request
+  const [show, setShow] = useState<string>('notes')
+  const [showVoided, setShowVoided] = useState(false)
+  const includeSystem = show === 'everything' || show === 'changes'
+  const kindFilter = show === 'changes' ? 'system' : show === 'notes' || show === 'everything' ? undefined : show
   const load = useCallback(async () => {
     setLoading(true)
-    const opts = { query, oldestFirst }
+    const opts = { query, oldestFirst, ...(kindFilter ? { logType: kindFilter } : {}) }
     const [res, count] = await Promise.all([
-      safeInvoke<CaseLogEntryType[]>(IPC.CASE_LOG_GET, rowId, false, false, PAGE_SIZE + 1, 0, opts),
-      safeInvoke<number>(IPC.CASE_LOG_COUNT, rowId, false, false, opts),
+      safeInvoke<CaseLogEntryType[]>(IPC.CASE_LOG_GET, rowId, includeSystem, showVoided, PAGE_SIZE + 1, 0, opts),
+      safeInvoke<number>(IPC.CASE_LOG_COUNT, rowId, includeSystem, showVoided, opts),
     ])
     if (res.ok) {
       const data = res.data
@@ -176,16 +196,16 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
     }
     setTotal(count.ok ? count.data : null)
     setLoading(false)
-  }, [rowId, PAGE_SIZE, query, oldestFirst])
+  }, [rowId, PAGE_SIZE, query, oldestFirst, includeSystem, showVoided, kindFilter])
 
   const loadMore = useCallback(async () => {
-    const res = await safeInvoke<CaseLogEntryType[]>(IPC.CASE_LOG_GET, rowId, false, false, PAGE_SIZE + 1, entries.length, { query, oldestFirst })
+    const res = await safeInvoke<CaseLogEntryType[]>(IPC.CASE_LOG_GET, rowId, includeSystem, showVoided, PAGE_SIZE + 1, entries.length, { query, oldestFirst, ...(kindFilter ? { logType: kindFilter } : {}) })
     if (res.ok) {
       const data = res.data
       setHasMore(data.length > PAGE_SIZE)
       setEntries(prev => [...prev, ...data.slice(0, PAGE_SIZE)])
     }
-  }, [rowId, entries.length, PAGE_SIZE, query, oldestFirst])
+  }, [rowId, entries.length, PAGE_SIZE, query, oldestFirst, includeSystem, showVoided, kindFilter])
 
   useEffect(() => { load() }, [load])
 
@@ -451,32 +471,18 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
   const shownTotal = total ?? entries.length
 
   return (
-    <section className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-        <MessageSquare className="w-4 h-4 text-slate-500 flex-shrink-0" />
-        <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300 flex-1">
-          {t('activityLog', { cap: true })}
-          {(shownTotal > 0 || query) && (
-            <span className="ml-2 text-base font-normal text-slate-500 dark:text-slate-400">({query ? `${shownTotal} found` : shownTotal})</span>
-          )}
-        </h2>
-
-        {/* Sort toggle */}
-        <button
-          onClick={() => setOldestFirst(p => !p)}
-          title={oldestFirst ? 'Showing oldest first' : 'Showing newest first'}
-          className="hit-44 flex items-center gap-1 px-2 py-1 rounded-sm text-base text-slate-500
-                     hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors
-                     focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-        >
-          <ArrowUpDown className="w-3.5 h-3.5" />
-          {oldestFirst ? 'Oldest first' : 'Newest first'}
+    <>
+    {/* The note box comes first on the record page (3.4); past notes follow further down */}
+    <section aria-label={`New ${t('activity')}`} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+      {!composerOpen && (
+        <button type="button" onClick={openComposer}
+          className="w-full text-left px-4 text-base text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+          style={{ minHeight: 52 }}>
+          <Plus className="inline w-4 h-4 mr-2" aria-hidden="true" />Add {t('activity', { article: true })}…
         </button>
-      </div>
-
+      )}
       {/* Quick-add form */}
-      <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700/50 space-y-2">
+      <div className={`px-4 py-3 space-y-2${composerOpen ? '' : ' hidden'}`} data-testid="note-composer">
         {/* Type selector: the first few as chips, the rest under "More…" */}
         <div className="flex gap-1 flex-wrap" role="group" aria-label={`Kind of ${t('activity')}`}>
           {visibleTypes.map(type => (
@@ -663,6 +669,51 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         )}
       </div>
 
+    </section>
+
+    {between}
+
+    <section className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+      {/* Header */}
+      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+        <MessageSquare className="w-4 h-4 text-slate-500 flex-shrink-0" />
+        <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300 flex-1">
+          {t('activityLog', { cap: true })}
+          {(shownTotal > 0 || query) && (
+            <span className="ml-2 text-base font-normal text-slate-500 dark:text-slate-400">({query ? `${shownTotal} found` : shownTotal})</span>
+          )}
+        </h2>
+
+        {/* Sort toggle */}
+        <button
+          onClick={() => setOldestFirst(p => !p)}
+          title={oldestFirst ? 'Showing oldest first' : 'Showing newest first'}
+          className="hit-44 flex items-center gap-1 px-2 py-1 rounded-sm text-base text-slate-500
+                     hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors
+                     focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+        >
+          <ArrowUpDown className="w-3.5 h-3.5" />
+          {oldestFirst ? 'Oldest first' : 'Newest first'}
+        </button>
+      </div>
+
+      {/* What the timeline shows */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 border-b border-slate-100 dark:border-slate-700/50">
+        <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200">
+          Show:
+          <select className="input w-auto" value={show} onChange={e => setShow(e.target.value)} aria-label="What to show">
+            <option value="notes">All {t('activity', { many: true })}</option>
+            <option value="everything">{t('activity', { many: true, cap: true })} and changes</option>
+            <option value="changes">Changes only</option>
+            {activity.all.map(k => <option key={k.key} value={k.key}>{k.label}{k.is_archived ? ' (archived)' : ''}</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-200 cursor-pointer">
+          <input type="checkbox" className="w-5 h-5" checked={showVoided} onChange={e => setShowVoided(e.target.checked)} />
+          Show voided {t('activity', { many: true })}
+        </label>
+      </div>
+
       {/* Search */}
       <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50">
         <div className="relative">
@@ -757,5 +808,6 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         }} />
       )}
     </section>
+    </>
   )
 }

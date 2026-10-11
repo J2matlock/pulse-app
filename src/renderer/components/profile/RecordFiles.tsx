@@ -28,7 +28,7 @@ function Thumb({ a }: { a: Attachment }): React.ReactElement {
   return <span className="w-12 h-12 flex items-center justify-center rounded-md bg-slate-100 dark:bg-slate-700 flex-shrink-0"><Icon className="w-6 h-6 text-slate-500" aria-hidden="true" /></span>
 }
 
-export function RecordFiles({ rowId }: { rowId: number }): React.ReactElement {
+export function RecordFiles({ rowId, onCount }: { rowId: number; onCount?: (n: number) => void }): React.ReactElement {
   const { t } = useVocab()
   const [files, setFiles] = useState<Attachment[]>([])
   const [over, setOver] = useState(false)
@@ -39,6 +39,7 @@ export function RecordFiles({ rowId }: { rowId: number }): React.ReactElement {
     if (r.ok) setFiles(r.data)
   }, [rowId])
   useEffect(() => { void load() }, [load])
+  useEffect(() => { onCount?.(files.length) }, [files.length, onCount])
   useEffect(() => window.api.on(IPC.ATTACHMENTS_CHANGED, (changed: unknown) => { if (changed === null || changed === rowId) void load() }), [load, rowId])
 
   async function saveEdit() {

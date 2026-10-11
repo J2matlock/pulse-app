@@ -48,7 +48,7 @@ export function ChecklistAddDialog({ groups, onClose, onSave }: Props) {
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div ref={trapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Add Task</h2>
+        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Add a checklist item</h2>
 
         {/* Title */}
         <div>
@@ -181,7 +181,7 @@ export function ChecklistAddDialog({ groups, onClose, onSave }: Props) {
             disabled={!title.trim()}
             className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Add Task
+            Add item
           </button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import React from 'react'
 
 const mockInvoke = vi.fn()
@@ -227,10 +227,12 @@ describe('CaseLog', () => {
 
   it('renders type selector buttons', async () => {
     render(<CaseLog rowId={10} />)
-    expect(screen.getByText('Note')).toBeTruthy()
-    expect(screen.getByText('Phone')).toBeTruthy()
-    expect(screen.getByText('Meeting')).toBeTruthy()
-    expect(screen.getByText('Email')).toBeTruthy()
-    expect(screen.getByText('Visit')).toBeTruthy()
+    // The kinds also appear in the list's "Show" menu, so look in the note box
+    const box = within(screen.getByTestId('note-composer'))
+    expect(box.getByText('Note')).toBeTruthy()
+    expect(box.getByText('Phone')).toBeTruthy()
+    expect(box.getByText('Meeting')).toBeTruthy()
+    expect(box.getByText('Email')).toBeTruthy()
+    expect(box.getByText('Visit')).toBeTruthy()
   })
 })

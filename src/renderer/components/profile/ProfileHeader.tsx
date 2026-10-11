@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { Star, FileText, CheckSquare, Plus, X, Phone, Mail, MapPin, Copy, Check, Trash2, Pencil, History, Send } from 'lucide-react'
+import { Star, FileText, Plus, X, Phone, Mail, MapPin, Copy, Check, Trash2, Pencil, History, Send } from 'lucide-react'
 import type { GridRow, Column } from '../../../shared/types'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
@@ -34,7 +34,6 @@ export interface ProfileHeaderProps {
   gridId: number
   onRowUpdate: (updates: Partial<{ is_starred: 0 | 1 }>) => void
   onAddNote?: () => void
-  onAddTask?: () => void
   onGenerateLetter?: () => void
   onExportPdf?: () => void
   onAuditTrail?: () => void
@@ -77,8 +76,7 @@ export function ProfileHeader({
   columns,
   gridId,
   onRowUpdate,
-  onAddNote: _onAddNote,
-  onAddTask,
+  onAddNote,
   onGenerateLetter,
   onAuditTrail,
   onHandoff,
@@ -662,17 +660,16 @@ export function ProfileHeader({
 
         {/* ── Row 4: Quick action buttons ── */}
         <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 flex-wrap">
-          {onAddTask && (<>
+          {onAddNote && (
             <button
-              onClick={onAddTask}
+              onClick={onAddNote}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 focus-visible:ring-offset-3 transition-colors"
               style={{ minHeight: 44, fontSize: 15 }}
-              title="Add a checklist task"
             >
-              <CheckSquare className="w-4 h-4" />
-              + Task
+              <Plus className="w-4 h-4" />
+              {t('activity', { cap: true })}
             </button>
-          </>)}
+          )}
           {onExportPdf && (
             <button
               onClick={onExportPdf}

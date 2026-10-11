@@ -118,8 +118,9 @@ vi.mock('../../../src/renderer/components/profile/DeadlinePanel', () => ({
   DeadlinePanel: () => <div data-testid="deadline-panel">Deadlines</div>,
 }))
 vi.mock('../../../src/renderer/components/profile/CaseLog', () => ({
-  CaseLog: ({ rowId }: { rowId?: number }) => (
-    <div data-testid="case-log" data-row-id={rowId}>Case Log</div>
+  // The record page puts deadlines and details between the note box and past notes
+  CaseLog: ({ rowId, between }: { rowId?: number; between?: React.ReactNode }) => (
+    <><div data-testid="case-log" data-row-id={rowId}>Case Log</div>{between}</>
   ),
 }))
 vi.mock('../../../src/renderer/components/profile/GridDataSummary', () => ({
@@ -130,9 +131,6 @@ vi.mock('../../../src/renderer/components/profile/RelatedDocuments', () => ({
 }))
 vi.mock('../../../src/renderer/components/profile/LinkedProviders', () => ({
   LinkedProviders: () => <div data-testid="linked-providers">Providers</div>,
-}))
-vi.mock('../../../src/renderer/components/profile/ActivityTimeline', () => ({
-  ActivityTimeline: () => <div data-testid="activity-timeline">Timeline</div>,
 }))
 vi.mock('../../../src/renderer/components/profile/Checklist', () => ({
   Checklist: () => <div data-testid="checklist">Checklist</div>,
@@ -203,12 +201,6 @@ describe('ProfileView — data smoke tests (1 client)', () => {
     renderProfile()
     await flushEffects()
     expect(screen.getByTestId('grid-data-summary')).toBeDefined()
-  })
-
-  it('renders activity timeline section', async () => {
-    renderProfile()
-    await flushEffects()
-    expect(screen.getByTestId('activity-timeline')).toBeDefined()
   })
 
   it('renders linked providers section', async () => {

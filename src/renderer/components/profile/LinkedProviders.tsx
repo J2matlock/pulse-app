@@ -13,9 +13,11 @@ import { useVocab } from '../../hooks/useVocab'
 interface Props {
   rowId: number
   gridId: number
+  /** How many are linked, for the section title */
+  onCount?: (n: number) => void
 }
 
-export function LinkedProviders({ rowId, gridId }: Props) {
+export function LinkedProviders({ rowId, gridId, onCount }: Props) {
   const { t } = useVocab(gridId)
   const navigate = useNavigate()
   const { selectProvider } = useContactsStore(useShallow(s => ({
@@ -46,6 +48,7 @@ export function LinkedProviders({ rowId, gridId }: Props) {
     setLoading(true)
     void loadLinks()
   }, [loadLinks])
+  useEffect(() => { if (!loading) onCount?.(links.length) }, [loading, links.length, onCount])
 
   // Focus search input when search panel opens
   useEffect(() => {

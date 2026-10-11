@@ -165,7 +165,7 @@ describe('Checklist', () => {
   it('add item input is rendered with placeholder', async () => {
     render(<Checklist rowId={10} clientName="Test Client" />)
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('+ Add task… (press Enter)')).toBeTruthy()
+      expect(screen.getByPlaceholderText('+ Add a checklist item… (press Enter)')).toBeTruthy()
     })
   })
 
@@ -180,10 +180,10 @@ describe('Checklist', () => {
 
     render(<Checklist rowId={10} clientName="Test Client" />)
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('+ Add task… (press Enter)')).toBeTruthy()
+      expect(screen.getByPlaceholderText('+ Add a checklist item… (press Enter)')).toBeTruthy()
     })
 
-    const input = screen.getByPlaceholderText('+ Add task… (press Enter)')
+    const input = screen.getByPlaceholderText('+ Add a checklist item… (press Enter)')
     fireEvent.change(input, { target: { value: 'New task' } })
     fireEvent.keyDown(input, { key: 'Enter' })
 

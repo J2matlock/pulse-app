@@ -65,15 +65,14 @@ vi.mock('../../../src/renderer/components/profile/CaseLog', async () => {
   const { useState } = await import('react')
   return {
     // A stand-in composer that keeps its own draft, like the real one
-    CaseLog: ({ rowId }: { rowId: number }) => {
+    CaseLog: ({ rowId, between }: { rowId: number; between?: React.ReactNode }) => {
       const [draft, setDraft] = useState('')
-      return <textarea aria-label={`note for ${rowId}`} value={draft} onChange={e => setDraft(e.target.value)} />
+      return <><textarea aria-label={`note for ${rowId}`} value={draft} onChange={e => setDraft(e.target.value)} />{between}</>
     },
   }
 })
 vi.mock('../../../src/renderer/components/profile/GridDataSummary', () => ({ GridDataSummary: () => null }))
 vi.mock('../../../src/renderer/components/profile/LinkedProviders', () => ({ LinkedProviders: () => null }))
-vi.mock('../../../src/renderer/components/profile/ActivityTimeline', () => ({ ActivityTimeline: () => null }))
 vi.mock('../../../src/renderer/components/profile/Checklist', () => ({ Checklist: () => null, TemplateManager: () => null }))
 vi.mock('../../../src/renderer/components/profile/ScratchPad', () => ({ ScratchPad: () => null }))
 vi.mock('../../../src/renderer/components/profile/ProfilePrintLayout', () => ({ ProfilePrintLayout: () => null }))
