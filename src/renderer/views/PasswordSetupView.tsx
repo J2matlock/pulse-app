@@ -30,7 +30,6 @@ export function PasswordSetupView(): React.ReactElement {
   const { setPasswordSetup, setLocked } = useSettingsStore()
 
   const passwordsMatch = password === confirm
-  const isValid = checkNewPassword(password).ok && passwordsMatch && acceptedTerms
 
   function finishSetup() {
     setPasswordSetup(true)
@@ -40,10 +39,19 @@ export function PasswordSetupView(): React.ReactElement {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (isSubmitting) return
-    if (!isValid) {
-      const pw = checkNewPassword(password)
+    // Read what's actually in the boxes: a password manager or autofill can fill
+    // them without the change events that keep the state up to date
+    const form = e.currentTarget as HTMLFormElement
+    const boxValue = (id: string, fallback: string) => (form.querySelector<HTMLInputElement>(`#${id}`)?.value ?? fallback)
+    const pwNow = boxValue('password-setup-password', password)
+    const confirmNow = boxValue('password-setup-confirm', confirm)
+    if (pwNow !== password) setPassword(pwNow)
+    if (confirmNow !== confirm) setConfirm(confirmNow)
+    const matchNow = pwNow === confirmNow
+    if (!(checkNewPassword(pwNow).ok && matchNow && acceptedTerms)) {
+      const pw = checkNewPassword(pwNow)
       if (!pw.ok) setMissing(pw.message ?? 'Choose a longer password.')
-      else if (!passwordsMatch) setMissing("The two passwords don't match. Type the same password in both boxes.")
+      else if (!matchNow) setMissing("The two passwords don't match. Type the same password in both boxes.")
       else { setMissing('Tick the box to agree to the Terms of Use and Privacy Policy.'); termsRef.current?.focus() }
       return
     }
@@ -51,7 +59,7 @@ export function PasswordSetupView(): React.ReactElement {
 
     setIsSubmitting(true)
     try {
-      const result = await safeInvoke(IPC.AUTH_SETUP_PASSWORD, password, hint)
+      const result = await safeInvoke(IPC.AUTH_SETUP_PASSWORD, pwNow, hint)
 
       if (!result.ok) {
         toast.error('Password setup failed. Please try again.')

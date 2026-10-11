@@ -62,18 +62,20 @@ test.describe('Three ways to start', () => {
     await expect(window.getByLabel('One', { exact: true })).toHaveValue('vehicle');
     await expect(window.getByLabel('More than one')).toHaveValue('vehicles');
     await window.getByRole('button', { name: /continue/i }).click();
-    // 4. Columns — keep the suggestions
+    // 4. Columns — keep the suggestions; this step makes the list
     await window.getByRole('heading', { name: /pick the details/i }).waitFor();
-    await window.getByRole('button', { name: /continue/i }).click();
+    await window.getByRole('button', { name: /create list/i }).click();
     // 5. Repeating dates (only when a date column was picked)
     const dates = window.getByRole('heading', { name: /dates repeat/i });
     if (await dates.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await window.getByRole('button', { name: /^skip$/i }).click();
+      await window.getByRole('button', { name: /continue/i }).click();
     }
     // 6. Quick questions
     await window.getByRole('heading', { name: /a few quick questions/i }).waitFor();
     await window.getByRole('button', { name: /finish/i }).click();
     await finishSetup(window);
+    // Setup ends on the dashboard; the list is a click away
+    await window.evaluate(() => { window.location.hash = '#/grid' })
 
     await expect(window.getByText('Vehicles').first()).toBeVisible();
     await expect(window.getByRole('button', { name: 'Add vehicle', exact: true })).toBeVisible();
@@ -95,9 +97,12 @@ test.describe('Three ways to start', () => {
     const importDialog = window.locator('[role="dialog"]');
     await expect(importDialog).toBeVisible({ timeout: 5000 });
     await importDialog.getByRole('button', { name: /browse.*file|drop.*file/i }).click();
-    for (let i = 0; i < 6; i++) {
-      const next = importDialog.getByRole('button', { name: /next|import|finish|done|confirm/i });
-      if (!await next.first().isVisible({ timeout: 2000 }).catch(() => false)) break;
+    // The wizard has grown steps (sheet, header row, columns, review, import, done): allow plenty
+    for (let i = 0; i < 12; i++) {
+      // Whole names only: the last screen also has "Undo this import"
+      const next = importDialog.getByRole('button', { name: /^\s*(next|import|finish|done|confirm)\s*$/i });
+      // isVisible() doesn't wait; the button is briefly gone between steps
+      if (!await next.first().waitFor({ state: 'visible', timeout: 4000 }).then(() => true, () => false)) break;
       await next.first().click();
       await window.waitForTimeout(1000);
     }
@@ -113,6 +118,7 @@ test.describe('Three ways to start', () => {
       await window.getByRole('button', { name: /finish/i }).click();
     }
     await finishSetup(window);
+    await window.evaluate(() => { window.location.hash = '#/grid' })
 
     await expect(window.getByText('Alice').first()).toBeVisible({ timeout: 10000 });
     await expect(window.getByRole('button', { name: 'Add member', exact: true })).toBeVisible();
@@ -152,15 +158,20 @@ test.describe('Changing the workspace words', () => {
     await window.waitForTimeout(500);
     await window.getByRole('button', { name: /open widget profile/i }).first().click();
     await expect(window.getByText(/jots?/i).first()).toBeVisible({ timeout: 10000 });
-    expect(await window.locator('main').innerText()).not.toMatch(OLD_WORDS);
+    // The list's own name ("Social Worker Caseload") is the user's data, not a word Pulse chose
+    expect((await window.locator('main').innerText()).replace(/Social Worker Caseload/g, '')).not.toMatch(OLD_WORDS);
 
     // PDF
     const pdfPath = join(dataDir, 'profile.pdf');
     await mockSaveDialog(electronApp, pdfPath);
-    await window.getByRole('button', { name: 'Export PDF' }).click();
+    // Record page: More → Print / PDF… → Save PDF…
+    await window.getByRole('button', { name: 'More', exact: true }).click();
+    await window.getByRole('menuitem', { name: /Print \/ PDF/ }).click();
+    await window.getByRole('button', { name: /Save PDF/ }).click();
     await expect.poll(() => existsSync(pdfPath), { timeout: 10000 }).toBe(true);
     const pdf = readFileSync(pdfPath, 'latin1');
     expect(pdf).toMatch(/jot/i);
-    expect(pdf).not.toMatch(OLD_WORDS);
+    // Show where an old word turned up, if one did; the list's own name is the user's data
+    expect(pdf.replace(/Social Worker Caseload/g, '').match(new RegExp(`.{0,40}${OLD_WORDS.source}.{0,40}`, 'gi'))).toBeNull();
   });
 });

@@ -279,8 +279,9 @@ test.describe('Import CSV', () => {
     await mockFileDialog(electronApp, [csvPath]);
 
     // Click the Import toolbar button to open the import dialog
-    const importButton = window.getByRole('button', { name: 'Import from CSV or Excel' });
-    await importButton.click();
+    // Import lives in the toolbar's More menu
+    await window.getByRole('button', { name: 'More', exact: true }).click();
+    await window.getByRole('menuitem', { name: /Import from CSV or Excel/ }).click();
     await window.waitForTimeout(1000);
 
     // Verify the import dialog opened (has "Import Clients" heading)
@@ -307,7 +308,8 @@ test.describe('Import CSV', () => {
 
       // Click through wizard steps until we reach Results or the dialog closes
       for (let i = 0; i < 5; i++) {
-        const nextBtn = importDialog.getByRole('button', { name: /next|import|finish|done|confirm/i });
+        // Whole names only: the last screen also has "Undo this import"
+        const nextBtn = importDialog.getByRole('button', { name: /^\s*(next|import|finish|done|confirm)\s*$/i });
         if (await nextBtn.first().isVisible({ timeout: 2000 }).catch(() => false)) {
           await nextBtn.first().click();
           await window.waitForTimeout(1000);
