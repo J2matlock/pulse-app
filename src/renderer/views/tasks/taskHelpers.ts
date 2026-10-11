@@ -4,20 +4,20 @@ import { localDateString } from '../../../shared/dates'
 
 export const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 }
 
-export function isOverdue(task: CaseloadTask): boolean {
+export function isOverdue(task: CaseloadTask, today: string = localDateString()): boolean {
   if (!task.due_date || task.is_completed) return false
-  return task.due_date < localDateString()
+  return task.due_date < today
 }
 
-export function isDueToday(task: CaseloadTask): boolean {
+export function isDueToday(task: CaseloadTask, today: string = localDateString()): boolean {
   if (!task.due_date || task.is_completed) return false
-  return task.due_date === localDateString()
+  return task.due_date === today
 }
 
 /** Snoozed until a date: hidden before it, due again on it (the dashboard and briefing agree) */
-export function isSnoozed(task: CaseloadTask): boolean {
+export function isSnoozed(task: CaseloadTask, today: string = localDateString()): boolean {
   if (!task.snoozed_until) return false
-  return task.snoozed_until > localDateString()
+  return task.snoozed_until > today
 }
 
 /** "Oct 14" (with the year when it isn't this one) and how many days away it is */

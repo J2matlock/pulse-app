@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import React from 'react'
 
 // Mock lucide-react
@@ -178,6 +178,19 @@ describe('DeadlinePanel', () => {
       />
     )
     expect(screen.getByText('Next due May 1, 2026 · tomorrow')).toBeTruthy()
+  })
+
+  it('works the days out again at midnight without leaving the page (AUDIT-025)', async () => {
+    const { pulseEvents } = await import('../../../../src/renderer/events')
+    const col = makeColumn({ id: 1, name: 'Review Due' })
+    mockComputeDaysUntil.mockReturnValue(1)
+    mockGetAlertThreshold.mockReturnValue({ daysBefore: 3, bgClass: 'alert-red', label: 'Urgent' })
+    render(<DeadlinePanel row={makeRow({ col_1: '2026-05-01' })} columns={[col]} alertRules={[defaultRule]} onDateSave={onDateSave} />)
+    expect(screen.getByText('Next due May 1, 2026 · tomorrow')).toBeTruthy()
+    // The clock passes midnight: the same date is now due today
+    mockComputeDaysUntil.mockReturnValue(0)
+    act(() => { pulseEvents.emit('day:changed', { date: '2026-05-01' }) })
+    expect(screen.getByText('Next due May 1, 2026 · today')).toBeTruthy()
   })
 
   it('shows "No date set" for empty date values', () => {
