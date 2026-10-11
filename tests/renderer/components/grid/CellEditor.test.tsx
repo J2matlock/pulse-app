@@ -51,6 +51,17 @@ describe('CellEditor', () => {
     expect((input as HTMLInputElement).value).toBe('hello')
   })
 
+  it('follows dark mode instead of a hard-coded white box (V1)', () => {
+    for (const type of ['text', 'date', 'number', 'dropdown', 'status', 'notes', 'tag', 'checkbox']) {
+      const { container, unmount } = render(<CellEditor column={makeColumn(type)} value={null} onSave={onSave} onCancel={onCancel} />)
+      const el = container.firstElementChild as HTMLElement
+      expect(el.style.background).toBe('')
+      expect(el.style.color).toBe('')
+      expect(el.className).toContain('dark:bg-slate-800')
+      unmount()
+    }
+  })
+
   it('renders a date input for date columns', () => {
     const { container } = render(
       <CellEditor column={makeColumn('date')} value="2026-03-01" onSave={onSave} onCancel={onCancel} />

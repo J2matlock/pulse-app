@@ -330,6 +330,9 @@ export const SortableRow = React.memo(function SortableRow({
             zIndex: 10,
           } : {}),
           ...(isLastFrozenCell ? { borderRightWidth: 2, borderRightColor: '#94a3b8' } : {}),
+          // An open editor fills the cell: the cell padding (an unlayered rule p-0 can't beat)
+          // squeezed a date's digits under its calendar button
+          ...(isEditing ? { paddingLeft: 0, paddingRight: 0 } : {}),
         }
         let cellExtraClass = isCellFrozen ? 'bg-white dark:bg-slate-900 ' : ''
 
@@ -370,7 +373,7 @@ export const SortableRow = React.memo(function SortableRow({
           <div
             key={cell.id}
             className={`flex-shrink-0 grid-cell select-text ${cursorClass}
-                        ${isFocused ? 'ring-3 ring-inset ring-blue-500' : ''}
+                        ${isFocused && !isEditing ? 'ring-3 ring-inset ring-blue-500' : ''}
                         ${isEditing ? 'p-0' : 'overflow-hidden'}
                         ${alertBgClass} ${cellExtraClass}`}
             style={cellStyle}

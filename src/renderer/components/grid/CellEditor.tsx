@@ -15,16 +15,18 @@ const BASE_STYLE: React.CSSProperties = {
   width: '100%',
   height: '100%',
   border: 'none',
-  outline: '2px solid #2563EB',
-  outlineOffset: '-2px',
-  background: 'white',
-  color: '#1e293b',
+  outline: '3px solid #2563EB',
+  outlineOffset: '-3px',
   padding: '0 12px',
   fontSize: '15px',
   fontFamily: 'inherit',
   boxSizing: 'border-box'
 }
 
+// Colors come from classes so an open editor follows dark mode, native date and select pickers included
+const EDITOR_CLASS = 'bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-100'
+// A date needs its room for the digits and the calendar button in a narrow cell
+const DATE_STYLE: React.CSSProperties = { ...BASE_STYLE, padding: '0 4px 0 8px' }
 const CHECKBOX_STYLE: React.CSSProperties = { ...BASE_STYLE, display: 'flex', alignItems: 'center', padding: '0 12px' }
 const SELECT_STYLE: React.CSSProperties = { ...BASE_STYLE, cursor: 'pointer' }
 const TEXTAREA_NOTES_STYLE: React.CSSProperties = { ...BASE_STYLE, resize: 'none', padding: '8px 12px', height: 88 }
@@ -84,7 +86,7 @@ export function CellEditor({ column, value, onSave, onCancel }: Props): React.Re
     case 'checkbox': {
       const checked = localValue === 'true' || localValue === '1'
       return (
-        <div style={CHECKBOX_STYLE}>
+        <div className={EDITOR_CLASS} style={CHECKBOX_STYLE}>
           <input
             type="checkbox"
             checked={checked}
@@ -109,7 +111,8 @@ export function CellEditor({ column, value, onSave, onCancel }: Props): React.Re
         <input
           ref={inputRef as React.RefObject<HTMLInputElement>}
           type="date"
-          style={BASE_STYLE}
+          className={EDITOR_CLASS}
+          style={DATE_STYLE}
           value={dateValue}
           onChange={e => setLocalValue(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -123,6 +126,7 @@ export function CellEditor({ column, value, onSave, onCancel }: Props): React.Re
         <input
           ref={inputRef as React.RefObject<HTMLInputElement>}
           type="number"
+          className={EDITOR_CLASS}
           style={BASE_STYLE}
           value={localValue}
           onChange={e => setLocalValue(e.target.value)}
@@ -143,6 +147,7 @@ export function CellEditor({ column, value, onSave, onCancel }: Props): React.Re
       return (
         <select
           ref={inputRef as React.RefObject<HTMLSelectElement>}
+          className={EDITOR_CLASS}
           style={SELECT_STYLE}
           value={localValue}
           onChange={e => {
@@ -169,6 +174,7 @@ export function CellEditor({ column, value, onSave, onCancel }: Props): React.Re
         <input
           ref={inputRef as React.RefObject<HTMLInputElement>}
           type={column.column_type === 'email' ? 'email' : column.column_type === 'url' ? 'url' : 'tel'}
+          className={EDITOR_CLASS}
           style={BASE_STYLE}
           value={localValue}
           onChange={e => setLocalValue(e.target.value)}
@@ -184,6 +190,7 @@ export function CellEditor({ column, value, onSave, onCancel }: Props): React.Re
           type="number"
           step="0.01"
           min="0"
+          className={EDITOR_CLASS}
           style={BASE_STYLE}
           value={localValue}
           onChange={e => setLocalValue(e.target.value)}
@@ -197,6 +204,7 @@ export function CellEditor({ column, value, onSave, onCancel }: Props): React.Re
       return (
         <textarea
           ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+          className={EDITOR_CLASS}
           style={column.column_type === 'address' ? TEXTAREA_ADDRESS_STYLE : TEXTAREA_NOTES_STYLE}
           value={localValue}
           onChange={e => setLocalValue(e.target.value)}
@@ -220,6 +228,7 @@ export function CellEditor({ column, value, onSave, onCancel }: Props): React.Re
       return (
         <select
           ref={inputRef as React.RefObject<HTMLSelectElement>}
+          className={EDITOR_CLASS}
           style={SELECT_STYLE}
           value={localValue}
           onChange={e => {
@@ -248,6 +257,7 @@ export function CellEditor({ column, value, onSave, onCancel }: Props): React.Re
         <input
           ref={inputRef as React.RefObject<HTMLInputElement>}
           type="text"
+          className={EDITOR_CLASS}
           style={BASE_STYLE}
           defaultValue={defaultTagDisplay}
           placeholder="tag1, tag2, tag3"
@@ -279,6 +289,7 @@ export function CellEditor({ column, value, onSave, onCancel }: Props): React.Re
         <input
           ref={inputRef as React.RefObject<HTMLInputElement>}
           type="text"
+          className={EDITOR_CLASS}
           style={BASE_STYLE}
           value={localValue}
           onChange={e => setLocalValue(e.target.value)}

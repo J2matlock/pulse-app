@@ -204,6 +204,15 @@ describe('SortableRow', () => {
     expect(onNavigateToProfile).toHaveBeenCalledWith(1)
   })
 
+  it('an open editor fills its cell, with one border, not two (V1)', () => {
+    render(<SortableRow {...makeProps({ editingRowId: 1, editingColId: 1, focusedRowId: 1, focusedColId: 1 })} />)
+    const cell = document.querySelector('[data-col-id="1"]') as HTMLElement
+    expect(screen.getByTestId('cell-editor')).toBeTruthy()
+    expect(cell.style.paddingLeft).toBe('0px')
+    expect(cell.style.paddingRight).toBe('0px')
+    expect(cell.className).not.toContain('ring-3')
+  })
+
   it('applies selected styling when isSelected is true', () => {
     const { container } = render(<SortableRow {...makeProps({ isSelected: true })} />)
     const row = container.querySelector('[role="row"]')!
