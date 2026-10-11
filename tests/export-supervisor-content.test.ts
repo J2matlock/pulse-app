@@ -145,6 +145,44 @@ describe('summary report CSV header', () => {
   })
 })
 
+describe('summary report confidentiality line (AUDIT-153)', () => {
+  async function both(): Promise<string[]> {
+    const outs: string[] = []
+    for (const format of ['csv', 'pdf'] as const) {
+      const destPath = join(testDb.tmpDir, `banner.${format}`)
+      await exportSupervisorReport({
+        gridId: grid.gridId, columnIds: [], dateRange: { start: localDateFromToday(-30), end: today },
+        includeActivityLog: false, includeSystemActivity: false, includeTaskSummary: false, format, destPath,
+      })
+      outs.push(readFileSync(destPath).toString('latin1'))
+    }
+    return outs
+  }
+
+  it('says protected health information only for human-services words', async () => {
+    setDbWords(testDb.db)
+    for (const out of await both()) expect(out).toContain('PROTECTED HEALTH INFORMATION')
+  })
+
+  it("uses the workspace's record word otherwise", async () => {
+    setDbWords(testDb.db, { record: { one: 'vehicle', many: 'vehicles', article: 'a' } })
+    for (const out of await both()) {
+      expect(out).not.toContain('PROTECTED HEALTH')
+      expect(out).toContain('CONTAINS VEHICLE INFORMATION')
+    }
+  })
+
+  it('follows the list\'s own words over the workspace\'s', async () => {
+    setDbWords(testDb.db)
+    testDb.db.prepare('UPDATE grids SET vocab = ? WHERE id = ?')
+      .run(JSON.stringify({ record: { one: 'property', many: 'properties', article: 'a' } }), grid.gridId)
+    for (const out of await both()) {
+      expect(out).not.toContain('PROTECTED HEALTH')
+      expect(out).toContain('CONTAINS PROPERTY INFORMATION')
+    }
+  })
+})
+
 describe('summary report roster', () => {
   it('shows Age and Days-until as the table does, CSV and PDF (AUDIT-036)', async () => {
     const { gridId } = seedComputed(testDb.db)
