@@ -293,7 +293,9 @@ export default function App(): React.ReactElement {
         </Routes>
         </Suspense>
         </ErrorBoundary>
-        <ErrorBoundary fallback={<></>}>
+        {/* One overlay's crash mustn't take the rest for the session: the key
+            changes as overlays open and close, which clears a caught error */}
+        <ErrorBoundary fallback={<></>} resetKey={`${commandPaletteOpen}|${shortcutsOpen}|${whatsNewOpen}|${globalTaskOpen}|${!!showTour}|${!!miniTourSteps}`}>
           <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} onFocusMode={() => { setFocusModeOpen(true); setCommandPaletteOpen(false) }} />
           <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
           <AnchorChangeDialog />
@@ -316,19 +318,37 @@ export default function App(): React.ReactElement {
               returnRoute="#/help"
             />
           )}
-          {focusModeOpen && <FocusModeView onClose={() => setFocusModeOpen(false)} />}
-          {pendingWorkspaceFile && (
+        </ErrorBoundary>
+        {/* These get their own boundaries: a crash closes just that one, with a message */}
+        {focusModeOpen && (
+          <ErrorBoundary fallback={null} onError={() => {
+            setFocusModeOpen(false)
+            toast.error('Focus mode ran into a problem and closed. Try opening it again.')
+          }}>
+            <FocusModeView onClose={() => setFocusModeOpen(false)} />
+          </ErrorBoundary>
+        )}
+        {pendingWorkspaceFile && (
+          <ErrorBoundary fallback={null} onError={() => {
+            void clearImport()
+            toast.error('We couldn\'t open that file. Try opening it again.')
+          }}>
             <ApplyStarterDialog mode="add" initial={pendingWorkspaceFile} onClose={() => void clearImport()} />
-          )}
-          {pendingPulseFile && (
+          </ErrorBoundary>
+        )}
+        {pendingPulseFile && (
+          <ErrorBoundary fallback={null} onError={() => {
+            void clearImport()
+            toast.error('We couldn\'t open that file. Try opening it again.')
+          }}>
             <ImportPreviewModal
               imported={pendingPulseFile}
               grids={pulseFileGrids}
               onClose={clearImport}
               onApplied={clearImport}
             />
-          )}
-        </ErrorBoundary>
+          </ErrorBoundary>
+        )}
       </HashRouter>
       <Toaster position="bottom-right" toastOptions={{ duration: 5500 }} />
     </MotionConfig>
