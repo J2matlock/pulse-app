@@ -1701,3 +1701,10 @@ Left for later:
 - Report week buckets ignore the week-start setting.
 
 Build state: npm test 4355 pass / 4 skip; typecheck 0; eslint 0 errors; e2e 11/11; empty-Tasks group checked in the app.
+
+## 2026-10-11 (cont.) — Master audit, bug sweep & polish (unattended run, branch `polish/2026-10-11`)
+- 10-area audit → 192 findings (0 Critical, 19 High, 72 Medium, 101 Low), recorded in `AUDIT.md`.
+- 15 fix batches merged: 164 fixed, 3 partial, 2 deferred, 22 need a decision (see `POLISH-REPORT.md`).
+- Real bugs found while fixing: pre-v14 upgrade could fail at unlock (orphan rows before migration 014); restoring a damaged `.pulse-backup` could overwrite the live DB.
+- New migration 048 (schema 48). Tests 4355 (+4 skipped) → 4921 (0 skipped); typecheck/lint 0 errors; coverage 76.7% lines / 65.3% branches.
+- Not pushed, not merged; awaiting review. AUDIT.md / POLISH-REPORT.md contain security findings — keep them off the public main.
