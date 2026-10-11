@@ -12,6 +12,7 @@ import type { Column, Grid, GridRow } from '../../shared/types'
 import { VALID_COLUMN_TYPES, canNameRecords } from '../../shared/types'
 import { columnDependents } from '../column-usage'
 import { optionUsage, saveColumnOptions, OptionsError } from '../column-options'
+import { previewTypeChange, changeColumnType, undoColumnTypeChange, ColumnTypeError, type TypeChangeSnapshot } from '../column-type'
 import { invalidateColumnCache } from './ipc-cell'
 import { afterColumnRenamed, hasDisplayFormat, refreshDisplayNames } from '../display-names'
 import { numberExistingRows } from '../auto-number'
@@ -351,6 +352,36 @@ export function registerGridHandlers(): void {
     })()
     invalidateGridStmtCache()
     return ok({ previousId: prev?.id ?? null })
+  })
+
+  // Change a column's type (G-19): how many values fit, then convert them; undo puts everything back
+  secureWrap(IPC.COLUMN_TYPE_PREVIEW, 'ipc-grid', (_e, columnId: number, to: string) => {
+    if (!validId(columnId) || typeof to !== 'string') return fail('Invalid ID')
+    try { return ok(previewTypeChange(columnId, to)) } catch (err) { if (err instanceof ColumnTypeError) return fail(err.message); throw err }
+  })
+
+  secureWrap(IPC.COLUMN_CHANGE_TYPE, 'ipc-grid', (_e, columnId: number, to: string) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(columnId) || typeof to !== 'string') return fail('Invalid ID')
+    try {
+      const snap = changeColumnType(columnId, to)
+      invalidateColumnCache(columnId)
+      invalidateGridStmtCache()
+      return ok(snap)
+    } catch (err) { if (err instanceof ColumnTypeError) return fail(err.message); throw err }
+  })
+
+  secureWrap(IPC.COLUMN_CHANGE_TYPE_UNDO, 'ipc-grid', (_e, columnId: number, snap: TypeChangeSnapshot) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(columnId) || !snap || typeof snap.previousType !== 'string' || !Array.isArray(snap.changed) || snap.changed.length > 100_000) return fail('Invalid ID')
+    if (!snap.changed.every(c => validId(c.rowId) && typeof c.old === 'string')) return fail('Invalid ID')
+    if (snap.previousConfig !== null && typeof snap.previousConfig !== 'string') return fail('Invalid ID')
+    try {
+      undoColumnTypeChange(columnId, snap)
+      invalidateColumnCache(columnId)
+      invalidateGridStmtCache()
+      return ok(true as const)
+    } catch (err) { if (err instanceof ColumnTypeError) return fail(err.message); throw err }
   })
 
   // How many records use each choice, for the options editor (G-36)

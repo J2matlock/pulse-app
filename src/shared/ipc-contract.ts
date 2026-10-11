@@ -202,6 +202,9 @@ export interface IPCContract {
   'column:dependents':              { args: [columnId: number];                                        return: string[] }
   'column:set-name':                { args: [columnId: number];                                        return: { previousId: number | null } }
   'column:option-usage':            { args: [columnId: number];                                        return: Record<string, number> }
+  'column:type-preview':            { args: [columnId: number, to: string];                            return: { total: number; clean: number; examples: string[] } }
+  'column:change-type':             { args: [columnId: number, to: string];                            return: { previousType: string; previousConfig: string | null; changed: Array<{ rowId: number; old: string }> } }
+  'column:change-type-undo':        { args: [columnId: number, snap: { previousType: string; previousConfig: string | null; changed: Array<{ rowId: number; old: string }> }]; return: true }
   'column:set-options':             { args: [columnId: number, change: { options: string[]; renames?: Record<string, string>; updateRecords?: boolean }]; return: { updated: number } }
 
   // ── Row ─────────────────────────────────────────────────────────────────

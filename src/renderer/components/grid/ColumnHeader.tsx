@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2, Edit2, EyeOff, GripVertical, Bell, BellOff, Plus, Pencil, Activity, List, Palette, ArrowUp, ArrowDown, Pin, PinOff, Asterisk, Link2, Columns3, Clock, IdCard, Settings2 } from 'lucide-react'
+import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2, Edit2, EyeOff, GripVertical, Bell, BellOff, Plus, Pencil, Activity, List, Palette, ArrowUp, ArrowDown, Pin, PinOff, Asterisk, Link2, Columns3, Clock, IdCard, Settings2, Shapes } from 'lucide-react'
 import { canBeRequired } from '../../../shared/requiredFields'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
@@ -28,6 +28,8 @@ import { useLinkStore } from '../../stores/linkStore'
 import { LinkSetupDialog } from '../links/LinkSetupDialog'
 import { StageSettingsDialog } from '../stages/StageSettingsDialog'
 import { EditOptionsDialog } from './EditOptionsDialog'
+import { ChangeTypeDialog } from './ChangeTypeDialog'
+import { CHANGEABLE_TYPES } from '../../../shared/columnTypes'
 import { canBeStage, stageConfigOf } from '../../../shared/stages'
 
 interface Props {
@@ -67,6 +69,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
   const [editingRule, setEditingRule] = useState<ParsedAlertRule | undefined>(undefined)
   const [showDeleteColConfirm, setShowDeleteColConfirm] = useState(false)
   const [showColumnSettings, setShowColumnSettings] = useState(false)
+  const [showChangeType, setShowChangeType] = useState(false)
   // What uses this column (rules, forms, views…), listed before a delete
   const [dependents, setDependents] = useState<string[]>([])
   const [deleteAlertRuleTarget, setDeleteAlertRuleTarget] = useState<ParsedAlertRule | null>(null)
@@ -334,6 +337,15 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                 <Edit2 className="w-4 h-4" />
                 Rename
               </button>
+              {CHANGEABLE_TYPES.has(column.column_type) && (
+                <button
+                  className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  onClick={() => { setShowMenu(false); setShowChangeType(true) }}
+                >
+                  <Shapes className="w-4 h-4" />
+                  Change type…
+                </button>
+              )}
               <button
                 className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                 onClick={handleHide}
@@ -591,6 +603,8 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
             </div>
           </div>, document.body
         )}
+
+        {showChangeType && <ChangeTypeDialog column={column} onClose={() => setShowChangeType(false)} />}
 
         {/* Alert rule editor modal (create or edit) */}
         {showAlertEditor && (

@@ -20,6 +20,9 @@ export const IPC = {
   COLUMN_SET_NAME: 'column:set-name',
   COLUMN_OPTION_USAGE: 'column:option-usage',
   COLUMN_SET_OPTIONS: 'column:set-options',
+  COLUMN_TYPE_PREVIEW: 'column:type-preview',
+  COLUMN_CHANGE_TYPE: 'column:change-type',
+  COLUMN_CHANGE_TYPE_UNDO: 'column:change-type-undo',
 
   // Rows
   ROW_CREATE: 'row:create',

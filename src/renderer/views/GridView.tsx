@@ -15,6 +15,7 @@ import { useVocab } from '../hooks/useVocab'
 import { useFeature } from '../hooks/useFeature'
 import { BoardView } from '../components/board/BoardView'
 import { stageConfigOf } from '../../shared/stages'
+import { columnTypeLabel } from '../../shared/columnTypes'
 
 export default function GridView(): React.ReactElement {
   const { t } = useVocab()
@@ -173,7 +174,7 @@ export default function GridView(): React.ReactElement {
         title="Change column type?"
         message={
           pendingTypeChange
-            ? `Changing from ${pendingTypeChange.oldType} to ${pendingTypeChange.newType} will not convert existing data. Some values may display incorrectly.`
+            ? `"${columnTypeLabel(pendingTypeChange.oldType)}" becomes "${columnTypeLabel(pendingTypeChange.newType)}". The values stay as they are.`
             : ''
         }
         confirmLabel="Change Type"

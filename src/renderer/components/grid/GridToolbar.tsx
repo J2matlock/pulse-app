@@ -54,26 +54,13 @@ import { ensurePlainRule, type DeadlineChoice } from '../alerts/plainRule'
 import { AlertRuleEditor } from '../alerts/AlertRuleEditor'
 import { useAlertStore } from '../../stores/alertStore'
 import { engineRuleFrom, needsDeadlineColumn } from '../../../shared/deadlineEngine'
+import { COLUMN_TYPE_INFO } from '../../../shared/columnTypes'
 import { AUTO_NUMBER_PREFIX_MAX, DEFAULT_AUTO_NUMBER, formatAutoNumber, parseAutoNumberConfig } from '../../../shared/autoNumber'
 
 const EMPTY_FORMS: Form[] = []
 
-const COLUMN_TYPES: Array<{ type: ColumnType; label: string }> = [
-  { type: 'text', label: 'Text' },
-  { type: 'number', label: 'Number' },
-  { type: 'date', label: 'Date' },
-  { type: 'checkbox', label: 'Checkbox' },
-  { type: 'dropdown', label: 'Dropdown' },
-  { type: 'phone', label: 'Phone' },
-  { type: 'email', label: 'Email' },
-  { type: 'url', label: 'URL' },
-  { type: 'currency', label: 'Currency ($)' },
-  { type: 'address', label: 'Address' },
-  { type: 'status', label: 'Status (badge)' },
-  { type: 'tag', label: 'Tags' },
-  { type: 'auto_number', label: 'Auto number (0001, 0002…)' },
-  { type: 'deadline', label: 'Deadline (worked out by a rule)' },
-]
+/** Every type a new column can be (links and file counts have their own entries) */
+const COLUMN_TYPES = COLUMN_TYPE_INFO
 
 export function GridToolbar(): React.ReactElement {
   const { t } = useVocab()
@@ -118,6 +105,7 @@ export function GridToolbar(): React.ReactElement {
   const createRule = useAlertStore(s => s.createRule)
   const updateColumn = useGridStore(s => s.updateColumn)
   const [dropdownOptions, setDropdownOptions] = useState('')
+  const [sourceColumnId, setSourceColumnId] = useState<number | null>(null)
   const [autoPrefix, setAutoPrefix] = useState('')
   const [autoPad, setAutoPad] = useState(DEFAULT_AUTO_NUMBER.pad)
   const [numberExisting, setNumberExisting] = useState(true)
@@ -234,6 +222,9 @@ export function GridToolbar(): React.ReactElement {
       const labels = dropdownOptions.split('\n').map(o => o.trim()).filter(Boolean)
       const options = labels.map((label, i) => ({ label, color: STATUS_COLORS[i % STATUS_COLORS.length] }))
       config = JSON.stringify({ options })
+    } else if (newColType === 'age_from_dob' || newColType === 'calculated_days') {
+      if (sourceColumnId === null) { toast.error('Choose the date it works from.'); return }
+      config = JSON.stringify({ source_column_id: sourceColumnId })
     } else if (newColType === 'auto_number') {
       config = JSON.stringify(parseAutoNumberConfig({ prefix: autoPrefix, pad: autoPad, next: 1 }))
     } else if (newColType === 'date' || newColType === 'deadline') {
@@ -565,6 +556,9 @@ export function GridToolbar(): React.ReactElement {
                       {linksOn && <option value="link">Link to another {t('list')}…</option>}
                       {filesOn && <option value="file_count">Files (how many)</option>}
                     </select>
+                    {COLUMN_TYPES.find(c => c.type === newColType) && (
+                      <p className="mt-1 text-base text-slate-500 dark:text-slate-400">{COLUMN_TYPES.find(c => c.type === newColType)!.description}</p>
+                    )}
                   </div>
                   {!linksOn && gridCount > 1 && (
                     <FeatureOffer feature="links" message={`Connect your ${t('list', { many: true })}, like customers and their vehicles?`} />
@@ -572,6 +566,17 @@ export function GridToolbar(): React.ReactElement {
 
                   {(newColType === 'date' || newColType === 'deadline') && (
                     <DeadlineQuestion type={newColType} value={deadlineChoice} onChange={setDeadlineChoice} />
+                  )}
+
+                  {(newColType === 'age_from_dob' || newColType === 'calculated_days') && (
+                    <div>
+                      <label htmlFor="new-col-source" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Worked out from</label>
+                      <select id="new-col-source" className="input" style={{ minHeight: 36 }} value={sourceColumnId ?? ''} onChange={e => setSourceColumnId(e.target.value ? Number(e.target.value) : null)}>
+                        <option value="">Choose a date column…</option>
+                        {allColumns.filter(c => c.column_type === 'date').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                      {!allColumns.some(c => c.column_type === 'date') && <p className="mt-1 text-base text-slate-500 dark:text-slate-400">Add a date column first.</p>}
+                    </div>
                   )}
 
                   {(newColType === 'dropdown' || newColType === 'status') && (

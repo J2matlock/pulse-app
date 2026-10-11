@@ -207,6 +207,23 @@ describe('GridToolbar', () => {
     expect(addRow).toHaveBeenCalledOnce()
   })
 
+  it('offers every type with a plain name and a description, and asks Age for its date (G-19)', async () => {
+    const addColumn = vi.fn().mockResolvedValue(9)
+    setupStores({ addColumn, columns: [makeColumn(1, 'Name'), { ...makeColumn(2, 'Born'), column_type: 'date' }] })
+    render(<GridToolbar />)
+    fireEvent.click(screen.getByRole('button', { name: /^More/ }))
+    fireEvent.click(screen.getByText('Add a column…'))
+    const type = screen.getByLabelText('Type') as HTMLSelectElement
+    const labels = [...type.options].map(o => o.text)
+    for (const l of ['Notes', 'Age', 'Days until', 'Web link']) expect(labels).toContain(l)
+    fireEvent.change(screen.getByLabelText('Column name'), { target: { value: 'Age' } })
+    fireEvent.change(type, { target: { value: 'age_from_dob' } })
+    expect(screen.getByText('Worked out from a birth date column')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Worked out from'), { target: { value: '2' } })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Add' })) })
+    expect(addColumn).toHaveBeenCalledWith('Age', 'age_from_dob', JSON.stringify({ source_column_id: 2 }), expect.anything())
+  })
+
   it('Add a column… opens the add column form', () => {
     render(<GridToolbar />)
     fireEvent.click(screen.getByRole('button', { name: /^More/ }))
