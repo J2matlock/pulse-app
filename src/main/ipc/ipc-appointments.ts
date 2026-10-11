@@ -121,8 +121,9 @@ export function registerAppointmentHandlers(): void {
     return res
   })
 
-  secureWrap(IPC.CALENDAR_ITEMS, 'ipc-appointments', (_e, from: unknown, to: unknown) => {
+  secureWrap(IPC.CALENDAR_ITEMS, 'ipc-appointments', (_e, from: unknown, to: unknown, gridId?: unknown) => {
     if (typeof from !== 'string' || typeof to !== 'string' || !DATE_RE.test(from) || !DATE_RE.test(to) || to < from) return fail('Invalid dates')
-    return ok(calendarItems(from, to))
+    if (gridId != null && !validId(gridId)) return fail('Invalid ID')
+    return ok(calendarItems(from, to, gridId == null ? undefined : gridId))
   })
 }

@@ -20,6 +20,8 @@ import { AppointmentDialog } from '../components/calendar/AppointmentDialog'
 import { TimeGrid } from '../components/calendar/TimeGrid'
 import { ScopeDialog } from '../components/calendar/ScopeDialog'
 import { updateAppointment } from '../utils/appointmentActions'
+import { useGridStore } from '../stores/gridStore'
+import { useShallow } from 'zustand/react/shallow'
 import { CalendarExportDialog } from '../components/reports/CalendarExportDialog'
 
 export type CalendarMode = 'month' | 'week' | 'day' | 'agenda'
@@ -37,7 +39,8 @@ const STATE_CLASS: Record<string, string> = {
 }
 const APPT_CLASS: Record<Appointment['status'], string> = {
   scheduled: 'bg-blue-100 text-blue-900 dark:bg-blue-900/50 dark:text-blue-100 border-blue-300 dark:border-blue-700',
-  done: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 line-through',
+  // Done shows a check; only what didn't happen is struck through (audit S-28)
+  done: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600',
   no_show: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 line-through',
   cancelled: 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400 border-slate-300 dark:border-slate-600 line-through',
 }
@@ -64,10 +67,11 @@ export function eventText(e: CalEvent, clock: '12h' | '24h'): { short: string; f
     const time = a.all_day ? 'All day' : `${formatTime(a.start_at, clock)}${a.end_at ? ` to ${formatTime(a.end_at, clock)}` : ''}`
     const who = a.record_name ? ` with ${a.record_name}` : ''
     const status = a.status === 'scheduled' ? 'scheduled' : a.status === 'no_show' ? 'no-show' : a.status
-    return { short: `${a.all_day ? '' : `${formatTime(a.start_at, clock)} `}${a.title}${who}`, full: `${longDay(a.start_at)}, ${time}, ${a.title}${who}, ${status}` }
+    return { short: `${a.status === 'done' ? '✓ ' : ''}${a.all_day ? '' : `${formatTime(a.start_at, clock)} `}${a.title}${who}`, full: `${longDay(a.start_at)}, ${time}, ${a.title}${who}, ${status}` }
   }
   const i = e.item
-  const label = i.kind === 'deadline' ? `${i.recordName}: ${i.title}` : i.kind === 'followup' ? `${i.recordName}: follow-up` : `Task: ${i.title}`
+  // A follow-up shows the first words of its note
+  const label = i.kind === 'deadline' ? `${i.recordName}: ${i.title}` : i.kind === 'followup' ? `${i.recordName}: follow up${i.title && i.title !== 'Follow-up' ? ` – ${i.title}` : ''}` : `Task: ${i.title}`
   return { short: label, full: `${longDay(i.date)}, ${label}${i.kind === 'deadline' && i.state === 'overdue' ? ', overdue' : ''}` }
 }
 
@@ -97,6 +101,10 @@ export default function CalendarView(): React.ReactElement {
   const [selected, setSelected] = useState<Appointment | null>(null)
   const [newAt, setNewAt] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
+  // One list, or all of them (audit S-32), remembered like the layers
+  const grids = useGridStore(useShallow(s => s.grids))
+  const [listId, setListId] = useState<number | null>(null)
+  const shownList = listId != null && grids.some(g => g.id === listId) ? listId : null
   const gridRef = useRef<HTMLDivElement>(null)
 
   // An appointment reminder was clicked (W11): open on that day
@@ -110,6 +118,7 @@ export default function CalendarView(): React.ReactElement {
 
   useEffect(() => {
     void safeInvoke<string | null>(IPC.SETTINGS_GET, 'calendar_layers').then(r => { if (r.ok && r.data) setLayers(readLayers(r.data)) })
+    void safeInvoke<string | null>(IPC.SETTINGS_GET, 'calendar_list').then(r => { if (r.ok && r.data && Number(r.data) > 0) setListId(Number(r.data)) })
     if (!datedOpen) void safeInvoke<string | null>(IPC.SETTINGS_GET, 'calendar_mode').then(r => { if (r.ok && MODES.includes(r.data as CalendarMode)) setMode(r.data as CalendarMode) })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- once on open; a dated open keeps the day view
 
@@ -122,12 +131,12 @@ export default function CalendarView(): React.ReactElement {
 
   const load = useCallback(async () => {
     const [a, i] = await Promise.all([
-      apptsOn ? safeInvoke<Appointment[]>(IPC.APPT_LIST, range) : Promise.resolve({ ok: true as const, data: [] as Appointment[] }),
-      safeInvoke<CalendarItem[]>(IPC.CALENDAR_ITEMS, range.from, range.to),
+      apptsOn ? safeInvoke<Appointment[]>(IPC.APPT_LIST, range, shownList != null ? { gridId: shownList } : undefined) : Promise.resolve({ ok: true as const, data: [] as Appointment[] }),
+      safeInvoke<CalendarItem[]>(IPC.CALENDAR_ITEMS, range.from, range.to, shownList ?? undefined),
     ])
     if (a.ok) setAppts(a.data)
     if (i.ok) setItems(i.data)
-  }, [range.from, range.to, apptsOn]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [range.from, range.to, apptsOn, shownList]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { void load() }, [load])
   useEffect(() => {
@@ -148,6 +157,10 @@ export default function CalendarView(): React.ReactElement {
     setLayers(next)
     void safeInvoke(IPC.SETTINGS_UPDATE, 'calendar_layers', JSON.stringify([...next]))
   }
+  function chooseList(id: number | null) {
+    setListId(id)
+    void safeInvoke(IPC.SETTINGS_UPDATE, 'calendar_list', id == null ? '' : String(id))
+  }
   function switchMode(m: CalendarMode) {
     setMode(m)
     void safeInvoke(IPC.SETTINGS_UPDATE, 'calendar_mode', m)
@@ -163,7 +176,7 @@ export default function CalendarView(): React.ReactElement {
   }
   function openEvent(e: CalEvent) {
     if (e.type === 'appointment') { setSelected(e.appt); return }
-    if (e.item.kind === 'task') navigate('/tasks')
+    if (e.item.kind === 'task') navigate(e.item.taskId ? `/tasks?task=${e.item.taskId}` : '/tasks')
     else if (e.item.rowId) navigate(`/profile/${e.item.rowId}?gridId=${e.item.gridId}`)
   }
 
@@ -223,7 +236,8 @@ export default function CalendarView(): React.ReactElement {
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Show">
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-labelledby="calendar-show-label">
+            <span id="calendar-show-label" className="text-base text-slate-600 dark:text-slate-300">Show:</span>
             {offered.map(l => (
               <button key={l} type="button" aria-pressed={layers.has(l)} onClick={() => toggleLayer(l)}
                 className={`hit-44 px-3 rounded-full border text-sm ${layers.has(l) ? 'bg-slate-800 text-white border-slate-800 dark:bg-slate-100 dark:text-slate-900' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300'}`} style={{ minHeight: 32 }}>
@@ -231,6 +245,15 @@ export default function CalendarView(): React.ReactElement {
               </button>
             ))}
           </div>
+          {grids.length > 1 && (
+            <label className="flex items-center gap-1.5 text-base text-slate-600 dark:text-slate-300">
+              {t('list', { cap: true })}:
+              <select className="input" style={{ minHeight: 36 }} value={shownList ?? ''} onChange={e => chooseList(e.target.value ? Number(e.target.value) : null)}>
+                <option value="">All</option>
+                {grids.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+            </label>
+          )}
           <div className="flex flex-wrap gap-2 ml-auto">
             {/* Outlook or Google Calendar (audit S-30) */}
             <button type="button" className="btn-compact-secondary" onClick={() => setExporting(true)}><CalendarPlus className="w-4 h-4" aria-hidden="true" />Add to my calendar…</button>
@@ -250,7 +273,7 @@ export default function CalendarView(): React.ReactElement {
             onNew={startAt => apptsOn && setNewAt(startAt)}
             onDrop={dropped} />
         ) : mode === 'month' ? (
-          <div ref={gridRef} role="grid" aria-label={monthTitle(anchor)} className="flex-1 grid grid-rows-[auto_repeat(6,minmax(0,1fr))] overflow-auto">
+          <div ref={gridRef} role="grid" aria-label={monthTitle(anchor)} className="flex-1 grid grid-rows-[auto_repeat(6,minmax(7rem,1fr))] overflow-auto">
             <div role="row" className="grid grid-cols-7 border-b-2 border-slate-300 dark:border-slate-600">
               {dayNames.map(n => <div key={n} role="columnheader" className="px-2 py-1 text-sm font-semibold text-slate-600 dark:text-slate-300">{n}</div>)}
             </div>

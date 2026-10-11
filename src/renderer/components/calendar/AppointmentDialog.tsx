@@ -196,7 +196,7 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
         <label className="block">
           <span className={label}>When it's done, log it as</span>
           <select className="input w-full" value={kind} onChange={e => setKind(e.target.value)}>
-            <option value="">The usual kind (a visit)</option>
+            <option value="">Usual: {(noteTypes.find(nt => nt.key === 'visit') ?? noteTypes[0])?.label ?? 'a note'}</option>
             {noteTypes.map(nt => <option key={nt.key} value={nt.key}>{nt.label}</option>)}
           </select>
         </label>

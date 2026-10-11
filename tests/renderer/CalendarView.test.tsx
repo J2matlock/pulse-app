@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** The calendar (W07 §6): month cells with events, "+N more", layers, agenda, keyboard, panel and new appointment. */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, onTestFinished } from 'vitest'
 import React from 'react'
 import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
@@ -56,6 +56,25 @@ describe('the calendar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Appointments' }))
     expect(within(cell).queryByText(/Intake/)).toBeNull()
     expect(within(cell).getByText('Jane: Review')).toBeTruthy()
+  })
+
+  it('labels the layers, shows done with a check, and opens a clicked task (audit S-28)', async () => {
+    appointments = [appt(1, '15:00', 'Session', { status: 'done' }), appt(2, '09:00', 'Intake', { status: 'cancelled' })]
+    const usual = invoke.getMockImplementation()!
+    onTestFinished(() => { invoke.mockImplementation(usual) })
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'appointments:list') return { ok: true, data: appointments }
+      if (channel === 'calendar:items') return { ok: true, data: [{ kind: 'task', key: 'task-7', date: today, title: 'Order forms', taskId: 7 }] }
+      return { ok: true, data: null }
+    })
+    await show()
+    expect(screen.getByText('Show:')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Agenda' }))
+    const done = screen.getByText('✓ 3:00 pm Session with Jane')
+    expect(done.className).not.toMatch(/line-through/)
+    expect(screen.getByText('9:00 am Intake with Jane').className).toMatch(/line-through/)
+    fireEvent.click(screen.getByText('Task: Order forms'))
+    expect(screen.getByTestId('where').textContent).toBe('/tasks?task=7')
   })
 
   it('agenda lists the day; an appointment opens its panel, a deadline its record', async () => {

@@ -64,7 +64,7 @@ export function AppointmentPanel({ appointment: a, onClose }: { appointment: App
             <>
               <button type="button" className="btn-compact-primary" onClick={() => setDoneNote('')}><Check className="w-4 h-4" />Done</button>
               <button type="button" className="btn-compact-secondary" onClick={() => void setAppointmentStatus(a, 'no_show').then(ok => { if (ok) onClose() })}><UserX className="w-4 h-4" />No-show</button>
-              <button type="button" className="btn-compact-secondary" onClick={() => void setAppointmentStatus(a, 'cancelled').then(ok => { if (ok) onClose() })}><Ban className="w-4 h-4" />Cancel it</button>
+              <button type="button" className="btn-compact-secondary" onClick={() => void setAppointmentStatus(a, 'cancelled').then(ok => { if (ok) onClose() })}><Ban className="w-4 h-4" />Mark cancelled</button>
             </>
           ) : (
             <button type="button" className="btn-compact-secondary" onClick={() => void setAppointmentStatus(a, 'scheduled').then(ok => { if (ok) onClose() })}><RotateCcw className="w-4 h-4" />Back to scheduled</button>

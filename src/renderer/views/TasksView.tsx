@@ -172,6 +172,16 @@ export default function TasksView(): React.ReactElement {
     }
   }, [searchParams, setSearchParams])
 
+  // A task clicked on the calendar (?task=12) opens for editing (audit S-28)
+  const taskParam = Number(searchParams.get('task'))
+  useEffect(() => {
+    if (!taskParam) return
+    const task = tasks.find(t => t.id === taskParam)
+    if (!task) return
+    setEditingTask(task)
+    setSearchParams({}, { replace: true })
+  }, [taskParam, tasks, setSearchParams])
+
   // Ctrl+Shift+T — open add dialog locally when already on Tasks page
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
