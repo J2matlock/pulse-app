@@ -40,6 +40,8 @@ describe('calendar rules', () => {
   it('handle the last day and short months', () => {
     const lastDay = calendar({ months: [2], day: 'last' })
     expect(evaluate(lastDay, { today: '2027-01-01', columnDate: null }).due).toBe('2027-02-28')
+    // No brackets inside brackets: "(last day of Feb)", not "(Feb (last day))"
+    expect(evaluate(lastDay, { today: '2027-01-01', columnDate: null }).detail).toBe('Due Feb 28, 2027 (last day of Feb)')
     const the31st = calendar({ months: [4, 6], day: 31 })
     expect(evaluate(the31st, { today: '2026-04-01', columnDate: null }).due).toBe('2026-04-30')
   })

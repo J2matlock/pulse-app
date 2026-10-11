@@ -368,7 +368,9 @@ function evaluateCalendar(rule: EngineRule, ctx: RecordContext): DeadlineResult 
   if (!due) return NONE
   const when = cfg.fromColumnMonth ? 'every year on that date'
     : sorted.length === 12 ? `monthly on the ${day === 'last' ? 'last day' : ordinal(day)}`
-    : `${sorted.map(m => MONTH_NAMES[m - 1]).join(', ')} ${day === 'last' ? '(last day)' : day}`
+    // "last day of Oct", not "Oct (last day)" inside the detail's own brackets
+    : day === 'last' ? `last day of ${sorted.map(m => MONTH_NAMES[m - 1]).join(', ')}`
+    : `${sorted.map(m => MONTH_NAMES[m - 1]).join(', ')} ${day}`
   const detail = `Due ${formatDue(due)} (${when}${doneOn ? `; last done ${formatDue(doneOn)}` : ''})`
   const res = result(due, ctx.today, detail)
   // Not shown until the lead time, unless it's already late
