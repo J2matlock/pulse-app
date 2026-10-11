@@ -1,6 +1,7 @@
 Pulse by BaringaSoft 2.3.0 — third-party license summary (2026-10-11)
 Pulse itself is licensed under the GNU GPL v3 (GPL-3.0-only).
 272 packages ship with Pulse (production dependencies and the Electron runtime).
+Compiled into better-sqlite3-multiple-ciphers: SQLite (public domain) and SQLite3 Multiple Ciphers (MIT) with its components; notices are at the end of THIRD_PARTY_LICENSES.txt.
 
 Licenses:
    233  MIT

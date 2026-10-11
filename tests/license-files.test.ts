@@ -36,4 +36,19 @@ describe('bundled license files', () => {
     expect(isLicenseDoc('../../etc/passwd')).toBe(false)
     expect(isLicenseDoc(1)).toBe(false)
   })
+
+  // AUDIT-192: the C code compiled into better_sqlite3.node needs its notices too
+  it('include the statically linked SQLite and SQLite3 Multiple Ciphers notices', () => {
+    const notices = readFileSync(join(ROOT, 'THIRD_PARTY_LICENSES.txt'), 'utf8')
+    const native = readFileSync(join(ROOT, 'scripts', 'native-notices.txt'), 'utf8').trim()
+    expect(notices).toContain(native)
+    expect(native).toContain('Ulrich Telle')
+    expect(native).toContain('May you do good and not evil.')
+    expect(readFileSync(join(ROOT, 'scripts', 'third-party-licenses.mjs'), 'utf8')).toContain("'native-notices.txt'")
+  })
+
+  it('give MIT packages without a license file the MIT terms', () => {
+    const notices = readFileSync(join(ROOT, 'THIRD_PARTY_LICENSES.txt'), 'utf8')
+    expect(notices).not.toMatch(/Its package\.json declares: MIT\)/)
+  })
 })

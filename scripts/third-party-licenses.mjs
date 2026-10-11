@@ -18,6 +18,24 @@ const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx'
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
 
 const readJson = f => JSON.parse(readFileSync(f, 'utf-8'))
+
+const MIT_TERMS = `Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.`
 const app = readJson(join(root, 'package.json'))
 
 // ── Packages that ship ───────────────────────────────────────────────
@@ -45,8 +63,28 @@ function licenseOf(dir) {
   const repo = typeof p.repository === 'string' ? p.repository : p.repository?.url ?? p.homepage ?? ''
   const file = readdirSync(dir).find(f => /^(licen[cs]e|copying)(\.|-|$)/i.test(f))
   const text = file ? readFileSync(join(dir, file), 'utf-8').trim() : null
-  return { id, repo: repo.replace(/^git\+/, '').replace(/\.git$/, ''), text }
+  const author = typeof p.author === 'string' ? p.author : p.author?.name
+  return { id, repo: repo.replace(/^git\+/, '').replace(/\.git$/, ''), text: text ?? mitFallback(id, author) }
 }
+
+// Some MIT packages ship no license file. The MIT terms still require the
+// notice, so reproduce the standard text with the author from package.json.
+function mitFallback(id, author) {
+  if (!/^MIT(\/X11)?$/.test(id)) return null
+  return [
+    '(No license file in the package. Standard MIT License text, with the author from its package.json.)',
+    '',
+    'MIT License',
+    '',
+    `Copyright (c) ${author ?? 'the package authors'}`,
+    '',
+    MIT_TERMS,
+  ].join('\n')
+}
+
+// Notices for C code compiled into better_sqlite3.node (SQLite, SQLite3
+// Multiple Ciphers and its components). npm metadata can't see these.
+const NATIVE_NOTICES = readFileSync(join(root, 'scripts', 'native-notices.txt'), 'utf-8').trim()
 
 const list = [...pkgs.values()]
   .map(p => ({ ...p, ...licenseOf(p.path) }))
@@ -60,6 +98,7 @@ writeFileSync(join(root, 'licenses.txt'), [
   `Pulse by BaringaSoft ${app.version} — third-party license summary (${date})`,
   `Pulse itself is licensed under the GNU GPL v3 (${app.license}).`,
   `${list.length} packages ship with Pulse (production dependencies and the Electron runtime).`,
+  'Compiled into better-sqlite3-multiple-ciphers: SQLite (public domain) and SQLite3 Multiple Ciphers (MIT) with its components; notices are at the end of THIRD_PARTY_LICENSES.txt.',
   '',
   'Licenses:',
   ...Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([id, n]) => `  ${String(n).padStart(4)}  ${id}`),
@@ -88,6 +127,9 @@ writeFileSync(join(root, 'THIRD_PARTY_LICENSES.txt'), [
     p.text ?? `(No license file in the package. Its package.json declares: ${p.id})`,
     '',
   ]),
+  '='.repeat(60),
+  NATIVE_NOTICES,
+  '',
 ].join('\n'))
 
 // ── sbom.json ────────────────────────────────────────────────────────
