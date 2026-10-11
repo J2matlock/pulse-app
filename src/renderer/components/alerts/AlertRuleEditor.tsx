@@ -18,6 +18,7 @@ import { useGridStore } from '../../stores/gridStore'
 import { draftFromRule, draftToConfig, draftToCondition, type RuleDraft } from './ruleDraft'
 import { useRuleList } from './useRuleList'
 import { ruleSummary } from '../../../shared/ruleSummary'
+import { usedByText } from '../../stores/alertStore'
 import { KindCards, KindFields, ConditionFields, RulePreview, previewRule } from './RuleKindFields'
 
 // ── Color palette ──────────────────────────────────────────────────────────────
@@ -235,6 +236,9 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
   const ruleList = useRuleList(rule?.id, columnId)
   const { columns, rows } = ruleList
   const ownColumnId = ruleList.columnId
+  // Editing a shared rule from one of its columns: change it for all, or copy it for this column
+  const sharedHere = !isNew && columnId !== undefined && ruleList.uses.length > 1
+  const [makeCopy, setMakeCopy] = useState(false)
   // Other columns to work from; the rule's own column is offered as "this column"
   const otherColumns = columns.filter(c => c.id !== ownColumnId)
 
@@ -322,6 +326,21 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
           ...engineFields,
         })
         onClose(newId ?? undefined)
+      } else if (makeCopy) {
+        // Shared rule, changed for this column only: a copy, which the column then uses (Decision F1)
+        const ownName = columns.find(c => c.id === columnId)?.name
+        const taken = new Set(useAlertStore.getState().rules.map(r => r.name.toLowerCase()))
+        let copyName = `${finalName} (${ownName ?? 'copy'})`.slice(0, 200)
+        for (let i = 2; taken.has(copyName.toLowerCase()); i++) copyName = `${finalName} (${ownName ?? 'copy'} ${i})`.slice(0, 200)
+        const newId = await createRule({
+          name: copyName,
+          description: description.trim() || null,
+          is_system: 0,
+          thresholds: JSON.stringify(thresholds),
+          ...intervalFields,
+          ...engineFields,
+        })
+        onClose(newId ?? undefined)
       } else {
         await updateRule(rule!.id, {
           name: finalName,
@@ -360,6 +379,13 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
               <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-slate-500 dark:text-slate-400" />
               <span>This is a built-in rule and cannot be edited.</span>
             </div>
+          )}
+
+          {/* Rules are shared between columns: say which (Decision F1) */}
+          {!isNew && ruleList.uses.length > 0 && (
+            <p className="text-base text-slate-700 dark:text-slate-200" data-testid="rule-used-by">
+              <span className="font-medium">Used by:</span> {usedByText(ruleList.uses)}
+            </p>
           )}
 
           {ruleList.choices.length > 0 && (
@@ -592,6 +618,19 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
         </div>
 
         {/* Footer */}
+        {sharedHere && !isSystem && (
+          <fieldset className="flex-shrink-0 px-6 pt-3 border-t border-slate-200 dark:border-slate-700">
+            <legend className="sr-only">Which columns get this change?</legend>
+            <label className="flex items-center gap-2 text-base text-slate-800 dark:text-slate-100 cursor-pointer" style={{ minHeight: 44 }}>
+              <input type="radio" name="rule-scope" className="w-5 h-5" checked={!makeCopy} onChange={() => setMakeCopy(false)} />
+              Change it for all {ruleList.uses.length} columns that use it
+            </label>
+            <label className="flex items-center gap-2 text-base text-slate-800 dark:text-slate-100 cursor-pointer" style={{ minHeight: 44 }}>
+              <input type="radio" name="rule-scope" className="w-5 h-5" checked={makeCopy} onChange={() => setMakeCopy(true)} />
+              Make a copy just for "{columns.find(c => c.id === columnId)?.name ?? 'this column'}"
+            </label>
+          </fieldset>
+        )}
         <div className="flex-shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
           <button onClick={() => onClose()} className="btn-secondary">Cancel</button>
           {!isSystem && (

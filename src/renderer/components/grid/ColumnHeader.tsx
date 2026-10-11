@@ -562,8 +562,8 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
             columnId={column.id}
             onClose={async (createdRuleId?: number) => {
               setShowAlertEditor(false)
-              // If a new rule was created from this column, auto-apply it
-              if (createdRuleId && !editingRule) {
+              // A new rule made from this column, or a copy of a shared one just for it: this column uses it
+              if (createdRuleId) {
                 await handleSetAlertRule(createdRuleId)
               }
               setEditingRule(undefined)

@@ -43,6 +43,13 @@ function setColumnsRule(columnIds: number[], ruleId: number | null): void {
   useGridStore.setState(s => ({ columns: patch(s.columns), hiddenColumns: patch(s.hiddenColumns) }))
 }
 
+/** "Clients → Annual review, Housing → Lease renewal and 2 more" */
+export function usedByText(uses: AlertRuleUse[], max = 4): string {
+  if (uses.length === 0) return 'no columns yet'
+  const shown = uses.slice(0, max).map(u => `${u.grid_name} → ${u.column_name}${u.hidden ? ' (hidden)' : ''}`).join(', ')
+  return uses.length > max ? `${shown} and ${uses.length - max} more` : shown
+}
+
 /** "Used by 4 columns in 2 lists" */
 export function describeRuleUsage(uses: AlertRuleUse[]): string {
   if (uses.length === 0) return 'Not used by any column.'

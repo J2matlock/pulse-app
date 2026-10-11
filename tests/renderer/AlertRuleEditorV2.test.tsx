@@ -127,4 +127,23 @@ describe('the rule editor', () => {
     expect(call[1]).toMatchObject({ kind: 'relative', business_days: 2, interval_days: null,
       rule_config: JSON.stringify({ kind: 'relative', anchorColumnId: 'self', offset: { businessDays: 10, direction: 'after' } }) })
   })
+
+  it('says which columns share a rule, and can make a copy for this column (Decision F1)', async () => {
+    invoke.mockImplementation(async (channel: string) => channel === 'alert-rule:create' ? { ok: true, data: 21 } : { ok: true, data: [] })
+    useAlertStore.setState({ usage: [
+      { rule_id: 9, column_id: 3, column_name: 'Plan written', grid_id: 1, grid_name: 'Clients', hidden: false },
+      { rule_id: 9, column_id: 40, column_name: 'Lease renewal', grid_id: 2, grid_name: 'Housing', hidden: false },
+    ] })
+    const rule = { id: 9, name: 'Every year', description: null, is_system: 0, thresholds: [{ daysBefore: 0, bgClass: '#dc2626', label: 'Due' }], interval_days: null, interval_months: 12, created_at: '', kind: 'interval' } as never
+    const onClose = vi.fn()
+    render(<AlertRuleEditor rule={rule} columnId={3} onClose={onClose} />)
+    expect(screen.getByTestId('rule-used-by').textContent).toBe('Used by: Clients → Plan written, Housing → Lease renewal')
+    expect(screen.getByLabelText('Change it for all 2 columns that use it')).toBeTruthy()
+    fireEvent.click(screen.getByLabelText('Make a copy just for "Plan written"'))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Save Changes' })) })
+    const call = invoke.mock.calls.filter(c => c[0] === IPC.ALERT_RULE_CREATE).at(-1)!
+    expect((call[1] as { name: string; interval_months: number }).name).toBe('Every year (Plan written)')
+    expect(invoke.mock.calls.some(c => c[0] === IPC.ALERT_RULE_UPDATE)).toBe(false)
+    expect(onClose).toHaveBeenCalledWith(21)
+  })
 })

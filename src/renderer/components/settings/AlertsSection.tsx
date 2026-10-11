@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Bell, Pencil, Trash2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
-import { useAlertStore } from '../../stores/alertStore'
+import { useAlertStore, usedByText } from '../../stores/alertStore'
 import { useGridStore } from '../../stores/gridStore'
 import type { ParsedAlertRule } from '../../../shared/types'
 import { AlertRuleEditor } from '../alerts/AlertRuleEditor'
@@ -69,6 +69,7 @@ export function AlertsSection(): React.ReactElement {
               )}
               {/* What it does, in plain words, and its colors (D-16) */}
               <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">{ruleSummary(rule, columnName)}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 truncate">Used by: {usedByText(usage.filter(u => u.rule_id === rule.id))}</p>
               <span className="flex items-center gap-1 mt-1" aria-hidden="true">
                 {[...rule.thresholds].sort((a, b) => b.daysBefore - a.daysBefore).map((t, i) => {
                   const { className, style } = resolveAlertColor(t.bgClass)
