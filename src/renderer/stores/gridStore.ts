@@ -269,6 +269,7 @@ export const useGridStore = create<GridState>((set, get) => ({
 
   deleteGrid: async (gridId: number) => {
     try {
+      const name = get().grids.find(g => g.id === gridId)?.name ?? wordNow('list', { cap: true })
       await invoke(IPC.GRID_DELETE, gridId)
       set(s => ({
         grids: s.grids.filter(g => g.id !== gridId),
@@ -276,6 +277,20 @@ export const useGridStore = create<GridState>((set, get) => ({
         columns: s.activeGridId === gridId ? [] : s.columns,
         rows: s.activeGridId === gridId ? [] : s.rows,
       }))
+      // In the Trash, so Undo brings it back (D1)
+      useUndoStore.getState().pushWithToast({
+        id: crypto.randomUUID(),
+        description: `Moved "${name}" to the Trash`,
+        timestamp: Date.now(),
+        category: 'structural',
+        icon: 'Trash2',
+        undo: async () => { await invoke(IPC.GRID_RESTORE, gridId); await get().loadGridList() },
+        redo: async () => {
+          await invoke(IPC.GRID_DELETE, gridId)
+          if (get().activeGridId === gridId) set({ activeGridId: null, columns: [], rows: [] })
+          await get().loadGridList()
+        },
+      })
     } catch (err) {
       rlog.error('GridStore', 'Failed to delete grid', err)
       toast.error(`Could not delete ${wordNow('list')} — please try again`)

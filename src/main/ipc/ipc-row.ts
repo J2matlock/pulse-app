@@ -427,7 +427,12 @@ export function registerRowHandlers(): void {
   // Empty Trash: every record in the Trash, for good, in one transaction (X-38)
   secureWrap(IPC.ROW_PURGE_ALL, 'ipc-row', () => {
     const guard = enforceWritable(); if (guard) return guard
-    const info = getDb().transaction(() => getDb().prepare('DELETE FROM rows WHERE deleted_at IS NOT NULL').run())()
+    const info = getDb().transaction(() => {
+      const r = getDb().prepare('DELETE FROM rows WHERE deleted_at IS NOT NULL').run()
+      // Lists in the Trash go too, with their records (D1)
+      getDb().prepare('DELETE FROM grids WHERE is_active = 0 AND deleted_at IS NOT NULL').run()
+      return r
+    })()
     return ok(info.changes)
   })
 

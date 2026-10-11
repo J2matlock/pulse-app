@@ -23,6 +23,12 @@ export const IPC = {
   COLUMN_TYPE_PREVIEW: 'column:type-preview',
   COLUMN_CHANGE_TYPE: 'column:change-type',
   COLUMN_CHANGE_TYPE_UNDO: 'column:change-type-undo',
+  COLUMN_DELETED_LIST: 'column:deleted-list',
+  COLUMN_RESTORE: 'column:restore',
+  COLUMN_PURGE: 'column:purge',
+  GRID_DELETED_LIST: 'grid:deleted-list',
+  GRID_RESTORE: 'grid:restore',
+  GRID_PURGE: 'grid:purge',
 
   // Rows
   ROW_CREATE: 'row:create',

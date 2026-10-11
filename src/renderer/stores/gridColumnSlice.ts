@@ -156,15 +156,13 @@ export const createColumnSlice = (set: Set, get: Get) => ({
 
   deleteColumn: async (columnId: number) => {
     const gridId = get().activeGridId
-    const col = get().columns.find(c => c.id === columnId)
+    const col = get().columns.find(c => c.id === columnId) ?? get().hiddenColumns.find(c => c.id === columnId)
     try {
-      await invoke(IPC.COLUMN_DELETE, columnId)
-      set(s => ({ columns: s.columns.filter(c => c.id !== columnId) }))
-
-      // Push undo entry — Option C: recreate column structure (cells not recovered)
+      // It goes to the Trash with its values (D1), so Undo really brings it back
+      let { deletedId } = await invoke(IPC.COLUMN_DELETE, columnId)
+      set(s => ({ columns: s.columns.filter(c => c.id !== columnId), hiddenColumns: s.hiddenColumns.filter(c => c.id !== columnId) }))
+      if (gridId) await get().loadGrid(gridId)
       if (col && gridId) {
-        // Mutable so redo cycles always reference the most recently created column
-        let activeColId = columnId
         useUndoStore.getState().pushWithToast({
           id: crypto.randomUUID(),
           description: `Deleted column "${col.name}"`,
@@ -173,42 +171,18 @@ export const createColumnSlice = (set: Set, get: Get) => ({
           icon: 'Trash2',
           contextLabel: `Column "${col.name}"`,
           undo: async () => {
-            const gId = get().activeGridId
-            if (!gId) return
-            try {
-              const newColId = await invoke<number>(IPC.COLUMN_CREATE, gId, col.name, col.column_type)
-              // Restore column properties (width, config, visibility, etc.)
-              await invoke(IPC.COLUMN_UPDATE, newColId, {
-                width: col.width,
-                config: col.config,
-                is_visible: col.is_visible,
-                is_required: col.is_required,
-                description: col.description,
-                default_value: col.default_value,
-                conditional_format: col.conditional_format,
-              })
-              activeColId = newColId
-              await get().loadGrid(gId)
-            } catch (err) {
-              rethrowIfUndoing(err)
-              rlog.error('GridColumnSlice', 'Failed to undo column delete', err)
-            }
+            await invoke(IPC.COLUMN_RESTORE, deletedId)
+            await reloadIfActive(get, gridId)
           },
           redo: async () => {
-            try {
-              await invoke(IPC.COLUMN_DELETE, activeColId)
-              const gId = get().activeGridId
-              if (gId) await get().loadGrid(gId)
-            } catch (err) {
-              rethrowIfUndoing(err)
-              rlog.error('GridColumnSlice', 'Failed to redo column delete', err)
-            }
+            deletedId = (await invoke(IPC.COLUMN_DELETE, columnId)).deletedId
+            await reloadIfActive(get, gridId)
           },
         })
       }
     } catch (err) {
       rlog.error('GridColumnSlice', 'Failed to delete column', err)
-      toast.error('Could not delete column — please try again')
+      toast.error(err instanceof Error && err.message ? err.message : 'Could not delete column — please try again')
     }
   },
 

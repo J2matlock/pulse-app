@@ -641,11 +641,9 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
         {/* Delete column confirmation */}
         <ConfirmDialog
           open={showDeleteColConfirm}
-          variant="typed"
-          requiredPhrase={column.name}
           title={`Delete column "${column.name}"?`}
-          message={`This will permanently remove all data in this column. Type "${column.name}" to confirm.`}
-          confirmLabel="Delete Column"
+          message={`The column and its values go to the Trash. You can undo this, or bring it back from ${t('list', { cap: true })} settings for 30 days.`}
+          confirmLabel="Delete column"
           onConfirm={async () => {
             setShowDeleteColConfirm(false)
             await deleteColumn(column.id)

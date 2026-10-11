@@ -18,6 +18,7 @@ import { useGridStore } from '../../stores/gridStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { useUndoStore } from '../../stores/undoStore'
 import { RECORD_KINDS } from '../../views/setup/GuidedBlankStart'
+import { DeletedColumnsSection } from './DeletedColumnsSection'
 
 interface Props {
   gridId: number
@@ -278,6 +279,8 @@ export function ListSettingsDialog({ gridId, onClose, onOpenRequirements }: Prop
                 )}
               </div>
             )}
+
+            <DeletedColumnsSection gridId={gridId} />
 
             {error && <p role="alert" className="text-base text-red-700 dark:text-red-300">{error}</p>}
           </div>

@@ -525,6 +525,26 @@ describe('COLUMN_DELETE', () => {
     expect(cellCount).toBe(0)
   })
 
+  it('keeps the column and its values in the Trash, and COLUMN_RESTORE brings them back (5.2)', async () => {
+    const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { columnCount: 2, rowCount: 1 })
+    testDb.db.prepare("INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, 'kept', datetime('now'))").run(rowIds[0], columnIds[1])
+    const res = await invoke(IPC.COLUMN_DELETE, columnIds[1]) as { ok: true; data: { deletedId: number } }
+    expect(res.data.deletedId).toBeGreaterThan(0)
+    const list = await invoke(IPC.COLUMN_DELETED_LIST, gridId) as { ok: true; data: Array<{ id: number }> }
+    expect(list.data.map(d => d.id)).toEqual([res.data.deletedId])
+    expect(await invoke(IPC.COLUMN_RESTORE, res.data.deletedId)).toEqual({ ok: true, data: { columnId: columnIds[1], gridId } })
+    expect(testDb.db.prepare('SELECT value FROM cells WHERE column_id = ?').get(columnIds[1])).toEqual({ value: 'kept' })
+  })
+
+  it('a deleted list goes to the Trash and comes back with GRID_RESTORE (5.2)', async () => {
+    const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 2 })
+    expect((await invoke(IPC.GRID_DELETE, gridId) as { ok: boolean }).ok).toBe(true)
+    const lists = await invoke(IPC.GRID_DELETED_LIST) as { ok: true; data: Array<{ id: number; records: number }> }
+    expect(lists.data).toEqual([expect.objectContaining({ id: gridId, records: 2 })])
+    expect((await invoke(IPC.GRID_RESTORE, gridId) as { ok: boolean }).ok).toBe(true)
+    expect(testDb.db.prepare('SELECT is_active FROM grids WHERE id = ?').get(gridId)).toEqual({ is_active: 1 })
+  })
+
   it('rejects invalid ID', async () => {
     const result = await invoke(IPC.COLUMN_DELETE, -1) as { ok: false }
     expect(result.ok).toBe(false)

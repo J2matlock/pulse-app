@@ -105,7 +105,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-add-remove-columns',
     question: 'How do I add or remove columns?',
-    answer: 'To add: click "More" in the toolbar and choose "Add a column…". To hide a column: right click a column header and select hide column. "More" then shows how many are hidden, and "Show or hide columns…" there shows or hides any of them. To permanently delete a column, right-click its header and select "Delete Column."',
+    answer: 'To add: click "More" in the toolbar and choose "Add a column…". To hide a column: right click a column header and select hide column. "More" then shows how many are hidden, and "Show or hide columns…" there shows or hides any of them. To delete a column, right-click its header and select "Delete column": it goes to the Trash with its values, and you can undo that, or restore it from {List} settings for 30 days.',
     category: 'caseload-grid',
     tourStepIds: ['add-column'],
   },

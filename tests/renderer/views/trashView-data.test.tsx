@@ -67,7 +67,7 @@ describe('TrashView — data smoke tests', () => {
   })
 
   it('renders all 3 deleted clients', async () => {
-    mockInvoke.mockResolvedValue({ ok: true, data: threeDeletedRows })
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve({ ok: true, data: channel === 'row:get-deleted' ? threeDeletedRows : [] }))
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
 
@@ -77,7 +77,7 @@ describe('TrashView — data smoke tests', () => {
   })
 
   it('shows grid name for each row', async () => {
-    mockInvoke.mockResolvedValue({ ok: true, data: threeDeletedRows })
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve({ ok: true, data: channel === 'row:get-deleted' ? threeDeletedRows : [] }))
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
 
@@ -86,7 +86,7 @@ describe('TrashView — data smoke tests', () => {
   })
 
   it('displays column headers', async () => {
-    mockInvoke.mockResolvedValue({ ok: true, data: threeDeletedRows })
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve({ ok: true, data: channel === 'row:get-deleted' ? threeDeletedRows : [] }))
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
 
@@ -98,7 +98,7 @@ describe('TrashView — data smoke tests', () => {
   })
 
   it('shows Restore and Delete buttons for each row', async () => {
-    mockInvoke.mockResolvedValue({ ok: true, data: threeDeletedRows })
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve({ ok: true, data: channel === 'row:get-deleted' ? threeDeletedRows : [] }))
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
 
@@ -107,16 +107,16 @@ describe('TrashView — data smoke tests', () => {
   })
 
   it('shows title and 30-day retention notice', async () => {
-    mockInvoke.mockResolvedValue({ ok: true, data: threeDeletedRows })
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve({ ok: true, data: channel === 'row:get-deleted' ? threeDeletedRows : [] }))
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
 
     expect(screen.getByText('Trash')).toBeDefined()
-    expect(screen.getByText('Items are permanently removed after 30 days')).toBeDefined()
+    expect(screen.getByText('Items are removed for good after 30 days')).toBeDefined()
   })
 
   it('shows Empty Trash button when items exist', async () => {
-    mockInvoke.mockResolvedValue({ ok: true, data: threeDeletedRows })
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve({ ok: true, data: channel === 'row:get-deleted' ? threeDeletedRows : [] }))
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
 
@@ -124,7 +124,7 @@ describe('TrashView — data smoke tests', () => {
   })
 
   it('shows days remaining with red highlight for nearly expired rows', async () => {
-    mockInvoke.mockResolvedValue({ ok: true, data: threeDeletedRows })
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve({ ok: true, data: channel === 'row:get-deleted' ? threeDeletedRows : [] }))
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
 

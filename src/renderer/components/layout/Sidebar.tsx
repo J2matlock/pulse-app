@@ -43,7 +43,6 @@ interface DeleteConfirmProps {
 
 function DeleteCaseloadModal({ gridId, gridName, onConfirm, onCancel }: DeleteConfirmProps): React.ReactElement {
   const { t } = useVocab(gridId)
-  const [typed, setTyped] = useState('')
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, true)
   // Links to other lists go with it (W04 §8)
@@ -56,34 +55,23 @@ function DeleteCaseloadModal({ gridId, gridName, onConfirm, onCancel }: DeleteCo
       <motion.div className="fixed inset-0 bg-black/50" variants={backdropVariants} initial="hidden" animate="visible" onClick={onCancel} />
       <motion.div className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-4" variants={modalPanelVariants} initial="hidden" animate="visible">
         <h2 id="delete-caseload-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100">Delete {t('list', { cap: true })}</h2>
-        <p className="text-sm text-slate-600 dark:text-slate-300">
-          This will permanently delete <strong>{gridName}</strong> and all its {t('record', { many: true })}, columns, and data.
-          This cannot be undone.
+        {/* It goes to the Trash for 30 days, like a record (D1): no typing, and Undo or Restore brings it back */}
+        <p className="text-base text-slate-600 dark:text-slate-300">
+          <strong>{gridName}</strong> and all its {t('record', { many: true })} go to the Trash. You can undo this, or restore it from the Trash for 30 days. After that it's removed for good.
         </p>
         {links && links.types > 0 && (
           <p className="text-sm text-amber-700 dark:text-amber-400">
-            Its links to other {t('list', { many: true })} go too{links.links > 0 ? ` (${links.links} link${links.links === 1 ? '' : 's'})` : ''}, along with the columns that show them.
+            Its links to other {t('list', { many: true })}{links.links > 0 ? ` (${links.links} link${links.links === 1 ? '' : 's'})` : ''} and the columns that show them are put away too, and come back with it.
           </p>
         )}
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Type <strong>DELETE</strong> to confirm:
-        </p>
-        <input
-          autoFocus
-          className="input w-full"
-          value={typed}
-          onChange={e => setTyped(e.target.value)}
-          placeholder="DELETE"
-          onKeyDown={e => { if (e.key === 'Enter' && typed === 'DELETE') onConfirm() }}
-        />
         <div className="flex gap-3 justify-end">
           <button onClick={onCancel} className="btn-secondary">Cancel</button>
           <button
+            autoFocus
             onClick={onConfirm}
-            disabled={typed !== 'DELETE'}
-            className="btn-primary bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="btn-primary bg-red-600 hover:bg-red-700"
           >
-            Delete permanently
+            Move to Trash
           </button>
         </div>
       </motion.div>

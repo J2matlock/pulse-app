@@ -196,7 +196,13 @@ export interface IPCContract {
   'column:update':                  { args: [columnId: number, updates: Partial<Column>];       return: true }
   'column:batch-update-visibility': { args: [updates: Array<{ columnId: number; isVisible: 0 | 1 }>]; return: true }
   'column:batch-update-widths':     { args: [updates: Array<{ columnId: number; width: number }>];     return: true }
-  'column:delete':                  { args: [columnId: number];                                        return: true }
+  'column:delete':                  { args: [columnId: number];                                        return: { deletedId: number } }
+  'column:deleted-list':            { args: [gridId: number];                                          return: Array<{ id: number; grid_id: number; column_id: number; name: string; column_type: string; deleted_at: string; values: number }> }
+  'column:restore':                 { args: [deletedId: number];                                       return: { columnId: number; gridId: number } }
+  'column:purge':                   { args: [deletedId: number];                                       return: true }
+  'grid:deleted-list':              { args: [];                                                        return: Array<{ id: number; name: string; deleted_at: string; records: number }> }
+  'grid:restore':                   { args: [gridId: number];                                          return: true }
+  'grid:purge':                     { args: [gridId: number];                                          return: true }
   'column:reorder':                 { args: [gridId: number, orderedIds: number[]];                    return: true }
   'column:number-existing':         { args: [columnId: number];                                        return: { numbered: number } }
   'column:dependents':              { args: [columnId: number];                                        return: string[] }

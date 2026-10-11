@@ -281,6 +281,12 @@ function purgeExpiredTrash(): void {
       const files = db.prepare(`DELETE FROM attachments WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-' || ? || ' days')`).run(TRASH_PURGE_DAYS).changes
       if (files) logger.info('database', `Purged ${files} files from the trash`)
     } catch (err) { logNonFatal('database', 'attachment purge', err) }
+    // Lists and columns in the Trash (audit 5.2): removed with everything on them
+    try {
+      const lists = db.prepare(`DELETE FROM grids WHERE is_active = 0 AND deleted_at IS NOT NULL AND deleted_at < datetime('now', '-' || ? || ' days')`).run(TRASH_PURGE_DAYS).changes
+      const cols = db.prepare(`DELETE FROM deleted_columns WHERE deleted_at < datetime('now', '-' || ? || ' days')`).run(TRASH_PURGE_DAYS).changes
+      if (lists || cols) logger.info('database', `Purged ${lists} lists and ${cols} columns from the trash`)
+    } catch (err) { logNonFatal('database', 'list and column purge', err) }
     // 1. Find rows being purged
     const expiredRows = db.prepare(
       `SELECT id FROM rows WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-' || ? || ' days')`

@@ -2,7 +2,6 @@
  * ipc-grid.ts — GRID_*, COLUMN_*, SORT_* IPC handlers
  */
 
-import { deleteLinksForGrid } from '../links'
 import { IPC } from '../../shared/ipc-channels'
 import { secureWrap, ok, fail, buildSafeSetClause, validId, enforceWritable, logNonFatal } from './ipc-utils'
 import { getDb, buildGridQuery, cachedStmt, invalidateGridStmtCache } from '../database'
@@ -11,6 +10,7 @@ import { fileCountColumnIds } from '../../shared/attachments'
 import type { Column, Grid, GridRow } from '../../shared/types'
 import { VALID_COLUMN_TYPES, canNameRecords } from '../../shared/types'
 import { columnDependents } from '../column-usage'
+import { trashColumn, listDeletedColumns, restoreColumn, purgeDeletedColumn, trashList, listDeletedLists, restoreList, purgeList, TrashError } from '../list-trash'
 import { optionUsage, saveColumnOptions, OptionsError } from '../column-options'
 import { previewTypeChange, changeColumnType, undoColumnTypeChange, ColumnTypeError, type TypeChangeSnapshot } from '../column-type'
 import { invalidateColumnCache } from './ipc-cell'
@@ -181,11 +181,8 @@ export function registerGridHandlers(): void {
   secureWrap(IPC.GRID_DELETE, 'ipc-grid', (_e, gridId: number) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(gridId)) return fail('Invalid ID')
-    // Soft delete — mark inactive. Links to other lists go with it (W04 §8; the dialog said how many)
-    getDb().transaction(() => {
-      deleteLinksForGrid(gridId)
-      getDb().prepare("UPDATE grids SET is_active = 0, updated_at = datetime('now') WHERE id = ?").run(gridId)
-    })()
+    // To the Trash for 30 days with its records; its links are kept as a copy for a restore (D1)
+    try { trashList(gridId) } catch (err) { if (err instanceof TrashError) return fail(err.message); throw err }
     invalidateGridStmtCache()
     return ok(true)
   })
@@ -309,6 +306,7 @@ export function registerGridHandlers(): void {
       { id: number; grid_id: number; is_name_column: number } | undefined
     if (!col) return fail('Column not found')
 
+    let deletedId = 0
     const doDelete = db.transaction(() => {
       if (col.is_name_column === 1) {
         // Another column takes over naming: a text column if there is one, else the first
@@ -320,7 +318,8 @@ export function registerGridHandlers(): void {
         }
         db.prepare('UPDATE columns SET is_name_column = 1 WHERE id = ?').run(other.id)
       }
-      // Cascade deletes cells via FK
+      // A copy of it and its values waits in the Trash for 30 days (D1), then the delete cascades
+      deletedId = trashColumn(columnId)
       db.prepare('DELETE FROM columns WHERE id = ?').run(columnId)
       // Names elsewhere (dashboard, search, links) come from rows.display_name, which no trigger updates here
       if (col.is_name_column === 1 || hasDisplayFormat(col.grid_id)) refreshDisplayNames(col.grid_id)
@@ -328,7 +327,49 @@ export function registerGridHandlers(): void {
     doDelete()
     invalidateGridStmtCache()
     invalidateColumnCache(columnId)
-    return ok(true)
+    return ok({ deletedId })
+  })
+
+  // The Trash for columns and lists (audit 5.2, D1)
+  secureWrap(IPC.COLUMN_DELETED_LIST, 'ipc-grid', (_e, gridId: number) => {
+    if (!validId(gridId)) return fail('Invalid ID')
+    return ok(listDeletedColumns(gridId))
+  })
+
+  secureWrap(IPC.COLUMN_RESTORE, 'ipc-grid', (_e, deletedId: number) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(deletedId)) return fail('Invalid ID')
+    try {
+      const res = restoreColumn(deletedId)
+      invalidateGridStmtCache()
+      invalidateColumnCache(res.columnId)
+      return ok(res)
+    } catch (err) { if (err instanceof TrashError) return fail(err.message); throw err }
+  })
+
+  secureWrap(IPC.COLUMN_PURGE, 'ipc-grid', (_e, deletedId: number) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(deletedId)) return fail('Invalid ID')
+    purgeDeletedColumn(deletedId)
+    return ok(true as const)
+  })
+
+  secureWrap(IPC.GRID_DELETED_LIST, 'ipc-grid', () => ok(listDeletedLists()))
+
+  secureWrap(IPC.GRID_RESTORE, 'ipc-grid', (_e, gridId: number) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(gridId)) return fail('Invalid ID')
+    try { restoreList(gridId) } catch (err) { if (err instanceof TrashError) return fail(err.message); throw err }
+    invalidateGridStmtCache()
+    return ok(true as const)
+  })
+
+  secureWrap(IPC.GRID_PURGE, 'ipc-grid', (_e, gridId: number) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(gridId)) return fail('Invalid ID')
+    if (!purgeList(gridId)) return fail("That list isn't in the Trash.")
+    invalidateGridStmtCache()
+    return ok(true as const)
   })
 
   // Everything that points at this column, for the delete dialog (audit 1.8)
