@@ -1,6 +1,6 @@
 /** Repeating tasks and checklist items (audit 1.26, 1.27): the next due date. */
 import { describe, it, expect, afterEach } from 'vitest'
-import { parseRepeatRule, addRepeats, nextRepeatDate, describeRepeat, withAnchorDay } from '../src/shared/recurrence'
+import { parseRepeatRule, addRepeats, nextRepeatDate, describeRepeat, withAnchorDay, withoutAnchorDay } from '../src/shared/recurrence'
 
 describe('repeat rules', () => {
   it('reads stored rules and ignores bad ones', () => {
@@ -52,6 +52,18 @@ describe('repeat rules', () => {
     expect(withAnchorDay('{"type":"weekly","interval":1}', '2026-01-31')).toBe('{"type":"weekly","interval":1}')
     expect(withAnchorDay(monthly, null)).toBe(monthly)
     expect(parseRepeatRule('{"type":"monthly","interval":1,"day":40}')).toEqual({ type: 'monthly', interval: 1 })
+  })
+})
+
+describe('a due date changed by hand (AUDIT-114)', () => {
+  it('drops the day of the month and keeps the rest', () => {
+    expect(JSON.parse(withoutAnchorDay('{"type":"monthly","interval":1,"day":31,"end_date":"2027-12-31"}')!)).toEqual({ type: 'monthly', interval: 1, end_date: '2027-12-31' })
+    const plain = '{"type":"weekly","interval":2}'
+    expect(withoutAnchorDay(plain)).toBe(plain)
+    expect(withoutAnchorDay(null)).toBeNull()
+    expect(withoutAnchorDay('not json')).toBe('not json')
+    // Without the day, Feb 28 means the 28th from now on
+    expect(nextRepeatDate('2027-02-28', parseRepeatRule(withoutAnchorDay('{"type":"monthly","interval":1,"day":31}'))!, '2027-02-28')).toBe('2027-03-28')
   })
 })
 

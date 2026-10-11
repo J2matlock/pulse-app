@@ -11,7 +11,7 @@ import { getDb } from '../database'
 import type { ChecklistItem, ChecklistTemplate, ChecklistGroup } from '../../shared/types'
 import { seedChecklistTemplates } from '../templates'
 import { applyChecklistTemplate, ChecklistApplyError } from '../checklist-apply'
-import { parseRepeatRule, nextRepeatDate, withAnchorDay } from '../../shared/recurrence'
+import { parseRepeatRule, nextRepeatDate, withAnchorDay, withoutAnchorDay } from '../../shared/recurrence'
 import { localDateString } from '../../shared/dates'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
@@ -84,6 +84,14 @@ export function registerChecklistHandlers(): void {
 
       db.prepare(`UPDATE checklist_items SET ${result.setClause} WHERE id = ?`).run(...result.values, id)
 
+      // A due date changed by hand sets the pattern: forget the day of the month it used to
+      // fall on (AUDIT-114). Undo and redo (silent) put the item back exactly as it was.
+      let ruleNow = 'recurrence_rule' in updates ? updates.recurrence_rule ?? null : before?.recurrence_rule ?? null
+      if (before && !silent && 'due_date' in updates && (updates.due_date ?? null) !== before.due_date) {
+        const kept = withoutAnchorDay(ruleNow)
+        if (kept !== ruleNow) { db.prepare('UPDATE checklist_items SET recurrence_rule = ? WHERE id = ?').run(kept, id); ruleNow = kept }
+      }
+
       // System log: completion and un-completion events
       if (before && 'is_completed' in updates && !silent) {
         const wasComplete = before.is_completed === 1
@@ -92,7 +100,7 @@ export function registerChecklistHandlers(): void {
           const logResult = db.prepare(`INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`).run(before.row_id, `Completed checklist item: ${before.title}`)
           sysLogId = logResult.lastInsertRowid as number
           rowIdForNotify = before.row_id
-          const ruleJson = 'recurrence_rule' in updates ? updates.recurrence_rule : before.recurrence_rule
+          const ruleJson = ruleNow
           const rule = parseRepeatRule(ruleJson)
           const due = 'due_date' in updates ? updates.due_date : before.due_date
           const next = rule ? nextRepeatDate(due, rule, localDateString()) : null

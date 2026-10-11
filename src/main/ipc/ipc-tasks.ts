@@ -9,7 +9,7 @@ import { getDb, cachedStmt } from '../database'
 import type { CaseloadTask, TaskGroup, Snippet } from '../../shared/types'
 import { localDateString } from '../../shared/dates'
 import { usesHumanServicesWords } from '../vocab'
-import { parseRepeatRule, nextRepeatDate, withAnchorDay } from '../../shared/recurrence'
+import { parseRepeatRule, nextRepeatDate, withAnchorDay, withoutAnchorDay } from '../../shared/recurrence'
 import { toYmd } from '../../shared/ymd'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
@@ -115,6 +115,11 @@ export function registerTaskHandlers(): void {
       if (rule && !due) {
         if ('due_date' in updates) return fail('A repeating task needs a due date. Turn off Repeat to remove the date.')
         updates = { ...updates, due_date: localDateString() }
+      }
+      // A due date changed by hand sets the pattern: forget the day of the month it used to fall on (AUDIT-114)
+      if (rule && 'due_date' in updates && updates.due_date !== cur.due_date) {
+        const kept = withoutAnchorDay(rule)
+        if (kept !== rule) updates = { ...updates, recurrence_rule: kept }
       }
     }
     const result = buildSafeSetClause(updates as Record<string, unknown>, allowed, ["updated_at = datetime('now')"])
