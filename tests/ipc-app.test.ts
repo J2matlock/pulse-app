@@ -82,7 +82,7 @@ vi.mock('../src/main/database', async () => {
     ...actual,
     getDb: () => testDb.db,
     openDatabase: () => {},
-    closeDatabase: () => {},
+    closeDatabase: () => { lifecycle.calls.push('closeDatabase') },
     resolveDatabasePath: () => '/tmp/test.db',
     checkCloudSyncPath: () => null,
     getPortableDataDir: () => '/tmp/pulse-test-app',
@@ -104,7 +104,7 @@ vi.mock('../src/main/auth', () => ({
   resetPasswordAfterRecovery: async () => {},
   generateRecoveryKey: async () => 'ABCD-EFGH',
   revokeRecoveryKey: () => {},
-  lockApp: () => {},
+  lockApp: () => { lifecycle.calls.push('lockApp') },
   getPasswordHint: () => 'hint',
   hasRecoveryKey: () => false,
   setStoredDbPath: () => {},
@@ -113,8 +113,10 @@ vi.mock('../src/main/auth', () => ({
 
 vi.mock('../src/main/index', () => ({
   startScheduledBackup: () => {},
-  stopScheduledBackup: () => {},
+  stopScheduledBackup: () => { lifecycle.calls.push('stopScheduledBackup') },
 }))
+
+const lifecycle = vi.hoisted(() => ({ calls: [] as string[] }))
 
 const fakeEvent = { senderFrame: { parent: null } }
 
@@ -372,5 +374,11 @@ describe('APP_RELAUNCH', () => {
   it('reloads the window', async () => {
     await invoke(IPC.APP_RELAUNCH)
     expect(mockReloadIgnoringCache).toHaveBeenCalled()
+  })
+
+  it('stops scheduled backups, locks and closes the database before reloading (AUDIT-020)', async () => {
+    lifecycle.calls.length = 0
+    await invoke(IPC.APP_RELAUNCH)
+    expect(lifecycle.calls).toEqual(['stopScheduledBackup', 'lockApp', 'closeDatabase'])
   })
 })

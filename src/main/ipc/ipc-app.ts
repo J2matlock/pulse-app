@@ -11,6 +11,7 @@ import { IPC } from '../../shared/ipc-channels'
 import { secureWrap, logNonFatal, ok, fail, rememberUserChosenPaths } from './ipc-utils'
 import { resolveDatabasePath, closeDatabase, getDb, getPortableDataDir, getMigrationFailure, clearMigrationFailureFlag } from '../database'
 import { verifyAndUnlock, lockApp } from '../auth'
+import { stopScheduledBackup } from '../index'
 
 /** Returns true if `remote` is a higher semver than `current` (X.Y.Z format). */
 function isNewerVersion(remote: string, current: string): boolean {
@@ -188,8 +189,12 @@ export function registerAppHandlers(): void {
     // Reload the renderer instead of full process restart.
     // Full app.relaunch() + app.exit(0) can fail in dev mode because
     // the relaunched Electron process loses the Vite dev server URL.
-    // Clear auth state so the reloaded renderer starts at the lock screen
+    // Lock properly, as AUTH_LOCK does, so the reloaded renderer starts at the
+    // lock screen with the database closed: left open, every data handler would
+    // still answer, and the next unlock would orphan this connection.
+    stopScheduledBackup()
     lockApp()
+    closeDatabase()
     const wins = BrowserWindow.getAllWindows()
     if (wins.length > 0) {
       wins[0]!.webContents.reloadIgnoringCache()
