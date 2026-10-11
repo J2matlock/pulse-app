@@ -93,19 +93,20 @@ function SortableCard({ col, value, row, allColumns, alertRules, series, onSave 
       style={style}
       className={`flex flex-col px-4 py-3 group/card relative ${isDragging ? 'bg-blue-50 dark:bg-blue-900/20 rounded-lg shadow-sm' : ''}`}
     >
-      {/* Drag handle — subtle, visible on hover */}
-      <button
-        {...attributes}
-        {...listeners}
-        className="absolute right-1 top-1 p-1 rounded-sm text-slate-300 dark:text-slate-500
-                   opacity-0 group-hover/card:opacity-100 hover:text-slate-500 dark:hover:text-slate-400
-                   cursor-grab active:cursor-grabbing transition-opacity touch-none"
-        tabIndex={-1}
-        aria-label="Drag to reorder"
-      >
-        <GripVertical className="w-3.5 h-3.5" />
-      </button>
       <dt className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1 truncate pr-6">
+        {/* Drag handle — subtle, visible on hover. Inside the <dt> because a
+            <dl> group may only hold <dt> and <dd> (axe definition-list) */}
+        <button
+          {...attributes}
+          {...listeners}
+          className="absolute right-1 top-1 p-1 rounded-sm text-slate-300 dark:text-slate-500
+                     opacity-0 group-hover/card:opacity-100 hover:text-slate-500 dark:hover:text-slate-400
+                     cursor-grab active:cursor-grabbing transition-opacity touch-none"
+          tabIndex={-1}
+          aria-label="Drag to reorder"
+        >
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
         {col.name}
       </dt>
       <dd className="min-h-[24px] flex items-center gap-2">

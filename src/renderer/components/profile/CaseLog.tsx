@@ -833,6 +833,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             onChange={e => setSearch(e.target.value)}
             placeholder={`Search ${t('activityLog')}…`}
             title={`Search ${t('activityLog')}`}
+            aria-label={`Search ${t('activityLog')}`}
             className="w-full pl-8 pr-3 py-1.5 rounded-sm border border-slate-200 dark:border-slate-600
                        bg-slate-50 dark:bg-slate-900 text-base text-slate-900 dark:text-slate-100
                        focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:border-transparent"
