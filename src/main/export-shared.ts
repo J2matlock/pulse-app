@@ -14,6 +14,7 @@ import { word } from './vocab'
 import { hasDisplayFormat } from './display-names'
 import { cellText, deadlineText, type DateFormat } from '../shared/cellText'
 import { ageInYears, localDateString } from '../shared/dates'
+import { joinRecordName } from '../shared/recordName'
 import { loadDeadlines, type DeadlineItem } from './deadlines'
 
 // jsPDF is a CJS module; use require() to avoid ESM/CJS interop issues in Electron main.
@@ -341,13 +342,8 @@ export function getClientName(db: ReturnType<typeof getDb>, rowId: number, gridI
     LIMIT 1
   `).get(rowId, rowId, gid) as { first_name: string | null; last_name: string | null } | undefined
 
-  if (nameResult) {
-    const first = nameResult.first_name?.trim() || ''
-    const last = nameResult.last_name?.trim() || ''
-    if (first && last) return `${first} ${last}`
-    if (first) return first
-    if (last) return last
-  }
+  const joined = nameResult ? joinRecordName(nameResult.first_name, nameResult.last_name) : ''
+  if (joined) return joined
 
   // Fallback to display_name if no name column found
   const dn = row.display_name?.trim()

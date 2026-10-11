@@ -286,6 +286,26 @@ describe('getClientName', () => {
     expect(getClientName(row, columns)).toBe('John Doe')
   })
 
+  it('leaves out a hidden last-name column, as PDFs and the database name do (A08-7)', () => {
+    const columns: Column[] = [
+      makeColumn({ id: 1, name: 'First Name', is_name_column: 1, position: 0 }),
+      makeColumn({ id: 2, name: 'Last Name', position: 1, is_visible: 0 }),
+    ]
+    const row = makeRow({ col_1: 'Test', col_2: 'Person' })
+    expect(getClientName(row, columns)).toBe('Test')
+    expect(findNameColumnIds(columns)).toEqual({ nameColId: 1, lastNameColId: null })
+  })
+
+  it('picks the first last-name column by position, whatever the array order', () => {
+    const columns: Column[] = [
+      makeColumn({ id: 1, name: 'First', is_name_column: 1, position: 0 }),
+      makeColumn({ id: 3, name: 'Surname', position: 2 }),
+      makeColumn({ id: 2, name: 'Last Name', position: 1 }),
+    ]
+    const row = makeRow({ col_1: 'Test', col_2: 'Person', col_3: 'Other' })
+    expect(getClientName(row, columns)).toBe('Test Person')
+  })
+
   it('works with high column IDs', () => {
     const columns: Column[] = [
       makeColumn({ id: 999, name: 'Name', is_name_column: 1 }),
