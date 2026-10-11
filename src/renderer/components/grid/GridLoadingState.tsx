@@ -34,10 +34,27 @@ export function GridLoadingSkeleton({ rowHeight }: GridLoadingSkeletonProps): Re
 
 // ── Empty columns state ──────────────────────────────────────────────────────
 
-export function GridEmptyColumns(): React.ReactElement {
+export interface GridEmptyColumnsProps {
+  /** Columns the list has but hides: then they're only hidden, not missing */
+  hiddenCount: number
+  onShowAll: () => void
+  onAddColumn: () => void
+}
+
+export function GridEmptyColumns({ hiddenCount, onShowAll, onAddColumn }: GridEmptyColumnsProps): React.ReactElement {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-500 dark:text-slate-400">
-      <p className="text-base">No columns yet. Add a column to get started.</p>
+      {hiddenCount > 0 ? (
+        <>
+          <p className="text-base">All {hiddenCount === 1 ? 'the columns are' : `${hiddenCount} columns are`} hidden.</p>
+          <button type="button" className="btn-primary" onClick={onShowAll}>Show columns</button>
+        </>
+      ) : (
+        <>
+          <p className="text-base">No columns yet. Add a column to get started.</p>
+          <button type="button" className="btn-primary" onClick={onAddColumn}>Add column</button>
+        </>
+      )}
     </div>
   )
 }

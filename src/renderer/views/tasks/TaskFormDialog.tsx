@@ -119,6 +119,7 @@ export function TaskFormDialog({ onClose, onSave, initial, groups }: TaskFormDia
             id="task-title"
             ref={titleRef}
             value={title}
+            maxLength={500}
             onChange={e => setTitle(e.target.value)}
             onKeyDown={onKey}
             className="input w-full"

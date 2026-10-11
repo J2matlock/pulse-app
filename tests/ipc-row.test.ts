@@ -177,7 +177,7 @@ describe('IPC Row — ROW_HARD_DELETE', () => {
     testDb.db.prepare("UPDATE rows SET created_at = datetime('now', '-2 minutes') WHERE id = ?").run(rowIds[0])
     const result = await invoke(IPC.ROW_HARD_DELETE, rowIds[0]) as any
     expect(result.ok).toBe(false)
-    expect(result.error).toMatch(/recently-created/i)
+    expect(result.error).toMatch(/can't be undone any more/)
   })
 
   it('rejects non-existent row', async () => {
@@ -360,6 +360,28 @@ describe('IPC Row — ROW_MOVE_TO_GRID', () => {
 
     const row = testDb.db.prepare('SELECT grid_id FROM rows WHERE id = ?').get(src.rowIds[0]) as any
     expect(row.grid_id).toBe(tgt.gridId)
+  })
+
+  it('two source columns with one name ("Phone", "phone") move and copy without colliding (bug sweep S3)', async () => {
+    const src = seedGrid(testDb.db, { name: 'Waitlist', rowCount: 1, columnCount: 3 })
+    const tgt = seedGrid(testDb.db, { name: 'Active', rowCount: 0, columnCount: 2 })
+    testDb.db.prepare("UPDATE columns SET name = 'Name' WHERE id IN (?, ?)").run(src.columnIds[0], tgt.columnIds[0])
+    testDb.db.prepare("UPDATE columns SET name = 'Phone' WHERE id IN (?, ?)").run(src.columnIds[1], tgt.columnIds[1])
+    testDb.db.prepare("UPDATE columns SET name = 'phone' WHERE id = ?").run(src.columnIds[2])
+    const rowId = src.rowIds[0]!
+    const put = testDb.db.prepare("INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))")
+    put.run(rowId, src.columnIds[0], 'Alice'); put.run(rowId, src.columnIds[1], '555-0100'); put.run(rowId, src.columnIds[2], '555-0199')
+
+    const copy = await invoke(IPC.ROW_COPY_TO_GRID, rowId, tgt.gridId) as any
+    expect(copy.ok).toBe(true)
+    expect(testDb.db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?').get(copy.data, tgt.columnIds[1])).toEqual({ value: '555-0100' })
+
+    expect((await invoke(IPC.ROW_MOVE_TO_GRID, rowId, tgt.gridId) as any).ok).toBe(true)
+    expect(testDb.db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?').get(rowId, tgt.columnIds[1])).toEqual({ value: '555-0100' })
+    // The second one waits, and comes back on a move back
+    expect(testDb.db.prepare('SELECT value FROM parked_cells WHERE row_id = ? AND column_id = ?').get(rowId, src.columnIds[2])).toEqual({ value: '555-0199' })
+    await invoke(IPC.ROW_MOVE_TO_GRID, rowId, src.gridId)
+    expect(testDb.db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?').get(rowId, src.columnIds[2])).toEqual({ value: '555-0199' })
   })
 
   it('parks values for columns the target lacks and brings them back on a move back (G-18)', async () => {

@@ -14,7 +14,7 @@ import { trashColumn, listDeletedColumns, restoreColumn, purgeDeletedColumn, tra
 import { optionUsage, saveColumnOptions, OptionsError } from '../column-options'
 import { previewTypeChange, changeColumnType, undoColumnTypeChange, ColumnTypeError, type TypeChangeSnapshot } from '../column-type'
 import { invalidateColumnCache } from './ipc-cell'
-import { afterColumnRenamed, hasDisplayFormat, refreshDisplayNames } from '../display-names'
+import { afterColumnRenamed, hasDisplayFormat, isLastNameColumnName, refreshDisplayNames } from '../display-names'
 import { numberExistingRows } from '../auto-number'
 import { keepSamplesUntouched } from '../sample-marks'
 import { DEFAULT_AUTO_NUMBER } from '../../shared/autoNumber'
@@ -253,10 +253,12 @@ export function registerGridHandlers(): void {
     if (!result) return fail('No valid fields to update')
 
     const db = getDb()
-    const before = db.prepare('SELECT grid_id, name FROM columns WHERE id = ?').get(columnId) as { grid_id: number; name: string } | undefined
+    const before = db.prepare('SELECT grid_id, name, is_visible FROM columns WHERE id = ?').get(columnId) as { grid_id: number; name: string; is_visible: number } | undefined
     db.transaction(() => {
       db.prepare(`UPDATE columns SET ${result.setClause} WHERE id = ?`).run(...result.values, columnId)
       if (before && typeof updates.name === 'string' && updates.name !== before.name) afterColumnRenamed(before.grid_id, before.name, updates.name)
+      // Names join a "Last name" column only while it shows: hiding or showing one renames everyone
+      if (before && 'is_visible' in updates && Number(updates.is_visible) !== before.is_visible && isLastNameColumnName(before.name)) refreshDisplayNames(before.grid_id)
     })()
     invalidateColumnCache(columnId)
     return ok(true)
@@ -270,10 +272,16 @@ export function registerGridHandlers(): void {
     }
     const db = getDb()
     const stmt = cachedStmt('col_batch_vis', 'UPDATE columns SET is_visible = ? WHERE id = ?')
+    const colOf = db.prepare('SELECT grid_id, name, is_visible FROM columns WHERE id = ?')
     const run = db.transaction(() => {
+      const renamed = new Set<number>()
       for (const u of updates) {
+        const c = colOf.get(u.columnId) as { grid_id: number; name: string; is_visible: number } | undefined
         stmt.run(u.isVisible, u.columnId)
+        if (c && c.is_visible !== u.isVisible && isLastNameColumnName(c.name)) renamed.add(c.grid_id)
       }
+      // A "Last name" column shown or hidden changes everyone's name
+      for (const gridId of renamed) refreshDisplayNames(gridId)
     })
     run()
     return ok(true)
@@ -303,28 +311,31 @@ export function registerGridHandlers(): void {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(columnId)) return fail('Invalid ID')
     const db = getDb()
-    const col = db.prepare('SELECT id, grid_id, is_name_column FROM columns WHERE id = ?').get(columnId) as
-      { id: number; grid_id: number; is_name_column: number } | undefined
+    const col = db.prepare('SELECT id, grid_id, name, is_name_column FROM columns WHERE id = ?').get(columnId) as
+      { id: number; grid_id: number; name: string; is_name_column: number } | undefined
     if (!col) return fail('Column not found')
 
     let deletedId = 0
     const doDelete = db.transaction(() => {
+      let standInId: number | null | undefined
       if (col.is_name_column === 1) {
-        // Another column takes over naming: a text column if there is one, else the first
-        const other = db.prepare(
-          "SELECT id FROM columns WHERE grid_id = ? AND id != ? ORDER BY (column_type = 'text') DESC, position LIMIT 1"
-        ).get(col.grid_id, columnId) as { id: number } | undefined
-        if (!other) {
-          throw new Error('Cannot delete the only column in this grid.')
+        const others = db.prepare('SELECT id, column_type FROM columns WHERE grid_id = ? AND id != ? ORDER BY (column_type = \'text\') DESC, position')
+          .all(col.grid_id, columnId) as Array<{ id: number; column_type: string }>
+        if (!others.length) {
+          throw new Error("A list needs at least one column, so this one can't be deleted.")
         }
-        db.prepare('UPDATE columns SET is_name_column = 1 WHERE id = ?').run(other.id)
+        // Another column takes over naming: a text column if there is one, else the first
+        // that can name records (never a checkbox, notes, deadline or link column)
+        const other = others.find(o => canNameRecords(o.column_type))
+        standInId = other?.id ?? null
+        if (other) db.prepare('UPDATE columns SET is_name_column = 1 WHERE id = ?').run(other.id)
       }
       // A copy of it and its values waits in the Trash for 30 days (D1), then the delete cascades
-      deletedId = trashColumn(columnId)
+      deletedId = trashColumn(columnId, { standInId })
       // Its values go with it; that isn't an edit to the list's sample entries
       keepSamplesUntouched(db, col.grid_id, () => db.prepare('DELETE FROM columns WHERE id = ?').run(columnId))
       // Names elsewhere (dashboard, search, links) come from rows.display_name, which no trigger updates here
-      if (col.is_name_column === 1 || hasDisplayFormat(col.grid_id)) refreshDisplayNames(col.grid_id)
+      if (col.is_name_column === 1 || hasDisplayFormat(col.grid_id) || isLastNameColumnName(col.name)) refreshDisplayNames(col.grid_id)
     })
     doDelete()
     invalidateGridStmtCache()
@@ -464,10 +475,18 @@ export function registerGridHandlers(): void {
     if (!Array.isArray(orderedIds) || orderedIds.length > MAX_REORDER_COLUMNS) return fail('Invalid reorder payload')
     if (!orderedIds.every(id => Number.isInteger(id) && id > 0)) return fail('Invalid IDs in reorder payload')
     const db = getDb()
+    // The table sends only the columns it shows. Columns left out (hidden ones) keep
+    // their slots, and the sent ones fill the other slots in the new order, so every
+    // column of the list gets its own position and a hidden one shown again comes
+    // back where it was.
+    const current = (db.prepare('SELECT id FROM columns WHERE grid_id = ? ORDER BY position, id').all(gridId) as Array<{ id: number }>).map(c => c.id)
+    const sent = new Set(orderedIds)
+    const queue = orderedIds.filter(id => current.includes(id))
+    const full = current.map(id => sent.has(id) ? queue.shift()! : id)
     const stmt = cachedStmt('col_reorder', 'UPDATE columns SET position = ? WHERE id = ? AND grid_id = ?')
     const reorder = db.transaction(() => {
-      for (let i = 0; i < orderedIds.length; i++) {
-        stmt.run(i, orderedIds[i], gridId)
+      for (let i = 0; i < full.length; i++) {
+        stmt.run(i, full[i], gridId)
       }
     })
     reorder()

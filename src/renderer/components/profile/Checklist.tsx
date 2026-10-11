@@ -6,7 +6,6 @@ import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import {
   DndContext,
-  closestCenter,
   PointerSensor,
   useSensor,
   useSensors,
@@ -15,7 +14,6 @@ import {
 import {
   SortableContext,
   verticalListSortingStrategy,
-  arrayMove,
 } from '@dnd-kit/sortable'
 import { IPC } from '../../../shared/ipc-channels'
 import type { ChecklistItem as ChecklistItemType, ChecklistTemplate, ChecklistPriority, ChecklistGroup } from '../../../shared/types'
@@ -28,6 +26,7 @@ import { useUndoStore } from '../../stores/undoStore'
 import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { rlog } from '../../utils/rendererLogger'
 import { pulseEvents } from '../../events'
+import { resolveGroupDrop, groupAwareCollision } from '../../views/tasks/groupDrag'
 import { useVocab } from '../../hooks/useVocab'
 
 interface Props {
@@ -40,6 +39,10 @@ interface Props {
 export function Checklist({ rowId, clientName, focusAddRef }: Props) {
   const [items, setItems] = useState<ChecklistItemType[]>([])
   const [groups, setGroups] = useState<ChecklistGroup[]>([])
+  /** The group just added here, whose name opens for typing once (bug sweep S2) */
+  const [justAddedGroupId, setJustAddedGroupId] = useState<number | null>(null)
+  // Its header has opened by now (child effects run first); a later remount shouldn't reopen it
+  useEffect(() => { if (justAddedGroupId != null) setJustAddedGroupId(null) }, [justAddedGroupId])
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set())
   const [loading, setLoading] = useState(true)
   const [completedExpanded, setCompletedExpanded] = useState(false)
@@ -122,13 +125,15 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
   // ── Grouped items memo ──────────────────────────────────────────────────
   const groupedActiveItems = useMemo(() => {
     const map = new Map<number | null, ChecklistItemType[]>()
+    // An item whose group is gone shows ungrouped instead of nowhere (bug sweep S2)
+    const groupIds = new Set(groups.map(g => g.id))
     for (const item of activeItems) {
-      const key = item.group_id ?? null
+      const key = item.group_id != null && groupIds.has(item.group_id) ? item.group_id : null
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(item)
     }
     return map
-  }, [activeItems])
+  }, [activeItems, groups])
 
   const hasGroups = groups.length > 0
 
@@ -289,47 +294,50 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event
-    if (!over || active.id === over.id) return
+    if (!over) return
+    const drop = resolveGroupDrop(active.id, over.id, activeItems, groups)
+    if (!drop) return
 
-    // Group reorder
-    const activeStr = String(active.id)
-    const overStr = String(over.id)
-    if (activeStr.startsWith('group-') && overStr.startsWith('group-')) {
-      const activeGroupId = Number(activeStr.replace('group-', ''))
-      const overGroupId = Number(overStr.replace('group-', ''))
-      const sorted = [...groups].sort((a, b) => a.position - b.position)
-      const oldIdx = sorted.findIndex(g => g.id === activeGroupId)
-      const newIdx = sorted.findIndex(g => g.id === overGroupId)
-      if (oldIdx === -1 || newIdx === -1) return
-      const newOrder = arrayMove(sorted, oldIdx, newIdx)
-      setGroups(newOrder.map((g, i) => ({ ...g, position: i })))
-      await safeInvoke(IPC.CHECKLIST_GROUP_REORDER, rowId, newOrder.map(g => g.id))
+    if (drop.kind === 'groups') {
+      const byId = new Map(groups.map(g => [g.id, g]))
+      setGroups(drop.order.map((id, i) => ({ ...byId.get(id)!, position: i })))
+      await safeInvoke(IPC.CHECKLIST_GROUP_REORDER, rowId, drop.order)
       return
     }
 
-    // Item reorder
-    const activeIdx = activeItems.findIndex(i => i.id === active.id)
-    const overIdx   = activeItems.findIndex(i => i.id === over.id)
-    if (activeIdx === -1 || overIdx === -1) return
     const oldOrder = activeItems.map(i => i.id)
-    const newOrder = arrayMove(activeItems, activeIdx, overIdx)
+    const newOrder = drop.order
+    const moved = drop.moved
+    const fromGroup = moved ? (activeItems.find(i => i.id === moved.id)?.group_id ?? null) : null
     setItems(prev => prev.map(item => {
-      const newPos = newOrder.findIndex(n => n.id === item.id)
-      return newPos === -1 ? item : { ...item, position: newPos }
+      const newPos = newOrder.indexOf(item.id)
+      const next = newPos === -1 ? item : { ...item, position: newPos }
+      return moved && item.id === moved.id ? { ...next, group_id: moved.groupId } : next
     }))
-    await safeInvoke(IPC.CHECKLIST_REORDER, rowId, newOrder.map(i => i.id))
+    // Dropped in another group: it moves there (bug sweep S2)
+    if (moved) {
+      const res = await safeInvoke(IPC.CHECKLIST_MOVE_ITEM_TO_GROUP, moved.id, moved.groupId)
+      if (!res.ok) {
+        toast.error("We couldn't move that item — try again")
+        pulseEvents.emit('checklist:changed', { rowId })
+        return
+      }
+    }
+    await safeInvoke(IPC.CHECKLIST_REORDER, rowId, newOrder)
     useUndoStore.getState().push({
       id: crypto.randomUUID(),
-      description: 'Reordered checklist items',
+      description: moved ? 'Moved a checklist item to another group' : 'Reordered checklist items',
       timestamp: Date.now(),
       category: 'logged',
       icon: 'reorder',
       undo: async () => {
+        if (moved) await mustInvoke(IPC.CHECKLIST_MOVE_ITEM_TO_GROUP, moved.id, fromGroup)
         await mustInvoke(IPC.CHECKLIST_REORDER, rowId, oldOrder)
         pulseEvents.emit('checklist:changed', { rowId })
       },
       redo: async () => {
-        await mustInvoke(IPC.CHECKLIST_REORDER, rowId, newOrder.map(i => i.id))
+        if (moved) await mustInvoke(IPC.CHECKLIST_MOVE_ITEM_TO_GROUP, moved.id, moved.groupId)
+        await mustInvoke(IPC.CHECKLIST_REORDER, rowId, newOrder)
         pulseEvents.emit('checklist:changed', { rowId })
       },
     })
@@ -392,6 +400,9 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
     if (result.ok) {
       const created = result.data
       setGroups(prev => [...prev, created])
+      setJustAddedGroupId(created.id)
+      // Redo makes the group again under a new id; undo must delete that one (bug sweep S2)
+      let currentId = created.id
       useUndoStore.getState().push({
         id: crypto.randomUUID(),
         description: 'Added checklist group',
@@ -399,11 +410,12 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
         category: 'structural',
         icon: 'folder-plus',
         undo: async () => {
-          await mustInvoke(IPC.CHECKLIST_GROUP_DELETE, created.id)
+          await mustInvoke(IPC.CHECKLIST_GROUP_DELETE, currentId)
           pulseEvents.emit('checklist:changed', { rowId })
         },
         redo: async () => {
-          await mustInvoke(IPC.CHECKLIST_GROUP_CREATE, rowId, created.name)
+          const again = await mustInvoke<ChecklistGroup>(IPC.CHECKLIST_GROUP_CREATE, rowId, created.name)
+          currentId = again.data.id
           pulseEvents.emit('checklist:changed', { rowId })
         },
       })
@@ -439,6 +451,8 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
     setGroups(prev => prev.filter(g => g.id !== groupId))
     setItems(prev => prev.map(i => i.group_id === groupId ? { ...i, group_id: null } : i))
     await safeInvoke(IPC.CHECKLIST_GROUP_DELETE, groupId)
+    // Undo brings the group back under a new id; redo must delete that one (bug sweep S2)
+    let currentId = groupId
     useUndoStore.getState().push({
       id: crypto.randomUUID(),
       description: `Deleted group "${deletedGroup.name}"`,
@@ -448,16 +462,14 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       undo: async () => {
         // Recreate group and reassign items
         const res = await mustInvoke<ChecklistGroup>(IPC.CHECKLIST_GROUP_CREATE, rowId, deletedGroup.name)
-        if (res.ok) {
-          const newGroup = res.data
-          await Promise.all(affectedItems.map(i =>
-            mustInvoke(IPC.CHECKLIST_MOVE_ITEM_TO_GROUP, i.id, newGroup.id)
-          ))
-        }
+        currentId = res.data.id
+        await Promise.all(affectedItems.map(i =>
+          mustInvoke(IPC.CHECKLIST_MOVE_ITEM_TO_GROUP, i.id, currentId)
+        ))
         pulseEvents.emit('checklist:changed', { rowId })
       },
       redo: async () => {
-        await mustInvoke(IPC.CHECKLIST_GROUP_DELETE, groupId)
+        await mustInvoke(IPC.CHECKLIST_GROUP_DELETE, currentId)
         pulseEvents.emit('checklist:changed', { rowId })
       },
     })
@@ -478,10 +490,12 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
     })
   }, [])
 
-  const handleApplyTemplate = useCallback(async (templateId: number, groupId?: number | null, createdGroupId?: number | null) => {
+  const handleApplyTemplate = useCallback(async (templateId: number, groupId?: number | null, createdGroupName?: string) => {
     const result = await safeInvoke<{ createdIds: number[] }>(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId, groupId ?? null)
     if (result.ok) {
-      const { createdIds } = result.data
+      // Redo makes new items (and a new group), so undo and redo track the current ids (bug sweep S2)
+      let createdIds = result.data.createdIds
+      let targetGroupId = groupId ?? null
       // Reload items from DB to get full item objects
       const reloaded = await safeInvoke<ChecklistItemType[]>(IPC.CHECKLIST_GET, rowId)
       if (reloaded.ok) setItems(reloaded.data)
@@ -494,11 +508,16 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
           icon: 'check-square',
           undo: async () => {
             await Promise.all(createdIds.map(id => mustInvoke(IPC.CHECKLIST_DELETE_ITEM, id)))
-            if (createdGroupId) await mustInvoke(IPC.CHECKLIST_GROUP_DELETE, createdGroupId)
+            if (createdGroupName !== undefined && targetGroupId != null) await mustInvoke(IPC.CHECKLIST_GROUP_DELETE, targetGroupId)
             pulseEvents.emit('checklist:changed', { rowId })
           },
           redo: async () => {
-            await mustInvoke(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId, groupId ?? null)
+            if (createdGroupName !== undefined) {
+              const group = await mustInvoke<ChecklistGroup>(IPC.CHECKLIST_GROUP_CREATE, rowId, createdGroupName)
+              targetGroupId = group.data.id
+            }
+            const again = await mustInvoke<{ createdIds: number[] }>(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId, targetGroupId)
+            createdIds = again.data.createdIds
             pulseEvents.emit('checklist:changed', { rowId })
           },
         })
@@ -545,7 +564,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
           </div>
         ) : !hasGroups ? (
           /* ── Flat mode (no groups) — identical to previous behavior ── */
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd}>
             <SortableContext items={activeItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
               {activeItems.map(item => (
                 <ChecklistItem
@@ -561,7 +580,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
           </DndContext>
         ) : (
           /* ── Grouped mode ── */
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd}>
             {/* Ungrouped items first */}
             {(groupedActiveItems.get(null) ?? []).length > 0 && (
               <div className="mb-1">
@@ -628,6 +647,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
                     onRename={(name) => void handleRenameGroup(group.id, name)}
                     onDelete={() => setConfirmDeleteGroup({ id: group.id, name: group.name })}
                     isDragDisabled={false}
+                    autoEdit={group.id === justAddedGroupId}
                   />
 
                   {!isCollapsed && (
@@ -792,7 +812,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
                 setGroups(prev => [...prev, res.data])
                 const tid = pendingTemplateId
                 setPendingTemplateId(null)
-                void handleApplyTemplate(tid, res.data.id, res.data.id)
+                void handleApplyTemplate(tid, res.data.id, res.data.name)
               }
             }}
             onCancel={() => setPendingTemplateId(null)}

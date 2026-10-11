@@ -5,6 +5,7 @@ import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { backdropVariants, modalPanelVariants } from '../../utils/animations'
 import { useShallow } from 'zustand/react/shallow'
 import { useContactsStore } from '../../stores/contactsStore'
+import { normalizeHexColor } from '../../../shared/color'
 
 
 const PRESET_COLORS = [
@@ -30,6 +31,7 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('')
+  const [colorError, setColorError] = useState(false)
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState('#6b7280')
   const [deletingId, setDeletingId] = useState<number | null>(null)
@@ -45,12 +47,16 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
     setEditingId(id)
     setEditName(name)
     setEditColor(color)
+    setColorError(false)
     setDeletingId(null)
   }
 
   async function commitEdit() {
     if (editingId === null || !editName.trim()) return
-    await updateCategory(editingId, { name: editName.trim(), color: editColor })
+    // Only a hex colour can be printed on the directory PDF, so "red" or "#ab" stays in the box.
+    const color = normalizeHexColor(editColor)
+    if (!color) { setColorError(true); return }
+    await updateCategory(editingId, { name: editName.trim(), color })
     setEditingId(null)
   }
 
@@ -61,7 +67,9 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
 
   async function handleAdd() {
     if (!newName.trim()) return
-    await createCategory(newName.trim(), newColor)
+    const created = await createCategory(newName.trim(), newColor)
+    // Keep the name on failure so it can be tried again.
+    if (!created) return
     setNewName('')
     setNewColor('#6b7280')
   }
@@ -131,11 +139,20 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                       <input
                         type="text"
                         value={editColor}
-                        onChange={e => setEditColor(e.target.value)}
-                        className="w-20 rounded-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-base text-slate-700 dark:text-slate-300"
+                        onChange={e => { setEditColor(e.target.value); setColorError(false) }}
+                        onKeyDown={e => { if (e.key === 'Enter') commitEdit() }}
+                        aria-label="Color code"
+                        aria-invalid={colorError}
+                        aria-describedby={colorError ? 'category-color-error' : undefined}
+                        className={`w-24 rounded-sm border bg-white dark:bg-slate-700 px-2 py-1 text-base text-slate-700 dark:text-slate-300 focus:outline-hidden focus:ring-3 focus:ring-blue-500 ${colorError ? 'border-red-500' : 'border-slate-300 dark:border-slate-600'}`}
                         placeholder="#hex"
                       />
                     </div>
+                    {colorError && (
+                      <p id="category-color-error" role="alert" className="text-red-700 dark:text-red-300" style={{ fontSize: 15 }}>
+                        Choose a color from the swatches, or type one like #3b82f6.
+                      </p>
+                    )}
 
                     {/* Custom Fields */}
                     <div className="border-t border-slate-200 dark:border-slate-600 pt-3">

@@ -64,6 +64,53 @@ describe('exportCsv', () => {
     expect((parsed.data[2] as Record<string, string>)['Name']).toBe('Charlie')
   })
 
+  it('can include archived records, marked as archived, but never ones in the Trash (S4)', async () => {
+    const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 3, columnCount: 1 })
+    testDb.db.prepare("UPDATE columns SET name = 'Name' WHERE id = ?").run(columnIds[0])
+    const insert = testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')
+    insert.run(rowIds[0], columnIds[0], 'Alice')
+    insert.run(rowIds[1], columnIds[0], 'Bob')
+    insert.run(rowIds[2], columnIds[0], 'Charlie')
+    testDb.db.prepare('UPDATE rows SET is_active = 0 WHERE id = ?').run(rowIds[1])
+    testDb.db.prepare("UPDATE rows SET is_active = 0, deleted_at = datetime('now') WHERE id = ?").run(rowIds[2])
+
+    const destPath = join(testDb.tmpDir, 'all.csv')
+    await exportCsv({ gridId, columnIds: [], activeRowIds: [], destPath, dateFormat: 'iso', includeHidden: true, includeArchived: true })
+    const parsed = Papa.parse(readFileSync(destPath, 'utf-8').replace(/^﻿/, ''), { header: true, skipEmptyLines: true })
+    expect(parsed.data).toEqual([{ Name: 'Alice', Archived: '' }, { Name: 'Bob', Archived: 'Yes' }])
+
+    // The ordinary export is unchanged: active records only, no extra column
+    await exportCsv({ gridId, columnIds: [], activeRowIds: [], destPath, dateFormat: 'iso' })
+    const plain = Papa.parse(readFileSync(destPath, 'utf-8').replace(/^﻿/, ''), { header: true, skipEmptyLines: true })
+    expect(plain.data).toEqual([{ Name: 'Alice' }])
+  })
+
+  it('shows Age and Days-until as the table does, not blank (bug sweep S5)', async () => {
+    const { localDateFromToday } = await import('../src/shared/dates')
+    const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 2, columnTypes: ['text', 'date', 'date', 'age_from_dob', 'calculated_days'] })
+    const [name, dob, next, age, days] = columnIds as [number, number, number, number, number]
+    const rename = testDb.db.prepare('UPDATE columns SET name = ?, config = ? WHERE id = ?')
+    rename.run('Name', '{}', name)
+    rename.run('Birth date', '{}', dob)
+    rename.run('Next visit', '{}', next)
+    rename.run('Age', JSON.stringify({ source_column_id: dob }), age)
+    rename.run('Days to visit', JSON.stringify({ source_column_id: next }), days)
+    const insert = testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')
+    const tenYearsAgo = `${new Date().getFullYear() - 10}-01-01`
+    insert.run(rowIds[0], name, 'Alice')
+    insert.run(rowIds[0], dob, tenYearsAgo)
+    insert.run(rowIds[0], next, localDateFromToday(5))
+    insert.run(rowIds[1], name, 'Bob')
+    insert.run(rowIds[1], next, localDateFromToday(-1))
+
+    const destPath = join(testDb.tmpDir, 'computed.csv')
+    await exportCsv({ gridId, columnIds: [], activeRowIds: [], destPath, dateFormat: 'iso' })
+    const parsed = Papa.parse(readFileSync(destPath, 'utf-8').replace(/^\uFEFF/, ''), { header: true, skipEmptyLines: true })
+    const rows = parsed.data as Array<Record<string, string>>
+    expect(rows[0]).toMatchObject({ Age: '10 yrs', 'Days to visit': '5 days' })
+    expect(rows[1]).toMatchObject({ Age: '', 'Days to visit': '1 day overdue' })
+  })
+
   it('filters to selected columns only', async () => {
     const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 3 })
     testDb.db.prepare('UPDATE columns SET name = ? WHERE id = ?').run('Name', columnIds[0])

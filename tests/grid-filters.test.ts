@@ -103,6 +103,43 @@ describe('Number Filters', () => {
     expect(matchFilter(nonNumRow, { columnId: 2, operator: 'gt', value: '10' }, allCols)).toBe(false)
     expect(matchFilter(nonNumRow, { columnId: 2, operator: 'lt', value: '10' }, allCols)).toBe(false)
   })
+
+  it('reads typed amounts the way paste does: "1,000", "$100", "1200.5" (bug sweep S3)', () => {
+    const money = { id: 9, column_type: 'currency' } as Column
+    const cols = [...allCols, money]
+    const small = makeRow(1, { 9: '50' }), big = makeRow(2, { 9: '1200.50' })
+    expect(matchFilter(small, { columnId: 9, operator: 'gt', value: '1,000' }, cols)).toBe(false)
+    expect(matchFilter(big, { columnId: 9, operator: 'gt', value: '1,000' }, cols)).toBe(true)
+    expect(matchFilter(small, { columnId: 9, operator: 'gt', value: '$10' }, cols)).toBe(true)
+    expect(matchFilter(big, { columnId: 9, operator: 'equals', value: '1200.5' }, cols)).toBe(true)
+    expect(matchFilter(big, { columnId: 9, operator: 'equals', value: '$1,200.50' }, cols)).toBe(true)
+    expect(matchFilter(big, { columnId: 9, operator: 'not_equals', value: '1200.5' }, cols)).toBe(false)
+  })
+})
+
+describe('Age and Days-until filters (bug sweep S5)', () => {
+  const dob = { id: 20, column_type: 'date', config: '{}' } as Column
+  const age = { id: 21, column_type: 'age_from_dob', config: JSON.stringify({ source_column_id: 20 }) } as Column
+  const days = { id: 22, column_type: 'calculated_days', config: JSON.stringify({ source_column_id: 20 }) } as Column
+  const cols = [dob, age, days]
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const yearsAgo = (n: number) => { const d = new Date(); d.setFullYear(d.getFullYear() - n); d.setDate(d.getDate() - 1); return ymd(d) }
+
+  it('compares the age the cell shows, not the empty stored value', () => {
+    const older = makeRow(1, { 20: yearsAgo(70) }), younger = makeRow(2, { 20: yearsAgo(30) }), none = makeRow(3, {})
+    expect(matchFilter(older, { columnId: 21, operator: 'gt', value: '65' }, cols)).toBe(true)
+    expect(matchFilter(younger, { columnId: 21, operator: 'gt', value: '65' }, cols)).toBe(false)
+    expect(matchFilter(younger, { columnId: 21, operator: 'equals', value: '30' }, cols)).toBe(true)
+    expect(matchFilter(older, { columnId: 21, operator: 'is_empty', value: '' }, cols)).toBe(false)
+    expect(matchFilter(none, { columnId: 21, operator: 'is_empty', value: '' }, cols)).toBe(true)
+  })
+
+  it('compares the days until the date', () => {
+    const d = new Date(); d.setDate(d.getDate() + 10)
+    const soon = makeRow(1, { 20: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })
+    expect(matchFilter(soon, { columnId: 22, operator: 'lt', value: '14' }, cols)).toBe(true)
+    expect(matchFilter(soon, { columnId: 22, operator: 'equals', value: '10' }, cols)).toBe(true)
+  })
 })
 
 // ── Date filters ──────────────────────────────────────────────────────────────

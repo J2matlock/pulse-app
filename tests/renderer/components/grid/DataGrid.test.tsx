@@ -180,7 +180,7 @@ vi.mock('../../../../src/renderer/utils/domHelpers', () => ({
 
 // Mock filterMatch
 vi.mock('../../../../src/renderer/utils/filterMatch', () => ({
-  matchFilter: () => true,
+  matchFilter: vi.fn(() => true),
 }))
 
 // ── Store imports (after mocks) ───────────────────────────────────────────────
@@ -379,6 +379,17 @@ describe('DataGrid', () => {
       expect(screen.getByText(/No clients match your filters/)).toBeTruthy()
       await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Clear filters' })) })
       expect(useGridStore.getState().showStarredOnly).toBe(false)
+    })
+
+    it('filters see the columns a saved view hides (bug sweep S3)', async () => {
+      const { matchFilter } = await import('../../../../src/renderer/utils/filterMatch')
+      const hidden = makeColumn(9, 'Consent', 'checkbox', { is_visible: 0 })
+      setupStores({ hiddenColumns: [hidden], activeFilters: [{ columnId: 9, operator: 'equals', value: 'false' }] })
+      vi.mocked(matchFilter).mockClear()
+      renderDataGrid()
+      await flushEffects()
+      const cols = vi.mocked(matchFilter).mock.calls[0]![2]
+      expect(cols.map(c => c.id)).toContain(9)
     })
 
     it('shows search empty state with search query', async () => {

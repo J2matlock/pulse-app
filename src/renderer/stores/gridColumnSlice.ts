@@ -18,12 +18,18 @@ export interface ColumnSliceState {
   /** numberExisting: for an auto-number column, also number the records already in the list */
   /** Returns the new column's id, or null if it couldn't be added */
   addColumn: (name: string, columnType: string, config?: string, opts?: { numberExisting?: boolean }) => Promise<number | null>
-  updateColumn: (columnId: number, updates: Partial<Column>) => Promise<void>
+  /**
+   * skipConfirm: a type change the person already chose (a done-date rule turning a
+   * Date column into a Deadline, Decision E1) saves straight away. Returns whether it saved.
+   */
+  updateColumn: (columnId: number, updates: Partial<Column>, opts?: { skipConfirm?: boolean }) => Promise<boolean>
   deleteColumn: (columnId: number) => Promise<void>
   /** "Use as name": this column names the records everywhere (undoable) */
   setNameColumn: (columnId: number) => Promise<void>
   reorderColumns: (orderedIds: number[]) => Promise<void>
   toggleColumnVisibility: (columnId: number, visible: boolean) => Promise<void>
+  /** Show every hidden column of the open list */
+  showAllColumns: () => Promise<void>
   /** Non-null when a column type change is waiting for user confirmation. */
   pendingColumnTypeChange: PendingColumnTypeChange | null
   /** Proceed with the pending column type change. */
@@ -87,8 +93,9 @@ export const createColumnSlice = (set: Set, get: Get) => ({
       }
       if (numberExisting) await invoke(IPC.COLUMN_NUMBER_EXISTING, colId)
       await get().loadGrid(gridId)
-      // Mutable so redo cycles always reference the most recently created column
-      let activeColId = colId
+      // Undo parks it in the Trash and redo restores that copy, so the column
+      // keeps its id and the values typed into it can be redone too
+      let deletedId: number | null = null
       useUndoStore.getState().push({
         id: crypto.randomUUID(),
         description: `Added column "${name}"`,
@@ -96,14 +103,12 @@ export const createColumnSlice = (set: Set, get: Get) => ({
         category: 'structural',
         icon: 'type',
         undo: async () => {
-          await invoke(IPC.COLUMN_DELETE, activeColId)
+          deletedId = (await invoke(IPC.COLUMN_DELETE, colId)).deletedId
           await reloadIfActive(get, gridId)
         },
         redo: async () => {
-          const newColId = await invoke<number>(IPC.COLUMN_CREATE, gridId, name, columnType)
-          if (config) await invoke(IPC.COLUMN_UPDATE, newColId, { config })
-          if (numberExisting) await invoke(IPC.COLUMN_NUMBER_EXISTING, newColId)
-          activeColId = newColId
+          if (deletedId !== null) await invoke(IPC.COLUMN_RESTORE, deletedId)
+          deletedId = null
           await reloadIfActive(get, gridId)
         },
       })
@@ -115,20 +120,21 @@ export const createColumnSlice = (set: Set, get: Get) => ({
     }
   },
 
-  updateColumn: async (columnId: number, updates: Partial<Column>) => {
-    const prevCol = get().columns.find(c => c.id === columnId)
+  updateColumn: async (columnId: number, updates: Partial<Column>, opts?: { skipConfirm?: boolean }) => {
+    const prevCol = get().columns.find(c => c.id === columnId) ?? get().hiddenColumns.find(c => c.id === columnId)
+    const typeChange = !!updates.column_type && !!prevCol && updates.column_type !== prevCol.column_type
 
     // If column_type is changing, require user confirmation before proceeding
-    if (updates.column_type && prevCol && updates.column_type !== prevCol.column_type) {
+    if (typeChange && !opts?.skipConfirm) {
       set({
         pendingColumnTypeChange: {
           columnId,
-          oldType: prevCol.column_type,
-          newType: updates.column_type,
+          oldType: prevCol!.column_type,
+          newType: updates.column_type!,
           updates,
         }
       })
-      return
+      return false
     }
 
     try {
@@ -136,6 +142,8 @@ export const createColumnSlice = (set: Set, get: Get) => ({
       set(s => ({
         columns: s.columns.map(c => c.id === columnId ? { ...c, ...updates } : c)
       }))
+      const gridId = get().activeGridId
+      if (typeChange && gridId) await reloadIfActive(get, gridId)
       if (prevCol && updates.name && updates.name !== prevCol.name) {
         useUndoStore.getState().push({
           id: crypto.randomUUID(),
@@ -147,10 +155,12 @@ export const createColumnSlice = (set: Set, get: Get) => ({
           redo: async () => { await get().updateColumn(columnId, { name: updates.name }) },
         })
       }
+      return true
     } catch (err) {
       rethrowIfUndoing(err)
       rlog.error('GridColumnSlice', 'Failed to update column', err)
       toast.error('Could not update column — please try again')
+      return false
     }
   },
 
@@ -217,6 +227,19 @@ export const createColumnSlice = (set: Set, get: Get) => ({
     } catch (err) {
       rlog.error('GridColumnSlice', 'Failed to toggle column visibility', err)
       toast.error('Could not update column — please try again')
+    }
+  },
+
+  showAllColumns: async () => {
+    const gridId = get().activeGridId
+    const hidden = get().hiddenColumns
+    if (!gridId || hidden.length === 0) return
+    try {
+      await invoke(IPC.COLUMN_BATCH_UPDATE_VISIBILITY, hidden.map(c => ({ columnId: c.id, isVisible: 1 as const })))
+      await get().loadGrid(gridId)
+    } catch (err) {
+      rlog.error('GridColumnSlice', 'Failed to show columns', err)
+      toast.error('Could not show the columns — please try again')
     }
   },
 

@@ -9,6 +9,7 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import { localDateString } from '../../../shared/dates'
 import { noteUnencryptedExport } from '../../utils/exportNotice'
 import { useVocab } from '../../hooks/useVocab'
+import { useSettingsStore } from '../../stores/settingsStore'
 
 interface Props {
   gridId: number
@@ -18,24 +19,22 @@ interface Props {
 
 type PresetKey = 'this-week' | 'this-month' | 'last-month' | 'this-quarter' | null
 
-function getMonday(d: Date): Date {
-  const day = d.getDay()
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-  return new Date(d.getFullYear(), d.getMonth(), diff)
+/** The first day of d's week, on the day Settings says weeks start */
+function weekStartOf(d: Date, weekStart: 'sunday' | 'monday'): Date {
+  const back = weekStart === 'monday' ? (d.getDay() + 6) % 7 : d.getDay()
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - back)
 }
 
 function toISO(d: Date): string {
   return localDateString(d)
 }
 
-function getPresetRange(key: NonNullable<PresetKey>): { start: string; end: string } {
-  const now = new Date()
+export function getPresetRange(key: NonNullable<PresetKey>, weekStart: 'sunday' | 'monday' = 'sunday', now: Date = new Date()): { start: string; end: string } {
   switch (key) {
     case 'this-week': {
-      const mon = getMonday(now)
-      const sun = new Date(mon)
-      sun.setDate(mon.getDate() + 6)
-      return { start: toISO(mon), end: toISO(sun) }
+      const first = weekStartOf(now, weekStart)
+      const last = new Date(first.getFullYear(), first.getMonth(), first.getDate() + 6)
+      return { start: toISO(first), end: toISO(last) }
     }
     case 'this-month': {
       const first = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -102,7 +101,7 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
   }, [])
 
   function applyPreset(key: NonNullable<PresetKey>) {
-    const range = getPresetRange(key)
+    const range = getPresetRange(key, useSettingsStore.getState().weekStart)
     setStartDate(range.start)
     setEndDate(range.end)
     setActivePreset(key)

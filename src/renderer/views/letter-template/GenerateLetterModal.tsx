@@ -2,7 +2,8 @@ import toast from 'react-hot-toast'
 import React, { useEffect, useRef, useState } from 'react'
 import { FileText, X, AlertTriangle, ChevronDown, Copy, Check, FileDown } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
-import type { Grid } from '../../../shared/types'
+import type { Column, Grid, GridRow } from '../../../shared/types'
+import { getClientName } from '../../utils/clientName'
 import { safeInvoke } from '../../utils/safeInvoke'
 import type { LetterTemplate } from './types'
 import { useCopyFeedback } from '../../hooks/useCopyFeedback'
@@ -52,33 +53,24 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
       setLoadingClients(true)
       try {
         const res = await safeInvoke<{
-          columns: { id: number; is_name_column: number }[]
-          rows: Record<string, unknown>[]
+          columns: Column[]
+          hiddenColumns?: Column[]
+          rows: GridRow[]
         }>(IPC.GRID_GET, Number(selectedGridId))
         if (cancelled) return
         if (res.ok) {
-          const nameCol = res.data.columns.find(c => c.is_name_column === 1)
-          if (nameCol) {
-            const key = `col_${nameCol.id}`
-            const items = res.data.rows
-              .map(r => ({
-                row_id: r.row_id as number,
-                name: (r[key] as string | null) || '(unnamed)',
-              }))
-              .sort((a, b) => a.name.localeCompare(b.name))
-            setClientRows(items)
-          } else {
-            setClientRows(res.data.rows.map(r => ({
-              row_id: r.row_id as number,
-              name: `Row ${r.row_id}`,
-            })))
-          }
+          // The full name (display format, or first + last name) so two "Maria"s can be told apart
+          const cols = [...res.data.columns, ...(res.data.hiddenColumns ?? [])]
+          const items = res.data.rows
+            .map(r => ({ row_id: r.row_id, name: getClientName(r, cols, `${t('record', { cap: true })} #${r.row_id}`) }))
+            .sort((a, b) => a.name.localeCompare(b.name))
+          setClientRows(items)
         }
       } catch (err) { rlog.error('GenerateLetterModal', 'Failed to load clients for letter generation', err) }
       finally { if (!cancelled) setLoadingClients(false) }
     })()
     return () => { cancelled = true }
-  }, [selectedGridId])
+  }, [selectedGridId, t])
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {

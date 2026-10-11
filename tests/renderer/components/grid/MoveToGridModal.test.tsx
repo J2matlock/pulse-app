@@ -47,6 +47,7 @@ vi.mock('react-hot-toast', () => ({
 
 import { MoveToGridModal, BulkMoveToGridModal, ColumnCarryPreview } from '../../../../src/renderer/components/grid/MoveToGridModal'
 import type { Column } from '../../../../src/shared/types'
+import { IPC } from '../../../../src/shared/ipc-channels'
 import { setWords } from '../../vocabFixture'
 
 function makeColumn(id: number, name: string): Column {
@@ -120,5 +121,30 @@ describe('ColumnCarryPreview (G-18)', () => {
     const select = await screen.findByRole('combobox')
     fireEvent.change(select, { target: { value: '2' } })
     expect((await screen.findByTestId('column-carry-preview')).textContent).toContain("won't show in Active: Gate code")
+  })
+})
+
+describe('Copy to another list can be undone (bug sweep S3)', () => {
+  it('pushes an undo step that moves the new copy to the Trash, and redo restores it', async () => {
+    const { safeInvoke } = await import('../../../../src/renderer/utils/safeInvoke')
+    const { useUndoStore } = await import('../../../../src/renderer/stores/undoStore')
+    useUndoStore.setState({ undoStack: [], redoStack: [], toast: null, isUndoing: false })
+    vi.mocked(safeInvoke).mockImplementation(async (channel: string) => {
+      if (channel === 'grid:get-all') return { ok: true, data: [{ id: 1, name: 'Waitlist' }, { id: 2, name: 'Active' }] }
+      if (channel === 'row:copy-to-grid') return { ok: true, data: 555 }
+      if (channel === 'grid:get') return { ok: true, data: { columns: [], hiddenColumns: [] } }
+      return { ok: true, data: [] }
+    })
+    const onDone = vi.fn()
+    render(<MoveToGridModal rowId={7} sourceGridId={1} sourceColumns={[]} onDone={onDone} onCancel={vi.fn()} />)
+    fireEvent.click(screen.getByText('Copy'))
+    fireEvent.change(await screen.findByRole('combobox'), { target: { value: '2' } })
+    fireEvent.click(screen.getByRole('button', { name: /^Copy client/i }))
+    await vi.waitFor(() => expect(onDone).toHaveBeenCalled())
+    expect(useUndoStore.getState().undoStack).toHaveLength(1)
+    await useUndoStore.getState().undo()
+    expect(vi.mocked(safeInvoke).mock.calls.filter(c => c[0] === IPC.ROW_DELETE)).toEqual([[IPC.ROW_DELETE, 555]])
+    await useUndoStore.getState().redo()
+    expect(vi.mocked(safeInvoke).mock.calls.filter(c => c[0] === IPC.ROW_RESTORE_DELETED)).toEqual([[IPC.ROW_RESTORE_DELETED, 555]])
   })
 })

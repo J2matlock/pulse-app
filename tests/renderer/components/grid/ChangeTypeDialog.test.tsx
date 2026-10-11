@@ -34,4 +34,12 @@ describe('ChangeTypeDialog', () => {
     await useUndoStore.getState().undo()
     expect(invoke).toHaveBeenCalledWith('column:change-type-undo', 7, expect.objectContaining({ previousType: 'text' }))
   })
+
+  it('offers the name column no type that cannot name records (bug sweep S3)', () => {
+    render(<ChangeTypeDialog column={{ ...column, is_name_column: 1 } as Column} onClose={vi.fn()} />)
+    const options = [...(screen.getByLabelText('New type') as HTMLSelectElement).options].map(o => o.value)
+    expect(options).not.toContain('checkbox')
+    expect(options).not.toContain('notes')
+    expect(options).toContain('phone')
+  })
 })

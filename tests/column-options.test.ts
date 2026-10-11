@@ -39,6 +39,26 @@ describe('saving choices', () => {
     expect(hist).toEqual([{ old_value: 'Scheduled', new_value: 'Booked' }])
   })
 
+  it('swapping two choices swaps the records too, instead of merging them (bug sweep S3)', () => {
+    const put = t.db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)")
+    put.run(grid.rowIds[0], status, 'Scheduled'); put.run(grid.rowIds[1], status, 'Done'); put.run(grid.rowIds[2], status, 'Done')
+    const res = saveColumnOptions(status, { options: ['Done', 'Scheduled'], renames: { Scheduled: 'Done', Done: 'Scheduled' }, updateRecords: true })
+    expect(res.updated).toBe(3)
+    expect([cell(grid.rowIds[0]!, status), cell(grid.rowIds[1]!, status), cell(grid.rowIds[2]!, status)]).toEqual(['Done', 'Scheduled', 'Scheduled'])
+    // Each choice keeps its colour through the rename
+    const opts = JSON.parse(col(status).config!).options as Array<{ label: string; color: string }>
+    expect(opts).toEqual([{ label: 'Done', color: '#3b82f6' }, { label: 'Scheduled', color: '#22c55e' }])
+  })
+
+  it('a chain (A → B, B → C) keeps the two groups apart, and relabels records in the Trash too', () => {
+    const put = t.db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)")
+    put.run(grid.rowIds[0], status, 'Scheduled'); put.run(grid.rowIds[1], status, 'Done'); put.run(grid.rowIds[2], status, 'Done')
+    t.db.prepare("UPDATE rows SET is_active = 0, deleted_at = datetime('now') WHERE id = ?").run(grid.rowIds[2])
+    const res = saveColumnOptions(status, { options: ['Done', 'Closed'], renames: { Scheduled: 'Done', Done: 'Closed' }, updateRecords: true })
+    expect(res.updated).toBe(2)
+    expect([cell(grid.rowIds[0]!, status), cell(grid.rowIds[1]!, status), cell(grid.rowIds[2]!, status)]).toEqual(['Done', 'Closed', 'Closed'])
+  })
+
   it('leaves records alone when not asked, and refuses duplicate choices', () => {
     t.db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, 'Scheduled')").run(grid.rowIds[0], status)
     expect(saveColumnOptions(status, { options: ['Booked', 'Done'], renames: { Scheduled: 'Booked' } }).updated).toBe(0)

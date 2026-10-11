@@ -91,6 +91,17 @@ describe('CELL_UPDATE', () => {
     expect(r.data).toHaveProperty('sysLogId')
   })
 
+  it('a restored database starts with fresh column types, even for a reused column id (bug sweep S4)', async () => {
+    testDb.db.prepare("UPDATE columns SET column_type = 'link' WHERE id = ?").run(columnId)
+    expect((await invoke(IPC.CELL_UPDATE, rowId, columnId, 'x') as any).ok).toBe(false)
+    // A restore swaps the connection; the same id is a text column there
+    cleanupTestDb(testDb)
+    testDb = createTestDb()
+    const seed = seedGrid(testDb.db, { rowCount: 1, columnCount: 3 })
+    expect(seed.columnIds[0]).toBe(columnId)
+    expect((await invoke(IPC.CELL_UPDATE, seed.rowIds[0], columnId, 'Hello') as any).ok).toBe(true)
+  })
+
   it('sets null value (clear cell)', async () => {
     await invoke(IPC.CELL_UPDATE, rowId, columnId, 'Hello')
     const r = await invoke(IPC.CELL_UPDATE, rowId, columnId, null) as any

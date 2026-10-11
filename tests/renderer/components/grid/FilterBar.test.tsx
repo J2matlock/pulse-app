@@ -88,6 +88,17 @@ describe('FilterBar', () => {
     expect(screen.getByText('John')).toBeTruthy()
   })
 
+  it('names a filter on a hidden column by the column, not "Col 57" (bug sweep S3)', () => {
+    useGridStore.setState({
+      hiddenColumns: [makeColumn(57, 'Stage', 'status')],
+      activeFilters: [{ columnId: 57, operator: 'equals', value: 'Active' }],
+    })
+    render(<FilterBar />)
+    expect(screen.getByText('Stage')).toBeTruthy()
+    expect(screen.queryByText('Col 57')).toBeNull()
+    useGridStore.setState({ hiddenColumns: [] })
+  })
+
   it('shows operator label and value in chip', () => {
     useGridStore.setState({
       activeFilters: [

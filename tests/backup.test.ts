@@ -547,6 +547,24 @@ describe('restoreFromDb', () => {
     db3.close()
   })
 
+  it('keeps only the newest three safety copies made before restores (S4)', async () => {
+    t.db.close()
+    const backupPath = join(backupDir, 'prune-test.db')
+    copyFileSync(t.dbPath, backupPath)
+    setDatabaseBridge({ closeDatabase: () => {}, getDb: () => { throw new Error('DB closed') } })
+    const first = await restoreFromDb(backupPath)
+    const dir = join(first, '..')
+    for (const day of ['01', '02', '03', '04']) writeFileSync(join(dir, `pulse-pre-restore-2020-01-${day}_10-00-00.db`), 'old')
+    writeFileSync(join(dir, 'pulse-auto-2020-01-01_10-00-00.db'), 'auto')
+    const latest = await restoreFromDb(backupPath)
+    const left = readdirSync(dir).filter(f => f.startsWith('pulse-pre-restore-'))
+    expect(left).toHaveLength(3)
+    expect(left).toContain(basename(latest))
+    expect(left).not.toContain('pulse-pre-restore-2020-01-01_10-00-00.db')
+    // Other backups are left alone
+    expect(existsSync(join(dir, 'pulse-auto-2020-01-01_10-00-00.db'))).toBe(true)
+  })
+
   it('safety backup created before restore is a valid DB with modified state', async () => {
     const { gridId } = seedGrid(t.db, { rowCount: 5, columnCount: 1 })
     t.db.close()

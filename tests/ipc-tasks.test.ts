@@ -100,6 +100,18 @@ describe('IPC Tasks', () => {
       expect(result.data).toHaveLength(2)
     })
 
+    it('leaves out tasks of a list in the Trash, as the Dashboard does (bug sweep S2/S4)', async () => {
+      const { gridId: kept } = seedGrid(testDb.db, { name: 'Kept', columnCount: 1, rowCount: 0 })
+      const { gridId: trashed } = seedGrid(testDb.db, { name: 'Trashed', columnCount: 1, rowCount: 0 })
+      insertTask(kept, 'Kept task')
+      insertTask(null, 'No list')
+      insertTask(trashed, 'Gone task')
+      insertTask(trashed, 'Gone done', { is_completed: 1 })
+      testDb.db.prepare("UPDATE grids SET is_active = 0, deleted_at = datetime('now') WHERE id = ?").run(trashed)
+      const result = await invoke(IPC.TASK_GET_ALL) as any
+      expect(result.data.map((t: any) => t.title).sort()).toEqual(['Kept task', 'No list'])
+    })
+
     it('filters by gridId when provided', async () => {
       const { gridId: g1 } = seedGrid(testDb.db, { name: 'G1', columnCount: 1, rowCount: 0 })
       const { gridId: g2 } = seedGrid(testDb.db, { name: 'G2', columnCount: 1, rowCount: 0 })
@@ -314,6 +326,16 @@ describe('IPC Tasks', () => {
       expect(row.due_date).toBe('2030-03-12')
     })
 
+    it('a monthly task due on the 31st comes back on the 31st after February (bug sweep S2)', async () => {
+      const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
+      const t = insertTask(gridId, 'Monthly', { due_date: '2030-01-31', recurrence_rule: '{"type":"monthly","interval":1}' })
+      const id = t.lastInsertRowid as number
+      await invoke(IPC.TASK_COMPLETE, id)
+      expect((testDb.db.prepare('SELECT due_date FROM caseload_tasks WHERE id = ?').get(id) as any).due_date).toBe('2030-02-28')
+      await invoke(IPC.TASK_COMPLETE, id)
+      expect((testDb.db.prepare('SELECT due_date FROM caseload_tasks WHERE id = ?').get(id) as any).due_date).toBe('2030-03-31')
+    })
+
     it('marks complete when recurrence end_date is reached', async () => {
       const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
       const t = insertTask(gridId, 'Ending', { due_date: '2026-03-01', recurrence_rule: '{"type":"weekly","interval":1,"end_date":"2026-03-05"}' })
@@ -403,6 +425,16 @@ describe('IPC Tasks', () => {
       expect(row.title).toBe('Restored')
     })
 
+    it('puts a task back ungrouped when its group is gone, and keeps a group that is there (bug sweep S2)', async () => {
+      const g = testDb.db.prepare("INSERT INTO task_groups (name, position) VALUES ('Kept', 0)").run().lastInsertRowid as number
+      const base = { grid_id: null, title: 'Restored', description: null, priority: 'normal', category: null, due_date: null,
+        recurrence_rule: null, position: 0, is_completed: 0, completed_at: null, snoozed_until: null, created_at: '2026-03-01T00:00:00.000Z' }
+      expect((await invoke(IPC.TASK_RESTORE, { ...base, id: 9001, group_id: 424242 }) as any).ok).toBe(true)
+      expect((await invoke(IPC.TASK_RESTORE, { ...base, id: 9002, group_id: g }) as any).ok).toBe(true)
+      expect((testDb.db.prepare('SELECT group_id FROM caseload_tasks WHERE id = 9001').get() as any).group_id).toBeNull()
+      expect((testDb.db.prepare('SELECT group_id FROM caseload_tasks WHERE id = 9002').get() as any).group_id).toBe(g)
+    })
+
     it('fails if task ID already exists', async () => {
       const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
       const t = insertTask(gridId, 'Existing')
@@ -439,6 +471,32 @@ describe('IPC Tasks', () => {
     })
   })
 
+  // ── TASK_APPLY_TEMPLATE ───────────────────────────────────────────────────
+  describe('TASK_APPLY_TEMPLATE', () => {
+    function addTemplate(items: unknown[], recurringDays: number | null) {
+      return testDb.db.prepare(`INSERT INTO checklist_templates (name, items, is_recurring, recurrence_days, is_system, created_at)
+        VALUES ('Monthly', ?, ?, ?, 0, datetime('now'))`).run(JSON.stringify(items), recurringDays ? 1 : 0, recurringDays).lastInsertRowid as number
+    }
+
+    it('a template that repeats makes repeating tasks, due today (bug sweep S2)', async () => {
+      const tid = addTemplate(['Home visit', { title: 'Call', priority: 'high' }], 30)
+      const r = await invoke(IPC.TASK_APPLY_TEMPLATE, tid, null) as any
+      expect(r.ok).toBe(true)
+      const rows = testDb.db.prepare('SELECT title, priority, due_date, recurrence_rule FROM caseload_tasks ORDER BY position').all() as any[]
+      const { localDateString } = await import('../src/shared/dates')
+      expect(rows).toEqual([
+        { title: 'Home visit', priority: 'normal', due_date: localDateString(), recurrence_rule: '{"type":"daily","interval":30}' },
+        { title: 'Call', priority: 'high', due_date: localDateString(), recurrence_rule: '{"type":"daily","interval":30}' },
+      ])
+    })
+
+    it('one that does not repeat makes plain tasks, and an unknown priority becomes normal', async () => {
+      const tid = addTemplate([{ title: 'Intake', priority: 'mega' }], null)
+      await invoke(IPC.TASK_APPLY_TEMPLATE, tid, null)
+      expect(testDb.db.prepare('SELECT priority, due_date, recurrence_rule FROM caseload_tasks').get()).toEqual({ priority: 'normal', due_date: null, recurrence_rule: null })
+    })
+  })
+
   // ── TASK_UNCOMPLETE ───────────────────────────────────────────────────────
   describe('TASK_UNCOMPLETE', () => {
     it('reverts a completed task to original state', async () => {
@@ -451,6 +509,18 @@ describe('IPC Tasks', () => {
       const row = testDb.db.prepare('SELECT is_completed, due_date FROM caseload_tasks WHERE id = ?').get(id) as any
       expect(row.is_completed).toBe(0)
       expect(row.due_date).toBe('2026-03-01')
+    })
+
+    it('puts back the snooze that ticking off a repeating task cleared (bug sweep S2)', async () => {
+      const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
+      const id = insertTask(gridId, 'Weekly', { due_date: '2030-03-01', recurrence_rule: '{"type":"weekly","interval":1}' }).lastInsertRowid as number
+      testDb.db.prepare("UPDATE caseload_tasks SET snoozed_until = '2030-02-27' WHERE id = ?").run(id)
+      await invoke(IPC.TASK_COMPLETE, id)
+      expect((testDb.db.prepare('SELECT snoozed_until FROM caseload_tasks WHERE id = ?').get(id) as any).snoozed_until).toBeNull()
+      const r = await invoke(IPC.TASK_UNCOMPLETE, id, { is_completed: 0, completed_at: null, due_date: '2030-03-01', snoozed_until: '2030-02-27' }) as any
+      expect(r.ok).toBe(true)
+      expect(testDb.db.prepare('SELECT due_date, snoozed_until FROM caseload_tasks WHERE id = ?').get(id)).toEqual({ due_date: '2030-03-01', snoozed_until: '2030-02-27' })
+      expect((await invoke(IPC.TASK_UNCOMPLETE, id, { is_completed: 0, completed_at: null, due_date: null, snoozed_until: 'soon' }) as any).ok).toBe(false)
     })
 
     it('removes latest history entry', async () => {
@@ -497,6 +567,13 @@ describe('IPC Tasks', () => {
       setDbWords(testDb.db, GENERIC_VOCAB)
       const result = await invoke(IPC.SNIPPET_GET_ALL) as any
       expect(result.ok).toBe(true)
+      expect(result.data).toEqual([])
+    })
+
+    it('deleting every snippet does not bring the built-ins back', async () => {
+      await invoke(IPC.SNIPPET_GET_ALL)
+      testDb.db.prepare('DELETE FROM snippets').run()
+      const result = await invoke(IPC.SNIPPET_GET_ALL) as any
       expect(result.data).toEqual([])
     })
 

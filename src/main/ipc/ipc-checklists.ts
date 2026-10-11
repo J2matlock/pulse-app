@@ -11,7 +11,7 @@ import { getDb } from '../database'
 import type { ChecklistItem, ChecklistTemplate, ChecklistGroup } from '../../shared/types'
 import { seedChecklistTemplates } from '../templates'
 import { applyChecklistTemplate, ChecklistApplyError } from '../checklist-apply'
-import { parseRepeatRule, nextRepeatDate } from '../../shared/recurrence'
+import { parseRepeatRule, nextRepeatDate, withAnchorDay } from '../../shared/recurrence'
 import { localDateString } from '../../shared/dates'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
@@ -91,11 +91,12 @@ export function registerChecklistHandlers(): void {
           const logResult = db.prepare(`INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`).run(before.row_id, `Completed checklist item: ${before.title}`)
           sysLogId = logResult.lastInsertRowid as number
           rowIdForNotify = before.row_id
-          const rule = parseRepeatRule('recurrence_rule' in updates ? updates.recurrence_rule : before.recurrence_rule)
+          const ruleJson = 'recurrence_rule' in updates ? updates.recurrence_rule : before.recurrence_rule
+          const rule = parseRepeatRule(ruleJson)
           const due = 'due_date' in updates ? updates.due_date : before.due_date
           const next = rule ? nextRepeatDate(due, rule, localDateString()) : null
           if (next) {
-            db.prepare('UPDATE checklist_items SET is_completed = 0, completed_at = NULL, completed_by = NULL, due_date = ? WHERE id = ?').run(next, id)
+            db.prepare('UPDATE checklist_items SET is_completed = 0, completed_at = NULL, completed_by = NULL, due_date = ?, recurrence_rule = ? WHERE id = ?').run(next, withAnchorDay(ruleJson, due), id)
             repeat = { previousDue: due ?? null, nextDue: next }
           }
         } else if (wasComplete && !nowComplete) {
@@ -144,7 +145,7 @@ export function registerChecklistHandlers(): void {
              r.display_name AS client_name
       FROM checklist_items ci
       JOIN rows r ON r.id = ci.row_id AND r.is_active = 1 AND r.deleted_at IS NULL
-      JOIN grids g ON g.id = r.grid_id
+      JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
       WHERE ci.priority = 'urgent'
         AND ci.is_completed = 0
         AND ci.is_archived = 0
@@ -202,11 +203,13 @@ export function registerChecklistHandlers(): void {
     // Verify the ID doesn't collide with an existing record to prevent overwriting
     const existing = db.prepare('SELECT id FROM checklist_items WHERE id = ?').get(item.id)
     if (existing) return fail('Item with this ID already exists')
+    // Its group may have been deleted since: put it back ungrouped (bug sweep S2)
+    const groupId = item.group_id != null && db.prepare('SELECT 1 FROM checklist_groups WHERE id = ? AND row_id = ?').get(item.group_id, item.row_id) ? item.group_id : null
     db.prepare(`
       INSERT INTO checklist_items
       (id, row_id, title, description, is_completed, due_date, completed_at, completed_by, position, category, priority, is_archived, created_at, template_source_id, recurrence_rule, group_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(item.id, item.row_id, item.title, item.description ?? null, item.is_completed, item.due_date ?? null, item.completed_at ?? null, item.completed_by ?? null, item.position, item.category ?? null, item.priority, item.is_archived, item.created_at, item.template_source_id ?? null, item.recurrence_rule ?? null, item.group_id ?? null)
+    `).run(item.id, item.row_id, item.title, item.description ?? null, item.is_completed, item.due_date ?? null, item.completed_at ?? null, item.completed_by ?? null, item.position, item.category ?? null, item.priority, item.is_archived, item.created_at, item.template_source_id ?? null, item.recurrence_rule ?? null, groupId)
     return ok(true)
   })
 

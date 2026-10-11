@@ -48,7 +48,13 @@ async function addWithQuestion(rowId: number, paths: string[], opts: AddOpts) {
   })
   if (response !== 0) return first
   const again = action(() => addAttachments(rowId, d.map(x => x.path), { ...opts, allowDuplicates: true }))
-  if (!again.ok) return again
+  if (!again.ok) {
+    // The new files from the first round are saved; show them, and say so
+    const n = first.data.added.length
+    if (n === 0) return again
+    announce(rowId)
+    return fail(`${n} new file${n === 1 ? ' was' : 's were'} added, but the ones already attached weren't added again. ${again.error}`)
+  }
   return ok<AddResult>({ added: [...first.data.added, ...again.data.added], duplicates: [] })
 }
 

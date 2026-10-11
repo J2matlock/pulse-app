@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 
 import { GridLoadingSkeleton, GridEmptyColumns } from '../../../../src/renderer/components/grid/GridLoadingState'
 import { setWords } from '../../vocabFixture'
@@ -28,8 +28,20 @@ describe('GridLoadingSkeleton', () => {
 })
 
 describe('GridEmptyColumns', () => {
-  it('renders empty state message', () => {
-    render(<GridEmptyColumns />)
+  it('renders empty state message, with a way to add the first column', () => {
+    const onAddColumn = vi.fn()
+    render(<GridEmptyColumns hiddenCount={0} onShowAll={vi.fn()} onAddColumn={onAddColumn} />)
     expect(screen.getByText('No columns yet. Add a column to get started.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Add column' }))
+    expect(onAddColumn).toHaveBeenCalled()
+  })
+
+  it('says the columns are hidden, not missing, and shows them (bug sweep S1)', () => {
+    const onShowAll = vi.fn()
+    render(<GridEmptyColumns hiddenCount={4} onShowAll={onShowAll} onAddColumn={vi.fn()} />)
+    expect(screen.getByText('All 4 columns are hidden.')).toBeTruthy()
+    expect(screen.queryByText(/No columns yet/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Show columns' }))
+    expect(onShowAll).toHaveBeenCalled()
   })
 })

@@ -1,13 +1,21 @@
-import type { Column } from '../../../shared/types'
+import type { Column, GridRow } from '../../../shared/types'
 import { isNotTypedColumnType } from '../../../shared/types'
-import { parseDate } from '../../../shared/parseDate'
+import { parseDate, looksLikeBirthColumn } from '../../../shared/parseDate'
 import { columnOptionLabels } from '../../../shared/stages'
 import { cellText } from '../../../shared/cellText'
+import { computedColumnText, isComputedColumnType } from '../../utils/computedColumns'
+import { useGridStore } from '../../stores/gridStore'
+import { useAlertStore } from '../../stores/alertStore'
 
 // ── Clipboard format helper ────────────────────────────────────────────────────
 
 /** What a copied cell holds: the same text as exports (G-08); link cells copy names, not stored ids and separators */
-export function formatCellForClipboard(column: Column, value: string | null): string {
+export function formatCellForClipboard(column: Column, value: string | null, row?: GridRow): string {
+  // Age and Days-until store nothing; copy what the cell shows (bug sweep S5)
+  if (row && isComputedColumnType(column.column_type)) {
+    const { columns, hiddenColumns } = useGridStore.getState()
+    return computedColumnText(column, row, [...columns, ...hiddenColumns], useAlertStore.getState().rules)
+  }
   return cellText(column.column_type, value)
 }
 
@@ -21,7 +29,8 @@ export function validateForColumnType(value: string, column: Column): string | n
   switch (column.column_type) {
     case 'date':
       // Stored as YYYY-MM-DD, read the way Import reads dates; "March 3" (no year) is refused (G-14)
-      return parseDate(trimmed)
+      // A birth-date column reads "3/15/40" as 1940, never next decade
+      return parseDate(trimmed, 'mdy', { birth: looksLikeBirthColumn(column.name) })
     case 'number':
     case 'currency': {
       // Strip currency symbols for currency type
@@ -52,8 +61,14 @@ export function validateForColumnType(value: string, column: Column): string | n
 export function checkPaste(text: string, column: Column): { value: string } | { error: string } {
   if (isNotTypedColumnType(column.column_type)) return { error: `"${column.name}" is filled in by Pulse, so it can't be pasted into.` }
   const multiLineOk = column.column_type === 'notes' || column.column_type === 'address'
-  const body = text.replace(/\r?\n$/, '')
-  if (body.includes('\t') || (!multiLineOk && /\r?\n/.test(body))) {
+  let body = text.replace(/\r?\n$/, '')
+  // One spreadsheet cell holding a line break (or a tab or quote) arrives quoted:
+  // "line 1\nline 2", with any quotes inside doubled. It's one value, not several cells.
+  const quoted = /^"((?:[^"]|"")*)"$/.exec(body)
+  if (quoted && /[\r\n\t]|""/.test(quoted[1]!)) {
+    const inner = quoted[1]!.replace(/""/g, '"')
+    body = multiLineOk ? inner : inner.replace(/\s*\r?\n\s*/g, ' ').replace(/\t/g, ' ')
+  } else if (body.includes('\t') || (!multiLineOk && /\r?\n/.test(body))) {
     return { error: 'That looks like several cells from a spreadsheet. To bring in many records, use Import.' }
   }
   const value = validateForColumnType(body, column)

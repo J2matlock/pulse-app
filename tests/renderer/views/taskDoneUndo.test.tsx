@@ -46,10 +46,17 @@ describe('Done on a Dashboard task', () => {
     expect(useUndoStore.getState().toast?.description).toBe('Completed task "Call the landlord"')
 
     await act(async () => { await useUndoStore.getState().undo() })
-    expect(invoke).toHaveBeenCalledWith('task:uncomplete', 4, { is_completed: 0, completed_at: null, due_date: '2026-10-10' })
+    expect(invoke).toHaveBeenCalledWith('task:uncomplete', 4, { is_completed: 0, completed_at: null, due_date: '2026-10-10', snoozed_until: null })
     expect(invoke.mock.calls.some(c => c[0] === 'task:restore')).toBe(false)
     expect(onRestore).toHaveBeenCalledWith(task)
     expect(useUndoStore.getState().undoStack).toHaveLength(0)
     expect(useUndoStore.getState().redoStack).toHaveLength(1)
+  })
+
+  it('an urgent task gets the red dot, not the white one (bug sweep S2)', () => {
+    const { container, rerender } = render(<TaskRow task={{ ...task, priority: 'urgent' } as CaseloadTask} daysUntil={3} onComplete={vi.fn()} />)
+    expect(container.textContent).toContain('🔴')
+    rerender(<TaskRow task={{ ...task, priority: 'low' } as CaseloadTask} daysUntil={3} onComplete={vi.fn()} />)
+    expect(container.textContent).toContain('⚪')
   })
 })

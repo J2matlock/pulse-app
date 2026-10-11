@@ -120,4 +120,32 @@ describe('TaskItem', () => {
     const edit = screen.getByTitle('Edit (full dialog)')
     expect(edit.closest('div')!.className).toContain('group-focus-within:opacity-100')
   })
+
+  it('the Clear date button stays put when the date box loses focus to it (bug sweep S2)', () => {
+    render(<TaskItem task={makeTask({ due_date: '2027-06-15' })} {...baseProps} />)
+    fireEvent.click(screen.getByText(/Jun/))
+    const input = document.querySelector('input[type="date"]') as HTMLInputElement
+    const clear = screen.getByLabelText('Clear date')
+    // A mouse press on it doesn't take focus from the date box
+    expect(fireEvent.mouseDown(clear)).toBe(false)
+    // Tabbing to it doesn't close the editor
+    fireEvent.blur(input, { relatedTarget: clear })
+    expect(screen.getByLabelText('Clear date')).toBeDefined()
+    fireEvent.click(screen.getByLabelText('Clear date'))
+    expect(baseProps.onUpdate).toHaveBeenCalledWith({ due_date: null })
+  })
+
+  it('opening the date box and leaving without a change saves nothing (bug sweep S2)', () => {
+    render(<TaskItem task={makeTask({ due_date: '2027-06-15' })} {...baseProps} />)
+    fireEvent.click(screen.getByText(/Jun/))
+    fireEvent.blur(document.querySelector('input[type="date"]') as HTMLInputElement)
+    expect(baseProps.onUpdate).not.toHaveBeenCalled()
+    expect(document.querySelector('input[type="date"]')).toBeNull()
+  })
+
+  it('a monthly task that remembers its day still shows Monthly as chosen', () => {
+    render(<TaskItem task={makeTask({ due_date: '2027-02-28', recurrence_rule: '{"type":"monthly","interval":1,"day":31}' })} {...baseProps} />)
+    fireEvent.click(screen.getByTitle('Change recurrence'))
+    expect(screen.getByText('Monthly').className).toContain('font-semibold')
+  })
 })

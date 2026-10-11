@@ -13,6 +13,7 @@ import { logNonFatal } from './ipc/ipc-utils'
 import { word } from './vocab'
 import { hasDisplayFormat } from './display-names'
 import { cellText, deadlineText, type DateFormat } from '../shared/cellText'
+import { ageInYears, localDateString } from '../shared/dates'
 import { loadDeadlines, type DeadlineItem } from './deadlines'
 
 // jsPDF is a CJS module; use require() to avoid ESM/CJS interop issues in Electron main.
@@ -62,6 +63,8 @@ export interface CsvExportOptions {
   dateFormat?: 'iso' | 'us' | 'eu'
   /** With no columns named, include hidden ones too (Export All) */
   includeHidden?: boolean
+  /** Archived records too, with a Status column saying which (Export All) */
+  includeArchived?: boolean
 }
 
 export interface PdfProfileOptions {
@@ -198,8 +201,66 @@ export function savedDateFormat(): DateFormat {
   } catch { return 'us' }
 }
 
+/** What a Days-until cell says ("12 days", "Due today", "3 days overdue") */
+export function daysUntilText(n: number): string {
+  if (n === 0) return 'Due today'
+  const abs = Math.abs(n)
+  const days = `${abs} day${abs === 1 ? '' : 's'}`
+  return n < 0 ? `${days} overdue` : days
+}
+
+function wholeDaysFromToday(value: string): number | null {
+  const ymd = value.slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null
+  const [y, m, d] = ymd.split('-').map(Number) as [number, number, number]
+  const [ty, tm, td] = localDateString().split('-').map(Number) as [number, number, number]
+  // Calendar days in UTC, so a clock change in between doesn't lose or add an hour's day
+  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(ty, tm - 1, td)) / 86_400_000)
+}
+
+/**
+ * Age and Days-until columns store nothing: the table works them out from
+ * their source date. Exports show the same thing (bug sweep S5). Days-until
+ * counts to when the source is due when the source date has a deadline rule.
+ */
+function showComputedAsText(gridId: number, columns: Column[], rows: GridRow[]): void {
+  const computed = columns.filter(c => c.column_type === 'age_from_dob' || c.column_type === 'calculated_days')
+  if (!computed.length || !rows.length) return
+  const configOf = (config: string | null | undefined): Record<string, unknown> => {
+    try { return JSON.parse(config || '{}') as Record<string, unknown> } catch { return {} }
+  }
+  let due: Map<string, DeadlineItem> | null = null
+  for (const c of computed) {
+    const src = configOf(c.config).source_column_id
+    if (typeof src !== 'number') continue
+    const srcConfig = (getDb().prepare('SELECT config FROM columns WHERE id = ?').get(src) as { config: string | null } | undefined)?.config
+    const ruled = typeof configOf(srcConfig).alert_rule_id === 'number'
+    if (ruled && !due) {
+      due = new Map()
+      for (const d of loadDeadlines({ gridId, includeDone: true, includePaused: true })) due.set(`${d.row_id}:${d.column_id}`, d)
+    }
+    for (const row of rows) {
+      const value = (row[`col_${src}` as const] as string | null | undefined) || null
+      let text = ''
+      if (c.column_type === 'age_from_dob') {
+        const age = value ? ageInYears(value) : null
+        if (age !== null) text = `${age} yrs`
+      } else {
+        const d = ruled ? due!.get(`${row.row_id}:${src}`) : undefined
+        const n = ruled
+          ? (d && d.state !== 'done' && d.state !== 'paused' ? d.daysUntil : null)
+          : value ? wholeDaysFromToday(value) : null
+        if (n !== null && n !== undefined) text = daysUntilText(n)
+      }
+      row[`col_${c.id}` as const] = text || null
+    }
+  }
+}
+
 /** Deadline columns hold the date last done; exports show what the table shows instead (G-08) */
 export function showDeadlinesAsText(gridId: number, columns: Column[], rows: GridRow[]): void {
+  // First, while the source dates are still dates
+  showComputedAsText(gridId, columns, rows)
   const deadlineCols = columns.filter(c => c.column_type === 'deadline')
   if (!deadlineCols.length || !rows.length) return
   const results = new Map<string, DeadlineItem>()
@@ -227,8 +288,11 @@ export function pickColumns(columns: Column[], columnIds: number[], includeHidde
   return columnIds.length > 0 ? columns.filter(c => columnIds.includes(c.id)) : columns.filter(c => includeHidden || c.is_visible !== 0)
 }
 
-/** Load grid data needed for exports (includeHidden: hidden columns too, so they can be chosen) */
-export function loadGridData(gridId: number, opts: { includeHidden?: boolean } = {}): {
+/**
+ * Load grid data needed for exports (includeHidden: hidden columns too, so they
+ * can be chosen; includeArchived: archived records too, never ones in the Trash)
+ */
+export function loadGridData(gridId: number, opts: { includeHidden?: boolean; includeArchived?: boolean } = {}): {
   grid: Grid
   columns: Column[]
   rows: GridRow[]
@@ -241,7 +305,7 @@ export function loadGridData(gridId: number, opts: { includeHidden?: boolean } =
   if (columns.length === 0) return { grid, columns, rows: [] }
 
   const links = linkColumnSpecs(columns)
-  const rows = db.prepare(buildGridQuery(columns.map(c => c.id), false, links, fileCountColumnIds(columns))).all(gridId) as GridRow[]
+  const rows = db.prepare(buildGridQuery(columns.map(c => c.id), opts.includeArchived ?? false, links, fileCountColumnIds(columns))).all(gridId) as GridRow[]
   // Exports show linked records by name
   for (const l of links) {
     const key = `col_${l.columnId}` as const

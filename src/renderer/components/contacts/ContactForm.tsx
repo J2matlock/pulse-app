@@ -7,7 +7,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useContactsStore } from '../../stores/contactsStore'
 import type { Provider, AvailabilityStatus, ProviderCategory, ProviderCustomField } from '../../../shared/types'
 import { IPC } from '../../../shared/ipc-channels'
-import { safeInvoke } from '../../utils/safeInvoke'
+import { safeInvoke, ReadOnlyError } from '../../utils/safeInvoke'
 import { useVocab } from '../../hooks/useVocab'
 import { modHelp } from '../../utils/keys'
 
@@ -167,7 +167,7 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
         savedId = provider.id
       } else {
         const created = await createProvider(data)
-        savedId = created?.id
+        savedId = created.id
       }
       // Save custom field values
       if (savedId && Object.keys(customValues).length > 0) {
@@ -194,10 +194,14 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
         }
       }
       if (tagFailures > 0) toast.error(`The ${t('contact')} was saved, but some tag changes didn't save — please try again`)
+      // Tags and custom fields were saved after the store re-read the contact, so read it again.
+      const store = useContactsStore.getState()
+      if (savedId && store.selectedProviderId === savedId) await store.selectProvider(savedId)
       onSaved?.()
       onClose()
-    } catch {
-      toast.error(`We couldn't save the ${t('contact')} — please try again`)
+    } catch (err) {
+      // The form stays open with what was typed. Read-only already shows its own message.
+      if (!(err instanceof ReadOnlyError)) toast.error(`We couldn't save the ${t('contact')} — please try again`)
     } finally {
       setSaving(false)
     }

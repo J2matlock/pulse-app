@@ -105,6 +105,14 @@ describe('adding files', () => {
   })
 })
 
+describe('renaming', () => {
+  it('keeps the extension when the new name has none', () => {
+    const [a] = addAttachments(g.rowIds[0]!, [file('scan.pdf', PDF)]).added
+    expect(describeAttachment(a!.id, { fileName: 'Intake scan' }).file_name).toBe('Intake scan.pdf')
+    expect(describeAttachment(a!.id, { fileName: 'Intake scan.txt' }).file_name).toBe('Intake scan.txt')
+  })
+})
+
 describe('trash', () => {
   it('delete, restore, rename and purge', () => {
     const [a] = addAttachments(g.rowIds[0]!, [file('order.pdf', PDF)]).added

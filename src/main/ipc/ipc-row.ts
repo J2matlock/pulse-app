@@ -20,17 +20,30 @@ const ALLOWED_BULK_ACTIONS = new Set(['archive', 'unarchive', 'delete', 'restore
 
 interface ColumnMapping {
   srcColMap: Map<number, string>  // source column id → name
-  tgtMap: Map<string, number>     // lowercase target column name → target column id
+  toTarget: Map<number, number>   // source column id → the same-named target column id
 }
 
-/** Build bidirectional column-name maps between two grids. */
+/**
+ * Match columns between two lists by name (case-insensitive). Names can repeat
+ * within a list ("Phone" and "phone"), so each target column takes at most one
+ * source column, the first by position; the others count as unmatched (parked
+ * on a move, left out of a copy) instead of colliding in one cell.
+ */
 function buildColumnMapping(srcGridId: number, tgtGridId: number): ColumnMapping {
-  const srcCols = cachedStmt('row_col_map_select', 'SELECT id, name FROM columns WHERE grid_id = ?').all(srcGridId) as { id: number; name: string }[]
-  const tgtCols = cachedStmt('row_col_map_select', 'SELECT id, name FROM columns WHERE grid_id = ?').all(tgtGridId) as { id: number; name: string }[]
-  return {
-    srcColMap: new Map(srcCols.map(c => [c.id, c.name])),
-    tgtMap: new Map(tgtCols.map(c => [c.name.toLowerCase(), c.id])),
+  const select = cachedStmt('row_col_map_select_ordered', 'SELECT id, name FROM columns WHERE grid_id = ? ORDER BY position, id')
+  const srcCols = select.all(srcGridId) as { id: number; name: string }[]
+  const tgtCols = select.all(tgtGridId) as { id: number; name: string }[]
+  const byName = new Map<string, number>()
+  for (const c of tgtCols) if (!byName.has(c.name.toLowerCase())) byName.set(c.name.toLowerCase(), c.id)
+  const toTarget = new Map<number, number>()
+  const taken = new Set<number>()
+  for (const c of srcCols) {
+    const tgt = byName.get(c.name.toLowerCase())
+    if (tgt === undefined || taken.has(tgt)) continue
+    taken.add(tgt)
+    toTarget.set(c.id, tgt)
   }
+  return { srcColMap: new Map(srcCols.map(c => [c.id, c.name])), toTarget }
 }
 
 /** Copy cells from sourceRowId into targetRowId, remapping column IDs by name. */
@@ -42,9 +55,7 @@ function copyCellsToGrid(
   const srcCells = cachedStmt('row_copy_cells_select', 'SELECT column_id, value FROM cells WHERE row_id = ?').all(sourceRowId) as { column_id: number; value: string | null }[]
   const insertCell = cachedStmt('row_copy_cells_insert', "INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))")
   for (const cell of srcCells) {
-    const colName = mapping.srcColMap.get(cell.column_id)
-    if (!colName) continue
-    const tgtColId = mapping.tgtMap.get(colName.toLowerCase())
+    const tgtColId = mapping.toTarget.get(cell.column_id)
     if (tgtColId !== undefined) {
       insertCell.run(targetRowId, tgtColId, cell.value)
     }
@@ -61,7 +72,7 @@ function transferCellFormats(
   for (const f of srcFmts) {
     const colName = mapping.srcColMap.get(f.column_id)
     if (!colName) { deleteFmtStmt.run(rowId, f.column_id); continue }
-    const tgtColId = mapping.tgtMap.get(colName.toLowerCase())
+    const tgtColId = mapping.toTarget.get(f.column_id)
     if (tgtColId !== undefined) {
       try {
         const parsed = JSON.parse(f.rules) as Array<{ sourceColumnId?: number; sourceRowId?: number; originRowId?: number }>
@@ -76,11 +87,8 @@ function transferCellFormats(
         const remapped = ownRules.map(r => {
           const updated = { ...r }
           if (r.sourceColumnId != null) {
-            const srcColName = mapping.srcColMap.get(r.sourceColumnId)
-            if (srcColName) {
-              const mapped = mapping.tgtMap.get(srcColName.toLowerCase())
-              if (mapped != null) updated.sourceColumnId = mapped
-            }
+            const mapped = mapping.toTarget.get(r.sourceColumnId)
+            if (mapped != null) updated.sourceColumnId = mapped
           }
           // Keep originRowId so the panel knows this is an "all rows" rule
           updated.originRowId = rowId
@@ -131,7 +139,7 @@ function remapCellsForMove(
   const deleteCell = cachedStmt('row_remap_cell_delete', 'DELETE FROM cells WHERE id = ?')
   for (const cell of srcCells) {
     const colName = mapping.srcColMap.get(cell.column_id)
-    const tgtColId = colName === undefined ? undefined : mapping.tgtMap.get(colName.toLowerCase())
+    const tgtColId = mapping.toTarget.get(cell.column_id)
     if (tgtColId === undefined) {
       // A value for a column the target doesn't have: park it with its history (history cascades with the cell)
       if (colName !== undefined) parkCell(rowId, cell.column_id, cell.id, cell.value, true)
@@ -147,9 +155,8 @@ function remapCellsForMove(
   // Ones for a column the target doesn't have stay keyed to it, so a move back finds them.
   const follow = ['deadline_done', 'deadline_progress', 'deadline_extensions'].map(table =>
     cachedStmt(`row_remap_${table}`, `UPDATE OR REPLACE ${table} SET column_id = ? WHERE row_id = ? AND column_id = ?`))
-  for (const [srcColId, colName] of mapping.srcColMap) {
-    const tgtColId = mapping.tgtMap.get(colName.toLowerCase())
-    if (tgtColId === undefined || tgtColId === srcColId) continue
+  for (const [srcColId, tgtColId] of mapping.toTarget) {
+    if (tgtColId === srcColId) continue
     for (const stmt of follow) stmt.run(tgtColId, rowId, srcColId)
   }
 }
@@ -312,14 +319,14 @@ export function registerRowHandlers(): void {
   secureWrap(IPC.ROW_HARD_DELETE, 'ipc-row', (_e, rowId: number) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(rowId)) return fail('Invalid ID')
-    // True hard delete — restricted to recently-created rows (within 60 seconds) for undo of addRow/duplicateRow
+    // True hard delete — restricted to recently-created rows (within 60 seconds) (the link picker's undo of a record it just made)
     const db = getDb()
     const result = db.transaction(() => {
       const row = cachedStmt('row_check_recent', "SELECT created_at FROM rows WHERE id = ? AND created_at >= datetime('now', '-60 seconds')").get(rowId) as { created_at: string } | undefined
       if (!row) {
         // Either row doesn't exist or it's too old for hard delete
         const exists = cachedStmt('row_exists', "SELECT 1 FROM rows WHERE id = ?").get(rowId)
-        return exists ? fail('Hard delete only allowed for recently-created rows') : fail('Row not found')
+        return exists ? fail("That can't be undone any more.") : fail('Row not found')
       }
       cachedStmt('row_hard_delete', 'DELETE FROM rows WHERE id = ?').run(rowId)
       return ok(true)

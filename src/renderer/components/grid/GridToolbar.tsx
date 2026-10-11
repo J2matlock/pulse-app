@@ -122,6 +122,8 @@ export function GridToolbar(): React.ReactElement {
   useEffect(() => { if (formsOn && activeGridId != null) void useFormStore.getState().load(activeGridId) }, [formsOn, activeGridId])
   // "Bring in a spreadsheet" from the empty list
   useEffect(() => pulseEvents.on('grid:open-import', () => setShowImportWizard(true)), [])
+  // "Add column" from a list with no columns
+  useEffect(() => pulseEvents.on('grid:add-column', () => setShowAddColumn(true)), [])
   const [batchDocs, setBatchDocs] = useState(false)
   const selectedIds = useGridStore(s => s.selectedRowIds)
   const stagesOn = useFeature('stages')
@@ -710,7 +712,7 @@ export function GridToolbar(): React.ReactElement {
           const rule = useAlertStore.getState().rules.find(r => r.id === createdRuleId)
           // A rule that reads the done date needs a Deadline column (Decision E1)
           const toDeadline = col?.column_type === 'date' && !!rule && needsDeadlineColumn(engineRuleFrom(rule))
-          await updateColumn(colId, { config: JSON.stringify({ ...cfg, alert_rule_id: createdRuleId }), ...(toDeadline ? { column_type: 'deadline' } : {}) })
+          await updateColumn(colId, { config: JSON.stringify({ ...cfg, alert_rule_id: createdRuleId }), ...(toDeadline ? { column_type: 'deadline' } : {}) }, { skipConfirm: true })
         }} />
       )}
 

@@ -19,6 +19,7 @@ import { useGridStore } from '../../stores/gridStore'
 import { useLinkStore } from '../../stores/linkStore'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { friendlyError } from '../../utils/friendlyError'
+import { tagText } from '../../../shared/tagValue'
 
 type Value = string | number[]
 
@@ -92,7 +93,12 @@ export function FillFormDialog({ form, columns, row, onClose, onDone }: {
   const colById = useMemo(() => new Map(columns.map(c => [c.id, c])), [columns])
   const [values, setValues] = useState<Record<number, string>>(() => {
     const out: Record<number, string> = {}
-    for (const f of form.fields) if (f.kind === 'column' && row) out[f.columnId] = (row[`col_${f.columnId}`] as string | null) ?? ''
+    for (const f of form.fields) {
+      if (f.kind !== 'column' || !row) continue
+      const raw = (row[`col_${f.columnId}`] as string | null) ?? ''
+      // Tags are stored as a JSON array; the box shows "urgent, spanish"
+      out[f.columnId] = colById.get(f.columnId)?.column_type === 'tag' ? tagText(raw) : raw
+    }
     return out
   })
   const [links, setLinks] = useState<Record<number, LinkChip[]>>(() => {
@@ -220,6 +226,7 @@ export function FillFormDialog({ form, columns, row, onClose, onDone }: {
       case 'phone': return <input id={id} type="tel" className="input w-full" value={v} onChange={e => set(e.target.value)} />
       case 'email': return <input id={id} type="email" className="input w-full" value={v} onChange={e => set(e.target.value)} />
       case 'url': return <input id={id} type="url" className="input w-full" value={v} onChange={e => set(e.target.value)} />
+      case 'tag': return <input id={id} type="text" className="input w-full" value={v} onChange={e => set(e.target.value)} placeholder="Separate tags with commas" />
       case 'link': return <LinkField id={id} column={c} value={links[c.id] ?? []} onChange={nv => setLinks(s => ({ ...s, [c.id]: nv }))} />
       default: return <input id={id} type="text" className="input w-full" value={v} onChange={e => set(e.target.value)} />
     }

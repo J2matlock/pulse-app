@@ -9,7 +9,7 @@ import { getDb, cachedStmt } from '../database'
 import type { CaseloadTask, TaskGroup, Snippet } from '../../shared/types'
 import { localDateString } from '../../shared/dates'
 import { usesHumanServicesWords } from '../vocab'
-import { parseRepeatRule, nextRepeatDate } from '../../shared/recurrence'
+import { parseRepeatRule, nextRepeatDate, withAnchorDay } from '../../shared/recurrence'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_TASKS = 500
@@ -20,15 +20,17 @@ export function registerTaskHandlers(): void {
   // ── Caseload Tasks ──────────────────────────────────────────────────────────
   secureWrap(IPC.TASK_GET_ALL, 'ipc-tasks', (_e, gridId?: number) => {
     if (gridId != null && !validId(gridId)) return fail('Invalid ID')
-    const TASK_COLS = 'id, grid_id, group_id, title, description, priority, category, due_date, recurrence_rule, is_completed, completed_at, snoozed_until, position, created_at, updated_at'
+    const TASK_COLS = 'ct.id, ct.grid_id, ct.group_id, ct.title, ct.description, ct.priority, ct.category, ct.due_date, ct.recurrence_rule, ct.is_completed, ct.completed_at, ct.snoozed_until, ct.position, ct.created_at, ct.updated_at'
+    // Tasks of a list in the Trash are left out, as on the Dashboard and calendar (bug sweep S2/S4)
+    const FROM = 'FROM caseload_tasks ct LEFT JOIN grids g ON g.id = ct.grid_id WHERE (ct.grid_id IS NULL OR g.is_active = 1) AND'
     // Open tasks first, then only the most recent finished ones, so a long
     // history of finished tasks never pushes new ones off the list (audit S-14)
-    const where = gridId != null ? 'grid_id = ? AND' : ''
+    const where = gridId != null ? 'ct.grid_id = ? AND' : ''
     const args = gridId != null ? [gridId] : []
-    const open = cachedStmt(`task_open_${gridId != null ? 'grid' : 'all'}`, `SELECT ${TASK_COLS} FROM caseload_tasks WHERE ${where} is_completed = 0
-      ORDER BY position ASC, due_date ASC NULLS LAST LIMIT ${QUERY_LIMITS.TASKS_LIST}`).all(...args) as CaseloadTask[]
-    const done = cachedStmt(`task_done_${gridId != null ? 'grid' : 'all'}`, `SELECT * FROM (SELECT ${TASK_COLS} FROM caseload_tasks WHERE ${where} is_completed = 1
-      ORDER BY completed_at DESC, id DESC LIMIT ${QUERY_LIMITS.TASKS_COMPLETED}) ORDER BY position ASC`).all(...args) as CaseloadTask[]
+    const open = cachedStmt(`task_open_v2_${gridId != null ? 'grid' : 'all'}`, `SELECT ${TASK_COLS} ${FROM} ${where} ct.is_completed = 0
+      ORDER BY ct.position ASC, ct.due_date ASC NULLS LAST LIMIT ${QUERY_LIMITS.TASKS_LIST}`).all(...args) as CaseloadTask[]
+    const done = cachedStmt(`task_done_v2_${gridId != null ? 'grid' : 'all'}`, `SELECT * FROM (SELECT ${TASK_COLS} ${FROM} ${where} ct.is_completed = 1
+      ORDER BY ct.completed_at DESC, ct.id DESC LIMIT ${QUERY_LIMITS.TASKS_COMPLETED}) ORDER BY position ASC`).all(...args) as CaseloadTask[]
     return ok([...open, ...done])
   })
 
@@ -139,9 +141,9 @@ export function registerTaskHandlers(): void {
       if (next) {
         db.prepare(`
           UPDATE caseload_tasks SET is_completed = 0, completed_at = NULL,
-            snoozed_until = NULL, due_date = ?, updated_at = datetime('now')
+            snoozed_until = NULL, due_date = ?, recurrence_rule = ?, updated_at = datetime('now')
           WHERE id = ?
-        `).run(next, id)
+        `).run(next, withAnchorDay(task.recurrence_rule, task.due_date), id)
       } else {
         // Doesn't repeat, or the repeats have ended
         db.prepare(`
@@ -194,21 +196,26 @@ export function registerTaskHandlers(): void {
     // Verify the ID doesn't collide with an existing record to prevent overwriting
     const existing = db.prepare('SELECT id FROM caseload_tasks WHERE id = ?').get(task.id)
     if (existing) return fail('Task with this ID already exists')
+    // Its group may have been deleted (and brought back under a new id) since:
+    // put it back ungrouped rather than under a group that isn't there (bug sweep S2)
+    const groupId = task.group_id != null && db.prepare('SELECT 1 FROM task_groups WHERE id = ?').get(task.group_id) ? task.group_id : null
     db.prepare(`
       INSERT INTO caseload_tasks
       (id, grid_id, group_id, title, description, priority, category, due_date, recurrence_rule, position, is_completed, completed_at, snoozed_until, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-    `).run(task.id, task.grid_id ?? null, task.group_id ?? null, task.title, task.description ?? null, task.priority, task.category ?? null, task.due_date ?? null, task.recurrence_rule ?? null, task.position, task.is_completed, task.completed_at ?? null, task.snoozed_until ?? null, task.created_at)
+    `).run(task.id, task.grid_id ?? null, groupId, task.title, task.description ?? null, task.priority, task.category ?? null, task.due_date ?? null, task.recurrence_rule ?? null, task.position, task.is_completed, task.completed_at ?? null, task.snoozed_until ?? null, task.created_at)
     return ok(true)
   })
 
-  secureWrap(IPC.TASK_UNCOMPLETE, 'ipc-tasks', (_e, id: number, original: { is_completed: number; completed_at: string | null; due_date: string | null }) => {
+  secureWrap(IPC.TASK_UNCOMPLETE, 'ipc-tasks', (_e, id: number, original: { is_completed: number; completed_at: string | null; due_date: string | null; snoozed_until?: string | null }) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(id)) return fail('Invalid ID')
     if (!original || typeof original !== 'object') return fail('Invalid original state')
     if (original.is_completed !== 0 && original.is_completed !== 1) return fail('is_completed must be 0 or 1')
     if (original.completed_at !== null && (typeof original.completed_at !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(original.completed_at))) return fail('Invalid completed_at date format')
     if (original.due_date !== null && (typeof original.due_date !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(original.due_date))) return fail('Invalid due_date date format')
+    const snooze = original.snoozed_until
+    if (snooze != null && (typeof snooze !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(snooze))) return fail('Invalid snoozed_until date format')
     const db = getDb()
     db.transaction(() => {
       // Remove the most recent history entry created by the completion
@@ -220,6 +227,8 @@ export function registerTaskHandlers(): void {
       db.prepare(`
         UPDATE caseload_tasks SET is_completed = ?, completed_at = ?, due_date = ?, updated_at = datetime('now') WHERE id = ?
       `).run(original.is_completed, original.completed_at ?? null, original.due_date ?? null, id)
+      // Ticking off a snoozed repeating task clears the snooze; undo puts it back (bug sweep S2)
+      if (snooze !== undefined) db.prepare('UPDATE caseload_tasks SET snoozed_until = ? WHERE id = ?').run(snooze ?? null, id)
     })()
     return ok(true)
   })
@@ -295,7 +304,7 @@ export function registerTaskHandlers(): void {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(templateId)) return fail('Invalid template ID')
     const db = getDb()
-    const template = db.prepare('SELECT * FROM checklist_templates WHERE id = ?').get(templateId) as { id: number; name: string; items: string } | undefined
+    const template = db.prepare('SELECT * FROM checklist_templates WHERE id = ?').get(templateId) as { id: number; name: string; items: string; is_recurring: number | null; recurrence_days: number | null } | undefined
     if (!template) return fail('Template not found')
 
     let templateItems: Array<string | { title: string; category?: string; priority?: string }>
@@ -307,19 +316,24 @@ export function registerTaskHandlers(): void {
     const resolvedGroupId = groupId ?? null
     const maxPos = (db.prepare('SELECT COALESCE(MAX(position), -1) as m FROM caseload_tasks WHERE group_id IS ?').get(resolvedGroupId) as { m: number }).m
     const createdIds: number[] = []
+    // A repeating template ("every 30 days") makes repeating tasks, as it makes
+    // repeating items on a record page. A repeating task needs a due date, so they start today (bug sweep S2)
+    const days = template.is_recurring && template.recurrence_days && template.recurrence_days > 0 ? Math.min(Math.round(template.recurrence_days), 999) : null
+    const rule = days ? JSON.stringify({ type: 'daily', interval: days }) : null
+    const due = rule ? localDateString() : null
 
     db.transaction(() => {
       const insert = db.prepare(`
-        INSERT INTO caseload_tasks (title, group_id, priority, category, position, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        INSERT INTO caseload_tasks (title, group_id, priority, category, due_date, recurrence_rule, position, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
       `)
       for (let i = 0; i < templateItems.length; i++) {
         const item = templateItems[i]!
         const title = typeof item === 'string' ? item : item.title
-        const priority = typeof item === 'object' && item.priority ? item.priority : 'normal'
+        const priority = typeof item === 'object' && item.priority && ALLOWED_PRIORITIES.has(item.priority) ? item.priority : 'normal'
         const category = typeof item === 'object' && item.category ? item.category : null
         if (!title || typeof title !== 'string') continue
-        const result = insert.run(title, resolvedGroupId, priority, category, maxPos + 1 + i)
+        const result = insert.run(title.slice(0, 500), resolvedGroupId, priority, category, due, rule, maxPos + 1 + i)
         createdIds.push(Number(result.lastInsertRowid))
       }
     })()
@@ -330,9 +344,12 @@ export function registerTaskHandlers(): void {
   // ── Snippets ────────────────────────────────────────────────────────────────
   secureWrap(IPC.SNIPPET_GET_ALL, 'ipc-tasks', () => {
     const db = getDb()
-    // Lazy-seed pre-built snippets on first load (they're written for human services)
+    // Lazy-seed pre-built snippets once (they're written for human services). The flag
+    // stops them coming back after someone deletes every snippet to start fresh.
     const count = (db.prepare('SELECT COUNT(*) as n FROM snippets').get() as { n: number }).n
-    if (count === 0 && usesHumanServicesWords()) {
+    const seeded = db.prepare("SELECT 1 FROM app_meta WHERE key = 'snippets_seeded'").get()
+    if (count > 0 && !seeded) db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('snippets_seeded', '1')").run()
+    if (count === 0 && !seeded && usesHumanServicesWords()) {
       const insert = db.prepare(`
         INSERT OR IGNORE INTO snippets (trigger_text, expansion, category, created_at)
         VALUES (?, ?, ?, datetime('now'))
@@ -352,6 +369,7 @@ export function registerTaskHandlers(): void {
         insert.run('tc',   'Telephone contact with {client_name} on {today} at {now}.', 'Phone')
       })
       seedAll()
+      db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('snippets_seeded', '1')").run()
     }
     const snippets = db.prepare('SELECT * FROM snippets ORDER BY category ASC, trigger_text ASC').all() as Snippet[]
     return ok(snippets)

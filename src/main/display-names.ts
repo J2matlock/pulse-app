@@ -33,6 +33,11 @@ const DEFAULT_NAME_UPDATE = `
      LIMIT 1),
     '${UNNAMED}')`
 
+/** Whether a column by this name is the "last name" the default name adds (same names as the SQL above) */
+export function isLastNameColumnName(name: string): boolean {
+  return ['last', 'last name', 'lastname', 'surname', 'family name', 'lname'].includes(name.trim().toLowerCase())
+}
+
 interface FormatInfo {
   format: string
   /** Lower-cased column name → column id, for the columns the format names */

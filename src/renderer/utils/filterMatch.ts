@@ -8,6 +8,13 @@ import { ROW_TAG_COLUMN_ID, ANY_DEADLINE_COLUMN_ID, takesDeadlineRule } from '..
 import { evaluateRuleForRow } from './deadlineCalc'
 import { linkValueText, parseLinkValue } from '../../shared/links'
 import { localDateString } from '../../shared/dates'
+import { computedColumnNumber, isComputedColumnType } from './computedColumns'
+
+/** A typed amount as a number: "$1,200.50" is 1200.5, the way paste reads it; NaN when it isn't one */
+function amount(text: string): number {
+  const cleaned = text.replace(/[$,\s]/g, '')
+  return cleaned === '' ? NaN : Number(cleaned)
+}
 
 /** A date filter value meaning "the day it's checked", so a saved "in the past" never freezes (G-40) */
 export const TODAY_TOKEN = '@today'
@@ -75,13 +82,22 @@ export function matchFilter(
   if (col?.column_type === 'link' && filter.operator === 'links_to') {
     return parseLinkValue(stored).some(c => String(c.rowId) === filter.value)
   }
-  const originalVal = col?.column_type === 'link' ? (linkValueText(stored) || null) : stored
+  // Age and Days-until store nothing: compare the number the cell shows
+  const computed = col && isComputedColumnType(col.column_type) ? computedColumnNumber(col, row, columns, rules) : undefined
+  const originalVal = computed !== undefined ? (computed === null ? null : String(computed))
+    : col?.column_type === 'link' ? (linkValueText(stored) || null) : stored
   const rawVal = originalVal ?? ''
   // Normalize checkbox: 'true' or '1' → 'true', everything else → 'false'
   const cellVal = col?.column_type === 'checkbox'
     ? ((rawVal === 'true' || rawVal === '1') ? 'true' : 'false')
     : rawVal
   const v = filter.value === TODAY_TOKEN ? localDateString() : filter.value
+  // Numbers compare as numbers: "1,000" is a thousand, "$100" a hundred, 1200.5 equals "1200.50"
+  const numeric = col?.column_type === 'number' || col?.column_type === 'currency' || computed !== undefined
+  if (numeric && (filter.operator === 'equals' || filter.operator === 'not_equals')) {
+    const n = amount(cellVal), m = amount(v)
+    if (!isNaN(n) && !isNaN(m)) return filter.operator === 'equals' ? n === m : n !== m
+  }
   switch (filter.operator) {
     case 'is_empty':      return originalVal == null || originalVal === ''
     case 'is_not_empty':  return originalVal != null && originalVal !== ''
@@ -92,11 +108,11 @@ export function matchFilter(
     case 'starts_with':   return cellVal.toLowerCase().startsWith(v.toLowerCase())
     case 'ends_with':     return cellVal.toLowerCase().endsWith(v.toLowerCase())
     case 'gt': {
-      const n = parseFloat(cellVal), m = parseFloat(v)
+      const n = amount(cellVal), m = amount(v)
       return !isNaN(n) && !isNaN(m) && n > m
     }
     case 'lt': {
-      const n = parseFloat(cellVal), m = parseFloat(v)
+      const n = amount(cellVal), m = amount(v)
       return !isNaN(n) && !isNaN(m) && n < m
     }
     case 'before': {

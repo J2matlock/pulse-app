@@ -152,13 +152,14 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
     setExportDone(false)
     setError(null)
     try {
-      const res = await safeInvoke<string>(IPC.CONTACTS_EXPORT_VCF, null)
+      const res = await safeInvoke<string | null>(IPC.CONTACTS_EXPORT_VCF, null)
       if (!res.ok) {
         setError(res.error ?? 'Export failed. Please try again.')
         setExporting(false)
         return
       }
-      setExportDone(true)
+      // null means the Save dialog was cancelled: nothing was saved.
+      if (res.data) setExportDone(true)
     } catch (err: unknown) {
       rlog.error('ContactImportExport', 'Contact export failed', err)
       setError('An unexpected error occurred during export.')

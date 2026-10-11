@@ -1,12 +1,19 @@
 /**
  * Repeating tasks and checklist items: the next due date when one is ticked
  * off. Both store the rule as JSON, {"type":"weekly","interval":2,"end_date":"2027-01-31"}.
- * Dates are local calendar dates ('YYYY-MM-DD').
+ * Dates are local calendar dates ('YYYY-MM-DD'). Monthly and yearly rules
+ * may also carry `day`, the day of the month they're meant to fall on.
  */
 import { toYmd, ymdToDate, dateToYmd } from './ymd'
 
 export type RepeatType = 'daily' | 'weekly' | 'monthly' | 'yearly'
-export interface RepeatRule { type: RepeatType; interval: number; end_date?: string }
+/**
+ * `day` is the day of the month a monthly or yearly repeat is meant to fall
+ * on. A task due on the 31st comes back on Feb 28, and without it the next
+ * one would be Mar 28 and the 28th for good. It's written when the item is
+ * ticked off (see withAnchorDay).
+ */
+export interface RepeatRule { type: RepeatType; interval: number; end_date?: string; day?: number }
 
 const TYPES = new Set<string>(['daily', 'weekly', 'monthly', 'yearly'])
 
@@ -14,12 +21,30 @@ const TYPES = new Set<string>(['daily', 'weekly', 'monthly', 'yearly'])
 export function parseRepeatRule(json: string | null | undefined): RepeatRule | null {
   if (!json) return null
   try {
-    const r = JSON.parse(json) as { type?: unknown; interval?: unknown; end_date?: unknown }
+    const r = JSON.parse(json) as { type?: unknown; interval?: unknown; end_date?: unknown; day?: unknown }
     if (typeof r.type !== 'string' || !TYPES.has(r.type)) return null
     const interval = typeof r.interval === 'number' && Number.isInteger(r.interval) && r.interval > 0 ? Math.min(r.interval, 999) : 1
     const end = typeof r.end_date === 'string' ? toYmd(r.end_date) : null
-    return { type: r.type as RepeatType, interval, ...(end ? { end_date: end } : {}) }
+    const day = typeof r.day === 'number' && Number.isInteger(r.day) && r.day >= 1 && r.day <= 31 ? r.day : null
+    return { type: r.type as RepeatType, interval, ...(end ? { end_date: end } : {}), ...(day ? { day } : {}) }
   } catch { return null }
+}
+
+function lastDayOfMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate()
+}
+
+/**
+ * The day of the month a monthly or yearly repeat falls on, counted from
+ * `date`. The rule's `day` only counts when `date` is the last day of a
+ * month shorter than it (Feb 28 standing in for the 31st). A date moved by
+ * hand to the middle of a month uses its own day.
+ */
+export function anchorDay(date: string, rule: RepeatRule): number {
+  const d = ymdToDate(date)
+  const own = d.getDate()
+  if (rule.day && rule.day > own && own === lastDayOfMonth(d.getFullYear(), d.getMonth())) return rule.day
+  return own
 }
 
 /** A date moved on by `steps` repeats; the 31st lands on the last day of shorter months */
@@ -30,8 +55,27 @@ export function addRepeats(date: string, rule: RepeatRule, steps = 1): string {
   if (rule.type === 'weekly') return dateToYmd(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n * 7))
   const months = rule.type === 'monthly' ? n : n * 12
   const target = new Date(d.getFullYear(), d.getMonth() + months, 1)
-  const last = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate()
-  return dateToYmd(new Date(target.getFullYear(), target.getMonth(), Math.min(d.getDate(), last)))
+  const last = lastDayOfMonth(target.getFullYear(), target.getMonth())
+  return dateToYmd(new Date(target.getFullYear(), target.getMonth(), Math.min(anchorDay(date, rule), last)))
+}
+
+/**
+ * The stored rule JSON with the day of the month it's meant to fall on,
+ * worked out from the due date being ticked off. Saved with the next due
+ * date, so a repeat that had to land on a shorter month's last day goes back
+ * to the 31st (or the 29th, or the 30th) after it. Other rules, and rules
+ * without a due date, come back as they were.
+ */
+export function withAnchorDay(json: string | null | undefined, due: string | null | undefined): string | null {
+  if (!json) return json ?? null
+  const rule = parseRepeatRule(json)
+  const from = toYmd(due)
+  if (!rule || !from || (rule.type !== 'monthly' && rule.type !== 'yearly')) return json
+  const day = anchorDay(from, rule)
+  if (rule.day === day) return json
+  try {
+    return JSON.stringify({ ...(JSON.parse(json) as Record<string, unknown>), day })
+  } catch { return json }
 }
 
 /**

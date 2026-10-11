@@ -47,6 +47,9 @@ const OPS_FOR_TYPE: Record<string, FilterOperator[]> = {
   url:      ['contains', 'not_contains', 'is_empty', 'is_not_empty'],
   number:   ['equals', 'not_equals', 'gt', 'lt', 'is_empty', 'is_not_empty'],
   currency: ['equals', 'not_equals', 'gt', 'lt', 'is_empty', 'is_not_empty'],
+  // Worked out from a date: compared as the number the cell shows
+  age_from_dob:    ['gt', 'lt', 'equals', 'not_equals', 'is_empty', 'is_not_empty'],
+  calculated_days: ['lt', 'gt', 'equals', 'not_equals', 'is_empty', 'is_not_empty'],
   date:     ['equals', 'before', 'after', 'is_empty', 'is_not_empty'],
   checkbox: ['equals', 'not_equals'],
   dropdown: ['equals', 'not_equals', 'is_empty', 'is_not_empty'],
@@ -129,6 +132,14 @@ const PRESETS_BY_TYPE: Record<string, FilterPreset[]> = {
     { label: 'Greater than\u2026', op: 'gt' },
     { label: 'Is empty', op: 'is_empty' },
   ],
+  age_from_dob: [
+    { label: 'Greater than\u2026', op: 'gt' },
+    { label: 'Less than\u2026', op: 'lt' },
+  ],
+  calculated_days: [
+    { label: 'Less than\u2026', op: 'lt' },
+    { label: 'Is empty', op: 'is_empty' },
+  ],
   dropdown: [
     { label: 'Is empty', op: 'is_empty' },
   ],
@@ -174,6 +185,7 @@ function LinkFilterValue({ id, columnId, rows, value, onChange }: { id: string; 
 
 export function FilterBar(): React.ReactElement | null {
   const rows = useGridStore(s => s.rows)
+  const hiddenColumns = useGridStore(s => s.hiddenColumns)
   const { activeFilters, filterMode, columns, savedFilters, activeGridId } = useGridStore(useShallow(s => ({
     activeFilters: s.activeFilters, filterMode: s.filterMode,
     columns: s.columns, savedFilters: s.savedFilters, activeGridId: s.activeGridId,
@@ -255,7 +267,8 @@ export function FilterBar(): React.ReactElement | null {
             </Tooltip>
           )}
           {activeFilters.map((f, i) => {
-            const col = f.columnId === ROW_TAG_COLUMN_ID ? null : columns.find(c => c.id === f.columnId)
+            // A saved view often hides the column it filters on
+            const col = f.columnId === ROW_TAG_COLUMN_ID ? null : (columns.find(c => c.id === f.columnId) ?? hiddenColumns.find(c => c.id === f.columnId))
             return (
               <span
                 key={i}

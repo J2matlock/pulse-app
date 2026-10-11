@@ -330,14 +330,18 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
   const setFocusModeOpen = useSettingsStore(s => s.setFocusModeOpen)
   const tasks = useTaskStore(s => s.tasks)
 
-  // Count tasks due today or late
+  // Count tasks due today or late, leaving out snoozed ones and those of a
+  // list in the Trash, as the Tasks page and Dashboard do (bug sweep S2/S5)
   const todayDueCount = useMemo(() => {
     if (tasks.length === 0) return 0
     const today = localDateString()
+    const listIds = gridListLoaded ? new Set(grids.map(g => g.id)) : null
     return tasks.filter(t =>
       !t.is_completed && t.due_date && t.due_date.slice(0, 10) <= today
+      && !(t.snoozed_until && t.snoozed_until > today)
+      && (t.grid_id == null || !listIds || listIds.has(t.grid_id))
     ).length
-  }, [tasks])
+  }, [tasks, grids, gridListLoaded])
 
   // Load tasks once at startup so the badge shows before Tasks is visited (N-24)
   useEffect(() => {
