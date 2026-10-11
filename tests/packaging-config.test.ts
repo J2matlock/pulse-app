@@ -14,6 +14,18 @@ describe('macOS entitlements', () => {
   })
 })
 
+describe('app.asar contents', () => {
+  // AUDIT-187: source maps and the SQLite C sources aren't needed at runtime
+  it('leaves out node_modules source maps and the native module sources', () => {
+    const files = JSON.parse(read('package.json')).build.files as string[]
+    expect(files).toContain('!**/node_modules/**/*.map')
+    expect(files).toContain('!**/node_modules/better-sqlite3-multiple-ciphers/{deps,src}${/*}')
+    // The compiled module itself must still ship (and be unpacked from the asar)
+    expect(files.some(f => f.includes('build') && f.startsWith('!'))).toBe(false)
+    expect(JSON.parse(read('package.json')).build.asarUnpack).toContain('**/*.node')
+  })
+})
+
 describe('Windows launcher', () => {
   // AUDIT-091: a version change used to force-kill Pulse, losing edits still being typed
   it('asks Pulse to close before forcing it', () => {
