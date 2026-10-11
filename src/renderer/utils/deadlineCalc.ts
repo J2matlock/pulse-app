@@ -82,6 +82,8 @@ export function evaluateRuleForRow(rule: ParsedAlertRule, columnValue: string | 
 export function formatResultTooltip(res: DeadlineResult): string {
   if (!res.due || res.daysUntil === null) return ''
   const formatted = ymdToDate(res.due).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  // Late now, whatever the end date: say so, like the chip ("All 12 used"), not "Due today"
+  if (isUsedUp(res)) return `${res.label ?? 'All used'} · ends ${formatted}`
   const d = res.daysUntil
   if (d < 0) return `Deadline: ${formatted} · ${-d} day${d === -1 ? '' : 's'} overdue`
   if (d === 0) return `Deadline: ${formatted} · Due today`

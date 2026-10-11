@@ -88,6 +88,10 @@ describe('profile PDF', () => {
     expect(deadlineSummary({ due: '2026-10-20', state: 'ok', daysUntil: 1, estimated: true, label: 'Step 2', extended: { from: '2026-10-10', reason: 'Client in hospital' } }))
       .toBe('Next due Oct 20, 2026 (estimated)  ·  Due tomorrow  ·  Step 2  ·  Extended from Oct 10, 2026: Client in hospital')
   })
+
+  it('says a used-up allowance is used up, not "OVERDUE by 0 days"', () => {
+    expect(deadlineSummary({ due: '2026-12-31', state: 'overdue', daysUntil: 0, estimated: false, label: 'All 12 used' })).toBe('All 12 used  ·  ends Dec 31, 2026')
+  })
 })
 
 describe('handoff packet', () => {

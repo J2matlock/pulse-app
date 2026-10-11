@@ -73,7 +73,8 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
 
   // "IFSP meeting (step 1 of 4)" → "IFSP meeting"
   const stepName = ruleKind === 'sequence' && deadline.label ? deadline.label.replace(/ \((step|repeat) [^)]*\)$/, '') : null
-  const tooltip = deadline.detail && ruleKind !== 'interval' ? deadline.detail : formatDeadlineTooltip(dateValue, ruleInterval, daysUntil)
+  // The engine's own words, for every kind: they include a working-day move and an extension
+  const tooltip = deadline.detail || formatDeadlineTooltip(dateValue, ruleInterval, daysUntil)
 
   async function markDone(reading?: number, doneOn?: string, oneOff?: OneOffChoice) {
     setMarking(true)
