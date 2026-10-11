@@ -406,6 +406,19 @@ export function DataGrid(): React.ReactElement {
     updateColumn(colId, { width: newWidth })
   }, [updateColumn])
 
+  // Wider, Narrower and Fit from a column's menu, so widths change without a mouse (AUDIT-150)
+  useEffect(() => pulseEvents.on('column:resize', ({ columnId, change }) => {
+    if (change === 'fit') { autoFitColumn(columnId); return }
+    const col = useGridStore.getState().columns.find(c => c.id === columnId)
+    if (!col) return
+    const key = `col_${columnId}`
+    handleColumnSizingChange((prev: ColumnSizingState) => {
+      const cur = prev[key] ?? col.width
+      const next = Math.min(800, Math.max(MIN_COL_WIDTH, cur + (change === 'wider' ? 40 : -40)))
+      return { ...prev, [key]: next }
+    })
+  }), [autoFitColumn, handleColumnSizingChange])
+
   // Links changed somewhere (W04): refresh just the link columns
   useEffect(() => window.api.on(IPC.RECORD_LINKS_CHANGED, () => { void useGridStore.getState().refreshLinkValues() }), [])
 

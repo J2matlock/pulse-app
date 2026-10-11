@@ -190,6 +190,7 @@ import { useSettingsStore } from '../../../../src/renderer/stores/settingsStore'
 import { useAlertStore } from '../../../../src/renderer/stores/alertStore'
 import { useProfileStore } from '../../../../src/renderer/stores/profileStore'
 import { DataGrid } from '../../../../src/renderer/components/grid/DataGrid'
+import { pulseEvents } from '../../../../src/renderer/events'
 import { setWords } from '../../vocabFixture'
 
 // ── Test data helpers ─────────────────────────────────────────────────────────
@@ -931,6 +932,17 @@ describe('DataGrid', () => {
         runOnly: { type: 'rule', values: ['aria-required-children', 'aria-required-parent', 'aria-allowed-attr', 'aria-valid-attr-value', 'button-name', 'aria-prohibited-attr'] },
       })
       expect(result.violations.map(v => `${v.id}: ${v.nodes.map(n => n.target.join(' ')).join(', ')}`)).toEqual([])
+    })
+
+    it('a column menu\'s Wider and Narrower change the width, within limits (AUDIT-150)', async () => {
+      const { container } = renderDataGrid()
+      await flushEffects()
+      const width = () => (container.querySelector('[style*="--cw-1"]') as HTMLElement).style.getPropertyValue('--cw-1')
+      expect(width()).toBe('150px')
+      act(() => { pulseEvents.emit('column:resize', { columnId: 1, change: 'wider' }) })
+      expect(width()).toBe('190px')
+      act(() => { for (let i = 0; i < 5; i++) pulseEvents.emit('column:resize', { columnId: 1, change: 'narrower' }) })
+      expect(width()).toBe('60px')
     })
 
     it('each row has profile navigation button', async () => {

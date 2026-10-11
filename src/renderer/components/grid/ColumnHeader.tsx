@@ -407,6 +407,19 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                   Move right
                 </button>
               )}
+              {/* Width without dragging (AUDIT-150): the menu stays open, so it can be pressed again */}
+              <div className="flex items-center gap-1 px-3 py-1 text-base text-slate-700 dark:text-slate-300" role="group" aria-label="Column width">
+                <span className="flex-1" aria-hidden="true">Width</span>
+                <button type="button" className="hit-44 min-w-11 min-h-11 px-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold"
+                  aria-label="Narrower" title="Narrower"
+                  onClick={() => pulseEvents.emit('column:resize', { columnId: column.id, change: 'narrower' })}>−</button>
+                <button type="button" className="hit-44 min-h-11 px-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                  aria-label="Fit to content" title="Fit to content"
+                  onClick={() => pulseEvents.emit('column:resize', { columnId: column.id, change: 'fit' })}>Fit</button>
+                <button type="button" className="hit-44 min-w-11 min-h-11 px-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold"
+                  aria-label="Wider" title="Wider"
+                  onClick={() => pulseEvents.emit('column:resize', { columnId: column.id, change: 'wider' })}>+</button>
+              </div>
               <button
                 className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-left"
                 onClick={() => {
