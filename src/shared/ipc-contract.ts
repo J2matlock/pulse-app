@@ -252,7 +252,7 @@ export interface IPCContract {
   // ── Case Log ────────────────────────────────────────────────────────────
   'case-log:get':                 { args: [rowId: number, includeSystem?: boolean, includeVoided?: boolean, limit?: number, offset?: number, opts?: CaseLogQuery]; return: CaseLogEntry[] }
   'case-log:count':               { args: [rowId: number, includeSystem?: boolean, includeVoided?: boolean, opts?: CaseLogQuery]; return: number }
-  'case-log:create':              { args: [rowId: number, content: string, logType: string, followUpDate: string | null, measures?: { minutes?: number | null; miles?: number | null; extra?: Record<string, number | null> | null }]; return: CaseLogEntry }
+  'case-log:create':              { args: [rowId: number, content: string, logType: string, followUpDate: string | null, measures?: { minutes?: number | null; miles?: number | null; extra?: Record<string, number | null> | null }, occurredOn?: string | null]; return: CaseLogEntry }
   'case-log:update':              { args: [id: number, content: string];                     return: true }
   'case-log:delete':              { args: [id: number];                                      return: true }
   'case-log:toggle-pin':          { args: [id: number, pinned: boolean];                     return: true }
