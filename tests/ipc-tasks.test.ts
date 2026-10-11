@@ -471,6 +471,32 @@ describe('IPC Tasks', () => {
     })
   })
 
+  // ── TASK_APPLY_TEMPLATE ───────────────────────────────────────────────────
+  describe('TASK_APPLY_TEMPLATE', () => {
+    function addTemplate(items: unknown[], recurringDays: number | null) {
+      return testDb.db.prepare(`INSERT INTO checklist_templates (name, items, is_recurring, recurrence_days, is_system, created_at)
+        VALUES ('Monthly', ?, ?, ?, 0, datetime('now'))`).run(JSON.stringify(items), recurringDays ? 1 : 0, recurringDays).lastInsertRowid as number
+    }
+
+    it('a template that repeats makes repeating tasks, due today (bug sweep S2)', async () => {
+      const tid = addTemplate(['Home visit', { title: 'Call', priority: 'high' }], 30)
+      const r = await invoke(IPC.TASK_APPLY_TEMPLATE, tid, null) as any
+      expect(r.ok).toBe(true)
+      const rows = testDb.db.prepare('SELECT title, priority, due_date, recurrence_rule FROM caseload_tasks ORDER BY position').all() as any[]
+      const { localDateString } = await import('../src/shared/dates')
+      expect(rows).toEqual([
+        { title: 'Home visit', priority: 'normal', due_date: localDateString(), recurrence_rule: '{"type":"daily","interval":30}' },
+        { title: 'Call', priority: 'high', due_date: localDateString(), recurrence_rule: '{"type":"daily","interval":30}' },
+      ])
+    })
+
+    it('one that does not repeat makes plain tasks, and an unknown priority becomes normal', async () => {
+      const tid = addTemplate([{ title: 'Intake', priority: 'mega' }], null)
+      await invoke(IPC.TASK_APPLY_TEMPLATE, tid, null)
+      expect(testDb.db.prepare('SELECT priority, due_date, recurrence_rule FROM caseload_tasks').get()).toEqual({ priority: 'normal', due_date: null, recurrence_rule: null })
+    })
+  })
+
   // ── TASK_UNCOMPLETE ───────────────────────────────────────────────────────
   describe('TASK_UNCOMPLETE', () => {
     it('reverts a completed task to original state', async () => {

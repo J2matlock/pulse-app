@@ -304,7 +304,7 @@ export function registerTaskHandlers(): void {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(templateId)) return fail('Invalid template ID')
     const db = getDb()
-    const template = db.prepare('SELECT * FROM checklist_templates WHERE id = ?').get(templateId) as { id: number; name: string; items: string } | undefined
+    const template = db.prepare('SELECT * FROM checklist_templates WHERE id = ?').get(templateId) as { id: number; name: string; items: string; is_recurring: number | null; recurrence_days: number | null } | undefined
     if (!template) return fail('Template not found')
 
     let templateItems: Array<string | { title: string; category?: string; priority?: string }>
@@ -316,19 +316,24 @@ export function registerTaskHandlers(): void {
     const resolvedGroupId = groupId ?? null
     const maxPos = (db.prepare('SELECT COALESCE(MAX(position), -1) as m FROM caseload_tasks WHERE group_id IS ?').get(resolvedGroupId) as { m: number }).m
     const createdIds: number[] = []
+    // A repeating template ("every 30 days") makes repeating tasks, as it makes
+    // repeating items on a record page. A repeating task needs a due date, so they start today (bug sweep S2)
+    const days = template.is_recurring && template.recurrence_days && template.recurrence_days > 0 ? Math.min(Math.round(template.recurrence_days), 999) : null
+    const rule = days ? JSON.stringify({ type: 'daily', interval: days }) : null
+    const due = rule ? localDateString() : null
 
     db.transaction(() => {
       const insert = db.prepare(`
-        INSERT INTO caseload_tasks (title, group_id, priority, category, position, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        INSERT INTO caseload_tasks (title, group_id, priority, category, due_date, recurrence_rule, position, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
       `)
       for (let i = 0; i < templateItems.length; i++) {
         const item = templateItems[i]!
         const title = typeof item === 'string' ? item : item.title
-        const priority = typeof item === 'object' && item.priority ? item.priority : 'normal'
+        const priority = typeof item === 'object' && item.priority && ALLOWED_PRIORITIES.has(item.priority) ? item.priority : 'normal'
         const category = typeof item === 'object' && item.category ? item.category : null
         if (!title || typeof title !== 'string') continue
-        const result = insert.run(title, resolvedGroupId, priority, category, maxPos + 1 + i)
+        const result = insert.run(title.slice(0, 500), resolvedGroupId, priority, category, due, rule, maxPos + 1 + i)
         createdIds.push(Number(result.lastInsertRowid))
       }
     })()
