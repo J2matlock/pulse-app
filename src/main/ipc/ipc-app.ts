@@ -12,11 +12,8 @@ import { logger } from '../logger'
 import { secureWrap, logNonFatal, ok, fail, rememberUserChosenPaths } from './ipc-utils'
 import { resolveDatabasePath, closeDatabase, getDb, getPortableDataDir, getMigrationFailure, clearMigrationFailureFlag } from '../database'
 import { verifyAndUnlock, lockApp } from '../auth'
-<<<<<<< HEAD
 import { stopScheduledBackup } from '../index'
-=======
 import { isLicenseDoc, licenseFilePath } from '../license-files'
->>>>>>> fix/b9-packaging
 
 /** Returns true if `remote` is a higher semver than `current` (X.Y.Z format). */
 function isNewerVersion(remote: string, current: string): boolean {
