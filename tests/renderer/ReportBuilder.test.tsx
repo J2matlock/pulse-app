@@ -22,6 +22,7 @@ const invoke = vi.fn(async (channel: string, ...args: unknown[]) => {
   if (channel === 'reports:run') return { ok: true, data: result }
   if (channel === 'reports:run-saved') return { ok: true, data: { report: saved, result } }
   if (channel === 'reports:list') return { ok: true, data: [saved] }
+  if (channel === 'grid:get-all') return { ok: true, data: useGridStore.getState().grids }
   if (channel === 'reports:save') return { ok: true, data: { ...saved, name: (args[0] as { name: string }).name } }
   if (channel === 'reports:export') return { ok: true, data: '/tmp/r.pdf' }
   if (channel === 'settings:get') return { ok: true, data: settings[args[0] as string] ?? null }
@@ -153,6 +154,21 @@ describe('reports view and dashboard card', () => {
     expect(screen.queryByText('That report is no longer available.')).toBeNull()
     expect((screen.getByLabelText('Report name') as HTMLInputElement).value).toBe('Fresh one')
     invoke.mockImplementation(usual)
+  })
+
+  it('with no lists, a new report says to make a list first instead of "Working…" forever', async () => {
+    useGridStore.setState({ grids: [] as never, gridListLoaded: true, activeGridId: null })
+    const { pulseEvents } = await import('../../src/renderer/events')
+    const opened = vi.fn()
+    const off = pulseEvents.on('setup:open', opened)
+    render(<MemoryRouter initialEntries={['/reports?new=1']}><ReportsView /></MemoryRouter>)
+    await wait(50)
+    expect(screen.getByText(/Reports count what.s in a/)).toBeTruthy()
+    expect(screen.queryByLabelText('Report name')).toBeNull()
+    expect(screen.queryByText('Working…')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^Make a / }))
+    expect(opened).toHaveBeenCalledWith({ step: 'start' })
+    off()
   })
 
   it('lists saved reports and opens one', async () => {

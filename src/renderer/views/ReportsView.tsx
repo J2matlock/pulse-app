@@ -14,6 +14,8 @@ import { useGridStore } from '../stores/gridStore'
 import { ReportBuilder, forgetReportDraft, reportDraftKey } from '../components/reports/ReportBuilder'
 import { ReportChart } from '../components/reports/ReportChart'
 import { ConfirmDialog } from '../components/shared/ConfirmDialog'
+import { useVocab } from '../hooks/useVocab'
+import { pulseEvents } from '../events'
 
 interface RunSaved { report: SavedReport; result: ReportResult; explanation?: string; listName?: string }
 
@@ -56,6 +58,10 @@ function ReportCard({ report, onOpen }: { report: SavedReport; onOpen: () => voi
 export default function ReportsView(): React.ReactElement {
   const [params, setParams] = useSearchParams()
   const grids = useGridStore(s => s.grids)
+  const gridListLoaded = useGridStore(s => s.gridListLoaded)
+  const { t } = useVocab(null)
+  // A new report counts what's in a list: with none, the builder would wait forever
+  const noLists = gridListLoaded && grids.length === 0
   const [reports, setReports] = useState<SavedReport[] | null>(null)
   const openId = Number(params.get('id')) || null
   const building = openId !== null || params.get('new') === '1'
@@ -118,6 +124,13 @@ export default function ReportsView(): React.ReactElement {
         <p className="p-4 text-base text-slate-500 dark:text-slate-400">That report is no longer available.</p>
       ) : openId && reports === null ? (
         <p className="p-4 text-base text-slate-500 dark:text-slate-400">Working…</p>
+      ) : !openId && noLists ? (
+        <div className="m-4 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 p-6 text-center space-y-3">
+          <p className="text-base text-slate-700 dark:text-slate-200">Reports count what&rsquo;s in a {t('list')}. Make a {t('list')} first, then come back here.</p>
+          <button type="button" className="btn-primary" onClick={() => pulseEvents.emit('setup:open', { step: 'start' })}>
+            <Plus className="w-4 h-4" />Make a {t('list')}
+          </button>
+        </div>
       ) : (
         <div className="flex-1 min-h-0">
           <ReportBuilder
