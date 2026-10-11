@@ -149,7 +149,9 @@ export default function CalendarView(): React.ReactElement {
   useEffect(() => { if (selected) setSelected(appts.find(a => a.id === selected.id) ?? null) }, [appts]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const offered = CALENDAR_LAYERS.filter(l => (l !== 'appointments' || apptsOn) && (l !== 'tasks' || tasksOn))
-  const byDay = useMemo(() => eventsByDay(appts, items, layers), [appts, items, layers])
+  // A switched-off feature's layer stays off even when it was saved as on
+  const shownLayers = useMemo(() => new Set([...layers].filter(l => (l !== 'appointments' || apptsOn) && (l !== 'tasks' || tasksOn))), [layers, apptsOn, tasksOn])
+  const byDay = useMemo(() => eventsByDay(appts, items, shownLayers), [appts, items, shownLayers])
 
   function toggleLayer(l: CalendarLayer) {
     const next = new Set(layers)

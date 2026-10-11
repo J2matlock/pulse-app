@@ -59,6 +59,14 @@ describe('the calendar', () => {
     expect(within(cell).getByText('Jane: Review')).toBeTruthy()
   })
 
+  it('leaves tasks off the calendar while the Tasks feature is switched off', async () => {
+    useWorkspaceStore.setState({ features: { appointments: true, tasks: false } } as never)
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: 'Agenda' }))
+    expect(screen.queryByText('Task: Order forms')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Tasks' })).toBeNull()
+  })
+
   it('labels the layers, shows done with a check, and opens a clicked task (audit S-28)', async () => {
     appointments = [appt(1, '15:00', 'Session', { status: 'done' }), appt(2, '09:00', 'Intake', { status: 'cancelled' })]
     const usual = invoke.getMockImplementation()!
