@@ -19,6 +19,7 @@ import {
   loadGridData,
   pickColumns,
   pickRows,
+  showDeadlinesAsText,
   getClientName,
   batchGetClientNames,
 } from './export-shared'
@@ -71,6 +72,7 @@ export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
 
   const selectedColumns = pickColumns(columns, columnIds)
   const filteredRows = pickRows(rows, activeRowIds)
+  showDeadlinesAsText(gridId, selectedColumns, filteredRows)
 
   // Yield to event loop before heavy PDF generation
   await new Promise(resolve => setImmediate(resolve))

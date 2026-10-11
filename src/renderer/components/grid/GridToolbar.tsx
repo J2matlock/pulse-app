@@ -175,7 +175,6 @@ export function GridToolbar(): React.ReactElement {
         columnIds: selectedIds,
         activeRowIds,
         destPath: saveRes.data.filePath,
-        dateFormat: 'us'
       })
       if (!result.ok) toast.error('Export failed. Please try again.')
       else noteUnencryptedExport()

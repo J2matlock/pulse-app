@@ -112,6 +112,34 @@ describe('exportCsv', () => {
     expect(parsed.data).toHaveLength(2)
   })
 
+  it('writes a byte-order mark, keeps negative numbers as numbers and uses the saved date format (X-20, X-21)', async () => {
+    const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 3, columnTypes: ['text', 'number', 'date'] })
+    testDb.db.prepare("UPDATE columns SET name = ? WHERE id = ?").run('Name', columnIds[0])
+    testDb.db.prepare("UPDATE columns SET name = ? WHERE id = ?").run('Balance', columnIds[1])
+    testDb.db.prepare("UPDATE columns SET name = ? WHERE id = ?").run('Seen', columnIds[2])
+    const insert = testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')
+    insert.run(rowIds[0], columnIds[0], '-not a number'); insert.run(rowIds[0], columnIds[1], '-12.5'); insert.run(rowIds[0], columnIds[2], '2026-10-06')
+    testDb.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('date_format', 'eu')").run()
+    const destPath = join(testDb.tmpDir, 'bom.csv')
+    await exportCsv({ gridId, columnIds: [], activeRowIds: [], destPath })
+    const raw = readFileSync(destPath, 'utf-8')
+    expect(raw.charCodeAt(0)).toBe(0xFEFF)
+    const parsed = Papa.parse<Record<string, string>>(raw.slice(1), { header: true, skipEmptyLines: true })
+    expect(parsed.data[0]).toEqual({ Name: '\t-not a number', Balance: '-12.5', Seen: '06/10/2026' })
+  })
+
+  it('exports a deadline column as its due date and state, not the date last done (G-08)', async () => {
+    const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 2, columnTypes: ['text', 'deadline'] })
+    const rule = Number(testDb.db.prepare("INSERT INTO alert_rules (name, thresholds, interval_days) VALUES ('Yearly', '[]', 365)").run().lastInsertRowid)
+    testDb.db.prepare("UPDATE columns SET name = 'Name' WHERE id = ?").run(columnIds[0])
+    testDb.db.prepare("UPDATE columns SET name = 'Review', config = ? WHERE id = ?").run(JSON.stringify({ alert_rule_id: rule }), columnIds[1])
+    testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)').run(rowIds[0], columnIds[1], '2020-01-01')
+    const destPath = join(testDb.tmpDir, 'deadline.csv')
+    await exportCsv({ gridId, columnIds: [], activeRowIds: [], destPath, dateFormat: 'iso' })
+    const parsed = Papa.parse<Record<string, string>>(readFileSync(destPath, 'utf-8').slice(1), { header: true, skipEmptyLines: true })
+    expect(parsed.data[0]!.Review).toMatch(/^Dec 31, 2020 · \d+ days late$/)
+  })
+
   it('keeps the on-screen order of the rows it was given, and can include a hidden column (G-07)', async () => {
     const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 3, columnCount: 2 })
     testDb.db.prepare("UPDATE columns SET name = 'Name' WHERE id = ?").run(columnIds[0])

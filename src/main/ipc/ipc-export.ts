@@ -19,6 +19,7 @@ import { getDbKey } from '../auth'
 const BetterSqlite3 = require('better-sqlite3-multiple-ciphers') as typeof import('better-sqlite3')
 import { exportCsv, exportPdfGrid, exportPdfProfile, exportPdfBatch, exportLetterPdf, exportSupervisorReport, exportContactPdf, exportDirectoryPdf, type CsvExportOptions, type PdfGridOptions, type PdfProfileOptions, type SupervisorReportOptions } from '../export'
 import { parseImportFile, autoMatchColumns, executeImport, type ImportOptions } from '../import'
+import { exportNotesCsv } from '../export-csv'
 import { exportWeeklyPlanner } from '../export-planner'
 import { exportAuditReport, type AuditScope } from '../export-audit'
 import { exportHandoffPacket, type HandoffOptions } from '../export-handoff'
@@ -281,18 +282,24 @@ export function registerExportHandlers(): void {
 
     let exported = 0
     const errors: string[] = []
+    // Two lists with the same name get two files, and nothing overwrites the notes file (X-21)
+    const used = new Set<string>(['notes'])
 
     for (const grid of grids) {
       try {
         // Sanitize grid name for filesystem: replace unsafe chars with _
-        const safeName = grid.name.replace(/[/\\:*?"<>|]/g, '_').trim() || `grid_${grid.id}`
+        const base = grid.name.replace(/[/\\:*?"<>|]/g, '_').trim() || `grid_${grid.id}`
+        let safeName = base
+        for (let n = 2; used.has(safeName.toLowerCase()); n++) safeName = `${base} (${n})`
+        used.add(safeName.toLowerCase())
         const csvPath = join(destFolder, `${safeName}.csv`)
+        // Everything comes out: hidden columns too, dates as the setting says
         await exportCsv({
           gridId: grid.id,
           columnIds: [],
           activeRowIds: [],
           destPath: csvPath,
-          dateFormat: 'iso'
+          includeHidden: true,
         })
         exported++
       } catch (err) {
@@ -300,7 +307,12 @@ export function registerExportHandlers(): void {
       }
     }
 
-    return ok({ exported, errors })
+    let notes = 0
+    try { notes = await exportNotesCsv(join(destFolder, 'notes.csv')) } catch (err) {
+      errors.push(`Notes: ${err instanceof Error ? err.message : 'Export failed'}`)
+    }
+
+    return ok({ exported, errors, notes })
   })
 
   // ── Export ─────────────────────────────────────────────────────────────────

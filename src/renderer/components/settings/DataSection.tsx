@@ -117,6 +117,7 @@ export function DataSection(): React.ReactElement {
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Use the <strong>Import</strong> button in the grid toolbar to import from Excel or CSV, and the <strong>Export</strong> button to export a single grid as CSV or PDF, or export all grids at once below.
           </p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Export All saves one file per {t('list')} (hidden columns too) and one with every {t('activity')}. Tasks, contacts and appointments aren't included.</p>
           {filesOn && <p className="text-sm text-slate-500 dark:text-slate-400">Files attached to {t('record', { many: true })} aren't included in CSV exports; open or save them from each profile.</p>}
         </div>
         <button
@@ -129,7 +130,7 @@ export function DataSection(): React.ReactElement {
             const dir = dialogRes.data.filePaths[0]!
             setExportingAllCsv(true)
             try {
-              const res = await safeInvoke<{ exported: number; errors: string[] }>(IPC.EXPORT_ALL_CSV, dir)
+              const res = await safeInvoke<{ exported: number; errors: string[]; notes?: number }>(IPC.EXPORT_ALL_CSV, dir)
               if (res.ok) {
                 // errors is the list of failed grids (it used to be compared to 0 as if it
                 // were a count, so failures were reported as success)
@@ -137,7 +138,7 @@ export function DataSection(): React.ReactElement {
                 if (failed > 0) {
                   toast.error(`Exported ${res.data.exported} ${t('list', { count: res.data.exported })}, but ${failed} failed: ${res.data.errors.join('; ')}`, { duration: 10000 })
                 } else {
-                  toast.success(`Exported ${res.data.exported} ${t('list', { count: res.data.exported })} as CSV.`)
+                  toast.success(`Exported ${res.data.exported} ${t('list', { count: res.data.exported })} and ${res.data.notes ?? 0} ${t('activity', { count: res.data.notes ?? 0 })} as CSV.`)
                   noteUnencryptedExport()
                 }
               } else {

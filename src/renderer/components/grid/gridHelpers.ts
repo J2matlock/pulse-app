@@ -2,26 +2,13 @@ import type { Column } from '../../../shared/types'
 import { isNotTypedColumnType } from '../../../shared/types'
 import { parseDate } from '../../../shared/parseDate'
 import { columnOptionLabels } from '../../../shared/stages'
+import { cellText } from '../../../shared/cellText'
 
 // ── Clipboard format helper ────────────────────────────────────────────────────
 
+/** What a copied cell holds: the same text as exports (G-08); link cells copy names, not stored ids and separators */
 export function formatCellForClipboard(column: Column, value: string | null): string {
-  if (value == null) return ''
-  switch (column.column_type) {
-    case 'checkbox': return (value === 'true' || value === '1') ? 'Yes' : 'No'
-    case 'currency': {
-      const n = parseFloat(value)
-      return isNaN(n) ? value : `$${n.toFixed(2)}`
-    }
-    case 'tag': {
-      try {
-        const arr = JSON.parse(value)
-        if (Array.isArray(arr)) return arr.join(', ')
-      } catch { /* fall through */ }
-      return value
-    }
-    default: return value
-  }
+  return cellText(column.column_type, value)
 }
 
 // ── Paste validation helper ───────────────────────────────────────────────────
