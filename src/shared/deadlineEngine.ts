@@ -634,6 +634,44 @@ export function evaluate(rule: EngineRule, ctx: RecordContext): DeadlineResult {
   return res
 }
 
+/** What a caller has loaded for one record under one rule (AUDIT-074). */
+export interface RecordSources {
+  today: string
+  columnDate: string | null
+  values?: Record<number, string | null>
+  holidays?: Set<string>
+  weekend?: number[]
+  meterHistory?: Array<{ at: string; value: number }>
+  activityCount?: number
+  /** Every step checked off on the column; only those done for the current anchor count */
+  progress?: Array<{ step: number; anchor: string | null }>
+  /** The rule's own date before its latest change; undefined = not known */
+  previousDone?: string | null
+  finishedFor?: string[]
+}
+
+/**
+ * The one way to turn loaded data into a RecordContext. The dashboard, the
+ * grid and the compliance report each built their own and drifted apart
+ * (compliance never passed previousDone), so a late calendar completion
+ * counted as on time in one place and overdue in another.
+ */
+export function buildRecordContext(rule: EngineRule, s: RecordSources): RecordContext {
+  const anchor = sequenceAnchor(rule, s.columnDate, s.values)
+  return {
+    today: s.today,
+    columnDate: s.columnDate,
+    values: s.values,
+    holidays: s.holidays,
+    weekend: s.weekend,
+    meterHistory: s.meterHistory,
+    activityCount: s.activityCount,
+    progress: s.progress?.filter(p => p.anchor === anchor).map(p => p.step),
+    ...(s.previousDone !== undefined ? { previousDone: s.previousDone } : {}),
+    ...(s.finishedFor ? { finishedFor: s.finishedFor } : {}),
+  }
+}
+
 /** A one-off date: "the date is the deadline", no repeat. Done asks Renewed or Finished (Decision E1). */
 export function isOneOff(rule: EngineRule): boolean {
   return rule.kind === 'interval' && !hasInterval(rule.interval)
