@@ -96,6 +96,8 @@ export interface ImportResult {
   warnings: string[]
   /** Names of the rows skipped as duplicates, in file order */
   skippedNames: string[]
+  /** The records this import added, so it can be undone (moved to Trash) */
+  newRowIds: number[]
 }
 
 export interface HeaderDetectionResult {
@@ -1156,7 +1158,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
   clearImportCache()
 
   logger.info('import', 'Import complete', { rowsImported: imported, skipped, warningCount: warnings.length, durationMs: Date.now() - importStart })
-  return { imported, skipped, warnings, skippedNames }
+  return { imported, skipped, warnings, skippedNames, newRowIds }
   } catch (err) {
     logger.error('import', 'Import failed', { error: err instanceof Error ? err.message : String(err) })
     throw err

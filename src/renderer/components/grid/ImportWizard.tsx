@@ -19,6 +19,7 @@ import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Column } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
+import toast from 'react-hot-toast'
 import { useVocab } from '../../hooks/useVocab'
 
 // ── Local types ───────────────────────────────────────────────────────────────
@@ -66,6 +67,7 @@ interface ImportResult {
   skipped: number
   warnings: string[]
   skippedNames?: string[]
+  newRowIds?: number[]
 }
 
 interface Props {
@@ -140,6 +142,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
   const [error, setError] = useState<string | null>(null)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [warningsExpanded, setWarningsExpanded] = useState(false)
+  const [undo, setUndo] = useState<'idle' | 'busy' | 'done'>('idle')
   const [importProgress, setImportProgress] = useState<{ imported: number; total: number } | null>(null)
   const [headerRowIndex, setHeaderRowIndex] = useState<number>(0)
 
@@ -163,6 +166,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
       setImportResult(null)
       setWarningsExpanded(false)
       setHeaderRowIndex(0)
+      setUndo('idle')
     }
   }, [open])
 
@@ -369,6 +373,15 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
       setImportProgress(null)
       removeListener()
     }
+  }
+
+  async function undoImport() {
+    const ids = importResult?.newRowIds
+    if (!ids?.length || undo !== 'idle') return
+    setUndo('busy')
+    const res = await safeInvoke(IPC.IMPORT_UNDO, gridId, ids)
+    if (res.ok) setUndo('done')
+    else { setUndo('idle'); toast.error(res.error || 'We couldn\'t undo the import. Try again.') }
   }
 
   // ── Render helpers ───────────────────────────────────────────────────────
@@ -937,6 +950,23 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                     </div>
                   </div>
 
+                  {(importResult.newRowIds?.length ?? 0) > 0 && (
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {undo === 'done' ? (
+                        <p role="status" className="text-base text-slate-700 dark:text-slate-200">
+                          Undone: the {importResult.newRowIds!.length} imported {t('record', { count: importResult.newRowIds!.length })} {importResult.newRowIds!.length === 1 ? 'is' : 'are'} in Trash, where {importResult.newRowIds!.length === 1 ? 'it' : 'they'} can be restored.
+                        </p>
+                      ) : (
+                        <>
+                          <p className="text-base text-slate-600 dark:text-slate-300 flex-1 min-w-[12rem]">Imported into the wrong {t('list')}, or the wrong file?</p>
+                          <button type="button" className="btn-secondary" style={{ minHeight: 44 }} disabled={undo === 'busy'} onClick={() => void undoImport()}>
+                            {undo === 'busy' ? 'Undoing…' : 'Undo this import'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+
                   {importResult.warnings.length > 0 && (
                     <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 overflow-hidden">
                       <div className="flex items-center gap-2 px-4 py-3">
@@ -977,10 +1007,12 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
         {/* Footer buttons */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
           <div>
-            {step > 1 && step < 6 && (
+            {/* After a failed import, Back keeps every choice made so far */}
+            {((step > 1 && step < 6) || (step === 6 && !loading && !!error && !importResult)) && (
               <button
                 onClick={() => {
-                  if (step === 3 && (preview?.sheets.length ?? 0) <= 1) setStep(1)
+                  if (step === 6) { setError(null); setStep(5) }
+                  else if (step === 3 && (preview?.sheets.length ?? 0) <= 1) setStep(1)
                   else setStep(s => (s - 1) as Step)
                 }}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600

@@ -390,6 +390,7 @@ export interface IPCContract {
   'setup-template:export':  { args: [gridId: number, destPath: string];                                                  return: true }
   'setup-template:export-saved': { args: [templateId: number, destPath: string];                                       return: true }
   'documents:batch-preview': { args: [templateId: number | null, target: Record<string, unknown>]; return: { count: number; unknown: string[]; error?: string } }
+  'import:undo':             { args: [gridId: number, rowIds: number[]]; return: { moved: number } }
   'setup-template:apply':   { args: [pulseJson: string, mode: 'new' | 'existing', gridId?: number, saveToLibrary?: boolean]; return: number }
   'setup-template:create':  { args: [name: string, description: string | null, pulseJson: string];                       return: number }
   'setup-template:delete':  { args: [id: number];                                                                        return: true }

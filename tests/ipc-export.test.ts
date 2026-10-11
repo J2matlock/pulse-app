@@ -300,6 +300,23 @@ describe('BACKUP_VALIDATE_DESTINATION', () => {
   })
 })
 
+describe('IMPORT_UNDO (audit X-19)', () => {
+  it('moves the imported records to Trash, and only that list\'s', async () => {
+    const a = seedGrid(testDb.db, { rowCount: 3 })
+    const b = seedGrid(testDb.db, { name: 'Other', rowCount: 1 })
+    const result = await invoke(IPC.IMPORT_UNDO, a.gridId, [...a.rowIds.slice(0, 2), b.rowIds[0]]) as { ok: true; data: { moved: number } }
+    expect(result.ok).toBe(true)
+    expect(result.data.moved).toBe(2)
+    const trashed = testDb.db.prepare('SELECT COUNT(*) AS n FROM rows WHERE deleted_at IS NOT NULL').get() as { n: number }
+    expect(trashed.n).toBe(2)
+  })
+
+  it('rejects an empty or bad request', async () => {
+    expect((await invoke(IPC.IMPORT_UNDO, 1, []) as { ok: boolean }).ok).toBe(false)
+    expect((await invoke(IPC.IMPORT_UNDO, 0, [1]) as { ok: boolean }).ok).toBe(false)
+  })
+})
+
 describe('BACKUP_RESTORE_OTHER', () => {
   const path = join(tmpdir(), 'pulse-test-export', 'temp', 'old.pulse-backup')
 

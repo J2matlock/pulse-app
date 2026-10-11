@@ -165,6 +165,33 @@ describe('ImportWizard', () => {
       expect(selects.some(s => s.value === 'skip')).toBe(false)
     })
 
+    it('can undo the import, moving the new records to Trash (audit X-19)', async () => {
+      const base = mockInvoke.getMockImplementation()!
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'import:file') return Promise.resolve({ ok: true, data: { imported: 2, skipped: 0, warnings: [], skippedNames: [], newRowIds: [41, 42] } })
+        if (channel === 'import:undo') return Promise.resolve({ ok: true, data: { moved: 2 } })
+        return base(channel, ...args)
+      })
+      await goToMapping()
+      fireEvent.click(screen.getByRole('button', { name: /Next/ }))
+      fireEvent.click(await screen.findByRole('button', { name: /^Import/ }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Undo this import' }))
+      expect(await screen.findByText(/in Trash, where they can be restored/)).toBeTruthy()
+      expect(mockInvoke).toHaveBeenCalledWith('import:undo', 1, [41, 42])
+    })
+
+    it('keeps a Back button after a failed import', async () => {
+      const base = mockInvoke.getMockImplementation()!
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) =>
+        channel === 'import:file' ? Promise.resolve({ ok: false, error: 'Invalid column type' }) : base(channel, ...args))
+      await goToMapping()
+      fireEvent.click(screen.getByRole('button', { name: /Next/ }))
+      fireEvent.click(await screen.findByRole('button', { name: /^Import/ }))
+      expect(await screen.findByText('Import failed')).toBeTruthy()
+      fireEvent.click(screen.getByRole('button', { name: /Back/ }))
+      expect(await screen.findByText('Duplicate detection')).toBeTruthy()
+    })
+
     it('lists who was skipped as already here', async () => {
       await goToMapping()
       fireEvent.click(screen.getByRole('button', { name: /Next/ }))

@@ -546,6 +546,18 @@ export function registerExportHandlers(): void {
     return ok(result)
   })
 
+  // "Undo this import": the records it added go to Trash, where they can still be restored
+  secureWrap(IPC.IMPORT_UNDO, 'ipc-export', (_e, gridId: number, rowIds: number[]) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(gridId)) return fail('Invalid list')
+    if (!Array.isArray(rowIds) || rowIds.length === 0 || rowIds.length > 50_000 || !rowIds.every(validId)) return fail('Nothing to undo')
+    const db = getDb()
+    const stmt = db.prepare("UPDATE rows SET is_active = 0, deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND grid_id = ? AND deleted_at IS NULL")
+    let moved = 0
+    db.transaction(() => { for (const id of rowIds) moved += stmt.run(id, gridId).changes })()
+    return ok({ moved })
+  })
+
   // ── Setup Templates (.pulse) ────────────────────────────────────────────────
   secureWrap(IPC.SETUP_TEMPLATE_GET_ALL, 'ipc-export', () => {
     return ok(getSetupTemplates())

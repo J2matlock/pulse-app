@@ -201,6 +201,7 @@ export const IPC = {
   EXPORT_PDF_DIRECTORY: 'export:pdf-directory',
   EXPORT_ALL_CSV: 'export:all-csv',
   IMPORT_FILE: 'import:file',
+  IMPORT_UNDO: 'import:undo',
   IMPORT_FILE_PREVIEW: 'import:file-preview',
   IMPORT_DETECT_COLUMNS: 'import:detect-columns',
   IMPORT_PROGRESS: 'import:progress',

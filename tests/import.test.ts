@@ -637,6 +637,15 @@ describe('executeImport', () => {
     expect(countRows(gridId)).toBe(2)
   })
 
+  it('returns the new records so the import can be undone (audit X-19)', async () => {
+    const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }])
+    const filePath = writeImportCsv('undo.csv', 'Name\nAl\nBo\n')
+    const preview = await parseImportFile(filePath)
+    const result = await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'none', columnMappings: [{ sourceIndex: 0, action: columnIds[0] }] }, preview)
+    const ids = (testDb.db.prepare('SELECT id FROM rows WHERE grid_id = ? ORDER BY id').all(gridId) as Array<{ id: number }>).map(r => r.id)
+    expect(result.newRowIds).toEqual(ids)
+  })
+
   describe('duplicates (audit X-16)', () => {
     function seedPerson(gridId: number, nameCol: number, name: string, dobCol?: number, dob?: string, inTrash = false): void {
       const r = testDb.db.prepare(`INSERT INTO rows (grid_id, position, created_at, updated_at, deleted_at) VALUES (?, 0, datetime('now'), datetime('now'), ${inTrash ? "datetime('now')" : 'NULL'})`).run(gridId)
