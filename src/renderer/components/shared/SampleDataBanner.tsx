@@ -157,12 +157,16 @@ export function SampleDataBanner(): React.ReactElement | null {
     <SampleKeepPrompt />
     <div role="status" className="flex items-center gap-3 px-4 py-2 border-b border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30 text-amber-900 dark:text-amber-100">
       <Sparkles className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-      <span className="text-base flex-1 min-w-0">
+      {/* One line on a laptop screen: every wrapped line takes room from the list below */}
+      <span className="text-base flex-1 min-w-0"
+        title={sampleList
+          ? `Your real ${t('record', { many: true })} go in their own ${t('list')}.`
+          : `Add your own ${t('record', { many: true })} any time; remove the samples when you're done exploring.`}>
         {sampleList
-          ? <>You're exploring a <strong>sample {t('list')}</strong> of made-up {t('record', { many: true })}. Your real {t('record', { many: true })} go in their own {t('list')}.</>
-          : <>{t('record', { many: true, cap: true })} with a <Sparkles className="inline w-4 h-4 -mt-0.5" aria-label="sparkle" /> by the name are made-up samples. Add your own any time; remove the samples when you're done exploring.</>}
+          ? <>A <strong>sample {t('list')}</strong> of made-up {t('record', { many: true })}, to try things out.</>
+          : <>{t('record', { many: true, cap: true })} with a <Sparkles className="inline w-4 h-4 -mt-0.5" aria-label="sparkle" /> are made-up samples. Remove them when you're done.</>}
       </span>
-      <button type="button" className="btn-compact-secondary" onClick={() => setConfirming(true)}>
+      <button type="button" className="btn-compact-secondary flex-shrink-0 whitespace-nowrap" onClick={() => setConfirming(true)}>
         Remove sample data
       </button>
       <RemoveSampleDataDialog open={confirming} onClose={() => setConfirming(false)} />

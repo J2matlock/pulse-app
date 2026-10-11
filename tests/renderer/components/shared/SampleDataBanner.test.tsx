@@ -28,7 +28,10 @@ describe('remove sample data', () => {
   it('the banner confirms with counts, then reports what was kept', async () => {
     render(<SampleDataBanner />)
     await tick()
-    expect(screen.getByText(/Add your own any time/)).toBeTruthy()
+    // Short enough for one line on a laptop screen; the rest is on hover (V1)
+    const text = screen.getByText(/are made-up samples\. Remove them when you're done\./)
+    expect(text.textContent!.length).toBeLessThan(80)
+    expect(text.getAttribute('title')).toMatch(/Add your own clients any time/)
     fireEvent.click(screen.getByRole('button', { name: 'Remove sample data' }))
     await tick()
     expect(screen.getByText(/10 made-up clients will move to the Trash/)).toBeTruthy()
