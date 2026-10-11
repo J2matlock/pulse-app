@@ -1,4 +1,4 @@
-Pulse by BaringaSoft 2.0.1 — third-party license summary (2026-10-10)
+Pulse by BaringaSoft 2.3.0 — third-party license summary (2026-10-11)
 Pulse itself is licensed under the GNU GPL v3 (GPL-3.0-only).
 272 packages ship with Pulse (production dependencies and the Electron runtime).
 
