@@ -316,6 +316,19 @@ describe('Restore', () => {
     expect(readdirSync(backupDir).filter(f => f.startsWith('restore-tmp-'))).toEqual([])
   })
 
+  it('a .pulse-backup whose database does not match its recorded hash is refused', async () => {
+    const { gridId } = seedGrid(t.db, { rowCount: 2, columnCount: 1 })
+    const other = makeProdFormatBackupDb('tampered.db', 9)
+    const zip = join(t.tmpDir, 'tampered.pulse-backup')
+    await writeZip(zip, { 'test.db': { file: other }, 'backup-meta.json': JSON.stringify({ dbSha256: 'b'.repeat(64) }) })
+
+    await expect(restoreFromPulseBackup(zip)).rejects.toThrow(/hash mismatch/)
+
+    const db2 = openTestDb(t.dbPath)
+    expect(countRows(db2, 'rows', 'grid_id = ?', gridId)).toBe(2)
+    db2.close()
+  })
+
   it('a .pulse-backup without a database is refused', async () => {
     const { gridId } = seedGrid(t.db, { rowCount: 2, columnCount: 1 })
     const zip = join(t.tmpDir, 'no-db.pulse-backup')
