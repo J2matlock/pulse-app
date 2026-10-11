@@ -18,7 +18,8 @@ interface TaskStore {
   loading: boolean
   sortMode: TaskSortMode
   _loadVersion: number
-  loadTasks: (gridId?: number) => Promise<void>
+  /** Resolves false when the tasks couldn't be loaded, so a page can say so instead of showing "no tasks" */
+  loadTasks: (gridId?: number) => Promise<boolean>
   createTask: (task: Omit<CaseloadTask, 'id' | 'created_at' | 'updated_at'>) => Promise<CaseloadTask | null>
   updateTask: (id: number, updates: Partial<CaseloadTask>) => Promise<void>
   deleteTask: (id: number) => Promise<void>
@@ -49,10 +50,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set({ loading: true, _loadVersion: version })
     try {
       const data = await storeInvoke<CaseloadTask[]>(IPC.TASK_GET_ALL, gridId)
-      if (get()._loadVersion !== version) return // stale response
+      if (get()._loadVersion !== version) return true // stale response
       set({ tasks: data })
+      return true
     } catch {
       // Leave tasks unchanged on error
+      return false
     } finally {
       if (get()._loadVersion === version) set({ loading: false })
     }

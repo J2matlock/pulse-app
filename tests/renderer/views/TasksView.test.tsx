@@ -196,6 +196,17 @@ describe('TasksView — interactions', () => {
     expect(screen.getByText(/2 active/)).toBeDefined()
   })
 
+  it('says the tasks could not be loaded instead of showing an empty list', async () => {
+    const data = taskStoreData()
+    const usual = data.loadTasks
+    data.loadTasks = vi.fn().mockResolvedValue(false)
+    try {
+      render(<MemoryRouter><TasksView /></MemoryRouter>)
+      await flushEffects()
+      expect(screen.getByRole('alert').textContent).toMatch(/couldn.t load your tasks/)
+    } finally { data.loadTasks = usual }
+  })
+
   it('counts urgent checklist items only while Checklists is on', async () => {
     const { setWords, EXISTING_FEATURES } = await import('../vocabFixture')
     mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'checklist:get-urgent'

@@ -93,6 +93,11 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
           }>>(IPC.DASHBOARD_GET_FOLLOWUPS),
         ])
 
+        // safeInvoke doesn't throw: without this a failed load showed "all clear"
+        if (![deadlinesResult, tasksResult, checklistsResult, clDueResult, followUpsResult].every(r => r.ok)) {
+          setLoadError('Could not load your focus items. Try closing and reopening Focus Mode.')
+          return
+        }
         if (deadlinesResult.ok) setClientItems(focusDeadlineItems(deadlinesResult.data))
 
         if (tasksResult.ok) {

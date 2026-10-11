@@ -93,11 +93,12 @@ export default function TasksView(): React.ReactElement {
   const loadUrgentItems = useCallback(async () => {
     try {
       const res = await safeInvoke<UrgentChecklistItem[]>(IPC.CHECKLIST_GET_URGENT)
-      if (res.ok) setUrgentItems(res.data)
-      else rlog.error('Tasks', 'CHECKLIST_GET_URGENT failed:', res.error)
+      if (res.ok) { setUrgentItems(res.data); return true }
+      rlog.error('Tasks', 'CHECKLIST_GET_URGENT failed:', res.error)
     } catch (err) {
       rlog.error('Tasks', 'CHECKLIST_GET_URGENT exception:', err)
     }
+    return false
   }, [])
 
   const loadTaskGroups = useCallback(async () => {
@@ -110,12 +111,16 @@ export default function TasksView(): React.ReactElement {
 
   const reloadAll = useCallback(async () => {
     setLoadError(null)
+    // safeInvoke and the store don't throw: a failed load comes back as false,
+    // and "no tasks" would be wrong then
+    const failed = () => setLoadError('We couldn\u2019t load your tasks \u2014 please try again.')
     try {
-      await Promise.all([loadTasks(), loadUrgentItems(), loadTaskGroups()])
+      const [tasksOk, urgentOk] = await Promise.all([loadTasks(), loadUrgentItems(), loadTaskGroups()])
+      if (tasksOk === false || (checklistsOn && !urgentOk)) failed()
     } catch {
-      setLoadError('We couldn\u2019t load your tasks \u2014 please try again.')
+      failed()
     }
-  }, [loadTasks, loadUrgentItems, loadTaskGroups])
+  }, [loadTasks, loadUrgentItems, loadTaskGroups, checklistsOn])
 
   useEffect(() => {
     void reloadAll()
@@ -525,7 +530,7 @@ export default function TasksView(): React.ReactElement {
             <LoadingOverlay label="Loading tasks…" />
           )}
 
-          {!loading && tasks.length === 0 && shownUrgentCount === 0 && (
+          {!loading && !loadError && tasks.length === 0 && shownUrgentCount === 0 && (
             <div className="flex flex-col items-center">
               <EmptyState
                 icon={<ClipboardList className="w-12 h-12" />}
