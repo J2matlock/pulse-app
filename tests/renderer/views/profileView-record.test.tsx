@@ -274,6 +274,18 @@ describe('Acting on a record from its own page (3.6)', () => {
     expect(screen.getByLabelText('note for 2')).toBeTruthy()
   })
 
+  it('asks about the full name the header shows, not just the name column', async () => {
+    setGrid({
+      columns: [...columns, { ...columns[0], id: 2, name: 'Last name', is_name_column: 0, is_identifier: 0, position: 1 }],
+      rows: [rowOf(1, 'Maria', { col_2: 'Lopez' })],
+      sortedRowIds: [1],
+    })
+    renderAt('/profile/1')
+    await flush()
+    fireEvent.click(screen.getByRole('button', { name: 'Archive…' }))
+    expect(screen.getByText('Archive Maria Lopez?')).toBeTruthy()
+  })
+
   it('offers to cancel upcoming appointments when archiving, like the list does', async () => {
     const archiveRow = vi.fn(async () => {})
     setGrid({ archiveRow })

@@ -45,6 +45,7 @@ import { pulseEvents } from '../events'
 import type { Form } from '../../shared/forms'
 import { stageColumnOf } from '../../shared/stages'
 import { escapeBelongsElsewhere } from '../utils/domHelpers'
+import { getClientName } from '../utils/clientName'
 
 const NO_FORMS: Form[] = []
 
@@ -211,10 +212,12 @@ export default function ProfileView(): React.ReactElement {
     }
   }
 
+  // The same name the header shows (last name, the list's display format), so
+  // "Archive …?", the PDF file name and Recent don't say just the first name
   const knownName = useMemo(() => {
     if (!row || !nameCol) return null
-    return (row[`col_${nameCol.id}` as keyof GridRow] as string | null) ?? null
-  }, [row, nameCol])
+    return getClientName(row, columns, '') || null
+  }, [row, nameCol, columns])
   const clientName = knownName ?? `Unknown ${t('record')}`
 
   // Track as recently visited
