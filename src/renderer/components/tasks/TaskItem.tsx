@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { GripVertical, Trash2, Calendar, Pencil, Bell, BellOff, RotateCw, X } from 'lucide-react'
+import { GripVertical, Trash2, Calendar, Pencil, Bell, BellOff, RotateCw, X, AlertTriangle } from 'lucide-react'
 import { relativeTime } from '../../utils/relativeTime'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -224,7 +224,10 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
               onClick={() => { setDateDraft(task.due_date ?? ''); setEditingDate(true) }}
               className={`hit-44 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity ${dueDate.className}`}
             >
-              <Calendar className="w-3 h-3" />
+              {/* A shape as well as a color for late and due-today dates (A06-12), like the grid's warning icon */}
+              {dueDate.urgency === 'overdue' || dueDate.urgency === 'today'
+                ? <AlertTriangle className="w-3 h-3" aria-hidden="true" />
+                : <Calendar className="w-3 h-3" aria-hidden="true" />}
               {dueDate.text}
             </button>
           ) : (
@@ -331,7 +334,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
             <button
               onClick={() => onUpdate({ snoozed_until: null })}
               title="Click to wake up"
-              className="hit-44 text-base text-amber-600 dark:text-amber-400 italic
+              className="hit-44 text-base text-amber-700 dark:text-amber-400 italic
                          hover:text-amber-700 dark:hover:text-amber-300
                          focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
             >
@@ -347,7 +350,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
           <button
             onClick={() => onUpdate({ snoozed_until: null })}
             title="Wake up (remove snooze)"
-            className="hit-44 p-1.5 rounded-sm text-amber-500 hover:text-amber-700 hover:bg-slate-100
+            className="hit-44 p-1.5 rounded-sm text-amber-600 hover:text-amber-800 hover:bg-slate-100
                        dark:hover:bg-slate-700 transition-colors
                        focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
           >
