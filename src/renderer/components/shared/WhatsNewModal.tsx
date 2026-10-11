@@ -17,6 +17,17 @@ interface ReleaseEntry {
 
 const RELEASES: ReleaseEntry[] = [
   {
+    version: '2.3.0',
+    date: '2026-10-11',
+    items: [
+      'Dates with a deadline say how they stand in words, like "due Oct 8 · in 3 days", and a deadline can be marked done',
+      'Notes keep the day something happened as well as the day you wrote it, and dates in your list follow the day it happened',
+      'Deleted lists and columns wait in the Trash for 30 days, and made-up sample entries are marked with a ✦',
+      'Clearer screens: larger text, plain words, visible focus, tidier toolbars, and ⌘ shortcuts on a Mac',
+      'Many fixes: a new list shows right after setup, text stays inside its cell, Undo works from the Dashboard and Focus mode, and imports, restores and sample removal are safer',
+    ],
+  },
+  {
     version: '2.2.0',
     date: '2026-10-10',
     items: [
