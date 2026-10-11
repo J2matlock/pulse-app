@@ -281,6 +281,16 @@ describe('Client Links', () => {
     expect(links).toHaveLength(2)
   })
 
+  it('a provider\'s linked records leave out those whose list is in the Trash (polish R6)', () => {
+    const open = seedGrid(testDb.db, { rowCount: 1 })
+    const gone = seedGrid(testDb.db, { rowCount: 1 })
+    const p = createProvider({ name: 'Dr. Trash' })
+    linkClient(p.id, open.rowIds[0], open.gridId, 'Primary')
+    linkClient(p.id, gone.rowIds[0], gone.gridId, 'Primary')
+    testDb.db.prepare("UPDATE grids SET is_active = 0, deleted_at = datetime('now') WHERE id = ?").run(gone.gridId)
+    expect(getClientLinks({ providerId: p.id }).map(l => l.row_id)).toEqual([open.rowIds[0]])
+  })
+
   it('unlinkClient removes the link', () => {
     const { gridId, rowIds } = seedGrid(testDb.db, { rowCount: 1 })
     const p = createProvider({ name: 'Dr. Unlink' })

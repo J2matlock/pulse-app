@@ -133,6 +133,8 @@ export function trashList(gridId: number): void {
   const db = getDb()
   const grid = db.prepare('SELECT id, is_active FROM grids WHERE id = ?').get(gridId) as { id: number; is_active: number } | undefined
   if (!grid) throw new TrashError('That list no longer exists.')
+  // Already there (a double click, a second window): trashing again would overwrite its saved links with none
+  if (grid.is_active === 0) return
   db.transaction(() => {
     const linkTypes = db.prepare('SELECT * FROM link_types WHERE from_grid_id = ? OR to_grid_id = ?').all(gridId, gridId) as Row[]
     const typeIds = new Set(linkTypes.map(t => t.id as number))

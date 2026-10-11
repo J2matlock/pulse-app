@@ -143,6 +143,15 @@ function remapCellsForMove(
     updateCell.run(tgtColId, cell.id)
     updateHist.run(tgtColId, cell.id)
   }
+  // A deadline's finished marks, done steps and extensions follow it to the same-named column.
+  // Ones for a column the target doesn't have stay keyed to it, so a move back finds them.
+  const follow = ['deadline_done', 'deadline_progress', 'deadline_extensions'].map(table =>
+    cachedStmt(`row_remap_${table}`, `UPDATE OR REPLACE ${table} SET column_id = ? WHERE row_id = ? AND column_id = ?`))
+  for (const [srcColId, colName] of mapping.srcColMap) {
+    const tgtColId = mapping.tgtMap.get(colName.toLowerCase())
+    if (tgtColId === undefined || tgtColId === srcColId) continue
+    for (const stmt of follow) stmt.run(tgtColId, rowId, srcColId)
+  }
 }
 
 /**
