@@ -12,6 +12,7 @@ import { AlertRuleEditor } from '../alerts/AlertRuleEditor'
 import { DeleteRuleConfirm } from '../alerts/DeleteRuleConfirm'
 import { splitRulesByFit } from '../alerts/ruleFit'
 import { ruleSummary } from '../../../shared/ruleSummary'
+import { RuleColorKey } from '../alerts/RuleColorKey'
 import { pulseEvents } from '../../events'
 import { DoneChecklistPicker } from './DoneChecklistPicker'
 import { NoteUpdatePicker } from './NoteUpdatePicker'
@@ -438,6 +439,11 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
 
                   {showAlertPicker && (
                     <div className="px-2 pb-2">
+                      {currentAlertRule && (
+                        <div className="px-2 py-1.5 mb-1 rounded-sm bg-slate-50 dark:bg-slate-900/40">
+                          <RuleColorKey rule={currentAlertRule} compact />
+                        </div>
+                      )}
                       {currentAlertRule && (
                         <button
                           className="hit-44 flex items-center gap-2 w-full px-2 py-1.5 text-base text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-sm"

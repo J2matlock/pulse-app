@@ -28,6 +28,7 @@ import { SummaryCard } from './dashboard/SummaryCard'
 import { DeadlineRow } from './dashboard/DeadlineRow'
 import { completeDeadlines, skippedForBulkDone } from './dashboard/completeDeadline'
 import { countDeadlineTiles } from './dashboard/tileCounts'
+import { RuleColorKey } from '../components/alerts/RuleColorKey'
 import { DashboardCards } from './dashboard/cards/DashboardCards'
 import { BatchDocumentsDialog } from '../components/documents/BatchDocumentsDialog'
 import { useGridStore } from '../stores/gridStore'
@@ -291,6 +292,11 @@ export default function DashboardView(): React.ReactElement {
     })
   }, [followUps])
 
+  const rulesInUse = useMemo(() => {
+    const ids = new Set(deadlines.map(d => d.alertRuleId).filter((id): id is number => id != null))
+    return alertRules.filter(r => ids.has(r.id))
+  }, [deadlines, alertRules])
+
   // The tiles count deadlines the way the morning briefing and desktop reminder do
   // (overdue includes a used-up quota); tasks, checklist items and follow-ups due
   // or late get their own tile, the same as the briefing's "task due" lines
@@ -517,27 +523,14 @@ export default function DashboardView(): React.ReactElement {
         {showColorLegend && (
           <div className="mb-4 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
             <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Deadline Color Guide</h3>
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                <div className="w-3 h-3 rounded-full bg-green-500 shrink-0" aria-hidden="true" />
-                <span>Safe — deadline is far away</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                <div className="w-3 h-3 rounded-full bg-yellow-500 shrink-0" aria-hidden="true" />
-                <span>Approaching — due date getting closer</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                <div className="w-3 h-3 rounded-full bg-orange-500 shrink-0" aria-hidden="true" />
-                <span>Soon — due within a few days</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                <div className="w-3 h-3 rounded-full bg-red-500 shrink-0" aria-hidden="true" />
-                <span>Urgent — due very soon or overdue</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                <div className="w-3 h-3 rounded-full bg-red-700 animate-pulse shrink-0" aria-hidden="true" />
-                <span>Critical — significantly overdue</span>
-              </div>
+            {/* Built from the rules in use: each sets its own colors (D-29) */}
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+              The stripe on the left of each row: red = late or due today, orange = due this week, yellow = due this month.
+            </p>
+            <div className="space-y-2">
+              {rulesInUse.length === 0
+                ? <p className="text-sm text-slate-500 dark:text-slate-400">No deadline rules are in use yet.</p>
+                : rulesInUse.map(r => <RuleColorKey key={r.id} rule={r} />)}
             </div>
           </div>
         )}

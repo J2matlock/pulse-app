@@ -5,7 +5,7 @@
 
 import type { AlertThreshold, ParsedAlertRule } from '../../shared/types'
 import { toRuleInterval, type RuleInterval } from '../../shared/ruleInterval'
-import { evaluate, engineRuleFrom, meterHistoryColumn, referencedColumns, sequenceAnchor, extensionAnchor, matchExtension, applyExtension, ymdToDate, type DeadlineResult } from '../../shared/deadlineEngine'
+import { evaluate, isUsedUp, engineRuleFrom, meterHistoryColumn, referencedColumns, sequenceAnchor, extensionAnchor, matchExtension, applyExtension, ymdToDate, type DeadlineResult } from '../../shared/deadlineEngine'
 import { useGridStore } from '../stores/gridStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { localDateString } from '../../shared/dates'
@@ -85,6 +85,24 @@ export function formatResultTooltip(res: DeadlineResult): string {
   if (d < 0) return `Deadline: ${formatted} · ${-d} day${d === -1 ? '' : 's'} overdue`
   if (d === 0) return `Deadline: ${formatted} · Due today`
   return `Deadline: ${formatted} · in ${d} day${d === 1 ? '' : 's'}`
+}
+
+/**
+ * Words next to a date that has a rule (G-09, D-23): when it's due if that
+ * isn't the date shown, and how it stands ("due Oct 6 · 4 days late",
+ * "in 5 days", "✓ done"). Null when there's nothing to say.
+ */
+export function deadlineChipText(res: DeadlineResult, storedValue: string | null): string | null {
+  if (res.state === 'done') return '✓ done'
+  if (res.state === 'paused') return 'paused'
+  if (!res.due || res.daysUntil === null) return null
+  if (isUsedUp(res)) return res.label ?? 'all used'
+  const d = res.daysUntil
+  const when = d < 0 ? `${-d} day${d === -1 ? '' : 's'} late` : d === 0 ? 'due today' : `in ${d} day${d === 1 ? '' : 's'}`
+  const shown = storedValue ? storedValue.slice(0, 10) : null
+  if (shown === res.due) return when
+  const due = ymdToDate(res.due).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return d === 0 ? `due today (${due})` : `due ${due} · ${when}`
 }
 
 /**

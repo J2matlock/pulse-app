@@ -44,6 +44,7 @@ vi.mock('../../../../src/renderer/components/grid/AcuityBadge', () => ({
 
 vi.mock('../../../../src/renderer/components/grid/gridConstants', () => ({
   alertShapeForThreshold: () => null,
+  alertShapeForBand: () => null,
   HANDLE_STYLE: { width: 32 },
   HANDLE_WIDTH: 32,
   PROFILE_BTN_WIDTH: 32,
