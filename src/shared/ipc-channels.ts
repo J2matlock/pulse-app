@@ -134,6 +134,7 @@ export const IPC = {
   LETTER_TEMPLATE_GENERATE: 'letter-template:generate',
   PLACEHOLDER_FIELDS: 'letter-template:placeholder-fields',
   DOC_BATCH: 'documents:batch',
+  DOC_BATCH_PREVIEW: 'documents:batch-preview',
   DOC_LABELS: 'documents:labels',
   LETTER_TEMPLATE_EXPORT_PDF: 'letter-template:export-pdf',
 

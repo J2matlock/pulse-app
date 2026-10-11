@@ -38,7 +38,7 @@ import { localDateString } from '../../shared/dates'
 import { MS_PER_DAY } from '../../shared/constants'
 import { word } from '../vocab'
 import { placeholderFields } from '../placeholders'
-import { buildBatchPdf, buildLabelsPdf, DocumentError, MAX_BATCH, type DocTarget } from '../export-documents'
+import { buildBatchPdf, buildLabelsPdf, previewBatch, DocumentError, MAX_BATCH, type DocTarget } from '../export-documents'
 import { atomicWriteFileAsync } from '../export-shared'
 
 export function registerExportHandlers(): void {
@@ -670,6 +670,12 @@ export function registerExportHandlers(): void {
     assertSafePath(filePath)
     await atomicWriteFileAsync(filePath, Buffer.from(built.pdf.output('arraybuffer')))
     return ok({ filePath, count: built.count, unknown: built.unknown })
+  })
+
+  secureWrap(IPC.DOC_BATCH_PREVIEW, 'ipc-export', (_e, templateId: unknown, target: unknown) => {
+    const t = docTarget(target)
+    if (!t || (templateId !== null && !validId(templateId))) return fail('Invalid request')
+    return ok(previewBatch(templateId as number | null, t))
   })
 
   secureWrap(IPC.DOC_LABELS, 'ipc-export', async (_e, target: unknown, addressColumnId: unknown, layout: unknown) => {

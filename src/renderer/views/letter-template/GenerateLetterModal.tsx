@@ -11,6 +11,10 @@ import { rlog } from '../../utils/rendererLogger'
 import { noteUnencryptedExport } from '../../utils/exportNotice'
 import { useVocab } from '../../hooks/useVocab'
 import { UnknownPlaceholders } from '../../components/shared/UnknownPlaceholders'
+import { useGridStore } from '../../stores/gridStore'
+import { rememberedList, rememberList } from './templateList'
+
+const SHOWN = 50
 
 interface GenerateModalProps {
   template: LetterTemplate
@@ -20,7 +24,13 @@ interface GenerateModalProps {
 
 export function GenerateLetterModal({ template, grids, onClose }: GenerateModalProps): React.ReactElement {
   const { t } = useVocab(null)
-  const [selectedGridId, setSelectedGridId] = useState<number | ''>(grids[0]?.id ?? '')
+  // The list this template was last used with, else the open one
+  const activeGridId = useGridStore(s => s.activeGridId)
+  const [selectedGridId, setSelectedGridId] = useState<number | ''>(() => {
+    const pick = [rememberedList(template.id), activeGridId].find(id => id != null && grids.some(g => g.id === id))
+    return pick ?? grids[0]?.id ?? ''
+  })
+  const [query, setQuery] = useState('')
   const [clientRowId, setClientRowId] = useState('')
   const [clientRows, setClientRows] = useState<{ row_id: number; name: string }[]>([])
   const [loadingClients, setLoadingClients] = useState(false)
@@ -88,6 +98,7 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
     setGenerating(true)
     setError(null)
     setResult(null)
+    rememberList(template.id, Number(selectedGridId))
     try {
       const res = await safeInvoke<{ text: string; unknown: string[] }>(
         IPC.LETTER_TEMPLATE_GENERATE, template.id, rowId, Number(selectedGridId)
@@ -157,7 +168,7 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
                   <select
                     id="letter-preview-grid"
                     value={selectedGridId}
-                    onChange={e => { setSelectedGridId(Number(e.target.value)); setClientRowId('') }}
+                    onChange={e => { setSelectedGridId(Number(e.target.value)); setClientRowId(''); setQuery('') }}
                     className="w-full appearance-none rounded-lg border border-slate-300 dark:border-slate-600
                                bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100
                                px-3 py-2 pr-8 text-base focus:outline-hidden focus:ring-3 focus:ring-blue-500 min-h-[44px]"
@@ -172,29 +183,46 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
               </div>
 
               <div>
+                {/* A search box instead of one long select: 200 names don't fit a dropdown */}
                 <label htmlFor="letter-preview-client" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
                   {t('record', { cap: true })}
                 </label>
-                <div className="relative">
-                  <select
-                    id="letter-preview-client"
-                    value={clientRowId}
-                    onChange={e => setClientRowId(e.target.value)}
-                    disabled={loadingClients}
-                    className="w-full appearance-none rounded-lg border border-slate-300 dark:border-slate-600
-                               bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100
-                               px-3 py-2 pr-8 text-base focus:outline-hidden focus:ring-3 focus:ring-blue-500 min-h-[44px]
-                               disabled:opacity-50"
-                  >
-                    <option value="">
-                      {loadingClients ? `Loading ${t('record', { many: true })}…` : `\u2014 Select ${t('record', { article: true })} \u2014`}
-                    </option>
-                    {clientRows.map(c => (
-                      <option key={c.row_id} value={c.row_id}>{c.name}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-slate-400" />
-                </div>
+                <input
+                  id="letter-preview-client"
+                  type="search"
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  disabled={loadingClients}
+                  placeholder={loadingClients ? `Loading ${t('record', { many: true })}…` : `Type a name to find ${t('record', { article: true })}`}
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800
+                             text-slate-800 dark:text-slate-100 px-3 py-2 text-base focus:outline-hidden focus:ring-3
+                             focus:ring-blue-500 min-h-[44px] disabled:opacity-50"
+                />
+                {(() => {
+                  const q = query.trim().toLowerCase()
+                  const matches = q ? clientRows.filter(c => c.name.toLowerCase().includes(q)) : clientRows
+                  if (loadingClients) return null
+                  if (matches.length === 0) return <p className="text-base text-slate-500 dark:text-slate-400 mt-2">No {t('record', { many: true })} match "{query}".</p>
+                  return (
+                    <>
+                      <div role="listbox" aria-label={`Choose ${t('record', { article: true })}`} className="mt-2 max-h-60 overflow-y-auto rounded-lg border border-slate-300 dark:border-slate-600">
+                        {matches.slice(0, SHOWN).map(c => {
+                          const on = String(c.row_id) === clientRowId
+                          return (
+                            <button key={c.row_id} type="button" role="option" aria-selected={on} onClick={() => setClientRowId(String(c.row_id))}
+                              className={`block w-full text-left px-3 text-base min-h-[44px] focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
+                                ${on ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 font-medium' : 'text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
+                              {c.name}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      {matches.length > SHOWN && (
+                        <p className="text-base text-slate-500 dark:text-slate-400 mt-1">Showing {SHOWN} of {matches.length}. Type more of the name to narrow it down.</p>
+                      )}
+                    </>
+                  )
+                })()}
               </div>
             </>
           )}
