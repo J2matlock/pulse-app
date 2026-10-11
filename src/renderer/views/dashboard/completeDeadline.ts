@@ -93,7 +93,7 @@ function formatDate(d: string | Date): string {
 
 async function addChecklist(rowId: number, templateId: number | null | undefined): Promise<number[]> {
   if (!templateId) return []
-  const res = await safeInvoke<{ createdIds: number[] }>(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId)
+  const res = await safeInvoke(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId)
   return res.ok ? res.data.createdIds : []
 }
 

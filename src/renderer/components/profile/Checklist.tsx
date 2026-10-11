@@ -192,7 +192,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       ? { ...i, is_completed: isCompleted ? 1 : 0, completed_at: now }
       : i
     ))
-    const res = await safeInvoke<{ sysLogId: number | null; repeat?: { previousDue: string | null; nextDue: string } | null }>(IPC.CHECKLIST_UPDATE_ITEM, id, {
+    const res = await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, {
       is_completed: isCompleted ? 1 : 0,
       completed_at: now,
     })
@@ -537,7 +537,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
   }, [])
 
   const handleApplyTemplate = useCallback(async (templateId: number, groupId?: number | null, createdGroupName?: string) => {
-    const result = await safeInvoke<{ createdIds: number[] }>(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId, groupId ?? null)
+    const result = await safeInvoke(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId, groupId ?? null)
     if (result.ok) {
       // Redo makes new items (and a new group), so undo and redo track the current ids (bug sweep S2)
       let createdIds = result.data.createdIds
@@ -562,7 +562,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
               const group = await mustInvoke<ChecklistGroup>(IPC.CHECKLIST_GROUP_CREATE, rowId, createdGroupName)
               targetGroupId = group.data.id
             }
-            const again = await mustInvoke<{ createdIds: number[] }>(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId, targetGroupId)
+            const again = await mustInvoke(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId, targetGroupId)
             createdIds = again.data.createdIds
             pulseEvents.emit('checklist:changed', { rowId })
           },

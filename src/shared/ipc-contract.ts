@@ -145,6 +145,33 @@ export interface CrossGridSearchResult {
   clientName: string
 }
 
+/** checklist:update-item — a repeating item ticked off came straight back, due again */
+export interface ChecklistRepeat { previousDue: string | null; nextDue: string }
+
+/** import:file-preview — what Pulse found in a spreadsheet before importing it */
+export interface ImportFilePreview {
+  /** Sheet names (Excel only) */
+  sheets: string[]
+  activeSheet: number
+  headers: string[]
+  /** First 20 data rows */
+  rows: string[][]
+  detectedColumns: Array<{
+    index: number
+    originalName: string
+    detectedType: 'text' | 'date' | 'number' | 'phone' | 'email' | 'currency' | 'checkbox'
+    /** First 5 non-empty values */
+    samples: string[]
+    /** Most values look like "Smith, Jane" */
+    lastFirstNames?: boolean
+  }>
+  /** 0-based header row, detected or chosen */
+  detectedHeaderRow: number
+  headerDetectionConfidence: 'high' | 'medium' | 'low'
+  rawRowCount: number
+  rawPreviewRows?: string[][]
+}
+
 /** Manual contact entry */
 export interface ManualContact {
   type: string
@@ -261,9 +288,10 @@ export interface IPCContract {
   // ── Checklists ──────────────────────────────────────────────────────────
   'checklist:get':            { args: [rowId: number];                                                   return: ChecklistItem[] }
   'checklist:create-item':    { args: [rowId: number, title: string, extra?: Partial<ChecklistItem>];    return: ChecklistItem }
-  'checklist:update-item':    { args: [id: number, updates: Partial<ChecklistItem>];                     return: { sysLogId: number | null } }
+  /** `silent`: undo/redo put an item back without writing a note or repeating it again */
+  'checklist:update-item':    { args: [id: number, updates: Partial<ChecklistItem>, opts?: { silent?: boolean }]; return: { sysLogId: number | null; repeat: ChecklistRepeat | null } }
   'checklist:delete-item':    { args: [id: number];                                                      return: true }
-  'checklist:apply-template': { args: [rowId: number, templateId: number];                               return: ChecklistItem[] }
+  'checklist:apply-template': { args: [rowId: number, templateId: number, groupId?: number | null];      return: { createdIds: number[] } }
   'checklist:reorder':        { args: [rowId: number, orderedIds: number[]];                             return: true }
   'checklist:get-urgent':     { args: [];                                                                return: UrgentChecklistItem[] }
   'checklist:reset-cycle':    { args: [rowId: number];                                                   return: true }
@@ -318,7 +346,8 @@ export interface IPCContract {
   'task:create':      { args: [task: Omit<CaseloadTask, 'id' | 'created_at' | 'updated_at'>];                                                      return: CaseloadTask }
   'task:update':      { args: [id: number, updates: Partial<CaseloadTask>];                                                                         return: true }
   'task:delete':      { args: [id: number];                                                                                                          return: true }
-  'task:complete':    { args: [id: number];                                                                                                          return: true }
+  /** false: already done, or its due date changed since `expectedDue` was read (nothing changed) */
+  'task:complete':    { args: [id: number, expectedDue?: string | null];                                                                             return: boolean }
   'task:snooze':      { args: [id: number, until: string];                                                                                           return: true }
   'task:get-due':     { args: [];                                                                                                                    return: CaseloadTask[] }
   'task:reorder':     { args: [orderedIds: number[]];                                                                                                return: true }
@@ -419,7 +448,7 @@ export interface IPCContract {
   'export:pdf-contact':       { args: [providerId: number];               return: string | null }
   'export:pdf-directory':     { args: [filterParams: Record<string, unknown>]; return: string | null }
   'import:file':              { args: [options: Record<string, unknown>];  return: unknown }
-  'import:file-preview':      { args: [filePath: string, sheetIndex?: number]; return: unknown }
+  'import:file-preview':      { args: [filePath: string, sheetIndex?: number, headerRowIndex?: number]; return: ImportFilePreview }
   'import:detect-columns':    { args: [gridId: number, headers: string[]]; return: unknown }
 
   // ── Templates ───────────────────────────────────────────────────────────
