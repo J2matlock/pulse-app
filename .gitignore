@@ -47,6 +47,8 @@ plans/website/screenshots/
 
 # Private: audit reports and security findings stay local (not in the public repo)
 SUPER_AUDIT_REPORT.md
+AUDIT.md
+POLISH-REPORT.md
 .SUPER_AUDIT_REPORT.md*
 audit-findings-*.md
 plans/AUDIT_*.md
