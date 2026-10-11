@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react'
 import type { Column } from '../../../shared/types'
 import type { NavDirection } from '../../hooks/useGridCellNavigation'
+import { toYmd, MIN_YEAR, MAX_YEAR } from '../../../shared/ymd'
 
 export type { NavDirection }
 
@@ -49,6 +50,12 @@ export function CellEditor({ column, value, onSave, onCancel }: Props): React.Re
     // Reject non-finite numbers (NaN, Infinity, -Infinity) for numeric columns
     if (val && (column.column_type === 'number' || column.column_type === 'currency')) {
       if (!isFinite(Number(val))) return
+    }
+    // A half-typed year (0026) isn't a date; keep what was there instead
+    if (val && column.column_type === 'date' && toYmd(val) !== val) {
+      savedRef.current = true
+      onCancel()
+      return
     }
     savedRef.current = true
     onSave(val, navDirection)
@@ -113,6 +120,8 @@ export function CellEditor({ column, value, onSave, onCancel }: Props): React.Re
           type="date"
           className={EDITOR_CLASS}
           style={DATE_STYLE}
+          min={`${MIN_YEAR}-01-01`}
+          max={`${MAX_YEAR}-12-31`}
           value={dateValue}
           onChange={e => setLocalValue(e.target.value)}
           onKeyDown={handleKeyDown}
