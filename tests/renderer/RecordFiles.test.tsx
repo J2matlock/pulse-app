@@ -59,7 +59,7 @@ describe('files on a note', () => {
   it('lists them and attaches more to that note', async () => {
     render(<NoteFiles rowId={4} noteId={9} files={[file(2, 'damage.png', 'image/png', { case_log_id: 9 }) as never]} canAttach />)
     expect(screen.getByRole('button', { name: /damage.png \(240 KB\)/ })).toBeTruthy()
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Attach a file to this note' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Attach a file to this /  })) })
     expect(invoke).toHaveBeenCalledWith('attachments:add', 4, { caseLogId: 9 })
   })
 })

@@ -11,6 +11,7 @@ import { isMod } from '../../utils/keys'
 import { useActivityTypes } from '../../hooks/useActivityTypes'
 import { useMeasures } from '../../hooks/useMeasures'
 import { MeasureInput } from './MeasureInput'
+import { useVocab } from '../../hooks/useVocab'
 import { CaseLogEditHistory } from './CaseLogEditHistory'
 import { useCopyFeedback } from '../../hooks/useCopyFeedback'
 import { formatMeasure, parseExtraMeasures, type MeasureDef } from '../../../shared/measures'
@@ -98,12 +99,14 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
   }, [entry.content, editing])
 
   const activity = useActivityTypes()
+  const { t } = useVocab()
   const config = {
     label: activity.label(entry.log_type) + (activity.isArchived(entry.log_type) ? ' (archived)' : ''),
     icon: activity.icon(entry.log_type),
     bgClass: activity.bgClass(entry.log_type),
   }
-  const isEdited = entry.updated_at !== entry.created_at
+  // Only text and day edits set edited_at; ticking a follow-up or undoing a delete touch updated_at too
+  const isEdited = entry.edited_at != null
   const isSystem = entry.log_type === 'system'
   const isVoided = entry.voided_at != null
 
@@ -153,7 +156,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
         <div className="flex-1" />
 
         {isEdited && (
-          <span className="text-sm text-slate-500 dark:text-slate-400 italic" title={`Edited ${formatDateTime(entry.updated_at)}`}>
+          <span className="text-sm text-slate-500 dark:text-slate-400 italic" title={`Edited ${formatDateTime(entry.edited_at ?? entry.updated_at)}`}>
             edited
           </span>
         )}
@@ -243,7 +246,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
                   value={voidReason}
                   onChange={e => setVoidReason(e.target.value)}
                   placeholder="Reason (optional)"
-                  aria-label="Reason for voiding this note"
+                  aria-label={`Reason for voiding this ${t('activity')}`}
                   maxLength={200}
                   className="w-40 px-2 py-0.5 text-base rounded-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800
                              focus:outline-hidden focus:ring-3 focus:ring-blue-500"
@@ -282,7 +285,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
 
       {confirmDelete && !canDelete && (
         <p className="px-3 pt-2 text-base text-slate-600 dark:text-slate-300">
-          Notes older than {CASE_NOTE_DELETE_WINDOW_MINUTES} minutes can't be deleted: voiding keeps it in the record, hidden, and you can restore it later.
+          {t('activity', { many: true, cap: true })} older than {CASE_NOTE_DELETE_WINDOW_MINUTES} minutes can't be deleted: voiding keeps it in the record, hidden, and you can restore it later.
         </p>
       )}
 
@@ -326,7 +329,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
               </div>
             )}
             {!editContent.trim() && (
-              <p className="text-base text-amber-800 dark:text-amber-300">A note can't be empty. To remove it, use Void.</p>
+              <p className="text-base text-amber-800 dark:text-amber-300">This {t('activity')} can't be empty. To remove it, use Void.</p>
             )}
             <div className="flex gap-2 justify-end">
               <button
@@ -369,7 +372,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
             )}
             {/* Earlier versions live on the note itself (3.4) */}
             {!isVoided && entry.edited_at && (
-              <CaseLogEditHistory entryId={entry.id} editedAt={entry.edited_at} originalContent={entry.original_content ?? null} />
+              <CaseLogEditHistory key={entry.edited_at} entryId={entry.id} editedAt={entry.edited_at} originalContent={entry.original_content ?? null} />
             )}
           </>
         )}
