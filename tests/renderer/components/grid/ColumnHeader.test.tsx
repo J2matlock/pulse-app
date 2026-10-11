@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 
 // ── Global mocks ────────────────────────────────────────────────────────────
 
@@ -114,6 +114,7 @@ function setupStores(overrides: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => { setWords() })
+afterEach(() => { vi.useRealTimers() })
 
 describe('ColumnHeader', () => {
   beforeEach(() => {
@@ -127,27 +128,56 @@ describe('ColumnHeader', () => {
   })
 
   it('click on column name triggers sort', () => {
+    vi.useFakeTimers()
     const setSortConfig = vi.fn()
     setupStores({ setSortConfig })
     render(<ColumnHeader column={makeColumn(1, 'Name')} />)
     fireEvent.click(screen.getByText('Name'))
+    act(() => { vi.advanceTimersByTime(300) })
     expect(setSortConfig).toHaveBeenCalledWith([{ columnId: 1, direction: 'asc', priority: 1 }])
   })
 
   it('second click cycles sort to descending', () => {
+    vi.useFakeTimers()
     const setSortConfig = vi.fn()
     setupStores({ sortConfig: [{ columnId: 1, direction: 'asc', priority: 1 }], setSortConfig })
     render(<ColumnHeader column={makeColumn(1, 'Name')} />)
     fireEvent.click(screen.getByText('Name'))
+    act(() => { vi.advanceTimersByTime(300) })
     expect(setSortConfig).toHaveBeenCalledWith([{ columnId: 1, direction: 'desc', priority: 1 }])
   })
 
   it('third click clears sort', () => {
+    vi.useFakeTimers()
     const setSortConfig = vi.fn()
     setupStores({ sortConfig: [{ columnId: 1, direction: 'desc', priority: 1 }], setSortConfig })
     render(<ColumnHeader column={makeColumn(1, 'Name')} />)
     fireEvent.click(screen.getByText('Name'))
+    act(() => { vi.advanceTimersByTime(300) })
     expect(setSortConfig).toHaveBeenCalledWith([])
+  })
+
+  it('double-click on the name renames instead of sorting (G-21)', () => {
+    vi.useFakeTimers()
+    const setSortConfig = vi.fn()
+    setupStores({ setSortConfig })
+    render(<ColumnHeader column={makeColumn(1, 'Name')} />)
+    const btn = screen.getByText('Name')
+    fireEvent.click(btn); fireEvent.click(btn); fireEvent.doubleClick(btn)
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(setSortConfig).not.toHaveBeenCalled()
+    expect(screen.getByDisplayValue('Name')).toBeTruthy()
+  })
+
+  it('keeps the menu short, with the rest under Column settings (G-21, G-42)', () => {
+    render(<ColumnHeader column={makeColumn(4, 'Phone')} />)
+    fireEvent.contextMenu(screen.getByText('Phone').closest('div')!)
+    expect(screen.queryByText('Log changes in timeline')).toBeNull()
+    expect(screen.getByText('Keep columns up to here in view')).toBeTruthy()
+    fireEvent.click(screen.getByText('Column settings…'))
+    expect(screen.getByRole('dialog', { name: /Phone.*settings/ })).toBeTruthy()
+    expect(screen.getByText('Log changes in timeline')).toBeTruthy()
+    expect(screen.getByText('Column format rules…')).toBeTruthy()
   })
 
   it('right-click opens context menu with column options', () => {

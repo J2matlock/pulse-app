@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2, Edit2, EyeOff, GripVertical, Bell, BellOff, Plus, Pencil, Activity, List, Palette, ArrowUp, ArrowDown, Pin, PinOff, Asterisk, Link2, Columns3, Clock, IdCard } from 'lucide-react'
+import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2, Edit2, EyeOff, GripVertical, Bell, BellOff, Plus, Pencil, Activity, List, Palette, ArrowUp, ArrowDown, Pin, PinOff, Asterisk, Link2, Columns3, Clock, IdCard, Settings2 } from 'lucide-react'
 import { canBeRequired } from '../../../shared/requiredFields'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
@@ -35,6 +35,9 @@ interface Props {
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>
 }
 
+/** A click on the name sorts after this long, unless it turns into a double-click (rename) */
+const SORT_CLICK_DELAY = 250
+
 export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactElement {
   const checklistsOn = useFeature('checklists')
   const { sortConfig, columns: allColumns, frozenColumnCount } = useGridStore(useShallow(s => ({
@@ -63,12 +66,15 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
   const { t } = useVocab()
   const [editingRule, setEditingRule] = useState<ParsedAlertRule | undefined>(undefined)
   const [showDeleteColConfirm, setShowDeleteColConfirm] = useState(false)
+  const [showColumnSettings, setShowColumnSettings] = useState(false)
   // What uses this column (rules, forms, views…), listed before a delete
   const [dependents, setDependents] = useState<string[]>([])
   const [deleteAlertRuleTarget, setDeleteAlertRuleTarget] = useState<ParsedAlertRule | null>(null)
   const [showEditOptions, setShowEditOptions] = useState(false)
   const [showColFormat, setShowColFormat] = useState(false)
   const renameRef = useRef<HTMLInputElement>(null)
+  const sortClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (sortClickTimer.current) clearTimeout(sortClickTimer.current) }, [])
 
   // Current alert rule for this column (date columns only)
   const colConfig = (() => { try { return JSON.parse(column.config || '{}') } catch { return {} } })()
@@ -217,10 +223,19 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
           />
         </form>
       ) : (
-        <Tooltip content="Click to sort · Shift+click for multi-sort" placement="bottom" delay={600}>
+        <Tooltip content="Click to sort · Double-click to rename" placement="bottom" delay={600}>
           <button
             className="hit-44 flex-1 text-left text-base font-semibold text-slate-700 dark:text-slate-200 truncate focus:outline-hidden min-w-0 px-1"
-            onClick={handleSortClick}
+            onClick={e => {
+              // Wait a moment, so a double-click renames instead of sorting twice
+              const shift = e.shiftKey
+              if (sortClickTimer.current) clearTimeout(sortClickTimer.current)
+              sortClickTimer.current = setTimeout(() => { sortClickTimer.current = null; handleSortClick({ shiftKey: shift } as React.MouseEvent) }, SORT_CLICK_DELAY)
+            }}
+            onDoubleClick={() => {
+              if (sortClickTimer.current) { clearTimeout(sortClickTimer.current); sortClickTimer.current = null }
+              setIsRenaming(true); setRenameName(column.name)
+            }}
           >
             {column.name}
           </button>
@@ -258,7 +273,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
       {/* Column menu */}
       <div className="relative flex-shrink-0">
         <button
-          className="p-0.5 rounded-sm text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+          className="hit-44 p-1 rounded-sm text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 opacity-60 group-hover:opacity-100 focus:opacity-100 transition-opacity"
           onClick={e => {
             e.stopPropagation()
             const rect = e.currentTarget.getBoundingClientRect()
@@ -327,7 +342,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                 Hide column
               </button>
               <button
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-left"
                 onClick={() => {
                   if (isColumnFrozen) {
                     // Unpin: set frozen count to this column's index (exclude it)
@@ -340,7 +355,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                 }}
               >
                 {isColumnFrozen ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
-                {isColumnFrozen ? 'Unpin column' : 'Pin column'}
+                {isColumnFrozen ? 'Stop keeping these columns in view' : 'Keep columns up to here in view'}
               </button>
               {column.is_name_column !== 1 && canNameRecords(column.column_type) && (
                 <button
@@ -352,71 +367,14 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                   Use as name
                 </button>
               )}
+              {/* Everything else lives in one dialog, so the menu stays short (G-21) */}
               <button
                 className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                onClick={handleToggleLogChanges}
+                onClick={() => { setShowMenu(false); setShowColumnSettings(true) }}
               >
-                <Activity className="w-4 h-4" />
-                <span className="flex-1 text-left">Log changes in timeline</span>
-                <span className={`text-sm font-medium ${colConfig.log_changes ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                  {colConfig.log_changes ? 'On' : 'Off'}
-                </span>
+                <Settings2 className="w-4 h-4" />
+                Column settings…
               </button>
-
-              {canBeRequired(column.column_type) && (
-                <button
-                  className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                  onClick={() => { void updateColumn(column.id, { config: JSON.stringify({ ...colConfig, required: colConfig.required ? undefined : true }) }); setShowMenu(false) }}
-                  title="Empty cells show 'Missing' and appear in the Missing information list"
-                >
-                  <Asterisk className="w-4 h-4" />
-                  <span className="flex-1 text-left">Required field</span>
-                  <span className={`text-sm font-medium ${colConfig.required ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                    {colConfig.required ? 'On' : 'Off'}
-                  </span>
-                </button>
-              )}
-
-              <button
-                className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                onClick={() => { setShowColFormat(true); setShowMenu(false) }}
-              >
-                <Palette className="w-4 h-4" />
-                Column format rules…
-              </button>
-
-              {/* Edit options — only for dropdown/status columns */}
-              {(column.column_type === 'dropdown' || column.column_type === 'status') && (
-                <button
-                  className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                  onClick={handleOpenEditOptions}
-                >
-                  <List className="w-4 h-4" />
-                  Edit options…
-                </button>
-              )}
-
-              {/* Stage (W06): one status or dropdown column per list drives the board */}
-              {stagesOn && canBeStage(column.column_type) && (
-                <button
-                  className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                  onClick={() => { setShowMenu(false); setShowStageSettings(true) }}
-                >
-                  <Columns3 className="w-4 h-4" />
-                  {stageConfigOf(column) ? `${t('stage', { cap: true })} settings…` : `Use as the ${t('stage')}…`}
-                </button>
-              )}
-
-              {/* Link columns (W04): names, how many, or remove the link */}
-              {linkType && (
-                <button
-                  className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                  onClick={() => { setShowMenu(false); setShowLinkSettings(true) }}
-                >
-                  <Link2 className="w-4 h-4" />
-                  Link settings…
-                </button>
-              )}
 
               {/* Alert rule picker — only for date columns */}
               {takesDeadlineRule(column.column_type) && (
@@ -520,13 +478,6 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                       </button>
                     </div>
                   )}
-                  <NoteUpdatePicker
-                    value={Array.isArray(colConfig.note_updates) ? colConfig.note_updates : []}
-                    onChange={types => void updateColumn(column.id, { config: JSON.stringify({ ...colConfig, note_updates: types.length ? types : undefined }) })}
-                  />
-                  {currentAlertRule && checklistsOn && (
-                    <DoneChecklistPicker value={colConfig.done_checklist_id ?? null} onChange={id => void handleSetDoneChecklist(id)} />
-                  )}
                 </>
               )}
 
@@ -540,6 +491,105 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
               </button>
             </div>
           </>, document.body
+        )}
+
+
+        {/* Column settings (G-21): required, choices, colors, changes in notes, stage, links, deadline extras */}
+        {showColumnSettings && createPortal(
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby={`col-settings-${column.id}`}
+            onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setShowColumnSettings(false) } }}>
+            <div className="fixed inset-0 bg-black/50" onClick={() => setShowColumnSettings(false)} />
+            <div className="relative w-full max-w-md max-h-[85vh] overflow-y-auto bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4">
+              <h2 id={`col-settings-${column.id}`} className="text-lg font-semibold text-slate-800 dark:text-slate-100 px-3 mb-2">“{column.name}” settings</h2>
+              <div onClick={e => { if ((e.target as HTMLElement).closest('button[data-opens]')) setShowColumnSettings(false) }}>
+              <button
+                className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                onClick={handleToggleLogChanges}
+              >
+                <Activity className="w-4 h-4" />
+                <span className="flex-1 text-left">Log changes in timeline</span>
+                <span className={`text-sm font-medium ${colConfig.log_changes ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                  {colConfig.log_changes ? 'On' : 'Off'}
+                </span>
+              </button>
+
+              {canBeRequired(column.column_type) && (
+                  <button
+                                  className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  onClick={() => { void updateColumn(column.id, { config: JSON.stringify({ ...colConfig, required: colConfig.required ? undefined : true }) }); setShowMenu(false) }}
+                  title="Empty cells show 'Missing' and appear in the Missing information list"
+                >
+                  <Asterisk className="w-4 h-4" />
+                  <span className="flex-1 text-left">Required field</span>
+                  <span className={`text-sm font-medium ${colConfig.required ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                    {colConfig.required ? 'On' : 'Off'}
+                  </span>
+                </button>
+              )}
+
+              <button
+                data-opens
+                className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                onClick={() => { setShowColFormat(true); setShowMenu(false) }}
+              >
+                <Palette className="w-4 h-4" />
+                Column format rules…
+              </button>
+
+              {/* Edit options — only for dropdown/status columns */}
+              {(column.column_type === 'dropdown' || column.column_type === 'status') && (
+                <button
+                data-opens
+                  className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  onClick={handleOpenEditOptions}
+                >
+                  <List className="w-4 h-4" />
+                  Edit options…
+                </button>
+              )}
+
+              {/* Stage (W06): one status or dropdown column per list drives the board */}
+              {stagesOn && canBeStage(column.column_type) && (
+                <button
+                data-opens
+                  className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  onClick={() => { setShowMenu(false); setShowStageSettings(true) }}
+                >
+                  <Columns3 className="w-4 h-4" />
+                  {stageConfigOf(column) ? `${t('stage', { cap: true })} settings…` : `Use as the ${t('stage')}…`}
+                </button>
+              )}
+
+              {/* Link columns (W04): names, how many, or remove the link */}
+              {linkType && (
+                <button
+                data-opens
+                  className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  onClick={() => { setShowMenu(false); setShowLinkSettings(true) }}
+                >
+                  <Link2 className="w-4 h-4" />
+                  Link settings…
+                </button>
+              )}
+
+
+              {takesDeadlineRule(column.column_type) && (
+                <div className="mt-2 border-t border-slate-200 dark:border-slate-700 pt-2">
+                  <NoteUpdatePicker
+                    value={Array.isArray(colConfig.note_updates) ? colConfig.note_updates : []}
+                    onChange={types => void updateColumn(column.id, { config: JSON.stringify({ ...colConfig, note_updates: types.length ? types : undefined }) })}
+                  />
+                  {currentAlertRule && checklistsOn && (
+                    <DoneChecklistPicker value={colConfig.done_checklist_id ?? null} onChange={id => void handleSetDoneChecklist(id)} />
+                  )}
+                </div>
+              )}
+              </div>
+              <div className="flex justify-end mt-4 px-3">
+                <button type="button" className="btn-secondary" onClick={() => setShowColumnSettings(false)}>Close</button>
+              </div>
+            </div>
+          </div>, document.body
         )}
 
         {/* Alert rule editor modal (create or edit) */}

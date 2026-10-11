@@ -151,38 +151,34 @@ describe('GridToolbar', () => {
     setWords({ record: { one: 'customer', many: 'customers', article: 'a' } }, { 1: { record: { one: 'vehicle', many: 'vehicles', article: 'a' } } })
     const { unmount } = render(<GridToolbar />)
     expect(screen.getByText('Add Vehicle')).toBeTruthy()
-    expect(screen.getByLabelText('Show archived vehicles')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /^View/ }))
+    expect(screen.getByText('Show archived vehicles')).toBeTruthy()
     unmount()
     setWords({})
     render(<GridToolbar />)
     expect(screen.getByText('Add Record')).toBeTruthy()
   })
 
-  it('renders Add Column button', () => {
+  it('keeps the toolbar short: Add up front, the rest under View, Reports and More (G-22)', () => {
     render(<GridToolbar />)
-    expect(screen.getByText('Add Column')).toBeTruthy()
-  })
-
-  it('renders Export button', () => {
-    render(<GridToolbar />)
-    expect(screen.getByText('Export')).toBeTruthy()
+    for (const name of [/^View/, /^Reports/, /^More/]) expect(screen.getByRole('button', { name })).toBeTruthy()
+    expect(screen.queryByText('Add Column')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^More/ }))
+    for (const item of ['Add a column…', 'Show or hide columns…', 'Import from CSV or Excel…', 'Export as CSV', 'Export as PDF']) expect(screen.getByText(item)).toBeTruthy()
+    expect(screen.getByLabelText('Caseload settings')).toBeTruthy()
   })
 
   it('offers the requirements summary only while requirements are on (audit X-31)', () => {
     const { unmount } = render(<GridToolbar />)
-    fireEvent.click(screen.getByText('Export'))
+    fireEvent.click(screen.getByRole('button', { name: /^Reports/ }))
     expect(screen.queryByText(/requirements summary…/i)).toBeTruthy()
     unmount()
     setFeatures({ ...EXISTING_FEATURES, requirements: false })
     render(<GridToolbar />)
-    fireEvent.click(screen.getByText('Export'))
+    fireEvent.click(screen.getByRole('button', { name: /^Reports/ }))
     expect(screen.queryByText(/requirements summary…/i)).toBeNull()
   })
 
-  it('renders Import button', () => {
-    render(<GridToolbar />)
-    expect(screen.getByText('Import')).toBeTruthy()
-  })
 
   it('renders filter controls', () => {
     render(<GridToolbar />)
@@ -194,9 +190,13 @@ describe('GridToolbar', () => {
     expect(screen.getByTestId('grouping-bar')).toBeTruthy()
   })
 
-  it('renders Archived toggle button', () => {
+  it('shows archived records from the View menu', () => {
+    const setShowArchived = vi.fn()
+    setupStores({ setShowArchived })
     render(<GridToolbar />)
-    expect(screen.getByText('Archived')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /^View/ }))
+    fireEvent.click(screen.getByText('Show archived clients'))
+    expect(setShowArchived).toHaveBeenCalledWith(true)
   })
 
   it('clicking Add Client calls addRow', () => {
@@ -207,9 +207,10 @@ describe('GridToolbar', () => {
     expect(addRow).toHaveBeenCalledOnce()
   })
 
-  it('clicking Add Column opens the add column form', () => {
+  it('Add a column… opens the add column form', () => {
     render(<GridToolbar />)
-    fireEvent.click(screen.getByText('Add Column'))
+    fireEvent.click(screen.getByRole('button', { name: /^More/ }))
+    fireEvent.click(screen.getByText('Add a column…'))
     expect(screen.getByLabelText('Column name')).toBeTruthy()
     expect(screen.getByLabelText('Type')).toBeTruthy()
   })
@@ -220,7 +221,8 @@ describe('GridToolbar', () => {
     const createRule = vi.fn()
     useAlertStore.setState({ rules: [{ id: 3, name: 'Yearly', description: null, is_system: 0, thresholds: [], interval_days: null, interval_months: 12, end_of_month: 0, kind: 'interval', created_at: '' }], createRule } as never)
     render(<GridToolbar />)
-    fireEvent.click(screen.getByText('Add Column'))
+    fireEvent.click(screen.getByRole('button', { name: /^More/ }))
+    fireEvent.click(screen.getByText('Add a column…'))
     fireEvent.change(screen.getByLabelText('Column name'), { target: { value: 'Annual review' } })
     fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'date' } })
     expect(screen.getByText('Does this date come due again?')).toBeTruthy()
@@ -238,7 +240,8 @@ describe('GridToolbar', () => {
     const createRule = vi.fn().mockResolvedValue(21)
     useAlertStore.setState({ rules: [], createRule } as never)
     render(<GridToolbar />)
-    fireEvent.click(screen.getByText('Add Column'))
+    fireEvent.click(screen.getByRole('button', { name: /^More/ }))
+    fireEvent.click(screen.getByText('Add a column…'))
     fireEvent.change(screen.getByLabelText('Column name'), { target: { value: 'Lease end' } })
     fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'date' } })
     fireEvent.click(screen.getByLabelText("It's the due date"))
@@ -252,7 +255,9 @@ describe('GridToolbar', () => {
       hiddenColumns: [makeColumn(3, 'Hidden Col')],
     })
     render(<GridToolbar />)
-    expect(screen.getByText('Columns')).toBeTruthy()
     expect(screen.getByText('1 hidden')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /^More/ }))
+    fireEvent.click(screen.getByText('Show or hide columns…'))
+    expect(screen.getByText('Hidden Col')).toBeTruthy()
   })
 })
