@@ -6,7 +6,6 @@ import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import {
   DndContext,
-  closestCenter,
   PointerSensor,
   useSensor,
   useSensors,
@@ -15,7 +14,6 @@ import {
 import {
   SortableContext,
   verticalListSortingStrategy,
-  arrayMove,
 } from '@dnd-kit/sortable'
 import { IPC } from '../../../shared/ipc-channels'
 import type { ChecklistItem as ChecklistItemType, ChecklistTemplate, ChecklistPriority, ChecklistGroup } from '../../../shared/types'
@@ -28,6 +26,7 @@ import { useUndoStore } from '../../stores/undoStore'
 import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { rlog } from '../../utils/rendererLogger'
 import { pulseEvents } from '../../events'
+import { resolveGroupDrop, groupAwareCollision } from '../../views/tasks/groupDrag'
 import { useVocab } from '../../hooks/useVocab'
 
 interface Props {
@@ -295,47 +294,50 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event
-    if (!over || active.id === over.id) return
+    if (!over) return
+    const drop = resolveGroupDrop(active.id, over.id, activeItems, groups)
+    if (!drop) return
 
-    // Group reorder
-    const activeStr = String(active.id)
-    const overStr = String(over.id)
-    if (activeStr.startsWith('group-') && overStr.startsWith('group-')) {
-      const activeGroupId = Number(activeStr.replace('group-', ''))
-      const overGroupId = Number(overStr.replace('group-', ''))
-      const sorted = [...groups].sort((a, b) => a.position - b.position)
-      const oldIdx = sorted.findIndex(g => g.id === activeGroupId)
-      const newIdx = sorted.findIndex(g => g.id === overGroupId)
-      if (oldIdx === -1 || newIdx === -1) return
-      const newOrder = arrayMove(sorted, oldIdx, newIdx)
-      setGroups(newOrder.map((g, i) => ({ ...g, position: i })))
-      await safeInvoke(IPC.CHECKLIST_GROUP_REORDER, rowId, newOrder.map(g => g.id))
+    if (drop.kind === 'groups') {
+      const byId = new Map(groups.map(g => [g.id, g]))
+      setGroups(drop.order.map((id, i) => ({ ...byId.get(id)!, position: i })))
+      await safeInvoke(IPC.CHECKLIST_GROUP_REORDER, rowId, drop.order)
       return
     }
 
-    // Item reorder
-    const activeIdx = activeItems.findIndex(i => i.id === active.id)
-    const overIdx   = activeItems.findIndex(i => i.id === over.id)
-    if (activeIdx === -1 || overIdx === -1) return
     const oldOrder = activeItems.map(i => i.id)
-    const newOrder = arrayMove(activeItems, activeIdx, overIdx)
+    const newOrder = drop.order
+    const moved = drop.moved
+    const fromGroup = moved ? (activeItems.find(i => i.id === moved.id)?.group_id ?? null) : null
     setItems(prev => prev.map(item => {
-      const newPos = newOrder.findIndex(n => n.id === item.id)
-      return newPos === -1 ? item : { ...item, position: newPos }
+      const newPos = newOrder.indexOf(item.id)
+      const next = newPos === -1 ? item : { ...item, position: newPos }
+      return moved && item.id === moved.id ? { ...next, group_id: moved.groupId } : next
     }))
-    await safeInvoke(IPC.CHECKLIST_REORDER, rowId, newOrder.map(i => i.id))
+    // Dropped in another group: it moves there (bug sweep S2)
+    if (moved) {
+      const res = await safeInvoke(IPC.CHECKLIST_MOVE_ITEM_TO_GROUP, moved.id, moved.groupId)
+      if (!res.ok) {
+        toast.error("We couldn't move that item — try again")
+        pulseEvents.emit('checklist:changed', { rowId })
+        return
+      }
+    }
+    await safeInvoke(IPC.CHECKLIST_REORDER, rowId, newOrder)
     useUndoStore.getState().push({
       id: crypto.randomUUID(),
-      description: 'Reordered checklist items',
+      description: moved ? 'Moved a checklist item to another group' : 'Reordered checklist items',
       timestamp: Date.now(),
       category: 'logged',
       icon: 'reorder',
       undo: async () => {
+        if (moved) await mustInvoke(IPC.CHECKLIST_MOVE_ITEM_TO_GROUP, moved.id, fromGroup)
         await mustInvoke(IPC.CHECKLIST_REORDER, rowId, oldOrder)
         pulseEvents.emit('checklist:changed', { rowId })
       },
       redo: async () => {
-        await mustInvoke(IPC.CHECKLIST_REORDER, rowId, newOrder.map(i => i.id))
+        if (moved) await mustInvoke(IPC.CHECKLIST_MOVE_ITEM_TO_GROUP, moved.id, moved.groupId)
+        await mustInvoke(IPC.CHECKLIST_REORDER, rowId, newOrder)
         pulseEvents.emit('checklist:changed', { rowId })
       },
     })
@@ -562,7 +564,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
           </div>
         ) : !hasGroups ? (
           /* ── Flat mode (no groups) — identical to previous behavior ── */
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd}>
             <SortableContext items={activeItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
               {activeItems.map(item => (
                 <ChecklistItem
@@ -578,7 +580,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
           </DndContext>
         ) : (
           /* ── Grouped mode ── */
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd}>
             {/* Ungrouped items first */}
             {(groupedActiveItems.get(null) ?? []).length > 0 && (
               <div className="mb-1">

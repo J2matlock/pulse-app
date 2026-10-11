@@ -5,7 +5,6 @@ import { GroupPicker } from '../components/shared/GroupPicker'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   DndContext,
-  closestCenter,
   PointerSensor,
   useSensor,
   useSensors,
@@ -14,7 +13,6 @@ import {
 import {
   SortableContext,
   verticalListSortingStrategy,
-  arrayMove,
 } from '@dnd-kit/sortable'
 import { useShallow } from 'zustand/react/shallow'
 import { ConfirmDialog } from '../components/shared/ConfirmDialog'
@@ -32,6 +30,7 @@ import { safeInvoke, mustInvoke } from '../utils/safeInvoke'
 import { rlog } from '../utils/rendererLogger'
 import { pulseEvents } from '../events'
 import { tickChecklistItem } from '../utils/checklistTick'
+import { resolveGroupDrop, groupAwareCollision } from './tasks/groupDrag'
 import { LoadingOverlay } from '../components/shared/LoadingSpinner'
 
 import { ViewBreadcrumb } from '../components/shared/ViewBreadcrumb'
@@ -396,32 +395,53 @@ export default function TasksView(): React.ReactElement {
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event
-    if (!over || active.id === over.id) return
+    if (!over) return
+    const currentItems = activeManualRef.current
+    const drop = resolveGroupDrop(active.id, over.id, currentItems, taskGroups)
+    if (!drop) return
 
-    // Group reorder
-    const activeStr = String(active.id)
-    const overStr = String(over.id)
-    if (activeStr.startsWith('group-') && overStr.startsWith('group-')) {
-      const activeGroupId = Number(activeStr.replace('group-', ''))
-      const overGroupId = Number(overStr.replace('group-', ''))
-      const sorted = [...taskGroups].sort((a, b) => a.position - b.position)
-      const oldIdx = sorted.findIndex(g => g.id === activeGroupId)
-      const newIdx = sorted.findIndex(g => g.id === overGroupId)
-      if (oldIdx === -1 || newIdx === -1) return
-      const newOrder = arrayMove(sorted, oldIdx, newIdx)
-      setTaskGroups(newOrder.map((g, i) => ({ ...g, position: i })))
-      await safeInvoke(IPC.TASK_GROUP_REORDER, newOrder.map(g => g.id))
+    if (drop.kind === 'groups') {
+      const byId = new Map(taskGroups.map(g => [g.id, g]))
+      setTaskGroups(drop.order.map((id, i) => ({ ...byId.get(id)!, position: i })))
+      await safeInvoke(IPC.TASK_GROUP_REORDER, drop.order)
       return
     }
 
-    // Item reorder
-    const currentItems = activeManualRef.current
-    const activeIdx = currentItems.findIndex(i => i.id === active.id)
-    const overIdx = currentItems.findIndex(i => i.id === over.id)
-    if (activeIdx === -1 || overIdx === -1) return
-    const newOrder = arrayMove(currentItems, activeIdx, overIdx)
-    await reorderTasks(newOrder.map(i => i.id))
-  }, [reorderTasks, taskGroups])
+    const moved = drop.moved
+    if (!moved) { await reorderTasks(drop.order); return }
+
+    // Dropped in another group: it moves there, as one undo step (bug sweep S2)
+    const task = currentItems.find(t => t.id === moved.id)
+    const fromGroup = task?.group_id ?? null
+    const oldOrder = currentItems.map(t => t.id)
+    const newOrder = drop.order
+    useTaskStore.setState(state => ({ tasks: state.tasks.map(t => t.id === moved.id ? { ...t, group_id: moved.groupId } : t) }))
+    const res = await safeInvoke(IPC.TASK_MOVE_TO_GROUP, moved.id, moved.groupId)
+    if (!res.ok) {
+      toast.error("We couldn't move that task — try again")
+      await loadTasks()
+      return
+    }
+    await safeInvoke(IPC.TASK_REORDER, newOrder)
+    await loadTasks()
+    useUndoStore.getState().push({
+      id: crypto.randomUUID(),
+      description: `Moved task "${task?.title ?? ''}" to another group`,
+      timestamp: Date.now(),
+      category: 'logged',
+      icon: 'reorder',
+      undo: async () => {
+        await mustInvoke(IPC.TASK_MOVE_TO_GROUP, moved.id, fromGroup)
+        await mustInvoke(IPC.TASK_REORDER, oldOrder)
+        await loadTasks()
+      },
+      redo: async () => {
+        await mustInvoke(IPC.TASK_MOVE_TO_GROUP, moved.id, moved.groupId)
+        await mustInvoke(IPC.TASK_REORDER, newOrder)
+        await loadTasks()
+      },
+    })
+  }, [reorderTasks, taskGroups, loadTasks])
 
   /** createdGroupName: the template went into a group made just for it, which undo removes and redo makes again */
   const applyTaskTemplate = useCallback(async (templateId: number, groupId: number | null, createdGroupName?: string) => {
@@ -591,7 +611,7 @@ export default function TasksView(): React.ReactElement {
                   </SortableContext>
                 </DndContext>
               ) : (
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd}>
                   {!hasTaskGroups ? (
                     /* Flat mode (no groups) */
                     <SortableContext items={activeManualItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
