@@ -6,7 +6,6 @@ import {
   HANDLE_WIDTH,
   PROFILE_BTN_WIDTH,
   HANDLE_STYLE,
-  alertShapeForThreshold,
 } from '../../../../src/renderer/components/grid/gridConstants'
 import { setWords } from '../../vocabFixture'
 
@@ -30,24 +29,5 @@ describe('gridConstants', () => {
 
   it('HANDLE_STYLE has width matching HANDLE_WIDTH', () => {
     expect(HANDLE_STYLE.width).toBe(HANDLE_WIDTH)
-  })
-
-  it('alertShapeForThreshold returns null for green/safe', () => {
-    expect(alertShapeForThreshold('alert-green', 30)).toBeNull()
-  })
-
-  it('alertShapeForThreshold returns JSX for alert-red', () => {
-    const result = alertShapeForThreshold('alert-red', 2)
-    expect(result).not.toBeNull()
-  })
-
-  it('alertShapeForThreshold returns JSX for alert-pulse', () => {
-    const result = alertShapeForThreshold('alert-pulse', -5)
-    expect(result).not.toBeNull()
-  })
-
-  it('alertShapeForThreshold returns JSX for alert-orange', () => {
-    const result = alertShapeForThreshold('alert-orange', 7)
-    expect(result).not.toBeNull()
   })
 })

@@ -88,25 +88,3 @@ export function alertShapeForBand(daysUntil: number, threshold: { daysBefore: nu
 function withLabel(node: React.ReactElement, label: string): React.ReactElement {
   return React.cloneElement(node as React.ReactElement<{ 'aria-label'?: string }>, { 'aria-label': label })
 }
-
-/**
- * Returns a small shape indicator for alert thresholds so color is never the sole indicator.
- * Shapes: circle (green/safe), diamond (yellow/caution), triangle (orange/warning),
- * exclamation triangle (red/urgent), double exclamation (pulsing/overdue).
- */
-export function alertShapeForThreshold(bgClass: string, daysUntil: number): React.ReactNode {
-  if (bgClass === 'alert-pulse' || bgClass === 'alert-pulse-dark') {
-    return (
-      <span className={_ALERT_BASE} aria-label={`${Math.abs(daysUntil)} days overdue`}>
-        <svg className={_ALERT_SIZE} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-          <path d="M8 1L1 14h14L8 1z" fill="none" stroke="currentColor" strokeWidth="1.5"/>
-          <path d="M8 6v4M8 11.5v1" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-        </svg>
-      </span>
-    )
-  }
-  if (bgClass === 'alert-red') return _ALERT_SHAPE_RED
-  if (bgClass === 'alert-orange') return _ALERT_SHAPE_ORANGE
-  if (bgClass === 'alert-yellow') return _ALERT_SHAPE_YELLOW
-  return null
-}
