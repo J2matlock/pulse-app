@@ -63,7 +63,7 @@ const PRESETS: Array<{ key: NonNullable<PresetKey>; label: string }> = [
 export function SupervisorReportDialog({ gridId, columns, onClose }: Props): React.ReactElement {
   const { t } = useVocab(gridId)
   const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
+  useFocusTrap(trapRef, true, { onEscape: onClose })
   const today = localDateString()
   const firstOfMonth = today.slice(0, 8) + '01'
 

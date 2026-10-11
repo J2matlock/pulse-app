@@ -186,7 +186,7 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
   })))
 
   const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
+  useFocusTrap(trapRef, true, { onEscape: onClose })
 
   const isColumnMode = mode === 'column'
   const thisColumn  = columns.find(c => c.id === columnId)

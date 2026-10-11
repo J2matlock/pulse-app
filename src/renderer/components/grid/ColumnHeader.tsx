@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { useMenuKeys } from '../../hooks/useMenuKeys'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { createPortal } from 'react-dom'
 import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2, Edit2, EyeOff, GripVertical, Bell, BellOff, Plus, Pencil, Activity, List, Palette, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Pin, PinOff, Asterisk, Link2, Columns3, Clock, IdCard, Settings2, Shapes } from 'lucide-react'
 import { canBeRequired } from '../../../shared/requiredFields'
@@ -98,6 +99,9 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
   const colIndex = allColumns.findIndex(c => c.id === column.id)
   const menuRef = useRef<HTMLDivElement>(null)
   const onMenuKeyDown = useMenuKeys(menuRef, showMenu, () => { setShowMenu(false); setShowAlertPicker(false) })
+  // Column settings is a modal: focus goes in, Tab stays in, Escape closes, focus comes back (AUDIT-047)
+  const settingsRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(settingsRef, showColumnSettings, { onEscape: () => setShowColumnSettings(false) })
 
   // Move left / right among the shown columns, so columns can be reordered without dragging (G-32)
   const shownColumns = allColumns.filter(c => c.is_visible !== 0)
@@ -558,10 +562,9 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
 
         {/* Column settings (G-21): required, choices, colors, changes in notes, stage, links, deadline extras */}
         {showColumnSettings && createPortal(
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby={`col-settings-${column.id}`}
-            onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setShowColumnSettings(false) } }}>
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby={`col-settings-${column.id}`}>
             <div className="fixed inset-0 bg-black/50" onClick={() => setShowColumnSettings(false)} />
-            <div className="relative w-full max-w-md max-h-[85vh] overflow-y-auto bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4">
+            <div ref={settingsRef} className="relative w-full max-w-md max-h-[85vh] overflow-y-auto bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4">
               <h2 id={`col-settings-${column.id}`} className="text-lg font-semibold text-slate-800 dark:text-slate-100 px-3 mb-2">“{column.name}” settings</h2>
               <div onClick={e => { if ((e.target as HTMLElement).closest('button[data-opens]')) setShowColumnSettings(false) }}>
               <button

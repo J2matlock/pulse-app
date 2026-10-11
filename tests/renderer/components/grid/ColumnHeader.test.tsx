@@ -186,6 +186,25 @@ describe('ColumnHeader', () => {
     expect(screen.getByText('Color rules for this column…')).toBeTruthy()
   })
 
+  it('column settings takes focus, keeps Tab inside, closes on Escape and gives focus back (AUDIT-047)', async () => {
+    render(<ColumnHeader column={makeColumn(4, 'Phone')} />)
+    const opener = screen.getByRole('button', { name: 'Column options' })
+    opener.focus()
+    fireEvent.click(opener)
+    fireEvent.click(screen.getByText('Column settings…'))
+    const dialog = screen.getByRole('dialog', { name: /Phone.*settings/ })
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true))
+    // Tab from the last control wraps to the first
+    const close = screen.getByRole('button', { name: 'Close' })
+    close.focus()
+    fireEvent.keyDown(close, { key: 'Tab' })
+    expect(dialog.contains(document.activeElement)).toBe(true)
+    expect(document.activeElement).not.toBe(close)
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: /Phone.*settings/ })).toBeNull()
+    expect(document.activeElement).toBe(opener)
+  })
+
   it('right-click opens context menu with column options', () => {
     render(<ColumnHeader column={makeColumn(1, 'Name')} />)
     const header = screen.getByText('Name').closest('div')!
