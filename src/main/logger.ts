@@ -8,7 +8,7 @@
 import { randomUUID } from 'node:crypto'
 import { app } from 'electron'
 import { getPortableDataDir } from './data-dir'
-import { appendFileSync, existsSync, mkdirSync, renameSync, statSync } from 'fs'
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, renameSync, statSync } from 'fs'
 import { join } from 'path'
 
 const SESSION_ID = randomUUID().slice(0, 8)
@@ -32,11 +32,25 @@ let logDirEnsured = false
 // Logs live inside the Pulse data folder (with everything else Pulse writes), so
 // they move with a portable install and are removed by "Reset everything".
 // They never contain client data; see sanitize() below.
+// Owner-only, like the database, credentials and backups: the logs can hold
+// file and folder names (backup paths), so other accounts mustn't read them.
+const LOG_DIR_MODE = 0o700
+const LOG_FILE_MODE = 0o600
+
 function ensureLogDir(): string {
   const logDir = join(getPortableDataDir(), 'logs')
   if (!logDirEnsured) {
     if (!existsSync(logDir)) {
-      mkdirSync(logDir, { recursive: true })
+      mkdirSync(logDir, { recursive: true, mode: LOG_DIR_MODE })
+    }
+    // Once per launch, tighten what older versions created with default modes
+    if (process.platform !== 'win32') {
+      try {
+        chmodSync(logDir, LOG_DIR_MODE)
+        for (const name of readdirSync(logDir)) {
+          if (name.startsWith(LOG_FILE_NAME)) chmodSync(join(logDir, name), LOG_FILE_MODE)
+        }
+      } catch (err) { console.error('Logger internal error:', err) }
     }
     logDirEnsured = true
   }
@@ -67,7 +81,7 @@ function writeToLogFile(line: string): void {
   }
 
   try {
-    appendFileSync(logPath, line + '\n')
+    appendFileSync(logPath, line + '\n', { mode: LOG_FILE_MODE })
   } catch (err) {
     // If file write fails, stderr is still available as fallback
     console.error('Logger internal error:', err)
@@ -112,6 +126,25 @@ function sanitize(data: unknown, depth = 0, maxDepth = 5): unknown {
     return result
   }
   return data
+}
+
+const MAX_FORWARDED_DATA = 4096
+
+/**
+ * Data a renderer log forwards (LOG_FORWARD), scrubbed while it is still an
+ * object, so key-based redaction (client_name, notes, email…) applies, and
+ * only then turned into capped text. Errors keep their message and stack.
+ */
+export function formatForwardedLogData(data: unknown): string | undefined {
+  if (data === undefined || data === null || data === '') return undefined
+  let text: string
+  try {
+    text = JSON.stringify(sanitize(data)) ?? ''
+  } catch {
+    text = '[unserializable]'
+  }
+  if (text === '') return undefined
+  return text.length > MAX_FORWARDED_DATA ? text.slice(0, MAX_FORWARDED_DATA) + '...[truncated]' : text
 }
 
 function log(level: LogLevel, component: string, message: string, data?: unknown, correlationId?: string): void {
