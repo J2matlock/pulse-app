@@ -2,8 +2,9 @@
  * export-shared.ts — Shared helpers, types, and jsPDF setup used by all export modules.
  */
 
-import { writeFileSync, renameSync, unlinkSync, openSync, fsyncSync, closeSync } from 'fs'
+import { writeFileSync, renameSync, unlinkSync, openSync, fsyncSync, closeSync, readFileSync, existsSync } from 'fs'
 import { writeFile, rename, unlink } from 'fs/promises'
+import { join } from 'path'
 
 import type { Column, GridRow, Grid } from '../shared/types'
 import { getDb, buildGridQuery } from './database'
@@ -25,6 +26,81 @@ applyAutoTablePlugin(jsPDF)
 
 // ── Re-export jsPDF so submodules don't need to repeat the CJS require dance ──
 export { jsPDF }
+
+// ── Names outside Windows-1252 (AUDIT-009) ──
+// jsPDF's built-in Helvetica only knows Windows-1252: "Łukasz", "Иван" or "Nguyễn"
+// came out as spaced-out garbage. Text with any other character is drawn and
+// measured with Liberation Sans (SIL OFL 1.1, build/fonts), which has Helvetica's
+// widths, so layout doesn't change. Plain text keeps Helvetica, so most PDFs stay
+// small and embed no font. CJK and Arabic aren't in Liberation Sans.
+
+export const UNICODE_FONT = 'LiberationSans'
+const UNICODE_FONT_FILES = { normal: 'LiberationSans-Regular.ttf', bold: 'LiberationSans-Bold.ttf', italic: 'LiberationSans-Italic.ttf' } as const
+type UnicodeStyle = keyof typeof UNICODE_FONT_FILES
+
+/** Windows-1252 characters above U+00FF (the rest of it is U+0000–U+007F and U+00A0–U+00FF) */
+const WIN_ANSI_EXTRA = new Set('€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ')
+
+function outsideWinAnsi(text: unknown): boolean {
+  if (Array.isArray(text)) return text.some(outsideWinAnsi)
+  if (typeof text !== 'string') return false
+  for (const ch of text) {
+    const c = ch.codePointAt(0) ?? 0
+    if (c > 0x7f && (c < 0xa0 || c > 0xff) && !WIN_ANSI_EXTRA.has(ch)) return true
+  }
+  return false
+}
+
+/** The font files, read once: from resources/fonts when packaged, build/fonts in development and tests */
+let unicodeFontData: Record<UnicodeStyle, string> | null | undefined
+function unicodeFontFiles(): Record<UnicodeStyle, string> | null {
+  if (unicodeFontData !== undefined) return unicodeFontData
+  try {
+    const packaged = typeof process.resourcesPath === 'string' ? join(process.resourcesPath, 'fonts') : ''
+    const dir = packaged && existsSync(join(packaged, UNICODE_FONT_FILES.normal)) ? packaged : join(__dirname, '../../build/fonts')
+    const read = (file: string) => readFileSync(join(dir, file)).toString('base64')
+    unicodeFontData = { normal: read(UNICODE_FONT_FILES.normal), bold: read(UNICODE_FONT_FILES.bold), italic: read(UNICODE_FONT_FILES.italic) }
+  } catch (err) {
+    // Without the files, exports still work; only names outside Windows-1252 print badly
+    logNonFatal('export', 'load PDF Unicode font', err)
+    unicodeFontData = null
+  }
+  return unicodeFontData
+}
+
+type PdfDoc = InstanceType<typeof jsPDF>
+
+function addUnicodeFont(doc: PdfDoc): boolean {
+  if (doc.getFontList()[UNICODE_FONT]) return true
+  const files = unicodeFontFiles()
+  if (!files) return false
+  for (const style of Object.keys(UNICODE_FONT_FILES) as UnicodeStyle[]) {
+    doc.addFileToVFS(UNICODE_FONT_FILES[style], files[style])
+    doc.addFont(UNICODE_FONT_FILES[style], UNICODE_FONT, style)
+  }
+  return true
+}
+
+type TextMethod = (text: unknown, ...rest: unknown[]) => unknown
+
+/** Draw or measure text in the Unicode font when it has characters Helvetica can't show */
+function useUnicodeFontWhenNeeded(doc: PdfDoc): void {
+  const methods = doc as unknown as Record<string, TextMethod | undefined>
+  for (const name of ['text', 'splitTextToSize', 'getStringUnitWidth', 'getTextWidth']) {
+    const original = methods[name]
+    if (typeof original !== 'function') continue
+    methods[name] = function (text: unknown, ...rest: unknown[]) {
+      if (!outsideWinAnsi(text) || !addUnicodeFont(doc)) return original.call(doc, text, ...rest)
+      const prev = doc.getFont()
+      const style: UnicodeStyle = prev.fontStyle.includes('bold') ? 'bold' : prev.fontStyle.includes('italic') ? 'italic' : 'normal'
+      doc.setFont(UNICODE_FONT, style)
+      try { return original.call(doc, text, ...rest) } finally { doc.setFont(prev.fontName, prev.fontStyle) }
+    }
+  }
+}
+
+// Every document made anywhere in the app, including autoTable's cells, which draw through doc.text
+;(jsPDF.API as unknown as { events: Array<[string, (this: PdfDoc) => void]> }).events.push(['initialized', function (this: PdfDoc) { useUnicodeFontWhenNeeded(this) }])
 
 // ── Typed wrappers for jspdf-autotable (avoids `as any` at every call site) ──
 export type AutoTableDoc = InstanceType<typeof jsPDF>

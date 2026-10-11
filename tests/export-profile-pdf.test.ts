@@ -122,6 +122,17 @@ describe('profile PDF', () => {
     expect(pdf).not.toContain('C\u0000a\u0000l\u0000l')
   })
 
+  it('prints a Polish name in the header with the Unicode font (AUDIT-009)', async () => {
+    const { gridId, rowId } = seedRecord()
+    testDb.db.prepare("UPDATE rows SET display_name = 'Łukasz Wójcik' WHERE id = ?").run(rowId)
+    testDb.db.prepare('UPDATE cells SET value = ? WHERE row_id = ? AND value = ?').run('Łukasz Wójcik', rowId, 'Maria')
+    const dest = join(testDb.tmpDir, 'polish.pdf')
+    await exportPdfProfile({ rowId, gridId, destPath: dest, includeSections: ALL })
+    const pdf = text(dest)
+    expect(pdf).toContain('/FontName /LiberationSans')
+    expect(pdf).not.toMatch(/u\x00k\x00a\x00s\x00z/)
+  })
+
   it('describes overdue, step and extended deadlines', () => {
     expect(deadlineSummary({ due: '2026-10-01', state: 'overdue', daysUntil: -3, estimated: false })).toBe('Next due Oct 1, 2026  ·  OVERDUE by 3 days')
     expect(deadlineSummary({ due: '2026-10-20', state: 'ok', daysUntil: 1, estimated: true, label: 'Step 2', extended: { from: '2026-10-10', reason: 'Client in hospital' } }))
