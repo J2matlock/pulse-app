@@ -380,7 +380,6 @@ export interface IPCContract {
   'auth:verify-password':               { args: [password: string];                                              return: { cloudWarning: string | null; failedAttempts?: number } }
   'auth:change-password':               { args: [oldPassword: string, newPassword: string, newHint: string];     return: true }
   'auth:lock':                          { args: [];                                                              return: true }
-  'auth:force-lock':                    { args: [];                                                              return: void }
   'auth:activity-ping':                 { args: [];                                                              return: void }
   'auth:get-hint':                      { args: [];                                                              return: string | null }
   'auth:is-setup':                      { args: [];                                                              return: boolean }
@@ -688,6 +687,7 @@ export type EventChannel =
   | typeof IPC.MENU_COMMAND | typeof IPC.CASE_LOG_CHANGED | typeof IPC.IMPORT_PROGRESS | typeof IPC.WORKSPACE_CHANGED
   | typeof IPC.ACTIVITY_TYPES_CHANGED | typeof IPC.RECORD_LINKS_CHANGED | typeof IPC.APPOINTMENTS_CHANGED
   | typeof IPC.ATTACHMENTS_CHANGED | typeof IPC.REMINDER_OPEN | typeof IPC.FILE_ASSOC_PENDING_ARRIVED | typeof IPC.APP_FLUSH_PENDING
+  | typeof IPC.AUTH_FORCE_LOCK
 
 /** Channels the renderer can invoke */
 export type InvokeChannel = Exclude<IPCChannel, EventChannel>
