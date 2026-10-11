@@ -391,8 +391,8 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
             <button
               onClick={() => { setDateDraft(''); setEditingDate(true) }}
               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base
-                         text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100
-                         hover:bg-slate-200 dark:hover:bg-slate-600 transition-opacity"
+                         text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100
+                         hover:bg-slate-200 dark:hover:bg-slate-600 transition-opacity focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
             >
               <Calendar className="w-3 h-3" />
               Add date
@@ -413,7 +413,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
               onClick={() => setShowPriorityMenu(prev => !prev)}
               className={`px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity
                          ${priorityCfg.badge}
-                         ${priority === 'normal' ? 'opacity-0 group-hover:opacity-100' : ''}`}
+                         ${priority === 'normal' ? 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100' : ''} focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500`}
               title="Set priority"
             >
               {priorityCfg.dot} {priority !== 'normal' ? priorityCfg.label : '+ Priority'}

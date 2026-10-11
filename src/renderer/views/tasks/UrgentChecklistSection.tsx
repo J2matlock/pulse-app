@@ -102,9 +102,10 @@ export function UrgentChecklistSection({ items, onToggle, onNavigate }: {
                 <button
                   onClick={() => onNavigate(item.grid_id, item.row_id)}
                   title={`Open the profile for ${item.client_name ?? tFor(item.grid_id)('record', { article: true })}`}
-                  className="flex-shrink-0 p-1.5 rounded-sm text-slate-500 hover:text-blue-500
+                  aria-label={`Open the profile for ${item.client_name ?? tFor(item.grid_id)('record', { article: true })}`}
+                  className="hit-44 flex-shrink-0 p-1.5 rounded-sm text-slate-500 hover:text-blue-500
                              hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors
-                             opacity-0 group-hover:opacity-100
+                             opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100
                              focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
                 >
                   <ExternalLink className="w-4 h-4" />

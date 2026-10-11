@@ -490,14 +490,14 @@ export function ProfileHeader({
                         </button>
                         <button
                           onClick={() => startEditTag(tag)}
-                          className="p-0.5 opacity-0 group-hover:opacity-100 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-opacity"
+                          className="hit-44 p-0.5 rounded-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-opacity focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
                           aria-label={`Edit tag ${tag.name}`}
                         >
                           <Pencil className="w-3 h-3" />
                         </button>
                         <button
                           onClick={() => void deleteTag(tag.id)}
-                          className="p-0.5 opacity-0 group-hover:opacity-100 text-slate-500 dark:text-slate-400 hover:text-red-500 transition-opacity"
+                          className="hit-44 p-0.5 rounded-sm opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100 text-slate-500 dark:text-slate-400 hover:text-red-500 transition-opacity focus:outline-hidden focus-visible:ring-3 focus-visible:ring-red-500"
                           aria-label={`Delete tag ${tag.name}`}
                         >
                           <Trash2 className="w-3 h-3" />
