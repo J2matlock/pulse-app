@@ -1,16 +1,19 @@
 import toast from 'react-hot-toast'
 import { IPC } from '../../shared/ipc-channels'
 import { MS_PER_DAY } from '../../shared/constants'
+import { parseDbTimestamp } from '../../shared/dates'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useBackupStatusStore } from '../stores/backupStatusStore'
 import { safeInvoke } from '../utils/safeInvoke'
 import { localDateString } from '../../shared/dates'
 import { pulseEvents } from '../events'
 
 
 /**
- * Checks backup recency after unlock and shows a toast reminder
- * if backups are older than the configured threshold.
- * Also hydrates settings from main process.
+ * After unlock: hydrate settings, then remind the user if no backup has been
+ * saved somewhere other than this computer's Pulse folder for a while.
+ * Auto-backups sit on the same disk, so they don't count. Reminders are on
+ * unless the user switched them off.
  * Call this once after the app transitions from locked to unlocked.
  */
 export async function checkBackupReminder(): Promise<void> {
@@ -19,23 +22,20 @@ export async function checkBackupReminder(): Promise<void> {
     if (settings.ok) {
       useSettingsStore.getState().hydrateFromSettings(settings.data)
     }
-    if (settings.ok && settings.data.backup_reminder_enabled === 'true') {
-      const days = Number(settings.data.backup_reminder_days) || 7
-      const backupList = await safeInvoke(IPC.BACKUP_AUTO_LIST)
-      if (backupList.ok) {
-        const latest = backupList.data.length > 0
-          ? new Date(backupList.data[0]!.timestamp).getTime()
-          : 0
-        const daysSince = latest > 0
-          ? Math.floor((Date.now() - latest) / MS_PER_DAY)
-          : Infinity
-        if (daysSince >= days) {
-          const msg = daysSince === Infinity
-            ? 'No backups found \u2014 consider backing up your data.'
-            : `No backup in ${daysSince} day${daysSince !== 1 ? 's' : ''} \u2014 consider backing up.`
-          toast(msg, { icon: '\u26A0\uFE0F', duration: 8000 })
-        }
-      }
+    const res = await safeInvoke(IPC.BACKUP_GET_STATUS)
+    if (!res.ok) return
+    const status = res.data
+    useBackupStatusStore.setState({ status, loadedAt: Date.now() })
+    if (status.scheduled.overdue) {
+      toast(`Your scheduled backup isn't working. ${status.scheduled.lastError ?? ''} Open Settings → Backup to fix it.`.replace(/\s+/g, ' '), { icon: '⚠️', duration: 10000 })
+      return
+    }
+    if (!status.offsiteOverdue) return
+    if (status.lastOffsiteISO) {
+      const days = Math.floor((Date.now() - parseDbTimestamp(status.lastOffsiteISO).getTime()) / MS_PER_DAY)
+      toast(`Your last backup to a USB drive or another folder was ${days} day${days !== 1 ? 's' : ''} ago. Use Settings → Backup → "Back up now".`, { icon: '⚠️', duration: 8000 })
+    } else {
+      toast('You haven\'t saved a backup to a USB drive or another folder yet. Use Settings → Backup → "Back up now".', { icon: '⚠️', duration: 8000 })
     }
     await checkRecoveryKeyReminder(settings.ok ? settings.data.onboarding_recovery_snooze_until ?? null : null)
   } catch { /* non-critical */ }

@@ -382,14 +382,14 @@ export function ChecklistTemplateEditor({ open, template, onClose, onSaved }: Pr
                            focus:ring-3 focus:ring-blue-500 disabled:cursor-not-allowed"
               />
               <span className="text-base text-slate-700 dark:text-slate-300">
-                Reset for next cycle
+                Items repeat
               </span>
             </label>
 
             {isRecurring && (
               <div className="mt-3 ml-8 flex items-center gap-3">
                 <label htmlFor="checklist-tmpl-recur-days" className="text-base text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                  Every
+                  Each comes back
                 </label>
                 <input
                   id="checklist-tmpl-recur-days"
@@ -404,7 +404,7 @@ export function ChecklistTemplateEditor({ open, template, onClose, onSaved }: Pr
                              focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:border-transparent
                              disabled:bg-slate-100 dark:disabled:bg-slate-700 disabled:cursor-not-allowed"
                 />
-                <span className="text-base text-slate-600 dark:text-slate-400">days</span>
+                <span className="text-base text-slate-600 dark:text-slate-400">days after it's ticked off</span>
               </div>
             )}
           </div>

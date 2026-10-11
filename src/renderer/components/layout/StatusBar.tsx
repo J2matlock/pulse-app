@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { useFeature } from '../../hooks/useFeature'
+import { BackupStatusChip } from './BackupStatusChip'
 
 /** How long "Saved" stays after a real save */
 export const SAVED_SHOWN_MS = 3000
@@ -90,6 +91,8 @@ export function StatusBar(): React.ReactElement {
           <span className="text-sm truncate">{activeGrid.name}</span>
         </>
       )}
+
+      <BackupStatusChip />
     </footer>
   )
 }

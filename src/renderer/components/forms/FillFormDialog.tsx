@@ -154,6 +154,11 @@ export function FillFormDialog({ form, columns, row, onClose, onDone }: {
         description: change.created ? `Added with "${form.name}"` : `Updated with "${form.name}"`,
         undo: async () => { await safeInvoke(IPC.FORM_UNDO, change); await refresh() },
         redo: async () => {
+          // A record this form made comes back from the Trash, with anything added to it since
+          if (change.created) {
+            const back = await safeInvoke<boolean>(IPC.FORM_REDO, change)
+            if (back.ok && back.data) { await refresh(); return }
+          }
           const again = await safeInvoke<FormChange>(IPC.FORM_SUBMIT, form.id, row?.row_id ?? null, payload, noteAnswers)
           if (again.ok) change = again.data
           await refresh()

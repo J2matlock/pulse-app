@@ -57,6 +57,19 @@ export interface WorkspacePatch {
 }
 
 /** Return shape for grid:get */
+/** backup:get-status — whether backups are actually happening */
+export interface BackupStatusResult {
+  lastAutoBackup: string | null
+  lastAutoBackupSuccess: boolean
+  lastAutoBackupError: string | null
+  lastOffsiteISO: string | null
+  trackingSinceISO: string
+  scheduled: { enabled: boolean; intervalHours: number; lastRunISO: string | null; lastError: string | null; overdue: boolean }
+  reminderEnabled: boolean
+  remindAfterDays: number
+  offsiteOverdue: boolean
+}
+
 export interface GridGetResult {
   grid: Grid
   columns: Column[]
@@ -363,13 +376,17 @@ export interface IPCContract {
   // ── Backup ──────────────────────────────────────────────────────────────
   'backup:auto-list':            { args: [];                                return: Array<{ path: string; filename: string; timestamp: Date; sizeBytes: number }> }
   'backup:scheduled-run':        { args: [config: Record<string, unknown>]; return: unknown }
+  'backup:scheduled-run-now':    { args: [];                                return: { ran: boolean; destPath?: string; lastRunISO?: string | null; error?: string } }
   'backup:manual-create':        { args: [destPath: string];                return: unknown }
   'backup:restore-auto':         { args: [backupDbPath: string];            return: { safetyPath: string } }
   'backup:restore-file':         { args: [backupPath: string];              return: { safetyPath: string } }
+  'backup:restore-other':        { args: [backupPath: string, secret: string, newPassword: string, hint: string]; return: { safetyPath: string } }
+  'backup:preview':              { args: [backupPath: string];              return: { gridCount: number; rowCount: number; schemaVersion: number; madeAt: string | null; appVersion: string | null } }
   'backup:get-info':             { args: [];                                return: unknown }
-  'backup:verify':               { args: [backupPath: string];              return: { valid: boolean; error?: string; schemaVersion?: number; tableCount?: number } }
+  'backup:verify':               { args: [backupPath: string];              return: { valid: boolean; error?: string; schemaVersion?: number; tableCount?: number; otherPulse?: boolean } }
   'backup:scheduled-get-config': { args: [];                                return: unknown }
   'backup:scheduled-set-config': { args: [config: Record<string, unknown>]; return: true }
+  'backup:get-status':           { args: [];                                return: BackupStatusResult }
 
   // ── Export / Import ─────────────────────────────────────────────────────
   'export:csv':               { args: [options: Record<string, unknown>];  return: true }
@@ -387,6 +404,9 @@ export interface IPCContract {
   'setup-template:get-all': { args: [];                                                                                  return: unknown[] }
   'setup-template:import':  { args: [filePath: string];                                                                  return: { pulse: unknown; preview: unknown } }
   'setup-template:export':  { args: [gridId: number, destPath: string];                                                  return: true }
+  'setup-template:export-saved': { args: [templateId: number, destPath: string];                                       return: true }
+  'documents:batch-preview': { args: [templateId: number | null, target: Record<string, unknown>]; return: { count: number; unknown: string[]; error?: string } }
+  'import:undo':             { args: [gridId: number, rowIds: number[]]; return: { moved: number } }
   'setup-template:apply':   { args: [pulseJson: string, mode: 'new' | 'existing', gridId?: number, saveToLibrary?: boolean]; return: number }
   'setup-template:create':  { args: [name: string, description: string | null, pulseJson: string];                       return: number }
   'setup-template:delete':  { args: [id: number];                                                                        return: true }

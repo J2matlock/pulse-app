@@ -23,9 +23,10 @@ export function isDueThisWeek(task: CaseloadTask): boolean {
   return diffDays > 0 && diffDays <= 7
 }
 
+/** Snoozed until a date: hidden before it, due again on it (the dashboard and briefing agree) */
 export function isSnoozed(task: CaseloadTask): boolean {
   if (!task.snoozed_until) return false
-  return task.snoozed_until >= localDateString()
+  return task.snoozed_until > localDateString()
 }
 
 export function dueDateLabel(dateStr: string | null): { text: string; className: string } | null {

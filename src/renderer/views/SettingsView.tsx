@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import {
   Monitor, Shield, Database,
   HardDrive, Info, User,
-  Bell, Keyboard, FileText, NotebookPen,
+  Bell, NotebookPen,
   ToggleLeft,
 } from 'lucide-react'
 import { NotesSection } from '../components/settings/NotesSection'
@@ -20,14 +20,13 @@ import { SecuritySection } from '../components/settings/SecuritySection'
 import { BackupSection } from '../components/settings/BackupSection'
 import { DataSection } from '../components/settings/DataSection'
 import { AlertsSection } from '../components/settings/AlertsSection'
-import { ShortcutsSection } from '../components/settings/ShortcutsSection'
-import { SnippetsSection } from '../components/settings/SnippetsSection'
 import { AboutSection } from '../components/settings/AboutSection'
 import { useVocab } from '../hooks/useVocab'
-import { useFeature } from '../hooks/useFeature'
 import { WorkspaceSection } from '../components/settings/WorkspaceSection'
 
-type Section = 'workspace' | 'profile' | 'appearance' | 'security' | 'backup' | 'data' | 'alerts' | 'notes' | 'shortcuts' | 'snippets' | 'about'
+type Section = 'workspace' | 'profile' | 'appearance' | 'security' | 'backup' | 'data' | 'alerts' | 'notes' | 'about'
+const SECTIONS: readonly Section[] = ['workspace', 'profile', 'appearance', 'security', 'backup', 'data', 'alerts', 'notes', 'about']
+const isSection = (s: string | null): s is Section => s !== null && (SECTIONS as readonly string[]).includes(s)
 
 export default function SettingsView(): React.ReactElement {
   const { t } = useVocab(null)
@@ -59,7 +58,9 @@ export default function SettingsView(): React.ReactElement {
   const rawHash = window.location.hash
   const hashQIndex = rawHash.indexOf('?')
   const hashSearch = hashQIndex >= 0 ? rawHash.slice(hashQIndex) : ''
-  const tabParam = new URLSearchParams(hashSearch).get('tab') as Section | null
+  // An unknown or removed tab (an old link to ?tab=shortcuts) opens the default instead of a blank panel
+  const rawTab = new URLSearchParams(hashSearch).get('tab')
+  const tabParam = isSection(rawTab) ? rawTab : null
 
   const [activeSection, setActiveSection] = useState<Section>(tabParam || 'appearance')
 
@@ -104,20 +105,18 @@ export default function SettingsView(): React.ReactElement {
     await saveSetting('theme', newTheme)
   }
 
-  const showSnippets = useFeature('snippets')
-  const navItems: Array<{ id: Section; label: string; desc: string; icon: React.ElementType }> = ([
+  // Shortcuts (the ? sheet) and Snippets (the Snippets page) were read-only copies, so they're not tabs here
+  const navItems: Array<{ id: Section; label: string; desc: string; icon: React.ElementType }> = [
     { id: 'workspace', label: 'Workspace', desc: 'Words, features and ready-made examples', icon: ToggleLeft },
     { id: 'profile', label: 'Profile', desc: 'Your name, title, and contact info', icon: User },
     { id: 'appearance', label: 'Appearance', desc: 'Theme, font size, and display options', icon: Monitor },
     { id: 'security', label: 'Security', desc: 'Password and encryption settings', icon: Shield },
     { id: 'backup', label: 'Backup', desc: 'Automatic and manual backup configuration', icon: HardDrive },
     { id: 'data', label: 'Data', desc: 'Import, export, and data management', icon: Database },
-    { id: 'alerts', label: 'Alerts', desc: 'Deadline alert rules and notifications', icon: Bell },
+    { id: 'alerts', label: 'Deadlines & reminders', desc: 'Deadline rules, reminders, days off', icon: Bell },
     { id: 'notes', label: t('activity', { many: true, cap: true }), desc: 'Kinds, time, mileage, and formats', icon: NotebookPen },
-    { id: 'shortcuts', label: 'Shortcuts', desc: 'Keyboard shortcut reference', icon: Keyboard },
-    { id: 'snippets', label: 'Snippets', desc: 'Text expansion shortcuts', icon: FileText },
     { id: 'about', label: 'About', desc: 'Version info and credits', icon: Info },
-  ] as Array<{ id: Section; label: string; desc: string; icon: React.ElementType }>).filter(item => item.id !== 'snippets' || showSnippets)
+  ]
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -131,7 +130,8 @@ export default function SettingsView(): React.ReactElement {
 
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar nav */}
-        <nav aria-label="Settings tabs" className="w-56 flex-shrink-0 border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 py-4" role="tablist" aria-orientation="vertical">
+        {/* Scrolls on short screens (1366×768, zoomed in) so every tab can be reached */}
+        <nav aria-label="Settings tabs" className="w-56 flex-shrink-0 overflow-y-auto border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 py-4" role="tablist" aria-orientation="vertical">
           {navItems.map(item => (
             <button
               key={item.id}
@@ -211,10 +211,7 @@ export default function SettingsView(): React.ReactElement {
             {activeSection === 'alerts' && <AlertsSection />}
             {activeSection === 'notes' && <NotesSection />}
 
-            {activeSection === 'shortcuts' && <ShortcutsSection />}
-
             {activeSection === 'workspace' && <WorkspaceSection />}
-            {activeSection === 'snippets' && showSnippets && <SnippetsSection />}
 
 
             {activeSection === 'about' && <AboutSection />}

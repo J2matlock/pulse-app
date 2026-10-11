@@ -10,7 +10,7 @@ import { assignAutoNumbers } from './auto-number'
 import { columnAffectsDisplayName, hasDisplayFormat, refreshDisplayNames } from './display-names'
 import { addLink, removeLink } from './links'
 import { isValidLogType, userTypeKeys } from './activity-types'
-import { applyNoteDateUpdates } from './note-date-updates'
+import { applyNoteDateUpdates, revertNoteDates, localDayOf } from './note-date-updates'
 import { formInputSchema, NOT_FILLABLE, type Form, type FormChange, type FormField, type FormInput } from '../shared/forms'
 import { linkColumnSpecs } from '../shared/links'
 
@@ -189,26 +189,58 @@ export function submitForm(formId: number, rowId: number | null, values: FormVal
       const content = lines.length ? `${form.name}\n${lines.join('\n')}` : `Filled in ${form.name}`
       change.noteId = Number(db.prepare("INSERT INTO case_log (row_id, content, log_type, source_action_id, created_at, updated_at) VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))")
         .run(id, content, noteType, `form:${formId}`).lastInsertRowid)
-      try { applyNoteDateUpdates(id, noteType) } catch { /* dates are a convenience */ }
+      try { applyNoteDateUpdates(id, noteType, undefined, change.noteId) } catch { /* dates are a convenience */ }
     }
     return change
   })()
 }
 
-/** Undo a submit: remove the record it made, or put the old values and links back; void its note */
+/**
+ * Undo a submit: void its note and put back the dates it moved; move the
+ * record it made to the Trash (anything added to it since stays with it), or
+ * put the old values and links back.
+ */
 export function undoFormSubmit(change: FormChange): void {
   const db = getDb()
   db.transaction(() => {
-    if (change.noteId !== null) db.prepare("UPDATE case_log SET voided_at = datetime('now'), voided_reason = 'The form was undone' WHERE id = ? AND voided_at IS NULL").run(change.noteId)
+    if (change.noteId !== null) {
+      db.prepare("UPDATE case_log SET voided_at = datetime('now'), voided_reason = 'The form was undone' WHERE id = ? AND voided_at IS NULL").run(change.noteId)
+      revertNoteDates(change.noteId)
+    }
     const row = db.prepare('SELECT grid_id FROM rows WHERE id = ?').get(change.rowId) as { grid_id: number } | undefined
     if (!row) return
     if (change.created) {
-      db.prepare('DELETE FROM rows WHERE id = ?').run(change.rowId)
+      db.prepare("UPDATE rows SET is_active = 0, deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND deleted_at IS NULL").run(change.rowId)
+      db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, 'Moved to trash (the form was undone)', 'system', datetime('now'), datetime('now'))").run(change.rowId)
       return
     }
     const cols = columnsOf(row.grid_id)
     for (const [colId, v] of Object.entries(change.previous)) if (cols.has(Number(colId))) setCellWithHistory(change.rowId, Number(colId), v)
     for (const [colId, ids] of Object.entries(change.previousLinks)) { const c = cols.get(Number(colId)); if (c) setLinks(change.rowId, c, ids) }
     refreshDisplayNames(row.grid_id, [change.rowId])
+  })()
+}
+
+/**
+ * Redo a submit that made a record: bring that record back from the Trash
+ * with its note and dates. False when it's gone (emptied from the Trash),
+ * so the form is submitted again instead.
+ */
+export function redoFormSubmit(change: FormChange): boolean {
+  if (!change.created) return false
+  const db = getDb()
+  return db.transaction((): boolean => {
+    const row = db.prepare('SELECT deleted_at FROM rows WHERE id = ?').get(change.rowId) as { deleted_at: string | null } | undefined
+    if (!row || row.deleted_at === null) return false
+    db.prepare("UPDATE rows SET is_active = 1, deleted_at = NULL, updated_at = datetime('now') WHERE id = ?").run(change.rowId)
+    db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, 'Restored from trash (the form was redone)', 'system', datetime('now'), datetime('now'))").run(change.rowId)
+    if (change.noteId !== null) {
+      const note = db.prepare('SELECT log_type, occurred_at FROM case_log WHERE id = ? AND row_id = ?').get(change.noteId, change.rowId) as { log_type: string; occurred_at: string } | undefined
+      if (note) {
+        db.prepare('UPDATE case_log SET voided_at = NULL, voided_reason = NULL WHERE id = ?').run(change.noteId)
+        applyNoteDateUpdates(change.rowId, note.log_type, localDayOf(note.occurred_at), change.noteId)
+      }
+    }
+    return true
   })()
 }

@@ -10,7 +10,8 @@ vi.mock('../src/main/database', () => ({
     ON CONFLICT(row_id, column_id) DO UPDATE SET value = excluded.value`).run(rowId, columnId, value),
 }))
 
-import { saveForm, listForms, deleteForm, submitForm, undoFormSubmit, FormError } from '../src/main/forms'
+import { saveForm, listForms, deleteForm, submitForm, undoFormSubmit, redoFormSubmit, FormError } from '../src/main/forms'
+import { localDateString } from '../src/shared/dates'
 import { saveLinkType } from '../src/main/links'
 import { up as migration041 } from '../src/main/migrations/041_forms'
 import { buildFormPdf, FormPrintError } from '../src/main/export-forms'
@@ -80,7 +81,7 @@ describe('saving forms', () => {
 })
 
 describe('submitting a form', () => {
-  it('adds a record with numbers and a note of the answers; undo removes it', () => {
+  it('adds a record with numbers and a note of the answers; undo moves it to the Trash', () => {
     const f = intake()
     expect(() => submitForm(f.id, null, { [nameC]: 'Ada' }, {})).toThrow('Please fill in: What brings you in?.')
     expect(() => submitForm(f.id, null, { [nameC]: '  ' }, { 4: 'x' })).toThrow(/Please fill in: Name/)
@@ -92,7 +93,30 @@ describe('submitting a form', () => {
     expect(t.db.prepare('SELECT display_name FROM rows WHERE id = ?').get(change.rowId)).toEqual({ display_name: 'Ada Park' })
     expect(t.db.prepare('SELECT content, log_type, source_action_id FROM case_log WHERE id = ?').get(change.noteId)).toEqual({ content: 'Intake\nWhat brings you in?: Housing help', log_type: 'note', source_action_id: `form:${f.id}` })
     undoFormSubmit(change)
-    expect(rowsOf()).toEqual([g.rowIds[0]])
+    // To the Trash, not deleted: anything added to it since is kept (L-23)
+    expect(t.db.prepare('SELECT is_active, deleted_at IS NOT NULL AS trashed FROM rows WHERE id = ?').get(change.rowId)).toEqual({ is_active: 0, trashed: 1 })
+    expect(rowsOf()).toEqual([g.rowIds[0], change.rowId])
+    // Redo brings that same record back, with its note
+    expect(redoFormSubmit(change)).toBe(true)
+    expect(t.db.prepare('SELECT is_active, deleted_at FROM rows WHERE id = ?').get(change.rowId)).toEqual({ is_active: 1, deleted_at: null })
+    expect(t.db.prepare('SELECT voided_at FROM case_log WHERE id = ?').get(change.noteId)).toEqual({ voided_at: null })
+  })
+
+  it('redo submits again when the record is gone from the Trash', () => {
+    const change = submitForm(intake().id, null, { [nameC]: 'Ada' }, { 4: 'x' })
+    undoFormSubmit(change)
+    t.db.prepare('DELETE FROM rows WHERE id = ?').run(change.rowId)
+    expect(redoFormSubmit(change)).toBe(false)
+  })
+
+  it('undo puts back the dates the form\'s note moved (L-23)', () => {
+    const r = g.rowIds[0]!
+    const lastSeen = Number(t.db.prepare("INSERT INTO columns (grid_id, name, column_type, position, config) VALUES (?, 'Last seen', 'date', 9, ?)").run(g.gridId, JSON.stringify({ note_updates: ['note'] })).lastInsertRowid)
+    t.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)').run(r, lastSeen, '2026-01-05')
+    const change = submitForm(intake().id, r, { [nameC]: 'Bo' }, { 4: 'Visit' })
+    expect(cell(r, lastSeen)).toBe(localDateString())
+    undoFormSubmit(change)
+    expect(cell(r, lastSeen)).toBe('2026-01-05')
   })
 
   it('updates only what changed, keeping history, and undo puts it back', () => {

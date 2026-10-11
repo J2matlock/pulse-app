@@ -118,7 +118,7 @@ export function StageSettingsDialog({ column, onClose }: { column: Column; onClo
                     Counts as done
                   </label>
                   <button type="button" className="btn-compact-secondary" aria-expanded={open === i} onClick={() => setOpen(open === i ? null : i)}>
-                    When moved here{o.onEnter ? ` (${Object.keys(o.onEnter).length})` : ''}…
+                    When moved here{o.onEnter ? ` (${Object.keys(o.onEnter).filter(k => k !== 'restamp').length})` : ''}…
                   </button>
                 </div>
                 {open === i && (
@@ -127,13 +127,22 @@ export function StageSettingsDialog({ column, onClose }: { column: Column; onClo
                       <span className="block text-sm text-slate-600 dark:text-slate-300 mb-1">Add a checklist</span>
                       <DoneChecklistPicker value={o.onEnter?.checklistTemplateId ?? null} onChange={id => patchEnter(i, { checklistTemplateId: id ?? undefined })} />
                     </div>
-                    <label className="block">
-                      <span className="block text-sm text-slate-600 dark:text-slate-300 mb-1">Fill in today's date in</span>
-                      <select className="input w-full" value={o.onEnter?.stampColumnId ?? ''} onChange={e => patchEnter(i, { stampColumnId: Number(e.target.value) || undefined })}>
-                        <option value="">Nothing</option>
-                        {dateColumns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                    </label>
+                    <div>
+                      <label className="block">
+                        <span className="block text-sm text-slate-600 dark:text-slate-300 mb-1">Fill in today's date in</span>
+                        <select className="input w-full" value={o.onEnter?.stampColumnId ?? ''}
+                          onChange={e => patchEnter(i, { stampColumnId: Number(e.target.value) || undefined, ...(Number(e.target.value) ? {} : { restamp: undefined }) })}>
+                          <option value="">Nothing</option>
+                          {dateColumns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      </label>
+                      {o.onEnter?.stampColumnId !== undefined && (
+                        <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200 cursor-pointer" style={{ minHeight: 44 }}>
+                          <input type="checkbox" className="w-5 h-5" checked={!!o.onEnter?.restamp} onChange={e => patchEnter(i, { restamp: e.target.checked || undefined })} />
+                          Even if it already has a date
+                        </label>
+                      )}
+                    </div>
                     <label className="block">
                       <span className="block text-sm text-slate-600 dark:text-slate-300 mb-1">Log a note</span>
                       <select className="input w-full" value={o.onEnter?.activityTypeKey ?? ''} onChange={e => patchEnter(i, { activityTypeKey: e.target.value || undefined })}>
@@ -141,6 +150,9 @@ export function StageSettingsDialog({ column, onClose }: { column: Column; onClo
                         {noteTypes.map(nt => <option key={nt.key} value={nt.key}>{nt.label}</option>)}
                       </select>
                     </label>
+                    <p className="sm:col-span-3 text-sm text-slate-600 dark:text-slate-300">
+                      Moving back here again won't add checklist items that are still open, or change a date that's already filled in.
+                    </p>
                   </div>
                 )}
               </li>

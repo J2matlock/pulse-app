@@ -23,6 +23,7 @@ import { logNonFatal } from './ipc/ipc-utils'
 import Store from 'electron-store'
 import { getStoredDbPath, getDbKey, getKeyEnvelope, isValidKeyEnvelope, unwrapKeyEnvelope, adoptRestoredDbKey } from './auth'
 import { MS_PER_DAY } from '../shared/constants'
+import { LIMIT_MB_RANGE, formatBytes } from '../shared/attachments'
 import { getPortableDataDir, setEncryptionKey, resolveDatabasePath } from './database'
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const BetterSqlite3 = require('better-sqlite3-multiple-ciphers') as typeof import('better-sqlite3')
@@ -153,7 +154,18 @@ function openZip(zipPath: string): Promise<OpenZipResult> {
 const MAX_AUTO_BACKUPS = 5
 const MAX_SCHEDULED_BACKUPS = 10
 const KEY_ENVELOPE_ENTRY = 'key-envelope.json'
-const MAX_BACKUP_ZIP_BYTES = 200 * 1024 * 1024
+/**
+ * Largest database a backup may hold. Files live inside the database and their
+ * allowance goes up to LIMIT_MB_RANGE.max, so the limit is that plus room for
+ * everything else. Making and restoring use the same number, so Pulse never
+ * writes a backup it would later refuse to restore.
+ */
+export const MAX_BACKUP_BYTES = (LIMIT_MB_RANGE.max + 512) * 1024 * 1024
+let _maxBackupBytesOverride: number | null = null
+/** Tests only: pretend the limit is this many bytes (null puts it back). */
+export function setMaxBackupBytesForTests(n: number | null): void { _maxBackupBytesOverride = n }
+function maxBackupBytes(): number { return _maxBackupBytesOverride ?? MAX_BACKUP_BYTES }
+function tooBigToRestore(): string { return `This backup is larger than ${formatBytes(maxBackupBytes())}, so Pulse won't restore it.` }
 
 /** A .db entry at the archive root (no directories, no traversal, no drive letters). */
 function isSafeDbEntryName(name: string): boolean {
@@ -293,6 +305,14 @@ async function createPulseBackup(dbPath: string, destPath: string, backupType: s
   const tmpDbPath = createAtomicDbSnapshot(dbPath, snapshotDir)
 
   try {
+    const snapshotBytes = statSync(tmpDbPath).size
+    // A little room under the limit: the zip around the data adds a few bytes
+    if (snapshotBytes > maxBackupBytes() * 0.98) {
+      throw Object.assign(
+        new Error(`Your data is ${formatBytes(snapshotBytes)}, which is more than a backup can hold (${formatBytes(maxBackupBytes())}). Remove files you no longer need and empty the files trash, then try again.`),
+        { code: 'PULSE_TOO_BIG' },
+      )
+    }
     // Compute SHA-256 with streaming to avoid blocking on large DBs
     const dbHash = await streamHash(tmpDbPath)
 
@@ -495,7 +515,7 @@ export function listAutoBackupsRich(): AutoBackupEntry[] {
  */
 export async function withBackupDbFile<T>(backupPath: string, fn: (dbFile: string) => T): Promise<T> {
   if (!backupPath.endsWith('.pulse-backup')) return fn(backupPath)
-  if (statSync(backupPath).size > MAX_BACKUP_ZIP_BYTES) throw new Error('File exceeds 200 MB size limit')
+  if (statSync(backupPath).size > maxBackupBytes()) throw new Error(tooBigToRestore())
   const tmpDir = join(getBackupDir(), `preview-tmp-${Date.now()}`)
   mkdirSync(tmpDir, { recursive: true, mode: 0o700 })
   let zip: OpenZipResult | null = null
@@ -516,6 +536,8 @@ export async function withBackupDbFile<T>(backupPath: string, fn: (dbFile: strin
 export interface VerifyResult {
   valid: boolean
   error?: string
+  /** The archive opens but not with this install's key, and it carries its own key envelope */
+  otherPulse?: boolean
   schemaVersion?: number
   tableCount?: number
 }
@@ -526,17 +548,19 @@ export async function verifyBackup(backupPath: string): Promise<VerifyResult> {
   // For .pulse-backup files, extract DB to temp dir first
   let dbToCheck = backupPath
   let tmpDir: string | null = null
+  let hasEnvelope = false
 
   if (backupPath.endsWith('.pulse-backup')) {
     let zip: OpenZipResult | null = null
     try {
       const compressedSize = statSync(backupPath).size
-      if (compressedSize > 200 * 1024 * 1024) {
-        return { valid: false, error: 'File exceeds 200 MB size limit' }
+      if (compressedSize > maxBackupBytes()) {
+        return { valid: false, error: tooBigToRestore() }
       }
       zip = await openZip(backupPath)
       const dbEntry = zip.entries.find(e => isSafeDbEntryName(e.entryName))
       if (!dbEntry) return { valid: false, error: 'No database file found in archive' }
+      hasEnvelope = zip.entries.some(e => e.entryName === KEY_ENVELOPE_ENTRY)
       tmpDir = join(getBackupDir(), `verify-tmp-${Date.now()}`)
       mkdirSync(tmpDir, { recursive: true, mode: 0o700 })
       dbToCheck = join(tmpDir, dbEntry.entryName)
@@ -584,7 +608,10 @@ export async function verifyBackup(backupPath: string): Promise<VerifyResult> {
     const { schemaVersion, tableCount } = readEncryptedDbInfo(dbToCheck, getDbKey().toString('hex'))
     return { valid: true, schemaVersion, tableCount }
   } catch (err) {
-    return { valid: false, error: err instanceof Error ? err.message : 'Could not open backup database' }
+    // This install's key doesn't open it. With a key envelope inside, it was made
+    // by another Pulse (another computer, or before a reinstall) and can still be
+    // restored with that Pulse's password or recovery key.
+    return { valid: false, error: err instanceof Error ? err.message : 'Could not open backup database', otherPulse: hasEnvelope }
   } finally {
     if (tmpDir) {
       try { rmSync(tmpDir, { recursive: true, force: true }) } catch (err) {
@@ -592,6 +619,36 @@ export async function verifyBackup(backupPath: string): Promise<VerifyResult> {
       }
     }
   }
+}
+
+/**
+ * When a backup was made and by which Pulse, for the restore preview. Read from
+ * backup-meta.json in a .pulse-backup, or from the timestamp in a local
+ * backup's file name.
+ */
+export async function getBackupMadeInfo(backupPath: string): Promise<{ madeAt: string | null; appVersion: string | null }> {
+  if (backupPath.endsWith('.pulse-backup')) {
+    let zip: OpenZipResult | null = null
+    try {
+      zip = await openZip(backupPath)
+      if (!zip.entries.some(e => e.entryName === 'backup-meta.json')) return { madeAt: null, appVersion: null }
+      const meta = JSON.parse((await zip.readEntry('backup-meta.json')).toString('utf8')) as { created?: unknown; appVersion?: unknown }
+      const madeAt = typeof meta.created === 'string' && !isNaN(Date.parse(meta.created)) ? meta.created : null
+      const appVersion = typeof meta.appVersion === 'string' && /^[\w.+-]{1,40}$/.test(meta.appVersion) ? meta.appVersion : null
+      return { madeAt, appVersion }
+    } catch (err) {
+      logNonFatal('backup', 'read backup-meta.json for preview', err)
+      return { madeAt: null, appVersion: null }
+    } finally {
+      zip?.close()
+    }
+  }
+  const m = basename(backupPath).match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})\.db$/)
+  if (m) {
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6]))
+    return { madeAt: d.toISOString(), appVersion: null }
+  }
+  try { return { madeAt: statSync(backupPath).mtime.toISOString(), appVersion: null } } catch { return { madeAt: null, appVersion: null } }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -645,12 +702,7 @@ export function listScheduledBackups(destinationDir: string): string[] {
 // ── Scheduled backup config persistence ──────────────────────────────────────
 
 interface ScheduledConfigStore {
-  scheduledBackup: {
-    enabled: boolean
-    intervalHours: number
-    destinationDir: string
-    lastRunISO: string | null
-  }
+  scheduledBackup: PersistentScheduledConfig
 }
 
 let _configStore: Store<ScheduledConfigStore> | null = null
@@ -667,7 +719,11 @@ export interface PersistentScheduledConfig {
   enabled: boolean
   intervalHours: number
   destinationDir: string
+  /** Last backup that worked */
   lastRunISO: string | null
+  /** Why the most recent attempt failed; cleared when one works */
+  lastError?: string | null
+  lastAttemptISO?: string | null
 }
 
 export function getScheduledConfig(): PersistentScheduledConfig {
@@ -701,15 +757,64 @@ export async function checkAndRunScheduled(): Promise<void> {
   }
 
   try {
-    const destDir = config.destinationDir || getBackupDir()
-    mkdirSync(destDir, { recursive: true, mode: 0o700 })
-    const destPath = join(destDir, `pulse-scheduled-${nowTimestamp()}.pulse-backup`)
-    await createPulseBackup(dbPath, destPath, 'scheduled')
-    pruneBackups(destDir, 'pulse-scheduled-', '.pulse-backup', MAX_SCHEDULED_BACKUPS)
-    setScheduledConfig({ ...config, lastRunISO: new Date().toISOString() })
+    const destPath = await performScheduledBackup(config)
     logger.info('backup', `Scheduled backup saved: ${destPath}`)
   } catch (err) {
     logger.error('backup', 'Scheduled backup failed', err)
+    recordScheduledFailure(err)
+  }
+}
+
+/** Remember a failed scheduled run so Settings, the checkup and the status bar can say so. */
+function recordScheduledFailure(err: unknown): void {
+  try {
+    setScheduledConfig({ ...getScheduledConfig(), lastError: describeBackupError(err), lastAttemptISO: new Date().toISOString() })
+  } catch (storeErr) { logNonFatal('backup', 'record scheduled backup failure', storeErr) }
+}
+
+/**
+ * Write one scheduled backup to the configured folder and record the run.
+ * Throws on failure; callers decide whether to log or report it.
+ */
+async function performScheduledBackup(config: PersistentScheduledConfig): Promise<string> {
+  const dbPath = getStoredDbPath()
+  if (!dbPath || !existsSync(dbPath)) throw new Error('Database file not found')
+  const destDir = config.destinationDir || getBackupDir()
+  mkdirSync(destDir, { recursive: true, mode: 0o700 })
+  const destPath = join(destDir, `pulse-scheduled-${nowTimestamp()}.pulse-backup`)
+  await createPulseBackup(dbPath, destPath, 'scheduled')
+  pruneBackups(destDir, 'pulse-scheduled-', '.pulse-backup', MAX_SCHEDULED_BACKUPS)
+  // Re-read so a settings change saved while the backup was writing isn't undone
+  const nowISO = new Date().toISOString()
+  setScheduledConfig({ ...getScheduledConfig(), lastRunISO: nowISO, lastAttemptISO: nowISO, lastError: null })
+  if (isOutsideDataFolder(destDir)) recordOffsiteBackup()
+  return destPath
+}
+
+/**
+ * Plain-language reason a backup couldn't be written, for people who don't
+ * know what EACCES means.
+ */
+export function describeBackupError(err: unknown): string {
+  const code = (err as { code?: string } | null)?.code
+  if (code === 'ENOENT' || code === 'ENOTDIR') return 'The backup folder can\'t be found. If it\'s on a USB drive or network folder, check that it\'s connected.'
+  if (code === 'EACCES' || code === 'EPERM' || code === 'EROFS') return 'Pulse isn\'t allowed to save in the backup folder. Choose a different folder.'
+  if (code === 'ENOSPC') return 'The backup drive is full. Free up space or choose a different folder.'
+  if (code === 'PULSE_TOO_BIG' && err instanceof Error) return err.message
+  if (err instanceof Error && err.message === 'Database file not found') return 'Pulse couldn\'t find your data file to back up.'
+  return 'The backup couldn\'t be saved. Try again, or choose a different folder.'
+}
+
+/** "Run now" in Settings: back up to the scheduled folder straight away. */
+export async function runScheduledBackupNow(): Promise<{ ran: boolean; destPath?: string; lastRunISO?: string | null; error?: string }> {
+  try {
+    const destPath = await performScheduledBackup(getScheduledConfig())
+    logger.info('backup', `Scheduled backup (run now) saved: ${destPath}`)
+    return { ran: true, destPath, lastRunISO: getScheduledConfig().lastRunISO }
+  } catch (err) {
+    logger.error('backup', 'Scheduled backup (run now) failed', err)
+    recordScheduledFailure(err)
+    return { ran: false, error: describeBackupError(err) }
   }
 }
 
@@ -730,6 +835,7 @@ export async function runManualBackup(destPath: string): Promise<ManualBackupRes
 
   const finalPath = destPath.endsWith('.pulse-backup') ? destPath : destPath + '.pulse-backup'
   const sizeBytes = await createPulseBackup(dbPath, finalPath, 'manual')
+  if (isOutsideDataFolder(dirname(finalPath))) recordOffsiteBackup()
 
   return { destPath: finalPath, sizeBytes }
 }
@@ -840,8 +946,8 @@ export async function restoreFromPulseBackup(backupZipPath: string): Promise<str
 
   // Reject oversized compressed files before opening (zip bomb pre-check)
   const compressedSize = statSync(backupZipPath).size
-  if (compressedSize > 200 * 1024 * 1024) {
-    throw new Error('Backup file exceeds 200 MB — will not restore')
+  if (compressedSize > maxBackupBytes()) {
+    throw new Error(tooBigToRestore())
   }
 
   const dbPath = getStoredDbPath()
@@ -870,8 +976,8 @@ export async function restoreFromPulseBackup(backupZipPath: string): Promise<str
 
     // Zip bomb protection: validate total uncompressed size before extracting anything
     const totalUncompressed = zip.entries.reduce((sum, e) => sum + e.uncompressedSize, 0)
-    if (totalUncompressed > 2 * 1024 * 1024 * 1024) {
-      throw new Error('Backup archive uncompressed size exceeds 2 GB — will not restore')
+    if (totalUncompressed > maxBackupBytes()) {
+      throw new Error(tooBigToRestore())
     }
 
     // Find the .db entry — reject any entry with path traversal components
@@ -922,6 +1028,10 @@ export interface BackupInfo {
 
 interface BackupStatusStore {
   backupStatus: { failed: boolean; error: string | null; timestamp: string | null }
+  /** Last backup saved outside the Pulse data folder (manual, Move, or scheduled elsewhere) */
+  lastOffsiteISO: string | null
+  /** When Pulse started keeping track, so a new user isn't nagged on day one */
+  trackingSinceISO: string | null
 }
 
 let _statusStore: Store<BackupStatusStore> | null = null
@@ -932,6 +1042,68 @@ function getStatusStore(): Store<BackupStatusStore> {
     _statusStore = new Store<BackupStatusStore>({ name: 'pulse-backup-status', cwd })
   }
   return _statusStore
+}
+
+/** True when `dir` is outside the folder that holds the database, i.e. a copy that survives losing it */
+export function isOutsideDataFolder(dir: string): boolean {
+  const roots = [getPortableDataDir(), getStoredDbPath() ? dirname(getStoredDbPath()!) : null].filter((r): r is string => !!r)
+  const target = resolve(dir)
+  return !roots.some(root => {
+    const r = resolve(root)
+    return target === r || target.startsWith(r + sep)
+  })
+}
+
+export function recordOffsiteBackup(): void {
+  try { getStatusStore().set('lastOffsiteISO', new Date().toISOString()) } catch (err) { logNonFatal('backup', 'record off-computer backup', err) }
+}
+
+export interface BackupHealth {
+  lastOffsiteISO: string | null
+  trackingSinceISO: string
+  scheduled: {
+    enabled: boolean
+    intervalHours: number
+    lastRunISO: string | null
+    lastError: string | null
+    /** On, failing, and at least two runs have been missed */
+    overdue: boolean
+  }
+}
+
+/** Everything the window needs to warn about backups that aren't happening. */
+export function getBackupHealth(): BackupHealth {
+  const store = getStatusStore()
+  let trackingSinceISO = store.get('trackingSinceISO', null)
+  if (!trackingSinceISO) {
+    trackingSinceISO = new Date().toISOString()
+    try { store.set('trackingSinceISO', trackingSinceISO) } catch (err) { logNonFatal('backup', 'record backup tracking start', err) }
+  }
+  const cfg = getScheduledConfig()
+  const lastError = cfg.lastError ?? null
+  const sinceMs = Date.parse(cfg.lastRunISO ?? trackingSinceISO)
+  const overdue = cfg.enabled && !!lastError && Date.now() - sinceMs > 2 * cfg.intervalHours * 60 * 60 * 1000
+  return {
+    lastOffsiteISO: store.get('lastOffsiteISO', null),
+    trackingSinceISO,
+    scheduled: { enabled: cfg.enabled, intervalHours: cfg.intervalHours, lastRunISO: cfg.lastRunISO, lastError, overdue },
+  }
+}
+
+const LOCK_BACKUP_MIN_GAP_MS = 60 * 60 * 1000
+
+/**
+ * Auto-backup when Pulse locks (auto-lock, sleep, Ctrl+L), not only on quit:
+ * many people never quit, the laptop just sleeps. At most once an hour.
+ * Must run while the database is still open.
+ */
+export function runAutoBackupOnLock(): void {
+  try {
+    const last = getStatusStore().get('backupStatus', { failed: false, error: null, timestamp: null })
+    if (!last.failed && last.timestamp && Date.now() - Date.parse(last.timestamp) < LOCK_BACKUP_MIN_GAP_MS) return
+  } catch (err) { logNonFatal('backup', 'read auto-backup status before lock backup', err) }
+  // runAutoBackup's work is synchronous, so it finishes before the caller closes the database
+  runAutoBackup().catch(err => logNonFatal('backup', 'auto-backup on lock', err))
 }
 
 export function recordAutoBackupSuccess(): void {
@@ -1005,7 +1177,7 @@ export async function restoreBackupOnNewInstall(opts: {
   const { backupPath, secret, newPassword, hint } = opts
   if (!backupPath.endsWith('.pulse-backup')) throw new Error('Choose a .pulse-backup file')
   if (!existsSync(backupPath)) throw new Error('Backup file not found')
-  if (statSync(backupPath).size > MAX_BACKUP_ZIP_BYTES) throw new Error('Backup file exceeds 200 MB — will not restore')
+  if (statSync(backupPath).size > maxBackupBytes()) throw new Error(tooBigToRestore())
 
   const dataDir = getPortableDataDir()
   mkdirSync(dataDir, { recursive: true })
@@ -1017,7 +1189,7 @@ export async function restoreBackupOnNewInstall(opts: {
   try {
     zip = await openZip(backupPath)
     const totalUncompressed = zip.entries.reduce((sum, e) => sum + e.uncompressedSize, 0)
-    if (totalUncompressed > 2 * 1024 * 1024 * 1024) throw new Error('Backup archive uncompressed size exceeds 2 GB — will not restore')
+    if (totalUncompressed > maxBackupBytes()) throw new Error(tooBigToRestore())
 
     const dbEntry = zip.entries.find(e => isSafeDbEntryName(e.entryName))
     if (!dbEntry) throw new Error('This file doesn\'t contain a Pulse database')
@@ -1052,13 +1224,27 @@ export async function restoreBackupOnNewInstall(opts: {
     const dbPath = resolveDatabasePath()
     const orphaned = moveAsideExistingDatabase(dbPath)
     if (orphaned) logger.warn('backup', `Existing database moved aside before restore: ${orphaned}`)
-    removeWalFiles(dbPath)
-    atomicCopyFileSync(extractedPath, dbPath)
-    if (process.platform !== 'win32') {
-      try { chmodSync(dbPath, 0o600) } catch (err) { logNonFatal('backup', 'chmod restored DB', err) }
+    try {
+      removeWalFiles(dbPath)
+      atomicCopyFileSync(extractedPath, dbPath)
+      if (process.platform !== 'win32') {
+        try { chmodSync(dbPath, 0o600) } catch (err) { logNonFatal('backup', 'chmod restored DB', err) }
+      }
+      await adoptRestoredDbKey(dbKey, envelope, newPassword, hint, dbPath)
+    } catch (err) {
+      // Put the database that was there back, so a failed restore changes nothing on disk
+      if (orphaned) {
+        try {
+          removeWalFiles(dbPath)
+          if (existsSync(dbPath)) unlinkSync(dbPath)
+          renameSync(orphaned, dbPath)
+          for (const suffix of ['-wal', '-shm']) {
+            if (existsSync(orphaned + suffix)) renameSync(orphaned + suffix, dbPath + suffix)
+          }
+        } catch (rollbackErr) { logger.error('backup', `Could not put the previous database back; it is at ${orphaned}`, rollbackErr) }
+      }
+      throw err
     }
-
-    await adoptRestoredDbKey(dbKey, envelope, newPassword, hint, dbPath)
     logger.info('backup', 'Backup restored on new install', { schemaVersion: info.schemaVersion })
     return { schemaVersion: info.schemaVersion }
   } finally {
@@ -1067,4 +1253,32 @@ export async function restoreBackupOnNewInstall(opts: {
     // Extracted DB is encrypted, but don't leave copies lying around
     try { rmSync(tmpDir, { recursive: true, force: true }) } catch (err) { logNonFatal('backup', 'cleanup restore temp dir', err) }
   }
+}
+
+/**
+ * Settings → Backup → Restore, for a backup made by another Pulse (another
+ * computer, or this one before a reinstall). This install's key can't open it,
+ * so it is unlocked with the password or recovery key it was made with, and
+ * protected with `newPassword` from now on.
+ *
+ * The current data is first saved as a .pulse-backup carrying the current key
+ * envelope, so it can be brought back the same way with the current password.
+ * The caller must reopen the database afterwards, whether this succeeds or not.
+ */
+export async function restoreOtherPulseBackup(opts: {
+  backupPath: string
+  secret: string
+  newPassword: string
+  hint: string
+}): Promise<{ safetyPath: string; schemaVersion: number }> {
+  const dbPath = getStoredDbPath()
+  if (!dbPath || !existsSync(dbPath)) throw new Error('No active database path found')
+  const safetyDir = getBackupDir()
+  mkdirSync(safetyDir, { recursive: true, mode: 0o700 })
+  const safetyPath = join(safetyDir, `pulse-pre-restore-${nowTimestamp()}.pulse-backup`)
+  await createPulseBackup(dbPath, safetyPath, 'pre-restore')
+  closeDatabaseIfOpen()
+  const { schemaVersion } = await restoreBackupOnNewInstall(opts)
+  logger.info('backup', 'Backup from another Pulse restored', { schemaVersion })
+  return { safetyPath, schemaVersion }
 }

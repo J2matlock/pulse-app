@@ -82,7 +82,7 @@ describe('CaseLog', () => {
     fireEvent.change(screen.getByLabelText('Data'), { target: { value: 'Home visit' } })
     fireEvent.change(screen.getByLabelText('Plan'), { target: { value: 'Follow up Friday' } })
     fireEvent.click(screen.getByTitle('Add a case note'))
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('case-log:create', 10, 'Data: Home visit\n\nPlan: Follow up Friday', 'note', null, { minutes: null, miles: null, extra: {} }))
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('case-log:create', 10, 'Data: Home visit\n\nPlan: Follow up Friday', 'note', null, { minutes: null, miles: null, extra: {} }, null))
     expect(mockInvoke).toHaveBeenCalledWith('settings:update', 'note_format_last', 'dap')
   })
 

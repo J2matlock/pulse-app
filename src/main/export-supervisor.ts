@@ -240,16 +240,16 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
 
     if (includeActivityLog) {
       const logRows = db.prepare(`
-        SELECT cl.content, cl.log_type, cl.created_at, r.id as row_id
+        SELECT cl.content, cl.log_type, cl.occurred_at AS created_at, r.id as row_id
         FROM case_log cl JOIN rows r ON r.id = cl.row_id
         WHERE r.grid_id = ? AND cl.log_type != 'system'
-          AND date(cl.created_at) >= ? AND date(cl.created_at) <= ?
-        ORDER BY cl.created_at DESC LIMIT 200
+          AND date(cl.occurred_at, 'localtime') >= ? AND date(cl.occurred_at, 'localtime') <= ?
+        ORDER BY cl.occurred_at DESC LIMIT 200
       `).all(gridId, dateRange.start, dateRange.end) as Array<{ content: string; log_type: string; created_at: string; row_id: number }>
       const activityNames = batchGetClientNames(db, logRows.map(e => e.row_id), gridId)
       csvSections.push([], [`Activity Log (${ActsCap})`], ['Date', 'Type', `${RecCap}`, 'Notes'])
       for (const e of logRows) {
-        csvSections.push([e.created_at.slice(0, 10), activityLabel(e.log_type), sanitizeCsvFormula(activityNames.get(e.row_id) || `${RecCap} #${e.row_id}`), sanitizeCsvFormula(e.content)])
+        csvSections.push([localDateString(parseDbTimestamp(e.created_at)), activityLabel(e.log_type), sanitizeCsvFormula(activityNames.get(e.row_id) || `${RecCap} #${e.row_id}`), sanitizeCsvFormula(e.content)])
       }
       if (logRows.length === 0) csvSections.push([`No ${acts} in this period.`])
     }
@@ -546,12 +546,12 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   // Activity Log — case notes (optional)
   if (includeActivityLog) {
     const logRows = db.prepare(`
-      SELECT cl.content, cl.log_type, cl.created_at, r.id as row_id
+      SELECT cl.content, cl.log_type, cl.occurred_at AS created_at, r.id as row_id
       FROM case_log cl
       JOIN rows r ON r.id = cl.row_id
       WHERE r.grid_id = ? AND cl.log_type != 'system'
-        AND date(cl.created_at) >= ? AND date(cl.created_at) <= ?
-      ORDER BY cl.created_at DESC
+        AND date(cl.occurred_at, 'localtime') >= ? AND date(cl.occurred_at, 'localtime') <= ?
+      ORDER BY cl.occurred_at DESC
       LIMIT 200
     `).all(gridId, dateRange.start, dateRange.end) as Array<{ content: string; log_type: string; created_at: string; row_id: number }>
 

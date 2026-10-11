@@ -65,6 +65,22 @@ function cutMarks(doc: InstanceType<typeof jsPDF>, b: { x: number; y: number; w:
   }
 }
 
+/**
+ * Before saving: how many documents a batch makes, and which {{tags}} in the
+ * template won't fill in. Tags are the template's, so one record shows them.
+ */
+export function previewBatch(templateId: number | null, target: DocTarget): { count: number; unknown: string[]; error?: string } {
+  let rowIds: number[]
+  try { rowIds = batchRowIds(target) } catch (err) {
+    if (err instanceof DocumentError) return { count: 0, unknown: [], error: err.message }
+    throw err
+  }
+  if (templateId === null || rowIds.length === 0) return { count: rowIds.length, unknown: [] }
+  const template = getDb().prepare('SELECT content FROM letter_templates WHERE id = ?').get(templateId) as { content: string } | undefined
+  if (!template) return { count: rowIds.length, unknown: [], error: 'That document template no longer exists.' }
+  return { count: rowIds.length, unknown: resolvePlaceholders(template.content, rowIds[0]!, target.gridId).unknown }
+}
+
 /** One PDF of a document for each record */
 export function buildBatchPdf(templateId: number, target: DocTarget, page: DocPage): { pdf: InstanceType<typeof jsPDF>; count: number; unknown: string[] } {
   const template = getDb().prepare('SELECT content FROM letter_templates WHERE id = ?').get(templateId) as { content: string } | undefined

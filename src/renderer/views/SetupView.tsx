@@ -106,6 +106,8 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
   const [profile, setProfile] = useState({ name: '', title: '', org: '' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Problems while adding an example (e.g. sample data that couldn't load), shown on the done card
+  const [exampleWarnings, setExampleWarnings] = useState<string[]>([])
   const [showExamples, setShowExamples] = useState(start === 'examples')
   const [listName, setListName] = useState('')
   const [gridId, setGridId] = useState<number | null>(null)
@@ -385,6 +387,14 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
                 <CheckCircle2 className="text-green-600 dark:text-green-400 w-9 h-9" aria-hidden="true" />
               </div>
               <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-3">Your workspace is ready</h2>
+              {exampleWarnings.length > 0 && (
+                <div role="alert" className="text-left rounded-lg border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 mb-6 max-w-md mx-auto">
+                  <p className="text-base font-medium text-amber-900 dark:text-amber-100">Some of the example didn't come in:</p>
+                  <ul className="list-disc pl-5 mt-1 space-y-1">
+                    {exampleWarnings.map(w => <li key={w} className="text-base text-amber-900 dark:text-amber-100">{w}</li>)}
+                  </ul>
+                </div>
+              )}
               <p className="text-lg text-slate-600 dark:text-slate-300 mb-6 max-w-sm mx-auto">Would you like a quick tour of the main features?</p>
               <button type="button" className="btn-primary inline-flex items-center gap-2 px-8" onClick={onStartTour}>
                 Show me around <ArrowRight className="w-5 h-5" aria-hidden="true" />
@@ -401,7 +411,8 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
       {showExamples && (
         <ApplyStarterDialog mode="setup" withSamples onClose={() => setShowExamples(false)}
           onStartBlank={() => { setShowExamples(false); go('blank') }}
-          onStartSpreadsheet={() => { setShowExamples(false); go('sheet-name') }} onApplied={() => { setShowExamples(false); void finish() }} />
+          onStartSpreadsheet={() => { setShowExamples(false); go('sheet-name') }}
+          onApplied={res => { setExampleWarnings(res?.warnings ?? []); setShowExamples(false); void finish() }} />
       )}
     </div>
   )

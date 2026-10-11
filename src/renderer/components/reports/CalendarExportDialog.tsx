@@ -8,6 +8,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
 import { useShallow } from 'zustand/react/shallow'
 import { isPersonKind } from '../../../shared/types'
+import { useFeature } from '../../hooks/useFeature'
 
 /** Save upcoming deadlines and follow-ups as a calendar file for Outlook or Google Calendar. */
 export function CalendarExportDialog({ onClose }: { onClose: () => void }): React.ReactElement {
@@ -18,6 +19,7 @@ export function CalendarExportDialog({ onClose }: { onClose: () => void }): Reac
   const anyOther = kinds.some(k => !k)
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, true)
+  const apptsOn = useFeature('appointments')
   const [fullNames, setFullNames] = useState(false)
   const [working, setWorking] = useState(false)
 
@@ -52,7 +54,7 @@ export function CalendarExportDialog({ onClose }: { onClose: () => void }): Reac
           </button>
         </div>
         <div className="px-6 py-5 space-y-3 text-base text-slate-700 dark:text-slate-200">
-          <p>Saves a calendar file with your deadlines and follow-ups for the next six months, each with a reminder the day before. Open it in Outlook, or import it in Google Calendar (Settings → Import).</p>
+          <p>Saves a calendar file with your {apptsOn ? `${t('appointment', { many: true })}, ` : ''}deadlines and follow-ups for the next six months, each with a reminder. Open it in Outlook, or import it in Google Calendar (Settings → Import).</p>
           {anyPeople && !anyOther && <p>{t('record', { many: true, cap: true })} are shown by initials, like <strong>J.S.: Annual Review</strong>. Note text is never included.</p>}
           {anyPeople && anyOther && <p>People are shown by initials, like <strong>J.S.: Annual Review</strong>; things and jobs by name. Note text is never included.</p>}
           {!anyPeople && <p>Each one is shown by name. Note text is never included.</p>}
@@ -67,7 +69,7 @@ export function CalendarExportDialog({ onClose }: { onClose: () => void }): Reac
               <span>Include task titles</span>
             )}
           </label>
-          <p className="text-sm text-slate-600 dark:text-slate-300">The calendar doesn't update by itself. Save a new file when things change; importing it again updates the same events.</p>
+          <p className="text-sm text-slate-600 dark:text-slate-300">The calendar doesn't update by itself. Save a new file when things change; importing it again updates the same events{apptsOn ? ` and cancels ${t('appointment', { many: true })} you've cancelled or removed` : ''}.</p>
         </div>
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
           <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>

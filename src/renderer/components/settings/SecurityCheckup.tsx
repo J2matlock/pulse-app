@@ -22,14 +22,14 @@ interface Check {
  */
 export function SecurityCheckup({ hasRecovery, onGoToBackup }: { hasRecovery: boolean | null; onGoToBackup?: () => void }): React.ReactElement {
   const autoLockMinutes = useSettingsStore(s => s.autoLockMinutes)
-  const [backup, setBackup] = useState<{ enabled: boolean; destinationDir: string } | null>(null)
+  const [backup, setBackup] = useState<{ enabled: boolean; destinationDir: string; lastError?: string | null } | null>(null)
   const [dbPath, setDbPath] = useState<string | null>(null)
   const filesOn = useFeature('attachments')
   const [files, setFiles] = useState<{ bytes: number; limitBytes: number } | null>(null)
   const [showSummary, setShowSummary] = useState(false)
 
   useEffect(() => {
-    void safeInvoke<{ enabled: boolean; destinationDir: string }>(IPC.BACKUP_SCHEDULED_GET_CONFIG).then(r => { if (r.ok) setBackup(r.data) })
+    void safeInvoke<{ enabled: boolean; destinationDir: string; lastError?: string | null }>(IPC.BACKUP_SCHEDULED_GET_CONFIG).then(r => { if (r.ok) setBackup(r.data) })
     void safeInvoke<{ dbPath: string }>(IPC.BACKUP_GET_INFO).then(r => { if (r.ok) setDbPath(r.data.dbPath) })
   }, [])
   useEffect(() => {
@@ -40,6 +40,7 @@ export function SecurityCheckup({ hasRecovery, onGoToBackup }: { hasRecovery: bo
   const dataDir = dbPath ? dbPath.replace(/[\\/][^\\/]+$/, '') : null
   const backupBesideData = !!(backup?.enabled && dataDir && backup.destinationDir.startsWith(dataDir))
   const cloud = dbPath ? detectCloudSyncService(dbPath) : null
+  const backupFailing = !!(backup?.enabled && backup.lastError)
 
   const checks: Check[] = [
     {
@@ -53,9 +54,13 @@ export function SecurityCheckup({ hasRecovery, onGoToBackup }: { hasRecovery: bo
       fix: 'Most organizations expect 15 minutes or less. Change it above.',
     },
     {
-      ok: !!backup?.enabled && !backupBesideData,
-      label: backup?.enabled ? (backupBesideData ? 'Scheduled backups go to the same folder as your data' : 'Scheduled backups are on') : 'Scheduled backups are off',
-      fix: 'Back up to a different drive (a work network folder or an encrypted USB), so one failure can\'t take both.',
+      ok: !!backup?.enabled && !backupBesideData && !backupFailing,
+      label: backupFailing
+        ? 'Scheduled backups aren\'t working'
+        : backup?.enabled ? (backupBesideData ? 'Scheduled backups go to the same folder as your data' : 'Scheduled backups are on') : 'Scheduled backups are off',
+      fix: backupFailing
+        ? `${backup!.lastError} Check the backup folder, then use "Run now" to test it.`
+        : 'Back up to a different drive (a work network folder or an encrypted USB), so one failure can\'t take both.',
       action: onGoToBackup ? { label: 'Backup settings', onClick: onGoToBackup } : undefined,
     },
     {

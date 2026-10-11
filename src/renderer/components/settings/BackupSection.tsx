@@ -12,14 +12,16 @@ import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { LoadingOverlay } from '../shared/LoadingSpinner'
 import { localDateString, parseDbTimestamp } from '../../../shared/dates'
 import { MoveComputerWizard } from './MoveComputerWizard'
+import { RestoreFromBackupForm } from '../shared/RestoreFromBackupForm'
 import { useVocab } from '../../hooks/useVocab'
+import { useBackupStatusStore } from '../../stores/backupStatusStore'
 
 interface BackupPreviewData {
   gridCount: number
   rowCount: number
-  schemaVersion: number
-  // null when the backup has no grids to date it by
-  createdAt: string | null
+  /** When the backup was made (null when it can't be told) */
+  madeAt: string | null
+  appVersion: string | null
 }
 
 interface AutoBackupEntry {
@@ -34,6 +36,8 @@ interface ScheduledConfig {
   intervalHours: number
   destinationDir: string
   lastRunISO: string | null
+  lastError?: string | null
+  lastAttemptISO?: string | null
 }
 
 const LARGE_BACKUP_BYTES = 500 * 1024 * 1024
@@ -60,10 +64,16 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
   })
   const [restoreTarget, setRestoreTarget] = useState<{ path: string; label: string } | null>(null)
   const [restoring, setRestoring] = useState(false)
-  const [restoreResult, setRestoreResult] = useState<{ safetyPath: string } | null>(null)
-  const scheduledDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [restoreResult, setRestoreResult] = useState<{ safetyPath: string; otherPulse?: boolean } | null>(null)
+  // A backup made by another Pulse, waiting for that Pulse's password or recovery key
+  const [otherPulsePath, setOtherPulsePath] = useState<string | null>(null)
+  const otherPulseTrapRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(otherPulseTrapRef, otherPulsePath != null)
   const [runningBackup, setRunningBackup] = useState(false)
-  const [backupReminderEnabled, setBackupReminderEnabled] = useState(false)
+  const [runningScheduled, setRunningScheduled] = useState(false)
+  // Reminders are on unless the user switched them off
+  const [backupReminderEnabled, setBackupReminderEnabled] = useState(true)
+  const [lastOffsiteISO, setLastOffsiteISO] = useState<string | null>(null)
   const [backupReminderDays, setBackupReminderDays] = useState(7)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [validatingDestination, setValidatingDestination] = useState(false)
@@ -71,12 +81,6 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
   const [previewLoading, setPreviewLoading] = useState(false)
   const restoreResultTrapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(restoreResultTrapRef, restoreResult != null)
-
-  useEffect(() => {
-    return () => {
-      if (scheduledDebounceRef.current) clearTimeout(scheduledDebounceRef.current)
-    }
-  }, [])
 
   // Load backup info and settings on mount
   useEffect(() => {
@@ -93,16 +97,25 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
       if (listRes.ok) setAutoBackups(listRes.data)
       const cfgRes = await safeInvoke<ScheduledConfig>(IPC.BACKUP_SCHEDULED_GET_CONFIG)
       if (cfgRes.ok) setScheduledConfig(cfgRes.data)
+      await refreshOffsite()
 
       // Load reminder settings
       const settingsRes = await safeInvoke<Record<string, string>>(IPC.SETTINGS_GET_ALL)
       if (settingsRes.ok) {
-        if (settingsRes.data.backup_reminder_enabled) setBackupReminderEnabled(settingsRes.data.backup_reminder_enabled === 'true')
+        setBackupReminderEnabled(settingsRes.data.backup_reminder_enabled !== 'false')
         if (settingsRes.data.backup_reminder_days) setBackupReminderDays(Number(settingsRes.data.backup_reminder_days) || 7)
       }
     }
     load()
   }, [])
+
+  async function refreshOffsite() {
+    const statusRes = await safeInvoke(IPC.BACKUP_GET_STATUS)
+    if (statusRes.ok) {
+      setLastOffsiteISO(statusRes.data.lastOffsiteISO)
+      useBackupStatusStore.setState({ status: statusRes.data, loadedAt: Date.now() })
+    }
+  }
 
   async function handleManualBackup() {
     setRunningBackup(true)
@@ -114,8 +127,12 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
       })
       if (!saveRes.ok || saveRes.data.canceled || !saveRes.data.filePath) return
       const res = await safeInvoke(IPC.BACKUP_MANUAL_CREATE, saveRes.data.filePath)
-      if (res.ok) toast.success('Backup saved successfully.')
-      else toast.error('Backup failed. Please try again.')
+      if (res.ok) {
+        toast.success('Backup saved.')
+        await refreshOffsite()
+      } else {
+        toast.error(res.error || 'The backup couldn\'t be saved. Try again, or choose a different folder.')
+      }
     } finally {
       setRunningBackup(false)
     }
@@ -123,8 +140,12 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
 
   async function initiateRestore(path: string, label: string) {
     const verifyRes = await safeInvoke(IPC.BACKUP_VERIFY, path)
+    if (verifyRes.ok && !verifyRes.data.valid && verifyRes.data.otherPulse) {
+      setOtherPulsePath(path)
+      return
+    }
     if (!verifyRes.ok || !verifyRes.data.valid) {
-      toast.error('This backup file appears to be invalid or from a different version.')
+      toast.error('Pulse can\'t open this file. It may be damaged, may not be a Pulse backup, or may have been made by an older Pulse on another computer (restore those on that computer).', { duration: 10000 })
       return
     }
     // Fetch preview info for the confirmation dialog
@@ -195,12 +216,12 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
     setScheduledConfig(prev => ({ ...prev, destinationDir: dir }))
   }
 
+  // Saved straight away: every change here is a single click, and a delayed
+  // save was lost when the user switched tabs within half a second
   function saveScheduledConfig(config: ScheduledConfig) {
-    if (scheduledDebounceRef.current) clearTimeout(scheduledDebounceRef.current)
-    scheduledDebounceRef.current = setTimeout(async () => {
-      const res = await safeInvoke(IPC.BACKUP_SCHEDULED_SET_CONFIG, config)
-      if (!res.ok) toast.error('Failed to save backup config.')
-    }, 500)
+    void safeInvoke(IPC.BACKUP_SCHEDULED_SET_CONFIG, config).then(res => {
+      if (!res.ok) toast.error('We couldn\'t save your backup settings. Try again.')
+    })
   }
 
   function updateScheduledConfig(updates: Partial<ScheduledConfig>) {
@@ -210,28 +231,21 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
   }
 
   async function handleRunScheduledNow() {
-    const config = scheduledConfig
-    const res = await safeInvoke<boolean>(IPC.BACKUP_SCHEDULED_SET_CONFIG, {
-      ...config,
-      lastRunISO: null
-    })
-    if (!res.ok) { toast.error('Failed to trigger backup'); return }
-    const runRes = await safeInvoke<{ ran: boolean; destPath?: string; error?: string }>(IPC.BACKUP_SCHEDULED_RUN, {
-      enabled: true,
-      intervalDays: 0,
-      destinationDir: config.destinationDir,
-      lastRunDate: null
-    })
-    if (runRes.ok && runRes.data.ran) {
-      toast.success(`Backup saved to ${runRes.data.destPath ?? 'backup folder'}.`)
-      const nowISO = new Date().toISOString()
-      const newCfg = { ...config, lastRunISO: nowISO }
-      setScheduledConfig(newCfg)
-      const cfgRes = await safeInvoke(IPC.BACKUP_SCHEDULED_SET_CONFIG, newCfg)
-      if (!cfgRes.ok) toast.error('Failed to save backup config.')
-    } else {
-      const reason = runRes.ok ? (runRes.data.error || 'Unknown reason') : (runRes.error || 'IPC error')
-      toast.error(`Backup did not run: ${reason}`)
+    if (runningScheduled) return
+    setRunningScheduled(true)
+    try {
+      const runRes = await safeInvoke(IPC.BACKUP_SCHEDULED_RUN_NOW)
+      if (runRes.ok && runRes.data.ran) {
+        toast.success(`Backup saved to ${runRes.data.destPath ?? 'your backup folder'}.`)
+        setScheduledConfig(prev => ({ ...prev, lastRunISO: runRes.data.lastRunISO ?? new Date().toISOString(), lastError: null }))
+        await refreshOffsite()
+      } else {
+        const reason = runRes.ok ? (runRes.data.error ?? '') : runRes.error
+        toast.error(`The backup didn't run. ${reason}`.trim())
+        if (runRes.ok) setScheduledConfig(prev => ({ ...prev, lastError: reason || 'The backup couldn\'t be saved.' }))
+      }
+    } finally {
+      setRunningScheduled(false)
     }
   }
 
@@ -243,11 +257,37 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
       </div>
       <MoveComputerWizard open={showMove} onClose={() => setShowMove(false)} onGoToSecurity={onGoToSection ? () => onGoToSection('security') : undefined} />
 
+      {/* The one safety action everyone needs, always visible */}
+      <div className="rounded-lg border-2 border-slate-200 dark:border-slate-700 p-4 space-y-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex-1 min-w-[12rem]">
+            <p className="text-base text-slate-700 dark:text-slate-300">
+              Save a copy of everything to a USB drive or another folder.
+            </p>
+            <p className="text-sm text-slate-600 dark:text-slate-400" data-testid="last-offsite">
+              {lastOffsiteISO
+                ? `Last backup saved to another place: ${parseDbTimestamp(lastOffsiteISO).toLocaleString()}`
+                : 'No backup saved to another place yet.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleManualBackup()}
+            disabled={runningBackup}
+            className="btn-primary flex items-center gap-1.5 disabled:opacity-50"
+            style={{ minHeight: 44 }}
+          >
+            {runningBackup ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            {runningBackup ? 'Backing up…' : 'Back up now…'}
+          </button>
+        </div>
+      </div>
+
       {/* Info box: 3-layer backup explanation */}
       <div className="flex items-start gap-2.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm text-blue-700 dark:text-blue-300">
         <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
         <p>
-          Pulse protects your data with three backup layers: <strong>Auto-backup</strong> saves when you close the app, <strong>Scheduled backup</strong> runs on your chosen interval, and <strong>Manual backup</strong> lets you save on demand. All backups are stored locally.
+          Pulse protects your data with three backup layers: <strong>Auto-backup</strong> saves when you close the app, <strong>Scheduled backup</strong> runs on your chosen interval, and <strong>Back up now</strong> saves a copy wherever you choose.
         </p>
       </div>
 
@@ -256,6 +296,18 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
         <p className="rounded-lg border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-base text-amber-900 dark:text-amber-100">
           Your data is {formatBytes(backupInfo!.dbSize!)}, so each backup needs that much room and takes longer. Removing files you no longer need (Settings → Data) makes backups smaller.
         </p>
+      )}
+
+      {/* Scheduled backups that keep failing would otherwise only show up in a log file */}
+      {scheduledConfig.enabled && scheduledConfig.lastError && (
+        <div role="alert" className="rounded-lg border-2 border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/30 px-4 py-3">
+          <p className="text-base font-medium text-red-800 dark:text-red-200">
+            {scheduledConfig.lastRunISO
+              ? `Scheduled backup hasn't worked since ${parseDbTimestamp(scheduledConfig.lastRunISO).toLocaleString()}`
+              : 'Scheduled backup hasn\'t worked yet'}
+          </p>
+          <p className="text-base text-red-700 dark:text-red-300 mt-0.5">{scheduledConfig.lastError}</p>
+        </div>
       )}
 
       {/* Warning: last auto-backup failed */}
@@ -267,7 +319,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
               Your last auto-backup didn't complete
             </p>
             <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5">
-              {backupInfo.lastAutoBackupError || 'Unknown error'}. You can create a manual backup below to make sure your data is safe.
+              {backupInfo.lastAutoBackupError || 'Unknown error'}. Use "Back up now" above to make sure your data is safe.
             </p>
           </div>
         </div>
@@ -407,21 +459,14 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
               </p>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => void handleManualBackup()}
-                  disabled={runningBackup}
-                  className="btn-secondary flex items-center gap-1.5 text-base disabled:opacity-50"
-                  style={{ minHeight: 44 }}
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Save to different location…
-                </button>
-                <button
+                  type="button"
                   onClick={() => void handleRunScheduledNow()}
-                  className="btn-secondary flex items-center gap-1.5"
+                  disabled={runningScheduled}
+                  className="btn-secondary flex items-center gap-1.5 disabled:opacity-50"
                   style={{ minHeight: 44 }}
                 >
-                  <Play className="w-3.5 h-3.5" />
-                  Run now
+                  {runningScheduled ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+                  {runningScheduled ? 'Running…' : 'Run now'}
                 </button>
               </div>
             </div>
@@ -434,7 +479,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
         <div>
           <p className="text-base font-medium text-slate-700 dark:text-slate-300">Backup reminders</p>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Get a reminder after login if no backup has been made in a while.
+            After you unlock Pulse, get a reminder if you haven't saved a backup to a USB drive or another folder in a while.
           </p>
         </div>
         <label
@@ -504,13 +549,15 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
                 <span className="font-medium text-slate-700 dark:text-slate-300">{backupPreview.rowCount}</span>
               </div>
               <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                <span>Schema version</span>
-                <span className="font-medium text-slate-700 dark:text-slate-300">{backupPreview.schemaVersion}</span>
+                <span>Backup made</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">{backupPreview.madeAt ? parseDbTimestamp(backupPreview.madeAt).toLocaleString() : 'Unknown'}</span>
               </div>
-              <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                <span>Created</span>
-                <span className="font-medium text-slate-700 dark:text-slate-300">{backupPreview.createdAt ? parseDbTimestamp(backupPreview.createdAt).toLocaleString() : '—'}</span>
-              </div>
+              {backupPreview.appVersion && (
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                  <span>Made by</span>
+                  <span className="font-medium text-slate-700 dark:text-slate-300">Pulse {backupPreview.appVersion}</span>
+                </div>
+              )}
             </div>
           )}
           {previewLoading && (
@@ -520,6 +567,30 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
             </div>
           )}
         </ConfirmDialog>
+      )}
+
+      {/* Backup from another Pulse: unlock it with that Pulse's password or recovery key */}
+      {otherPulsePath && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center" onKeyDown={e => { if (e.key === 'Escape') setOtherPulsePath(null) }}>
+          <div ref={otherPulseTrapRef} role="dialog" aria-modal="true" aria-labelledby="other-pulse-title"
+            className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-2xl max-w-lg w-full mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
+            <h3 id="other-pulse-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100">This backup is from another Pulse</h3>
+            <p className="text-base text-slate-600 dark:text-slate-300">
+              It was made on another computer, or before Pulse was set up again here. Enter the password or recovery key it was made with to restore it.
+              Your current data is saved as a safety copy first.
+            </p>
+            <RestoreFromBackupForm
+              mode="replace"
+              initialBackupPath={otherPulsePath}
+              onCancel={() => setOtherPulsePath(null)}
+              onRestored={info => {
+                setOtherPulsePath(null)
+                useUndoStore.getState().clear()
+                setRestoreResult({ safetyPath: info.safetyPath ?? '', otherPulse: true })
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {/* Restoring overlay */}
@@ -545,23 +616,24 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
             <p className="text-sm font-mono bg-slate-100 dark:bg-slate-700 rounded-sm px-3 py-2 break-all text-slate-700 dark:text-slate-300">
               {restoreResult.safetyPath}
             </p>
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              Restart the app now to load the restored data.
+            {restoreResult.otherPulse && (
+              <p className="text-base text-slate-600 dark:text-slate-300">
+                That safety copy opens with your old password. From now on, unlock Pulse with the new password you just chose.
+              </p>
+            )}
+            <p className="text-base text-slate-600 dark:text-slate-300">
+              Pulse needs to restart to show the restored data.
             </p>
             <div className="flex gap-2 pt-1">
+              {/* The only choice: until a restart, the window still shows the old words, features and settings */}
               <button
+                type="button"
                 onClick={() => void safeInvoke(IPC.APP_RELAUNCH)}
                 className="btn-primary flex-1"
                 style={{ minHeight: 44 }}
+                autoFocus
               >
                 Restart now
-              </button>
-              <button
-                onClick={() => setRestoreResult(null)}
-                className="btn-secondary flex-1"
-                style={{ minHeight: 44 }}
-              >
-                Later
               </button>
             </div>
           </div>

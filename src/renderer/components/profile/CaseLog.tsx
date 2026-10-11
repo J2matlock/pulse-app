@@ -23,6 +23,8 @@ import { useFeature } from '../../hooks/useFeature'
 import { FeatureOffer } from '../shared/FeatureOffer'
 import { NoteFiles } from './NoteFiles'
 import type { Attachment } from '../../../shared/attachments'
+import type { NoteDateUpdate, NoteDateRevert } from '../../../shared/types'
+import { localDateString, parseDbTimestamp } from '../../../shared/dates'
 import { friendlyError } from '../../utils/friendlyError'
 
 /** Show dates the main process changed (notes that update deadline columns) without a reload. */
@@ -32,6 +34,43 @@ function applyDatesLocally(rowId: number, values: Array<[columnId: number, value
   const patch = Object.fromEntries(values.map(([id, v]) => [`col_${id}`, v]))
   useGridStore.setState({ rows: rows.map(r => r.row_id === rowId ? { ...r, ...patch } : r) })
   pulseEvents.emit('deadline:changed')
+}
+
+/** When a note happened (older entries without occurred_at happened when written) */
+export function happenedAt(e: CaseLogEntryType): string {
+  return e.occurred_at ?? e.created_at
+}
+
+/** Newest first by when it happened, then by when it was written */
+function byHappened(a: CaseLogEntryType, b: CaseLogEntryType): number {
+  return happenedAt(b).localeCompare(happenedAt(a)) || b.created_at.localeCompare(a.created_at) || b.id - a.id
+}
+
+/** "Oct 31" for a YYYY-MM-DD day */
+function shortDay(day: string): string {
+  const [y = NaN, m = NaN, d = NaN] = day.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+/** "Last Visit to Oct 31" for the toast after dates follow a note */
+function datesText(updates: NoteDateUpdate[]): string {
+  const day = updates[0]!.new_value
+  return `${updates.map(u => u.column_name).join(', ')} to ${day === localDateString() ? 'today' : shortDay(day)}`
+}
+
+/** "Also set Last Visit back to Sep 2" after a note is voided or deleted (audit 1.23) */
+function revertedText(reverted: NoteDateRevert[]): string {
+  return `Also set ${reverted.map(r => `${r.column_name} back to ${r.new_value ? shortDay(r.new_value.slice(0, 10)) : 'blank'}`).join(', ')}`
+}
+
+/** Dates main put back or moved again, shown without a reload */
+function showDateChanges(rowId: number, data: unknown): void {
+  const d = (data ?? {}) as { reverted_dates?: NoteDateRevert[]; updated_dates?: NoteDateUpdate[] }
+  const reverted = d.reverted_dates ?? []
+  const updated = d.updated_dates ?? []
+  if (reverted.length) applyDatesLocally(rowId, reverted.map(r => [r.column_id, r.new_value]))
+  if (updated.length) applyDatesLocally(rowId, updated.map(u => [u.column_id, u.new_value]))
+  if (reverted.length) toast.success(revertedText(reverted), { id: 'note-dates' })
 }
 
 interface Props {
@@ -104,6 +143,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
   }
   const [newContent, setNewContent] = useState('')
   const [newFollowUp, setNewFollowUp] = useState('')
+  // The day it happened; empty means today
+  const [newDay, setNewDay] = useState('')
   const [showFollowUp, setShowFollowUp] = useState(false)
   const [adding, setAdding] = useState(false)
   const tracking = useNoteTracking()
@@ -266,17 +307,19 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         minutes: tracking.trackTime && newMinutes.trim() ? Math.round(Number(newMinutes)) : null,
         miles: tracking.trackMileage && newMiles.trim() ? Number(newMiles) : null,
         extra: Object.fromEntries(measures.active.filter(d => newExtra[d.key]?.trim()).map(d => [d.key, Number(newExtra[d.key])])),
-      }
+      },
+      newDay && newDay !== localDateString() ? newDay : null
     )
     if (res.ok) {
       // Time or miles written into the text, while those boxes are off: offer them
       setOffer(offerFor(composedContent, tracking))
       const { updated_dates: updatedDates = [], ...created } = res.data
-      setEntries(prev => [created, ...prev])
+      setEntries(prev => [created, ...prev].sort(byHappened))
       if (updatedDates.length > 0) {
         applyDatesLocally(rowId, updatedDates.map(u => [u.column_id, u.new_value]))
-        toast.success(`Also updated ${updatedDates.map(u => u.column_name).join(', ')} to today`, { id: 'note-dates' })
+        toast.success(`Also updated ${datesText(updatedDates)}`, { id: 'note-dates' })
       }
+      setNewDay('')
       setNewContent('')
       setFieldValues([])
       setNewMinutes('')
@@ -291,17 +334,16 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         timestamp: Date.now(),
         category: 'logged',
         icon: 'plus',
+        // Removing the note puts back the dates it moved, and restoring it moves them again (main does both)
         undo: async () => {
           // Past the delete window, undo voids the note instead (it stays in the record)
-          const res = await safeInvoke(IPC.CASE_LOG_DELETE, created.id)
-          if (!res.ok) await safeInvoke(IPC.CASE_LOG_VOID, created.id, 'Undone')
-          for (const u of updatedDates) await safeInvoke(IPC.CELL_UPDATE, rowId, u.column_id, u.old_value)
-          applyDatesLocally(rowId, updatedDates.map(u => [u.column_id, u.old_value]))
+          let res = await safeInvoke(IPC.CASE_LOG_DELETE, created.id)
+          if (!res.ok) res = await safeInvoke(IPC.CASE_LOG_VOID, created.id, 'Undone')
+          if (res.ok) showDateChanges(rowId, res.data)
         },
         redo: async () => {
-          await safeInvoke(IPC.CASE_LOG_RESTORE, created)
-          for (const u of updatedDates) await safeInvoke(IPC.CELL_UPDATE, rowId, u.column_id, u.new_value)
-          applyDatesLocally(rowId, updatedDates.map(u => [u.column_id, u.new_value]))
+          const res = await safeInvoke(IPC.CASE_LOG_RESTORE, created)
+          if (res.ok) showDateChanges(rowId, res.data)
         },
       })
     } else {
@@ -319,6 +361,31 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
     setEntries(prev => prev.map(e => e.id === id
       ? { ...e, ...builtIn, ...(extra !== undefined ? { extra_measures: kept.length ? JSON.stringify(Object.fromEntries(kept)) : null } : {}) }
       : e))
+  }
+
+  /** Correct the day a note happened; the day before is kept in its edit history */
+  async function handleSetDay(id: number, day: string) {
+    const entry = entries.find(e => e.id === id)
+    if (!entry) return
+    const prevDay = localDateString(parseDbTimestamp(happenedAt(entry)))
+    const setDay = async (to: string): Promise<boolean> => {
+      const res = await safeInvoke<{ occurred_at: string; updated_dates: NoteDateUpdate[]; reverted_dates: NoteDateRevert[] }>(IPC.CASE_LOG_SET_OCCURRED, id, to)
+      if (!res.ok) { toast.error(friendlyError(res.error)); return false }
+      setEntries(prev => prev.map(e => e.id === id ? { ...e, occurred_at: res.data.occurred_at } : e).sort(byHappened))
+      showDateChanges(rowId, res.data)
+      if (res.data.updated_dates.length > 0) toast.success(`Also updated ${datesText(res.data.updated_dates)}`, { id: 'note-dates' })
+      return true
+    }
+    if (!await setDay(day)) return
+    useUndoStore.getState().push({
+      id: crypto.randomUUID(),
+      description: `Changed the day of ${t('activity', { article: true })}`,
+      timestamp: Date.now(),
+      category: 'logged',
+      icon: 'edit',
+      undo: async () => { await setDay(prevDay) },
+      redo: async () => { await setDay(day) },
+    })
   }
 
   async function handlePin(id: number, pinned: boolean) {
@@ -367,6 +434,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
     const res = await safeInvoke(IPC.CASE_LOG_DELETE, id)
     if (!res.ok) { toast.error(friendlyError(res.error)); return }
     setEntries(prev => prev.filter(e => e.id !== id))
+    showDateChanges(rowId, res.data)
     if (entry) {
       useUndoStore.getState().push({
         id: crypto.randomUUID(),
@@ -375,10 +443,12 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
         category: 'logged',
         icon: 'trash',
         undo: async () => {
-          await safeInvoke(IPC.CASE_LOG_RESTORE, entry)
+          const back = await safeInvoke(IPC.CASE_LOG_RESTORE, entry)
+          if (back.ok) showDateChanges(rowId, back.data)
         },
         redo: async () => {
-          await safeInvoke(IPC.CASE_LOG_DELETE, id)
+          const again = await safeInvoke(IPC.CASE_LOG_DELETE, id)
+          if (again.ok) showDateChanges(rowId, again.data)
         },
       })
     }
@@ -388,14 +458,15 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
     const res = await safeInvoke(IPC.CASE_LOG_VOID, id, reason)
     if (!res.ok) { toast.error("We couldn't void that note. Please try again."); return }
     setEntries(prev => prev.filter(e => e.id !== id))
+    showDateChanges(rowId, res.data)
     useUndoStore.getState().pushWithToast({
       id: crypto.randomUUID(),
       description: `Voided ${t('activity')}`,
       timestamp: Date.now(),
       category: 'logged',
       icon: 'trash',
-      undo: async () => { await safeInvoke(IPC.CASE_LOG_UNVOID, id) },
-      redo: async () => { await safeInvoke(IPC.CASE_LOG_VOID, id, reason) },
+      undo: async () => { const r = await safeInvoke(IPC.CASE_LOG_UNVOID, id); if (r.ok) showDateChanges(rowId, r.data) },
+      redo: async () => { const r = await safeInvoke(IPC.CASE_LOG_VOID, id, reason); if (r.ok) showDateChanges(rowId, r.data) },
     })
   }
 
@@ -431,8 +502,9 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
   const pinned = filtered.filter(e => e.is_pinned === 1)
   const unpinned = filtered.filter(e => e.is_pinned !== 1)
 
+  // In the order things happened (a visit written up later sits on its own day)
   const sortedUnpinned = oldestFirst
-    ? [...unpinned].sort((a, b) => a.created_at.localeCompare(b.created_at))
+    ? [...unpinned].sort((a, b) => byHappened(b, a))
     : unpinned  // already newest-first from DB
 
   return (
@@ -511,17 +583,28 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
           )}
         </div>
 
-        {/* Only when a format exists (built-in under human-services words, or the user's own); Settings → Notes adds them */}
-        {allFormats.length > 0 && (
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor={`note-day-${rowId}`} className="text-base text-slate-600 dark:text-slate-300">When</label>
+          <input id={`note-day-${rowId}`} type="date" className="input w-auto" max={localDateString()}
+            value={newDay || localDateString()} onChange={e => setNewDay(e.target.value)}
+            title="The day it happened, if that wasn't today" />
+          {newDay && newDay !== localDateString() && (
+            <button type="button" onClick={() => setNewDay('')}
+              className="hit-44 text-base text-blue-700 dark:text-blue-300 hover:underline rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+              Today
+            </button>
+          )}
+          {/* Format only when one exists (built-in under human-services words, or the user's own); Settings → Notes adds them */}
+          {allFormats.length > 0 && (<>
+            <span className="w-2" aria-hidden />
             <label htmlFor={`note-format-${rowId}`} className="text-base text-slate-600 dark:text-slate-300">Format</label>
             <select id={`note-format-${rowId}`} className="input w-auto" value={formatId} onChange={e => chooseFormat(e.target.value)}>
               <option value="">Free text</option>
               {allFormats.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
               <option value="__edit">Edit formats…</option>
             </select>
-          </div>
-        )}
+          </>)}
+        </div>
 
         {format && (
           <div className="space-y-2">
@@ -700,6 +783,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
                     onCompleteFollowUp={handleCompleteFollowUp}
                     tracking={tracking}
                     onSetMeasures={handleSetMeasures}
+                    onSetDay={handleSetDay}
                   />
                   {filesOn && <NoteFiles rowId={rowId} noteId={entry.id} files={filesByNote.get(entry.id) ?? NO_FILES} canAttach={entry.log_type !== 'system' && !entry.voided_at} />}
                 </div>
@@ -721,6 +805,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets }: Props
                 onCompleteFollowUp={handleCompleteFollowUp}
                 tracking={tracking}
                 onSetMeasures={handleSetMeasures}
+                onSetDay={handleSetDay}
               />
               {filesOn && <NoteFiles rowId={rowId} noteId={entry.id} files={filesByNote.get(entry.id) ?? NO_FILES} canAttach={entry.log_type !== 'system' && !entry.voided_at} />}
             </div>

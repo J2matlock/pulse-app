@@ -40,12 +40,16 @@ export async function moveToStage(rowId: number, columnId: number, value: string
     icon: 'columns',
     contextLabel: name || undefined,
     contextId: rowId,
-    sideEffects: result.sysLogIds.map(caseLogId => ({ type: 'void_case_log' as const, caseLogId })),
+    // Undo removes the move's notes, history and checklist items in main, so time in stage isn't reset (audit S-16)
     undo: async () => {
-      const grid = useGridStore.getState()
-      await grid.updateCell(rowId, columnId, result.previous)
-      if (result.stamped) await grid.updateCell(rowId, result.stamped.columnId, result.stamped.previous)
-      for (const id of result.checklistItemIds) await safeInvoke(IPC.CHECKLIST_DELETE_ITEM, id)
+      const r = await safeInvoke(IPC.STAGE_UNDO, rowId, columnId, result)
+      // Throwing lets Undo say it failed and keep the step
+      if (!r.ok) throw new Error(r.error)
+      useGridStore.setState(s => ({
+        rows: s.rows.map(row => row.row_id !== rowId ? row : {
+          ...row, [`col_${columnId}`]: result.previous, ...(result.stamped ? { [`col_${result.stamped.columnId}`]: result.stamped.previous } : {}),
+        } as GridRow),
+      }))
     },
     redo: async () => {
       const again = await safeInvoke<StageMoveResult>(IPC.STAGE_MOVE, rowId, columnId, value)

@@ -1,5 +1,5 @@
 /**
- * Settings → Alerts → "Days off": the weekend and holidays that
+ * Settings → Deadlines & reminders → "Days off": the weekend and holidays that
  * business-day deadlines skip (W05 §3.7). US federal holidays are worked out
  * on this computer; nothing is downloaded.
  */

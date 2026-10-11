@@ -1,22 +1,49 @@
 import { useEffect, useRef, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import type { CaseloadTask, TaskPriority, TaskGroup } from '../../../shared/types'
+import { localDateString } from '../../../shared/dates'
+import { parseRepeatRule } from '../../../shared/recurrence'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { useVocab } from '../../hooks/useVocab'
+import { useGridStore } from '../../stores/gridStore'
+
+export type NewTask = Omit<CaseloadTask, 'id' | 'created_at' | 'updated_at'>
 
 export interface TaskFormDialogProps {
   onClose: () => void
-  onSave: (task: Omit<CaseloadTask, 'id' | 'created_at' | 'updated_at'>) => void
+  /**
+   * Adding: the whole new task. Editing: only the fields that changed, so
+   * an edit never wipes what the form doesn't show (snooze, completion).
+   */
+  onSave: (task: NewTask | Partial<CaseloadTask>) => void
   initial?: Partial<CaseloadTask>
   groups?: TaskGroup[]
 }
 
+/** Whether two stored repeat rules say the same thing */
+function sameRule(a: string | null, b: string | null): boolean {
+  const norm = (r: string | null) => {
+    const p = parseRepeatRule(r)
+    return p ? `${p.type}/${p.interval}/${p.end_date ?? ''}` : null
+  }
+  return norm(a) === norm(b)
+}
+
+/** The one task dialog:the Tasks page's Add and Edit, and Ctrl+Shift+T from anywhere (audit S-05) */
 export function TaskFormDialog({ onClose, onSave, initial, groups }: TaskFormDialogProps) {
+  const { t } = useVocab(null)
+  const grids = useGridStore(useShallow(s => s.grids))
+  const editing = initial?.id != null
   const [title, setTitle] = useState(initial?.title ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [priority, setPriority] = useState<TaskPriority>(initial?.priority ?? 'normal')
   const [dueDate, setDueDate] = useState(initial?.due_date ?? '')
+  const [category, setCategory] = useState(initial?.category ?? '')
+  const [gridId, setGridId] = useState<number | null>(initial?.grid_id ?? null)
   const [groupId, setGroupId] = useState<number | null>(initial?.group_id ?? null)
   const [recurType, setRecurType] = useState('')
   const [recurInterval, setRecurInterval] = useState(1)
+  const [error, setError] = useState<string | null>(null)
   const titleRef = useRef<HTMLInputElement>(null)
   const trapRef = useRef<HTMLDivElement>(null)
 
@@ -33,34 +60,54 @@ export function TaskFormDialog({ onClose, onSave, initial, groups }: TaskFormDia
     }
   }, [initial?.recurrence_rule])
 
+  function chooseRepeat(type: string) {
+    setRecurType(type)
+    // A repeating task repeats from its due date, so it needs one (audit S-12)
+    if (type && !dueDate) setDueDate(localDateString())
+  }
+
   function handleSave() {
     if (!title.trim()) return
-    const recurrenceRule = recurType
-      ? JSON.stringify({ type: recurType, interval: recurInterval })
-      : null
-    onSave({
-      grid_id: null,
+    if (recurType && !dueDate) { setError('A repeating task needs a due date.'); return }
+    // Keep the rule's other parts (an end date) when only the repeat is edited
+    let recurrenceRule: string | null = null
+    if (recurType) {
+      let kept: Record<string, unknown> = {}
+      try { kept = initial?.recurrence_rule ? JSON.parse(initial.recurrence_rule) as Record<string, unknown> : {} } catch { /* none */ }
+      recurrenceRule = JSON.stringify({ ...kept, type: recurType, interval: recurInterval })
+    }
+    const values = {
+      grid_id: gridId,
       group_id: groupId ?? null,
       title: title.trim(),
       description: description.trim() || null,
       priority,
-      category: null,
+      category: category.trim() || null,
       due_date: dueDate || null,
       recurrence_rule: recurrenceRule,
-      is_completed: 0,
-      completed_at: null,
-      snoozed_until: null,
-      position: initial?.position ?? 0,
-    })
+    }
+    if (editing) {
+      const changed = Object.fromEntries(Object.entries(values).filter(([k, v]) => {
+        const before = (initial as Record<string, unknown>)[k] ?? null
+        if (k === 'recurrence_rule') return sameRule(v as string | null, initial?.recurrence_rule ?? null) === false
+        return v !== before
+      })) as Partial<CaseloadTask>
+      if (Object.keys(changed).length > 0) onSave(changed)
+    } else {
+      onSave({ ...values, is_completed: 0, completed_at: null, snoozed_until: null, position: 0 })
+    }
     onClose()
   }
+
+  const onKey = (e: { key: string }) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose() }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
          onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div ref={trapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-          {initial?.id ? 'Edit Task' : 'Add Task'}
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="task-dialog-title"
+        className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4">
+        <h2 id="task-dialog-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+          {editing ? 'Edit task' : 'Add task'}
         </h2>
 
         {/* Title */}
@@ -73,7 +120,7 @@ export function TaskFormDialog({ onClose, onSave, initial, groups }: TaskFormDia
             ref={titleRef}
             value={title}
             onChange={e => setTitle(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose() }}
+            onKeyDown={onKey}
             className="input w-full"
             placeholder="What needs to be done?"
             style={{ fontSize: 15 }}
@@ -115,16 +162,45 @@ export function TaskFormDialog({ onClose, onSave, initial, groups }: TaskFormDia
             </select>
           </div>
           <div>
-            <label htmlFor="task-due-date" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Due Date</label>
+            <label htmlFor="task-due-date" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Due date</label>
             <input
               id="task-due-date"
               type="date"
               value={dueDate}
-              onChange={e => setDueDate(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose() }}
+              onChange={e => { setDueDate(e.target.value); setError(null) }}
+              onKeyDown={onKey}
               className="input w-full"
               style={{ fontSize: 15 }}
             />
+          </div>
+        </div>
+
+        {/* Category + list row */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="task-category" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Category</label>
+            <input
+              id="task-category"
+              value={category}
+              onChange={e => setCategory(e.target.value)}
+              onKeyDown={onKey}
+              className="input w-full"
+              placeholder="e.g. Admin, Reporting..."
+              style={{ fontSize: 15 }}
+            />
+          </div>
+          <div>
+            <label htmlFor="task-grid" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">{t('list', { cap: true })}</label>
+            <select
+              id="task-grid"
+              value={gridId ?? ''}
+              onChange={e => setGridId(e.target.value ? parseInt(e.target.value) : null)}
+              className="input w-full"
+              style={{ fontSize: 15 }}
+            >
+              <option value="">-- All {t('list', { many: true })} --</option>
+              {grids.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
           </div>
         </div>
 
@@ -152,7 +228,7 @@ export function TaskFormDialog({ onClose, onSave, initial, groups }: TaskFormDia
             <select
               id="task-recur-type"
               value={recurType}
-              onChange={e => setRecurType(e.target.value)}
+              onChange={e => chooseRepeat(e.target.value)}
               className="input w-full"
               style={{ fontSize: 15 }}
             >
@@ -177,7 +253,7 @@ export function TaskFormDialog({ onClose, onSave, initial, groups }: TaskFormDia
                   className="input w-16"
                   style={{ fontSize: 15 }}
                 />
-                <span className="text-sm text-slate-500">
+                <span className="text-base text-slate-500 dark:text-slate-400">
                   {recurType === 'daily' ? 'day(s)' :
                    recurType === 'weekly' ? 'week(s)' :
                    recurType === 'monthly' ? 'month(s)' : 'year(s)'}
@@ -186,6 +262,10 @@ export function TaskFormDialog({ onClose, onSave, initial, groups }: TaskFormDia
             </div>
           )}
         </div>
+        {recurType && (
+          <p className="text-base text-slate-500 dark:text-slate-400">When you tick it off, it comes back on its next date.</p>
+        )}
+        {error && <p role="alert" className="text-base text-red-600 dark:text-red-400">{error}</p>}
 
         {/* Actions */}
         <div className="flex gap-3 justify-end pt-2">
@@ -195,7 +275,7 @@ export function TaskFormDialog({ onClose, onSave, initial, groups }: TaskFormDia
             disabled={!title.trim()}
             className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {initial?.id ? 'Save Changes' : 'Add Task'}
+            {editing ? 'Save changes' : 'Add task'}
           </button>
         </div>
       </div>

@@ -171,7 +171,13 @@ export function TimeGrid({ days, appointments, allDay, label, colorOf, onOpen, o
                         onClick={() => { if (appt.status !== 'scheduled') onOpen(appt) }}
                         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(appt) } }}
                         className="block w-full h-full text-left cursor-grab focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm">
-                        <span className="block truncate font-medium">{text.short}</span>
+                        {/* Tall enough for two lines: who it's with goes on the second (audit S-29) */}
+                        {height >= 44 && appt.record_name ? (
+                          <>
+                            <span className="block truncate font-medium">{text.short.replace(` with ${appt.record_name}`, '')}</span>
+                            <span className="block truncate">{appt.record_name}</span>
+                          </>
+                        ) : <span className="block truncate font-medium">{text.short}</span>}
                       </button>
                       {appt.status === 'scheduled' && (
                         <div aria-hidden="true" className="absolute left-0 right-0 bottom-0 h-2 cursor-ns-resize"

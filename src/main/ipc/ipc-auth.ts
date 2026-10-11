@@ -7,7 +7,7 @@ import { logger } from '../logger'
 import { secureWrap, ok, fail, withCorrelation, assertSafePath } from './ipc-utils'
 import { checkNewPassword } from '../../shared/passwordPolicy'
 import { openDatabase, closeDatabase, resolveDatabasePath, checkCloudSyncPath } from '../database'
-import { moveAsideExistingDatabase, restoreBackupOnNewInstall } from '../backup'
+import { moveAsideExistingDatabase, restoreBackupOnNewInstall, runAutoBackupOnLock } from '../backup'
 import { stopScheduledBackup, startScheduledBackup } from '../index'
 import { ensureMaterialized } from '../appointments'
 import {
@@ -159,6 +159,8 @@ export function registerAuthHandlers(): void {
 
   secureWrap(IPC.AUTH_LOCK, 'ipc-auth', () => {
     stopScheduledBackup()
+    // Back up while the database is still open: many people lock and never quit
+    runAutoBackupOnLock()
     lockApp()
     closeDatabase()
     return ok(true)

@@ -26,6 +26,8 @@ export interface DeadlineToComplete {
   reading?: number
   /** Sequence rules: the step to check off */
   step?: number
+  /** "Done on another day…": the day it was really done (YYYY-MM-DD); today when left out */
+  doneOn?: string
 }
 
 /**
@@ -36,6 +38,12 @@ export interface DeadlineToComplete {
 export function startsNextCycle(iv: RuleInterval | undefined, kind?: RuleKind): boolean {
   if (kind && kind !== 'interval') return true
   return !!iv && (iv.days > 0 || iv.months > 0)
+}
+
+/** The next due date counted from the day it was done */
+function nextDueFrom(day: string, iv: RuleInterval): Date {
+  const [y = NaN, m = NaN, d = NaN] = day.split('-').map(Number)
+  return addInterval(new Date(y, m - 1, d), iv)
 }
 
 function formatDate(d: string | Date): string {
@@ -56,7 +64,7 @@ async function removeChecklistItems(ids: number[]): Promise<void> {
 /**
  * Mark one or more deadlines done and record it on each client's timeline.
  * - Repeating rules ("every 6 months after the last review"): the date becomes
- *   today, which starts the next cycle.
+ *   today (or the day it was really done), which starts the next cycle.
  * - Plain due dates: the date is cleared.
  * - If the column names a checklist, it's added to the client.
  * One undo step covers the whole batch. Returns the deadlines that were completed.
@@ -70,7 +78,7 @@ export async function completeDeadlines(
   for (const item of items) {
     if (item.ruleKind === 'sequence') {
       if (item.step === undefined) continue
-      const res = await safeInvoke<{ sysLogId: number }>(IPC.DEADLINE_STEP_DONE, item.rowId, item.columnId, item.step)
+      const res = await safeInvoke<{ sysLogId: number }>(IPC.DEADLINE_STEP_DONE, item.rowId, item.columnId, item.step, item.doneOn ?? null)
       if (!res.ok) { toast.error(friendlyError(res.error)); continue }
       const checklistIds = await addChecklist(item.rowId, item.checklistTemplateId)
       done.push({ ...item, sysLogId: res.data.sysLogId, newValue: item.dateValue, checklistIds, isStep: true })
@@ -78,22 +86,24 @@ export async function completeDeadlines(
     }
     if (item.ruleKind === 'meter') {
       if (item.reading === undefined) continue
-      const res = await safeInvoke<{ previous: Record<number, string | null>; sysLogId: number }>(IPC.DEADLINE_METER_DONE, item.rowId, item.columnId, item.reading)
+      const res = await safeInvoke<{ previous: Record<number, string | null>; sysLogId: number }>(IPC.DEADLINE_METER_DONE, item.rowId, item.columnId, item.reading, item.doneOn ?? null)
       if (!res.ok) { toast.error(friendlyError(res.error)); continue }
       const checklistIds = await addChecklist(item.rowId, item.checklistTemplateId)
-      done.push({ ...item, sysLogId: res.data.sysLogId, newValue: today, checklistIds, previous: res.data.previous })
+      done.push({ ...item, sysLogId: res.data.sysLogId, newValue: item.doneOn ?? today, checklistIds, previous: res.data.previous })
       continue
     }
     const repeat = startsNextCycle(item.interval, item.ruleKind)
-    const newValue = repeat ? today : null
+    const doneDay = item.doneOn && item.doneOn <= today ? item.doneOn : today
+    const newValue = repeat ? doneDay : null
     const res = await safeInvoke(IPC.CELL_UPDATE, item.rowId, item.columnId, newValue)
     if (!res.ok) continue
     let sysLogId = res.data.sysLogId
     // Columns without "log changes" still get a timeline entry, so completions are never invisible
     if (sysLogId == null) {
-      const text = !repeat ? `${item.columnName} completed (was ${formatDate(item.dateValue)})`
-        : item.ruleKind && item.ruleKind !== 'interval' ? `${item.columnName} done ${formatDate(today)}`
-        : `${item.columnName} done ${formatDate(today)}; next due ${formatDate(addInterval(new Date(), item.interval!))}`
+      const on = doneDay === today ? '' : ` on ${formatDate(doneDay)}`
+      const text = !repeat ? `${item.columnName} completed${on} (was ${formatDate(item.dateValue)})`
+        : item.ruleKind && item.ruleKind !== 'interval' ? `${item.columnName} done ${formatDate(doneDay)}`
+        : `${item.columnName} done ${formatDate(doneDay)}; next due ${formatDate(nextDueFrom(doneDay, item.interval!))}`
       const logRes = await safeInvoke(IPC.CASE_LOG_CREATE, item.rowId, text, 'system', null)
       if (logRes.ok) sysLogId = logRes.data.id
     }
@@ -104,11 +114,11 @@ export async function completeDeadlines(
 
   const sideEffects: SideEffect[] = done.filter(d => d.sysLogId != null).map(d => ({ type: 'void_case_log', caseLogId: d.sysLogId! }))
   const first = done[0]!
-  const nextDue = first.newValue && first.interval && (!first.ruleKind || first.ruleKind === 'interval') ? `; next due ${formatDate(addInterval(new Date(), first.interval))}` : ''
+  const nextDue = first.newValue && first.interval && (!first.ruleKind || first.ruleKind === 'interval') ? `; next due ${formatDate(nextDueFrom(first.newValue, first.interval))}` : ''
   useUndoStore.getState().pushWithToast({
     id: crypto.randomUUID(),
     description: done.length === 1
-      ? `Marked "${first.columnName}" done for ${first.clientName}${nextDue}`
+      ? `Marked "${first.columnName}" done for ${first.clientName}${first.doneOn && first.doneOn !== today ? ` on ${formatDate(first.doneOn)}` : ''}${nextDue}`
       : `Marked ${done.length} deadlines done`,
     timestamp: Date.now(),
     category: 'logged',
@@ -133,9 +143,9 @@ export async function completeDeadlines(
     redo: async () => {
       for (const d of done) {
         if (d.isStep) {
-          await safeInvoke(IPC.DEADLINE_STEP_DONE, d.rowId, d.columnId, d.step)
+          await safeInvoke(IPC.DEADLINE_STEP_DONE, d.rowId, d.columnId, d.step, d.doneOn ?? null)
         } else if (d.previous) {
-          const res = await safeInvoke<{ previous: Record<number, string | null>; sysLogId: number }>(IPC.DEADLINE_METER_DONE, d.rowId, d.columnId, d.reading)
+          const res = await safeInvoke<{ previous: Record<number, string | null>; sysLogId: number }>(IPC.DEADLINE_METER_DONE, d.rowId, d.columnId, d.reading, d.doneOn ?? null)
           if (res.ok) d.previous = res.data.previous
         } else {
           await useGridStore.getState().updateCell(d.rowId, d.columnId, d.newValue)

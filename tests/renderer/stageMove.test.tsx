@@ -36,8 +36,9 @@ describe('stage moves', () => {
     expect(useUndoStore.getState().undoStack[0]?.description).toBe('Moved J-0042 to Done')
 
     await act(async () => { await useUndoStore.getState().undo() })
-    expect(calls(IPC.CELL_UPDATE)).toEqual([[9, 2, 'Estimate'], [9, 3, '2026-01-02']])
-    expect(calls(IPC.CHECKLIST_DELETE_ITEM)).toEqual([[7], [8]])
+    // One call undoes it in main, removing the move's notes, history and checklist (audit S-16)
+    expect(calls(IPC.STAGE_UNDO)).toEqual([[9, 2, expect.objectContaining({ previous: 'Estimate', sysLogIds: [31, 32], checklistItemIds: [7, 8] })]])
+    expect(calls(IPC.CELL_UPDATE)).toEqual([])
     expect(useGridStore.getState().rows[0]).toMatchObject({ col_2: 'Estimate', col_3: '2026-01-02' })
   })
 })

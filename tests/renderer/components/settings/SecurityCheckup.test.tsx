@@ -42,6 +42,18 @@ describe('SecurityCheckup', () => {
     await waitFor(() => expect(screen.getByText('Security checkup: 4 of 4')).toBeTruthy())
   })
 
+  it('fails the backup item when scheduled backups keep failing', async () => {
+    autoLock = 15
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'backup:scheduled-get-config') return Promise.resolve({ ok: true, data: { enabled: true, destinationDir: 'E:\\Backups', lastError: 'The backup folder can\'t be found.' } })
+      if (channel === 'backup:get-info') return Promise.resolve({ ok: true, data: { dbPath: 'C:\\Pulse\\PulseData\\pulse.db' } })
+      return Promise.resolve({ ok: false })
+    })
+    render(<SecurityCheckup hasRecovery={true} />)
+    expect(await screen.findByText('Scheduled backups aren\'t working')).toBeTruthy()
+    expect(screen.getByText('Security checkup: 3 of 4')).toBeTruthy()
+  })
+
   it('warns when files nearly fill their allowance', async () => {
     autoLock = 15
     mockInvoke.mockImplementation((channel: string) => {
