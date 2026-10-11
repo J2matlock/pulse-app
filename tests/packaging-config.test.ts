@@ -39,17 +39,11 @@ describe('native database module', () => {
   })
 })
 
-describe('Linux packages', () => {
-  // AUDIT-019: the AppImage can't start Chromium's sandbox on stock Ubuntu 24.04+;
-  // the .deb installs electron-builder's AppArmor profile, which can
+describe('Linux package', () => {
   const pkg = JSON.parse(read('package.json'))
-  it('builds a .deb next to the AppImage', () => {
-    expect(pkg.build.linux.target).toEqual(['AppImage', 'deb'])
-    expect(pkg.build.deb.maintainer).toMatch(/<.+@.+>/)
-    expect(pkg.build.deb.depends).toContain('libsecret-1-0') // safeStorage keyring
-    expect(pkg.build.linux.synopsis).toBe(pkg.description)
-    // fpm writes the homepage into the package's control file
-    expect(pkg.homepage).toMatch(/^https:\/\//)
+  it('builds only the AppImage', () => {
+    expect(pkg.build.linux.target).toEqual(['AppImage'])
+    expect(pkg.build.deb).toBeUndefined()
   })
 
   it('does not turn the sandbox off', () => {

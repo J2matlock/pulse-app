@@ -17,39 +17,8 @@ Website: https://baringasoft.com
 Get the latest version from the [releases page](https://github.com/J2matlock/pulse-releases/releases/latest).
 
 - **Windows 10/11:** download `PULSE.exe` and run it. It's portable: your data is kept in a `PulseData` folder next to it. Pulse isn't code-signed, so the first time Windows may say "Windows protected your PC": click **More info → Run anyway**.
-- **Linux:** download the `.deb` (Ubuntu, Debian, Mint) or the AppImage (any distribution), or see [Building](#building). For the AppImage, make it executable (`chmod +x`) and run it.
+- **Linux:** download the AppImage, make it executable (`chmod +x`) and run it, or see [Building](#building).
 - **Mac:** macOS 13 (Ventura) or newer.
-
-### Ubuntu 24.04 and newer
-
-Use the `.deb`. It installs Pulse to `/opt` with an AppArmor profile that lets Pulse's security sandbox start:
-
-```bash
-sudo apt install ./BaringaSoftPulse-<version>.deb
-```
-
-Then open Pulse from your applications menu. To remove it: `sudo apt remove baringasoft-pulse` (your data stays in `~/.config`).
-
-If you'd rather use the AppImage on Ubuntu 24.04+, it needs two extra steps:
-
-1. Install FUSE 2, which AppImages need and Ubuntu no longer installs by default:
-   ```bash
-   sudo apt install libfuse2t64
-   ```
-2. Allow its sandbox through AppArmor. Ubuntu 24.04 blocks the kernel feature Chromium's sandbox uses, so without this the AppImage closes straight away with an error about the "SUID sandbox helper". Create a profile for the AppImage (change the path to wherever you keep it):
-   ```bash
-   sudo tee /etc/apparmor.d/baringasoft-pulse-appimage > /dev/null <<'EOF'
-   abi <abi/4.0>,
-   include <tunables/global>
-
-   profile baringasoft-pulse-appimage /home/*/Applications/BaringaSoftPulse-*.AppImage flags=(unconfined) {
-     userns,
-   }
-   EOF
-   sudo apparmor_parser -r /etc/apparmor.d/baringasoft-pulse-appimage
-   ```
-
-Don't turn the sandbox off to get around this: it's one of the things that keeps your data safe.
 
 Each release lists SHA-256 checksums in `SHA256SUMS.txt`.
 
@@ -67,7 +36,7 @@ npm run dev          # run Pulse in development mode
 Packages:
 
 ```bash
-npm run package:linux   # AppImage and .deb in dist/
+npm run package:linux   # AppImage in dist/
 npm run package:win     # Windows PULSE.exe (needs Inno Setup; on Linux, under Wine: bash scripts/setup-innosetup.sh)
 npm run package:mac     # macOS (on a Mac)
 ```

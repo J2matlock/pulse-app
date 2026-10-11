@@ -17,7 +17,7 @@
   },
   "bugs": "https://github.com/J2matlock/pulse-app/issues",
   "private": true,
-  "homepage": "https://baringasoft.com",
+  "homepage": ".",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
@@ -150,8 +150,7 @@
       "executableName": "baringasoft-pulse",
       "artifactName": "BaringaSoftPulse-${version}.${ext}",
       "target": [
-        "AppImage",
-        "deb"
+        "AppImage"
       ],
       "category": "Office",
       "icon": "build/icon.png",
@@ -160,29 +159,6 @@
       ],
       "files": [
         "!**/node_modules/better-sqlite3-multiple-ciphers/prebuilds/{win32,darwin,linuxmusl}-*.node"
-      ],
-      "synopsis": "A free, private, offline tracker for people and things with deadlines",
-      "description": "A free, private, offline tracker for people and things with deadlines"
-    },
-    "deb": {
-      "maintainer": "BaringaSoft <support@baringasoft.com>",
-      "packageCategory": "utils",
-      "priority": "optional",
-      "depends": [
-        "libgtk-3-0",
-        "libnotify4",
-        "libnss3",
-        "libxss1",
-        "libxtst6",
-        "xdg-utils",
-        "libatspi2.0-0",
-        "libuuid1",
-        "libsecret-1-0",
-        "libgbm1",
-        "libasound2",
-        "libcups2",
-        "libdrm2",
-        "libxkbcommon0"
       ]
     },
     "win": {

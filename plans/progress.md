@@ -1723,3 +1723,4 @@ Build state: npm test 4355 pass / 4 skip; typecheck 0; eslint 0 errors; e2e 11/1
 - Fixed two stale tests found on the way: vocabLeak Range stub (uncaught jsdom errors) and the e2e recovery-key skip button name.
 - Verified: npm test 439 files / 5034 tests (0 skipped), typecheck 0, eslint 0; e2e subset (setup, unlock, grid CRUD, backup/restore) 4/4 on Electron 44; packaged fused Linux build sets a password and opens the encrypted DB; .deb control file and AppArmor profile inspected.
 - Still to do by hand: Ubuntu 24.04 VM .deb install and launch; Windows and macOS launch with asar integrity. Not pushed.
+- Follow-up: the `.deb` target, its Fedora build check (libxcrypt-compat) and the README Ubuntu section were removed at the user's request (Fedora only). Linux stays AppImage-only; AUDIT-019 closed as won't-fix. Tests 439 files / 5034 passed.

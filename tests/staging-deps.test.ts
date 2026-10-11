@@ -51,10 +51,10 @@ describe('staging install', () => {
     expect(src).not.toMatch(/nativeSrc = path\.join\(ROOT/)
   })
 
-  it('build-linux builds and checks both the AppImage and the .deb', () => {
+  it('build-linux builds and checks the AppImage only', () => {
     const src = readFileSync(join(ROOT, 'scripts', 'build-linux.js'), 'utf8')
     expect(src).toContain('.AppImage`')
-    expect(src).toContain('.deb`')
+    expect(src).not.toContain('.deb`')
     expect(src).toMatch(/path\.join\(STAGING, 'node_modules', 'better-sqlite3-multiple-ciphers', 'prebuilds', 'linux-x64\.node'\)/)
     expect(src).toContain("includes('ELF')")
   })

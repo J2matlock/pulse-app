@@ -25,7 +25,6 @@ function writeStagingPackage(root, staging, pkg, buildOverrides) {
     version: pkg.version,
     description: pkg.description,
     author: pkg.author,
-    license: pkg.license, // the .deb's control file reports it
     main: pkg.main,
     homepage: pkg.homepage,
     dependencies: pkg.dependencies,
