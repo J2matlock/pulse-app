@@ -102,7 +102,7 @@ vi.mock('../../../src/renderer/stores/gridStore', () => ({
 vi.mock('../../../src/renderer/stores/undoStore', () => {
   const storeData = {
     undoStack: [], redoStack: [], undo: vi.fn(), redo: vi.fn(),
-    canUndo: false, canRedo: false, pushWithToast: vi.fn(),
+    canUndo: false, canRedo: false, pushWithToast: vi.fn(), push: vi.fn(),
   }
   const store = (selector: Function) => selector(storeData)
   store.getState = () => storeData
@@ -166,6 +166,7 @@ vi.mock('@dnd-kit/sortable', () => ({
   SortableContext: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   verticalListSortingStrategy: {},
   arrayMove: vi.fn(),
+  useSortable: () => ({ attributes: {}, listeners: {}, setNodeRef: vi.fn(), transform: null, transition: null, isDragging: false }),
 }))
 
 // ── Import view ─────────────────────────────────────────────────────────────
@@ -221,6 +222,32 @@ describe('TasksView — interactions', () => {
     await flushEffects()
     expect(screen.queryByText(/urgent/)).toBeNull()
     setWords()
+  })
+
+  it('shows a group straight away when there are no tasks yet', async () => {
+    const data = taskStoreData()
+    const usual = { tasks: data.tasks, sortMode: data.sortMode }
+    data.tasks = []
+    data.sortMode = 'manual'
+    const group = { id: 4, name: 'New Group', position: 0, is_collapsed: 0, created_at: '2026-10-11' }
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'task:group-get-all'
+      ? { ok: true, data: [group] } : { ok: true, data: [] }))
+    try {
+      render(<MemoryRouter><TasksView /></MemoryRouter>)
+      await flushEffects()
+      expect(screen.getByLabelText('Collapse New Group')).toBeDefined()
+      expect(screen.queryByText('No tasks yet')).toBeNull()
+    } finally { Object.assign(data, usual) }
+  })
+
+  it('adding a group while sorted by date switches to My order, where groups show', async () => {
+    const data = taskStoreData()
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'task:group-create'
+      ? { ok: true, data: { id: 5, name: 'New Group', position: 0, is_collapsed: 0, created_at: '2026-10-11' } } : { ok: true, data: [] }))
+    render(<MemoryRouter><TasksView /></MemoryRouter>)
+    await flushEffects()
+    await act(async () => { fireEvent.click(screen.getByTitle('Add a group to organize tasks')) })
+    expect(data.setSortMode).toHaveBeenCalledWith('manual')
   })
 
   it('renders the inline add-task input', async () => {

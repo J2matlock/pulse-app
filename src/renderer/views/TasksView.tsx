@@ -232,6 +232,8 @@ export default function TasksView(): React.ReactElement {
   // ── Task Group Handlers ─────────────────────────────────────────────────────
 
   const handleAddGroup = useCallback(async () => {
+    // Groups only show in "My order"
+    if (useTaskStore.getState().sortMode !== 'manual') setSortMode('manual')
     const res = await safeInvoke<TaskGroupType>(IPC.TASK_GROUP_CREATE, 'New Group')
     if (res.ok) {
       const created = res.data
@@ -255,7 +257,7 @@ export default function TasksView(): React.ReactElement {
         },
       })
     }
-  }, [loadTaskGroups])
+  }, [loadTaskGroups, setSortMode])
 
   const handleRenameGroup = useCallback(async (groupId: number, name: string) => {
     const prevGroup = taskGroups.find(g => g.id === groupId)
@@ -373,6 +375,8 @@ export default function TasksView(): React.ReactElement {
   const totalActive = activeRaw.filter(t => !recentlyCheckedIds.has(t.id)).length
   // Urgent checklist items only count while the Checklists feature (and its section) is on
   const shownUrgentCount = checklistsOn ? urgentItems.length : 0
+  // A group with nothing in it yet is still something to show (and add tasks to)
+  const hasContent = tasks.length > 0 || shownUrgentCount > 0 || hasTaskGroups
   const totalAll = totalActive + completedTasks.length
   const progressPct = totalAll > 0 ? Math.round((completedTasks.length / totalAll) * 100) : 0
   const progressColor = progressPct === 100 ? '#22c55e' : progressPct >= 50 ? '#eab308' : '#94a3b8'
@@ -530,7 +534,7 @@ export default function TasksView(): React.ReactElement {
             <LoadingOverlay label="Loading tasks…" />
           )}
 
-          {!loading && !loadError && tasks.length === 0 && shownUrgentCount === 0 && (
+          {!loading && !loadError && !hasContent && (
             <div className="flex flex-col items-center">
               <EmptyState
                 icon={<ClipboardList className="w-12 h-12" />}
@@ -553,7 +557,7 @@ export default function TasksView(): React.ReactElement {
             />
           )}
 
-          {!loading && (tasks.length > 0 || shownUrgentCount > 0) && (
+          {!loading && hasContent && (
             <>
               {sortMode !== 'manual' ? (
                 /* Sorted by due date or priority: one list, no dragging (audit S-20) */
