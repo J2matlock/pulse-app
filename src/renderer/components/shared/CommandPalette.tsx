@@ -182,14 +182,16 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
     ...(onFocusMode ? [{ label: 'Enter Focus Mode', icon: Focus, action: () => { onFocusMode(); onOpenChange(false) }, shortcut: '', feature: 'focusMode' as FeatureKey }] : []),
   ] as Array<{ label: string; icon: typeof Focus; action: () => void; shortcut: string; feature?: FeatureKey }>).filter(c => !c.feature || isOn(features, c.feature)), [navigate, onFocusMode, onOpenChange, features])
 
+  const activeGridName = activeGrid?.name ?? null
   const paletteForms = useFormStore(s => (activeGridId ? s.byGrid[activeGridId] : undefined)) ?? NO_FORMS
   const actionCommands = useMemo(() => ([
-    { label: `Add New ${tActive('record', { cap: true })}`, icon: UserPlus, action: handleAddClient, shortcut: 'Ctrl+N' },
+    // Says which list it adds to, since the palette opens from any screen (audit N-03)
+    ...(activeGridName ? [{ label: `Add ${tActive('record', { article: true })} to ${activeGridName}`, icon: UserPlus, action: handleAddClient, shortcut: 'Ctrl+N' }] : []),
     ...(isOn(features, 'tasks') ? [{ label: 'Add New Task', icon: ClipboardList, action: handleAddTask, shortcut: 'Ctrl+Shift+T' }] : []),
     // Fill a form (W08): a new record in the open list
     ...(isOn(features, 'forms') && activeGridId ? paletteForms.map(f => ({ label: `Fill form: ${f.name}`, icon: ClipboardPen, action: () => pulseEvents.emit('form:fill', { formId: f.id, gridId: activeGridId }), shortcut: '' })) : []),
     { label: 'Lock App', icon: Lock, action: lock, shortcut: 'Ctrl+L' },
-  ]), [handleAddClient, handleAddTask, lock, tActive, features, paletteForms, activeGridId])
+  ]), [handleAddClient, handleAddTask, lock, tActive, features, paletteForms, activeGridId, activeGridName])
 
   // Quick actions shown when input is empty (subset of nav + action commands)
   const quickActions = useMemo(() => [

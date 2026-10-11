@@ -14,6 +14,17 @@ import { UndoHistoryPanel } from '../shared/UndoHistoryPanel'
 import { isMod } from '../../utils/keys'
 import { useVocab } from '../../hooks/useVocab'
 
+/** A page's own name for the top bar (pages that aren't one list) */
+export function pageTitle(pathname: string, t: (key: 'contactDirectory', opts?: { cap?: boolean }) => string): string | null {
+  const first = pathname.split('/')[1] ?? ''
+  const names: Record<string, string> = {
+    dashboard: 'Dashboard', calendar: 'Calendar', reports: 'Reports', tasks: 'Tasks', settings: 'Settings',
+    help: 'Help', trash: 'Trash', snippets: 'Snippets', templates: 'Templates', 'letter-templates': 'Letters',
+    contacts: t('contactDirectory', { cap: true }),
+  }
+  return names[first] ?? null
+}
+
 export function TopBar(): React.ReactElement {
   const { t } = useVocab()
   // Recent profiles can come from any list, so they use the workspace's words
@@ -48,7 +59,7 @@ export function TopBar(): React.ReactElement {
   const params = useParams<{ rowId?: string }>()
 
   const isProfileView = location.pathname.startsWith('/profile/')
-  const isGridView = location.pathname === '/grid' || location.pathname === '/'
+  const isGridView = location.pathname === '/grid' || location.pathname === '/' || location.pathname.startsWith('/grid/')
   const rowId = params.rowId ? parseInt(params.rowId, 10) : null
 
   const activeGrid = useMemo(() => grids.find(g => g.id === activeGridId), [grids, activeGridId])
@@ -113,10 +124,10 @@ export function TopBar(): React.ReactElement {
           onGridClick={() => navigate('/grid')}
         />
       ) : (
-        /* Grid/Dashboard view: show grid name */
-        activeGrid && (
+        /* The list's name on the list; elsewhere, the page's own name (never a hidden "current list") */
+        (isGridView ? activeGrid?.name : pageTitle(location.pathname, t)) && (
           <span className="text-slate-600 dark:text-slate-400 text-base font-medium truncate min-w-0 hidden sm:block">
-            {activeGrid.name}
+            {isGridView ? activeGrid?.name : pageTitle(location.pathname, t)}
           </span>
         )
       )}

@@ -22,6 +22,7 @@ import { LoadingOverlay } from '../components/shared/LoadingSpinner'
 import { pulseEvents } from '../events'
 import { useVocab } from '../hooks/useVocab'
 import { GettingStartedCard } from './dashboard/GettingStartedCard'
+import { ChooseListDialog } from '../components/shared/ChooseListDialog'
 import { wordNow } from '../utils/vocab'
 
 import type { FollowUpRow, RawDeadlineRow, ArchivedRow, ExtendedDeadlineInfo, TopTab, FilterTab, PriorityItem } from './dashboard/types'
@@ -46,6 +47,8 @@ export default function DashboardView(): React.ReactElement {
   const [customizing, setCustomizing] = useState(false)
   const lettersOn = useFeature('letters')
   const openGridId = useGridStore(s => s.activeGridId)
+  const allGrids = useGridStore(s => s.grids)
+  const [pickingLettersList, setPickingLettersList] = useState(false)
   const [reminderLetters, setReminderLetters] = useState(false)
   // The dashboard spans every list, so it uses the workspace's words
   const { t } = useVocab(null)
@@ -444,11 +447,20 @@ export default function DashboardView(): React.ReactElement {
             <CalendarPlus className="w-4 h-4" aria-hidden="true" />
             Add to calendar
           </button>
-          {lettersOn && openGridId != null && (
-            <button type="button" className="btn-compact-secondary" onClick={() => setReminderLetters(true)} title="Letters or postcards for everyone with a deadline next month">
+          {lettersOn && allGrids.length > 0 && (
+            <button type="button" className="btn-compact-secondary" onClick={() => setPickingLettersList(true)} title="Letters or postcards for everyone with a deadline next month">
               <Mail className="w-4 h-4" aria-hidden="true" />
               Print reminder letters
             </button>
+          )}
+          {/* The dashboard covers every list, so ask which one the letters are for (audit D-35) */}
+          {pickingLettersList && (
+            <ChooseListDialog title="Print reminder letters" grids={allGrids} initialId={openGridId} confirmLabel="Continue"
+              onCancel={() => setPickingLettersList(false)}
+              onChoose={id => {
+                setPickingLettersList(false)
+                void useGridStore.getState().loadGrid(id).then(() => setReminderLetters(true))
+              }} />
           )}
           {reminderLetters && openGridId != null && <BatchDocumentsDialog gridId={openGridId} onClose={() => setReminderLetters(false)} />}
           <button type="button" className="btn-compact-secondary" aria-pressed={customizing} onClick={() => setCustomizing(c => !c)} title="Choose which cards show, and their order">

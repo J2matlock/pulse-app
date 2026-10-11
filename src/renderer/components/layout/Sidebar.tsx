@@ -186,6 +186,7 @@ function SortableGridItem({
           `}
           style={{ minHeight: 44, paddingLeft: collapsed ? undefined : '1.5rem' }}
           title={collapsed ? grid.name : undefined}
+          aria-current={isActive ? 'page' : undefined}
         >
           <Grid3X3 className="w-5 h-5 flex-shrink-0" />
           {!collapsed && (
@@ -307,6 +308,8 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
   const navigate = useNavigate()
   const location = useLocation()
   const isDashboard = location.pathname.startsWith('/dashboard')
+  // A list is "here" only on the list itself or one of its records (audit 2.11)
+  const onListPage = location.pathname === '/' || location.pathname.startsWith('/grid') || location.pathname.startsWith('/profile/')
   const isTasks = location.pathname.startsWith('/tasks')
   const isCalendar = location.pathname.startsWith('/calendar')
   const isReports = location.pathname.startsWith('/reports')
@@ -495,7 +498,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
                 key={grid.id}
                 grid={grid}
                 collapsed={collapsed}
-                isActive={activeGridId === grid.id && !isDashboard}
+                isActive={activeGridId === grid.id && onListPage}
                 isRenaming={renamingGridId === grid.id}
                 renameValue={renameValue}
                 renameInputRef={renamingGridId === grid.id ? renameInputRef : undefined}

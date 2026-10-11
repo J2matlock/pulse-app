@@ -32,6 +32,7 @@ export function BatchDocumentsDialog({ gridId, rowIds, initialMode = 'documents'
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, true)
   const { t } = useVocab(gridId)
+  const listName = useGridStore(s => s.grids.find(g => g.id === gridId)?.name)
   const columns = useGridStore(s => s.columns)
   const hiddenColumns = useGridStore(s => s.hiddenColumns)
   const all = useMemo(() => [...columns, ...hiddenColumns].filter(c => c.grid_id === gridId), [columns, hiddenColumns, gridId])
@@ -97,7 +98,7 @@ export function BatchDocumentsDialog({ gridId, rowIds, initialMode = 'documents'
         className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 id="batch-docs-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <FileStack className="w-5 h-5" aria-hidden="true" />Print documents or labels
+            <FileStack className="w-5 h-5" aria-hidden="true" />Print documents or labels{listName ? `: ${listName}` : ''}
           </h2>
           <button type="button" aria-label="Close" onClick={onClose}
             className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">

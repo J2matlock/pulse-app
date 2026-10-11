@@ -96,6 +96,12 @@ describe('TopBar', () => {
     expect(screen.getByText('Test Grid')).toBeDefined()
   })
 
+  it('names the page, not the last list, on screens that cover every list (audit 2.11)', () => {
+    renderTopBar('/calendar')
+    expect(screen.getByText('Calendar')).toBeDefined()
+    expect(screen.queryByText('Test Grid')).toBeNull()
+  })
+
   it('renders breadcrumb on profile view', () => {
     renderTopBar('/profile/42')
     expect(screen.getByTestId('breadcrumb')).toBeDefined()
