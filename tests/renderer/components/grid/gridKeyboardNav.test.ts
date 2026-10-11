@@ -24,6 +24,22 @@ function deps(columns: Column[]): KeyboardNavDeps & { updateCell: ReturnType<typ
 const key = (k: string, mods: Partial<KeyboardEvent> = {}) => ({ key: k, preventDefault: vi.fn(), ctrlKey: false, metaKey: false, shiftKey: false, ...mods }) as unknown as React.KeyboardEvent
 
 describe('grid keys', () => {
+  it('Shift+Space and Ctrl+Space tick or untick the record; Space alone ticks a checkbox cell (AUDIT-057)', () => {
+    const d = deps([col(1, 'checkbox')])
+    let selected = new Set<number>()
+    ;(d.setSelectedRowIds as ReturnType<typeof vi.fn>).mockImplementation((u: (s: Set<number>) => Set<number>) => { selected = u(selected) })
+    const shift = key(' ', { shiftKey: true })
+    handleCellKeyDown(shift, 7, 1, d)
+    expect(shift.preventDefault).toHaveBeenCalled()
+    expect([...selected]).toEqual([7])
+    handleCellKeyDown(key(' ', { ctrlKey: true }), 7, 1, d)
+    expect([...selected]).toEqual([])
+    expect(d.updateCell).not.toHaveBeenCalled()
+    handleCellKeyDown(key(' '), 7, 1, d)
+    expect(d.updateCell).toHaveBeenCalledWith(7, 1, 'true')
+    expect([...selected]).toEqual([])
+  })
+
   it('Ctrl+Enter and Shift+Enter open the record; Enter edits', () => {
     const d = deps([col(1, 'text')])
     handleCellKeyDown(key('Enter', { ctrlKey: true }), 7, 1, d)

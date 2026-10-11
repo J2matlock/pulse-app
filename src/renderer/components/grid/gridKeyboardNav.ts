@@ -174,6 +174,17 @@ export function handleCellKeyDown(
       }
       break
     case ' ': {
+      // Shift+Space (or Ctrl+Space) ticks or unticks this record for bulk actions, as in a spreadsheet (AUDIT-057)
+      if (!editing && (e.shiftKey || e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        setSelectedRowIds(prev => {
+          const next = new Set(prev)
+          if (next.has(rowId)) next.delete(rowId)
+          else next.add(rowId)
+          return next
+        })
+        break
+      }
       if (!editing) {
         const col = columns.find(c => c.id === columnId)
         if (col?.column_type === 'checkbox') {

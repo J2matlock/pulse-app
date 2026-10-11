@@ -507,6 +507,22 @@ describe('DataGrid', () => {
       expect(screen.getByTestId('grid-announcer').textContent).toBe('Done editing Name')
     })
 
+    it('Shift+Space selects the record from the keyboard, and the count is announced (AUDIT-057)', async () => {
+      renderDataGrid()
+      await flushEffects()
+      const cell = dataCells()[0]!
+      fireEvent.focus(cell)
+      fireEvent.keyDown(cell, { key: ' ', shiftKey: true })
+      await flushEffects()
+      expect([...useGridStore.getState().selectedRowIds]).toEqual([1])
+      expect(screen.getAllByRole('row')[1]!.getAttribute('aria-selected')).toBe('true')
+      expect(screen.getByTestId('grid-announcer').textContent).toBe('1 client selected')
+      fireEvent.keyDown(dataCells()[0]!, { key: ' ', shiftKey: true })
+      await flushEffects()
+      expect(useGridStore.getState().selectedRowIds.size).toBe(0)
+      expect(screen.getByTestId('grid-announcer').textContent).toBe('Nothing selected')
+    })
+
     it('pressing Escape in edit mode cancels editing', async () => {
       renderDataGrid()
       await flushEffects()

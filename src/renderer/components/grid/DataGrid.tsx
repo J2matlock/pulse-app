@@ -710,6 +710,14 @@ export function DataGrid(): React.ReactElement {
     if (editingCell) setAnnouncement(`Editing ${name(editingCell.columnId) ?? 'cell'}`)
     else if (prev) setAnnouncement(`Done editing ${name(prev.columnId) ?? 'cell'}`)
   }, [editingCell, columnMap])
+  // ...and how many records are picked for bulk actions, after Shift+Space, Ctrl+A or a click (AUDIT-057)
+  const announcedSelectedRef = useRef(selectedRowIds.size)
+  useEffect(() => {
+    const n = selectedRowIds.size
+    if (announcedSelectedRef.current === n) return
+    announcedSelectedRef.current = n
+    setAnnouncement(n === 0 ? 'Nothing selected' : `${n} ${t('record', { count: n })} selected`)
+  }, [selectedRowIds, t])
 
   const handleBulkSetAcuityLevel = useCallback((levelId: number | null) => {
     const ids = Array.from(selectedRowIdsRef.current)
