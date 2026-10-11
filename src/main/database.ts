@@ -15,6 +15,7 @@ import { getDbKey, setStoredDbPath, isPasswordSetup } from './auth'
 import { clearContactsStmtCache } from './contacts'
 import { logNonFatal } from './ipc/ipc-utils'
 import { detectCloudSyncService } from '../shared/cloudSync'
+import type { DbOpenFailureKind } from '../shared/dbOpen'
 import { runPreMigrationBackup, setDatabaseBridge } from './backup'
 import { MIGRATIONS } from './migration-list'
 import { linkColumnSpecs, linkSelectSql, linkSpecKey, type LinkColumnSpec } from '../shared/links'
@@ -261,8 +262,27 @@ function purgeExpiredTrash(): void {
 }
 
 /**
+ * The database couldn't be opened even though the key is right. The message is
+ * technical (for the log); `kind` is what the lock screen explains (AUDIT-003).
+ */
+export class DatabaseOpenError extends Error {
+  readonly kind: DbOpenFailureKind
+  constructor(kind: DbOpenFailureKind, message: string, options?: { cause?: unknown }) {
+    super(message, options)
+    this.name = 'DatabaseOpenError'
+    this.kind = kind
+  }
+}
+
+function asOpenError(err: unknown, kind: DbOpenFailureKind): DatabaseOpenError {
+  if (err instanceof DatabaseOpenError) return err
+  return new DatabaseOpenError(kind, err instanceof Error ? err.message : String(err), { cause: err })
+}
+
+/**
  * Called by the auth system after successful password verification.
  * Opens the database and runs pending migrations.
+ * Throws DatabaseOpenError when the file can't be read or upgraded.
  */
 export function openDatabase(): void {
   if (cleanupTimer) { clearTimeout(cleanupTimer); cleanupTimer = null }
@@ -272,14 +292,18 @@ export function openDatabase(): void {
   // even if the portable folder has been moved since initial setup.
   setStoredDbPath(dbPath)
 
-  db = openEncryptedDatabase(dbPath)
+  try {
+    db = openEncryptedDatabase(dbPath)
+  } catch (err) {
+    throw asOpenError(err, 'unreadable')
+  }
   try {
     runMigrations()
   } catch (err) {
     logger.error('database', 'Migration failed — closing database', { error: err instanceof Error ? err.message : String(err) })
     try { db.close() } catch (err) { logNonFatal('database', 'close DB after migration failure', err) }
     db = null
-    throw err
+    throw asOpenError(err, 'migration')
   }
   // Remove leftover system alert rules from earlier app versions (migration cleanup)
   try { db.prepare('DELETE FROM alert_rules WHERE is_system = 1').run() } catch (err) { logNonFatal('database', 'delete system alert rules', err) }
@@ -377,7 +401,7 @@ function runMigrations(): void {
   // Guard against opening a database created by a newer app version.
   // Running old migrations against a newer schema could corrupt data.
   if (currentVersion > latestVersion) {
-    throw new Error(
+    throw new DatabaseOpenError('newer',
       `This database was created by a newer version of Pulse (schema version ${currentVersion}, ` +
       `but this app only supports up to version ${latestVersion}). ` +
       `Please update the app to open this database.`
@@ -422,7 +446,7 @@ function runMigrations(): void {
         // Do NOT continue with subsequent migrations — later migrations may
         // depend on schema changes from this one and would likely fail or
         // corrupt data.
-        throw new Error(
+        throw new DatabaseOpenError('migration',
           `Migration to version ${migration.version} failed: ${errMsg}. ` +
           `Restore from the pre-migration backup in the backups directory.`
         )

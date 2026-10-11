@@ -4,7 +4,7 @@
  * and the key store are faked; database.ts, backup.ts and every migration are real.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { mkdtempSync, rmSync, existsSync, readdirSync, readFileSync } from 'fs'
+import { mkdtempSync, rmSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'fs'
 import { createHash } from 'crypto'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -68,7 +68,7 @@ vi.mock('../src/main/migration-list', async () => {
   return { MIGRATIONS: h.list }
 })
 
-import { openDatabase, closeDatabase, getDb, getMigrationFailure, latestSchemaVersion } from '../src/main/database'
+import { openDatabase, closeDatabase, getDb, getMigrationFailure, latestSchemaVersion, DatabaseOpenError } from '../src/main/database'
 
 let dir: string
 let dbPath: string
@@ -105,6 +105,15 @@ const count = (db: Database, table: string) => (db.prepare(`SELECT COUNT(*) AS n
 const backupsDir = () => join(dir, 'backups')
 const preMigrationCopies = () => existsSync(backupsDir()) ? readdirSync(backupsDir()).filter(f => f.startsWith('pulse-pre-migration-')) : []
 const sha = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex')
+
+/** The kind of DatabaseOpenError openDatabase threw (the lock screen explains each one) */
+function openFailureKind(): string {
+  try { openDatabase() } catch (err) {
+    expect(err).toBeInstanceOf(DatabaseOpenError)
+    return err instanceof DatabaseOpenError ? err.kind : 'not a DatabaseOpenError'
+  }
+  return 'opened'
+}
 
 function expectHealthy(db: Database): void {
   expect(db.pragma('foreign_key_check')).toEqual([])
@@ -232,6 +241,7 @@ describe('openDatabase refusing or failing safely', () => {
     const before = sha(dbPath)
 
     expect(() => openDatabase()).toThrow(/newer version of Pulse/)
+    expect(openFailureKind()).toBe('newer')
 
     expect(() => getDb()).toThrow()
     expect(sha(dbPath)).toBe(before)
@@ -253,6 +263,7 @@ describe('openDatabase refusing or failing safely', () => {
 
     expect(() => openDatabase()).toThrow(/Migration to version \d+ failed/)
     expect(() => getDb()).toThrow()
+    expect(openFailureKind()).toBe('migration')
 
     const failure = getMigrationFailure()
     expect(failure?.version).toBe(latest + 1)
@@ -272,6 +283,14 @@ describe('openDatabase refusing or failing safely', () => {
     openDatabase()
     expect(versionOf(getDb())).toBe(latest)
     expect(getMigrationFailure()).toBeNull()
+  })
+
+  it('reports a damaged file as unreadable and leaves it in place', () => {
+    writeFileSync(dbPath, Buffer.alloc(8192, 7))
+    const before = sha(dbPath)
+    expect(openFailureKind()).toBe('unreadable')
+    expect(() => getDb()).toThrow()
+    expect(sha(dbPath)).toBe(before)
   })
 
   it('re-opening an up-to-date database runs nothing and makes no copy', () => {

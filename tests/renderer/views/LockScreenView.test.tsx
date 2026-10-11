@@ -25,11 +25,12 @@ vi.mock('react-hot-toast', () => {
 // Mock settingsStore
 const mockSetLocked = vi.fn()
 const mockSetRecoverySession = vi.fn()
+const mockSetPasswordSetup = vi.fn()
 vi.mock('../../../src/renderer/stores/settingsStore', () => ({
-  useSettingsStore: () => ({
-    setLocked: mockSetLocked,
-    setRecoverySession: mockSetRecoverySession,
-  }),
+  useSettingsStore: (selector?: (s: Record<string, unknown>) => unknown) => {
+    const state = { setLocked: mockSetLocked, setRecoverySession: mockSetRecoverySession, setPasswordSetup: mockSetPasswordSetup }
+    return selector ? selector(state) : state
+  },
 }))
 
 import toast from 'react-hot-toast'
@@ -194,6 +195,66 @@ describe('LockScreenView', () => {
 
     await waitFor(() => {
       expect(mockSetLocked).toHaveBeenCalledWith(false)
+    })
+  })
+
+  describe('right password, but the data could not be opened (AUDIT-003)', () => {
+    function failOpenWith(kind: string, channel = 'auth:verify-password') {
+      mockInvoke.mockImplementation((ch: string) => {
+        if (ch === channel) return Promise.resolve({ ok: false, error: `DB_OPEN_FAILED:${kind}` })
+        if (ch === 'auth:get-hint') return Promise.resolve({ ok: true, data: '' })
+        if (ch === 'auth:has-recovery-key') return Promise.resolve({ ok: true, data: true })
+        return Promise.resolve({ ok: false })
+      })
+    }
+    async function unlock() {
+      render(<LockScreenView />)
+      const input = screen.getByPlaceholderText('Password')
+      fireEvent.change(input, { target: { value: 'right-password' } })
+      fireEvent.submit(input.closest('form')!)
+      return await screen.findByRole('heading', { name: /couldn't open your data/ })
+    }
+
+    it('says the password was right and the data is safe, and offers a restore', async () => {
+      failOpenWith('migration')
+      const heading = await unlock()
+      expect(heading.textContent).toMatch(/Your password is right/)
+      expect(screen.getByRole('alert').textContent).toMatch(/your data is safe/)
+      expect(screen.queryByText(/Incorrect password|corrupt|database|migration/i)).toBeNull()
+      expect(mockSetLocked).not.toHaveBeenCalled()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Restore from a backup' }))
+      expect(await screen.findByText(/Choose a .pulse-backup file/)).toBeTruthy()
+      // Cancel goes back to the explanation, not to a password that won't help
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(await screen.findByRole('heading', { name: /couldn't open your data/ })).toBeTruthy()
+    })
+
+    it('a damaged file: says it was not deleted', async () => {
+      failOpenWith('unreadable')
+      await unlock()
+      expect(screen.getByRole('alert').textContent).toMatch(/hasn't been deleted/)
+      expect(screen.getByRole('button', { name: 'Restore from a backup' })).toBeTruthy()
+    })
+
+    it('data from a newer Pulse: says to update, and offers no restore that would lose the newer data', async () => {
+      failOpenWith('newer')
+      await unlock()
+      expect(screen.getByRole('alert').textContent).toMatch(/newer version/)
+      expect(screen.queryByRole('button', { name: 'Restore from a backup' })).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+      expect(screen.getByPlaceholderText('Password')).toBeTruthy()
+    })
+
+    it('after a recovery key too', async () => {
+      failOpenWith('unreadable', 'auth:verify-recovery-key')
+      render(<LockScreenView />)
+      await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('auth:has-recovery-key'))
+      fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }))
+      const key = screen.getByLabelText('Recovery key')
+      fireEvent.change(key, { target: { value: 'ABCD1234EFGH5678IJKL9012MNOP' } })
+      fireEvent.submit(key.closest('form')!)
+      expect((await screen.findByRole('heading', { name: /couldn't open your data/ })).textContent).toMatch(/Your recovery key is right/)
     })
   })
 })
