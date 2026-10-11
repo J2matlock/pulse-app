@@ -112,9 +112,11 @@ export default function App(): React.ReactElement {
   )
 
   // Extracted hooks
-  useGlobalKeyboard(setCommandPaletteOpen, setShortcutsOpen, setGlobalTaskOpen)
+  // App shortcuts only once the app is open; zoom whenever the database is open
+  // so the new size can be saved
+  useGlobalKeyboard(setCommandPaletteOpen, setShortcutsOpen, setGlobalTaskOpen, authState === 'ready')
   useThemeEffect(theme, uiScale, gridDensity, sidebarWidth, gridLines, rowStriping, reducedMotion, highContrast)
-  useZoom(setUiScale)
+  useZoom(setUiScale, authState === 'ready' || authState === 'onboarding' || authState === 'recovery')
   useAutoLock(storeLocked, storePasswordSetup, autoLockMinutes)
 
   if (authState === 'checking') {

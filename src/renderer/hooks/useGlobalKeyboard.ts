@@ -34,25 +34,31 @@ export function useGlobalKeyboard(
   setCommandPaletteOpen: React.Dispatch<React.SetStateAction<boolean>>,
   setShortcutsOpen: React.Dispatch<React.SetStateAction<boolean>>,
   setGlobalTaskOpen: React.Dispatch<React.SetStateAction<boolean>>,
+  /** False on the lock screen, password setup, first-run setup and the recovery reset */
+  enabled = true,
 ): void {
   const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
+    if (!enabled) return
+    // Focus mode covers the app: the palette, shortcuts list, task dialog and
+    // new record would open hidden behind it
+    const inFocusMode = useSettingsStore.getState().focusModeOpen
     // Ctrl+K — command palette
-    if (isMod(e) && e.key === 'k') {
+    if (isMod(e) && e.key === 'k' && !inFocusMode) {
       e.preventDefault()
       setCommandPaletteOpen(v => !v)
     }
     // Ctrl+Shift+D — Dashboard
-    if (isMod(e) && e.shiftKey && e.key === 'D') {
+    if (isMod(e) && e.shiftKey && e.key === 'D' && !inFocusMode) {
       e.preventDefault()
       window.location.hash = '#/dashboard'
     }
     // Ctrl+Shift+P — Contacts / Provider Directory
-    if (isMod(e) && e.shiftKey && e.key === 'P' && featureNow('contactsDirectory')) {
+    if (isMod(e) && e.shiftKey && e.key === 'P' && featureNow('contactsDirectory') && !inFocusMode) {
       e.preventDefault()
       window.location.hash = '#/contacts'
     }
     // Ctrl+Shift+T — New Task (global overlay)
-    if (isMod(e) && e.shiftKey && e.key === 'T' && featureNow('tasks')) {
+    if (isMod(e) && e.shiftKey && e.key === 'T' && featureNow('tasks') && !inFocusMode) {
       e.preventDefault()
       setGlobalTaskOpen(true)
     }
@@ -69,7 +75,7 @@ export function useGlobalKeyboard(
       if (runUndo(isRedo ? 'redo' : 'undo')) e.preventDefault()
     }
     // Ctrl+H — Find and Replace (grid view only)
-    if (isMod(e) && !e.shiftKey && e.key === 'h') {
+    if (isMod(e) && !e.shiftKey && e.key === 'h' && !inFocusMode) {
       const active = document.activeElement
       if (!isEditableElement(active)) {
         e.preventDefault()
@@ -80,7 +86,7 @@ export function useGlobalKeyboard(
       }
     }
     // Ctrl+N — Add new client (grid view only)
-    if (isMod(e) && !e.shiftKey && e.key === 'n') {
+    if (isMod(e) && !e.shiftKey && e.key === 'n' && !inFocusMode) {
       const active = document.activeElement
       if (!isEditableElement(active)) {
         const hash = window.location.hash.split('?')[0] ?? ''
@@ -91,21 +97,23 @@ export function useGlobalKeyboard(
       }
     }
     // '?' shortcut — only when not in an input/textarea to avoid interfering with typing
-    if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+    if (e.key === '?' && !e.ctrlKey && !e.metaKey && !inFocusMode) {
       const active = document.activeElement
       if (!isEditableElement(active)) {
         e.preventDefault()
         setShortcutsOpen(v => !v)
       }
     }
-  }, [setCommandPaletteOpen, setShortcutsOpen, setGlobalTaskOpen])
+  }, [setCommandPaletteOpen, setShortcutsOpen, setGlobalTaskOpen, enabled])
 
   useEffect(() => {
     window.addEventListener('keydown', handleGlobalKeyDown)
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
   }, [handleGlobalKeyDown])
 
-  useEffect(() => pulseEvents.on('palette:open', () => setCommandPaletteOpen(true)), [setCommandPaletteOpen])
+  useEffect(() => pulseEvents.on('palette:open', () => {
+    if (enabled && !useSettingsStore.getState().focusModeOpen) setCommandPaletteOpen(true)
+  }), [setCommandPaletteOpen, enabled])
 
   // A mouse's back and forward buttons move through the pages visited (audit N-14)
   useEffect(() => {

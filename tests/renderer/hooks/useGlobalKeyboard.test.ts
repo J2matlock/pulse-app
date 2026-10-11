@@ -13,9 +13,10 @@ Object.defineProperty(window, 'api', {
 
 // Mock settingsStore
 const mockSetFocusModeOpen = vi.fn()
+let focusModeOpen = false
 vi.mock('../../../src/renderer/stores/settingsStore', () => ({
   useSettingsStore: {
-    getState: () => ({ focusModeOpen: false, setFocusModeOpen: mockSetFocusModeOpen }),
+    getState: () => ({ focusModeOpen, setFocusModeOpen: mockSetFocusModeOpen }),
   },
 }))
 
@@ -60,6 +61,33 @@ describe('useGlobalKeyboard', () => {
   function render() {
     return renderHook(() => useGlobalKeyboard(setCommandPaletteOpen, setShortcutsOpen, setGlobalTaskOpen))
   }
+
+  it('does nothing while the app is locked or still being set up', () => {
+    renderHook(() => useGlobalKeyboard(setCommandPaletteOpen, setShortcutsOpen, setGlobalTaskOpen, false))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', bubbles: true }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'T', ctrlKey: true, shiftKey: true, bubbles: true }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F', ctrlKey: true, shiftKey: true, bubbles: true }))
+    expect(setCommandPaletteOpen).not.toHaveBeenCalled()
+    expect(setShortcutsOpen).not.toHaveBeenCalled()
+    expect(setGlobalTaskOpen).not.toHaveBeenCalled()
+    expect(mockSetFocusModeOpen).not.toHaveBeenCalled()
+  })
+
+  it('in Focus mode, does not open the palette, shortcuts or task dialog behind it, but Ctrl+Shift+F still closes it', () => {
+    focusModeOpen = true
+    try {
+      render()
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', bubbles: true }))
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'T', ctrlKey: true, shiftKey: true, bubbles: true }))
+      expect(setCommandPaletteOpen).not.toHaveBeenCalled()
+      expect(setShortcutsOpen).not.toHaveBeenCalled()
+      expect(setGlobalTaskOpen).not.toHaveBeenCalled()
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F', ctrlKey: true, shiftKey: true, bubbles: true }))
+      expect(mockSetFocusModeOpen).toHaveBeenCalledWith(false)
+    } finally { focusModeOpen = false }
+  })
 
   it('Ctrl+K toggles command palette', () => {
     render()

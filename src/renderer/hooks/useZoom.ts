@@ -8,12 +8,16 @@ import { isMod } from '../utils/keys'
  */
 export function useZoom(
   setUiScale: (scale: number) => void,
+  /** False while the database is closed (lock screen, password setup): the zoom couldn't be saved */
+  enabled = true,
 ): void {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (!enabled) return
       // Works from text fields too: these keys don't edit text (audit N-30)
       if (!isMod(e)) return
-      if (e.key === '=') {
+      // '+' is Ctrl+Shift+= and the number pad's plus
+      if (e.key === '=' || e.key === '+') {
         e.preventDefault()
         setUiScale(Math.min(150, useSettingsStore.getState().uiScale + 5))
       } else if (e.key === '-') {
@@ -26,5 +30,5 @@ export function useZoom(
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [setUiScale])
+  }, [setUiScale, enabled])
 }

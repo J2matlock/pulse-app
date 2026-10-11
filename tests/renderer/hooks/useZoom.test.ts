@@ -41,6 +41,19 @@ describe('useZoom', () => {
     expect(setUiScale).toHaveBeenCalledWith(105)
   })
 
+  it('Ctrl++ (Shift or the number pad) increases zoom too', () => {
+    render()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '+', ctrlKey: true, shiftKey: true, bubbles: true }))
+    expect(setUiScale).toHaveBeenCalledWith(105)
+  })
+
+  it('does nothing while turned off (the database is closed)', () => {
+    renderHook(() => useZoom(setUiScale, false))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '=', ctrlKey: true, bubbles: true }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '0', ctrlKey: true, bubbles: true }))
+    expect(setUiScale).not.toHaveBeenCalled()
+  })
+
   it('Ctrl+- decreases zoom by 5', () => {
     render()
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '-', ctrlKey: true, bubbles: true }))
