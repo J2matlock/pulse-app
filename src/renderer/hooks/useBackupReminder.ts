@@ -30,13 +30,17 @@ export async function checkBackupReminder(): Promise<void> {
       toast(`Your scheduled backup isn't working. ${status.scheduled.lastError ?? ''} Open Settings → Backup to fix it.`.replace(/\s+/g, ' '), { icon: '⚠️', duration: 10000 })
       return
     }
-    if (!status.offsiteOverdue) return
-    if (status.lastOffsiteISO) {
-      const days = Math.floor((Date.now() - parseDbTimestamp(status.lastOffsiteISO).getTime()) / MS_PER_DAY)
-      toast(`Your last backup to a USB drive or another folder was ${days} day${days !== 1 ? 's' : ''} ago. Use Settings → Backup → "Back up now".`, { icon: '⚠️', duration: 8000 })
-    } else {
-      toast('You haven\'t saved a backup to a USB drive or another folder yet. Use Settings → Backup → "Back up now".', { icon: '⚠️', duration: 8000 })
+    if (status.offsiteOverdue) {
+      if (status.lastOffsiteISO) {
+        const days = Math.floor((Date.now() - parseDbTimestamp(status.lastOffsiteISO).getTime()) / MS_PER_DAY)
+        toast(`Your last backup to a USB drive or another folder was ${days} day${days !== 1 ? 's' : ''} ago. Use Settings → Backup → "Back up now".`, { icon: '⚠️', duration: 8000 })
+      } else {
+        toast('You haven\'t saved a backup to a USB drive or another folder yet. Use Settings → Backup → "Back up now".', { icon: '⚠️', duration: 8000 })
+      }
+      // One reminder at a time: the recovery key's turn comes at the next unlock
+      return
     }
+    // Not tied to backups: people who keep backups current still need a recovery key
     await checkRecoveryKeyReminder(settings.ok ? settings.data.onboarding_recovery_snooze_until ?? null : null)
   } catch { /* non-critical */ }
 }

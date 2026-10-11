@@ -37,10 +37,12 @@ function status(over: Record<string, unknown> = {}) {
   }
 }
 
-function respond(settings: Record<string, string>, st: ReturnType<typeof status> | null) {
+function respond(settings: Record<string, string>, st: ReturnType<typeof status> | null, hasRecoveryKey?: boolean) {
   mockInvoke.mockImplementation((channel: string) => {
     if (channel === 'settings:get-all') return Promise.resolve({ ok: true, data: settings })
     if (channel === 'backup:get-status') return Promise.resolve(st ? { ok: true, data: st } : { ok: false, error: 'fail' })
+    if (channel === 'auth:has-recovery-key' && hasRecoveryKey !== undefined) return Promise.resolve({ ok: true, data: hasRecoveryKey })
+    if (channel === 'settings:update') return Promise.resolve({ ok: true, data: true })
     return Promise.resolve({ ok: false, error: 'unexpected' })
   })
 }
@@ -95,6 +97,26 @@ describe('checkBackupReminder', () => {
 
   it('does not remind when the status call fails', async () => {
     respond({}, null)
+    await checkBackupReminder()
+    expect(mockToast).not.toHaveBeenCalled()
+  })
+
+  it('offers a recovery key to someone whose backups are up to date', async () => {
+    respond({}, status({ lastOffsiteISO: new Date(Date.now() - MS_PER_DAY).toISOString() }), false)
+    await checkBackupReminder()
+    expect(mockToast).toHaveBeenCalledTimes(1)
+    expect(mockToast.mock.calls[0]![0]).toContain('recovery key')
+  })
+
+  it('shows one reminder at a time: an overdue backup first, the recovery key later', async () => {
+    respond({}, status({ offsiteOverdue: true }), false)
+    await checkBackupReminder()
+    expect(mockToast).toHaveBeenCalledTimes(1)
+    expect(mockToast.mock.calls[0]![0]).not.toContain('recovery key')
+  })
+
+  it('does not offer a recovery key that already exists', async () => {
+    respond({}, status(), true)
     await checkBackupReminder()
     expect(mockToast).not.toHaveBeenCalled()
   })
