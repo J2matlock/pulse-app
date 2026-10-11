@@ -19,6 +19,7 @@ import {
 import { PROVIDER_CONTACT_TYPES } from '../../shared/types'
 import type { ContactFilterParams, Provider } from '../../shared/types'
 import { localDateString } from '../../shared/dates'
+import { safeFileName } from '../../shared/fileName'
 import { word } from '../vocab'
 
 export function registerContactHandlers(): void {
@@ -214,7 +215,8 @@ export function registerContactHandlers(): void {
       const raw = item as Record<string, unknown>
       const rawCats = raw['_vcardCategories'] as string | undefined
       if (rawCats) {
-        const names = rawCats.split(',').map((s: string) => s.trim().toLowerCase())
+        // Split on unescaped commas only; a category called "Housing, Rental" is written as "Housing\\, Rental".
+        const names = rawCats.split(/(?<!\\),/).map((s: string) => s.replace(/\\(.)/g, '$1').trim().toLowerCase())
         const match = cats.find(c => names.includes(c.name.toLowerCase()))
         if (match) {
           raw['category_id'] = match.id
@@ -232,7 +234,8 @@ export function registerContactHandlers(): void {
   secureWrap(IPC.CONTACTS_CONFIRM_IMPORT_VCF, 'ipc-contacts', (_e, providers: Array<Partial<Provider>>) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!Array.isArray(providers)) return fail('Expected an array of providers')
-    if (providers.length > 500) return fail('Import limited to 500 contacts at a time')
+    // Matches parseVCard's cap, so every contact the preview shows can be imported in one go.
+    if (providers.length > 1000) return fail(`Import limited to 1,000 ${word('contact', { many: true })} at a time`)
     const db = getDb()
     let count = 0
     const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -294,9 +297,12 @@ export function registerContactHandlers(): void {
       if (providerIds.length > 5000) return fail('Export limited to 5000 contacts at a time')
       if (!providerIds.every(id => validId(id))) return fail('Invalid provider ID in list')
     }
-    const providers = providerIds
-      ? getProvidersByIds(providerIds)
-      : getProviders({})
+    // Export all loads full rows: the list query (getProviders) has only a few
+    // columns and stops at 1,000, so the cards would lose phones, address and notes.
+    const ids = providerIds ?? (getDb().prepare('SELECT id FROM providers ORDER BY name COLLATE NOCASE').pluck().all() as number[])
+    const providers: Provider[] = []
+    for (let i = 0; i < ids.length; i += 1000) providers.push(...getProvidersByIds(ids.slice(i, i + 1000)))
+    if (!providerIds) providers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
     // Batch-load custom fields/values to avoid 2 queries per provider
     const prefetchedFields = getAllCustomFieldsByCategory()
     const prefetchedValues = getBatchCustomValues(providers.map(p => p.id))
@@ -304,7 +310,7 @@ export function registerContactHandlers(): void {
     const { canceled, filePath } = await dialog.showSaveDialog({
       title: 'Export Contacts',
       defaultPath: providerIds && providerIds.length === 1 && providers[0]
-        ? `${providers[0].name.replace(/[^a-zA-Z0-9 ]/g, '')}.vcf`
+        ? `${safeFileName(providers[0].name)}.vcf`
         : `pulse-contacts-${localDateString()}.vcf`,
       filters: [{ name: 'vCard', extensions: ['vcf'] }]
     })

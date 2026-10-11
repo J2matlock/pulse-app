@@ -465,7 +465,67 @@ describe('vCard Parse', () => {
   })
 })
 
+describe('vCard Parse: real-world files', () => {
+  it('decodes quoted-printable names and notes, joining soft line breaks', () => {
+    const vcf = [
+      'BEGIN:VCARD',
+      'VERSION:2.1',
+      'FN;CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:Jos=C3=A9 N=C3=BA=C3=B1ez',
+      'NOTE;ENCODING=QUOTED-PRINTABLE;CHARSET=UTF-8:First part, =',
+      'second part',
+      'END:VCARD',
+    ].join('\r\n')
+    const [p] = parseVCard(vcf)
+    expect(p.name).toBe('José Núñez')
+    expect(p.notes).toBe('First part, second part')
+  })
+
+  it('reads Apple Contacts grouped lines (item1.EMAIL)', () => {
+    const vcf = [
+      'BEGIN:VCARD',
+      'FN:Apple Person',
+      'item1.EMAIL;type=INTERNET;type=pref:apple@example.com',
+      'item1.X-ABLabel:_$!<Other>!$_',
+      'item2.TEL;type=CELL:555-7777',
+      'item3.ADR;type=HOME:;;9 Elm St;Town;ST;12345;',
+      'END:VCARD',
+    ].join('\r\n')
+    const [p] = parseVCard(vcf)
+    expect(p.email).toBe('apple@example.com')
+    expect(p.phone_cell).toBe('555-7777')
+    expect(p.address).toContain('9 Elm St')
+  })
+
+  it('keeps an escaped backslash before "n" as a backslash', () => {
+    const vcf = ['BEGIN:VCARD', 'FN:Path Person', 'NOTE:Saved in C:\\\\new folder', 'END:VCARD'].join('\r\n')
+    const [p] = parseVCard(vcf)
+    expect(p.notes).toBe('Saved in C:\\new folder')
+  })
+})
+
 describe('vCard Emit', () => {
+  it('round-trip keeps direct and after-hours phones apart from the main phone, and the category', () => {
+    const provider = {
+      id: 1, name: 'Dr. Lines', phone_main: '555-MAIN', phone_direct: '555-DIRECT',
+      phone_after_hours: '555-NIGHT', category_name: 'Housing, Rental',
+    } as Provider
+    const vcf = emitVCard(provider)
+    expect(vcf).not.toContain('TYPE=HOME')
+    expect(vcf).toContain('CATEGORIES:Housing\\, Rental')
+    const [p] = parseVCard(vcf)
+    expect(p.phone_main).toBe('555-MAIN')
+    expect(p.phone_direct).toBe('555-DIRECT')
+    expect(p.phone_after_hours).toBe('555-NIGHT')
+    expect((p as Record<string, unknown>)['_vcardCategories']).toBe('Housing\\, Rental')
+  })
+
+  it('reads an after-hours line from an older export (PAGER) even when there is no main phone', () => {
+    const vcf = ['BEGIN:VCARD', 'FN:Old Export', 'TEL;TYPE=PAGER:555-PAGE', 'END:VCARD'].join('\r\n')
+    const [p] = parseVCard(vcf)
+    expect(p.phone_after_hours).toBe('555-PAGE')
+    expect(p.phone_main).toBeUndefined()
+  })
+
   it('emits valid vCard 3.0', () => {
     const provider = {
       id: 1, name: 'Dr. Smith', org_name: 'Hospital',
