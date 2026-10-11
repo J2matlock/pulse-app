@@ -30,7 +30,8 @@ import type { FollowUpRow, RawDeadlineRow, ArchivedRow, ExtendedDeadlineInfo, To
 import { SummaryCard } from './dashboard/SummaryCard'
 import { DeadlineRow } from './dashboard/DeadlineRow'
 import { completeDeadlines, skippedForBulkDone } from './dashboard/completeDeadline'
-import { countDeadlineTiles } from './dashboard/tileCounts'
+import { countDeadlineTiles, isLateDeadline } from './dashboard/tileCounts'
+import { useListsChanged } from './dashboard/useDashboardRefresh'
 import { RuleColorKey } from '../components/alerts/RuleColorKey'
 import { DashboardCards } from './dashboard/cards/DashboardCards'
 import { BatchDocumentsDialog } from '../components/documents/BatchDocumentsDialog'
@@ -43,6 +44,8 @@ import { WeekViewTab } from './dashboard/WeekViewTab'
 import { MonthViewTab } from './dashboard/MonthViewTab'
 import { RecentlyArchivedTab } from './dashboard/RecentlyArchivedTab'
 import { useFeature } from '../hooks/useFeature'
+
+const LOAD_ERROR = 'We couldn\u2019t load the dashboard \u2014 try again.'
 
 export default function DashboardView(): React.ReactElement {
   const showTasks = useFeature('tasks')
@@ -142,8 +145,11 @@ export default function DashboardView(): React.ReactElement {
     if (result.ok) setRawDeadlines(result.data)
   }, [])
 
-  const reload = useCallback(async () => {
-    setIsLoading(true)
+  // Everything on the dashboard. `quiet` refreshes in place (after sample data or a list
+  // changes) without blanking the tiles; a failed load says so instead of "all caught up"
+  const loadAll = useCallback(async (opts: { quiet?: boolean; isCancelled?: () => boolean } = {}) => {
+    const cancelled = opts.isCancelled ?? (() => false)
+    if (!opts.quiet) setIsLoading(true)
     setLoadError(null)
     try {
       const [allRes, tasksRes, clRes] = await Promise.all([
@@ -151,6 +157,7 @@ export default function DashboardView(): React.ReactElement {
         safeInvoke<CaseloadTask[]>(IPC.TASK_GET_DUE),
         safeInvoke<ChecklistDueItem[]>(IPC.CHECKLIST_GET_DUE),
       ])
+      if (cancelled()) return
       if (allRes.ok) {
         setStats(allRes.data.stats)
         setRawDeadlines(allRes.data.deadlines)
@@ -158,51 +165,37 @@ export default function DashboardView(): React.ReactElement {
         setArchivedRows(allRes.data.archived)
       } else {
         rlog.error('Dashboard', 'Dashboard load failed:', allRes.error)
+        setLoadError(LOAD_ERROR)
       }
       if (tasksRes.ok) setTasksDue(tasksRes.data)
       else rlog.error('Dashboard', 'Dashboard tasks load failed:', tasksRes.error)
       if (clRes.ok) setChecklistDue(clRes.data)
       else rlog.error('Dashboard', 'Dashboard checklist load failed:', clRes.error)
     } catch (err) {
-      setLoadError('We couldn\u2019t load dashboard data \u2014 please try again.')
+      rlog.error('Dashboard', 'Dashboard load failed:', err)
+      if (!cancelled()) setLoadError(LOAD_ERROR)
     } finally {
-      setIsLoading(false)
+      if (!cancelled()) setIsLoading(false)
     }
   }, [])
+
+  const reload = useCallback(() => loadAll(), [loadAll])
 
   // Initial load
   useEffect(() => {
     let cancelled = false
-    void (async () => {
-      try {
-        const [allRes, tasksRes, clRes] = await Promise.all([
-          safeInvoke<{ stats: DashboardStats; deadlines: RawDeadlineRow[]; followUps: FollowUpRow[]; archived: ArchivedRow[] }>(IPC.DASHBOARD_GET_ALL),
-          safeInvoke<CaseloadTask[]>(IPC.TASK_GET_DUE),
-          safeInvoke<ChecklistDueItem[]>(IPC.CHECKLIST_GET_DUE),
-        ])
-        if (cancelled) return
-        if (allRes.ok) {
-          setStats(allRes.data.stats)
-          setRawDeadlines(allRes.data.deadlines)
-          setFollowUps(allRes.data.followUps)
-          setArchivedRows(allRes.data.archived)
-        } else {
-          rlog.error('Dashboard', 'Dashboard load failed:', allRes.error)
-        }
-        if (tasksRes.ok) setTasksDue(tasksRes.data)
-        else rlog.error('Dashboard', 'Dashboard tasks load failed:', tasksRes.error)
-        if (clRes.ok) setChecklistDue(clRes.data)
-        else rlog.error('Dashboard', 'Dashboard checklist load failed:', clRes.error)
-      } catch (err) {
-        if (!cancelled) setLoadError('We couldn\u2019t load dashboard data \u2014 please try again.')
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
-    })()
+    void loadAll({ isCancelled: () => cancelled })
     return () => { cancelled = true }
-  }, [])
+  }, [loadAll])
 
-  // Refresh deadlines when cleared from FocusModeView (or undone)
+  // Sample data added or removed, or a list added, deleted or restored, while the dashboard is open
+  useListsChanged(() => { void loadAll({ quiet: true }) })
+
+  // Done, Undo or an extension from any of the dashboard's lists: tell everything showing
+  // deadlines (the cards too), and reload ours through the listener below
+  const deadlinesChanged = useCallback(async () => { pulseEvents.emit('deadline:changed') }, [])
+
+  // Refresh deadlines when cleared here, from FocusModeView or a note (or undone)
   useEffect(() => {
     const unsub = pulseEvents.on('deadline:changed', () => { void reloadDeadlines() })
     return unsub
@@ -302,8 +295,8 @@ export default function DashboardView(): React.ReactElement {
   // Done from the Week and Month tabs: like the Priority List, drop the row then reload
   const dropAndReload = useCallback((rowId: number, columnId: number) => {
     setRawDeadlines(prev => prev.filter(r => !(r.row_id === rowId && r.column_id === columnId)))
-    void reloadDeadlines()
-  }, [reloadDeadlines])
+    void deadlinesChanged()
+  }, [deadlinesChanged])
 
   const rulesInUse = useMemo(() => {
     const ids = new Set(deadlines.map(d => d.alertRuleId).filter((id): id is number => id != null))
@@ -354,7 +347,8 @@ export default function DashboardView(): React.ReactElement {
 
   const overdueItems = useMemo((): PriorityItem[] => {
     const items: PriorityItem[] = []
-    for (const d of deadlines) { if (d.daysUntil < 0) items.push({ kind: 'deadline', data: d, sortKey: d.daysUntil }) }
+    // Like the Overdue tile: late, or a used-up quota
+    for (const d of deadlines) { if (isLateDeadline(d)) items.push({ kind: 'deadline', data: d, sortKey: d.daysUntil }) }
     for (const { task, daysUntil } of tasksWithDays) { if (daysUntil < 0) items.push({ kind: 'task', data: task, daysUntil, sortKey: daysUntil }) }
     for (const { item: ci, daysUntil } of checklistWithDays) { if (daysUntil < 0) items.push({ kind: 'checklist', data: ci, daysUntil, sortKey: daysUntil }) }
     for (const { followUp, daysUntil } of followUpsWithDays) { if (daysUntil < 0) items.push({ kind: 'followup', data: followUp, daysUntil, sortKey: daysUntil }) }
@@ -402,13 +396,13 @@ export default function DashboardView(): React.ReactElement {
     if (chosen.length === 0) return
     setBulkBusy(true)
     try {
-      const done = await completeDeadlines(chosen, { onUndone: reloadDeadlines })
+      const done = await completeDeadlines(chosen, { onUndone: deadlinesChanged })
       const failed = chosen.length - done.length
       if (failed > 0) toast.error(`${failed} couldn't be marked done. Try ${failed === 1 ? 'it' : 'them'} one at a time.`)
       setRawDeadlines(prev => prev.filter(r => !done.some(d => d.rowId === r.row_id && d.columnId === r.column_id)))
       setSelectedDeadlines(new Set())
       // Repeating deadlines come back with their next due date
-      void reloadDeadlines()
+      void deadlinesChanged()
     } finally {
       setBulkBusy(false)
     }
@@ -552,9 +546,9 @@ export default function DashboardView(): React.ReactElement {
                         onToggleSelect={() => toggleDeadline(item.data)}
                         onMarkDone={(rowId, columnId) => {
                           setRawDeadlines(prev => prev.filter(r => !(r.row_id === rowId && r.column_id === columnId)))
-                          void reloadDeadlines()
+                          void deadlinesChanged()
                         }}
-                        onUndoneMarkDone={reloadDeadlines}
+                        onUndoneMarkDone={deadlinesChanged}
                       />
                     ) : item.kind === 'task' ? (
                       <TaskRow
@@ -617,9 +611,9 @@ export default function DashboardView(): React.ReactElement {
                       onToggleSelect={() => toggleDeadline(item.data)}
                       onMarkDone={(rowId, columnId) => {
                           setRawDeadlines(prev => prev.filter(r => !(r.row_id === rowId && r.column_id === columnId)))
-                          void reloadDeadlines()
+                          void deadlinesChanged()
                         }}
-                        onUndoneMarkDone={reloadDeadlines}
+                        onUndoneMarkDone={deadlinesChanged}
                     />
                   ) : item.kind === 'task' ? (
                     <TaskRow
@@ -664,12 +658,12 @@ export default function DashboardView(): React.ReactElement {
           {/* This Week tab */}
           {topTab === 'week' && (
             <WeekViewTab deadlines={deadlines} tasksWithDays={tasksWithDays} checklistWithDays={checklistWithDays} followUpsWithDays={followUpsWithDays} isLoading={showSpinner}
-              onMarkDone={dropAndReload} onUndone={reloadDeadlines} />
+              onMarkDone={dropAndReload} onUndone={deadlinesChanged} />
           )}
 
           {/* This Month tab */}
           {topTab === 'month' && (
-            <MonthViewTab deadlines={deadlines} isLoading={showSpinner} onMarkDone={dropAndReload} onUndone={reloadDeadlines} />
+            <MonthViewTab deadlines={deadlines} isLoading={showSpinner} onMarkDone={dropAndReload} onUndone={deadlinesChanged} />
           )}
 
           {/* Recently Archived tab */}
@@ -679,7 +673,11 @@ export default function DashboardView(): React.ReactElement {
               isLoading={showSpinner}
               search={archiveSearch}
               onSearchChange={setArchiveSearch}
-              onReactivated={(id) => setArchivedRows(prev => prev.filter(r => r.id !== id))}
+              onReactivated={(id) => {
+                setArchivedRows(prev => prev.filter(r => r.id !== id))
+                // Back on the list: its deadlines and the counts come back too
+                void loadAll({ quiet: true })
+              }}
             />
           )}
         </div>

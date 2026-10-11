@@ -68,3 +68,20 @@ describe('the card area', () => {
     expect(JSON.parse(saves.at(-1)![2] as string)).toMatchObject({ order: ['summary', 'whatsDue', 'dueForService', 'missingInfo', 'recentActivity'], hidden: expect.arrayContaining(['summary', 'recentActivity']) })
   })
 })
+
+describe('cards that load their own deadlines', () => {
+  beforeEach(() => { setWords(); invoke.mockClear() })
+
+  it('reload when a deadline changes or sample data is added or removed', async () => {
+    const { DueForServiceCard } = await import('../../src/renderer/views/dashboard/cards/RuleKindCards')
+    const { pulseEvents } = await import('../../src/renderer/events')
+    render(<MemoryRouter><DueForServiceCard /></MemoryRouter>)
+    const loads = () => invoke.mock.calls.filter(c => c[0] === 'deadlines:get').length
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    expect(loads()).toBe(1)
+    await act(async () => { pulseEvents.emit('deadline:changed'); await new Promise(r => setTimeout(r, 0)) })
+    expect(loads()).toBe(2)
+    await act(async () => { pulseEvents.emit('sample-data:changed'); await new Promise(r => setTimeout(r, 0)) })
+    expect(loads()).toBe(3)
+  })
+})

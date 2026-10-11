@@ -10,15 +10,20 @@ import { IPC } from '../../../../shared/ipc-channels'
 import { localDateString } from '../../../../shared/dates'
 import type { DeadlineResult, RuleKind } from '../../../../shared/deadlineEngine'
 import { safeInvoke } from '../../../utils/safeInvoke'
+import { useDeadlinesVersion } from '../useDashboardRefresh'
 
 type Item = DeadlineResult & { row_id: number; grid_id: number; grid_name: string; column_name: string; client_name: string | null; rule_kind: RuleKind }
 
 function useKindDeadlines(kind: RuleKind, withinDays: number | null): Item[] | null {
   const [items, setItems] = useState<Item[] | null>(null)
+  // Reload after Done/Undo in the Priority list, a counted note, or sample data changing
+  const version = useDeadlinesVersion()
   useEffect(() => {
+    let alive = true
     const to = withinDays === null ? undefined : localDateString(new Date(Date.now() + withinDays * 86_400_000))
-    void safeInvoke<Item[]>(IPC.DEADLINES_GET, to ? { to } : {}).then(r => setItems(r.ok ? r.data.filter(d => d.rule_kind === kind) : []))
-  }, [kind, withinDays])
+    void safeInvoke<Item[]>(IPC.DEADLINES_GET, to ? { to } : {}).then(r => { if (alive) setItems(r.ok ? r.data.filter(d => d.rule_kind === kind) : []) })
+    return () => { alive = false }
+  }, [kind, withinDays, version])
   return items
 }
 
