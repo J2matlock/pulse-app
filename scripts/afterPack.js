@@ -11,6 +11,11 @@ const path = require('path')
 let ARM64 = 3
 try { ARM64 = require('electron-builder').Arch.arm64 } catch { /* keep the known value */ }
 
+/** Platforms where electron-builder embeds the asar integrity hash */
+function asarIntegritySupported(platform) {
+  return platform === 'darwin' || platform === 'win32'
+}
+
 module.exports = async function afterPack(context) {
   const { electronPlatformName, appOutDir } = context
   const productName = context.packager.appInfo.productFilename
@@ -51,10 +56,18 @@ module.exports = async function afterPack(context) {
     [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
     // Prevent file:// protocol from gaining extra privileges
     [FuseV1Options.GrantFileProtocolExtraPrivileges]: false,
+    // Refuse to start if app.asar was changed after packaging (AUDIT-094/186).
+    // electron-builder embeds the asar hash only on Windows and macOS; Electron
+    // has no asar integrity check on Linux, so the fuse stays off there.
+    // Before shipping a release, test-launch it on Windows AND macOS: if the
+    // hash isn't embedded, this fuse stops the app from starting at all.
+    [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: asarIntegritySupported(electronPlatformName),
     // Flipping fuses breaks the ad-hoc signature of an unsigned Apple Silicon
     // build, and macOS won't launch it. Re-sign ad hoc (real signing comes later).
     resetAdHocDarwinSignature: electronPlatformName === 'darwin' && context.arch === ARM64,
   })
 
-  console.log('Electron fuses applied successfully.')
+  console.log(`Electron fuses applied successfully (asar integrity ${asarIntegritySupported(electronPlatformName) ? 'on' : 'off'} for ${electronPlatformName}).`)
 }
+
+module.exports.asarIntegritySupported = asarIntegritySupported

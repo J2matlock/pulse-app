@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { createRequire } from 'module'
 
 const ROOT = join(__dirname, '..')
 const read = (f: string) => readFileSync(join(ROOT, f), 'utf8')
@@ -23,6 +24,17 @@ describe('app.asar contents', () => {
     // The compiled module itself must still ship (and be unpacked from the asar)
     expect(files.some(f => f.includes('build') && f.startsWith('!'))).toBe(false)
     expect(JSON.parse(read('package.json')).build.asarUnpack).toContain('**/*.node')
+  })
+})
+
+describe('Electron fuses', () => {
+  // AUDIT-094/186: electron-builder embeds the asar hash on Windows and macOS only
+  const afterPack = createRequire(import.meta.url)('../scripts/afterPack.js') as { asarIntegritySupported: (p: string) => boolean }
+  it('checks asar integrity on Windows and macOS, never on Linux', () => {
+    expect(afterPack.asarIntegritySupported('win32')).toBe(true)
+    expect(afterPack.asarIntegritySupported('darwin')).toBe(true)
+    expect(afterPack.asarIntegritySupported('linux')).toBe(false)
+    expect(read('scripts/afterPack.js')).toContain('[FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: asarIntegritySupported(electronPlatformName)')
   })
 })
 
