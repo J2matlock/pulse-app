@@ -302,7 +302,7 @@ export default function TemplateManagerView(): React.ReactElement {
           </div>
 
           {setupError && (
-            <div className="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-3">
+            <div role="alert" className="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-3">
               {setupError}
               <button
                 type="button"
@@ -393,7 +393,7 @@ export default function TemplateManagerView(): React.ReactElement {
             </p>
 
             {clError && (
-              <div className="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-3">
+              <div role="alert" className="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-3">
                 {clError}
                 <button
                   type="button"

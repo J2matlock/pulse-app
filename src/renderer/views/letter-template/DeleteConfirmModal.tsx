@@ -47,7 +47,7 @@ export function DeleteConfirmModal({ template, onConfirm, onClose }: DeleteConfi
             Are you sure you want to delete <strong>{template.name}</strong>? This cannot be undone.
           </p>
           {error && (
-            <p className="mt-3 text-base text-red-600 dark:text-red-400">{error}</p>
+            <p role="alert" className="mt-3 text-base text-red-600 dark:text-red-400">{error}</p>
           )}
         </div>
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700">

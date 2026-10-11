@@ -29,6 +29,7 @@ import { useUndoStore } from '../../../src/renderer/stores/undoStore'
 import { ChecklistTemplateEditor } from '../../../src/renderer/components/profile/ChecklistTemplateEditor'
 import { ImportPreviewModal } from '../../../src/renderer/components/shared/ImportPreviewModal'
 import { ResetPasswordAfterRecoveryDialog } from '../../../src/renderer/components/shared/ResetPasswordAfterRecoveryDialog'
+import { DeleteConfirmModal } from '../../../src/renderer/views/letter-template/DeleteConfirmModal'
 import { setWords } from '../vocabFixture'
 
 beforeEach(() => { setWords() })
@@ -105,6 +106,16 @@ describe('set a new password after recovery (audit A06-14, A06-22)', () => {
     fireEvent.change(confirm, { target: { value: 'different' } })
     expect(confirm.getAttribute('aria-invalid')).toBe('true')
     expect(document.getElementById(confirm.getAttribute('aria-describedby') ?? '')?.textContent).toBe('Passwords do not match')
+    await expectNoAxeViolations(document.body)
+  })
+})
+
+describe('submit-time errors are announced (audit A06-14)', () => {
+  it('a letter template that could not be deleted says so out loud', async () => {
+    const template = { id: 4, name: 'Reminder', description: '', content: 'Dear {{client_name}}', is_system: 0, created_at: '', updated_at: '' }
+    render(<DeleteConfirmModal template={template as never} onConfirm={() => Promise.reject(new Error('nope'))} onClose={() => {}} />)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Delete/ })) })
+    expect(screen.getByRole('alert').textContent).toBe('Could not delete the template. Please try again.')
     await expectNoAxeViolations(document.body)
   })
 })

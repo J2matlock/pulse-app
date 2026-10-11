@@ -620,7 +620,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
           <RulePreview key={ruleList.gridId ?? 0} rule={preview} rows={rows} columns={columns} columnId={ownColumnId} />
 
           {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm">
+            <div role="alert" className="p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm">
               {error}
             </div>
           )}

@@ -445,7 +445,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
                 </button>
               </div>
               {validationError && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                <p role="alert" className="text-sm text-red-600 dark:text-red-400 mt-1">
                   {validationError}
                 </p>
               )}
