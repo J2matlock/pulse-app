@@ -25,7 +25,7 @@ export function WorkspaceSection(): React.ReactElement {
     try {
       const r = await safeInvoke(IPC.WORKSPACE_EXPORT_TEMPLATE)
       if (!r.ok) toast.error(friendlyError(r.error))
-      else if (r.data) toast.success('Saved your setup as a template. Only lists, columns and rules are in it, no records or notes.')
+      else if (r.data) toast.success(`Saved your setup as a template. Only ${t('list', { many: true })}, columns and rules are in it, no ${t('record', { many: true })} or ${t('activity', { many: true })}.`)
     } finally { setBusy(false) }
   }
 

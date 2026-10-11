@@ -271,7 +271,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
             ) : (
               <button
                 onClick={() => setConfirmDelete(true)}
-                title={canDelete ? 'Delete' : 'Void (keeps it in the record, hidden)'}
+                title={canDelete ? 'Delete' : 'Void (hides it but keeps it, so it can be restored)'}
                 aria-label={canDelete ? 'Delete' : 'Void'}
                 className="hit-44 p-2 rounded-sm text-slate-500 hover:text-red-500 hover:bg-slate-100
                            dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"

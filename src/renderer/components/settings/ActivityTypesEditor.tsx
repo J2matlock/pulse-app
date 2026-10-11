@@ -35,6 +35,7 @@ function TypeRow({ type, onlyOne }: { type: ActivityType; onlyOne: boolean }): R
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: type.id })
   const [label, setLabel] = useState(type.label)
   const [icon, setIcon] = useState(type.icon ?? '')
+  const { t } = useVocab(null)
 
   async function save(patch: { label?: string; icon?: string; color?: ActivityColor | null }) {
     const next = { label: patch.label ?? type.label, icon: patch.icon ?? type.icon ?? '', color: patch.color !== undefined ? patch.color : type.color }
@@ -66,12 +67,12 @@ function TypeRow({ type, onlyOne }: { type: ActivityType; onlyOne: boolean }): R
         ))}
       </div>
       <button type="button" className="btn-compact-secondary" disabled={onlyOne}
-        title={onlyOne ? 'Keep at least one type' : 'Hide from new notes; old notes keep it'}
+        title={onlyOne ? 'Keep at least one type' : `Hide from new ${t('activity', { many: true })}; old ${t('activity', { many: true })} keep it`}
         onClick={() => void run(IPC.ACTIVITY_TYPE_ARCHIVE, type.id, true)}>
         Archive
       </button>
       <button type="button" className="btn-compact-secondary" disabled={onlyOne}
-        title="Only types no note uses can be deleted"
+        title={`Only types no ${t('activity')} uses can be deleted`}
         onClick={() => void run(IPC.ACTIVITY_TYPE_DELETE, type.id)}>
         Delete
       </button>
@@ -154,7 +155,7 @@ export function ActivityTypesEditor(): React.ReactElement {
                     <span aria-hidden>{type.icon}</span>
                     <span className="flex-1 text-base text-slate-600 dark:text-slate-300">{type.label}</span>
                     <button type="button" className="btn-compact-secondary" onClick={() => void run(IPC.ACTIVITY_TYPE_ARCHIVE, type.id, false)}>Restore</button>
-                    <button type="button" className="btn-compact-secondary" title="Only types no note uses can be deleted"
+                    <button type="button" className="btn-compact-secondary" title={`Only types no ${t('activity')} uses can be deleted`}
                       onClick={() => void run(IPC.ACTIVITY_TYPE_DELETE, type.id)}>Delete</button>
                   </li>
                 ))}

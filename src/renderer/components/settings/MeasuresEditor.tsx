@@ -56,6 +56,7 @@ function Fields({ draft, onChange, idPrefix }: { draft: Draft; onChange: (d: Dra
 function MeasureRow({ def }: { def: MeasureDef }): React.ReactElement {
   const initial: Draft = { label: def.label, kind: def.kind, unit: def.unit ?? '', decimals: def.decimals }
   const [draft, setDraft] = useState<Draft>(initial)
+  const { t } = useVocab(null)
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial)
   return (
     <li className="flex flex-wrap items-center gap-2 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
@@ -63,7 +64,7 @@ function MeasureRow({ def }: { def: MeasureDef }): React.ReactElement {
       {dirty && (
         <button type="button" className="btn-compact-primary" onClick={() => void send(IPC.MEASURE_SAVE, { key: def.key, ...draft })}>Save</button>
       )}
-      <button type="button" className="btn-compact-secondary" title="Hide from new notes; saved values stay"
+      <button type="button" className="btn-compact-secondary" title={`Hide from new ${t('activity', { many: true })}; saved values stay`}
         onClick={() => void send(IPC.MEASURE_ARCHIVE, def.key, true)}>
         Archive
       </button>

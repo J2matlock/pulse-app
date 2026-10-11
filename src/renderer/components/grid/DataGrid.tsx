@@ -763,7 +763,7 @@ export function DataGrid(): React.ReactElement {
       data-tour="grid"
       className="h-full flex flex-col overflow-hidden"
       role="grid"
-      aria-label={`${t('record', { cap: true })} grid`}
+      aria-label={t('list', { cap: true })}
     >
       {/* ── Hint banner for new users ─── */}
       {!hintDismissed && tableRows.length > 0 && (

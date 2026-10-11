@@ -166,7 +166,7 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
           disabled={marking}
           title={ruleKind === 'meter' ? 'Mark done: asks for the current reading'
             : ruleKind === 'sequence' ? 'Mark this step done; the next step comes due'
-            : ruleKind !== 'interval' ? 'Mark done: records today as the day it was done'
+            : ruleKind !== 'interval' ? 'Mark done: saves today as the day it was done'
             : startsNextCycle(ruleInterval)
             ? 'Mark done: sets the date to today, which starts the next cycle'
             : 'Mark done: asks whether it was renewed (a new date) or finished'}

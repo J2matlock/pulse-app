@@ -128,7 +128,7 @@ export function ContactFilterBar({ viewMode, onViewModeChange, searchInputRef }:
           className="rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 focus:outline-hidden focus:ring-3 focus:ring-blue-500"
           style={{ fontSize: 15, minHeight: 44 }}
           aria-label={`Sort ${t('contact', { many: true })} by`}
-          title="Sort contacts"
+          title={`Sort ${t('contact', { many: true })}`}
         >
           {SORT_OPTIONS.map(opt => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>

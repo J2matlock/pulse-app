@@ -720,7 +720,7 @@ describe('DataGrid', () => {
     it('grid has accessible label', async () => {
       renderDataGrid()
       await flushEffects()
-      expect(screen.getByLabelText('Client grid')).toBeTruthy()
+      expect(screen.getByRole('grid', { name: 'Caseload' })).toBeTruthy()
     })
 
     it('each row has profile navigation button', async () => {

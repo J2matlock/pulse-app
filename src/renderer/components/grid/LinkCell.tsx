@@ -4,6 +4,7 @@ import type { Column } from '../../../shared/types'
 import { parseLinkValue, type LinkColumnConfig } from '../../../shared/links'
 import { useLinkStore } from '../../stores/linkStore'
 import { modHelp } from '../../utils/keys'
+import { useVocabByList } from '../../hooks/useVocab'
 
 const MAX_CHIPS = 3
 
@@ -34,6 +35,7 @@ export function chipsThatFit<T extends { name: string }>(chips: T[], width: numb
  */
 export function LinkCell({ column, value, parsedConfig }: { column: Column; value: string | null; parsedConfig?: Record<string, unknown> }): React.ReactElement {
   const navigate = useNavigate()
+  const tFor = useVocabByList()
   const cfg = parsedConfig as Partial<LinkColumnConfig> | undefined
   const type = useLinkStore(s => s.types.find(t => t.id === cfg?.link_type_id))
   const isLoaded = useLinkStore(s => s.isLoaded)
@@ -49,7 +51,7 @@ export function LinkCell({ column, value, parsedConfig }: { column: Column; valu
     <span className="flex items-center gap-1 min-w-0 overflow-hidden" title={chips.map(c => c.name).join(', ')}>
       {shown.map(c => (
         <button key={c.rowId} type="button" tabIndex={-1}
-          title={modHelp(`Ctrl+click to open ${c.name || 'this record'}`)}
+          title={modHelp(`Ctrl+click to open ${c.name || `this ${tFor(otherGridId)('record')}`}`)}
           // A click selects the cell like any other; Ctrl+click opens the linked record (G-31)
           onClick={e => {
             if (!(e.ctrlKey || e.metaKey)) return

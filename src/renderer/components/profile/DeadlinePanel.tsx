@@ -443,7 +443,7 @@ export function DeadlinePanel({
                           else void markDone(col, rawValue, rule!)
                         }}
                         title={kind === 'meter' ? 'Mark done: asks for the current reading'
-                          : kind !== 'interval' || hasInterval(interval) ? 'Mark done: records today as the day it was done'
+                          : kind !== 'interval' || hasInterval(interval) ? 'Mark done: saves today as the day it was done'
                           : 'Mark done: asks whether it was renewed (a new date) or finished'}
                         className="hit-44 px-3 py-1 rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-800 dark:text-green-200 text-base font-medium focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500 disabled:opacity-50"
                         style={{ minHeight: 36 }}>

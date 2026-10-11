@@ -259,7 +259,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
                       checked={parsedRows.every(r => r.selected)}
                       onChange={toggleAll}
                       className="h-4 w-4 rounded-sm border-gray-300 text-blue-600 focus:ring-blue-500"
-                      aria-label="Select all contacts for import"
+                      aria-label={`Select all ${t('contact', { many: true })} for import`}
                     />
                   </th>
                   <th scope="col" className="px-3 py-2 font-medium text-gray-700 dark:text-gray-300">Name</th>
@@ -328,8 +328,8 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
               disabled={selectedCount === 0 || importing}
               className="flex items-center gap-2 rounded-md bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:ring-offset-3 dark:focus:ring-offset-slate-800"
               style={{ minHeight: 44, fontSize: 15 }}
-              title="Import selected contacts"
-              aria-label="Import selected contacts"
+              title={`Import selected ${t('contact', { many: true })}`}
+              aria-label={`Import selected ${t('contact', { many: true })}`}
             >
               {importing ? (
                 'Importing...'
