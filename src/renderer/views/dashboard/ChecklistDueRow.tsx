@@ -1,9 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ChecklistDueItem } from '../../../shared/types'
-import { IPC } from '../../../shared/ipc-channels'
-import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
-import { useUndoStore } from '../../stores/undoStore'
+import { tickChecklistItem } from '../../utils/checklistTick'
 
 export function ChecklistDueRow({
   item,
@@ -49,25 +47,11 @@ export function ChecklistDueRow({
   async function handleComplete() {
     setCompleting(true)
     try {
-      const completedAt = new Date().toISOString()
-      await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, item.id, { is_completed: 1, completed_at: completedAt })
-      onComplete(item.id)
-      useUndoStore.getState().pushWithToast({
-        id: crypto.randomUUID(),
-        description: `Completed "${item.title}"`,
-        timestamp: Date.now(),
-        category: 'silent',
-        icon: 'check-square',
-        contextLabel: item.client_name ?? undefined,
-        undo: async () => {
-          await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, item.id, { is_completed: 0, completed_at: null })
-          onRestore?.(item)
-        },
-        redo: async () => {
-          await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, item.id, { is_completed: 1, completed_at: completedAt })
-          onComplete(item.id)
-        },
+      const done = await tickChecklistItem(item, {
+        onUndo: () => onRestore?.(item),
+        onRedo: () => onComplete(item.id),
       })
+      if (done) onComplete(item.id)
     } catch { /* ignore */ } finally {
       setCompleting(false)
     }

@@ -6,6 +6,13 @@ import { storeInvoke } from '../utils/safeInvoke'
 
 export type TaskSortMode = 'manual' | 'due_date' | 'priority'
 
+export interface CompleteTaskOptions {
+  task?: Pick<CaseloadTask, 'title' | 'due_date'> & Partial<Pick<CaseloadTask, 'is_completed' | 'completed_at'>>
+  toast?: boolean
+  onUndo?: () => void
+  onRedo?: () => void
+}
+
 interface TaskStore {
   tasks: CaseloadTask[]
   loading: boolean
@@ -17,7 +24,12 @@ interface TaskStore {
   deleteTask: (id: number) => Promise<void>
   /** Several at once, as one undo step ("Delete completed") */
   deleteTasks: (ids: number[]) => Promise<void>
-  completeTask: (id: number) => Promise<void>
+  /**
+   * Tick a task off, with one undo step. Pages that don't load the task list
+   * (Dashboard, Focus mode) pass the task they show, ask for the toast, and get
+   * told when undo or redo puts it back or takes it away again.
+   */
+  completeTask: (id: number, opts?: CompleteTaskOptions) => Promise<boolean>
   snoozeTask: (id: number, until: string) => Promise<void>
   setSortMode: (mode: TaskSortMode) => void
   reorderTasks: (orderedIds: number[]) => Promise<void>
@@ -152,40 +164,45 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     })
   },
 
-  completeTask: async (id) => {
-    const task = get().tasks.find(t => t.id === id)
-    if (completing.has(id)) return
+  completeTask: async (id, opts) => {
+    const task = get().tasks.find(t => t.id === id) ?? opts?.task
+    if (completing.has(id)) return false
     completing.add(id)
     try {
       // The due date it was ticked at: main ignores it if the task has already moved on
       const done = await storeInvoke<boolean>(IPC.TASK_COMPLETE, id, task ? task.due_date ?? null : undefined)
-      if (done === false) return
-    } catch { return } finally { completing.delete(id) }
+      if (done === false) return false
+    } catch { return false } finally { completing.delete(id) }
     try {
       const allData = await storeInvoke<CaseloadTask[]>(IPC.TASK_GET_ALL)
       set({ tasks: allData })
     } catch { /* leave tasks as-is */ }
     if (task) {
-      useUndoStore.getState().push({
+      const item = {
         id: crypto.randomUUID(),
         description: `Completed task "${task.title}"`,
         timestamp: Date.now(),
-        category: 'logged',
+        category: 'logged' as const,
         icon: 'check',
         undo: async () => {
           await storeInvoke(IPC.TASK_UNCOMPLETE, id, {
-            is_completed: task.is_completed,
+            is_completed: task.is_completed ?? 0,
             completed_at: task.completed_at ?? null,
             due_date: task.due_date ?? null,
           })
           await useTaskStore.getState().loadTasks()
+          opts?.onUndo?.()
         },
         redo: async () => {
           await storeInvoke(IPC.TASK_COMPLETE, id, task.due_date ?? null)
           await useTaskStore.getState().loadTasks()
+          opts?.onRedo?.()
         },
-      })
+      }
+      if (opts?.toast) useUndoStore.getState().pushWithToast(item)
+      else useUndoStore.getState().push(item)
     }
+    return true
   },
 
   snoozeTask: async (id, until) => {

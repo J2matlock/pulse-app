@@ -15,6 +15,7 @@ import { useGridStore } from '../stores/gridStore'
 import { useTaskStore } from '../stores/taskStore'
 import { useUndoStore } from '../stores/undoStore'
 import { pulseEvents } from '../events'
+import { tickChecklistItem } from '../utils/checklistTick'
 import type { RawDeadlineRow, FocusItem, FocusTask, FocusFollowUp, UrgentChecklistItem } from './focus-mode/types'
 import { FocusSection } from './focus-mode/FocusSection'
 import { ClientFocusItem } from './focus-mode/ClientFocusItem'
@@ -271,30 +272,14 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
     const key = `checklist-${itemId}`
     setCelebratingId(key)
     try {
-      const completedAt = new Date().toISOString()
       const item = urgentChecklists.find(i => i.id === itemId)
-      const res = await safeInvoke<{ sysLogId: number | null }>(IPC.CHECKLIST_UPDATE_ITEM, itemId, { is_completed: 1, completed_at: completedAt })
-      if (res.ok) {
-        const sysLogId = res.data.sysLogId
-        useUndoStore.getState().pushWithToast({
-          id: crypto.randomUUID(),
-          description: `Completed "${item?.title ?? 'checklist item'}"`,
-          timestamp: Date.now(),
-          category: sysLogId != null ? 'logged' : 'silent',
-          icon: 'check-square',
-          contextLabel: item?.client_name ?? undefined,
-          sideEffects: sysLogId != null ? [{ type: 'void_case_log', caseLogId: sysLogId }] : undefined,
-          undo: async () => {
+      if (item) {
+        await tickChecklistItem(item, {
+          onUndo: () => {
             setCompletedChecklists(prev => { const s = new Set(prev); s.delete(itemId); return s })
-            if (item) setUrgentChecklists(prev => prev.some(c => c.id === itemId) ? prev : [...prev, item])
-            await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, itemId, { is_completed: 0, completed_at: null })
-            pulseEvents.emit('urgentchecklist:changed')
+            setUrgentChecklists(prev => prev.some(c => c.id === itemId) ? prev : [...prev, item])
           },
-          redo: async () => {
-            setCompletedChecklists(prev => new Set([...prev, itemId]))
-            await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, itemId, { is_completed: 1, completed_at: completedAt })
-            pulseEvents.emit('urgentchecklist:changed')
-          },
+          onRedo: () => setCompletedChecklists(prev => new Set([...prev, itemId])),
         })
       }
     } catch (err) { rlog.error('FocusModeView', 'Failed to complete checklist item', err) }
@@ -309,22 +294,13 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
     const key = `task-${taskId}`
     setCelebratingId(key)
     try {
-      await useTaskStore.getState().completeTask(taskId)
+      // completeTask pushes the one undo step (with its toast)
       const task = tasks.find(t => t.id === taskId)
-      useUndoStore.getState().pushWithToast({
-        id: crypto.randomUUID(),
-        description: `Completed task "${task?.title ?? 'task'}"`,
-        timestamp: Date.now(),
-        category: 'silent',
-        icon: 'check',
-        undo: async () => {
-          await mustInvoke(IPC.TASK_RESTORE, taskId)
-          setCompletedTasks(prev => { const s = new Set(prev); s.delete(taskId); return s })
-        },
-        redo: async () => {
-          await useTaskStore.getState().completeTask(taskId)
-          setCompletedTasks(prev => new Set([...prev, taskId]))
-        },
+      await useTaskStore.getState().completeTask(taskId, {
+        task: task ? { title: task.title, due_date: task.due_date } : undefined,
+        toast: true,
+        onUndo: () => setCompletedTasks(prev => { const s = new Set(prev); s.delete(taskId); return s }),
+        onRedo: () => setCompletedTasks(prev => new Set([...prev, taskId])),
       })
     } catch (err) { rlog.error('FocusModeView', 'Failed to complete task', err) }
     clearTimeout(celebrationTimerRef.current)
@@ -338,25 +314,14 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
     const key = `cldue-${itemId}`
     setCelebratingId(key)
     try {
-      const completedAt = new Date().toISOString()
+      // The completion note is voided on undo, like everywhere else
       const ci = checklistDueItems.find(i => i.id === itemId)
-      await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, itemId, { is_completed: 1, completed_at: completedAt })
-      useUndoStore.getState().pushWithToast({
-        id: crypto.randomUUID(),
-        description: `Completed "${ci?.title ?? 'checklist item'}"`,
-        timestamp: Date.now(),
-        category: 'silent',
-        icon: 'check-square',
-        contextLabel: ci?.client_name ?? undefined,
-        undo: async () => {
-          setCompletedChecklistDue(prev => { const s = new Set(prev); s.delete(itemId); return s })
-          await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, itemId, { is_completed: 0, completed_at: null })
-        },
-        redo: async () => {
-          setCompletedChecklistDue(prev => new Set([...prev, itemId]))
-          await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, itemId, { is_completed: 1, completed_at: completedAt })
-        },
-      })
+      if (ci) {
+        await tickChecklistItem(ci, {
+          onUndo: () => setCompletedChecklistDue(prev => { const s = new Set(prev); s.delete(itemId); return s }),
+          onRedo: () => setCompletedChecklistDue(prev => new Set([...prev, itemId])),
+        })
+      }
     } catch (err) { rlog.error('FocusModeView', 'Failed to complete checklist due item', err) }
     clearTimeout(celebrationTimerRef.current)
     celebrationTimerRef.current = setTimeout(() => {

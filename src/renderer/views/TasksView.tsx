@@ -30,6 +30,7 @@ import type { CaseloadTask, TaskGroup as TaskGroupType, UrgentChecklistItem } fr
 import { safeInvoke, mustInvoke } from '../utils/safeInvoke'
 import { rlog } from '../utils/rendererLogger'
 import { pulseEvents } from '../events'
+import { tickChecklistItem } from '../utils/checklistTick'
 import { LoadingOverlay } from '../components/shared/LoadingSpinner'
 
 import { ViewBreadcrumb } from '../components/shared/ViewBreadcrumb'
@@ -135,36 +136,11 @@ export default function TasksView(): React.ReactElement {
   async function handleToggleUrgentItem(item: UrgentChecklistItem) {
     // Optimistically remove from list, then persist
     setUrgentItems(prev => prev.filter(i => i.id !== item.id))
-    try {
-      const completedAt = new Date().toISOString()
-      const res = await safeInvoke<{ sysLogId: number | null }>(IPC.CHECKLIST_UPDATE_ITEM, item.id, {
-        is_completed: 1,
-        completed_at: completedAt,
-      })
-      if (res.ok) {
-        const sysLogId = res.data.sysLogId
-        useUndoStore.getState().pushWithToast({
-          id: crypto.randomUUID(),
-          description: `Completed "${item.title}"`,
-          timestamp: Date.now(),
-          category: sysLogId != null ? 'logged' : 'silent',
-          icon: 'check-square',
-          contextLabel: item.client_name ?? undefined,
-          contextId: item.id,
-          sideEffects: sysLogId != null ? [{ type: 'void_case_log', caseLogId: sysLogId }] : undefined,
-          undo: async () => {
-            setUrgentItems(prev => [...prev, item])
-            await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, item.id, { is_completed: 0, completed_at: null })
-            pulseEvents.emit('urgentchecklist:changed')
-          },
-          redo: async () => {
-            setUrgentItems(prev => prev.filter(i => i.id !== item.id))
-            await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, item.id, { is_completed: 1, completed_at: completedAt })
-            pulseEvents.emit('urgentchecklist:changed')
-          },
-        })
-      }
-    } catch { /* ignore */ }
+    const done = await tickChecklistItem(item, {
+      onUndo: () => setUrgentItems(prev => prev.some(i => i.id === item.id) ? prev : [...prev, item]),
+      onRedo: () => setUrgentItems(prev => prev.filter(i => i.id !== item.id)),
+    })
+    if (!done) setUrgentItems(prev => prev.some(i => i.id === item.id) ? prev : [...prev, item])
   }
 
   // Open new task dialog when navigated here via ?action=new
