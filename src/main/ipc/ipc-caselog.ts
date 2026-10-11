@@ -88,14 +88,18 @@ export function registerCaseLogHandlers(): void {
     if (day && typeof day === 'object') return fail(day.error)
     const noteDay = day ?? localDateString()
     const db = getDb()
-    const result = db.prepare(`
-      INSERT INTO case_log (row_id, content, log_type, follow_up_date, minutes, miles, extra_measures, occurred_at, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-    `).run(rowId, content, logType, followUpDate ?? null, m.minutes, m.miles, extra, occurredTimestamp(noteDay))
-    const entry = db.prepare(`SELECT ${CASE_LOG_COLS} FROM case_log WHERE id = ?`).get(result.lastInsertRowid) as CaseLogEntry
-    // A date column can follow notes of chosen types ("Last Face-to-Face" ← Visit), set to the day it happened
-    let updated_dates: NoteDateUpdate[] = []
-    try { updated_dates = applyNoteDateUpdates(rowId, logType, noteDay, entry.id) } catch (err) { logNonFatal('ipc-caselog', 'note date updates', err) }
+    // The note and the dates it moves are saved together: a note saying "Visit" while
+    // "Last Visit" never moved would be wrong without anyone knowing (AUDIT-105)
+    const { entry, updated_dates } = db.transaction(() => {
+      const result = db.prepare(`
+        INSERT INTO case_log (row_id, content, log_type, follow_up_date, minutes, miles, extra_measures, occurred_at, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      `).run(rowId, content, logType, followUpDate ?? null, m.minutes, m.miles, extra, occurredTimestamp(noteDay))
+      const entry = db.prepare(`SELECT ${CASE_LOG_COLS} FROM case_log WHERE id = ?`).get(result.lastInsertRowid) as CaseLogEntry
+      // A date column can follow notes of chosen types ("Last Face-to-Face" ← Visit), set to the day it happened
+      const updated_dates: NoteDateUpdate[] = applyNoteDateUpdates(rowId, logType, noteDay, entry.id)
+      return { entry, updated_dates }
+    })()
     notifyCaseLogChanged(rowId)
     return ok({ ...entry, updated_dates })
   })
