@@ -152,7 +152,7 @@ describe('template files', () => {
     dialogMock.open.mockResolvedValue({ canceled: true, filePaths: [] })
     expect(await invoke(IPC.STARTER_OPEN_FILE)).toEqual({ ok: true, data: null })
     dialogMock.open.mockResolvedValue({ canceled: false, filePaths: ['/etc/hosts'] })
-    expect((await invoke(IPC.STARTER_OPEN_FILE)).error).toMatch(/your own folders/)
+    expect((await invoke(IPC.STARTER_OPEN_FILE)).error).toMatch(/USB drive/)
   })
 
   it('explains when there is nothing to share', async () => {
