@@ -142,6 +142,16 @@ describe('CELL_UPDATE', () => {
     expect(n.n).toBe(4)
   })
 
+  it('logs a Deadline column change as a date sentence, not a quoted ISO date', async () => {
+    testDb.db.prepare("UPDATE columns SET name = 'Annual Review', column_type = 'deadline', config = ? WHERE id = ?").run(JSON.stringify({ log_changes: true }), columnId)
+    const { invalidateColumnCache } = await import('../src/main/ipc/ipc-cell')
+    invalidateColumnCache(columnId)
+    await invoke(IPC.CELL_UPDATE, rowId, columnId, '2026-10-12')
+    const last = testDb.db.prepare('SELECT content FROM case_log WHERE row_id = ? ORDER BY id DESC LIMIT 1').get(rowId) as { content: string }
+    expect(last.content).toContain('Oct 12, 2026')
+    expect(last.content).not.toContain('"2026-10-12"')
+  })
+
   it('fails for invalid row ID', async () => {
     const r = await invoke(IPC.CELL_UPDATE, -1, columnId, 'value') as any
     expect(r.ok).toBe(false)
