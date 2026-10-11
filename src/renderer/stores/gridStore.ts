@@ -126,12 +126,18 @@ export const useGridStore = create<GridState>((set, get) => ({
       const data = await invoke<{ rows: GridRow[]; rowTagsMap: Record<number, string[]>; sampleRows?: Record<number, number> }>(IPC.GRID_GET_FULL, gridId, showArchived)
       // A list opened or loaded meanwhile wins
       if (get()._loadVersion !== version || get().activeGridId !== gridId || !data || !Array.isArray(data.rows)) return
+      const rowTagsMap = new Map(Object.entries(data.rowTagsMap ?? {}).map(([k, v]) => [Number(k), v]))
       set({
         rows: data.rows,
-        rowTagsMap: new Map(Object.entries(data.rowTagsMap ?? {}).map(([k, v]) => [Number(k), v])),
+        rowTagsMap,
         sampleRows: data.sampleRows ?? {},
       })
       void get().refreshDeadlineContext()
+      // The first tag added on a record's page brings the Tags column in (G-37), unless it was turned off
+      if (!get().showTagsColumn && rowTagsMap.size > 0) {
+        const tagsCol = await invoke<string | null>(IPC.SETTINGS_GET, tagsColumnKey(gridId))
+        if (tagsCol !== '0' && get()._loadVersion === version && get().activeGridId === gridId) set({ showTagsColumn: true })
+      }
     } catch (err) {
       rlog.warn('GridStore', 'Could not refresh the list', err)
     }

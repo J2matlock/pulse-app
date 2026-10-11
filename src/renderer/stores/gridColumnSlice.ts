@@ -28,6 +28,8 @@ export interface ColumnSliceState {
   setNameColumn: (columnId: number) => Promise<void>
   reorderColumns: (orderedIds: number[]) => Promise<void>
   toggleColumnVisibility: (columnId: number, visible: boolean) => Promise<void>
+  /** Show every hidden column of the open list */
+  showAllColumns: () => Promise<void>
   /** Non-null when a column type change is waiting for user confirmation. */
   pendingColumnTypeChange: PendingColumnTypeChange | null
   /** Proceed with the pending column type change. */
@@ -225,6 +227,19 @@ export const createColumnSlice = (set: Set, get: Get) => ({
     } catch (err) {
       rlog.error('GridColumnSlice', 'Failed to toggle column visibility', err)
       toast.error('Could not update column — please try again')
+    }
+  },
+
+  showAllColumns: async () => {
+    const gridId = get().activeGridId
+    const hidden = get().hiddenColumns
+    if (!gridId || hidden.length === 0) return
+    try {
+      await invoke(IPC.COLUMN_BATCH_UPDATE_VISIBILITY, hidden.map(c => ({ columnId: c.id, isVisible: 1 as const })))
+      await get().loadGrid(gridId)
+    } catch (err) {
+      rlog.error('GridColumnSlice', 'Failed to show columns', err)
+      toast.error('Could not show the columns — please try again')
     }
   },
 

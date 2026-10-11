@@ -122,6 +122,8 @@ export function GridToolbar(): React.ReactElement {
   useEffect(() => { if (formsOn && activeGridId != null) void useFormStore.getState().load(activeGridId) }, [formsOn, activeGridId])
   // "Bring in a spreadsheet" from the empty list
   useEffect(() => pulseEvents.on('grid:open-import', () => setShowImportWizard(true)), [])
+  // "Add column" from a list with no columns
+  useEffect(() => pulseEvents.on('grid:add-column', () => setShowAddColumn(true)), [])
   const [batchDocs, setBatchDocs] = useState(false)
   const selectedIds = useGridStore(s => s.selectedRowIds)
   const stagesOn = useFeature('stages')

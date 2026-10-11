@@ -180,6 +180,21 @@ describe('gridStore', () => {
       expect(s.isLoading).toBe(false)
     })
 
+    it('the first tag on a record shows the Tags column, unless it was turned off (bug sweep S1)', async () => {
+      const answer = (tagsSetting: string | null) => mockInvoke.mockImplementation(async (channel: string) => channel === 'grid:get-full'
+        ? { ok: true, data: { rows: [makeRow(1)], rowTagsMap: { 1: ['urgent'] }, sampleRows: {} } }
+        : { ok: true, data: tagsSetting })
+      useGridStore.setState({ activeGridId: 1, isLoading: false, rows: [makeRow(1)], rowTagsMap: new Map(), showTagsColumn: false })
+      answer(null)
+      await useGridStore.getState().refreshRows()
+      expect(useGridStore.getState().showTagsColumn).toBe(true)
+
+      useGridStore.setState({ showTagsColumn: false, rowTagsMap: new Map() })
+      answer('0')
+      await useGridStore.getState().refreshRows()
+      expect(useGridStore.getState().showTagsColumn).toBe(false)
+    })
+
     it('does nothing while a list is loading, and drops an answer that a newer load overtook', async () => {
       useGridStore.setState({ activeGridId: 1, isLoading: true, rows: [] })
       await useGridStore.getState().refreshRows()

@@ -134,6 +134,16 @@ describe('gridColumnSlice', () => {
     })
   })
 
+  describe('showAllColumns (bug sweep S1)', () => {
+    it('makes every hidden column visible and reloads', async () => {
+      useGridStore.setState({ columns: [], hiddenColumns: [makeColumn(3, 'A', { is_visible: 0 }), makeColumn(4, 'B', { is_visible: 0 })] })
+      mockInvoke.mockResolvedValue({ ok: true, data: { grid: { id: 1, name: 'L', sort_config: '[]' }, columns: [], hiddenColumns: [], rows: [], acuityLevels: [], cellFormats: [], rowTagsMap: {}, savedViews: [], customGroups: '[]' } })
+      await useGridStore.getState().showAllColumns()
+      expect(mockInvoke).toHaveBeenCalledWith('column:batch-update-visibility', [{ columnId: 3, isVisible: 1 }, { columnId: 4, isVisible: 1 }])
+      expect(mockInvoke).toHaveBeenCalledWith('grid:get-full', 1, false)
+    })
+  })
+
   describe('updateColumn (renameColumn)', () => {
     it('updates column name in state', async () => {
       useGridStore.setState({ columns: [makeColumn(1, 'Old Name')] })

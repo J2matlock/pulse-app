@@ -737,7 +737,9 @@ export function DataGrid(): React.ReactElement {
   }
 
   if (columns.length === 0) {
-    return <GridEmptyColumns />
+    return <GridEmptyColumns hiddenCount={hiddenColumns.length}
+      onShowAll={() => void useGridStore.getState().showAllColumns()}
+      onAddColumn={() => pulseEvents.emit('grid:add-column')} />
   }
 
   // Filter out synthetic _acuity_points header
