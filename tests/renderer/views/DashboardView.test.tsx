@@ -301,6 +301,17 @@ describe('DashboardView — interactions', () => {
     expect(loads()).toBe(2)
   })
 
+  it('reloads at midnight, so yesterday\'s "due today" turns overdue without a restart', async () => {
+    const { pulseEvents } = await import('../../../src/renderer/events')
+    render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await flushEffects()
+    const loads = () => mockSafeInvoke.mock.calls.filter(c => c[0] === 'dashboard:get-all').length
+    expect(loads()).toBe(1)
+    await act(async () => { pulseEvents.emit('day:changed', { date: '2030-01-02' }) })
+    await flushEffects()
+    expect(loads()).toBe(2)
+  })
+
   it('reloads its priority list when a record is reactivated (here or by Undo)', async () => {
     const { pulseEvents } = await import('../../../src/renderer/events')
     render(<MemoryRouter><DashboardView /></MemoryRouter>)

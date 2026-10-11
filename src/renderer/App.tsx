@@ -45,6 +45,7 @@ import { useAutoLock } from './hooks/useAutoLock'
 import { useThemeEffect } from './hooks/useThemeEffect'
 import { useGlobalKeyboard } from './hooks/useGlobalKeyboard'
 import { useZoom } from './hooks/useZoom'
+import { useDayWatcher } from './hooks/useToday'
 import { useAuthGating } from './hooks/useAuthGating'
 import { useModalManager } from './hooks/useModalManager'
 import { usePulseFileImport } from './hooks/usePulseFileImport'
@@ -118,6 +119,8 @@ export default function App(): React.ReactElement {
   useThemeEffect(theme, uiScale, gridDensity, sidebarWidth, gridLines, rowStriping, reducedMotion, highContrast)
   useZoom(setUiScale, authState === 'ready' || authState === 'onboarding' || authState === 'recovery')
   useAutoLock(storeLocked, storePasswordSetup, autoLockMinutes)
+  // "Due today" moves on at midnight while the app is open
+  useDayWatcher(authState === 'ready')
 
   if (authState === 'checking') {
     return (

@@ -9,6 +9,7 @@ import { ComplianceSummaryDialog } from '../components/reports/ComplianceSummary
 import toast from 'react-hot-toast'
 import { useSettingsStore } from '../stores/settingsStore'
 import { localDateString } from '../../shared/dates'
+import { useToday } from '../hooks/useToday'
 import { noteUnencryptedExport } from '../utils/exportNotice'
 import { IPC } from '../../shared/ipc-channels'
 import type { DashboardStats, AlertThreshold, ParsedAlertRule, CaseloadTask, ChecklistDueItem } from '../../shared/types'
@@ -178,6 +179,7 @@ export default function DashboardView(): React.ReactElement {
   }, [])
 
   const reload = useCallback(() => loadAll(), [loadAll])
+  const today = useToday()
 
   // Initial load
   useEffect(() => {
@@ -189,6 +191,10 @@ export default function DashboardView(): React.ReactElement {
   // Sample data added or removed, a list added, deleted or restored, or a record reactivated
   // (here or by Undo) while the dashboard is open
   useListsChanged(() => { void loadAll({ quiet: true }) })
+
+  // A new day while the dashboard is open: yesterday's "due today" is now overdue.
+  // Main works deadlines out against today, so load again.
+  useEffect(() => pulseEvents.on('day:changed', () => { void loadAll({ quiet: true }) }), [loadAll])
 
   // Done, Undo or an extension from any of the dashboard's lists: tell everything showing
   // deadlines (the cards too), and reload ours through the listener below
@@ -257,39 +263,39 @@ export default function DashboardView(): React.ReactElement {
 
   // Compute daysUntil for each due task (null due_date -> 9999 so they sort last)
   const tasksWithDays = useMemo(() => {
-    const today = new Date(); today.setHours(0,0,0,0)
+    const todayStart = new Date(today + 'T00:00:00')
     // Switched-off features hide their rows everywhere on the dashboard
     if (!showTasks) return []
     return tasksDue.map(t => {
       let daysUntil = 9999
       if (t.due_date) {
         const d = new Date(t.due_date + 'T00:00:00')
-        daysUntil = Math.round((d.getTime() - today.getTime()) / MS_PER_DAY)
+        daysUntil = Math.round((d.getTime() - todayStart.getTime()) / MS_PER_DAY)
       }
       return { task: t, daysUntil }
     })
-  }, [tasksDue, showTasks])
+  }, [tasksDue, showTasks, today])
 
   // Compute daysUntil for each checklist item with a due date
   const checklistWithDays = useMemo(() => {
-    const today = new Date(); today.setHours(0,0,0,0)
+    const todayStart = new Date(today + 'T00:00:00')
     if (!showChecklists) return []
     return checklistDue.map(ci => {
       const d = new Date(ci.due_date! + 'T00:00:00')
-      const daysUntil = Math.round((d.getTime() - today.getTime()) / MS_PER_DAY)
+      const daysUntil = Math.round((d.getTime() - todayStart.getTime()) / MS_PER_DAY)
       return { item: ci, daysUntil }
     })
-  }, [checklistDue, showChecklists])
+  }, [checklistDue, showChecklists, today])
 
   // Compute daysUntil for each follow-up
   const followUpsWithDays = useMemo(() => {
-    const today = new Date(); today.setHours(0,0,0,0)
+    const todayStart = new Date(today + 'T00:00:00')
     return followUps.map(f => {
       const d = new Date(f.follow_up_date + 'T00:00:00')
-      const daysUntil = Math.round((d.getTime() - today.getTime()) / MS_PER_DAY)
+      const daysUntil = Math.round((d.getTime() - todayStart.getTime()) / MS_PER_DAY)
       return { followUp: f, daysUntil }
     })
-  }, [followUps])
+  }, [followUps, today])
 
   // Done from the Week and Month tabs: like the Priority List, drop the row then reload
   const dropAndReload = useCallback((rowId: number, columnId: number) => {

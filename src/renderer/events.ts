@@ -29,6 +29,8 @@ type PulseEvents = {
   'palette:open': undefined
   /** Open What's New (from Help or Settings → About) */
   'whats-new:open': undefined
+  /** The calendar day changed while the app was open: days-until and "due today" need working out again */
+  'day:changed': { date: string }
   /** Show first-run setup again (no lists left), at one of its starting points */
   'setup:open': { step: 'start' | 'examples' | 'sheet-name' | 'blank' }
 }
