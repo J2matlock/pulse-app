@@ -13,6 +13,8 @@ export interface KeyboardNavDeps {
   editingCellRef: React.RefObject<CellCoord | null>
   rowsRef: React.RefObject<GridRow[]>
   filteredRowsRef: React.RefObject<GridRow[]>
+  /** Record ids on screen in screen order, leaving out collapsed groups: Ctrl+A selects these (AUDIT-139) */
+  visualRowIdsRef: React.RefObject<number[]>
   selectedRowIdsRef: React.RefObject<Set<number>>
   columns: Column[]
   columnMap: Map<number, Column>
@@ -50,7 +52,7 @@ export function handleCellKeyDown(
   deps: KeyboardNavDeps
 ): void {
   const {
-    editingCellRef, rowsRef, filteredRowsRef, selectedRowIdsRef,
+    editingCellRef, rowsRef, filteredRowsRef, visualRowIdsRef, selectedRowIdsRef,
     columns, columnMap, updateCell, navigateCell,
     setEditingCell, setSelectedRowIds,
   } = deps
@@ -179,7 +181,7 @@ export function handleCellKeyDown(
     case 'A':
       if ((e.ctrlKey || e.metaKey) && !editing) {
         e.preventDefault()
-        setSelectedRowIds(new Set(currentFilteredRows.map(r => r.row_id)))
+        setSelectedRowIds(new Set(visualRowIdsRef.current))
       }
       break
     case ' ': {

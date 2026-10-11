@@ -10,6 +10,7 @@ function deps(columns: Column[]): KeyboardNavDeps & { updateCell: ReturnType<typ
     editingCellRef: { current: null },
     rowsRef: { current: [{ row_id: 7 } as GridRow] },
     filteredRowsRef: { current: [{ row_id: 7 } as GridRow] },
+    visualRowIdsRef: { current: [7] },
     selectedRowIdsRef: { current: new Set<number>() },
     columns,
     columnMap: new Map(columns.map(c => [c.id, c])),
@@ -38,6 +39,17 @@ describe('grid keys', () => {
     handleCellKeyDown(key(' '), 7, 1, d)
     expect(d.updateCell).toHaveBeenCalledWith(7, 1, 'true')
     expect([...selected]).toEqual([])
+  })
+
+  it('Ctrl+A selects only the records on screen, not those inside collapsed groups (AUDIT-139)', () => {
+    const d = deps([col(1, 'text')])
+    // 8 and 9 pass the filter but sit in a collapsed group, so they aren't in visualRowIds
+    d.filteredRowsRef = { current: [7, 8, 9].map(row_id => ({ row_id }) as GridRow) }
+    d.visualRowIdsRef = { current: [7] }
+    const ev = key('a', { ctrlKey: true })
+    handleCellKeyDown(ev, 7, 1, d)
+    expect(ev.preventDefault).toHaveBeenCalled()
+    expect(d.setSelectedRowIds).toHaveBeenCalledWith(new Set([7]))
   })
 
   it('Ctrl+Enter and Shift+Enter open the record; Enter edits', () => {

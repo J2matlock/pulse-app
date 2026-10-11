@@ -131,7 +131,7 @@ function makeProps(overrides: Partial<GridHeaderRowProps> = {}): GridHeaderRowPr
     acuitySortDir: null,
     setAcuitySortDir: vi.fn(),
     selectedRowIds: new Set<number>(),
-    filteredRows: [],
+    selectableRowIds: [],
     setSelectedRowIds: vi.fn(),
     colSensors: [],
     onColumnDragEnd: vi.fn(),
@@ -166,15 +166,26 @@ describe('GridHeaderRow', () => {
     expect(checkbox.getAttribute('aria-label')).toMatch(/^Select all (?!rows)/)
   })
 
-  it('select all toggles all filtered rows', () => {
-    const rows = [
-      { row_id: 1, position: 0 } as GridRow,
-      { row_id: 2, position: 1 } as GridRow,
-    ]
+  it('select all ticks only the records on screen (AUDIT-139)', () => {
     const setSelectedRowIds = vi.fn()
-    render(<GridHeaderRow {...makeProps({ filteredRows: rows, setSelectedRowIds })} />)
+    render(<GridHeaderRow {...makeProps({ selectableRowIds: [1, 2], setSelectedRowIds })} />)
     fireEvent.click(screen.getByRole('checkbox'))
-    expect(setSelectedRowIds).toHaveBeenCalled()
+    expect(setSelectedRowIds).toHaveBeenCalledWith(new Set([1, 2]))
+  })
+
+  it('shows all ticked when every record on screen is ticked, even with others ticked inside a collapsed group (AUDIT-139)', () => {
+    const setSelectedRowIds = vi.fn()
+    render(<GridHeaderRow {...makeProps({ selectableRowIds: [1, 2], selectedRowIds: new Set([1, 2, 3]), setSelectedRowIds })} />)
+    const box = screen.getByRole('checkbox')
+    expect(box.getAttribute('aria-checked')).toBe('true')
+    expect(box.getAttribute('aria-label')).toMatch(/^Deselect all/)
+    fireEvent.click(box)
+    expect(setSelectedRowIds).toHaveBeenCalledWith(new Set())
+  })
+
+  it('shows part ticked when only some records on screen are ticked', () => {
+    render(<GridHeaderRow {...makeProps({ selectableRowIds: [1, 2], selectedRowIds: new Set([1]) })} />)
+    expect(screen.getByRole('checkbox').getAttribute('aria-checked')).toBe('mixed')
   })
 
   it('does not render acuity header when disabled', () => {
