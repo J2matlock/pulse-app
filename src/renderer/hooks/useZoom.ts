@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useSettingsStore } from '../stores/settingsStore'
 import { isMod } from '../utils/keys'
+import { UI_SCALE_KEY_MIN, UI_SCALE_MAX } from '../utils/uiScale'
 
 /**
  * Zoom keyboard shortcuts: Ctrl+=, Ctrl+-, Ctrl+0.
@@ -19,10 +20,10 @@ export function useZoom(
       // '+' is Ctrl+Shift+= and the number pad's plus
       if (e.key === '=' || e.key === '+') {
         e.preventDefault()
-        setUiScale(Math.min(150, useSettingsStore.getState().uiScale + 5))
+        setUiScale(Math.min(UI_SCALE_MAX, useSettingsStore.getState().uiScale + 5))
       } else if (e.key === '-') {
         e.preventDefault()
-        setUiScale(Math.max(80, useSettingsStore.getState().uiScale - 5))
+        setUiScale(Math.max(UI_SCALE_KEY_MIN, useSettingsStore.getState().uiScale - 5))
       } else if (e.key === '0') {
         e.preventDefault()
         setUiScale(100)

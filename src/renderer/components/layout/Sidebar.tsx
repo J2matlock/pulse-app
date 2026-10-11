@@ -473,7 +473,8 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
     <aside
       data-tour="sidebar"
       className="flex flex-col border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 transition-all duration-200 flex-shrink-0"
-      style={{ width: collapsed ? 48 : 'var(--width-sidebar-expanded, 220px)' }}
+      // Never more than a third of the window, so zoomed to 200% the list keeps most of the room (AUDIT-055)
+      style={{ width: collapsed ? 48 : 'min(var(--width-sidebar-expanded, 220px), 32vw)' }}
       aria-label="Sidebar"
     >
       {/* Toggle button */}

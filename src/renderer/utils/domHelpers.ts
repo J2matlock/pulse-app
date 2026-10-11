@@ -36,8 +36,22 @@ export function clampLeft(left: number, panelWidth: number, padding = 8): number
 }
 
 /**
+ * A panel taller than the room below its top scrolls inside instead of running off
+ * the bottom of the window (zoomed to 200% the window is only ~380px tall) (AUDIT-055).
+ * offsetHeight ignores the open animation's scale, so the check is made on the real size.
+ */
+export function fitToViewportHeight(el: HTMLElement, padding = 8): void {
+  const room = window.innerHeight - el.getBoundingClientRect().top - padding
+  if (el.offsetHeight > room) {
+    el.style.maxHeight = `${Math.max(120, Math.floor(room))}px`
+    el.style.overflowY = 'auto'
+  }
+}
+
+/**
  * Ref callback for absolutely-positioned dropdown panels.
- * Shifts the panel left if it overflows the right edge of the viewport.
+ * Shifts the panel left if it overflows the right edge of the viewport, and lets
+ * it scroll if it would run off the bottom.
  */
 export function edgeAwareRefCallback(el: HTMLDivElement | null): void {
   if (!el) return
@@ -48,5 +62,6 @@ export function edgeAwareRefCallback(el: HTMLDivElement | null): void {
       el.style.left = `${-overflow}px`
       el.style.right = 'auto'
     }
+    fitToViewportHeight(el)
   })
 }

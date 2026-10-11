@@ -4,6 +4,7 @@ import type { Theme } from '../../../shared/types'
 import { useVocab } from '../../hooks/useVocab'
 import { modHelp } from '../../utils/keys'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { UI_SCALE_MIN, UI_SCALE_MAX } from '../../utils/uiScale'
 
 interface AppearanceSectionProps {
   theme: Theme
@@ -116,12 +117,12 @@ export function AppearanceSection({
             {' '}
             <input
               type="number"
-              min={50}
-              max={150}
+              min={UI_SCALE_MIN}
+              max={UI_SCALE_MAX}
               step={5}
               value={uiScale}
               onChange={e => {
-                const v = Math.min(150, Math.max(50, Math.round(Number(e.target.value) / 5) * 5))
+                const v = Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, Math.round(Number(e.target.value) / 5) * 5))
                 if (Number.isFinite(v)) setUiScale(v)
               }}
               className="inline-block w-16 text-base font-normal text-slate-500 dark:text-slate-400 bg-transparent border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5 text-center focus:outline-none focus:ring-3 focus:ring-blue-500"
@@ -142,18 +143,19 @@ export function AppearanceSection({
         <input
           id="settings-ui-scale"
           type="range"
-          min={50}
-          max={150}
+          min={UI_SCALE_MIN}
+          max={UI_SCALE_MAX}
           step={5}
           value={uiScale}
           onChange={e => setUiScale(Number(e.target.value))}
           className="w-full accent-slate-700 dark:accent-slate-300"
           style={{ minHeight: 44 }}
         />
-        <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400">
-          <span>50%</span>
-          <span>100%</span>
-          <span>150%</span>
+        {/* 100% sits a third of the way along, not in the middle */}
+        <div className="relative flex justify-between text-sm text-slate-500 dark:text-slate-400">
+          <span>{UI_SCALE_MIN}%</span>
+          <span className="absolute -translate-x-1/2" style={{ left: `${((100 - UI_SCALE_MIN) / (UI_SCALE_MAX - UI_SCALE_MIN)) * 100}%` }}>100%</span>
+          <span>{UI_SCALE_MAX}%</span>
         </div>
         {uiScale < 100 && (
           <p className="text-sm text-amber-700 dark:text-amber-400">Smaller sizes may reduce readability</p>

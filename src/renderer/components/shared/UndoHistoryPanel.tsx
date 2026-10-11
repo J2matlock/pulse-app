@@ -226,8 +226,8 @@ export function UndoHistoryPanel({ anchorRef, onClose }: Props): React.ReactElem
           </button>
         </div>
 
-        {/* Stack list */}
-        <div className="overflow-y-auto" style={{ maxHeight: 360 }}>
+        {/* Stack list: shorter in a short window, so the panel never runs off the bottom at 200% zoom (AUDIT-055) */}
+        <div className="overflow-y-auto" style={{ maxHeight: 'min(360px, calc(100vh - 12rem))' }}>
           {undoStack.length === 0 && redoStack.length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-8">
               No actions to undo

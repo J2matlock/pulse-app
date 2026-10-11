@@ -5,6 +5,7 @@ import { useUndoStore } from './undoStore'
 import { rlog } from '../utils/rendererLogger'
 import { flushPendingEdits } from '../utils/flushPendingEdits'
 import { storeInvoke } from '../utils/safeInvoke'
+import { UI_SCALE_MIN, UI_SCALE_MAX } from '../utils/uiScale'
 import { normalizeAutoLockMinutes, AUTO_LOCK_DEFAULT_MINUTES } from '../../shared/constants'
 
 interface SettingsState {
@@ -99,7 +100,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set({
       ...(theme ? { theme } : {}),
       ...(Number.isFinite(autoLock) && autoLock >= 0 ? { autoLockMinutes: autoLock } : {}),
-      ...(Number.isFinite(uiScale) && uiScale >= 80 && uiScale <= 150 ? { uiScale } : {}),
+      ...(Number.isFinite(uiScale) && uiScale >= UI_SCALE_MIN && uiScale <= UI_SCALE_MAX ? { uiScale } : {}),
       ...(gridDensity ? { gridDensity } : {}),
       ...(sidebarWidth ? { sidebarWidth } : {}),
       ...(settings.row_striping !== undefined ? { rowStriping: settings.row_striping === 'true' } : {}),
