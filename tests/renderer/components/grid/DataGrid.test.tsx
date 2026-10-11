@@ -164,6 +164,13 @@ vi.mock('../../../../src/renderer/utils/deadlineCalc', () => ({
   getMatchingThreshold: () => null,
   formatCalculatedDays: () => '',
   formatDeadlineTooltip: () => '',
+  formatResultTooltip: () => '',
+  deadlineChipText: () => null,
+  // Days left come from the counts in the deadline context, like a quota
+  evaluateRuleForRow: (_rule: unknown, _v: unknown, row: { row_id: number }, colId: number) => {
+    const n = useGridStore.getState().deadlineContext?.quota?.[`${row.row_id}:${colId}`]
+    return { state: 'upcoming', due: n == null ? null : '2026-01-01', daysUntil: n ?? null }
+  },
 }))
 
 // Mock domHelpers
@@ -679,6 +686,25 @@ describe('DataGrid', () => {
       const headers = screen.getAllByRole('columnheader')
       // Due Date is column index 1 → header index 3
       expect(headers[3]!.getAttribute('aria-sort')).toBe('descending')
+    })
+
+    it('sorts again by deadline when the counts arrive after the records (R1)', async () => {
+      const cols = [makeColumn(1, 'Name', 'text'), makeColumn(2, 'Visits', 'date', { config: '{"alert_rule_id":9}' })]
+      setupStores({
+        columns: cols,
+        rows: [makeRow(1, { col_1: 'Ann' }), makeRow(2, { col_1: 'Bob' }), makeRow(3, { col_1: 'Cy' })],
+        sortConfig: [{ columnId: 2, direction: 'asc', priority: 1 }],
+        deadlineContext: null,
+      })
+      useAlertStore.setState({ rules: [{ id: 9, name: 'Visits', thresholds: [], kind: 'quota', rule_config: '{}' }] } as never)
+      renderDataGrid()
+      await flushEffects()
+      const names = () => screen.getAllByRole('row').map(r => (r.textContent ?? '').match(/Ann|Bob|Cy/)?.[0]).filter(Boolean)
+      expect(names()).toEqual(['Ann', 'Bob', 'Cy'])
+      await act(async () => {
+        useGridStore.setState({ deadlineContext: { meter: {}, quota: { '1:2': 30, '2:2': 5, '3:2': 12 }, progress: {}, extensions: {} } } as never)
+      })
+      expect(names()).toEqual(['Bob', 'Cy', 'Ann'])
     })
   })
 

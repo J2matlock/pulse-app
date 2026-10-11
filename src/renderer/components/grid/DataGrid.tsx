@@ -388,12 +388,15 @@ export function DataGrid(): React.ReactElement {
 
   // Convert sort config to TanStack format, prepending acuity sort when active
   const sorting: SortingState = useMemo(() => {
+    // The deadline comparator reads counts, readings and done flags that arrive after
+    // the rows. A new sorting array when they land makes the table sort again.
+    void deadlineContext
     const colSorts = sortConfig.map(s => ({ id: `col_${s.columnId}`, desc: s.direction === 'desc' }))
     if (acuitySortDir && acuityEnabled) {
       return [{ id: '_acuity_points', desc: acuitySortDir === 'desc' }, ...colSorts]
     }
     return colSorts
-  }, [sortConfig, acuitySortDir, acuityEnabled])
+  }, [sortConfig, acuitySortDir, acuityEnabled, deadlineContext])
 
   const tableColumns = useMemo(() => {
     // Hidden synthetic column for acuity sorting
