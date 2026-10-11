@@ -5,7 +5,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import type { ChecklistItem as ChecklistItemType, ChecklistPriority } from '../../../shared/types'
-import { MS_PER_DAY } from '../../../shared/constants'
+import { dueDateBadge } from '../../views/tasks/taskHelpers'
 import { parseRepeatRule, describeRepeat } from '../../../shared/recurrence'
 
 const PRIORITY_CONFIG: Record<ChecklistPriority, { label: string; dot: string; badge: string }> = {
@@ -13,22 +13,6 @@ const PRIORITY_CONFIG: Record<ChecklistPriority, { label: string; dot: string; b
   high:   { label: 'High',   dot: '🟠', badge: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
   normal: { label: 'Normal', dot: '⚪', badge: 'bg-slate-100 text-slate-500 dark:bg-slate-600 dark:text-slate-300' },
   low:    { label: 'Low',    dot: '🔵', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
-}
-
-function dueDateBadge(dateStr: string | null): { text: string; className: string } | null {
-  if (!dateStr) return null
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const due = new Date(dateStr + 'T00:00:00')
-  const diffDays = Math.round((due.getTime() - today.getTime()) / MS_PER_DAY)
-  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
-  if (due.getFullYear() !== today.getFullYear()) opts.year = 'numeric'
-  const text = due.toLocaleDateString(undefined, opts)
-  let className = 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
-  if (diffDays < 0)      className = 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-  else if (diffDays === 0) className = 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
-  else if (diffDays <= 7)  className = 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-600'
-  return { text, className }
 }
 
 // ── Edit Dialog ───────────────────────────────────────────────────────────────
