@@ -119,6 +119,16 @@ export function sourceWord(source: ReportSource, gridId: number): string {
   }
 }
 
+/** One line of a report, in the list's words: "Job", "Note", "Deadline" */
+export function sourceWordOne(source: ReportSource, gridId: number): string {
+  switch (source) {
+    case 'records': return word('record', { cap: true }, gridId)
+    case 'activities': return word('activity', { cap: true }, gridId)
+    case 'appointments': return word('appointment', { cap: true }, gridId)
+    default: return 'Deadline'
+  }
+}
+
 /** Check a config and every field it names against the list */
 export function validateReportConfig(gridId: number, input: unknown): { config: ReportConfig; fields: ReportField[] } {
   const parsed = reportConfigSchema.safeParse(input)

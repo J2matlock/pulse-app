@@ -92,6 +92,14 @@ export const SOURCE_LABELS: Record<ReportSource, string> = {
   deadlines: 'deadlines',
 }
 
+/** One line of each source, for "Counting 1 …" */
+export const SOURCE_LABELS_ONE: Record<ReportSource, string> = {
+  records: '{record}',
+  activities: '{activity}',
+  appointments: '{appointment}',
+  deadlines: 'deadline',
+}
+
 export const FN_LABELS: Record<ValueFn, string> = { count: 'How many', sum: 'Total', avg: 'Average', min: 'Lowest', max: 'Highest' }
 
 export function valueKey(i: number): string { return `v${i}` }
@@ -282,10 +290,11 @@ function andList(xs: string[]): string {
  * The report in a sentence, for people who don't think in "group by":
  * "Counting 10 jobs, one line per Stage, showing how many and the total Estimate."
  */
-export function explainReport(config: ReportConfig, fields: ReportField[], sourceWord: string, listName: string, matched: number | null = null): string {
+export function explainReport(config: ReportConfig, fields: ReportField[], sourceWord: { one: string; many: string }, listName: string, matched: number | null = null): string {
   const label = (id: string) => fields.find(f => f.id === id)?.label ?? id
-  const src = sourceWord.toLowerCase()
-  const what = matched === null ? src : `${matched.toLocaleString('en-US')} ${matched === 1 ? src.replace(/s$/, '') : src}`
+  // Both forms come from the words: "1 property", "1 child", not a guess at the plural
+  const src = sourceWord.many.toLowerCase()
+  const what = matched === null ? src : `${matched.toLocaleString('en-US')} ${matched === 1 ? sourceWord.one.toLowerCase() : src}`
   const listing = config.groupBy.length === 0 && !!config.columns?.length
   let s = `${listing ? 'Listing' : 'Counting'} ${what}${config.source === 'records' ? '' : ` in ${listName}`}`
   const conds = config.filters.filter(isFilterActive).map(f => {

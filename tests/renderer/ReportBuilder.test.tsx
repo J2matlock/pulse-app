@@ -133,6 +133,28 @@ describe('report builder', () => {
 })
 
 describe('reports view and dashboard card', () => {
+  it('opens a newly saved report straight away, without "no longer available" while the list reloads', async () => {
+    render(<MemoryRouter initialEntries={['/reports']}><ReportsView /></MemoryRouter>)
+    await wait()
+    fireEvent.click(screen.getByRole('button', { name: /New report/ }))
+    await wait()
+    fireEvent.change(screen.getByLabelText('Report name'), { target: { value: 'Fresh one' } })
+    // The reload after saving hasn't come back yet
+    const usual = invoke.getMockImplementation()!
+    invoke.mockImplementation(async (channel: string, ...args: unknown[]) => {
+      if (channel === 'reports:list') return new Promise(() => {}) as never
+      if (channel === 'reports:save') return { ok: true, data: { ...saved, id: 9, name: (args[0] as { name: string }).name } }
+      if (channel === 'reports:fields') return { ok: true, data: fields }
+      if (channel === 'reports:run') return { ok: true, data: result }
+      return { ok: true, data: null }
+    })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Save$/ })) })
+    await wait(50)
+    expect(screen.queryByText('That report is no longer available.')).toBeNull()
+    expect((screen.getByLabelText('Report name') as HTMLInputElement).value).toBe('Fresh one')
+    invoke.mockImplementation(usual)
+  })
+
   it('lists saved reports and opens one', async () => {
     render(<MemoryRouter initialEntries={['/reports']}><ReportsView /></MemoryRouter>)
     await wait()

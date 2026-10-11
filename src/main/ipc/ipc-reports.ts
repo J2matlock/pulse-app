@@ -8,7 +8,7 @@ import { getDb } from '../database'
 import { writeReport } from '../export-report'
 import { REPORT_SOURCES, describeReport, explainReport, type ReportSource } from '../../shared/reports'
 import { secureWrap, ok, fail, enforceWritable, validId, assertSafePath } from './ipc-utils'
-import { ReportError, reportFields, runReport, listReports, getReport, saveReport, deleteReport, validateReportConfig, sourceWord } from '../report-builder'
+import { ReportError, reportFields, runReport, listReports, getReport, saveReport, deleteReport, validateReportConfig, sourceWord, sourceWordOne } from '../report-builder'
 
 function action<T>(fn: () => T) {
   try { return ok(fn()) } catch (err) {
@@ -38,7 +38,7 @@ export function registerReportHandlers(): void {
       const result = runReport(r.grid_id, r.config)
       const listName = (getDb().prepare('SELECT name FROM grids WHERE id = ?').get(r.grid_id) as { name: string } | undefined)?.name ?? ''
       // The report in a sentence, for the Reports home page and dashboard cards
-      const explanation = explainReport(r.config, reportFields(r.grid_id, r.config.source), sourceWord(r.config.source, r.grid_id), listName, result.matched)
+      const explanation = explainReport(r.config, reportFields(r.grid_id, r.config.source), { one: sourceWordOne(r.config.source, r.grid_id), many: sourceWord(r.config.source, r.grid_id) }, listName, result.matched)
       return { report: r, result, explanation, listName }
     })
   })

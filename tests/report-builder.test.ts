@@ -248,12 +248,15 @@ describe('helpers', () => {
   it('explains a report in a sentence', () => {
     const fields = [{ id: 'col:2', label: 'Stage', kind: 'text' as const, group: 'Job' }, { id: 'col:4', label: 'Estimate', kind: 'currency' as const, group: 'Job' },
       { id: 'act:date', label: 'Date', kind: 'date' as const, group: 'Note' }, { id: 'col:1', label: 'Job', kind: 'text' as const, group: 'Job' }]
-    expect(explainReport({ source: 'records', filters: [], groupBy: [{ field: 'col:2' }], values: [{ fn: 'count' }, { fn: 'sum', field: 'col:4' }] }, fields, 'Jobs', 'Jobs', 10))
+    expect(explainReport({ source: 'records', filters: [], groupBy: [{ field: 'col:2' }], values: [{ fn: 'count' }, { fn: 'sum', field: 'col:4' }] }, fields, { one: 'Job', many: 'Jobs' }, 'Jobs', 10))
       .toBe('Counting 10 jobs, one line per Stage, showing how many and the total Estimate.')
-    expect(explainReport({ source: 'activities', filters: [], groupBy: [{ field: 'act:date', bucket: 'month' }], values: [{ fn: 'count' }], dateRange: { field: 'act:date', preset: 'this_year' } }, fields, 'Notes', 'Customers', 1))
+    expect(explainReport({ source: 'activities', filters: [], groupBy: [{ field: 'act:date', bucket: 'month' }], values: [{ fn: 'count' }], dateRange: { field: 'act:date', preset: 'this_year' } }, fields, { one: 'Note', many: 'Notes' }, 'Customers', 1))
       .toBe('Counting 1 note in Customers, this year, one line per month, showing how many.')
-    expect(explainReport({ source: 'records', filters: [{ field: 'col:2', operator: 'equals', value: 'Done' }, { field: 'col:4', operator: 'gt', value: '' }], groupBy: [], values: [], columns: ['col:1', 'col:4'] }, fields, 'Jobs', 'Jobs', null))
+    expect(explainReport({ source: 'records', filters: [{ field: 'col:2', operator: 'equals', value: 'Done' }, { field: 'col:4', operator: 'gt', value: '' }], groupBy: [], values: [], columns: ['col:1', 'col:4'] }, fields, { one: 'Job', many: 'Jobs' }, 'Jobs', null))
       .toBe('Listing jobs where Stage is Done, showing Job and Estimate.')
+    // The singular comes from the words, not from cutting off an "s"
+    expect(explainReport({ source: 'records', filters: [], groupBy: [], values: [{ fn: 'count' }] }, fields, { one: 'Property', many: 'Properties' }, 'Rentals', 1))
+      .toMatch(/^Counting 1 property\b/)
     const grouped = { columns: [{ key: 'g0', label: 'Stage', kind: 'text' as const }, { key: 'v0', label: 'How many', kind: 'number' as const }], rows: [{ g0: 'A', v0: 1 }, { g0: 'B', v0: 2 }], totals: {}, matched: 3, truncated: null }
     expect(chartableReport({ source: 'records', filters: [], groupBy: [{ field: 'col:2' }], values: [] }, grouped)).toBe(true)
     expect(chartableReport({ source: 'records', filters: [], groupBy: [], values: [] }, grouped)).toBe(false)
@@ -323,6 +326,11 @@ describe('export', () => {
     expect(lines[lines.length - 1]).toBe('Total,4,4000.5')
     const pdf = buildReportPdf('Jobs by make', 'Vehicles', r)
     expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-')
+    // A long name wraps onto a second line instead of running past the margin
+    const long = 'Total Estimate by Stage and per month, this quarter, for every customer on the list'
+    const text = buildReportPdf(long, 'Vehicles', r).toString('latin1')
+    expect(text).not.toContain(`(${long}) Tj`)
+    expect(text).toContain('(Total Estimate by Stage')
   })
 
   it('deleting a report takes it off the dashboard', () => {
