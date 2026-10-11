@@ -94,7 +94,9 @@ export function reportFields(gridId: number, source: ReportSource): ReportField[
   for (const c of cols) {
     const options = columnOptions(c)
     const hint = c.id === stage?.id ? 'stage' as const : c.is_name_column ? 'name' as const : c.column_type === 'age_from_dob' ? 'derived' as const : undefined
-    fields.push({ id: `col:${c.id}`, label: c.name, kind: columnKind(c), group: rec, ...(options ? { options } : {}), ...(hint ? { hint } : {}) })
+    // A Deadline column stores the day it was last done, not when it's due (Decision E1)
+    const label = c.column_type === 'deadline' ? `${c.name} (last done)` : c.name
+    fields.push({ id: `col:${c.id}`, label, kind: columnKind(c), group: rec, ...(options ? { options } : {}), ...(hint ? { hint } : {}) })
   }
   return fields
 }
@@ -103,7 +105,8 @@ export function reportFields(gridId: number, source: ReportSource): ReportField[
 function isDeadlineColumn(c: Column): boolean {
   if (c.column_type === 'deadline') return true
   if (c.column_type !== 'date' || !c.config) return false
-  try { return !!(JSON.parse(c.config) as { alert_rule_name?: string }).alert_rule_name } catch { return false }
+  // The rule is set by id (column menu, Add column); a name alone is stale once the rule is removed
+  try { return !!(JSON.parse(c.config) as { alert_rule_id?: number }).alert_rule_id } catch { return false }
 }
 
 /** What each line of a report is, in the list's words: "Jobs", "Notes", "Deadlines" */
@@ -161,7 +164,7 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
   const started = Date.now()
   const tick = () => { if (Date.now() - started > REPORT_LIMITS.timeoutMs) throw new ReportError('This report is taking too long. Add a filter or a shorter date range.') }
   const db = getDb()
-  if (!db.prepare('SELECT 1 FROM grids WHERE id = ?').get(gridId)) throw new ReportError('That list is no longer available.')
+  if (!db.prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 1').get(gridId)) throw new ReportError('That list is no longer available.')
   const { config, fields } = validateReportConfig(gridId, input)
   const byId = new Map(fields.map(f => [f.id, f]))
   const today = localDateString(now)
@@ -389,8 +392,10 @@ export function listReports(gridId?: number): SavedReport[] {
   return rows.map(parseSaved).filter((r): r is SavedReport => r !== null)
 }
 
+/** A saved report, while its list is open (not in the Trash), like listReports */
 export function getReport(id: number): SavedReport | undefined {
-  const r = getDb().prepare('SELECT id, name, grid_id, config, created_at, updated_at FROM report_definitions WHERE id = ?').get(id) as Parameters<typeof parseSaved>[0] | undefined
+  const r = getDb().prepare(`SELECT r.id, r.name, r.grid_id, r.config, r.created_at, r.updated_at FROM report_definitions r
+    JOIN grids g ON g.id = r.grid_id AND g.is_active = 1 WHERE r.id = ?`).get(id) as Parameters<typeof parseSaved>[0] | undefined
   return r ? parseSaved(r) ?? undefined : undefined
 }
 

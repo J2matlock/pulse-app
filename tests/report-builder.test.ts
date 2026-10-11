@@ -177,6 +177,20 @@ describe('appointments and deadlines', () => {
     expect(r.rows.find(x => x.g0 === 'Overdue')).toEqual({ g0: 'Overdue', v0: 1, v1: 44 })
     expect(r.matched).toBe(2)
   })
+
+  it('offers a date column whose rule was chosen in the app (by id) as a Deadline, and not one whose rule was removed', () => {
+    const rule = Number(t.db.prepare("INSERT INTO alert_rules (name, thresholds, interval_days) VALUES ('Yearly', '[]', 365)").run().lastInsertRowid)
+    t.db.prepare('UPDATE columns SET config = ? WHERE id = ?').run(JSON.stringify({ alert_rule_id: rule }), dueCol)
+    const options = () => reportFields(gridId, 'deadlines').find(f => f.id === 'dl:rule')!.options
+    expect(options()).toEqual(['Inspection'])
+    t.db.prepare('UPDATE columns SET config = ? WHERE id = ?').run(JSON.stringify({ alert_rule_name: 'Yearly' }), dueCol)
+    expect(options()).toEqual([])
+  })
+
+  it('names a Deadline column by what it holds: the day it was last done', () => {
+    t.db.prepare("UPDATE columns SET column_type = 'deadline' WHERE id = ?").run(dueCol)
+    expect(reportFields(gridId, 'records').find(f => f.id === `col:${dueCol}`)!.label).toBe('Inspection (last done)')
+  })
 })
 
 describe('limits', () => {
@@ -271,6 +285,15 @@ describe('saved reports', () => {
     const again = saveReport({ name: 'Again', gridId, config: { source: 'records' } })
     t.db.prepare('DELETE FROM grids WHERE id = ?').run(gridId)
     expect(getReport(again.id)).toBeUndefined()
+  })
+
+  it('a list in the Trash takes its reports off the dashboard until it is restored', () => {
+    const saved = saveReport({ name: 'Count', gridId, config: { source: 'records' } })
+    t.db.prepare('UPDATE grids SET is_active = 0 WHERE id = ?').run(gridId)
+    expect(getReport(saved.id)).toBeUndefined()
+    expect(() => runReport(gridId, { source: 'records' }, NOW)).toThrow(/no longer available/)
+    t.db.prepare('UPDATE grids SET is_active = 1 WHERE id = ?').run(gridId)
+    expect(getReport(saved.id)?.name).toBe('Count')
   })
 })
 
