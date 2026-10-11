@@ -3,6 +3,8 @@ import { describe, it, expect } from 'vitest'
 import { checkPaste, validateForColumnType } from '../../../../src/renderer/components/grid/gridHelpers'
 import { useSettingsStore } from '../../../../src/renderer/stores/settingsStore'
 import type { Column } from '../../../../src/shared/types'
+import { setWords } from '../../vocabFixture'
+import { GENERIC_VOCAB, HUMAN_SERVICES_VOCAB } from '../../../../src/shared/vocab'
 
 const col = (column_type: string, config = '{}', name = 'Col') => ({ id: 1, grid_id: 1, name, column_type, config, is_visible: 1 } as unknown as Column)
 
@@ -11,6 +13,15 @@ describe('checkPaste', () => {
     expect(checkPaste('10/6/2026', col('date'))).toEqual({ value: '2026-10-06' })
     expect(checkPaste('Feb 19, 2026\n', col('date'))).toEqual({ value: '2026-02-19' })
     expect(checkPaste('March 3', col('date'))).toEqual({ error: expect.stringMatching(/isn't a full date/) })
+  })
+
+  it('names the list\'s own records when refusing a spreadsheet block (AUDIT-068)', () => {
+    setWords(HUMAN_SERVICES_VOCAB, { 1: { record: { one: 'truck', many: 'trucks', article: 'a' } } })
+    try {
+      expect(checkPaste('a\tb', col('text'))).toEqual({ error: 'That looks like several cells from a spreadsheet. To bring in many trucks, use Import.' })
+    } finally {
+      setWords(GENERIC_VOCAB)
+    }
   })
 
   it('reads a pasted 06/10/2026 as 6 October with the DD/MM/YYYY date format (AUDIT-117)', () => {

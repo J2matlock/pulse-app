@@ -7,6 +7,7 @@ import { computedColumnText, isComputedColumnType } from '../../utils/computedCo
 import { useGridStore } from '../../stores/gridStore'
 import { useAlertStore } from '../../stores/alertStore'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { wordNow } from '../../utils/vocab'
 
 // ── Clipboard format helper ────────────────────────────────────────────────────
 
@@ -71,7 +72,7 @@ export function checkPaste(text: string, column: Column): { value: string } | { 
     const inner = quoted[1]!.replace(/""/g, '"')
     body = multiLineOk ? inner : inner.replace(/\s*\r?\n\s*/g, ' ').replace(/\t/g, ' ')
   } else if (body.includes('\t') || (!multiLineOk && /\r?\n/.test(body))) {
-    return { error: 'That looks like several cells from a spreadsheet. To bring in many records, use Import.' }
+    return { error: `That looks like several cells from a spreadsheet. To bring in many ${wordNow('record', { many: true }, column.grid_id)}, use Import.` }
   }
   const value = validateForColumnType(body, column)
   if (value === null) {
