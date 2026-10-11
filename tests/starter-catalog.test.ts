@@ -366,7 +366,10 @@ describe('built-in starter catalog', () => {
     expect(saved.length, 'ready-made reports').toBeGreaterThan(0)
     for (const own of s.reports ?? []) if (res.gridIds[own.list]) expect(saved.map(r => r.name), 'the starter’s own reports').toContain(own.name)
     for (const r of saved) expect(() => runReport(r.grid_id, r.config), r.name).not.toThrow()
-    expect(saved.some(r => runReport(r.grid_id, r.config).rows.length > 1), 'a report with something to show').toBe(true)
+    // The sample history is dated back from today, so in January "this year" holds a month or two of it at most;
+    // what the sample data has to give is more than one line once the calendar window is set aside (AUDIT-184)
+    const anyTime = (c: typeof saved[number]['config']) => { const { dateRange: _window, ...rest } = c; return rest }
+    expect(saved.some(r => runReport(r.grid_id, anyTime(r.config)).rows.length > 1), 'a report with something to show').toBe(true)
     expect(Object.keys(res.gridIds).sort()).toEqual(lists.map(l => l.key).sort())
 
     const exp = EXPECTED[s.id]!

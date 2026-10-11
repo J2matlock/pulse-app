@@ -330,9 +330,12 @@ describe('Caseload Tasks — Validation Error Paths', () => {
 describe('Caseload Tasks — Yearly Recurrence', () => {
   it('complete recurring yearly task advances due_date by 1 year', async () => {
     const recurrence = JSON.stringify({ type: 'yearly', interval: 1 })
+    // Due next year, so the next one is a year later whatever day the suite runs
+    // (a past due date catches up to after today instead) (AUDIT-184)
+    const year = new Date().getFullYear()
     const created = await invoke(IPC.TASK_CREATE, {
       title: 'Annual review',
-      due_date: '2026-03-15',
+      due_date: `${year + 1}-03-15`,
       recurrence_rule: recurrence,
     }) as { ok: true; data: { id: number } }
 
@@ -340,7 +343,7 @@ describe('Caseload Tasks — Yearly Recurrence', () => {
 
     const task = testDb.db.prepare('SELECT is_completed, due_date FROM caseload_tasks WHERE id = ?').get(created.data.id) as { is_completed: number; due_date: string }
     expect(task.is_completed).toBe(0) // Reset for next cycle
-    expect(task.due_date).toBe('2027-03-15') // +1 year
+    expect(task.due_date).toBe(`${year + 2}-03-15`) // +1 year
   })
 
   it('leap year Feb 29 yearly recurrence handles correctly', async () => {

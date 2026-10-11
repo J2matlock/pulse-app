@@ -782,7 +782,8 @@ describe('Stress Test Suite', () => {
     await runStep('Generate supervisor report', () => {
       // Simulate what exportSupervisorReport does: gather stats
       const dateStart = '2024-01-01'
-      const dateEnd = '2027-12-31'
+      // Through the end of next year, so everything made today counts whenever the suite runs (AUDIT-184)
+      const dateEnd = `${new Date().getFullYear() + 1}-12-31`
 
       const totalActive = (db.prepare(
         'SELECT COUNT(*) as n FROM rows WHERE grid_id = ? AND is_active = 1'

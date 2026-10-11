@@ -508,9 +508,10 @@ describe('generateLetter', () => {
     const result = templates.generateLetter(id, rowId, gridId).text
     expect(result).not.toContain('{{age}}')
     const age = parseInt(result.replace('Age: ', ''))
-    // Person born in 1990 should be ~35-36 in 2026
-    expect(age).toBeGreaterThanOrEqual(35)
-    expect(age).toBeLessThanOrEqual(36)
+    // Born 1990-05-15: worked out from today, so the check holds whenever the suite runs (AUDIT-184)
+    const now = new Date()
+    const expected = now.getFullYear() - 1990 - (now.getMonth() < 4 || (now.getMonth() === 4 && now.getDate() < 15) ? 1 : 0)
+    expect(age).toBe(expected)
   })
 
   it('computes {{dob}} alias from birth column', () => {
