@@ -22,6 +22,8 @@ import { localDateString } from '../../shared/dates'
 import { safeFileName } from '../../shared/fileName'
 import { normalizeHexColor } from '../../shared/color'
 import { word } from '../vocab'
+import { atomicWriteFileAsync } from '../export-shared'
+import { vcardFieldKey } from '../contacts-vcard'
 
 const BAD_COLOR = 'Choose a color from the swatches, or type one like #3b82f6.'
 
@@ -291,7 +293,7 @@ export function registerContactHandlers(): void {
           try {
             const fields = getCustomFields(provider.category_id)
             for (const [name, val] of Object.entries(vcardCustomFields)) {
-              const match = fields.find(f => f.field_name.toLowerCase() === name)
+              const match = fields.find(f => vcardFieldKey(f.field_name) === name)
               if (match) saveCustomValue(provider.id, match.id, val)
             }
           } catch (err) { logNonFatal('ipc-contacts', 'custom field restore during vCard import', err) }
@@ -326,14 +328,8 @@ export function registerContactHandlers(): void {
     })
     if (canceled || !filePath) return ok(null)
     assertSafePath(filePath)
-    // Atomic write: temp file + fsync + rename
-    const { writeFile, rename } = await import('fs/promises')
-    const { open: fsOpen } = await import('fs/promises')
-    const tmpPath = filePath + '.tmp'
-    await writeFile(tmpPath, vcards, 'utf-8')
-    const fh = await fsOpen(tmpPath, 'r+')
-    try { await fh.sync() } finally { await fh.close() }
-    await rename(tmpPath, filePath)
+    // Atomic write (temp file + fsync + rename); the temp file is removed if it fails
+    await atomicWriteFileAsync(filePath, vcards, 'utf-8')
     return ok(filePath)
   })
 }

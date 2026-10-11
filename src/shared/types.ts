@@ -55,6 +55,15 @@ export function isNotTypedColumnType(type: string): boolean {
   return READ_ONLY_COLUMN_TYPES.has(type) || type === 'deadline' || type === 'link' || type === 'file_count'
 }
 
+/**
+ * Columns an import can fill. Age, Days-until and file counts are worked out
+ * by Pulse, so values mapped there would vanish. Auto-numbers are allowed:
+ * imported numbers are kept and numbering carries on after the highest.
+ */
+export function canImportInto(type: string): boolean {
+  return type !== 'age_from_dob' && type !== 'calculated_days' && type !== 'file_count'
+}
+
 /** Link columns (W04) and file counts (W09) are worked out from other tables; they have no cells of their own. */
 export function storesNoCells(type: string): boolean {
   return type === 'link' || type === 'file_count'

@@ -37,6 +37,37 @@ function decodeQuotedPrintable(value: string, charset: string): string {
   return buf.toString('utf-8')
 }
 
+/**
+ * Split a structured value (ORG, ADR) on ";" separators, leaving escaped
+ * "\;" inside a component: "Smith\; Jones LLC" is one organization.
+ */
+function splitComponents(value: string): string[] {
+  const parts: string[] = []
+  let cur = ''
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i]
+    if (ch === '\\' && i + 1 < value.length) { cur += ch + value[i + 1]; i++; continue }
+    if (ch === ';') { parts.push(cur); cur = ''; continue }
+    cur += ch
+  }
+  parts.push(cur)
+  return parts
+}
+
+/** Accents off, so "Revisión" can become a property name ("REVISION") */
+function stripAccents(s: string): string {
+  return s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+}
+
+/**
+ * How a custom field's name is compared across a vCard round trip: letters
+ * and digits only, so "Follow-up date" (written FOLLOW-UP-DATE), "NPI #" and
+ * "Fax (secure)" find their field again on import.
+ */
+export function vcardFieldKey(name: string): string {
+  return stripAccents(name).toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
 function escapeVCard(value: string): string {
   return value
     .replace(/\\/g, '\\\\')
@@ -145,7 +176,7 @@ export function parseVCard(content: string, maxEntries = 1000): Array<Partial<Pr
 
       case 'ORG':
         // ORG may have multiple components separated by ";"
-        current.org_name = unescapeVCard(value.split(';')[0] ?? '')
+        current.org_name = unescapeVCard(splitComponents(value)[0] ?? '')
         break
 
       case 'TITLE':
@@ -180,7 +211,7 @@ export function parseVCard(content: string, maxEntries = 1000): Array<Partial<Pr
 
       case 'ADR': {
         // ADR structured: PO Box ; Extended ; Street ; City ; Region ; Postal ; Country
-        const parts = value.split(';').map(p => unescapeVCard(p.trim())).filter(Boolean)
+        const parts = splitComponents(value).map(p => unescapeVCard(p.trim())).filter(Boolean)
         if (parts.length > 0) {
           current.address = parts.join(', ')
         }
@@ -200,8 +231,8 @@ export function parseVCard(content: string, maxEntries = 1000): Array<Partial<Pr
         // X-PULSE-FIELD-* custom field extensions
         if (propName.startsWith('X-PULSE-FIELD-')) {
           const fieldTag = propName.substring('X-PULSE-FIELD-'.length)
-          const fieldName = fieldTag.replace(/-/g, ' ').toLowerCase().replace(/[^a-z0-9 _-]/g, '').slice(0, 100)
-          if (!fieldName.trim()) break // skip empty/invalid field names
+          const fieldName = vcardFieldKey(fieldTag).slice(0, 100)
+          if (!fieldName) break // skip empty/invalid field names
           const customFields = ((current as Record<string, unknown>)['_vcardCustomFields'] ?? {}) as Record<string, string>
           customFields[fieldName] = unescapeVCard(value)
           ;(current as Record<string, unknown>)['_vcardCustomFields'] = customFields
@@ -228,6 +259,8 @@ export function emitVCard(
   ]
 
   lines.push(`FN:${escapeVCard(provider.name)}`)
+  // vCard 3.0 requires N. Pulse keeps one name, so it goes in whole as the family name.
+  lines.push(`N:${escapeVCard(provider.name)};;;;`)
 
   if (provider.org_name) {
     lines.push(`ORG:${escapeVCard(provider.org_name)}`)
@@ -282,7 +315,7 @@ export function emitVCard(
       for (const field of fields) {
         const val = valueMap.get(field.id)
         if (val) {
-          const fieldTag = field.field_name.toUpperCase().replace(/\s+/g, '-').replace(/[^A-Z0-9-]/g, '')
+          const fieldTag = stripAccents(field.field_name).toUpperCase().replace(/\s+/g, '-').replace(/[^A-Z0-9-]/g, '')
           if (fieldTag) lines.push(`X-PULSE-FIELD-${fieldTag}:${escapeVCard(val)}`)
         }
       }
