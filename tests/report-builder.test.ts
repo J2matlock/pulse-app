@@ -322,7 +322,7 @@ describe('export', () => {
     const lines = csv.slice(1).split('\r\n')
     expect(lines[0]).toBe('Make,How many,Total Cost')
     expect(lines).toContain('Honda,2,2000.5')
-    expect(lines.some(l => l.startsWith('"\t=HYPERLINK'))).toBe(true)
+    expect(lines.some(l => l.startsWith('"\'=HYPERLINK'))).toBe(true)
     expect(lines[lines.length - 1]).toBe('Total,4,4000.5')
     const pdf = buildReportPdf('Jobs by make', 'Vehicles', r)
     expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-')

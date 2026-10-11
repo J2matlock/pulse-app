@@ -14,7 +14,7 @@ vi.mock('../src/main/database', async () => {
   return { ...actual, getDb: () => t.db, cachedStmt: (_k: string, sql: string) => t.db.prepare(sql) }
 })
 
-import { formatDate, sanitizeCsvFormula, formatCellValue, stripHtml } from '../src/main/export-shared'
+import { formatDate, sanitizeCsvFormula, unguardCsvFormula, formatCellValue, stripHtml } from '../src/main/export-shared'
 
 beforeEach(() => { t = createTestDb() })
 afterEach(() => { cleanupTestDb(t) })
@@ -138,34 +138,63 @@ describe('CSV Export Logic', () => {
 // ── CSV Formula Injection Prevention ─────────────────────────────────────────
 
 describe('CSV Formula Injection Prevention', () => {
-  it('prefixes cells starting with = with tab', () => {
-    expect(sanitizeCsvFormula('=SUM(A1)')).toBe('\t=SUM(A1)')
+  it('prefixes cells starting with = with an apostrophe', () => {
+    expect(sanitizeCsvFormula('=SUM(A1)')).toBe('\'=SUM(A1)')
   })
 
-  it('prefixes cells starting with + with tab', () => {
-    expect(sanitizeCsvFormula('+1-555-1234')).toBe('\t+1-555-1234')
+  it('prefixes cells starting with + with an apostrophe', () => {
+    expect(sanitizeCsvFormula('+1-555-1234')).toBe('\'+1-555-1234')
   })
 
-  it('prefixes cells starting with - with tab', () => {
-    expect(sanitizeCsvFormula('-HYPERLINK("evil")')).toBe('\t-HYPERLINK("evil")')
+  it('prefixes cells starting with - with an apostrophe', () => {
+    expect(sanitizeCsvFormula('-HYPERLINK("evil")')).toBe('\'-HYPERLINK("evil")')
   })
 
-  it('prefixes cells starting with @ with tab', () => {
-    expect(sanitizeCsvFormula('@SUM(A1)')).toBe('\t@SUM(A1)')
+  it('prefixes cells starting with @ with an apostrophe', () => {
+    expect(sanitizeCsvFormula('@SUM(A1)')).toBe('\'@SUM(A1)')
   })
 
   it('prefixes cells with formula-like content after newline', () => {
-    expect(sanitizeCsvFormula('safe\n=evil')).toBe('\tsafe\n=evil')
+    expect(sanitizeCsvFormula('safe\n=evil')).toBe('\'safe\n=evil')
   })
 
   it('leaves a negative number in a number column alone, but guards it in a text column', () => {
     expect(formatCellValue('-5', 'number')).toBe('-5')
-    expect(formatCellValue('-5', 'text')).toBe('\t-5')
+    expect(formatCellValue('-5', 'text')).toBe('\'-5')
   })
 
   it('leaves normal text unchanged', () => {
     expect(sanitizeCsvFormula('Alice Smith')).toBe('Alice Smith')
     expect(sanitizeCsvFormula('123 Main St')).toBe('123 Main St')
+  })
+
+  it('uses the OWASP apostrophe, not a TAB, for cells starting with TAB or CR too (AUDIT-037)', () => {
+    expect(sanitizeCsvFormula('\t=1+1')).toBe("'\t=1+1")
+    expect(sanitizeCsvFormula('\r=1+1')).toBe("'\r=1+1")
+    // What it writes doesn't itself start with a character a spreadsheet reads as a formula
+    for (const v of ['=1+1', '+1', '-1', '@x', '\tx', '\rx']) expect(sanitizeCsvFormula(v)).toMatch(/^'/)
+    expect(sanitizeCsvFormula('=1+1').trimStart()).toBe("'=1+1")
+  })
+
+  it("leaves a name that starts with an apostrophe alone ('Til)", () => {
+    expect(sanitizeCsvFormula("'Til")).toBe("'Til")
+    expect(unguardCsvFormula("'Til")).toBe("'Til")
+    expect(unguardCsvFormula("'hello")).toBe("'hello")
+  })
+
+  it('import takes off exactly the apostrophe the export added', () => {
+    expect(unguardCsvFormula("'=1+1")).toBe('=1+1')
+    expect(unguardCsvFormula("'+1 555 0100")).toBe('+1 555 0100')
+    expect(unguardCsvFormula("'-")).toBe('-')
+    expect(unguardCsvFormula("'@home")).toBe('@home')
+    expect(unguardCsvFormula("'\tx")).toBe('\tx')
+    expect(unguardCsvFormula("''=1")).toBe("'=1")
+  })
+
+  it('round-trips every value exactly', () => {
+    const values = ['=1+1', '+1 555 0100', '-', '-12', '@home', '\tTabbed', '\rx', "'Til", "'=1", "''=1", 'safe\n=evil',
+      "'", "''", 'Test Person', '', '123 Main St', "O'Brien"]
+    for (const v of values) expect(unguardCsvFormula(sanitizeCsvFormula(v))).toBe(v)
   })
 })
 

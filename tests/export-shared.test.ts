@@ -22,9 +22,9 @@ const NON_TEXT = ['number', 'currency', 'date', 'checkbox', 'auto_number', 'age_
 describe('formatCellValue formula guard (AUDIT-008)', () => {
   for (const type of NON_TEXT.filter(t => t !== 'checkbox')) {
     it(`neutralizes a formula stored in a ${type} column`, () => {
-      expect(formatCellValue('=HYPERLINK("http://x","click")', type, 'iso')).toBe('\t=HYPERLINK("http://x","click")')
-      expect(formatCellValue('@SUM(1)', type, 'iso')).toBe('\t@SUM(1)')
-      expect(formatCellValue('+cmd|x', type, 'iso')).toBe('\t+cmd|x')
+      expect(formatCellValue('=HYPERLINK("http://x","click")', type, 'iso')).toBe('\'=HYPERLINK("http://x","click")')
+      expect(formatCellValue('@SUM(1)', type, 'iso')).toBe('\'@SUM(1)')
+      expect(formatCellValue('+cmd|x', type, 'iso')).toBe('\'+cmd|x')
     })
   }
 
@@ -40,8 +40,8 @@ describe('formatCellValue formula guard (AUDIT-008)', () => {
   })
 
   it('still guards text columns, including a negative-looking text value', () => {
-    expect(formatCellValue('-12', 'text', 'iso')).toBe('\t-12')
-    expect(formatCellValue('=1+2', 'text', 'iso')).toBe('\t=1+2')
+    expect(formatCellValue('-12', 'text', 'iso')).toBe('\'-12')
+    expect(formatCellValue('=1+2', 'text', 'iso')).toBe('\'=1+2')
   })
 })
 

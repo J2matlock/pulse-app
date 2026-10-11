@@ -172,7 +172,7 @@ describe('exportCsv', () => {
     const raw = readFileSync(destPath, 'utf-8')
     expect(raw.charCodeAt(0)).toBe(0xFEFF)
     const parsed = Papa.parse<Record<string, string>>(raw.slice(1), { header: true, skipEmptyLines: true })
-    expect(parsed.data[0]).toEqual({ Name: '\t-not a number', Balance: '-12.5', Seen: '06/10/2026' })
+    expect(parsed.data[0]).toEqual({ Name: '\'-not a number', Balance: '-12.5', Seen: '06/10/2026' })
   })
 
   it('exports a deadline column as its due date and state, not the date last done (G-08)', async () => {
@@ -259,7 +259,7 @@ describe('exportCsv', () => {
 
     const csv = readFileSync(destPath, 'utf-8')
     // The sanitized value should have a tab prefix
-    expect(csv).toContain('\t=SUM(A1)')
+    expect(csv).toContain('\'=SUM(A1)')
   })
 
   it('excludes soft-deleted rows', async () => {

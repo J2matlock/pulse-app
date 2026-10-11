@@ -18,6 +18,7 @@ import { ageInYears, localDateString } from '../shared/dates'
 import { htmlToText } from '../shared/htmlText'
 import { joinRecordName } from '../shared/recordName'
 import { loadDeadlines, type DeadlineItem } from './deadlines'
+import { sanitizeCsvFormula } from '../shared/csvGuard'
 
 // jsPDF is a CJS module; use require() to avoid ESM/CJS interop issues in Electron main.
 const { jsPDF } = require('jspdf') as typeof import('jspdf')
@@ -234,17 +235,7 @@ export function formatDate(value: string | null, fmt: 'iso' | 'us' | 'eu'): stri
   return `${day}/${m}/${y}`
 }
 
-/**
- * Prevent CSV formula injection. Excel/LibreOffice treat cells starting with
- * =, +, -, @ as formulas. Prefix with a tab to neutralize without altering
- * the visible data in non-formula-executing contexts (import, copy-paste).
- */
-export function sanitizeCsvFormula(v: string): string {
-  // Check first character and also after any line endings (multi-line cell values)
-  if (/^[=+\-@\t\r]/.test(v)) return `\t${v}`
-  if (/\r?\n[=+\-@]/.test(v)) return `\t${v}`
-  return v
-}
+export { sanitizeCsvFormula, unguardCsvFormula } from '../shared/csvGuard'
 
 /** Columns whose text is a number or a date: a leading "-" there is a negative number, not a formula (X-21) */
 const NON_TEXT_TYPES = new Set(['number', 'currency', 'date', 'checkbox', 'auto_number', 'age_from_dob', 'calculated_days', 'file_count'])
