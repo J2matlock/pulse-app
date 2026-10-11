@@ -107,8 +107,8 @@ export default function ProfileView(): React.ReactElement {
     updateRow: s.updateRow, updateCell: s.updateCell, loadGrid: s.loadGrid, unarchiveRow: s.unarchiveRow,
     archiveRow: s.archiveRow, deleteRow: s.deleteRow, duplicateRow: s.duplicateRow,
   })))
-  const { addRecentProfile } = useProfileStore(useShallow(s => ({
-    addRecentProfile: s.addRecentProfile,
+  const { addRecentProfile, removeRecentProfile } = useProfileStore(useShallow(s => ({
+    addRecentProfile: s.addRecentProfile, removeRecentProfile: s.removeRecentProfile,
   })))
   const { rules: alertRules, isLoaded: alertsLoaded, loadRules } = useAlertStore(useShallow(s => ({
     rules: s.rules, isLoaded: s.isLoaded, loadRules: s.loadRules,
@@ -197,6 +197,9 @@ export default function ProfileView(): React.ReactElement {
     })()
     return () => { live = false }
   }, [rowId, rowInList, isLoading, lookup?.rowId, loadGrid])
+  // A record that's gone leaves Recent, so it stops leading here
+  const goneStatus = lookup?.rowId === rowId && !rowInList && lookup.status !== 'active' && lookup.status !== 'archived' ? lookup.status : null
+  useEffect(() => { if (rowId != null && goneStatus) removeRecentProfile?.(rowId) }, [rowId, goneStatus, removeRecentProfile])
   const archivedRow = lookup?.rowId === rowId && !rowInList ? lookup.archivedRow : undefined
   const row = rowInList ?? archivedRow
   const isArchived = !!row && row.is_active === 0

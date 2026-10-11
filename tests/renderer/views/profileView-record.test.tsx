@@ -46,8 +46,9 @@ function resetGrid() {
 }
 const setGrid = (patch: Record<string, unknown>) => (useGridStore as unknown as { setState: (s: Record<string, unknown>) => void }).setState(patch)
 
+const removeRecent = vi.hoisted(() => vi.fn())
 vi.mock('../../../src/renderer/stores/profileStore', () => ({
-  useProfileStore: (sel: Function) => sel({ addRecentProfile: vi.fn(), recentProfiles: [] }),
+  useProfileStore: (sel: Function) => sel({ addRecentProfile: vi.fn(), removeRecentProfile: removeRecent, recentProfiles: [] }),
 }))
 vi.mock('../../../src/renderer/stores/alertStore', () => ({
   useAlertStore: (sel: Function) => sel({ rules: [], isLoaded: true, loadRules: vi.fn() }),
@@ -258,6 +259,8 @@ describe('A record opens from anywhere (1.24)', () => {
     await flush()
     expect(screen.getByText(/is in the Trash/)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Open Trash' })).toBeTruthy()
+    // It leaves Recent, so Recent stops leading here
+    expect(removeRecent).toHaveBeenCalledWith(9)
   })
 })
 
