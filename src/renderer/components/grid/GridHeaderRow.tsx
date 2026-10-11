@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -12,6 +12,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { dndAccessibility } from '../../utils/dndAnnouncements'
 import { User, EyeOff } from 'lucide-react'
 import type { Header } from '@tanstack/react-table'
 import type { GridRow, Column } from '../../../shared/types'
@@ -127,11 +128,14 @@ export function GridHeaderRow({
   const { t } = useVocab()
   // Screen readers pair each cell with the header in the same place (AUDIT-012)
   const leadingColCount = 2 + (acuityEnabled ? 1 : 0) + (showTags ? 1 : 0)
+  // A dragged column is read out by name, not its id (AUDIT-049)
+  const dragA11y = useMemo(() => dndAccessibility(id => columns.find(c => `col_${c.id}` === id)?.name), [columns])
   return (
     <DndContext
       sensors={colSensors}
       collisionDetection={closestCenter}
       onDragEnd={onColumnDragEnd}
+      accessibility={dragA11y}
     >
       <div role="rowgroup" className="bg-slate-50 dark:bg-slate-800 border-b-2 border-slate-300 dark:border-slate-600">
         <div className="flex" role="row" aria-rowindex={1}>

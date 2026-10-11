@@ -24,9 +24,10 @@ vi.mock('../../../../src/renderer/stores/undoStore', () => ({
 
 vi.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children: React.ReactNode }) => React.createElement('div', null, children),
-  closestCenter: vi.fn(), PointerSensor: vi.fn(), useSensor: () => ({}), useSensors: () => [],
+  closestCenter: vi.fn(), PointerSensor: vi.fn(), KeyboardSensor: vi.fn(), useSensor: () => ({}), useSensors: () => [],
 }))
 vi.mock('@dnd-kit/sortable', () => ({
+  sortableKeyboardCoordinates: vi.fn(),
   SortableContext: ({ children }: { children: React.ReactNode }) => React.createElement('div', null, children),
   verticalListSortingStrategy: {},
   arrayMove: (arr: unknown[]) => arr,

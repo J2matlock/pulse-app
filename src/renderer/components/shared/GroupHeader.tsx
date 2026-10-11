@@ -109,10 +109,10 @@ export function ChecklistGroupHeader({
           {...attributes}
           {...listeners}
           className="hit-44 cursor-grab active:cursor-grabbing text-slate-500 opacity-30
-                     hover:opacity-100 transition-opacity hover:text-slate-600
-                     dark:hover:text-slate-200 p-0.5"
-          aria-label={`Drag group ${group.name}`}
-          tabIndex={-1}
+                     hover:opacity-100 focus-visible:opacity-100 transition-opacity hover:text-slate-600
+                     dark:hover:text-slate-200 p-0.5 rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+          aria-label={`Reorder group ${group.name}`}
+          title="Drag to reorder, or press Space and use the arrow keys"
         >
           <GripVertical className="w-4 h-4" />
         </button>

@@ -11,6 +11,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { dropdownVariants, backdropVariants, modalPanelVariants } from '../../utils/animations'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useMenuKeys } from '../../hooks/useMenuKeys'
+import { dndAccessibility } from '../../utils/dndAnnouncements'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -569,7 +570,8 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
         )}
 
         {/* Grid list — drag-to-reorder */}
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}
+          accessibility={dndAccessibility(id => grids.find(g => g.id === id)?.name)}>
           <SortableContext items={grids.map(g => g.id)} strategy={verticalListSortingStrategy}>
             {grids.map((grid, index) => (
               <SortableGridItem

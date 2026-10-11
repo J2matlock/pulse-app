@@ -276,16 +276,17 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
                  ${item.is_completed ? 'opacity-60' : ''}`}
     >
       {/* Drag handle */}
+      {/* Reached with Tab: Space picks it up, the arrows move it, Space drops it (AUDIT-049) */}
       <button
         {...attributes}
         {...listeners}
-        tabIndex={-1}
+        tabIndex={isDragDisabled ? -1 : 0}
         style={{ touchAction: 'none' }}
         className={`hit-44 mt-0.5 flex-shrink-0 text-slate-300 dark:text-slate-500 cursor-grab active:cursor-grabbing
-                   hover:text-slate-500
-                   ${isDragDisabled ? 'invisible' : 'opacity-40 group-hover:opacity-100 transition-opacity'}`}
-        title="Drag to reorder"
-        aria-label="Drag to reorder"
+                   hover:text-slate-500 rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
+                   ${isDragDisabled ? 'invisible' : 'opacity-40 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity'}`}
+        title="Drag to reorder, or press Space and use the arrow keys"
+        aria-label={`Reorder ${item.title}`}
       >
         <GripVertical className="w-4 h-4" />
       </button>

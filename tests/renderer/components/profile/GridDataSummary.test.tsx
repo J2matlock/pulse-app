@@ -17,12 +17,13 @@ vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMoc
 vi.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children: React.ReactNode }) => React.createElement('div', null, children),
   closestCenter: vi.fn(),
-  PointerSensor: vi.fn(),
+  PointerSensor: vi.fn(), KeyboardSensor: vi.fn(),
   useSensor: () => ({}),
   useSensors: () => [],
 }))
 
 vi.mock('@dnd-kit/sortable', () => ({
+  sortableKeyboardCoordinates: vi.fn(),
   SortableContext: ({ children }: { children: React.ReactNode }) => React.createElement('div', null, children),
   verticalListSortingStrategy: {},
   rectSortingStrategy: {},
@@ -235,6 +236,6 @@ describe('GridDataSummary', () => {
       expect(screen.getByText('Status')).toBeTruthy()
     })
 
-    expect(screen.getByLabelText('Drag to reorder')).toBeTruthy()
+    expect(screen.getByLabelText('Reorder Status')).toBeTruthy()
   })
 })

@@ -2,7 +2,7 @@
  * ChecklistTemplateEditor — Modal for creating or editing a checklist template.
  * Supports drag-to-reorder items via @dnd-kit/sortable.
  */
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { X, Plus, Trash2, GripVertical } from 'lucide-react'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
@@ -24,6 +24,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { dndAccessibility } from '../../utils/dndAnnouncements'
 import { IPC } from '../../../shared/ipc-channels'
 import type { ChecklistTemplate, ChecklistPriority } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
@@ -89,10 +90,9 @@ function SortableItem({ item, index, onChange, onRemove, isOnly }: SortableItemP
         type="button"
         {...attributes}
         {...listeners}
-        className="hit-44 mt-2.5 cursor-grab active:cursor-grabbing text-slate-500 dark:text-slate-400 opacity-30 hover:opacity-100 transition-opacity hover:text-slate-600 dark:hover:text-slate-200"
-        aria-label={`Drag item ${index + 1}`}
-        title="Drag to reorder"
-        tabIndex={-1}
+        className="hit-44 mt-2.5 cursor-grab active:cursor-grabbing text-slate-500 dark:text-slate-400 opacity-30 hover:opacity-100 focus-visible:opacity-100 transition-opacity hover:text-slate-600 dark:hover:text-slate-200 rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+        aria-label={`Reorder ${item.title.trim() || `item ${index + 1}`}`}
+        title="Drag to reorder, or press Space and use the arrow keys"
       >
         <GripVertical className="w-4 h-4" />
       </button>
@@ -181,6 +181,11 @@ export function ChecklistTemplateEditor({ open, template, onClose, onSaved }: Pr
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
+  // Item names, not ids, are read out while one moves (AUDIT-049)
+  const dragA11y = useMemo(() => dndAccessibility(id => {
+    const i = items.findIndex(it => it.id === id)
+    return i === -1 ? null : (items[i]?.title.trim() || `item ${i + 1}`)
+  }), [items])
 
   // Reset state when modal opens or template changes
   useEffect(() => {
@@ -213,7 +218,8 @@ export function ChecklistTemplateEditor({ open, template, onClose, onSaved }: Pr
   useEffect(() => {
     if (!open) return
     function handler(e: KeyboardEvent) {
-      if (e.key === 'Escape') { e.preventDefault(); onClose() }
+      // A keyboard drag takes Escape to cancel the move (it marks it handled): the dialog stays
+      if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); onClose() }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -422,6 +428,7 @@ export function ChecklistTemplateEditor({ open, template, onClose, onSaved }: Pr
               sensors={sensors}
               collisionDetection={closestCenter}
               onDragEnd={handleDragEnd}
+              accessibility={dragA11y}
             >
               <SortableContext items={items.map(it => it.id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-2">

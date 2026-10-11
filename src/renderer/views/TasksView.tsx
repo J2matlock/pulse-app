@@ -5,6 +5,7 @@ import { GroupPicker } from '../components/shared/GroupPicker'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   DndContext,
+  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -12,8 +13,10 @@ import {
 } from '@dnd-kit/core'
 import {
   SortableContext,
+  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
+import { dndAccessibility } from '../utils/dndAnnouncements'
 import { useShallow } from 'zustand/react/shallow'
 import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { EmptyState } from '../components/shared/EmptyState'
@@ -92,8 +95,10 @@ export default function TasksView(): React.ReactElement {
     return () => clearTimeout(t)
   }, [loading])
 
+  // Tasks and groups move from the keyboard too: Space on a handle, arrows, Space (AUDIT-049)
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
   const loadUrgentItems = useCallback(async () => {
@@ -403,6 +408,16 @@ export default function TasksView(): React.ReactElement {
   const progressPct = totalAll > 0 ? Math.round((completedTasks.length / totalAll) * 100) : 0
   const progressColor = progressPct === 100 ? '#22c55e' : progressPct >= 50 ? '#eab308' : '#94a3b8'
 
+  // A screen reader hears the task's or group's name while it moves, not its id
+  const dragA11y = useMemo(() => dndAccessibility(id => {
+    const s = String(id)
+    if (s.startsWith('group-')) {
+      const g = taskGroups.find(x => `group-${x.id}` === s)
+      return g ? `${g.name} group` : null
+    }
+    return tasks.find(t => t.id === id)?.title
+  }), [tasks, taskGroups])
+
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event
     if (!over) return
@@ -631,7 +646,7 @@ export default function TasksView(): React.ReactElement {
                   </SortableContext>
                 </DndContext>
               ) : (
-                <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd}>
+                <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd} accessibility={dragA11y}>
                   {!hasTaskGroups ? (
                     /* Flat mode (no groups) */
                     <SortableContext items={activeManualItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
