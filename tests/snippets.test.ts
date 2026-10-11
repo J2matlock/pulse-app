@@ -112,6 +112,18 @@ describe('matchSnippets', () => {
     expect(matches.map(m => m.trigger_text)).toEqual(['fw', 'fwc'])
   })
 
+  it('a trigger typed in full comes first, even if a longer one sorts earlier', () => {
+    // Server order is by category: "Admin" (/ref) before "Visit" (/re)
+    const ordered = [
+      { trigger_text: 'ref', expansion: 'Referral submitted to ', category: 'Admin' },
+      { trigger_text: 'reff', expansion: 'Longer', category: 'Admin' },
+      { trigger_text: 're', expansion: 'Reviewed with', category: 'Visit' },
+    ]
+    expect(matchSnippets(ordered, 're').map(m => m.trigger_text)).toEqual(['re', 'ref', 'reff'])
+    // With nothing typed yet, the list keeps its order
+    expect(matchSnippets(ordered, '').map(m => m.trigger_text)).toEqual(['ref', 'reff', 're'])
+  })
+
   it('empty query matches all (up to 8)', () => {
     const matches = matchSnippets(snippets, '')
     expect(matches).toHaveLength(4)

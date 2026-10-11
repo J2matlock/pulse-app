@@ -70,7 +70,15 @@ export function matchSnippets<T extends { trigger_text: string }>(
   query: string
 ): T[] {
   const q = query.toLowerCase()
-  return snippets
-    .filter(s => s.trigger_text.toLowerCase().startsWith(q))
-    .slice(0, MAX_SNIPPET_MATCHES)
+  const hits = snippets.filter(s => s.trigger_text.toLowerCase().startsWith(q))
+  // Tab expands the first match, so a trigger typed in full ("/re") must beat a
+  // longer one ("/ref") that happens to sort earlier by category. Then shorter first.
+  if (q) {
+    hits.sort((a, b) => {
+      const ea = a.trigger_text.toLowerCase() === q ? 0 : 1
+      const eb = b.trigger_text.toLowerCase() === q ? 0 : 1
+      return ea - eb || a.trigger_text.length - b.trigger_text.length
+    })
+  }
+  return hits.slice(0, MAX_SNIPPET_MATCHES)
 }

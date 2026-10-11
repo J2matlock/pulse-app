@@ -500,6 +500,13 @@ describe('IPC Tasks', () => {
       expect(result.data).toEqual([])
     })
 
+    it('deleting every snippet does not bring the built-ins back', async () => {
+      await invoke(IPC.SNIPPET_GET_ALL)
+      testDb.db.prepare('DELETE FROM snippets').run()
+      const result = await invoke(IPC.SNIPPET_GET_ALL) as any
+      expect(result.data).toEqual([])
+    })
+
     it('does not re-seed on subsequent calls', async () => {
       await invoke(IPC.SNIPPET_GET_ALL)
       const count1 = (testDb.db.prepare('SELECT COUNT(*) as c FROM snippets').get() as any).c

@@ -330,9 +330,12 @@ export function registerTaskHandlers(): void {
   // ── Snippets ────────────────────────────────────────────────────────────────
   secureWrap(IPC.SNIPPET_GET_ALL, 'ipc-tasks', () => {
     const db = getDb()
-    // Lazy-seed pre-built snippets on first load (they're written for human services)
+    // Lazy-seed pre-built snippets once (they're written for human services). The flag
+    // stops them coming back after someone deletes every snippet to start fresh.
     const count = (db.prepare('SELECT COUNT(*) as n FROM snippets').get() as { n: number }).n
-    if (count === 0 && usesHumanServicesWords()) {
+    const seeded = db.prepare("SELECT 1 FROM app_meta WHERE key = 'snippets_seeded'").get()
+    if (count > 0 && !seeded) db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('snippets_seeded', '1')").run()
+    if (count === 0 && !seeded && usesHumanServicesWords()) {
       const insert = db.prepare(`
         INSERT OR IGNORE INTO snippets (trigger_text, expansion, category, created_at)
         VALUES (?, ?, ?, datetime('now'))
@@ -352,6 +355,7 @@ export function registerTaskHandlers(): void {
         insert.run('tc',   'Telephone contact with {client_name} on {today} at {now}.', 'Phone')
       })
       seedAll()
+      db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('snippets_seeded', '1')").run()
     }
     const snippets = db.prepare('SELECT * FROM snippets ORDER BY category ASC, trigger_text ASC').all() as Snippet[]
     return ok(snippets)
