@@ -151,7 +151,7 @@ describe('10B — Column type change triggers confirmation dialog', () => {
 // Already covered in tests/wrap-handler.test.ts — this verifies end-to-end.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { wrapHandler, logNonFatal, assertSafePath } from '../../src/main/ipc/ipc-utils'
+import { wrapHandler, logNonFatal, assertSafePath, PATH_REFUSED_MESSAGE } from '../../src/main/ipc/ipc-utils'
 
 describe('10G — humanizeError in wrapHandler flow', () => {
   beforeEach(() => { vi.clearAllMocks() })
@@ -181,11 +181,11 @@ describe('10G — humanizeError in wrapHandler flow', () => {
 
 describe('10H — assertSafePath null byte rejection', () => {
   it('rejects paths containing null bytes', () => {
-    expect(() => assertSafePath('/tmp/file\0evil')).toThrow('null bytes')
+    expect(() => assertSafePath('/tmp/file\0evil')).toThrow(expect.objectContaining({ reason: 'null byte', message: PATH_REFUSED_MESSAGE }))
   })
 
   it('rejects empty paths as relative', () => {
-    expect(() => assertSafePath('')).toThrow('Relative paths not allowed')
+    expect(() => assertSafePath('')).toThrow(expect.objectContaining({ reason: 'empty', message: PATH_REFUSED_MESSAGE }))
   })
 })
 

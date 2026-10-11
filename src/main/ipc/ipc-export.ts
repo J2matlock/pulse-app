@@ -221,12 +221,14 @@ export function registerExportHandlers(): void {
     if (!config || typeof config !== 'object') return fail('Invalid config')
     if (typeof config.enabled !== 'boolean') return fail('Invalid enabled flag')
     if (typeof config.intervalHours !== 'number' || config.intervalHours < 1 || config.intervalHours > 720) return fail('Invalid interval (must be 1-720 hours)')
-    if (config.destinationDir !== undefined && config.destinationDir !== null) {
-      if (typeof config.destinationDir !== 'string') return fail('Invalid destination directory')
-      assertSafePath(config.destinationDir)
-    }
     // Main owns the run history; the renderer only changes the settings
     const current = getScheduledConfig()
+    if (config.destinationDir !== undefined && config.destinationDir !== null) {
+      if (typeof config.destinationDir !== 'string') return fail('Invalid destination directory')
+      // The folder already saved was checked when it was chosen; re-checking it
+      // would refuse a network folder picked in an earlier session
+      if (config.destinationDir !== current.destinationDir) assertSafePath(config.destinationDir)
+    }
     setScheduledConfig({ ...current, enabled: config.enabled, intervalHours: config.intervalHours, destinationDir: config.destinationDir ?? current.destinationDir })
     return ok(true)
   })

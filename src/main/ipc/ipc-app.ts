@@ -5,10 +5,10 @@
 
 import { app, BrowserWindow, shell, dialog, clipboard } from 'electron'
 import { existsSync, unlinkSync, readdirSync, rmSync } from 'fs'
-import { join } from 'path'
+import { join, dirname } from 'path'
 import Store from 'electron-store'
 import { IPC } from '../../shared/ipc-channels'
-import { secureWrap, logNonFatal, ok, fail } from './ipc-utils'
+import { secureWrap, logNonFatal, ok, fail, rememberUserChosenPaths } from './ipc-utils'
 import { resolveDatabasePath, closeDatabase, getDb, getPortableDataDir, getMigrationFailure, clearMigrationFailureFlag } from '../database'
 import { verifyAndUnlock, lockApp } from '../auth'
 
@@ -74,6 +74,8 @@ export function registerAppHandlers(): void {
       defaultPath: typeof options.defaultPath === 'string' ? options.defaultPath : undefined,
     }
     const result = await dialog.showOpenDialog(safeOptions)
+    // The person picked these, so later handlers may use them wherever they are
+    if (!result.canceled) rememberUserChosenPaths(result.filePaths)
     return ok(result)
   })
 
@@ -90,6 +92,8 @@ export function registerAppHandlers(): void {
         : undefined,
     }
     const result = await dialog.showSaveDialog(safeOptions)
+    // A save choice also vouches for its folder: handlers may add an extension (.pulse-backup)
+    if (!result.canceled && result.filePath) rememberUserChosenPaths([dirname(result.filePath)])
     return ok(result)
   })
 

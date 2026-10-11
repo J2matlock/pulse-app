@@ -261,6 +261,30 @@ describe('APP_SHOW_SAVE_DIALOG', () => {
   })
 })
 
+describe('dialog choices vouch for paths (AUDIT-001)', () => {
+  it('a file picked in the open dialog passes the path check later, wherever it is', async () => {
+    const { assertSafePath } = await import('../src/main/ipc/ipc-utils')
+    expect(() => assertSafePath('/srv/test-share/pick.pulse-backup')).toThrow()
+    mockDialogOpen.mockResolvedValueOnce({ canceled: false, filePaths: ['/srv/test-share/pick.pulse-backup'] } as never)
+    await invoke(IPC.APP_SHOW_FILE_DIALOG, { properties: ['openFile'] })
+    expect(() => assertSafePath('/srv/test-share/pick.pulse-backup')).not.toThrow()
+  })
+
+  it('a save choice vouches for its folder, so an added extension still passes', async () => {
+    const { assertSafePath } = await import('../src/main/ipc/ipc-utils')
+    mockDialogSave.mockResolvedValueOnce({ canceled: false, filePath: '/srv/test-save/backup' } as never)
+    await invoke(IPC.APP_SHOW_SAVE_DIALOG, { title: 'Save' })
+    expect(() => assertSafePath('/srv/test-save/backup.pulse-backup')).not.toThrow()
+  })
+
+  it('a cancelled dialog vouches for nothing', async () => {
+    const { assertSafePath } = await import('../src/main/ipc/ipc-utils')
+    mockDialogOpen.mockResolvedValueOnce({ canceled: true, filePaths: ['/srv/test-cancel/x.csv'] } as never)
+    await invoke(IPC.APP_SHOW_FILE_DIALOG, { properties: ['openFile'] })
+    expect(() => assertSafePath('/srv/test-cancel/x.csv')).toThrow()
+  })
+})
+
 describe('APP_FACTORY_RESET', () => {
   it('rejects missing password', async () => {
     const r = await invoke(IPC.APP_FACTORY_RESET, '') as any

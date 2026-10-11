@@ -237,6 +237,15 @@ describe('BACKUP_SCHEDULED_SET_CONFIG', () => {
     expect(result.ok).toBe(true)
     expect(backupMock.lastSet).toEqual({ enabled: true, intervalHours: 12, destinationDir: '/old/dest', lastRunISO: '2026-10-01T09:00:00.000Z' })
   })
+
+  it('accepts the folder already saved without re-checking it, but checks a new one (AUDIT-001)', async () => {
+    // '/old/dest' was vouched for when it was picked; a later toggle mustn't refuse it
+    const same = await invoke(IPC.BACKUP_SCHEDULED_SET_CONFIG, { enabled: false, intervalHours: 24, destinationDir: '/old/dest' }) as { ok: boolean }
+    expect(same.ok).toBe(true)
+    const other = await invoke(IPC.BACKUP_SCHEDULED_SET_CONFIG, { enabled: true, intervalHours: 24, destinationDir: '/etc/pulse' }) as { ok: boolean; error?: string }
+    expect(other.ok).toBe(false)
+    expect(other.error).toMatch(/can't use that location/)
+  })
 })
 
 describe('BACKUP_SCHEDULED_RUN_NOW', () => {

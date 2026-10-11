@@ -6,9 +6,9 @@ import { randomUUID } from 'node:crypto'
 import path from 'path'
 import { realpathSync, existsSync } from 'fs'
 import { ipcMain, app, BrowserWindow } from 'electron'
-import { resolve } from 'path'
 import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
+import { getPortableDataDir } from '../data-dir'
 
 // Helper to wrap handler results
 export function ok<T>(data: T) { return { ok: true as const, data } }
@@ -206,76 +206,151 @@ export function validId(id: unknown): id is number {
 // Safe identifier regex: only lowercase letters, digits, underscores
 export const SAFE_IDENT = /^[a-z][a-z0-9_]*$/
 
+/** What people see when a path is refused — the technical reason goes to the log */
+export const PATH_REFUSED_MESSAGE = "Pulse can't use that location. Choose a file or folder in your own folders, on a USB drive or on a network drive."
+
+function refusePath(reason: string): never {
+  logger.warn('ipc', 'Refused a file path', { reason })
+  throw Object.assign(new Error(PATH_REFUSED_MESSAGE), { code: 'PULSE_PATH_REFUSED', reason })
+}
+
 /**
- * Reject paths outside allowed directories (defense-in-depth against renderer compromise).
+ * Paths the person picked in one of Pulse's own open/save dialogs. Choosing a
+ * folder in the dialog is the clearest consent there is, so these (and files
+ * inside a chosen folder) pass even outside the usual folders, e.g. a network
+ * share mounted somewhere unusual. System folders and credential files are
+ * still refused. In memory only and capped, so it never grows without bound.
+ */
+const userChosenPaths: string[] = []
+const MAX_USER_CHOSEN = 100
+
+export function rememberUserChosenPaths(paths: readonly (string | undefined | null)[]): void {
+  for (const p of paths) {
+    if (typeof p !== 'string' || p === '' || p.includes('\0') || !pathApi().isAbsolute(p)) continue
+    const resolved = resolveForCheck(p)
+    const existing = userChosenPaths.indexOf(resolved)
+    if (existing !== -1) userChosenPaths.splice(existing, 1)
+    userChosenPaths.push(resolved)
+    if (userChosenPaths.length > MAX_USER_CHOSEN) userChosenPaths.shift()
+  }
+}
+
+/** Test seam: forget every remembered dialog choice. */
+export function clearUserChosenPaths(): void { userChosenPaths.length = 0 }
+
+function pathApi(): typeof path.posix {
+  return process.platform === 'win32' ? path.win32 : path.posix
+}
+
+/** Resolve symlinks (on the path, or its parent when it doesn't exist yet) so a link can't point the check somewhere else */
+function resolveForCheck(p: string): string {
+  const P = pathApi()
+  try {
+    if (existsSync(p)) return realpathSync(p)
+    const parentDir = P.dirname(p)
+    if (existsSync(parentDir)) return P.join(realpathSync(parentDir), P.basename(p))
+  } catch { /* fall back to the plain resolved path */ }
+  return P.resolve(p)
+}
+
+function safeAppPath(name: Parameters<typeof app.getPath>[0]): string | null {
+  try {
+    const dir = app.getPath(name)
+    return typeof dir === 'string' && dir !== '' ? dir : null
+  } catch { return null }
+}
+
+/** Is `child` the folder `dir` or inside it? Case-insensitive on Windows. */
+function isWithin(child: string, dir: string): boolean {
+  const P = pathApi()
+  const win = process.platform === 'win32'
+  const c = win ? child.toLowerCase() : child
+  let d = win ? dir.toLowerCase() : dir
+  if (d.length > 1 && d.endsWith(P.sep)) d = d.slice(0, -1)
+  return c === d || c.startsWith(d + P.sep)
+}
+
+/** A folder plus its symlink-resolved form (e.g. /home → /var/home on Fedora Silverblue) */
+function withRealPath(dir: string): string[] {
+  try {
+    const real = realpathSync(dir)
+    return real === dir ? [dir] : [dir, real]
+  } catch { return [dir] }
+}
+
+// Credential folders in a home directory: never read or written through Pulse
+const HOME_SECRET_DIRS = ['.ssh', '.gnupg', '.aws']
+// Pulse's own wrapped-key store (and its backup copy); overwriting it would lock the person out
+const CREDENTIAL_FILE_RE = /^pulse-secure.*\.json$/i
+
+const POSIX_SYSTEM_DIRS = [
+  '/etc', '/usr', '/bin', '/sbin', '/lib', '/lib32', '/lib64', '/boot', '/proc', '/sys', '/dev',
+  '/var', '/root', '/opt', '/snap',
+  '/System', '/Library', '/Applications', '/private', '/cores',
+]
+// Where macOS and Linux mount USB drives, external disks and network shares
+const POSIX_REMOVABLE_ROOTS = ['/Volumes', '/media', '/run/media', '/mnt']
+const WIN_SYSTEM_DIRS = ['windows', 'program files', 'program files (x86)', 'programdata']
+
+/**
+ * Check a file path that came from the renderer before main reads or writes it
+ * (defense-in-depth against a compromised renderer; the real boundary is
+ * context isolation + the sandboxed preload).
  *
- * Windows: allows any absolute path on a local drive (C:\, D:\, E:\, etc.)
- * since users import from USB drives, external HDDs, and secondary partitions.
- * The real security boundary is context isolation + preload sandboxing.
+ * Always refused: relative paths, null bytes, Windows device paths (\\?\,
+ * \\.\), system folders, Pulse's credential files and ~/.ssh-style folders.
  *
- * Linux/macOS: restricts to Documents, Desktop, Downloads, app data, and temp.
+ * Allowed:
+ * - the person's own home folder (Documents, Desktop, …) and Pulse's data and temp folders
+ * - anything picked in one of Pulse's own dialogs (rememberUserChosenPaths)
+ * - Windows: any drive letter or network share (\\server\share), except
+ *   another person's profile under <drive>:\Users
+ * - macOS/Linux: USB drives and mounts under /Volumes, /media, /run/media and /mnt
+ *
+ * Throws an Error whose message is plain language (PATH_REFUSED_MESSAGE).
  */
 export function assertSafePath(p: string): void {
-  if (p.includes('\0')) throw new Error('Path contains null bytes')
-  if (!path.isAbsolute(p)) throw new Error(`Relative paths not allowed: ${p}`)
-  // Resolve symlinks to prevent symlink-based directory traversal
-  let resolved: string
-  if (existsSync(p)) {
-    resolved = realpathSync(p)
-  } else {
-    // For non-existent paths, resolve the parent (which must exist) to follow symlinks
-    const parentDir = path.dirname(p)
-    const baseName = path.basename(p)
-    resolved = existsSync(parentDir)
-      ? path.join(realpathSync(parentDir), baseName)
-      : resolve(p)
+  const win = process.platform === 'win32'
+  const P = pathApi()
+  if (typeof p !== 'string' || p === '') refusePath('empty')
+  if (p.includes('\0')) refusePath('null byte')
+  if (win && /^[\\/]{2}[?.][\\/]/.test(p)) refusePath('windows device path')
+  if (!P.isAbsolute(p)) refusePath('relative')
+
+  const resolved = resolveForCheck(p)
+  if (win && !/^[A-Za-z]:\\/.test(resolved) && !/^\\\\[^\\]+\\[^\\]+/.test(resolved)) refusePath('not a drive or network path')
+  const home = safeAppPath('home')
+
+  // Credential files and folders — refused whoever chose them
+  if (CREDENTIAL_FILE_RE.test(P.basename(resolved))) refusePath('credential file')
+  if (home) {
+    for (const h of withRealPath(home)) {
+      if (HOME_SECRET_DIRS.some(d => isWithin(resolved, P.join(h, d)))) refusePath('credential folder')
+    }
   }
 
-  const userData = app.getPath('userData')
-  const home = app.getPath('home')
+  let dataDir: string | null = null
+  try { dataDir = getPortableDataDir() } catch { /* app paths unavailable */ }
+  const ownDirs = [dataDir, ...(['userData', 'temp', 'home', 'documents', 'desktop', 'downloads'] as const).map(safeAppPath)]
+    .filter((d): d is string => typeof d === 'string' && d !== '')
+    .flatMap(withRealPath)
+  if (ownDirs.some(d => isWithin(resolved, d))) return
 
-  // Windows: allow standard user directories plus removable drives under user home
-  if (process.platform === 'win32') {
-    if (!/^[A-Za-z]:\\/.test(resolved)) throw new Error('Invalid Windows path')
-    const allowedWinDirs = [
-      userData,
-      app.getPath('documents'),
-      app.getPath('desktop'),
-      app.getPath('downloads'),
-      app.getPath('temp'),
-      home,
-    ]
-    // Allow standard user directories
-    if (allowedWinDirs.some(dir => resolved.startsWith(dir + path.sep) || resolved === dir)) {
-      return
-    }
-    // Allow root of any drive (for USB/external drives) — but block system directories
-    const systemDirs = ['\\windows', '\\program files', '\\program files (x86)', '\\programdata']
-    if (systemDirs.some(sd => resolved.toLowerCase().includes(sd))) {
-      throw new Error('Path inside system directory')
-    }
-    // Block paths under other user profiles (C:\Users\OtherUser)
-    const usersDir = path.join(resolved.slice(0, 3), 'Users')
-    if (resolved.toLowerCase().startsWith(usersDir.toLowerCase() + path.sep.toLowerCase()) && !resolved.toLowerCase().startsWith(home.toLowerCase() + path.sep.toLowerCase()) && resolved.toLowerCase() !== home.toLowerCase()) {
-      throw new Error('Path inside another user profile')
-    }
-    return
+  if (win) {
+    const rest = /^[A-Za-z]:\\(.*)$/.exec(resolved)?.[1]?.toLowerCase()
+    const top = rest?.split('\\')[0]
+    if (top !== undefined && WIN_SYSTEM_DIRS.includes(top)) refusePath('system folder')
+    // Another person's profile on this computer
+    if (top === 'users' && (rest?.split('\\').length ?? 0) > 1) refusePath('another user profile')
+  } else if (POSIX_SYSTEM_DIRS.some(d => isWithin(resolved, d))) {
+    refusePath('system folder')
   }
 
-  const allowedDirs = [
-    userData,
-    app.getPath('documents'),
-    app.getPath('desktop'),
-    app.getPath('downloads'),
-    app.getPath('temp'),
-    path.join(home, 'Documents'),
-    path.join(home, 'Desktop'),
-    path.join(home, 'Downloads'),
-  ]
-  if (allowedDirs.some(dir => resolved.startsWith(dir + path.sep) || resolved === dir)) {
-    return
-  }
-  throw new Error('Path outside allowed directories')
+  if (userChosenPaths.some(d => isWithin(resolved, d))) return
+
+  if (win) return
+  if (POSIX_REMOVABLE_ROOTS.some(d => isWithin(resolved, d) && resolved !== d)) return
+  refusePath('outside allowed folders')
 }
 
 /** Push a notification to all renderer windows when case log entries change. */
