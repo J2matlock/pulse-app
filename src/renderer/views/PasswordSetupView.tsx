@@ -31,7 +31,9 @@ export function PasswordSetupView(): React.ReactElement {
   const [missing, setMissing] = useState<string | null>(null)
   const termsRef = useRef<HTMLInputElement>(null)
 
-  const { setPasswordSetup, setLocked } = useSettingsStore()
+  // Just the two actions: a settings change elsewhere needn't redraw this screen (AUDIT-137)
+  const setPasswordSetup = useSettingsStore(s => s.setPasswordSetup)
+  const setLocked = useSettingsStore(s => s.setLocked)
 
   const passwordsMatch = password === confirm
 
