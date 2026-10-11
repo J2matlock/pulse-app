@@ -220,5 +220,41 @@ describe('undoStore', () => {
         'Undone action',
       )
     })
+
+    it('a failed undo leaves its note alone (AUDIT-023)', async () => {
+      mockInvoke.mockResolvedValue({ ok: true, data: null })
+      const item = makeItem({
+        sideEffects: [{ type: 'void_case_log', caseLogId: 42 }],
+        undo: vi.fn().mockRejectedValue(new Error("That can't be undone any more.")),
+      })
+      useUndoStore.getState().push(item)
+      await useUndoStore.getState().undo()
+      expect(mockInvoke).not.toHaveBeenCalledWith('case-log:void', 42, 'Undone action')
+      expect(useUndoStore.getState().undoStack).toHaveLength(1)
+    })
+
+    it('a failed redo leaves its note voided (AUDIT-023)', async () => {
+      mockInvoke.mockResolvedValue({ ok: true, data: null })
+      const item = makeItem({
+        sideEffects: [{ type: 'void_case_log', caseLogId: 42 }],
+        redo: vi.fn().mockRejectedValue(new Error('nope')),
+      })
+      useUndoStore.getState().push(item)
+      await useUndoStore.getState().undo()
+      mockInvoke.mockClear()
+      await useUndoStore.getState().redo()
+      expect(mockInvoke).not.toHaveBeenCalledWith('case-log:unvoid', 42)
+    })
+
+    it('undoing back to a step leaves the failed step\'s note alone (AUDIT-023)', async () => {
+      mockInvoke.mockResolvedValue({ ok: true, data: null })
+      const first = makeItem({ sideEffects: [{ type: 'void_case_log', caseLogId: 1 }], undo: vi.fn().mockRejectedValue(new Error('nope')) })
+      const second = makeItem({ sideEffects: [{ type: 'void_case_log', caseLogId: 2 }] })
+      useUndoStore.getState().push(first)
+      useUndoStore.getState().push(second)
+      await useUndoStore.getState().undoTo(first.id)
+      expect(mockInvoke).toHaveBeenCalledWith('case-log:void', 2, 'Undone action')
+      expect(mockInvoke).not.toHaveBeenCalledWith('case-log:void', 1, 'Undone action')
+    })
   })
 })
