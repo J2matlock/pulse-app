@@ -66,8 +66,10 @@ test.describe('Three ways to start', () => {
     await window.getByRole('heading', { name: /pick the details/i }).waitFor();
     await window.getByRole('button', { name: /create list/i }).click();
     // 5. Repeating dates (only when a date column was picked)
+    // isVisible() doesn't wait, so wait for whichever step comes next
     const dates = window.getByRole('heading', { name: /dates repeat/i });
-    if (await dates.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await dates.or(window.getByRole('heading', { name: /a few quick questions/i })).first().waitFor();
+    if (await dates.isVisible()) {
       await window.getByRole('button', { name: /continue/i }).click();
     }
     // 6. Quick questions
@@ -114,7 +116,8 @@ test.describe('Three ways to start', () => {
     await window.getByRole('button', { name: /continue/i }).click();
 
     const dates = window.getByRole('heading', { name: /which of these dates repeat/i });
-    if (await dates.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await dates.or(window.getByText(/explore on my own/i)).first().waitFor({ timeout: 10000 });
+    if (await dates.isVisible()) {
       await window.getByRole('button', { name: /finish/i }).click();
     }
     await finishSetup(window);

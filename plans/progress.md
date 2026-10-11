@@ -1575,3 +1575,62 @@ Comprehensive audit identified 2 critical, 7 high, 10 medium, 15 low findings. A
   - Contact rules (L-32)
 - Screens before and after: `plans/audit-2026-10/screens/ui-tour` and `screens/after` (git-ignored)
 - Build state: npm test 4088 pass / 4 skip; typecheck 0; eslint 0 errors; e2e 11/11
+
+## 2026-10-11 — Polish pass (after the audit merge)
+
+Started from two bugs the user hit:
+- Deadline text overlapped neighbouring cells.
+- After setting up an example, the list only appeared once you visited another page.
+
+Then a full polish pass:
+- 7 read-only reviewers by area, plus a screenshot sweep across 6 starters. About 147 findings, in `plans/polish-2026-10/R1–R7.md` and `V1.md`.
+- 5 builder tracks by file ownership (`plans/polish-2026-10/TRACKS.md`), all merged.
+
+- **Setup / stale screens:**
+  - Finishing setup loads the lists and opens the first one.
+  - Only the newest list fetch may land.
+  - Import close paths keep the import.
+  - The dashboard, rules, link store and list words reload after examples, templates, sample removal, list changes and reactivation.
+  - Restored records reappear in the open list.
+- **Grid:**
+  - Cells clip their content.
+  - Deadline words truncate, always have a tooltip, and redraw when counts arrive.
+  - Rule and deadline columns from starters/templates open at 250px or more (`startingWidth()` in `shared/columnTypes.ts`); name columns open at 200px.
+  - Board counts, exports and words follow its cards.
+  - Cell editors work in dark mode.
+  - The toolbar collapses with container queries instead of wrapping.
+  - Computed cells accept copy and open keys.
+- **Record & tasks:**
+  - A moved record's page no longer loops.
+  - Task and checklist undo works outside the record page.
+  - The record page uses one name everywhere.
+  - Calendar blocks and the month view fit.
+  - Tasks and Focus mode show load errors.
+- **Dashboard, rules & reports:**
+  - A quota extension is tied to the allowance end, so it stops applying after a renewal.
+  - Used-up quotas are worded the same everywhere.
+  - Deadline columns work like dates for note updates and stages.
+  - The report builder offers every rule column.
+  - Singular words fixed.
+- **Data lifecycle:**
+  - Remove sample data really goes to the Trash.
+  - Column changes don't make samples look edited.
+  - A failed restore reopens the database.
+  - Contact custom fields save.
+  - Contact categories only seed under the human-services words.
+  - Purging the Trash clears undo.
+  - Plain error messages.
+- **Hygiene:**
+  - Dead code removed: 11 IPC channels, including EXPORT_PDF_BATCH, and unused components/hooks.
+  - ⌘ shown instead of Ctrl on Mac.
+  - The vocabulary rule is wider, with 15 strings fixed.
+  - Help captions are 15px.
+  - Date helpers merged where identical.
+
+Left for later:
+- Vocabulary leaks in plain screen text that the rule doesn't check ("Contacts will become Uncategorized", "Log a note").
+- The ContactFilterBar search-timer race.
+- Recent names only update when the record page is visited.
+- Quota extensions saved before this pass stop applying (they were tied to an empty value).
+
+Build state: npm test 4163 pass / 4 skip; typecheck 0; eslint 0 errors (26 exhaustive-deps warnings); e2e 11/11 plus the setup check.
