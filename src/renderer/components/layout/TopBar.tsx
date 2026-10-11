@@ -13,6 +13,23 @@ import { Tooltip } from '../shared/Tooltip'
 import { UndoHistoryPanel } from '../shared/UndoHistoryPanel'
 import { isMod } from '../../utils/keys'
 import { useVocab } from '../../hooks/useVocab'
+import type { FAQCategory } from '../../views/help/types'
+
+/** The Help topic that goes with a page */
+export function helpCategoryFor(pathname: string): FAQCategory | 'all' {
+  const first = pathname.split('/')[1] ?? ''
+  const map: Record<string, FAQCategory> = {
+    grid: 'caseload-grid', profile: 'client-profiles', dashboard: 'dashboard-deadlines', calendar: 'dashboard-deadlines',
+    tasks: 'tasks', contacts: 'contacts', reports: 'import-export', settings: 'security-backups', trash: 'caseload-grid',
+    snippets: 'snippets-templates', templates: 'snippets-templates', 'letter-templates': 'snippets-templates',
+  }
+  return map[first] ?? (first === '' ? 'caseload-grid' : 'all')
+}
+
+function openHelpFor(pathname: string, navigate: (to: string) => void): void {
+  try { sessionStorage.setItem('pulse-help-view-state', JSON.stringify({ search: '', category: helpCategoryFor(pathname), openIds: [], scrollTop: 0 })) } catch { /* Help still opens */ }
+  navigate('/help')
+}
 
 /** A page's own name for the top bar (pages that aren't one list) */
 export function pageTitle(pathname: string, t: (key: 'contactDirectory', opts?: { cap?: boolean }) => string): string | null {
@@ -287,9 +304,18 @@ export function TopBar(): React.ReactElement {
           </div>
         )}
 
+        {/* Help for this page: Help opens on the matching topic (audit N-22) */}
+        {!location.pathname.startsWith('/help') && (
+          <button type="button" onClick={() => openHelpFor(location.pathname, navigate)}
+            className="hit-44 inline-flex items-center justify-center w-8 h-8 rounded-full border border-slate-300 dark:border-slate-600 text-base font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+            aria-label="Help for this page" title="Help for this page">
+            ?
+          </button>
+        )}
+
         {/* Shortcut discovery hint */}
         <span className="text-xs text-slate-500 dark:text-slate-400 select-none hidden sm:inline" aria-hidden="true">
-          Press <kbd className="px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">Shift+?</kbd> for shortcuts
+          Press <kbd className="px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">?</kbd> for shortcuts
         </span>
       </div>
     </header>

@@ -1,9 +1,10 @@
 import React from 'react'
-import { SECTIONS as SHORTCUT_SECTIONS } from '../shared/KeyboardShortcutsModal'
+import { useShortcutSections } from '../shared/KeyboardShortcutsModal'
 import { useVocab } from '../../hooks/useVocab'
 
 export function ShortcutsSection(): React.ReactElement {
   const { f } = useVocab(null)
+  const sections = useShortcutSections()
   return (
     <>
       <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Keyboard Shortcuts</h2>
@@ -12,10 +13,10 @@ export function ShortcutsSection(): React.ReactElement {
       </p>
 
       <div className="space-y-6">
-        {SHORTCUT_SECTIONS.map(section => (
+        {sections.map(section => (
           <div key={section.title}>
             <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
-              {section.title}
+              {f(section.title)}
             </h3>
             <div className="space-y-1">
               {section.shortcuts.map((row, i) => (

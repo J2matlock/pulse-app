@@ -151,7 +151,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-date-colors',
     question: 'How do I set up deadline alerts on a date column?',
-    answer: 'Click the menu icon (\u22ef) or right-click any column header with date data and choose "Alert Rule." This lets you set up custom reminders to color-code cells when you are reaching a specific deadline date with a variety of customization options. You can edit and delete alert rules from that same "Alert Rule" submenu from the column header. These alerts show on your dashboard so you\'ll never miss a due date.',
+    answer: 'Click the menu icon (⋯) or right-click a date column\'s header and choose "Alert Rule," then pick a rule. Rules decide when the cells change color — for example, yellow 14 days before the date, orange 7 days before, red 3 days before. Change or remove the rule from the same menu, and manage rules you reuse in Settings > Alerts. Dates with a rule show on your dashboard so you never miss one.',
     category: 'caseload-grid',
     tourStepIds: ['deadline-colors'],
     demo: <DemoDeadlineColors />,
@@ -333,13 +333,7 @@ export const FAQ_ITEMS: FAQItem[] = [
     category: 'dashboard-deadlines',
     tourStepIds: ['dashboard', 'dashboard-tabs'],
   },
-  {
-    id: 'dash-alert-rules',
-    question: 'How do I set up deadline alerts for a column?',
-    answer: 'You can set alert rules in two ways: click the menu icon (\u22ef) on any date column header and choose "Deadline Alert," or go to Settings > Alerts to manage reusable rules. Rules determine when colors change \u2014 for example, "Turn yellow 14 days before due, orange 7 days before, red 3 days before."',
-    category: 'dashboard-deadlines',
-    tourStepIds: ['settings'],
-  },
+
   {
     id: 'dash-overdue',
     question: 'How do I see what\'s overdue right now?',
@@ -438,13 +432,13 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'ie-pulse-file',
     question: 'What is a .pulse file?',
-    answer: 'A .pulse file is a template that saves your grid structure \u2014 columns, alert rules, and checklist templates \u2014 without any {record} data. Use it to set up a new {list} with the same layout, or share your grid structure with a colleague. To save or load a .pulse template, go to the Templates page and click "Import Template File" or "Save Current Grid as Template." Templates include columns and alert rules.',
+    answer: 'A .pulse file holds the layout of one {list} — its columns, alert rules and checklist templates — never any {record:many}. Save or open one on the Templates page ("Save Current Grid as Template" / "Import Template File"). To share your whole setup instead (every {list}, your words and rules), use Settings > Workspace > Share your setup.',
     category: 'import-export',
   },
   {
     id: 'ie-supervisor-report',
-    question: 'How do I create a summary report for my supervisor?',
-    answer: 'Click "Export" in the toolbar and choose "Summary report" under Reports. Configure which columns and statistics to include, add an optional header/notes, and generate a PDF report with summary data suitable for supervision meetings.',
+    question: 'How do I make a summary report to share?',
+    answer: 'Click "Export" in the toolbar and choose "Summary report" under Reports. Choose which columns and counts to include, add an optional header and notes, and save it as a PDF. To build and keep your own reports instead, use Reports in the sidebar.',
     category: 'import-export',
     tourStepIds: ['export-btn'],
   },
