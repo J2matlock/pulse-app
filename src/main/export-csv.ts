@@ -9,6 +9,7 @@ import { atomicWriteFileAsync, formatCellValue, loadGridData, pickColumns, pickR
 import { localDateString, parseDbTimestamp } from '../shared/dates'
 import { logger } from './logger'
 import { getDb } from './database'
+import { word } from './vocab'
 
 /** "Guardian cell: 555-0199; Work email: a@b.org" for each record that has any */
 function manualContactsByRow(rowIds: number[]): Map<number, string> {
@@ -88,7 +89,8 @@ export async function exportNotesCsv(destPath: string, dateFormat: 'iso' | 'us' 
       sanitizeCsvFormula(n.kind ?? ''), sanitizeCsvFormula(stripHtml(n.content)), formatCellValue(n.follow_up_date, 'date', dateFormat),
     ]
   })
-  const csv = Papa.unparse({ fields: ['Date', 'List', 'Record', 'Kind', 'Note', 'Follow-up'], data })
+  const fields = ['Date', word('list', { cap: true }), word('record', { cap: true }), 'Kind', word('activity', { cap: true }), 'Follow-up']
+  const csv = Papa.unparse({ fields: fields.map(sanitizeCsvFormula), data })
   await atomicWriteFileAsync(destPath, '\uFEFF' + csv, 'utf-8')
   return notes.length
 }

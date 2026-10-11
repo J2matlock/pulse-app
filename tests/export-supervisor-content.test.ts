@@ -149,6 +149,13 @@ describe('summary report system activity', () => {
 })
 
 describe('notes CSV', () => {
+  it("heads the columns with the workspace's words (AUDIT-154)", async () => {
+    setDbWords(testDb.db)
+    const destPath = join(testDb.tmpDir, 'notes-head.csv')
+    await exportNotesCsv(destPath, 'iso')
+    expect(readFileSync(destPath, 'utf8').slice(1).split('\r\n')[0]).toBe('Date,Caseload,Client,Kind,Case note,Follow-up')
+  })
+
   it('dates a backdated note by when it happened, not when it was typed', async () => {
     testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type, occurred_at, created_at) VALUES (?, 'Backdated visit', 'note', '2026-09-30 15:00:00', '2026-10-02 15:00:00')")
       .run(grid.rowIds[0])
