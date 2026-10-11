@@ -62,7 +62,7 @@ export function SetupTemplateCard({ template, grids, onDelete, onExport, onRefre
         {/* Badges */}
         <div className="flex flex-wrap gap-1.5">
           {meta.columnCount > 0 && <Badge>{meta.columnCount} column{meta.columnCount !== 1 ? 's' : ''}</Badge>}
-          {meta.alertRuleCount > 0 && <Badge>{meta.alertRuleCount} alert rule{meta.alertRuleCount !== 1 ? 's' : ''}</Badge>}
+          {meta.alertRuleCount > 0 && <Badge>{meta.alertRuleCount} deadline rule{meta.alertRuleCount !== 1 ? 's' : ''}</Badge>}
           {meta.checklistCount > 0 && <Badge>{meta.checklistCount} checklist{meta.checklistCount !== 1 ? 's' : ''}</Badge>}
           {meta.columnCount === 0 && meta.alertRuleCount === 0 && meta.checklistCount === 0 && (
             <span className="text-sm text-slate-500 dark:text-slate-400">No preview data</span>

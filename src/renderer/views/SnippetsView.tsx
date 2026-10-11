@@ -114,7 +114,7 @@ function SnippetEditor({ initial, onSave, onClose }: EditorProps) {
             </div>
             {triggerError && <p className="text-sm text-red-600 dark:text-red-400 mt-1">{triggerError}</p>}
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Type /{trigger || 'lm'} in any {t('activity')} or scrap note to expand.
+              Type /{trigger || 'lm'} in any {t('activity')} or scratch note to expand.
             </p>
           </div>
 
@@ -253,7 +253,7 @@ export default function SnippetsView(): React.ReactElement {
         <Zap className="w-5 h-5 text-slate-500" />
         <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 flex-1 min-w-0">Snippets</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 hidden sm:block">
-          Type <span className="font-mono bg-slate-100 dark:bg-slate-700 px-1 rounded-sm">/trigger</span> in any {t('activity')} or scrap note
+          Type <span className="font-mono bg-slate-100 dark:bg-slate-700 px-1 rounded-sm">/trigger</span> in any {t('activity')} or scratch note
         </p>
         <button
           onClick={() => { setEditTarget(null); setShowEditor(true) }}

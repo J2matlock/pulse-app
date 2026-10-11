@@ -112,7 +112,7 @@ export default function SettingsView(): React.ReactElement {
     { id: 'security', label: 'Security', desc: 'Password and encryption settings', icon: Shield },
     { id: 'backup', label: 'Backup', desc: 'Automatic and manual backup configuration', icon: HardDrive },
     { id: 'data', label: 'Data', desc: 'Import, export, and data management', icon: Database },
-    { id: 'alerts', label: 'Alerts', desc: 'Deadline alert rules and notifications', icon: Bell },
+    { id: 'alerts', label: 'Alerts', desc: 'Deadline rules, reminders and days off', icon: Bell },
     { id: 'notes', label: t('activity', { many: true, cap: true }), desc: 'Kinds, time, mileage, and formats', icon: NotebookPen },
     { id: 'shortcuts', label: 'Shortcuts', desc: 'Keyboard shortcut reference', icon: Keyboard },
     { id: 'snippets', label: 'Snippets', desc: 'Text expansion shortcuts', icon: FileText },

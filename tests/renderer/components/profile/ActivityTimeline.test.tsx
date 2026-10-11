@@ -114,7 +114,8 @@ describe('ActivityTimeline', () => {
   it('renders filter chips', async () => {
     render(<ActivityTimeline rowId={10} />)
     expect(screen.getByText('All')).toBeTruthy()
-    expect(screen.getByText('Manual')).toBeTruthy()
+    expect(screen.getByText('Written by you')).toBeTruthy()
+    expect(screen.getByText('Automatic')).toBeTruthy()
     // one chip per note type, labelled as the type is
     expect(screen.getAllByText('Note').length).toBeGreaterThan(0)
     expect(screen.getByText('Meeting')).toBeTruthy()

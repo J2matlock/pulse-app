@@ -19,8 +19,8 @@ type FilterType = CaseLogType | 'all' | 'non-system'
 // Always offered; one chip per note type follows
 const FIXED_FILTERS: { value: FilterType; label: string }[] = [
   { value: 'all',        label: 'All' },
-  { value: 'non-system', label: 'Manual' },
-  { value: 'system',     label: 'System' },
+  { value: 'non-system', label: 'Written by you' },
+  { value: 'system',     label: 'Automatic' },
 ]
 
 export function ActivityTimeline({ rowId }: Props) {

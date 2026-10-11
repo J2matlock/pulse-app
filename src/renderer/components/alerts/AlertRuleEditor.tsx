@@ -298,7 +298,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
   async function handleSave() {
     // A new rule is named after what it does unless someone typed a name (D-17)
     const finalName = (name.trim() || autoName).slice(0, 200)
-    if (thresholds.length === 0) { setError('Add at least one threshold.'); return }
+    if (thresholds.length === 0) { setError('Add at least one color.'); return }
     const cfg = draftToConfig(savedDraft)
     if (!cfg.ok) { setError(cfg.error); return }
     const cond = draftToCondition(savedDraft)
@@ -333,7 +333,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
         onClose()
       }
     } catch {
-      setError('Failed to save alert rule. Please try again.')
+      setError("We couldn't save this deadline rule. Please try again.")
     } finally {
       setIsSaving(false)
     }
@@ -346,7 +346,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-            {isNew ? 'New Alert Rule' : isSystem ? 'View Alert Rule' : 'Edit Alert Rule'}
+            {isNew ? 'New deadline rule' : isSystem ? 'View deadline rule' : 'Edit deadline rule'}
           </h2>
           <button onClick={() => onClose()} className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
             <X className="w-5 h-5 text-slate-500" />
@@ -478,19 +478,19 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
           {/* Thresholds */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-base font-medium text-slate-700 dark:text-slate-300">Color Thresholds</label>
+              <label className="text-base font-medium text-slate-700 dark:text-slate-300">Colors as it gets close</label>
               {!isSystem && (
                 <button onClick={addThreshold}
                   className="hit-44 flex items-center gap-1 text-base text-blue-600 dark:text-blue-400 hover:underline focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm">
-                  <Plus className="w-4 h-4" />Add threshold
+                  <Plus className="w-4 h-4" />Add a color
                 </button>
               )}
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">
-              Click a threshold to expand its color picker.
+              Click a color step to change it.
             </p>
 
-            {thresholds.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400 py-2">No thresholds yet.</p>}
+            {thresholds.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400 py-2">No colors yet.</p>}
 
             <div className="space-y-2">
               {thresholds.map((t, i) => {

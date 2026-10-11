@@ -151,7 +151,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-date-colors',
     question: 'How do I set up deadline alerts on a date column?',
-    answer: 'Click the menu icon (\u22ef) or right-click any column header with date data and choose "Alert Rule." This lets you set up custom reminders to color-code cells when you are reaching a specific deadline date with a variety of customization options. You can edit and delete alert rules from that same "Alert Rule" submenu from the column header. These alerts show on your dashboard so you\'ll never miss a due date.',
+    answer: 'Click the menu icon (\u22ef) or right-click any column header with date data and choose "Deadline rule." This lets you set up custom reminders to color-code cells when you are reaching a specific deadline date with a variety of customization options. You can edit and delete deadline rules from that same "Deadline rule" submenu from the column header. These deadlines show on your dashboard so you\'ll never miss a due date.',
     category: 'caseload-grid',
     tourStepIds: ['deadline-colors'],
     demo: <DemoDeadlineColors />,
@@ -336,7 +336,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'dash-alert-rules',
     question: 'How do I set up deadline alerts for a column?',
-    answer: 'You can set alert rules in two ways: click the menu icon (\u22ef) on any date column header and choose "Deadline Alert," or go to Settings > Alerts to manage reusable rules. Rules determine when colors change \u2014 for example, "Turn yellow 14 days before due, orange 7 days before, red 3 days before."',
+    answer: 'You can set deadline rules in two ways: click the menu icon (\u22ef) on any date column header and choose "Deadline rule," or go to Settings > Alerts to manage reusable rules. Rules determine when colors change \u2014 for example, "Turn yellow 14 days before due, orange 7 days before, red 3 days before."',
     category: 'dashboard-deadlines',
     tourStepIds: ['settings'],
   },
@@ -438,7 +438,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'ie-pulse-file',
     question: 'What is a .pulse file?',
-    answer: 'A .pulse file is a template that saves your grid structure \u2014 columns, alert rules, and checklist templates \u2014 without any {record} data. Use it to set up a new {list} with the same layout, or share your grid structure with a colleague. To save or load a .pulse template, go to the Templates page and click "Import Template File" or "Save Current Grid as Template." Templates include columns and alert rules.',
+    answer: 'A .pulse file is a template that saves your grid structure \u2014 columns, deadline rules, and checklist templates \u2014 without any {record} data. Use it to set up a new {list} with the same layout, or share your grid structure with a colleague. To save or load a .pulse template, go to the Templates page and click "Import Template File" or "Save Current Grid as Template." Templates include columns and deadline rules.',
     category: 'import-export',
   },
   {
