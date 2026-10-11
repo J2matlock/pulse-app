@@ -309,18 +309,21 @@ export function registerGridHandlers(): void {
 
     let deletedId = 0
     const doDelete = db.transaction(() => {
+      let standInId: number | null | undefined
       if (col.is_name_column === 1) {
-        // Another column takes over naming: a text column if there is one, else the first
-        const other = db.prepare(
-          "SELECT id FROM columns WHERE grid_id = ? AND id != ? ORDER BY (column_type = 'text') DESC, position LIMIT 1"
-        ).get(col.grid_id, columnId) as { id: number } | undefined
-        if (!other) {
-          throw new Error('Cannot delete the only column in this grid.')
+        const others = db.prepare('SELECT id, column_type FROM columns WHERE grid_id = ? AND id != ? ORDER BY (column_type = \'text\') DESC, position')
+          .all(col.grid_id, columnId) as Array<{ id: number; column_type: string }>
+        if (!others.length) {
+          throw new Error("A list needs at least one column, so this one can't be deleted.")
         }
-        db.prepare('UPDATE columns SET is_name_column = 1 WHERE id = ?').run(other.id)
+        // Another column takes over naming: a text column if there is one, else the first
+        // that can name records (never a checkbox, notes, deadline or link column)
+        const other = others.find(o => canNameRecords(o.column_type))
+        standInId = other?.id ?? null
+        if (other) db.prepare('UPDATE columns SET is_name_column = 1 WHERE id = ?').run(other.id)
       }
       // A copy of it and its values waits in the Trash for 30 days (D1), then the delete cascades
-      deletedId = trashColumn(columnId)
+      deletedId = trashColumn(columnId, { standInId })
       // Its values go with it; that isn't an edit to the list's sample entries
       keepSamplesUntouched(db, col.grid_id, () => db.prepare('DELETE FROM columns WHERE id = ?').run(columnId))
       // Names elsewhere (dashboard, search, links) come from rows.display_name, which no trigger updates here

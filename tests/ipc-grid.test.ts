@@ -559,7 +559,7 @@ describe('COLUMN_DELETE', () => {
     const { columnIds } = seedGrid(testDb.db, { columnCount: 1 })
     const result = await invoke(IPC.COLUMN_DELETE, columnIds[0]) as { ok: false; error: string }
     expect(result.ok).toBe(false)
-    expect(result.error).toContain('only column')
+    expect(result.error).toContain('at least one column')
   })
 
   it('transfers name column status when deleting the name column', async () => {
@@ -572,6 +572,33 @@ describe('COLUMN_DELETE', () => {
     const nameCol = testDb.db.prepare('SELECT id FROM columns WHERE grid_id = ? AND is_name_column = 1').get(gridId) as { id: number } | undefined
     expect(nameCol).toBeDefined()
     expect(nameCol!.id).not.toBe(columnIds[0])
+  })
+
+  it('Undo of deleting the name column gives it the name back from its stand-in (bug sweep S3)', async () => {
+    const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { columnCount: 2, rowCount: 1, columnTypes: ['text', 'phone'] })
+    const put = testDb.db.prepare("INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))")
+    put.run(rowIds[0], columnIds[0], 'Ana Diaz')
+    put.run(rowIds[0], columnIds[1], '555-0100')
+    const name = () => (testDb.db.prepare('SELECT display_name FROM rows WHERE id = ?').get(rowIds[0]) as { display_name: string }).display_name
+    const res = await invoke(IPC.COLUMN_DELETE, columnIds[0]) as { ok: true; data: { deletedId: number } }
+    expect(name()).toBe('555-0100')
+    expect((await invoke(IPC.COLUMN_RESTORE, res.data.deletedId) as { ok: boolean }).ok).toBe(true)
+    expect(testDb.db.prepare('SELECT id FROM columns WHERE grid_id = ? AND is_name_column = 1').all(gridId)).toEqual([{ id: columnIds[0] }])
+    expect(name()).toBe('Ana Diaz')
+  })
+
+  it('a name column chosen after the delete stays the name when the old one comes back', async () => {
+    const { gridId, columnIds } = seedGrid(testDb.db, { columnCount: 3, columnTypes: ['text', 'text', 'text'] })
+    const res = await invoke(IPC.COLUMN_DELETE, columnIds[0]) as { ok: true; data: { deletedId: number } }
+    await invoke(IPC.COLUMN_SET_NAME, columnIds[2])
+    await invoke(IPC.COLUMN_RESTORE, res.data.deletedId)
+    expect(testDb.db.prepare('SELECT id FROM columns WHERE grid_id = ? AND is_name_column = 1').all(gridId)).toEqual([{ id: columnIds[2] }])
+  })
+
+  it('never hands the name to a column that cannot name records', async () => {
+    const { gridId, columnIds } = seedGrid(testDb.db, { columnCount: 3, columnTypes: ['text', 'checkbox', 'notes'] })
+    expect((await invoke(IPC.COLUMN_DELETE, columnIds[0]) as { ok: boolean }).ok).toBe(true)
+    expect(testDb.db.prepare('SELECT id FROM columns WHERE grid_id = ? AND is_name_column = 1').all(gridId)).toEqual([])
   })
 
   it('renames records everywhere when the name column goes, preferring a text column (L-10)', async () => {

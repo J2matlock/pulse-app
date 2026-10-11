@@ -48,6 +48,8 @@ export interface ColumnSnapshot {
   column: Row
   /** table → rows, children of the column first, then their own children (cell history) */
   tables: Array<{ table: string; rows: Row[] }>
+  /** For a deleted name column: the column that took over naming, which hands it back on restore */
+  standInId?: number | null
 }
 
 /** A copy of a column and everything stored against it */
@@ -75,8 +77,8 @@ export function snapshotColumn(columnId: number): ColumnSnapshot {
 }
 
 /** Keep a column's copy in the Trash (call in the same transaction as the delete). Returns the Trash entry's id. */
-export function trashColumn(columnId: number): number {
-  const snap = snapshotColumn(columnId)
+export function trashColumn(columnId: number, opts?: { standInId?: number | null }): number {
+  const snap: ColumnSnapshot = { ...snapshotColumn(columnId), ...(opts?.standInId !== undefined ? { standInId: opts.standInId } : {}) }
   return Number(getDb().prepare('INSERT INTO deleted_columns (grid_id, column_id, name, column_type, snapshot) VALUES (?, ?, ?, ?, ?)')
     .run(snap.column.grid_id, columnId, snap.column.name, snap.column.column_type, JSON.stringify(snap)).lastInsertRowid)
 }
@@ -105,9 +107,12 @@ export function restoreColumn(deletedId: number): { columnId: number; gridId: nu
   if (!db.prepare('SELECT 1 FROM grids WHERE id = ?').get(entry.grid_id)) throw new TrashError(`Its list is gone, so the column can't come back.`)
   const hasRowId = (rows: Row[]) => rows.length > 0 && 'row_id' in rows[0]!
   db.transaction(() => keepSamplesUntouched(db, entry.grid_id, () => {
-    // One name column per list: it comes back as the name only if the list has none now
-    const named = db.prepare('SELECT 1 FROM columns WHERE grid_id = ? AND is_name_column = 1').get(entry.grid_id)
-    insertRow('columns', { ...snap.column, ...(named ? { is_name_column: 0 } : {}) })
+    // One name column per list. A deleted name column takes the role back from the
+    // column that stood in for it; if someone has since chosen another name column, that stays.
+    const named = db.prepare('SELECT id FROM columns WHERE grid_id = ? AND is_name_column = 1').get(entry.grid_id) as { id: number } | undefined
+    const takeBack = snap.column.is_name_column === 1 && (!named || (snap.standInId != null && named.id === snap.standInId))
+    if (takeBack && named) db.prepare('UPDATE columns SET is_name_column = 0 WHERE id = ?').run(named.id)
+    insertRow('columns', { ...snap.column, is_name_column: takeBack ? 1 : 0 })
     const rowExists = db.prepare('SELECT 1 FROM rows WHERE id = ?')
     for (const { table, rows } of snap.tables) {
       // Records purged since can't take their values back
@@ -115,7 +120,7 @@ export function restoreColumn(deletedId: number): { columnId: number; gridId: nu
       for (const r of keep) insertRow(table, r)
     }
     db.prepare('DELETE FROM deleted_columns WHERE id = ?').run(deletedId)
-    if (hasDisplayFormat(entry.grid_id) || !named) refreshDisplayNames(entry.grid_id)
+    if (hasDisplayFormat(entry.grid_id) || takeBack) refreshDisplayNames(entry.grid_id)
   }))()
   return { columnId: entry.column_id, gridId: entry.grid_id }
 }
