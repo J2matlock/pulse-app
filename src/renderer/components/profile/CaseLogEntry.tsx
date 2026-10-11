@@ -4,6 +4,7 @@ import type { CaseLogEntry as CaseLogEntryType } from '../../../shared/types'
 import { formatDateTime } from '../../utils/formatTime'
 import { relativeTime } from '../../utils/relativeTime'
 import { localDateString, parseDbTimestamp } from '../../../shared/dates'
+import { ymdToDate } from '../../../shared/ymd'
 import { CASE_NOTE_DELETE_WINDOW_MINUTES } from '../../../shared/constants'
 import { formatMinutes, formatMiles, unitsFor } from '../../../shared/timeMileage'
 import type { NoteTracking } from '../../hooks/useNoteTracking'
@@ -54,8 +55,7 @@ export function noteDays(entry: Pick<CaseLogEntryType, 'created_at' | 'occurred_
 
 /** "Oct 31, 2026" for a YYYY-MM-DD day */
 export function formatDate(dateStr: string): string {
-  const [y = NaN, m = NaN, d = NaN] = dateStr.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+  return ymdToDate(dateStr).toLocaleDateString(undefined, {
     month: 'short', day: 'numeric', year: 'numeric'
   })
 }

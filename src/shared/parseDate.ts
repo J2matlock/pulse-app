@@ -26,7 +26,7 @@ function fullYear(y: number): number {
 }
 
 /** Validated YYYY-MM-DD from calendar parts (rejects 02/30 etc.), or null. */
-export function toYmd(y: number, m: number, d: number): string | null {
+export function ymdFromParts(y: number, m: number, d: number): string | null {
   const dt = new Date(Date.UTC(y, m - 1, d))
   if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null
   return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
@@ -46,7 +46,7 @@ export function parseDate(value: string, order: 'mdy' | 'dmy' = 'mdy'): string |
   // ISO 8601 (YYYY-MM-DD or YYYY/MM/DD), optionally followed by a time
   const isoMatch = v.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[ T]\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/)
   if (isoMatch) {
-    const ymd = toYmd(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3]))
+    const ymd = ymdFromParts(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3]))
     if (ymd) return ymd
   }
   // Numeric M/D/Y or D/M/Y with / - or . separators, optionally followed by a time
@@ -54,21 +54,21 @@ export function parseDate(value: string, order: 'mdy' | 'dmy' = 'mdy'): string |
   if (numMatch) {
     const a = Number(numMatch[1]), b = Number(numMatch[2]), y = fullYear(Number(numMatch[3]))
     const dayFirst = a > 12 ? true : b > 12 ? false : order === 'dmy'
-    const ymd = dayFirst ? toYmd(y, b, a) : toYmd(y, a, b)
+    const ymd = dayFirst ? ymdFromParts(y, b, a) : ymdFromParts(y, a, b)
     if (ymd) return ymd
   }
   // Written month first: "Feb 19, 2026", "February 19 2026", "Feb-19-26"
   const monFirst = v.match(/^([A-Za-z]{3,9}\.?)[\s-]+(\d{1,2})(?:st|nd|rd|th)?,?[\s-]+(\d{2}|\d{4})$/)
   if (monFirst) {
     const m = monthFromName(monFirst[1]!)
-    const ymd = m ? toYmd(fullYear(Number(monFirst[3])), m, Number(monFirst[2])) : null
+    const ymd = m ? ymdFromParts(fullYear(Number(monFirst[3])), m, Number(monFirst[2])) : null
     if (ymd) return ymd
   }
   // Day first: "19 Feb 2026", "19-Feb-26"
   const dayFirstMatch = v.match(/^(\d{1,2})[\s-]+([A-Za-z]{3,9}\.?)[\s-]+(\d{2}|\d{4})$/)
   if (dayFirstMatch) {
     const m = monthFromName(dayFirstMatch[2]!)
-    const ymd = m ? toYmd(fullYear(Number(dayFirstMatch[3])), m, Number(dayFirstMatch[1])) : null
+    const ymd = m ? ymdFromParts(fullYear(Number(dayFirstMatch[3])), m, Number(dayFirstMatch[1])) : null
     if (ymd) return ymd
   }
   // Don't fall through to `new Date(v)` — ambiguous formats parse non-deterministically

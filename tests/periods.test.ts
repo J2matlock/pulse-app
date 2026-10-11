@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { periodRange, daysLeft, parseLocalDate } from '../src/shared/periods'
+import { periodRange, daysLeft } from '../src/shared/periods'
+import { ymdToDate } from '../src/shared/ymd'
 
-const d = (ymd: string) => parseLocalDate(ymd)
+const d = (ymd: string) => ymdToDate(ymd)
 
 describe('periodRange', () => {
   it('finds the week for Sunday and Monday starts', () => {

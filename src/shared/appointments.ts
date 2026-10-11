@@ -4,6 +4,7 @@
  * with no zone: 'YYYY-MM-DDTHH:MM', or 'YYYY-MM-DD' when all-day.
  */
 import { z } from 'zod'
+import { dateToYmd } from './ymd'
 
 export type ApptStatus = 'scheduled' | 'done' | 'cancelled' | 'no_show'
 export const APPT_STATUSES: readonly ApptStatus[] = ['scheduled', 'done', 'cancelled', 'no_show']
@@ -106,7 +107,7 @@ export const MATERIALIZE_MONTHS = 6
 export const MAX_HORIZON_MONTHS = 24
 
 const pad = (n: number) => String(n).padStart(2, '0')
-export const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+export const ymd = dateToYmd
 
 export function parseYmd(s: string): Date {
   const [y, m, d] = s.slice(0, 10).split('-').map(Number) as [number, number, number]

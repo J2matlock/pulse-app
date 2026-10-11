@@ -12,6 +12,7 @@ import { loadDeadlines } from './deadlines'
 import { featureOn, word } from './vocab'
 import { formatTime } from '../shared/calendar'
 import { OPEN_RECORD_SQL } from '../shared/appointments'
+import { dateToYmd } from '../shared/ymd'
 
 interface PlannerRow { due: string; client: string; what: string; kind: string }
 
@@ -24,8 +25,7 @@ function fmtDay(ymd: string): string {
 
 function addDays(ymd: string, n: number): string {
   const [y, m, d] = ymd.split('-').map(Number)
-  const dt = new Date(y ?? 0, (m ?? 1) - 1, (d ?? 1) + n)
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+  return dateToYmd(new Date(y ?? 0, (m ?? 1) - 1, (d ?? 1) + n))
 }
 
 /** Everything due on or before `end`; rows before `start` are "overdue". */

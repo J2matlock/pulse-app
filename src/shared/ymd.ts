@@ -2,6 +2,7 @@
  * Local calendar dates as 'YYYY-MM-DD' strings: parsing, converting and
  * counting days, for the deadline engine and the business-day calendar.
  */
+import { localDateString } from './dates'
 
 /** The calendar date at the start of a stored value ('2026-03-01' or '2026-03-01T…'), or null. */
 export function toYmd(value: string | null | undefined): string | null {
@@ -17,8 +18,9 @@ export function ymdToDate(ymd: string): Date {
   return new Date(y!, m! - 1, d!)
 }
 
+/** The same as localDateString, under the name the deadline code uses */
 export function dateToYmd(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return localDateString(d)
 }
 
 /** Whole calendar days from a to b (b later = positive), safe across daylight-saving changes. */

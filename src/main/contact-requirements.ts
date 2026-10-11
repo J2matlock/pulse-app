@@ -6,8 +6,9 @@
  */
 import { getDb } from './database'
 import type { ContactRequirement, ContactStatusGrid } from '../shared/types'
-import { PERIOD_MAX, isPeriod, parseLocalDate, periodRange, type PeriodRange, type WeekStart } from '../shared/periods'
+import { PERIOD_MAX, isPeriod, periodRange, type PeriodRange, type WeekStart } from '../shared/periods'
 import { localDateString } from '../shared/dates'
+import { ymdToDate } from '../shared/ymd'
 import { userTypeKeys } from './activity-types'
 import { word } from './vocab'
 
@@ -79,7 +80,7 @@ export function getRequirementStatus(ref: string = localDateString(), gridId?: n
   const db = getDb()
   const reqs = getRequirements(gridId)
   if (reqs.length === 0) return []
-  const refDate = parseLocalDate(ref)
+  const refDate = ymdToDate(ref)
   const ws = weekStart()
   const byGrid = new Map<number, ContactRequirement[]>()
   for (const r of reqs) byGrid.set(r.grid_id!, [...(byGrid.get(r.grid_id!) ?? []), r])

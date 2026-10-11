@@ -7,7 +7,7 @@
 
 import { statSync, createReadStream } from 'fs'
 import Papa from 'papaparse'
-import { parseDate, toYmd } from '../shared/parseDate'
+import { parseDate, ymdFromParts } from '../shared/parseDate'
 import { localDateString } from '../shared/dates'
 import { VALID_COLUMN_TYPES } from '../shared/types'
 import type { ColumnType } from '../shared/types'
@@ -902,7 +902,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
       let v = normalizeValue(raw, 'date', cleanData, dateOrders.get(srcIdx))
       if (!birthCols.has(srcIdx) || !/^\d{4}-\d{2}-\d{2}$/.test(v) || !hasTwoDigitYear(raw)) return v
       if (v > today) {
-        const earlier = toYmd(Number(v.slice(0, 4)) - 100, Number(v.slice(5, 7)), Number(v.slice(8, 10)))
+        const earlier = ymdFromParts(Number(v.slice(0, 4)) - 100, Number(v.slice(5, 7)), Number(v.slice(8, 10)))
         if (earlier) v = earlier
       }
       if (count && v.startsWith('19')) birthAs1900s.set(srcIdx, (birthAs1900s.get(srcIdx) ?? 0) + 1)

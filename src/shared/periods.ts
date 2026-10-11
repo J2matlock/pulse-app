@@ -74,8 +74,3 @@ export function daysLeft(range: PeriodRange, today: Date = new Date()): number {
   return Math.max(0, Math.round((end.getTime() - t.getTime()) / 86_400_000))
 }
 
-/** 'YYYY-MM-DD' as a local date */
-export function parseLocalDate(ymd: string): Date {
-  const [y, m, d] = ymd.split('-').map(Number)
-  return new Date(y!, m! - 1, d!)
-}
