@@ -106,7 +106,7 @@ export function WhatsNewModal({ open, onClose }: Props): React.ReactElement | nu
           role="dialog"
           aria-modal="true"
           aria-label="What's new"
-          onKeyDown={e => { if (e.key === 'Escape') onClose() }}
+          onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }}
         >
           <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 bg-black/50" onClick={onClose} />
           <motion.div variants={modalPanelVariants} initial="hidden" animate="visible" className="relative w-full max-w-lg bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 max-h-[80vh] flex flex-col">

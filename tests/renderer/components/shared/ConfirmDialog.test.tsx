@@ -77,6 +77,14 @@ describe('ConfirmDialog', () => {
     expect(screen.getByText('Delete Forever')).toBeDefined()
   })
 
+  it('Escape cancels and is marked as handled for page-level Escape handlers', () => {
+    render(<ConfirmDialog {...baseProps} />)
+    const ev = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    fireEvent(screen.getByText('Cancel'), ev)
+    expect(baseProps.onCancel).toHaveBeenCalledTimes(1)
+    expect(ev.defaultPrevented).toBe(true)
+  })
+
   describe('Enter key', () => {
     it('does not confirm when Enter is pressed on Cancel', () => {
       render(<ConfirmDialog {...baseProps} />)

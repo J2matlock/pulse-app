@@ -70,4 +70,11 @@ describe('KeyboardShortcutsModal', () => {
     fireEvent.keyDown(dialog, { key: 'Escape' })
     expect(onClose).toHaveBeenCalledTimes(1)
   })
+
+  it('marks Escape as handled, so the record page behind it stays open', () => {
+    render(<KeyboardShortcutsModal open={true} onClose={onClose} />)
+    const ev = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    fireEvent(screen.getByRole('dialog'), ev)
+    expect(ev.defaultPrevented).toBe(true)
+  })
 })

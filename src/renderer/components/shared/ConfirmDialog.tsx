@@ -62,6 +62,8 @@ export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | n
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Escape') {
+      // preventDefault tells page-level Escape handlers (the record page) it's taken
+      e.preventDefault()
       e.stopPropagation()
       onCancel()
     }

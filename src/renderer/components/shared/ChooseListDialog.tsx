@@ -21,7 +21,7 @@ export function ChooseListDialog({ title, grids, initialId, confirmLabel, onChoo
   useFocusTrap(ref, true)
   const [id, setId] = useState<number>(initialId && grids.some(g => g.id === initialId) ? initialId : grids[0]!.id)
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onKeyDown={e => { if (e.key === 'Escape') onCancel() }}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); onCancel() } }}>
       <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="choose-list-title"
         className="w-full max-w-md rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
         <h2 id="choose-list-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
