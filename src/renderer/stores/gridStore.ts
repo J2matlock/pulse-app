@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { Grid, Column, GridRow, SortConfig, CellFormat, CellFormatRule, AcuityLevel, CustomGroupDef } from '../../shared/types'
-import { isReadOnlyColumnType, ROW_TAG_COLUMN_ID } from '../../shared/types'
+import { isReadOnlyColumnType, ROW_TAG_COLUMN_ID, ANY_DEADLINE_COLUMN_ID } from '../../shared/types'
 import { IPC } from '../../shared/ipc-channels'
 import { useUndoStore, rethrowIfUndoing } from './undoStore'
 import type { SideEffect, UndoItem } from './undoStore'
@@ -207,7 +207,7 @@ export const useGridStore = create<GridState>((set, get) => ({
       // A filter or grouping on a column this list doesn't have would hide everything (G-03)
       const known = new Set([...columns, ...hiddenColumns].map(c => c.id))
       const { activeFilters, groupByColumnId } = get()
-      const keptFilters = activeFilters.filter(f => f.columnId === ROW_TAG_COLUMN_ID || known.has(f.columnId))
+      const keptFilters = activeFilters.filter(f => f.columnId === ROW_TAG_COLUMN_ID || f.columnId === ANY_DEADLINE_COLUMN_ID || known.has(f.columnId))
       set({
         ...(keptFilters.length !== activeFilters.length ? { activeFilters: keptFilters } : {}),
         ...(typeof groupByColumnId === 'number' && !known.has(groupByColumnId) ? { groupByColumnId: null } : {}),

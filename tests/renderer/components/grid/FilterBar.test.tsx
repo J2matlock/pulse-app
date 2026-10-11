@@ -40,7 +40,7 @@ vi.mock('react-hot-toast', () => ({ default: { error: vi.fn() } }))
 vi.stubGlobal('crypto', { randomUUID: () => 'test-uuid-' + Math.random().toString(36).slice(2) })
 
 import { useGridStore } from '../../../../src/renderer/stores/gridStore'
-import { FilterBar } from '../../../../src/renderer/components/grid/FilterBar'
+import { FilterBar, FilterControls } from '../../../../src/renderer/components/grid/FilterBar'
 import type { Column } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
 
@@ -166,5 +166,32 @@ describe('FilterBar', () => {
     // The chip should not contain a font-mono span
     const monoSpans = chips?.querySelectorAll('.font-mono')
     expect(monoSpans?.length ?? 0).toBe(0)
+  })
+})
+
+describe('FilterControls (G-12, G-30)', () => {
+  beforeEach(() => {
+    useGridStore.setState({ activeFilters: [], filterMode: 'and', savedFilters: [], activeGridId: 1, hiddenColumns: [], showStarredOnly: false })
+  })
+
+  it('labels the star toggle "Starred"', () => {
+    useGridStore.setState({ columns: [makeColumn(1, 'Name')] })
+    render(<FilterControls />)
+    expect(screen.getByRole('button', { name: /Starred/ })).toBeTruthy()
+  })
+
+  it('offers a one-click Overdue filter when the list has deadlines', () => {
+    useGridStore.setState({ columns: [makeColumn(1, 'Name'), { ...makeColumn(2, 'Review', 'date'), config: JSON.stringify({ alert_rule_id: 4 }) }] })
+    render(<FilterControls />)
+    fireEvent.click(screen.getByRole('button', { name: 'Overdue' }))
+    expect(useGridStore.getState().activeFilters).toEqual([{ columnId: -2, operator: 'due_status', value: 'overdue' }])
+    fireEvent.click(screen.getByRole('button', { name: 'Overdue' }))
+    expect(useGridStore.getState().activeFilters).toEqual([])
+  })
+
+  it('has no Overdue button without deadlines', () => {
+    useGridStore.setState({ columns: [makeColumn(1, 'Name')] })
+    render(<FilterControls />)
+    expect(screen.queryByRole('button', { name: 'Overdue' })).toBeNull()
   })
 })

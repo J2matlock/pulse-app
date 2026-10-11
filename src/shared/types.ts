@@ -25,6 +25,8 @@ export type ColumnType =
 
 /** Sentinel column ID used for row-tag filters (not a real column) */
 export const ROW_TAG_COLUMN_ID = -1
+/** A filter on every deadline column at once (the toolbar's "Overdue" chip) */
+export const ANY_DEADLINE_COLUMN_ID = -2
 
 export const VALID_COLUMN_TYPES = new Set<ColumnType>([
   'text', 'date', 'number', 'checkbox', 'dropdown',
@@ -84,6 +86,8 @@ export type FilterOperator =
   | 'before' | 'after'
   /** Link columns (W04): links to this record (value = its row id) */
   | 'links_to'
+  /** Columns with a deadline rule: overdue | today | next7 | next30 | done | paused (G-12) */
+  | 'due_status'
 
 export interface ColumnFilter {
   columnId: number

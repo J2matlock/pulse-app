@@ -32,6 +32,7 @@ import type { GridRow, SortConfig, CellFormatRule } from '../../../shared/types'
 import { matchFilter } from '../../utils/filterMatch'
 import { computeDaysUntil } from '../../utils/deadlineCalc'
 import { deadlineCompare, numberCompare, dateCompare } from './gridSort'
+import { rowMatchesSearch } from '../../utils/searchMatch'
 import { CellConditionalFormatPanel } from './CellConditionalFormatPanel'
 import { CellHistoryPopover } from '../shared/CellHistoryPopover'
 import { getClientName } from '../../utils/clientName'
@@ -216,12 +217,12 @@ export function DataGrid(): React.ReactElement {
     }
     if (activeFilters.length > 0) {
       const matcher = filterMode === 'or'
-        ? (row: GridRow) => activeFilters.some(f => matchFilter(row, f, columns, rowTagsMap))
-        : (row: GridRow) => activeFilters.every(f => matchFilter(row, f, columns, rowTagsMap))
+        ? (row: GridRow) => activeFilters.some(f => matchFilter(row, f, columns, rowTagsMap, alertRuleMap))
+        : (row: GridRow) => activeFilters.every(f => matchFilter(row, f, columns, rowTagsMap, alertRuleMap))
       result = result.filter(row => matcher(row) || pinned(row))
     }
     return result
-  }, [rows, activeFilters, filterMode, columns, rowTagsMap, showStarredOnly, pinnedRowId])
+  }, [rows, activeFilters, filterMode, columns, rowTagsMap, showStarredOnly, pinnedRowId, alertRuleMap])
 
   // Changing what's filtered lets the pinned record go (not the first render: the grid may mount after an add)
   const filterMounted = useRef(false)
@@ -479,21 +480,12 @@ export function DataGrid(): React.ReactElement {
   }, [columns, acuityEnabled, acuityLevels, alertRuleMap])
 
   // Custom global filter: only search name + text/dropdown columns
+  // Search: every column that holds text, plus tags, the same as the board (G-25)
   const globalFilterFn = useCallback((row: Row<GridRow>, _columnId: string, filterValue: string) => {
     if (!filterValue) return true
     if (row.original.row_id === useGridStore.getState().pinnedRowId) return true
-    const lower = filterValue.toLowerCase()
-    const data = row.original
-    for (const col of columns) {
-      if (col.is_name_column || col.column_type === 'text' || col.column_type === 'dropdown' || col.column_type === 'auto_number') {
-        const val = data[`col_${col.id}`]
-        if (val && String(val).toLowerCase().includes(lower)) return true
-      } else if (col.column_type === 'link' && linkValueText(data[`col_${col.id}`]).toLowerCase().includes(lower)) {
-        return true
-      }
-    }
-    return false
-  }, [columns])
+    return rowMatchesSearch(row.original, columns, filterValue, rowTagsMap)
+  }, [columns, rowTagsMap])
 
   const handleSortingChange = useCallback((updater: unknown) => {
     const newSorting = typeof updater === 'function' ? (updater as (old: SortingState) => SortingState)(sorting) : updater as SortingState
@@ -642,8 +634,8 @@ export function DataGrid(): React.ReactElement {
     const newRow = s.rows.find(r => r.row_id === lastAddedRowId)
     const hiddenByFilter = !!newRow && ((s.showStarredOnly && newRow.is_starred !== 1) || !!s.searchQuery
       || (s.activeFilters.length > 0 && !(s.filterMode === 'or'
-        ? s.activeFilters.some(f => matchFilter(newRow, f, columns, rowTagsMap))
-        : s.activeFilters.every(f => matchFilter(newRow, f, columns, rowTagsMap)))))
+        ? s.activeFilters.some(f => matchFilter(newRow, f, columns, rowTagsMap, alertRuleMap))
+        : s.activeFilters.every(f => matchFilter(newRow, f, columns, rowTagsMap, alertRuleMap)))))
     if (hiddenByFilter) {
       toast(tt => (
         <span className="flex items-center gap-3 text-base">

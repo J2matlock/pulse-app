@@ -185,7 +185,7 @@ export function BoardView(): React.ReactElement | null {
   const levels = useMemo(() => new Map(acuityLevels.map(l => [l.id, l])), [acuityLevels])
 
   const prepared = useMemo(() => {
-    const visible = visibleRows(rows, allColumns, { activeFilters, filterMode, showStarredOnly, searchQuery, rowTagsMap })
+    const visible = visibleRows(rows, allColumns, { activeFilters, filterMode, showStarredOnly, searchQuery, rowTagsMap, rules: new Map(rules.map(r => [r.id, r])) })
     const info = new Map(visible.map(r => [r.row_id, { name: getClientName(r, allColumns), due: nearestDeadline(r, allColumns, rules) }]))
     return { visible, info }
   }, [rows, allColumns, activeFilters, filterMode, showStarredOnly, searchQuery, rowTagsMap, rules])

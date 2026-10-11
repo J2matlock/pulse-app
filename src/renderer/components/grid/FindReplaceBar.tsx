@@ -3,12 +3,11 @@ import { X, ChevronUp, ChevronDown, ArrowRightLeft } from 'lucide-react'
 import type { GridRow, Column, ColumnType } from '../../../shared/types'
 import { columnOptionLabels } from '../../../shared/stages'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
+import { SEARCHABLE_TYPES as SEARCH_TYPES } from '../../utils/searchMatch'
 import { useVocab } from '../../hooks/useVocab'
 
-/** Column types that support text-based find/replace */
-const SEARCHABLE_TYPES = new Set<ColumnType>([
-  'text', 'number', 'dropdown', 'phone', 'email', 'url', 'notes', 'status', 'address', 'currency',
-])
+/** Find & Replace changes stored text, so it skips worked-out and linked columns the search also reads */
+const SEARCHABLE_TYPES = new Set<ColumnType>([...SEARCH_TYPES].filter(t => !['auto_number', 'link', 'tag'].includes(t)) as ColumnType[])
 
 /**
  * Numbers, money and choices match and replace the whole value: replacing
