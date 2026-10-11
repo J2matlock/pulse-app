@@ -42,6 +42,13 @@ describe('static text uses word tokens', () => {
     expect(offenders).toEqual([])
   })
 
+  it('says columns, deadlines and records, not fields, alerts and rows (AUDIT-160)', () => {
+    // {{field:Status}} is a letter placeholder, a spreadsheet's rows are rows, and the
+    // category editor for contacts is labelled "Custom Fields"
+    const offenders = texts.filter(t => /\b(rows?|alerts?|fields?)\b/i.test(t.replace(/\{\{[^{}]+\}\}/g, '').replace(/\b(spreadsheet|file)('s)? rows?\b|\brow by row\b|\bcustom fields\b/gi, '')))
+    expect(offenders).toEqual([])
+  })
+
   it('every token is a known word', () => {
     // {{date}}-style letter variables are not word tokens
     const filled = texts.map(t => fillVocab(t, resolveVocab()).replace(/\{\{[^{}]+\}\}/g, ''))

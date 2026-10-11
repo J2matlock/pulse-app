@@ -150,7 +150,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   },
   {
     id: 'grid-date-colors',
-    question: 'How do I set up deadline alerts on a date column?',
+    question: 'How do I set up a deadline on a date column?',
     answer: 'Click the menu icon (⋯) or right-click a date column\'s header and choose "Deadline rule," then pick a rule. Rules decide when the cells change color — for example, yellow 14 days before the date, orange 7 days before, red 3 days before. Change or remove the rule from the same menu, and manage rules you reuse in Settings > Deadlines & reminders. Dates with a rule show on your dashboard so you never miss one.',
     category: 'caseload-grid',
     tourStepIds: ['deadline-colors'],
@@ -159,7 +159,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-archive',
     question: 'How do I archive {a record} instead of deleting it?',
-    answer: 'Right-click the row and select "Archive." Archived {record:many} are hidden from your main view but not deleted \u2014 you can see archived {record:many} by clicking the "Archived" toggle in the toolbar, and unarchive any of them at any time. Archiving is different from deleting: archived {record:many} stay in your database indefinitely, while deleted {record:many} go to the Trash and are removed for good after 30 days.',
+    answer: 'Right-click the {record} and select "Archive." Archived {record:many} are hidden from your main view but not deleted \u2014 you can see archived {record:many} by clicking the "Archived" toggle in the toolbar, and unarchive any of them at any time. Archiving is different from deleting: archived {record:many} stay in your database indefinitely, while deleted {record:many} go to the Trash and are removed for good after 30 days.',
     category: 'caseload-grid',
     tourStepIds: ['archived-toggle'],
   },
@@ -191,8 +191,8 @@ export const FAQ_ITEMS: FAQItem[] = [
   },
   {
     id: 'grid-duplicate',
-    question: 'How do I duplicate {a record} row?',
-    answer: 'Right-click the row you want to copy and select "Duplicate {record}." A new {record} will be created with the same data. This is handy when adding {a record} with similar information to an existing one.',
+    question: 'How do I duplicate {a record}?',
+    answer: 'Right-click the {record} you want to copy and select "Duplicate {record}." A new {record} will be created with the same data. This is handy when adding {a record} with similar information to an existing one.',
     category: 'caseload-grid',
   },
   {
@@ -222,7 +222,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-activity-tracking',
     question: 'What does "Log changes in timeline" do on a column?',
-    answer: 'Right-click any column header (or click the \u22ef menu) and you\'ll see "Log changes in timeline" with an on/off indicator. When enabled, every time a cell value changes in that column, the old and new values are automatically recorded on the Activity Timeline in the profile. This is useful for tracking when important fields like status, program assignment, or dates were updated \u2014 you get a complete audit trail without any manual effort. The setting is saved per-column and is also preserved when you save {a list} as a .pulse template, so your tracking preferences carry over to new {list:many} created from that template.',
+    answer: 'Right-click any column header (or click the \u22ef menu) and you\'ll see "Log changes in timeline" with an on/off indicator. When enabled, every time a cell value changes in that column, the old and new values are automatically recorded on the Activity Timeline in the profile. This is useful for tracking when important columns like status, program assignment, or dates were updated \u2014 you get a complete audit trail without any manual effort. The setting is saved per-column and is also preserved when you save {a list} as a .pulse template, so your tracking preferences carry over to new {list:many} created from that template.',
     category: 'caseload-grid',
   },
   {
@@ -240,7 +240,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-acuity-assign',
     question: 'How do I assign an {priority} level to {a record}?',
-    answer: 'When {priority} scoring is enabled, a small badge column appears in the {list} between the profile icon and your first data column. Hover over any row to see a dashed circle, then click it to open a dropdown with your {priority} levels. Select a level to assign it \u2014 the badge shows the level abbreviation in its color. Click the badge again to change it, or choose "None" to remove it.',
+    answer: 'When {priority} scoring is enabled, a small badge column appears in the {list} between the profile icon and your first data column. Hover over any {record} to see a dashed circle, then click it to open a dropdown with your {priority} levels. Select a level to assign it \u2014 the badge shows the level abbreviation in its color. Click the badge again to change it, or choose "None" to remove it.',
     category: 'caseload-grid',
   },
   {
@@ -321,8 +321,8 @@ export const FAQ_ITEMS: FAQItem[] = [
   // Dashboard & Deadlines (6)
   {
     id: 'dash-deadline-colors',
-    question: 'How do deadline alerts work?',
-    answer: 'Any date column can be turned into a deadline alert \u2014 click the menu icon (\u22ef) on the column header to set it up. Once enabled, dates are color-coded automatically: green means plenty of time, yellow means approaching, orange means close, red means urgent, and pulsing red means overdue. Your dashboard pulls from these alerts to show what needs attention each day.',
+    question: 'How do deadlines work?',
+    answer: 'Any date column can be turned into a deadline \u2014 click the menu icon (\u22ef) on the column header to set it up. Once enabled, dates are color-coded automatically: green means plenty of time, yellow means approaching, orange means close, red means urgent, and pulsing red means overdue. Your dashboard pulls from these deadlines to show what needs attention each day.',
     category: 'dashboard-deadlines',
     demo: <DemoDeadlineColors />,
   },
@@ -402,7 +402,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'contacts-categories',
     question: 'How do I organize {contact:many} into categories?',
-    answer: 'Click "Categories" in the Contacts toolbar to manage your category list. Default categories include Medical, Housing, Legal, and more. You can create custom categories with colors, and add custom fields per category (like NPI numbers for medical {contact:many}).',
+    answer: 'Click "Categories" in the {ContactDirectory} toolbar to manage your category list. Default categories include Medical, Housing, Legal, and more. You can create custom categories with colors, and add custom fields per category (like NPI numbers for medical {contact:many}).',
     category: 'contacts',
     demo: <DemoContactCategories />,
   },
@@ -460,7 +460,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'st-variables',
     question: 'What variables can I use in templates?',
-    answer: 'Templates use placeholders like {{name}} (the name), {{field:Status}} (any column, by name), {{deadline:Annual Review}} (when that column is next due), {{my_name}} (your name, from Settings) and {{today}}. Older ones such as {{client_name}} keep working. Click "Insert field" in the template editor to pick from your {list}\'s columns instead of typing them. Pulse lists any placeholder it doesn\'t recognize when you fill in the document.',
+    answer: 'Templates use placeholders like {{name}} (the name), {{field:Status}} (any column, by name), {{deadline:Annual Review}} (when that column is next due), {{my_name}} (your name, from Settings) and {{today}}. Older ones such as {{client_name}} keep working. Click "Insert a detail" in the template editor to pick from your {list}\'s columns instead of typing them. Pulse lists any placeholder it doesn\'t recognize when you fill in the document.',
     category: 'snippets-templates',
   },
   {
@@ -503,7 +503,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'sec-encrypted',
     question: 'Is my data encrypted?',
-    answer: 'Yes. Your entire database is encrypted using SQLCipher with a 256-bit key. The key is itself protected by your password. No one can read your data without your password or recovery key \u2014 not even if they have access to your computer\'s files.',
+    answer: 'Yes. Everything you keep in Pulse is encrypted with strong 256-bit encryption. The key is itself protected by your password. No one can read your data without your password or recovery key \u2014 not even if they have access to your computer\'s files.',
     category: 'security-backups',
   },
 
@@ -532,7 +532,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'tips-right-click',
     question: 'How do I use right-click menus in a {list}?',
-    answer: 'Right-click any {record} in the {list} to see a context menu with options like: copy/paste cell values, duplicate the row, archive it, or move it to another {list}. Right-click column headers for column-specific options.',
+    answer: 'Right-click any {record} in the {list} to see a context menu with options like: copy/paste cell values, duplicate it, archive it, or move it to another {list}. Right-click column headers for column-specific options.',
     category: 'tips-shortcuts',
     tourStepIds: ['right-click-rows'],
     demo: <DemoRightClick />,
@@ -595,7 +595,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'docs-batch',
     question: 'How do I print letters or address labels for many at once?',
-    answer: 'Select {record:many} in the {list} and click "Print documents…", or choose "Documents and labels…" in the Export menu. Make one PDF with a document for each, either everyone you selected, everyone with a deadline due in a date range, or everyone in the {list}. Documents can be full pages or 4×6 postcards, two per sheet. Address labels print on Avery 5160 or 5163 sheets. In a document template, "Insert field" adds any column, a deadline\'s due date, or a column of a linked {record}.',
+    answer: 'Select {record:many} in the {list} and click "Print documents…", or choose "Documents and labels…" in the Export menu. Make one PDF with a document for each, either everyone you selected, everyone with a deadline due in a date range, or everyone in the {list}. Documents can be full pages or 4×6 postcards, two per sheet. Address labels print on Avery 5160 or 5163 sheets. In a document template, "Insert a detail" adds any column, a deadline\'s due date, or a column of a linked {record}.',
     category: 'snippets-templates',
     feature: 'letters',
   },

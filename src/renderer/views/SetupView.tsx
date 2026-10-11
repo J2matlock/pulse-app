@@ -185,7 +185,7 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
 
   async function saveRows() {
     if (gridId === null) return
-    if (rows.choice === null) { setError('Pick what the rows are, or choose "Something else".'); return }
+    if (rows.choice === null) { setError('Pick what each row of your spreadsheet is, or choose "Something else".'); return }
     const chosen = rows.choice === 'other'
       ? { one: rows.one.trim(), many: rows.many.trim() || rows.one.trim(), kind: rows.kind }
       : ROW_CHOICES[rows.choice]!

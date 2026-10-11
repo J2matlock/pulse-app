@@ -174,10 +174,10 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
                              dark:border-slate-600 text-base text-slate-700 dark:text-slate-200
                              hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-hidden focus:ring-3
                              focus:ring-blue-500 min-h-[44px]"
-                  title="Insert a placeholder variable"
+                  title="Add a detail that fills in by itself"
                 >
                   <Braces className="w-4 h-4" />
-                  Insert field
+                  Insert a detail
                 </button>
                 <VariableInsertMenu
                   open={showVarMenu}

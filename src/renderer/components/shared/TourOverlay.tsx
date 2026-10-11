@@ -111,7 +111,7 @@ export const STEPS: TourStep[] = [
     title: 'Your {record} list',
     subtitle: 'Like a spreadsheet, but smarter',
     description:
-      'Each row is one {record}. Each column tracks a piece of information — names, dates, phone numbers, status, and more. Click any cell to edit it. Click the profile icon at the left edge of any row to open the full profile.',
+      'Each line is one {record}. Each column tracks a piece of information — names, dates, phone numbers, status, and more. Click any cell to edit it. Click the profile icon at the left edge of any {record} to open the full profile.',
     tip: 'Use arrow keys to move between cells. Press Enter or F2 to start editing. Press Escape to cancel.',
     icon: <Table2 className="w-6 h-6" />,
     position: 'bottom',
@@ -121,9 +121,9 @@ export const STEPS: TourStep[] = [
     id: 'add-client',
     target: '[data-tour="add-client"]',
     title: 'Adding new {record:many}',
-    subtitle: 'One click to add a row',
+    subtitle: 'One click to add {a record}',
     description:
-      'Click "Add {Record}" whenever you need to add to your {list}. A blank row appears — just start filling in the details.',
+      'Click "Add {Record}" whenever you need to add to your {list}. A blank line appears — just start filling in the details.',
     icon: <UserPlus className="w-6 h-6" />,
     position: 'bottom',
     route: '#/grid',
@@ -145,7 +145,7 @@ export const STEPS: TourStep[] = [
     title: 'Find any {record} instantly',
     subtitle: 'Search as you type',
     description:
-      'Looking for one {record}? Start typing its name here to filter your {list} as you type. No need to scroll through hundreds of rows — just type a few letters.',
+      'Looking for one {record}? Start typing its name here to filter your {list} as you type. No need to scroll through hundreds of {record:many} — just type a few letters.',
     tip: 'Press Ctrl+K from anywhere to open the full search palette, which can also navigate to other views.',
     icon: <Search className="w-6 h-6" />,
     position: 'bottom',
@@ -168,7 +168,7 @@ export const STEPS: TourStep[] = [
     title: 'Right-click for more options',
     subtitle: 'Hidden power at your fingertips',
     description:
-      'Right-click any row to see a context menu with quick actions: archive {a record}, duplicate the row, or move it to another {list}. You can also copy and paste cell values.',
+      'Right-click any {record} to see a menu with quick actions: archive it, duplicate it, or move it to another {list}. You can also copy and paste cell values.',
     icon: <MousePointerClick className="w-6 h-6" />,
     position: 'bottom',
     route: '#/grid',
