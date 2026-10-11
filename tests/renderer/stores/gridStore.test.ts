@@ -165,6 +165,35 @@ describe('gridStore', () => {
     })
   })
 
+  describe('refreshRows (R2)', () => {
+    it('reads the records again in place: a record restored elsewhere shows, the selection stays', async () => {
+      useGridStore.setState({ activeGridId: 1, isLoading: false, rows: [makeRow(1)], selectedRowIds: new Set([1]), sortedRowIds: [1] })
+      mockInvoke.mockImplementation(async (channel: string) => channel === 'grid:get-full'
+        ? { ok: true, data: { rows: [makeRow(1), makeRow(2)], rowTagsMap: { 2: ['new'] }, sampleRows: {} } }
+        : { ok: true, data: null })
+      await useGridStore.getState().refreshRows()
+      const s = useGridStore.getState()
+      expect(s.rows.map(r => r.row_id)).toEqual([1, 2])
+      expect(s.rowTagsMap.get(2)).toEqual(['new'])
+      expect(s.selectedRowIds).toEqual(new Set([1]))
+      expect(s.isLoading).toBe(false)
+    })
+
+    it('does nothing while a list is loading, and drops an answer that a newer load overtook', async () => {
+      useGridStore.setState({ activeGridId: 1, isLoading: true, rows: [] })
+      await useGridStore.getState().refreshRows()
+      expect(mockInvoke).not.toHaveBeenCalled()
+
+      useGridStore.setState({ isLoading: false, rows: [makeRow(1)] })
+      mockInvoke.mockImplementation(async () => {
+        useGridStore.setState({ _loadVersion: useGridStore.getState()._loadVersion + 1 })
+        return { ok: true, data: { rows: [makeRow(9)], rowTagsMap: {} } }
+      })
+      await useGridStore.getState().refreshRows()
+      expect(useGridStore.getState().rows.map(r => r.row_id)).toEqual([1])
+    })
+  })
+
   describe('sample entries (audit 2.6)', () => {
     it('asks once, after the first edit to a sample entry, and remembers the answer', async () => {
       const row = makeRow(1)

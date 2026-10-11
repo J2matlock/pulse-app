@@ -119,6 +119,23 @@ export const useGridStore = create<GridState>((set, get) => ({
       rlog.warn('GridStore', 'Could not refresh links', err)
     }
   },
+  refreshRows: async () => {
+    const { activeGridId: gridId, _loadVersion: version, isLoading, showArchived } = get()
+    if (!gridId || isLoading) return
+    try {
+      const data = await invoke<{ rows: GridRow[]; rowTagsMap: Record<number, string[]>; sampleRows?: Record<number, number> }>(IPC.GRID_GET_FULL, gridId, showArchived)
+      // A list opened or loaded meanwhile wins
+      if (get()._loadVersion !== version || get().activeGridId !== gridId || !data || !Array.isArray(data.rows)) return
+      set({
+        rows: data.rows,
+        rowTagsMap: new Map(Object.entries(data.rowTagsMap ?? {}).map(([k, v]) => [Number(k), v])),
+        sampleRows: data.sampleRows ?? {},
+      })
+      void get().refreshDeadlineContext()
+    } catch (err) {
+      rlog.warn('GridStore', 'Could not refresh the list', err)
+    }
+  },
   selectedRowIds: new Set<number>(),
   frozenColumnCount: 0,
 

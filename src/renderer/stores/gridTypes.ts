@@ -62,6 +62,12 @@ export interface CoreGridState {
   refreshDeadlineContext: () => Promise<void>
   /** Re-read only the link columns' values (W04), without reloading the grid */
   refreshLinkValues: () => Promise<void>
+  /**
+   * Re-read the open list's records in place, without the loading state or
+   * losing the selection: records restored or reactivated on another screen
+   * show when you come back to the list (R2)
+   */
+  refreshRows: () => Promise<void>
 
   selectedRowIds: Set<number>
   setSelectedRowIds: (ids: Set<number> | ((prev: Set<number>) => Set<number>)) => void

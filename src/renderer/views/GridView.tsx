@@ -85,6 +85,12 @@ export default function GridView(): React.ReactElement {
     if (!gridListLoaded) loadGridList()
   }, [gridListLoaded, loadGridList])
 
+  // Coming back to a list that's already loaded: read its records again, so ones restored
+  // from the Trash or reactivated on the Dashboard show (R2). Quietly, keeping the selection.
+  useEffect(() => {
+    void useGridStore.getState().refreshRows()
+  }, [])
+
   // Auto-select first grid — only after loadGridList has resolved.
   // If no grids exist, re-fetch once to avoid acting on stale state (e.g. after onboarding import).
   useEffect(() => {

@@ -73,12 +73,15 @@ const sampleRows = Array.from({ length: 10 }, (_, i) => makeRow(i))
 
 let gridStoreOverride: Record<string, unknown> = {}
 
+const refreshRowsMock = vi.fn().mockResolvedValue(undefined)
+
 function getGridStoreData() {
   return {
     grids: [{ id: 1, name: 'Main Caseload', is_active: 1, position: 0, created_at: '', updated_at: '' }],
     rows: sampleRows, columns: sampleColumns,
     activeGridId: 1, isLoading: false, gridListLoaded: true,
     loadGridList: vi.fn().mockResolvedValue(undefined), loadGrid: vi.fn(),
+    refreshRows: refreshRowsMock,
     searchQuery: '', setSearchQuery: vi.fn(),
     sortConfig: [], showArchived: false,
     acuityLevels: [], acuityEnabled: false,

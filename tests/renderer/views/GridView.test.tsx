@@ -50,11 +50,14 @@ vi.mock('../../../src/shared/constants', async () => ({
 
 let gridStoreOverride: Record<string, unknown> = {}
 
+const refreshRowsMock = vi.fn().mockResolvedValue(undefined)
+
 function getGridStoreData() {
   return {
     grids: [], rows: [], columns: [], activeGridId: null,
     isLoading: false, gridListLoaded: true,
     loadGridList: vi.fn().mockResolvedValue(undefined), loadGrid: vi.fn(),
+    refreshRows: refreshRowsMock,
     searchQuery: '', setSearchQuery: vi.fn(),
     sortConfig: [], showArchived: false,
     acuityLevels: [], acuityEnabled: false,
@@ -155,6 +158,13 @@ describe('GridView', () => {
     const { container } = render(<MemoryRouter><GridView /></MemoryRouter>)
     await flushEffects()
     expect(container.innerHTML.length).toBeGreaterThan(0)
+  })
+
+  it('reads the open list\'s records again on coming back, so restored ones show (R2)', async () => {
+    refreshRowsMock.mockClear()
+    render(<MemoryRouter><GridView /></MemoryRouter>)
+    await flushEffects()
+    expect(refreshRowsMock).toHaveBeenCalledTimes(1)
   })
 
   it('with no lists at all, offers the setup starting points (audit 2.1)', async () => {
