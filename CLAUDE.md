@@ -14,9 +14,9 @@ The spec is the source of truth. It contains exact SQL schemas, exact file paths
 **IMPORTANT FOR AI SESSIONS:** Some of these versions may be newer than your training data. If you don't know an API or behavior for a specific version, use WebSearch to look it up rather than guessing from older knowledge. Always check `package.json` for the actual installed versions before making assumptions.
 
 **Current versions (as of 2026-02-28):**
-- **Electron 39** + **React 19** + **TypeScript 5.9** (strict mode)
+- **Electron 44** (Node 24, Chromium 152) + **React 19** + **TypeScript 5.9** (strict mode)
 - **Vite 6** via **electron-vite 3** for build tooling
-- **SQLite** via `better-sqlite3-multiple-ciphers` (encrypted local database — NOT `@journeyapps/sqlcipher`)
+- **SQLite** via `better-sqlite3-multiple-ciphers` 13 (Node-API, prebuilt binaries bundled for every platform; encrypted local database — NOT `@journeyapps/sqlcipher`)
 - **Tailwind CSS 4** with CSS-first `@theme` config (no tailwind.config.js, no autoprefixer)
 - **electron-builder 26** for packaging
 - **electron-store 8** for app preferences (outside the encrypted DB)
@@ -211,7 +211,7 @@ Built sequentially. Each phase produced a working, testable build. See `plans/BU
 **Quality gates (2026-09-30):** `npm run typecheck` = 0 errors and `npx eslint src --quiet` = 0 errors (react-hooks plugin installed; ~26 exhaustive-deps warnings remain). Keep both at zero — the build (esbuild) does NOT typecheck, so run `/verify`.
 
 ### Database Note
-Uses `better-sqlite3-multiple-ciphers` (NOT `@journeyapps/sqlcipher`). See Decision Log below for rationale. After `npm install` or dependency changes, always rebuild: `npx electron-rebuild -f -w better-sqlite3-multiple-ciphers`.
+Uses `better-sqlite3-multiple-ciphers` (NOT `@journeyapps/sqlcipher`). See Decision Log below for rationale. Since 13.x (2026-10-11) it is Node-API: the same bundled binary loads in system Node and in Electron, so `electron-rebuild` and the ABI steps in `scripts/run-tests.sh` are now no-ops (kept, harmless).
 
 ## Code Style
 - TypeScript strict mode, no `any` types except where genuinely unavoidable
@@ -221,7 +221,7 @@ Uses `better-sqlite3-multiple-ciphers` (NOT `@journeyapps/sqlcipher`). See Decis
 - Comments: explain WHY, not WHAT. The code should be readable without comments explaining obvious logic.
 
 ## Testing Approach
-- **ALWAYS run tests via `npm test`, NEVER vitest directly** (a PreToolUse hook blocks it). `scripts/run-tests.sh` does the ABI dance: (1) `node-gyp rebuild` for system Node ABI, (2) vitest, (3) `electron-rebuild` back to Electron ABI. Args pass through: `npm test -- tests/auth.test.ts -t "lockout"`.
+- **ALWAYS run tests via `npm test`, NEVER vitest directly** (a PreToolUse hook blocks it). `scripts/run-tests.sh` does the ABI dance: (1) `node-gyp rebuild` for system Node ABI, (2) vitest, (3) `electron-rebuild` back to Electron ABI (steps 1 and 3 are no-ops since the Node-API module, 2026-10-11). Args pass through: `npm test -- tests/auth.test.ts -t "lockout"`.
 - Test suite: 210 files, ~3013 tests, ~30s + ~1 min of native rebuilds. Typecheck: `npm run typecheck`. Lint: `npm run lint`.
 - Test with real-world data volumes: 200+ clients, 20+ columns
 - Test keyboard navigation thoroughly — many users prefer keyboard to mouse
@@ -238,8 +238,9 @@ Uses `better-sqlite3-multiple-ciphers` (NOT `@journeyapps/sqlcipher`). See Decis
 - **Don't skip error handling on IPC calls.** Every invoke needs a try/catch.
 - **Don't use thin/hairline borders on the grid.** Chunky, visible borders.
 - **Don't auto-restart for updates.** Ever.
+- **Building the Linux .deb needs `libcrypt.so.1`** (electron-builder's bundled fpm runs on a Ruby linked against it). On Fedora: `sudo dnf install libxcrypt-compat`. `scripts/build-linux.js` checks for it up front.
 - **Don't add network requests beyond the update check.** This is an offline app.
-- **After `npm install` or dependency changes, always rebuild native modules for Electron:** `npx electron-rebuild -f -w better-sqlite3-multiple-ciphers`. The native module must match Electron's Node ABI, not the system Node ABI. If the app launches but password setup/unlock silently fails, this is almost certainly the cause.
+- **After `npm install` or dependency changes, rebuild native modules for Electron:** `npx electron-rebuild -f -w better-sqlite3-multiple-ciphers`. With the Node-API module (13.x) this is a no-op, but if the app launches and password setup/unlock silently fails, a native module built for the wrong ABI is still the first thing to check. `electron-rebuild` needs a `node-abi` that knows the Electron version; it's pinned under `overrides` in package.json, so bump it when bumping Electron.
 - **Every migration MUST update `schema_version`.** End every migration with `db.prepare("UPDATE app_meta SET value = '<N>' WHERE key = 'schema_version'").run()`. Without this, the migration re-runs on every launch, non-idempotent statements (like `ALTER TABLE ADD COLUMN`) fail, `openDatabase()` dies, and the app looks like it rejects the password. Guard `ALTER TABLE ADD COLUMN` with a `pragma_table_info` check since it has no `IF NOT EXISTS`.
 
 ## Context Efficiency
@@ -275,7 +276,9 @@ When implementation deviates from the spec, document it here:
 |-|-|-|
 | 2026-02-17 | Use `better-sqlite3-multiple-ciphers` instead of `@journeyapps/sqlcipher` | `@journeyapps/sqlcipher` prebuilt binary links against `libcrypto.so.1.1` (OpenSSL 1.1.x); Fedora 43 ships OpenSSL 3.x only, no compat package available. `better-sqlite3-multiple-ciphers` bundles SQLCipher statically (no system OpenSSL dependency), passes full validation, and has the same synchronous API. |
 | 2026-02-27 | Replace `xlsx` (SheetJS) with `exceljs` | xlsx 0.18.5 has unpatched prototype pollution (CVE) and ReDoS. SheetJS CE is unmaintained. exceljs is actively maintained, async API. |
-| 2026-02-27 | Upgrade to Electron 39, NOT 40 | Electron 40 uses Node 24 (bleeding edge). Electron 39 uses Node 22 LTS (stable, better native module compat). Supported until May 2026. |
+| 2026-02-27 | Upgrade to Electron 39, NOT 40 (SUPERSEDED 2026-10-11, see below) | Electron 40 uses Node 24 (bleeding edge). Electron 39 uses Node 22 LTS (stable, better native module compat). Supported until May 2026. |
+| 2026-10-11 | Upgrade to Electron 44 (44.4.5), replacing the "39, not 40" decision | Node 24 is an LTS line now, and Electron 39 went out of support on 2026-05-05 (unpatched Chromium). 44 is supported until 2027-03-02; re-bump every 1–2 majors. macOS minimum is now 13. Dialogs without a `defaultPath` open in Downloads (Electron 43). |
+| 2026-10-11 | better-sqlite3-multiple-ciphers 12.6.2 → 13.0.3 (Node-API) | 12.6.2 doesn't compile against Electron 44's V8, and 12.x has no prebuilds past Electron 42, which the Windows build (cross-compiled from Linux) needs. 13.x bundles a Node-API binary per platform; each build ships only its own (`build.<platform>.files`). Checked that databases written by 12.6.2 open in 13.0.3 and the other way round. Linux prebuilt needs glibc 2.35+. |
 | 2026-02-27 | Keep `@dnd-kit` at core 6 + sortable 8 | dnd-kit v10 (`@dnd-kit/react`) is beta (0.3.2), complete API rewrite. Wait for 1.0 stable. |
 | 2026-02-27 | Keep `electron-store` at v8 | v9+ is ESM-only, requires main process ESM migration throughout. Not worth the effort. |
 | 2026-02-27 | Use electron-vite 3 + Vite 6, NOT electron-vite 4 + Vite 7 | Tailwind 4 PostCSS plugin doesn't support Vite 7 yet. Vite 6 path is safer and more battle-tested. |
