@@ -17,6 +17,10 @@ import { rematerializeForRecord } from '../appointments'
 // Invalidated via invalidateColumnCache() when columns are modified.
 interface ColMeta { name: string; column_type: string; config: Record<string, unknown> }
 const _colMetaCache = new Map<number, ColMeta>()
+// The connection the cache was filled from. A restore closes the database through the
+// backup bridge, which doesn't run the close hooks, and can hand an old column id to a
+// new column; a new connection means a fresh cache (bug sweep S4).
+let _colMetaDb: unknown = null
 
 export function invalidateColumnCache(columnId?: number): void {
   if (columnId !== undefined) {
@@ -30,6 +34,8 @@ export function invalidateColumnCache(columnId?: number): void {
 const NUMBER_TYPES = new Set(['number', 'currency'])
 
 function getColMeta(columnId: number): ColMeta | undefined {
+  const db = getDb()
+  if (db !== _colMetaDb) { _colMetaCache.clear(); _colMetaDb = db }
   let cached = _colMetaCache.get(columnId)
   if (cached) return cached
   const row = cachedStmt('col_meta', 'SELECT name, column_type, config FROM columns WHERE id = ?').get(columnId) as { name: string; column_type: string; config: string } | undefined

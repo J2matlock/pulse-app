@@ -574,6 +574,24 @@ describe('COLUMN_DELETE', () => {
     expect(nameCol!.id).not.toBe(columnIds[0])
   })
 
+  it('hiding, showing or deleting a "Last name" column renames every record (bug sweep S4)', async () => {
+    const { columnIds, rowIds } = seedGrid(testDb.db, { columnCount: 2, rowCount: 1 })
+    const [first, last] = columnIds as [number, number]
+    testDb.db.prepare("UPDATE columns SET name = 'Last name' WHERE id = ?").run(last)
+    const put = testDb.db.prepare("INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))")
+    put.run(rowIds[0], first, 'Jane'); put.run(rowIds[0], last, 'Smith')
+    const name = () => (testDb.db.prepare('SELECT display_name FROM rows WHERE id = ?').get(rowIds[0]) as { display_name: string }).display_name
+    expect(name()).toBe('Jane Smith')
+    await invoke(IPC.COLUMN_UPDATE, last, { is_visible: 0 })
+    expect(name()).toBe('Jane')
+    await invoke(IPC.COLUMN_BATCH_UPDATE_VISIBILITY, [{ columnId: last, isVisible: 1 }])
+    expect(name()).toBe('Jane Smith')
+    const res = await invoke(IPC.COLUMN_DELETE, last) as { ok: true; data: { deletedId: number } }
+    expect(name()).toBe('Jane')
+    await invoke(IPC.COLUMN_RESTORE, res.data.deletedId)
+    expect(name()).toBe('Jane Smith')
+  })
+
   it('Undo of deleting the name column gives it the name back from its stand-in (bug sweep S3)', async () => {
     const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { columnCount: 2, rowCount: 1, columnTypes: ['text', 'phone'] })
     const put = testDb.db.prepare("INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))")

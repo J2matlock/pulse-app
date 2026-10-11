@@ -14,7 +14,7 @@
  */
 import { getDb } from './database'
 import { deleteLinksForGrid } from './links'
-import { hasDisplayFormat, refreshDisplayNames } from './display-names'
+import { hasDisplayFormat, isLastNameColumnName, refreshDisplayNames } from './display-names'
 import { keepSamplesUntouched } from './sample-marks'
 
 export class TrashError extends Error {}
@@ -120,7 +120,7 @@ export function restoreColumn(deletedId: number): { columnId: number; gridId: nu
       for (const r of keep) insertRow(table, r)
     }
     db.prepare('DELETE FROM deleted_columns WHERE id = ?').run(deletedId)
-    if (hasDisplayFormat(entry.grid_id) || takeBack) refreshDisplayNames(entry.grid_id)
+    if (hasDisplayFormat(entry.grid_id) || takeBack || isLastNameColumnName(String(snap.column.name ?? ''))) refreshDisplayNames(entry.grid_id)
   }))()
   return { columnId: entry.column_id, gridId: entry.grid_id }
 }
