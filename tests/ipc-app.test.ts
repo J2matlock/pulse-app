@@ -311,6 +311,25 @@ describe('APP_INTEGRITY_CHECK', () => {
   })
 })
 
+describe('APP_CHECK_FOR_UPDATES', () => {
+  it('stays offline in an end-to-end run, so no update banner appears there (polish V1)', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    const vitest = process.env.VITEST
+    const nodeEnv = process.env.NODE_ENV
+    delete process.env.VITEST
+    process.env.NODE_ENV = 'test'
+    try {
+      const r = await invoke(IPC.APP_CHECK_FOR_UPDATES) as any
+      expect(r).toEqual({ ok: true, data: { available: false } })
+      expect(fetchSpy).not.toHaveBeenCalled()
+    } finally {
+      process.env.VITEST = vitest
+      process.env.NODE_ENV = nodeEnv
+      fetchSpy.mockRestore()
+    }
+  })
+})
+
 describe('APP_MIGRATION_STATUS', () => {
   it('returns null when no migration failure', async () => {
     const r = await invoke(IPC.APP_MIGRATION_STATUS) as any

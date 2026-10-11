@@ -139,6 +139,8 @@ export function registerAppHandlers(): void {
   })
 
   secureWrap(IPC.APP_CHECK_FOR_UPDATES, 'ipc-app', async () => {
+    // End-to-end runs (NODE_ENV=test outside vitest) stay offline, so no update banner shifts their screens
+    if (process.env.NODE_ENV === 'test' && !process.env.VITEST) return ok({ available: false })
     const UPDATE_CHECK_URL = 'https://raw.githubusercontent.com/J2matlock/pulse-releases/main/latest.json'
     const UPDATE_ALLOWED_URL_PREFIX = 'https://github.com/J2matlock/pulse-releases/'
     const res = await fetch(UPDATE_CHECK_URL, { signal: AbortSignal.timeout(8000) })

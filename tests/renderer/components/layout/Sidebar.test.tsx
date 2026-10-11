@@ -187,6 +187,20 @@ describe('Sidebar', () => {
     expect(screen.getByText('MC')).toBeDefined()
   })
 
+  it('the collapsed rail hides its scrollbar, which covered the list badges (polish V1)', () => {
+    renderSidebar(true)
+    expect((screen.getByRole('navigation', { name: 'Main navigation' }) as HTMLElement).style.scrollbarWidth).toBe('none')
+  })
+
+  it('on a short screen the last item fades out instead of being cut in half (polish V1)', () => {
+    const height = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(900)
+    const shown = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(500)
+    try {
+      renderSidebar()
+      expect(screen.getByRole('navigation', { name: 'Main navigation' }).getAttribute('data-more-below')).toBe('true')
+    } finally { height.mockRestore(); shown.mockRestore() }
+  })
+
   it('shows Lock button and calls lock on click', () => {
     renderSidebar()
     expect(screen.getByText('Lock')).toBeDefined()
