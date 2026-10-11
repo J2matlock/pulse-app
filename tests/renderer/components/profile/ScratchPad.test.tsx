@@ -40,6 +40,7 @@ vi.mock('@tiptap/react', () => ({
     view: { dom: { closest: () => null, parentElement: null } },
     state: { selection: { from: 0 }, doc: { textBetween: () => '' } },
   }),
+  useEditorState: ({ editor, selector }: { editor: unknown; selector: (c: { editor: unknown }) => unknown }) => selector({ editor }),
   EditorContent: ({ editor }: { editor: unknown }) =>
     React.createElement('div', { 'data-testid': 'tiptap-editor' }, 'Editor content area'),
 }))

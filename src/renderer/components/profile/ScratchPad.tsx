@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor, useEditorState, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import DOMPurify from 'dompurify'
 import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, StickyNote } from 'lucide-react'
@@ -85,6 +85,7 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
         style: 'font-size: 15px;',
         spellcheck: 'false',
         // The editor is a textbox; give it a name and say it takes several lines
+        role: 'textbox',
         'aria-label': 'Scratch pad',
         'aria-multiline': 'true',
       },
@@ -164,6 +165,33 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
   // Keep editorRef in sync
   useEffect(() => { editorRef.current = editor }, [editor])
 
+  // The editor doesn't re-render this component on every keystroke, so watch the
+  // marks the toolbar shows as pressed (audit A06-18)
+  const active = useEditorState({
+    editor,
+    selector: ({ editor: ed }) => ({
+      bold: ed?.isActive('bold') ?? false,
+      italic: ed?.isActive('italic') ?? false,
+      underline: ed?.isActive('underline') ?? false,
+      bulletList: ed?.isActive('bulletList') ?? false,
+      orderedList: ed?.isActive('orderedList') ?? false,
+    }),
+  })
+
+  // The "/" menu is a listbox the editor points at, so a screen reader hears the
+  // highlighted snippet (audit A06-32). ProseMirror leaves attributes it didn't set alone.
+  const menuId = useId()
+  const optionId = (i: number) => `${menuId}-opt-${i}`
+  const menuOpen = !!snippetMenu && snippetMenu.items.length > 0
+  useEffect(() => {
+    const dom = editor?.view?.dom
+    if (!dom || typeof dom.setAttribute !== 'function') return
+    if (menuOpen) dom.setAttribute('aria-controls', menuId)
+    else dom.removeAttribute('aria-controls')
+    if (menuOpen && selectedIndex >= 0) dom.setAttribute('aria-activedescendant', `${menuId}-opt-${selectedIndex}`)
+    else dom.removeAttribute('aria-activedescendant')
+  }, [editor, menuOpen, selectedIndex, menuId])
+
   // Save what's pending right away instead of waiting for the timer. Runs when the
   // pad goes away (Prev/Next, leaving the page) and just before the app locks,
   // while the database is still open (1.2).
@@ -221,14 +249,18 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
     }
   }
 
-  function toolbarBtn(active: boolean, onClick: () => void, icon: React.ReactNode, title: string) {
+  function toolbarBtn(pressed: boolean, onClick: () => void, icon: React.ReactNode, title: string) {
     return (
       <button
         type="button"
-        onMouseDown={e => { e.preventDefault(); onClick() }}
+        // mousedown keeps the editor's selection; the click (or Enter/Space) does the work
+        onMouseDown={e => e.preventDefault()}
+        onClick={onClick}
         title={title}
+        aria-label={title}
+        aria-pressed={pressed}
         className={`hit-44 p-1.5 rounded-sm text-base transition-colors
-          ${active ? 'bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200'}
+          ${pressed ? 'bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200'}
           focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500`}
       >
         {icon}
@@ -245,13 +277,13 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
         {saveError && !saving && <span role="alert" className="text-base text-red-700 dark:text-red-400">We couldn't save this — keep typing to try again</span>}
       </div>
 
-      <div className="flex flex-wrap items-center gap-0.5 px-2 py-1 border-b border-slate-100 dark:border-slate-700/50">
-        {toolbarBtn(editor?.isActive('bold') ?? false, () => editor?.chain().focus().toggleBold().run(), <Bold className="w-4 h-4" />, modHelp('Bold (Ctrl+B)'))}
-        {toolbarBtn(editor?.isActive('italic') ?? false, () => editor?.chain().focus().toggleItalic().run(), <Italic className="w-4 h-4" />, modHelp('Italic (Ctrl+I)'))}
-        {toolbarBtn(editor?.isActive('underline') ?? false, () => editor?.chain().focus().toggleUnderline().run(), <UnderlineIcon className="w-4 h-4" />, modHelp('Underline (Ctrl+U)'))}
-        <div className="w-px h-5 bg-slate-200 dark:bg-slate-600 mx-1" />
-        {toolbarBtn(editor?.isActive('bulletList') ?? false, () => editor?.chain().focus().toggleBulletList().run(), <List className="w-4 h-4" />, modHelp('Bullet list (Ctrl+Shift+8)'))}
-        {toolbarBtn(editor?.isActive('orderedList') ?? false, () => editor?.chain().focus().toggleOrderedList().run(), <ListOrdered className="w-4 h-4" />, modHelp('Numbered list (Ctrl+Shift+7)'))}
+      <div role="toolbar" aria-label="Text formatting" className="flex flex-wrap items-center gap-0.5 px-2 py-1 border-b border-slate-100 dark:border-slate-700/50">
+        {toolbarBtn(active?.bold ?? false, () => editor?.chain().focus().toggleBold().run(), <Bold className="w-4 h-4" />, modHelp('Bold (Ctrl+B)'))}
+        {toolbarBtn(active?.italic ?? false, () => editor?.chain().focus().toggleItalic().run(), <Italic className="w-4 h-4" />, modHelp('Italic (Ctrl+I)'))}
+        {toolbarBtn(active?.underline ?? false, () => editor?.chain().focus().toggleUnderline().run(), <UnderlineIcon className="w-4 h-4" />, modHelp('Underline (Ctrl+U)'))}
+        <div className="w-px h-5 bg-slate-200 dark:bg-slate-600 mx-1" aria-hidden="true" />
+        {toolbarBtn(active?.bulletList ?? false, () => editor?.chain().focus().toggleBulletList().run(), <List className="w-4 h-4" />, modHelp('Bullet list (Ctrl+Shift+8)'))}
+        {toolbarBtn(active?.orderedList ?? false, () => editor?.chain().focus().toggleOrderedList().run(), <ListOrdered className="w-4 h-4" />, modHelp('Numbered list (Ctrl+Shift+7)'))}
         {snippetsOn && <div className="ml-2 text-base text-slate-500 dark:text-slate-400 whitespace-nowrap">Type / for snippets</div>}
       </div>
 
@@ -265,18 +297,24 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
       >
         <EditorContent editor={editor} />
 
+        <span role="status" className="sr-only">
+          {menuOpen ? `${snippetMenu.items.length} ${snippetMenu.items.length === 1 ? 'snippet matches' : 'snippets match'}. Tab inserts the first, or the one you choose with the up and down arrows.` : ''}
+        </span>
+
         {snippetMenu && snippetMenu.items.length > 0 && (
           <div
             className="absolute z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg py-1 min-w-52 max-w-72"
             style={snippetMenuPos ? { top: snippetMenuPos.top, left: snippetMenuPos.left } : { left: 4, top: '100%', marginTop: 4 }}
           >
+            <div id={menuId} role="listbox" aria-label="Snippets">
             {snippetMenu.items.map((s, i) => (
-              <button
+              <div
                 key={s.id}
-                type="button"
+                id={optionId(i)}
+                role="option"
+                aria-selected={i === selectedIndex}
                 onMouseDown={e => { e.preventDefault(); applySnippet(s) }}
-                className={`hit-44 flex items-start gap-2 w-full px-3 py-2 text-left
-                  focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-blue-500
+                className={`hit-44 flex items-start gap-2 w-full px-3 py-2 text-left cursor-pointer
                   ${i === selectedIndex
                     ? 'bg-blue-100 dark:bg-blue-900/40'
                     : 'hover:bg-blue-50 dark:hover:bg-blue-900/20'
@@ -284,9 +322,10 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
               >
                 <span className="text-sm font-mono text-blue-700 dark:text-blue-300 flex-shrink-0">/{s.trigger_text}</span>
                 <span className="text-sm text-slate-500 dark:text-slate-400 truncate">{s.expansion.slice(0, 40)}</span>
-              </button>
+              </div>
             ))}
-            <div className="px-3 py-1 border-t border-slate-100 dark:border-slate-700 mt-1">
+            </div>
+            <div aria-hidden="true" className="px-3 py-1 border-t border-slate-100 dark:border-slate-700 mt-1">
               <span className="text-base text-slate-500 dark:text-slate-400">Tab inserts · ↑↓ then Enter to pick another · Esc closes</span>
             </div>
           </div>
