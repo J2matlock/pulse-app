@@ -308,6 +308,7 @@ export interface IPCContract {
   'auth:verify-recovery-key':           { args: [recoveryKey: string];                                           return: true }
   'auth:revoke-recovery-key':           { args: [currentPassword?: string];                                      return: true }
   'auth:has-recovery-key':              { args: [];                                                              return: boolean }
+  'auth:lockout-remaining':             { args: [];                                                              return: number }
   'auth:reset-password-after-recovery': { args: [newPassword: string, newHint: string];                          return: true }
   'auth:credentials-unreadable':        { args: [];                                                              return: boolean }
   'auth:restore-from-backup':           { args: [backupPath: string, secret: string, newPassword: string, hint: string]; return: { cloudWarning: string | null } }

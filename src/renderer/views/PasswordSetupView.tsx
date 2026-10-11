@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { Lock, Eye, EyeOff, Shield, KeyRound } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -23,6 +23,9 @@ export function PasswordSetupView(): React.ReactElement {
   const [step, setStep] = useState<SetupStep>('password')
   const [generatedKey, setGeneratedKey] = useState('')
   const [showSkipConfirm, setShowSkipConfirm] = useState(false)
+  // What's still missing, said on submit instead of a silently greyed-out button (audit F-25)
+  const [missing, setMissing] = useState<string | null>(null)
+  const termsRef = useRef<HTMLInputElement>(null)
 
   const { setPasswordSetup, setLocked } = useSettingsStore()
 
@@ -36,7 +39,15 @@ export function PasswordSetupView(): React.ReactElement {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!isValid || isSubmitting) return
+    if (isSubmitting) return
+    if (!isValid) {
+      const pw = checkNewPassword(password)
+      if (!pw.ok) setMissing(pw.message ?? 'Choose a longer password.')
+      else if (!passwordsMatch) setMissing("The two passwords don't match. Type the same password in both boxes.")
+      else { setMissing('Tick the box to agree to the Terms of Use and Privacy Policy.'); termsRef.current?.focus() }
+      return
+    }
+    setMissing(null)
 
     setIsSubmitting(true)
     try {
@@ -274,9 +285,10 @@ export function PasswordSetupView(): React.ReactElement {
 
             <label className="flex items-start gap-3 cursor-pointer select-none">
               <input
+                ref={termsRef}
                 type="checkbox"
                 checked={acceptedTerms}
-                onChange={e => setAcceptedTerms(e.target.checked)}
+                onChange={e => { setAcceptedTerms(e.target.checked); if (e.target.checked) setMissing(null) }}
                 className="mt-0.5 w-5 h-5 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-3 focus:ring-blue-500 cursor-pointer flex-shrink-0"
               />
               <span className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
@@ -303,10 +315,12 @@ export function PasswordSetupView(): React.ReactElement {
               </span>
             </label>
 
+            {missing && <p role="alert" className="text-base text-red-700 dark:text-red-300">{missing}</p>}
+
             <button
               type="submit"
               className="btn-primary w-full"
-              disabled={!isValid || isSubmitting}
+              disabled={isSubmitting}
             >
               {isSubmitting ? 'Setting up…' : 'Create password & continue'}
             </button>

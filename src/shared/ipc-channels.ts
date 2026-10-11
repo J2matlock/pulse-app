@@ -368,6 +368,7 @@ export const IPC = {
   AUTH_VERIFY_RECOVERY_KEY: 'auth:verify-recovery-key',
   AUTH_REVOKE_RECOVERY_KEY: 'auth:revoke-recovery-key',
   AUTH_HAS_RECOVERY_KEY: 'auth:has-recovery-key',
+  AUTH_LOCKOUT_REMAINING: 'auth:lockout-remaining',
   AUTH_RESET_PASSWORD_AFTER_RECOVERY: 'auth:reset-password-after-recovery',
   AUTH_CREDENTIALS_UNREADABLE: 'auth:credentials-unreadable',
   AUTH_RESTORE_FROM_BACKUP: 'auth:restore-from-backup',
