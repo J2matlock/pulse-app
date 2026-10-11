@@ -65,6 +65,9 @@ export function handleCellKeyDown(
   switch (e.key) {
     case 'Enter':
     case 'F2': {
+      // The open editor owns Enter: a notes or address box takes it as a new line,
+      // the others save on it themselves (AUDIT-040)
+      if (editing && editing.rowId === rowId && editing.columnId === columnId) break
       e.preventDefault()
       // Ctrl+Enter or Shift+Enter opens the record, so keyboard users can get to it (G-31)
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || e.shiftKey) && !editing && deps.openRecord) {
