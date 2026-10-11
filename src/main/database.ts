@@ -17,7 +17,7 @@ import { logNonFatal } from './ipc/ipc-utils'
 import { detectCloudSyncService } from '../shared/cloudSync'
 import type { DbOpenFailureKind } from '../shared/dbOpen'
 import { runPreMigrationBackup, setDatabaseBridge } from './backup'
-import { MIGRATIONS } from './migration-list'
+import { MIGRATIONS, applyMigration } from './migration-list'
 import { linkColumnSpecs, linkSelectSql, linkSpecKey, type LinkColumnSpec } from '../shared/links'
 import { fileCountColumnIds } from '../shared/attachments'
 
@@ -419,17 +419,9 @@ function runMigrations(): void {
   for (const migration of migrations) {
     if (migration.version > currentVersion) {
       try {
-        if (migration.noTransaction) {
-          // Some migrations (e.g. VACUUM) cannot run inside a transaction.
-          // WARNING: noTransaction migrations cannot be rolled back — if they fail
-          // partway through, the DB may be in an inconsistent state.
-          migration.up(database)
-        } else {
-          const runMigration = database.transaction(() => {
-            migration.up(database)
-          })
-          runMigration()
-        }
+        // In a transaction, unless it's noTransaction (VACUUM; can't be rolled back)
+        // or a rebuild (foreign keys off around it, checked before commit)
+        applyMigration(database, migration)
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err)
         logger.error('database', `Migration ${migration.version} failed: ${errMsg}`)

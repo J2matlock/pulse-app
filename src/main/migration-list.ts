@@ -61,6 +61,50 @@ export interface Migration {
   up: (db: BetterSqlite3DB) => void
   /** Runs outside a transaction (VACUUM can't run inside one) and so can't be rolled back */
   noTransaction?: boolean
+  /**
+   * Rebuilds a table other tables point to (SQLite's create-new / copy / drop /
+   * rename procedure). With foreign keys on, DROP TABLE on a parent cascades and
+   * deletes every child row, so foreign keys are turned off around the
+   * transaction and checked with foreign_key_check before commit (AUDIT-107).
+   */
+  rebuild?: boolean
+}
+
+/**
+ * Run one migration the way its flags ask. Shared by the app's runner and the
+ * tests, so a rebuild migration is tested exactly as it will run.
+ */
+export function applyMigration(db: BetterSqlite3DB, migration: Migration): void {
+  if (migration.noTransaction && migration.rebuild) {
+    throw new Error(`Migration ${migration.version} can't be both noTransaction and rebuild`)
+  }
+  if (migration.noTransaction) {
+    // WARNING: can't be rolled back; if it fails partway the DB may be inconsistent
+    migration.up(db)
+    return
+  }
+  if (!migration.rebuild) {
+    db.transaction(() => migration.up(db))()
+    return
+  }
+  // foreign_keys can't be changed inside a transaction, so this goes first
+  db.pragma('foreign_keys = OFF')
+  try {
+    db.transaction(() => {
+      migration.up(db)
+      // Nothing is checked while foreign keys are off: refuse to commit broken links
+      const problems = db.pragma('foreign_key_check') as Array<{ table: string; parent: string }>
+      if (problems.length > 0) {
+        const first = problems[0]
+        throw new Error(
+          `Migration ${migration.version} left ${problems.length} row(s) pointing at missing rows` +
+          (first ? ` (first: ${first.table} → ${first.parent})` : '')
+        )
+      }
+    })()
+  } finally {
+    db.pragma('foreign_keys = ON')
+  }
 }
 
 // IMPORTANT: Every migration MUST end by writing app_meta.schema_version.

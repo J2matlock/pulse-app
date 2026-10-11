@@ -65,7 +65,7 @@ vi.mock('../src/main/migration-list', async () => {
   const actual = await vi.importActual<typeof import('../src/main/migration-list')>('../src/main/migration-list')
   h.real.push(...actual.MIGRATIONS)
   h.list.push(...actual.MIGRATIONS)
-  return { MIGRATIONS: h.list }
+  return { MIGRATIONS: h.list, applyMigration: actual.applyMigration }
 })
 
 import { openDatabase, closeDatabase, getDb, getMigrationFailure, latestSchemaVersion, DatabaseOpenError } from '../src/main/database'
@@ -283,6 +283,42 @@ describe('openDatabase refusing or failing safely', () => {
     openDatabase()
     expect(versionOf(getDb())).toBe(latest)
     expect(getMigrationFailure()).toBeNull()
+  })
+
+  it('a rebuild: true migration can rebuild the records table without wiping cells or notes (AUDIT-107)', () => {
+    const latest = latestSchemaVersion()
+    makeDbAt(latest, db => { seedList(db) })
+    h.list.push({
+      version: latest + 1,
+      rebuild: true,
+      up: (db) => {
+        // SQLite's procedure: set aside triggers and views that mention the table (the
+        // rename re-checks them), new table, copy, drop old, rename, then put back
+        // its indexes, triggers and views
+        const table = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'rows'").get() as { sql: string }
+        const indexes = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'rows' AND sql IS NOT NULL").all() as Array<{ sql: string }>
+        const dependents = db.prepare("SELECT type, name, sql FROM sqlite_master WHERE type IN ('trigger', 'view') AND sql LIKE '%rows%'").all() as Array<{ type: string; name: string; sql: string }>
+        for (const d of dependents) db.exec(`DROP ${d.type.toUpperCase()} IF EXISTS "${d.name}"`)
+        db.exec(table.sql.replace(/CREATE TABLE\s+"?rows"?/i, 'CREATE TABLE rows_new'))
+        db.exec('INSERT INTO rows_new SELECT * FROM rows')
+        db.exec('DROP TABLE rows')
+        db.exec('ALTER TABLE rows_new RENAME TO rows')
+        for (const i of indexes) db.exec(i.sql)
+        for (const d of dependents) db.exec(d.sql)
+      },
+    })
+
+    openDatabase()
+    const db = getDb()
+    expect(versionOf(db)).toBe(latest)
+    expect(count(db, 'rows')).toBe(3)
+    expect(count(db, 'cells')).toBe(6)
+    expect(count(db, 'case_log')).toBe(3)
+    expect(db.pragma('foreign_keys', { simple: true })).toBe(1)
+    // Deleting a record still cascades to its cells, so the links survived the rebuild
+    const one = (db.prepare('SELECT id FROM rows LIMIT 1').get() as { id: number }).id
+    db.prepare('DELETE FROM rows WHERE id = ?').run(one)
+    expect(count(db, 'cells')).toBe(4)
   })
 
   it('reports a damaged file as unreadable and leaves it in place', () => {
