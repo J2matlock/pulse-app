@@ -1634,3 +1634,7 @@ Left for later:
 - Quota extensions saved before this pass stop applying (they were tied to an empty value).
 
 Build state: npm test 4163 pass / 4 skip; typecheck 0; eslint 0 errors (26 exhaustive-deps warnings); e2e 11/11 plus the setup check.
+
+## 2026-10-11 (cont.) — Pulse 2.3.0 released
+- Version 2.3.0 (audit + polish pass), What's New entry, tagged v2.3.0 in pulse-app
+- `pulse-releases` v2.3.0: `PULSE.exe`, `BaringaSoftPulse-2.3.0.AppImage`, `SHA256SUMS.txt`, marked latest; `latest.json` announces 2.3.0
