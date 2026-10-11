@@ -107,6 +107,7 @@ import {
   setScheduledConfig,
   getBackupInfo,
   recordAutoBackupSuccess,
+  runManualBackup,
 } from '../src/main/backup'
 
 /** Create a zip file from a map of entry-name → content. */
@@ -319,6 +320,29 @@ describe('Manual Backup', () => {
     const db2 = openTestDb(destPath)
     const row = db2.prepare("SELECT value FROM app_meta WHERE key = 'schema_version'").get() as { value: string }
     expect(parseInt(row.value)).toBeGreaterThanOrEqual(1)
+    db2.close()
+  })
+})
+
+describe('Manual Backup into folders with apostrophes and accents (AUDIT-002)', () => {
+  it("backs up into a folder named like O'Brien (José) & co and the snapshot opens with the same key", async () => {
+    const { gridId } = seedGrid(t.db, { rowCount: 3, columnCount: 1 })
+    const oddDir = join(t.tmpDir, "Test O'Brien (José) & co, #1+")
+    mkdirSync(oddDir, { recursive: true })
+
+    const result = await runManualBackup(join(oddDir, 'backup'))
+    expect(existsSync(result.destPath)).toBe(true)
+    // The temporary snapshot is cleaned up after zipping
+    expect(readdirSync(oddDir).filter(f => f.endsWith('.db'))).toEqual([])
+
+    const entries = await readTestZip(result.destPath)
+    const dbEntry = [...entries.keys()].find(k => k.endsWith('.db'))
+    expect(dbEntry).toBeDefined()
+    const extracted = join(oddDir, 'extracted.db')
+    writeFileSync(extracted, entries.get(dbEntry as string) as Buffer)
+    const db2 = openTestDb(extracted)
+    const count = (db2.prepare('SELECT COUNT(*) as c FROM rows WHERE grid_id = ?').get(gridId) as { c: number }).c
+    expect(count).toBe(3)
     db2.close()
   })
 })
