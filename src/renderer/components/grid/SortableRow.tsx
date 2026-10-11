@@ -14,6 +14,7 @@ import { AcuityBadge } from './AcuityBadge'
 import { alertShapeForBand, HANDLE_STYLE, HANDLE_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH } from './gridConstants'
 import { useVocab } from '../../hooks/useVocab'
 import { SamplePill } from '../shared/SampleDataBanner'
+import { pulseEvents } from '../../events'
 
 type CellCoord = { rowId: number; columnId: number }
 
@@ -66,6 +67,8 @@ export interface SortableRowProps {
   /** A made-up sample entry (shows a "Sample" pill by its name) */
   isSample?: boolean
 }
+
+const COMPUTED_NAV_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'])
 
 export const SortableRow = React.memo(function SortableRow({
   row,
@@ -284,10 +287,12 @@ export const SortableRow = React.memo(function SortableRow({
         // Date columns with a rule say how they stand, not only by color (G-09)
         let alertChip: string | null = null
         let alertSpoken = ''
+        let hasRule = false
         if (takesDeadlineRule(col.column_type)) {
           const cfg = parsedColumnConfigs.get(col.id)?.config as { alert_rule_id?: number } | undefined
           if (cfg?.alert_rule_id) {
             const rule = alertRuleMap.get(cfg.alert_rule_id)
+            hasRule = !!rule
             if (rule) {
               // The shared engine (W05): relative and other kinds can be due with this cell empty
               const res = evaluateRuleForRow(rule, value, rowOriginal as unknown as Record<string, unknown>, col.id)
@@ -413,8 +418,17 @@ export const SortableRow = React.memo(function SortableRow({
             }}
             onKeyDown={e => {
               if (isComputed) {
-                const navKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End']
-                if (navKeys.includes(e.key)) onCellKeyDown(e, rowId, colId)
+                // Moving, copying, selecting and opening the record work here too; nothing that writes
+                const mod = e.ctrlKey || e.metaKey
+                const passes = COMPUTED_NAV_KEYS.has(e.key) || e.key === 'Escape'
+                  || (mod && (e.key === 'c' || e.key === 'C' || e.key === 'a' || e.key === 'A'))
+                  || (e.key === 'Enter' && (mod || e.shiftKey))
+                if (passes) onCellKeyDown(e, rowId, colId)
+                else if (e.key === 'Enter' && col.column_type === 'deadline' && !hasRule) {
+                  // The cell's "Choose a deadline rule" isn't a Tab stop, so Enter opens it
+                  e.preventDefault()
+                  pulseEvents.emit('column:choose-rule', { columnId: colId })
+                }
               } else {
                 onCellKeyDown(e, rowId, colId)
               }

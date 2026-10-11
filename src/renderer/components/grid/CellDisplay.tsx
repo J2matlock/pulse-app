@@ -224,7 +224,8 @@ function DeadlineCell({ column, value, row, parsedConfig }: { column: Column; va
   useGridStore(s => s.deadlineContext)
   // Not set up yet: the cell itself opens the column's rule picker (G-20)
   if (!rule) return (
-    <button type="button" className="text-blue-700 dark:text-blue-300 underline hover:no-underline focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
+    // Not a Tab stop, so the list stays one (G-32); Enter on the cell opens the picker
+    <button type="button" tabIndex={-1} className="text-blue-700 dark:text-blue-300 underline hover:no-underline focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
       onClick={e => { e.stopPropagation(); pulseEvents.emit('column:choose-rule', { columnId: column.id }) }}>
       Choose a deadline rule
     </button>

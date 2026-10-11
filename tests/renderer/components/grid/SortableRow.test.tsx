@@ -53,6 +53,7 @@ vi.mock('../../../../src/renderer/components/grid/gridConstants', () => ({
 import { SortableRow, type SortableRowProps } from '../../../../src/renderer/components/grid/SortableRow'
 import type { GridRow, Column } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
+import { pulseEvents } from '../../../../src/renderer/events'
 
 function makeColumn(id: number, name: string, type = 'text'): Column {
   return {
@@ -160,6 +161,35 @@ describe('SortableRow', () => {
     const props = makeProps({ deadlineContext: { meter: {} } })
     expect(compare(props, { ...props })).toBe(true)
     expect(compare(props, { ...props, deadlineContext: { meter: { '1:2': [] } } })).toBe(false)
+  })
+
+  it('copies, selects all, clears and opens the record from a worked-out cell, but never types into it (R1)', () => {
+    const onCellKeyDown = vi.fn()
+    const cols = [makeColumn(1, 'Case number', 'auto_number')]
+    render(<SortableRow {...makeProps({ onCellKeyDown, columns: cols, columnMap: new Map(cols.map(c => [c.id, c])) })} />)
+    const cell = document.querySelector('[data-col-id="1"]')!
+    fireEvent.keyDown(cell, { key: 'c', ctrlKey: true })
+    fireEvent.keyDown(cell, { key: 'a', metaKey: true })
+    fireEvent.keyDown(cell, { key: 'Escape' })
+    fireEvent.keyDown(cell, { key: 'Enter', shiftKey: true })
+    fireEvent.keyDown(cell, { key: 'ArrowDown' })
+    expect(onCellKeyDown.mock.calls.map(c => (c[0] as KeyboardEvent).key)).toEqual(['c', 'a', 'Escape', 'Enter', 'ArrowDown'])
+    onCellKeyDown.mockClear()
+    fireEvent.keyDown(cell, { key: 'x' })
+    fireEvent.keyDown(cell, { key: 'Enter' })
+    fireEvent.keyDown(cell, { key: 'Delete' })
+    fireEvent.keyDown(cell, { key: 'v', ctrlKey: true })
+    expect(onCellKeyDown).not.toHaveBeenCalled()
+  })
+
+  it('Enter on a deadline column with no rule opens the rule picker (R1)', () => {
+    const opened = vi.fn()
+    const off = pulseEvents.on('column:choose-rule', opened)
+    const cols = [makeColumn(1, 'Review', 'deadline')]
+    render(<SortableRow {...makeProps({ columns: cols, columnMap: new Map(cols.map(c => [c.id, c])) })} />)
+    fireEvent.keyDown(document.querySelector('[data-col-id="1"]')!, { key: 'Enter' })
+    expect(opened).toHaveBeenCalledWith({ columnId: 1 })
+    off()
   })
 
   it('applies selected styling when isSelected is true', () => {
