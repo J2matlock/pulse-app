@@ -168,3 +168,47 @@ describe('dates into deadline columns', () => {
     expect(cellsOf(columnIds[1]!)).toEqual(['2026-03-04', '2026-03-25'])
   })
 })
+
+// ── Type detection (AUDIT-028) and checkbox values (AUDIT-031) ───────────────
+
+describe('column type detection', () => {
+  it('plain whole numbers are not money', async () => {
+    const preview = await parseImportFile(writeCsv('nums.csv', 'Household size,Count\n3,42\n5,17\n2,103\n'))
+    expect(preview.detectedColumns.map(c => c.detectedType)).toEqual(['number', 'number'])
+  })
+
+  it('zip codes and IDs stay text, keeping leading zeros', async () => {
+    const preview = await parseImportFile(writeCsv('ids.csv', 'Zip,Client ID,Code\n60614,10423,0042\n10001,20877,0105\n'))
+    expect(preview.detectedColumns.map(c => c.detectedType)).toEqual(['text', 'text', 'text'])
+  })
+
+  it('a dollar sign or a consistent two-decimal amount is money', async () => {
+    const preview = await parseImportFile(writeCsv('money.csv', 'Fee,Balance\n$40,12.50\n"$1,200",3.00\n'))
+    expect(preview.detectedColumns.map(c => c.detectedType)).toEqual(['currency', 'currency'])
+  })
+
+  it('a 1/0 column is a checkbox, and Y/N is too', async () => {
+    const preview = await parseImportFile(writeCsv('flags.csv', 'Active,Consent\n1,Y\n0,N\n1,y\n'))
+    expect(preview.detectedColumns.map(c => c.detectedType)).toEqual(['checkbox', 'checkbox'])
+  })
+})
+
+describe('values into checkbox and money columns', () => {
+  it('reads Y, Done, check marks and Checked as ticked, and flags values it cannot read', async () => {
+    const { gridId, columnIds } = makeGrid([{ name: 'Name', isName: true }, { name: 'Consent', type: 'checkbox' }])
+    const values = ['Y', 'Done', '✓', '✔', 'Checked', 'Complete', 'N', 'no', 'maybe']
+    const filePath = writeCsv('checks.csv', 'Name,Consent\n' + values.map((v, i) => `Test ${i},${v}`).join('\n') + '\n')
+    const preview = await parseImportFile(filePath)
+    const result = await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'none', columnMappings: [0, 1].map(i => ({ sourceIndex: i, action: columnIds[i]! })) }, preview)
+    expect(cellsOf(columnIds[1]!)).toEqual(['true', 'true', 'true', 'true', 'true', 'true', 'false', 'false', 'false'])
+    expect(result.warnings.join(' ')).toMatch(/1 value in "Consent" wasn't clearly yes or no/)
+  })
+
+  it('money: other currency signs, accounting negatives and comma decimals', async () => {
+    const { gridId, columnIds } = makeGrid([{ name: 'Name', isName: true }, { name: 'Amount', type: 'currency' }])
+    const filePath = writeCsv('amounts.csv', 'Name,Amount\nA,"$1,234.50"\nB,(50.00)\nC,€12.00\nD,"1.234,56"\n')
+    const preview = await parseImportFile(filePath)
+    await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'none', columnMappings: [0, 1].map(i => ({ sourceIndex: i, action: columnIds[i]! })) }, preview)
+    expect(cellsOf(columnIds[1]!)).toEqual(['1234.50', '-50.00', '12.00', '1234.56'])
+  })
+})

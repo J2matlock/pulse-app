@@ -143,6 +143,12 @@ function looksLikeDate(s: string, allowSerial = false): boolean {
   return parseDate(v) !== null
 }
 
+/** Values that read as a ticked checkbox; anything else in CHECKBOX_FALSE is unticked */
+const CHECKBOX_TRUE = new Set(['yes', 'y', 'true', '1', 'x', '✓', '✔', '☑', '✅', 'done', 'checked', 'complete', 'completed', 'on'])
+const CHECKBOX_FALSE = new Set(['no', 'n', 'false', '0', 'off', 'unchecked', 'not done', 'incomplete', '✗', '✘', '☐'])
+/** Values that make a column look like a checkbox (words like "done" are too common in text columns) */
+const CHECKBOX_DETECT = new Set(['yes', 'no', 'y', 'n', 'true', 'false', '1', '0', 'x', '✓', '✔'])
+
 function detectColumnType(samples: string[]): DetectedColumn['detectedType'] {
   if (samples.length === 0) return 'text'
 
@@ -160,16 +166,25 @@ function detectColumnType(samples: string[]): DetectedColumn['detectedType'] {
   // Date: check before number so "2026-01-15" isn't caught as number
   if (nonEmpty.every(s => looksLikeDate(s))) return 'date'
 
-  // Currency: starts with $ or ends with common amount format
-  const currencyRe = /^\$?[\d,]+(\.\d{2})?$/
-  if (nonEmpty.every(s => currencyRe.test(s.trim().replace('$', '')))) return 'currency'
+  // Checkbox: yes/no, y/n, true/false, x. A column of only 1s and 0s counts when it has both,
+  // so a column of counts that happen to be 1 stays a number.
+  const lower = nonEmpty.map(s => s.toLowerCase().trim())
+  if (lower.every(v => CHECKBOX_DETECT.has(v))) {
+    const onlyDigits = lower.every(v => v === '1' || v === '0')
+    if (!onlyDigits || (lower.includes('1') && lower.includes('0'))) return 'checkbox'
+  }
+
+  // A leading zero (zip 02134, ID 0042) would be lost as a number
+  if (nonEmpty.some(s => /^0\d+$/.test(s.trim()))) return 'text'
+
+  // Money needs a currency sign somewhere, or every value written with exactly two decimals.
+  // Plain whole numbers (household size, zip codes, IDs) are not money.
+  const amountRe = /^-?\$?-?[\d,]+(\.\d{2})?$/
+  if (nonEmpty.every(s => amountRe.test(s.trim()))
+    && (nonEmpty.some(s => s.includes('$')) || nonEmpty.every(s => /\.\d{2}$/.test(s.trim())))) return 'currency'
 
   // Number
-  if (nonEmpty.every(s => !isNaN(parseFloat(s.trim())) && s.trim() !== '')) return 'number'
-
-  // Checkbox: yes/no, true/false, 1/0
-  const checkVals = new Set(['yes', 'no', 'true', 'false', '1', '0', 'x', ''])
-  if (nonEmpty.every(s => checkVals.has(s.toLowerCase().trim()))) return 'checkbox'
+  if (nonEmpty.every(s => !isNaN(Number(s.trim().replace(/,/g, ''))) && s.trim() !== '')) return 'number'
 
   // Heuristic: if column name suggests a date AND most values parse as dates, treat as date
   // (handled at call site via header name check)
@@ -403,8 +418,32 @@ export function buildTable(rawRows: string[][], headerIdx: number, mergedRanges?
 
 /** Normalize a checkbox value to 'true' or 'false' (matching the app's internal format) */
 function normalizeCheckbox(value: string): string {
+  return CHECKBOX_TRUE.has(value.toLowerCase().trim()) ? 'true' : 'false'
+}
+
+/** A checkbox value that is neither clearly ticked nor clearly unticked */
+function unclearCheckbox(value: string): boolean {
   const v = value.toLowerCase().trim()
-  return ['yes', 'true', '1', 'x'].includes(v) ? 'true' : 'false'
+  return v !== '' && !CHECKBOX_TRUE.has(v) && !CHECKBOX_FALSE.has(v)
+}
+
+/**
+ * A money amount as a plain number: currency signs and spaces dropped,
+ * accounting negatives "(50.00)" made negative, and a European "1.234,56"
+ * read with a decimal comma. Anything else is left as typed.
+ */
+function normalizeCurrency(value: string): string {
+  let v = value.replace(/[$€£¥\s]/g, '')
+  let negative = false
+  const paren = /^\((.*)\)$/.exec(v)
+  if (paren) { negative = true; v = paren[1]! }
+  if (/^-?\d{1,3}(\.\d{3})*,\d{1,2}$/.test(v) || (/^-?\d+,\d{1,2}$/.test(v) && !v.includes('.'))) {
+    v = v.replace(/\./g, '').replace(',', '.')
+  } else {
+    v = v.replace(/,/g, '')
+  }
+  if (negative && !v.startsWith('-')) v = `-${v}`
+  return v
 }
 
 /** Normalize a cell value based on detected type */
@@ -417,7 +456,7 @@ function normalizeValue(value: string, type: string, cleanData: boolean, dateOrd
     case 'date':
     case 'deadline': return normalizeDate(v, dateOrder)
     case 'checkbox': return normalizeCheckbox(v)
-    case 'currency': return v.replace(/[$,]/g, '')
+    case 'currency': return normalizeCurrency(v)
     default: return v
   }
 }
@@ -749,6 +788,11 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
       }
     }
 
+    // Zip codes and ID numbers are labels, not quantities
+    if (type === 'number' && /\b(zip|postal|id|ssn|mrn|medicaid)\b|#/i.test(name) && samples.every(v => /^\d+$/.test(v))) {
+      type = 'text'
+    }
+
     const nameSamples = dataRows.slice(0, 50).map(row => String(row[i] || '').trim()).filter(Boolean)
     return {
       index: i,
@@ -1003,6 +1047,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
       ? preview.detectedColumns.filter(c => c.lastFirstNames).map(c => c.index)
       : [])
     const unreadableDates = new Map<number, number>()
+    const unclearChecks = new Map<number, number>()
     const cellValue = (row: string[], srcIdx: number): string => {
       const raw = String(row[srcIdx] || '').trim()
       return flipCols.has(srcIdx) ? flipLastFirst(raw) : raw
@@ -1085,7 +1130,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
       // so the results screen matches what's in the list
       const before = {
         imported, skipped, skippedNames: skippedNames.length, warnings: warnings.length,
-        unreadableDates: new Map(unreadableDates), birthAs1900s: new Map(birthAs1900s),
+        unreadableDates: new Map(unreadableDates), unclearChecks: new Map(unclearChecks), birthAs1900s: new Map(birthAs1900s),
         unmatched: new Map([...linkCols].map(([k, lc]) => [k, new Set(lc.unmatched)])),
       }
       const insertChunk = db.transaction(() => {
@@ -1125,6 +1170,9 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
             if (holdsDate(info.type) && !/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
               unreadableDates.set(srcIdx, (unreadableDates.get(srcIdx) ?? 0) + 1)
             }
+            if (info.type === 'checkbox' && unclearCheckbox(rawVal)) {
+              unclearChecks.set(srcIdx, (unclearChecks.get(srcIdx) ?? 0) + 1)
+            }
 
             if (normalized) {
               let cellValue = normalized
@@ -1149,6 +1197,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
         skippedNames.length = before.skippedNames
         warnings.length = before.warnings
         unreadableDates.clear(); for (const [k, n] of before.unreadableDates) unreadableDates.set(k, n)
+        unclearChecks.clear(); for (const [k, n] of before.unclearChecks) unclearChecks.set(k, n)
         birthAs1900s.clear(); for (const [k, n] of before.birthAs1900s) birthAs1900s.set(k, n)
         for (const [k, lc] of linkCols) lc.unmatched = before.unmatched.get(k) ?? new Set()
         // Chunk failed — log the error. Previously committed chunks are preserved.
@@ -1209,6 +1258,9 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
     warnings.push(`${n} value${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" didn't look like ${n === 1 ? 'a date' : 'dates'} and ${n === 1 ? 'was' : 'were'} kept as typed. Check ${n === 1 ? 'it' : 'them'} in the list.`)
   }
 
+  for (const [srcIdx, n] of unclearChecks) {
+    warnings.push(`${n} value${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" ${n === 1 ? 'wasn\'t' : 'weren\'t'} clearly yes or no and ${n === 1 ? 'was' : 'were'} left unticked. Check ${n === 1 ? 'it' : 'them'} in the list.`)
+  }
   for (const [srcIdx, lc] of linkCols) {
     if (lc.unmatched.size === 0) continue
     const names = [...lc.unmatched]
