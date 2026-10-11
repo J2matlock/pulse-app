@@ -4,7 +4,8 @@ import { Palette, Trash2, Pencil, Star, Archive, RotateCcw, Copy, ArrowRightLeft
 import toast from 'react-hot-toast'
 import type { GridRow, Column, CellFormatRule } from '../../../shared/types'
 import { evalCellFormat } from './CellConditionalFormatPanel'
-import { formatCellForClipboard, validateForColumnType } from './gridHelpers'
+import { formatCellForClipboard, checkPaste } from './gridHelpers'
+import { isNotTypedColumnType } from '../../../shared/types'
 import { contextMenuVariants } from '../../utils/animations'
 import { getClientName } from '../../utils/clientName'
 import { useVocab } from '../../hooks/useVocab'
@@ -146,6 +147,8 @@ export function GridContextMenu({
               <Copy className="w-4 h-4 text-slate-500 dark:text-slate-400" />
               Copy cell
             </button>
+            {/* Deadline and worked-out cells only change through their own actions (G-15) */}
+            {!(cmCol && isNotTypedColumnType(cmCol.column_type)) && (<>
             <button
               className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               style={{ minHeight: 36 }}
@@ -154,12 +157,9 @@ export function GridContextMenu({
                   const text = await navigator.clipboard.readText()
                   const col = columns.find(c => c.id === contextMenu.colId)
                   if (col) {
-                    const validated = validateForColumnType(text, col)
-                    if (validated === null) {
-                      toast.error('Value does not match column type — paste skipped')
-                    } else {
-                      void updateCell(contextMenu.rowId, contextMenu.colId, validated)
-                    }
+                    const checked = checkPaste(text, col)
+                    if ('error' in checked) toast.error(checked.error)
+                    else void updateCell(contextMenu.rowId, contextMenu.colId, checked.value)
                   }
                 } catch { /* clipboard access denied */ }
                 onClose()
@@ -179,6 +179,7 @@ export function GridContextMenu({
               <XIcon className="w-4 h-4 text-slate-500 dark:text-slate-400" />
               Clear cell
             </button>
+            </>)}
             <button
               className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               style={{ minHeight: 36 }}

@@ -85,17 +85,13 @@ export async function completeDeadlines(
     }
     const repeat = startsNextCycle(item.interval, item.ruleKind)
     const newValue = repeat ? today : null
-    const res = await safeInvoke(IPC.CELL_UPDATE, item.rowId, item.columnId, newValue)
+    // Every completion gets one timeline entry, written with the change and tagged as done (L-22)
+    const doneNote = !repeat ? `${item.columnName} completed (was ${formatDate(item.dateValue)})`
+      : item.ruleKind && item.ruleKind !== 'interval' ? `${item.columnName} done ${formatDate(today)}`
+      : `${item.columnName} done ${formatDate(today)}; next due ${formatDate(addInterval(new Date(), item.interval!))}`
+    const res = await safeInvoke(IPC.CELL_UPDATE, item.rowId, item.columnId, newValue, { doneNote })
     if (!res.ok) continue
-    let sysLogId = res.data.sysLogId
-    // Columns without "log changes" still get a timeline entry, so completions are never invisible
-    if (sysLogId == null) {
-      const text = !repeat ? `${item.columnName} completed (was ${formatDate(item.dateValue)})`
-        : item.ruleKind && item.ruleKind !== 'interval' ? `${item.columnName} done ${formatDate(today)}`
-        : `${item.columnName} done ${formatDate(today)}; next due ${formatDate(addInterval(new Date(), item.interval!))}`
-      const logRes = await safeInvoke(IPC.CASE_LOG_CREATE, item.rowId, text, 'system', null)
-      if (logRes.ok) sysLogId = logRes.data.id
-    }
+    const sysLogId = res.data.sysLogId
     const checklistIds = await addChecklist(item.rowId, item.checklistTemplateId)
     done.push({ ...item, sysLogId, newValue, checklistIds })
   }

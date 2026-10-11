@@ -39,6 +39,7 @@ vi.mock('../../../../src/renderer/components/grid/CellConditionalFormatPanel', (
 vi.mock('../../../../src/renderer/components/grid/gridHelpers', () => ({
   formatCellForClipboard: (_col: unknown, val: string | null) => val ?? '',
   validateForColumnType: (text: string) => text,
+  checkPaste: (text: string) => ({ value: text }),
 }))
 
 vi.mock('../../../../src/renderer/utils/clientName', () => ({

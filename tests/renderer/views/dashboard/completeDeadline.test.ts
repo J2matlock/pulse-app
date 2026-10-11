@@ -18,13 +18,14 @@ describe('completeDeadlines', () => {
 
   it('completes several deadlines with one undo step and a timeline entry each', async () => {
     mockInvoke.mockImplementation((channel: string) => {
-      if (channel === 'cell:update') return Promise.resolve({ ok: true, data: { sysLogId: null } })
-      if (channel === 'case-log:create') return Promise.resolve({ ok: true, data: { id: 50 } })
+      if (channel === 'cell:update') return Promise.resolve({ ok: true, data: { sysLogId: 50 } })
       return Promise.resolve({ ok: false })
     })
     const done = await completeDeadlines([item(1), item(2), item(3)])
     expect(done).toHaveLength(3)
-    expect(mockInvoke.mock.calls.filter(c => c[0] === 'case-log:create')).toHaveLength(3)
+    // Each completion's note goes with its change, tagged by main (L-22)
+    const cellCalls = mockInvoke.mock.calls.filter(c => c[0] === 'cell:update')
+    expect(cellCalls.map(c => c[4])).toEqual([1, 2, 3].map(() => ({ doneNote: 'Annual Review completed (was Sep 1, 2025)' })))
     expect(pushWithToast).toHaveBeenCalledTimes(1)
     expect(pushWithToast.mock.calls[0]![0].description).toBe('Marked 3 deadlines done')
     await pushWithToast.mock.calls[0]![0].undo()
@@ -39,8 +40,7 @@ describe('completeDeadlines', () => {
 
   it('starts the next cycle for repeating rules and adds the column checklist', async () => {
     mockInvoke.mockImplementation((channel: string) => {
-      if (channel === 'cell:update') return Promise.resolve({ ok: true, data: { sysLogId: null } })
-      if (channel === 'case-log:create') return Promise.resolve({ ok: true, data: { id: 51 } })
+      if (channel === 'cell:update') return Promise.resolve({ ok: true, data: { sysLogId: 51 } })
       if (channel === 'checklist:apply-template') return Promise.resolve({ ok: true, data: { createdIds: [7, 8] } })
       return Promise.resolve({ ok: true, data: true })
     })
@@ -48,7 +48,7 @@ describe('completeDeadlines', () => {
     expect(done).toHaveLength(1)
     const cellCall = mockInvoke.mock.calls.find(c => c[0] === 'cell:update')!
     expect(cellCall[3]).toBe(localDateString())
-    const logText = mockInvoke.mock.calls.find(c => c[0] === 'case-log:create')![2] as string
+    const logText = (cellCall[4] as { doneNote: string }).doneNote
     expect(logText).toMatch(/^Annual Review done .*; next due /)
     expect(mockInvoke).toHaveBeenCalledWith('checklist:apply-template', 4, 3)
     expect(pushWithToast.mock.calls[0]![0].description).toMatch(/next due/)

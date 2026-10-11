@@ -1,6 +1,6 @@
 import type { Column, GridRow } from '../../../shared/types'
 import { isNotTypedColumnType, storesNoCells } from '../../../shared/types'
-import { formatCellForClipboard, validateForColumnType } from './gridHelpers'
+import { formatCellForClipboard, checkPaste } from './gridHelpers'
 import toast from 'react-hot-toast'
 
 type CellCoord = { rowId: number; columnId: number }
@@ -130,12 +130,9 @@ export function handleCellKeyDown(
           try {
             const text = await navigator.clipboard.readText()
             if (!text) return
-            const validated = validateForColumnType(text, pasteTargetCol)
-            if (validated === null) {
-              toast.error('Value does not match column type — paste skipped')
-            } else {
-              void updateCell(pasteTargetRowId, pasteTargetColId, validated)
-            }
+            const checked = checkPaste(text, pasteTargetCol)
+            if ('error' in checked) toast.error(checked.error)
+            else void updateCell(pasteTargetRowId, pasteTargetColId, checked.value)
           } catch { /* clipboard access denied */ }
         })()
       }
@@ -161,7 +158,8 @@ export function handleCellKeyDown(
     }
     case 'Delete':
     case 'Backspace':
-      if (!editing && !readOnly && !storesNoCells(columnMap.get(columnId)?.column_type ?? '')) {
+      // Deadline and worked-out cells aren't cleared by a key: only Mark done changes a deadline (G-15)
+      if (!editing && !readOnly && !storesNoCells(columnMap.get(columnId)?.column_type ?? '') && !isNotTypedColumnType(columnMap.get(columnId)?.column_type ?? '')) {
         e.preventDefault()
         void updateCell(rowId, columnId, null)
       }

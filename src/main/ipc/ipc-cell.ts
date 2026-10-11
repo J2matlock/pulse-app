@@ -75,9 +75,11 @@ export function registerCellHandlers(): void {
     return ok(info.changes)
   })
 
-  secureWrap(IPC.CELL_UPDATE, 'ipc-cell', (_e, rowId: number, columnId: number, value: string | null) => {
+  secureWrap(IPC.CELL_UPDATE, 'ipc-cell', (_e, rowId: number, columnId: number, value: string | null, opts?: { doneNote?: string }) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(rowId) || !validId(columnId)) return fail('Invalid ID')
+    // Mark done: its note is written here, tagged, so the dashboard counts completions by tag, not note text (L-22)
+    const doneNote = typeof opts?.doneNote === 'string' && opts.doneNote.trim() ? opts.doneNote.trim().slice(0, 500) : null
     if (value !== null && typeof value !== 'string') return fail('Cell value must be a string under 100k characters')
     // Strip null bytes BEFORE length check so the limit reflects the actual stored value
     if (value !== null) value = value.replace(/\0/g, '')
@@ -120,7 +122,12 @@ export function registerCellHandlers(): void {
 
       // System log: only when value changed and column has log_changes enabled
       const oldValue = existing?.value ?? null
-      if (oldValue !== value) {
+      if (doneNote) {
+        const logResult = cachedStmt('syslog_insert_done', `INSERT INTO case_log (row_id, content, log_type, source_action_id, created_at, updated_at) VALUES (?, ?, 'system', ?, datetime('now'), datetime('now'))`)
+          .run(rowId, doneNote, `deadline_done:${columnId}`)
+        sysLogId = logResult.lastInsertRowid as number
+        needsLogNotify = true
+      } else if (oldValue !== value) {
         const col = getColMeta(columnId)
         if (col && col.config.log_changes) {
           let content: string
@@ -131,7 +138,8 @@ export function registerCellHandlers(): void {
             }
             const from = oldValue ? fmt(oldValue) : 'blank'
             const to = value ? fmt(value) : 'cleared'
-            content = value ? `${col.name} changed from ${from} to ${to}` : `${col.name} completed (was ${from})`
+            // Clearing a date is not finishing it (G-16): only Mark done says "completed"
+            content = value ? `${col.name} changed from ${from} to ${to}` : `${col.name} cleared (was ${from})`
           } else if (col.column_type === 'checkbox') {
             content = (value === '1' || value === 'true') ? `${col.name}: checked` : `${col.name}: unchecked`
           } else {
