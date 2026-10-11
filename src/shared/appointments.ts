@@ -127,7 +127,10 @@ export function addDays(date: string, days: number): string {
 /** Minutes between two wall times on any days (DST doesn't change wall-clock length here) */
 export function minutesBetween(a: string, b: string): number {
   const toMin = (s: string) => {
-    const days = Math.round(parseYmd(s).getTime() / 86_400_000)
+    // Day numbers from UTC midnights: local midnights shift by an hour across DST,
+    // which in UTC+13 is enough to round to the wrong day
+    const [y, mo, d] = s.slice(0, 10).split('-').map(Number) as [number, number, number]
+    const days = Date.UTC(y, mo - 1, d) / 86_400_000
     const [h, m] = (s.slice(11) || '00:00').split(':').map(Number) as [number, number]
     return days * 1440 + h * 60 + m
   }
