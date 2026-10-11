@@ -77,6 +77,13 @@ describe('single appointments', () => {
     expect(listAppointments({ from: today, to: today }).map(x => x.title)).toEqual(['Staff day', 'Session'])
   })
 
+  it('hide appointments of records in a deleted list (L-13)', () => {
+    createAppointment({ row_id: g.rowIds[0]!, title: 'Visit', start_at: `${today}T09:00` })
+    createAppointment({ title: 'Staff day', start_at: today, all_day: true })
+    t.db.prepare('UPDATE grids SET is_active = 0 WHERE id = ?').run(g.gridId)
+    expect(listAppointments({ from: today, to: today }).map(a => a.title)).toEqual(['Staff day'])
+  })
+
   it('hide appointments of records in the trash', () => {
     createAppointment({ row_id: g.rowIds[0]!, title: 'Visit', start_at: `${today}T09:00` })
     t.db.prepare("UPDATE rows SET deleted_at = datetime('now') WHERE id = ?").run(g.rowIds[0])

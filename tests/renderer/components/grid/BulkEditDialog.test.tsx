@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 const mockInvoke = vi.fn().mockResolvedValue({ ok: true, data: null })
 Object.defineProperty(window, 'api', {
@@ -39,6 +39,11 @@ vi.mock('../../../../src/renderer/utils/clientName', () => ({
 
 vi.mock('../../../../src/renderer/utils/safeInvoke', () => ({
   safeInvoke: vi.fn().mockResolvedValue({ ok: true, data: null }),
+  storeInvoke: async (channel: string, ...args: unknown[]) => {
+    const r = await (window as unknown as { api: { invoke: (...a: unknown[]) => Promise<{ ok: boolean; data?: unknown; error?: string }> } }).api.invoke(channel, ...args)
+    if (!r.ok) throw new Error(r.error)
+    return r.data
+  },
 }))
 
 vi.mock('../../../../src/renderer/utils/rendererLogger', () => ({
@@ -140,5 +145,37 @@ describe('BulkEditDialog', () => {
     )
     fireEvent.click(screen.getByText('Cancel'))
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('shows a status column\'s choices by label instead of crashing (G-01)', () => {
+    const status = { ...makeColumn(2, 'Stage', 'status'), config: JSON.stringify({ options: [{ label: 'Estimate', color: '#000' }, { label: 'Done', color: '#111' }] }) }
+    const rows = [makeRow(1)]
+    render(<BulkEditDialog open onClose={vi.fn()} selectedRowIds={new Set([1])} columns={[status]} rowById={new Map(rows.map(r => [r.row_id, r]))} />)
+    const select = document.getElementById('bulk-edit-value') as HTMLSelectElement
+    expect([...select.options].map(o => o.text)).toEqual(['— None —', 'Estimate', 'Done'])
+  })
+
+  it('makes the whole bulk edit one undo step, and Undo puts every value back (G-26)', async () => {
+    const { useGridStore } = await import('../../../../src/renderer/stores/gridStore')
+    const { useUndoStore } = await import('../../../../src/renderer/stores/undoStore')
+    useUndoStore.getState().clear()
+    const rows = [1, 2, 3].map(makeRow)
+    const cols = [makeColumn(1, 'Name'), makeColumn(2, 'City')]
+    useGridStore.setState({ activeGridId: 1, rows, columns: cols })
+    mockInvoke.mockImplementation(async (channel: string) => channel === 'cell:update' ? { ok: true, data: { sysLogId: null } } : { ok: true, data: null })
+    const onClose = vi.fn()
+    render(<BulkEditDialog open onClose={onClose} selectedRowIds={new Set([1, 2, 3])} columns={cols} rowById={new Map(rows.map(r => [r.row_id, r]))} />)
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '2' } })
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Springfield' } })
+    fireEvent.click(screen.getByRole('button', { name: /Apply/ }))
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
+    expect(useUndoStore.getState().undoStack).toHaveLength(1)
+    mockInvoke.mockClear()
+    await useUndoStore.getState().undo()
+    const backs = mockInvoke.mock.calls.filter(c => c[0] === 'cell:update')
+    expect(backs.map(c => c[1]).sort()).toEqual([1, 2, 3])
+    expect(backs.every(c => c[3] === null)).toBe(true)
+    mockInvoke.mockReset()
+    mockInvoke.mockResolvedValue({ ok: true, data: null })
   })
 })

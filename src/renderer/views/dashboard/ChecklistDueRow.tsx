@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ChecklistDueItem } from '../../../shared/types'
 import { IPC } from '../../../shared/ipc-channels'
-import { safeInvoke } from '../../utils/safeInvoke'
+import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { useUndoStore } from '../../stores/undoStore'
 
 export function ChecklistDueRow({
@@ -60,11 +60,11 @@ export function ChecklistDueRow({
         icon: 'check-square',
         contextLabel: item.client_name ?? undefined,
         undo: async () => {
-          await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, item.id, { is_completed: 0, completed_at: null })
+          await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, item.id, { is_completed: 0, completed_at: null })
           onRestore?.(item)
         },
         redo: async () => {
-          await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, item.id, { is_completed: 1, completed_at: completedAt })
+          await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, item.id, { is_completed: 1, completed_at: completedAt })
           onComplete(item.id)
         },
       })

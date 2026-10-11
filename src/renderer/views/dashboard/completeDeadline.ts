@@ -1,5 +1,5 @@
 import { IPC } from '../../../shared/ipc-channels'
-import { safeInvoke, storeInvoke } from '../../utils/safeInvoke'
+import { safeInvoke, storeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { useUndoStore } from '../../stores/undoStore'
 import { useGridStore } from '../../stores/gridStore'
 import type { SideEffect } from '../../stores/undoStore'
@@ -162,13 +162,13 @@ export async function completeDeadlines(
     undo: async () => {
       for (const d of done) {
         if (d.isStep) {
-          await safeInvoke(IPC.DEADLINE_STEP_UNDO, d.rowId, d.columnId, d.step)
+          await mustInvoke(IPC.DEADLINE_STEP_UNDO, d.rowId, d.columnId, d.step)
         } else if (d.previous) {
           // Meter: put back the date and both readings
-          for (const [col, value] of Object.entries(d.previous)) await safeInvoke(IPC.CELL_UPDATE, d.rowId, Number(col), value)
+          for (const [col, value] of Object.entries(d.previous)) await mustInvoke(IPC.CELL_UPDATE, d.rowId, Number(col), value)
         } else if (d.snap) {
           await storeInvoke(IPC.DEADLINE_MARK_DONE_UNDO, d.rowId, d.columnId, d.snap)
-          await safeInvoke(IPC.CASE_LOG_VOID, d.snap.sysLogId, 'Undone action')
+          await mustInvoke(IPC.CASE_LOG_VOID, d.snap.sysLogId, 'Undone action')
           patchCell(d.rowId, d.columnId, d.snap.previous)
         }
         await removeChecklistItems(d.checklistIds)
@@ -178,9 +178,9 @@ export async function completeDeadlines(
     redo: async () => {
       for (const d of done) {
         if (d.isStep) {
-          await safeInvoke(IPC.DEADLINE_STEP_DONE, d.rowId, d.columnId, d.step, d.doneOn ?? null)
+          await mustInvoke(IPC.DEADLINE_STEP_DONE, d.rowId, d.columnId, d.step, d.doneOn ?? null)
         } else if (d.previous) {
-          const res = await safeInvoke<{ previous: Record<number, string | null>; sysLogId: number }>(IPC.DEADLINE_METER_DONE, d.rowId, d.columnId, d.reading, d.doneOn ?? null)
+          const res = await mustInvoke<{ previous: Record<number, string | null>; sysLogId: number }>(IPC.DEADLINE_METER_DONE, d.rowId, d.columnId, d.reading, d.doneOn ?? null)
           if (res.ok) d.previous = res.data.previous
         } else if (d.snap) {
           const again = await storeInvoke<MarkDoneSnap>(IPC.DEADLINE_MARK_DONE, d.rowId, d.columnId, isOneOffDeadline(d) ? d.oneOff : { kind: 'repeat' }, d.checklistTemplateId ?? null, isOneOffDeadline(d) ? null : d.doneOn ?? null)

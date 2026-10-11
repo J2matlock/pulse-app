@@ -151,3 +151,36 @@ describe('Undo Store', () => {
     expect(useUndoStore.getState().redoStack).toHaveLength(0)
   })
 })
+
+describe('Undo that fails says so (audit L-08, L-24)', () => {
+  it('a failed IPC call in an undo keeps the item and shows the reason', async () => {
+    const { mustInvoke } = await import('../src/renderer/utils/safeInvoke')
+    const api = (globalThis as unknown as { window: { api: { invoke: ReturnType<typeof vi.fn> } } }).window.api
+    api.invoke.mockResolvedValueOnce({ ok: false, error: 'This note is older than 10 minutes.' })
+    const item = makeItem('Deleted note', { undo: async () => { await mustInvoke('case-log:restore', 1) } })
+    useUndoStore.getState().push(item)
+    await useUndoStore.getState().undo()
+    expect(useUndoStore.getState().undoStack).toHaveLength(1)
+    expect(useUndoStore.getState().redoStack).toHaveLength(0)
+    expect(useUndoStore.getState().toast?.description).toBe("Undo didn't work: This note is older than 10 minutes.")
+  })
+
+  it('an edit made while an undo runs keeps its own undo entry when it says so', async () => {
+    const item = makeItem('Slow undo', {
+      undo: async () => { useUndoStore.getState().push(makeItem('Typed meanwhile'), { evenWhileUndoing: true }) },
+    })
+    useUndoStore.getState().push(item)
+    await useUndoStore.getState().undo()
+    expect(useUndoStore.getState().undoStack.map(i => i.description)).toEqual(['Typed meanwhile'])
+  })
+
+  it('undoTo stops at a failure and leaves that step undoable', async () => {
+    const a = makeItem('A')
+    const b = makeItem('B', { undo: async () => { throw new Error('Gone') } })
+    const c = makeItem('C')
+    for (const i of [a, b, c]) useUndoStore.getState().push(i)
+    await useUndoStore.getState().undoTo(a.id)
+    expect(useUndoStore.getState().undoStack.map(i => i.description)).toEqual(['A', 'B'])
+    expect(useUndoStore.getState().redoStack.map(i => i.description)).toEqual(['C'])
+  })
+})

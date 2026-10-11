@@ -3,16 +3,58 @@
  * Extracted from DataGrid for testability and reuse.
  */
 
-import type { GridRow, Column, ColumnFilter } from '../../shared/types'
-import { ROW_TAG_COLUMN_ID } from '../../shared/types'
+import type { GridRow, Column, ColumnFilter, ParsedAlertRule } from '../../shared/types'
+import { ROW_TAG_COLUMN_ID, ANY_DEADLINE_COLUMN_ID, takesDeadlineRule } from '../../shared/types'
+import { evaluateRuleForRow } from './deadlineCalc'
 import { linkValueText, parseLinkValue } from '../../shared/links'
+import { localDateString } from '../../shared/dates'
+
+/** A date filter value meaning "the day it's checked", so a saved "in the past" never freezes (G-40) */
+export const TODAY_TOKEN = '@today'
+
+export const DUE_STATUSES: Array<{ value: string; label: string }> = [
+  { value: 'overdue', label: 'Overdue' },
+  { value: 'today', label: 'Due today' },
+  { value: 'next7', label: 'Due in the next 7 days' },
+  { value: 'next30', label: 'Due in the next 30 days' },
+  { value: 'done', label: 'Done' },
+  { value: 'paused', label: 'Paused' },
+]
+
+/** The deadline rule on a column, if it has one */
+export function ruleOfColumn(col: Column | undefined, rules: Map<number, ParsedAlertRule> | undefined): ParsedAlertRule | undefined {
+  if (!col || !rules || !takesDeadlineRule(col.column_type)) return undefined
+  try {
+    const id = (JSON.parse(col.config || '{}') as { alert_rule_id?: number }).alert_rule_id
+    return id !== undefined ? rules.get(id) : undefined
+  } catch { return undefined }
+}
+
+/** Whether a deadline is in a "due status" bucket, worked out by the engine like its color (G-12) */
+function dueStatusIs(row: GridRow, col: Column, rule: ParsedAlertRule, status: string): boolean {
+  const res = evaluateRuleForRow(rule, (row[`col_${col.id}` as keyof GridRow] as string | null) ?? null, row as unknown as Record<string, unknown>, col.id)
+  if (status === 'done') return res.state === 'done'
+  if (status === 'paused') return res.state === 'paused'
+  if (res.state === 'done' || res.state === 'paused' || res.daysUntil === null) return false
+  const d = res.daysUntil
+  if (status === 'overdue') return d < 0
+  if (status === 'today') return d === 0
+  if (status === 'next7') return d >= 0 && d <= 7
+  if (status === 'next30') return d >= 0 && d <= 30
+  return false
+}
 
 export function matchFilter(
   row: GridRow,
   filter: ColumnFilter,
   columns: Column[],
-  rowTagsMap?: Map<number, string[]>
+  rowTagsMap?: Map<number, string[]>,
+  rules?: Map<number, ParsedAlertRule>,
 ): boolean {
+  if (filter.operator === 'due_status') {
+    const targets = filter.columnId === ANY_DEADLINE_COLUMN_ID ? columns : columns.filter(c => c.id === filter.columnId)
+    return targets.some(c => { const rule = ruleOfColumn(c, rules); return !!rule && dueStatusIs(row, c, rule, filter.value) })
+  }
   // Special case: row-level tag filter (columnId === -1)
   if (filter.columnId === ROW_TAG_COLUMN_ID) {
     const tagNames = rowTagsMap?.get(row.row_id) ?? []
@@ -39,7 +81,7 @@ export function matchFilter(
   const cellVal = col?.column_type === 'checkbox'
     ? ((rawVal === 'true' || rawVal === '1') ? 'true' : 'false')
     : rawVal
-  const v = filter.value
+  const v = filter.value === TODAY_TOKEN ? localDateString() : filter.value
   switch (filter.operator) {
     case 'is_empty':      return originalVal == null || originalVal === ''
     case 'is_not_empty':  return originalVal != null && originalVal !== ''

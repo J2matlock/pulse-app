@@ -45,7 +45,7 @@ vi.mock('react-hot-toast', () => ({
   default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }),
 }))
 
-import { MoveToGridModal } from '../../../../src/renderer/components/grid/MoveToGridModal'
+import { MoveToGridModal, BulkMoveToGridModal, ColumnCarryPreview } from '../../../../src/renderer/components/grid/MoveToGridModal'
 import type { Column } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
 
@@ -98,5 +98,27 @@ describe('MoveToGridModal', () => {
       <MoveToGridModal rowId={1} sourceGridId={1} sourceColumns={[]} onDone={vi.fn()} onCancel={vi.fn()} />
     )
     expect(screen.getByText('Destination caseload')).toBeTruthy()
+  })
+})
+
+describe('ColumnCarryPreview (G-18)', () => {
+  it('names the columns that will not show, and says they are kept on a move', () => {
+    render(<ColumnCarryPreview sourceColumns={[makeColumn(1, 'Name'), makeColumn(2, 'Gate code'), makeColumn(3, 'Referral date')]}
+      targetColumns={[makeColumn(9, 'name')]} targetName="Active" mode="move" many />)
+    const text = screen.getByTestId('column-carry-preview').textContent!
+    expect(text).toContain('1 of 3 columns match by name in Active')
+    expect(text).toContain("Data in 2 columns won't show in Active: Gate code, Referral date.")
+    expect(text).toContain("It's kept, and comes back if you move them back.")
+  })
+
+  it('shows the same note in the bulk dialog', async () => {
+    const { safeInvoke } = await import('../../../../src/renderer/utils/safeInvoke')
+    vi.mocked(safeInvoke).mockImplementation(async (channel: string) => channel === 'grid:get-all'
+      ? { ok: true, data: [{ id: 1, name: 'Waitlist' }, { id: 2, name: 'Active' }] }
+      : { ok: true, data: { columns: [makeColumn(9, 'Name')] } })
+    render(<BulkMoveToGridModal rowIds={[1, 2]} sourceGridId={1} sourceColumns={[makeColumn(1, 'Name'), makeColumn(2, 'Gate code')]} onDone={vi.fn()} onCancel={vi.fn()} />)
+    const select = await screen.findByRole('combobox')
+    fireEvent.change(select, { target: { value: '2' } })
+    expect((await screen.findByTestId('column-carry-preview')).textContent).toContain("won't show in Active: Gate code")
   })
 })

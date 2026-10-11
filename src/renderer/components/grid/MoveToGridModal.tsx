@@ -17,6 +17,31 @@ async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
   return result.data
 }
 
+/** Which columns carry over by name, and what waits behind (G-18): the same note in both dialogs */
+export function ColumnCarryPreview({ sourceColumns, targetColumns, targetName, mode, many }: {
+  sourceColumns: Column[]; targetColumns: Column[]; targetName: string; mode: 'move' | 'copy'; many: boolean
+}): React.ReactElement | null {
+  if (targetColumns.length === 0) return null
+  const unmatched = sourceColumns.filter(sc => !targetColumns.some(tc => tc.name.toLowerCase() === sc.name.toLowerCase()))
+  const matched = sourceColumns.length - unmatched.length
+  return (
+    <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-2" data-testid="column-carry-preview">
+      <p className="text-base text-slate-600 dark:text-slate-300">
+        {matched} of {sourceColumns.length} columns match by name in <strong>{targetName}</strong> and carry over.
+      </p>
+      {unmatched.length > 0 && (
+        <div className="flex items-start gap-1.5 text-amber-700 dark:text-amber-400 text-base">
+          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-1" />
+          <span>
+            Data in {unmatched.length} {unmatched.length === 1 ? 'column' : 'columns'} won't show in {targetName}: {unmatched.map(c => c.name).join(', ')}.
+            {mode === 'move' && ` It's kept, and comes back if you move ${many ? 'them' : 'it'} back.`}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface Props {
   rowId: number
   sourceGridId: number
@@ -55,14 +80,6 @@ export function MoveToGridModal({ rowId, sourceGridId, sourceColumns, onDone, on
     if (targetGridId === null) { setLostLinks([]); return }
     void safeInvoke<string[]>(IPC.RECORD_LINKS_MOVE_CHECK, rowId, targetGridId).then(r => setLostLinks(r.ok ? r.data : []))
   }, [rowId, targetGridId])
-
-  // Which source columns match target by name
-  const matchedPairs = sourceColumns.map(sc => ({
-    srcName: sc.name,
-    matched: targetColumns.some(tc => tc.name.toLowerCase() === sc.name.toLowerCase()),
-  }))
-  const matchedCount = matchedPairs.filter(p => p.matched).length
-  const unmatchedCount = matchedPairs.length - matchedCount
 
   async function handleConfirm() {
     if (!targetGridId) return
@@ -173,25 +190,8 @@ export function MoveToGridModal({ rowId, sourceGridId, sourceColumns, onDone, on
           </div>
 
           {/* Column match preview */}
-          {targetGridId !== null && targetColumns.length > 0 && (
-            <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-2">
-              <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                Column mapping preview
-              </p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                {matchedCount} of {matchedPairs.length} columns matched by name into{' '}
-                <strong>{targetGrid?.name}</strong>.
-                {unmatchedCount > 0 && ` Data in ${unmatchedCount} unmatched column${unmatchedCount > 1 ? 's' : ''} will not transfer.`}
-              </p>
-              {unmatchedCount > 0 && (
-                <div className="flex items-start gap-1.5 text-amber-600 dark:text-amber-400 text-sm">
-                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                  <span>
-                    Unmatched: {matchedPairs.filter(p => !p.matched).map(p => p.srcName).join(', ')}
-                  </span>
-                </div>
-              )}
-            </div>
+          {targetGridId !== null && (
+            <ColumnCarryPreview sourceColumns={sourceColumns} targetColumns={targetColumns} targetName={targetGrid?.name ?? ''} mode={mode} many={false} />
           )}
 
           {mode === 'move' && lostLinks.length > 0 && (
@@ -232,7 +232,7 @@ interface BulkProps {
   onCancel: () => void
 }
 
-export function BulkMoveToGridModal({ rowIds, sourceGridId, onDone, onCancel }: BulkProps): React.ReactElement {
+export function BulkMoveToGridModal({ rowIds, sourceGridId, sourceColumns, onDone, onCancel }: BulkProps): React.ReactElement {
   const { t } = useVocab(sourceGridId)
   const bulkTrapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(bulkTrapRef, true)
@@ -241,12 +241,20 @@ export function BulkMoveToGridModal({ rowIds, sourceGridId, onDone, onCancel }: 
   const [mode, setMode] = useState<'move' | 'copy'>('move')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [targetColumns, setTargetColumns] = useState<Column[]>([])
 
   useEffect(() => {
     void invoke<Grid[]>(IPC.GRID_GET_ALL).then(all => {
       setGrids(all.filter(g => g.id !== sourceGridId))
     }).catch(() => {})
   }, [sourceGridId])
+
+  useEffect(() => {
+    if (targetGridId === null) { setTargetColumns([]); return }
+    void invoke<{ columns: Column[] }>(IPC.GRID_GET, targetGridId, false)
+      .then(r => setTargetColumns(r.columns))
+      .catch(() => {})
+  }, [targetGridId])
 
   async function handleConfirm() {
     if (!targetGridId) return
@@ -323,8 +331,8 @@ export function BulkMoveToGridModal({ rowIds, sourceGridId, onDone, onCancel }: 
             </button>
           </div>
 
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Columns with matching names will carry over. {mode === 'move' ? `${t('record', { many: true, cap: true })} will be removed from this ${t('list')}.` : `The originals stay in this ${t('list')}.`}
+          <p className="text-base text-slate-500 dark:text-slate-400">
+            {mode === 'move' ? `${t('record', { many: true, cap: true })} will be removed from this ${t('list')}.` : `The originals stay in this ${t('list')}.`}
           </p>
 
           <div>
@@ -338,6 +346,10 @@ export function BulkMoveToGridModal({ rowIds, sourceGridId, onDone, onCancel }: 
               </select>
             )}
           </div>
+
+          {targetGridId !== null && (
+            <ColumnCarryPreview sourceColumns={sourceColumns} targetColumns={targetColumns} targetName={grids.find(g => g.id === targetGridId)?.name ?? ''} mode={mode} many />
+          )}
 
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
         </div>

@@ -19,7 +19,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'gs-customize-columns',
     question: 'How do I customize columns for my {list}?',
-    answer: 'Click "Add Column" in the toolbar to create new columns. You can choose from many types: text, dates, phone numbers, dropdowns, checkboxes, and more. To rename a column, right click a column header and select rename. To reorder columns, drag a column header left or right.',
+    answer: 'Click "More" in the toolbar and choose "Add a column…" to create new columns. You can choose from many types: text, dates, phone numbers, dropdowns, checkboxes, and more. To rename a column, right click a column header and select rename. To reorder columns, drag a column header left or right.',
     category: 'getting-started',
     tourStepIds: ['add-column'],
   },
@@ -105,7 +105,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-add-remove-columns',
     question: 'How do I add or remove columns?',
-    answer: 'To add: click "Add Column" in the toolbar. To hide a column: right click a column header and select hide column. This will make a new "Columns" button appear in the toolbar, where you can additionally hide and unhide further columns. To permanently delete a column, right-click its header and select "Delete Column."',
+    answer: 'To add: click "More" in the toolbar and choose "Add a column…". To hide a column: right click a column header and select hide column. "More" then shows how many are hidden, and "Show or hide columns…" there shows or hides any of them. To delete a column, right-click its header and select "Delete column": it goes to the Trash with its values, and you can undo that, or restore it from {List} settings for 30 days.',
     category: 'caseload-grid',
     tourStepIds: ['add-column'],
   },
@@ -124,7 +124,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-auto-number',
     question: 'Can each one get a number automatically, like J-0001?',
-    answer: 'Yes. Click "Add Column," choose "Auto number," and optionally type what it starts with (like J-) and how many digits. Each new {record} gets the next number, including copies. You can number the ones already in the {list} at the same time. Numbers can\'t be typed over and are never reused.',
+    answer: 'Yes. Click "More," then "Add a column…," choose "Auto number," and optionally type what it starts with (like J-) and how many digits. Each new {record} gets the next number, including copies. You can number the ones already in the {list} at the same time. Numbers can\'t be typed over and are never reused.',
     category: 'caseload-grid',
   },
   {
@@ -419,7 +419,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'ie-export-pdf',
     question: 'How do I export my {list} as a PDF?',
-    answer: 'Click "Export" in the toolbar and choose "Export as PDF." Select which columns to include and where to save the file. The PDF is formatted as a clean table suitable for printing or sharing with supervisors.',
+    answer: 'Click "More" in the toolbar and choose "Export as PDF." Select which columns to include and where to save the file. The PDF is formatted as a clean table suitable for printing or sharing with supervisors.',
     category: 'import-export',
     tourStepIds: ['export-btn'],
   },
@@ -438,7 +438,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'ie-supervisor-report',
     question: 'How do I make a summary report to share?',
-    answer: 'Click "Export" in the toolbar and choose "Summary report" under Reports. Choose which columns and counts to include, add an optional header and notes, and save it as a PDF. To build and keep your own reports instead, use Reports in the sidebar.',
+    answer: 'Click "Reports" in the toolbar and choose "Summary report…". Choose which columns and counts to include, add an optional header and notes, and save it as a PDF. To build and keep your own reports instead, use Reports in the sidebar.',
     category: 'import-export',
     tourStepIds: ['export-btn'],
   },
@@ -574,7 +574,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'links-setup',
     question: 'How do I connect two {list:many}, like customers and their vehicles?',
-    answer: 'Click "Add Column" and choose "Link to another {list}…". Pick the other {list}, check the names for each side (for example "Owner" on vehicles and "Vehicles" on customers), and say how many each can have. Then press Enter or double-click a link cell to search the other {list} and link one, or type a new name to add it there. Each {record}\'s page has a "Linked" section showing both directions, with any overdue deadlines of the linked {record:many}.',
+    answer: 'Click "More," then "Add a column…," and choose "Link to another {list}…". Pick the other {list}, check the names for each side (for example "Owner" on vehicles and "Vehicles" on customers), and say how many each can have. Then press Enter or double-click a link cell to search the other {list} and link one, or type a new name to add it there. Each {record}\'s page has a "Linked" section showing both directions, with any overdue deadlines of the linked {record:many}.',
     category: 'caseload-grid',
     feature: 'links',
   },

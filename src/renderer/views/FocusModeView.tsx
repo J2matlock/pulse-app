@@ -10,7 +10,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap'
 import { IPC } from '../../shared/ipc-channels'
 import type { CaseloadTask, ChecklistDueItem } from '../../shared/types'
 import { MS_PER_DAY } from '../../shared/constants'
-import { safeInvoke } from '../utils/safeInvoke'
+import { safeInvoke, mustInvoke } from '../utils/safeInvoke'
 import { useGridStore } from '../stores/gridStore'
 import { useTaskStore } from '../stores/taskStore'
 import { useUndoStore } from '../stores/undoStore'
@@ -249,12 +249,12 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
           undo: async () => {
             setCompletedFollowUps(prev => { const s = new Set(prev); s.delete(followUp.id); return s })
             setFollowUps(prev => prev.some(f => f.id === followUp.id) ? prev : [...prev, followUp])
-            await safeInvoke(IPC.CASE_LOG_UNCOMPLETE_FOLLOWUP, followUp.id)
+            await mustInvoke(IPC.CASE_LOG_UNCOMPLETE_FOLLOWUP, followUp.id)
             pulseEvents.emit('followup:changed')
           },
           redo: async () => {
             setCompletedFollowUps(prev => new Set([...prev, followUp.id]))
-            await safeInvoke(IPC.CASE_LOG_COMPLETE_FOLLOWUP, followUp.id)
+            await mustInvoke(IPC.CASE_LOG_COMPLETE_FOLLOWUP, followUp.id)
             pulseEvents.emit('followup:changed')
           },
         })
@@ -287,12 +287,12 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
           undo: async () => {
             setCompletedChecklists(prev => { const s = new Set(prev); s.delete(itemId); return s })
             if (item) setUrgentChecklists(prev => prev.some(c => c.id === itemId) ? prev : [...prev, item])
-            await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, itemId, { is_completed: 0, completed_at: null })
+            await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, itemId, { is_completed: 0, completed_at: null })
             pulseEvents.emit('urgentchecklist:changed')
           },
           redo: async () => {
             setCompletedChecklists(prev => new Set([...prev, itemId]))
-            await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, itemId, { is_completed: 1, completed_at: completedAt })
+            await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, itemId, { is_completed: 1, completed_at: completedAt })
             pulseEvents.emit('urgentchecklist:changed')
           },
         })
@@ -318,7 +318,7 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
         category: 'silent',
         icon: 'check',
         undo: async () => {
-          await safeInvoke(IPC.TASK_RESTORE, taskId)
+          await mustInvoke(IPC.TASK_RESTORE, taskId)
           setCompletedTasks(prev => { const s = new Set(prev); s.delete(taskId); return s })
         },
         redo: async () => {
@@ -350,11 +350,11 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
         contextLabel: ci?.client_name ?? undefined,
         undo: async () => {
           setCompletedChecklistDue(prev => { const s = new Set(prev); s.delete(itemId); return s })
-          await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, itemId, { is_completed: 0, completed_at: null })
+          await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, itemId, { is_completed: 0, completed_at: null })
         },
         redo: async () => {
           setCompletedChecklistDue(prev => new Set([...prev, itemId]))
-          await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, itemId, { is_completed: 1, completed_at: completedAt })
+          await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, itemId, { is_completed: 1, completed_at: completedAt })
         },
       })
     } catch (err) { rlog.error('FocusModeView', 'Failed to complete checklist due item', err) }

@@ -1,11 +1,14 @@
 import type { Column, GridRow } from '../../../shared/types'
 import { isNotTypedColumnType, storesNoCells } from '../../../shared/types'
-import { formatCellForClipboard, validateForColumnType } from './gridHelpers'
+import { formatCellForClipboard, checkPaste } from './gridHelpers'
 import toast from 'react-hot-toast'
+import { friendlyError } from '../../utils/friendlyError'
 
 type CellCoord = { rowId: number; columnId: number }
 
 export interface KeyboardNavDeps {
+  /** Open the record's page */
+  openRecord?: (rowId: number) => void
   editingCellRef: React.RefObject<CellCoord | null>
   /** Blocks editing from the keyboard when it holds true */
   isReadOnlyRef?: React.RefObject<boolean>
@@ -14,7 +17,7 @@ export interface KeyboardNavDeps {
   selectedRowIdsRef: React.RefObject<Set<number>>
   columns: Column[]
   columnMap: Map<number, Column>
-  updateCell: (rowId: number, colId: number, value: string | null) => Promise<void>
+  updateCell: (rowId: number, colId: number, value: string | null) => Promise<unknown>
   navigateCell: (
     rowId: number,
     columnId: number,
@@ -47,6 +50,11 @@ export function handleCellKeyDown(
     case 'Enter':
     case 'F2': {
       e.preventDefault()
+      // Ctrl+Enter or Shift+Enter opens the record, so keyboard users can get to it (G-31)
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || e.shiftKey) && !editing && deps.openRecord) {
+        deps.openRecord(rowId)
+        break
+      }
       if (readOnly) break
       const col = columnMap.get(columnId)
       if (col?.column_type === 'checkbox') {
@@ -130,12 +138,9 @@ export function handleCellKeyDown(
           try {
             const text = await navigator.clipboard.readText()
             if (!text) return
-            const validated = validateForColumnType(text, pasteTargetCol)
-            if (validated === null) {
-              toast.error('Value does not match column type — paste skipped')
-            } else {
-              void updateCell(pasteTargetRowId, pasteTargetColId, validated)
-            }
+            const checked = checkPaste(text, pasteTargetCol)
+            if ('error' in checked) toast.error(friendlyError(checked.error))
+            else void updateCell(pasteTargetRowId, pasteTargetColId, checked.value)
           } catch { /* clipboard access denied */ }
         })()
       }
@@ -161,7 +166,8 @@ export function handleCellKeyDown(
     }
     case 'Delete':
     case 'Backspace':
-      if (!editing && !readOnly && !storesNoCells(columnMap.get(columnId)?.column_type ?? '')) {
+      // Deadline and worked-out cells aren't cleared by a key: only Mark done changes a deadline (G-15)
+      if (!editing && !readOnly && !storesNoCells(columnMap.get(columnId)?.column_type ?? '') && !isNotTypedColumnType(columnMap.get(columnId)?.column_type ?? '')) {
         e.preventDefault()
         void updateCell(rowId, columnId, null)
       }

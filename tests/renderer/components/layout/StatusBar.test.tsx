@@ -37,6 +37,8 @@ describe('StatusBar', () => {
       searchQuery: '',
       acuityEnabled: false,
       acuityLevels: [],
+      sortedRowIds: [1, 2, 3],
+      viewMode: 'table',
     }
   })
 
@@ -74,4 +76,5 @@ describe('StatusBar', () => {
     expect(screen.queryByText('My Caseload')).toBeNull()
     expect(screen.queryByText(/clients/)).toBeNull()
   })
+
 })

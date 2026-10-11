@@ -7,7 +7,6 @@ import { IPC } from '../../shared/ipc-channels'
 import type { RowLocation } from '../../shared/ipc-contract'
 import { secureWrap, logNonFatal, ok, fail, buildSafeSetClause, validId, notifyCaseLogChanged, enforceWritable } from './ipc-utils'
 import { getDb, getRow, cachedStmt } from '../database'
-import { logger } from '../logger'
 import { word } from '../vocab'
 import { refreshDisplayNames } from '../display-names'
 import { assignAutoNumbers } from '../auto-number'
@@ -15,7 +14,7 @@ import { assignAutoNumbers } from '../auto-number'
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_ROWS = 5000
 const MAX_BULK_ROW_ACTION = 1000
-const ALLOWED_BULK_ACTIONS = new Set(['archive', 'unarchive', 'delete'])
+const ALLOWED_BULK_ACTIONS = new Set(['archive', 'unarchive', 'delete', 'restore'])
 
 // ── Shared column-mapping helpers ─────────────────────────────────────────
 
@@ -103,120 +102,79 @@ function transferCellFormats(
   }
 }
 
-/** Stamp "all rows" cell_format rules from a moved row onto existing rows in the target grid. */
-function stampCellFormatsOnTarget(
-  rowId: number,
-  targetGridId: number,
-): void {
-  const tgtRows = cachedStmt('row_tgt_grid_ids', 'SELECT id FROM rows WHERE grid_id = ? AND id != ? LIMIT 2001').all(targetGridId, rowId) as { id: number }[]
-  if (tgtRows.length > 2000) {
-    logger.warn('ipc-row', 'ROW_MOVE_TO_GRID: target grid has >2000 rows, skipping cell_format stamping')
-    return
-  }
-  if (tgtRows.length === 0) return
+interface ParkedHistory { old_value: string | null; new_value: string | null; changed_at: string }
 
-  const movedFmts = cachedStmt('row_cellfmt_colrules', 'SELECT column_id, rules FROM cell_formats WHERE row_id = ?').all(rowId) as { column_id: number; rules: string }[]
-  const insertOrReplace = cachedStmt('row_cellfmt_upsert', 'INSERT OR REPLACE INTO cell_formats (row_id, column_id, rules) VALUES (?, ?, ?)')
-  const selectFmt = cachedStmt('row_cellfmt_get_rules', 'SELECT rules FROM cell_formats WHERE row_id = ? AND column_id = ?')
-  for (const mf of movedFmts) {
-    try {
-      const parsed = JSON.parse(mf.rules) as Array<{ originRowId?: number }>
-      // Only stamp rules that have originRowId (i.e., "all rows" scope)
-      const allRowsRules = parsed.filter(r => r.originRowId != null)
-      if (allRowsRules.length === 0) continue
-      const rulesJson = JSON.stringify(allRowsRules)
-
-      // Batch-read existing formats (reuse prepared stmt instead of re-preparing per row)
-      const existingMap = new Map<number, string>()
-      for (const tr of tgtRows) {
-        const existing = selectFmt.get(tr.id, mf.column_id) as { rules: string } | undefined
-        if (existing) existingMap.set(tr.id, existing.rules)
-      }
-
-      // Batch-write merged rules
-      for (const tr of tgtRows) {
-        const existingJson = existingMap.get(tr.id)
-        if (existingJson) {
-          try {
-            const existingRules = JSON.parse(existingJson) as Array<Record<string, unknown>>
-            const mergedJson = JSON.stringify([...existingRules, ...allRowsRules])
-            if (mergedJson.length > 50_000) {
-              logger.warn('ipc-row', `ROW_MOVE_TO_GRID: merged cell_formats for row ${tr.id}, col ${mf.column_id} exceeds 50KB (${mergedJson.length}), skipping`)
-              continue
-            }
-            insertOrReplace.run(tr.id, mf.column_id, mergedJson)
-          } catch (e) {
-            logger.warn('ipc-row', `ROW_MOVE_TO_GRID: failed to parse existing cell_formats for row ${tr.id}, col ${mf.column_id}`, e)
-            insertOrReplace.run(tr.id, mf.column_id, rulesJson)
-          }
-        } else {
-          insertOrReplace.run(tr.id, mf.column_id, rulesJson)
-        }
-      }
-    } catch (e) { logger.warn('ipc-row', 'ROW_MOVE_TO_GRID: failed to process moved cell_formats for stamping', e) }
-  }
+/** Keep a cell (and its edit history) aside under its own column, to come back on a return move (G-18, L-11). */
+function parkCell(rowId: number, columnId: number, cellId: number, value: string | null, withHistory: boolean): void {
+  const history = withHistory
+    ? cachedStmt('row_park_hist', 'SELECT old_value, new_value, changed_at FROM cell_history WHERE cell_id = ? ORDER BY id').all(cellId) as ParkedHistory[]
+    : []
+  cachedStmt('row_park_cell', `INSERT INTO parked_cells (row_id, column_id, value, history, parked_at) VALUES (?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(row_id, column_id) DO UPDATE SET value = excluded.value, history = excluded.history, parked_at = excluded.parked_at`)
+    .run(rowId, columnId, value, history.length ? JSON.stringify(history) : null)
 }
 
-/** Remove cell_format rules originated by rowId from sibling rows in the source grid. */
-function cleanupSourceSiblings(
-  rowId: number,
-  sourceGridId: number,
-): void {
-  const siblingFmts = cachedStmt('row_cellfmt_siblings', `
-    SELECT cf.row_id, cf.column_id, cf.rules
-    FROM cell_formats cf
-    JOIN rows r ON r.id = cf.row_id
-    WHERE r.grid_id = ? AND cf.row_id != ?
-  `).all(sourceGridId, rowId) as { row_id: number; column_id: number; rules: string }[]
-  const deleteFmt = cachedStmt('row_cellfmt_delete', 'DELETE FROM cell_formats WHERE row_id = ? AND column_id = ?')
-  const updateFmt = cachedStmt('row_cellfmt_update_rules', 'UPDATE cell_formats SET rules = ? WHERE row_id = ? AND column_id = ?')
-  for (const sf of siblingFmts) {
-    try {
-      const parsed = JSON.parse(sf.rules) as Array<{ originRowId?: number }>
-      const filtered = parsed.filter(r => r.originRowId !== rowId)
-      if (filtered.length === 0) {
-        deleteFmt.run(sf.row_id, sf.column_id)
-      } else if (filtered.length < parsed.length) {
-        updateFmt.run(JSON.stringify(filtered), sf.row_id, sf.column_id)
-      }
-    } catch (e) { logger.warn('ipc-row', `ROW_MOVE_TO_GRID: failed to clean up sibling cell_formats for row ${sf.row_id}`, e) }
-  }
-}
-
-/** Re-map existing cells and cell_history in-place for a row being moved between grids. */
+/**
+ * Re-map existing cells and cell_history in place for a row being moved
+ * between grids. Cells with no same-named column in the target are parked,
+ * not deleted, and so is the row's own number in each auto-number column.
+ */
 function remapCellsForMove(
   rowId: number,
   mapping: ColumnMapping,
 ): void {
-  // Re-map cells
+  const autoSrc = new Set((cachedStmt('row_move_auto_cols', "SELECT c.id FROM columns c JOIN rows r ON r.grid_id = c.grid_id WHERE r.id = ? AND c.column_type = 'auto_number'")
+    .all(rowId) as Array<{ id: number }>).map(c => c.id))
   const srcCells = cachedStmt('row_remap_cells_select', 'SELECT id, column_id, value FROM cells WHERE row_id = ?').all(rowId) as { id: number; column_id: number; value: string | null }[]
   const updateCell = cachedStmt('row_remap_cell_col', 'UPDATE cells SET column_id = ? WHERE id = ?')
+  const updateHist = cachedStmt('row_remap_hist_by_cell', 'UPDATE cell_history SET column_id = ? WHERE cell_id = ?')
   const deleteCell = cachedStmt('row_remap_cell_delete', 'DELETE FROM cells WHERE id = ?')
   for (const cell of srcCells) {
     const colName = mapping.srcColMap.get(cell.column_id)
-    if (!colName) { deleteCell.run(cell.id); continue }
-    const tgtColId = mapping.tgtMap.get(colName.toLowerCase())
-    if (tgtColId !== undefined) {
-      updateCell.run(tgtColId, cell.id)
-    } else {
+    const tgtColId = colName === undefined ? undefined : mapping.tgtMap.get(colName.toLowerCase())
+    if (tgtColId === undefined) {
+      // A value for a column the target doesn't have: park it with its history (history cascades with the cell)
+      if (colName !== undefined) parkCell(rowId, cell.column_id, cell.id, cell.value, true)
       deleteCell.run(cell.id)
+      continue
     }
+    // The target issues its own numbers; this list's number waits here for a move back
+    if (autoSrc.has(cell.column_id) && cell.value?.trim()) parkCell(rowId, cell.column_id, cell.id, cell.value, false)
+    updateCell.run(tgtColId, cell.id)
+    updateHist.run(tgtColId, cell.id)
   }
+}
 
-  // Re-map cell_history entries
-  const srcHistCells = cachedStmt('row_remap_hist_select', 'SELECT id, column_id FROM cell_history WHERE row_id = ?').all(rowId) as { id: number; column_id: number }[]
-  const updateHist = cachedStmt('row_remap_hist_col', 'UPDATE cell_history SET column_id = ? WHERE id = ?')
-  const deleteHist = cachedStmt('row_remap_hist_delete', 'DELETE FROM cell_history WHERE id = ?')
-  for (const h of srcHistCells) {
-    const colName = mapping.srcColMap.get(h.column_id)
-    if (!colName) { deleteHist.run(h.id); continue }
-    const tgtColId = mapping.tgtMap.get(colName.toLowerCase())
-    if (tgtColId !== undefined) {
-      updateHist.run(tgtColId, h.id)
-    } else {
-      deleteHist.run(h.id)
+/**
+ * Put back what was parked for this row in the list it just moved into.
+ * A parked number wins over a carried one; other parked values only fill
+ * empty cells. Returns the auto-number columns that got their number back.
+ */
+function unparkCells(rowId: number, gridId: number): Set<number> {
+  const parked = cachedStmt('row_unpark_select', `SELECT p.id, p.column_id, p.value, p.history, c.column_type FROM parked_cells p
+    JOIN columns c ON c.id = p.column_id WHERE p.row_id = ? AND c.grid_id = ?`).all(rowId, gridId) as
+    Array<{ id: number; column_id: number; value: string | null; history: string | null; column_type: string }>
+  const restoredAuto = new Set<number>()
+  const current = cachedStmt('row_unpark_current', 'SELECT id, value FROM cells WHERE row_id = ? AND column_id = ?')
+  const setValue = cachedStmt('row_unpark_set', "UPDATE cells SET value = ?, updated_at = datetime('now') WHERE id = ?")
+  const insert = cachedStmt('row_unpark_insert', "INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))")
+  const insertHist = cachedStmt('row_unpark_hist', 'INSERT INTO cell_history (cell_id, row_id, column_id, old_value, new_value, changed_at) VALUES (?, ?, ?, ?, ?, ?)')
+  const drop = cachedStmt('row_unpark_drop', 'DELETE FROM parked_cells WHERE id = ?')
+  for (const p of parked) {
+    const isAuto = p.column_type === 'auto_number'
+    const cur = current.get(rowId, p.column_id) as { id: number; value: string | null } | undefined
+    let cellId: number | null = null
+    if (!cur) cellId = Number(insert.run(rowId, p.column_id, p.value).lastInsertRowid)
+    else if (isAuto || !cur.value?.trim()) { setValue.run(p.value, cur.id); cellId = cur.id }
+    if (cellId !== null) {
+      if (isAuto && p.value?.trim()) restoredAuto.add(p.column_id)
+      let history: ParkedHistory[] = []
+      try { history = p.history ? JSON.parse(p.history) as ParkedHistory[] : [] } catch { history = [] }
+      for (const h of history) insertHist.run(cellId, rowId, p.column_id, h.old_value, h.new_value, h.changed_at)
     }
+    drop.run(p.id)
   }
+  return restoredAuto
 }
 
 function gridOfRow(rowId: number): number | null {
@@ -239,7 +197,7 @@ function parseManualContacts(raw: string | null): Array<{ type: string; label: s
 }
 
 export function registerRowHandlers(): void {
-  secureWrap(IPC.ROW_BULK_ACTION, 'ipc-row', (_e, action: 'archive' | 'unarchive' | 'delete', rowIds: number[]) => {
+  secureWrap(IPC.ROW_BULK_ACTION, 'ipc-row', (_e, action: 'archive' | 'unarchive' | 'delete' | 'restore', rowIds: number[]) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!ALLOWED_BULK_ACTIONS.has(action)) return fail(`Invalid bulk action: ${action}`)
     if (!Array.isArray(rowIds) || rowIds.length === 0) return fail('No rows specified')
@@ -273,6 +231,15 @@ export function registerRowHandlers(): void {
         rowIds.forEach(id => {
           stmt.run(id)
           logStmt.run(id, `${recordWord(id)} moved to trash`)
+        })
+      } else if (action === 'restore') {
+        // Undo of a bulk move to trash (G-34); archived records come back archived
+        const stmt = cachedStmt('row_bulk_restore', `
+          UPDATE rows SET is_active = CASE WHEN archived_at IS NULL THEN 1 ELSE 0 END, deleted_at = NULL,
+          updated_at = datetime('now') WHERE id = ? AND deleted_at IS NOT NULL
+        `)
+        rowIds.forEach(id => {
+          if (stmt.run(id).changes > 0) logStmt.run(id, `${recordWord(id)} restored from trash`)
         })
       }
     })
@@ -376,6 +343,18 @@ export function registerRowHandlers(): void {
     return ok(true)
   })
 
+  // Empty Trash: every record in the Trash, for good, in one transaction (X-38)
+  secureWrap(IPC.ROW_PURGE_ALL, 'ipc-row', () => {
+    const guard = enforceWritable(); if (guard) return guard
+    const info = getDb().transaction(() => {
+      const r = getDb().prepare('DELETE FROM rows WHERE deleted_at IS NOT NULL').run()
+      // Lists in the Trash go too, with their records (D1)
+      getDb().prepare('DELETE FROM grids WHERE is_active = 0 AND deleted_at IS NOT NULL').run()
+      return r
+    })()
+    return ok(info.changes)
+  })
+
   secureWrap(IPC.ROW_GET_DELETED, 'ipc-row', () => {
     const rows = cachedStmt('row_get_deleted_v2', `
       SELECT r.id, r.grid_id, r.deleted_at, g.name AS grid_name,
@@ -477,11 +456,7 @@ export function registerRowHandlers(): void {
       // 2. Re-map cell_formats entries — only carry rules that originated from this row
       transferCellFormats(rowId, mapping)
 
-      // 3. Stamp "all rows" rules onto existing rows in the target grid
-      stampCellFormatsOnTarget(rowId, targetGridId)
-
-      // 4. Clean up cell_formats on sibling rows in the source grid that were stamped by this row
-      cleanupSourceSiblings(rowId, srcRow.grid_id)
+      // "All rows" highlights are column rules now (L-19), so nothing is stamped on other records
 
       // 5. Update provider_client_links to reflect new grid
       cachedStmt('row_move_provider_links', 'UPDATE provider_client_links SET grid_id = ? WHERE row_id = ?')
@@ -496,8 +471,11 @@ export function registerRowHandlers(): void {
       // 7. Move the row itself — preserves row_id so all profile data stays
       cachedStmt('row_move_grid', 'UPDATE rows SET grid_id = ?, position = ?, updated_at = datetime(\'now\') WHERE id = ?').run(targetGridId, maxPos, rowId)
 
-      // 8. Number and name it the way the target list does
-      assignAutoNumbers(targetGridId, [rowId], { overwrite: true })
+      // 8. Values parked on an earlier move out of this list come back, number included
+      const restoredAuto = unparkCells(rowId, targetGridId)
+
+      // 9. Number and name it the way the target list does (keeping a number it had here before)
+      assignAutoNumbers(targetGridId, [rowId], { overwrite: true, keep: restoredAuto })
       refreshDisplayNames(targetGridId, [rowId])
 
       return rowId
@@ -614,7 +592,7 @@ export function registerRowHandlers(): void {
       SELECT r.id as rowId, r.grid_id as gridId, g.name as gridName,
              r.display_name AS clientName
       FROM rows r
-      JOIN grids g ON g.id = r.grid_id
+      JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
       WHERE r.is_active = 1
         AND (r.display_name LIKE ? ESCAPE '\\'
           -- Phone numbers and emails added with "Add contact info" are found too (R-27)

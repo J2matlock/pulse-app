@@ -32,9 +32,12 @@ describe('link cells', () => {
     expect(screen.getByRole('button', { name: 'F-150' }).className).toMatch(/italic/)
   })
 
-  it('open the linked record in its own list', () => {
+  it('open the linked record in its own list on Ctrl+click; a plain click only selects the cell (G-31)', () => {
     show(v('9\u001eCivic'))
+    const where = screen.getByTestId('where').textContent
     fireEvent.click(screen.getByRole('button', { name: 'Civic' }))
+    expect(screen.getByTestId('where').textContent).toBe(where)
+    fireEvent.click(screen.getByRole('button', { name: 'Civic' }), { ctrlKey: true })
     expect(screen.getByTestId('where').textContent).toBe('/profile/9?gridId=3')
   })
 

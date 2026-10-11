@@ -71,9 +71,13 @@ interface CardProps {
   onKey: (e: React.KeyboardEvent, laneIndex: number, index: number, rowId: number) => void
   /** Days in its current stage, when known */
   inStage: StageDurations['current'] | null
+  /** The lanes it can move to, for "Move to…" (G-33) */
+  moveTargets: Array<{ key: string; label: string }>
+  currentLane: string
+  onMove: (rowId: number, laneKey: string) => void
 }
 
-const Card = React.memo(function Card({ row, name, number, fields, due, linkColumn, acuity, onOpen, laneIndex, index, onKey, inStage }: CardProps): React.ReactElement {
+const Card = React.memo(function Card({ row, name, number, fields, due, linkColumn, acuity, onOpen, laneIndex, index, onKey, inStage, moveTargets, currentLane, onMove }: CardProps): React.ReactElement {
   // Dragging starts after a few pixels, so a click still opens the record
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: row.row_id })
   const threshold = due ? getAlertThreshold(due.daysUntil, due.rule) : null
@@ -114,6 +118,12 @@ const Card = React.memo(function Card({ row, name, number, fields, due, linkColu
           </span>
         )}
       </button>
+      {/* Moving without dragging, for a touchpad or unsteady hands (G-33) */}
+      <select className="mt-1 w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-base text-slate-700 dark:text-slate-200 px-2"
+        style={{ minHeight: 36 }} aria-label={`Move ${name} to`} value="" onChange={e => { if (e.target.value) onMove(row.row_id, e.target.value) }}>
+        <option value="">Move to…</option>
+        {moveTargets.filter(m => m.key !== currentLane).map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
+      </select>
     </li>
   )
 })
@@ -134,8 +144,10 @@ function CardFieldsPicker({ columns, chosen, onChange }: { columns: Column[]; ch
       <button type="button" className="btn-compact-secondary" aria-expanded={open} onClick={() => setOpen(o => !o)}>
         <SlidersHorizontal className="w-4 h-4" />Show on cards
       </button>
+      {open && <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} aria-hidden="true" />}
       {open && (
-        <div role="group" aria-label="Show on cards" className="absolute right-0 top-full mt-1 z-30 w-64 max-h-80 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl p-2">
+        <div role="group" aria-label="Show on cards" onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false) } }}
+          className="absolute right-0 top-full mt-1 z-30 w-64 max-h-80 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl p-2">
           <p className="text-sm text-slate-500 dark:text-slate-400 px-1 pb-1">Up to {MAX_CARD_FIELDS}</p>
           {columns.map(c => {
             const on = chosen.includes(c.id)
@@ -167,6 +179,8 @@ export function BoardView(): React.ReactElement | null {
   const config = stageCol ? stageConfigOf(stageCol) : null
   const [cardFields, setCardFields] = useState<number[]>([])
   const [shown, setShown] = useState<Record<string, number>>({})
+  // "N older hidden" is a button that shows them (S-26)
+  const [showOlder, setShowOlder] = useState(false)
 
   useEffect(() => {
     if (!activeGridId) return
@@ -186,7 +200,7 @@ export function BoardView(): React.ReactElement | null {
   const levels = useMemo(() => new Map(acuityLevels.map(l => [l.id, l])), [acuityLevels])
 
   const prepared = useMemo(() => {
-    const visible = visibleRows(rows, allColumns, { activeFilters, filterMode, showStarredOnly, searchQuery, rowTagsMap })
+    const visible = visibleRows(rows, allColumns, { activeFilters, filterMode, showStarredOnly, searchQuery, rowTagsMap, rules: new Map(rules.map(r => [r.id, r])) })
     const info = new Map(visible.map(r => [r.row_id, { name: getClientName(r, allColumns), due: nearestDeadline(r, allColumns, rules) }]))
     return { visible, info }
     // deadlineContext: meter, quota, step and extension data that arrives after the rows
@@ -206,12 +220,12 @@ export function BoardView(): React.ReactElement | null {
 
   const lanes: Lane[] = useMemo(() => {
     if (!stageCol || !config) return []
-    return buildLanes(prepared.visible, stageCol.id, config, {
+    return buildLanes(prepared.visible, stageCol.id, showOlder ? { ...config, hideDoneAfterDays: 0 } : config, {
       nameOf: r => prepared.info.get(r.row_id)!.name,
       dueOf: r => prepared.info.get(r.row_id)!.due?.daysUntil ?? null,
       sinceOf: r => durations[r.row_id]?.current.since ?? null,
     })
-  }, [prepared, stageCol, config, durations])
+  }, [prepared, stageCol, config, durations, showOlder])
 
   const [announcement, setAnnouncement] = useState('')
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
@@ -266,6 +280,12 @@ export function BoardView(): React.ReactElement | null {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lanes, move, shown])
 
+  const moveTargets = useMemo(() => lanes.filter(l => l.option).map(l => ({ key: l.option!.value, label: l.option!.value })), [lanes])
+  const moveByKey = useCallback((rowId: number, laneKey: string) => {
+    const lane = lanes.find(l => (l.option?.value ?? '__none__') === laneKey)
+    if (lane) void move(rowId, lane)
+  }, [lanes, move])
+
   function onDragEnd(e: DragEndEvent) {
     const rowId = Number(e.active.id)
     const laneId = e.over?.id
@@ -280,6 +300,7 @@ export function BoardView(): React.ReactElement | null {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-end gap-2 px-4 py-2">
+        <p className="flex-1 text-base text-slate-500 dark:text-slate-400">Drag a card, use “Move to…”, or press Ctrl+Shift+← / → on a card.</p>
         <CardFieldsPicker columns={allColumns.filter(c => c.id !== stageCol.id && !c.is_name_column)} chosen={cardFields} onChange={saveCardFields} />
       </div>
       <p id="board-keys-help" className="sr-only">Arrow keys move between cards. Control Shift Left or Right moves this card to the previous or next stage. Enter opens it.</p>
@@ -309,7 +330,8 @@ export function BoardView(): React.ReactElement | null {
                         number={numberCol ? (r[`col_${numberCol.id}`] ?? null) : null} fields={fieldColumns} linkColumn={linkColumn}
                         acuity={level ? { name: level.abbreviation || level.name, color: level.color } : null}
                         onOpen={() => navigate(`/profile/${r.row_id}`)} laneIndex={laneIndex} index={index} onKey={onKey}
-                        inStage={durations[r.row_id]?.current.stage === (r[`col_${stageCol.id}`] ?? null) ? durations[r.row_id]!.current : null} />
+                        inStage={durations[r.row_id]?.current.stage === (r[`col_${stageCol.id}`] ?? null) ? durations[r.row_id]!.current : null}
+                        moveTargets={moveTargets} currentLane={key} onMove={moveByKey} />
                     )
                   })}
                 </ul>
@@ -319,9 +341,14 @@ export function BoardView(): React.ReactElement | null {
                   </button>
                 )}
                 {lane.hidden > 0 && (
-                  <p className="px-3 pb-2 text-sm text-slate-500 dark:text-slate-400">
-                    {lane.hidden} older {t('record', { count: lane.hidden })} hidden
-                  </p>
+                  <button type="button" className="btn-compact-secondary mx-2 mb-2" onClick={() => setShowOlder(true)}>
+                    Show {lane.hidden} older {t('record', { count: lane.hidden })}
+                  </button>
+                )}
+                {showOlder && lane.option?.done && (
+                  <button type="button" className="btn-compact-secondary mx-2 mb-2" onClick={() => setShowOlder(false)}>
+                    Hide older {t('record', { many: true })}
+                  </button>
                 )}
               </DropLane>
             )

@@ -16,7 +16,7 @@ import { useNoteTracking } from '../../hooks/useNoteTracking'
 import { CaseLogEntry } from './CaseLogEntry'
 import { expandVariables, detectTrigger, matchSnippets } from '../../utils/snippetExpander'
 import { useUndoStore } from '../../stores/undoStore'
-import { safeInvoke } from '../../utils/safeInvoke'
+import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { isMod } from '../../utils/keys'
 import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
@@ -377,13 +377,13 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
         // Removing the note puts back the dates it moved, and restoring it moves them again (main does both)
         undo: async () => {
           // Past the delete window, undo voids the note instead (it stays in the record)
-          let res = await safeInvoke(IPC.CASE_LOG_DELETE, created.id)
-          if (!res.ok) res = await safeInvoke(IPC.CASE_LOG_VOID, created.id, 'Undone')
-          if (res.ok) showDateChanges(rowId, res.data)
+          let res
+          try { res = await mustInvoke(IPC.CASE_LOG_DELETE, created.id) } catch { res = await mustInvoke(IPC.CASE_LOG_VOID, created.id, 'Undone') }
+          showDateChanges(rowId, res.data)
         },
         redo: async () => {
-          const res = await safeInvoke(IPC.CASE_LOG_RESTORE, created)
-          if (res.ok) showDateChanges(rowId, res.data)
+          const res = await mustInvoke(IPC.CASE_LOG_RESTORE, created)
+          showDateChanges(rowId, res.data)
         },
       })
     } else {
@@ -439,10 +439,10 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
       category: 'logged',
       icon: 'pin',
       undo: async () => {
-        await safeInvoke(IPC.CASE_LOG_TOGGLE_PIN, id, !pinned)
+        await mustInvoke(IPC.CASE_LOG_TOGGLE_PIN, id, !pinned)
       },
       redo: async () => {
-        await safeInvoke(IPC.CASE_LOG_TOGGLE_PIN, id, pinned)
+        await mustInvoke(IPC.CASE_LOG_TOGGLE_PIN, id, pinned)
       },
     })
   }
@@ -463,10 +463,10 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
         category: 'logged',
         icon: 'edit',
         undo: async () => {
-          await safeInvoke(IPC.CASE_LOG_UPDATE, id, prevContent)
+          await mustInvoke(IPC.CASE_LOG_UPDATE, id, prevContent)
         },
         redo: async () => {
-          await safeInvoke(IPC.CASE_LOG_UPDATE, id, content)
+          await mustInvoke(IPC.CASE_LOG_UPDATE, id, content)
         },
       })
     }
@@ -487,12 +487,12 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
         category: 'logged',
         icon: 'trash',
         undo: async () => {
-          const back = await safeInvoke(IPC.CASE_LOG_RESTORE, entry)
-          if (back.ok) showDateChanges(rowId, back.data)
+          const back = await mustInvoke(IPC.CASE_LOG_RESTORE, entry)
+          showDateChanges(rowId, back.data)
         },
         redo: async () => {
-          const again = await safeInvoke(IPC.CASE_LOG_DELETE, id)
-          if (again.ok) showDateChanges(rowId, again.data)
+          const again = await mustInvoke(IPC.CASE_LOG_DELETE, id)
+          showDateChanges(rowId, again.data)
         },
       })
     }
@@ -509,8 +509,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
       timestamp: Date.now(),
       category: 'logged',
       icon: 'trash',
-      undo: async () => { const r = await safeInvoke(IPC.CASE_LOG_UNVOID, id); if (r.ok) showDateChanges(rowId, r.data) },
-      redo: async () => { const r = await safeInvoke(IPC.CASE_LOG_VOID, id, reason); if (r.ok) showDateChanges(rowId, r.data) },
+      undo: async () => { const r = await mustInvoke(IPC.CASE_LOG_UNVOID, id); showDateChanges(rowId, r.data) },
+      redo: async () => { const r = await mustInvoke(IPC.CASE_LOG_VOID, id, reason); showDateChanges(rowId, r.data) },
     })
   }
 
@@ -528,8 +528,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
       timestamp: Date.now(),
       category: 'logged',
       icon: 'undo',
-      undo: async () => { const r = await safeInvoke(IPC.CASE_LOG_VOID, id, reason); if (r.ok) showDateChanges(rowId, r.data) },
-      redo: async () => { const r = await safeInvoke(IPC.CASE_LOG_UNVOID, id); if (r.ok) showDateChanges(rowId, r.data) },
+      undo: async () => { const r = await mustInvoke(IPC.CASE_LOG_VOID, id, reason); showDateChanges(rowId, r.data) },
+      redo: async () => { const r = await mustInvoke(IPC.CASE_LOG_UNVOID, id); showDateChanges(rowId, r.data) },
     })
   }
 
@@ -548,11 +548,11 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
         icon: 'check',
         sideEffects,
         undo: async () => {
-          await safeInvoke(IPC.CASE_LOG_UNCOMPLETE_FOLLOWUP, id)
+          await mustInvoke(IPC.CASE_LOG_UNCOMPLETE_FOLLOWUP, id)
           // CASE_LOG_CHANGED push from main will trigger CaseLog to reload
         },
         redo: async () => {
-          await safeInvoke(IPC.CASE_LOG_COMPLETE_FOLLOWUP, id)
+          await mustInvoke(IPC.CASE_LOG_COMPLETE_FOLLOWUP, id)
         },
       })
     }

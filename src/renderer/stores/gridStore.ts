@@ -1,21 +1,29 @@
 import { create } from 'zustand'
 import type { Grid, Column, GridRow, SortConfig, CellFormat, CellFormatRule, AcuityLevel, CustomGroupDef } from '../../shared/types'
-import { isReadOnlyColumnType } from '../../shared/types'
+import { isReadOnlyColumnType, ROW_TAG_COLUMN_ID, ANY_DEADLINE_COLUMN_ID } from '../../shared/types'
 import { IPC } from '../../shared/ipc-channels'
-import { useUndoStore } from './undoStore'
+import { useUndoStore, rethrowIfUndoing } from './undoStore'
 import type { SideEffect, UndoItem } from './undoStore'
 import { getClientName } from '../utils/clientName'
 import { wordNow } from '../utils/vocab'
 import { rlog } from '../utils/rendererLogger'
 import toast from 'react-hot-toast'
 import { storeInvoke as invoke } from '../utils/safeInvoke'
-import { createFilterSlice, viewModeKey } from './gridFilterSlice'
+import { createFilterSlice, viewModeKey, tagsColumnKey } from './gridFilterSlice'
 import { createColumnSlice } from './gridColumnSlice'
 import { createFormatSlice } from './gridFormatSlice'
 import { createAcuitySlice } from './gridAcuitySlice'
 import { createCustomGroupSlice } from './gridCustomGroupSlice'
 import type { SavedView } from './gridFilterSlice'
-import type { GridState } from './gridTypes'
+import type { GridState, UpdateCellOptions } from './gridTypes'
+
+/** Saves of the same cell closer together than this are one undo step (L-17) */
+const COALESCE_MS = 3000
+
+/** What narrows a list on screen; each list keeps its own (G-03) */
+type ListView = Pick<GridState, 'activeFilters' | 'filterMode' | 'searchQuery' | 'groupByColumnId' | 'showStarredOnly'>
+const DEFAULT_LIST_VIEW: ListView = { activeFilters: [], filterMode: 'and', searchQuery: '', groupByColumnId: null, showStarredOnly: false }
+const _listViews = new Map<number, ListView>()
 import type { GridDeadlineContext } from '../../shared/ipc-contract'
 import { stageConfigOf } from '../../shared/stages'
 import { pulseEvents } from '../events'
@@ -69,6 +77,7 @@ export const useGridStore = create<GridState>((set, get) => ({
   showArchived: false,
   groupByColumnId: null,
   lastAddedRowId: null,
+  pinnedRowId: null,
   sampleRows: {},
   sampleKeepPrompt: null,
   answerSampleRow: async (rowId: number, answer: 'keep' | 'sample' | 'later') => {
@@ -159,13 +168,20 @@ export const useGridStore = create<GridState>((set, get) => ({
   },
 
   loadGrid: async (gridId: number) => {
-    // Clear undo/redo when switching to a different grid — stale callbacks reference old row/column IDs
-    if (gridId !== get().activeGridId) {
-      useUndoStore.getState().clear()
-    }
+    // The undo stack survives switching lists (L-16): every step works by row and column id and
+    // reloads only the list it belongs to. It's cleared on lock, restore and sample removal.
     const version = get()._loadVersion + 1
     _coalesceIndex.clear()
-    set({ isLoading: true, activeGridId: gridId, _loadVersion: version, sortedRowIds: [], selectedRowIds: new Set<number>() })
+    // Another list: put this one's filters, search and grouping away and bring back that one's (G-03)
+    const prevGridId = get().activeGridId
+    if (prevGridId !== gridId) {
+      if (prevGridId !== null) {
+        const s = get()
+        _listViews.set(prevGridId, { activeFilters: s.activeFilters, filterMode: s.filterMode, searchQuery: s.searchQuery, groupByColumnId: s.groupByColumnId, showStarredOnly: s.showStarredOnly })
+      }
+      set({ ...(_listViews.get(gridId) ?? DEFAULT_LIST_VIEW) })
+    }
+    set({ isLoading: true, activeGridId: gridId, _loadVersion: version, sortedRowIds: [], selectedRowIds: new Set<number>(), pinnedRowId: null })
     try {
       const showArchived = get().showArchived
       const fullData = await invoke<{
@@ -205,7 +221,13 @@ export const useGridStore = create<GridState>((set, get) => ({
         try { customGroups = JSON.parse(fullData.customGroups) } catch { /* ignore */ }
       }
 
+      // A filter or grouping on a column this list doesn't have would hide everything (G-03)
+      const known = new Set([...columns, ...hiddenColumns].map(c => c.id))
+      const { activeFilters, groupByColumnId } = get()
+      const keptFilters = activeFilters.filter(f => f.columnId === ROW_TAG_COLUMN_ID || f.columnId === ANY_DEADLINE_COLUMN_ID || known.has(f.columnId))
       set({
+        ...(keptFilters.length !== activeFilters.length ? { activeFilters: keptFilters } : {}),
+        ...(typeof groupByColumnId === 'number' && !known.has(groupByColumnId) ? { groupByColumnId: null } : {}),
         columns, hiddenColumns, rows, sortConfig, isLoading: false,
         acuityLevels: acuityLevels ?? [],
         acuityEnabled: grid.acuity_enabled === 1,
@@ -217,6 +239,11 @@ export const useGridStore = create<GridState>((set, get) => ({
         sampleRows: fullData.sampleRows ?? {},
         sampleKeepPrompt: null,
       })
+      // The Tags column: as last chosen for this list, else shown when any record has tags (G-37)
+      try {
+        const tagsCol = await invoke<string | null>(IPC.SETTINGS_GET, tagsColumnKey(gridId))
+        if (get()._loadVersion === version) set({ showTagsColumn: tagsCol === '1' || (tagsCol !== '0' && rowTagsMapParsed.size > 0) })
+      } catch { /* leave it as it was */ }
       // Table or board, as last left for this list (W06)
       // Awaited, so a caller that sets the mode after loading (dashboard → board) wins
       try {
@@ -247,6 +274,7 @@ export const useGridStore = create<GridState>((set, get) => ({
 
   deleteGrid: async (gridId: number) => {
     try {
+      const name = get().grids.find(g => g.id === gridId)?.name ?? wordNow('list', { cap: true })
       await invoke(IPC.GRID_DELETE, gridId)
       set(s => ({
         grids: s.grids.filter(g => g.id !== gridId),
@@ -254,6 +282,20 @@ export const useGridStore = create<GridState>((set, get) => ({
         columns: s.activeGridId === gridId ? [] : s.columns,
         rows: s.activeGridId === gridId ? [] : s.rows,
       }))
+      // In the Trash, so Undo brings it back (D1)
+      useUndoStore.getState().pushWithToast({
+        id: crypto.randomUUID(),
+        description: `Moved "${name}" to the Trash`,
+        timestamp: Date.now(),
+        category: 'structural',
+        icon: 'Trash2',
+        undo: async () => { await invoke(IPC.GRID_RESTORE, gridId); await get().loadGridList() },
+        redo: async () => {
+          await invoke(IPC.GRID_DELETE, gridId)
+          if (get().activeGridId === gridId) set({ activeGridId: null, columns: [], rows: [] })
+          await get().loadGridList()
+        },
+      })
     } catch (err) {
       rlog.error('GridStore', 'Failed to delete grid', err)
       toast.error(`Could not delete ${wordNow('list')} — please try again`)
@@ -309,7 +351,7 @@ export const useGridStore = create<GridState>((set, get) => ({
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
-      set(s => ({ rows: [...s.rows, newRow], lastAddedRowId: newRowId }))
+      set(s => ({ rows: [...s.rows, newRow], lastAddedRowId: newRowId, pinnedRowId: newRowId }))
       // Container object shared between undo/redo closures.
       // Redo updates `ref.rowId` immediately after creating the new row,
       // so a subsequent undo always targets the correct (most recent) row.
@@ -328,20 +370,7 @@ export const useGridStore = create<GridState>((set, get) => ({
         redo: async () => {
           const redoRowId = await invoke<number>(IPC.ROW_CREATE, gridId)
           ref.rowId = redoRowId
-          const redoFilled = await autoFilledValues(gridId, redoRowId, get().columns)
-          const redoRow: GridRow = {
-            ...redoFilled,
-            row_id: redoRowId,
-            position: get().rows.length,
-            is_active: 1,
-            is_starred: 0,
-    
-            acuity_level_id: null,
-            deleted_at: null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
-          set(s => ({ rows: [...s.rows, redoRow] }))
+          if (get().activeGridId === gridId) await get().loadGrid(gridId)
         },
       })
     } catch (err) {
@@ -423,6 +452,7 @@ export const useGridStore = create<GridState>((set, get) => ({
         redo: async () => { await get().archiveRow(rowId, reason, opts) },
       })
     } catch (err) {
+      rethrowIfUndoing(err)
       rlog.error('GridStore', 'Failed to archive row', err)
       toast.error(`Could not archive ${wordNow('record')} — please try again`)
     }
@@ -453,6 +483,7 @@ export const useGridStore = create<GridState>((set, get) => ({
         redo: async () => { await get().unarchiveRow(rowId) },
       })
     } catch (err) {
+      rethrowIfUndoing(err)
       rlog.error('GridStore', 'Failed to unarchive row', err)
       // The free-version limit already showed its own message
       toast.error(`Could not unarchive ${wordNow('record')} — please try again`)
@@ -535,15 +566,22 @@ export const useGridStore = create<GridState>((set, get) => ({
     }
   },
 
-  updateCell: async (rowId: number, columnId: number, value: string | null) => {
+  updateCell: async (rowId: number, columnId: number, value: string | null, opts?: UpdateCellOptions) => {
+    // fromUndo: an undo or redo is putting a value back; it pushes nothing and a failure throws (L-08, L-24)
+    const fromUndo = !!opts?.fromUndo
+    // collect: a bulk action gathers each change's undo step and pushes one for all of them (G-26)
+    const collect = opts?.collect
     // Computed and auto-number values are Pulse's to fill in (paste, Delete, bulk edit all land here)
-    const column = get().columns.find(c => c.id === columnId)
-    if (column && isReadOnlyColumnType(column.column_type)) return
+    // Hidden columns too: a hidden stage column edited on the record page still runs its stage actions (S-25)
+    const column = get().columns.find(c => c.id === columnId) ?? get().hiddenColumns.find(c => c.id === columnId)
+    if (column && isReadOnlyColumnType(column.column_type)) return false
     // The stage column (W06): moves run their on-enter actions as one undo step
-    if (column && stageConfigOf(column) && !useUndoStore.getState().isUndoing) {
+    if (column && stageConfigOf(column) && !fromUndo) {
       const { moveToStage } = await import('../utils/stageMove')
-      await moveToStage(rowId, columnId, value === '' ? null : value)
-      return
+      try {
+        await moveToStage(rowId, columnId, value === '' ? null : value, collect ? { collect } : undefined)
+        return true
+      } catch { return false }
     }
     const key = `col_${columnId}` as `col_${number}`
     // Capture previous value for undo before optimistic update
@@ -567,7 +605,7 @@ export const useGridStore = create<GridState>((set, get) => ({
       // The first edit to a made-up sample entry: ask once whether it's real now
       if (prevValue !== value && get().sampleRows[rowId] === 0 && !useUndoStore.getState().isUndoing) set({ sampleKeepPrompt: rowId })
       // Push undo for cell change (only if value actually changed)
-      if (prevValue !== value) {
+      if (prevValue !== value && !fromUndo) {
         const col = get().columns.find(c => c.id === columnId)
         const colName = col?.name ?? 'cell'
         const row = get().rows.find(r => r.row_id === rowId)
@@ -575,64 +613,61 @@ export const useGridStore = create<GridState>((set, get) => ({
         const sideEffects: SideEffect[] = result.sysLogId != null
           ? [{ type: 'void_case_log', caseLogId: result.sysLogId }]
           : []
-        // During rapid edits to the same cell, keep the ORIGINAL prevValue
-        // so undo restores to the state before the first edit, not an intermediate one.
-        const undoState = useUndoStore.getState()
-        const undoDesc = `Changed ${colName} [${columnId}]`
-        const coalesceKey = `${rowId}:${columnId}`
-        const cachedItemId = _coalesceIndex.get(coalesceKey)
-
-        // Near-O(1) lookup: coalesce targets are usually near the top of the stack.
-        // Search from the end (most recent) for better average-case performance.
-        let existingItem: UndoItem | undefined
-        if (cachedItemId) {
-          const stack = undoState.undoStack
-          for (let i = stack.length - 1; i >= 0; i--) {
-            if (stack[i]!.id === cachedItemId) { existingItem = stack[i]; break }
-          }
-          if (!existingItem) _coalesceIndex.delete(coalesceKey) // stale entry
+        const item: UndoItem = {
+          id: crypto.randomUUID(),
+          description: `Changed ${colName}`,
+          timestamp: Date.now(),
+          category: sideEffects.length > 0 ? 'logged' : 'silent',
+          icon: 'pencil',
+          contextLabel,
+          contextId: rowId,
+          sideEffects: sideEffects.length > 0 ? sideEffects : undefined,
+          undo: async () => { await get().updateCell(rowId, columnId, prevValue, { fromUndo: true }) },
+          redo: async () => { await get().updateCell(rowId, columnId, value, { fromUndo: true }) },
         }
+        if (collect) {
+          collect.push(item)
+          return true
+        }
+        // Typing into the same cell in quick succession is one undo step, but only while it is the
+        // latest step and the last keystroke-save was moments ago (L-17); otherwise it's a new step
+        const undoState = useUndoStore.getState()
+        const coalesceKey = `${rowId}:${columnId}`
+        const top = undoState.undoStack[undoState.undoStack.length - 1]
+        const existingItem = top && _coalesceIndex.get(coalesceKey) === top.id && Date.now() - top.timestamp < COALESCE_MS ? top : undefined
 
         if (existingItem) {
           // Coalesce: keep original undo callback, update redo + sideEffects
-          const matchPredicate = (item: UndoItem) => item.id === existingItem!.id
-          useUndoStore.getState().coalesce(matchPredicate, {
+          useUndoStore.getState().coalesce(i => i.id === existingItem.id, {
             ...existingItem,
             timestamp: Date.now(),
-            sideEffects: sideEffects.length > 0 ? sideEffects : existingItem.sideEffects,
-            redo: async () => { await get().updateCell(rowId, columnId, value) },
-          })
+            sideEffects: sideEffects.length > 0 ? [...(existingItem.sideEffects ?? []), ...sideEffects] : existingItem.sideEffects,
+            category: sideEffects.length > 0 ? 'logged' : existingItem.category,
+            redo: item.redo,
+          }, { evenWhileUndoing: true })
         } else {
-          const newItemId = crypto.randomUUID()
-          _coalesceIndex.set(coalesceKey, newItemId)
+          _coalesceIndex.set(coalesceKey, item.id)
           // Cap coalesce index size to prevent unbounded memory growth
           if (_coalesceIndex.size > 500) {
             const keys = [..._coalesceIndex.keys()]
             for (let i = 0; i < 100; i++) _coalesceIndex.delete(keys[i]!)
           }
-          useUndoStore.getState().push({
-            id: newItemId,
-            description: undoDesc,
-            timestamp: Date.now(),
-            category: sideEffects.length > 0 ? 'logged' : 'silent',
-            icon: 'pencil',
-            contextLabel,
-            contextId: rowId,
-            sideEffects: sideEffects.length > 0 ? sideEffects : undefined,
-            undo: async () => { await get().updateCell(rowId, columnId, prevValue) },
-            redo: async () => { await get().updateCell(rowId, columnId, value) },
-          })
+          useUndoStore.getState().push(item, { evenWhileUndoing: true })
         }
       }
+      return true
     } catch (err) {
       // Rollback optimistic update to previous value
       set(s => ({
         rows: s.rows.map(r => r.row_id === rowId ? { ...r, [key]: prevValue } : r),
         isSaving: false,
-        saveError: "We couldn't save your changes — please try again."
+        saveError: fromUndo || collect ? null : "We couldn't save your changes — please try again."
       }))
       rlog.error('GridStore', 'Cell update failed', err)
-      toast.error('Could not save — please try again')
+      if (fromUndo) throw err
+      // A bulk action counts its failures and says so once
+      if (!collect) toast.error('Could not save — please try again')
+      return false
     }
   },
 

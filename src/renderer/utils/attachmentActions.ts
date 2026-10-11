@@ -2,7 +2,7 @@
 import toast from 'react-hot-toast'
 import { IPC } from '../../shared/ipc-channels'
 import type { Attachment } from '../../shared/attachments'
-import { safeInvoke } from './safeInvoke'
+import { safeInvoke, mustInvoke } from './safeInvoke'
 import { useUndoStore } from '../stores/undoStore'
 import { friendlyError } from './friendlyError'
 
@@ -32,8 +32,8 @@ export async function deleteAttachment(a: Attachment): Promise<boolean> {
   useUndoStore.getState().pushWithToast({
     id: crypto.randomUUID(), timestamp: Date.now(), category: 'silent', icon: 'paperclip',
     description: `Moved "${a.file_name}" to the trash`,
-    undo: async () => { await safeInvoke(IPC.ATTACHMENT_RESTORE, a.id) },
-    redo: async () => { await safeInvoke(IPC.ATTACHMENT_DELETE, a.id) },
+    undo: async () => { await mustInvoke(IPC.ATTACHMENT_RESTORE, a.id) },
+    redo: async () => { await mustInvoke(IPC.ATTACHMENT_DELETE, a.id) },
   })
   return true
 }

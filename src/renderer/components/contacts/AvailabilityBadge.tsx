@@ -1,5 +1,6 @@
 import type { AvailabilityStatus } from '../../../shared/types'
 import { MS_PER_DAY } from '../../../shared/constants'
+import { parseDbTimestamp } from '../../../shared/dates'
 
 const STATUS_CONFIG: Record<AvailabilityStatus, { label: string; bg: string; text: string }> = {
   accepting: { label: 'Accepting', bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-300' },
@@ -15,7 +16,7 @@ interface Props {
 }
 
 function daysSince(dateStr: string): number {
-  const then = new Date(dateStr)
+  const then = parseDbTimestamp(dateStr)
   const now = new Date()
   return Math.floor((now.getTime() - then.getTime()) / MS_PER_DAY)
 }

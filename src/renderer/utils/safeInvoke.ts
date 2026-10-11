@@ -92,3 +92,27 @@ export async function storeInvoke(channel: string, ...args: unknown[]): Promise<
   }
   return result.data
 }
+
+// ── mustInvoke — for undo/redo callbacks ────────────────────────────────
+
+/**
+ * Like safeInvoke, but a failure throws (with the handler's plain-English
+ * reason), so the undo store reports it and keeps the item where it was
+ * instead of announcing an undo that didn't happen (audit L-08). Returns the
+ * same shape as safeInvoke, so `res.ok` checks keep working.
+ */
+export async function mustInvoke<C extends ContractChannel>(
+  channel: C,
+  ...args: IPCContract[C]['args']
+): Promise<{ ok: true; data: IPCContract[C]['return'] }>
+
+export async function mustInvoke<T = unknown>(
+  channel: string,
+  ...args: unknown[]
+): Promise<{ ok: true; data: T }>
+
+export async function mustInvoke(channel: string, ...args: unknown[]): Promise<{ ok: true; data: unknown }> {
+  const res = await safeInvoke(channel, ...args)
+  if (!res.ok) throw new Error(res.error === 'READ_ONLY' ? "Pulse can't save changes right now." : res.error)
+  return res
+}

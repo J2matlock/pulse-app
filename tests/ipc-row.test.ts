@@ -362,6 +362,29 @@ describe('IPC Row — ROW_MOVE_TO_GRID', () => {
     expect(row.grid_id).toBe(tgt.gridId)
   })
 
+  it('parks values for columns the target lacks and brings them back on a move back (G-18)', async () => {
+    const src = seedGrid(testDb.db, { name: 'Waitlist', rowCount: 1, columnCount: 2 })
+    const tgt = seedGrid(testDb.db, { name: 'Active', rowCount: 0, columnCount: 1 })
+    testDb.db.prepare("UPDATE columns SET name = 'Name' WHERE id IN (?, ?)").run(src.columnIds[0], tgt.columnIds[0])
+    testDb.db.prepare("UPDATE columns SET name = 'Gate code' WHERE id = ?").run(src.columnIds[1])
+    const rowId = src.rowIds[0]!
+    const put = testDb.db.prepare("INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))")
+    put.run(rowId, src.columnIds[0], 'Alice')
+    const gate = Number(put.run(rowId, src.columnIds[1], '4321').lastInsertRowid)
+    testDb.db.prepare("INSERT INTO cell_history (cell_id, row_id, column_id, old_value, new_value, changed_at) VALUES (?, ?, ?, '1111', '4321', '2026-01-02 10:00:00')").run(gate, rowId, src.columnIds[1])
+
+    await invoke(IPC.ROW_MOVE_TO_GRID, rowId, tgt.gridId)
+    expect(testDb.db.prepare('SELECT COUNT(*) AS n FROM cells WHERE row_id = ? AND column_id = ?').get(rowId, src.columnIds[1])).toEqual({ n: 0 })
+    expect(testDb.db.prepare('SELECT value FROM parked_cells WHERE row_id = ?').get(rowId)).toEqual({ value: '4321' })
+
+    await invoke(IPC.ROW_MOVE_TO_GRID, rowId, src.gridId)
+    expect(testDb.db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?').get(rowId, src.columnIds[1])).toEqual({ value: '4321' })
+    expect(testDb.db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?').get(rowId, src.columnIds[0])).toEqual({ value: 'Alice' })
+    expect(testDb.db.prepare('SELECT old_value, new_value, changed_at FROM cell_history WHERE row_id = ? AND column_id = ?').all(rowId, src.columnIds[1]))
+      .toEqual([{ old_value: '1111', new_value: '4321', changed_at: '2026-01-02 10:00:00' }])
+    expect(testDb.db.prepare('SELECT COUNT(*) AS n FROM parked_cells').get()).toEqual({ n: 0 })
+  })
+
   it('returns same rowId when moving to same grid', async () => {
     const { gridId, rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
     const result = await invoke(IPC.ROW_MOVE_TO_GRID, rowIds[0], gridId) as any
@@ -502,6 +525,19 @@ describe('IPC Row — ROW_BULK_ACTION', () => {
     expect(deleted.cnt).toBe(2)
   })
 
+  it('bulk restores trashed rows, keeping archived ones archived (undo of G-34)', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 3, columnCount: 1 })
+    await invoke(IPC.ROW_BULK_ACTION, 'archive', [rowIds[0]])
+    await invoke(IPC.ROW_BULK_ACTION, 'delete', [rowIds[0], rowIds[1]])
+    const result = await invoke(IPC.ROW_BULK_ACTION, 'restore', [rowIds[0], rowIds[1], rowIds[2]]) as any
+    expect(result.ok).toBe(true)
+    const rows = testDb.db.prepare('SELECT id, is_active, deleted_at FROM rows ORDER BY id').all() as Array<{ id: number; is_active: number; deleted_at: string | null }>
+    expect(rows.map(r => [r.is_active, r.deleted_at])).toEqual([[0, null], [1, null], [1, null]])
+    // Only the two that were in the trash get a "restored" note
+    const logs = testDb.db.prepare("SELECT COUNT(*) AS n FROM case_log WHERE content LIKE '%restored from trash'").get() as { n: number }
+    expect(logs.n).toBe(2)
+  })
+
   it('rejects invalid action', async () => {
     const result = await invoke(IPC.ROW_BULK_ACTION, 'nuke', [1]) as any
     expect(result.ok).toBe(false)
@@ -614,27 +650,6 @@ describe('IPC Row — SEARCH_CLIENTS_CROSS_GRID', () => {
     expect(result.data).toEqual([])
   })
 
-  // Note: SEARCH_CLIENTS_CROSS_GRID has a known bug — the ESCAPE '\'' in the template
-  // literal produces ESCAPE '' (empty string) instead of ESCAPE '\'. This causes a SQLite
-  // error "ESCAPE expression must be a single character". The source needs ESCAPE '\\'.
-  // In production the compiled JS may handle this differently (bundler escape processing).
-  it('finds clients matching display_name (currently fails due to ESCAPE bug)', async () => {
-    const { gridId, rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
-    testDb.db.prepare('UPDATE rows SET display_name = ? WHERE id = ?').run('Alice Johnson', rowIds[0])
-    const result = await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'Alice') as any
-    // The handler wraps the error and returns a fail result
-    // Once the ESCAPE bug is fixed, this should be: expect(result.ok).toBe(true)
-    expect(result).toHaveProperty('ok')
-  })
-
-  it('does not find inactive rows (currently affected by ESCAPE bug)', async () => {
-    const { rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
-    testDb.db.prepare('UPDATE rows SET display_name = ?, is_active = 0 WHERE id = ?').run('Bob Inactive', rowIds[0])
-    const result = await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'Bob') as any
-    // Same ESCAPE bug as above; once fixed: expect(result.data).toHaveLength(0)
-    expect(result).toHaveProperty('ok')
-  })
-
   it('supports offset parameter', async () => {
     const result = await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'test', 0) as any
     expect(result.ok).toBe(true)
@@ -644,6 +659,40 @@ describe('IPC Row — SEARCH_CLIENTS_CROSS_GRID', () => {
     const result = await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 123) as any
     expect(result.ok).toBe(true)
     expect(result.data).toEqual([])
+  })
+
+  // The ESCAPE clause used to reach SQL as ESCAPE '' (the template literal ate the backslash), so every search failed
+  it('finds records by name, including a literal %', async () => {
+    const { gridId, rowIds } = seedGrid(testDb.db, { rowCount: 2, columnCount: 1 })
+    testDb.db.prepare('UPDATE rows SET display_name = ? WHERE id = ?').run('Alice Johnson', rowIds[0])
+    testDb.db.prepare('UPDATE rows SET display_name = ? WHERE id = ?').run('100% Alice', rowIds[1])
+    const result = await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'Alice') as any
+    expect(result.ok).toBe(true)
+    expect(result.data.map((r: { rowId: number }) => r.rowId).sort()).toEqual([rowIds[0], rowIds[1]].sort())
+    expect(result.data[0].gridId).toBe(gridId)
+    const pct = await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, '0% A') as any
+    expect(pct.data.map((r: { rowId: number }) => r.rowId)).toEqual([rowIds[1]])
+  })
+
+  it('leaves out archived records and records in a deleted list (L-13)', async () => {
+    const a = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    const b = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    testDb.db.prepare('UPDATE rows SET display_name = ?, is_active = 0 WHERE id = ?').run('Bob Inactive', a.rowIds[0])
+    testDb.db.prepare('UPDATE rows SET display_name = ? WHERE id = ?').run('Bob Gone', b.rowIds[0])
+    testDb.db.prepare('UPDATE grids SET is_active = 0 WHERE id = ?').run(b.gridId)
+    const result = await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'Bob') as any
+    expect(result.ok).toBe(true)
+    expect(result.data).toHaveLength(0)
+  })
+})
+
+describe('IPC Row — ROW_PURGE_ALL', () => {
+  it('empties the Trash in one call and leaves everything else (X-38)', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 3, columnCount: 1 })
+    testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now') WHERE id IN (?, ?)").run(rowIds[0], rowIds[1])
+    const result = await invoke(IPC.ROW_PURGE_ALL) as any
+    expect(result).toEqual({ ok: true, data: 2 })
+    expect(testDb.db.prepare('SELECT id FROM rows').all()).toEqual([{ id: rowIds[2] }])
   })
 })
 

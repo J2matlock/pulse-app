@@ -27,7 +27,13 @@ export function LinkCell({ value, parsedConfig }: { column: Column; value: strin
     <span className="flex items-center gap-1 min-w-0 overflow-hidden" title={chips.map(c => c.name).join(', ')}>
       {shown.map(c => (
         <button key={c.rowId} type="button" tabIndex={-1}
-          onClick={e => { e.stopPropagation(); navigate(otherGridId ? `/profile/${c.rowId}?gridId=${otherGridId}` : `/profile/${c.rowId}`) }}
+          title={`Ctrl+click to open ${c.name || 'this record'}`}
+          // A click selects the cell like any other; Ctrl+click opens the linked record (G-31)
+          onClick={e => {
+            if (!(e.ctrlKey || e.metaKey)) return
+            e.stopPropagation()
+            navigate(otherGridId ? `/profile/${c.rowId}?gridId=${otherGridId}` : `/profile/${c.rowId}`)
+          }}
           className={`truncate max-w-[12rem] px-2 py-0.5 rounded-full border text-sm hover:underline focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 ${
             c.archived
               ? 'border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 italic'

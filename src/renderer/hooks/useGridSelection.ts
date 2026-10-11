@@ -39,18 +39,12 @@ export function useGridSelection({ visualRowIdsRef }: UseGridSelectionOptions) {
         }
         return next
       })
-    } else if (e.ctrlKey || e.metaKey) {
+    } else {
+      // A checkbox: a click ticks or unticks just this row, like everywhere else (G-06)
       setSelectedRowIds(prev => {
         const next = new Set(prev)
         if (next.has(rowId)) next.delete(rowId)
         else next.add(rowId)
-        return next
-      })
-    } else {
-      setSelectedRowIds(prev => {
-        const next = new Set(prev)
-        if (next.has(rowId) && next.size === 1) next.delete(rowId)
-        else { next.clear(); next.add(rowId) }
         return next
       })
     }

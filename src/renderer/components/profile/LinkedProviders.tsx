@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { BookUser, Plus, X, Search, ChevronRight, Phone, Mail, Copy, Check } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Provider, ProviderClientLink } from '../../../shared/types'
-import { safeInvoke } from '../../utils/safeInvoke'
+import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { useShallow } from 'zustand/react/shallow'
 import { useContactsStore } from '../../stores/contactsStore'
 import { useUndoStore, type SideEffect } from '../../stores/undoStore'
@@ -144,12 +144,12 @@ export function LinkedProviders({ rowId, gridId, onCount }: Props) {
           icon: 'link',
           sideEffects,
           undo: async () => {
-            await safeInvoke(IPC.CONTACTS_UNLINK_CLIENT, currentLinkId)
+            await mustInvoke(IPC.CONTACTS_UNLINK_CLIENT, currentLinkId)
             void loadLinks()
             pulseEvents.emit('linkedproviders:changed', { rowId })
           },
           redo: async () => {
-            const r = await safeInvoke<ProviderClientLink & { sysLogId: number | null }>(IPC.CONTACTS_LINK_CLIENT, providerId, rowId, gridId)
+            const r = await mustInvoke<ProviderClientLink & { sysLogId: number | null }>(IPC.CONTACTS_LINK_CLIENT, providerId, rowId, gridId)
             if (r.ok) currentLinkId = r.data.id
             void loadLinks()
             pulseEvents.emit('linkedproviders:changed', { rowId })
@@ -179,7 +179,7 @@ export function LinkedProviders({ rowId, gridId, onCount }: Props) {
             icon: 'unlink',
             sideEffects,
             undo: async () => {
-              const r = await safeInvoke<ProviderClientLink & { sysLogId: number | null }>(IPC.CONTACTS_LINK_CLIENT, link.provider_id, rowId, gridId)
+              const r = await mustInvoke<ProviderClientLink & { sysLogId: number | null }>(IPC.CONTACTS_LINK_CLIENT, link.provider_id, rowId, gridId)
               if (r.ok) {
                 restoredLinkId = r.data.id
                 void loadLinks()
@@ -188,7 +188,7 @@ export function LinkedProviders({ rowId, gridId, onCount }: Props) {
             },
             redo: async () => {
               if (restoredLinkId !== null) {
-                await safeInvoke(IPC.CONTACTS_UNLINK_CLIENT, restoredLinkId)
+                await mustInvoke(IPC.CONTACTS_UNLINK_CLIENT, restoredLinkId)
                 void loadLinks()
                 pulseEvents.emit('linkedproviders:changed', { rowId })
                 restoredLinkId = null

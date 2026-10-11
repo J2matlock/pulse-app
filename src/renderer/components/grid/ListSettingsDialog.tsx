@@ -18,6 +18,7 @@ import { useGridStore } from '../../stores/gridStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { useUndoStore } from '../../stores/undoStore'
 import { RECORD_KINDS } from '../../views/setup/GuidedBlankStart'
+import { DeletedColumnsSection } from './DeletedColumnsSection'
 
 interface Props {
   gridId: number
@@ -171,8 +172,8 @@ export function ListSettingsDialog({ gridId, onClose, onOpenRequirements }: Prop
         timestamp: Date.now(),
         category: 'silent',
         icon: 'settings',
-        undo: async () => { await applySettings(gridId, undo) },
-        redo: async () => { await applySettings(gridId, patch) },
+        undo: async () => { const e = await applySettings(gridId, undo); if (e) throw new Error(e) },
+        redo: async () => { const e = await applySettings(gridId, patch); if (e) throw new Error(e) },
       })
       toast.success(`Saved the ${t('list')} settings`)
       onClose()
@@ -278,6 +279,8 @@ export function ListSettingsDialog({ gridId, onClose, onOpenRequirements }: Prop
                 )}
               </div>
             )}
+
+            <DeletedColumnsSection gridId={gridId} />
 
             {error && <p role="alert" className="text-base text-red-700 dark:text-red-300">{error}</p>}
           </div>

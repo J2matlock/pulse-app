@@ -17,6 +17,9 @@ import {
   formatDate,
   formatCellValue,
   loadGridData,
+  pickColumns,
+  pickRows,
+  showDeadlinesAsText,
   getClientName,
   batchGetClientNames,
 } from './export-shared'
@@ -65,17 +68,13 @@ export async function exportLetterPdf(text: string, destPath: string): Promise<v
 
 export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
   const { gridId, columnIds, activeRowIds, destPath, title } = options
-  const { grid, columns, rows } = loadGridData(gridId)
+  const { grid, columns, rows } = loadGridData(gridId, { includeHidden: true })
   const v = vocabFor(gridId)
   logger.info('export', 'PDF grid export started', { rowCount: rows.length })
 
-  const selectedColumns = columnIds.length > 0
-    ? columns.filter(c => columnIds.includes(c.id))
-    : columns
-
-  const filteredRows = activeRowIds.length > 0
-    ? rows.filter(r => activeRowIds.includes(r.row_id))
-    : rows
+  const selectedColumns = pickColumns(columns, columnIds)
+  const filteredRows = pickRows(rows, activeRowIds)
+  showDeadlinesAsText(gridId, selectedColumns, filteredRows)
 
   // Yield to event loop before heavy PDF generation
   await new Promise(resolve => setImmediate(resolve))

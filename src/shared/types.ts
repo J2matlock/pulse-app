@@ -25,6 +25,8 @@ export type ColumnType =
 
 /** Sentinel column ID used for row-tag filters (not a real column) */
 export const ROW_TAG_COLUMN_ID = -1
+/** A filter on every deadline column at once (the toolbar's "Overdue" chip) */
+export const ANY_DEADLINE_COLUMN_ID = -2
 
 export const VALID_COLUMN_TYPES = new Set<ColumnType>([
   'text', 'date', 'number', 'checkbox', 'dropdown',
@@ -33,6 +35,11 @@ export const VALID_COLUMN_TYPES = new Set<ColumnType>([
 ])
 
 /** Column types whose values Pulse fills in; people can't type into them. */
+/** Column types that can name a list's records ("Use as name") */
+export function canNameRecords(columnType: string): boolean {
+  return !['checkbox', 'age_from_dob', 'calculated_days', 'deadline', 'link', 'file_count', 'notes'].includes(columnType)
+}
+
 export const READ_ONLY_COLUMN_TYPES = new Set<string>(['age_from_dob', 'calculated_days', 'auto_number'])
 
 export function isReadOnlyColumnType(type: string): boolean {
@@ -79,6 +86,8 @@ export type FilterOperator =
   | 'before' | 'after'
   /** Link columns (W04): links to this record (value = its row id) */
   | 'links_to'
+  /** Columns with a deadline rule: overdue | today | next7 | next30 | done | paused (G-12) */
+  | 'due_status'
 
 export interface ColumnFilter {
   columnId: number

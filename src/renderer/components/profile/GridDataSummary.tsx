@@ -18,7 +18,7 @@ interface Props {
   columns: Column[]
   alertRules: ParsedAlertRule[]
   gridId: number
-  onCellSave: (rowId: number, columnId: number, value: string | null) => Promise<void>
+  onCellSave: (rowId: number, columnId: number, value: string | null) => Promise<unknown>
 }
 
 function getColumnConfig(col: Column) {
@@ -73,7 +73,7 @@ interface SortableCardProps {
   /** A number column's history, for the sparkline (W10 §5) */
   series?: SeriesPoint[]
   /** Save a new value (undoable, like an edit in the list); absent for columns that can't be typed in */
-  onSave?: (value: string | null) => Promise<void>
+  onSave?: (value: string | null) => Promise<unknown>
 }
 
 function SortableCard({ col, value, row, allColumns, alertRules, series, onSave }: SortableCardProps) {

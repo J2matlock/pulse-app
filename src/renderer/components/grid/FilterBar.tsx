@@ -5,10 +5,10 @@ import { X, Filter, Save, Trash2, Tag, Bookmark, Star } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore, type FilterOperator } from '../../stores/gridStore'
 import { dropdownVariants } from '../../utils/animations'
-import { ROW_TAG_COLUMN_ID, type ColumnFilter, type GridRow } from '../../../shared/types'
+import { ROW_TAG_COLUMN_ID, ANY_DEADLINE_COLUMN_ID, takesDeadlineRule, type Column, type ColumnFilter, type GridRow } from '../../../shared/types'
 import { parseLinkValue, type LinkChip } from '../../../shared/links'
 import { Tooltip } from '../shared/Tooltip'
-import { localDateString } from '../../../shared/dates'
+import { TODAY_TOKEN, DUE_STATUSES } from '../../utils/filterMatch'
 import { useVocab } from '../../hooks/useVocab'
 const ROW_TAG_OPS: FilterOperator[] = ['contains', 'not_contains', 'is_empty', 'is_not_empty']
 
@@ -32,6 +32,7 @@ const OPERATOR_LABELS: Record<FilterOperator, string> = {
   before:        'before',
   after:         'after',
   links_to:      'links to',
+  due_status:    'due status is',
 }
 
 // Operators available per column type
@@ -53,6 +54,35 @@ const OPS_FOR_TYPE: Record<string, FilterOperator[]> = {
 }
 
 const NO_VALUE_OPS: FilterOperator[] = ['is_empty', 'is_not_empty']
+
+/**
+ * The operators for a column. A column with a deadline rule offers "due
+ * status" first (G-12); a Deadline column's stored date means nothing to
+ * people, so it offers only that.
+ */
+function opsForColumn(col: Column | undefined): FilterOperator[] {
+  if (!col) return OPS_FOR_TYPE.text!
+  const hasRule = takesDeadlineRule(col.column_type) && (() => { try { return !!(JSON.parse(col.config || '{}') as { alert_rule_id?: number }).alert_rule_id } catch { return false } })()
+  if (col.column_type === 'deadline') return ['due_status']
+  const base = OPS_FOR_TYPE[col.column_type] ?? OPS_FOR_TYPE.text!
+  return hasRule ? ['due_status', ...base] : base
+}
+
+/** The value a new filter starts with */
+function startValue(op: FilterOperator, colType: string | undefined): string {
+  return op === 'due_status' ? 'overdue' : defaultValueForType(colType)
+}
+
+function DueStatusValue({ id, value, onChange }: { id: string; value: string; onChange: (v: string) => void }): React.ReactElement {
+  return (
+    <div>
+      <label htmlFor={id} className="block text-base text-slate-500 dark:text-slate-400 mb-1">Value</label>
+      <select id={id} className="input w-full text-base" style={{ minHeight: 36 }} value={value || 'overdue'} onChange={e => onChange(e.target.value)}>
+        {DUE_STATUSES.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+      </select>
+    </div>
+  )
+}
 
 // Quick preset buttons shown after column selection to reduce clicks
 type FilterPreset = { label: string; op: FilterOperator; value?: string }
@@ -82,7 +112,7 @@ const PRESETS_BY_TYPE: Record<string, FilterPreset[]> = {
     { label: 'Is empty', op: 'is_empty' },
   ],
   date: [
-    { label: 'In the past', op: 'before', value: localDateString() },
+    { label: 'In the past', op: 'before', value: TODAY_TOKEN },
     { label: 'Is empty', op: 'is_empty' },
   ],
   checkbox: [
@@ -121,6 +151,8 @@ function linkTargets(rows: GridRow[], columnId: number): LinkChip[] {
 }
 
 function filterValueLabel(f: ColumnFilter, rows: GridRow[]): string {
+  if (f.value === TODAY_TOKEN) return 'today'
+  if (f.operator === 'due_status') return DUE_STATUSES.find(d => d.value === f.value)?.label ?? f.value
   if (f.operator !== 'links_to') return f.value
   return linkTargets(rows, f.columnId).find(c => String(c.rowId) === f.value)?.name ?? f.value
 }
@@ -174,8 +206,8 @@ export function FilterBar(): React.ReactElement | null {
     }
     const col = columns.find(c => c.id === colId)
     if (!col) return
-    const ops = OPS_FOR_TYPE[col.column_type] ?? OPS_FOR_TYPE.text!
-    setNewFilter({ ...newFilter, columnId: colId, operator: ops[0] ?? 'equals', value: defaultValueForType(col.column_type) })
+    const ops = opsForColumn(col)
+    setNewFilter({ ...newFilter, columnId: colId, operator: ops[0] ?? 'equals', value: startValue(ops[0] ?? 'equals', col.column_type) })
   }
 
   function handleAddFilter() {
@@ -200,7 +232,7 @@ export function FilterBar(): React.ReactElement | null {
   const ops: FilterOperator[] = newFilter
     ? newFilter.columnId === ROW_TAG_COLUMN_ID
       ? ROW_TAG_OPS
-      : (OPS_FOR_TYPE[columns.find(c => c.id === newFilter.columnId)?.column_type ?? 'text'] ?? OPS_FOR_TYPE.text!)
+      : opsForColumn(columns.find(c => c.id === newFilter.columnId))
     : []
 
   return (
@@ -227,7 +259,9 @@ export function FilterBar(): React.ReactElement | null {
                 key={i}
                 className="flex items-center gap-1.5 bg-white dark:bg-slate-800 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 text-sm px-2.5 py-0.5 rounded-full"
               >
-                {f.columnId === ROW_TAG_COLUMN_ID
+                {f.columnId === ANY_DEADLINE_COLUMN_ID
+                  ? <span className="font-medium">Any deadline</span>
+                  : f.columnId === ROW_TAG_COLUMN_ID
                   ? <><Tag className="w-3 h-3" /><span className="font-medium">Tags</span></>
                   : <span className="font-medium">{col?.name ?? `Col ${f.columnId}`}</span>
                 }
@@ -323,7 +357,7 @@ export function FilterBar(): React.ReactElement | null {
                     value={newFilter.columnId}
                     onChange={e => handleColumnChange(parseInt(e.target.value, 10))}
                   >
-                    <option value={ROW_TAG_COLUMN_ID}>🏷 Row Tags</option>
+                    <option value={ROW_TAG_COLUMN_ID}>Tags</option>
                     {columns.map(c => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
@@ -375,7 +409,7 @@ export function FilterBar(): React.ReactElement | null {
                     className="input w-full text-base"
                     style={{ minHeight: 36 }}
                     value={newFilter.operator}
-                    onChange={e => setNewFilter({ ...newFilter, operator: e.target.value as FilterOperator })}
+                    onChange={e => { const op = e.target.value as FilterOperator; setNewFilter({ ...newFilter, operator: op, value: op === 'due_status' ? 'overdue' : newFilter.operator === 'due_status' ? '' : newFilter.value }) }}
                   >
                     {ops.map(op => (
                       <option key={op} value={op}>{OPERATOR_LABELS[op]}</option>
@@ -385,6 +419,9 @@ export function FilterBar(): React.ReactElement | null {
 
                 {!NO_VALUE_OPS.includes(newFilter.operator) && (() => {
                   const colType = columns.find(c => c.id === newFilter.columnId)?.column_type
+                  if (newFilter.operator === 'due_status') {
+                    return <DueStatusValue id="filter-value" value={newFilter.value} onChange={value => setNewFilter({ ...newFilter, value })} />
+                  }
                   if (newFilter.operator === 'links_to') {
                     return <LinkFilterValue id="filter-value" columnId={newFilter.columnId} rows={rows} value={newFilter.value} onChange={value => setNewFilter({ ...newFilter, value })} />
                   }
@@ -503,9 +540,12 @@ export function FilterControls(): React.ReactElement {
     activeFilters: s.activeFilters, savedFilters: s.savedFilters,
     columns: s.columns, activeGridId: s.activeGridId, showStarredOnly: s.showStarredOnly,
   })))
-  const { loadSavedFilters, setShowStarredOnly } = useGridStore(useShallow(s => ({
-    loadSavedFilters: s.loadSavedFilters, setShowStarredOnly: s.setShowStarredOnly,
+  const { loadSavedFilters, setShowStarredOnly, addFilter, removeFilter } = useGridStore(useShallow(s => ({
+    loadSavedFilters: s.loadSavedFilters, setShowStarredOnly: s.setShowStarredOnly, addFilter: s.addFilter, removeFilter: s.removeFilter,
   })))
+  const hiddenColumns = useGridStore(s => s.hiddenColumns)
+  const hasDeadlines = [...columns, ...hiddenColumns].some(c => c.column_type === 'deadline' || opsForColumn(c)[0] === 'due_status')
+  const overdueOn = activeFilters.some(f => f.columnId === ANY_DEADLINE_COLUMN_ID && f.operator === 'due_status' && f.value === 'overdue')
   const [showPanel, setShowPanel] = useState(false)
   const [showSaved, setShowSaved] = useState(false)
   const filterBtnRef = useRef<HTMLButtonElement>(null)
@@ -530,11 +570,28 @@ export function FilterControls(): React.ReactElement {
         onClick={() => setShowStarredOnly(!showStarredOnly)}
         className={`btn-secondary flex items-center gap-1.5 ${showStarredOnly ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700 text-yellow-700 dark:text-yellow-300' : ''}`}
         style={{ minHeight: 36, padding: '0 10px', fontSize: 15 }}
-        title={showStarredOnly ? 'Show all rows' : 'Show starred only'}
-        aria-label={showStarredOnly ? 'Show all rows' : 'Show starred only'}
+        title={showStarredOnly ? `Showing starred ${t('record', { many: true })} only. Click to show all.` : `Show starred ${t('record', { many: true })} only`}
+        aria-pressed={showStarredOnly}
       >
         <Star className={`w-4 h-4 ${showStarredOnly ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+        Starred
       </button>
+      {hasDeadlines && (
+        // "Who's overdue?" in one click (G-12)
+        <button
+          onClick={() => {
+            const i = activeFilters.findIndex(f => f.columnId === ANY_DEADLINE_COLUMN_ID && f.operator === 'due_status' && f.value === 'overdue')
+            if (i >= 0) removeFilter(i)
+            else addFilter({ columnId: ANY_DEADLINE_COLUMN_ID, operator: 'due_status', value: 'overdue' })
+          }}
+          className={`btn-secondary flex items-center gap-1.5 ${overdueOn ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300' : ''}`}
+          style={{ minHeight: 36, padding: '0 10px', fontSize: 15 }}
+          aria-pressed={overdueOn}
+          title={overdueOn ? `Showing overdue ${t('record', { many: true })} only. Click to show all.` : `Show ${t('record', { many: true })} with an overdue deadline`}
+        >
+          Overdue
+        </button>
+      )}
       <Tooltip content="Add a filter condition" placement="bottom">
         <button
           ref={filterBtnRef}
@@ -595,8 +652,8 @@ function FilterBarInline({
     if (showPanel && !newFilter) {
       if (columns.length > 0) {
         const firstCol = columns[0]!
-        const ops = OPS_FOR_TYPE[firstCol.column_type] ?? OPS_FOR_TYPE.text!
-        setNewFilter({ columnId: firstCol.id, operator: ops[0] ?? 'equals', value: defaultValueForType(firstCol.column_type) })
+        const ops = opsForColumn(firstCol)
+        setNewFilter({ columnId: firstCol.id, operator: ops[0] ?? 'equals', value: startValue(ops[0] ?? 'equals', firstCol.column_type) })
       } else {
         setNewFilter({ columnId: ROW_TAG_COLUMN_ID, operator: 'contains', value: '' })
       }
@@ -612,8 +669,8 @@ function FilterBarInline({
     }
     const col = columns.find(c => c.id === colId)
     if (!col) return
-    const ops = OPS_FOR_TYPE[col.column_type] ?? OPS_FOR_TYPE.text!
-    setNewFilter({ ...newFilter, columnId: colId, operator: ops[0] ?? 'equals', value: defaultValueForType(col.column_type) })
+    const ops = opsForColumn(col)
+    setNewFilter({ ...newFilter, columnId: colId, operator: ops[0] ?? 'equals', value: startValue(ops[0] ?? 'equals', col.column_type) })
   }
 
   function handleAddFilter() {
@@ -626,7 +683,7 @@ function FilterBarInline({
   const ops: FilterOperator[] = newFilter
     ? newFilter.columnId === ROW_TAG_COLUMN_ID
       ? ROW_TAG_OPS
-      : (OPS_FOR_TYPE[columns.find(c => c.id === newFilter.columnId)?.column_type ?? 'text'] ?? OPS_FOR_TYPE.text!)
+      : opsForColumn(columns.find(c => c.id === newFilter.columnId))
     : []
 
   return (
@@ -646,7 +703,7 @@ function FilterBarInline({
                 <div>
                   <label htmlFor="filter-inline-column" className="block text-base text-slate-500 dark:text-slate-400 mb-1">Column</label>
                   <select id="filter-inline-column" className="input w-full text-base" style={{ minHeight: 36 }} value={newFilter.columnId} onChange={e => handleColumnChange(parseInt(e.target.value, 10))}>
-                    <option value={ROW_TAG_COLUMN_ID}>🏷 Row Tags</option>
+                    <option value={ROW_TAG_COLUMN_ID}>Tags</option>
                     {columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
@@ -689,12 +746,15 @@ function FilterBarInline({
 
                 <div>
                   <label htmlFor="filter-inline-operator" className="block text-base text-slate-500 dark:text-slate-400 mb-1">Operator</label>
-                  <select id="filter-inline-operator" className="input w-full text-base" style={{ minHeight: 36 }} value={newFilter.operator} onChange={e => setNewFilter({ ...newFilter, operator: e.target.value as FilterOperator })}>
+                  <select id="filter-inline-operator" className="input w-full text-base" style={{ minHeight: 36 }} value={newFilter.operator} onChange={e => { const op = e.target.value as FilterOperator; setNewFilter({ ...newFilter, operator: op, value: op === 'due_status' ? 'overdue' : newFilter.operator === 'due_status' ? '' : newFilter.value }) }}>
                     {ops.map(op => <option key={op} value={op}>{OPERATOR_LABELS[op]}</option>)}
                   </select>
                 </div>
                 {!NO_VALUE_OPS.includes(newFilter.operator) && (() => {
                   const colType = columns.find(c => c.id === newFilter.columnId)?.column_type
+                  if (newFilter.operator === 'due_status') {
+                    return <DueStatusValue id="filter-inline-value" value={newFilter.value} onChange={value => setNewFilter({ ...newFilter, value })} />
+                  }
                   if (newFilter.operator === 'links_to') {
                     return <LinkFilterValue id="filter-inline-value" columnId={newFilter.columnId} rows={rows} value={newFilter.value} onChange={value => setNewFilter({ ...newFilter, value })} />
                   }

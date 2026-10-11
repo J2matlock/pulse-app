@@ -51,6 +51,8 @@ vi.mock('../../../../src/renderer/stores/gridStore', () => ({
     activeGridId: 1,
     rows: mockRows,
     columns: [],
+    sortedRowIds: mockRows.map(r => r.row_id),
+    viewMode: 'table',
     setSearchQuery: vi.fn(),
   }),
 }))

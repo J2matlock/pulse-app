@@ -62,6 +62,11 @@ const sampleDeletedRows = [
   { id: 3, grid_id: 2, deleted_at: twoDaysAgo, grid_name: 'Secondary', client_name: 'Carol Davis', grid_is_active: 1 },
 ]
 
+function mockTrash(rows: unknown[], lists: unknown[] = [], extra: (channel: string, ...args: unknown[]) => unknown = () => ({ ok: true, data: true })) {
+  mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => Promise.resolve(
+    channel === 'row:get-deleted' ? { ok: true, data: rows } : channel === 'grid:deleted-list' ? { ok: true, data: lists } : extra(channel, ...args)))
+}
+
 async function flushEffects() {
   await act(async () => { await new Promise(r => setTimeout(r, 10)) })
 }
@@ -76,7 +81,7 @@ describe('TrashView — interactions', () => {
   })
 
   it('shows deleted items loaded from IPC', async () => {
-    mockInvoke.mockResolvedValue({ ok: true, data: sampleDeletedRows })
+    mockTrash(sampleDeletedRows)
 
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
@@ -88,12 +93,12 @@ describe('TrashView — interactions', () => {
   })
 
   it('shows 30-day retention notice', async () => {
-    mockInvoke.mockResolvedValue({ ok: true, data: sampleDeletedRows })
+    mockTrash(sampleDeletedRows)
 
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
 
-    expect(screen.getByText('Items are permanently removed after 30 days')).toBeDefined()
+    expect(screen.getByText('Items are removed for good after 30 days')).toBeDefined()
   })
 
   it('fires IPC call to restore a row when Restore button is clicked', async () => {
@@ -115,7 +120,7 @@ describe('TrashView — interactions', () => {
   })
 
   it('shows Empty Trash button when items exist', async () => {
-    mockInvoke.mockResolvedValue({ ok: true, data: sampleDeletedRows })
+    mockTrash(sampleDeletedRows)
 
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
@@ -140,5 +145,30 @@ describe('TrashView — interactions', () => {
 
     expect(screen.getByTestId('empty-state')).toBeDefined()
     expect(screen.getByText('Trash is empty')).toBeDefined()
+  })
+})
+
+describe('TrashView — deleted lists (5.2, G-35)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+  const lists = [{ id: 7, name: 'Waitlist', deleted_at: '2026-10-08 10:00:00', records: 12 }]
+
+  it('lists deleted lists and restores one', async () => {
+    mockTrash([], lists)
+    render(<MemoryRouter><TrashView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.getByText('Deleted caseloads')).toBeDefined()
+    expect(screen.getByText('Waitlist')).toBeDefined()
+    fireEvent.click(screen.getByText('Restore'))
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('grid:restore', 7))
+  })
+
+  it('offers to restore the list when a record of a deleted list is restored', async () => {
+    mockTrash([{ id: 9, grid_id: 7, deleted_at: twoDaysAgo, grid_name: 'Waitlist', client_name: 'Dan', grid_is_active: 0 }], lists)
+    render(<MemoryRouter><TrashView /></MemoryRouter>)
+    await flushEffects()
+    fireEvent.click(screen.getAllByText('Restore')[1]!)
+    expect(screen.getByText('Restore the caseload first')).toBeDefined()
+    fireEvent.click(screen.getByTestId('confirm-btn'))
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('grid:restore', 7))
   })
 })

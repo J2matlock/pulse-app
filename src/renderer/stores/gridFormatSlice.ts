@@ -1,7 +1,7 @@
 import type { CellFormat, CellFormatRule } from '../../shared/types'
 import { IPC } from '../../shared/ipc-channels'
 import type { GridState } from './gridTypes'
-import { useUndoStore } from './undoStore'
+import { useUndoStore, rethrowIfUndoing } from './undoStore'
 import { rlog } from '../utils/rendererLogger'
 import toast from 'react-hot-toast'
 import { storeInvoke as invoke } from '../utils/safeInvoke'
@@ -74,6 +74,7 @@ export const createFormatSlice = (set: Set, get: Get) => ({
         redo: async () => { await get().setCellFormat(rowId, columnId, rules) },
       })
     } catch (err) {
+      rethrowIfUndoing(err)
       rlog.error('GridFormatSlice', 'Failed to save cell format', err)
       toast.error('Could not apply formatting — please try again')
     }
@@ -119,7 +120,6 @@ export const createFormatSlice = (set: Set, get: Get) => ({
       })
     } catch (err) {
       rlog.error('GridFormatSlice', 'Failed to batch-set cell formats', err)
-      toast.error('Could not apply formatting — please try again')
       // Rollback optimistic update: restore all pre-update values
       set(s => {
         const rolled = new Map(s.cellFormats)
@@ -129,6 +129,8 @@ export const createFormatSlice = (set: Set, get: Get) => ({
         }
         return { cellFormats: rolled }
       })
+      rethrowIfUndoing(err)
+      toast.error('Could not apply formatting — please try again')
     }
   },
 })

@@ -10,7 +10,7 @@ import { IPC } from '../../../shared/ipc-channels'
 import type { Column, GridRow } from '../../../shared/types'
 import type { Form, FormChange } from '../../../shared/forms'
 import { parseLinkValue, type LinkChip, type LinkedRecord } from '../../../shared/links'
-import { safeInvoke } from '../../utils/safeInvoke'
+import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { noteUnencryptedExport } from '../../utils/exportNotice'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
@@ -173,14 +173,14 @@ export function FillFormDialog({ form, columns, row, onClose, onDone }: {
       useUndoStore.getState().pushWithToast({
         id: crypto.randomUUID(), timestamp: Date.now(), category: 'logged', icon: 'clipboard',
         description: change.created ? `Added with "${form.name}"` : `Updated with "${form.name}"`,
-        undo: async () => { await safeInvoke(IPC.FORM_UNDO, change); await refresh() },
+        undo: async () => { await mustInvoke(IPC.FORM_UNDO, change); await refresh() },
         redo: async () => {
           // A record this form made comes back from the Trash, with anything added to it since
           if (change.created) {
-            const back = await safeInvoke<boolean>(IPC.FORM_REDO, change)
-            if (back.ok && back.data) { await refresh(); return }
+            const back = await mustInvoke<boolean>(IPC.FORM_REDO, change)
+            if (back.data) { await refresh(); return }
           }
-          const again = await safeInvoke<FormChange>(IPC.FORM_SUBMIT, form.id, row?.row_id ?? null, payload, noteAnswers)
+          const again = await mustInvoke<FormChange>(IPC.FORM_SUBMIT, form.id, row?.row_id ?? null, payload, noteAnswers)
           if (again.ok) change = again.data
           await refresh()
         },

@@ -233,7 +233,7 @@ export function AppearanceSection({
         {/* Date Format */}
         <div className="space-y-1">
           <label htmlFor="settings-date-format" className="block text-base text-slate-700 dark:text-slate-300">Date Format</label>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">How dates appear throughout the app</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">How dates are written in CSV and PDF exports</p>
           <select
             id="settings-date-format"
             className="input"
@@ -245,7 +245,6 @@ export function AppearanceSection({
             <option value="iso">YYYY-MM-DD (ISO)</option>
             <option value="eu">DD/MM/YYYY (EU)</option>
           </select>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Used when exporting data to CSV and PDF reports.</p>
         </div>
 
         {/* Clock Format */}

@@ -20,6 +20,7 @@ import { getDbKey } from '../auth'
 const BetterSqlite3 = require('better-sqlite3-multiple-ciphers') as typeof import('better-sqlite3')
 import { exportCsv, exportPdfGrid, exportPdfProfile, exportPdfBatch, exportLetterPdf, exportSupervisorReport, exportContactPdf, exportDirectoryPdf, type CsvExportOptions, type PdfGridOptions, type PdfProfileOptions, type SupervisorReportOptions } from '../export'
 import { parseImportFile, autoMatchColumns, executeImport, type ImportOptions } from '../import'
+import { exportNotesCsv } from '../export-csv'
 import { exportWeeklyPlanner } from '../export-planner'
 import { exportAuditReport, type AuditScope } from '../export-audit'
 import { exportHandoffPacket, type HandoffOptions } from '../export-handoff'
@@ -41,6 +42,11 @@ import { placeholderFields } from '../placeholders'
 import { buildBatchPdf, buildLabelsPdf, previewBatch, DocumentError, MAX_BATCH, type DocTarget } from '../export-documents'
 import { atomicWriteFileAsync } from '../export-shared'
 
+/** Row and column choices for an export: whole positive ids, and not absurdly many */
+function validIdList(v: unknown): v is number[] {
+  return Array.isArray(v) && v.length <= 100_000 && v.every(id => Number.isInteger(id) && id > 0)
+}
+
 export function registerExportHandlers(): void {
   // ── Backup (Auto listing) ──────────────────────────────────────────────────
   secureWrap(IPC.BACKUP_AUTO_LIST, 'ipc-export', () => {
@@ -57,7 +63,8 @@ export function registerExportHandlers(): void {
     } catch (err) { logNonFatal('ipc-export', 'stat db file for size', err) }
     let totalClients = 0
     try {
-      const row = getDb().prepare('SELECT COUNT(*) as cnt FROM rows WHERE is_active = 1 AND deleted_at IS NULL').get() as { cnt: number }
+      // Records in deleted lists aren't active (X-11)
+      const row = getDb().prepare('SELECT COUNT(*) as cnt FROM rows r JOIN grids g ON g.id = r.grid_id AND g.is_active = 1 WHERE r.is_active = 1 AND r.deleted_at IS NULL').get() as { cnt: number }
       totalClients = row.cnt
     } catch (err) { logNonFatal('ipc-export', 'count active clients', err) }
     return ok({
@@ -331,18 +338,24 @@ export function registerExportHandlers(): void {
 
     let exported = 0
     const errors: string[] = []
+    // Two lists with the same name get two files, and nothing overwrites the notes file (X-21)
+    const used = new Set<string>(['notes'])
 
     for (const grid of grids) {
       try {
         // Sanitize grid name for filesystem: replace unsafe chars with _
-        const safeName = grid.name.replace(/[/\\:*?"<>|]/g, '_').trim() || `grid_${grid.id}`
+        const base = grid.name.replace(/[/\\:*?"<>|]/g, '_').trim() || `grid_${grid.id}`
+        let safeName = base
+        for (let n = 2; used.has(safeName.toLowerCase()); n++) safeName = `${base} (${n})`
+        used.add(safeName.toLowerCase())
         const csvPath = join(destFolder, `${safeName}.csv`)
+        // Everything comes out: hidden columns too, dates as the setting says
         await exportCsv({
           gridId: grid.id,
           columnIds: [],
           activeRowIds: [],
           destPath: csvPath,
-          dateFormat: 'iso'
+          includeHidden: true,
         })
         exported++
       } catch (err) {
@@ -350,13 +363,19 @@ export function registerExportHandlers(): void {
       }
     }
 
-    return ok({ exported, errors })
+    let notes = 0
+    try { notes = await exportNotesCsv(join(destFolder, 'notes.csv')) } catch (err) {
+      errors.push(`Notes: ${err instanceof Error ? err.message : 'Export failed'}`)
+    }
+
+    return ok({ exported, errors, notes })
   })
 
   // ── Export ─────────────────────────────────────────────────────────────────
   secureWrap(IPC.EXPORT_CSV, 'ipc-export', async (_e, options: CsvExportOptions) => {
     assertSafePath(options.destPath)
     if (!validId(options.gridId)) return fail('Invalid grid ID')
+    if (!validIdList(options.columnIds) || !validIdList(options.activeRowIds)) return fail('Invalid export choice')
     await exportCsv(options)
     return ok(true)
   })
@@ -364,6 +383,7 @@ export function registerExportHandlers(): void {
   secureWrap(IPC.EXPORT_PDF_GRID, 'ipc-export', async (_e, options: PdfGridOptions) => {
     assertSafePath(options.destPath)
     if (!validId(options.gridId)) return fail('Invalid grid ID')
+    if (!validIdList(options.columnIds) || !validIdList(options.activeRowIds)) return fail('Invalid export choice')
     await exportPdfGrid(options)
     return ok(true)
   })

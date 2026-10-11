@@ -4,6 +4,11 @@ import security from 'eslint-plugin-security'
 import reactHooks from 'eslint-plugin-react-hooks'
 import { vocabRuleOptions, vocabNotYetConverted } from './eslint/vocab-rule.mjs'
 
+const undoInvokeRule = {
+  selector: "Property[key.name=/^(undo|redo)$/] CallExpression[callee.name='safeInvoke']",
+  message: 'Use mustInvoke() inside undo/redo callbacks so a failure is reported instead of looking like success.',
+}
+
 // Error toasts never show a raw IPC error: wrap it in friendlyError() (audit 2.15 / N-28)
 const rawErrorToast = {
   selector: "CallExpression[callee.object.name='toast'][callee.property.name='error'] > MemberExpression.arguments:first-child[property.name='error']",
@@ -51,14 +56,19 @@ export default [
     },
   },
   {
+    // Undo must fail loudly (audit L-08): safeInvoke never throws, so a failed undo looked like success
+    files: ['src/renderer/**/*.ts', 'src/renderer/**/*.tsx'],
+    rules: { 'no-restricted-syntax': ['error', undoInvokeRule] },
+  },
+  {
     // User-facing record/list/note words come from the vocabulary layer
     files: ['src/renderer/**/*.tsx'],
     ignores: vocabNotYetConverted,
-    rules: { 'no-restricted-syntax': ['error', ...vocabRuleOptions, rawErrorToast] },
+    rules: { 'no-restricted-syntax': ['error', ...vocabRuleOptions, rawErrorToast, undoInvokeRule] },
   },
   {
     files: ['src/renderer/**/*.ts'],
-    rules: { 'no-restricted-syntax': ['error', rawErrorToast] },
+    rules: { 'no-restricted-syntax': ['error', rawErrorToast, undoInvokeRule] },
   },
   {
     ignores: ['out/**', 'dist/**', 'node_modules/**', '*.config.*', 'eslint/**'],

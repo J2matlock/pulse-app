@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 
 // ── Global mocks ────────────────────────────────────────────────────────────
 
@@ -75,7 +75,8 @@ vi.mock('../../../../src/renderer/components/grid/CellConditionalFormatPanel', (
 }))
 
 vi.mock('../../../../src/renderer/components/shared/ConfirmDialog', () => ({
-  ConfirmDialog: () => null,
+  ConfirmDialog: ({ open, title, children }: { open: boolean; title: string; children?: React.ReactNode }) =>
+    open ? <div role="dialog" aria-label={title}>{children}</div> : null,
 }))
 
 vi.mock('react-hot-toast', () => ({
@@ -89,6 +90,7 @@ import { useAlertStore } from '../../../../src/renderer/stores/alertStore'
 import { ColumnHeader } from '../../../../src/renderer/components/grid/ColumnHeader'
 import type { Column } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
+import { safeInvoke } from '../../../../src/renderer/utils/safeInvoke'
 
 function makeColumn(id: number, name: string, type = 'text', config = '{}'): Column {
   return {
@@ -112,6 +114,7 @@ function setupStores(overrides: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => { setWords() })
+afterEach(() => { vi.useRealTimers() })
 
 describe('ColumnHeader', () => {
   beforeEach(() => {
@@ -125,27 +128,56 @@ describe('ColumnHeader', () => {
   })
 
   it('click on column name triggers sort', () => {
+    vi.useFakeTimers()
     const setSortConfig = vi.fn()
     setupStores({ setSortConfig })
     render(<ColumnHeader column={makeColumn(1, 'Name')} />)
     fireEvent.click(screen.getByText('Name'))
+    act(() => { vi.advanceTimersByTime(300) })
     expect(setSortConfig).toHaveBeenCalledWith([{ columnId: 1, direction: 'asc', priority: 1 }])
   })
 
   it('second click cycles sort to descending', () => {
+    vi.useFakeTimers()
     const setSortConfig = vi.fn()
     setupStores({ sortConfig: [{ columnId: 1, direction: 'asc', priority: 1 }], setSortConfig })
     render(<ColumnHeader column={makeColumn(1, 'Name')} />)
     fireEvent.click(screen.getByText('Name'))
+    act(() => { vi.advanceTimersByTime(300) })
     expect(setSortConfig).toHaveBeenCalledWith([{ columnId: 1, direction: 'desc', priority: 1 }])
   })
 
   it('third click clears sort', () => {
+    vi.useFakeTimers()
     const setSortConfig = vi.fn()
     setupStores({ sortConfig: [{ columnId: 1, direction: 'desc', priority: 1 }], setSortConfig })
     render(<ColumnHeader column={makeColumn(1, 'Name')} />)
     fireEvent.click(screen.getByText('Name'))
+    act(() => { vi.advanceTimersByTime(300) })
     expect(setSortConfig).toHaveBeenCalledWith([])
+  })
+
+  it('double-click on the name renames instead of sorting (G-21)', () => {
+    vi.useFakeTimers()
+    const setSortConfig = vi.fn()
+    setupStores({ setSortConfig })
+    render(<ColumnHeader column={makeColumn(1, 'Name')} />)
+    const btn = screen.getByText('Name')
+    fireEvent.click(btn); fireEvent.click(btn); fireEvent.doubleClick(btn)
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(setSortConfig).not.toHaveBeenCalled()
+    expect(screen.getByDisplayValue('Name')).toBeTruthy()
+  })
+
+  it('keeps the menu short, with the rest under Column settings (G-21, G-42)', () => {
+    render(<ColumnHeader column={makeColumn(4, 'Phone')} />)
+    fireEvent.contextMenu(screen.getByText('Phone').closest('div')!)
+    expect(screen.queryByText('Log changes in timeline')).toBeNull()
+    expect(screen.getByText('Keep columns up to here in view')).toBeTruthy()
+    fireEvent.click(screen.getByText('Column settings…'))
+    expect(screen.getByRole('dialog', { name: /Phone.*settings/ })).toBeTruthy()
+    expect(screen.getByText('Log changes in timeline')).toBeTruthy()
+    expect(screen.getByText('Column format rules…')).toBeTruthy()
   })
 
   it('right-click opens context menu with column options', () => {
@@ -163,6 +195,30 @@ describe('ColumnHeader', () => {
     expect(optionsBtn).toBeTruthy()
     fireEvent.click(optionsBtn)
     expect(screen.getByText('Rename')).toBeTruthy()
+  })
+
+  it('lists what uses a column before deleting it (1.8)', async () => {
+    vi.mocked(safeInvoke).mockResolvedValueOnce({ ok: true, data: ['Deadline rule "Within 30 days"', 'Form "Intake"'] })
+    render(<ColumnHeader column={makeColumn(2, 'Start date', 'date')} />)
+    fireEvent.contextMenu(screen.getByText('Start date').closest('div')!)
+    fireEvent.click(screen.getByText('Delete column'))
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy())
+    expect(vi.mocked(safeInvoke)).toHaveBeenCalledWith('column:dependents', 2)
+    expect(screen.getByText('Deadline rule "Within 30 days"')).toBeTruthy()
+    expect(screen.getByText('Form "Intake"')).toBeTruthy()
+  })
+
+  it('offers "Use as name" on other columns, not the name column (1.8)', () => {
+    const setNameColumn = vi.fn()
+    setupStores({ setNameColumn })
+    const { unmount } = render(<ColumnHeader column={makeColumn(3, 'Nickname')} />)
+    fireEvent.contextMenu(screen.getByText('Nickname').closest('div')!)
+    fireEvent.click(screen.getByText('Use as name'))
+    expect(setNameColumn).toHaveBeenCalledWith(3)
+    unmount()
+    render(<ColumnHeader column={{ ...makeColumn(1, 'Name'), is_name_column: 1 }} />)
+    fireEvent.contextMenu(screen.getByText('Name').closest('div')!)
+    expect(screen.queryByText('Use as name')).toBeNull()
   })
 
   it('shows column name as clickable sort button', () => {

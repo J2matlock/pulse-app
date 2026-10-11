@@ -384,9 +384,10 @@ describe('CHECKLIST_RESTORE_ITEM', () => {
       created_at: '2026-03-01 12:00:00', template_source_id: null, recurrence_rule: null,
     }
     const r = await invoke(IPC.CHECKLIST_RESTORE_ITEM, item) as any
-    // BUG: handler INSERT includes `updated_at` column that doesn't exist in checklist_items table.
-    // This causes a "no column named updated_at" error. When the bug is fixed, change to expect ok=true.
-    expect(r.ok).toBe(false)
+    // L-01: the INSERT used to name an updated_at column the table doesn't have, so every undo failed
+    expect(r.ok).toBe(true)
+    const back = testDb.db.prepare('SELECT title, created_at FROM checklist_items WHERE id = 99999').get() as { title: string; created_at: string }
+    expect(back).toEqual({ title: 'Restored', created_at: '2026-03-01 12:00:00' })
   })
 
   it('fails for duplicate ID', async () => {

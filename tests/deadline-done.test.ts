@@ -64,6 +64,8 @@ describe('marking done in main', () => {
     const res = markDone(rowId, yearly, { kind: 'repeat' }, tpl)
     expect(value(yearly)).toBe(localDateString())
     expect(note(res.sysLogId)).toMatch(/Review done .*; next due/)
+    // Tagged so the dashboard's Completed list counts it (L-22)
+    expect(t.db.prepare('SELECT source_action_id FROM case_log WHERE id = ?').get(res.sysLogId)).toEqual({ source_action_id: `deadline_done:${yearly}` })
     expect(res.checklistItemIds).toHaveLength(1)
     undoMarkDone(rowId, yearly, res)
     expect(value(yearly)).toBe('2025-09-01')

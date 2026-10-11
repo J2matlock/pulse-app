@@ -125,6 +125,23 @@ describe('CELL_UPDATE', () => {
     expect(r.data.sysLogId).toBeTypeOf('number')
   })
 
+  it('logs a cleared date as cleared, and a Mark done as a tagged completion (G-16, L-22)', async () => {
+    testDb.db.prepare("UPDATE columns SET name = 'Review', column_type = 'date', config = ? WHERE id = ?").run(JSON.stringify({ log_changes: true }), columnId)
+    const { invalidateColumnCache } = await import('../src/main/ipc/ipc-cell')
+    invalidateColumnCache(columnId)
+    await invoke(IPC.CELL_UPDATE, rowId, columnId, '2026-10-06')
+    await invoke(IPC.CELL_UPDATE, rowId, columnId, null)
+    const last = () => testDb.db.prepare('SELECT content, source_action_id FROM case_log WHERE row_id = ? ORDER BY id DESC LIMIT 1').get(rowId) as { content: string; source_action_id: string | null }
+    expect(last()).toEqual({ content: 'Review cleared (was Oct 6, 2026)', source_action_id: null })
+    await invoke(IPC.CELL_UPDATE, rowId, columnId, '2026-10-06')
+    const r = await invoke(IPC.CELL_UPDATE, rowId, columnId, null, { doneNote: 'Review completed (was Oct 6, 2026)' })
+    expect(r.data.sysLogId).toBeTypeOf('number')
+    expect(last()).toEqual({ content: 'Review completed (was Oct 6, 2026)', source_action_id: `deadline_done:${columnId}` })
+    // One note for the done, not a second "changed" note
+    const n = testDb.db.prepare("SELECT COUNT(*) AS n FROM case_log WHERE row_id = ? AND content LIKE 'Review%'").get(rowId) as { n: number }
+    expect(n.n).toBe(4)
+  })
+
   it('fails for invalid row ID', async () => {
     const r = await invoke(IPC.CELL_UPDATE, -1, columnId, 'value') as any
     expect(r.ok).toBe(false)

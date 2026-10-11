@@ -133,7 +133,7 @@ export const STEPS: TourStep[] = [
     title: 'Customize your columns',
     subtitle: 'Track exactly what you need',
     description:
-      'Need to track something new? Click "Add Column" to create columns for any type of information — text, dates, phone numbers, dropdowns, checkboxes, and more. You can rename, reorder, or hide columns at any time.',
+      'Need to track something new? Click "More" and then "Add a column…" to create columns for any type of information — text, dates, phone numbers, dropdowns, checkboxes, and more. You can rename, reorder, or hide columns at any time.',
     icon: <Columns3 className="w-6 h-6" />,
     position: 'bottom',
     route: '#/grid',
@@ -178,7 +178,7 @@ export const STEPS: TourStep[] = [
     title: 'Show archived {record:many}',
     subtitle: 'Hidden but not forgotten',
     description:
-      'Click the "Archived" button to toggle visibility of archived {record:many}. Archived {record:many} are hidden from your main view but not deleted — you can unarchive them at any time.',
+      'Open "View" and choose "Show archived {record:many}" to see them. Archived {record:many} are hidden from your main view but not deleted — you can unarchive them at any time.',
     icon: <Archive className="w-6 h-6" />,
     position: 'bottom',
     route: '#/grid',
@@ -189,7 +189,7 @@ export const STEPS: TourStep[] = [
     title: 'Import your existing data',
     subtitle: 'Bring in your spreadsheets',
     description:
-      'Already tracking {record:many} in Excel or CSV? Click Import to bring that data in. The import wizard walks you through mapping your columns so everything lands in the right place.',
+      'Already tracking {record:many} in Excel or CSV? Click "More" and then "Import from CSV or Excel…" to bring that data in. The import wizard walks you through mapping your columns so everything lands in the right place.',
     icon: <Upload className="w-6 h-6" />,
     position: 'bottom',
     route: '#/grid',

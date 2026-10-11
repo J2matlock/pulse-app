@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IPC } from '../../../shared/ipc-channels'
-import { safeInvoke } from '../../utils/safeInvoke'
+import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { useUndoStore } from '../../stores/undoStore'
 import type { FollowUpRow } from './types'
 import { wordNow } from '../../utils/vocab'
@@ -50,11 +50,11 @@ export function FollowUpDashRow({ followUp, daysUntil, onComplete, onReloadFollo
           icon: 'check',
           sideEffects,
           undo: async () => {
-            await safeInvoke(IPC.CASE_LOG_UNCOMPLETE_FOLLOWUP, followUp.id)
+            await mustInvoke(IPC.CASE_LOG_UNCOMPLETE_FOLLOWUP, followUp.id)
             await onReloadFollowUps?.()
           },
           redo: async () => {
-            await safeInvoke(IPC.CASE_LOG_COMPLETE_FOLLOWUP, followUp.id)
+            await mustInvoke(IPC.CASE_LOG_COMPLETE_FOLLOWUP, followUp.id)
             await onReloadFollowUps?.()
           },
         })

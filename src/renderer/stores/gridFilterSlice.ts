@@ -36,6 +36,9 @@ export interface FilterSliceState {
   /** Table or board (W06), remembered per list */
   viewMode: ViewMode
   setViewMode: (mode: ViewMode) => void
+  /** The built-in Tags column (G-37): a record's tags, shown in the table; each list remembers it */
+  showTagsColumn: boolean
+  setShowTagsColumn: (show: boolean) => void
   filterMode: 'and' | 'or'
   setFilterMode: (mode: 'and' | 'or') => void
   activeFilters: ColumnFilter[]
@@ -79,9 +82,16 @@ function isColumnFilter(v: unknown): v is ColumnFilter {
 }
 
 export const viewModeKey = (gridId: number) => `grid_view_mode_${gridId}`
+export const tagsColumnKey = (gridId: number) => `grid_tags_column_${gridId}`
 
 export const createFilterSlice = (set: Set, get: Get) => ({
   viewMode: 'table' as ViewMode,
+  showTagsColumn: false,
+  setShowTagsColumn: (show: boolean) => {
+    set({ showTagsColumn: show })
+    const gridId = get().activeGridId
+    if (gridId) invoke(IPC.SETTINGS_UPDATE, tagsColumnKey(gridId), show ? '1' : '0').catch(err => rlog.warn('GridFilterSlice', 'Could not save the tags column choice', err))
+  },
   setViewMode: (mode: ViewMode) => {
     set({ viewMode: mode })
     const gridId = get().activeGridId

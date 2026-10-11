@@ -77,6 +77,8 @@ function setupStore(overrides: Record<string, unknown> = {}) {
     columns: [makeColumn(1, 'Name'), makeColumn(2, 'Age', 'number')],
     searchQuery: '',
     selectedRowIds: new Set<number>(),
+    sortedRowIds: [1, 2, 3],
+    viewMode: 'table',
     ...overrides,
   } as unknown as Parameters<typeof useGridStore.setState>[0])
 }
@@ -99,14 +101,23 @@ describe('GridStatusFooter', () => {
     expect(screen.getByText('2 columns')).toBeTruthy()
   })
 
-  it('shows "results" when search is active', () => {
-    setupStore({ searchQuery: 'test' })
+  it('counts the records shown when a search or filter hides some (G-24)', () => {
+    setupStore({ searchQuery: 'test', sortedRowIds: [2] })
     render(<GridStatusFooter />)
-    expect(screen.getByText('3 results')).toBeTruthy()
+    expect(screen.getByText('1 of 3 clients')).toBeTruthy()
+  })
+
+  it('totals each number column on its own for the selection (G-24)', () => {
+    const fee = makeColumn(3, 'Fee', 'currency')
+    const rows = [makeRow(1), makeRow(2), makeRow(3)].map((r, i) => ({ ...r, col_2: String(30 + i), col_3: String(100 * (i + 1)) }))
+    setupStore({ rows, columns: [makeColumn(1, 'Name'), makeColumn(2, 'Age', 'number'), fee], selectedRowIds: new Set([1, 2]) })
+    render(<GridStatusFooter />)
+    expect(screen.getByText(/Age total: 61/)).toBeTruthy()
+    expect(screen.getByText(/Fee total: \$300\.00/)).toBeTruthy()
   })
 
   it('shows singular form for 1 client', () => {
-    setupStore({ rows: [makeRow(1)] })
+    setupStore({ rows: [makeRow(1)], sortedRowIds: [1] })
     render(<GridStatusFooter />)
     expect(screen.getByText('1 client')).toBeTruthy()
   })

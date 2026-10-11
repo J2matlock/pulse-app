@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 
 const mockInvoke = vi.fn().mockResolvedValue({ ok: true, data: null })
 Object.defineProperty(window, 'api', {
@@ -35,6 +35,7 @@ vi.mock('../../../../src/renderer/components/grid/MoveToGridModal', () => ({
 
 vi.mock('../../../../src/renderer/utils/safeInvoke', () => ({
   safeInvoke: vi.fn().mockResolvedValue({ ok: true, data: null }),
+  mustInvoke: vi.fn().mockResolvedValue({ ok: true, data: null }),
 }))
 
 vi.mock('../../../../src/renderer/utils/rendererLogger', () => ({
@@ -47,7 +48,8 @@ vi.mock('react-hot-toast', () => ({
 
 import { ArchiveDialog, DeleteRowDialog, BulkDeleteDialog } from '../../../../src/renderer/components/grid/GridDialogs'
 import { setWords } from '../../vocabFixture'
-import { safeInvoke } from '../../../../src/renderer/utils/safeInvoke'
+import { safeInvoke, mustInvoke } from '../../../../src/renderer/utils/safeInvoke'
+import { useUndoStore } from '../../../../src/renderer/stores/undoStore'
 
 beforeEach(() => { setWords() })
 
@@ -127,5 +129,20 @@ describe('BulkDeleteDialog', () => {
       />
     )
     expect(screen.getByText('Move 3 clients to trash?')).toBeTruthy()
+  })
+
+  it('moves to trash with a plain confirm and one Undo that restores them all (G-34)', async () => {
+    useUndoStore.getState().clear()
+    const setSelected = vi.fn()
+    render(
+      <BulkDeleteDialog open selectedCount={2} selectedRowIds={new Set([4, 5])} activeGridId={null}
+        setSelectedRowIds={setSelected} setBulkDeleteTarget={vi.fn()} />
+    )
+    fireEvent.click(screen.getByText('Confirm'))
+    await waitFor(() => expect(useUndoStore.getState().undoStack).toHaveLength(1))
+    expect(vi.mocked(safeInvoke)).toHaveBeenCalledWith('row:bulk-action', 'delete', [4, 5])
+    expect(useUndoStore.getState().undoStack[0]!.description).toBe('Moved 2 clients to trash')
+    await useUndoStore.getState().undo()
+    expect(vi.mocked(mustInvoke)).toHaveBeenCalledWith('row:bulk-action', 'restore', [4, 5])
   })
 })

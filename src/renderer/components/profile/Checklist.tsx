@@ -25,7 +25,7 @@ import { GroupPicker } from '../shared/GroupPicker'
 import { ChecklistGroupHeader } from './ChecklistGroupHeader'
 import { ChecklistAddDialog } from './ChecklistAddDialog'
 import { useUndoStore } from '../../stores/undoStore'
-import { safeInvoke } from '../../utils/safeInvoke'
+import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { rlog } from '../../utils/rendererLogger'
 import { pulseEvents } from '../../events'
 import { useVocab } from '../../hooks/useVocab'
@@ -152,11 +152,11 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
         category: 'logged',
         icon: 'plus-circle',
         undo: async () => {
-          await safeInvoke(IPC.CHECKLIST_DELETE_ITEM, created.id)
+          await mustInvoke(IPC.CHECKLIST_DELETE_ITEM, created.id)
           pulseEvents.emit('checklist:changed', { rowId })
         },
         redo: async () => {
-          await safeInvoke(IPC.CHECKLIST_RESTORE_ITEM, created)
+          await mustInvoke(IPC.CHECKLIST_RESTORE_ITEM, created)
           pulseEvents.emit('checklist:changed', { rowId })
         },
       })
@@ -219,14 +219,12 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       sideEffects: sysLogId != null ? [{ type: 'void_case_log', caseLogId: sysLogId }] : undefined,
       undo: async () => {
         setItems(prev => prev.map(i => i.id === id ? { ...i, ...before } : i))
-        const r = await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, before, { silent: true })
-        if (!r.ok) throw new Error(r.error)
+        await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, before, { silent: true })
         pulseEvents.emit('checklist:changed', { rowId })
       },
       redo: async () => {
         setItems(prev => prev.map(i => i.id === id ? { ...i, ...afterState } : i))
-        const r = await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, afterState, { silent: true })
-        if (!r.ok) throw new Error(r.error)
+        await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, afterState, { silent: true })
         pulseEvents.emit('checklist:changed', { rowId })
       },
     })
@@ -251,11 +249,11 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
         category: 'logged',
         icon: 'edit',
         undo: async () => {
-          await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, prevValues)
+          await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, prevValues)
           pulseEvents.emit('checklist:changed', { rowId })
         },
         redo: async () => {
-          await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, updates)
+          await mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, updates)
           pulseEvents.emit('checklist:changed', { rowId })
         },
       })
@@ -278,11 +276,11 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
         category: 'logged',
         icon: 'trash',
         undo: async () => {
-          await safeInvoke(IPC.CHECKLIST_RESTORE_ITEM, item)
+          await mustInvoke(IPC.CHECKLIST_RESTORE_ITEM, item)
           pulseEvents.emit('checklist:changed', { rowId })
         },
         redo: async () => {
-          await safeInvoke(IPC.CHECKLIST_DELETE_ITEM, id)
+          await mustInvoke(IPC.CHECKLIST_DELETE_ITEM, id)
           pulseEvents.emit('checklist:changed', { rowId })
         },
       })
@@ -327,11 +325,11 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       category: 'logged',
       icon: 'reorder',
       undo: async () => {
-        await safeInvoke(IPC.CHECKLIST_REORDER, rowId, oldOrder)
+        await mustInvoke(IPC.CHECKLIST_REORDER, rowId, oldOrder)
         pulseEvents.emit('checklist:changed', { rowId })
       },
       redo: async () => {
-        await safeInvoke(IPC.CHECKLIST_REORDER, rowId, newOrder.map(i => i.id))
+        await mustInvoke(IPC.CHECKLIST_REORDER, rowId, newOrder.map(i => i.id))
         pulseEvents.emit('checklist:changed', { rowId })
       },
     })
@@ -352,12 +350,12 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
         // Ticked again quietly: they were done before, so no new "Completed" entries (audit S-23)
         undo: async () => {
           await Promise.all(completedSnapshot.map(i =>
-            safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, i.id, { is_completed: 1, completed_at: i.completed_at }, { silent: true })
+            mustInvoke(IPC.CHECKLIST_UPDATE_ITEM, i.id, { is_completed: 1, completed_at: i.completed_at }, { silent: true })
           ))
           pulseEvents.emit('checklist:changed', { rowId })
         },
         redo: async () => {
-          await safeInvoke(IPC.CHECKLIST_RESET_CYCLE, rowId)
+          await mustInvoke(IPC.CHECKLIST_RESET_CYCLE, rowId)
           pulseEvents.emit('checklist:changed', { rowId })
         },
       })
@@ -377,11 +375,11 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       category: 'structural',
       icon: 'trash',
       undo: async () => {
-        await Promise.all(toDelete.map(i => safeInvoke(IPC.CHECKLIST_RESTORE_ITEM, i)))
+        await Promise.all(toDelete.map(i => mustInvoke(IPC.CHECKLIST_RESTORE_ITEM, i)))
         pulseEvents.emit('checklist:changed', { rowId })
       },
       redo: async () => {
-        await Promise.all(toDelete.map(i => safeInvoke(IPC.CHECKLIST_DELETE_ITEM, i.id)))
+        await Promise.all(toDelete.map(i => mustInvoke(IPC.CHECKLIST_DELETE_ITEM, i.id)))
         pulseEvents.emit('checklist:changed', { rowId })
       },
     })
@@ -401,11 +399,11 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
         category: 'structural',
         icon: 'folder-plus',
         undo: async () => {
-          await safeInvoke(IPC.CHECKLIST_GROUP_DELETE, created.id)
+          await mustInvoke(IPC.CHECKLIST_GROUP_DELETE, created.id)
           pulseEvents.emit('checklist:changed', { rowId })
         },
         redo: async () => {
-          await safeInvoke(IPC.CHECKLIST_GROUP_CREATE, rowId, created.name)
+          await mustInvoke(IPC.CHECKLIST_GROUP_CREATE, rowId, created.name)
           pulseEvents.emit('checklist:changed', { rowId })
         },
       })
@@ -424,11 +422,11 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       category: 'logged',
       icon: 'edit',
       undo: async () => {
-        await safeInvoke(IPC.CHECKLIST_GROUP_UPDATE, groupId, { name: prevName })
+        await mustInvoke(IPC.CHECKLIST_GROUP_UPDATE, groupId, { name: prevName })
         pulseEvents.emit('checklist:changed', { rowId })
       },
       redo: async () => {
-        await safeInvoke(IPC.CHECKLIST_GROUP_UPDATE, groupId, { name })
+        await mustInvoke(IPC.CHECKLIST_GROUP_UPDATE, groupId, { name })
         pulseEvents.emit('checklist:changed', { rowId })
       },
     })
@@ -449,17 +447,17 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       icon: 'trash',
       undo: async () => {
         // Recreate group and reassign items
-        const res = await safeInvoke<ChecklistGroup>(IPC.CHECKLIST_GROUP_CREATE, rowId, deletedGroup.name)
+        const res = await mustInvoke<ChecklistGroup>(IPC.CHECKLIST_GROUP_CREATE, rowId, deletedGroup.name)
         if (res.ok) {
           const newGroup = res.data
           await Promise.all(affectedItems.map(i =>
-            safeInvoke(IPC.CHECKLIST_MOVE_ITEM_TO_GROUP, i.id, newGroup.id)
+            mustInvoke(IPC.CHECKLIST_MOVE_ITEM_TO_GROUP, i.id, newGroup.id)
           ))
         }
         pulseEvents.emit('checklist:changed', { rowId })
       },
       redo: async () => {
-        await safeInvoke(IPC.CHECKLIST_GROUP_DELETE, groupId)
+        await mustInvoke(IPC.CHECKLIST_GROUP_DELETE, groupId)
         pulseEvents.emit('checklist:changed', { rowId })
       },
     })
@@ -495,12 +493,12 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
           category: 'structural',
           icon: 'check-square',
           undo: async () => {
-            await Promise.all(createdIds.map(id => safeInvoke(IPC.CHECKLIST_DELETE_ITEM, id)))
-            if (createdGroupId) await safeInvoke(IPC.CHECKLIST_GROUP_DELETE, createdGroupId)
+            await Promise.all(createdIds.map(id => mustInvoke(IPC.CHECKLIST_DELETE_ITEM, id)))
+            if (createdGroupId) await mustInvoke(IPC.CHECKLIST_GROUP_DELETE, createdGroupId)
             pulseEvents.emit('checklist:changed', { rowId })
           },
           redo: async () => {
-            await safeInvoke(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId, groupId ?? null)
+            await mustInvoke(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId, groupId ?? null)
             pulseEvents.emit('checklist:changed', { rowId })
           },
         })

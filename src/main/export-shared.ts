@@ -12,6 +12,8 @@ import { fileCountColumnIds } from '../shared/attachments'
 import { logNonFatal } from './ipc/ipc-utils'
 import { word } from './vocab'
 import { hasDisplayFormat } from './display-names'
+import { cellText, deadlineText, type DateFormat } from '../shared/cellText'
+import { loadDeadlines, type DeadlineItem } from './deadlines'
 
 // jsPDF is a CJS module; use require() to avoid ESM/CJS interop issues in Electron main.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -52,14 +54,16 @@ export function lastTableY(doc: AutoTableDoc): number {
 
 export interface CsvExportOptions {
   gridId: number
-  /** Column IDs to include; empty = all visible columns */
+  /** Column IDs to include (hidden ones too); empty = all visible columns */
   columnIds: number[]
-  /** Only export rows matching activeRowIds (filtered rows); empty = all */
+  /** Only these rows, in this order (what's on screen); empty = all */
   activeRowIds: number[]
   /** Output file path (provided by renderer via save dialog) */
   destPath: string
-  /** Date format: 'iso' | 'us' | 'eu' */
-  dateFormat: 'iso' | 'us' | 'eu'
+  /** Date format; the saved setting when left out */
+  dateFormat?: 'iso' | 'us' | 'eu'
+  /** With no columns named, include hidden ones too (Export All) */
+  includeHidden?: boolean
 }
 
 export interface PdfProfileOptions {
@@ -189,28 +193,66 @@ export function sanitizeCsvFormula(v: string): string {
   return v
 }
 
-export function formatCellValue(value: string | null, columnType: string, dateFormat: 'iso' | 'us' | 'eu' = 'iso'): string {
-  if (value === null || value === '') return ''
-  switch (columnType) {
-    case 'date': return formatDate(value, dateFormat)
-    case 'checkbox': return (value === 'true' || value === '1') ? 'Yes' : ''
-    case 'currency': {
-      const n = parseFloat(value)
-      return isNaN(n) ? sanitizeCsvFormula(value) : '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+/** Columns whose text is a number or a date: a leading "-" there is a negative number, not a formula (X-21) */
+const NON_TEXT_TYPES = new Set(['number', 'currency', 'date', 'checkbox', 'auto_number', 'age_from_dob', 'calculated_days', 'file_count'])
+
+/**
+ * A cell as an export shows it: the same text as copying the cell (G-08).
+ * Dates follow the date format setting unless one is given.
+ */
+export function formatCellValue(value: string | null, columnType: string, dateFormat: DateFormat = savedDateFormat()): string {
+  const text = cellText(columnType, value, { dateFormat })
+  if (!text) return ''
+  if (NON_TEXT_TYPES.has(columnType) && (columnType !== 'number' || !isNaN(Number(text)))) return text
+  return sanitizeCsvFormula(text)
+}
+
+/** Settings → Appearance → Date format, for every export (X-20) */
+export function savedDateFormat(): DateFormat {
+  try {
+    const v = (getDb().prepare("SELECT value FROM settings WHERE key = 'date_format'").get() as { value: string } | undefined)?.value
+    return v === 'iso' || v === 'eu' ? v : 'us'
+  } catch { return 'us' }
+}
+
+/** Deadline columns hold the date last done; exports show what the table shows instead (G-08) */
+export function showDeadlinesAsText(gridId: number, columns: Column[], rows: GridRow[]): void {
+  const deadlineCols = columns.filter(c => c.column_type === 'deadline')
+  if (!deadlineCols.length || !rows.length) return
+  const results = new Map<string, DeadlineItem>()
+  for (const d of loadDeadlines({ gridId, includeDone: true, includePaused: true })) results.set(`${d.row_id}:${d.column_id}`, d)
+  for (const row of rows) {
+    for (const c of deadlineCols) {
+      const key = `col_${c.id}` as const
+      row[key] = deadlineText(results.get(`${row.row_id}:${c.id}`), row[key] as string | null) || null
     }
-    default: return sanitizeCsvFormula(value)
   }
 }
 
-/** Load grid data needed for exports */
-export function loadGridData(gridId: number): {
+/**
+ * The rows an export asked for, in the order it asked (the on-screen sort);
+ * every row, in list order, when it named none (G-07).
+ */
+export function pickRows(rows: GridRow[], activeRowIds: number[]): GridRow[] {
+  if (activeRowIds.length === 0) return rows
+  const byId = new Map(rows.map(r => [r.row_id, r]))
+  return activeRowIds.map(id => byId.get(id)).filter((r): r is GridRow => r !== undefined)
+}
+
+/** The columns an export asked for, in list order; the visible ones (or all) when it named none */
+export function pickColumns(columns: Column[], columnIds: number[], includeHidden = false): Column[] {
+  return columnIds.length > 0 ? columns.filter(c => columnIds.includes(c.id)) : columns.filter(c => includeHidden || c.is_visible !== 0)
+}
+
+/** Load grid data needed for exports (includeHidden: hidden columns too, so they can be chosen) */
+export function loadGridData(gridId: number, opts: { includeHidden?: boolean } = {}): {
   grid: Grid
   columns: Column[]
   rows: GridRow[]
 } {
   const db = getDb()
   const grid = db.prepare('SELECT * FROM grids WHERE id = ?').get(gridId) as Grid
-  const columns = db.prepare('SELECT * FROM columns WHERE grid_id = ? AND is_visible = 1 ORDER BY position').all(gridId) as Column[]
+  const columns = db.prepare(`SELECT * FROM columns WHERE grid_id = ?${opts.includeHidden ? '' : ' AND is_visible = 1'} ORDER BY position`).all(gridId) as Column[]
 
   // Pivot query for rows (uses shared buildGridQuery so deleted rows are excluded)
   if (columns.length === 0) return { grid, columns, rows: [] }

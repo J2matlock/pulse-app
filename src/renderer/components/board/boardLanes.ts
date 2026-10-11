@@ -5,8 +5,8 @@
 import type { Column, ColumnFilter, GridRow, ParsedAlertRule } from '../../../shared/types'
 import type { StageConfig, StageOption } from '../../../shared/stages'
 import { DEFAULT_HIDE_DONE_DAYS } from '../../../shared/stages'
-import { linkValueText } from '../../../shared/links'
 import { parseDbTimestamp } from '../../../shared/dates'
+import { rowMatchesSearch } from '../../utils/searchMatch'
 import { matchFilter } from '../../utils/filterMatch'
 import { evaluateRuleForRow } from '../../utils/deadlineCalc'
 
@@ -24,6 +24,8 @@ export interface BoardFilters {
   showStarredOnly: boolean
   searchQuery: string
   rowTagsMap?: Map<number, string[]>
+  /** Deadline rules, for "due status" filters */
+  rules?: Map<number, ParsedAlertRule>
 }
 
 /** The same filters and search the table uses */
@@ -32,18 +34,12 @@ export function visibleRows(rows: GridRow[], columns: Column[], f: BoardFilters)
   if (f.showStarredOnly) result = result.filter(r => r.is_starred === 1)
   if (f.activeFilters.length) {
     const match = (r: GridRow) => f.filterMode === 'or'
-      ? f.activeFilters.some(x => matchFilter(r, x, columns, f.rowTagsMap))
-      : f.activeFilters.every(x => matchFilter(r, x, columns, f.rowTagsMap))
+      ? f.activeFilters.some(x => matchFilter(r, x, columns, f.rowTagsMap, f.rules))
+      : f.activeFilters.every(x => matchFilter(r, x, columns, f.rowTagsMap, f.rules))
     result = result.filter(match)
   }
-  const q = f.searchQuery.trim().toLowerCase()
-  if (q) {
-    const searchable = columns.filter(c => c.is_name_column || ['text', 'dropdown', 'auto_number', 'link'].includes(c.column_type))
-    result = result.filter(r => searchable.some(c => {
-      const v = r[`col_${c.id}`]
-      return (c.column_type === 'link' ? linkValueText(v) : String(v ?? '')).toLowerCase().includes(q)
-    }))
-  }
+  // The same search as the table (G-25)
+  if (f.searchQuery.trim()) result = result.filter(r => rowMatchesSearch(r, columns, f.searchQuery, f.rowTagsMap))
   return result
 }
 

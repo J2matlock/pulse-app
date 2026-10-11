@@ -196,9 +196,22 @@ export interface IPCContract {
   'column:update':                  { args: [columnId: number, updates: Partial<Column>];       return: true }
   'column:batch-update-visibility': { args: [updates: Array<{ columnId: number; isVisible: 0 | 1 }>]; return: true }
   'column:batch-update-widths':     { args: [updates: Array<{ columnId: number; width: number }>];     return: true }
-  'column:delete':                  { args: [columnId: number];                                        return: true }
+  'column:delete':                  { args: [columnId: number];                                        return: { deletedId: number } }
+  'column:deleted-list':            { args: [gridId: number];                                          return: Array<{ id: number; grid_id: number; column_id: number; name: string; column_type: string; deleted_at: string; values: number }> }
+  'column:restore':                 { args: [deletedId: number];                                       return: { columnId: number; gridId: number } }
+  'column:purge':                   { args: [deletedId: number];                                       return: true }
+  'grid:deleted-list':              { args: [];                                                        return: Array<{ id: number; name: string; deleted_at: string; records: number }> }
+  'grid:restore':                   { args: [gridId: number];                                          return: true }
+  'grid:purge':                     { args: [gridId: number];                                          return: true }
   'column:reorder':                 { args: [gridId: number, orderedIds: number[]];                    return: true }
   'column:number-existing':         { args: [columnId: number];                                        return: { numbered: number } }
+  'column:dependents':              { args: [columnId: number];                                        return: string[] }
+  'column:set-name':                { args: [columnId: number];                                        return: { previousId: number | null } }
+  'column:option-usage':            { args: [columnId: number];                                        return: Record<string, number> }
+  'column:type-preview':            { args: [columnId: number, to: string];                            return: { total: number; clean: number; examples: string[] } }
+  'column:change-type':             { args: [columnId: number, to: string];                            return: { previousType: string; previousConfig: string | null; changed: Array<{ rowId: number; old: string }> } }
+  'column:change-type-undo':        { args: [columnId: number, snap: { previousType: string; previousConfig: string | null; changed: Array<{ rowId: number; old: string }> }]; return: true }
+  'column:set-options':             { args: [columnId: number, change: { options: string[]; renames?: Record<string, string>; updateRecords?: boolean }]; return: { updated: number } }
 
   // ── Row ─────────────────────────────────────────────────────────────────
   'row:create':              { args: [gridId: number];                                                                    return: number | bigint }
@@ -209,9 +222,10 @@ export interface IPCContract {
   'row:locate':              { args: [rowId: number];                                                                      return: RowLocation | null }
   'row:reorder':             { args: [gridId: number, orderedIds: number[]];                                               return: true }
   'row:duplicate':           { args: [rowId: number];                                                                      return: number | bigint }
-  'row:bulk-action':         { args: [action: 'archive' | 'unarchive' | 'delete', rowIds: number[]];                       return: number }
+  'row:bulk-action':         { args: [action: 'archive' | 'unarchive' | 'delete' | 'restore', rowIds: number[]];           return: number }
   'row:hard-delete':         { args: [rowId: number];                                                                      return: true }
   'row:restore-deleted':     { args: [rowId: number];                                                                      return: true }
+  'row:purge-all':           { args: [];                                                                                   return: number }
   'row:purge':               { args: [rowId: number];                                                                      return: true }
   'row:get-deleted':         { args: [];                                                                                   return: DeletedRow[] }
   'row:get':                 { args: [gridId: number, rowId: number];                                                      return: GridRow }
@@ -221,7 +235,7 @@ export interface IPCContract {
   'row:set-manual-contacts': { args: [rowId: number, contacts: ManualContact[]];                                           return: true }
 
   // ── Cell ────────────────────────────────────────────────────────────────
-  'cell:update':              { args: [rowId: number, columnId: number, value: string | null]; return: { sysLogId: number | null } }
+  'cell:update':              { args: [rowId: number, columnId: number, value: string | null, opts?: { doneNote?: string }]; return: { sysLogId: number | null } }
   'cell:get-history':         { args: [rowId: number, columnId: number];                      return: CellHistoryEntry[] }
   'cell-format:get-for-grid': { args: [gridId: number];                                       return: CellFormat[] }
   'cell-format:set':          { args: [rowId: number, columnId: number, rules: string];       return: true }

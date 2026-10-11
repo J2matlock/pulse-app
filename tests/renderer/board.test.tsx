@@ -73,11 +73,22 @@ describe('the board', () => {
     const board = screen.getByRole('list', { name: 'Board by Status' })
     expect(within(board).getAllByRole('listitem').filter(li => li.tagName === 'SECTION').map(s => s.getAttribute('aria-label'))).toEqual(['Estimate, 1', 'In progress, 2', 'Done, 1', 'No status, 1'])
     const lane = screen.getByRole('list', { name: 'In progress' })
-    const cards = within(lane).getAllByRole('button')
+    const cards = within(lane).getAllByRole('button').filter(b => b.getAttribute('aria-roledescription') === 'card')
     expect(cards.map(c => c.textContent)).toEqual([expect.stringMatching(/^Oil.*Promised: Overdue 2 days/), expect.stringMatching(/^BrakesBay: Bay 2Promised: Due in 5 days/)])
-    expect(screen.getByText(/^1 older \w+ hidden$/)).toBeTruthy()
     fireEvent.click(cards[1]!)
     expect(screen.getByTestId('where').textContent).toBe('/profile/1')
+  })
+
+  it('shows older finished cards on request, and moves a card with "Move to…" (S-26, G-33)', async () => {
+    render(<MemoryRouter><BoardView /></MemoryRouter>)
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    expect(screen.getByText('Drag a card, use “Move to…”, or press Ctrl+Shift+← / → on a card.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /^Show 1 older/ }))
+    expect(screen.getByRole('list', { name: 'Done' }).textContent).toContain('Wipers')
+    const select = screen.getByLabelText('Move Tires to') as HTMLSelectElement
+    expect([...select.options].map(o => o.text)).toEqual(['Move to…', 'In progress', 'Done'])
+    await act(async () => { fireEvent.change(select, { target: { value: 'Done' } }) })
+    expect(invoke).toHaveBeenCalledWith('stages:move', 3, 2, 'Done')
   })
 
   it('remembers board mode in saved views', () => {

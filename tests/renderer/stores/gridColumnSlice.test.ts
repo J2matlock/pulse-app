@@ -153,6 +153,22 @@ describe('gridColumnSlice', () => {
       expect(useGridStore.getState().columns).toHaveLength(1)
       expect(useGridStore.getState().columns[0]!.name).toBe('B')
     })
+
+    it('Undo brings the column back from the Trash with its values (G-17, 5.2)', async () => {
+      const { useUndoStore } = await import('../../../src/renderer/stores/undoStore')
+      useUndoStore.getState().clear()
+      useGridStore.setState({ activeGridId: 1, columns: [makeColumn(1, 'A'), makeColumn(2, 'B')] })
+      mockInvoke.mockImplementation(async (channel: string) => {
+        if (channel === 'column:delete') return { ok: true, data: { deletedId: 44 } }
+        if (channel === 'grid:get-full') return { ok: true, data: { grid: { id: 1, name: 'L', sort_config: '[]' }, columns: [makeColumn(2, 'B')], hiddenColumns: [], rows: [], acuityLevels: [], cellFormats: [], rowTagsMap: {}, savedViews: [], customGroups: '[]' } }
+        return { ok: true, data: null }
+      })
+      await useGridStore.getState().deleteColumn(1)
+      mockInvoke.mockClear()
+      await useUndoStore.getState().undo()
+      expect(mockInvoke).toHaveBeenCalledWith('column:restore', 44)
+      mockInvoke.mockReset()
+    })
   })
 
   describe('reorderColumns', () => {

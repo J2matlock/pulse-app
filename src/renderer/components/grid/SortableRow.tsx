@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
 import { type Row } from '@tanstack/react-table'
-import { User } from 'lucide-react'
+import { User, Star } from 'lucide-react'
+import { BADGE_WIDTH as ACUITY_BADGE_WIDTH } from './AcuityBadge'
 import type { GridRow, Column, ParsedAlertRule, CellFormatRule, AcuityLevel } from '../../../shared/types'
 import { isNotTypedColumnType, takesDeadlineRule } from '../../../shared/types'
 import { getMatchingThreshold, evaluateRuleForRow, formatResultTooltip, deadlineChipText } from '../../utils/deadlineCalc'
@@ -10,7 +11,7 @@ import { CellEditor, type NavDirection } from './CellEditor'
 import { GridLinkEditor } from '../links/LinkPicker'
 import { CellDisplay } from './CellDisplay'
 import { AcuityBadge } from './AcuityBadge'
-import { alertShapeForBand, HANDLE_STYLE, HANDLE_WIDTH, PROFILE_BTN_WIDTH } from './gridConstants'
+import { alertShapeForBand, HANDLE_STYLE, HANDLE_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH } from './gridConstants'
 import { useVocab } from '../../hooks/useVocab'
 import { SamplePill } from '../shared/SampleDataBanner'
 
@@ -44,10 +45,14 @@ export interface SortableRowProps {
   editingCellRef: React.RefObject<CellCoord | null>
   setEditingCell: (c: CellCoord | null) => void
   setFocusedCell: (c: CellCoord | null) => void
-  updateCell: (rowId: number, colId: number, value: string | null) => Promise<void>
+  updateCell: (rowId: number, colId: number, value: string | null) => Promise<unknown>
   onCellKeyDown: (e: React.KeyboardEvent, rowId: number, colId: number) => void
   onCellContextMenu: (e: React.MouseEvent, rowId: number, colId: number) => void
   onNavigateToProfile: (rowId: number) => void
+  onToggleStar?: (rowId: number) => void
+  /** The built-in Tags column (G-37) */
+  showTags?: boolean
+  rowTags?: string[]
   onToggleSelect: (e: React.MouseEvent, rowId: number) => void
   onNavigateAfterEdit: (rowId: number, colId: number, direction: NavDirection) => void
   rowId: number
@@ -90,6 +95,9 @@ export const SortableRow = React.memo(function SortableRow({
   onCellKeyDown,
   onCellContextMenu,
   onNavigateToProfile,
+  onToggleStar,
+  showTags,
+  rowTags,
   onToggleSelect,
   onNavigateAfterEdit,
   rowId: propRowId,
@@ -204,6 +212,18 @@ export const SortableRow = React.memo(function SortableRow({
         >
           <User className="w-4 h-4" />
         </button>
+        {/* Starred records show it (G-30); a faint outline on hover stars one */}
+        <button
+          tabIndex={-1}
+          onClick={e => { e.stopPropagation(); onToggleStar?.(rowId) }}
+          className={`flex items-center justify-center w-7 h-7 rounded focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
+            ${row.original.is_starred ? '' : 'opacity-0 group-hover:opacity-60 hover:!opacity-100'}`}
+          title={row.original.is_starred ? 'Remove star' : `Star this ${t('record')}`}
+          aria-label={row.original.is_starred ? 'Remove star' : `Star this ${t('record')}`}
+          aria-pressed={!!row.original.is_starred}
+        >
+          <Star className={`w-4 h-4 ${row.original.is_starred ? 'fill-yellow-400 text-yellow-500' : 'text-slate-400'}`} />
+        </button>
       </div>
 
       {/* Acuity badge */}
@@ -224,6 +244,18 @@ export const SortableRow = React.memo(function SortableRow({
               }
             }}
           />
+        </div>
+      )}
+
+      {/* Tags from the record's page, as a built-in column (G-37) */}
+      {showTags && (
+        <div className="flex-shrink-0 flex items-center gap-1 px-2 overflow-hidden border-r border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+          style={{ width: TAGS_COL_WIDTH, height: rowHeight, ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0), zIndex: 10 } : {}) }}
+          title={rowTags?.join(', ')} data-testid="row-tags-cell">
+          {(rowTags ?? []).slice(0, 2).map(tag => (
+            <span key={tag} className="truncate max-w-[6rem] px-2 py-0.5 rounded-full text-sm bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">{tag}</span>
+          ))}
+          {(rowTags?.length ?? 0) > 2 && <span className="text-sm text-slate-500 dark:text-slate-400">+{rowTags!.length - 2}</span>}
         </div>
       )}
 
@@ -439,6 +471,15 @@ export const SortableRow = React.memo(function SortableRow({
                 {isSample && col.is_name_column === 1 && <SamplePill />}
                 {alertChip && <span className="ml-1.5 text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap" data-testid="deadline-chip">{alertChip}</span>}
                 {alertSpoken && <span className="sr-only">{alertSpoken}</span>}
+                {col.is_name_column === 1 && (
+                  // People click the name expecting it to open (G-31)
+                  <button type="button" tabIndex={-1}
+                    onClick={e => { e.stopPropagation(); onNavigateToProfile(rowId) }}
+                    className="ml-auto pl-2 flex-shrink-0 text-base text-blue-600 dark:text-blue-400 underline opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                    aria-label={`Open ${t('record')}`}>
+                    Open
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -470,6 +511,7 @@ export const SortableRow = React.memo(function SortableRow({
   if (prev.hasAnyHighlightRules !== next.hasAnyHighlightRules) return false
   if (prev.highlightColumnIds !== next.highlightColumnIds) return false
   if (prev.acuityEnabled !== next.acuityEnabled) return false
+  if (prev.showTags !== next.showTags || prev.rowTags !== next.rowTags) return false
   if (prev.acuityLevels !== next.acuityLevels) return false
   if (prev.alertRuleMap !== next.alertRuleMap) return false
   if (prev.deadlineContext !== next.deadlineContext) return false

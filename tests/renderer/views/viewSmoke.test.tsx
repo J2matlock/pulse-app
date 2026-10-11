@@ -508,7 +508,7 @@ describe('TrashView', () => {
   it('shows the 30-day retention notice', async () => {
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByText('Items are permanently removed after 30 days')).toBeDefined()
+    expect(screen.getByText('Items are removed for good after 30 days')).toBeDefined()
   })
 
   it('shows empty state when trash is empty', async () => {

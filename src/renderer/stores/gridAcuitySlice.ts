@@ -1,7 +1,7 @@
 import type { AcuityLevel } from '../../shared/types'
 import { IPC } from '../../shared/ipc-channels'
 import type { GridState } from './gridTypes'
-import { useUndoStore } from './undoStore'
+import { useUndoStore, rethrowIfUndoing } from './undoStore'
 import { rlog } from '../utils/rendererLogger'
 import toast from 'react-hot-toast'
 import { storeInvoke as invoke } from '../utils/safeInvoke'
@@ -70,6 +70,7 @@ export const createAcuitySlice = (set: Set, get: Get) => ({
         rows: s.rows.map(r => r.row_id === rowId ? { ...r, acuity_level_id: prevLevelId } : r)
       }))
       rlog.error('GridAcuitySlice', 'Failed to set acuity level', err)
+      rethrowIfUndoing(err)
       toast.error(`Could not update ${wordNow('priority')} — please try again`)
     }
   },
@@ -188,6 +189,7 @@ export const createAcuitySlice = (set: Set, get: Get) => ({
         })
       }))
       rlog.error('GridAcuitySlice', 'Bulk acuity set failed', err)
+      rethrowIfUndoing(err)
       toast.error(`Could not update ${wordNow('priority')} — please try again`)
     }
   },

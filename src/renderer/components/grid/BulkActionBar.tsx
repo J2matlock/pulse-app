@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { GridRow, Column, AcuityLevel } from '../../../shared/types'
 import { IPC } from '../../../shared/ipc-channels'
-import { safeInvoke } from '../../utils/safeInvoke'
+import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { useGridStore } from '../../stores/gridStore'
 import { useUndoStore } from '../../stores/undoStore'
 import { getClientName } from '../../utils/clientName'
@@ -68,14 +68,14 @@ export function BulkActionBar({
       category: 'structural',
       icon: 'archive',
       undo: async () => {
-        await safeInvoke(IPC.ROW_BULK_ACTION, 'unarchive', ids)
-        if (apptSnapshot) await safeInvoke(IPC.APPT_RESTORE, apptSnapshot)
+        await mustInvoke(IPC.ROW_BULK_ACTION, 'unarchive', ids)
+        if (apptSnapshot) await mustInvoke(IPC.APPT_RESTORE, apptSnapshot)
         if (activeGridId) await useGridStore.getState().loadGrid(activeGridId)
       },
       redo: async () => {
-        await safeInvoke(IPC.ROW_BULK_ACTION, 'archive', ids)
+        await mustInvoke(IPC.ROW_BULK_ACTION, 'archive', ids)
         if (cancelAppointments) {
-          const res = await safeInvoke<{ snapshot: unknown }>(IPC.APPT_CANCEL_UPCOMING, ids)
+          const res = await mustInvoke<{ snapshot: unknown }>(IPC.APPT_CANCEL_UPCOMING, ids)
           if (res.ok) apptSnapshot = res.data.snapshot
         }
         if (activeGridId) await useGridStore.getState().loadGrid(activeGridId)
@@ -117,11 +117,11 @@ export function BulkActionBar({
                 category: 'structural',
                 icon: 'archive',
                 undo: async () => {
-                  await safeInvoke(IPC.ROW_BULK_ACTION, 'archive', ids)
+                  await mustInvoke(IPC.ROW_BULK_ACTION, 'archive', ids)
                   if (activeGridId) await useGridStore.getState().loadGrid(activeGridId)
                 },
                 redo: async () => {
-                  await safeInvoke(IPC.ROW_BULK_ACTION, 'unarchive', ids)
+                  await mustInvoke(IPC.ROW_BULK_ACTION, 'unarchive', ids)
                   if (activeGridId) await useGridStore.getState().loadGrid(activeGridId)
                 },
               })

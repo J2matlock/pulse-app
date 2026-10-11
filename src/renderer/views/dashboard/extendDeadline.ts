@@ -1,5 +1,5 @@
 import { IPC } from '../../../shared/ipc-channels'
-import { safeInvoke } from '../../utils/safeInvoke'
+import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { useUndoStore } from '../../stores/undoStore'
 import { formatDue } from '../../../shared/deadlineEngine'
 import toast from 'react-hot-toast'
@@ -17,8 +17,8 @@ export async function extendDeadline(rowId: number, columnId: number, label: str
     category: 'logged',
     icon: 'calendar-plus',
     sideEffects: [{ type: 'void_case_log', caseLogId: sysLogId }],
-    undo: async () => { await safeInvoke(IPC.DEADLINE_EXTENSION_RESTORE, id, false); await onChanged?.() },
-    redo: async () => { await safeInvoke(IPC.DEADLINE_EXTENSION_RESTORE, id, true); await onChanged?.() },
+    undo: async () => { await mustInvoke(IPC.DEADLINE_EXTENSION_RESTORE, id, false); await onChanged?.() },
+    redo: async () => { await mustInvoke(IPC.DEADLINE_EXTENSION_RESTORE, id, true); await onChanged?.() },
   })
   await onChanged?.()
   return true
@@ -35,8 +35,8 @@ export async function removeExtension(extensionId: number, label: string, onChan
     category: 'logged',
     icon: 'calendar-x',
     sideEffects: [{ type: 'void_case_log', caseLogId: res.data.sysLogId }],
-    undo: async () => { await safeInvoke(IPC.DEADLINE_EXTENSION_RESTORE, extensionId, true); await onChanged?.() },
-    redo: async () => { await safeInvoke(IPC.DEADLINE_EXTENSION_RESTORE, extensionId, false); await onChanged?.() },
+    undo: async () => { await mustInvoke(IPC.DEADLINE_EXTENSION_RESTORE, extensionId, true); await onChanged?.() },
+    redo: async () => { await mustInvoke(IPC.DEADLINE_EXTENSION_RESTORE, extensionId, false); await onChanged?.() },
   })
   await onChanged?.()
   return true

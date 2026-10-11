@@ -13,6 +13,7 @@ import { Tooltip } from '../shared/Tooltip'
 import { UndoHistoryPanel } from '../shared/UndoHistoryPanel'
 import { isMod } from '../../utils/keys'
 import { useVocab } from '../../hooks/useVocab'
+import { useShownCount } from '../../hooks/useShownCount'
 import type { FAQCategory } from '../../views/help/types'
 import { notePage } from '../../utils/navHistory'
 import { pulseEvents } from '../../events'
@@ -53,11 +54,12 @@ export function TopBar(): React.ReactElement {
   })))
   // Debounced result count for aria-live announcement (avoids spamming screen readers)
   const [announcedCount, setAnnouncedCount] = useState<number | null>(null)
+  const { shown: shownCount } = useShownCount()
   useEffect(() => {
     if (!searchQuery) { setAnnouncedCount(null); return }
-    const id = setTimeout(() => setAnnouncedCount(rows.length), DEBOUNCE_ANNOUNCE)
+    const id = setTimeout(() => setAnnouncedCount(shownCount), DEBOUNCE_ANNOUNCE)
     return () => clearTimeout(id)
-  }, [searchQuery, rows.length])
+  }, [searchQuery, shownCount])
   const { setSearchQuery } = useGridStore(useShallow(s => ({
     setSearchQuery: s.setSearchQuery,
   })))
@@ -83,6 +85,8 @@ export function TopBar(): React.ReactElement {
 
   const activeGrid = useMemo(() => grids.find(g => g.id === activeGridId), [grids, activeGridId])
 
+  // Each list keeps its own search (G-03): show that list's when another one opens
+  useEffect(() => { setInputValue(searchQuery) }, [activeGridId]) // eslint-disable-line react-hooks/exhaustive-deps -- only on a list switch; typing updates the box itself
   // Remember each page, so a record's Back can say where it goes (audit 3.18)
   useEffect(() => { notePage(location.pathname) }, [location.pathname])
 

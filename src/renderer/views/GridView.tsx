@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../stores/gridStore'
+import { useUndoStore, batchUndoItem, type UndoItem } from '../stores/undoStore'
+import toast from 'react-hot-toast'
 import { DataGrid } from '../components/grid/DataGrid'
 import { GridToolbar } from '../components/grid/GridToolbar'
 import { FilterBar } from '../components/grid/FilterBar'
@@ -13,6 +15,7 @@ import { useVocab } from '../hooks/useVocab'
 import { useFeature } from '../hooks/useFeature'
 import { BoardView } from '../components/board/BoardView'
 import { stageConfigOf } from '../../shared/stages'
+import { columnTypeLabel } from '../../shared/columnTypes'
 
 export default function GridView(): React.ReactElement {
   const { t } = useVocab()
@@ -35,6 +38,12 @@ export default function GridView(): React.ReactElement {
   const stagesOn = useFeature('stages')
   const viewMode = useGridStore(s => s.viewMode)
   const hasStage = useGridStore(s => s.columns.concat(s.hiddenColumns).some(c => stageConfigOf(c) !== null))
+  // Find & Replace works on the records on screen, in screen order (G-27)
+  const sortedRowIds = useGridStore(s => s.sortedRowIds)
+  const visibleRows = useMemo(() => {
+    const byId = new Map(rows.map(r => [r.row_id, r]))
+    return sortedRowIds.map(id => byId.get(id)).filter((r): r is NonNullable<typeof r> => r !== undefined)
+  }, [rows, sortedRowIds])
   const showBoard = stagesOn && hasStage && viewMode === 'board'
   const pendingTypeChange = useGridStore(s => s.pendingColumnTypeChange)
   const confirmColumnTypeChange = useGridStore(s => s.confirmColumnTypeChange)
@@ -61,10 +70,15 @@ export default function GridView(): React.ReactElement {
     await updateCell(rowId, colId, newVal)
   }, [updateCell])
 
+  // One undo step for the whole Replace All (G-26)
   const handleReplaceAll = useCallback(async (replacements: Array<{ rowId: number; colId: number; oldVal: string; newVal: string }>) => {
+    const steps: UndoItem[] = []
+    let failed = 0
     for (const r of replacements) {
-      await updateCell(r.rowId, r.colId, r.newVal)
+      if (!await updateCell(r.rowId, r.colId, r.newVal, { collect: steps })) failed++
     }
+    if (steps.length > 0) useUndoStore.getState().pushWithToast(batchUndoItem(`Replaced text in ${steps.length} ${steps.length === 1 ? 'cell' : 'cells'}`, steps))
+    if (failed > 0) toast.error(`${failed} ${failed === 1 ? 'cell' : 'cells'} couldn't be changed. The rest were.`)
   }, [updateCell])
 
   useEffect(() => {
@@ -143,7 +157,7 @@ export default function GridView(): React.ReactElement {
         <FindReplaceBar
           open={findReplaceOpen}
           onClose={handleClose}
-          rows={rows}
+          rows={visibleRows}
           columns={columns}
           onReplace={handleReplace}
           onReplaceAll={handleReplaceAll}
@@ -160,7 +174,7 @@ export default function GridView(): React.ReactElement {
         title="Change column type?"
         message={
           pendingTypeChange
-            ? `Changing from ${pendingTypeChange.oldType} to ${pendingTypeChange.newType} will not convert existing data. Some values may display incorrectly.`
+            ? `"${columnTypeLabel(pendingTypeChange.oldType)}" becomes "${columnTypeLabel(pendingTypeChange.newType)}". The values stay as they are.`
             : ''
         }
         confirmLabel="Change Type"

@@ -87,7 +87,7 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
   // "Until the date in a column": the record's own date columns
   useEffect(() => {
     if (!who?.gridId) { setDateColumns([]); return }
-    void safeInvoke<{ columns: Column[] } | null>(IPC.GRID_GET, who.gridId, false).then(r => setDateColumns(r.ok && r.data ? r.data.columns.filter(c => c.column_type === 'date') : []))
+    void safeInvoke<{ columns: Column[] } | null>(IPC.GRID_GET, who.gridId, false).then(r => setDateColumns(r.ok && r.data ? (r.data.columns ?? []).filter(c => c.column_type === 'date') : []))
   }, [who?.gridId])
 
   useEffect(() => {

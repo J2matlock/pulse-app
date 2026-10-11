@@ -39,6 +39,7 @@ vi.mock('../../../../src/renderer/components/grid/CellConditionalFormatPanel', (
 vi.mock('../../../../src/renderer/components/grid/gridHelpers', () => ({
   formatCellForClipboard: (_col: unknown, val: string | null) => val ?? '',
   validateForColumnType: (text: string) => text,
+  checkPaste: (text: string) => ({ value: text }),
 }))
 
 vi.mock('../../../../src/renderer/utils/clientName', () => ({
@@ -129,6 +130,24 @@ describe('GridContextMenu', () => {
     expect(screen.getByText('Move / Copy to another caseload…')).toBeTruthy()
     expect(screen.getByText('Archive client…')).toBeTruthy()
     expect(screen.getByText('Move to trash')).toBeTruthy()
+  })
+
+  it('puts "Open client" first, and it opens the record (G-31)', () => {
+    const onOpenRecord = vi.fn()
+    render(<GridContextMenu {...makeProps({ onOpenRecord })} />)
+    const items = screen.getAllByRole('menuitem')
+    expect(items[0]!.textContent).toBe('Open client')
+    fireEvent.click(items[0]!)
+    expect(onOpenRecord).toHaveBeenCalledWith(1)
+  })
+
+  it('hides Paste and Clear cell on a deadline column (G-15)', () => {
+    const props = makeProps()
+    const deadline = { ...props.columns[0]!, column_type: 'deadline' }
+    render(<GridContextMenu {...props} columns={[deadline, ...props.columns.slice(1)]} />)
+    expect(screen.queryByText('Paste')).toBeNull()
+    expect(screen.queryByText('Clear cell')).toBeNull()
+    expect(screen.getByText('Copy cell')).toBeTruthy()
   })
 
   it('clicking Star client fires onToggleStar and onClose', () => {

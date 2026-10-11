@@ -2,14 +2,17 @@
  * ipc-grid.ts — GRID_*, COLUMN_*, SORT_* IPC handlers
  */
 
-import { deleteLinksForGrid } from '../links'
 import { IPC } from '../../shared/ipc-channels'
 import { secureWrap, ok, fail, buildSafeSetClause, validId, enforceWritable, logNonFatal } from './ipc-utils'
 import { getDb, buildGridQuery, cachedStmt, invalidateGridStmtCache } from '../database'
 import { linkColumnSpecs, linkSpecKey } from '../../shared/links'
 import { fileCountColumnIds } from '../../shared/attachments'
 import type { Column, Grid, GridRow } from '../../shared/types'
-import { VALID_COLUMN_TYPES } from '../../shared/types'
+import { VALID_COLUMN_TYPES, canNameRecords } from '../../shared/types'
+import { columnDependents } from '../column-usage'
+import { trashColumn, listDeletedColumns, restoreColumn, purgeDeletedColumn, trashList, listDeletedLists, restoreList, purgeList, TrashError } from '../list-trash'
+import { optionUsage, saveColumnOptions, OptionsError } from '../column-options'
+import { previewTypeChange, changeColumnType, undoColumnTypeChange, ColumnTypeError, type TypeChangeSnapshot } from '../column-type'
 import { invalidateColumnCache } from './ipc-cell'
 import { afterColumnRenamed, hasDisplayFormat, refreshDisplayNames } from '../display-names'
 import { numberExistingRows } from '../auto-number'
@@ -178,11 +181,8 @@ export function registerGridHandlers(): void {
   secureWrap(IPC.GRID_DELETE, 'ipc-grid', (_e, gridId: number) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(gridId)) return fail('Invalid ID')
-    // Soft delete — mark inactive. Links to other lists go with it (W04 §8; the dialog said how many)
-    getDb().transaction(() => {
-      deleteLinksForGrid(gridId)
-      getDb().prepare("UPDATE grids SET is_active = 0, updated_at = datetime('now') WHERE id = ?").run(gridId)
-    })()
+    // To the Trash for 30 days with its records; its links are kept as a copy for a restore (D1)
+    try { trashList(gridId) } catch (err) { if (err instanceof TrashError) return fail(err.message); throw err }
     invalidateGridStmtCache()
     return ok(true)
   })
@@ -306,26 +306,145 @@ export function registerGridHandlers(): void {
       { id: number; grid_id: number; is_name_column: number } | undefined
     if (!col) return fail('Column not found')
 
+    let deletedId = 0
     const doDelete = db.transaction(() => {
       if (col.is_name_column === 1) {
-        // Check if another column in this grid can take over as name column
+        // Another column takes over naming: a text column if there is one, else the first
         const other = db.prepare(
-          'SELECT id FROM columns WHERE grid_id = ? AND id != ? ORDER BY position LIMIT 1'
+          "SELECT id FROM columns WHERE grid_id = ? AND id != ? ORDER BY (column_type = 'text') DESC, position LIMIT 1"
         ).get(col.grid_id, columnId) as { id: number } | undefined
         if (!other) {
           throw new Error('Cannot delete the only column in this grid.')
         }
-        // Transfer name column status to the next column
         db.prepare('UPDATE columns SET is_name_column = 1 WHERE id = ?').run(other.id)
       }
-      // Cascade deletes cells via FK
+      // A copy of it and its values waits in the Trash for 30 days (D1), then the delete cascades
+      deletedId = trashColumn(columnId)
       db.prepare('DELETE FROM columns WHERE id = ?').run(columnId)
-      if (hasDisplayFormat(col.grid_id)) refreshDisplayNames(col.grid_id)
+      // Names elsewhere (dashboard, search, links) come from rows.display_name, which no trigger updates here
+      if (col.is_name_column === 1 || hasDisplayFormat(col.grid_id)) refreshDisplayNames(col.grid_id)
     })
     doDelete()
     invalidateGridStmtCache()
     invalidateColumnCache(columnId)
-    return ok(true)
+    return ok({ deletedId })
+  })
+
+  // The Trash for columns and lists (audit 5.2, D1)
+  secureWrap(IPC.COLUMN_DELETED_LIST, 'ipc-grid', (_e, gridId: number) => {
+    if (!validId(gridId)) return fail('Invalid ID')
+    return ok(listDeletedColumns(gridId))
+  })
+
+  secureWrap(IPC.COLUMN_RESTORE, 'ipc-grid', (_e, deletedId: number) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(deletedId)) return fail('Invalid ID')
+    try {
+      const res = restoreColumn(deletedId)
+      invalidateGridStmtCache()
+      invalidateColumnCache(res.columnId)
+      return ok(res)
+    } catch (err) { if (err instanceof TrashError) return fail(err.message); throw err }
+  })
+
+  secureWrap(IPC.COLUMN_PURGE, 'ipc-grid', (_e, deletedId: number) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(deletedId)) return fail('Invalid ID')
+    purgeDeletedColumn(deletedId)
+    return ok(true as const)
+  })
+
+  secureWrap(IPC.GRID_DELETED_LIST, 'ipc-grid', () => ok(listDeletedLists()))
+
+  secureWrap(IPC.GRID_RESTORE, 'ipc-grid', (_e, gridId: number) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(gridId)) return fail('Invalid ID')
+    try { restoreList(gridId) } catch (err) { if (err instanceof TrashError) return fail(err.message); throw err }
+    invalidateGridStmtCache()
+    return ok(true as const)
+  })
+
+  secureWrap(IPC.GRID_PURGE, 'ipc-grid', (_e, gridId: number) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(gridId)) return fail('Invalid ID')
+    if (!purgeList(gridId)) return fail("That list isn't in the Trash.")
+    invalidateGridStmtCache()
+    return ok(true as const)
+  })
+
+  // Everything that points at this column, for the delete dialog (audit 1.8)
+  secureWrap(IPC.COLUMN_DEPENDENTS, 'ipc-grid', (_e, columnId: number) => {
+    if (!validId(columnId)) return fail('Invalid ID')
+    return ok(columnDependents(columnId))
+  })
+
+  // "Use as name": this column names the list's records everywhere
+  secureWrap(IPC.COLUMN_SET_NAME, 'ipc-grid', (_e, columnId: number) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(columnId)) return fail('Invalid ID')
+    const db = getDb()
+    const col = db.prepare('SELECT id, grid_id, column_type FROM columns WHERE id = ?').get(columnId) as { id: number; grid_id: number; column_type: string } | undefined
+    if (!col) return fail('Column not found')
+    if (!canNameRecords(col.column_type)) return fail("This kind of column can't be used as the name.")
+    const prev = db.prepare('SELECT id FROM columns WHERE grid_id = ? AND is_name_column = 1').get(col.grid_id) as { id: number } | undefined
+    db.transaction(() => {
+      db.prepare('UPDATE columns SET is_name_column = CASE WHEN id = ? THEN 1 ELSE 0 END WHERE grid_id = ?').run(columnId, col.grid_id)
+      refreshDisplayNames(col.grid_id)
+    })()
+    invalidateGridStmtCache()
+    return ok({ previousId: prev?.id ?? null })
+  })
+
+  // Change a column's type (G-19): how many values fit, then convert them; undo puts everything back
+  secureWrap(IPC.COLUMN_TYPE_PREVIEW, 'ipc-grid', (_e, columnId: number, to: string) => {
+    if (!validId(columnId) || typeof to !== 'string') return fail('Invalid ID')
+    try { return ok(previewTypeChange(columnId, to)) } catch (err) { if (err instanceof ColumnTypeError) return fail(err.message); throw err }
+  })
+
+  secureWrap(IPC.COLUMN_CHANGE_TYPE, 'ipc-grid', (_e, columnId: number, to: string) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(columnId) || typeof to !== 'string') return fail('Invalid ID')
+    try {
+      const snap = changeColumnType(columnId, to)
+      invalidateColumnCache(columnId)
+      invalidateGridStmtCache()
+      return ok(snap)
+    } catch (err) { if (err instanceof ColumnTypeError) return fail(err.message); throw err }
+  })
+
+  secureWrap(IPC.COLUMN_CHANGE_TYPE_UNDO, 'ipc-grid', (_e, columnId: number, snap: TypeChangeSnapshot) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(columnId) || !snap || typeof snap.previousType !== 'string' || !Array.isArray(snap.changed) || snap.changed.length > 100_000) return fail('Invalid ID')
+    if (!snap.changed.every(c => validId(c.rowId) && typeof c.old === 'string')) return fail('Invalid ID')
+    if (snap.previousConfig !== null && typeof snap.previousConfig !== 'string') return fail('Invalid ID')
+    try {
+      undoColumnTypeChange(columnId, snap)
+      invalidateColumnCache(columnId)
+      invalidateGridStmtCache()
+      return ok(true as const)
+    } catch (err) { if (err instanceof ColumnTypeError) return fail(err.message); throw err }
+  })
+
+  // How many records use each choice, for the options editor (G-36)
+  secureWrap(IPC.COLUMN_OPTION_USAGE, 'ipc-grid', (_e, columnId: number) => {
+    if (!validId(columnId)) return fail('Invalid ID')
+    return ok(optionUsage(columnId))
+  })
+
+  // Save a status or dropdown column's choices; renamed ones can carry their records along (G-02, G-36)
+  secureWrap(IPC.COLUMN_SET_OPTIONS, 'ipc-grid', (_e, columnId: number, change: { options: string[]; renames?: Record<string, string>; updateRecords?: boolean }) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(columnId)) return fail('Invalid ID')
+    if (!change || !Array.isArray(change.options)) return fail('Choose the options first.')
+    if (change.renames !== undefined && (typeof change.renames !== 'object' || change.renames === null)) return fail('Invalid rename list')
+    try {
+      const res = saveColumnOptions(columnId, change)
+      invalidateColumnCache(columnId)
+      return ok(res)
+    } catch (err) {
+      if (err instanceof OptionsError) return fail(err.message)
+      throw err
+    }
   })
 
   // After adding an auto-number column: give the records already in the list a number

@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import React, { useCallback, useState, useRef, useEffect, useMemo } from 'react'
 import { edgeAwareRefCallback } from '../../utils/domHelpers'
 import { AnimatePresence, motion } from 'motion/react'
-import { Plus, Columns, Eye, EyeOff, Download, Upload, ChevronDown, Archive, Gauge, Settings2, ClipboardPen } from 'lucide-react'
+import { Plus, Columns, Eye, EyeOff, Upload, ChevronDown, Archive, Gauge, Settings2, ClipboardPen, FileBarChart, Tags } from 'lucide-react'
 import { ListSettingsDialog } from './ListSettingsDialog'
 import { ContactRequirementsDialog } from '../contact-req/ContactRequirementsDialog'
 import toast from 'react-hot-toast'
@@ -20,7 +20,7 @@ import { FilterControls } from './FilterBar'
 import { GroupingBar } from './GroupingBar'
 import { AcuityConfigPanel } from './AcuityConfigPanel'
 import { SavedViewsDropdown } from './SavedViewsDropdown'
-import { ColumnSelectDialog } from '../shared/ColumnSelectDialog'
+import { ColumnSelectDialog, type RowScope, type RowScopeCounts } from '../shared/ColumnSelectDialog'
 import { dropdownVariants } from '../../utils/animations'
 
 /** Isolated component — subscribes to rows independently so GridToolbar doesn't re-render on cell edits. */
@@ -54,26 +54,13 @@ import { ensurePlainRule, type DeadlineChoice } from '../alerts/plainRule'
 import { AlertRuleEditor } from '../alerts/AlertRuleEditor'
 import { useAlertStore } from '../../stores/alertStore'
 import { engineRuleFrom, needsDeadlineColumn } from '../../../shared/deadlineEngine'
+import { COLUMN_TYPE_INFO } from '../../../shared/columnTypes'
 import { AUTO_NUMBER_PREFIX_MAX, DEFAULT_AUTO_NUMBER, formatAutoNumber, parseAutoNumberConfig } from '../../../shared/autoNumber'
 
 const EMPTY_FORMS: Form[] = []
 
-const COLUMN_TYPES: Array<{ type: ColumnType; label: string }> = [
-  { type: 'text', label: 'Text' },
-  { type: 'number', label: 'Number' },
-  { type: 'date', label: 'Date' },
-  { type: 'checkbox', label: 'Checkbox' },
-  { type: 'dropdown', label: 'Dropdown' },
-  { type: 'phone', label: 'Phone' },
-  { type: 'email', label: 'Email' },
-  { type: 'url', label: 'URL' },
-  { type: 'currency', label: 'Currency ($)' },
-  { type: 'address', label: 'Address' },
-  { type: 'status', label: 'Status (badge)' },
-  { type: 'tag', label: 'Tags' },
-  { type: 'auto_number', label: 'Auto number (0001, 0002…)' },
-  { type: 'deadline', label: 'Deadline (worked out by a rule)' },
-]
+/** Every type a new column can be (links and file counts have their own entries) */
+const COLUMN_TYPES = COLUMN_TYPE_INFO
 
 export function GridToolbar(): React.ReactElement {
   const { t } = useVocab()
@@ -100,7 +87,9 @@ export function GridToolbar(): React.ReactElement {
   const [showListSettings, setShowListSettings] = useState(false)
   const [showRequirements, setShowRequirements] = useState(false)
   const [showManageColumns, setShowManageColumns] = useState(false)
-  const [showExportMenu, setShowExportMenu] = useState(false)
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [showViewMenu, setShowViewMenu] = useState(false)
+  const [showReportsMenu, setShowReportsMenu] = useState(false)
   const [showImportWizard, setShowImportWizard] = useState(false)
   const [showSupervisorReport, setShowSupervisorReport] = useState(false)
   const [report, setReport] = useState<'compliance' | 'missing' | 'audit' | 'time' | null>(null)
@@ -116,6 +105,7 @@ export function GridToolbar(): React.ReactElement {
   const createRule = useAlertStore(s => s.createRule)
   const updateColumn = useGridStore(s => s.updateColumn)
   const [dropdownOptions, setDropdownOptions] = useState('')
+  const [sourceColumnId, setSourceColumnId] = useState<number | null>(null)
   const [autoPrefix, setAutoPrefix] = useState('')
   const [autoPad, setAutoPad] = useState(DEFAULT_AUTO_NUMBER.pad)
   const [numberExisting, setNumberExisting] = useState(true)
@@ -135,28 +125,49 @@ export function GridToolbar(): React.ReactElement {
   const stagesOn = useFeature('stages')
   const viewMode = useGridStore(s => s.viewMode)
   const setViewMode = useGridStore(s => s.setViewMode)
+  const showTagsColumn = useGridStore(s => s.showTagsColumn)
+  const setShowTagsColumn = useGridStore(s => s.setShowTagsColumn)
   const hasStage = useGridStore(s => s.columns.concat(s.hiddenColumns).some(c => stageConfigOf(c) !== null))
   const gridCount = useGridStore(s => s.grids.length)
   const [linkSetup, setLinkSetup] = useState(false)
 
   function handleExportCsvStart() {
-    setShowExportMenu(false)
-    setExportColumnSelect('csv')
+    openExport('csv')
   }
 
   const [pdfRowCount, setPdfRowCount] = useState(0)
+  const [scopeCounts, setScopeCounts] = useState<RowScopeCounts>({ shown: 0, selected: 0, all: 0 })
 
-  function handleExportPdfStart() {
-    setShowExportMenu(false)
-    // Read row count from store at open time to avoid subscribing to rows
-    setPdfRowCount(useGridStore.getState().rows.length)
-    setExportColumnSelect('pdf')
+  // The records on screen, in screen order; the board shows every record
+  function shownRowIds(): number[] {
+    const s = useGridStore.getState()
+    return s.viewMode === 'board' ? s.rows.map(r => r.row_id) : s.sortedRowIds
   }
 
-  async function handleExportWithColumns(selectedIds: number[]) {
+  function openExport(format: 'csv' | 'pdf') {
+    setShowMoreMenu(false)
+    // Read counts from the store at open time to avoid subscribing to rows
+    const s = useGridStore.getState()
+    setScopeCounts({ shown: shownRowIds().length, selected: s.selectedRowIds.size, all: s.rows.length })
+    setPdfRowCount(s.rows.length)
+    setExportColumnSelect(format)
+  }
+
+  function handleExportPdfStart() {
+    openExport('pdf')
+  }
+
+  async function handleExportWithColumns(selectedIds: number[], scope: RowScope = 'all') {
     const format = exportColumnSelect
     setExportColumnSelect(null)
     if (!activeGridId || !format) return
+    // What the person sees is what leaves the app (G-07): shown or selected records, in screen order
+    const shown = shownRowIds()
+    const picked = useGridStore.getState().selectedRowIds
+    const activeRowIds = scope === 'shown' ? shown
+      : scope === 'selected' ? [...shown.filter(id => picked.has(id)), ...[...picked].filter(id => !shown.includes(id))]
+      : []
+    if (scope !== 'all' && activeRowIds.length === 0) { toast.error(`No ${t('record', { many: true })} to export.`); return }
 
     if (format === 'csv') {
       const saveRes = await safeInvoke<SaveDialogResult>(IPC.APP_SHOW_SAVE_DIALOG, {
@@ -168,9 +179,8 @@ export function GridToolbar(): React.ReactElement {
       const result = await safeInvoke<boolean>(IPC.EXPORT_CSV, {
         gridId: activeGridId,
         columnIds: selectedIds,
-        activeRowIds: [],
+        activeRowIds,
         destPath: saveRes.data.filePath,
-        dateFormat: 'us'
       })
       if (!result.ok) toast.error('Export failed. Please try again.')
       else noteUnencryptedExport()
@@ -184,7 +194,7 @@ export function GridToolbar(): React.ReactElement {
       const result = await safeInvoke<boolean>(IPC.EXPORT_PDF_GRID, {
         gridId: activeGridId,
         columnIds: selectedIds,
-        activeRowIds: [],
+        activeRowIds,
         destPath: saveRes.data.filePath
       })
       if (!result.ok) toast.error('Export failed. Please try again.')
@@ -214,6 +224,9 @@ export function GridToolbar(): React.ReactElement {
       const labels = dropdownOptions.split('\n').map(o => o.trim()).filter(Boolean)
       const options = labels.map((label, i) => ({ label, color: STATUS_COLORS[i % STATUS_COLORS.length] }))
       config = JSON.stringify({ options })
+    } else if (newColType === 'age_from_dob' || newColType === 'calculated_days') {
+      if (sourceColumnId === null) { toast.error('Choose the date it works from.'); return }
+      config = JSON.stringify({ source_column_id: sourceColumnId })
     } else if (newColType === 'auto_number') {
       config = JSON.stringify(parseAutoNumberConfig({ prefix: autoPrefix, pad: autoPad, next: 1 }))
     } else if (newColType === 'date' || newColType === 'deadline') {
@@ -238,20 +251,7 @@ export function GridToolbar(): React.ReactElement {
 
   return (
     <div className="flex items-center flex-wrap gap-2 px-4 py-2 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex-shrink-0">
-      {/* Table / Board (W06) */}
-      {stagesOn && hasStage && (
-        <div role="group" aria-label="View as" className="flex rounded-lg border border-slate-300 dark:border-slate-600 overflow-hidden">
-          {(['table', 'board'] as const).map(mode => (
-            <button key={mode} type="button" aria-pressed={viewMode === mode} onClick={() => setViewMode(mode)}
-              className={`hit-44 px-3 text-base focus:outline-hidden focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-blue-500 ${
-                viewMode === mode ? 'bg-blue-600 text-white font-medium' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700'
-              }`} style={{ minHeight: 36 }}>
-              {mode === 'table' ? 'Table' : 'Board'}
-            </button>
-          ))}
-        </div>
-      )}
-
+      {/* Up front: Add, the filters, Views and Group; the rest is grouped under View, Reports and More (G-22) */}
       {/* Add row */}
       <Tooltip content={`Add a new ${t('record')}`} placement="bottom">
         <button
@@ -291,29 +291,241 @@ export function GridToolbar(): React.ReactElement {
         </div>
       )}
 
-      {/* Add column */}
-      <div className="relative" data-tour="add-column">
-        <Tooltip content="Add a new column" placement="bottom">
-          <button
-            onClick={() => { setShowAddColumn(v => !v); setShowManageColumns(false) }}
-              className="btn-secondary flex items-center gap-2"
-            style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
-            aria-expanded={showAddColumn}
-            aria-label="Add column"
-            title="Add a new column"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Add Column
-          </button>
-        </Tooltip>
+      {/* Filter rows */}
+      <FilterControls />
 
+      {/* Saved views */}
+      <SavedViewsDropdown />
+
+      {/* Group rows: the table only; the board groups by stage (G-33) */}
+      {viewMode !== 'board' && <GroupingBar />}
+
+      {/* View: table or board, archived, priority */}
+      <div className="relative" data-tour="archived-toggle">
+        <button
+          onClick={() => { setShowViewMenu(v => !v); setShowMoreMenu(false); setShowReportsMenu(false) }}
+          className="btn-secondary flex items-center gap-2"
+            style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
+          aria-expanded={showViewMenu}
+          aria-haspopup="menu"
+        >
+          <Eye className="w-4 h-4" />
+          View
+          {(showArchived || viewMode === 'board') && <span className="w-2 h-2 rounded-full bg-amber-500" aria-label="(changed)" />}
+          <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+        </button>
+        {showViewMenu && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setShowViewMenu(false)} />
+            <div role="menu" ref={edgeAwareRefCallback} className="absolute left-0 top-full mt-1 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-50">
+              {stagesOn && hasStage && (<>
+                <p className="px-4 pt-2 pb-1 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" aria-hidden="true">Show as</p>
+                {(['table', 'board'] as const).map(mode => (
+                  <button key={mode} role="menuitemradio" aria-checked={viewMode === mode} className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                  style={{ minHeight: 44 }}
+                    onClick={() => { setViewMode(mode); setShowViewMenu(false) }}>
+                    <span className="w-4">{viewMode === mode ? '✓' : ''}</span>{mode === 'table' ? 'Table' : 'Board'}
+                  </button>
+                ))}
+                <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
+              </>)}
+              {viewMode !== 'board' && (
+                <button role="menuitemcheckbox" aria-checked={showTagsColumn} className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                  style={{ minHeight: 44 }}
+                  onClick={() => { setShowTagsColumn(!showTagsColumn); setShowViewMenu(false) }}>
+                  <Tags className="w-4 h-4" />
+                  <span className="flex-1">Show the Tags column</span>
+                  {showTagsColumn && <span aria-hidden="true">✓</span>}
+                </button>
+              )}
+              <button role="menuitemcheckbox" aria-checked={showArchived} className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                  style={{ minHeight: 44 }}
+                onClick={() => { setShowArchived(!showArchived); setShowViewMenu(false) }}>
+                <Archive className="w-4 h-4" />
+                <span className="flex-1">Show archived {t('record', { many: true })}</span>
+                {showArchived && <span aria-hidden="true">✓</span>}
+              </button>
+              {priorityOn && (
+                <button role="menuitem" className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                  style={{ minHeight: 44 }}
+                  onClick={() => { setShowViewMenu(false); setShowAcuityPanel(true) }}>
+                  <Gauge className="w-4 h-4" />
+                  <span className="flex-1">{acuityEnabled ? `${t('priority', { many: true, cap: true })}…` : `Turn on ${t('priority', { many: true })}…`}</span>
+                  {acuityEnabled && <AcuityPointsBadge />}
+                </button>
+              )}
+            </div>
+          </>
+        )}
+        {showAcuityPanel && <AcuityConfigPanel onClose={() => setShowAcuityPanel(false)} />}
+      </div>
+
+      {/* Reports */}
+      <div className="relative">
+        <button
+          onClick={() => { setShowReportsMenu(v => !v); setShowMoreMenu(false); setShowViewMenu(false) }}
+          className="btn-secondary flex items-center gap-2"
+            style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
+          aria-expanded={showReportsMenu}
+          aria-haspopup="menu"
+        >
+          <FileBarChart className="w-4 h-4" />
+          Reports
+          <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+        </button>
+        <AnimatePresence>
+          {showReportsMenu && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowReportsMenu(false)} />
+              <motion.div
+                role="menu"
+                ref={edgeAwareRefCallback}
+                className="absolute left-0 top-full mt-1 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-50"
+                variants={dropdownVariants}
+                initial="hidden" animate="visible" exit="exit"
+              >
+                <button
+                  className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                  style={{ minHeight: 44 }}
+                  onClick={() => { setShowReportsMenu(false); navigate('/reports?new=1') }}
+                >
+                  Build a report…
+                </button>
+                {showSummaryReport && (<>
+                  <button
+                    className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                    style={{ minHeight: 44 }}
+                    onClick={() => { setShowReportsMenu(false); setShowSupervisorReport(true) }}
+                  >
+                    Summary report…
+                  </button>
+                </>)}
+                {requirementsOn && (
+                <button
+                  className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                  style={{ minHeight: 44 }}
+                  onClick={() => { setShowReportsMenu(false); setReport('compliance') }}
+                >
+                  {t('requirement', { many: true, cap: true })} summary…
+                </button>
+                )}
+                <button
+                  className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                  style={{ minHeight: 44 }}
+                  onClick={() => { setShowReportsMenu(false); setReport('missing') }}
+                >
+                  Missing information…
+                </button>
+                <button
+                  className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                  style={{ minHeight: 44 }}
+                  onClick={() => { setShowReportsMenu(false); setReport('audit') }}
+                >
+                  Audit trail…
+                </button>
+                {(timeOn || mileageOn || measuresOn) && (<>
+                  <button
+                    className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                    style={{ minHeight: 44 }}
+                    onClick={() => { setShowReportsMenu(false); setReport('time') }}
+                  >
+                    Totals…
+                  </button>
+                </>)}
+                <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
+                <button className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                  style={{ minHeight: 44 }}
+                  onClick={() => { setShowReportsMenu(false); navigate('/reports') }}>
+                  All reports
+                </button>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* More: columns, import, export, printouts. The tour's steps point here */}
+      <div className="relative" data-tour="add-column">
+        <div data-tour="import-btn">
+          <button
+            data-tour="export-btn"
+            onClick={() => { setShowMoreMenu(v => !v); setShowAddColumn(false); setShowManageColumns(false); setShowViewMenu(false); setShowReportsMenu(false) }}
+            className="btn-secondary flex items-center gap-2"
+            style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
+            aria-expanded={showMoreMenu}
+            aria-haspopup="menu"
+          >
+            More
+            {hiddenColumns.length > 0 && (
+              <span className="bg-slate-300 dark:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm font-medium px-1.5 py-0.5 rounded-full">{hiddenColumns.length} hidden</span>
+            )}
+            <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+          </button>
+        </div>
+        <AnimatePresence>
+          {showMoreMenu && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
+              <motion.div
+                role="menu"
+                ref={edgeAwareRefCallback}
+                className="absolute left-0 top-full mt-1 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-50"
+                variants={dropdownVariants}
+                initial="hidden" animate="visible" exit="exit"
+              >
+                <p className="px-4 pt-2 pb-1 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" aria-hidden="true">Columns</p>
+                <button role="menuitem" className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                  style={{ minHeight: 44 }}
+                  onClick={() => { setShowMoreMenu(false); setShowAddColumn(true) }}>
+                  <Plus className="w-4 h-4" />Add a column…
+                </button>
+                <button role="menuitem" className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                  style={{ minHeight: 44 }}
+                  onClick={() => { setShowMoreMenu(false); setShowManageColumns(true) }}>
+                  <Columns className="w-4 h-4" /><span className="flex-1">Show or hide columns…</span>
+                  {hiddenColumns.length > 0 && <span className="text-sm text-slate-500 dark:text-slate-400">{hiddenColumns.length} hidden</span>}
+                </button>
+                <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
+                <p className="px-4 pt-2 pb-1 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" aria-hidden="true">Bring in and send out</p>
+                <button role="menuitem" className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                  style={{ minHeight: 44 }}
+                  onClick={() => { setShowMoreMenu(false); setShowImportWizard(true) }}>
+                  <Upload className="w-4 h-4" />Import from CSV or Excel…
+                </button>
+                <button
+                  className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                  style={{ minHeight: 44 }}
+                  onClick={handleExportCsvStart}
+                >
+                  Export as CSV
+                </button>
+                <button
+                  className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                  style={{ minHeight: 44 }}
+                  onClick={handleExportPdfStart}
+                >
+                  Export as PDF
+                </button>
+                {lettersOn && (
+                  <button
+                    className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                    style={{ minHeight: 44 }}
+                    onClick={() => { setShowMoreMenu(false); setBatchDocs(true) }}
+                  >
+                    Documents and labels…
+                  </button>
+                )}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
         <AnimatePresence>
           {showAddColumn && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowAddColumn(false)} />
               <motion.div
                 ref={edgeAwareRefCallback}
-                className="absolute left-0 top-full mt-1 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-4 z-50"
+                className="absolute left-0 top-full mt-1 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-4 z-50"
                 variants={dropdownVariants}
                 initial="hidden" animate="visible" exit="exit"
               >
@@ -355,6 +567,9 @@ export function GridToolbar(): React.ReactElement {
                       {linksOn && <option value="link">Link to another {t('list')}…</option>}
                       {filesOn && <option value="file_count">Files (how many)</option>}
                     </select>
+                    {COLUMN_TYPES.find(c => c.type === newColType) && (
+                      <p className="mt-1 text-base text-slate-500 dark:text-slate-400">{COLUMN_TYPES.find(c => c.type === newColType)!.description}</p>
+                    )}
                   </div>
                   {!linksOn && gridCount > 1 && (
                     <FeatureOffer feature="links" message={`Connect your ${t('list', { many: true })}, like customers and their vehicles?`} />
@@ -362,6 +577,17 @@ export function GridToolbar(): React.ReactElement {
 
                   {(newColType === 'date' || newColType === 'deadline') && (
                     <DeadlineQuestion type={newColType} value={deadlineChoice} onChange={setDeadlineChoice} />
+                  )}
+
+                  {(newColType === 'age_from_dob' || newColType === 'calculated_days') && (
+                    <div>
+                      <label htmlFor="new-col-source" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Worked out from</label>
+                      <select id="new-col-source" className="input" style={{ minHeight: 36 }} value={sourceColumnId ?? ''} onChange={e => setSourceColumnId(e.target.value ? Number(e.target.value) : null)}>
+                        <option value="">Choose a date column…</option>
+                        {allColumns.filter(c => c.column_type === 'date').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                      {!allColumns.some(c => c.column_type === 'date') && <p className="mt-1 text-base text-slate-500 dark:text-slate-400">Add a date column first.</p>}
+                    </div>
                   )}
 
                   {(newColType === 'dropdown' || newColType === 'status') && (
@@ -431,43 +657,6 @@ export function GridToolbar(): React.ReactElement {
             </>
           )}
         </AnimatePresence>
-      </div>
-
-      {ruleEditorFor !== null && (
-        <AlertRuleEditor columnId={ruleEditorFor} onClose={async createdRuleId => {
-          const colId = ruleEditorFor
-          setRuleEditorFor(null)
-          if (!createdRuleId) return
-          const col = useGridStore.getState().columns.find(c => c.id === colId)
-          let cfg: Record<string, unknown> = {}
-          try { cfg = JSON.parse(col?.config || '{}') as Record<string, unknown> } catch { /* start fresh */ }
-          const rule = useAlertStore.getState().rules.find(r => r.id === createdRuleId)
-          // A rule that reads the done date needs a Deadline column (Decision E1)
-          const toDeadline = col?.column_type === 'date' && !!rule && needsDeadlineColumn(engineRuleFrom(rule))
-          await updateColumn(colId, { config: JSON.stringify({ ...cfg, alert_rule_id: createdRuleId }), ...(toDeadline ? { column_type: 'deadline' } : {}) })
-        }} />
-      )}
-
-      {/* Manage columns */}
-      {hiddenColumns.length > 0 && (
-        <div className="relative">
-          <Tooltip content="Show or hide columns" placement="bottom">
-            <button
-              onClick={() => { setShowManageColumns(v => !v); setShowAddColumn(false) }}
-              className="btn-secondary flex items-center gap-2"
-              style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
-              title="Show or hide columns"
-              aria-label="Manage columns"
-              aria-expanded={showManageColumns}
-            >
-              <Columns className="w-4 h-4" />
-              Columns
-            <span className="ml-0.5 bg-slate-300 dark:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm font-medium px-1.5 py-0.5 rounded-full">
-              {hiddenColumns.length} hidden
-            </span>
-            </button>
-          </Tooltip>
-
           <AnimatePresence>
             {showManageColumns && (
               <>
@@ -504,175 +693,22 @@ export function GridToolbar(): React.ReactElement {
               </>
             )}
           </AnimatePresence>
-        </div>
-      )}
-
-      {/* Export menu */}
-      <div className="relative" data-tour="export-btn">
-        <Tooltip content="Export, print and reports" placement="bottom">
-          <button
-            onClick={() => { setShowExportMenu(v => !v); setShowAddColumn(false); setShowManageColumns(false) }}
-            className="btn-secondary flex items-center gap-2"
-            style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
-            title="Export to CSV or PDF"
-            aria-label="Export data"
-            aria-expanded={showExportMenu}
-          >
-            <Download className="w-4 h-4" />
-            Export
-            <ChevronDown className="w-3.5 h-3.5 opacity-60" />
-          </button>
-        </Tooltip>
-        <AnimatePresence>
-          {showExportMenu && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
-              <motion.div
-                ref={edgeAwareRefCallback}
-                className="absolute right-0 top-full mt-1 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-50"
-                variants={dropdownVariants}
-                initial="hidden" animate="visible" exit="exit"
-              >
-                <p className="px-4 pt-2 pb-1 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" aria-hidden="true">Export</p>
-                <button
-                  className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
-                  style={{ minHeight: 44 }}
-                  onClick={handleExportCsvStart}
-                >
-                  Export as CSV
-                </button>
-                <button
-                  className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
-                  style={{ minHeight: 44 }}
-                  onClick={handleExportPdfStart}
-                >
-                  Export as PDF
-                </button>
-                {lettersOn && (
-                  <button
-                    className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
-                    style={{ minHeight: 44 }}
-                    onClick={() => { setShowExportMenu(false); setBatchDocs(true) }}
-                  >
-                    Documents and labels…
-                  </button>
-                )}
-                <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
-                <p className="px-4 pt-2 pb-1 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" aria-hidden="true">Reports</p>
-                <button
-                  className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
-                  style={{ minHeight: 44 }}
-                  onClick={() => { setShowExportMenu(false); navigate('/reports?new=1') }}
-                >
-                  Build a report…
-                </button>
-                {showSummaryReport && (<>
-                  <button
-                    className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
-                    style={{ minHeight: 44 }}
-                    onClick={() => { setShowExportMenu(false); setShowSupervisorReport(true) }}
-                  >
-                    Summary report…
-                  </button>
-                </>)}
-                {requirementsOn && (
-                <button
-                  className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
-                  style={{ minHeight: 44 }}
-                  onClick={() => { setShowExportMenu(false); setReport('compliance') }}
-                >
-                  {t('requirement', { many: true, cap: true })} summary…
-                </button>
-                )}
-                <button
-                  className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
-                  style={{ minHeight: 44 }}
-                  onClick={() => { setShowExportMenu(false); setReport('missing') }}
-                >
-                  Missing information…
-                </button>
-                <button
-                  className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
-                  style={{ minHeight: 44 }}
-                  onClick={() => { setShowExportMenu(false); setReport('audit') }}
-                >
-                  Audit trail…
-                </button>
-                {(timeOn || mileageOn || measuresOn) && (<>
-                  <button
-                    className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
-                    style={{ minHeight: 44 }}
-                    onClick={() => { setShowExportMenu(false); setReport('time') }}
-                  >
-                    Totals…
-                  </button>
-                </>)}
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
       </div>
 
-      {/* Import button */}
-      <Tooltip content="Import from CSV or Excel" placement="bottom">
-        <button
-          data-tour="import-btn"
-          onClick={() => setShowImportWizard(true)}
-          className="btn-secondary flex items-center gap-2"
-          style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
-          title="Import from CSV or Excel"
-          aria-label="Import from CSV or Excel"
-        >
-          <Upload className="w-4 h-4" />
-          Import
-        </button>
-      </Tooltip>
-
-      {/* Filter rows */}
-      <FilterControls />
-
-      {/* Saved views */}
-      <SavedViewsDropdown />
-
-      {/* Group rows */}
-      <GroupingBar />
-
-      {priorityOn && (<>
-        {/* Acuity scoring */}
-        <div className="relative">
-          <Tooltip content={acuityEnabled ? `Set up ${t('priority', { many: true })}` : `Turn on ${t('priority', { many: true })}`} placement="bottom">
-            <button
-              onClick={() => setShowAcuityPanel(v => !v)}
-              className={`btn-secondary flex items-center gap-2 ${acuityEnabled ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300' : ''}`}
-              style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
-              title={acuityEnabled ? `${t('priority', { many: true, cap: true })} are on — click to set up` : `Turn on ${t('priority', { many: true })}`}
-              aria-label={acuityEnabled ? `Set up ${t('priority', { many: true })}` : `Turn on ${t('priority', { many: true })}`}
-              aria-pressed={acuityEnabled}
-            >
-              <Gauge className="w-4 h-4" />
-              {t('priority', { cap: true })}
-              {acuityEnabled && <AcuityPointsBadge />}
-            </button>
-          </Tooltip>
-          {showAcuityPanel && <AcuityConfigPanel onClose={() => setShowAcuityPanel(false)} />}
-        </div>
-      </>)}
-
-      {/* Show archived toggle */}
-      <Tooltip content={`${showArchived ? 'Hide' : 'Show'} archived ${t('record', { many: true })}`} placement="bottom">
-        <button
-          data-tour="archived-toggle"
-          onClick={() => setShowArchived(!showArchived)}
-          className={`btn-secondary flex items-center gap-2 ${showArchived ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300' : ''}`}
-          style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
-          title={`${showArchived ? 'Hide' : 'Show'} archived ${t('record', { many: true })}`}
-          aria-label={`${showArchived ? 'Hide' : 'Show'} archived ${t('record', { many: true })}`}
-          aria-pressed={showArchived}
-        >
-          <Archive className="w-4 h-4" />
-          {showArchived ? 'Hide Archived' : 'Archived'}
-        </button>
-      </Tooltip>
+      {ruleEditorFor !== null && (
+        <AlertRuleEditor columnId={ruleEditorFor} onClose={async createdRuleId => {
+          const colId = ruleEditorFor
+          setRuleEditorFor(null)
+          if (!createdRuleId) return
+          const col = useGridStore.getState().columns.find(c => c.id === colId)
+          let cfg: Record<string, unknown> = {}
+          try { cfg = JSON.parse(col?.config || '{}') as Record<string, unknown> } catch { /* start fresh */ }
+          const rule = useAlertStore.getState().rules.find(r => r.id === createdRuleId)
+          // A rule that reads the done date needs a Deadline column (Decision E1)
+          const toDeadline = col?.column_type === 'date' && !!rule && needsDeadlineColumn(engineRuleFrom(rule))
+          await updateColumn(colId, { config: JSON.stringify({ ...cfg, alert_rule_id: createdRuleId }), ...(toDeadline ? { column_type: 'deadline' } : {}) })
+        }} />
+      )}
 
       <div className="flex-1" />
 
@@ -680,12 +716,11 @@ export function GridToolbar(): React.ReactElement {
         <button
           type="button"
           onClick={() => setShowListSettings(true)}
-          className="btn-secondary flex items-center gap-2"
-          style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
+          className="btn-secondary hit-44 flex items-center justify-center"
+          style={{ minHeight: 36, minWidth: 44, padding: '0 10px', fontSize: 15 }}
           aria-label={`${t('list', { cap: true })} settings`}
         >
-          <Settings2 className="w-4 h-4" />
-          {t('list', { cap: true })} settings
+          <Settings2 className="w-5 h-5" />
         </button>
       </Tooltip>
       {showListSettings && activeGridId != null && (
@@ -727,7 +762,8 @@ export function GridToolbar(): React.ReactElement {
       {/* Column select dialog for exports */}
       <ColumnSelectDialog
         open={exportColumnSelect != null}
-        columns={allColumns.filter(c => c.is_visible !== 0)}
+        columns={allColumns.map(c => ({ id: c.id, name: c.name, hidden: c.is_visible === 0 }))}
+        rowScope={scopeCounts}
         onConfirm={handleExportWithColumns}
         onCancel={() => setExportColumnSelect(null)}
         title={exportColumnSelect === 'csv' ? 'Select Columns for CSV Export' : 'Select Columns for PDF Export'}

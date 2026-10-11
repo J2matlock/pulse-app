@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
-import { mkdtempSync, writeFileSync } from 'fs'
+import { mkdtempSync, writeFileSync, mkdirSync, readdirSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 
@@ -100,7 +100,7 @@ vi.mock('../src/main/backup', () => ({
 const backupMock = vi.hoisted(() => ({ lastSet: null as unknown, restoreOther: null as null | ((opts: unknown) => Promise<unknown>) }))
 
 vi.mock('../src/main/export', () => ({
-  exportCsv: async () => '/tmp/export.csv',
+  exportCsv: vi.fn(async () => '/tmp/export.csv'),
   exportPdfGrid: async () => '/tmp/export.pdf',
   exportPdfProfile: async () => '/tmp/profile.pdf',
   exportPdfBatch: async () => '/tmp/batch.pdf',
@@ -187,6 +187,14 @@ describe('BACKUP_GET_INFO', () => {
     expect(result.data).toHaveProperty('totalClients')
     expect(result.data).toHaveProperty('dbPath')
     expect(result.data).toHaveProperty('autoBackupCount')
+  })
+
+  it('counts active records only in lists that still exist (X-11)', async () => {
+    const kept = seedGrid(testDb.db, { rowCount: 3, columnCount: 1 })
+    const gone = seedGrid(testDb.db, { rowCount: 2, columnCount: 1 })
+    testDb.db.prepare('UPDATE grids SET is_active = 0 WHERE id = ?').run(gone.gridId)
+    const result = await invoke(IPC.BACKUP_GET_INFO) as { ok: true; data: { totalClients: number } }
+    expect(result.data.totalClients).toBe(kept.rowIds.length)
   })
 })
 
@@ -472,6 +480,31 @@ describe('EXPORT_ALL_CSV', () => {
   it('fails with empty destFolder', async () => {
     const result = await invoke(IPC.EXPORT_ALL_CSV, '') as { ok: false }
     expect(result.ok).toBe(false)
+  })
+
+  it('exports every list with hidden columns, gives same-named lists their own file, and adds the notes (X-21)', async () => {
+    const dir = join(tmpdir(), 'pulse-test-export', 'documents', `all-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    mkdirSync(dir, { recursive: true })
+    const a = seedGrid(testDb.db, { name: 'Clients', rowCount: 1, columnCount: 2 })
+    const b = seedGrid(testDb.db, { name: 'Clients', rowCount: 1, columnCount: 1 })
+    testDb.db.prepare("UPDATE columns SET name = 'Name' WHERE id IN (?, ?)").run(a.columnIds[0], b.columnIds[0])
+    testDb.db.prepare("UPDATE columns SET name = 'Secret', is_visible = 0 WHERE id = ?").run(a.columnIds[1])
+    testDb.db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, 'José Núñez'), (?, ?, 'hidden value')").run(a.rowIds[0], a.columnIds[0], a.rowIds[0], a.columnIds[1])
+    testDb.db.prepare("UPDATE rows SET display_name = 'José Núñez' WHERE id = ?").run(a.rowIds[0])
+    testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, '<p>Home visit</p>', 'note', '2026-10-06 15:00:00', '2026-10-06 15:00:00')").run(a.rowIds[0])
+    const result = await invoke(IPC.EXPORT_ALL_CSV, dir) as { ok: true; data: { exported: number; errors: string[]; notes: number } }
+    expect(result).toEqual({ ok: true, data: expect.anything() })
+    expect(result.data).toMatchObject({ exported: 2, errors: [], notes: 1 })
+    // Each list goes to its own file with its hidden columns (exportCsv itself is covered in export-csv.test.ts)
+    const { exportCsv } = await import('../src/main/export')
+    const calls = vi.mocked(exportCsv).mock.calls.slice(-2).map(c => c[0] as { destPath: string; includeHidden?: boolean })
+    expect(calls.map(c => c.destPath)).toEqual([join(dir, 'Clients.csv'), join(dir, 'Clients (2).csv')])
+    expect(calls.every(c => c.includeHidden)).toBe(true)
+    expect(readdirSync(dir)).toEqual(['notes.csv'])
+    const notes = readFileSync(join(dir, 'notes.csv'), 'utf-8')
+    expect(notes).toContain('José Núñez')
+    expect(notes).toContain('Home visit')
+    expect(notes).not.toContain('<p>')
   })
 })
 

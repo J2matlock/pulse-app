@@ -8,8 +8,8 @@ import { IPC } from '../../shared/ipc-channels'
 import type { StageMoveResult } from '../../shared/stages'
 import type { GridRow } from '../../shared/types'
 import { localDateString } from '../../shared/dates'
-import { safeInvoke } from './safeInvoke'
-import { useUndoStore } from '../stores/undoStore'
+import { safeInvoke, mustInvoke } from './safeInvoke'
+import { useUndoStore, type UndoItem } from '../stores/undoStore'
 import { useGridStore } from '../stores/gridStore'
 import { getClientName } from './clientName'
 import { friendlyError } from './friendlyError'
@@ -22,17 +22,23 @@ function patchRow(rowId: number, columnId: number, value: string | null, stamped
   }))
 }
 
-/** Returns whether the record moved. */
-export async function moveToStage(rowId: number, columnId: number, value: string | null): Promise<boolean> {
+/**
+ * Returns whether the record moved. With collect (a bulk move), the undo step
+ * is added there instead of pushed, and a failure throws instead of toasting.
+ */
+export async function moveToStage(rowId: number, columnId: number, value: string | null, opts?: { collect?: UndoItem[] }): Promise<boolean> {
   const res = await safeInvoke<StageMoveResult>(IPC.STAGE_MOVE, rowId, columnId, value)
-  if (!res.ok) { toast.error(friendlyError(res.error)); return false }
+  if (!res.ok) {
+    if (opts?.collect) throw new Error(friendlyError(res.error))
+    toast.error(friendlyError(res.error)); return false
+  }
   let result = res.data
   if (!result.changed) return false
   patchRow(rowId, columnId, value, result.stamped)
   const { rows, columns } = useGridStore.getState()
   const row = rows.find(r => r.row_id === rowId)
   const name = row ? getClientName(row, columns) : ''
-  useUndoStore.getState().pushWithToast({
+  const item: UndoItem = {
     id: crypto.randomUUID(),
     description: `Moved ${name ? `${name} ` : ''}to ${value ?? 'no stage'}`,
     timestamp: Date.now(),
@@ -42,9 +48,8 @@ export async function moveToStage(rowId: number, columnId: number, value: string
     contextId: rowId,
     // Undo removes the move's notes, history and checklist items in main, so time in stage isn't reset (audit S-16)
     undo: async () => {
-      const r = await safeInvoke(IPC.STAGE_UNDO, rowId, columnId, result)
       // Throwing lets Undo say it failed and keep the step
-      if (!r.ok) throw new Error(r.error)
+      await mustInvoke(IPC.STAGE_UNDO, rowId, columnId, result)
       useGridStore.setState(s => ({
         rows: s.rows.map(row => row.row_id !== rowId ? row : {
           ...row, [`col_${columnId}`]: result.previous, ...(result.stamped ? { [`col_${result.stamped.columnId}`]: result.stamped.previous } : {}),
@@ -52,9 +57,11 @@ export async function moveToStage(rowId: number, columnId: number, value: string
       }))
     },
     redo: async () => {
-      const again = await safeInvoke<StageMoveResult>(IPC.STAGE_MOVE, rowId, columnId, value)
+      const again = await mustInvoke<StageMoveResult>(IPC.STAGE_MOVE, rowId, columnId, value)
       if (again.ok && again.data.changed) { result = again.data; patchRow(rowId, columnId, value, result.stamped) }
     },
-  })
+  }
+  if (opts?.collect) opts.collect.push(item)
+  else useUndoStore.getState().pushWithToast(item)
   return true
 }

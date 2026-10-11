@@ -117,6 +117,7 @@ vi.mock('@tanstack/react-virtual', () => ({
       })),
     getTotalSize: () => count * 44,
     measureElement: vi.fn(),
+    scrollToIndex: vi.fn(),
   }),
 }))
 
@@ -263,6 +264,9 @@ function setupStores(overrides: Record<string, unknown> = {}) {
     customGroups: [],
     activeCustomGroupId: null,
     sortedRowIds: [],
+    selectedRowIds: new Set<number>(),
+    lastAddedRowId: null,
+    pinnedRowId: null,
     sampleRows: {},
     ...overrides,
   } as unknown as Parameters<typeof useGridStore.setState>[0])
@@ -530,6 +534,62 @@ describe('DataGrid', () => {
       expect(screen.getByLabelText('Deselect client')).toBeTruthy()
     })
 
+    it('"Select all" selects only the records the search shows (G-05)', async () => {
+      setupStores({ searchQuery: 'Client 3' })
+      renderDataGrid()
+      await flushEffects()
+      fireEvent.click(screen.getByLabelText('Select all rows'))
+      await flushEffects()
+      expect([...useGridStore.getState().selectedRowIds]).toEqual([3])
+      expect(useGridStore.getState().sortedRowIds).toEqual([3])
+    })
+
+    it('keeps a record just added on screen, and says when the filter would hide it (G-28)', async () => {
+      const toast = (await import('react-hot-toast')).default as unknown as ReturnType<typeof vi.fn>
+      toast.mockClear()
+      const rows = [...makeTestRows(5).map(r => ({ ...r, is_starred: 1 as const })), makeRow(6, {})]
+      setupStores({ rows, showStarredOnly: true, lastAddedRowId: 6, pinnedRowId: 6 })
+      renderDataGrid()
+      await flushEffects()
+      expect(useGridStore.getState().sortedRowIds).toContain(6)
+      expect(toast).toHaveBeenCalledTimes(1)
+      // Changing the filter lets it go
+      act(() => { useGridStore.setState({ searchQuery: 'Client' }) })
+      await flushEffects()
+      expect(useGridStore.getState().pinnedRowId).toBeNull()
+      expect(useGridStore.getState().sortedRowIds).not.toContain(6)
+    })
+
+    it('a search that hides selected records unselects them (G-05)', async () => {
+      setupStores({ selectedRowIds: new Set([1, 3]) })
+      renderDataGrid()
+      await flushEffects()
+      act(() => { useGridStore.setState({ searchQuery: 'Client 3' }) })
+      await flushEffects()
+      expect([...useGridStore.getState().selectedRowIds]).toEqual([3])
+    })
+
+    it('ticking boxes one after another builds a selection, like checkboxes (G-06)', async () => {
+      renderDataGrid()
+      await flushEffects()
+      const boxes = screen.getAllByLabelText('Select client')
+      fireEvent.click(boxes[0]!)
+      fireEvent.click(boxes[2]!)
+      await flushEffects()
+      expect([...useGridStore.getState().selectedRowIds].sort()).toEqual([1, 3])
+    })
+
+    it('shows a star on starred records and stars one from the row (G-30)', async () => {
+      const updateRow = vi.fn()
+      setupStores({ rows: makeTestRows(2).map((r, i) => ({ ...r, is_starred: i === 0 ? 1 : 0 })), updateRow })
+      renderDataGrid()
+      await flushEffects()
+      expect(screen.getByLabelText('Remove star').getAttribute('aria-pressed')).toBe('true')
+      fireEvent.click(screen.getByLabelText('Star this client'))
+      await flushEffects()
+      expect(updateRow).toHaveBeenCalledWith(2, { is_starred: 1 })
+    })
+
     it('clicking selected row deselects it', async () => {
       renderDataGrid()
       await flushEffects()
@@ -629,6 +689,30 @@ describe('DataGrid', () => {
       await flushEffects()
       const profileBtns = screen.getAllByLabelText('Open client profile')
       expect(profileBtns.length).toBe(5)
+    })
+  })
+
+  describe('Tags column (L-19)', () => {
+    it('shows each record\'s tags, and its header hides the column', async () => {
+      const setShowTagsColumn = vi.fn()
+      setupStores({ showTagsColumn: true, setShowTagsColumn, rowTagsMap: new Map([[1, ['urgent', 'housing', 'new']]]) })
+      renderDataGrid()
+      await flushEffects()
+      const cells = screen.getAllByTestId('row-tags-cell')
+      expect(cells.length).toBe(5)
+      expect(cells[0]!.textContent).toContain('urgent')
+      expect(cells[0]!.textContent).toContain('housing')
+      expect(cells[0]!.textContent).toContain('+1')
+      fireEvent.click(screen.getByRole('button', { name: 'Hide the Tags column' }))
+      expect(setShowTagsColumn).toHaveBeenCalledWith(false)
+    })
+
+    it('is not shown when switched off', async () => {
+      setupStores({ showTagsColumn: false, rowTagsMap: new Map([[1, ['urgent']]]) })
+      renderDataGrid()
+      await flushEffects()
+      expect(screen.queryByTestId('row-tags-cell')).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Hide the Tags column' })).toBeNull()
     })
   })
 })

@@ -32,9 +32,10 @@ const upsert = () => cachedStmt('an_upsert', `
  * the order given. Rows that already have a number keep it unless `overwrite`
  * (duplicates and records brought in from another list get a new one).
  */
-export function assignAutoNumbers(gridId: number, rowIds: number[], opts: { overwrite?: boolean } = {}): void {
+export function assignAutoNumbers(gridId: number, rowIds: number[], opts: { overwrite?: boolean; keep?: Set<number> } = {}): void {
   if (!rowIds.length) return
-  const cols = autoColumns(gridId)
+  // keep: columns whose current value is the record's own number (it moved back), never overwritten
+  const cols = autoColumns(gridId).filter(c => !opts.keep?.has(c.id))
   if (!cols.length) return
   const existing = cachedStmt('an_existing', 'SELECT value FROM cells WHERE row_id = ? AND column_id = ?')
   for (const col of cols) {

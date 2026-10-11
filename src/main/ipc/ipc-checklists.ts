@@ -197,8 +197,8 @@ export function registerChecklistHandlers(): void {
     if (existing) return fail('Item with this ID already exists')
     db.prepare(`
       INSERT INTO checklist_items
-      (id, row_id, title, description, is_completed, due_date, completed_at, completed_by, position, category, priority, is_archived, created_at, template_source_id, recurrence_rule, group_id, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      (id, row_id, title, description, is_completed, due_date, completed_at, completed_by, position, category, priority, is_archived, created_at, template_source_id, recurrence_rule, group_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(item.id, item.row_id, item.title, item.description ?? null, item.is_completed, item.due_date ?? null, item.completed_at ?? null, item.completed_by ?? null, item.position, item.category ?? null, item.priority, item.is_archived, item.created_at, item.template_source_id ?? null, item.recurrence_rule ?? null, item.group_id ?? null)
     return ok(true)
   })

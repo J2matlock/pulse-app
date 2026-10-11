@@ -63,8 +63,9 @@ export function markMeterDone(rowId: number, columnId: number, reading: number, 
     }
     db.prepare("UPDATE rows SET updated_at = datetime('now') WHERE id = ?").run(rowId)
     const content = `${col.name} done ${formatDue(today)} at ${reading.toLocaleString('en-US')} ${cfg.unit}`
-    const sysLogId = Number(db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))")
-      .run(rowId, content).lastInsertRowid)
+    // Tagged as a completion, so the dashboard's Completed list counts it (L-22)
+    const sysLogId = Number(db.prepare("INSERT INTO case_log (row_id, content, log_type, source_action_id, created_at, updated_at) VALUES (?, ?, 'system', ?, datetime('now'), datetime('now'))")
+      .run(rowId, content, `deadline_done:${columnId}`).lastInsertRowid)
     return { previous, sysLogId }
   })()
 }
@@ -119,8 +120,8 @@ export function markDone(rowId: number, columnId: number, choice: DoneChoice, ch
       content = `${name} finished (was due ${formatDue(base)})`
     }
     db.prepare("UPDATE rows SET updated_at = datetime('now') WHERE id = ?").run(rowId)
-    const sysLogId = Number(db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))")
-      .run(rowId, content).lastInsertRowid)
+    const sysLogId = Number(db.prepare("INSERT INTO case_log (row_id, content, log_type, source_action_id, created_at, updated_at) VALUES (?, ?, 'system', ?, datetime('now'), datetime('now'))")
+      .run(rowId, content, `deadline_done:${columnId}`).lastInsertRowid)
     const checklistItemIds = checklistTemplateId && db.prepare('SELECT 1 FROM checklist_templates WHERE id = ?').get(checklistTemplateId)
       ? applyChecklistTemplate(rowId, checklistTemplateId) : []
     return { previous, newValue, finishedFor, sysLogId, checklistItemIds }
@@ -173,8 +174,8 @@ export function markStepDone(rowId: number, columnId: number, step: number, done
     const n = cfg.steps.length
     const on = day === localDateString() ? '' : ` on ${formatDue(day)}`
     const label = step < n ? `${cfg.steps[step]!.label} done${on} (step ${step + 1} of ${n})` : `${cfg.steps[n - 1]!.label} done${on} (repeat ${step - n + 1})`
-    const sysLogId = Number(db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))")
-      .run(rowId, `${name}: ${label}`).lastInsertRowid)
+    const sysLogId = Number(db.prepare("INSERT INTO case_log (row_id, content, log_type, source_action_id, created_at, updated_at) VALUES (?, ?, 'system', ?, datetime('now'), datetime('now'))")
+      .run(rowId, `${name}: ${label}`, `deadline_done:${columnId}`).lastInsertRowid)
     db.prepare("UPDATE rows SET updated_at = datetime('now') WHERE id = ?").run(rowId)
     return { sysLogId }
   })()

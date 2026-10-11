@@ -27,7 +27,7 @@ export function registerSettingsHandlers(): void {
   // ── Settings ──────────────────────────────────────────────────────────────
   secureWrap(IPC.SETTINGS_GET, 'ipc-settings', (_e, key: string) => {
     if (typeof key !== 'string' || key.length === 0 || key.length > 200 || !/^[a-zA-Z0-9_]+$/.test(key)) return fail('Invalid settings key')
-    const ALLOWED_PREFIXES = ['client_details_columns_', 'onboarding_', 'profile_', 'custom_groups_', 'grid_view_mode_', 'board_card_fields_']
+    const ALLOWED_PREFIXES = ['client_details_columns_', 'onboarding_', 'profile_', 'custom_groups_', 'grid_view_mode_', 'board_card_fields_', 'grid_tags_column_']
     const isAllowed = ALLOWED_SETTINGS_KEYS.has(key) || ALLOWED_PREFIXES.some(p => key.startsWith(p))
     if (!isAllowed) return fail('Unknown settings key')
     const row = getDb().prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined
@@ -48,7 +48,7 @@ export function registerSettingsHandlers(): void {
     // Key format: only alphanumeric + underscores (prevents path traversal in key names)
     if (!/^[a-zA-Z0-9_]+$/.test(key)) return fail('Invalid settings key format')
     // Allowlist: only known settings keys or dynamic prefixed keys
-    const ALLOWED_PREFIXES = ['client_details_columns_', 'onboarding_', 'profile_', 'custom_groups_', 'grid_view_mode_', 'board_card_fields_']
+    const ALLOWED_PREFIXES = ['client_details_columns_', 'onboarding_', 'profile_', 'custom_groups_', 'grid_view_mode_', 'board_card_fields_', 'grid_tags_column_']
     const isAllowed = ALLOWED_SETTINGS_KEYS.has(key) || ALLOWED_PREFIXES.some(p => key.startsWith(p))
     if (!isAllowed) return fail(`Unknown settings key: ${key}`)
     if (WORKSPACE_ONLY_KEYS.has(key)) return fail('Change words and features from Settings → Workspace')

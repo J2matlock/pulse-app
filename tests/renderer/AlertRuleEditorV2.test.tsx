@@ -59,6 +59,20 @@ describe('the rule editor', () => {
     expect(onClose).toHaveBeenCalledWith(11)
   })
 
+  it('flags a setting that points at a deleted column in red (D-25)', () => {
+    const rule = {
+      id: 5, name: 'Plan due', description: null, thresholds: [], interval_days: null, interval_months: null, end_of_month: 0,
+      kind: 'relative', business_days: 0, is_system: 0, created_at: '',
+      rule_config: JSON.stringify({ kind: 'relative', anchorColumnId: 99, offset: { days: 45, direction: 'after' } }),
+      rule_condition: null,
+    } as never
+    render(<AlertRuleEditor rule={rule} columnId={3} onClose={vi.fn()} />)
+    const anchor = screen.getByLabelText('Worked out from') as HTMLSelectElement
+    expect(anchor.getAttribute('aria-invalid')).toBe('true')
+    expect(anchor.value).toBe('99')
+    expect(screen.getByRole('alert').textContent).toMatch(/is gone/)
+  })
+
   it('will not save settings that are missing something', async () => {
     render(<AlertRuleEditor columnId={3} onClose={vi.fn()} />)
     fireEvent.change(screen.getByLabelText('Rule name'), { target: { value: 'Quarterly' } })

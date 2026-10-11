@@ -16,6 +16,19 @@ export const IPC = {
   COLUMN_DELETE: 'column:delete',
   COLUMN_REORDER: 'column:reorder',
   COLUMN_NUMBER_EXISTING: 'column:number-existing',
+  COLUMN_DEPENDENTS: 'column:dependents',
+  COLUMN_SET_NAME: 'column:set-name',
+  COLUMN_OPTION_USAGE: 'column:option-usage',
+  COLUMN_SET_OPTIONS: 'column:set-options',
+  COLUMN_TYPE_PREVIEW: 'column:type-preview',
+  COLUMN_CHANGE_TYPE: 'column:change-type',
+  COLUMN_CHANGE_TYPE_UNDO: 'column:change-type-undo',
+  COLUMN_DELETED_LIST: 'column:deleted-list',
+  COLUMN_RESTORE: 'column:restore',
+  COLUMN_PURGE: 'column:purge',
+  GRID_DELETED_LIST: 'grid:deleted-list',
+  GRID_RESTORE: 'grid:restore',
+  GRID_PURGE: 'grid:purge',
 
   // Rows
   ROW_CREATE: 'row:create',
@@ -34,6 +47,7 @@ export const IPC = {
   /** Which list a record is on and whether it's active, archived or in the Trash (open a record from anywhere) */
   ROW_LOCATE: 'row:locate',
   ROW_MOVE_TO_GRID: 'row:move-to-grid',
+  ROW_PURGE_ALL: 'row:purge-all',
   ROW_COPY_TO_GRID: 'row:copy-to-grid',
   ROW_GET_MANUAL_CONTACTS: 'row:get-manual-contacts',
   ROW_SET_MANUAL_CONTACTS: 'row:set-manual-contacts',

@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast'
 import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react'
 import {
   useReactTable,
@@ -30,6 +31,8 @@ import { useProfileStore } from '../../stores/profileStore'
 import type { GridRow, SortConfig, CellFormatRule } from '../../../shared/types'
 import { matchFilter } from '../../utils/filterMatch'
 import { computeDaysUntil } from '../../utils/deadlineCalc'
+import { deadlineCompare, numberCompare, dateCompare } from './gridSort'
+import { rowMatchesSearch } from '../../utils/searchMatch'
 import { CellConditionalFormatPanel } from './CellConditionalFormatPanel'
 import { CellHistoryPopover } from '../shared/CellHistoryPopover'
 import { getClientName } from '../../utils/clientName'
@@ -40,7 +43,7 @@ import { SortableRow } from './SortableRow'
 import { GridContextMenu } from './GridContextMenu'
 import { BulkActionBar } from './BulkActionBar'
 import { handleCellKeyDown as handleCellKeyDownImpl, type KeyboardNavDeps } from './gridKeyboardNav'
-import { ROW_HEIGHTS, HANDLE_WIDTH, PROFILE_BTN_WIDTH, CHAR_WIDTH_HEADER, CHAR_WIDTH_CELL, HEADER_PADDING, CELL_PADDING, MIN_COL_WIDTH, DEFAULT_COL_WIDTH, MAX_AUTO_FIT_WIDTH, GROUP_HEADER_HEIGHT } from './gridConstants'
+import { ROW_HEIGHTS, HANDLE_WIDTH, PROFILE_BTN_WIDTH, CHAR_WIDTH_HEADER, CHAR_WIDTH_CELL, HEADER_PADDING, CELL_PADDING, MIN_COL_WIDTH, DEFAULT_COL_WIDTH, MAX_AUTO_FIT_WIDTH, GROUP_HEADER_HEIGHT, TAGS_COL_WIDTH } from './gridConstants'
 import { rlog } from '../../utils/rendererLogger'
 import { useGridSelection } from '../../hooks/useGridSelection'
 import { useGridContextMenu } from '../../hooks/useGridContextMenu'
@@ -60,7 +63,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { pulseEvents } from '../../events'
 import { IS_MAC } from '../../utils/keys'
 import { useFeature } from '../../hooks/useFeature'
-import { ACUITY_GROUP_KEY, isNotTypedColumnType } from '../../../shared/types'
+import { ACUITY_GROUP_KEY, isNotTypedColumnType, takesDeadlineRule } from '../../../shared/types'
 
 // Stateless column helper — no dependency on props/state, safe at module level
 const columnHelper = createColumnHelper<GridRow>()
@@ -75,7 +78,7 @@ export function DataGrid(): React.ReactElement {
           rowTagsMap, showStarredOnly, cellFormats,
           acuityEnabled: acuityFlag, acuityLevels, groupByColumnId, isLoading,
           activeGridId, copiedFormatRules, customGroups, activeCustomGroupId,
-          lastAddedRowId, frozenColumnCount, sampleRows } = useGridStore(useShallow(s => ({
+          lastAddedRowId, pinnedRowId, frozenColumnCount, sampleRows } = useGridStore(useShallow(s => ({
     columns: s.columns, rows: s.rows, sortConfig: s.sortConfig,
     searchQuery: s.searchQuery, findReplaceQuery: s.findReplaceQuery,
     findReplaceActiveMatch: s.findReplaceActiveMatch,
@@ -88,6 +91,7 @@ export function DataGrid(): React.ReactElement {
     copiedFormatRules: s.copiedFormatRules,
     customGroups: s.customGroups, activeCustomGroupId: s.activeCustomGroupId,
     lastAddedRowId: s.lastAddedRowId,
+    pinnedRowId: s.pinnedRowId,
     frozenColumnCount: s.frozenColumnCount,
     sampleRows: s.sampleRows,
   })))
@@ -115,6 +119,9 @@ export function DataGrid(): React.ReactElement {
   const gridDensity = useSettingsStore(s => s.gridDensity)
   const rowHeight = ROW_HEIGHTS[gridDensity]
 
+  // The built-in Tags column (G-37)
+  const showTagsColumn = useGridStore(s => s.showTagsColumn)
+  const setShowTagsColumn = useGridStore(s => s.setShowTagsColumn)
   const alertRules = useAlertStore(s => s.rules)
   const alertRuleMap = useMemo(() => new Map(alertRules.map(r => [r.id, r])), [alertRules])
   // Colors for meter, quota, step and extension rules depend on this; it arrives after the rows
@@ -211,18 +218,26 @@ export function DataGrid(): React.ReactElement {
   // Apply starred pre-filter + column filters + acuity sort before passing to TanStack
   const filteredRows = useMemo(() => {
     let result = rows
+    // A record just added stays in view until the filter changes (G-28)
+    const pinned = (row: GridRow) => row.row_id === pinnedRowId
     if (showStarredOnly) {
-      result = result.filter(row => row.is_starred === 1)
+      result = result.filter(row => row.is_starred === 1 || pinned(row))
     }
     if (activeFilters.length > 0) {
       const matcher = filterMode === 'or'
-        ? (row: GridRow) => activeFilters.some(f => matchFilter(row, f, columns, rowTagsMap))
-        : (row: GridRow) => activeFilters.every(f => matchFilter(row, f, columns, rowTagsMap))
-      result = result.filter(matcher)
+        ? (row: GridRow) => activeFilters.some(f => matchFilter(row, f, columns, rowTagsMap, alertRuleMap))
+        : (row: GridRow) => activeFilters.every(f => matchFilter(row, f, columns, rowTagsMap, alertRuleMap))
+      result = result.filter(row => matcher(row) || pinned(row))
     }
     return result
-  }, [rows, activeFilters, filterMode, columns, rowTagsMap, showStarredOnly])
-  filteredRowsRef.current = filteredRows
+  }, [rows, activeFilters, filterMode, columns, rowTagsMap, showStarredOnly, pinnedRowId, alertRuleMap])
+
+  // Changing what's filtered lets the pinned record go (not the first render: the grid may mount after an add)
+  const filterMounted = useRef(false)
+  useEffect(() => {
+    if (!filterMounted.current) { filterMounted.current = true; return }
+    if (useGridStore.getState().pinnedRowId !== null) useGridStore.setState({ pinnedRowId: null })
+  }, [activeFilters, filterMode, searchQuery, showStarredOnly])
 
   // Map for O(1) column lookup
   const columnMap = useMemo(() => new Map(columns.map(c => [c.id, c])), [columns])
@@ -293,6 +308,8 @@ export function DataGrid(): React.ReactElement {
     if (!row) return
     await updateRow(rowId, { is_starred: row.is_starred ? 0 : 1 })
   }, [updateRow])
+
+  const handleToggleStarProp = useCallback((rowId: number) => { void handleToggleStar(rowId) }, [handleToggleStar])
 
   const handleDuplicateRow = useCallback(async (rowId: number) => {
     setContextMenu(null)
@@ -411,6 +428,12 @@ export function DataGrid(): React.ReactElement {
       const compCfg = (isCalcDays || isAge)
         ? (parsedColumnConfigs.get(col.id)?.config as { source_column_id?: number } | undefined) ?? {}
         : null
+      // A column with a deadline rule sorts by when it's due, like its colors (G-11)
+      const ruleId = takesDeadlineRule(col.column_type) ? (parsedColumnConfigs.get(col.id)?.config as { alert_rule_id?: number } | undefined)?.alert_rule_id : undefined
+      const deadlineRule = ruleId !== undefined ? alertRuleMap.get(ruleId) : undefined
+      const byDeadline = deadlineRule ? deadlineCompare(col.id, deadlineRule) : null
+      const byNumber = numberCompare(col.id)
+      const byDate = dateCompare(col.id)
 
       return columnHelper.accessor(`col_${col.id}` as keyof GridRow, {
         id: `col_${col.id}`,
@@ -443,6 +466,9 @@ export function DataGrid(): React.ReactElement {
               if (bDate == null) return -1
               return aDate.localeCompare(bDate)
             }
+          : deadlineRule ? (rowA, rowB) => byDeadline!(rowA.original, rowB.original)
+          : (col.column_type === 'number' || col.column_type === 'currency') ? (rowA, rowB) => byNumber(rowA.original, rowB.original)
+          : col.column_type === 'date' ? (rowA, rowB) => byDate(rowA.original, rowB.original)
           : (rowA, rowB, colId) => {
               // Link columns (W04) sort by the linked names, not the stored ids
               const a = isLink ? linkValueText(rowA.getValue(colId) as string | null) || null : rowA.getValue(colId) as string | null
@@ -459,23 +485,15 @@ export function DataGrid(): React.ReactElement {
         maxSize: 800,
       })
     })]
-  }, [columns, acuityEnabled, acuityLevels])
+  }, [columns, acuityEnabled, acuityLevels, alertRuleMap])
 
   // Custom global filter: only search name + text/dropdown columns
+  // Search: every column that holds text, plus tags, the same as the board (G-25)
   const globalFilterFn = useCallback((row: Row<GridRow>, _columnId: string, filterValue: string) => {
     if (!filterValue) return true
-    const lower = filterValue.toLowerCase()
-    const data = row.original
-    for (const col of columns) {
-      if (col.is_name_column || col.column_type === 'text' || col.column_type === 'dropdown' || col.column_type === 'auto_number') {
-        const val = data[`col_${col.id}`]
-        if (val && String(val).toLowerCase().includes(lower)) return true
-      } else if (col.column_type === 'link' && linkValueText(data[`col_${col.id}`]).toLowerCase().includes(lower)) {
-        return true
-      }
-    }
-    return false
-  }, [columns])
+    if (row.original.row_id === useGridStore.getState().pinnedRowId) return true
+    return rowMatchesSearch(row.original, columns, filterValue, rowTagsMap)
+  }, [columns, rowTagsMap])
 
   const handleSortingChange = useCallback((updater: unknown) => {
     const newSorting = typeof updater === 'function' ? (updater as (old: SortingState) => SortingState)(sorting) : updater as SortingState
@@ -509,10 +527,21 @@ export function DataGrid(): React.ReactElement {
   const tableRows = table.getRowModel().rows
   const headerGroups = table.getHeaderGroups()
 
+  // The rows on screen, in screen order (after the search too): select-all, Ctrl+A,
+  // export, Find & Replace and the counts act on these (G-05, G-24)
+  const visibleRows = useMemo(() => tableRows.map(r => r.original), [tableRows])
+  filteredRowsRef.current = visibleRows
+
   // Keep sortedRowIds in sync so ProfileView can compute prev/next
   useEffect(() => {
-    setSortedRowIds(tableRows.map(r => r.original.row_id))
-  }, [tableRows, setSortedRowIds])
+    setSortedRowIds(visibleRows.map(r => r.row_id))
+  }, [visibleRows, setSortedRowIds])
+
+  // A filter or search that hides selected records also unselects them, so bulk actions only touch what's shown
+  useEffect(() => {
+    const shown = new Set(visibleRows.map(r => r.row_id))
+    setSelectedRowIds(prev => [...prev].every(id => shown.has(id)) ? prev : new Set([...prev].filter(id => shown.has(id))))
+  }, [visibleRows, setSelectedRowIds])
 
   // Grouping (extracted hook)
   const {
@@ -528,13 +557,26 @@ export function DataGrid(): React.ReactElement {
   visualRowIdsRef.current = visualRowIds
 
   // Virtual scrolling (extracted hook)
-  const { virtualRows, totalSize: totalHeight, paddingTop, paddingBottom } = useGridVirtualizer({
+  const { virtualRows, totalSize: totalHeight, paddingTop, paddingBottom, scrollToRow } = useGridVirtualizer({
     parentRef: containerRef,
     count: isGroupedFromHook ? displayItems.length : tableRows.length,
     rowHeight,
   })
 
-  const totalWidth = HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0) + table.getTotalSize()
+  /** Bring a record into view, whether or not the list is grouped */
+  const scrollToRowId = useCallback((rowId: number) => {
+    const tableIdx = tableRows.findIndex(r => r.original.row_id === rowId)
+    if (tableIdx < 0) return
+    const idx = isGroupedFromHook ? displayItems.findIndex(it => it.kind === 'row' && it.tableRowIndex === tableIdx) : tableIdx
+    if (idx >= 0) scrollToRow(idx)
+  }, [tableRows, displayItems, isGroupedFromHook, scrollToRow])
+
+  // Find & Replace: the active match comes into view (G-27)
+  useEffect(() => {
+    if (findReplaceActiveMatch) scrollToRowId(findReplaceActiveMatch.rowId)
+  }, [findReplaceActiveMatch]) // eslint-disable-line react-hooks/exhaustive-deps -- only when the match changes, not on every re-render of the rows
+
+  const totalWidth = HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0) + (showTagsColumn ? TAGS_COL_WIDTH : 0) + table.getTotalSize()
   const columnIds = useMemo(() => columns.map(c => `col_${c.id}`), [columns])
 
   // CSS custom properties for column widths
@@ -552,7 +594,7 @@ export function DataGrid(): React.ReactElement {
   const frozenLeftOffsets = useMemo(() => {
     const offsets = new Map<number, number>()
     if (frozenColumnCount <= 0) return offsets
-    const leadingWidth = HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0)
+    const leadingWidth = HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0) + (showTagsColumn ? TAGS_COL_WIDTH : 0)
     let cumLeft = leadingWidth
     for (let i = 0; i < Math.min(frozenColumnCount, columns.length); i++) {
       const col = columns[i]!
@@ -561,7 +603,7 @@ export function DataGrid(): React.ReactElement {
       cumLeft += Math.max(w, 60)
     }
     return offsets
-  }, [frozenColumnCount, columns, columnSizing, acuityEnabled])
+  }, [frozenColumnCount, columns, columnSizing, acuityEnabled, showTagsColumn])
 
   // Column drag-end: reorder columns
   const handleColumnDragEnd = useCallback((event: DragEndEvent) => {
@@ -580,8 +622,8 @@ export function DataGrid(): React.ReactElement {
   const keyNavDeps = useMemo<KeyboardNavDeps>(() => ({
     editingCellRef, rowsRef, filteredRowsRef, selectedRowIdsRef,
     columns, columnMap, updateCell, navigateCell,
-    setEditingCell, setSelectedRowIds, setClipboard,
-  }), [columns, columnMap, updateCell, navigateCell, setEditingCell])
+    setEditingCell, setSelectedRowIds, setClipboard, openRecord: handleNavigateToProfile,
+  }), [columns, columnMap, updateCell, navigateCell, setEditingCell, handleNavigateToProfile])
   const handleCellKeyDown = useCallback((e: React.KeyboardEvent, rowId: number, columnId: number) => {
     handleCellKeyDownImpl(e, rowId, columnId, keyNavDeps)
   }, [keyNavDeps])
@@ -594,6 +636,25 @@ export function DataGrid(): React.ReactElement {
   // Auto-edit first editable cell when a new row is added
   useEffect(() => {
     if (!lastAddedRowId) return
+    // Show where it went: a long or sorted list puts it out of sight (G-28)
+    scrollToRowId(lastAddedRowId)
+    const s = useGridStore.getState()
+    const newRow = s.rows.find(r => r.row_id === lastAddedRowId)
+    const hiddenByFilter = !!newRow && ((s.showStarredOnly && newRow.is_starred !== 1) || !!s.searchQuery
+      || (s.activeFilters.length > 0 && !(s.filterMode === 'or'
+        ? s.activeFilters.some(f => matchFilter(newRow, f, columns, rowTagsMap, alertRuleMap))
+        : s.activeFilters.every(f => matchFilter(newRow, f, columns, rowTagsMap, alertRuleMap)))))
+    if (hiddenByFilter) {
+      toast(tt => (
+        <span className="flex items-center gap-3 text-base">
+          Added — your filter would hide it.
+          <button type="button" className="btn-secondary" onClick={() => {
+            toast.dismiss(tt.id)
+            useGridStore.setState({ activeFilters: [], searchQuery: '', showStarredOnly: false })
+          }}>Show all</button>
+        </span>
+      ), { duration: 8000 })
+    }
     const timer = setTimeout(() => {
       const firstEditableCol = columns.find(c => !isNotTypedColumnType(c.column_type))
       if (firstEditableCol) {
@@ -603,7 +664,7 @@ export function DataGrid(): React.ReactElement {
       useGridStore.setState({ lastAddedRowId: null })
     }, 50)
     return () => clearTimeout(timer)
-  }, [lastAddedRowId, columns, setEditingCell])
+  }, [lastAddedRowId, columns, setEditingCell]) // eslint-disable-line react-hooks/exhaustive-deps -- once per added record
 
   const handleBulkSetAcuityLevel = useCallback((levelId: number | null) => {
     const ids = Array.from(selectedRowIdsRef.current)
@@ -644,6 +705,9 @@ export function DataGrid(): React.ReactElement {
       onCellKeyDown={handleCellKeyDown}
       onCellContextMenu={handleCellContextMenu}
       onNavigateToProfile={handleNavigateToProfile}
+      onToggleStar={handleToggleStarProp}
+      showTags={showTagsColumn}
+      rowTags={rowTagsMap.get(row.original.row_id)}
       onToggleSelect={handleToggleRowSelect}
       onNavigateAfterEdit={handleNavigateAfterEdit}
       rowId={row.original.row_id}
@@ -703,8 +767,10 @@ export function DataGrid(): React.ReactElement {
             acuitySortDir={acuitySortDir}
             setAcuitySortDir={setAcuitySortDir}
             selectedRowIds={selectedRowIds}
-            filteredRows={filteredRows}
+            filteredRows={visibleRows}
             setSelectedRowIds={setSelectedRowIds}
+            showTags={showTagsColumn}
+            onHideTags={() => setShowTagsColumn(false)}
             colSensors={colSensors}
             onColumnDragEnd={handleColumnDragEnd}
             autoFitColumn={autoFitColumn}
@@ -840,6 +906,7 @@ export function DataGrid(): React.ReactElement {
           onClose={closeContextMenu}
           onDeleteRow={handleDeleteRow}
           onToggleStar={id => void handleToggleStar(id)}
+          onOpenRecord={handleNavigateToProfile}
           onDuplicateRow={id => void handleDuplicateRow(id)}
           onArchiveRow={id => { setArchiveTarget(id); setContextMenu(null) }}
           onUnarchiveRow={id => void handleUnarchiveRow(id)}

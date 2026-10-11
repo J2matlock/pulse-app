@@ -267,25 +267,17 @@ describe('DASHBOARD_GET_FOLLOWUPS', () => {
 })
 
 describe('DASHBOARD_GET_COMPLETED', () => {
-  // NOTE: The queryCompleted() SQL uses ORDER BY inside UNION ALL sub-selects,
-  // which SQLite rejects at prepare() time. In production this works because
-  // cachedStmt caches the prepared statement from an earlier schema version.
-  // In tests with fresh prepare(), the query fails. We test that the handler
-  // returns a graceful fail() result rather than crashing.
-
-  it('returns a result (ok or graceful fail) without crashing', async () => {
-    const result = await invoke(IPC.DASHBOARD_GET_COMPLETED) as { ok: boolean }
-    // Handler should return a well-formed IPCResult regardless
-    expect(result).toHaveProperty('ok')
-  })
-
-  it('error response has fail shape with error message', async () => {
-    const result = await invoke(IPC.DASHBOARD_GET_COMPLETED) as { ok: false; error: string }
-    // Due to the SQL compatibility issue, this returns fail
-    if (!result.ok) {
-      expect(result).toHaveProperty('error')
-      expect(typeof result.error).toBe('string')
-    }
+  // The query used ORDER BY/LIMIT inside UNION ALL parts without subqueries, which SQLite refuses, so it always failed
+  it('lists Mark done completions by their tag, not a cleared date (L-22)', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 1 })
+    const note = testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type, source_action_id, created_at, updated_at) VALUES (?, ?, 'system', ?, datetime('now'), datetime('now'))")
+    note.run(rowIds[0], 'Review completed (was Oct 6, 2026)', 'deadline_done:3')
+    note.run(rowIds[0], 'Review cleared (was Oct 6, 2026)', null)
+    note.run(rowIds[0], 'Plan done Oct 7, 2026; next due Apr 7, 2027', 'deadline_done:4')
+    const result = await invoke(IPC.DASHBOARD_GET_COMPLETED) as { ok: true; data: Array<{ type: string; title: string }> }
+    expect(result.ok).toBe(true)
+    expect(result.data.filter(d => d.type === 'deadline').map(d => d.title).sort())
+      .toEqual(['Plan done Oct 7, 2026; next due Apr 7, 2027', 'Review completed (was Oct 6, 2026)'])
   })
 })
 
@@ -303,6 +295,14 @@ describe('DASHBOARD_GET_ARCHIVED', () => {
     const result = await invoke(IPC.DASHBOARD_GET_ARCHIVED) as { ok: true; data: Array<{ id: number; archived_reason: string }> }
     expect(result.data.length).toBe(1)
     expect(result.data[0].archived_reason).toBe('Completed')
+  })
+
+  it('leaves out archived records of a deleted list (L-13)', async () => {
+    const { gridId, rowIds } = seedGrid(testDb.db, { rowCount: 1 })
+    testDb.db.prepare("UPDATE rows SET is_active = 0, archived_at = datetime('now') WHERE id = ?").run(rowIds[0])
+    testDb.db.prepare('UPDATE grids SET is_active = 0 WHERE id = ?').run(gridId)
+    const result = await invoke(IPC.DASHBOARD_GET_ARCHIVED) as { ok: true; data: unknown[] }
+    expect(result.data).toHaveLength(0)
   })
 
   it('excludes soft-deleted rows from archived list', async () => {
