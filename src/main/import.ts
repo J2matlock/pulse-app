@@ -1029,7 +1029,8 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
         logger.error('import', `Chunk failed at rows ${chunkStart + 2}–${chunkEnd + 1}`, {
           error: chunkErr instanceof Error ? chunkErr.message : String(chunkErr)
         })
-        warnings.push(`Import stopped at row ${chunkStart + 2}: ${chunkErr instanceof Error ? chunkErr.message : String(chunkErr)}`)
+        // The SQLite text is in the log; the person sees where it stopped and what to do
+        warnings.push(`The import stopped at row ${chunkStart + 2} because something in that part of the file couldn't be saved. Everything before it came in. Check that row, then import the rest.`)
         break
       }
 
@@ -1078,7 +1079,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
     warnings.push(`${n} date${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" had a two-digit year and ${n === 1 ? 'was' : 'were'} read as 19xx. Check ${n === 1 ? 'it' : 'them'}.`)
   }
   for (const [srcIdx, n] of unreadableDates) {
-    warnings.push(`${n} value${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" didn't look like ${n === 1 ? 'a date' : 'dates'} and ${n === 1 ? 'was' : 'were'} kept as typed. Check ${n === 1 ? 'it' : 'them'} in the grid.`)
+    warnings.push(`${n} value${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" didn't look like ${n === 1 ? 'a date' : 'dates'} and ${n === 1 ? 'was' : 'were'} kept as typed. Check ${n === 1 ? 'it' : 'them'} in the list.`)
   }
 
   for (const [srcIdx, lc] of linkCols) {

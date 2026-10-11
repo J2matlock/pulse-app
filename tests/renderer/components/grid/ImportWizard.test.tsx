@@ -75,9 +75,9 @@ describe('ImportWizard', () => {
     expect(screen.getByText('Supports .csv and .xlsx')).toBeTruthy()
   })
 
-  it('renders step indicator with Select File active', () => {
+  it('renders step indicator with Choose a file active', () => {
     render(<ImportWizard open={true} gridId={1} onClose={onClose} onImported={onImported} />)
-    expect(screen.getByText('Select File')).toBeTruthy()
+    expect(screen.getByText('Choose a file')).toBeTruthy()
   })
 
   it('close button calls onClose', () => {
@@ -163,6 +163,23 @@ describe('ImportWizard', () => {
       const selects = screen.getAllByRole('combobox') as HTMLSelectElement[]
       expect(selects.some(s => s.value === 'create')).toBe(true)
       expect(selects.some(s => s.value === 'skip')).toBe(false)
+    })
+
+    it('names column types in plain words, not "currency" or "checkbox" (polish R5)', async () => {
+      await goToMapping()
+      expect(screen.getAllByRole('option', { name: 'Money ($)' }).length).toBeGreaterThan(0)
+      expect(screen.queryByRole('option', { name: 'currency' })).toBeNull()
+    })
+
+    it('a developer error from the import becomes a plain sentence (polish R5)', async () => {
+      const base = mockInvoke.getMockImplementation()!
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) =>
+        channel === 'import:file' ? Promise.resolve({ ok: false, error: 'Invalid grid ID' }) : base(channel, ...args))
+      await goToMapping()
+      fireEvent.click(screen.getByRole('button', { name: /Next/ }))
+      fireEvent.click(await screen.findByRole('button', { name: /^Import/ }))
+      expect((await screen.findAllByText('The import failed. Please check your file and try again.')).length).toBeGreaterThan(0)
+      expect(screen.queryByText('Invalid grid ID')).toBeNull()
     })
 
     it('can undo the import, moving the new records to Trash (audit X-19)', async () => {

@@ -1,6 +1,6 @@
 /**
  * ImportWizard — Multi-step overlay modal for importing CSV/Excel files into a grid.
- * Steps: 1=Select File, 2=Sheet, 3=Preview, 4=Column Mapping, 5=Options, 6=Results
+ * Steps: 1=Choose a file, 2=Sheet, 3=Preview, 4=Match columns, 5=Options, 6=Results
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
@@ -21,6 +21,8 @@ import type { Column } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
 import toast from 'react-hot-toast'
 import { useVocab } from '../../hooks/useVocab'
+import { friendlyError } from '../../utils/friendlyError'
+import { columnTypeLabel } from '../../../shared/columnTypes'
 
 // ── Local types ───────────────────────────────────────────────────────────────
 
@@ -82,10 +84,10 @@ interface Props {
 type Step = 1 | 2 | 3 | 4 | 5 | 6
 
 const STEP_LABELS: Record<Step, string> = {
-  1: 'Select File',
+  1: 'Choose a file',
   2: 'Sheet',
   3: 'Preview',
-  4: 'Column Mapping',
+  4: 'Match columns',
   5: 'Options',
   6: 'Results',
 }
@@ -110,7 +112,7 @@ function TypeBadge({ type }: { type: string }): React.ReactElement {
   const cls = TYPE_BADGE_CLASSES[type] ?? TYPE_BADGE_CLASSES.text
   return (
     <span className={`inline-flex items-center px-1.5 py-0.5 rounded-sm text-sm font-medium ${cls}`}>
-      {type}
+      {columnTypeLabel(type)}
     </span>
   )
 }
@@ -202,7 +204,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
         IPC.IMPORT_FILE_PREVIEW, path, sheetIndex, hdrRowIdx
       )
       if (!res.ok) {
-        setError(res.error ?? 'Could not read the file. Please check the format and try again.')
+        setError(friendlyError(res.error, 'Could not read the file. Please check the format and try again.'))
         return null
       }
       return res.data
@@ -374,7 +376,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
       }
       const res = await safeInvoke<ImportResult>(IPC.IMPORT_FILE, options)
       if (!res.ok) {
-        setError(res.error ?? 'The import failed. Please check your file and try again.')
+        setError(friendlyError(res.error, 'The import failed. Please check your file and try again.'))
       } else {
         setImportResult(res.data)
       }
@@ -393,7 +395,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
     setUndo('busy')
     const res = await safeInvoke(IPC.IMPORT_UNDO, gridId, ids)
     if (res.ok) setUndo('done')
-    else { setUndo('idle'); toast.error(res.error || 'We couldn\'t undo the import. Try again.') }
+    else { setUndo('idle'); toast.error(friendlyError(res.error, 'We couldn\'t undo the import. Try again.')) }
   }
 
   // ── Render helpers ───────────────────────────────────────────────────────
@@ -796,7 +798,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                                                min-h-[44px]"
                                   >
                                     {COLUMN_TYPES.map(t => (
-                                      <option key={t} value={t}>{t}</option>
+                                      <option key={t} value={t}>{columnTypeLabel(t)}</option>
                                     ))}
                                   </select>
                                   <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-slate-400" />
