@@ -8,7 +8,7 @@ export interface GridLoadingSkeletonProps {
 
 export function GridLoadingSkeleton({ rowHeight }: GridLoadingSkeletonProps): React.ReactElement {
   return (
-    <div className="flex flex-col h-full" role="status" aria-label="Loading grid data">
+    <div className="flex flex-col h-full" role="status" aria-label="Loading">
       {/* Skeleton header row */}
       <div className="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" style={{ height: rowHeight }}>
         {[120, 200, 160, 140, 180].map((w, i) => (
@@ -27,7 +27,7 @@ export function GridLoadingSkeleton({ rowHeight }: GridLoadingSkeletonProps): Re
           ))}
         </div>
       ))}
-      <span className="sr-only">Loading grid data…</span>
+      <span className="sr-only">Loading…</span>
     </div>
   )
 }

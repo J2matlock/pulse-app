@@ -386,7 +386,7 @@ describe('DataGrid', () => {
       renderDataGrid()
       await flushEffects()
       expect(screen.getByRole('status')).toBeTruthy()
-      expect(screen.getByText('Loading grid data…')).toBeTruthy()
+      expect(screen.getByText('Loading…')).toBeTruthy()
     })
 
     it('shows empty columns state when columns array is empty', async () => {
@@ -551,7 +551,7 @@ describe('DataGrid', () => {
       setupStores({ searchQuery: 'Client 3' })
       renderDataGrid()
       await flushEffects()
-      fireEvent.click(screen.getByLabelText('Select all rows'))
+      fireEvent.click(screen.getByLabelText(/^Select all /))
       await flushEffects()
       expect([...useGridStore.getState().selectedRowIds]).toEqual([3])
       expect(useGridStore.getState().sortedRowIds).toEqual([3])

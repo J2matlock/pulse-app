@@ -177,7 +177,7 @@ describe('ColumnHeader', () => {
     fireEvent.click(screen.getByText('Column settings…'))
     expect(screen.getByRole('dialog', { name: /Phone.*settings/ })).toBeTruthy()
     expect(screen.getByText('Log changes in timeline')).toBeTruthy()
-    expect(screen.getByText('Column format rules…')).toBeTruthy()
+    expect(screen.getByText('Color rules for this column…')).toBeTruthy()
   })
 
   it('right-click opens context menu with column options', () => {

@@ -6,6 +6,7 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import { useGridStore } from '../../stores/gridStore'
 import type { SetupTemplate } from './types'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { useVocab } from '../../hooks/useVocab'
 
 type ApplyMode = 'new' | 'existing'
 
@@ -17,6 +18,7 @@ interface ApplyTemplateDialogProps {
 }
 
 export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: ApplyTemplateDialogProps): React.ReactElement {
+  const { t } = useVocab(null)
   const [applyMode, setApplyMode] = useState<ApplyMode>('new')
   const [selectedGridId, setSelectedGridId] = useState<number | null>(grids[0]?.id ?? null)
   const [applying, setApplying] = useState(false)
@@ -92,7 +94,7 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
                 onChange={() => setApplyMode('new')}
                 className="w-4 h-4 text-blue-600 focus:ring-3 focus:ring-blue-500"
               />
-              <span className="text-base text-slate-700 dark:text-slate-300">Create a new grid</span>
+              <span className="text-base text-slate-700 dark:text-slate-300">Make a new {t('list')}</span>
             </label>
             <label className="flex items-center gap-3 cursor-pointer min-h-[44px]">
               <input
@@ -103,13 +105,13 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
                 onChange={() => setApplyMode('existing')}
                 className="w-4 h-4 text-blue-600 focus:ring-3 focus:ring-blue-500"
               />
-              <span className="text-base text-slate-700 dark:text-slate-300">Apply to existing grid</span>
+              <span className="text-base text-slate-700 dark:text-slate-300">Add to a {t('list')} I already have</span>
             </label>
           </div>
 
           {applyMode === 'existing' && (
             grids.length === 0 ? (
-              <p className="text-base text-slate-500 dark:text-slate-400">No grids available.</p>
+              <p className="text-base text-slate-500 dark:text-slate-400">There are no {t('list', { many: true })} yet.</p>
             ) : (
               <div className="relative">
                 <select
@@ -155,7 +157,7 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
                        min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed
                        focus:outline-hidden focus:ring-3 focus:ring-blue-500 transition-colors"
           >
-            {applying ? 'Applying...' : applyMode === 'new' ? 'Create New Grid' : 'Apply to Grid'}
+            {applying ? 'Applying…' : applyMode === 'new' ? `Make the ${t('list')}` : `Add to this ${t('list')}`}
           </button>
         </div>
       </div>

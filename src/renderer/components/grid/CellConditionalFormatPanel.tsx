@@ -314,8 +314,8 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
           </p>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {isColumnMode
-              ? 'Rules apply to all rows in this column. First match wins.'
-              : 'Rules are tied to this cell by row ID — they follow it through sorting. First match wins.'}
+              ? `Rules apply to every ${t('record')} in this column. The first one that matches is used.`
+              : `Rules stay with this ${t('record')}'s cell, even when the ${t('list')} is sorted. The first one that matches is used.`}
           </p>
 
           {rules.length === 0 && (
@@ -570,9 +570,9 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
               onChange={e => setApplyScope(e.target.value as ApplyScope)}
             >
               <option value="cell">This cell only</option>
-              <option value="all_rows">All rows in this column</option>
+              <option value="all_rows">{`Every ${t('record')} in this column`}</option>
               {selectedRowIds && selectedRowIds.size > 0 && (
-                <option value="selected">Selected rows ({selectedRowIds.size})</option>
+                <option value="selected">{`Selected ${t('record', { many: true })} (${selectedRowIds.size})`}</option>
               )}
             </select>
           )}

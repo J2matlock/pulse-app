@@ -65,8 +65,8 @@ export function ContactLinkedClients({ providerId }: Props) {
 
   // Current grid name for display
   const currentGridName = useMemo(
-    () => grids.find(g => g.id === activeGridId)?.name ?? 'Current Grid',
-    [grids, activeGridId]
+    () => grids.find(g => g.id === activeGridId)?.name ?? t('list', { cap: true }),
+    [grids, activeGridId, t]
   )
 
   async function handleLink() {

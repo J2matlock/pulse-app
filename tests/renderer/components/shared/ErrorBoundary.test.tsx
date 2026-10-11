@@ -54,7 +54,7 @@ describe('ErrorBoundary', () => {
         <ThrowingComponent message="Oops" />
       </ErrorBoundary>
     )
-    const btn = screen.getByText('Return to grid')
+    const btn = screen.getByText('Go back to the start')
     expect(btn).toBeDefined()
     expect(btn.tagName).toBe('BUTTON')
   })

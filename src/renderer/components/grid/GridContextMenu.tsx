@@ -257,7 +257,7 @@ export function GridContextMenu({
           return (
           <>
             <p className="px-3 py-1 text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-              Format rules{totalWithRule > 1 ? ` · applied to ${totalWithRule} rows` : ''}
+              Color rules{totalWithRule > 1 ? ` · used by ${totalWithRule} ${t('record', { many: true })}` : ''}
             </p>
             {originName && (
               <p className="px-3 pb-1 text-sm text-slate-500 dark:text-slate-400">
@@ -285,7 +285,7 @@ export function GridContextMenu({
                 </button>
                 <button
                   className="hit-44 p-1 text-slate-500 dark:text-slate-400 hover:text-red-500 rounded-sm flex-shrink-0"
-                  title={siblingRowIds.length > 0 ? `Delete from all ${totalWithRule} rows` : 'Delete this rule'}
+                  title={siblingRowIds.length > 0 ? `Delete from all ${totalWithRule} ${t('record', { many: true })}` : 'Delete this rule'}
                   onClick={async () => {
                     const newRules = cmRules.filter((_, i) => i !== idx)
                     const allIds = [contextMenu.rowId, ...siblingRowIds]
@@ -406,7 +406,7 @@ export function GridContextMenu({
           onClick={() => { onCellFormatTarget({ rowId: contextMenu.rowId, colId: contextMenu.colId }); onClose() }}
         >
           <Palette className="w-4 h-4 text-purple-500" />
-          {cmRules.length > 0 ? 'Edit conditional format…' : 'Conditional format…'}
+          {cmRules.length > 0 ? 'Edit color rules…' : 'Color rules…'}
         </button>
 
         {/* Copy / paste formatting */}
@@ -447,7 +447,7 @@ export function GridContextMenu({
             }}
           >
             <Clipboard className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-            Paste formatting{selectedRowIds.size > 1 ? ` (${selectedRowIds.size} rows)` : ''}
+            Paste formatting{selectedRowIds.size > 1 ? ` (${selectedRowIds.size} ${t('record', { many: true })})` : ''}
           </button>
         )}
 

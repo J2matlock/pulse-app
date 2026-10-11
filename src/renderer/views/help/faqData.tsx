@@ -12,7 +12,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'gs-add-first-client',
     question: 'How do I add my first {record}?',
-    answer: 'Click the "Add {Record}" button in the toolbar above your grid. A new blank row appears \u2014 just click any cell and start typing to fill in the details. You can also import existing {record:many} from an Excel or CSV file.',
+    answer: 'Click the "Add {Record}" button in the toolbar above your {list}. A new blank line appears \u2014 just click any cell and start typing to fill in the details. You can also import existing {record:many} from an Excel or CSV file.',
     category: 'getting-started',
     tourStepIds: ['add-client'],
   },
@@ -96,7 +96,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   // {List} Grid (13)
   {
     id: 'grid-edit-cell',
-    question: 'How do I edit a cell in the grid?',
+    question: 'How do I edit a cell in a {list}?',
     answer: 'Just click on any cell and start typing. For date cells, a date picker will appear. For dropdowns, you\'ll see a list of options. Everything saves automatically \u2014 no need to press a save button. Press Escape to cancel an edit.',
     category: 'caseload-grid',
     tourStepIds: ['grid'],
@@ -184,7 +184,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-search',
     question: 'How do I search for a specific {record}?',
-    answer: 'Use the search bar at the top of the grid \u2014 just start typing a name and matching {record:many} appear instantly. Press Ctrl+K to open the command palette which searches across all your {list:many}.',
+    answer: 'Use the search bar at the top of the {list} \u2014 just start typing a name and matching {record:many} appear instantly. Press Ctrl+K to open the command palette which searches across all your {list:many}.',
     category: 'caseload-grid',
     tourStepIds: ['search'],
     demo: <DemoSearchFilter />,
@@ -234,13 +234,13 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-acuity-enable',
     question: 'How do I enable {priority} scoring?',
-    answer: 'Click the "{Priority}" button in the grid toolbar (it has a gauge icon). In the panel that opens, flip the toggle to enable {priority} scoring. Three default levels are created automatically: Low (1 point), Medium (3 points), and High (5 points). You can customize these or add your own levels.',
+    answer: 'Click the "{Priority}" button in the {list} toolbar (it has a gauge icon). In the panel that opens, flip the toggle to enable {priority} scoring. Three default levels are created automatically: Low (1 point), Medium (3 points), and High (5 points). You can customize these or add your own levels.',
     category: 'caseload-grid',
   },
   {
     id: 'grid-acuity-assign',
     question: 'How do I assign an {priority} level to {a record}?',
-    answer: 'When {priority} scoring is enabled, a small badge column appears in the grid between the profile icon and your first data column. Hover over any row to see a dashed circle, then click it to open a dropdown with your {priority} levels. Select a level to assign it \u2014 the badge shows the level abbreviation in its color. Click the badge again to change it, or choose "None" to remove it.',
+    answer: 'When {priority} scoring is enabled, a small badge column appears in the {list} between the profile icon and your first data column. Hover over any row to see a dashed circle, then click it to open a dropdown with your {priority} levels. Select a level to assign it \u2014 the badge shows the level abbreviation in its color. Click the badge again to change it, or choose "None" to remove it.',
     category: 'caseload-grid',
   },
   {
@@ -260,7 +260,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'profile-open',
     question: 'How do I open {a record}\'s profile?',
-    answer: 'Click the small profile icon at the left edge of any row in the grid. The profile page will open showing all the details, notes, {activityLog}, deadlines, and more. Use the back arrow or breadcrumb to return to the grid.',
+    answer: 'Click the small profile icon at the left edge of any {record} in the {list}. The profile page will open showing all the details, notes, {activityLog}, deadlines, and more. Use the back arrow or breadcrumb to return to the {list}.',
     category: 'client-profiles',
     tourStepIds: ['open-profile'],
   },
@@ -411,7 +411,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'ie-import-excel',
     question: 'How do I import from Excel or CSV?',
-    answer: 'In the grid view, click "Import" in the toolbar. Select your Excel (.xlsx) or CSV file. The wizard shows a preview and lets you map each spreadsheet column to a Pulse column. Click "Import" to bring in the data with a progress bar showing the status.',
+    answer: 'In a {list}, click "Import" in the toolbar. Select your Excel (.xlsx) or CSV file. The wizard shows a preview and lets you map each spreadsheet column to a Pulse column. Click "Import" to bring in the data with a progress bar showing the status.',
     category: 'import-export',
     tourStepIds: ['import-btn'],
     demo: <DemoImportFlow />,
@@ -432,7 +432,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'ie-pulse-file',
     question: 'What is a .pulse file?',
-    answer: 'A .pulse file holds the layout of one {list} — its columns, deadline rules and checklist templates — never any {record:many}. Save or open one on the Templates page ("Save Current Grid as Template" / "Import Template File"). To share your whole setup instead (every {list}, your words and rules), use Settings > Workspace > Share your setup.',
+    answer: 'A .pulse file holds the layout of one {list} — its columns, deadline rules and checklist templates — never any {record:many}. Save or open one on the Templates page ("Save this {list} as a template" / "Import Template File"). To share your whole setup instead (every {list}, your words and rules), use Settings > Workspace > Share your setup.',
     category: 'import-export',
   },
   {
@@ -531,8 +531,8 @@ export const FAQ_ITEMS: FAQItem[] = [
   },
   {
     id: 'tips-right-click',
-    question: 'How do I use right-click menus in the grid?',
-    answer: 'Right-click any row in the grid to see a context menu with options like: copy/paste cell values, duplicate the row, archive it, or move it to another {list}. Right-click column headers for column-specific options.',
+    question: 'How do I use right-click menus in a {list}?',
+    answer: 'Right-click any {record} in the {list} to see a context menu with options like: copy/paste cell values, duplicate the row, archive it, or move it to another {list}. Right-click column headers for column-specific options.',
     category: 'tips-shortcuts',
     tourStepIds: ['right-click-rows'],
     demo: <DemoRightClick />,
@@ -595,7 +595,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'docs-batch',
     question: 'How do I print letters or address labels for many at once?',
-    answer: 'Select {record:many} in the grid and click "Print documents…", or choose "Documents and labels…" in the Export menu. Make one PDF with a document for each, either everyone you selected, everyone with a deadline due in a date range, or everyone in the {list}. Documents can be full pages or 4×6 postcards, two per sheet. Address labels print on Avery 5160 or 5163 sheets. In a document template, "Insert field" adds any column, a deadline\'s due date, or a column of a linked {record}.',
+    answer: 'Select {record:many} in the {list} and click "Print documents…", or choose "Documents and labels…" in the Export menu. Make one PDF with a document for each, either everyone you selected, everyone with a deadline due in a date range, or everyone in the {list}. Documents can be full pages or 4×6 postcards, two per sheet. Address labels print on Avery 5160 or 5163 sheets. In a document template, "Insert field" adds any column, a deadline\'s due date, or a column of a linked {record}.',
     category: 'snippets-templates',
     feature: 'letters',
   },
@@ -645,7 +645,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'files-add',
     question: 'How do I keep documents and photos with {a record}?',
-    answer: 'On {a record}\'s page, open the Files section and click "Add files…", or drag files from your computer onto it. To attach a file to {a activity}, click the paperclip under it. PDFs, pictures, Word, Excel and text files can be added, up to 15 MB each; programs and scripts are refused. Click a file to open it, give it a description, save a copy somewhere else, or remove it (Undo brings it back). To see how many files each {record} has in the grid, add a column of the type "Files (how many)".',
+    answer: 'On {a record}\'s page, open the Files section and click "Add files…", or drag files from your computer onto it. To attach a file to {a activity}, click the paperclip under it. PDFs, pictures, Word, Excel and text files can be added, up to 15 MB each; programs and scripts are refused. Click a file to open it, give it a description, save a copy somewhere else, or remove it (Undo brings it back). To see how many files each {record} has in the {list}, add a column of the type "Files (how many)".',
     category: 'client-profiles',
     feature: 'attachments',
   },

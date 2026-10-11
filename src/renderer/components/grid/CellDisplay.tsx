@@ -199,7 +199,8 @@ export const CellDisplay = React.memo(function CellDisplay({ column, value, row,
   }
 })
 
-function formatDate(value: string): string {
+/** A date the way list cells show it (also used by the filter chips) */
+export function formatDate(value: string): string {
   try {
     const d = new Date(value.includes('T') ? value : `${value}T00:00:00`)
     if (isNaN(d.getTime())) return value

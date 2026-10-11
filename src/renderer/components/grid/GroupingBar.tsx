@@ -13,6 +13,7 @@ import type { Column, CustomGroupDef } from '../../../shared/types'
 import { CustomGroupEditor } from './CustomGroupEditor'
 import { Tooltip } from '../shared/Tooltip'
 import { useVocab } from '../../hooks/useVocab'
+import { columnTypeLabel } from '../../../shared/columnTypes'
 import { useFeature } from '../../hooks/useFeature'
 
 // Only these column types support grouping (discrete values)
@@ -105,7 +106,7 @@ export function GroupingBar(): React.ReactElement {
     <>
     <div className="relative flex items-center gap-2" data-tour="grouping-btn" ref={pickerRef}>
       {/* Trigger button */}
-      <Tooltip content="Group rows by a column value (e.g., by Status or Category)" placement="bottom">
+      <Tooltip content={`Group ${t('record', { many: true })} by a column, for example by Status`} placement="bottom">
         <button
           onClick={() => setPickerOpen(v => !v)}
           className={`btn-secondary flex items-center gap-2 ${
@@ -114,7 +115,7 @@ export function GroupingBar(): React.ReactElement {
               : ''
           }`}
           style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
-          title={isGroupingActive ? `Grouped by: ${triggerLabel ?? '—'}` : 'Group rows by column'}
+          title={isGroupingActive ? `Grouped by: ${triggerLabel ?? '—'}` : `Group ${t('record', { many: true })} by a column`}
           aria-expanded={pickerOpen}
           aria-haspopup="listbox"
         >
@@ -209,7 +210,7 @@ export function GroupingBar(): React.ReactElement {
               style={{ minHeight: 44, fontSize: 15 }}
             >
               <span className="flex-1 text-left truncate">{col.name}</span>
-              <span className="text-sm text-slate-500 dark:text-slate-400">{col.column_type}</span>
+              <span className="text-sm text-slate-500 dark:text-slate-400">{columnTypeLabel(col.column_type)}</span>
             </button>
           ))}
 

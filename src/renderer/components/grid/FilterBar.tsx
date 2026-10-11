@@ -10,6 +10,7 @@ import { parseLinkValue, type LinkChip } from '../../../shared/links'
 import { Tooltip } from '../shared/Tooltip'
 import { TODAY_TOKEN, DUE_STATUSES } from '../../utils/filterMatch'
 import { useVocab } from '../../hooks/useVocab'
+import { formatDate as formatCellDate } from './CellDisplay'
 const ROW_TAG_OPS: FilterOperator[] = ['contains', 'not_contains', 'is_empty', 'is_not_empty']
 
 // Checkbox filters default to 'true' so the Add button isn't immediately disabled
@@ -153,7 +154,7 @@ function linkTargets(rows: GridRow[], columnId: number): LinkChip[] {
 function filterValueLabel(f: ColumnFilter, rows: GridRow[]): string {
   if (f.value === TODAY_TOKEN) return 'today'
   if (f.operator === 'due_status') return DUE_STATUSES.find(d => d.value === f.value)?.label ?? f.value
-  if (f.operator !== 'links_to') return f.value
+  if (f.operator !== 'links_to') return /^\d{4}-\d{2}-\d{2}$/.test(f.value) ? formatCellDate(f.value) : f.value
   return linkTargets(rows, f.columnId).find(c => String(c.rowId) === f.value)?.name ?? f.value
 }
 
@@ -242,13 +243,13 @@ export function FilterBar(): React.ReactElement | null {
         <div ref={chipBarRef} className="flex items-center gap-2 px-4 py-1.5 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 flex-wrap" role="status" aria-live="polite" aria-atomic="true" aria-label={`${activeFilters.length} active filter${activeFilters.length !== 1 ? 's' : ''}`}>
           <Filter className="w-4 h-4 text-blue-500 flex-shrink-0" />
           {activeFilters.length >= 2 && (
-            <Tooltip content="Match ALL conditions (AND) or ANY condition (OR)" placement="bottom">
+            <Tooltip content="Show what matches all of these, or any one of them" placement="bottom">
               <button
                 onClick={() => setFilterMode(filterMode === 'and' ? 'or' : 'and')}
                 className="hit-44 text-base font-bold px-2 py-0.5 rounded-full border border-blue-300 dark:border-blue-600 text-blue-700 dark:text-blue-300 bg-white dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-blue-900/40"
-                title={filterMode === 'and' ? 'All conditions must match (AND). Click to switch to OR.' : 'Any condition can match (OR). Click to switch to AND.'}
+                title={filterMode === 'and' ? 'Every condition must match. Click to match any one.' : 'Any one condition can match. Click to match all.'}
               >
-                {filterMode === 'and' ? 'AND' : 'OR'}
+                {filterMode === 'and' ? 'Match all' : 'Match any'}
               </button>
             </Tooltip>
           )}
@@ -403,7 +404,7 @@ export function FilterBar(): React.ReactElement | null {
                 })()}
 
                 <div>
-                  <label htmlFor="filter-operator" className="block text-base text-slate-500 dark:text-slate-400 mb-1">Operator</label>
+                  <label htmlFor="filter-operator" className="block text-base text-slate-500 dark:text-slate-400 mb-1">Condition</label>
                   <select
                     id="filter-operator"
                     className="input w-full text-base"
@@ -496,7 +497,7 @@ export function FilterBar(): React.ReactElement | null {
               initial="hidden" animate="visible" exit="exit"
             >
               <p className="px-3 pb-2 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                Saved Filter Presets
+                Saved filters
               </p>
               {savedFilters.length === 0 ? (
                 <div className="px-4 py-4 text-center">
@@ -745,7 +746,7 @@ function FilterBarInline({
                 })()}
 
                 <div>
-                  <label htmlFor="filter-inline-operator" className="block text-base text-slate-500 dark:text-slate-400 mb-1">Operator</label>
+                  <label htmlFor="filter-inline-operator" className="block text-base text-slate-500 dark:text-slate-400 mb-1">Condition</label>
                   <select id="filter-inline-operator" className="input w-full text-base" style={{ minHeight: 36 }} value={newFilter.operator} onChange={e => { const op = e.target.value as FilterOperator; setNewFilter({ ...newFilter, operator: op, value: op === 'due_status' ? 'overdue' : newFilter.operator === 'due_status' ? '' : newFilter.value }) }}>
                     {ops.map(op => <option key={op} value={op}>{OPERATOR_LABELS[op]}</option>)}
                   </select>
@@ -819,7 +820,7 @@ function FilterBarInline({
               variants={dropdownVariants}
               initial="hidden" animate="visible" exit="exit"
             >
-              <p className="px-3 pb-2 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Saved Filter Presets</p>
+              <p className="px-3 pb-2 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Saved filters</p>
               {savedFilters.length === 0 ? (
                 <div className="px-4 py-4 text-center">
                   <p className="text-sm text-slate-500 dark:text-slate-400">No saved presets yet.</p>

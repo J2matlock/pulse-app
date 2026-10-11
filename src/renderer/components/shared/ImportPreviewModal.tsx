@@ -9,6 +9,7 @@ import { FileText, X, ChevronDown } from 'lucide-react'
 import { motion } from 'motion/react'
 import { backdropVariants, modalPanelVariants } from '../../utils/animations'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { useVocab } from '../../hooks/useVocab'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Grid } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
@@ -48,6 +49,7 @@ interface ImportPreviewModalProps {
 
 export function ImportPreviewModal({ imported, grids, onClose, onApplied }: ImportPreviewModalProps): React.ReactElement {
   const { filePath, preview } = imported
+  const { t } = useVocab(null)
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, true)
   const [applyMode, setApplyMode] = useState<ApplyMode>('new')
@@ -192,7 +194,7 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
                   onChange={() => setApplyMode('new')}
                   className="w-4 h-4 text-blue-600 focus:ring-3 focus:ring-blue-500"
                 />
-                <span className="text-base text-slate-700 dark:text-slate-300">Create a new grid</span>
+                <span className="text-base text-slate-700 dark:text-slate-300">Make a new {t('list')}</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer min-h-[44px]">
                 <input
@@ -203,14 +205,14 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
                   onChange={() => setApplyMode('existing')}
                   className="w-4 h-4 text-blue-600 focus:ring-3 focus:ring-blue-500"
                 />
-                <span className="text-base text-slate-700 dark:text-slate-300">Apply to existing grid</span>
+                <span className="text-base text-slate-700 dark:text-slate-300">Add to a {t('list')} I already have</span>
               </label>
             </div>
 
             {applyMode === 'existing' && (
               <div className="mt-3">
                 {grids.length === 0 ? (
-                  <p className="text-base text-slate-500 dark:text-slate-400">No grids available. Choose "Create a new grid" instead.</p>
+                  <p className="text-base text-slate-500 dark:text-slate-400">There are no {t('list', { many: true })} yet. Choose &ldquo;Make a new {t('list')}&rdquo; instead.</p>
                 ) : (
                   <div className="relative">
                     <select
@@ -259,7 +261,7 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
                        min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed
                        focus:outline-hidden focus:ring-3 focus:ring-blue-500 transition-colors"
           >
-            {applying ? 'Applying...' : applyMode === 'new' ? 'Create New Grid' : 'Apply to Grid'}
+            {applying ? 'Applying…' : applyMode === 'new' ? `Make the ${t('list')}` : `Add to this ${t('list')}`}
           </button>
         </div>
         </motion.div>

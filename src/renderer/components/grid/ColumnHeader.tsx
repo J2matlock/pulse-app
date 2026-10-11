@@ -577,7 +577,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                 onClick={() => { setShowColFormat(true); setShowMenu(false) }}
               >
                 <Palette className="w-4 h-4" />
-                Column format rules…
+                Color rules for this column…
               </button>
 
               {/* Edit options — only for dropdown/status columns */}

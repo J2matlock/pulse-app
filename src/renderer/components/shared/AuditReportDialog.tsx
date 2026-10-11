@@ -59,7 +59,7 @@ export function AuditReportDialog({ rowId, gridId, label, onClose }: {
       const res = await safeInvoke<{ filePath: string; clients: number; events: number } | null>(IPC.EXPORT_AUDIT_REPORT, { rowId, gridId, ...d })
       if (!res.ok) { toast.error("We couldn't create the audit trail. Try again."); return }
       if (res.data) {
-        toast.success(`Saved the audit trail (${res.data.events} record${res.data.events === 1 ? '' : 's'})`)
+        toast.success(`Saved the audit trail (${res.data.events} ${res.data.events === 1 ? 'entry' : 'entries'})`)
         onClose()
       }
     } finally {

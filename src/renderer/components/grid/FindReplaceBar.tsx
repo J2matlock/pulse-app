@@ -224,7 +224,7 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
           <input
             ref={findRef}
             type="text"
-            placeholder="Find in grid..."
+            placeholder={`Find in this ${t('list')}…`}
             value={findText}
             onChange={e => setFindText(e.target.value)}
             onKeyDown={handleFindKeyDown}

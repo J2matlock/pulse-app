@@ -690,7 +690,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
           {step === 4 && preview && (
             <div className="px-6 py-4 space-y-3">
               <p className="text-base text-slate-600 dark:text-slate-400">
-                Map each column from your file to a column in this grid.
+                Map each column from your file to a column in this {t('list')}.
               </p>
               <div className="overflow-y-auto max-h-[400px] border border-slate-200 dark:border-slate-700 rounded-lg">
                 <table className="w-full table-fixed text-sm">

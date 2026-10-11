@@ -248,7 +248,7 @@ export const STEPS: TourStep[] = [
     subtitle: 'Click the profile icon to see everything',
     description:
       'Every {record} has a dedicated profile page. Click the small profile icon at the left edge of any row to open it — you\'ll see the full details, notes, {activityLog}, deadlines, linked {contact:many}, and activity history all in one place. Let\'s take a look at what\'s inside a profile.',
-    tip: 'Use the back arrow or breadcrumb to return to the grid after viewing a profile.',
+    tip: 'Use the back arrow or breadcrumb to return to the {list} after viewing {a record}.',
     icon: <UserCheck className="w-6 h-6" />,
     position: 'bottom',
     route: '#/grid',

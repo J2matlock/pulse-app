@@ -163,7 +163,7 @@ describe('GridHeaderRow', () => {
     render(<GridHeaderRow {...makeProps()} />)
     const checkbox = screen.getByRole('checkbox')
     expect(checkbox).toBeTruthy()
-    expect(checkbox.getAttribute('aria-label')).toContain('Select all rows')
+    expect(checkbox.getAttribute('aria-label')).toMatch(/^Select all (?!rows)/)
   })
 
   it('select all toggles all filtered rows', () => {

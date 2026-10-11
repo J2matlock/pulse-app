@@ -48,7 +48,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               window.location.hash = '#/'
             }}
           >
-            Return to grid
+            Go back to the start
           </button>
         </div>
       )

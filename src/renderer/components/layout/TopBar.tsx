@@ -151,7 +151,7 @@ export function TopBar(): React.ReactElement {
       {isProfileView ? (
         /* Profile view: show breadcrumb */
         <Breadcrumb
-          gridName={activeGrid?.name ?? 'Grid'}
+          gridName={activeGrid?.name ?? t('list', { cap: true })}
           clientName={clientName}
           onGridClick={() => navigate('/grid')}
         />
