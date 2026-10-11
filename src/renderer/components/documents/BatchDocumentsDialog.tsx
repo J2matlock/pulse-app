@@ -14,6 +14,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
 import { UnknownPlaceholders } from '../shared/UnknownPlaceholders'
 import { friendlyError } from '../../utils/friendlyError'
+import type { Column } from '../../../shared/types'
 
 type Who = 'selected' | 'deadline' | 'all'
 const label = 'block text-base font-semibold text-slate-800 dark:text-slate-100 mb-1'
@@ -42,7 +43,19 @@ export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMod
   const listName = useGridStore(s => s.grids.find(g => g.id === gridId)?.name)
   const columns = useGridStore(s => s.columns)
   const hiddenColumns = useGridStore(s => s.hiddenColumns)
-  const all = useMemo(() => [...columns, ...hiddenColumns].filter(c => c.grid_id === gridId), [columns, hiddenColumns, gridId])
+  // The open list's columns are in the grid store; another list chosen here
+  // (from the Letters page) has its columns loaded for it
+  const [loaded, setLoaded] = useState<{ gridId: number; columns: Column[] } | null>(null)
+  const fromStore = useMemo(() => [...columns, ...hiddenColumns].filter(c => c.grid_id === gridId), [columns, hiddenColumns, gridId])
+  useEffect(() => {
+    if (fromStore.length > 0) return
+    let alive = true
+    void safeInvoke<{ columns: Column[]; hiddenColumns: Column[] } | null>(IPC.GRID_GET, gridId, false).then(r => {
+      if (alive && r.ok && r.data) setLoaded({ gridId, columns: [...r.data.columns, ...r.data.hiddenColumns] })
+    })
+    return () => { alive = false }
+  }, [gridId, fromStore.length])
+  const all = fromStore.length > 0 ? fromStore : loaded?.gridId === gridId ? loaded.columns : []
   const deadlineColumns = all.filter(c => (c.column_type === 'date' || c.column_type === 'deadline') && /"alert_rule_id"\s*:\s*\d/.test(c.config ?? ''))
   const addressColumns = [...all.filter(c => c.column_type === 'address'), ...all.filter(c => c.column_type === 'text' && /address/i.test(c.name))]
   const [mode, setMode] = useState(initialMode)
@@ -56,6 +69,21 @@ export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMod
   const [layout, setLayout] = useState<'avery-5160' | 'avery-5163'>('avery-5160')
   const [busy, setBusy] = useState(false)
   const [unknown, setUnknown] = useState<string[]>([])
+
+  // Another list's columns have other ids: pick that list's first address and deadline columns
+  const addressIds = addressColumns.map(c => c.id).join(',')
+  const deadlineIds = deadlineColumns.map(c => c.id).join(',')
+  useEffect(() => {
+    const ids = addressIds ? addressIds.split(',').map(Number) : []
+    setAddressCol(cur => (cur !== null && ids.includes(cur) ? cur : ids[0] ?? null))
+  }, [addressIds])
+  useEffect(() => {
+    const ids = deadlineIds ? deadlineIds.split(',').map(Number) : []
+    setDeadlineCol(cur => (cur !== null && ids.includes(cur) ? cur : ids[0] ?? null))
+    if (ids.length === 0) setWho(w => (w === 'deadline' ? 'all' : w))
+  }, [deadlineIds])
+  // The selected records belong to the list the dialog opened on
+  const selectedHere = gridId === initialGridId && !!rowIds?.length
 
   useEffect(() => {
     void safeInvoke<Array<{ id: number; name: string }>>(IPC.LETTER_TEMPLATE_GET_ALL).then(r => {
@@ -71,7 +99,7 @@ export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMod
 
   const target = {
     gridId,
-    ...(who === 'selected' && rowIds?.length ? { rowIds } : {}),
+    ...(who === 'selected' && selectedHere ? { rowIds } : {}),
     ...(who === 'deadline' && deadlineCol ? { deadline: { columnId: deadlineCol, ...range } } : {}),
   }
   const many = t('record', { many: true })
@@ -147,7 +175,7 @@ export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMod
 
         <fieldset>
           <legend className={label}>For</legend>
-          {rowIds?.length ? (
+          {selectedHere && rowIds ? (
             <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200 cursor-pointer" style={{ minHeight: 44 }}>
               <input type="radio" name="batch-who" className="w-5 h-5" checked={who === 'selected'} onChange={() => setWho('selected')} />
               The {rowIds.length} selected
@@ -182,7 +210,7 @@ export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMod
             <label className="block">
               <span className={label}>Template</span>
               {templates.length === 0
-                ? <p className="text-base text-slate-500 dark:text-slate-400">No templates yet. Make one under Letters &amp; documents.</p>
+                ? <p className="text-base text-slate-500 dark:text-slate-400">No templates yet. Make one under Letters.</p>
                 : <select className="input w-full" value={templateId ?? ''} onChange={e => setTemplateId(Number(e.target.value))}>
                     {templates.map(tp => <option key={tp.id} value={tp.id}>{tp.name}</option>)}
                   </select>}

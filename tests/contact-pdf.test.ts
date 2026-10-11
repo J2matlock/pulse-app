@@ -18,7 +18,7 @@ vi.mock('electron', () => ({
   dialog: { showMessageBoxSync: () => 0 },
 }))
 
-import { exportContactPdf, exportDirectoryPdf } from '../src/main/export-pdf'
+import { exportContactPdf, exportDirectoryPdf, exportLetterPdf } from '../src/main/export-pdf'
 
 beforeEach(() => {
   testDb = createTestDb()
@@ -62,5 +62,16 @@ describe('directory PDF', () => {
     addProvider({ name: 'In Old', category_id: Number(cat.lastInsertRowid), availability_status: 'full' })
     await expect(exportDirectoryPdf({}, dest('d.pdf'))).resolves.toBeUndefined()
     expect(runs(dest('d.pdf')).join(' ')).toContain('Not Accepting')
+  })
+})
+
+describe('single letter PDF', () => {
+  it('is US Letter, like batch letters and forms', async () => {
+    await exportLetterPdf('Dear Jo,\n\nHello.', dest('l.pdf'))
+    // MediaBox in points: Letter is 612 x 792 (A4 would be 595.28 x 841.89)
+    const box = /MediaBox \[0 0 ([\d.]+) ([\d.]+)\]/.exec(readFileSync(dest('l.pdf'), 'latin1'))
+    expect(box).not.toBeNull()
+    expect(Math.round(Number(box![1]))).toBe(612)
+    expect(Math.round(Number(box![2]))).toBe(792)
   })
 })

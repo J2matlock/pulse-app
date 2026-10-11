@@ -74,6 +74,23 @@ describe('making one letter', () => {
   })
 })
 
+describe('making one letter: telling people apart', () => {
+  it('shows the full name, so two people with the same first name differ', async () => {
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'grid:get') return { ok: true, data: {
+        columns: [{ id: 9, grid_id: 1, name: 'First name', is_name_column: 1 }, { id: 10, grid_id: 1, name: 'Last name', is_name_column: 0 }],
+        hiddenColumns: [],
+        rows: [{ row_id: 1, col_9: 'Maria', col_10: 'Garcia' }, { row_id: 2, col_9: 'Maria', col_10: 'Lopez' }, { row_id: 3, col_9: '', col_10: '' }],
+      } }
+      return { ok: true, data: null }
+    })
+    render(<GenerateLetterModal template={template} grids={[{ id: 1, name: 'Intake' }] as never} onClose={vi.fn()} />)
+    expect(await screen.findByText('Maria Garcia')).toBeTruthy()
+    expect(screen.getByText('Maria Lopez')).toBeTruthy()
+    expect(screen.queryByText(/^Row /)).toBeNull()
+  })
+})
+
 describe('template text', () => {
   it('shows {{fields}} as readable chips, not code', () => {
     render(<TemplateText content={'Dear {{client_name}}, see you {{field:due_date}}.'} />)

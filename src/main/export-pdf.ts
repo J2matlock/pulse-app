@@ -38,7 +38,7 @@ import { normalizeHexColor } from '../shared/color'
 // ──────────────────────────────────────────────────────────────────────────────
 
 export async function exportLetterPdf(text: string, destPath: string): Promise<void> {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' }) // US Letter, like batch letters and forms
   const pageW = doc.internal.pageSize.width
   const pageH = doc.internal.pageSize.height
   const margin = 20

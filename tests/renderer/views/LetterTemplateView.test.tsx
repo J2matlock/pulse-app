@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 // ── Global mocks ─────────────────────────────────────────────────────────────
@@ -54,7 +54,9 @@ vi.mock('../../../src/renderer/components/shared/EmptyState', () => ({
   ),
 }))
 vi.mock('../../../src/renderer/views/letter-template/EditTemplateModal', () => ({
-  EditTemplateModal: () => null,
+  EditTemplateModal: ({ onSave }: { onSave: (n: string, d: string, c: string) => Promise<void> }) => (
+    <button onClick={() => void onSave('Fresh letter', '', 'Hi')}>save-mock</button>
+  ),
 }))
 vi.mock('../../../src/renderer/views/letter-template/GenerateLetterModal', () => ({
   GenerateLetterModal: () => null,
@@ -70,6 +72,7 @@ vi.mock('../../../src/renderer/views/letter-template/PlaceholderReference', () =
 
 import LetterTemplateView from '../../../src/renderer/views/LetterTemplateView'
 import { safeInvoke } from '../../../src/renderer/utils/safeInvoke'
+import { IPC } from '../../../src/shared/ipc-channels'
 
 const mockSafeInvoke = safeInvoke as ReturnType<typeof vi.fn>
 
@@ -110,9 +113,27 @@ describe('LetterTemplateView', () => {
     expect(screen.getByText('No letter templates yet')).toBeDefined()
   })
 
-  it('shows placeholder text in right panel when nothing selected', async () => {
+  it('opens a new template straight after it is made', async () => {
+    const old = { id: 1, name: 'Old letter', description: '', content: 'Old', is_system: 0, created_at: '', updated_at: '' }
+    const fresh = { id: 2, name: 'Fresh letter', description: '', content: 'Hi', is_system: 0, created_at: '', updated_at: '' }
+    let made = false
+    mockSafeInvoke.mockImplementation(async (channel: string) => {
+      if (channel === IPC.LETTER_TEMPLATE_CREATE) { made = true; return { ok: true, data: 2 } }
+      if (channel === IPC.LETTER_TEMPLATE_GET_ALL) return { ok: true, data: made ? [fresh, old] : [old] }
+      return { ok: true, data: [] }
+    })
     render(<MemoryRouter><LetterTemplateView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByText('Select a template to view it')).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Old letter' })).toBeDefined()
+    fireEvent.click(screen.getByLabelText('New letter template'))
+    fireEvent.click(screen.getByText('save-mock'))
+    await flushEffects()
+    expect(screen.getByRole('heading', { name: 'Fresh letter' })).toBeDefined()
+  })
+
+  it('with no templates, the right panel does not ask to select one', async () => {
+    render(<MemoryRouter><LetterTemplateView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.queryByText('Select a template to view it')).toBeNull()
   })
 })
