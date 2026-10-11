@@ -59,7 +59,12 @@ vi.mock('../../../src/renderer/components/shared/CollapsibleSection', () => ({
 vi.mock('../../../src/renderer/components/shared/Tooltip', () => ({
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
-vi.mock('../../../src/renderer/components/profile/ProfileHeader', () => ({ ProfileHeader: () => <div data-testid="profile-header" /> }))
+vi.mock('../../../src/renderer/components/profile/ProfileHeader', () => ({
+  // Stands in for the header: its "More" items as plain buttons
+  ProfileHeader: ({ moreItems }: { moreItems?: Array<{ label: string; onSelect: () => void }> }) => (
+    <div data-testid="profile-header">{moreItems?.map(i => <button key={i.label} onClick={i.onSelect}>{i.label}</button>)}</div>
+  ),
+}))
 vi.mock('../../../src/renderer/components/profile/DeadlinePanel', () => ({ DeadlinePanel: () => null }))
 vi.mock('../../../src/renderer/components/profile/CaseLog', async () => {
   const { useState } = await import('react')
@@ -207,5 +212,40 @@ describe('A record opens from anywhere (1.24)', () => {
     await flush()
     expect(screen.getByText(/is in the Trash/)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Open Trash' })).toBeTruthy()
+  })
+})
+
+describe('Acting on a record from its own page (3.6)', () => {
+  it('archives with a reason and moves on to the next record', async () => {
+    const archiveRow = vi.fn(async () => {})
+    setGrid({ archiveRow })
+    renderAt('/profile/1')
+    await flush()
+    fireEvent.click(screen.getByRole('button', { name: 'Archive…' }))
+    fireEvent.change(screen.getByLabelText('Reason (optional)'), { target: { value: 'Moved away' } })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Archive' })) })
+    expect(archiveRow).toHaveBeenCalledWith(1, 'Moved away')
+    expect(screen.getByLabelText('note for 2')).toBeTruthy()
+  })
+
+  it('moves to the Trash after asking, then goes back to the list when it was the only one', async () => {
+    const deleteRow = vi.fn(async () => {})
+    setGrid({ deleteRow, rows: [rowOf(1, 'Maria')], sortedRowIds: [1] })
+    renderAt('/profile/1')
+    await flush()
+    fireEvent.click(screen.getByRole('button', { name: 'Move to Trash…' }))
+    expect(screen.getByText(/stays in the Trash for 30 days/)).toBeTruthy()
+    await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: 'Move to Trash' }).at(-1)!) })
+    expect(deleteRow).toHaveBeenCalledWith(1)
+    expect(screen.getByText('LIST PAGE')).toBeTruthy()
+  })
+
+  it('duplicates from the page', async () => {
+    const duplicateRow = vi.fn(async () => {})
+    setGrid({ duplicateRow })
+    renderAt('/profile/1')
+    await flush()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Duplicate' })) })
+    expect(duplicateRow).toHaveBeenCalledWith(1)
   })
 })

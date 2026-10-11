@@ -11,6 +11,7 @@ import { rlog } from '../../utils/rendererLogger'
 import toast from 'react-hot-toast'
 import { useCopyFeedbackKeyed } from '../../hooks/useCopyFeedback'
 import { useVocab } from '../../hooks/useVocab'
+import { ProfileMoreMenu, type MoreMenuItem } from './ProfileMoreMenu'
 
 const CONTACT_TYPES = ['phone', 'email', 'address'] as const
 type ContactType = typeof CONTACT_TYPES[number]
@@ -35,10 +36,10 @@ export interface ProfileHeaderProps {
   onRowUpdate: (updates: Partial<{ is_starred: 0 | 1 }>) => void
   onAddNote?: () => void
   onGenerateLetter?: () => void
-  onExportPdf?: () => void
   onAuditTrail?: () => void
   onHandoff?: () => void
-  onPrint?: () => void
+  /** "More ▾": print / PDF, archive, duplicate, move, trash (3.6) */
+  moreItems?: MoreMenuItem[]
 }
 
 async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
@@ -56,14 +57,14 @@ function contactIcon(type: string) {
 function contactLink(type: string, value: string) {
   if (type === 'email') {
     return (
-      <a href={`mailto:${value}`} className="text-blue-600 dark:text-blue-400 hover:underline break-words">
+      <a href={`mailto:${value}`} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline break-words">
         {value}
       </a>
     )
   }
   if (type === 'phone') {
     return (
-      <a href={`tel:${value}`} className="text-blue-600 dark:text-blue-400 hover:underline break-words">
+      <a href={`tel:${value.replace(/[^\d+]/g, '')}`} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline break-words">
         {value}
       </a>
     )
@@ -80,8 +81,7 @@ export function ProfileHeader({
   onGenerateLetter,
   onAuditTrail,
   onHandoff,
-  onExportPdf,
-  onPrint: _onPrint,
+  moreItems,
 }: ProfileHeaderProps): React.ReactElement {
   const { t } = useVocab(gridId)
   // Age next to a birth date is for people only
@@ -672,17 +672,7 @@ export function ProfileHeader({
               {t('activity', { cap: true })}
             </button>
           )}
-          {onExportPdf && (
-            <button
-              onClick={onExportPdf}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-semibold bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-600 shadow-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-slate-400 focus-visible:ring-offset-3 transition-colors"
-              style={{ minHeight: 44, fontSize: 15 }}
-              title="Export profile as PDF file"
-            >
-              <FileText className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-              Export PDF
-            </button>
-          )}
+          {moreItems && <ProfileMoreMenu items={moreItems} />}
           {onGenerateLetter && (
             <button
               onClick={onGenerateLetter}

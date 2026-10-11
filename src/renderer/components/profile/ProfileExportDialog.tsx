@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { FileDown, X } from 'lucide-react'
+import { FileDown, Printer, X } from 'lucide-react'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
@@ -18,11 +18,13 @@ export const DEFAULT_PROFILE_SECTIONS: ProfileSections = {
   gridData: true, deadlines: true, checklist: true, caseLog: true, contactInfo: true, scratchPad: false,
 }
 
-/** Choose what goes into a record's PDF before saving it. */
-export function ProfileExportDialog({ gridId, clientName, onSave, onClose }: {
+/** "Print / PDF…": choose what goes on paper, then print it or save it as a PDF. */
+export function ProfileExportDialog({ gridId, clientName, onSave, onPrint, onClose }: {
   gridId: number
   clientName: string
   onSave: (sections: ProfileSections) => void
+  /** Print straight away (when absent, only "Save PDF…" is offered) */
+  onPrint?: (sections: ProfileSections) => void
   onClose: () => void
 }): React.ReactElement {
   const { t } = useVocab(gridId)
@@ -53,7 +55,7 @@ export function ProfileExportDialog({ gridId, clientName, onSave, onClose }: {
         className="w-full max-w-md rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
           <FileDown className="w-6 h-6 text-blue-600 dark:text-blue-400" aria-hidden="true" />
-          <h2 id="profile-export-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex-1 min-w-0 truncate">PDF of {clientName}</h2>
+          <h2 id="profile-export-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex-1 min-w-0 truncate">Print or save: {clientName}</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="hit-44 p-2 rounded-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
             <X className="w-5 h-5" />
           </button>
@@ -70,6 +72,9 @@ export function ProfileExportDialog({ gridId, clientName, onSave, onClose }: {
         </fieldset>
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
           <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+          {onPrint && (
+            <button type="button" className="btn-secondary" disabled={nothing} onClick={() => onPrint(sections)}><Printer className="w-4 h-4 inline mr-1" aria-hidden="true" />Print…</button>
+          )}
           <button type="button" className="btn-primary" disabled={nothing} onClick={() => onSave(sections)}>Save PDF…</button>
         </div>
       </div>

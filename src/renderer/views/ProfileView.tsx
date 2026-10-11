@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../stores/gridStore'
 import { useProfileStore } from '../stores/profileStore'
@@ -19,12 +19,14 @@ import { LinkedProviders } from '../components/profile/LinkedProviders'
 import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
 import toast from 'react-hot-toast'
-import { useFocusTrap } from '../hooks/useFocusTrap'
 import { ProfilePrintLayout } from '../components/profile/ProfilePrintLayout'
 import { ProfileExportDialog, type ProfileSections } from '../components/profile/ProfileExportDialog'
-import type { GridRow, SaveDialogResult, LetterTemplate } from '../../shared/types'
+import { RecordLetterDialog } from '../components/profile/RecordLetterDialog'
+import { ConfirmDialog } from '../components/shared/ConfirmDialog'
+import { MoveToGridModal } from '../components/grid/MoveToGridModal'
+import type { MoreMenuItem } from '../components/profile/ProfileMoreMenu'
+import type { GridRow, SaveDialogResult } from '../../shared/types'
 import type { RowLocation } from '../../shared/ipc-contract'
-import { useCopyFeedback } from '../hooks/useCopyFeedback'
 import { Tooltip } from '../components/shared/Tooltip'
 import { clientFileName, noteUnencryptedExport } from '../utils/exportNotice'
 import { useRecordKind } from '../hooks/useRecordKind'
@@ -32,7 +34,6 @@ import { useVocab } from '../hooks/useVocab'
 import { useFeature } from '../hooks/useFeature'
 import { useLinkStore } from '../stores/linkStore'
 import { LinkedRecords } from '../components/profile/LinkedRecords'
-import { UnknownPlaceholders } from '../components/shared/UnknownPlaceholders'
 import { StageHistory } from '../components/profile/StageHistory'
 import { RecordAppointments } from '../components/profile/RecordAppointments'
 import { RecordFiles } from '../components/profile/RecordFiles'
@@ -41,123 +42,6 @@ import { pulseEvents } from '../events'
 import type { Form } from '../../shared/forms'
 import { stageColumnOf } from '../../shared/stages'
 import { escapeBelongsElsewhere } from '../utils/domHelpers'
-
-function GenerateLetterModal({ rowId, gridId, clientName, onClose }: {
-  rowId: number; gridId: number; clientName: string; onClose: () => void
-}): React.ReactElement {
-  const [templates, setTemplates] = useState<LetterTemplate[]>([])
-  const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [generated, setGenerated] = useState<string | null>(null)
-  const [unknown, setUnknown] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
-  const [generating, setGenerating] = useState(false)
-  const { copied, copyToClipboard } = useCopyFeedback()
-  const trapRef = useRef<HTMLDivElement>(null)
-
-  useFocusTrap(trapRef, true)
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  useEffect(() => {
-    safeInvoke<LetterTemplate[]>(IPC.LETTER_TEMPLATE_GET_ALL).then(r => {
-      if (r.ok) { setTemplates(r.data); if (r.data.length > 0) setSelectedId(r.data[0]!.id) }
-    }).finally(() => setLoading(false))
-  }, [])
-
-  async function handleGenerate() {
-    if (!selectedId) return
-    setGenerating(true)
-    try {
-      const res = await safeInvoke<{ text: string; unknown: string[] }>(IPC.LETTER_TEMPLATE_GENERATE, selectedId, rowId, gridId)
-      if (res.ok) { setGenerated(res.data.text); setUnknown(res.data.unknown) }
-      else toast.error('Could not generate letter')
-    } finally {
-      setGenerating(false)
-    }
-  }
-
-  function handleCopy() {
-    if (generated) {
-      void copyToClipboard(generated)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="generate-letter-title">
-      <div ref={trapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
-          <h2 id="generate-letter-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100">Generate Letter — {clientName}</h2>
-          <button onClick={onClose} className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500" aria-label="Close" title="Close"><X className="w-5 h-5" /></button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {loading ? (
-            <p className="text-slate-500">Loading templates…</p>
-          ) : templates.length === 0 ? (
-            <p className="text-slate-500">No letter templates found. Create one in the Letters section.</p>
-          ) : !generated ? (
-            <>
-              <div>
-                <label htmlFor="profile-template-select" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-2">Select a template</label>
-                <select
-                  id="profile-template-select"
-                  className="input w-full"
-                  style={{ minHeight: 44, fontSize: 15 }}
-                  value={selectedId ?? ''}
-                  onChange={e => setSelectedId(Number(e.target.value))}
-                >
-                  {templates.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}{t.is_system ? ' (Built-in)' : ''}</option>
-                  ))}
-                </select>
-              </div>
-              {selectedId && (
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {templates.find(t => t.id === selectedId)?.description}
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Generated letter:</p>
-                <button onClick={() => setGenerated(null)} className="hit-44 text-base text-blue-600 hover:underline">Change template</button>
-              </div>
-              <UnknownPlaceholders unknown={unknown} />
-              <textarea
-                readOnly
-                value={generated}
-                className="w-full font-mono text-base bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-4 resize-none"
-                rows={18}
-                style={{ fontSize: 15 }}
-              />
-            </>
-          )}
-        </div>
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
-          <button onClick={onClose} className="btn-secondary" style={{ minHeight: 44 }}>Close</button>
-          {!generated ? (
-            <button
-              onClick={handleGenerate}
-              disabled={!selectedId || generating}
-              className="btn-primary disabled:opacity-50"
-              style={{ minHeight: 44 }}
-            >
-              {generating ? 'Generating…' : 'Generate'}
-            </button>
-          ) : (
-            <button onClick={handleCopy} className="btn-primary" style={{ minHeight: 44 }}>
-              {copied ? 'Copied!' : 'Copy to Clipboard'}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 const NO_FORMS: Form[] = []
 
@@ -196,7 +80,15 @@ export default function ProfileView(): React.ReactElement {
   const closeAuditTrail = useCallback(() => setShowAuditTrail(false), [])
   const [showHandoff, setShowHandoff] = useState(false)
   const closeHandoff = useCallback(() => setShowHandoff(false), [])
-  const [showPrintLayout, setShowPrintLayout] = useState(false)
+  // Sections chosen in "Print / PDF…" while the print layout is up
+  const [printSections, setPrintSections] = useState<ProfileSections | null>(null)
+  const showPrintLayout = printSections !== null
+  const closePrintLayout = useCallback(() => setPrintSections(null), [])
+  // "More ▾" actions (3.6)
+  const [askArchive, setAskArchive] = useState(false)
+  const [archiveReason, setArchiveReason] = useState('')
+  const [askTrash, setAskTrash] = useState(false)
+  const [showMove, setShowMove] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)
   const closeExportDialog = useCallback(() => setShowExportDialog(false), [])
 
@@ -204,8 +96,9 @@ export default function ProfileView(): React.ReactElement {
     rows: s.rows, columns: s.columns, hiddenColumns: s.hiddenColumns,
     grids: s.grids, activeGridId: s.activeGridId, sortedRowIds: s.sortedRowIds, isLoading: s.isLoading,
   })))
-  const { updateRow, updateCell, loadGrid, unarchiveRow } = useGridStore(useShallow(s => ({
+  const { updateRow, updateCell, loadGrid, unarchiveRow, archiveRow, deleteRow, duplicateRow } = useGridStore(useShallow(s => ({
     updateRow: s.updateRow, updateCell: s.updateCell, loadGrid: s.loadGrid, unarchiveRow: s.unarchiveRow,
+    archiveRow: s.archiveRow, deleteRow: s.deleteRow, duplicateRow: s.duplicateRow,
   })))
   const { addRecentProfile } = useProfileStore(useShallow(s => ({
     addRecentProfile: s.addRecentProfile,
@@ -364,6 +257,36 @@ export default function ProfileView(): React.ReactElement {
   function goNext() {
     if (nextRowId != null) navigate(`/profile/${nextRowId}`)
   }
+
+  /** After archiving or trashing: on to the next record, or back to the list */
+  function leaveRecord() {
+    const next = nextRowId ?? prevRowId
+    if (next != null) navigate(`/profile/${next}`)
+    else goBack()
+  }
+
+  async function confirmArchive() {
+    setAskArchive(false)
+    if (rowId == null) return
+    await archiveRow(rowId, archiveReason.trim() || undefined)
+    setArchiveReason('')
+    leaveRecord()
+  }
+
+  async function confirmTrash() {
+    setAskTrash(false)
+    if (rowId == null) return
+    await deleteRow(rowId)
+    leaveRecord()
+  }
+
+  const moreItems: MoreMenuItem[] = [
+    { label: 'Print / PDF…', onSelect: () => setShowExportDialog(true) },
+    ...(row && row.is_active !== 0 ? [{ label: 'Archive…', onSelect: () => setAskArchive(true) }] : []),
+    ...(rowInList ? [{ label: 'Duplicate', onSelect: () => { if (rowId != null) void duplicateRow(rowId) } }] : []),
+    ...(grids.length > 1 ? [{ label: `Move to another ${t('list')}…`, onSelect: () => setShowMove(true) }] : []),
+    { label: 'Move to Trash…', onSelect: () => setAskTrash(true), danger: true },
+  ]
 
   // Refs to avoid stale closures in keyboard handler
   const prevRowIdRef = useRef(prevRowId)
@@ -544,8 +467,7 @@ export default function ProfileView(): React.ReactElement {
               gridId={activeGridId!}
               onRowUpdate={handleRowUpdate}
               onAddNote={() => noteFocusRef.current?.()}
-              onPrint={() => setShowPrintLayout(true)}
-              onExportPdf={() => setShowExportDialog(true)}
+              moreItems={moreItems}
               onGenerateLetter={showLetters ? () => setShowLetterModal(true) : undefined}
               onAuditTrail={() => setShowAuditTrail(true)}
               onHandoff={handoffOn ? () => setShowHandoff(true) : undefined}
@@ -629,27 +551,53 @@ export default function ProfileView(): React.ReactElement {
         <HandoffDialog rowId={rowId} gridId={activeGridId} clientName={clientName} onClose={closeHandoff} />
       )}
       {showExportDialog && activeGridId != null && (
-        <ProfileExportDialog gridId={activeGridId} clientName={clientName} onSave={sections => void handleExportPdf(sections)} onClose={closeExportDialog} />
+        <ProfileExportDialog gridId={activeGridId} clientName={clientName}
+          onSave={sections => void handleExportPdf(sections)}
+          onPrint={sections => { setShowExportDialog(false); setPrintSections(sections) }}
+          onClose={closeExportDialog} />
       )}
       {showAuditTrail && rowId != null && (
         <AuditReportDialog rowId={rowId} label={clientName} onClose={closeAuditTrail} />
       )}
       {showLetterModal && rowId != null && activeGridId != null && (
-        <GenerateLetterModal
-          rowId={rowId}
-          gridId={activeGridId}
-          clientName={clientName}
-          onClose={() => setShowLetterModal(false)}
-        />
+        <RecordLetterDialog rowId={rowId} gridId={activeGridId} clientName={clientName} onClose={() => setShowLetterModal(false)} />
       )}
 
       {/* Print layout overlay */}
-      {showPrintLayout && rowId != null && activeGridId != null && (
-        <ProfilePrintLayout
+      {printSections && rowId != null && activeGridId != null && (
+        <ProfilePrintLayout rowId={rowId} gridId={activeGridId} clientName={clientName} row={row} sections={printSections} onClose={closePrintLayout} />
+      )}
+
+      <ConfirmDialog
+        open={askArchive}
+        title={`Archive ${clientName}?`}
+        message={`An archived ${t('record')} leaves the ${t('list')} and stops showing deadlines. You can bring it back any time (Show archived).`}
+        confirmLabel="Archive"
+        destructive={false}
+        onConfirm={() => void confirmArchive()}
+        onCancel={() => { setAskArchive(false); setArchiveReason('') }}
+      >
+        <label htmlFor="archive-reason" className="block text-base font-medium text-slate-700 dark:text-slate-200 mb-1">Reason (optional)</label>
+        <input id="archive-reason" className="input w-full" value={archiveReason} maxLength={1000}
+          onChange={e => setArchiveReason(e.target.value)} placeholder="e.g. Discharged, Moved away, Job finished" />
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={askTrash}
+        title={`Move ${clientName} to the Trash?`}
+        message={`It stays in the Trash for 30 days, and you can restore it from there or with Undo.`}
+        confirmLabel="Move to Trash"
+        onConfirm={() => void confirmTrash()}
+        onCancel={() => setAskTrash(false)}
+      />
+
+      {showMove && rowId != null && activeGridId != null && (
+        <MoveToGridModal
           rowId={rowId}
-          gridId={activeGridId}
-          clientName={clientName}
-          onClose={() => setShowPrintLayout(false)}
+          sourceGridId={activeGridId}
+          sourceColumns={[...columns, ...hiddenColumns]}
+          onDone={() => { setShowMove(false); void loadGrid(activeGridId) }}
+          onCancel={() => setShowMove(false)}
         />
       )}
     </div>
