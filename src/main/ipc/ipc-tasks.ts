@@ -20,15 +20,17 @@ export function registerTaskHandlers(): void {
   // ── Caseload Tasks ──────────────────────────────────────────────────────────
   secureWrap(IPC.TASK_GET_ALL, 'ipc-tasks', (_e, gridId?: number) => {
     if (gridId != null && !validId(gridId)) return fail('Invalid ID')
-    const TASK_COLS = 'id, grid_id, group_id, title, description, priority, category, due_date, recurrence_rule, is_completed, completed_at, snoozed_until, position, created_at, updated_at'
+    const TASK_COLS = 'ct.id, ct.grid_id, ct.group_id, ct.title, ct.description, ct.priority, ct.category, ct.due_date, ct.recurrence_rule, ct.is_completed, ct.completed_at, ct.snoozed_until, ct.position, ct.created_at, ct.updated_at'
+    // Tasks of a list in the Trash are left out, as on the Dashboard and calendar (bug sweep S2/S4)
+    const FROM = 'FROM caseload_tasks ct LEFT JOIN grids g ON g.id = ct.grid_id WHERE (ct.grid_id IS NULL OR g.is_active = 1) AND'
     // Open tasks first, then only the most recent finished ones, so a long
     // history of finished tasks never pushes new ones off the list (audit S-14)
-    const where = gridId != null ? 'grid_id = ? AND' : ''
+    const where = gridId != null ? 'ct.grid_id = ? AND' : ''
     const args = gridId != null ? [gridId] : []
-    const open = cachedStmt(`task_open_${gridId != null ? 'grid' : 'all'}`, `SELECT ${TASK_COLS} FROM caseload_tasks WHERE ${where} is_completed = 0
-      ORDER BY position ASC, due_date ASC NULLS LAST LIMIT ${QUERY_LIMITS.TASKS_LIST}`).all(...args) as CaseloadTask[]
-    const done = cachedStmt(`task_done_${gridId != null ? 'grid' : 'all'}`, `SELECT * FROM (SELECT ${TASK_COLS} FROM caseload_tasks WHERE ${where} is_completed = 1
-      ORDER BY completed_at DESC, id DESC LIMIT ${QUERY_LIMITS.TASKS_COMPLETED}) ORDER BY position ASC`).all(...args) as CaseloadTask[]
+    const open = cachedStmt(`task_open_v2_${gridId != null ? 'grid' : 'all'}`, `SELECT ${TASK_COLS} ${FROM} ${where} ct.is_completed = 0
+      ORDER BY ct.position ASC, ct.due_date ASC NULLS LAST LIMIT ${QUERY_LIMITS.TASKS_LIST}`).all(...args) as CaseloadTask[]
+    const done = cachedStmt(`task_done_v2_${gridId != null ? 'grid' : 'all'}`, `SELECT * FROM (SELECT ${TASK_COLS} ${FROM} ${where} ct.is_completed = 1
+      ORDER BY ct.completed_at DESC, ct.id DESC LIMIT ${QUERY_LIMITS.TASKS_COMPLETED}) ORDER BY position ASC`).all(...args) as CaseloadTask[]
     return ok([...open, ...done])
   })
 

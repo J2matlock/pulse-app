@@ -100,6 +100,18 @@ describe('IPC Tasks', () => {
       expect(result.data).toHaveLength(2)
     })
 
+    it('leaves out tasks of a list in the Trash, as the Dashboard does (bug sweep S2/S4)', async () => {
+      const { gridId: kept } = seedGrid(testDb.db, { name: 'Kept', columnCount: 1, rowCount: 0 })
+      const { gridId: trashed } = seedGrid(testDb.db, { name: 'Trashed', columnCount: 1, rowCount: 0 })
+      insertTask(kept, 'Kept task')
+      insertTask(null, 'No list')
+      insertTask(trashed, 'Gone task')
+      insertTask(trashed, 'Gone done', { is_completed: 1 })
+      testDb.db.prepare("UPDATE grids SET is_active = 0, deleted_at = datetime('now') WHERE id = ?").run(trashed)
+      const result = await invoke(IPC.TASK_GET_ALL) as any
+      expect(result.data.map((t: any) => t.title).sort()).toEqual(['Kept task', 'No list'])
+    })
+
     it('filters by gridId when provided', async () => {
       const { gridId: g1 } = seedGrid(testDb.db, { name: 'G1', columnCount: 1, rowCount: 0 })
       const { gridId: g2 } = seedGrid(testDb.db, { name: 'G2', columnCount: 1, rowCount: 0 })

@@ -353,6 +353,13 @@ describe('CHECKLIST_GET_URGENT', () => {
     expect(r.data[0].priority).toBe('urgent')
   })
 
+  it('leaves out items of records in a list in the Trash (bug sweep S2)', async () => {
+    await createItem('Urgent task', { priority: 'urgent' })
+    testDb.db.prepare("UPDATE grids SET is_active = 0, deleted_at = datetime('now')").run()
+    const r = await invoke(IPC.CHECKLIST_GET_URGENT) as any
+    expect(r.data).toHaveLength(0)
+  })
+
   it('excludes completed urgent items', async () => {
     const item = await createItem('Done urgent', { priority: 'urgent' })
     await invoke(IPC.CHECKLIST_UPDATE_ITEM, item.data.id, { is_completed: 1 })

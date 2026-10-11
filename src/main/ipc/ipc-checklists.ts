@@ -145,7 +145,7 @@ export function registerChecklistHandlers(): void {
              r.display_name AS client_name
       FROM checklist_items ci
       JOIN rows r ON r.id = ci.row_id AND r.is_active = 1 AND r.deleted_at IS NULL
-      JOIN grids g ON g.id = r.grid_id
+      JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
       WHERE ci.priority = 'urgent'
         AND ci.is_completed = 0
         AND ci.is_archived = 0
