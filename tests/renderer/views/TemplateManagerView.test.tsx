@@ -113,6 +113,6 @@ describe('TemplateManagerView', () => {
     render(<MemoryRouter><TemplateManagerView /></MemoryRouter>)
     await flushEffects()
     expect(screen.getByLabelText('Import a .pulse template file')).toBeDefined()
-    expect(screen.getByLabelText('Save current grid as a reusable template')).toBeDefined()
+    expect(screen.getByLabelText(/^Save the current \w+ as a reusable template$/)).toBeDefined()
   })
 })

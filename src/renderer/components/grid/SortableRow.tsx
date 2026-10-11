@@ -25,6 +25,8 @@ export interface SortableRowProps {
   editingColId: number | null
   focusedRowId: number | null
   focusedColId: number | null
+  /** The cell in this record that takes the list's single Tab stop, if any */
+  tabStopColId?: number | null
   columns: Column[]
   columnMap: Map<number, Column>
   alertRuleMap: Map<number, ParsedAlertRule>
@@ -73,6 +75,7 @@ export const SortableRow = React.memo(function SortableRow({
   editingColId,
   focusedRowId,
   focusedColId,
+  tabStopColId = null,
   columns,
   columnMap,
   alertRuleMap,
@@ -366,7 +369,7 @@ export const SortableRow = React.memo(function SortableRow({
             style={cellStyle}
             title={alertTooltip || undefined}
             onContextMenu={e => onCellContextMenu(e, rowId, colId)}
-            tabIndex={0}
+            tabIndex={tabStopColId === colId ? 0 : -1}
             role="gridcell"
             aria-selected={isFocused}
             onFocus={() => setFocusedCell({ rowId, columnId: colId })}
@@ -504,6 +507,7 @@ export const SortableRow = React.memo(function SortableRow({
   const nextFocused = next.focusedRowId === next.rowId
   if (prevFocused !== nextFocused) return false
   if (prevFocused && nextFocused && prev.focusedColId !== next.focusedColId) return false
+  if (prev.tabStopColId !== next.tabStopColId) return false
 
   if (prev.columns !== next.columns) return false
   if (prev.cellFormats !== next.cellFormats) return false

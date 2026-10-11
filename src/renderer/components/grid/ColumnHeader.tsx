@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { useMenuKeys } from '../../hooks/useMenuKeys'
 import { createPortal } from 'react-dom'
-import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2, Edit2, EyeOff, GripVertical, Bell, BellOff, Plus, Pencil, Activity, List, Palette, ArrowUp, ArrowDown, Pin, PinOff, Asterisk, Link2, Columns3, Clock, IdCard, Settings2, Shapes } from 'lucide-react'
+import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2, Edit2, EyeOff, GripVertical, Bell, BellOff, Plus, Pencil, Activity, List, Palette, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Pin, PinOff, Asterisk, Link2, Columns3, Clock, IdCard, Settings2, Shapes } from 'lucide-react'
 import { canBeRequired } from '../../../shared/requiredFields'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
@@ -47,7 +48,8 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
     columns: s.columns,
     frozenColumnCount: s.frozenColumnCount,
   })))
-  const { setSortConfig, updateColumn, deleteColumn, setNameColumn, toggleColumnVisibility, setFrozenColumnCount } = useGridStore(useShallow(s => ({
+  const { setSortConfig, updateColumn, deleteColumn, setNameColumn, toggleColumnVisibility, setFrozenColumnCount, reorderColumns } = useGridStore(useShallow(s => ({
+    reorderColumns: s.reorderColumns,
     setSortConfig: s.setSortConfig,
     updateColumn: s.updateColumn,
     deleteColumn: s.deleteColumn,
@@ -94,6 +96,22 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
 
   // Freeze/pin column state
   const colIndex = allColumns.findIndex(c => c.id === column.id)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const onMenuKeyDown = useMenuKeys(menuRef, showMenu, () => { setShowMenu(false); setShowAlertPicker(false) })
+
+  // Move left / right among the shown columns, so columns can be reordered without dragging (G-32)
+  const shownColumns = allColumns.filter(c => c.is_visible !== 0)
+  const shownIndex = shownColumns.findIndex(c => c.id === column.id)
+  function moveColumn(by: -1 | 1) {
+    setShowMenu(false)
+    const neighbour = shownColumns[shownIndex + by]
+    if (!neighbour) return
+    const ids = allColumns.map(c => c.id)
+    const to = ids.indexOf(neighbour.id)
+    ids.splice(ids.indexOf(column.id), 1)
+    ids.splice(to, 0, column.id)
+    void reorderColumns(ids)
+  }
   const isColumnFrozen = colIndex >= 0 && colIndex < frozenColumnCount
 
   async function handleToggleLogChanges() {
@@ -200,7 +218,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
           {...dragHandleProps}
           className="hit-44 flex-shrink-0 p-0.5 rounded-sm text-slate-300 dark:text-slate-500 hover:text-slate-500 dark:hover:text-slate-400
                      opacity-40 group-hover:opacity-100 cursor-grab active:cursor-grabbing touch-none
-                     focus:outline-hidden transition-opacity"
+                     transition-opacity"
           tabIndex={-1}
           aria-label="Drag to reorder column"
           onPointerDown={e => { dragHandleProps.onPointerDown?.(e); e.stopPropagation() }}
@@ -215,7 +233,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
             ref={renameRef}
             autoFocus
             type="text"
-            className="w-full bg-transparent border-b border-blue-500 outline-hidden text-base font-semibold"
+            className="w-full bg-transparent border-b border-blue-500 text-base font-semibold"
             value={renameName}
             onChange={e => setRenameName(e.target.value)}
             onBlur={e => {
@@ -228,7 +246,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
       ) : (
         <Tooltip content="Click to sort · Double-click to rename" placement="bottom" delay={600}>
           <button
-            className="hit-44 flex-1 text-left text-base font-semibold text-slate-700 dark:text-slate-200 truncate focus:outline-hidden min-w-0 px-1"
+            className="hit-44 flex-1 text-left text-base font-semibold text-slate-700 dark:text-slate-200 truncate min-w-0 px-1"
             onClick={e => {
               // Wait a moment, so a double-click renames instead of sorting twice
               const shift = e.shiftKey
@@ -294,6 +312,8 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
               {/* Click-away backdrop */}
               <div className="fixed inset-0 z-[9998]" onClick={() => { setShowMenu(false); setShowAlertPicker(false) }} />
               <div
+                ref={menuRef}
+                onKeyDown={onMenuKeyDown}
                 className="fixed w-52 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-[9999] overflow-y-auto"
                 style={{
                   ...((() => {
@@ -353,6 +373,18 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                 <EyeOff className="w-4 h-4" />
                 Hide column
               </button>
+              {shownIndex > 0 && (
+                <button className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700" onClick={() => moveColumn(-1)}>
+                  <ArrowLeft className="w-4 h-4" />
+                  Move left
+                </button>
+              )}
+              {shownIndex >= 0 && shownIndex < shownColumns.length - 1 && (
+                <button className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700" onClick={() => moveColumn(1)}>
+                  <ArrowRight className="w-4 h-4" />
+                  Move right
+                </button>
+              )}
               <button
                 className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-left"
                 onClick={() => {
@@ -545,7 +577,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                 onClick={() => { setShowColFormat(true); setShowMenu(false) }}
               >
                 <Palette className="w-4 h-4" />
-                Column format rules…
+                Color rules for this column…
               </button>
 
               {/* Edit options — only for dropdown/status columns */}

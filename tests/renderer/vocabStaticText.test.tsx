@@ -18,7 +18,7 @@ import { FAQ_ITEMS } from '../../src/renderer/views/help/faqData'
 import { CATEGORY_LABELS } from '../../src/renderer/views/help/types'
 import { fillVocab, resolveVocab } from '../../src/shared/vocab'
 
-const HARD_CODED = /\b(clients?|caseloads?|case (notes?|logs?)|providers?|acuity)\b/i
+const HARD_CODED = /\b(clients?|caseloads?|case (notes?|logs?)|providers?|acuity|grids?)\b/i
 
 const texts: string[] = [
   ...STEPS.flatMap(s => [s.title, s.subtitle, s.description, s.tip ?? '']),

@@ -48,7 +48,7 @@ describe('deadline rows', () => {
       alertRuleId: 7, threshold: null, intervalDays: 0, ruleKind: 'sequence', step: 0, label: 'IFSP meeting (step 1 of 4)', due: '2026-09-25' } as ExtendedDeadlineInfo
     render(<MemoryRouter><div role="list"><DeadlineRow deadline={d} onMarkDone={vi.fn()} /></div></MemoryRouter>)
     expect(screen.getByText(/IFSP meeting \(step 1 of 4\)/)).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Mark IFSP meeting done' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Mark IFSP meeting done for Frank' })).toBeTruthy()
   })
 })
 

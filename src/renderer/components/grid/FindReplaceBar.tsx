@@ -202,7 +202,7 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
       <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
         <div className="flex items-center gap-1.5">
           <ArrowRightLeft className="w-3.5 h-3.5 text-blue-500" />
-          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+          <span className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
             Find & Replace
           </span>
         </div>
@@ -224,7 +224,7 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
           <input
             ref={findRef}
             type="text"
-            placeholder="Find in grid..."
+            placeholder={`Find in this ${t('list')}…`}
             value={findText}
             onChange={e => setFindText(e.target.value)}
             onKeyDown={handleFindKeyDown}
@@ -239,7 +239,7 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
           />
           {/* Match counter + nav inside input area */}
           <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-            <span className={`text-xs px-1.5 py-0.5 rounded font-medium min-w-[3rem] text-center
+            <span className={`text-sm px-1.5 py-0.5 rounded font-medium min-w-[3rem] text-center
               ${hasFind && !hasMatches
                 ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20'
                 : 'text-slate-500 dark:text-slate-400'

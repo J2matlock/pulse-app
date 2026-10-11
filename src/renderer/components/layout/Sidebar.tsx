@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
-import { Grid3X3, ChevronLeft, Lock, LayoutDashboard, Trash2, MoreHorizontal, ClipboardList, Zap, LayoutTemplate, FileText, Settings, Settings2, Pencil, GripVertical, Focus, BookUser, Plus, HelpCircle, CalendarCheck, CalendarDays, ClipboardPen, BarChart3 } from 'lucide-react'
+import { Grid3X3, ChevronLeft, Lock, LayoutDashboard, Trash2, MoreHorizontal, ClipboardList, Zap, LayoutTemplate, FileText, Settings, Settings2, Pencil, GripVertical, ArrowUp, ArrowDown, Focus, BookUser, Plus, HelpCircle, CalendarCheck, CalendarDays, ClipboardPen, BarChart3 } from 'lucide-react'
 import { ContactRequirementsDialog } from '../contact-req/ContactRequirementsDialog'
 import { ListSettingsDialog } from '../grid/ListSettingsDialog'
 import { NewListDialog } from '../grid/NewListDialog'
@@ -100,6 +100,9 @@ interface SortableGridItemProps {
   onContactReqStart?: () => void
   onDeleteStart: () => void
   onNavigate: () => void
+  /** Keyboard-friendly reordering; absent at the top / bottom of the list */
+  onMoveUp?: () => void
+  onMoveDown?: () => void
 }
 
 /** "Tree Customers" → "TC", "Jobs" → "JO" */
@@ -113,7 +116,7 @@ export function listInitials(name: string): string {
 function SortableGridItem({
   grid, collapsed, isActive, isRenaming, renameValue, renameInputRef,
   menuOpen, onRenameChange, onRenameCommit, onRenameCancel,
-  onMenuToggle, onMenuClose, onRenameStart, onSettingsStart, onFormsStart, onContactReqStart, onDeleteStart, onNavigate,
+  onMenuToggle, onMenuClose, onRenameStart, onSettingsStart, onFormsStart, onContactReqStart, onDeleteStart, onNavigate, onMoveUp, onMoveDown,
 }: SortableGridItemProps): React.ReactElement {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: grid.id })
   const { t } = useVocab(grid.id)
@@ -256,6 +259,24 @@ function SortableGridItem({
                 {t('requirement', { many: true, cap: true })}…
               </button>
             )}
+            {onMoveUp && (
+              <button
+                className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                onClick={onMoveUp}
+              >
+                <ArrowUp className="w-4 h-4" />
+                Move up
+              </button>
+            )}
+            {onMoveDown && (
+              <button
+                className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                onClick={onMoveDown}
+              >
+                <ArrowDown className="w-4 h-4" />
+                Move down
+              </button>
+            )}
             <div className="my-1 border-t border-slate-200 dark:border-slate-700" />
             <button
               className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
@@ -376,6 +397,14 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
     void reorderGrids(newOrder.map(g => g.id))
   }
 
+  /** The ⋯ menu's Move up / Move down, so lists can be reordered without a mouse */
+  function moveGrid(index: number, by: -1 | 1) {
+    setMenuGridId(null)
+    const target = index + by
+    if (target < 0 || target >= grids.length) return
+    void reorderGrids(arrayMove(grids, index, target).map(g => g.id))
+  }
+
   // Ctrl+\ toggles sidebar
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -424,7 +453,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
         {/* Workspace group */}
         <div role="group" aria-label="Workspace">
           {!collapsed && (
-            <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold px-3 py-2 mb-1"
+            <div className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold px-3 py-2 mb-1"
                  aria-hidden="true">
               Workspace
             </div>
@@ -497,7 +526,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
         {/* Grid list — drag-to-reorder */}
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={grids.map(g => g.id)} strategy={verticalListSortingStrategy}>
-            {grids.map(grid => (
+            {grids.map((grid, index) => (
               <SortableGridItem
                 key={grid.id}
                 grid={grid}
@@ -518,6 +547,8 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
                 onContactReqStart={showRequirements ? () => { setMenuGridId(null); setContactReqGrid({ gridId: grid.id, gridName: grid.name }) } : undefined}
                 onDeleteStart={() => { setMenuGridId(null); setDeleteTarget({ id: grid.id, name: grid.name }) }}
                 onNavigate={() => { loadGrid(grid.id); navigate('/grid') }}
+                onMoveUp={index > 0 ? () => moveGrid(index, -1) : undefined}
+                onMoveDown={index < grids.length - 1 ? () => moveGrid(index, 1) : undefined}
               />
             ))}
           </SortableContext>
@@ -527,7 +558,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
         {/* Tools group */}
         <div role="group" aria-label="Tools">
           {!collapsed && (
-            <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold px-3 py-2 mt-3 mb-1 border-t border-slate-200 dark:border-slate-700 pt-3"
+            <div className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold px-3 py-2 mt-3 mb-1 border-t border-slate-200 dark:border-slate-700 pt-3"
                  aria-hidden="true">
               Tools
             </div>
@@ -730,7 +761,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
         {/* System group */}
         <div role="group" aria-label="System">
           {!collapsed && (
-            <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold px-3 py-2 mt-3 mb-1 border-t border-slate-200 dark:border-slate-700 pt-3"
+            <div className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold px-3 py-2 mt-3 mb-1 border-t border-slate-200 dark:border-slate-700 pt-3"
                  aria-hidden="true">
               System
             </div>

@@ -538,9 +538,9 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       {/* Active items */}
       <div className="px-1 py-1">
         {loading ? (
-          <div className="py-6 text-center text-sm text-slate-500 dark:text-slate-500">Loading…</div>
+          <div className="py-6 text-center text-sm text-slate-500 dark:text-slate-400">Loading…</div>
         ) : activeItems.length === 0 && completedItems.length === 0 && !hasGroups ? (
-          <div className="py-4 text-center text-sm text-slate-500 dark:text-slate-500">
+          <div className="py-4 text-center text-sm text-slate-500 dark:text-slate-400">
             No checklist items yet. Type below and press Enter to add one, or use Templates.
           </div>
         ) : !hasGroups ? (
@@ -1047,7 +1047,7 @@ export function TemplateManager({ onApply, onClose }: {
                             </div>
                           )}
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="text-sm text-slate-500 dark:text-slate-500">
+                            <span className="text-sm text-slate-500 dark:text-slate-400">
                               {itemCount} item{itemCount !== 1 ? 's' : ''}
                             </span>
                             {tpl.is_recurring === 1 && tpl.recurrence_days && (
@@ -1238,7 +1238,7 @@ export function TemplateManager({ onApply, onClose }: {
         <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-700 flex-shrink-0 flex items-center justify-between">
           {view === 'list' ? (
             <>
-              <p className="text-sm text-slate-500 dark:text-slate-500">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
                 Templates add items to the existing checklist without replacing them.
               </p>
               <button

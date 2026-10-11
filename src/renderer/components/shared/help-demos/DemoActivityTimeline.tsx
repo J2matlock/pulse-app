@@ -42,7 +42,7 @@ export function DemoActivityTimeline() {
                 <span>{e.icon}</span>
                 <span className="text-slate-700 dark:text-slate-300">{e.text}</span>
               </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{e.time}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{e.time}</div>
             </div>
           </div>
         ))}

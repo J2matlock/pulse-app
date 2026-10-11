@@ -143,7 +143,7 @@ export function VariableInsertMenu({ open, onClose, onInsert, anchorRef, extraGr
               aria-selected={isFocused}
               onClick={() => { onInsert(item.key); onClose() }}
               className={`w-full text-left px-3 py-2 rounded cursor-pointer flex flex-col gap-0.5
-                          focus:outline-hidden min-h-[44px] justify-center
+                          focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-blue-500 min-h-[44px] justify-center
                           ${isFocused
                             ? 'bg-blue-50 dark:bg-blue-900/30'
                             : 'hover:bg-slate-100 dark:hover:bg-slate-700'
@@ -152,7 +152,7 @@ export function VariableInsertMenu({ open, onClose, onInsert, anchorRef, extraGr
               <span className="font-mono text-sm text-blue-600 dark:text-blue-400">
                 {item.key}
               </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
+              <span className="text-sm text-slate-500 dark:text-slate-400">
                 {f(item.desc)}
               </span>
             </button>
@@ -161,7 +161,7 @@ export function VariableInsertMenu({ open, onClose, onInsert, anchorRef, extraGr
 
         return (
           <div key={group.label} className="mb-1">
-            <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <div className="px-3 py-1 text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               {f(group.label)}
             </div>
             {groupItems}
@@ -170,7 +170,7 @@ export function VariableInsertMenu({ open, onClose, onInsert, anchorRef, extraGr
       })}
 
       <div className="px-3 py-2 border-t border-slate-200 dark:border-slate-700 mt-1">
-        <span className="text-xs text-slate-500 dark:text-slate-400 italic">
+        <span className="text-sm text-slate-500 dark:text-slate-400 italic">
           Tip: Any column name works too, e.g. {'{{'}column_name{'}}'}
         </span>
       </div>

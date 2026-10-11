@@ -48,7 +48,7 @@ vi.mock('@dnd-kit/sortable', () => ({
     transform: null, transition: null, isDragging: false,
   }),
   verticalListSortingStrategy: 'vertical',
-  arrayMove: vi.fn(),
+  arrayMove: <T,>(a: T[], from: number, to: number): T[] => { const c = [...a]; c.splice(to, 0, c.splice(from, 1)[0]!); return c },
 }))
 vi.mock('@dnd-kit/utilities', () => ({
   CSS: { Transform: { toString: () => '' } },
@@ -192,5 +192,19 @@ describe('Sidebar', () => {
     expect(screen.getByText('Lock')).toBeDefined()
     fireEvent.click(screen.getByText('Lock'))
     expect(mockLock).toHaveBeenCalledTimes(1)
+  })
+
+  it('reorders lists from the options menu, without dragging', () => {
+    renderSidebar()
+    const optionButtons = screen.getAllByLabelText(/options$/)
+    fireEvent.click(optionButtons[0]!)
+    expect(screen.queryByText('Move up')).toBeNull()
+    fireEvent.click(screen.getByText('Move down'))
+    expect(mockReorderGrids).toHaveBeenCalledWith([2, 1])
+
+    fireEvent.click(screen.getAllByLabelText(/options$/)[1]!)
+    expect(screen.queryByText('Move down')).toBeNull()
+    fireEvent.click(screen.getByText('Move up'))
+    expect(mockReorderGrids).toHaveBeenLastCalledWith([2, 1])
   })
 })

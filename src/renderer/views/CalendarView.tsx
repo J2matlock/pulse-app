@@ -286,7 +286,7 @@ export default function CalendarView(): React.ReactElement {
                     <div key={d} role="gridcell" tabIndex={d === focusDay ? 0 : -1} data-day={d} aria-label={`${longDay(d)}, ${events.length ? `${events.length} item${events.length === 1 ? '' : 's'}` : 'nothing'}`}
                       onFocus={() => setFocusDay(d)}
                       onDoubleClick={() => apptsOn && setNewAt(`${d}T09:00`)}
-                      className={`border-r border-b border-slate-300 dark:border-slate-600 p-1 space-y-1 overflow-hidden focus:outline-hidden focus:ring-3 focus:ring-inset focus:ring-blue-500 ${sameMonth(d, anchor) ? '' : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400'}`}>
+                      className={`border-r border-b border-slate-300 dark:border-slate-600 p-1 space-y-1 overflow-hidden focus:outline-hidden focus:ring-3 focus:ring-inset focus:ring-blue-500 ${sameMonth(d, anchor) ? '' : 'bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400'}`}>
                       <button type="button" tabIndex={-1} onClick={() => openDay(d)} aria-label={`Open ${longDay(d)}`}
                         className={`text-sm font-medium w-7 h-7 rounded-full ${d === today ? 'bg-blue-600 text-white' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
                         {Number(d.slice(8))}

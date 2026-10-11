@@ -186,7 +186,7 @@ export function GridToolbar(): React.ReactElement {
       else noteUnencryptedExport()
     } else {
       const saveRes = await safeInvoke<SaveDialogResult>(IPC.APP_SHOW_SAVE_DIALOG, {
-        title: 'Export Grid to PDF',
+        title: 'Save as PDF',
         defaultPath: `${fileWord}.pdf`,
         filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
       })

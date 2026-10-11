@@ -151,7 +151,7 @@ export function TopBar(): React.ReactElement {
       {isProfileView ? (
         /* Profile view: show breadcrumb */
         <Breadcrumb
-          gridName={activeGrid?.name ?? 'Grid'}
+          gridName={activeGrid?.name ?? t('list', { cap: true })}
           clientName={clientName}
           onGridClick={() => navigate('/grid')}
         />
@@ -306,7 +306,7 @@ export function TopBar(): React.ReactElement {
                         }}
                         className="hit-44 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300
                                    hover:bg-slate-50 dark:hover:bg-slate-700 flex flex-col gap-0.5
-                                   focus-visible:outline-hidden focus-visible:bg-slate-50 dark:focus-visible:bg-slate-700"
+                                   focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-blue-500 focus-visible:bg-slate-50 dark:focus-visible:bg-slate-700"
                       >
                         <span className="truncate font-medium">{p.name}</span>
                         <span className="text-sm text-slate-500 dark:text-slate-400 truncate">{p.gridName}</span>
@@ -329,7 +329,7 @@ export function TopBar(): React.ReactElement {
         )}
 
         {/* Shortcut discovery hint */}
-        <span className="text-xs text-slate-500 dark:text-slate-400 select-none hidden sm:inline" aria-hidden="true">
+        <span className="text-sm text-slate-500 dark:text-slate-400 select-none hidden sm:inline" aria-hidden="true">
           Press <kbd className="px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">?</kbd> for shortcuts
         </span>
       </div>

@@ -14,7 +14,7 @@ function setup(settings: Record<string, string | null>) {
   mockInvoke.mockImplementation((channel: string, key?: string) => {
     if (channel === 'settings:get') return Promise.resolve({ ok: true, data: settings[key!] ?? null })
     if (channel === 'settings:update') return Promise.resolve({ ok: true, data: true })
-    if (channel === 'dashboard:get-briefing') return Promise.resolve({ ok: true, data: { overdue: 2, dueToday: 1, dueThisWeek: 4, followUpsDue: 0, tasksDue: 1, checklistDue: 0 } })
+    if (channel === 'dashboard:get-briefing') return Promise.resolve({ ok: true, data: { overdue: 2, dueToday: 1, dueThisWeek: 4, followUpsDue: 3, tasksDue: 1, checklistDue: 1 } })
     return Promise.resolve({ ok: false })
   })
 }
@@ -27,6 +27,12 @@ describe('MorningBriefing', () => {
     render(<MemoryRouter><MorningBriefing suppressed={false} onFocusMode={() => {}} /></MemoryRouter>)
     expect(await screen.findByText(/, Jordan$/)).toBeTruthy()
     expect(screen.getByText('overdue deadlines', { exact: false })).toBeTruthy()
+    // Plurals go on the noun, not the end of the line (D-30)
+    expect(screen.getByText('deadline due today', { exact: false })).toBeTruthy()
+    expect(screen.getByText('more due in the next 7 days', { exact: false })).toBeTruthy()
+    expect(screen.getByText('follow-ups due', { exact: false })).toBeTruthy()
+    expect(screen.getByText('tasks due', { exact: false })).toBeTruthy()
+    expect(screen.queryByText(/todays|dayss|due\s*s\b/)).toBeNull()
     expect(mockInvoke).toHaveBeenCalledWith('settings:update', 'briefing_last_shown', localDateString())
   })
 

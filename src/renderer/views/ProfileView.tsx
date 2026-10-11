@@ -64,7 +64,7 @@ export default function ProfileView(): React.ReactElement {
   // Redirect to grid if rowId is invalid (e.g. /profile/abc)
   useEffect(() => {
     if (rowIdStr && rowId === null) {
-      toast.error(`That ${t('record')} link isn't valid — going back to the grid.`)
+      toast.error(`That ${t('record')} link isn't valid — going back to the ${t('list')}.`)
       navigate('/')
     }
   }, [rowIdStr, rowId, navigate])

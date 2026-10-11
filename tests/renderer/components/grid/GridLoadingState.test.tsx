@@ -16,7 +16,7 @@ describe('GridLoadingSkeleton', () => {
 
   it('renders loading screen reader text', () => {
     render(<GridLoadingSkeleton rowHeight={44} />)
-    expect(screen.getByText('Loading grid data…')).toBeTruthy()
+    expect(screen.getByText('Loading…')).toBeTruthy()
   })
 
   it('renders skeleton header and data rows', () => {

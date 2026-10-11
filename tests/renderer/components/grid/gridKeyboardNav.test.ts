@@ -35,6 +35,19 @@ describe('grid keys', () => {
     expect(d.setEditingCell).toHaveBeenCalledWith({ rowId: 7, columnId: 1 })
   })
 
+  it('Tab moves to the next cell, but leaves the list at the last cell (G-32)', () => {
+    const d = deps([col(1, 'text')])
+    const inside = key('Tab')
+    ;(d.navigateCell as ReturnType<typeof vi.fn>).mockReturnValueOnce(true)
+    handleCellKeyDown(inside, 7, 1, d)
+    expect(inside.preventDefault).toHaveBeenCalled()
+
+    const atEnd = key('Tab')
+    ;(d.navigateCell as ReturnType<typeof vi.fn>).mockReturnValueOnce(false)
+    handleCellKeyDown(atEnd, 7, 1, d)
+    expect(atEnd.preventDefault).not.toHaveBeenCalled()
+  })
+
   it('Delete clears a text cell but not a deadline cell', () => {
     const d = deps([col(1, 'text'), col(2, 'deadline')])
     handleCellKeyDown(key('Delete'), 7, 2, d)

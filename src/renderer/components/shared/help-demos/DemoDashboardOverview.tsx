@@ -33,7 +33,7 @@ export function DemoDashboardOverview() {
             style={{ animation: `dbCardPop 8s ease ${i * 0.4}s infinite` }}
           >
             <div className={`text-lg font-bold ${c.color}`}>{c.count}</div>
-            <div className="text-[10px] text-slate-500 dark:text-slate-400">{c.label}</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">{c.label}</div>
           </div>
         ))}
       </div>
@@ -47,7 +47,7 @@ export function DemoDashboardOverview() {
         {tabs.map(tab => (
           <div
             key={tab}
-            className="relative z-10 flex-1 text-center py-1 text-[10px] font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap"
+            className="relative z-10 flex-1 text-center py-1 text-xs font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap"
           >
             {tab}
           </div>

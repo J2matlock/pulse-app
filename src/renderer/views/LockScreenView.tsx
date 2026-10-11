@@ -147,7 +147,7 @@ export function LockScreenView(): React.ReactElement {
                 This computer can't unlock this data folder
               </h2>
               <p className="text-base text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
-                Pulse's sign-in data is protected by the computer and Windows account it was created on, so it can't be read here.
+                Pulse's sign-in data is protected by the computer and the computer account it was created on, so it can't be read here.
                 Your data is safe. To open it on this computer, restore a .pulse-backup file using your password or recovery key.
               </p>
               <button type="button" className="btn-primary w-full" onClick={() => setView('restore')}>
@@ -192,7 +192,6 @@ export function LockScreenView(): React.ReactElement {
                       type="button"
                       className="hit-44 absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                       onClick={() => setShowPassword(v => !v)}
-                      tabIndex={-1}
                       title={showPassword ? 'Hide password' : 'Show password'}
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
@@ -239,6 +238,7 @@ export function LockScreenView(): React.ReactElement {
                 <button
                   type="button"
                   onClick={() => setView('password')}
+                  aria-label="Back to password"
                   className="hit-44 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 >
                   ←
@@ -294,6 +294,7 @@ export function LockScreenView(): React.ReactElement {
                 <button
                   type="button"
                   onClick={() => setView('password')}
+                  aria-label="Back to password"
                   className="hit-44 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 >
                   ←

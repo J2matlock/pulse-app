@@ -43,7 +43,7 @@ export function DemoKeyboardNav() {
       </div>
       <div className="flex justify-center gap-3 mt-2">
         {['Tab', '↑', '↓', '←', '→'].map(key => (
-          <kbd key={key} className="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded-sm text-[11px] font-mono text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-600">
+          <kbd key={key} className="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded-sm text-xs font-mono text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-600">
             {key}
           </kbd>
         ))}

@@ -112,6 +112,12 @@ function snapshotSecureStore(): void {
   } catch (err) { logNonFatal('auth', 'Failed to snapshot pulse-secure.json', err) }
 }
 
+/** Plain words (audit F-36): what's missing, what it means, and that the data is still safe */
+export const KEYRING_MISSING_MESSAGE =
+  "This computer doesn't offer its own password vault, so Pulse's lock is a little weaker here. " +
+  'Your data is still encrypted. If someone who looks after this computer can turn on a password vault ' +
+  '(on Linux, a "keyring"), Pulse will use it.'
+
 // Check OS-level credential encryption after app is ready.
 // Must be called from index.ts inside app.whenReady() — calling safeStorage
 // before ready returns false on Windows even though DPAPI is available.
@@ -121,8 +127,8 @@ export function checkSafeStorageAvailability(): void {
   if (!safeStorage.isEncryptionAvailable() && !store.get('safeStorage_warning_shown' as never)) {
     dialog.showMessageBoxSync({
       type: 'warning',
-      title: 'Security Notice',
-      message: 'Your system does not support OS-level credential encryption. Your database key will be stored with reduced protection. Consider installing a keyring (gnome-keyring, kwallet, or similar).',
+      title: 'A note about your lock',
+      message: KEYRING_MISSING_MESSAGE,
     })
     store.set('safeStorage_warning_shown' as never, true as never)
   }
@@ -157,7 +163,7 @@ function secureGet(key: keyof SecureStore, fallback = ''): string {
 }
 
 export const CREDENTIALS_UNREADABLE =
-  "This computer can't read Pulse's saved sign-in data. This happens when the data folder was copied from another computer or Windows account. Use \"Restore from a backup\" to open a .pulse-backup file with your password or recovery key."
+  "This computer can't read Pulse's saved sign-in data. This happens when the data folder was copied from another computer or another computer account. Use \"Restore from a backup\" to open a .pulse-backup file with your password or recovery key."
 
 /** True when credentials exist but this machine's OS keystore can't decrypt them. */
 export function areCredentialsUnreadable(): boolean {

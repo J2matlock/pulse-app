@@ -249,11 +249,11 @@ export function CustomGroupEditor({ gridId, initialDef, onClose }: CustomGroupEd
           <div>
             <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2" style={{ fontSize: 15 }}>
               Unassigned values
-              <span className="ml-1 text-xs text-slate-500 dark:text-slate-400">({unassignedValues.length})</span>
+              <span className="ml-1 text-sm text-slate-500 dark:text-slate-400">({unassignedValues.length})</span>
             </p>
             <div className="min-h-24 p-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 flex flex-wrap gap-1.5 content-start">
               {unassignedValues.length === 0 && (
-                <p className="text-sm text-slate-500 dark:text-slate-400 italic w-full text-center py-4" style={{ fontSize: 14 }}>
+                <p className="text-sm text-slate-500 dark:text-slate-400 italic w-full text-center py-4">
                   {allValues.length === 0 ? `No values found in "${selectedColName}"` : 'All values assigned'}
                 </p>
               )}
@@ -263,13 +263,13 @@ export function CustomGroupEditor({ gridId, initialDef, onClose }: CustomGroupEd
                   onClick={() => assignValueToBucket(v, focusedBucketIdx)}
                   title={`Add to bucket ${focusedBucketIdx + 1}: ${buckets[focusedBucketIdx]?.label || '(unlabeled)'}`}
                   className="hit-44 px-2 py-1 rounded-md text-base bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-400 transition-colors cursor-pointer"
-                  style={{ fontSize: 14, minHeight: 30 }}
+                  style={{ minHeight: 30 }}
                 >
                   {selectedColId === ACUITY_GROUP_KEY ? acuityDisplayLabel(v) : v}
                 </button>
               ))}
             </div>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400" style={{ fontSize: 13 }}>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               Click a value to add it to the selected bucket
             </p>
           </div>
@@ -323,7 +323,7 @@ export function CustomGroupEditor({ gridId, initialDef, onClose }: CustomGroupEd
                 {/* Assigned values in this bucket */}
                 <div className="flex flex-wrap gap-1.5 min-h-8">
                   {bucket.values.length === 0 && (
-                    <span className="text-xs text-slate-500 dark:text-slate-400 italic self-center" style={{ fontSize: 13 }}>
+                    <span className="text-sm text-slate-500 dark:text-slate-400 italic self-center">
                       {focusedBucketIdx === idx ? 'Click values on the left to add them here' : 'No values'}
                     </span>
                   )}
@@ -333,7 +333,7 @@ export function CustomGroupEditor({ gridId, initialDef, onClose }: CustomGroupEd
                       onClick={e => { e.stopPropagation(); removeValueFromBucket(v, idx) }}
                       title="Remove from bucket"
                       className="hit-44 px-2 py-0.5 rounded-md text-base text-white flex items-center gap-1 hover:opacity-80 transition-opacity"
-                      style={{ fontSize: 13, minHeight: 26, backgroundColor: bucket.color }}
+                      style={{ minHeight: 26, backgroundColor: bucket.color }}
                     >
                       {selectedColId === ACUITY_GROUP_KEY ? acuityDisplayLabel(v) : v}
                       <X className="w-3 h-3" />

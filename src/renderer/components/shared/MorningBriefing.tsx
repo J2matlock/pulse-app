@@ -72,13 +72,14 @@ export function MorningBriefing({ suppressed, onFocusMode }: { suppressed: boole
 
   const b = briefing
   const nothingUrgent = b.overdue + b.dueToday + b.followUpsDue + b.tasksDue + b.checklistDue + (b.needsOutcome ?? 0) === 0
-  const items: Array<[number, string, string]> = [
-    [b.overdue, 'overdue deadline', 'text-red-700 dark:text-red-300'],
-    [b.dueToday, 'deadline due today', 'text-orange-700 dark:text-orange-300'],
-    [b.dueThisWeek, 'more due in the next 7 days', 'text-slate-800 dark:text-slate-100'],
-    [b.followUpsDue, 'follow-up due', 'text-slate-800 dark:text-slate-100'],
-    [b.tasksDue + b.checklistDue, 'task due', 'text-slate-800 dark:text-slate-100'],
-    [b.needsOutcome ?? 0, `past ${t('appointment')} without an outcome`, 'text-amber-800 dark:text-amber-200'],
+  // [one, many] for each line, since the noun isn't always the last word (audit D-30)
+  const items: Array<[number, [string, string], string]> = [
+    [b.overdue, ['overdue deadline', 'overdue deadlines'], 'text-red-700 dark:text-red-300'],
+    [b.dueToday, ['deadline due today', 'deadlines due today'], 'text-orange-700 dark:text-orange-300'],
+    [b.dueThisWeek, ['more due in the next 7 days', 'more due in the next 7 days'], 'text-slate-800 dark:text-slate-100'],
+    [b.followUpsDue, ['follow-up due', 'follow-ups due'], 'text-slate-800 dark:text-slate-100'],
+    [b.tasksDue + b.checklistDue, ['task due', 'tasks due'], 'text-slate-800 dark:text-slate-100'],
+    [b.needsOutcome ?? 0, [`past ${t('appointment')} without an outcome`, `past ${t('appointment', { many: true })} without an outcome`], 'text-amber-800 dark:text-amber-200'],
   ]
 
   return (
@@ -107,9 +108,9 @@ export function MorningBriefing({ suppressed, onFocusMode }: { suppressed: boole
           </p>
         ) : (
           <ul className="space-y-2 mb-5">
-            {items.filter(([n]) => n > 0).map(([n, label, cls]) => (
-              <li key={label} className={`text-lg ${cls}`}>
-                <span className="font-bold tabular-nums">{n}</span> {label}{n === 1 ? '' : 's'}
+            {items.filter(([n]) => n > 0).map(([n, [one, many], cls]) => (
+              <li key={one} className={`text-lg ${cls}`}>
+                <span className="font-bold tabular-nums">{n}</span> {n === 1 ? one : many}
               </li>
             ))}
           </ul>

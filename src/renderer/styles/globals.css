@@ -18,11 +18,11 @@
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Consolas", "Liberation Mono", monospace;
 
-  /* Font sizes — 15px (text-base) for all body/grid/interactive text (spec Section 10).
-     sm/xs are only for secondary text (timestamps, counts, badges) and never below 13px. */
-  --text-xs: 13px;
+  /* Font sizes — 15px minimum for anything people read (spec Section 10), so
+     text-sm is 15px too. text-xs (14px) is only for keyboard keys and small count badges. */
+  --text-xs: 14px;
   --text-xs--line-height: 1.5;
-  --text-sm: 14px;
+  --text-sm: 15px;
   --text-sm--line-height: 1.5;
   --text-base: 15px;
   --text-base--line-height: 1.5;
@@ -83,6 +83,13 @@
   /* Default placeholder text readable in both themes (preflight uses 50% of the
      text color, which is too faint for this audience). Utilities still override. */
   input::placeholder, textarea::placeholder { color: var(--color-slate-500); opacity: 1; }
+
+  /* Every keyboard-focused control shows a 3px ring (spec accessibility rule),
+     including ones that set no focus style of their own. Zero specificity, so
+     any component's own ring or outline wins; controls that draw a ring with
+     focus:ring-* / focus-visible:ring-* don't get a second one. */
+  :where(:focus-visible) { outline: 3px solid var(--ring-color); outline-offset: 2px; }
+  :where([class*="focus:ring-"], [class*="focus-visible:ring-"]):focus-visible { outline: none; }
   :root.dark input::placeholder, :root.dark textarea::placeholder { color: var(--color-slate-400); }
 
   :root {

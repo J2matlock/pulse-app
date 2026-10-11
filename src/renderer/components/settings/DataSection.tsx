@@ -218,7 +218,7 @@ export function DataSection(): React.ReactElement {
 
       <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
         <p className="text-base font-medium text-slate-700 dark:text-slate-300">Cell history</p>
-        <p className="text-xs text-slate-500 dark:text-slate-400">Clean up old cell edit history to save space</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Clean up old cell edit history to save space</p>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Every cell edit is stored to allow future audit and undo capabilities. You can compact the history to free space.
         </p>
@@ -226,7 +226,7 @@ export function DataSection(): React.ReactElement {
           <select
             id="history-retention"
             className="input"
-            style={{ minHeight: 40, width: 'auto' }}
+            style={{ minHeight: 44, width: 'auto' }}
             defaultValue="12"
             onChange={e => {
               const el = e.target
@@ -241,7 +241,7 @@ export function DataSection(): React.ReactElement {
           </select>
           <button
             className="btn-secondary"
-            style={{ minHeight: 40, padding: '0 16px', fontSize: 15 }}
+            style={{ minHeight: 44, padding: '0 16px', fontSize: 15 }}
             onClick={async () => {
               const sel = document.getElementById('history-retention') as HTMLSelectElement | null
               const months = parseInt(sel?.value ?? '12', 10)
@@ -257,13 +257,13 @@ export function DataSection(): React.ReactElement {
 
       <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
         <p className="text-base font-medium text-slate-700 dark:text-slate-300">Database integrity</p>
-        <p className="text-xs text-slate-500 dark:text-slate-400">Verify your database isn't corrupted</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Verify your database isn't corrupted</p>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Run a quick check to verify the database file is not corrupted.
         </p>
         <button
           className="btn-secondary"
-          style={{ minHeight: 40, padding: '0 16px', fontSize: 15 }}
+          style={{ minHeight: 44, padding: '0 16px', fontSize: 15 }}
           onClick={async () => {
             const res = await safeInvoke<boolean>(IPC.APP_INTEGRITY_CHECK)
             if (res.ok && res.data) toast.success('Database integrity check passed.')
@@ -320,7 +320,7 @@ export function DataSection(): React.ReactElement {
           <div className="space-y-3 flex-1 min-w-0">
             <div>
               <p className="text-base font-medium text-red-700 dark:text-red-400">Danger zone</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Erase all data and start fresh — this cannot be undone</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Erase all data and start fresh — this cannot be undone</p>
               <p className="text-sm text-red-600 dark:text-red-400 mt-1">
                 Permanently deletes all data on this computer, including every {t('record')}, column, setting, and the automatic backups. Backups you saved somewhere else (a USB drive or another folder) are not deleted.
               </p>

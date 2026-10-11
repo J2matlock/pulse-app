@@ -170,7 +170,7 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
             className="text-sm text-slate-500 dark:text-slate-400 text-right"
           >
             <span>{relativeTime(entry.created_at)}</span>
-            <span className="block text-slate-400/70 dark:text-slate-500/70">{formatDateTime(entry.created_at)}</span>
+            <span className="block text-slate-500 dark:text-slate-400">{formatDateTime(entry.created_at)}</span>
           </time>
         )}
 

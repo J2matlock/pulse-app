@@ -34,7 +34,7 @@ export function DemoContactCategories() {
           >
             <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.color }} />
             <span className="text-slate-700 dark:text-slate-300 font-medium">{c.name}</span>
-            <span className="text-slate-500 dark:text-slate-400 text-[11px]">{c.count}</span>
+            <span className="text-slate-500 dark:text-slate-400 text-xs">{c.count}</span>
           </div>
         ))}
         {/* New custom category appearing */}

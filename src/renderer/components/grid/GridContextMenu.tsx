@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import { motion } from 'motion/react'
 import { Palette, Trash2, Pencil, Star, Archive, RotateCcw, Copy, ArrowRightLeft, Clipboard, X as XIcon, Clock, User as UserIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -10,6 +10,7 @@ import { isNotTypedColumnType } from '../../../shared/types'
 import { contextMenuVariants } from '../../utils/animations'
 import { getClientName } from '../../utils/clientName'
 import { useVocab } from '../../hooks/useVocab'
+import { useMenuKeys } from '../../hooks/useMenuKeys'
 
 export interface GridContextMenuProps {
   contextMenu: { x: number; y: number; rowId: number; colId: number }
@@ -68,6 +69,8 @@ export function GridContextMenu({
   updateColumn,
 }: GridContextMenuProps): React.ReactElement | null {
   const { t } = useVocab()
+  const menuRef = useRef<HTMLDivElement>(null)
+  const onMenuKeyDown = useMenuKeys(menuRef, true, onClose)
   const cmRules = cellFormats.get(`${contextMenu.rowId}_${contextMenu.colId}`) ?? []
   const cmRow = rowById.get(contextMenu.rowId)
   const cmCol = columns.find(c => c.id === contextMenu.colId)
@@ -122,7 +125,9 @@ export function GridContextMenu({
     <>
       <div className="fixed inset-0 z-40" onClick={() => { onClose() }} />
       <motion.div
+        ref={menuRef}
         role="menu"
+        onKeyDown={onMenuKeyDown}
         className="fixed z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-52 overflow-y-auto"
         style={{
           ...(contextMenu.y > window.innerHeight - 250
@@ -252,7 +257,7 @@ export function GridContextMenu({
           return (
           <>
             <p className="px-3 py-1 text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-              Format rules{totalWithRule > 1 ? ` · applied to ${totalWithRule} rows` : ''}
+              Color rules{totalWithRule > 1 ? ` · used by ${totalWithRule} ${t('record', { many: true })}` : ''}
             </p>
             {originName && (
               <p className="px-3 pb-1 text-sm text-slate-500 dark:text-slate-400">
@@ -280,7 +285,7 @@ export function GridContextMenu({
                 </button>
                 <button
                   className="hit-44 p-1 text-slate-500 dark:text-slate-400 hover:text-red-500 rounded-sm flex-shrink-0"
-                  title={siblingRowIds.length > 0 ? `Delete from all ${totalWithRule} rows` : 'Delete this rule'}
+                  title={siblingRowIds.length > 0 ? `Delete from all ${totalWithRule} ${t('record', { many: true })}` : 'Delete this rule'}
                   onClick={async () => {
                     const newRules = cmRules.filter((_, i) => i !== idx)
                     const allIds = [contextMenu.rowId, ...siblingRowIds]
@@ -401,7 +406,7 @@ export function GridContextMenu({
           onClick={() => { onCellFormatTarget({ rowId: contextMenu.rowId, colId: contextMenu.colId }); onClose() }}
         >
           <Palette className="w-4 h-4 text-purple-500" />
-          {cmRules.length > 0 ? 'Edit conditional format…' : 'Conditional format…'}
+          {cmRules.length > 0 ? 'Edit color rules…' : 'Color rules…'}
         </button>
 
         {/* Copy / paste formatting */}
@@ -442,7 +447,7 @@ export function GridContextMenu({
             }}
           >
             <Clipboard className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-            Paste formatting{selectedRowIds.size > 1 ? ` (${selectedRowIds.size} rows)` : ''}
+            Paste formatting{selectedRowIds.size > 1 ? ` (${selectedRowIds.size} ${t('record', { many: true })})` : ''}
           </button>
         )}
 

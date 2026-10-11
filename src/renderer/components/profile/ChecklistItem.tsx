@@ -293,7 +293,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
         tabIndex={-1}
         style={{ touchAction: 'none' }}
         className={`hit-44 mt-0.5 flex-shrink-0 text-slate-300 dark:text-slate-500 cursor-grab active:cursor-grabbing
-                   hover:text-slate-500 focus:outline-hidden
+                   hover:text-slate-500
                    ${isDragDisabled ? 'invisible' : 'opacity-40 group-hover:opacity-100 transition-opacity'}`}
         title="Drag to reorder"
         aria-label="Drag to reorder"
@@ -338,7 +338,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
             }}
             onBlur={saveTitle}
             spellCheck={false}
-            className="w-full text-base bg-transparent border-b border-blue-400 focus:outline-hidden
+            className="w-full text-base bg-transparent border-b border-blue-400
                        text-slate-900 dark:text-slate-100 pb-0.5"
           />
         ) : (
@@ -441,7 +441,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
       {/* Edit button */}
       <button
         onClick={() => setShowEditDialog(true)}
-        className="flex-shrink-0 mt-0.5 text-slate-300 dark:text-slate-500
+        className="flex-shrink-0 mt-0.5 text-slate-500 dark:text-slate-400
                    hover:text-blue-500 dark:hover:text-blue-400
                    opacity-0 group-hover:opacity-100 focus-visible:opacity-100
                    focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-400 rounded-sm
@@ -455,7 +455,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
       {/* Delete button */}
       <button
         onClick={onDelete}
-        className="flex-shrink-0 mt-0.5 text-slate-300 dark:text-slate-500
+        className="flex-shrink-0 mt-0.5 text-slate-500 dark:text-slate-400
                    hover:text-red-500 dark:hover:text-red-400
                    opacity-0 group-hover:opacity-100 focus-visible:opacity-100
                    focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400 rounded-sm
@@ -510,7 +510,7 @@ export function CompletedChecklistItem({ item, onUncheck, onDelete }: {
           {item.title}
         </span>
         {item.completed_at && (
-          <span className="ml-2 text-sm text-slate-500 dark:text-slate-500">
+          <span className="ml-2 text-sm text-slate-500 dark:text-slate-400">
             {relativeTime(item.completed_at)}
           </span>
         )}
@@ -519,7 +519,7 @@ export function CompletedChecklistItem({ item, onUncheck, onDelete }: {
       {/* Delete */}
       <button
         onClick={onDelete}
-        className="flex-shrink-0 mt-0.5 text-slate-300 dark:text-slate-500
+        className="flex-shrink-0 mt-0.5 text-slate-500 dark:text-slate-400
                    hover:text-red-500 dark:hover:text-red-400
                    opacity-0 group-hover:opacity-100 focus-visible:opacity-100
                    focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400 rounded-sm

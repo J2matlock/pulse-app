@@ -127,7 +127,7 @@ export default function TemplateManagerView(): React.ReactElement {
 
   function handleExportCurrentGrid() {
     if (grids.length === 0) {
-      setSetupError('No grids to export. Create a grid first.')
+      setSetupError(`There's no ${w('list')} to save yet. Make one first.`)
       return
     }
     if (grids.length === 1) {
@@ -288,8 +288,8 @@ export default function TemplateManagerView(): React.ReactElement {
               type="button"
               onClick={handleExportCurrentGrid}
               disabled={exporting}
-              title="Save current grid as a reusable template"
-              aria-label="Save current grid as a reusable template"
+              title={`Save the current ${w('list')} as a reusable template`}
+              aria-label={`Save the current ${w('list')} as a reusable template`}
               className="hit-44 flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600
                          text-base text-slate-700 dark:text-slate-300
                          hover:bg-slate-50 dark:hover:bg-slate-700 min-h-[40px]
@@ -297,7 +297,7 @@ export default function TemplateManagerView(): React.ReactElement {
                          focus:outline-hidden focus:ring-3 focus:ring-slate-400 transition-colors"
             >
               <Download className="w-4 h-4" />
-              {exporting ? 'Saving...' : 'Save Current Grid as Template'}
+              {exporting ? 'Saving…' : `Save this ${w('list')} as a template`}
             </button>
           </div>
 

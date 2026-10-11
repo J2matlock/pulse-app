@@ -129,7 +129,14 @@ describe('FilterBar', () => {
     expect(removeBtn2).toBeTruthy()
   })
 
-  it('shows AND/OR toggle when 2+ filters active', () => {
+  it('shows a date in a chip the way cells show it, not as 2026-10-10 (G-38)', () => {
+    useGridStore.setState({ activeFilters: [{ columnId: 2, operator: 'lt', value: '2026-10-10' }] })
+    render(<FilterBar />)
+    expect(screen.getByText('10/10/2026')).toBeTruthy()
+    expect(screen.queryByText('2026-10-10')).toBeNull()
+  })
+
+  it('shows the Match all / any toggle when 2+ filters active', () => {
     useGridStore.setState({
       activeFilters: [
         { columnId: 1, operator: 'contains', value: 'A' },
@@ -138,18 +145,18 @@ describe('FilterBar', () => {
       filterMode: 'and',
     })
     render(<FilterBar />)
-    expect(screen.getByText('AND')).toBeTruthy()
+    expect(screen.getByText('Match all')).toBeTruthy()
   })
 
-  it('does not show AND/OR toggle with single filter', () => {
+  it('does not show the Match all / any toggle with single filter', () => {
     useGridStore.setState({
       activeFilters: [
         { columnId: 1, operator: 'contains', value: 'A' },
       ],
     })
     render(<FilterBar />)
-    expect(screen.queryByText('AND')).toBeNull()
-    expect(screen.queryByText('OR')).toBeNull()
+    expect(screen.queryByText('Match all')).toBeNull()
+    expect(screen.queryByText('Match any')).toBeNull()
   })
 
   it('does not show value for is_empty operator', () => {

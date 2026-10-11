@@ -84,8 +84,8 @@ p { font-size: 15px; color: #555; margin-bottom: 24px; }
     <>
       {open && (
         <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50">
-          <motion.div ref={trapRef} variants={modalPanelVariants} initial="hidden" animate="visible" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg mx-4 p-8">
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
+          <motion.div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="recovery-key-title" variants={modalPanelVariants} initial="hidden" animate="visible" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg mx-4 p-8">
+        <h2 id="recovery-key-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
           Your Recovery Key
         </h2>
         <p className="text-base text-slate-500 dark:text-slate-400 mb-6">
@@ -130,7 +130,7 @@ p { font-size: 15px; color: #555; margin-bottom: 24px; }
             type="checkbox"
             checked={saved}
             onChange={e => setSaved(e.target.checked)}
-            className="w-4 h-4 accent-blue-600"
+            className="w-5 h-5 accent-blue-600 flex-shrink-0"
           />
           <span className="text-base text-slate-700 dark:text-slate-300">
             I have saved this recovery key somewhere safe
