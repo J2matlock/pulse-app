@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { extname } from 'node:path'
 import { IPC } from '../../shared/ipc-channels'
 import { QUERY_LIMITS } from '../../shared/query-limits'
-import { secureWrap, ok, fail, buildSafeSetClause, validId, notifyCaseLogChanged, enforceWritable, assertSafePath } from './ipc-utils'
+import { secureWrap, ok, fail, buildSafeSetClause, validId, notifyCaseLogChanged, enforceWritable, assertSafePath, humanizeError, PATH_REFUSED_MESSAGE } from './ipc-utils'
 import { getDb } from '../database'
 import type { ChecklistItem, ChecklistTemplate, ChecklistGroup } from '../../shared/types'
 import { seedChecklistTemplates } from '../templates'
@@ -17,7 +17,8 @@ import { localDateString } from '../../shared/dates'
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_CHECKLIST = 500
 
-const UNSAFE_PATH = "Pulse can't use that folder. Choose a file in your Documents, Desktop or Downloads folder."
+const UNSAFE_PATH = PATH_REFUSED_MESSAGE
+const NOT_A_CHECKLIST = "This file isn't a Pulse checklist, or it's damaged."
 
 /** The same folder check every other file handler makes */
 function safePath(filePath: string): boolean {
@@ -299,7 +300,7 @@ export function registerChecklistHandlers(): void {
       // Validate item belongs to same row
       const item = db.prepare('SELECT row_id FROM checklist_items WHERE id = ?').get(itemId) as { row_id: number } | undefined
       if (!item) return fail('Item not found')
-      if (item.row_id !== group.row_id) return fail('Item and group must belong to the same client')
+      if (item.row_id !== group.row_id) return fail('An item can only move to a group on the same checklist.')
     }
     db.prepare('UPDATE checklist_items SET group_id = ? WHERE id = ?').run(groupId, itemId)
     return ok(true)
@@ -355,7 +356,7 @@ export function registerChecklistHandlers(): void {
   secureWrap(IPC.CL_TEMPLATE_EXPORT, 'ipc-checklists', (_e, id: number, filePath: string) => {
     if (!validId(id)) return fail('Invalid ID')
     if (typeof filePath !== 'string' || !filePath) return fail('Invalid file path')
-    if (extname(filePath).toLowerCase() !== '.pulse-checklist') return fail('File must have .pulse-checklist extension')
+    if (extname(filePath).toLowerCase() !== '.pulse-checklist') return fail('Save it as a Pulse checklist file (the name ends in .pulse-checklist).')
     if (!safePath(filePath)) return fail(UNSAFE_PATH)
 
     const template = getDb().prepare('SELECT * FROM checklist_templates WHERE id = ?').get(id) as ChecklistTemplate | undefined
@@ -379,7 +380,10 @@ export function registerChecklistHandlers(): void {
     try {
       writeFileSync(filePath, JSON.stringify(exportData, null, 2), 'utf-8')
     } catch (err) {
-      return fail(`Could not write file: ${err instanceof Error ? err.message : 'unknown error'}`)
+      // File-system codes (EACCES, EBUSY, ENOSPC…) get their own sentence; any other raw Node text stays out of the UI
+      const raw = err instanceof Error ? err.message : String(err)
+      const friendly = humanizeError(err)
+      return fail(friendly === raw ? "Pulse couldn't save the file there. Choose a different folder." : friendly)
     }
     return ok(true)
   })
@@ -387,22 +391,23 @@ export function registerChecklistHandlers(): void {
   secureWrap(IPC.CL_TEMPLATE_IMPORT, 'ipc-checklists', (_e, filePath: string) => {
     const guard = enforceWritable(); if (guard) return guard
     if (typeof filePath !== 'string' || !filePath) return fail('Invalid file path')
-    if (extname(filePath).toLowerCase() !== '.pulse-checklist') return fail('File must have .pulse-checklist extension')
+    if (extname(filePath).toLowerCase() !== '.pulse-checklist') return fail('Choose a Pulse checklist file (the name ends in .pulse-checklist).')
     if (!safePath(filePath)) return fail(UNSAFE_PATH)
 
     let raw: string
-    try { raw = readFileSync(filePath, 'utf-8') } catch { return fail('Could not read file') }
-    if (raw.length > 500_000) return fail('File is too large (max 500KB)')
+    try { raw = readFileSync(filePath, 'utf-8') } catch { return fail("Pulse couldn't open that file. It may have been moved or deleted.") }
+    if (raw.length > 500_000) return fail('That file is too large to be a Pulse checklist.')
 
     let data: { pulse_type?: string; version?: number; template?: { name?: string; description?: string | null; items?: unknown[]; is_recurring?: 0 | 1; recurrence_days?: number | null } }
-    try { data = JSON.parse(raw) as typeof data } catch { return fail('File is not valid JSON') }
+    try { data = JSON.parse(raw) as typeof data } catch { return fail(NOT_A_CHECKLIST) }
 
-    if (data.pulse_type !== 'checklist-template') return fail('This file is not a checklist template')
-    if (data.version !== 1) return fail(`Unsupported template version: ${data.version}`)
+    if (data.pulse_type !== 'checklist-template') return fail(NOT_A_CHECKLIST)
+    if (typeof data.version === 'number' && data.version > 1) return fail('This checklist was made by a newer version of Pulse. Update Pulse, then try again.')
+    if (data.version !== 1) return fail(NOT_A_CHECKLIST)
     const t = data.template
     if (!t || typeof t.name !== 'string' || !t.name.trim()) return fail('Template is missing a name')
     if (!Array.isArray(t.items) || t.items.length === 0) return fail('Template has no items')
-    if (t.items.length > 500) return fail('Template has too many items (max 500)')
+    if (t.items.length > 500) return fail('That checklist has more than 500 items, which is more than Pulse can bring in.')
     for (const item of t.items) {
       if (typeof item !== 'object' || item === null || typeof (item as { title?: unknown }).title !== 'string') {
         return fail('Each item must have a title')
@@ -424,7 +429,7 @@ export function registerChecklistHandlers(): void {
     }
 
     const itemsJson = JSON.stringify(t.items)
-    if (itemsJson.length > 100_000) return fail('Template items too large')
+    if (itemsJson.length > 100_000) return fail('That checklist is too large for Pulse to bring in.')
 
     const result = db.prepare(`
       INSERT INTO checklist_templates (name, description, items, is_recurring, recurrence_days, is_system, created_at)

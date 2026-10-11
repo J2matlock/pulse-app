@@ -570,8 +570,40 @@ describe('checklist template files (polish R6)', () => {
   it('won\'t write or read a file outside the folders Pulse may use', async () => {
     const id = Number(testDb.db.prepare("INSERT INTO checklist_templates (name, items) VALUES ('Intake', '[]')").run().lastInsertRowid)
     const exp = await invoke(IPC.CL_TEMPLATE_EXPORT, id, '/etc/intake.pulse-checklist')
-    expect(exp).toMatchObject({ ok: false, error: expect.stringMatching(/can't use that folder/) })
+    expect(exp).toMatchObject({ ok: false, error: expect.stringMatching(/can't use that location/) })
     const imp = await invoke(IPC.CL_TEMPLATE_IMPORT, 'relative/intake.pulse-checklist')
-    expect(imp).toMatchObject({ ok: false, error: expect.stringMatching(/can't use that folder/) })
+    expect(imp).toMatchObject({ ok: false, error: expect.stringMatching(/can't use that location/) })
+  })
+
+  describe('plain messages (AUDIT-062)', () => {
+    const { join } = require('path') as typeof import('path')
+    const { tmpdir } = require('os') as typeof import('os')
+    const fs = require('fs') as typeof import('fs')
+    const home = join(tmpdir(), 'pulse-test-checklists')
+    const write = (name: string, body: string): string => {
+      fs.mkdirSync(home, { recursive: true })
+      const p = join(home, name)
+      fs.writeFileSync(p, body)
+      return p
+    }
+    const importError = async (p: string): Promise<string> => ((await invoke(IPC.CL_TEMPLATE_IMPORT, p)) as { error: string }).error
+
+    it('explains files that are not checklists, from newer versions, or with the wrong ending', async () => {
+      expect(await importError(write('a.pulse-checklist', '{not json'))).toBe("This file isn't a Pulse checklist, or it's damaged.")
+      expect(await importError(write('b.pulse-checklist', JSON.stringify({ pulse_type: 'other', version: 1 })))).toBe("This file isn't a Pulse checklist, or it's damaged.")
+      expect(await importError(write('c.pulse-checklist', JSON.stringify({ pulse_type: 'checklist-template', version: 2 })))).toMatch(/newer version of Pulse/)
+      expect(await importError(write('d.json', '{}'))).toMatch(/Choose a Pulse checklist file/)
+    })
+
+    it('never shows raw file-system text when saving fails', async () => {
+      const id = Number(testDb.db.prepare("INSERT INTO checklist_templates (name, items) VALUES ('Intake', '[]')").run().lastInsertRowid)
+      // A folder where the file should go: writing fails with EISDIR
+      const dir = join(home, 'taken.pulse-checklist')
+      fs.mkdirSync(dir, { recursive: true })
+      const res = await invoke(IPC.CL_TEMPLATE_EXPORT, id, dir) as { ok: boolean; error: string }
+      expect(res.ok).toBe(false)
+      expect(res.error).not.toMatch(/EISDIR|EACCES|open '/)
+      expect(res.error).toMatch(/couldn't save the file there/)
+    })
   })
 })
