@@ -12,6 +12,7 @@ let mockClipboardText = ''
 const mockDialogOpen = vi.fn(async () => ({ canceled: true, filePaths: [] }))
 const mockDialogSave = vi.fn(async () => ({ canceled: true, filePath: undefined }))
 const mockShellOpenExternal = vi.fn(async () => {})
+const mockShellOpenPath = vi.fn(async (_p: string) => '')
 const mockReloadIgnoringCache = vi.fn()
 const mockAppRelaunch = vi.fn()
 const mockAppExit = vi.fn()
@@ -22,6 +23,7 @@ vi.mock('electron', () => ({
     getPath: () => '/tmp/pulse-test-app',
     getName: () => 'Pulse Test',
     getVersion: () => '1.2.3',
+    getAppPath: () => process.cwd(),
     commandLine: { appendSwitch: () => {} },
     requestSingleInstanceLock: () => true,
     quit: () => {},
@@ -49,7 +51,7 @@ vi.mock('electron', () => ({
     showSaveDialog: mockDialogSave,
   },
   shell: {
-    openPath: async () => '',
+    openPath: mockShellOpenPath,
     openExternal: mockShellOpenExternal,
   },
   clipboard: {
@@ -202,6 +204,30 @@ describe('APP_OPEN_EXTERNAL', () => {
   it('rejects ftp:// URLs', async () => {
     const r = await invoke(IPC.APP_OPEN_EXTERNAL, 'ftp://files.example.com') as any
     expect(r.ok).toBe(false)
+  })
+})
+
+describe('APP_OPEN_LICENSE', () => {
+  beforeEach(() => { mockShellOpenPath.mockReset(); mockShellOpenPath.mockResolvedValue('') })
+
+  it('opens the bundled GPL text and the third-party notices', async () => {
+    expect((await invoke(IPC.APP_OPEN_LICENSE, 'license')).ok).toBe(true)
+    expect(mockShellOpenPath).toHaveBeenLastCalledWith(expect.stringMatching(/LICENSE$/))
+    expect((await invoke(IPC.APP_OPEN_LICENSE, 'third-party')).ok).toBe(true)
+    expect(mockShellOpenPath).toHaveBeenLastCalledWith(expect.stringMatching(/THIRD_PARTY_LICENSES\.txt$/))
+  })
+
+  it('rejects anything but the two known documents', async () => {
+    const r = await invoke(IPC.APP_OPEN_LICENSE, '../package.json')
+    expect(r.ok).toBe(false)
+    expect(mockShellOpenPath).not.toHaveBeenCalled()
+  })
+
+  it('explains when the computer cannot open the file', async () => {
+    mockShellOpenPath.mockResolvedValue('No application found')
+    const r = await invoke(IPC.APP_OPEN_LICENSE, 'license')
+    expect(r.ok).toBe(false)
+    expect(r.error).toMatch(/couldn't open the license file/)
   })
 })
 
