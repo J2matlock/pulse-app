@@ -261,7 +261,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       const sysRows = db.prepare(`
         SELECT cl.content, cl.created_at, r.id as row_id
         FROM case_log cl JOIN rows r ON r.id = cl.row_id
-        WHERE r.grid_id = ? AND cl.log_type = 'system'
+        WHERE r.grid_id = ? AND cl.log_type = 'system' AND r.deleted_at IS NULL
           AND date(cl.created_at, 'localtime') >= ? AND date(cl.created_at, 'localtime') <= ?
         ORDER BY cl.created_at DESC LIMIT 500
       `).all(gridId, dateRange.start, dateRange.end) as Array<{ content: string; created_at: string; row_id: number }>
@@ -588,7 +588,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       SELECT cl.content, cl.created_at, r.id as row_id
       FROM case_log cl
       JOIN rows r ON r.id = cl.row_id
-      WHERE r.grid_id = ? AND cl.log_type = 'system'
+      WHERE r.grid_id = ? AND cl.log_type = 'system' AND r.deleted_at IS NULL
         AND date(cl.created_at, 'localtime') >= ? AND date(cl.created_at, 'localtime') <= ?
       ORDER BY cl.created_at DESC
       LIMIT 500

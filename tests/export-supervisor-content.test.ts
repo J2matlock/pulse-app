@@ -104,6 +104,28 @@ describe('summary report', () => {
   })
 })
 
+describe('summary report system activity', () => {
+  it('leaves out records in the Trash, CSV and PDF (AUDIT-102)', async () => {
+    const [a, b] = grid.rowIds as [number, number]
+    testDb.db.prepare("UPDATE rows SET display_name = 'Kept Person' WHERE id = ?").run(a)
+    testDb.db.prepare("UPDATE rows SET display_name = 'Trashed Person' WHERE id = ?").run(b)
+    const sys = testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type) VALUES (?, ?, 'system')")
+    sys.run(a, 'Stage changed on kept')
+    sys.run(b, 'Moved to the Trash')
+    testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now'), is_active = 0 WHERE id = ?").run(b)
+    for (const format of ['csv', 'pdf'] as const) {
+      const destPath = join(testDb.tmpDir, `sys.${format}`)
+      await exportSupervisorReport({
+        gridId: grid.gridId, columnIds: [], dateRange: { start: localDateFromToday(-30), end: today },
+        includeActivityLog: false, includeSystemActivity: true, includeTaskSummary: false, format, destPath,
+      })
+      const out = readFileSync(destPath).toString('latin1')
+      expect(out).toContain('Stage changed on kept')
+      expect(out).not.toContain('Moved to the Trash')
+    }
+  })
+})
+
 describe('notes CSV', () => {
   it('dates a backdated note by when it happened, not when it was typed', async () => {
     testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type, occurred_at, created_at) VALUES (?, 'Backdated visit', 'note', '2026-09-30 15:00:00', '2026-10-02 15:00:00')")
