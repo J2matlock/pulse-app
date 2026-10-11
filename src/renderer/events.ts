@@ -13,6 +13,8 @@ type PulseEvents = {
   'note-tracking:changed': undefined
   /** Open a form to fill in (W08): a new record, or this one */
   'form:fill': { formId: number; gridId: number; rowId?: number }
+  /** The app is about to lock: save anything pending while the database is still open */
+  'app:locking': undefined
 }
 
 class TypedEventBus {

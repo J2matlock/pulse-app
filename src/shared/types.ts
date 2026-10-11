@@ -594,6 +594,10 @@ export interface ProviderClientLink {
   provider_category_color?: string | null
   provider_availability_status?: AvailabilityStatus
   provider_phone_main?: string | null
+  provider_email?: string | null
+  provider_org_name?: string | null
+  provider_title?: string | null
+  provider_category_name?: string | null
 }
 
 export interface ProviderInteraction {

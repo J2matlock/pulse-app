@@ -1,5 +1,5 @@
 /**
- * ChecklistToolbar.tsx — Action buttons for Checklist header (Add Task, Group, Templates).
+ * ChecklistToolbar.tsx — Action buttons for Checklist header (add with details, Group, Templates).
  */
 
 import { ListChecks, FolderPlus } from 'lucide-react'
@@ -29,13 +29,13 @@ export function ChecklistToolbar({ loading, total, doneCount, onOpenTemplates, o
       </div>
 
       <div className="flex items-center gap-2 flex-wrap min-w-0">
-        {/* Add Task */}
+        {/* The box below adds an item; this opens the form with a due date, priority and notes (3.4) */}
         {onAddTask && (
           <button
             onClick={onAddTask}
-            className="btn-compact-primary"
+            className="btn-compact-secondary"
           >
-            + Add Task
+            Add with details…
           </button>
         )}
 

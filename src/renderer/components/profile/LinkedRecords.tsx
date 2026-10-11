@@ -30,7 +30,7 @@ function detailText(d: { value: string; type: string }): string {
   return d.type === 'date' && /^\d{4}-\d{2}-\d{2}/.test(d.value) ? formatDue(d.value.slice(0, 10)) : d.value
 }
 
-export function LinkedRecords({ rowId }: { rowId: number }): React.ReactElement | null {
+export function LinkedRecords({ rowId, onCount }: { rowId: number; onCount?: (n: number) => void }): React.ReactElement | null {
   const navigate = useNavigate()
   const [links, setLinks] = useState<RowLinks[] | null>(null)
   const [rollups, setRollups] = useState<Rollup[]>([])
@@ -49,6 +49,8 @@ export function LinkedRecords({ rowId }: { rowId: number }): React.ReactElement 
   }, [rowId])
 
   useEffect(() => { void load() }, [load])
+  const linkCount = links?.reduce((n, l) => n + l.records.length, 0) ?? null
+  useEffect(() => { if (linkCount !== null) onCount?.(linkCount) }, [linkCount, onCount])
   useEffect(() => window.api.on(IPC.RECORD_LINKS_CHANGED, (ids: unknown) => {
     if (Array.isArray(ids)) void load()
   }), [load])

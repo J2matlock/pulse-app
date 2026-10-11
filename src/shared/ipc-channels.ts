@@ -31,6 +31,8 @@ export const IPC = {
   ROW_PURGE: 'row:purge',
   ROW_GET_DELETED: 'row:get-deleted',
   ROW_GET: 'row:get',
+  /** Which list a record is on and whether it's active, archived or in the Trash (open a record from anywhere) */
+  ROW_LOCATE: 'row:locate',
   ROW_MOVE_TO_GRID: 'row:move-to-grid',
   ROW_COPY_TO_GRID: 'row:copy-to-grid',
   ROW_GET_MANUAL_CONTACTS: 'row:get-manual-contacts',
@@ -82,6 +84,8 @@ export const IPC = {
 
   // Case Log
   CASE_LOG_GET: 'case-log:get',
+  /** How many notes match (for "Showing 50 of 312") */
+  CASE_LOG_COUNT: 'case-log:count',
   CASE_LOG_CREATE: 'case-log:create',
   CASE_LOG_UPDATE: 'case-log:update',
   CASE_LOG_DELETE: 'case-log:delete',

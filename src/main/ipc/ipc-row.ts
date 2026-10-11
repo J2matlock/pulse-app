@@ -4,6 +4,7 @@
 
 import { copyForwardLinks, dropLinksThatWontFit } from '../links'
 import { IPC } from '../../shared/ipc-channels'
+import type { RowLocation } from '../../shared/ipc-contract'
 import { secureWrap, logNonFatal, ok, fail, buildSafeSetClause, validId, notifyCaseLogChanged, enforceWritable } from './ipc-utils'
 import { getDb, getRow, cachedStmt } from '../database'
 import { logger } from '../logger'
@@ -228,6 +229,15 @@ function recordWord(rowId: number): string {
   return word('record', { cap: true }, gridOfRow(rowId))
 }
 
+/** A record's "Add contact info" list, tolerating old or damaged JSON */
+function parseManualContacts(raw: string | null): Array<{ type: string; label: string; value: string }> {
+  if (!raw) return []
+  try {
+    const list = JSON.parse(raw) as unknown
+    return Array.isArray(list) ? list.filter((c): c is { type: string; label: string; value: string } => !!c && typeof c === 'object' && typeof (c as { value?: unknown }).value === 'string') : []
+  } catch { return [] }
+}
+
 export function registerRowHandlers(): void {
   secureWrap(IPC.ROW_BULK_ACTION, 'ipc-row', (_e, action: 'archive' | 'unarchive' | 'delete', rowIds: number[]) => {
     const guard = enforceWritable(); if (guard) return guard
@@ -278,6 +288,19 @@ export function registerRowHandlers(): void {
     const row = getRow(gridId, rowId)
     if (!row) return fail('Row not found')
     return ok(row)
+  })
+
+  secureWrap(IPC.ROW_LOCATE, 'ipc-row', (_e, rowId: number) => {
+    if (!validId(rowId)) return fail('Invalid ID')
+    const r = cachedStmt('row_locate', `
+      SELECT r.grid_id, r.is_active, r.deleted_at, r.archived_at, r.archived_reason, g.is_active AS grid_active
+      FROM rows r JOIN grids g ON g.id = r.grid_id WHERE r.id = ?
+    `).get(rowId) as { grid_id: number; is_active: number; deleted_at: string | null; archived_at: string | null; archived_reason: string | null; grid_active: number } | undefined
+    if (!r) return ok(null)
+    const status: RowLocation['status'] = r.deleted_at ? 'trash'
+      : !r.grid_active ? 'list-deleted'
+      : r.is_active ? 'active' : 'archived'
+    return ok({ gridId: r.grid_id, status, archivedReason: status === 'archived' ? r.archived_reason : null })
   })
 
   secureWrap(IPC.ROW_CREATE, 'ipc-row', (_e, gridId: number) => {
@@ -554,6 +577,7 @@ export function registerRowHandlers(): void {
   })
 
   secureWrap(IPC.ROW_SET_MANUAL_CONTACTS, 'ipc-row', (_e, rowId: number, contacts: Array<{ type: string; label: string; value: string }>) => {
+    let needsNotify = false
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(rowId)) return fail('Invalid ID')
     if (!Array.isArray(contacts) || contacts.length > 50) return fail('Invalid contacts: must be an array of at most 50 items')
@@ -561,8 +585,24 @@ export function registerRowHandlers(): void {
       if (typeof c.type !== 'string' || typeof c.label !== 'string' || typeof c.value !== 'string') return fail('Invalid contact: each item must have type, label, and value strings')
       if (c.type.length > 50 || c.label.length > 100 || c.value.length > 500) return fail('Invalid contact: type/label/value exceed maximum lengths')
     }
-    cachedStmt('row_set_manual_contacts', 'UPDATE rows SET manual_contacts = ?, updated_at = datetime(\'now\') WHERE id = ?')
-      .run(JSON.stringify(contacts), rowId)
+    const db = getDb()
+    db.transaction(() => {
+      // What changed goes on the timeline, so it's in the audit trail too (R-27)
+      const before = parseManualContacts((cachedStmt('row_get_manual_contacts', 'SELECT manual_contacts FROM rows WHERE id = ?').get(rowId) as { manual_contacts: string | null } | undefined)?.manual_contacts ?? null)
+      cachedStmt('row_set_manual_contacts', 'UPDATE rows SET manual_contacts = ?, updated_at = datetime(\'now\') WHERE id = ?')
+        .run(JSON.stringify(contacts), rowId)
+      const key = (c: { label: string; value: string }) => `${c.label}\u0000${c.value}`
+      const was = new Set(before.map(key)), now = new Set(contacts.map(key))
+      const lines = [
+        ...contacts.filter(c => !was.has(key(c))).map(c => `Contact info added: ${c.label || c.type} ${c.value}`),
+        ...before.filter(c => !now.has(key(c))).map(c => `Contact info removed: ${c.label || c.type} ${c.value}`),
+      ]
+      for (const line of lines) {
+        cachedStmt('row_sys_log', `INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`).run(rowId, line)
+      }
+      if (lines.length) needsNotify = true
+    })()
+    if (needsNotify) notifyCaseLogChanged(rowId)
     return ok(true)
   })
 
@@ -576,10 +616,14 @@ export function registerRowHandlers(): void {
       FROM rows r
       JOIN grids g ON g.id = r.grid_id
       WHERE r.is_active = 1
-        AND r.display_name LIKE ? ESCAPE '\'
+        AND (r.display_name LIKE ? ESCAPE '\\'
+          -- Phone numbers and emails added with "Add contact info" are found too (R-27)
+          OR (r.manual_contacts IS NOT NULL AND EXISTS (
+            SELECT 1 FROM json_each(CASE WHEN json_valid(r.manual_contacts) THEN r.manual_contacts ELSE '[]' END) j
+            WHERE json_extract(j.value, '$.value') LIKE ? ESCAPE '\\' OR json_extract(j.value, '$.label') LIKE ? ESCAPE '\\')))
       ORDER BY r.display_name
       LIMIT 20 OFFSET ?
-    `).all(`%${search.replace(/[%_\\]/g, '\\$&')}%`, safeOffset)
+    `).all(...Array(3).fill(`%${search.replace(/[%_\\]/g, '\\$&')}%`), safeOffset)
     return ok(rows)
   })
 }

@@ -372,6 +372,7 @@ export function registerExportHandlers(): void {
     assertSafePath(options.destPath)
     if (!validId(options.gridId)) return fail('Invalid grid ID')
     if (!validId(options.rowId)) return fail('Invalid row ID')
+    if (!options.includeSections || typeof options.includeSections !== 'object') return fail('Invalid includeSections')
     await exportPdfProfile(options)
     return ok(true)
   })
@@ -478,7 +479,7 @@ export function registerExportHandlers(): void {
     })
     if (canceled || !filePath) return ok(null)
     assertSafePath(filePath)
-    await exportHandoffPacket({ rowId: opts.rowId, gridId: opts.gridId, receiving: opts.receiving, summary: opts.summary, includePictures: opts.includePictures === true }, filePath)
+    await exportHandoffPacket({ rowId: opts.rowId, gridId: opts.gridId, receiving: opts.receiving, summary: opts.summary, includePictures: opts.includePictures === true, includeScratchPad: opts.includeScratchPad === true }, filePath)
     return ok(filePath)
   })
 

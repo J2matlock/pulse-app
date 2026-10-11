@@ -91,7 +91,7 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
   }, [who?.gridId])
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !askScope) onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !askScope) { e.preventDefault(); onClose() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, askScope])

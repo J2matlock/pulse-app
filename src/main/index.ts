@@ -1,5 +1,6 @@
 // Must stay the first import: pins the data folder and key-store name before anything reads them
 import './app-identity'
+import { isOpenableExternal } from './external-links'
 import { app, shell, BrowserWindow, dialog, session, protocol, net, clipboard, powerMonitor, Menu } from 'electron'
 import { buildMacMenuTemplate } from './app-menu'
 import { join, normalize, resolve, sep } from 'path'
@@ -205,15 +206,10 @@ function createWindow(): void {
     mainWindow?.show()
   })
 
-  // Open external links in the system browser, not in Electron.
-  // Validate protocol before opening — only http/https allowed.
+  // Open external links in the system browser (or mail / phone app), not in Electron.
+  // Only http, https, mailto and tel are allowed.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    try {
-      const { protocol } = new URL(url)
-      if (protocol === 'https:' || protocol === 'http:') {
-        shell.openExternal(url)
-      }
-    } catch (err) { logNonFatal('app', 'Invalid URL in window-open handler', err) }
+    if (isOpenableExternal(url)) shell.openExternal(url).catch(err => logNonFatal('app', 'openExternal failed', err))
     return { action: 'deny' }
   })
 

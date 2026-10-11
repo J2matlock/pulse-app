@@ -20,7 +20,7 @@ export function MeterReadingDialog({ title, onSave, onClose }: {
   const save = () => onSave(value, otherDay && day !== localDateString() ? day : undefined)
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])

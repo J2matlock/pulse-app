@@ -6,6 +6,7 @@ import { IPC } from '../../shared/ipc-channels'
 import { secureWrap, ok, fail, validId, notifyCaseLogChanged, enforceWritable, logNonFatal } from './ipc-utils'
 import { getDb, cachedStmt } from '../database'
 import type { CaseLogEntry, NoteDateUpdate, NoteDateRevert } from '../../shared/types'
+import type { CaseLogQuery } from '../../shared/ipc-contract'
 import { isValidLogType } from '../activity-types'
 import { cleanExtraMeasures } from '../measures'
 import { parseExtraMeasures } from '../../shared/measures'
@@ -26,23 +27,49 @@ function validMeasures(m: NoteMeasures | undefined | null): { minutes: number | 
   return { minutes: minutes || null, miles: miles ? Math.round(miles * 10) / 10 : null }
 }
 
+/** The WHERE clause shared by the note list and its count, plus a cache key for its shape. */
+function caseLogFilter(rowId: number, includeSystem?: boolean, includeVoided?: boolean, opts?: CaseLogQuery): { where: string; params: unknown[]; key: string } {
+  const parts = ['row_id = ?']
+  const params: unknown[] = [rowId]
+  if (!includeSystem) parts.push("log_type != 'system'")
+  if (!includeVoided) parts.push('voided_at IS NULL')
+  const logType = typeof opts?.logType === 'string' && opts.logType.length <= 100 ? opts.logType : ''
+  if (logType) { parts.push('log_type = ?'); params.push(logType) }
+  const query = typeof opts?.query === 'string' ? opts.query.trim().slice(0, 200) : ''
+  if (query) {
+    // Match the words literally: % and _ are ordinary characters in a search box
+    parts.push("content LIKE ? ESCAPE '\\'")
+    params.push(`%${query.replace(/[\\%_]/g, c => `\\${c}`)}%`)
+  }
+  return { where: parts.join(' AND '), params, key: `${includeSystem ? 1 : 0}${includeVoided ? 1 : 0}${logType ? 't' : ''}${query ? 'q' : ''}` }
+}
+
 /** Notes list in the order things happened; created_at stays the time each was written */
 const CASE_LOG_COLS = `id, row_id, content, log_type, created_at, updated_at, occurred_at,
   is_pinned, follow_up_date, follow_up_completed, original_content,
   edited_at, voided_at, voided_reason, source_action_id, minutes, miles, extra_measures`
 
 export function registerCaseLogHandlers(): void {
-  secureWrap(IPC.CASE_LOG_GET, 'ipc-caselog', (_e, rowId: number, includeSystem?: boolean, includeVoided?: boolean, limit?: number, offset?: number) => {
+  secureWrap(IPC.CASE_LOG_GET, 'ipc-caselog', (_e, rowId: number, includeSystem?: boolean, includeVoided?: boolean, limit?: number, offset?: number, opts?: CaseLogQuery) => {
     if (!validId(rowId)) return fail('Invalid ID')
-    const voidClause = includeVoided ? '' : 'AND voided_at IS NULL'
     const safeLimit = Math.min(Math.max(limit ?? 200, 1), 1000)
     const safeOffset = Math.max(offset ?? 0, 0)
-    const sql = includeSystem
-      ? `SELECT ${CASE_LOG_COLS} FROM case_log WHERE row_id = ? ${voidClause} ORDER BY is_pinned DESC, occurred_at DESC, created_at DESC, id DESC LIMIT ? OFFSET ?`
-      : `SELECT ${CASE_LOG_COLS} FROM case_log WHERE row_id = ? AND log_type != 'system' ${voidClause} ORDER BY is_pinned DESC, occurred_at DESC, created_at DESC, id DESC LIMIT ? OFFSET ?`
-    const cacheKey = `case_log_get_${includeSystem ? 1 : 0}_${includeVoided ? 1 : 0}`
-    const entries = cachedStmt(cacheKey, sql).all(rowId, safeLimit, safeOffset) as CaseLogEntry[]
+    const f = caseLogFilter(rowId, includeSystem, includeVoided, opts)
+    // Pinned first, then by the day it happened (then when it was written); searching and
+    // "oldest first" happen here so they cover every note, not just the loaded page (1.31)
+    const order = opts?.oldestFirst
+      ? 'is_pinned DESC, occurred_at ASC, created_at ASC, id ASC'
+      : 'is_pinned DESC, occurred_at DESC, created_at DESC, id DESC'
+    const sql = `SELECT ${CASE_LOG_COLS} FROM case_log WHERE ${f.where} ORDER BY ${order} LIMIT ? OFFSET ?`
+    const entries = cachedStmt(`case_log_get_${f.key}_${opts?.oldestFirst ? 'asc' : 'desc'}`, sql).all(...f.params, safeLimit, safeOffset) as CaseLogEntry[]
     return ok(entries)
+  })
+
+  secureWrap(IPC.CASE_LOG_COUNT, 'ipc-caselog', (_e, rowId: number, includeSystem?: boolean, includeVoided?: boolean, opts?: CaseLogQuery) => {
+    if (!validId(rowId)) return fail('Invalid ID')
+    const f = caseLogFilter(rowId, includeSystem, includeVoided, opts)
+    const r = cachedStmt(`case_log_count_${f.key}`, `SELECT COUNT(*) AS n FROM case_log WHERE ${f.where}`).get(...f.params) as { n: number }
+    return ok(r.n)
   })
 
   // occurredOn: the day it happened when that isn't today (a visit written up the next morning)
@@ -77,6 +104,8 @@ export function registerCaseLogHandlers(): void {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(id)) return fail('Invalid ID')
     if (typeof content !== 'string' || content.length > 100_000) return fail(`That ${word('activity')} is too long (max 100,000 characters).`)
+    // Emptying a note isn't a way to remove it: it would leave a blank entry in the record (R-13)
+    if (!content.trim()) return fail(`${word('activity', { cap: true })} can't be empty. To remove one, use Void.`)
     const db = getDb()
     db.transaction(() => {
       // Keep every earlier version (case_log_edits) so edits never erase the record.
@@ -156,15 +185,21 @@ export function registerCaseLogHandlers(): void {
     return ok({ reverted_dates })
   })
 
-  secureWrap(IPC.CASE_LOG_UNVOID, 'ipc-caselog', (_e, id: number) => {
+  secureWrap(IPC.CASE_LOG_UNVOID, 'ipc-caselog', (_e, id: number, opts?: { logRestore?: boolean }) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(id)) return fail('Invalid ID')
     const db = getDb()
     // Counting again, it moves its dates again
     const { rowId, updated_dates } = db.transaction(() => {
-      const entry = db.prepare('SELECT row_id, log_type, occurred_at, voided_at FROM case_log WHERE id = ?').get(id) as { row_id: number; log_type: string; occurred_at: string | null; voided_at: string | null } | undefined
+      const entry = db.prepare('SELECT row_id, log_type, occurred_at, voided_at, voided_reason FROM case_log WHERE id = ?').get(id) as { row_id: number; log_type: string; occurred_at: string | null; voided_at: string | null; voided_reason: string | null } | undefined
       db.prepare(`UPDATE case_log SET voided_at = NULL, voided_reason = NULL WHERE id = ?`).run(id)
       const moved = entry?.voided_at && entry.occurred_at ? applyNoteDateUpdates(entry.row_id, entry.log_type, localDayOf(entry.occurred_at), id) : []
+      // "Restore" on a voided note leaves a trace on the timeline and in the audit trail (R-14);
+      // Undo of a void just puts it back
+      if (entry?.voided_at && opts?.logRestore === true) {
+        db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))")
+          .run(entry.row_id, `A voided ${word('activity')} was restored${entry.voided_reason ? ` (it was voided: ${entry.voided_reason})` : ''}`)
+      }
       return { rowId: entry?.row_id ?? null, updated_dates: moved }
     })()
     if (rowId) notifyCaseLogChanged(rowId)
