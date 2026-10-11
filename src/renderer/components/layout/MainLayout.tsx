@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { Suspense, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useFeature } from '../../hooks/useFeature'
 import { FormFillHost } from '../forms/FormFillHost'
@@ -101,7 +101,10 @@ export function MainLayout({ children }: Props): React.ReactElement {
         )}
         <SampleDataBanner />
         <main id="main-content" className="flex-1 overflow-hidden">
-          {children}
+          {/* A page loading for the first time doesn't blank the sidebar and top bar (audit N-29) */}
+          <Suspense fallback={<div className="flex h-full items-center justify-center text-base text-slate-500 dark:text-slate-400">Loading…</div>}>
+            {children}
+          </Suspense>
         </main>
         <StatusBar />
       </div>

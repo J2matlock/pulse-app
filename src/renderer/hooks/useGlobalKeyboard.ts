@@ -105,6 +105,18 @@ export function useGlobalKeyboard(
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
   }, [handleGlobalKeyDown])
 
+  useEffect(() => pulseEvents.on('palette:open', () => setCommandPaletteOpen(true)), [setCommandPaletteOpen])
+
+  // A mouse's back and forward buttons move through the pages visited (audit N-14)
+  useEffect(() => {
+    const onMouse = (e: MouseEvent) => {
+      if (e.button === 3) { e.preventDefault(); window.history.back() }
+      else if (e.button === 4) { e.preventDefault(); window.history.forward() }
+    }
+    window.addEventListener('mouseup', onMouse)
+    return () => window.removeEventListener('mouseup', onMouse)
+  }, [])
+
   // macOS menu bar: Edit → Undo / Redo clicked with the mouse
   useEffect(() => window.api.on(IPC.MENU_COMMAND, (cmd: unknown) => {
     if (cmd === 'undo' || cmd === 'redo') runUndo(cmd)

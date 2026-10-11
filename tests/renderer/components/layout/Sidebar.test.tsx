@@ -183,6 +183,8 @@ describe('Sidebar', () => {
     // When collapsed, text spans are not rendered
     expect(screen.queryByText('Dashboard')).toBeNull()
     expect(screen.queryByText('My Caseload')).toBeNull()
+    // …but each list shows its initials, so they can be told apart (audit N-31)
+    expect(screen.getByText('MC')).toBeDefined()
   })
 
   it('shows Lock button and calls lock on click', () => {

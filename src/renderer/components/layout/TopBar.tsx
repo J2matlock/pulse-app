@@ -14,6 +14,8 @@ import { UndoHistoryPanel } from '../shared/UndoHistoryPanel'
 import { isMod } from '../../utils/keys'
 import { useVocab } from '../../hooks/useVocab'
 import type { FAQCategory } from '../../views/help/types'
+import { notePage } from '../../utils/navHistory'
+import { pulseEvents } from '../../events'
 
 /** The Help topic that goes with a page */
 export function helpCategoryFor(pathname: string): FAQCategory | 'all' {
@@ -81,6 +83,9 @@ export function TopBar(): React.ReactElement {
 
   const activeGrid = useMemo(() => grids.find(g => g.id === activeGridId), [grids, activeGridId])
 
+  // Remember each page, so a record's Back can say where it goes (audit 3.18)
+  useEffect(() => { notePage(location.pathname) }, [location.pathname])
+
   // Debounce search: 150ms after last keystroke
   useEffect(() => {
     const id = setTimeout(() => {
@@ -92,6 +97,12 @@ export function TopBar(): React.ReactElement {
   // Ctrl+F focuses search
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Screens without a search box: Ctrl+F opens the palette, which searches everything (audit N-30)
+      if (isMod(e) && e.key === 'f' && !isGridView && !isProfileView) {
+        e.preventDefault()
+        pulseEvents.emit('palette:open')
+        return
+      }
       if (isMod(e) && e.key === 'f' && !isProfileView) {
         e.preventDefault()
         searchRef.current?.focus()
@@ -100,7 +111,7 @@ export function TopBar(): React.ReactElement {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [isProfileView])
+  }, [isProfileView, isGridView])
 
   // Close recent profiles dropdown on outside click
   useEffect(() => {

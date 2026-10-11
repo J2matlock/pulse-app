@@ -124,9 +124,9 @@ describe('SettingsView', () => {
     expect(screen.queryByTestId('section-appearance')).toBeNull()
   })
 
-  it('navigates home when Home breadcrumb is clicked', () => {
+  it('the breadcrumb leads to the Dashboard, the first page in the sidebar (audit N-14)', () => {
     render(<SettingsView />)
-    fireEvent.click(screen.getByText('Home'))
-    expect(mockNavigate).toHaveBeenCalledWith('/grid')
+    fireEvent.click(screen.getByText('Dashboard'))
+    expect(mockNavigate).toHaveBeenCalledWith('/dashboard')
   })
 })

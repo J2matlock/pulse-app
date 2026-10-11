@@ -194,6 +194,6 @@ describe('ProfileView', () => {
       </MemoryRouter>,
     )
     await flushEffects()
-    expect(screen.getByText('Return to grid')).toBeDefined()
+    expect(screen.getByText(/^Back to the /)).toBeDefined()
   })
 })

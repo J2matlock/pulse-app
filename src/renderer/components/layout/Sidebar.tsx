@@ -114,6 +114,14 @@ interface SortableGridItemProps {
   onNavigate: () => void
 }
 
+/** "Tree Customers" → "TC", "Jobs" → "JO" */
+export function listInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(w => /[A-Za-z0-9]/.test(w))
+  if (words.length === 0) return '?'
+  if (words.length === 1) return words[0]!.slice(0, 2).toUpperCase()
+  return (words[0]![0]! + words[1]![0]!).toUpperCase()
+}
+
 function SortableGridItem({
   grid, collapsed, isActive, isRenaming, renameValue, renameInputRef,
   menuOpen, onRenameChange, onRenameCommit, onRenameCancel,
@@ -188,7 +196,10 @@ function SortableGridItem({
           title={collapsed ? grid.name : undefined}
           aria-current={isActive ? 'page' : undefined}
         >
-          <Grid3X3 className="w-5 h-5 flex-shrink-0" />
+          {collapsed
+            // Collapsed, each list shows its initials so they can be told apart (audit N-31)
+            ? <span aria-hidden="true" className="w-7 h-7 rounded-md flex items-center justify-center text-sm font-semibold bg-slate-200 dark:bg-slate-700 flex-shrink-0">{listInitials(grid.name)}</span>
+            : <Grid3X3 className="w-5 h-5 flex-shrink-0" />}
           {!collapsed && (
             <span className="text-base truncate flex-1">{grid.name}</span>
           )}

@@ -233,6 +233,6 @@ describe('ProfileView — data smoke tests (1 client)', () => {
   it('shows Return to grid link for missing client', async () => {
     renderProfile(999)
     await flushEffects()
-    expect(screen.getByText('Return to grid')).toBeDefined()
+    expect(screen.getByText(/^Back to the /)).toBeDefined()
   })
 })

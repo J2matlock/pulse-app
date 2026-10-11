@@ -17,6 +17,8 @@ type PulseEvents = {
   'grid:open-import': undefined
   /** Open the example gallery (adding to this workspace), optionally with sample data ticked */
   'starters:open': { sample: boolean }
+  /** Open the command palette (Ctrl+F on a screen without its own search) */
+  'palette:open': undefined
   /** Open What's New (from Help or Settings → About) */
   'whats-new:open': undefined
   /** Show first-run setup again (no lists left), at one of its starting points */

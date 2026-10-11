@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { canGoBack, previousPage } from '../utils/navHistory'
+import { pageTitle } from '../components/layout/TopBar'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../stores/gridStore'
@@ -165,6 +167,7 @@ export default function ProfileView(): React.ReactElement {
   const parsedRowId = rowIdStr ? parseInt(rowIdStr, 10) : null
   const rowId = parsedRowId !== null && !isNaN(parsedRowId) ? parsedRowId : null
   const navigate = useNavigate()
+  const location = useLocation()
 
   // Redirect to grid if rowId is invalid (e.g. /profile/abc)
   useEffect(() => {
@@ -295,9 +298,15 @@ export default function ProfileView(): React.ReactElement {
     else noteUnencryptedExport()
   }
 
+  // Back goes where the user came from (the dashboard, another record…), or to the list
   const goBack = useCallback(() => {
-    navigate('/grid')
+    if (canGoBack()) navigate(-1)
+    else navigate('/grid')
   }, [navigate])
+  const cameFrom = previousPage(location.pathname)
+  const backLabel = !cameFrom || !canGoBack() ? (activeGrid?.name ?? t('list', { cap: true }))
+    : cameFrom.startsWith('/grid') || cameFrom === '/' ? (activeGrid?.name ?? t('list', { cap: true }))
+      : pageTitle(cameFrom, t) ?? 'Back'
 
   function goPrev() {
     if (prevRowId != null) navigate(`/profile/${prevRowId}`)
@@ -355,7 +364,7 @@ export default function ProfileView(): React.ReactElement {
           onClick={goBack}
           className="hit-44 ml-4 text-blue-600 hover:underline focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
         >
-          Return to grid
+          Back to the {t('list')}
         </button>
       </div>
     )
@@ -368,16 +377,17 @@ export default function ProfileView(): React.ReactElement {
         style={{ minHeight: 48 }}
       >
         {/* Back button */}
-        <Tooltip content="Back to grid (Escape)" placement="bottom">
+        <Tooltip content={`Back to ${backLabel} (Escape)`} placement="bottom">
           <button
             onClick={goBack}
             className="hit-44 flex items-center gap-1 text-base text-slate-600 dark:text-slate-400
                        hover:text-slate-900 dark:hover:text-slate-100
                        focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm px-1"
-            title="Back to grid (Escape)"
+            title={`Back to ${backLabel} (Escape)`}
+            aria-label={`Back to ${backLabel}`}
           >
             <ChevronLeft className="w-4 h-4" />
-            Grid
+            {backLabel}
           </button>
         </Tooltip>
 
