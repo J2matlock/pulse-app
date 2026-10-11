@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import { storeInvoke } from '../utils/safeInvoke'
 import { useUndoStore } from './undoStore'
 import { useGridStore } from './gridStore'
+import { pulseEvents } from '../events'
 
 interface AlertState {
   rules: ParsedAlertRule[]
@@ -150,3 +151,9 @@ export const useAlertStore = create<AlertState>((set, get) => ({
   getRuleById: (id) => get().rules.find(r => r.id === id),
   usageOf: (id) => get().usage.filter(u => u.rule_id === id),
 }))
+
+// Sample data brings its own rules and takes them away again: keep the rule
+// pickers and Settings → Deadline rules in step (only once rules are loaded)
+pulseEvents.on('sample-data:changed', () => {
+  if (useAlertStore.getState().isLoaded) void useAlertStore.getState().loadRules()
+})

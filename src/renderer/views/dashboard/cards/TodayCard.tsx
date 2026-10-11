@@ -45,7 +45,7 @@ export function TodayCard(): React.ReactElement {
       {pending.length > 0 && (
         <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3">
           <h3 className="text-base font-semibold text-amber-900 dark:text-amber-100">Needs an outcome</h3>
-          <p className="text-sm text-amber-900 dark:text-amber-200">Did these happen? Marking them writes the note and counts the contact.</p>
+          <p className="text-sm text-amber-900 dark:text-amber-200">Did these happen? Marking them writes the {t('activity')} and counts the contact.</p>
           <ul className="divide-y divide-amber-200 dark:divide-amber-800" aria-label="Needs an outcome">
             {pending.map(a => (
               <li key={a.id} className="flex flex-wrap items-center gap-2 py-2" style={{ minHeight: 44 }}>
