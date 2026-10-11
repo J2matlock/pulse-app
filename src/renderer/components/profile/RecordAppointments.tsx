@@ -15,7 +15,11 @@ import { AppointmentDialog } from '../calendar/AppointmentDialog'
 
 const STATUS: Record<Appointment['status'], string> = { scheduled: 'Scheduled', done: 'Done', no_show: 'No-show', cancelled: 'Cancelled' }
 
-export function RecordAppointments({ rowId, gridId, name }: { rowId: number; gridId: number; name: string }): React.ReactElement {
+export function RecordAppointments({ rowId, gridId, name, onCount }: {
+  rowId: number; gridId: number; name: string
+  /** How many there are, and how many are still to come */
+  onCount?: (total: number, upcoming: number) => void
+}): React.ReactElement {
   const clock = useSettingsStore(s => s.clockFormat)
   const [data, setData] = useState<{ upcoming: Appointment[]; past: Appointment[] }>({ upcoming: [], past: [] })
   const [editing, setEditing] = useState<Appointment | 'new' | null>(null)
@@ -26,6 +30,7 @@ export function RecordAppointments({ rowId, gridId, name }: { rowId: number; gri
     if (r.ok) setData(r.data)
   }, [rowId])
   useEffect(() => { void load() }, [load])
+  useEffect(() => { onCount?.(data.upcoming.length + data.past.length, data.upcoming.length) }, [data, onCount])
   useEffect(() => window.api.on(IPC.APPOINTMENTS_CHANGED, () => { void load() }), [load])
 
   const when = (a: Appointment) => `${longDay(a.start_at)}${a.all_day ? '' : `, ${formatTime(a.start_at, clock)}`}`

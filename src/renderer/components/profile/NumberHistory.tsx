@@ -1,6 +1,7 @@
 /**
  * A number column's history on the profile (W10 §5): a small line next to
- * the value, and a full chart with every point labelled when clicked.
+ * the value, and a full chart when clicked (first, last, lowest and highest
+ * values labelled, so many points don't pile up).
  * Inline SVG (no chart library), with a table for screen readers.
  */
 import React, { useEffect, useRef } from 'react'
@@ -25,6 +26,14 @@ export function scalePoints(points: SeriesPoint[], w: number, h: number, pad = 2
   }))
 }
 
+/** Which points get a label on the chart: the first, last, lowest and highest. */
+export function labelledIndices(points: SeriesPoint[]): Set<number> {
+  if (points.length === 0) return new Set()
+  let lo = 0, hi = 0
+  points.forEach((p, i) => { if (p.value < points[lo]!.value) lo = i; if (p.value > points[hi]!.value) hi = i })
+  return new Set([0, points.length - 1, lo, hi])
+}
+
 export function Sparkline({ points, label, onOpen }: { points: SeriesPoint[]; label: string; onOpen: () => void }): React.ReactElement | null {
   if (points.length < 2) return null
   const xy = scalePoints(points, 72, 22)
@@ -32,7 +41,8 @@ export function Sparkline({ points, label, onOpen }: { points: SeriesPoint[]; la
   return (
     <button type="button" onClick={onOpen} title={`${label}: history`} aria-label={`${label}: show history (${points.length} values)`}
       className="hit-44 inline-flex items-center px-1 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
-      <svg width="72" height="22" viewBox="0 0 72 22" aria-hidden="true" className={last >= first ? 'text-blue-600 dark:text-blue-400' : 'text-amber-600 dark:text-amber-400'}>
+      {/* One neutral color: going down isn't always bad (weight lost, a debt paid down) */}
+      <svg width="72" height="22" viewBox="0 0 72 22" aria-hidden="true" className="text-slate-600 dark:text-slate-300" data-trend={last >= first ? 'up' : 'down'}>
         <polyline points={xy.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
         <circle cx={xy[xy.length - 1]!.x} cy={xy[xy.length - 1]!.y} r="2.5" fill="currentColor" />
       </svg>
@@ -44,7 +54,7 @@ export function NumberHistoryDialog({ label, points, currency, onClose }: { labe
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, true)
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
@@ -52,6 +62,7 @@ export function NumberHistoryDialog({ label, points, currency, onClose }: { labe
   const xy = scalePoints(points, W - L - R, H - T - B, 0).map(p => ({ x: p.x + L, y: p.y + T }))
   const vals = points.map(p => p.value)
   const min = Math.min(...vals), max = Math.max(...vals)
+  const labelled = labelledIndices(points)
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="number-history-title" onClick={e => e.stopPropagation()}
@@ -63,7 +74,7 @@ export function NumberHistoryDialog({ label, points, currency, onClose }: { labe
             <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto text-blue-600 dark:text-blue-400" aria-hidden="true">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto text-slate-700 dark:text-slate-300" aria-hidden="true">
           <g className="text-slate-300 dark:text-slate-600" stroke="currentColor" strokeWidth="1">
             <line x1={L} y1={T} x2={L} y2={H - B} />
             <line x1={L} y1={H - B} x2={W - R} y2={H - B} />
@@ -78,7 +89,7 @@ export function NumberHistoryDialog({ label, points, currency, onClose }: { labe
           {xy.map((p, i) => (
             <g key={i}>
               <circle cx={p.x} cy={p.y} r="4" fill="currentColor" />
-              <text x={p.x} y={p.y - 9} textAnchor="middle" fontSize="12" className="fill-slate-700 dark:fill-slate-200">{fmt(points[i]!.value, currency)}</text>
+              {labelled.has(i) && <text x={p.x} y={p.y - 9} textAnchor="middle" fontSize="12" className="fill-slate-700 dark:fill-slate-200">{fmt(points[i]!.value, currency)}</text>}
             </g>
           ))}
         </svg>
@@ -87,8 +98,8 @@ export function NumberHistoryDialog({ label, points, currency, onClose }: { labe
           <thead><tr><th scope="col">Date</th><th scope="col">Value</th></tr></thead>
           <tbody>{points.map((p, i) => <tr key={i}><td>{short(p.at)}</td><td>{fmt(p.value, currency)}</td></tr>)}</tbody>
         </table>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          {points.length} values from {short(points[0]!.at)} to {short(points[points.length - 1]!.at)}. To keep every value, turn on "Log changes in timeline" for this column.
+        <p className="text-base text-slate-600 dark:text-slate-300">
+          {points.length} values from {short(points[0]!.at)} to {short(points[points.length - 1]!.at)}.
         </p>
       </div>
     </div>

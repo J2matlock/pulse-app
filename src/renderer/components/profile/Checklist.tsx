@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronDown, ChevronRight, X, Plus, Trash2, Pencil, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { ChevronDown, ChevronRight, X, Plus, Trash2, Pencil, Check } from 'lucide-react'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import {
@@ -191,9 +191,10 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       completed_at: now,
     })
     if (!res.ok) {
-      // Put the tick back as it was (audit L-28)
+      // Put the tick back as it was, so the list doesn't show something that wasn't saved (audit L-28)
       setItems(prev => prev.map(i => i.id === id ? { ...i, is_completed: prevCompleted, completed_at: prevCompletedAt } : i))
-      toast.error("We couldn't save that tick. Try again.")
+      setRecentlyCheckedIds(prev => { const next = new Set(prev); next.delete(id); return next })
+      toast.error(`We couldn't ${isCompleted ? 'tick off' : 'reopen'} "${itemTitle}" — try again`)
       return
     }
     const sysLogId = res.data.sysLogId
@@ -597,7 +598,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
                     setNewTitle('')
                   }
                 }}
-                placeholder="+ Add task… (press Enter)"
+                placeholder="+ Add a checklist item… (press Enter)"
                 style={{ fontSize: 15 }}
                 spellCheck={false}
                 className="w-full px-3 py-2 text-slate-600 dark:text-slate-400
@@ -658,7 +659,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
                             setGroupAddTitles(prev => ({ ...prev, [group.id]: '' }))
                           }
                         }}
-                        placeholder="+ Add task… (press Enter)"
+                        placeholder="+ Add a checklist item… (press Enter)"
                         style={{ fontSize: 15 }}
                         spellCheck={false}
                         className="w-full px-3 py-1.5 text-base text-slate-500 dark:text-slate-400
@@ -691,7 +692,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
                   setNewTitle('')
                 }
               }}
-              placeholder="+ Add task… (press Enter)"
+              placeholder="+ Add a checklist item… (press Enter)"
               style={{ fontSize: 15 }}
               spellCheck={false}
               className="w-full px-3 py-2 text-slate-600 dark:text-slate-400
@@ -892,7 +893,7 @@ export function TemplateManager({ onApply, onClose }: {
   useEffect(() => { void loadTemplates() }, [])
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') { if (view !== 'list') setView('list'); else onClose() } }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') { e.preventDefault(); if (view !== 'list') setView('list'); else onClose() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [view, onClose])

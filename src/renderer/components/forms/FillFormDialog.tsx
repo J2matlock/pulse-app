@@ -17,6 +17,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { useUndoStore } from '../../stores/undoStore'
 import { useGridStore } from '../../stores/gridStore'
 import { useLinkStore } from '../../stores/linkStore'
+import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { friendlyError } from '../../utils/friendlyError'
 
 type Value = string | number[]
@@ -104,11 +105,26 @@ export function FillFormDialog({ form, columns, row, onClose, onDone }: {
   const [saving, setSaving] = useState(false)
   const errorRef = useRef<HTMLDivElement>(null)
 
+  // A stray click outside or Escape must not throw away a filled-in form (1.37)
+  const [initialAnswers] = useState(() => JSON.stringify([values, links]))
+  const changed = JSON.stringify([values, links]) !== initialAnswers || Object.values(notes).some(v => v.trim() !== '')
+  const [askDiscard, setAskDiscard] = useState(false)
+  const requestClose = () => { if (changed) setAskDiscard(true); else onClose() }
+  const requestCloseRef = useRef(requestClose)
+  requestCloseRef.current = requestClose
+  const askDiscardRef = useRef(askDiscard)
+  askDiscardRef.current = askDiscard
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      // The discard question handles its own Escape ("keep filling in")
+      if (!askDiscardRef.current) requestCloseRef.current()
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [])
 
   function missing(): string[] {
     const out: string[] = []
@@ -125,11 +141,16 @@ export function FillFormDialog({ form, columns, row, onClose, onDone }: {
   }
 
   async function submit() {
+    if (await save()) onClose()
+  }
+
+  /** Saves the answers; true when they were saved (the dialog stays open). */
+  async function save(): Promise<boolean> {
     const m = missing()
     if (m.length) {
       setErrors([`Please fill in: ${m.join(', ')}.`])
       setTimeout(() => errorRef.current?.focus(), 0)
-      return
+      return false
     }
     const payload: Record<string, Value | null> = {}
     for (const f of form.fields) {
@@ -143,7 +164,7 @@ export function FillFormDialog({ form, columns, row, onClose, onDone }: {
     setSaving(true)
     try {
       const res = await safeInvoke<FormChange>(IPC.FORM_SUBMIT, form.id, row?.row_id ?? null, payload, noteAnswers)
-      if (!res.ok) { setErrors([res.error]); setTimeout(() => errorRef.current?.focus(), 0); return }
+      if (!res.ok) { setErrors([res.error]); setTimeout(() => errorRef.current?.focus(), 0); return false }
       let change = res.data
       const refresh = async () => {
         const grid = useGridStore.getState()
@@ -167,11 +188,16 @@ export function FillFormDialog({ form, columns, row, onClose, onDone }: {
       await refresh()
       toast.success(change.created ? `Added ${t('record', { article: true })}` : 'Saved')
       onDone?.(change.rowId)
-      onClose()
+      return true
     } finally { setSaving(false) }
   }
 
   async function print() {
+    // "Print filled" prints the saved answers, so save what's on screen first
+    if (row && changed) {
+      if (!await save()) return
+      onClose()
+    }
     const res = await safeInvoke<string | null>(IPC.FORM_PRINT, form.id, row?.row_id ?? null)
     if (!res.ok) { toast.error(friendlyError(res.error)); return }
     if (res.data) { toast.success('Saved the PDF'); noteUnencryptedExport() }
@@ -200,7 +226,8 @@ export function FillFormDialog({ form, columns, row, onClose, onDone }: {
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={requestClose}>
       <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="fill-form-title" onClick={e => e.stopPropagation()}
         className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
         <div className="flex items-center justify-between">
@@ -208,10 +235,10 @@ export function FillFormDialog({ form, columns, row, onClose, onDone }: {
             <ClipboardPen className="w-5 h-5" aria-hidden="true" />{form.name}
           </h2>
           <div className="flex items-center gap-1">
-            <button type="button" className="btn-compact-secondary" onClick={() => void print()} title={row ? 'Print with the saved answers, for signing' : 'A blank to fill on paper'}>
-              <Printer className="w-4 h-4" />{row ? 'Print filled' : 'Print blank'}
+            <button type="button" className="btn-compact-secondary" disabled={saving} onClick={() => void print()} title={row ? (changed ? 'Save your answers, then print them for signing' : 'Print with the saved answers, for signing') : 'A blank to fill on paper'}>
+              <Printer className="w-4 h-4" />{row ? (changed ? 'Save and print' : 'Print filled') : 'Print blank'}
             </button>
-            <button type="button" aria-label="Close" onClick={onClose}
+            <button type="button" aria-label="Close" onClick={requestClose}
               className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"><X className="w-5 h-5 text-slate-500" /></button>
           </div>
         </div>
@@ -250,10 +277,19 @@ export function FillFormDialog({ form, columns, row, onClose, onDone }: {
           })}
         </div>
         <div className="flex justify-end gap-2">
-          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn-secondary" onClick={requestClose}>Cancel</button>
           <button type="button" className="btn-primary" disabled={saving} onClick={() => void submit()}>{row ? 'Save' : `Add ${t('record')}`}</button>
         </div>
       </div>
     </div>
+    <ConfirmDialog
+      open={askDiscard}
+      title="Discard your answers?"
+      message="What you've filled in on this form hasn't been saved."
+      confirmLabel="Discard"
+      onConfirm={() => { setAskDiscard(false); onClose() }}
+      onCancel={() => setAskDiscard(false)}
+    />
+    </>
   )
 }

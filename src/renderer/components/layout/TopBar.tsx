@@ -298,7 +298,7 @@ export function TopBar(): React.ReactElement {
                         key={p.rowId}
                         onClick={() => {
                           setShowRecent(false)
-                          navigate(`/profile/${p.rowId}`)
+                          navigate(`/profile/${p.rowId}?gridId=${p.gridId}`)
                         }}
                         className="hit-44 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300
                                    hover:bg-slate-50 dark:hover:bg-slate-700 flex flex-col gap-0.5

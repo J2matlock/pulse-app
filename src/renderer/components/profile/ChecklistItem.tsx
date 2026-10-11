@@ -79,7 +79,7 @@ function ChecklistEditDialog({ item, onSave, onClose }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
          onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div ref={trapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Edit Task</h2>
+        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Edit checklist item</h2>
 
         {/* Title */}
         <div>

@@ -51,10 +51,11 @@ export function expandVariables(text: string, clientName?: string, clockFormat?:
  * Returns null if not in a snippet trigger context.
  */
 export function detectTrigger(textBeforeCursor: string): { trigger: string; query: string } | null {
-  // Look for the last "/" and collect text after it (no spaces allowed)
-  const match = textBeforeCursor.match(/\/(\S*)$/)
+  // A "/" at the start or after a space, then the text typed since (no spaces).
+  // "/" inside a word is ordinary writing: f/u, w/, c/o, 10/12 (R-15).
+  const match = textBeforeCursor.match(/(?:^|\s)(\/(\S*))$/)
   if (!match) return null
-  return { trigger: match[0]!, query: match[1] ?? '' }
+  return { trigger: match[1]!, query: match[2] ?? '' }
 }
 
 /**

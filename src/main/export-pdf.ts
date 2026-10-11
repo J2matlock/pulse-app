@@ -3,7 +3,7 @@
  */
 
 import type { Column, Grid, ContactFilterParams } from '../shared/types'
-import { PRODUCT_NAME, MS_PER_DAY } from '../shared/constants'
+import { PRODUCT_NAME } from '../shared/constants'
 import { getDb } from './database'
 import { logger } from './logger'
 import { getProvider, getProviders, getCategories, getInteractions, getClientLinks, getCustomFields, getCustomValues } from './contacts'
@@ -26,6 +26,8 @@ import { vocabFor, word } from './vocab'
 import { term } from '../shared/vocab'
 import { hasDisplayFormat } from './display-names'
 import { activityLabel } from './activity-types'
+import { loadDeadlines, type DeadlineItem } from './deadlines'
+import { deadlineSummary } from '../shared/deadlineSummary'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Letter Template PDF Export
@@ -156,6 +158,8 @@ interface ProfileDocContext {
   caseLogByRow?: Map<number, Array<{ content: string; log_type: string; created_at: string }>>
   /** Pre-fetched scrap notes keyed by row_id */
   scrapNotesByRow?: Map<number, string>
+  /** Pre-fetched deadlines (from the deadline engine) grouped by row_id */
+  deadlinesByRow?: Map<number, DeadlineItem[]>
   /** Pre-fetched linked providers grouped by row_id */
   providersByRow?: Map<number, Array<{
     name: string; org_name: string | null; title: string | null;
@@ -179,6 +183,21 @@ function chunkedInQuery<T>(db: ReturnType<typeof getDb>, sql: string, ids: numbe
     results.push(...rows)
   }
   return results
+}
+
+export { deadlineSummary }
+
+/** Phone numbers, emails and the like added with "Add contact info" on the record page. */
+function manualContactsOf(db: ReturnType<typeof getDb>, rowId: number): Array<{ type: string; label: string; value: string }> {
+  const raw = (db.prepare('SELECT manual_contacts FROM rows WHERE id = ?').get(rowId) as { manual_contacts: string | null } | undefined)?.manual_contacts
+  if (!raw) return []
+  try {
+    const list = JSON.parse(raw) as unknown
+    if (!Array.isArray(list)) return []
+    return list.filter((c): c is { type: string; label: string; value: string } =>
+      !!c && typeof c === 'object' && typeof (c as { value?: unknown }).value === 'string' && (c as { value: string }).value.trim() !== ''
+      && typeof (c as { type?: unknown }).type === 'string' && typeof (c as { label?: unknown }).label === 'string')
+  } catch { return [] }
 }
 
 export function renderProfileToDoc(
@@ -297,26 +316,24 @@ export function renderProfileToDoc(
     y += 4
   }
 
-  // ── Deadlines (only date columns with an alert rule attached) ──
+  // ── Deadlines: the same engine as the dashboard, so the PDF never disagrees with the app ──
   if (includeSections.deadlines) {
-    const deadlineCols = columns.filter(c => {
-      if (c.column_type !== 'date') return false
-      try {
-        const cfg = JSON.parse(c.config || '{}')
-        return !!cfg.alert_rule_id
-      } catch { return false }
-    })
-    if (deadlineCols.length > 0) {
+    const items = sharedCtx?.deadlinesByRow
+      ? (sharedCtx.deadlinesByRow.get(rowId) ?? [])
+      : loadDeadlines({ gridId, rowIds: [rowId] })
+    if (items.length > 0) {
       addSection('Deadlines')
-      for (const col of deadlineCols) {
-        const val = cellMap.get(col.id)
-        if (val) {
-          const d = new Date(val + 'T00:00:00')
-          const daysUntil = Math.round((d.getTime() - Date.now()) / MS_PER_DAY)
-          const urgency = daysUntil < 0 ? 'OVERDUE' : daysUntil === 0 ? 'Due Today' : `Due in ${daysUntil} days`
-          addKeyValue(col.name, `${formatDate(val, 'us')}  (${urgency})`)
-        }
-      }
+      for (const d of items) addKeyValue(d.column_name, deadlineSummary(d))
+      y += 4
+    }
+  }
+
+  // ── Other contact info ("Add contact info" on the record page) ──
+  if (includeSections.contactInfo) {
+    const extra = manualContactsOf(db, rowId)
+    if (extra.length > 0) {
+      addSection('Other contact info')
+      for (const c of extra) addKeyValue(c.label || c.type, c.value)
       y += 4
     }
   }
@@ -380,7 +397,7 @@ export function renderProfileToDoc(
   if (includeSections.caseLog) {
     const entries = sharedCtx?.caseLogByRow?.get(rowId) ?? db.prepare(`
       SELECT content, log_type, occurred_at AS created_at FROM case_log
-      WHERE row_id = ? AND voided_at IS NULL
+      WHERE row_id = ? AND voided_at IS NULL AND log_type != 'system'
       ORDER BY occurred_at DESC, id DESC LIMIT 10
     `).all(rowId) as Array<{ content: string; log_type: string; created_at: string }>
     if (entries.length > 0) {
@@ -460,7 +477,7 @@ export function renderProfileToDoc(
       ? prefetchedContent
       : (db.prepare('SELECT content FROM scrap_notes WHERE row_id = ?').get(rowId) as { content: string } | undefined)?.content
     if (noteContent) {
-      addSection('Notes')
+      addSection('Scrap notes')
       addBodyText(noteContent)
       y += 4
     }
@@ -618,7 +635,7 @@ export async function exportPdfBatch(options: PdfBatchOptions): Promise<void> {
       const batchCaseLog = chunkedInQuery<{ row_id: number; content: string; log_type: string; created_at: string }>(
         db,
         `SELECT row_id, content, log_type, occurred_at AS created_at FROM case_log
-         WHERE row_id IN (__PLACEHOLDERS__) AND voided_at IS NULL
+         WHERE row_id IN (__PLACEHOLDERS__) AND voided_at IS NULL AND log_type != 'system'
          ORDER BY occurred_at DESC, id DESC`,
         batchIds
       )
@@ -670,9 +687,18 @@ export async function exportPdfBatch(options: PdfBatchOptions): Promise<void> {
       }
     }
 
+    // Deadlines for the whole batch in one pass of the engine
+    const deadlinesByRow = new Map<number, DeadlineItem[]>()
+    if (includeSections.deadlines) {
+      for (const d of loadDeadlines({ gridId, rowIds: batchIds })) {
+        if (!deadlinesByRow.has(d.row_id)) deadlinesByRow.set(d.row_id, [])
+        deadlinesByRow.get(d.row_id)!.push(d)
+      }
+    }
+
     const sharedCtx: ProfileDocContext = {
       grid, columns, nameColId, cellsByRow,
-      checklistByRow, caseLogByRow, scrapNotesByRow, providersByRow
+      checklistByRow, caseLogByRow, scrapNotesByRow, providersByRow, deadlinesByRow
     }
 
     // Render pages for this batch

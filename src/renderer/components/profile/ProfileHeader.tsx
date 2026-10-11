@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { Star, FileText, CheckSquare, Plus, X, Phone, Mail, MapPin, Copy, Check, Trash2, Pencil, History, Send } from 'lucide-react'
+import { Star, FileText, Plus, X, Phone, Mail, MapPin, Copy, Check, Trash2, Pencil, History, Send } from 'lucide-react'
 import type { GridRow, Column } from '../../../shared/types'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
@@ -8,9 +8,11 @@ import { useHoldsPeople } from '../../hooks/useRecordKind'
 import { useFeature } from '../../hooks/useFeature'
 import { getClientName } from '../../utils/clientName'
 import { rlog } from '../../utils/rendererLogger'
+import toast from 'react-hot-toast'
 import { useCopyFeedbackKeyed } from '../../hooks/useCopyFeedback'
 import { useVocab } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
+import { ProfileMoreMenu, type MoreMenuItem } from './ProfileMoreMenu'
 import { SamplePill } from '../shared/SampleDataBanner'
 
 const CONTACT_TYPES = ['phone', 'email', 'address'] as const
@@ -35,12 +37,11 @@ export interface ProfileHeaderProps {
   gridId: number
   onRowUpdate: (updates: Partial<{ is_starred: 0 | 1 }>) => void
   onAddNote?: () => void
-  onAddTask?: () => void
   onGenerateLetter?: () => void
-  onExportPdf?: () => void
   onAuditTrail?: () => void
   onHandoff?: () => void
-  onPrint?: () => void
+  /** "More ▾": print / PDF, archive, duplicate, move, trash (3.6) */
+  moreItems?: MoreMenuItem[]
 }
 
 async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
@@ -58,14 +59,14 @@ function contactIcon(type: string) {
 function contactLink(type: string, value: string) {
   if (type === 'email') {
     return (
-      <a href={`mailto:${value}`} className="text-blue-600 dark:text-blue-400 hover:underline break-words">
+      <a href={`mailto:${value}`} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline break-words">
         {value}
       </a>
     )
   }
   if (type === 'phone') {
     return (
-      <a href={`tel:${value}`} className="text-blue-600 dark:text-blue-400 hover:underline break-words">
+      <a href={`tel:${value.replace(/[^\d+]/g, '')}`} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline break-words">
         {value}
       </a>
     )
@@ -78,13 +79,11 @@ export function ProfileHeader({
   columns,
   gridId,
   onRowUpdate,
-  onAddNote: _onAddNote,
-  onAddTask,
+  onAddNote,
   onGenerateLetter,
   onAuditTrail,
   onHandoff,
-  onExportPdf,
-  onPrint: _onPrint,
+  moreItems,
 }: ProfileHeaderProps): React.ReactElement {
   const { t } = useVocab(gridId)
   // Age next to a birth date is for people only
@@ -104,6 +103,7 @@ export function ProfileHeader({
   const { copiedKey, copyToClipboard } = useCopyFeedbackKeyed()
   const [showAddContact, setShowAddContact] = useState(false)
   const [newContactType, setNewContactType] = useState<ContactType>('phone')
+  const [addAsColumn, setAddAsColumn] = useState(false)
   const [newContactLabel, setNewContactLabel] = useState('')
   const [newContactValue, setNewContactValue] = useState('')
 
@@ -143,12 +143,18 @@ export function ProfileHeader({
     }
   }
 
-  async function saveManualContacts(contacts: ManualContact[]) {
+  /** Saves the list, showing it straight away; puts the old list back if the save fails. */
+  async function saveManualContacts(contacts: ManualContact[]): Promise<boolean> {
+    const before = manualContacts
     setManualContacts(contacts)
     try {
       await invoke(IPC.ROW_SET_MANUAL_CONTACTS, row.row_id, contacts)
+      return true
     } catch (err) {
+      setManualContacts(before)
       rlog.error('ProfileHeader', 'Failed to save manual contacts', err)
+      toast.error('We couldn\'t save that contact info — try again')
+      return false
     }
   }
 
@@ -156,8 +162,21 @@ export function ProfileHeader({
     const value = newContactValue.trim()
     if (!value) return
     const label = newContactLabel.trim() || (newContactType === 'phone' ? 'Phone' : newContactType === 'email' ? 'Email' : 'Address')
-    const updated = [...manualContacts, { type: newContactType, label, value }]
-    await saveManualContacts(updated)
+    if (addAsColumn) {
+      // A real column: every record gets one, and it's in the list, search and exports (R-27)
+      const grid = useGridStore.getState()
+      await grid.addColumn(label, newContactType)
+      const added = useGridStore.getState().columns
+        .filter(c => c.name === label && c.column_type === newContactType)
+        .sort((a, b) => b.id - a.id)[0]
+      if (!added) return // addColumn already said what went wrong
+      await useGridStore.getState().updateCell(row.row_id, added.id, value)
+    } else {
+      const updated = [...manualContacts, { type: newContactType, label, value }]
+      // Keep what was typed if the save failed, so it can be tried again
+      if (!await saveManualContacts(updated)) return
+    }
+    setAddAsColumn(false)
     setNewContactValue('')
     setNewContactLabel('')
     setNewContactType('phone')
@@ -177,6 +196,7 @@ export function ProfileHeader({
       } catch (err) {
         setRowTagIds(prev => [...prev, tagId])
         rlog.error('ProfileHeader', 'Failed to unassign tag', err)
+        toast.error('We couldn\'t remove that tag — try again')
       }
     } else {
       setRowTagIds(prev => [...prev, tagId])
@@ -185,6 +205,7 @@ export function ProfileHeader({
       } catch (err) {
         setRowTagIds(prev => prev.filter(id => id !== tagId))
         rlog.error('ProfileHeader', 'Failed to assign tag', err)
+        toast.error('We couldn\'t add that tag — try again')
       }
     }
   }
@@ -192,14 +213,23 @@ export function ProfileHeader({
   async function createAndAssignTag() {
     const name = newTagName.trim()
     if (!name) return
+    let newTag: Tag
     try {
-      const newTag = await invoke<Tag>(IPC.TAG_CREATE, gridId, name, '#6b7280')
-      setAllTags(prev => [...prev, newTag])
-      setNewTagName('')
-      setRowTagIds(prev => [...prev, newTag.id])
-      await invoke(IPC.TAG_ASSIGN, row.row_id, newTag.id)
+      newTag = await invoke<Tag>(IPC.TAG_CREATE, gridId, name, '#6b7280')
     } catch (err) {
       rlog.error('ProfileHeader', 'Failed to create tag', err)
+      toast.error('We couldn\'t create that tag — try again')
+      return
+    }
+    setAllTags(prev => [...prev, newTag])
+    setNewTagName('')
+    setRowTagIds(prev => [...prev, newTag.id])
+    try {
+      await invoke(IPC.TAG_ASSIGN, row.row_id, newTag.id)
+    } catch (err) {
+      setRowTagIds(prev => prev.filter(id => id !== newTag.id))
+      rlog.error('ProfileHeader', 'Failed to assign new tag', err)
+      toast.error('We created the tag but couldn\'t add it here — try again')
     }
   }
 
@@ -219,6 +249,7 @@ export function ProfileHeader({
       setEditingTagId(null)
     } catch (err) {
       rlog.error('ProfileHeader', 'Failed to update tag', err)
+      toast.error('We couldn\'t save that tag — try again')
     }
   }
 
@@ -229,6 +260,7 @@ export function ProfileHeader({
       setRowTagIds(prev => prev.filter(id => id !== tagId))
     } catch (err) {
       rlog.error('ProfileHeader', 'Failed to delete tag', err)
+      toast.error('We couldn\'t delete that tag — try again')
     }
   }
 
@@ -293,9 +325,11 @@ export function ProfileHeader({
 
   function getStatusStyle(col: Column, value: string): React.CSSProperties {
     try {
-      const config = JSON.parse(col.config) as { colors?: Record<string, string> }
-      const bg = config.colors?.[value]
-      if (bg) return { backgroundColor: `${bg}33`, color: bg, border: `1px solid ${bg}66` }
+      // Same colors as the list: status columns keep them on their options (R-21)
+      const config = JSON.parse(col.config) as { options?: Array<string | { label?: string; color?: string }>; colors?: Record<string, string> }
+      const option = config.options?.find(o => typeof o === 'object' && o.label === value) as { color?: string } | undefined
+      const bg = option?.color ?? config.colors?.[value]
+      if (bg) return { backgroundColor: bg, color: '#fff' }
     } catch { /* ignore */ }
     return { backgroundColor: 'rgb(var(--color-slate-100) / 1)', color: 'rgb(var(--color-slate-600) / 1)' }
   }
@@ -630,8 +664,13 @@ export function ProfileHeader({
             >
               Cancel
             </button>
+            <label className="basis-full flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-200 cursor-pointer">
+              <input type="checkbox" className="w-5 h-5" checked={addAsColumn} onChange={e => setAddAsColumn(e.target.checked)} />
+              Add &ldquo;{newContactLabel.trim() || (newContactType === 'phone' ? 'Phone' : newContactType === 'email' ? 'Email' : 'Address')}&rdquo; as a column, so every {t('record')} has one and it shows in the {t('list')}, search and exports
+            </label>
           </div>
-        ) : (
+        ) : holdsPeople && (
+          // Extra phone numbers and emails are for people; a car or a job doesn't need them (R-27)
           <div className={hasAnyContacts ? 'mt-2' : 'mt-3 pt-3 border-t border-slate-100 dark:border-slate-700'}>
             <button
               onClick={() => setShowAddContact(true)}
@@ -645,28 +684,17 @@ export function ProfileHeader({
 
         {/* ── Row 4: Quick action buttons ── */}
         <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 flex-wrap">
-          {onAddTask && (<>
+          {onAddNote && (
             <button
-              onClick={onAddTask}
+              onClick={onAddNote}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 focus-visible:ring-offset-3 transition-colors"
               style={{ minHeight: 44, fontSize: 15 }}
-              title="Add a checklist task"
             >
-              <CheckSquare className="w-4 h-4" />
-              + Task
-            </button>
-          </>)}
-          {onExportPdf && (
-            <button
-              onClick={onExportPdf}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-base font-semibold bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-600 shadow-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-slate-400 focus-visible:ring-offset-3 transition-colors"
-              style={{ minHeight: 44, fontSize: 15 }}
-              title="Export profile as PDF file"
-            >
-              <FileText className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-              Export PDF
+              <Plus className="w-4 h-4" />
+              {t('activity', { cap: true })}
             </button>
           )}
+          {moreItems && <ProfileMoreMenu items={moreItems} />}
           {onGenerateLetter && (
             <button
               onClick={onGenerateLetter}

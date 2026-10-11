@@ -3,6 +3,7 @@
  * Pulse. Drop files here or use "Add files…"; open, save a copy, describe
  * or remove them. Pictures show a thumbnail.
  */
+import toast from 'react-hot-toast'
 import React, { useCallback, useEffect, useState } from 'react'
 import { FileText, ImageIcon, Paperclip, Pencil, Trash2, ExternalLink, Download, Check, X } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
@@ -27,7 +28,7 @@ function Thumb({ a }: { a: Attachment }): React.ReactElement {
   return <span className="w-12 h-12 flex items-center justify-center rounded-md bg-slate-100 dark:bg-slate-700 flex-shrink-0"><Icon className="w-6 h-6 text-slate-500" aria-hidden="true" /></span>
 }
 
-export function RecordFiles({ rowId }: { rowId: number }): React.ReactElement {
+export function RecordFiles({ rowId, onCount }: { rowId: number; onCount?: (n: number) => void }): React.ReactElement {
   const { t } = useVocab()
   const [files, setFiles] = useState<Attachment[]>([])
   const [over, setOver] = useState(false)
@@ -38,12 +39,15 @@ export function RecordFiles({ rowId }: { rowId: number }): React.ReactElement {
     if (r.ok) setFiles(r.data)
   }, [rowId])
   useEffect(() => { void load() }, [load])
+  useEffect(() => { onCount?.(files.length) }, [files.length, onCount])
   useEffect(() => window.api.on(IPC.ATTACHMENTS_CHANGED, (changed: unknown) => { if (changed === null || changed === rowId) void load() }), [load, rowId])
 
   async function saveEdit() {
     if (!editing) return
+    if (!editing.name.trim()) { toast.error('A file needs a name'); return }
     const r = await safeInvoke(IPC.ATTACHMENT_DESCRIBE, editing.id, { fileName: editing.name, description: editing.description })
     if (r.ok) setEditing(null)
+    else toast.error('We couldn\'t save that file\'s name and description — try again')
   }
 
   return (

@@ -274,7 +274,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'profile-case-log',
     question: 'How do I log {a activity} or interaction?',
-    answer: 'Open {a record}\'s profile and scroll to the {ActivityLog} section. Click "Add Entry" to log a phone call, visit, email, or note. Each entry gets a timestamp and your name. You can pin important entries to the top and search through your log history.',
+    answer: 'Open {a record}\'s page. The box for a new {activity} is at the top, just under the name: click it (or the "+ {Activity}" button), pick the kind, type, and click "Add" or press Ctrl+Enter. Past {activity:many} are listed further down in the {activityLog}, where you can pin important ones to the top and search all of them.',
     category: 'client-profiles',
     tourStepIds: ['case-log'],
     demo: <DemoCaseLog />,
@@ -300,7 +300,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'profile-activity',
     question: 'How do I see {a record}\'s full activity history?',
-    answer: 'Open the {record}\'s profile \u2014 the Activity Timeline at the bottom shows a chronological feed of everything that\'s happened: {activityLog} entries, cell edits, status changes, and more. Use the audit toggle to see voided entries as well.',
+    answer: 'Open the {record}\'s page \u2014 below the note box, deadlines and details, the {activityLog} lists everything in date order. Set "Show" to "{Activity:many} and changes" to include what the app recorded (edits, status changes and more), pick one kind to see only that, and tick "Show voided {activity:many}" to see voided ones as well.',
     category: 'client-profiles',
     demo: <DemoActivityTimeline />,
   },
@@ -608,7 +608,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'profile-number-chart',
     question: 'Can I see a number change over time, like scores?',
-    answer: 'Yes. On a {record}\'s page, a number or currency column that has changed shows a small line next to its value. Click it for a chart with every value and date. To keep the very first value too, right-click the column header and turn on "Log changes in timeline".',
+    answer: 'Yes. On a {record}\'s page, a number or currency column that has changed shows a small line next to its value. Click it for a chart of every value and date, starting from the first one entered.',
     category: 'client-profiles',
   },
 

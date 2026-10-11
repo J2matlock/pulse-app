@@ -24,6 +24,16 @@ import type { ActivityType } from './activityTypes'
 import type { MeasureDef, MeasureKind } from './measures'
 import type { RecordKind } from './types'
 
+/** Search and filter for a record's notes (CASE_LOG_GET / CASE_LOG_COUNT) */
+export interface CaseLogQuery { query?: string; oldestFirst?: boolean; logType?: string }
+
+/** Where a record lives, so it can be opened from any screen */
+export interface RowLocation {
+  gridId: number
+  status: 'active' | 'archived' | 'trash' | 'list-deleted'
+  archivedReason: string | null
+}
+
 /** Setup's "Which of these dates repeat?" answer for one date column */
 /** Where an interrupted first-run setup stopped, once it has made a list */
 export interface SetupProgress {
@@ -192,6 +202,7 @@ export interface IPCContract {
   'row:delete':              { args: [rowId: number];                                                                      return: true }
   'row:archive':             { args: [rowId: number, reason?: string];                                                     return: true }
   'row:unarchive':           { args: [rowId: number];                                                                      return: true }
+  'row:locate':              { args: [rowId: number];                                                                      return: RowLocation | null }
   'row:reorder':             { args: [gridId: number, orderedIds: number[]];                                               return: true }
   'row:duplicate':           { args: [rowId: number];                                                                      return: number | bigint }
   'row:bulk-action':         { args: [action: 'archive' | 'unarchive' | 'delete', rowIds: number[]];                       return: number }
@@ -250,8 +261,9 @@ export interface IPCContract {
   'cl-template:import':  { args: [filePath: string];                                       return: ChecklistTemplate }
 
   // ── Case Log ────────────────────────────────────────────────────────────
-  'case-log:get':                 { args: [rowId: number, includeSystem?: boolean, includeVoided?: boolean, limit?: number, offset?: number]; return: CaseLogEntry[] }
-  'case-log:create':              { args: [rowId: number, content: string, logType: string, followUpDate: string | null, measures?: { minutes?: number | null; miles?: number | null; extra?: Record<string, number | null> | null }]; return: CaseLogEntry }
+  'case-log:get':                 { args: [rowId: number, includeSystem?: boolean, includeVoided?: boolean, limit?: number, offset?: number, opts?: CaseLogQuery]; return: CaseLogEntry[] }
+  'case-log:count':               { args: [rowId: number, includeSystem?: boolean, includeVoided?: boolean, opts?: CaseLogQuery]; return: number }
+  'case-log:create':              { args: [rowId: number, content: string, logType: string, followUpDate: string | null, measures?: { minutes?: number | null; miles?: number | null; extra?: Record<string, number | null> | null }, occurredOn?: string | null]; return: CaseLogEntry }
   'case-log:update':              { args: [id: number, content: string];                     return: true }
   'case-log:delete':              { args: [id: number];                                      return: true }
   'case-log:toggle-pin':          { args: [id: number, pinned: boolean];                     return: true }
@@ -259,7 +271,7 @@ export interface IPCContract {
   'case-log:uncomplete-followup': { args: [id: number];                                      return: true }
   'case-log:void':                { args: [id: number, reason: string];                      return: true }
   'case-log:get-edits':           { args: [id: number];                                      return: Array<{ content: string; replaced_at: string }> }
-  'case-log:unvoid':              { args: [id: number];                                      return: true }
+  'case-log:unvoid':              { args: [id: number, opts?: { logRestore?: boolean }]; return: true }
   'case-log:restore':             { args: [entry: Record<string, unknown>];                  return: true }
 
   // ── Scrap Notes ─────────────────────────────────────────────────────────

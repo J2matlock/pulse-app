@@ -32,6 +32,8 @@ export function HandoffDialog({ rowId, gridId, clientName, onClose }: {
   const [cancelAppts, setCancelAppts] = useState(true)
   const filesOn = useFeature('attachments')
   const [includePictures, setIncludePictures] = useState(false)
+  // Scrap notes are private jottings; the packet goes to someone else
+  const [includeScratchPad, setIncludeScratchPad] = useState(false)
   // "Discharged" is for people; a thing or job is closed
   const holdsPeople = useHoldsPeople(gridId)
   const reasons = holdsPeople ? ['Transferred', 'Discharged'] as const : ['Transferred', 'Closed'] as const
@@ -41,7 +43,7 @@ export function HandoffDialog({ rowId, gridId, clientName, onClose }: {
   const [working, setWorking] = useState(false)
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
@@ -49,7 +51,7 @@ export function HandoffDialog({ rowId, gridId, clientName, onClose }: {
   async function save() {
     setWorking(true)
     try {
-      const res = await safeInvoke<string | null>(IPC.EXPORT_HANDOFF_PACKET, { rowId, gridId, receiving, summary, includePictures: filesOn && includePictures })
+      const res = await safeInvoke<string | null>(IPC.EXPORT_HANDOFF_PACKET, { rowId, gridId, receiving, summary, includePictures: filesOn && includePictures, includeScratchPad })
       if (!res.ok) { toast.error(`We couldn't create the ${packet}. Try again.`); return }
       if (!res.data) return
       toast.success(`Saved the ${packet}`)
@@ -91,6 +93,10 @@ export function HandoffDialog({ rowId, gridId, clientName, onClose }: {
             <textarea id="handoff-notes" className="input w-full" rows={5} value={summary} onChange={e => setSummary(e.target.value)}
               placeholder="Current situation, what's pending, who to call…" maxLength={20000} />
           </div>
+          <label className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-200 cursor-pointer">
+            <input type="checkbox" className="w-5 h-5" checked={includeScratchPad} onChange={e => setIncludeScratchPad(e.target.checked)} />
+            Include scrap notes
+          </label>
           {filesOn && (
             <label className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-200 cursor-pointer">
               <input type="checkbox" className="w-5 h-5" checked={includePictures} onChange={e => setIncludePictures(e.target.checked)} />

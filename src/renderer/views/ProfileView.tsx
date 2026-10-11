@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { canGoBack, previousPage } from '../utils/navHistory'
 import { pageTitle } from '../components/layout/TopBar'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../stores/gridStore'
 import { useProfileStore } from '../stores/profileStore'
@@ -18,14 +18,17 @@ import { ScratchPad } from '../components/profile/ScratchPad'
 import { CaseLog } from '../components/profile/CaseLog'
 import { GridDataSummary } from '../components/profile/GridDataSummary'
 import { LinkedProviders } from '../components/profile/LinkedProviders'
-import { ActivityTimeline } from '../components/profile/ActivityTimeline'
 import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
 import toast from 'react-hot-toast'
-import { useFocusTrap } from '../hooks/useFocusTrap'
 import { ProfilePrintLayout } from '../components/profile/ProfilePrintLayout'
-import type { GridRow, SaveDialogResult, LetterTemplate } from '../../shared/types'
-import { useCopyFeedback } from '../hooks/useCopyFeedback'
+import { ProfileExportDialog, type ProfileSections } from '../components/profile/ProfileExportDialog'
+import { RecordLetterDialog } from '../components/profile/RecordLetterDialog'
+import { ConfirmDialog } from '../components/shared/ConfirmDialog'
+import { MoveToGridModal } from '../components/grid/MoveToGridModal'
+import type { MoreMenuItem } from '../components/profile/ProfileMoreMenu'
+import type { GridRow, SaveDialogResult } from '../../shared/types'
+import type { RowLocation } from '../../shared/ipc-contract'
 import { Tooltip } from '../components/shared/Tooltip'
 import { clientFileName, noteUnencryptedExport } from '../utils/exportNotice'
 import { useRecordKind } from '../hooks/useRecordKind'
@@ -33,7 +36,6 @@ import { useVocab } from '../hooks/useVocab'
 import { useFeature } from '../hooks/useFeature'
 import { useLinkStore } from '../stores/linkStore'
 import { LinkedRecords } from '../components/profile/LinkedRecords'
-import { UnknownPlaceholders } from '../components/shared/UnknownPlaceholders'
 import { StageHistory } from '../components/profile/StageHistory'
 import { RecordAppointments } from '../components/profile/RecordAppointments'
 import { RecordFiles } from '../components/profile/RecordFiles'
@@ -41,117 +43,7 @@ import { useFormStore } from '../stores/formStore'
 import { pulseEvents } from '../events'
 import type { Form } from '../../shared/forms'
 import { stageColumnOf } from '../../shared/stages'
-
-function GenerateLetterModal({ rowId, gridId, clientName, onClose }: {
-  rowId: number; gridId: number; clientName: string; onClose: () => void
-}): React.ReactElement {
-  const [templates, setTemplates] = useState<LetterTemplate[]>([])
-  const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [generated, setGenerated] = useState<string | null>(null)
-  const [unknown, setUnknown] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
-  const [generating, setGenerating] = useState(false)
-  const { copied, copyToClipboard } = useCopyFeedback()
-  const trapRef = useRef<HTMLDivElement>(null)
-
-  useFocusTrap(trapRef, true)
-
-  useEffect(() => {
-    safeInvoke<LetterTemplate[]>(IPC.LETTER_TEMPLATE_GET_ALL).then(r => {
-      if (r.ok) { setTemplates(r.data); if (r.data.length > 0) setSelectedId(r.data[0]!.id) }
-    }).finally(() => setLoading(false))
-  }, [])
-
-  async function handleGenerate() {
-    if (!selectedId) return
-    setGenerating(true)
-    try {
-      const res = await safeInvoke<{ text: string; unknown: string[] }>(IPC.LETTER_TEMPLATE_GENERATE, selectedId, rowId, gridId)
-      if (res.ok) { setGenerated(res.data.text); setUnknown(res.data.unknown) }
-      else toast.error('Could not generate letter')
-    } finally {
-      setGenerating(false)
-    }
-  }
-
-  function handleCopy() {
-    if (generated) {
-      void copyToClipboard(generated)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="generate-letter-title">
-      <div ref={trapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
-          <h2 id="generate-letter-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100">Generate Letter — {clientName}</h2>
-          <button onClick={onClose} className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500" aria-label="Close" title="Close"><X className="w-5 h-5" /></button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {loading ? (
-            <p className="text-slate-500">Loading templates…</p>
-          ) : templates.length === 0 ? (
-            <p className="text-slate-500">No letter templates found. Create one in the Letters section.</p>
-          ) : !generated ? (
-            <>
-              <div>
-                <label htmlFor="profile-template-select" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-2">Select a template</label>
-                <select
-                  id="profile-template-select"
-                  className="input w-full"
-                  style={{ minHeight: 44, fontSize: 15 }}
-                  value={selectedId ?? ''}
-                  onChange={e => setSelectedId(Number(e.target.value))}
-                >
-                  {templates.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}{t.is_system ? ' (Built-in)' : ''}</option>
-                  ))}
-                </select>
-              </div>
-              {selectedId && (
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {templates.find(t => t.id === selectedId)?.description}
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Generated letter:</p>
-                <button onClick={() => setGenerated(null)} className="hit-44 text-base text-blue-600 hover:underline">Change template</button>
-              </div>
-              <UnknownPlaceholders unknown={unknown} />
-              <textarea
-                readOnly
-                value={generated}
-                className="w-full font-mono text-base bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-4 resize-none"
-                rows={18}
-                style={{ fontSize: 15 }}
-              />
-            </>
-          )}
-        </div>
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
-          <button onClick={onClose} className="btn-secondary" style={{ minHeight: 44 }}>Close</button>
-          {!generated ? (
-            <button
-              onClick={handleGenerate}
-              disabled={!selectedId || generating}
-              className="btn-primary disabled:opacity-50"
-              style={{ minHeight: 44 }}
-            >
-              {generating ? 'Generating…' : 'Generate'}
-            </button>
-          ) : (
-            <button onClick={handleCopy} className="btn-primary" style={{ minHeight: 44 }}>
-              {copied ? 'Copied!' : 'Copy to Clipboard'}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
+import { escapeBelongsElsewhere } from '../utils/domHelpers'
 
 const NO_FORMS: Form[] = []
 
@@ -179,19 +71,37 @@ export default function ProfileView(): React.ReactElement {
   const [searchParams] = useSearchParams()
 
   const checklistFocusRef = useRef<(() => void) | null>(null)
+  const noteFocusRef = useRef<(() => void) | null>(null)
+  // Section counts reported by the sections themselves ("Files (2)")
+  const [counts, setCounts] = useState<{ files?: number; appointments?: number; upcoming?: number; linked?: number; contacts?: number }>({})
+  const countFiles = useCallback((n: number) => setCounts(c => c.files === n ? c : { ...c, files: n }), [])
+  const countAppointments = useCallback((n: number, upcoming: number) => setCounts(c => c.appointments === n && c.upcoming === upcoming ? c : { ...c, appointments: n, upcoming }), [])
+  const countLinked = useCallback((n: number) => setCounts(c => c.linked === n ? c : { ...c, linked: n }), [])
+  const countContacts = useCallback((n: number) => setCounts(c => c.contacts === n ? c : { ...c, contacts: n }), [])
   const [showLetterModal, setShowLetterModal] = useState(false)
   const [showAuditTrail, setShowAuditTrail] = useState(false)
   const closeAuditTrail = useCallback(() => setShowAuditTrail(false), [])
   const [showHandoff, setShowHandoff] = useState(false)
   const closeHandoff = useCallback(() => setShowHandoff(false), [])
-  const [showPrintLayout, setShowPrintLayout] = useState(false)
+  // Sections chosen in "Print / PDF…" while the print layout is up
+  const [printSections, setPrintSections] = useState<ProfileSections | null>(null)
+  const showPrintLayout = printSections !== null
+  const closePrintLayout = useCallback(() => setPrintSections(null), [])
+  // "More ▾" actions (3.6)
+  const [askArchive, setAskArchive] = useState(false)
+  const [archiveReason, setArchiveReason] = useState('')
+  const [askTrash, setAskTrash] = useState(false)
+  const [showMove, setShowMove] = useState(false)
+  const [showExportDialog, setShowExportDialog] = useState(false)
+  const closeExportDialog = useCallback(() => setShowExportDialog(false), [])
 
-  const { rows, columns, hiddenColumns, grids, activeGridId, sortedRowIds } = useGridStore(useShallow(s => ({
+  const { rows, columns, hiddenColumns, grids, activeGridId, sortedRowIds, isLoading } = useGridStore(useShallow(s => ({
     rows: s.rows, columns: s.columns, hiddenColumns: s.hiddenColumns,
-    grids: s.grids, activeGridId: s.activeGridId, sortedRowIds: s.sortedRowIds,
+    grids: s.grids, activeGridId: s.activeGridId, sortedRowIds: s.sortedRowIds, isLoading: s.isLoading,
   })))
-  const { updateRow, updateCell, loadGrid } = useGridStore(useShallow(s => ({
-    updateRow: s.updateRow, updateCell: s.updateCell, loadGrid: s.loadGrid,
+  const { updateRow, updateCell, loadGrid, unarchiveRow, archiveRow, deleteRow, duplicateRow } = useGridStore(useShallow(s => ({
+    updateRow: s.updateRow, updateCell: s.updateCell, loadGrid: s.loadGrid, unarchiveRow: s.unarchiveRow,
+    archiveRow: s.archiveRow, deleteRow: s.deleteRow, duplicateRow: s.duplicateRow,
   })))
   const { addRecentProfile } = useProfileStore(useShallow(s => ({
     addRecentProfile: s.addRecentProfile,
@@ -239,8 +149,48 @@ export default function ProfileView(): React.ReactElement {
   const activeGrid = grids.find(g => g.id === activeGridId)
   const nameCol = columns.find(c => c.is_name_column === 1)
 
-  // Find the row in the loaded grid data
-  const row = rowId != null ? rows.find(r => r.row_id === rowId) : undefined
+  // Find the row in the loaded list. A record from another list (Recent, Contacts,
+  // Focus Mode, the palette…) or an archived one isn't there: ask main where it
+  // lives, open that list, and fetch an archived record on its own (1.24).
+  const rowInList = rowId != null ? rows.find(r => r.row_id === rowId) : undefined
+  const [lookup, setLookup] = useState<{ rowId: number; status: RowLocation['status'] | 'missing'; archivedRow?: GridRow; archivedReason?: string | null } | null>(null)
+  useEffect(() => {
+    if (rowId == null || rowInList || isLoading || lookup?.rowId === rowId) return
+    let live = true
+    void (async () => {
+      const res = await safeInvoke<RowLocation | null>(IPC.ROW_LOCATE, rowId)
+      if (!live) return
+      if (!res.ok || !res.data) { setLookup({ rowId, status: 'missing' }); return }
+      const loc = res.data
+      if ((loc.status === 'active' || loc.status === 'archived') && loc.gridId !== useGridStore.getState().activeGridId) {
+        await loadGrid(loc.gridId)
+        if (!live) return
+      }
+      if (loc.status === 'archived') {
+        const got = await safeInvoke<GridRow | null>(IPC.ROW_GET, loc.gridId, rowId)
+        if (!live) return
+        if (got.ok && got.data) { setLookup({ rowId, status: 'archived', archivedRow: got.data, archivedReason: loc.archivedReason }); return }
+        setLookup({ rowId, status: 'missing' })
+        return
+      }
+      setLookup({ rowId, status: loc.status === 'active' ? 'missing' : loc.status })
+    })()
+    return () => { live = false }
+  }, [rowId, rowInList, isLoading, lookup?.rowId, loadGrid])
+  const archivedRow = lookup?.rowId === rowId && !rowInList ? lookup.archivedRow : undefined
+  const row = rowInList ?? archivedRow
+  const isArchived = !!row && row.is_active === 0
+  const [unarchiving, setUnarchiving] = useState(false)
+  async function handleUnarchive() {
+    if (rowId == null) return
+    setUnarchiving(true)
+    try {
+      await unarchiveRow(rowId)
+      setLookup(null)
+    } finally {
+      setUnarchiving(false)
+    }
+  }
 
   const knownName = useMemo(() => {
     if (!row || !nameCol) return null
@@ -280,7 +230,8 @@ export default function ProfileView(): React.ReactElement {
     [rowId, updateCell]
   )
 
-  async function handleExportPdf() {
+  async function handleExportPdf(sections: ProfileSections) {
+    setShowExportDialog(false)
     if (!rowId || !activeGridId) return
     const saveRes = await safeInvoke<SaveDialogResult>(IPC.APP_SHOW_SAVE_DIALOG, {
       title: 'Export Profile as PDF',
@@ -292,7 +243,7 @@ export default function ProfileView(): React.ReactElement {
       rowId,
       gridId: activeGridId,
       destPath: saveRes.data.filePath,
-      includeSections: { deadlines: true, checklist: true, caseLog: true, scratchPad: true, contactInfo: true, gridData: true }
+      includeSections: sections,
     })
     if (!result.ok) toast.error('We couldn\'t export this profile. Please try again.')
     else noteUnencryptedExport()
@@ -316,6 +267,36 @@ export default function ProfileView(): React.ReactElement {
     if (nextRowId != null) navigate(`/profile/${nextRowId}`)
   }
 
+  /** After archiving or trashing: on to the next record, or back to the list */
+  function leaveRecord() {
+    const next = nextRowId ?? prevRowId
+    if (next != null) navigate(`/profile/${next}`)
+    else goBack()
+  }
+
+  async function confirmArchive() {
+    setAskArchive(false)
+    if (rowId == null) return
+    await archiveRow(rowId, archiveReason.trim() || undefined)
+    setArchiveReason('')
+    leaveRecord()
+  }
+
+  async function confirmTrash() {
+    setAskTrash(false)
+    if (rowId == null) return
+    await deleteRow(rowId)
+    leaveRecord()
+  }
+
+  const moreItems: MoreMenuItem[] = [
+    { label: 'Print / PDF…', onSelect: () => setShowExportDialog(true) },
+    ...(row && row.is_active !== 0 ? [{ label: 'Archive…', onSelect: () => setAskArchive(true) }] : []),
+    ...(rowInList ? [{ label: 'Duplicate', onSelect: () => { if (rowId != null) void duplicateRow(rowId) } }] : []),
+    ...(grids.length > 1 ? [{ label: `Move to another ${t('list')}…`, onSelect: () => setShowMove(true) }] : []),
+    { label: 'Move to Trash…', onSelect: () => setAskTrash(true), danger: true },
+  ]
+
   // Refs to avoid stale closures in keyboard handler
   const prevRowIdRef = useRef(prevRowId)
   const nextRowIdRef = useRef(nextRowId)
@@ -330,7 +311,9 @@ export default function ProfileView(): React.ReactElement {
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        // Don't navigate away if a modal is open — let the modal handle Escape
+        // Escape that closes a menu, cancels an edit or closes a dialog must not
+        // also leave the page and drop what was typed (R-01).
+        if (escapeBelongsElsewhere(e)) return
         if (showLetterModalRef.current || showPrintLayoutRef.current) return
         goBack()
       } else if (e.altKey && e.key === 'ArrowLeft') {
@@ -357,15 +340,33 @@ export default function ProfileView(): React.ReactElement {
   }
 
   if (!row) {
+    const status = lookup?.rowId === rowId ? lookup.status : null
+    if (status === null || isLoading) {
+      return (
+        <div className="flex items-center justify-center h-full text-base text-slate-500 dark:text-slate-400" role="status">
+          Loading…
+        </div>
+      )
+    }
+    const message = status === 'trash'
+      ? `This ${t('record')} is in the Trash. You can bring it back from there.`
+      : status === 'list-deleted'
+        ? `This ${t('record')} was on a ${t('list')} that has been deleted.`
+        : `We couldn't find this ${t('record')}. It may have been deleted.`
     return (
-      <div className="flex items-center justify-center h-full text-slate-500">
-        {t('record', { cap: true })} not found — it may have been archived or deleted.
-        <button
-          onClick={goBack}
-          className="hit-44 ml-4 text-blue-600 hover:underline focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
-        >
-          Back to the {t('list')}
-        </button>
+      <div className="flex flex-col items-center justify-center gap-3 h-full text-base text-slate-600 dark:text-slate-300 px-6 text-center">
+        <p>{message}</p>
+        <div className="flex gap-3">
+          {status === 'trash' && (
+            <button onClick={() => navigate('/trash')} className="btn-secondary">Open Trash</button>
+          )}
+          <button
+            onClick={goBack}
+            className="hit-44 text-blue-600 dark:text-blue-400 hover:underline focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
+          >
+            Back to the {t('list')}
+          </button>
+        </div>
       </div>
     )
   }
@@ -435,38 +436,48 @@ export default function ProfileView(): React.ReactElement {
         </span>
       </div>
 
-      {/* Profile content area — two independent scroll regions */}
-      <div className="flex-1 flex overflow-hidden">
+      {isArchived && (
+        <div role="status" className="flex flex-wrap items-center gap-3 px-4 py-2 border-b border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 text-base text-amber-900 dark:text-amber-100 flex-shrink-0">
+          <span className="font-semibold">Archived</span>
+          <span className="flex-1 min-w-0">
+            This {t('record')} is archived{lookup?.rowId === rowId && lookup.archivedReason ? ` (${lookup.archivedReason})` : ''} and doesn't show in the {t('list')}.
+          </span>
+          <button type="button" className="btn-secondary" disabled={unarchiving} onClick={() => void handleUnarchive()}>
+            {unarchiving ? 'Unarchiving…' : 'Unarchive'}
+          </button>
+        </div>
+      )}
+
+      {/* Profile content area — two independent scroll regions. Keyed by record so
+          Prev/Next starts clean: no draft, edit or scroll position carries over to
+          the next person, and pending scratch-pad saves flush to the right row. */}
+      <div key={rowId} className="flex-1 flex overflow-hidden">
 
         {/* Left sidebar — Checklist + ScratchPad, scrolls independently */}
-        <div className="w-1/4 min-w-[260px] flex-shrink-0 flex flex-col border-r border-slate-200 dark:border-slate-700 overflow-y-auto no-scrollbar bg-slate-50 dark:bg-slate-800/50">
+        <div className="w-1/4 min-w-[260px] flex-shrink-0 flex flex-col border-r border-slate-200 dark:border-slate-700 overflow-y-auto bg-slate-50 dark:bg-slate-800/50">
           <div className="p-4 space-y-4">
-            {/* 3.4 — Checklist */}
             {showChecklists && (
-              <div data-tour="checklist" title={`Checklist — track tasks for this ${t('record')}`}>
+              <div data-tour="checklist">
                 <Checklist rowId={rowId} clientName={clientName} focusAddRef={checklistFocusRef} />
               </div>
             )}
-
-            {/* 3.5 — Scrap Notes */}
-            <div data-tour="scratch-pad" title={`Scratch pad — quick notes for this ${t('record')}`}>
+            <div data-tour="scratch-pad">
               <ScratchPad rowId={rowId} clientName={clientName} snippets={snippets} />
             </div>
           </div>
         </div>
 
-        {/* Main column — scrolls independently */}
-        <div className="flex-1 overflow-y-auto no-scrollbar">
+        {/* Main column: the note box first, then deadlines and details, then past
+            notes and everything else (3.4). Normal scrollbars, so it's clear it scrolls. */}
+        <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
-            {/* 3.2 — Profile Header */}
             <ProfileHeader
               row={row}
               columns={[...columns, ...hiddenColumns]}
               gridId={activeGridId!}
               onRowUpdate={handleRowUpdate}
-              onAddTask={showChecklists ? () => checklistFocusRef.current?.() : undefined}
-              onPrint={() => setShowPrintLayout(true)}
-              onExportPdf={handleExportPdf}
+              onAddNote={() => noteFocusRef.current?.()}
+              moreItems={moreItems}
               onGenerateLetter={showLetters ? () => setShowLetterModal(true) : undefined}
               onAuditTrail={() => setShowAuditTrail(true)}
               onHandoff={handoffOn ? () => setShowHandoff(true) : undefined}
@@ -485,78 +496,61 @@ export default function ProfileView(): React.ReactElement {
               </div>
             )}
 
-            {/* 3.3 — Deadline Panel */}
-            <div data-tour="deadline-panel" title="Deadlines — upcoming dates and alerts">
-            <DeadlinePanel
-              row={row}
-              columns={[...columns, ...hiddenColumns]}
-              alertRules={alertRules}
-              onDateSave={handleDateSave}
-            />
+            <div data-tour="case-log" className="space-y-6">
+              <CaseLog rowId={rowId} clientName={clientName} snippets={snippets} focusRef={noteFocusRef} between={<>
+                <div data-tour="deadline-panel">
+                  <DeadlinePanel
+                    row={row}
+                    columns={[...columns, ...hiddenColumns]}
+                    alertRules={alertRules}
+                    onDateSave={handleDateSave}
+                  />
+                </div>
+
+                <CollapsibleSection title={`${t('record', { cap: true })} details`} sectionKey={`profile-client-data-${activeGridId}`} defaultExpanded>
+                  <GridDataSummary
+                    row={row}
+                    columns={[...columns, ...hiddenColumns]}
+                    alertRules={alertRules}
+                    gridId={activeGridId!}
+                    onCellSave={updateCell}
+                  />
+                </CollapsibleSection>
+              </>} />
             </div>
 
-            {/* W09 — Files */}
+            {/* The rest: collapsed when empty, with counts in the titles; open/closed is remembered per list */}
             {filesOn && (
-              <CollapsibleSection title="Files" sectionKey="profile-files" defaultExpanded>
-                <RecordFiles rowId={rowId} />
+              <CollapsibleSection title="Files" sectionKey={`profile-files-${activeGridId}`} count={counts.files} keepMounted>
+                <RecordFiles rowId={rowId} onCount={countFiles} />
               </CollapsibleSection>
             )}
 
-            {/* W07 — Appointments */}
             {apptsOn && activeGridId && (
-              <CollapsibleSection title={t('appointment', { many: true, cap: true })} sectionKey="profile-appointments" defaultExpanded>
-                <RecordAppointments rowId={rowId} gridId={activeGridId} name={clientName} />
+              <CollapsibleSection title={t('appointment', { many: true, cap: true })} sectionKey={`profile-appointments-${activeGridId}`}
+                count={counts.appointments} countLabel={counts.upcoming ? `${counts.upcoming} coming up` : undefined} keepMounted>
+                <RecordAppointments rowId={rowId} gridId={activeGridId} name={clientName} onCount={countAppointments} />
               </CollapsibleSection>
             )}
 
-            {/* W06 — Stage history */}
             {stageColumn && activeGridId && (
-              <CollapsibleSection title={`${stageColumn.name} history`} sectionKey="profile-stage-history" defaultExpanded={false}>
+              <CollapsibleSection title={`${stageColumn.name} history`} sectionKey={`profile-stage-history-${activeGridId}`} defaultExpanded={false}>
                 <StageHistory gridId={activeGridId} columnId={stageColumn.id} columnName={stageColumn.name} rowId={rowId}
                   value={(row[`col_${stageColumn.id}` as keyof typeof row] as string | null) ?? null} />
               </CollapsibleSection>
             )}
 
-            {/* W04 — Linked records */}
             {linksOn && hasLinkTypes && (
-              <CollapsibleSection title="Linked" sectionKey="profile-linked-records" defaultExpanded>
-                <LinkedRecords rowId={rowId} />
+              <CollapsibleSection title="Linked" sectionKey={`profile-linked-records-${activeGridId}`} count={counts.linked} keepMounted>
+                <LinkedRecords rowId={rowId} onCount={countLinked} />
               </CollapsibleSection>
             )}
 
-            {/* 7.x — Linked Providers */}
             {activeGridId && showContacts && (
-              <CollapsibleSection title={`Linked ${t('contact', { many: true, cap: true })}`} sectionKey="profile-linked-providers" defaultExpanded>
-                <LinkedProviders rowId={rowId} gridId={activeGridId} />
+              <CollapsibleSection title={`Linked ${t('contact', { many: true, cap: true })}`} sectionKey={`profile-linked-providers-${activeGridId}`} count={counts.contacts} keepMounted>
+                <LinkedProviders rowId={rowId} gridId={activeGridId} onCount={countContacts} />
               </CollapsibleSection>
             )}
-
-            {/* 3.6 — Case Log */}
-            <CollapsibleSection title={t('activityLog', { cap: true })} sectionKey="profile-case-log" defaultExpanded>
-              <div data-tour="case-log" title={`${t('activityLog', { cap: true })} — chronological record of interactions`}>
-                <CaseLog rowId={rowId} clientName={clientName} snippets={snippets} />
-              </div>
-            </CollapsibleSection>
-
-            {/* 3.10 — Grid Data Summary */}
-            <CollapsibleSection title={`${t('record', { cap: true })} details`} sectionKey="profile-client-data" defaultExpanded>
-              <GridDataSummary
-                row={row}
-                columns={[...columns, ...hiddenColumns]}
-                alertRules={alertRules}
-                gridId={activeGridId!}
-                onCellSave={updateCell}
-              />
-            </CollapsibleSection>
-
-          </div>
-        </div>
-
-        {/* Right sidebar — Activity Timeline, scrolls independently */}
-        <div className="w-1/4 min-w-[260px] flex-shrink-0 flex flex-col border-l border-slate-200 dark:border-slate-700 overflow-y-auto no-scrollbar bg-slate-50 dark:bg-slate-800/50">
-          <div className="p-4">
-            {/* 3.9 — Activity Timeline */}
-            <ActivityTimeline rowId={rowId} />
           </div>
         </div>
 
@@ -566,25 +560,54 @@ export default function ProfileView(): React.ReactElement {
       {showHandoff && rowId != null && activeGridId != null && (
         <HandoffDialog rowId={rowId} gridId={activeGridId} clientName={clientName} onClose={closeHandoff} />
       )}
+      {showExportDialog && activeGridId != null && (
+        <ProfileExportDialog gridId={activeGridId} clientName={clientName}
+          onSave={sections => void handleExportPdf(sections)}
+          onPrint={sections => { setShowExportDialog(false); setPrintSections(sections) }}
+          onClose={closeExportDialog} />
+      )}
       {showAuditTrail && rowId != null && (
         <AuditReportDialog rowId={rowId} label={clientName} onClose={closeAuditTrail} />
       )}
       {showLetterModal && rowId != null && activeGridId != null && (
-        <GenerateLetterModal
-          rowId={rowId}
-          gridId={activeGridId}
-          clientName={clientName}
-          onClose={() => setShowLetterModal(false)}
-        />
+        <RecordLetterDialog rowId={rowId} gridId={activeGridId} clientName={clientName} onClose={() => setShowLetterModal(false)} />
       )}
 
       {/* Print layout overlay */}
-      {showPrintLayout && rowId != null && activeGridId != null && (
-        <ProfilePrintLayout
+      {printSections && rowId != null && activeGridId != null && (
+        <ProfilePrintLayout rowId={rowId} gridId={activeGridId} clientName={clientName} row={row} sections={printSections} onClose={closePrintLayout} />
+      )}
+
+      <ConfirmDialog
+        open={askArchive}
+        title={`Archive ${clientName}?`}
+        message={`An archived ${t('record')} leaves the ${t('list')} and stops showing deadlines. You can bring it back any time (Show archived).`}
+        confirmLabel="Archive"
+        destructive={false}
+        onConfirm={() => void confirmArchive()}
+        onCancel={() => { setAskArchive(false); setArchiveReason('') }}
+      >
+        <label htmlFor="archive-reason" className="block text-base font-medium text-slate-700 dark:text-slate-200 mb-1">Reason (optional)</label>
+        <input id="archive-reason" className="input w-full" value={archiveReason} maxLength={1000}
+          onChange={e => setArchiveReason(e.target.value)} placeholder="e.g. Discharged, Moved away, Job finished" />
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={askTrash}
+        title={`Move ${clientName} to the Trash?`}
+        message={`It stays in the Trash for 30 days, and you can restore it from there or with Undo.`}
+        confirmLabel="Move to Trash"
+        onConfirm={() => void confirmTrash()}
+        onCancel={() => setAskTrash(false)}
+      />
+
+      {showMove && rowId != null && activeGridId != null && (
+        <MoveToGridModal
           rowId={rowId}
-          gridId={activeGridId}
-          clientName={clientName}
-          onClose={() => setShowPrintLayout(false)}
+          sourceGridId={activeGridId}
+          sourceColumns={[...columns, ...hiddenColumns]}
+          onDone={() => { setShowMove(false); void loadGrid(activeGridId) }}
+          onCancel={() => setShowMove(false)}
         />
       )}
     </div>
