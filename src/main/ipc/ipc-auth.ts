@@ -8,6 +8,7 @@ import { secureWrap, ok, fail, withCorrelation, assertSafePath } from './ipc-uti
 import { checkNewPassword } from '../../shared/passwordPolicy'
 import { openDatabase, closeDatabase, resolveDatabasePath, checkCloudSyncPath, getDb, DatabaseOpenError } from '../database'
 import { dbOpenFailedCode } from '../../shared/dbOpen'
+import { KEYRING_UNAVAILABLE } from '../../shared/authErrors'
 import { moveAsideExistingDatabase, restoreBackupOnNewInstall, runAutoBackupOnLock } from '../backup'
 import { describeRestoreError } from '../restore-errors'
 import { stopScheduledBackup, startScheduledBackup } from '../index'
@@ -109,6 +110,8 @@ export function registerAuthHandlers(): void {
         logger.warn('auth', 'Authentication failed — invalid credentials')
         return fail(msg)
       }
+      // Not a wrong password: the OS password vault isn't ready (AUDIT-021)
+      if (msg === KEYRING_UNAVAILABLE) return fail(KEYRING_UNAVAILABLE)
       throw err // let wrapHandler log unexpected errors
     }
   })
@@ -127,6 +130,7 @@ export function registerAuthHandlers(): void {
         logger.warn('auth', 'Authentication failed — invalid recovery key')
         return fail(msg)
       }
+      if (msg === KEYRING_UNAVAILABLE) return fail(KEYRING_UNAVAILABLE)
       throw err // let wrapHandler log unexpected errors
     }
   })

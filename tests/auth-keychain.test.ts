@@ -64,7 +64,9 @@ import {
   unwrapKeyEnvelope,
   areCredentialsUnreadable,
   CREDENTIALS_UNREADABLE,
+  getLoginLockoutRemaining,
 } from '../src/main/auth'
+import { KEYRING_UNAVAILABLE } from '../src/shared/authErrors'
 
 const PWD = 'Keychain-Test-Pass-1'
 const DB_PATH = '/tmp/pulse-keychain-test.db'
@@ -170,5 +172,37 @@ describe("when this computer can't read the saved sign-in data", () => {
     ks.broken = false
     expect(areCredentialsUnreadable()).toBe(false)
     await verifyAndUnlock(PWD)
+  })
+})
+
+describe("when the computer's password vault isn't available yet (AUDIT-021)", () => {
+  it('says so with its own code, never counts it as a wrong password, and erases nothing', async () => {
+    await setupPassword(PWD, 'secret hint', DB_PATH)
+    const key = getDbKey().toString('hex')
+    await generateRecoveryKey()
+    lockApp()
+    const before = new Map(ks.data)
+    // e.g. Linux keyring not unlocked yet, or Pulse started at sign-in before it was ready
+    ks.available = false
+
+    for (let i = 0; i < 7; i++) {
+      await expect(verifyAndUnlock(PWD)).rejects.toThrow(KEYRING_UNAVAILABLE)
+    }
+    await expect(verifyAndUnlockRecovery('AAAA-BBBB-CCCC-DDDD-EEEE-FFFF-GGGG')).rejects.toThrow(KEYRING_UNAVAILABLE)
+    expect(ks.data.get('failed_attempts') ?? 0).toBe(0)
+    expect(getLoginLockoutRemaining()).toBe(0)
+    expect(() => getDbKey()).toThrow()
+
+    // Not a folder from another computer, so no restore offer; and no "enc:..." hint
+    expect(areCredentialsUnreadable()).toBe(false)
+    expect(getPasswordHint()).toBe('')
+
+    for (const [k, v] of before) expect(ks.data.get(k), k).toBe(v)
+
+    // Once the vault is up, the same password opens the same data
+    ks.available = true
+    await verifyAndUnlock(PWD)
+    expect(getDbKey().toString('hex')).toBe(key)
+    expect(getPasswordHint()).toBe('secret hint')
   })
 })

@@ -249,6 +249,13 @@ describe('AUTH_VERIFY_PASSWORD', () => {
     const r = await invoke(IPC.AUTH_VERIFY_PASSWORD, 'p'.repeat(1025)) as any
     expect(r.ok).toBe(false)
   })
+
+  it("passes its own code when the computer's password vault isn't ready, and opens nothing (AUDIT-021)", async () => {
+    mockVerifyAndUnlock.mockRejectedValueOnce(new Error('KEYRING_UNAVAILABLE'))
+    const r = await invoke(IPC.AUTH_VERIFY_PASSWORD, 'correct-password') as any
+    expect(r).toEqual({ ok: false, error: 'KEYRING_UNAVAILABLE' })
+    expect(mockOpenDatabase).not.toHaveBeenCalled()
+  })
 })
 
 describe('AUTH_VERIFY_RECOVERY_KEY', () => {
@@ -276,6 +283,13 @@ describe('AUTH_VERIFY_RECOVERY_KEY', () => {
   it('rejects key over 512 chars', async () => {
     const r = await invoke(IPC.AUTH_VERIFY_RECOVERY_KEY, 'k'.repeat(513)) as any
     expect(r.ok).toBe(false)
+  })
+
+  it("passes its own code when the computer's password vault isn't ready (AUDIT-021)", async () => {
+    mockVerifyAndUnlockRecovery.mockRejectedValueOnce(new Error('KEYRING_UNAVAILABLE'))
+    const r = await invoke(IPC.AUTH_VERIFY_RECOVERY_KEY, 'VALID-KEY') as any
+    expect(r).toEqual({ ok: false, error: 'KEYRING_UNAVAILABLE' })
+    expect(mockOpenDatabase).not.toHaveBeenCalled()
   })
 })
 

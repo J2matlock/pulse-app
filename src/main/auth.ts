@@ -20,6 +20,7 @@ import { getPortableDataDir } from './data-dir'
 import { logger } from './logger'
 import { logNonFatal } from './ipc/ipc-utils'
 import { checkNewPassword } from '../shared/passwordPolicy'
+import { KEYRING_UNAVAILABLE } from '../shared/authErrors'
 
 /**
  * bcrypt silently truncates passwords at 72 bytes. Pre-hash with SHA-256 for longer
@@ -150,7 +151,14 @@ function secureValue(value: string): string {
 
 function secureGet(key: keyof SecureStore, fallback = ''): string {
   const raw = store.get(key, fallback as never) as string
-  if (typeof raw === 'string' && raw.startsWith(ENC_PREFIX) && safeStorage.isEncryptionAvailable()) {
+  if (typeof raw === 'string' && raw.startsWith(ENC_PREFIX)) {
+    // The value was encrypted by the OS vault, which isn't available right now
+    // (e.g. the Linux keyring isn't unlocked yet). Handing back the "enc:..." text
+    // would make the right password look wrong and count toward lockout (AUDIT-021).
+    if (!safeStorage.isEncryptionAvailable()) {
+      logger.warn('auth', `OS password vault unavailable; can't read ${key}`)
+      throw new Error(KEYRING_UNAVAILABLE)
+    }
     try {
       const buf = Buffer.from(raw.slice(ENC_PREFIX.length), 'base64')
       return safeStorage.decryptString(buf)
@@ -168,7 +176,13 @@ export const CREDENTIALS_UNREADABLE =
 /** True when credentials exist but this machine's OS keystore can't decrypt them. */
 export function areCredentialsUnreadable(): boolean {
   if (!isPasswordSetup()) return false
-  try { secureGet('wrapped_db_key_password'); return false } catch { return true }
+  try {
+    secureGet('wrapped_db_key_password')
+    return false
+  } catch (err) {
+    // A vault that isn't ready yet is not a folder from another computer: don't offer a restore
+    return !(err instanceof Error && err.message === KEYRING_UNAVAILABLE)
+  }
 }
 
 // Keys that get OS-level encryption (password_hash, wrapped keys, recovery hash)
@@ -258,7 +272,13 @@ export function getPasswordHint(): string {
   if (!safeStorage.isEncryptionAvailable()) {
     logger.warn('auth', 'Password hint retrieved without OS-level encryption — hint is stored in plaintext')
   }
-  return secureGet('password_hint', '')
+  try {
+    return secureGet('password_hint', '')
+  } catch (err) {
+    // Still encrypted: show no hint rather than "enc:..." or an error
+    if (err instanceof Error && err.message === KEYRING_UNAVAILABLE) return ''
+    throw err
+  }
 }
 
 
