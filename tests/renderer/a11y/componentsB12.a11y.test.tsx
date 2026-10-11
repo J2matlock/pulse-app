@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import { render, screen, cleanup, act } from '@testing-library/react'
+import { render, screen, cleanup, act, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { expectNoAxeViolations } from './axe'
 
@@ -26,6 +26,8 @@ import { ConfirmDialog } from '../../../src/renderer/components/shared/ConfirmDi
 import { CommandPalette } from '../../../src/renderer/components/shared/CommandPalette'
 import { UndoToast } from '../../../src/renderer/components/shared/UndoToast'
 import { useUndoStore } from '../../../src/renderer/stores/undoStore'
+import { ChecklistTemplateEditor } from '../../../src/renderer/components/profile/ChecklistTemplateEditor'
+import { ImportPreviewModal } from '../../../src/renderer/components/shared/ImportPreviewModal'
 import { setWords } from '../vocabFixture'
 
 beforeEach(() => { setWords() })
@@ -67,6 +69,28 @@ describe('CommandPalette (audit A06-24)', () => {
     await act(async () => { await new Promise(r => setTimeout(r, 0)) })
     expect(screen.getByRole('combobox', { name: 'Search clients and commands' })).toBeTruthy()
     expect(screen.getByRole('group', { name: 'Quick Actions' })).toBeTruthy()
+    await expectNoAxeViolations(document.body)
+  })
+})
+
+describe('dialogs are named by their headings (audit A06-22)', () => {
+  it('checklist template editor, and a missing name is tied to the name field (audit A06-14)', async () => {
+    render(<ChecklistTemplateEditor open template={null} onClose={() => {}} onSaved={() => {}} />)
+    expect(screen.getByRole('dialog', { name: 'New Template' })).toBeTruthy()
+    const name = screen.getByLabelText(/^Name/)
+    expect(name.getAttribute('aria-invalid')).toBeNull()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^(Create|Save)/ })) })
+    const alert = screen.getByRole('alert')
+    expect(alert.textContent).toContain('Name is required')
+    expect(name.getAttribute('aria-invalid')).toBe('true')
+    expect(name.getAttribute('aria-describedby')).toBe(alert.id)
+    await expectNoAxeViolations(document.body)
+  })
+
+  it('import template preview', async () => {
+    const imported = { filePath: '/tmp/test.pulse', preview: { name: 'Test template', columnCount: 2, alertRuleCount: 0, checklistCount: 0, columns: [{ name: 'Due', column_type: 'date' }], warnings: [] } }
+    render(<ImportPreviewModal imported={imported} grids={[]} onClose={() => {}} onApplied={() => {}} />)
+    expect(screen.getByRole('dialog', { name: 'Import Template' })).toBeTruthy()
     await expectNoAxeViolations(document.body)
   })
 })

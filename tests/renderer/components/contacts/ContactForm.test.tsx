@@ -40,6 +40,7 @@ vi.mock('react-hot-toast', () => ({ default: { error: vi.fn(), success: vi.fn() 
 import { ContactForm } from '../../../../src/renderer/components/contacts/ContactForm'
 import type { Provider } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
+import { expectNoAxeViolations } from '../../a11y/axe'
 
 function makeProvider(overrides: Partial<Provider> = {}): Provider {
   return {
@@ -230,4 +231,25 @@ describe('ContactForm', () => {
     expect(mockUpdateProvider.mock.calls[0]![0]).toBe(1)
     expect(mockUpdateProvider.mock.calls[0]![1].name).toBe('Updated Name')
   })
+
+  it('the dialog is named by its heading (audit A06-22)', () => {
+    render(<ContactForm {...defaultProps} />)
+    expect(screen.getByRole('dialog', { name: 'Add Provider' })).toBeTruthy()
+  })
+
+  it('ties a bad email to its field and announces it (audit A06-14)', async () => {
+    render(<ContactForm {...defaultProps} />)
+    fireEvent.change(screen.getByLabelText(/Name/), { target: { value: 'Test Person' } })
+    const email = screen.getByLabelText(/^Email$/)
+    fireEvent.change(email, { target: { value: 'not-an-email' } })
+    expect(email.getAttribute('aria-invalid')).toBeNull()
+    fireEvent.click(screen.getByText('Save'))
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toBe('Enter a valid email address')
+    expect(email.getAttribute('aria-invalid')).toBe('true')
+    expect(email.getAttribute('aria-describedby')).toBe(alert.id)
+    expect(mockCreateProvider).not.toHaveBeenCalled()
+    await expectNoAxeViolations(document.body)
+  })
 })
+

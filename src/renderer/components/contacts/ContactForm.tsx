@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useId } from 'react'
+import { FieldError, fieldErrorProps } from '../shared/FieldError'
 import toast from 'react-hot-toast'
 import { Save, X as XIcon, Plus, XCircle } from 'lucide-react'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
@@ -61,6 +62,7 @@ function buildInitialState(provider?: Provider | null) {
 type FormState = ReturnType<typeof buildInitialState>
 
 export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
+  const dialogTitleId = useId()
   const { t, f } = useVocab(null)
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, true)
@@ -233,10 +235,10 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
   }, [tagInput, form.tags, setField])
 
   return (
-    <div ref={trapRef} className="flex h-full flex-col bg-white dark:bg-slate-900" role="dialog" aria-modal="true">
+    <div ref={trapRef} className="flex h-full flex-col bg-white dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby={dialogTitleId}>
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-4 py-3">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-white" style={{ fontSize: 18 }}>
+        <h2 id={dialogTitleId} className="text-lg font-semibold text-slate-900 dark:text-white" style={{ fontSize: 18 }}>
           {isEditing ? 'Edit' : 'Add'} {t('contact', { cap: true })}
         </h2>
         <div className="flex items-center gap-2">
@@ -268,7 +270,7 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
           <div>
             <label htmlFor="contact-name" className={labelClasses} style={{ fontSize: 15 }}>Name <span className="text-red-600 dark:text-red-400">*</span></label>
             <input id="contact-name" type="text" value={form.name} onChange={e => setField('name', e.target.value)}
-              placeholder={`${t('contact', { cap: true })} or organization name`} className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} autoFocus title={`${t('contact', { cap: true })} or organization name`} />
+              aria-required="true" placeholder={`${t('contact', { cap: true })} or organization name`} className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} autoFocus title={`${t('contact', { cap: true })} or organization name`} />
           </div>
           <div>
             <label htmlFor="contact-org" className={labelClasses} style={{ fontSize: 15 }}>Organization</label>
@@ -327,21 +329,21 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
             <div key={field}>
               <label htmlFor={`contact-phone-${i}`} className={labelClasses} style={{ fontSize: 15 }}>{label}</label>
               <input id={`contact-phone-${i}`} type="tel" value={form[field]} onChange={e => setField(field, e.target.value)}
-                className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} />
-              {validationErrors[field] && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{validationErrors[field]}</p>}
+                className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} {...fieldErrorProps(`contact-phone-${i}`, validationErrors[field])} />
+              <FieldError fieldId={`contact-phone-${i}`} error={validationErrors[field]} />
             </div>
           ))}
           <div>
             <label htmlFor="contact-email" className={labelClasses} style={{ fontSize: 15 }}>Email</label>
             <input id="contact-email" type="email" value={form.email} onChange={e => setField('email', e.target.value)}
-              className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} />
-            {validationErrors.email && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{validationErrors.email}</p>}
+              className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} {...fieldErrorProps('contact-email', validationErrors.email)} />
+            <FieldError fieldId="contact-email" error={validationErrors.email} />
           </div>
           <div>
             <label htmlFor="contact-website" className={labelClasses} style={{ fontSize: 15 }}>Website</label>
             <input id="contact-website" type="url" value={form.website} onChange={e => setField('website', e.target.value)}
-              className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} />
-            {validationErrors.website && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{validationErrors.website}</p>}
+              className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} {...fieldErrorProps('contact-website', validationErrors.website)} />
+            <FieldError fieldId="contact-website" error={validationErrors.website} />
           </div>
           <div>
             <label htmlFor="contact-address" className={labelClasses} style={{ fontSize: 15 }}>Address</label>
