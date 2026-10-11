@@ -13,6 +13,7 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import { useActivityTypes } from '../../hooks/useActivityTypes'
 import { useVocab } from '../../hooks/useVocab'
 import { friendlyError } from '../../utils/friendlyError'
+import { FieldError, fieldErrorProps } from '../shared/FieldError'
 
 const label = 'block text-base font-semibold text-slate-800 dark:text-slate-100 mb-1'
 const small = 'block text-sm text-slate-600 dark:text-slate-300'
@@ -37,6 +38,8 @@ export function FormBuilder({ gridId, form, onSaved, onCancel }: { gridId: numbe
   // After Move up/down, focus follows the field that moved, not the slot it left
   const pendingFocus = useRef<{ key: number; dir: 'up' | 'down' } | null>(null)
   const [saving, setSaving] = useState(false)
+  // A check that failed on save, shown under the box it's about (audit A06-14)
+  const [problem, setProblem] = useState<{ key: number | null; text: string } | null>(null)
 
   useEffect(() => {
     void safeInvoke<{ columns: Column[]; hiddenColumns: Column[] } | null>(IPC.GRID_GET, gridId, false).then(r => {
@@ -49,7 +52,10 @@ export function FormBuilder({ gridId, form, onSaved, onCancel }: { gridId: numbe
   const addable = columns.filter(c => !onForm.has(c.id) && !NOT_FILLABLE.has(c.column_type))
   const full = fields.length >= MAX_FORM_FIELDS
 
-  const patch = (i: number, p: Partial<FormField>) => setItems(xs => xs.map((x, j) => (j === i ? { ...x, f: { ...x.f, ...p } as FormField } : x)))
+  const patch = (i: number, p: Partial<FormField>) => {
+    setProblem(null)
+    setItems(xs => xs.map((x, j) => (j === i ? { ...x, f: { ...x.f, ...p } as FormField } : x)))
+  }
   const move = (i: number, by: -1 | 1) => {
     const j = i + by
     if (j < 0 || j >= items.length) return
@@ -74,7 +80,19 @@ export function FormBuilder({ gridId, form, onSaved, onCancel }: { gridId: numbe
   async function save() {
     const input = { ...(form ? { id: form.id } : {}), grid_id: gridId, name, intro: intro || null, fields, log_activity_type: logType || null }
     const check = formInputSchema.safeParse(input)
-    if (!check.success) { toast.error(check.error.issues[0]?.message ?? 'Some settings are missing.'); return }
+    if (!check.success) {
+      const path = check.error.issues[0]?.path ?? []
+      const item = path[0] === 'fields' && typeof path[1] === 'number' ? items[path[1]] : undefined
+      if (item && item.f.kind !== 'column') {
+        const text = item.f.kind === 'section' ? 'Give this heading a title, or remove it.' : 'Type the question, or remove it.'
+        setProblem({ key: item.key, text })
+        document.getElementById(`form-field-${item.key}-main`)?.focus()
+      } else {
+        setProblem({ key: null, text: check.error.issues[0]?.message ?? 'Some settings are missing.' })
+      }
+      return
+    }
+    setProblem(null)
     setSaving(true)
     try {
       const res = await safeInvoke<Form>(IPC.FORM_SAVE, input)
@@ -119,13 +137,17 @@ export function FormBuilder({ gridId, form, onSaved, onCancel }: { gridId: numbe
               </div>
               {f.kind === 'section' ? (
                 <>
-                  <input className="input w-full" aria-label="Heading" value={f.title} onChange={e => patch(i, { title: e.target.value })} />
+                  <input id={`form-field-${key}-main`} className="input w-full" aria-label="Heading" value={f.title} onChange={e => patch(i, { title: e.target.value })}
+                    {...fieldErrorProps(`form-field-${key}-main`, problem?.key === key && problem.text)} />
+                  <FieldError fieldId={`form-field-${key}-main`} error={problem?.key === key && problem.text} />
                   <input className="input w-full" aria-label="Text under the heading" placeholder="Text under the heading (optional)" value={f.text ?? ''} onChange={e => patch(i, { text: e.target.value || undefined })} />
                 </>
               ) : (
                 <>
-                  <input className="input w-full" aria-label={`Label for ${title}`} placeholder={c?.name ?? 'Question'} value={f.kind === 'column' ? f.label ?? '' : f.label}
-                    onChange={e => patch(i, { label: f.kind === 'note' ? e.target.value : e.target.value || undefined })} />
+                  <input id={`form-field-${key}-main`} className="input w-full" aria-label={`Label for ${title}`} placeholder={c?.name ?? 'Question'} value={f.kind === 'column' ? f.label ?? '' : f.label}
+                    onChange={e => patch(i, { label: f.kind === 'note' ? e.target.value : e.target.value || undefined })}
+                    {...fieldErrorProps(`form-field-${key}-main`, problem?.key === key && problem.text)} />
+                  <FieldError fieldId={`form-field-${key}-main`} error={problem?.key === key && problem.text} />
                   <input className="input w-full" aria-label={`Help for ${title}`} placeholder="Help text (optional)" value={f.help ?? ''} onChange={e => patch(i, { help: e.target.value || undefined })} />
                   <div className="flex flex-wrap items-center gap-4">
                     <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200 cursor-pointer" style={{ minHeight: 44 }}>
@@ -168,6 +190,7 @@ export function FormBuilder({ gridId, form, onSaved, onCancel }: { gridId: numbe
           </select>
           <span className={small}>With the answers to the questions, and what changed.</span>
         </label>
+        {problem && problem.key === null && <p role="alert" className="text-base text-red-700 dark:text-red-400">{problem.text}</p>}
         <div className="flex gap-2">
           <button type="button" className="btn-primary" disabled={saving || !name.trim() || fields.length === 0} onClick={() => void save()}>Save form</button>
           <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>

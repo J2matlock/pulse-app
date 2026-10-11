@@ -61,6 +61,25 @@ describe('letter editor', () => {
   })
 })
 
+describe('letter editor errors (audit A06-14)', () => {
+  it('a missing name or text is announced and tied to its box', async () => {
+    const onSave = vi.fn()
+    render(<EditTemplateModal template={null} onSave={onSave} onClose={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Save Template' }))
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('Template name is required.')
+    const name = screen.getByLabelText(/^Name/)
+    expect(name.getAttribute('aria-invalid')).toBe('true')
+    expect(name.getAttribute('aria-describedby')).toBe(alert.id)
+    fireEvent.change(name, { target: { value: 'Reminder' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save Template' }))
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Template content cannot be empty.'))
+    expect(name.getAttribute('aria-invalid')).toBeNull()
+    expect(screen.getByLabelText(/^Content/).getAttribute('aria-invalid')).toBe('true')
+    expect(onSave).not.toHaveBeenCalled()
+  })
+})
+
 describe('making one letter', () => {
   it('finds the person with a search box instead of a long list', async () => {
     render(<GenerateLetterModal template={template} grids={[{ id: 1, name: 'Intake' }, { id: 2, name: 'Closed' }] as never} onClose={vi.fn()} />)

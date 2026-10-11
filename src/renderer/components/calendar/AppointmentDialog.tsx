@@ -73,6 +73,8 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
   const [untilCol, setUntilCol] = useState<number | null>(initialRule?.untilColumnId ?? null)
   const [dateColumns, setDateColumns] = useState<Column[]>([])
   const [error, setError] = useState<string | null>(null)
+  // The date/time boxes point at the error when it's about them (audit A06-14)
+  const [whenError, setWhenError] = useState(false)
   const [saving, setSaving] = useState(false)
   const [askScope, setAskScope] = useState<ApptInput | null>(null)
 
@@ -96,6 +98,8 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, askScope])
 
+  const whenErrorProps = whenError && error ? { 'aria-invalid': true, 'aria-describedby': 'appt-dialog-error' } as const : {}
+
   function build(): ApptInput | null {
     const mins = Math.max(0, parseInt(duration, 10) || 0)
     const s = allDay ? date : `${date}T${time}`
@@ -105,7 +109,7 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
       location: location || null, activity_type_key: kind || null, notes: notes || null,
     }
     const check = apptInputSchema.safeParse(input)
-    if (!check.success) { setError(check.error.issues[0]?.message ?? 'Some details are missing.'); return null }
+    if (!check.success) { setError(check.error.issues[0]?.message ?? 'Some details are missing.'); setWhenError(true); return null }
     return input
   }
 
@@ -121,6 +125,7 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
 
   async function save(scope?: 'one' | 'following' | 'all', prepared?: ApptInput) {
     setError(null)
+    setWhenError(false)
     const input = prepared ?? build()
     if (!input) return
     // A changed pattern applies from this one on, so there's nothing to ask
@@ -185,13 +190,13 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
         <div className="flex flex-wrap items-end gap-3">
           <label className="block">
             <span className={label}>Date</span>
-            <input type="date" className="input w-auto" value={date} onChange={e => setDate(e.target.value)} />
+            <input type="date" className="input w-auto" value={date} onChange={e => setDate(e.target.value)} {...whenErrorProps} />
           </label>
           {!allDay && (
             <>
               <label className="block">
                 <span className={label}>Time</span>
-                <input type="time" className="input w-auto" value={time} onChange={e => setTime(e.target.value)} />
+                <input type="time" className="input w-auto" value={time} onChange={e => setTime(e.target.value)} {...whenErrorProps} />
               </label>
               <label className="block">
                 <span className={label}>Minutes</span>
@@ -273,7 +278,7 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
           <textarea className="input w-full" rows={2} maxLength={5000} value={notes} onChange={e => setNotes(e.target.value)} />
         </label>
 
-        {error && <p role="alert" className="text-base text-red-700 dark:text-red-400">{error}</p>}
+        {error && <p id="appt-dialog-error" role="alert" className="text-base text-red-700 dark:text-red-400">{error}</p>}
 
         <div className="flex justify-end gap-2">
           <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>

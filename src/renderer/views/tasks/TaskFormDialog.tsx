@@ -4,6 +4,7 @@ import type { CaseloadTask, TaskPriority, TaskGroup } from '../../../shared/type
 import { localDateString } from '../../../shared/dates'
 import { parseRepeatRule } from '../../../shared/recurrence'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { FieldError, fieldErrorProps } from '../../components/shared/FieldError'
 import { useVocab } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
 
@@ -170,6 +171,7 @@ export function TaskFormDialog({ onClose, onSave, initial, groups }: TaskFormDia
               value={dueDate}
               onChange={e => { setDueDate(e.target.value); setError(null) }}
               onKeyDown={onKey}
+              {...fieldErrorProps('task-due-date', error)}
               className="input w-full"
               style={{ fontSize: 15 }}
             />
@@ -266,7 +268,8 @@ export function TaskFormDialog({ onClose, onSave, initial, groups }: TaskFormDia
         {recurType && (
           <p className="text-base text-slate-500 dark:text-slate-400">When you tick it off, it comes back on its next date.</p>
         )}
-        {error && <p role="alert" className="text-base text-red-600 dark:text-red-400">{error}</p>}
+        {/* The only check here is the due date, so the message belongs to that box */}
+        <FieldError fieldId="task-due-date" error={error} className="text-base text-red-600 dark:text-red-400" />
 
         {/* Actions */}
         <div className="flex gap-3 justify-end pt-2">
