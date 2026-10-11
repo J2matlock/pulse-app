@@ -3,6 +3,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useAlertStore } from '../stores/alertStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
+import { useLinkStore } from '../stores/linkStore'
 import { useActivityTypeStore } from '../stores/activityTypeStore'
 import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
@@ -93,17 +94,16 @@ export function useAuthGating(): UseAuthGatingReturn {
     prevLockedRef.current = isLocked
   }, [isLocked, isPasswordSetup, loadRules])
 
-  const completeOnboarding = useCallback(() => {
+  // Setup may have added an example: its link types and list words load once, so load them again
+  const afterSetup = useCallback(() => {
     setShowOnboarding(false)
     setSetupStart('welcome')
     loadRules()
+    void useLinkStore.getState().load()
+    void useWorkspaceStore.getState().load()
   }, [loadRules])
-
-  const showTourAfterOnboarding = useCallback(() => {
-    setShowOnboarding(false)
-    setSetupStart('welcome')
-    loadRules()
-  }, [loadRules])
+  const completeOnboarding = afterSetup
+  const showTourAfterOnboarding = afterSetup
 
   // Words or features changed elsewhere (another window, applying a starter)
   useEffect(() => window.api.on(IPC.WORKSPACE_CHANGED, () => { void useWorkspaceStore.getState().load() }), [])

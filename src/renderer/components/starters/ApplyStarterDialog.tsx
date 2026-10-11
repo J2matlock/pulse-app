@@ -7,7 +7,7 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
-import { useAlertStore } from '../../stores/alertStore'
+import { reloadAfterApply } from '../../utils/reloadAfterApply'
 import { StarterIcon } from './StarterIcon'
 import { pulseEvents } from '../../events'
 import { friendlyError } from '../../utils/friendlyError'
@@ -122,7 +122,8 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
       })
       if (!r.ok) { toast.error(r.error === 'READ_ONLY' ? "Examples can't be added right now." : r.error); return }
       if (mode === 'setup') { onApplied?.(r.data); return }
-      await Promise.all([useGridStore.getState().loadGridList(), useAlertStore.getState().loadRules()])
+      // Its lists' own words and link types too, even when the workspace's words were left alone
+      await reloadAfterApply()
       if (sample && preview.hasSampleData) pulseEvents.emit('sample-data:changed')
       setResult(r.data)
       setStep('done')

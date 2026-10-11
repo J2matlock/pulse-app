@@ -40,6 +40,11 @@ vi.mock('../../../src/renderer/stores/workspaceStore', () => ({
   useWorkspaceStore: { getState: () => ({ load: mockLoadWorkspace }) },
 }))
 
+const mockLoadLinks = vi.fn().mockResolvedValue(undefined)
+vi.mock('../../../src/renderer/stores/linkStore', () => ({
+  useLinkStore: { getState: () => ({ load: mockLoadLinks }) },
+}))
+
 vi.mock('../../../src/renderer/utils/safeInvoke', () => ({
   safeInvoke: (...args: unknown[]) => mockInvoke(...args),
 }))
@@ -125,8 +130,12 @@ describe('useAuthGating', () => {
     await act(async () => {})
     act(() => { result.current.setShowOnboarding(true) })
     expect(result.current.authState).toBe('onboarding')
+    mockLoadWorkspace.mockClear()
     act(() => { result.current.completeOnboarding() })
     expect(mockLoadRules).toHaveBeenCalled()
+    // An example added during setup brings link types and list words (polish R2)
+    expect(mockLoadLinks).toHaveBeenCalled()
+    expect(mockLoadWorkspace).toHaveBeenCalled()
   })
 
   it('showTourAfterOnboarding loads rules', async () => {
