@@ -162,6 +162,23 @@ describe('SortableRow', () => {
     expect(compare(props, { ...props, deadlineContext: { meter: { '1:2': [] } } })).toBe(false)
   })
 
+  it('redraws when another record changes and a rule reads another record\'s cell (AUDIT-038)', () => {
+    const compare = (SortableRow as unknown as { compare: (a: SortableRowProps, b: SortableRowProps) => boolean }).compare
+    const props = makeProps({ hasCrossRowRules: true })
+    expect(compare(props, { ...props })).toBe(true)
+    expect(compare(props, { ...props, rowMap: new Map([[2, makeRow(2)]]) })).toBe(false)
+    // No such rule: another record's edit leaves this row alone
+    const plain = makeProps()
+    expect(compare(plain, { ...plain, rowMap: new Map([[2, makeRow(2)]]) })).toBe(true)
+  })
+
+  it('redraws when the row height or a handler changes (AUDIT-133)', () => {
+    const compare = (SortableRow as unknown as { compare: (a: SortableRowProps, b: SortableRowProps) => boolean }).compare
+    const props = makeProps()
+    expect(compare(props, { ...props, rowHeight: 52 })).toBe(false)
+    expect(compare(props, { ...props, onCellKeyDown: vi.fn() })).toBe(false)
+  })
+
   it('copies, selects all, clears and opens the record from a worked-out cell, but never types into it (R1)', () => {
     const onCellKeyDown = vi.fn()
     const cols = [makeColumn(1, 'Case number', 'auto_number')]

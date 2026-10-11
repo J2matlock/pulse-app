@@ -39,6 +39,8 @@ export interface SortableRowProps {
   hasAnyHighlightRules: boolean
   highlightColumnIds: Set<number>
   rowMap: Map<number, GridRow>
+  /** Some rule colors a cell from another record's cell, so any record's change can redraw this one */
+  hasCrossRowRules?: boolean
   containerRef: React.RefObject<HTMLDivElement>
   isSelected: boolean
   selectedCount: number
@@ -550,6 +552,16 @@ export const SortableRow = React.memo(function SortableRow({
   if (prev.frozenLeftOffsets !== next.frozenLeftOffsets) return false
   if (prev.frozenColumnCount !== next.frozenColumnCount) return false
   if (prev.isSample !== next.isSample) return false
+  if (prev.rowHeight !== next.rowHeight) return false
+  // A "cell of another record" rule reads rowMap: a change to that record redraws this one (AUDIT-038)
+  if (prev.hasCrossRowRules !== next.hasCrossRowRules) return false
+  if (next.hasCrossRowRules && prev.rowMap !== next.rowMap) return false
+  // Stable today, but a new handler must reach the cells (AUDIT-133)
+  if (prev.onCellKeyDown !== next.onCellKeyDown || prev.onCellContextMenu !== next.onCellContextMenu) return false
+  if (prev.onNavigateToProfile !== next.onNavigateToProfile || prev.onNavigateAfterEdit !== next.onNavigateAfterEdit) return false
+  if (prev.onToggleSelect !== next.onToggleSelect || prev.onToggleStar !== next.onToggleStar) return false
+  if (prev.updateCell !== next.updateCell || prev.setEditingCell !== next.setEditingCell || prev.setFocusedCell !== next.setFocusedCell) return false
+  if (prev.onSetAcuityLevel !== next.onSetAcuityLevel || prev.onBulkSetAcuityLevel !== next.onBulkSetAcuityLevel) return false
 
   return true
 })

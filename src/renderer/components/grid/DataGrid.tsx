@@ -280,6 +280,14 @@ export function DataGrid(): React.ReactElement {
     return false
   }, [cellFormats, parsedColumnConfigs])
 
+  // Does any rule color a cell from another record's cell? Then any record's change can redraw others (AUDIT-038)
+  const hasCrossRowRules = useMemo(() => {
+    const cross = (rules: CellFormatRule[]) => rules.some(r => r.sourceType === 'specific_cell')
+    for (const rules of cellFormats.values()) if (cross(rules)) return true
+    for (const pc of parsedColumnConfigs.values()) if (cross(pc.conditionalFormat)) return true
+    return false
+  }, [cellFormats, parsedColumnConfigs])
+
   // Pre-compute the set of column IDs that have highlightRow format rules.
   // SortableRow iterates only these columns instead of all columns.
   const highlightColumnIds = useMemo(() => {
@@ -706,6 +714,7 @@ export function DataGrid(): React.ReactElement {
       hasAnyHighlightRules={hasAnyHighlightRules}
       highlightColumnIds={highlightColumnIds}
       rowMap={rowMap}
+      hasCrossRowRules={hasCrossRowRules}
       containerRef={containerRef as React.RefObject<HTMLDivElement>}
       isSelected={selectedRowIds.has(row.original.row_id)}
       selectedCount={selectedRowIds.size}
