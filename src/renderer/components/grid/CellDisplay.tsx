@@ -169,7 +169,7 @@ export const CellDisplay = React.memo(function CellDisplay({ column, value, row,
       if (match) statusColor = match.color
       return (
         <span
-          className="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium text-white truncate"
+          className="inline-block max-w-full truncate align-middle px-2 py-0.5 rounded-full text-sm font-medium text-white"
           style={{ backgroundColor: statusColor, fontSize: 15 }}
           title={value}
         >
@@ -183,13 +183,14 @@ export const CellDisplay = React.memo(function CellDisplay({ column, value, row,
       let tags: string[] = []
       try { tags = JSON.parse(value) } catch { tags = value.split(',').map(t => t.trim()).filter(Boolean) }
       return (
-        <div className="flex flex-wrap gap-1">
+        // One line: wrapped tags would be cut through the middle by the fixed-height cell
+        <div className="flex flex-nowrap items-center gap-1 min-w-0 overflow-hidden" title={tags.join(', ')}>
           {tags.slice(0, 3).map((t, i) => (
-            <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-sm bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200">
+            <span key={i} className="truncate min-w-0 max-w-[8rem] px-1.5 py-0.5 rounded-sm text-sm bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200">
               {hl(t)}
             </span>
           ))}
-          {tags.length > 3 && <span className="text-sm text-slate-500 dark:text-slate-400">+{tags.length - 3}</span>}
+          {tags.length > 3 && <span className="flex-shrink-0 text-sm text-slate-500 dark:text-slate-400">+{tags.length - 3}</span>}
         </div>
       )
     }

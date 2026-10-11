@@ -83,6 +83,25 @@ describe('CellDisplay', () => {
     expect(screen.getByText('blue')).toBeTruthy()
   })
 
+  it('keeps tags on one line with an ellipsis, and the full list on hover (R1)', () => {
+    render(<CellDisplay column={makeColumn('tag')} value='["urgent","new","follow up","late"]' />)
+    const wrap = screen.getByText('urgent').parentElement!
+    expect(wrap.className).toContain('flex-nowrap')
+    expect(wrap.className).not.toContain('flex-wrap ')
+    expect(wrap.getAttribute('title')).toBe('urgent, new, follow up, late')
+    expect(screen.getByText('urgent').className).toContain('truncate')
+    expect(screen.getByText('+1')).toBeTruthy()
+  })
+
+  it('cuts a long status with an ellipsis, not mid-letter (R1)', () => {
+    render(<CellDisplay column={makeColumn('status')} value="Waiting for paperwork from the county" />)
+    const pill = screen.getByTitle('Waiting for paperwork from the county')
+    // text-overflow does nothing on a flex box
+    expect(pill.className).not.toContain('inline-flex')
+    expect(pill.className).toContain('inline-block')
+    expect(pill.className).toContain('truncate')
+  })
+
   it('renders currency formatted', () => {
     render(<CellDisplay column={makeColumn('currency')} value="1234.50" />)
     expect(screen.getByText('$1,234.50')).toBeTruthy()
