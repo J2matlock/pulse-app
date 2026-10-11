@@ -368,8 +368,8 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
             {isNew ? 'New deadline rule' : isSystem ? 'View deadline rule' : 'Edit deadline rule'}
           </h2>
-          <button onClick={() => onClose()} className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
-            <X className="w-5 h-5 text-slate-500" />
+          <button type="button" aria-label="Close" title="Close" onClick={() => onClose()} className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+            <X className="w-5 h-5 text-slate-500" aria-hidden="true" />
           </button>
         </div>
 

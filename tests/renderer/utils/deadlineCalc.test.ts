@@ -7,6 +7,7 @@ import {
   computeDaysUntil,
   formatCalculatedDays,
   formatDeadlineTooltip,
+  formatResultTooltip,
   getMatchingThreshold,
   classifyDeadline,
   computeAge,
@@ -140,6 +141,13 @@ describe('formatDeadlineTooltip', () => {
     const tooltip = formatDeadlineTooltip(dateString(1), null, 1)
     expect(tooltip).toContain('in 1 day')
     expect(tooltip).not.toContain('days')
+  })
+})
+
+describe('formatResultTooltip', () => {
+  it('says a used-up allowance is used up, not "Due today"', () => {
+    const tip = formatResultTooltip({ due: '2026-12-31', state: 'overdue', daysUntil: 0, estimated: false, label: 'All 12 used', detail: '' })
+    expect(tip).toBe('All 12 used · ends Dec 31, 2026')
   })
 })
 

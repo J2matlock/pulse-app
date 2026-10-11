@@ -34,6 +34,12 @@ beforeEach(() => {
 afterEach(() => cleanupTestDb(testDb))
 
 describe('applyNoteDateUpdates', () => {
+  it('still moves a date column that became a Deadline column (Decision E1)', () => {
+    testDb.db.prepare("UPDATE columns SET column_type = 'deadline' WHERE id = ?").run(visitCol)
+    applyNoteDateUpdates(rowId, 'visit', '2027-03-10')
+    expect(cell(visitCol)).toBe('2027-03-10')
+  })
+
   it('works with people\'s own note types', () => {
     testDb.db.prepare("INSERT INTO activity_types (key, label, position) VALUES ('session', 'Session', 9)").run()
     testDb.db.prepare('UPDATE columns SET config = ? WHERE id = ?').run(JSON.stringify({ note_updates: ['session'] }), plainCol)

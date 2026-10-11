@@ -20,14 +20,18 @@ export function buildReportPdf(title: string, subtitle: string, result: ReportRe
   const marginL = 14
   doc.setFontSize(16)
   doc.setFont('helvetica', 'bold')
-  doc.text(title, marginL, 18)
+  const width = doc.internal.pageSize.width - marginL * 2
+  // Names run to 100 characters; a long one wraps instead of running off the page
+  const titleLines = doc.splitTextToSize(title, width) as string[]
+  doc.text(titleLines, marginL, 18)
+  const subTop = 25 + (titleLines.length - 1) * 7
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
   const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   // What the report covers (list, filters, dates), then when and how many; long descriptions wrap
-  const lines = doc.splitTextToSize(`${subtitle}  ·  ${today}  ·  ${result.matched.toLocaleString('en-US')} matched`, doc.internal.pageSize.width - marginL * 2) as string[]
-  doc.text(lines, marginL, 25)
-  const tableTop = 25 + lines.length * 4.5 + 2
+  const lines = doc.splitTextToSize(`${subtitle}  ·  ${today}  ·  ${result.matched.toLocaleString('en-US')} matched`, width) as string[]
+  doc.text(lines, marginL, subTop)
+  const tableTop = subTop + lines.length * 4.5 + 2
   const numeric = (k: string) => result.columns.find(c => c.key === k)?.kind === 'number' || result.columns.find(c => c.key === k)?.kind === 'currency'
   const body = result.rows.map(r => result.columns.map(c => formatReportCell(r[c.key] ?? null, c.kind, c.bucket)))
   const hasTotals = result.columns.some(c => c.key in result.totals) && result.rows.length > 1

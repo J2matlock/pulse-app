@@ -42,7 +42,7 @@ export function buildFormPdf(formId: number, rowId: number | null): { pdf: Insta
     value = (c: Col) => {
       if (c.column_type === 'link') return links(c)
       const v = cells.get(c.id) ?? ''
-      if (c.column_type === 'date' && /^\d{4}-\d{2}-\d{2}/.test(v)) return formatDue(v.slice(0, 10))
+      if ((c.column_type === 'date' || c.column_type === 'deadline') && /^\d{4}-\d{2}-\d{2}/.test(v)) return formatDue(v.slice(0, 10))
       if (c.column_type === 'checkbox') return v === 'true' || v === '1' ? 'Yes' : ''
       return v
     }
@@ -112,7 +112,7 @@ export function buildFormPdf(formId: number, rowId: number | null): { pdf: Insta
         if (ox + tw > margin + width) { ox = x; y += 6; need(6) }
         box(ox, v === o); doc.text(o, ox + 6, y); ox += tw
       }
-    } else if (c.column_type === 'date' && !v) {
+    } else if ((c.column_type === 'date' || c.column_type === 'deadline') && !v) {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.text('____ / ____ / ________', x, y)
     } else if (c.column_type === 'notes' || c.column_type === 'address') {
       const lines = v ? doc.splitTextToSize(v, w) as string[] : []

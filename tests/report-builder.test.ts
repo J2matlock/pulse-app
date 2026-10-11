@@ -177,6 +177,20 @@ describe('appointments and deadlines', () => {
     expect(r.rows.find(x => x.g0 === 'Overdue')).toEqual({ g0: 'Overdue', v0: 1, v1: 44 })
     expect(r.matched).toBe(2)
   })
+
+  it('offers a date column whose rule was chosen in the app (by id) as a Deadline, and not one whose rule was removed', () => {
+    const rule = Number(t.db.prepare("INSERT INTO alert_rules (name, thresholds, interval_days) VALUES ('Yearly', '[]', 365)").run().lastInsertRowid)
+    t.db.prepare('UPDATE columns SET config = ? WHERE id = ?').run(JSON.stringify({ alert_rule_id: rule }), dueCol)
+    const options = () => reportFields(gridId, 'deadlines').find(f => f.id === 'dl:rule')!.options
+    expect(options()).toEqual(['Inspection'])
+    t.db.prepare('UPDATE columns SET config = ? WHERE id = ?').run(JSON.stringify({ alert_rule_name: 'Yearly' }), dueCol)
+    expect(options()).toEqual([])
+  })
+
+  it('names a Deadline column by what it holds: the day it was last done', () => {
+    t.db.prepare("UPDATE columns SET column_type = 'deadline' WHERE id = ?").run(dueCol)
+    expect(reportFields(gridId, 'records').find(f => f.id === `col:${dueCol}`)!.label).toBe('Inspection (last done)')
+  })
 })
 
 describe('limits', () => {
@@ -234,12 +248,15 @@ describe('helpers', () => {
   it('explains a report in a sentence', () => {
     const fields = [{ id: 'col:2', label: 'Stage', kind: 'text' as const, group: 'Job' }, { id: 'col:4', label: 'Estimate', kind: 'currency' as const, group: 'Job' },
       { id: 'act:date', label: 'Date', kind: 'date' as const, group: 'Note' }, { id: 'col:1', label: 'Job', kind: 'text' as const, group: 'Job' }]
-    expect(explainReport({ source: 'records', filters: [], groupBy: [{ field: 'col:2' }], values: [{ fn: 'count' }, { fn: 'sum', field: 'col:4' }] }, fields, 'Jobs', 'Jobs', 10))
+    expect(explainReport({ source: 'records', filters: [], groupBy: [{ field: 'col:2' }], values: [{ fn: 'count' }, { fn: 'sum', field: 'col:4' }] }, fields, { one: 'Job', many: 'Jobs' }, 'Jobs', 10))
       .toBe('Counting 10 jobs, one line per Stage, showing how many and the total Estimate.')
-    expect(explainReport({ source: 'activities', filters: [], groupBy: [{ field: 'act:date', bucket: 'month' }], values: [{ fn: 'count' }], dateRange: { field: 'act:date', preset: 'this_year' } }, fields, 'Notes', 'Customers', 1))
+    expect(explainReport({ source: 'activities', filters: [], groupBy: [{ field: 'act:date', bucket: 'month' }], values: [{ fn: 'count' }], dateRange: { field: 'act:date', preset: 'this_year' } }, fields, { one: 'Note', many: 'Notes' }, 'Customers', 1))
       .toBe('Counting 1 note in Customers, this year, one line per month, showing how many.')
-    expect(explainReport({ source: 'records', filters: [{ field: 'col:2', operator: 'equals', value: 'Done' }, { field: 'col:4', operator: 'gt', value: '' }], groupBy: [], values: [], columns: ['col:1', 'col:4'] }, fields, 'Jobs', 'Jobs', null))
+    expect(explainReport({ source: 'records', filters: [{ field: 'col:2', operator: 'equals', value: 'Done' }, { field: 'col:4', operator: 'gt', value: '' }], groupBy: [], values: [], columns: ['col:1', 'col:4'] }, fields, { one: 'Job', many: 'Jobs' }, 'Jobs', null))
       .toBe('Listing jobs where Stage is Done, showing Job and Estimate.')
+    // The singular comes from the words, not from cutting off an "s"
+    expect(explainReport({ source: 'records', filters: [], groupBy: [], values: [{ fn: 'count' }] }, fields, { one: 'Property', many: 'Properties' }, 'Rentals', 1))
+      .toMatch(/^Counting 1 property\b/)
     const grouped = { columns: [{ key: 'g0', label: 'Stage', kind: 'text' as const }, { key: 'v0', label: 'How many', kind: 'number' as const }], rows: [{ g0: 'A', v0: 1 }, { g0: 'B', v0: 2 }], totals: {}, matched: 3, truncated: null }
     expect(chartableReport({ source: 'records', filters: [], groupBy: [{ field: 'col:2' }], values: [] }, grouped)).toBe(true)
     expect(chartableReport({ source: 'records', filters: [], groupBy: [], values: [] }, grouped)).toBe(false)
@@ -272,6 +289,15 @@ describe('saved reports', () => {
     t.db.prepare('DELETE FROM grids WHERE id = ?').run(gridId)
     expect(getReport(again.id)).toBeUndefined()
   })
+
+  it('a list in the Trash takes its reports off the dashboard until it is restored', () => {
+    const saved = saveReport({ name: 'Count', gridId, config: { source: 'records' } })
+    t.db.prepare('UPDATE grids SET is_active = 0 WHERE id = ?').run(gridId)
+    expect(getReport(saved.id)).toBeUndefined()
+    expect(() => runReport(gridId, { source: 'records' }, NOW)).toThrow(/no longer available/)
+    t.db.prepare('UPDATE grids SET is_active = 1 WHERE id = ?').run(gridId)
+    expect(getReport(saved.id)?.name).toBe('Count')
+  })
 })
 
 describe('migration 043', () => {
@@ -300,6 +326,11 @@ describe('export', () => {
     expect(lines[lines.length - 1]).toBe('Total,4,4000.5')
     const pdf = buildReportPdf('Jobs by make', 'Vehicles', r)
     expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-')
+    // A long name wraps onto a second line instead of running past the margin
+    const long = 'Total Estimate by Stage and per month, this quarter, for every customer on the list'
+    const text = buildReportPdf(long, 'Vehicles', r).toString('latin1')
+    expect(text).not.toContain(`(${long}) Tj`)
+    expect(text).toContain('(Total Estimate by Stage')
   })
 
   it('deleting a report takes it off the dashboard', () => {

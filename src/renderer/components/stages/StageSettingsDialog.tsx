@@ -34,7 +34,7 @@ export function StageSettingsDialog({ column, onClose }: { column: Column; onClo
   const { active: noteTypes } = useActivityTypes()
   const columns = useGridStore(s => s.columns)
   const hiddenColumns = useGridStore(s => s.hiddenColumns)
-  const dateColumns = useMemo(() => [...columns, ...hiddenColumns].filter(c => c.grid_id === column.grid_id && c.column_type === 'date'), [columns, hiddenColumns, column.grid_id])
+  const dateColumns = useMemo(() => [...columns, ...hiddenColumns].filter(c => c.grid_id === column.grid_id && (c.column_type === 'date' || c.column_type === 'deadline')), [columns, hiddenColumns, column.grid_id])
   const existing = stageConfigOf(column)
   const [options, setOptions] = useState<StageOption[]>(() => initialStageOptions(column))
   // A checkbox and a number of days; unticked means never hide (0), instead of a 0 nobody understands (S-26)

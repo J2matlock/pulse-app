@@ -43,10 +43,11 @@ export function GettingStartedCard(): React.ReactElement | null {
 
   if (!p || !p.show) return null
   const recoverySnoozed = !!p.recoverySnoozedUntil && p.recoverySnoozedUntil > localDateString()
+  const openList = `Open your ${t('list')}`
   const steps = [
-    { done: p.record, label: `Add your first ${t('record')}`, action: 'Open your list', go: () => navigate('/grid') },
-    { done: p.reminder, label: 'Put in a date that has a reminder, and watch its color', action: 'Open your list', go: () => navigate('/grid') },
-    { done: p.note, label: `Write your first ${t('activity')}`, action: 'Open your list', go: () => navigate('/grid') },
+    { done: p.record, label: `Add your first ${t('record')}`, action: openList, go: () => navigate('/grid') },
+    { done: p.reminder, label: 'Put in a date that has a reminder, and watch its color', action: openList, go: () => navigate('/grid') },
+    { done: p.note, label: `Write your first ${t('activity')}`, action: openList, go: () => navigate('/grid') },
     { done: p.backup, label: 'Choose where backups go', action: 'Set up backups', go: () => navigate('/settings?tab=backup') },
     ...(recoverySnoozed && !p.recoveryKey ? [] : [{
       done: p.recoveryKey, label: 'Save a recovery key (1 minute). Without it, a forgotten password means losing your data.',

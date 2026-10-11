@@ -45,6 +45,11 @@ describe('placeholders', () => {
       .toBe('2017 Civic|Dana Cole|Acme Auto|October 2, 2026|October 5, 2000|25|AB12345C|September 20, 2026')
   })
 
+  it('spell out a Deadline column\'s date like any date', () => {
+    t.db.prepare("UPDATE columns SET column_type = 'deadline' WHERE name = 'Last service'").run()
+    expect(fill('{{field:Last service}}').text).toBe('September 20, 2026')
+  })
+
   it('give a deadline\'s due date from the engine', () => {
     expect(fill('Due {{deadline:Last service}}').text).toBe('Due October 20, 2026')
   })
