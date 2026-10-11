@@ -14,6 +14,7 @@ import { word } from './vocab'
 import { hasDisplayFormat } from './display-names'
 import { cellText, deadlineText, type DateFormat } from '../shared/cellText'
 import { ageInYears, localDateString } from '../shared/dates'
+import { htmlToText } from '../shared/htmlText'
 import { loadDeadlines, type DeadlineItem } from './deadlines'
 
 // jsPDF is a CJS module; use require() to avoid ESM/CJS interop issues in Electron main.
@@ -108,19 +109,8 @@ export interface SupervisorReportOptions {
 // Helpers
 // ──────────────────────────────────────────────────────────────────────────────
 
-/** Strip HTML tags and decode common entities. */
-export function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCharCode(Number(dec)))
-}
+/** Rich text as plain text: one line per paragraph or list item (see htmlToText) */
+export const stripHtml = htmlToText
 
 /**
  * Atomic write: write to temp file, fsync, then rename.

@@ -74,6 +74,17 @@ describe('profile PDF', () => {
     expect(pdf).not.toContain('check with mom')
   })
 
+  it('prints scrap-note paragraphs on their own lines (AUDIT-069)', async () => {
+    const { gridId, rowId } = seedRecord()
+    testDb.db.prepare("UPDATE scrap_notes SET content = '<p>Call Mom</p><p>Bring forms</p>' WHERE row_id = ?").run(rowId)
+    const dest = join(testDb.tmpDir, 'p.pdf')
+    await exportPdfProfile({ rowId, gridId, destPath: dest, includeSections: ALL })
+    const pdf = text(dest)
+    expect(pdf).toContain('(Call Mom)')
+    expect(pdf).toContain('(Bring forms)')
+    expect(pdf).not.toContain('Call MomBring forms')
+  })
+
   it('describes overdue, step and extended deadlines', () => {
     expect(deadlineSummary({ due: '2026-10-01', state: 'overdue', daysUntil: -3, estimated: false })).toBe('Next due Oct 1, 2026  ·  OVERDUE by 3 days')
     expect(deadlineSummary({ due: '2026-10-20', state: 'ok', daysUntil: 1, estimated: true, label: 'Step 2', extended: { from: '2026-10-10', reason: 'Client in hospital' } }))
