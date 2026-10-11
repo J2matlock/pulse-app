@@ -21,6 +21,8 @@ type PulseEvents = {
   'cell:changed': { rowId: number; columnId: number; from: string | null; to: string | null }
   /** Open a column's deadline rule picker (from a "Choose a rule" cell) */
   'column:choose-rule': { columnId: number }
+  /** Change a column's width from its menu, for keyboard users (AUDIT-150) */
+  'column:resize': { columnId: number; change: 'wider' | 'narrower' | 'fit' }
   /** Open the spreadsheet import for the open list */
   'grid:open-import': undefined
   /** Open "Add column" for the open list (from the empty list screen) */

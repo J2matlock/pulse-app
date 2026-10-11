@@ -13,10 +13,6 @@ if (!globalThis.crypto?.randomUUID) {
   vi.stubGlobal('crypto', { randomUUID: () => 'test-uuid-' + Math.random().toString(36).slice(2) })
 }
 
-vi.mock('../../../../src/renderer/hooks/useFocusTrap', () => ({
-  useFocusTrap: vi.fn(),
-}))
-
 vi.mock('../../../../src/renderer/components/shared/ConfirmDialog', () => ({
   ConfirmDialog: ({ open, title, onConfirm, onCancel }: { open: boolean; title: string; onConfirm: () => void; onCancel: () => void }) =>
     open ? (
@@ -76,6 +72,15 @@ describe('ArchiveDialog', () => {
     )
     fireEvent.click(screen.getByText('Cancel'))
     expect(onCancel).toHaveBeenCalled()
+  })
+
+  it('Escape cancels, like the Cancel button (AUDIT-046)', () => {
+    const onCancel = vi.fn()
+    render(
+      <ArchiveDialog archiveTarget={1} archiveReason="" setArchiveReason={vi.fn()} onConfirm={vi.fn()} onCancel={onCancel} />
+    )
+    fireEvent.keyDown(screen.getByLabelText(/Reason/), { key: 'Escape' })
+    expect(onCancel).toHaveBeenCalledTimes(1)
   })
 
   it('Archive calls onConfirm', () => {

@@ -54,6 +54,7 @@ function shallowEqual(a: unknown, b: unknown): boolean {
 }
 
 vi.mock('motion/react', () => ({
+  useReducedMotionConfig: () => false,
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   motion: {
     div: React.forwardRef((props: Record<string, unknown>, ref: React.Ref<HTMLDivElement>) => {
@@ -190,6 +191,7 @@ import { useSettingsStore } from '../../../../src/renderer/stores/settingsStore'
 import { useAlertStore } from '../../../../src/renderer/stores/alertStore'
 import { useProfileStore } from '../../../../src/renderer/stores/profileStore'
 import { DataGrid } from '../../../../src/renderer/components/grid/DataGrid'
+import { pulseEvents } from '../../../../src/renderer/events'
 import { setWords } from '../../vocabFixture'
 
 // ── Test data helpers ─────────────────────────────────────────────────────────
@@ -292,6 +294,11 @@ function renderDataGrid() {
   )
 }
 
+/** The list's own cells (each row also has select, open/star, priority and tags cells before them) */
+function dataCells(): HTMLElement[] {
+  return screen.getAllByRole('gridcell').filter(c => c.hasAttribute('data-col-id'))
+}
+
 async function flushEffects() {
   await act(async () => {
     await new Promise(r => setTimeout(r, 0))
@@ -325,22 +332,22 @@ describe('DataGrid', () => {
       const rows = screen.getAllByRole('row')
       // 1 header row + 5 data rows = 6
       expect(rows.length).toBe(6)
-      // Check gridcell elements exist
-      const cells = screen.getAllByRole('gridcell')
-      // 5 rows * 4 columns = 20 cells
-      expect(cells.length).toBe(20)
+      // Check gridcell elements exist: 5 rows * 4 columns = 20 data cells
+      expect(dataCells().length).toBe(20)
+      // and each row has a cell for every header, select and open included (AUDIT-012): 5 * 6
+      expect(screen.getAllByRole('gridcell').length).toBe(30)
     })
 
     it('is a single Tab stop: only one cell can be tabbed to (G-32)', async () => {
       renderDataGrid()
       await flushEffects()
-      const cells = screen.getAllByRole('gridcell')
+      const cells = dataCells()
       const stops = cells.filter(c => c.tabIndex === 0)
       expect(stops).toHaveLength(1)
       expect(stops[0]).toBe(cells[0])
       // Focusing another cell moves the stop there
       act(() => { fireEvent.focus(cells[5]!) })
-      const after = screen.getAllByRole('gridcell')
+      const after = dataCells()
       expect(after.filter(c => c.tabIndex === 0)).toEqual([after[5]])
     })
 
@@ -416,7 +423,7 @@ describe('DataGrid', () => {
       await flushEffects()
       const scroller = container.querySelector('.overflow-auto') as HTMLDivElement
       scroller.scrollTop = 600
-      const cell = screen.getAllByRole('gridcell')[5]!
+      const cell = dataCells()[5]!
       act(() => { cell.focus() })
       await act(async () => { useGridStore.setState({ isLoading: true }) })
       expect(screen.queryByText('Loading…')).toBeNull()
@@ -424,7 +431,7 @@ describe('DataGrid', () => {
       expect(scroller.scrollTop).toBe(600)
       await act(async () => { useGridStore.setState({ isLoading: false, rows: makeTestRows(5) }) })
       expect(container.querySelector('.overflow-auto')).toBe(scroller)
-      expect(document.activeElement).toBe(screen.getAllByRole('gridcell')[5])
+      expect(document.activeElement).toBe(dataCells()[5])
     })
 
     it('back from a record, scrolls to where this list was once its records arrive, then forgets it (AUDIT-129)', async () => {
@@ -481,7 +488,7 @@ describe('DataGrid', () => {
     it('double-clicking a cell enters edit mode (shows CellEditor)', async () => {
       renderDataGrid()
       await flushEffects()
-      const cells = screen.getAllByRole('gridcell')
+      const cells = dataCells()
       // Double-click first text cell (col_1 of row 1)
       fireEvent.doubleClick(cells[0]!)
       await flushEffects()
@@ -490,10 +497,38 @@ describe('DataGrid', () => {
       expect(input).toBeTruthy()
     })
 
+    it('says when editing starts and stops, naming the column (AUDIT-043)', async () => {
+      renderDataGrid()
+      await flushEffects()
+      fireEvent.doubleClick(dataCells()[0]!)
+      await flushEffects()
+      expect(screen.getByTestId('grid-announcer').textContent).toBe('Editing Name')
+      expect(screen.getByRole('textbox', { name: 'Name' })).toBeTruthy()
+      fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' })
+      await flushEffects()
+      expect(screen.getByTestId('grid-announcer').textContent).toBe('Done editing Name')
+    })
+
+    it('Shift+Space selects the record from the keyboard, and the count is announced (AUDIT-057)', async () => {
+      renderDataGrid()
+      await flushEffects()
+      const cell = dataCells()[0]!
+      fireEvent.focus(cell)
+      fireEvent.keyDown(cell, { key: ' ', shiftKey: true })
+      await flushEffects()
+      expect([...useGridStore.getState().selectedRowIds]).toEqual([1])
+      expect(screen.getAllByRole('row')[1]!.getAttribute('aria-selected')).toBe('true')
+      expect(screen.getByTestId('grid-announcer').textContent).toBe('1 client selected')
+      fireEvent.keyDown(dataCells()[0]!, { key: ' ', shiftKey: true })
+      await flushEffects()
+      expect(useGridStore.getState().selectedRowIds.size).toBe(0)
+      expect(screen.getByTestId('grid-announcer').textContent).toBe('Nothing selected')
+    })
+
     it('pressing Escape in edit mode cancels editing', async () => {
       renderDataGrid()
       await flushEffects()
-      const cells = screen.getAllByRole('gridcell')
+      const cells = dataCells()
       fireEvent.doubleClick(cells[0]!)
       await flushEffects()
       const input = screen.getByRole('textbox')
@@ -506,7 +541,7 @@ describe('DataGrid', () => {
     it('pressing Enter in edit mode commits the value', async () => {
       renderDataGrid()
       await flushEffects()
-      const cells = screen.getAllByRole('gridcell')
+      const cells = dataCells()
       fireEvent.doubleClick(cells[0]!)
       await flushEffects()
       const input = screen.getByRole('textbox')
@@ -525,7 +560,7 @@ describe('DataGrid', () => {
       useGridStore.setState({ updateCell: updateCellSpy } as unknown as Parameters<typeof useGridStore.setState>[0])
       renderDataGrid()
       await flushEffects()
-      const cells = screen.getAllByRole('gridcell')
+      const cells = dataCells()
       // Checkbox is the 4th column (index 3) in first row
       await act(async () => {
         fireEvent.click(cells[3]!)
@@ -543,7 +578,7 @@ describe('DataGrid', () => {
     it('Enter key on focused cell starts editing (non-checkbox)', async () => {
       renderDataGrid()
       await flushEffects()
-      const cells = screen.getAllByRole('gridcell')
+      const cells = dataCells()
       // Focus the first text cell
       fireEvent.focus(cells[0]!)
       fireEvent.keyDown(cells[0]!, { key: 'Enter' })
@@ -554,7 +589,7 @@ describe('DataGrid', () => {
     it('F2 key on focused cell starts editing', async () => {
       renderDataGrid()
       await flushEffects()
-      const cells = screen.getAllByRole('gridcell')
+      const cells = dataCells()
       fireEvent.focus(cells[0]!)
       fireEvent.keyDown(cells[0]!, { key: 'F2' })
       await flushEffects()
@@ -566,7 +601,7 @@ describe('DataGrid', () => {
       useGridStore.setState({ updateCell: updateCellSpy } as unknown as Parameters<typeof useGridStore.setState>[0])
       renderDataGrid()
       await flushEffects()
-      const cells = screen.getAllByRole('gridcell')
+      const cells = dataCells()
       // Checkbox is 4th column (index 3) of first row
       fireEvent.focus(cells[3]!)
       fireEvent.keyDown(cells[3]!, { key: 'Enter' })
@@ -579,7 +614,7 @@ describe('DataGrid', () => {
     it('Arrow keys navigate between cells', async () => {
       renderDataGrid()
       await flushEffects()
-      const cells = screen.getAllByRole('gridcell')
+      const cells = dataCells()
       // Focus first cell
       fireEvent.focus(cells[0]!)
       // Arrow down should move focus
@@ -587,18 +622,36 @@ describe('DataGrid', () => {
       await flushEffects()
       // The navigateCell function sets focusedCell and schedules DOM focus
       // We verify no crash and the grid is still rendered
-      expect(screen.getAllByRole('gridcell').length).toBe(20)
+      expect(dataCells().length).toBe(20)
+    })
+
+    it('Left from the first column reaches the priority badge, and Right goes back (AUDIT-045)', async () => {
+      setupStores({
+        acuityEnabled: true,
+        acuityLevels: [{ id: 1, grid_id: 1, name: 'High', abbreviation: 'H', points: 3, color: '#dc2626', position: 0, created_at: '' }],
+      })
+      renderDataGrid()
+      await flushEffects()
+      const first = dataCells()[0]!
+      act(() => { first.focus() })
+      fireEvent.keyDown(first, { key: 'ArrowLeft' })
+      const badge = screen.getAllByRole('button', { name: /^Set acuity level$/ })[0]!
+      expect(document.activeElement).toBe(badge)
+      fireEvent.keyDown(badge, { key: 'ArrowDown' })
+      expect(document.activeElement).toBe(screen.getAllByRole('button', { name: /^Set acuity level$/ })[1])
+      fireEvent.keyDown(document.activeElement!, { key: 'ArrowRight' })
+      expect(document.activeElement).toBe(dataCells()[TEST_COLUMNS.length])
     })
 
     it('Tab key navigates to next cell', async () => {
       renderDataGrid()
       await flushEffects()
-      const cells = screen.getAllByRole('gridcell')
+      const cells = dataCells()
       fireEvent.focus(cells[0]!)
       fireEvent.keyDown(cells[0]!, { key: 'Tab' })
       await flushEffects()
       // Grid should still be intact
-      expect(screen.getAllByRole('gridcell').length).toBe(20)
+      expect(dataCells().length).toBe(20)
     })
   })
 
@@ -811,6 +864,86 @@ describe('DataGrid', () => {
       renderDataGrid()
       await flushEffects()
       expect(screen.getByRole('grid', { name: 'Caseload' })).toBeTruthy()
+    })
+
+    // AUDIT-012: every header has a cell in each row, in the same place
+    function expectCellsMatchHeaders(): void {
+      const grid = screen.getByRole('grid')
+      const headers = screen.getAllByRole('columnheader')
+      expect(grid.getAttribute('aria-colcount')).toBe(String(headers.length))
+      expect(headers.map(h => h.getAttribute('aria-colindex'))).toEqual(headers.map((_, i) => String(i + 1)))
+      const bodyRows = screen.getAllByRole('row').slice(1)
+      expect(bodyRows.length).toBeGreaterThan(0)
+      for (const row of bodyRows) {
+        const cells = Array.from(row.querySelectorAll('[role="gridcell"]'))
+        expect(cells.map(c => c.getAttribute('aria-colindex'))).toEqual(headers.map((_, i) => String(i + 1)))
+      }
+    }
+
+    it('gives each row a cell for every header, numbered alike (AUDIT-012)', async () => {
+      renderDataGrid()
+      await flushEffects()
+      expectCellsMatchHeaders()
+      // The first data cell sits under the first data column, not under "Select all"
+      const nameHeader = screen.getAllByRole('columnheader').find(h => h.textContent?.includes('Name'))!
+      expect(dataCells()[0]!.getAttribute('aria-colindex')).toBe(nameHeader.getAttribute('aria-colindex'))
+    })
+
+    it('keeps cells and headers matched with the priority and Tags columns shown (AUDIT-012)', async () => {
+      setupStores({
+        acuityEnabled: true, showTagsColumn: true,
+        acuityLevels: [{ id: 1, grid_id: 1, name: 'High', abbreviation: 'H', points: 3, color: '#dc2626', position: 0, created_at: '' }],
+      })
+      renderDataGrid()
+      await flushEffects()
+      expect(screen.getAllByRole('columnheader').length).toBe(TEST_COLUMNS.length + 4)
+      expectCellsMatchHeaders()
+    })
+
+    it('says how many rows there are and where each one sits (AUDIT-042)', async () => {
+      setupStores({ rows: makeTestRows(12) })
+      renderDataGrid()
+      await flushEffects()
+      const grid = screen.getByRole('grid')
+      expect(grid.getAttribute('aria-rowcount')).toBe('13')
+      expect(grid.getAttribute('aria-multiselectable')).toBe('true')
+      const rows = screen.getAllByRole('row')
+      expect(rows.map(r => r.getAttribute('aria-rowindex'))).toEqual(rows.map((_, i) => String(i + 1)))
+    })
+
+    it('holds only rows: the tip and the empty-list message sit outside the grid (AUDIT-042)', async () => {
+      localStorage.removeItem('pulse-grid-hints-dismissed')
+      const { unmount } = renderDataGrid()
+      await flushEffects()
+      const tip = screen.getByRole('button', { name: 'Dismiss tip' })
+      expect(screen.getByRole('grid').contains(tip)).toBe(false)
+      unmount()
+      setupStores({ rows: [] })
+      renderDataGrid()
+      await flushEffects()
+      const add = screen.getByRole('button', { name: 'Add Client' })
+      expect(screen.getByRole('grid').contains(add)).toBe(false)
+    })
+
+    it('passes axe checks for grid structure and names (AUDIT-012, AUDIT-042)', async () => {
+      renderDataGrid()
+      await flushEffects()
+      const axe = (await import('axe-core')).default
+      const result = await axe.run(screen.getByRole('grid'), {
+        runOnly: { type: 'rule', values: ['aria-required-children', 'aria-required-parent', 'aria-allowed-attr', 'aria-valid-attr-value', 'button-name', 'aria-prohibited-attr'] },
+      })
+      expect(result.violations.map(v => `${v.id}: ${v.nodes.map(n => n.target.join(' ')).join(', ')}`)).toEqual([])
+    })
+
+    it('a column menu\'s Wider and Narrower change the width, within limits (AUDIT-150)', async () => {
+      const { container } = renderDataGrid()
+      await flushEffects()
+      const width = () => (container.querySelector('[style*="--cw-1"]') as HTMLElement).style.getPropertyValue('--cw-1')
+      expect(width()).toBe('150px')
+      act(() => { pulseEvents.emit('column:resize', { columnId: 1, change: 'wider' }) })
+      expect(width()).toBe('190px')
+      act(() => { for (let i = 0; i < 5; i++) pulseEvents.emit('column:resize', { columnId: 1, change: 'narrower' }) })
+      expect(width()).toBe('60px')
     })
 
     it('each row has profile navigation button', async () => {

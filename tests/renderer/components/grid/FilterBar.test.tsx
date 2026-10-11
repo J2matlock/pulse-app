@@ -208,6 +208,19 @@ describe('FilterControls (G-12, G-30)', () => {
     expect(useGridStore.getState().activeFilters).toEqual([])
   })
 
+  it('the Add filter panel takes focus, closes on Escape and gives focus back (AUDIT-044)', async () => {
+    useGridStore.setState({ columns: [makeColumn(1, 'Name')] })
+    await renderSettled(<FilterControls />)
+    const btn = screen.getByRole('button', { name: /^Filter/ })
+    btn.focus()
+    fireEvent.click(btn)
+    const panel = await screen.findByRole('dialog', { name: 'Add filter condition' })
+    expect(panel.contains(document.activeElement)).toBe(true)
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'Add filter condition' })).toBeNull()
+    expect(document.activeElement).toBe(btn)
+  })
+
   it('has no Overdue button without deadlines', async () => {
     useGridStore.setState({ columns: [makeColumn(1, 'Name')] })
     await renderSettled(<FilterControls />)

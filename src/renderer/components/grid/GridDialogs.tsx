@@ -60,7 +60,7 @@ export function ArchiveDialog({
 }: ArchiveDialogProps): React.ReactElement | null {
   const { t } = useVocab()
   const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, archiveTarget != null)
+  useFocusTrap(trapRef, archiveTarget != null, { onEscape: onCancel })
   const upcoming = useUpcomingAppointments(archiveTarget == null ? null : [archiveTarget])
   const [cancelAppts, setCancelAppts] = useState(true)
   useEffect(() => { setCancelAppts(true) }, [archiveTarget])

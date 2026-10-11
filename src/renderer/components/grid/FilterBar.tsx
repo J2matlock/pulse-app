@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { useMenuKeys } from '../../hooks/useMenuKeys'
 import { clampLeft } from '../../utils/domHelpers'
 import { AnimatePresence, motion } from 'motion/react'
 import { X, Filter, Save, Trash2, Tag, Bookmark, Star } from 'lucide-react'
@@ -206,6 +207,9 @@ export function FilterBar(): React.ReactElement | null {
   const [showSaveName, setShowSaveName] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const chipBarRef = useRef<HTMLDivElement>(null)
+  // Pop-ups take focus, close on Escape and give focus back (AUDIT-044)
+  const savedRef = useRef<HTMLDivElement>(null)
+  const savedKeys = useMenuKeys(savedRef, showSaved, useCallback(() => setShowSaved(false), []), { kind: 'panel' })
 
   // Load saved filters when grid loads
   useEffect(() => {
@@ -505,6 +509,10 @@ export function FilterBar(): React.ReactElement | null {
           <>
             <div className="fixed inset-0 z-40" onClick={() => setShowSaved(false)} />
             <motion.div
+              ref={savedRef}
+              onKeyDown={savedKeys}
+              role="dialog"
+              aria-label="Saved filters"
               className="fixed z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-2 w-72"
               style={{ top: (chipBarRef.current?.getBoundingClientRect().bottom ?? 100) + 4, left: clampLeft(chipBarRef.current?.getBoundingClientRect().left ?? 0, 288) }}
               variants={dropdownVariants}
@@ -664,6 +672,11 @@ function FilterBarInline({
     applySavedFilter: s.applySavedFilter, deleteSavedFilter: s.deleteSavedFilter,
   })))
   const [newFilter, setNewFilter] = useState<{ columnId: number; operator: FilterOperator; value: string } | null>(null)
+  // Pop-ups take focus, close on Escape and give focus back (AUDIT-044)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const savedRef = useRef<HTMLDivElement>(null)
+  const panelKeys = useMenuKeys(panelRef, showPanel && !!newFilter, onClosePanel, { kind: 'panel' })
+  const savedKeys = useMenuKeys(savedRef, showSaved, onCloseSaved, { kind: 'panel' })
 
   useEffect(() => {
     if (showPanel && !newFilter) {
@@ -710,6 +723,10 @@ function FilterBarInline({
           <>
             <div className="fixed inset-0 z-40" onClick={onClosePanel} />
             <motion.div
+              ref={panelRef}
+              onKeyDown={panelKeys}
+              role="dialog"
+              aria-label="Add filter condition"
               className="fixed z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl p-4 w-80"
               style={{ top: (filterBtnRef.current?.getBoundingClientRect().bottom ?? 100) + 4, left: clampLeft(filterBtnRef.current?.getBoundingClientRect().left ?? 0, 320) }}
               variants={dropdownVariants}
@@ -831,6 +848,10 @@ function FilterBarInline({
           <>
             <div className="fixed inset-0 z-40" onClick={onCloseSaved} />
             <motion.div
+              ref={savedRef}
+              onKeyDown={savedKeys}
+              role="dialog"
+              aria-label="Saved filters"
               className="fixed z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-2 w-72"
               style={{ top: (savedBtnRef.current?.getBoundingClientRect().bottom ?? 100) + 4, left: clampLeft(savedBtnRef.current?.getBoundingClientRect().left ?? 0, 288) }}
               variants={dropdownVariants}

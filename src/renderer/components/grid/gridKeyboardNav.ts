@@ -11,8 +11,6 @@ export interface KeyboardNavDeps {
   /** Open the record's page */
   openRecord?: (rowId: number) => void
   editingCellRef: React.RefObject<CellCoord | null>
-  /** Blocks editing from the keyboard when it holds true */
-  isReadOnlyRef?: React.RefObject<boolean>
   rowsRef: React.RefObject<GridRow[]>
   filteredRowsRef: React.RefObject<GridRow[]>
   selectedRowIdsRef: React.RefObject<Set<number>>
@@ -52,13 +50,12 @@ export function handleCellKeyDown(
   deps: KeyboardNavDeps
 ): void {
   const {
-    editingCellRef, isReadOnlyRef, rowsRef, filteredRowsRef, selectedRowIdsRef,
+    editingCellRef, rowsRef, filteredRowsRef, selectedRowIdsRef,
     columns, columnMap, updateCell, navigateCell,
     setEditingCell, setSelectedRowIds,
   } = deps
 
   const editing = editingCellRef.current
-  const readOnly = isReadOnlyRef?.current ?? false
   const currentRows = rowsRef.current
   const currentFilteredRows = filteredRowsRef.current
   const currentSelectedRowIds = selectedRowIdsRef.current
@@ -75,7 +72,6 @@ export function handleCellKeyDown(
         deps.openRecord(rowId)
         break
       }
-      if (readOnly) break
       const col = columnMap.get(columnId)
       if (col?.column_type === 'checkbox') {
         const row = currentRows.find(r => r.row_id === rowId)
@@ -109,7 +105,15 @@ export function handleCellKeyDown(
       if (!editing) { e.preventDefault(); navigateCell(rowId, columnId, 'next-col') }
       break
     case 'ArrowLeft':
-      if (!editing) { e.preventDefault(); navigateCell(rowId, columnId, 'prev-col') }
+      if (!editing) {
+        e.preventDefault()
+        // From the first column, Left reaches the record's priority badge, if the list has one (AUDIT-045)
+        const badge = columns[0]?.id === columnId && e.currentTarget instanceof HTMLElement
+          ? e.currentTarget.closest('[role="row"]')?.querySelector<HTMLElement>('[data-acuity-badge]')
+          : null
+        if (badge) badge.focus()
+        else navigateCell(rowId, columnId, 'prev-col')
+      }
       break
     case 'ArrowDown':
       if (!editing) { e.preventDefault(); navigateCell(rowId, columnId, 'next-row') }
@@ -154,7 +158,7 @@ export function handleCellKeyDown(
       break
     case 'v':
     case 'V':
-      if ((e.ctrlKey || e.metaKey) && !editing && !readOnly) {
+      if ((e.ctrlKey || e.metaKey) && !editing) {
         e.preventDefault()
         const pasteTargetRowId = rowId
         const pasteTargetColId = columnId
@@ -179,7 +183,18 @@ export function handleCellKeyDown(
       }
       break
     case ' ': {
-      if (!editing && !readOnly) {
+      // Shift+Space (or Ctrl+Space) ticks or unticks this record for bulk actions, as in a spreadsheet (AUDIT-057)
+      if (!editing && (e.shiftKey || e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        setSelectedRowIds(prev => {
+          const next = new Set(prev)
+          if (next.has(rowId)) next.delete(rowId)
+          else next.add(rowId)
+          return next
+        })
+        break
+      }
+      if (!editing) {
         const col = columns.find(c => c.id === columnId)
         if (col?.column_type === 'checkbox') {
           e.preventDefault()
@@ -193,13 +208,13 @@ export function handleCellKeyDown(
     case 'Delete':
     case 'Backspace':
       // Deadline and worked-out cells aren't cleared by a key: only Mark done changes a deadline (G-15)
-      if (!editing && !readOnly && !storesNoCells(columnMap.get(columnId)?.column_type ?? '') && !isNotTypedColumnType(columnMap.get(columnId)?.column_type ?? '')) {
+      if (!editing && !storesNoCells(columnMap.get(columnId)?.column_type ?? '') && !isNotTypedColumnType(columnMap.get(columnId)?.column_type ?? '')) {
         e.preventDefault()
         void updateCell(rowId, columnId, null)
       }
       break
     default: {
-      if (!editing && !readOnly && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+      if (!editing && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
         const col = columns.find(c => c.id === columnId)
         if (col && col.column_type !== 'checkbox' && !isNotTypedColumnType(col.column_type)) {
           setEditingCell({ rowId, columnId })

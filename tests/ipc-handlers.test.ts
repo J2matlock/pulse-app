@@ -712,7 +712,7 @@ describe('Read-only enforcement — enforceWritable()', () => {
   let colId: number
 
   beforeAll(() => {
-    // Simulate expired trial — all writes should be blocked
+    // Simulate a read-only gate — all writes should be blocked
     registerReadOnlyChecker(() => true)
   })
 

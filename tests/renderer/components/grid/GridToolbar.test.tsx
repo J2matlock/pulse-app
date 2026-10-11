@@ -167,6 +167,40 @@ describe('GridToolbar', () => {
     expect(screen.getByText('Add Client').className).not.toContain('@max-5xl:hidden')
   })
 
+  it('toolbar menus work from the keyboard: focus goes in, arrows move, Escape or Tab closes and focus comes back (AUDIT-044)', () => {
+    render(<GridToolbar />)
+    for (const name of [/^View/, /^Reports/, /^More/]) {
+      const btn = screen.getByRole('button', { name })
+      btn.focus()
+      fireEvent.click(btn)
+      const menu = screen.getByRole('menu')
+      const items = Array.from(menu.querySelectorAll<HTMLElement>('[role^="menuitem"]'))
+      expect(items.length).toBeGreaterThan(1)
+      expect(document.activeElement).toBe(items[0])
+      fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
+      expect(document.activeElement).toBe(items[1])
+      fireEvent.keyDown(document.activeElement!, { key: 'End' })
+      expect(document.activeElement).toBe(items[items.length - 1])
+      fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+      expect(menu.isConnected).toBe(false)
+      expect(document.activeElement).toBe(btn)
+      fireEvent.click(btn)
+      fireEvent.keyDown(document.activeElement!, { key: 'Tab' })
+      expect(screen.queryByRole('menu')).toBeNull()
+      expect(document.activeElement).toBe(btn)
+    }
+  })
+
+  it('the Add a column panel closes on Escape (AUDIT-044)', () => {
+    render(<GridToolbar />)
+    fireEvent.click(screen.getByRole('button', { name: /^More/ }))
+    fireEvent.click(screen.getByText('Add a column…'))
+    const name = screen.getByLabelText('Column name')
+    expect(document.activeElement).toBe(name)
+    fireEvent.keyDown(name, { key: 'Escape' })
+    expect(screen.queryByLabelText('Column name')).toBeNull()
+  })
+
   it('renders Add Client button', () => {
     render(<GridToolbar />)
     expect(screen.getByText('Add Client')).toBeTruthy()

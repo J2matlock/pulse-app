@@ -404,6 +404,19 @@ export function DataGrid(): React.ReactElement {
     updateColumn(colId, { width: newWidth })
   }, [updateColumn])
 
+  // Wider, Narrower and Fit from a column's menu, so widths change without a mouse (AUDIT-150)
+  useEffect(() => pulseEvents.on('column:resize', ({ columnId, change }) => {
+    if (change === 'fit') { autoFitColumn(columnId); return }
+    const col = useGridStore.getState().columns.find(c => c.id === columnId)
+    if (!col) return
+    const key = `col_${columnId}`
+    handleColumnSizingChange((prev: ColumnSizingState) => {
+      const cur = prev[key] ?? col.width
+      const next = Math.min(800, Math.max(MIN_COL_WIDTH, cur + (change === 'wider' ? 40 : -40)))
+      return { ...prev, [key]: next }
+    })
+  }), [autoFitColumn, handleColumnSizingChange])
+
   // Links changed somewhere (W04): refresh just the link columns
   useEffect(() => window.api.on(IPC.RECORD_LINKS_CHANGED, () => { void useGridStore.getState().refreshLinkValues() }), [])
 
@@ -562,13 +575,11 @@ export function DataGrid(): React.ReactElement {
 
   visualRowIdsRef.current = visualRowIds
 
-  // Group headers are their own height, and the Collapse all bar sits above the list
-  // inside the scroll area: both count, so scrolling to a record lands on it (AUDIT-132)
+  // Group headers are their own height, so scrolling to a record lands on it (AUDIT-132).
+  // The Collapse all bar sits above the list, outside the scroll area and the grid (AUDIT-042)
   const sizeOf = useMemo(() => isGroupedFromHook
     ? (i: number) => displayItems[i]?.kind === 'group-header' ? GROUP_HEADER_HEIGHT : rowHeight
     : undefined, [isGroupedFromHook, displayItems, rowHeight])
-  const [collapseBarHeight, setCollapseBarHeight] = useState(0)
-  const collapseBarRef = useCallback((el: HTMLDivElement | null) => setCollapseBarHeight(el?.offsetHeight ?? 0), [])
 
   // Virtual scrolling (extracted hook)
   const { virtualRows, totalSize: totalHeight, paddingTop, paddingBottom, scrollToRow } = useGridVirtualizer({
@@ -576,7 +587,6 @@ export function DataGrid(): React.ReactElement {
     count: isGroupedFromHook ? displayItems.length : tableRows.length,
     rowHeight,
     sizeOf,
-    scrollMargin: collapseBarHeight,
   })
 
   /** Bring a record into view, whether or not the list is grouped */
@@ -700,17 +710,38 @@ export function DataGrid(): React.ReactElement {
     return () => clearTimeout(timer)
   }, [lastAddedRowId, columns, setEditingCell]) // eslint-disable-line react-hooks/exhaustive-deps -- once per added record
 
+  // Said out loud for screen readers: entering and leaving a cell's editor (AUDIT-043)
+  const [announcement, setAnnouncement] = useState('')
+  const announcedEditRef = useRef<{ rowId: number; columnId: number } | null>(null)
+  useEffect(() => {
+    const prev = announcedEditRef.current
+    if (prev?.rowId === editingCell?.rowId && prev?.columnId === editingCell?.columnId) return
+    announcedEditRef.current = editingCell
+    const name = (id: number) => columnMap.get(id)?.name
+    if (editingCell) setAnnouncement(`Editing ${name(editingCell.columnId) ?? 'cell'}`)
+    else if (prev) setAnnouncement(`Done editing ${name(prev.columnId) ?? 'cell'}`)
+  }, [editingCell, columnMap])
+  // ...and how many records are picked for bulk actions, after Shift+Space, Ctrl+A or a click (AUDIT-057)
+  const announcedSelectedRef = useRef(selectedRowIds.size)
+  useEffect(() => {
+    const n = selectedRowIds.size
+    if (announcedSelectedRef.current === n) return
+    announcedSelectedRef.current = n
+    setAnnouncement(n === 0 ? 'Nothing selected' : `${n} ${t('record', { count: n })} selected`)
+  }, [selectedRowIds, t])
+
   const handleBulkSetAcuityLevel = useCallback((levelId: number | null) => {
     const ids = Array.from(selectedRowIdsRef.current)
     void bulkSetRowAcuityLevel(ids, levelId)
   }, [bulkSetRowAcuityLevel])
 
   // Render helper for SortableRow — eliminates duplication between grouped and ungrouped paths
-  const renderSortableRow = (row: Row<GridRow>, rowIndex: number) => (
+  const renderSortableRow = (row: Row<GridRow>, rowIndex: number, ariaRowIndex: number) => (
     <SortableRow
       key={row.id}
       row={row}
       rowIndex={rowIndex}
+      ariaRowIndex={ariaRowIndex}
       rowHeight={rowHeight}
       editingRowId={editingCell?.rowId ?? null}
       editingColId={editingCell?.columnId ?? null}
@@ -782,14 +813,20 @@ export function DataGrid(): React.ReactElement {
   // Filter out synthetic _acuity_points header
   const headers = (headerGroups[0]?.headers ?? []).filter(h => h.id !== '_acuity_points')
   const isGrouped = isGroupedFromHook
+  // Screen readers pair each cell with its header by these numbers, and hear how many
+  // records there are while only some are drawn (AUDIT-012, AUDIT-042)
+  const leadingColCount = 2 + (acuityEnabled ? 1 : 0) + (showTagsColumn ? 1 : 0)
+  const colCount = leadingColCount + columns.length
+  const rowCount = 1 + (isGrouped ? displayItems.length : tableRows.length)
+  const isEmpty = tableRows.length === 0 && !isLoading
 
   return (
     <div
       data-tour="grid"
       className="h-full flex flex-col overflow-hidden"
-      role="grid"
-      aria-label={t('list', { cap: true })}
     >
+      {/* Only rows sit inside the grid: the tip, the Collapse all bar, the empty-list
+          message and the dialogs are outside it, so screen readers stay in table mode */}
       {/* ── Hint banner for new users ─── */}
       {!hintDismissed && tableRows.length > 0 && (
         <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 text-sm text-blue-600 dark:text-blue-300 px-3 py-1.5 flex-shrink-0">
@@ -806,6 +843,21 @@ export function DataGrid(): React.ReactElement {
         </div>
       )}
 
+      {/* Collapse/Expand All toolbar (grouped mode only) */}
+      {isGrouped && (
+        <div className="flex-shrink-0">
+          <CollapseExpandBar onCollapseAll={handleCollapseAll} onExpandAll={handleExpandAll} />
+        </div>
+      )}
+
+      <div
+        role="grid"
+        aria-label={t('list', { cap: true })}
+        aria-rowcount={rowCount}
+        aria-colcount={colCount}
+        aria-multiselectable="true"
+        className={`${isEmpty ? 'flex-none' : 'flex-1'} min-h-0 flex flex-col overflow-hidden`}
+      >
       {/* ── Fixed header (outside vertical scroll) ─── */}
       <div className="flex-shrink-0 overflow-x-hidden" style={{ ...columnWidthVars }}>
         <div style={{ minWidth: totalWidth + 1 }}>
@@ -847,14 +899,8 @@ export function DataGrid(): React.ReactElement {
       <div style={{ minWidth: totalWidth + 1, ...columnWidthVars }}>
         {/* ── Row body ─── */}
         <div>
-          {/* Collapse/Expand All toolbar (grouped mode only) */}
-          {isGrouped && (
-            <div ref={collapseBarRef}>
-              <CollapseExpandBar onCollapseAll={handleCollapseAll} onExpandAll={handleExpandAll} />
-            </div>
-          )}
           {/* ── Unified virtualized rendering (both grouped and ungrouped) ── */}
-          <div style={{ position: 'relative', height: totalHeight }}>
+          <div role="rowgroup" style={{ position: 'relative', height: totalHeight }}>
             {paddingTop > 0 && <div style={{ height: paddingTop }} />}
 
             {virtualRows.map(vr => {
@@ -874,6 +920,8 @@ export function DataGrid(): React.ReactElement {
                       isCollapsed={item.isCollapsed}
                       bucketColor={headerBucketColor}
                       height={GROUP_HEADER_HEIGHT}
+                      ariaRowIndex={vr.index + 2}
+                      colCount={colCount}
                       onToggle={handleToggleGroup}
                       onContextMenu={e => { e.preventDefault(); setGroupContextMenu({ x: e.clientX, y: e.clientY }) }}
                     />
@@ -882,65 +930,69 @@ export function DataGrid(): React.ReactElement {
                 // kind === 'row' in grouped mode
                 const row = tableRows[item.tableRowIndex]
                 if (!row) return null
-                return renderSortableRow(row, item.tableRowIndex)
+                return renderSortableRow(row, item.tableRowIndex, vr.index + 2)
               }
 
               // Ungrouped mode
               const row = tableRows[vr.index]
               if (!row) return null
-              return renderSortableRow(row, vr.index)
+              return renderSortableRow(row, vr.index, vr.index + 2)
             })}
 
             {paddingBottom > 0 && <div style={{ height: paddingBottom }} />}
           </div>
         </div>
 
-        {/* Empty state */}
-        {tableRows.length === 0 && !isLoading && (
-          <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-            {searchQuery ? (
-              <p className="text-base text-slate-500 dark:text-slate-400">
-                No {t('record', { many: true })} found matching &ldquo;{searchQuery}&rdquo;
+      </div>
+      </div>
+      </div>
+
+      {/* Empty state */}
+      {isEmpty && (
+        <div className="flex-1 overflow-auto flex flex-col items-center justify-center py-16 px-6 text-center">
+          {searchQuery ? (
+            <p className="text-base text-slate-500 dark:text-slate-400">
+              No {t('record', { many: true })} found matching &ldquo;{searchQuery}&rdquo;
+            </p>
+          ) : rows.length > 0 ? (
+            <>
+              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                No {t('record', { many: true })} match your filters
+              </h3>
+              <button type="button" className="btn-secondary" onClick={() => {
+                useGridStore.setState({ activeFilters: [], showStarredOnly: false })
+                useGridStore.getState().setActiveCustomGroupId(null)
+              }}>
+                Clear filters
+              </button>
+            </>
+          ) : (
+            <>
+              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                No {t('record', { many: true })} yet
+              </h3>
+              <p className="text-base text-slate-500 dark:text-slate-400 mb-4">
+                Add your first {t('record')}{' '}
+                (or press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-base font-mono">{IS_MAC ? '⌘N' : 'Ctrl+N'}</kbd>),
+                or bring them in from a spreadsheet.
               </p>
-            ) : rows.length > 0 ? (
-              <>
-                <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-3">
-                  No {t('record', { many: true })} match your filters
-                </h3>
-                <button type="button" className="btn-secondary" onClick={() => {
-                  useGridStore.setState({ activeFilters: [], showStarredOnly: false })
-                  useGridStore.getState().setActiveCustomGroupId(null)
-                }}>
-                  Clear filters
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button type="button" className="btn-primary" onClick={() => void useGridStore.getState().addRow()}>
+                  Add {t('record', { cap: true })}
                 </button>
-              </>
-            ) : (
-              <>
-                <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  No {t('record', { many: true })} yet
-                </h3>
-                <p className="text-base text-slate-500 dark:text-slate-400 mb-4">
-                  Add your first {t('record')}{' '}
-                  (or press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-base font-mono">{IS_MAC ? '⌘N' : 'Ctrl+N'}</kbd>),
-                  or bring them in from a spreadsheet.
-                </p>
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                  <button type="button" className="btn-primary" onClick={() => void useGridStore.getState().addRow()}>
-                    Add {t('record', { cap: true })}
-                  </button>
-                  <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('grid:open-import')}>
-                    Bring in a spreadsheet
-                  </button>
-                  <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('starters:open', { sample: true })}>
-                    See an example with sample data
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-      </div>
+                <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('grid:open-import')}>
+                  Bring in a spreadsheet
+                </button>
+                <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('starters:open', { sample: true })}>
+                  See an example with sample data
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="grid-announcer">{announcement}</div>
 
       {/* Right-click context menu */}
       <AnimatePresence>

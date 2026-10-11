@@ -34,10 +34,9 @@ export function GridStatusFooter(): React.ReactElement {
     <div
       className="flex items-center gap-4 px-4 text-sm text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex-shrink-0"
       style={{ height: 28 }}
-      aria-live="polite"
-      aria-atomic="true"
     >
-      <span data-testid="shown-count">{shownLabel(shown, total, n => t('record', { count: n }))}</span>
+      {/* The list announces what's selected itself (AUDIT-057), so only the shown count is read out here */}
+      <span data-testid="shown-count" aria-live="polite" aria-atomic="true">{shownLabel(shown, total, n => t('record', { count: n }))}</span>
       <span>·</span>
       <span>{columnCount} column{columnCount !== 1 ? 's' : ''}</span>
       {selectionStats && (

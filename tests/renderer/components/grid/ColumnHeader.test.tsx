@@ -91,6 +91,7 @@ import { ColumnHeader } from '../../../../src/renderer/components/grid/ColumnHea
 import type { Column } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
 import { safeInvoke } from '../../../../src/renderer/utils/safeInvoke'
+import { pulseEvents } from '../../../../src/renderer/events'
 
 function makeColumn(id: number, name: string, type = 'text', config = '{}'): Column {
   return {
@@ -184,6 +185,41 @@ describe('ColumnHeader', () => {
     expect(screen.getByRole('dialog', { name: /Phone.*settings/ })).toBeTruthy()
     expect(screen.getByText('Log changes in timeline')).toBeTruthy()
     expect(screen.getByText('Color rules for this column…')).toBeTruthy()
+  })
+
+  it('column settings takes focus, keeps Tab inside, closes on Escape and gives focus back (AUDIT-047)', async () => {
+    render(<ColumnHeader column={makeColumn(4, 'Phone')} />)
+    const opener = screen.getByRole('button', { name: 'Column options' })
+    opener.focus()
+    fireEvent.click(opener)
+    fireEvent.click(screen.getByText('Column settings…'))
+    const dialog = screen.getByRole('dialog', { name: /Phone.*settings/ })
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true))
+    // Tab from the last control wraps to the first
+    const close = screen.getByRole('button', { name: 'Close' })
+    close.focus()
+    fireEvent.keyDown(close, { key: 'Tab' })
+    expect(dialog.contains(document.activeElement)).toBe(true)
+    expect(document.activeElement).not.toBe(close)
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: /Phone.*settings/ })).toBeNull()
+    expect(document.activeElement).toBe(opener)
+  })
+
+  it('changes the width from the menu, without dragging (AUDIT-150)', () => {
+    const heard: unknown[] = []
+    const off = pulseEvents.on('column:resize', p => { heard.push(p) })
+    render(<ColumnHeader column={makeColumn(4, 'Phone')} />)
+    fireEvent.contextMenu(screen.getByText('Phone').closest('div')!)
+    fireEvent.click(screen.getByRole('button', { name: 'Wider' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Narrower' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Fit to content' }))
+    // The menu stays open, so Wider can be pressed again
+    expect(screen.getByRole('button', { name: 'Wider' })).toBeTruthy()
+    expect(heard).toEqual([
+      { columnId: 4, change: 'wider' }, { columnId: 4, change: 'narrower' }, { columnId: 4, change: 'fit' },
+    ])
+    off()
   })
 
   it('right-click opens context menu with column options', () => {
