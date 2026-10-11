@@ -18,6 +18,7 @@ import { backdropVariants, modalPanelVariants } from '../../utils/animations'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Column } from '../../../shared/types'
+import { canImportInto } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
 import toast from 'react-hot-toast'
 import { useVocab } from '../../hooks/useVocab'
@@ -776,7 +777,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                               >
                                 <option value="create">Create new column</option>
                                 <option value="skip">Skip (do not import)</option>
-                                {existingColumns.map(ec => (
+                                {existingColumns.filter(ec => canImportInto(ec.column_type)).map(ec => (
                                   <option key={ec.id} value={String(ec.id)}>{ec.name}</option>
                                 ))}
                               </select>

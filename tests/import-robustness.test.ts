@@ -260,3 +260,19 @@ describe('Excel cells', () => {
     expect(preview.detectedColumns[1]!.detectedType).toBe('text')
   })
 })
+
+// ── Computed columns as targets (AUDIT-124) ──────────────────────────────────
+
+describe('columns Pulse works out itself', () => {
+  it('are never auto-matched, and a mapping to one is skipped', async () => {
+    const { gridId, columnIds } = makeGrid([{ name: 'Name', isName: true }, { name: 'Age', type: 'age_from_dob' }, { name: 'Days until', type: 'calculated_days' }, { name: 'Number', type: 'auto_number' }])
+    const mappings = autoMatchColumns(gridId, ['Name', 'Age', 'Days until', 'Number'])
+    expect(mappings.map(m => m.action)).toEqual([columnIds[0], 'create', 'create', columnIds[3]])
+    const filePath = writeCsv('computed.csv', 'Name,Age\nTest Person,44\n')
+    const preview = await parseImportFile(filePath)
+    const forced: ColumnMapping[] = [{ sourceIndex: 0, action: columnIds[0]! }, { sourceIndex: 1, action: columnIds[1]! }]
+    await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'none', columnMappings: forced }, preview)
+    expect(cellsOf(columnIds[1]!)).toEqual([])
+    expect(rowCount(gridId)).toBe(1)
+  })
+})

@@ -11,7 +11,7 @@ import { TextDecoder } from 'util'
 import Papa from 'papaparse'
 import { parseDate, ymdFromParts, hasTwoDigitYear, looksLikeBirthColumn } from '../shared/parseDate'
 import { localDateString } from '../shared/dates'
-import { VALID_COLUMN_TYPES } from '../shared/types'
+import { VALID_COLUMN_TYPES, canImportInto } from '../shared/types'
 import type { ColumnType } from '../shared/types'
 import ExcelJS from 'exceljs'
 
@@ -857,7 +857,8 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
 
 export function autoMatchColumns(gridId: number, headers: string[]): ColumnMapping[] {
   const db = getDb()
-  const existingCols = db.prepare('SELECT * FROM columns WHERE grid_id = ? ORDER BY position').all(gridId) as Column[]
+  const existingCols = (db.prepare('SELECT * FROM columns WHERE grid_id = ? ORDER BY position').all(gridId) as Column[])
+    .filter(c => canImportInto(c.column_type))
   const usedColIds = new Set<number>()
 
   const result = headers.map((header, i) => {
@@ -967,8 +968,9 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
         `).run(gridId, colName, colType, nextPos++)
         colMap.set(mapping.sourceIndex, { columnId: result.lastInsertRowid as number, type: colType })
       } else {
-        // Existing column
+        // Existing column. One Pulse works out itself can't take imported values.
         const col = db.prepare('SELECT column_type FROM columns WHERE id = ?').get(mapping.action as number) as { column_type: string } | undefined
+        if (col && !canImportInto(col.column_type)) continue
         colMap.set(mapping.sourceIndex, { columnId: mapping.action as number, type: col?.column_type || 'text' })
       }
     }
