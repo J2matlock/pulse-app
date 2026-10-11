@@ -251,4 +251,19 @@ describe('Sidebar', () => {
     expect(tasksBtn.textContent).not.toContain('4')
     useTaskStore.setState({ tasks: [] })
   })
+
+  it('the Tasks badge says what its number means, open and collapsed (audit A06-29)', async () => {
+    const { useTaskStore } = await import('../../../../src/renderer/stores/taskStore')
+    const base = { description: null, priority: 'normal', category: null, recurrence_rule: null, is_completed: 0, completed_at: null, position: 0, group_id: null, created_at: '', updated_at: '', snoozed_until: null }
+    useTaskStore.setState({ tasks: [
+      { ...base, id: 1, grid_id: null, title: 'Late', due_date: '2020-01-01' },
+      { ...base, id: 2, grid_id: null, title: 'Late too', due_date: '2020-01-02' },
+    ] as never })
+    const { unmount } = renderSidebar()
+    expect(screen.getByRole('button', { name: 'Tasks, 2 due today or overdue' })).toBeTruthy()
+    unmount()
+    renderSidebar(true)
+    expect(screen.getByRole('button', { name: 'Tasks, 2 due today or overdue' })).toBeTruthy()
+    useTaskStore.setState({ tasks: [] })
+  })
 })
