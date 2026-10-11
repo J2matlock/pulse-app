@@ -263,6 +263,7 @@ export const IPC = {
   // Stages and the board (W06)
   STAGE_CONFIG_SAVE: 'stages:config-save',
   STAGE_MOVE: 'stages:move',
+  STAGE_UNDO: 'stages:undo',
   STAGE_DURATIONS: 'stages:durations',
   STAGE_SUMMARY: 'stages:summary',
 
@@ -274,6 +275,9 @@ export const IPC = {
   APPT_DELETE: 'appointments:delete',
   APPT_RESTORE: 'appointments:restore',
   APPT_SET_STATUS: 'appointments:set-status',
+  APPT_UPCOMING_COUNT: 'appointments:upcoming-count',
+  APPT_CANCEL_UPCOMING: 'appointments:cancel-upcoming',
+  APPT_END_SERIES: 'appointments:end-series',
   CALENDAR_ITEMS: 'calendar:items',
   /** main → window: appointments changed */
   APPOINTMENTS_CHANGED: 'appointments:changed',

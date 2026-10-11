@@ -105,7 +105,9 @@ export function moveStage(rowId: number, columnId: number, value: string | null)
   if (value !== null && !option) throw new StageError(`"${value}" isn't one of the stages.`)
 
   return db.transaction((): StageMoveResult => {
-    const result: StageMoveResult = { previous: null, changed: false, sysLogIds: [], checklistItemIds: [], stamped: null }
+    const result: StageMoveResult = { previous: null, changed: false, sysLogIds: [], checklistItemIds: [], stamped: null, historyIds: [] }
+    const lastHistory = () => (db.prepare('SELECT COALESCE(MAX(id), 0) AS id FROM cell_history').get() as { id: number }).id
+    const before = lastHistory()
     result.previous = setCellWithHistory(rowId, columnId, value)
     if (result.previous === value) return result
     result.changed = true
@@ -116,17 +118,55 @@ export function moveStage(rowId: number, columnId: number, value: string | null)
     if (columnAffectsDisplayName(col.grid_id, columnId)) refreshDisplayNames(col.grid_id, [rowId])
 
     const enter = option?.onEnter
+    // Coming back to a stage doesn't add its checklist items again while they're still open
     if (enter?.checklistTemplateId !== undefined && db.prepare('SELECT 1 FROM checklist_templates WHERE id = ?').get(enter.checklistTemplateId)) {
-      result.checklistItemIds = applyChecklistTemplate(rowId, enter.checklistTemplateId)
+      result.checklistItemIds = applyChecklistTemplate(rowId, enter.checklistTemplateId, null, { skipOpen: true })
     }
+    // ...nor change a date already filled in, unless the stage says to (audit S-15)
     if (enter?.stampColumnId !== undefined && db.prepare("SELECT 1 FROM columns WHERE id = ? AND grid_id = ? AND column_type = 'date'").get(enter.stampColumnId, col.grid_id)) {
-      result.stamped = { columnId: enter.stampColumnId, previous: setCellWithHistory(rowId, enter.stampColumnId, localDateString()) }
-      if (columnAffectsDisplayName(col.grid_id, enter.stampColumnId)) refreshDisplayNames(col.grid_id, [rowId])
+      const held = (db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?').get(rowId, enter.stampColumnId) as { value: string | null } | undefined)?.value ?? null
+      if (enter.restamp || !held) {
+        result.stamped = { columnId: enter.stampColumnId, previous: setCellWithHistory(rowId, enter.stampColumnId, localDateString()) }
+        if (columnAffectsDisplayName(col.grid_id, enter.stampColumnId)) refreshDisplayNames(col.grid_id, [rowId])
+      }
     }
     if (enter?.activityTypeKey !== undefined && db.prepare('SELECT 1 FROM activity_types WHERE key = ?').get(enter.activityTypeKey)) {
       result.sysLogIds.push(Number(note.run(rowId, `Moved to ${value}`, enter.activityTypeKey).lastInsertRowid))
     }
+    result.historyIds = (db.prepare('SELECT id FROM cell_history WHERE id > ? AND row_id = ?').all(before, rowId) as Array<{ id: number }>).map(h => h.id)
     return result
+  })()
+}
+
+/**
+ * Undo a stage move (audit S-16): put the stage and any filled-in date back
+ * and remove what the move wrote (its history entries, notes and checklist
+ * items), so it's as if it never happened. Writing the old stage as a new
+ * change instead would reset "time in stage" and add another change note.
+ */
+export function undoStageMove(rowId: number, columnId: number, move: StageMoveResult): void {
+  const db = getDb()
+  const col = db.prepare('SELECT grid_id FROM columns WHERE id = ?').get(columnId) as { grid_id: number } | undefined
+  if (!col) throw new StageError('That column no longer exists.')
+  const ids = (list: number[] | undefined) => (list ?? []).filter(id => Number.isInteger(id) && id > 0).slice(0, 1000)
+  const inList = (list: number[]) => list.map(() => '?').join(',')
+  db.transaction(() => {
+    const put = db.prepare(`INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))
+      ON CONFLICT(row_id, column_id) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`)
+    put.run(rowId, columnId, move.previous)
+    const cols = [columnId]
+    if (move.stamped) {
+      put.run(rowId, move.stamped.columnId, move.stamped.previous)
+      cols.push(move.stamped.columnId)
+    }
+    const history = ids(move.historyIds)
+    if (history.length) db.prepare(`DELETE FROM cell_history WHERE row_id = ? AND column_id IN (${inList(cols)}) AND id IN (${inList(history)})`).run(rowId, ...cols, ...history)
+    const notes = ids(move.sysLogIds)
+    if (notes.length) db.prepare(`DELETE FROM case_log WHERE row_id = ? AND id IN (${inList(notes)})`).run(rowId, ...notes)
+    const items = ids(move.checklistItemIds)
+    if (items.length) db.prepare(`DELETE FROM checklist_items WHERE row_id = ? AND id IN (${inList(items)})`).run(rowId, ...items)
+    db.prepare("UPDATE rows SET updated_at = datetime('now') WHERE id = ?").run(rowId)
+    if (cols.some(c => columnAffectsDisplayName(col.grid_id, c))) refreshDisplayNames(col.grid_id, [rowId])
   })()
 }
 

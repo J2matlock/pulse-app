@@ -222,6 +222,14 @@ describe('TasksView — interactions', () => {
     expect(screen.getByText('Templates')).toBeDefined()
   })
 
+  it('sorts by due date or priority from the Sort menu (audit S-20)', async () => {
+    render(<MemoryRouter><TasksView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.getAllByTestId('task-item').map(e => e.textContent)).toEqual(['Call insurance company', 'Review case notes'])
+    fireEvent.change(screen.getByLabelText('Sort:'), { target: { value: 'priority' } })
+    expect(taskStoreData().setSortMode).toHaveBeenCalledWith('priority')
+  })
+
   it('shows progress bar with completion info', async () => {
     render(<MemoryRouter><TasksView /></MemoryRouter>)
     await flushEffects()

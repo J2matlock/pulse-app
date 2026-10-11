@@ -29,7 +29,16 @@ export interface Appointment {
   record_name: string | null
   grid_id: number | null
   grid_name: string | null
+  /** Its series' rule (JSON), when it repeats */
+  series_rule?: string | null
 }
+
+/**
+ * Scheduled appointments of an archived record, or of a record in a list
+ * that's gone, aren't upcoming work any more; what already happened
+ * (done, no-show, cancelled) still shows. Needs `r` (rows) and `g` (grids).
+ */
+export const OPEN_RECORD_SQL = "(a.row_id IS NULL OR (r.deleted_at IS NULL AND (a.status != 'scheduled' OR (r.is_active = 1 AND g.is_active = 1))))"
 
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 export const TIME_RE = /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/
@@ -88,8 +97,11 @@ export const seriesRuleSchema = z.object({
 }).strict()
 export type SeriesRule = z.infer<typeof seriesRuleSchema>
 
+/** The most times a "N times" series can have */
 export const MAX_OCCURRENCES = 500
-/** Occurrences are made this far ahead, and never past two years */
+/** A guard against runaway loops for series with no end (about 27 years of days) */
+const MAX_DATES = 10_000
+/** Occurrences are made this far ahead, and never more than two years past today */
 export const MATERIALIZE_MONTHS = 6
 export const MAX_HORIZON_MONTHS = 24
 
@@ -134,14 +146,15 @@ export function addMinutes(s: string, minutes: number): string {
 
 /**
  * The start dates of a series, from its first start, up to and including
- * `through` (a date), honoring until/count and the 500-occurrence limit.
+ * `through` (a date), honoring until/count. A series with no end keeps
+ * going; the caller decides how far ahead to look (two years past today).
  * Monthly on the 31st lands on the last day of shorter months.
  */
 export function seriesDates(rule: SeriesRule, firstStart: string, through: string, untilFromColumn?: string | null): string[] {
   const first = firstStart.slice(0, 10)
-  const ends = [through, rule.until, untilFromColumn ?? undefined, addMonths(first, MAX_HORIZON_MONTHS)].filter((x): x is string => !!x && DATE_RE.test(x))
+  const ends = [through, rule.until, untilFromColumn ?? undefined].filter((x): x is string => !!x && DATE_RE.test(x))
   const end = ends.sort()[0]!
-  const max = Math.min(rule.count ?? MAX_OCCURRENCES, MAX_OCCURRENCES)
+  const max = rule.count ? Math.min(rule.count, MAX_OCCURRENCES) : MAX_DATES
   const out: string[] = []
   const f = parseYmd(first)
   if (rule.freq === 'daily') {
@@ -189,13 +202,23 @@ export interface SeriesTemplate {
   notes: string | null
 }
 
-/** "Every week on Tue, Thu" / "Every 2 months" */
+/** "Every week on Tue, Thu" / "Every 2 months · until Mar 3, 2027" / "Every week · 10 times" */
 export function describeRule(rule: SeriesRule): string {
   const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const unit = rule.freq === 'daily' ? 'day' : rule.freq === 'weekly' ? 'week' : 'month'
   let s = rule.interval === 1 ? `Every ${unit}` : `Every ${rule.interval} ${unit}s`
   if (rule.freq === 'weekly' && rule.byDay?.length) s += ` on ${[...rule.byDay].sort().map(d => DAYS[d]).join(', ')}`
-  if (rule.count) s += `, ${rule.count} times`
-  else if (rule.until) s += `, until ${rule.until}`
+  if (rule.count) s += ` · ${rule.count} ${rule.count === 1 ? 'time' : 'times'}`
+  else if (rule.until) s += ` · until ${parseYmd(rule.until).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+  else if (rule.untilColumnId) s += ' · until a date in a column'
   return s
+}
+
+/** "Every week on Tue · until Mar 3, 2027" for a repeating appointment; null otherwise */
+export function seriesRuleText(a: Pick<Appointment, 'series_id' | 'series_rule'>): string | null {
+  if (a.series_id === null || !a.series_rule) return null
+  try {
+    const r = seriesRuleSchema.safeParse(JSON.parse(a.series_rule))
+    return r.success ? describeRule(r.data) : null
+  } catch { return null }
 }

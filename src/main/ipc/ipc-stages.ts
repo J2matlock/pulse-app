@@ -4,7 +4,9 @@
 import { IPC } from '../../shared/ipc-channels'
 import { secureWrap, ok, fail, enforceWritable, validId, notifyCaseLogChanged } from './ipc-utils'
 import { invalidateColumnCache } from './ipc-cell'
-import { StageError, saveStageConfig, moveStage, stageDurations, stageSummary } from '../stages'
+import { StageError, saveStageConfig, moveStage, undoStageMove, stageDurations, stageSummary } from '../stages'
+import type { StageMoveResult } from '../../shared/stages'
+import { rematerializeForRecord } from '../appointments'
 
 function action<T>(fn: () => T) {
   try { return ok(fn()) } catch (err) {
@@ -29,6 +31,27 @@ export function registerStageHandlers(): void {
     if (value !== null && (typeof value !== 'string' || value.length > 200)) return fail('Invalid stage')
     const res = action(() => moveStage(rowId, columnId, value))
     if (res.ok && res.data.changed) notifyCaseLogChanged(rowId)
+    return res
+  })
+
+  /** Undo a move as if it never happened (audit S-16) */
+  secureWrap(IPC.STAGE_UNDO, 'ipc-stages', (_e, rowId: unknown, columnId: unknown, move: unknown) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(rowId) || !validId(columnId)) return fail('Invalid ID')
+    const m = (move && typeof move === 'object' ? move : null) as Partial<StageMoveResult> | null
+    const idList = (v: unknown) => v === undefined || (Array.isArray(v) && v.length <= 1000 && v.every(validId))
+    const text = (v: unknown) => v === null || (typeof v === 'string' && v.length <= 10_000)
+    if (!m || !text(m.previous) || !idList(m.sysLogIds) || !idList(m.checklistItemIds) || !idList(m.historyIds)) return fail('Invalid request')
+    if (m.stamped != null && (typeof m.stamped !== 'object' || !validId(m.stamped.columnId) || !text(m.stamped.previous))) return fail('Invalid request')
+    const res = action(() => undoStageMove(rowId, columnId, {
+      previous: m.previous ?? null, changed: true, sysLogIds: m.sysLogIds ?? [], checklistItemIds: m.checklistItemIds ?? [],
+      historyIds: m.historyIds ?? [], stamped: m.stamped ?? null,
+    }))
+    if (res.ok) {
+      notifyCaseLogChanged(rowId)
+      // A filled-in date put back can end a repeating appointment series
+      if (m.stamped) rematerializeForRecord(rowId)
+    }
     return res
   })
 

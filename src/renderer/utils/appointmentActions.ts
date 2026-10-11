@@ -31,12 +31,24 @@ export async function createAppointment(input: ApptInput, rule?: SeriesRule | nu
   return res.data.ids
 }
 
-export async function updateAppointment(a: Appointment, patch: ApptPatch, scope: EditScope = 'one'): Promise<boolean> {
-  const res = await safeInvoke<ApptChange>(IPC.APPT_UPDATE, a.id, patch, scope)
+/** With `rule`, the series' pattern changes from this one on */
+export async function updateAppointment(a: Appointment, patch: ApptPatch, scope: EditScope = 'one', rule?: SeriesRule | null): Promise<boolean> {
+  const args = rule ? [a.id, patch, scope, rule] : [a.id, patch, scope]
+  const res = await safeInvoke<ApptChange>(IPC.APPT_UPDATE, ...args)
   if (!res.ok) { toast.error(res.error); return false }
   let snap = res.data.snapshot
   push(`Changed "${a.title}"`, () => restore(snap),
-    async () => { const again = await safeInvoke<ApptChange>(IPC.APPT_UPDATE, a.id, patch, scope); if (again.ok) snap = again.data.snapshot })
+    async () => { const again = await safeInvoke<ApptChange>(IPC.APPT_UPDATE, ...args); if (again.ok) snap = again.data.snapshot })
+  return true
+}
+
+/** "End this series on…" the last day */
+export async function endSeries(a: Appointment, lastDate: string): Promise<boolean> {
+  const res = await safeInvoke<ApptChange>(IPC.APPT_END_SERIES, a.id, lastDate)
+  if (!res.ok) { toast.error(res.error); return false }
+  let snap = res.data.snapshot
+  push(`Ended the "${a.title}" series`, () => restore(snap),
+    async () => { const again = await safeInvoke<ApptChange>(IPC.APPT_END_SERIES, a.id, lastDate); if (again.ok) snap = again.data.snapshot })
   return true
 }
 

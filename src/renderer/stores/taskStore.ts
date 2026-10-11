@@ -15,11 +15,16 @@ interface TaskStore {
   createTask: (task: Omit<CaseloadTask, 'id' | 'created_at' | 'updated_at'>) => Promise<CaseloadTask | null>
   updateTask: (id: number, updates: Partial<CaseloadTask>) => Promise<void>
   deleteTask: (id: number) => Promise<void>
+  /** Several at once, as one undo step ("Delete completed") */
+  deleteTasks: (ids: number[]) => Promise<void>
   completeTask: (id: number) => Promise<void>
   snoozeTask: (id: number, until: string) => Promise<void>
   setSortMode: (mode: TaskSortMode) => void
   reorderTasks: (orderedIds: number[]) => Promise<void>
 }
+
+/** Tasks being ticked off right now: a quick second click is ignored (audit L-27) */
+const completing = new Set<number>()
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
   tasks: [],
@@ -121,11 +126,41 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
+  deleteTasks: async (ids) => {
+    const gone = get().tasks.filter(t => ids.includes(t.id))
+    const deleted: CaseloadTask[] = []
+    for (const task of gone) {
+      try { await storeInvoke(IPC.TASK_DELETE, task.id); deleted.push(task) } catch { /* keep going; undo covers what went */ }
+    }
+    if (deleted.length === 0) return
+    const ids2 = new Set(deleted.map(t => t.id))
+    set(state => ({ tasks: state.tasks.filter(t => !ids2.has(t.id)) }))
+    useUndoStore.getState().pushWithToast({
+      id: crypto.randomUUID(),
+      description: `Deleted ${deleted.length} completed task${deleted.length === 1 ? '' : 's'}`,
+      timestamp: Date.now(),
+      category: 'logged',
+      icon: 'trash',
+      undo: async () => {
+        for (const task of deleted) await storeInvoke(IPC.TASK_RESTORE, task)
+        await useTaskStore.getState().loadTasks()
+      },
+      redo: async () => {
+        for (const task of deleted) await storeInvoke(IPC.TASK_DELETE, task.id)
+        await useTaskStore.getState().loadTasks()
+      },
+    })
+  },
+
   completeTask: async (id) => {
     const task = get().tasks.find(t => t.id === id)
+    if (completing.has(id)) return
+    completing.add(id)
     try {
-      await storeInvoke(IPC.TASK_COMPLETE, id)
-    } catch { return }
+      // The due date it was ticked at: main ignores it if the task has already moved on
+      const done = await storeInvoke<boolean>(IPC.TASK_COMPLETE, id, task ? task.due_date ?? null : undefined)
+      if (done === false) return
+    } catch { return } finally { completing.delete(id) }
     try {
       const allData = await storeInvoke<CaseloadTask[]>(IPC.TASK_GET_ALL)
       set({ tasks: allData })
@@ -146,7 +181,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           await useTaskStore.getState().loadTasks()
         },
         redo: async () => {
-          await storeInvoke(IPC.TASK_COMPLETE, id)
+          await storeInvoke(IPC.TASK_COMPLETE, id, task.due_date ?? null)
           await useTaskStore.getState().loadTasks()
         },
       })

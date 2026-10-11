@@ -5,6 +5,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'vitest'
 import { createTestDb, cleanupTestDb, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
+import { localDateString } from '../src/shared/dates'
+import { addRepeats } from '../src/shared/recurrence'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
 
@@ -175,7 +177,7 @@ describe('Caseload Tasks — Completion', () => {
     const recurrence = JSON.stringify({ type: 'weekly', interval: 1 })
     const created = await invoke(IPC.TASK_CREATE, {
       title: 'Weekly check-in',
-      due_date: '2026-02-20',
+      due_date: '2030-02-20',
       recurrence_rule: recurrence,
     }) as { ok: true; data: { id: number } }
 
@@ -183,21 +185,70 @@ describe('Caseload Tasks — Completion', () => {
 
     const task = testDb.db.prepare('SELECT is_completed, due_date FROM caseload_tasks WHERE id = ?').get(created.data.id) as { is_completed: number; due_date: string }
     expect(task.is_completed).toBe(0) // Reset for next cycle
-    expect(task.due_date).toBe('2026-02-27') // +7 days
+    expect(task.due_date).toBe('2030-02-27') // +7 days
   })
 
   it('complete recurring monthly task advances due_date', async () => {
     const recurrence = JSON.stringify({ type: 'monthly', interval: 1 })
     const created = await invoke(IPC.TASK_CREATE, {
       title: 'Monthly review',
-      due_date: '2026-01-15',
+      due_date: '2030-01-15',
       recurrence_rule: recurrence,
     }) as { ok: true; data: { id: number } }
 
     await invoke(IPC.TASK_COMPLETE, created.data.id)
 
     const task = testDb.db.prepare('SELECT due_date FROM caseload_tasks WHERE id = ?').get(created.data.id) as { due_date: string }
-    expect(task.due_date).toBe('2026-02-15')
+    expect(task.due_date).toBe('2030-02-15')
+  })
+
+  it('a late repeating task comes back due this cycle, not still overdue (audit S-12)', async () => {
+    const today = localDateString()
+    const weekly = { type: 'weekly' as const, interval: 1 }
+    const created = await invoke(IPC.TASK_CREATE, { title: 'Timesheet', due_date: addRepeats(today, weekly, -3), recurrence_rule: JSON.stringify(weekly) }) as { ok: true; data: { id: number } }
+    await invoke(IPC.TASK_COMPLETE, created.data.id)
+    const task = testDb.db.prepare('SELECT is_completed, due_date FROM caseload_tasks WHERE id = ?').get(created.data.id) as { is_completed: number; due_date: string }
+    expect(task).toEqual({ is_completed: 0, due_date: today })
+  })
+
+  it('a repeating task always has a due date: it starts today, and clearing it is refused (audit S-12)', async () => {
+    const created = await invoke(IPC.TASK_CREATE, { title: 'Weekly', recurrence_rule: JSON.stringify({ type: 'weekly', interval: 1 }) }) as { ok: true; data: { id: number; due_date: string } }
+    expect(created.data.due_date).toBe(localDateString())
+    const cleared = await invoke(IPC.TASK_UPDATE, created.data.id, { due_date: null }) as { ok: boolean; error?: string }
+    expect(cleared.ok).toBe(false)
+    expect(cleared.error).toMatch(/needs a due date/)
+    const plain = await invoke(IPC.TASK_CREATE, { title: 'Plain' }) as { ok: true; data: { id: number; due_date: string | null } }
+    expect(plain.data.due_date).toBeNull()
+    await invoke(IPC.TASK_UPDATE, plain.data.id, { recurrence_rule: JSON.stringify({ type: 'monthly', interval: 1 }) })
+    expect((testDb.db.prepare('SELECT due_date FROM caseload_tasks WHERE id = ?').get(plain.data.id) as { due_date: string }).due_date).toBe(localDateString())
+  })
+
+  it('the end date itself still counts (audit L-26)', async () => {
+    const created = await invoke(IPC.TASK_CREATE, {
+      title: 'Monthly report', due_date: '2030-11-30', recurrence_rule: JSON.stringify({ type: 'monthly', interval: 1, end_date: '2030-12-30' }),
+    }) as { ok: true; data: { id: number } }
+    await invoke(IPC.TASK_COMPLETE, created.data.id)
+    const task = testDb.db.prepare('SELECT is_completed, due_date FROM caseload_tasks WHERE id = ?').get(created.data.id) as { is_completed: number; due_date: string }
+    expect(task).toEqual({ is_completed: 0, due_date: '2030-12-30' })
+  })
+
+  it('a second click on a task that already moved on is ignored (audit L-27)', async () => {
+    const created = await invoke(IPC.TASK_CREATE, { title: 'Monthly', due_date: '2030-01-15', recurrence_rule: JSON.stringify({ type: 'monthly', interval: 1 }) }) as { ok: true; data: { id: number } }
+    const first = await invoke(IPC.TASK_COMPLETE, created.data.id, '2030-01-15') as { ok: true; data: boolean }
+    const second = await invoke(IPC.TASK_COMPLETE, created.data.id, '2030-01-15') as { ok: true; data: boolean }
+    expect([first.data, second.data]).toEqual([true, false])
+    const task = testDb.db.prepare('SELECT due_date FROM caseload_tasks WHERE id = ?').get(created.data.id) as { due_date: string }
+    expect(task.due_date).toBe('2030-02-15')
+    expect((testDb.db.prepare('SELECT COUNT(*) AS n FROM caseload_task_history WHERE task_id = ?').get(created.data.id) as { n: number }).n).toBe(1)
+  })
+
+  it('new tasks stay on the list after many finished ones (audit S-14)', async () => {
+    const ins = testDb.db.prepare("INSERT INTO caseload_tasks (title, is_completed, completed_at, position, created_at, updated_at) VALUES (?, 1, datetime('now'), ?, datetime('now'), datetime('now'))")
+    testDb.db.transaction(() => { for (let i = 0; i < 600; i++) ins.run(`Old ${i}`, i) })()
+    await invoke(IPC.TASK_CREATE, { title: 'Brand new' })
+    const all = await invoke(IPC.TASK_GET_ALL) as { ok: true; data: Array<{ title: string; is_completed: number }> }
+    expect(all.data[0]!.title).toBe('Brand new')
+    expect(all.data.filter(t => t.is_completed === 1).length).toBeLessThanOrEqual(200)
   })
 
   it('complete recurring task past end_date marks complete', async () => {
@@ -296,14 +347,14 @@ describe('Caseload Tasks — Yearly Recurrence', () => {
     const recurrence = JSON.stringify({ type: 'yearly', interval: 1 })
     const created = await invoke(IPC.TASK_CREATE, {
       title: 'Leap year task',
-      due_date: '2024-02-29',
+      due_date: '2032-02-29',
       recurrence_rule: recurrence,
     }) as { ok: true; data: { id: number } }
 
     await invoke(IPC.TASK_COMPLETE, created.data.id)
 
     const task = testDb.db.prepare('SELECT due_date FROM caseload_tasks WHERE id = ?').get(created.data.id) as { due_date: string }
-    // Feb 29 + 1 year clamps to Feb 28 (2025 is not a leap year)
-    expect(task.due_date).toBe('2025-02-28')
+    // Feb 29 + 1 year clamps to Feb 28 (2033 is not a leap year)
+    expect(task.due_date).toBe('2033-02-28')
   })
 })

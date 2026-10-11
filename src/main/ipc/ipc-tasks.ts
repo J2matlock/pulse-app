@@ -9,6 +9,7 @@ import { getDb, cachedStmt } from '../database'
 import type { CaseloadTask, TaskGroup, Snippet } from '../../shared/types'
 import { localDateString } from '../../shared/dates'
 import { usesHumanServicesWords } from '../vocab'
+import { parseRepeatRule, nextRepeatDate } from '../../shared/recurrence'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_TASKS = 500
@@ -20,10 +21,15 @@ export function registerTaskHandlers(): void {
   secureWrap(IPC.TASK_GET_ALL, 'ipc-tasks', (_e, gridId?: number) => {
     if (gridId != null && !validId(gridId)) return fail('Invalid ID')
     const TASK_COLS = 'id, grid_id, group_id, title, description, priority, category, due_date, recurrence_rule, is_completed, completed_at, snoozed_until, position, created_at, updated_at'
-    const tasks = gridId != null
-      ? cachedStmt('task_all_grid', `SELECT ${TASK_COLS} FROM caseload_tasks WHERE grid_id = ? ORDER BY position ASC, due_date ASC NULLS LAST LIMIT ${QUERY_LIMITS.TASKS_LIST}`).all(gridId) as CaseloadTask[]
-      : cachedStmt('task_all', `SELECT ${TASK_COLS} FROM caseload_tasks ORDER BY position ASC, due_date ASC NULLS LAST LIMIT ${QUERY_LIMITS.TASKS_LIST}`).all() as CaseloadTask[]
-    return ok(tasks)
+    // Open tasks first, then only the most recent finished ones, so a long
+    // history of finished tasks never pushes new ones off the list (audit S-14)
+    const where = gridId != null ? 'grid_id = ? AND' : ''
+    const args = gridId != null ? [gridId] : []
+    const open = cachedStmt(`task_open_${gridId != null ? 'grid' : 'all'}`, `SELECT ${TASK_COLS} FROM caseload_tasks WHERE ${where} is_completed = 0
+      ORDER BY position ASC, due_date ASC NULLS LAST LIMIT ${QUERY_LIMITS.TASKS_LIST}`).all(...args) as CaseloadTask[]
+    const done = cachedStmt(`task_done_${gridId != null ? 'grid' : 'all'}`, `SELECT * FROM (SELECT ${TASK_COLS} FROM caseload_tasks WHERE ${where} is_completed = 1
+      ORDER BY completed_at DESC, id DESC LIMIT ${QUERY_LIMITS.TASKS_COMPLETED}) ORDER BY position ASC`).all(...args) as CaseloadTask[]
+    return ok([...open, ...done])
   })
 
   secureWrap(IPC.TASK_GET_DUE, 'ipc-tasks', () => {
@@ -55,13 +61,15 @@ export function registerTaskHandlers(): void {
       } catch (err) { logNonFatal('ipc-tasks', 'parsing recurrence_rule JSON', err); return fail('Invalid recurrence rule JSON') }
     }
     const db = getDb()
+    // A repeating task needs a date to repeat from; it starts today (audit S-12)
+    const dueDate = task.due_date ?? (task.recurrence_rule ? localDateString() : null)
     const groupId = (task as Record<string, unknown>).group_id != null ? Number((task as Record<string, unknown>).group_id) : null
     const maxPos = (db.prepare('SELECT COALESCE(MAX(position), -1) as m FROM caseload_tasks WHERE group_id IS ?').get(groupId) as { m: number }).m
     const result = db.prepare(`
       INSERT INTO caseload_tasks (grid_id, group_id, title, description, priority, category, due_date, recurrence_rule, position, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
     `).run(task.grid_id ?? null, groupId, task.title, task.description ?? null, priority,
-           task.category ?? null, task.due_date ?? null, task.recurrence_rule ?? null, maxPos + 1)
+           task.category ?? null, dueDate, task.recurrence_rule ?? null, maxPos + 1)
     const created = db.prepare('SELECT * FROM caseload_tasks WHERE id = ?').get(result.lastInsertRowid) as CaseloadTask
     return ok(created)
   })
@@ -77,6 +85,16 @@ export function registerTaskHandlers(): void {
       try { const p = JSON.parse(updates.recurrence_rule) as { type?: string }; if (!p.type || !VALID_RECURRENCE_TYPES.has(p.type)) return fail('Invalid recurrence type') } catch (err) { logNonFatal('ipc-tasks', 'parsing recurrence_rule JSON', err); return fail('Invalid recurrence rule JSON') }
     }
     const allowed = ['title', 'description', 'priority', 'category', 'due_date', 'recurrence_rule', 'snoozed_until', 'grid_id', 'group_id', 'position', 'is_completed', 'completed_at'] as const
+    // A repeating task needs a due date: clearing it is refused, and turning repeat on starts it today
+    const cur = getDb().prepare('SELECT due_date, recurrence_rule FROM caseload_tasks WHERE id = ?').get(id) as { due_date: string | null; recurrence_rule: string | null } | undefined
+    if (cur) {
+      const rule = 'recurrence_rule' in updates ? updates.recurrence_rule : cur.recurrence_rule
+      const due = 'due_date' in updates ? updates.due_date : cur.due_date
+      if (rule && !due) {
+        if ('due_date' in updates) return fail('A repeating task needs a due date. Turn off Repeat to remove the date.')
+        updates = { ...updates, due_date: localDateString() }
+      }
+    }
     const result = buildSafeSetClause(updates as Record<string, unknown>, allowed, ["updated_at = datetime('now')"])
     if (!result) return fail('No valid fields to update')
     getDb().prepare(`UPDATE caseload_tasks SET ${result.setClause} WHERE id = ?`).run(...result.values, id)
@@ -90,13 +108,22 @@ export function registerTaskHandlers(): void {
     return ok(true)
   })
 
-  secureWrap(IPC.TASK_COMPLETE, 'ipc-tasks', (_e, id: number) => {
+  /**
+   * Tick a task off. A repeating one comes back with its next date (rolled
+   * forward to today or later; the end date itself still counts). The
+   * window passes the due date it saw, so a second click on the same task
+   * (already moved on) is ignored instead of skipping a cycle (audit L-27).
+   */
+  secureWrap(IPC.TASK_COMPLETE, 'ipc-tasks', (_e, id: number, expectedDue?: string | null) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(id)) return fail('Invalid ID')
+    if (expectedDue !== undefined && expectedDue !== null && typeof expectedDue !== 'string') return fail('Invalid due date')
     const db = getDb()
-    const doComplete = db.transaction(() => {
+    const doComplete = db.transaction((): boolean => {
       const task = db.prepare('SELECT * FROM caseload_tasks WHERE id = ?').get(id) as CaseloadTask | undefined
       if (!task) throw new Error('Task not found')
+      if (task.is_completed === 1) return false
+      if (expectedDue !== undefined && (task.due_date ?? null) !== (expectedDue ?? null)) return false
 
       const now = new Date().toISOString()
 
@@ -107,58 +134,24 @@ export function registerTaskHandlers(): void {
         VALUES (?, ?, ?)
       `).run(id, now, histCount + 1)
 
-      if (task.recurrence_rule) {
-        // Advance due date per recurrence rule
-        const rule = JSON.parse(task.recurrence_rule) as { type: string; interval: number; end_date?: string }
-        let nextDate: Date | null = null
-
-        if (task.due_date) {
-          const current = new Date(task.due_date + 'T00:00:00Z')
-          const interval = rule.interval ?? 1
-
-          if (rule.type === 'daily') {
-            nextDate = new Date(current)
-            nextDate.setUTCDate(nextDate.getUTCDate() + interval)
-          } else if (rule.type === 'weekly') {
-            nextDate = new Date(current)
-            nextDate.setUTCDate(nextDate.getUTCDate() + interval * 7)
-          } else if (rule.type === 'monthly') {
-            nextDate = new Date(current)
-            const originalDay = nextDate.getUTCDate()
-            nextDate.setUTCMonth(nextDate.getUTCMonth() + interval)
-            if (nextDate.getUTCDate() !== originalDay) nextDate.setUTCDate(0)
-          } else if (rule.type === 'yearly') {
-            nextDate = new Date(current)
-            const originalDay = nextDate.getUTCDate()
-            nextDate.setUTCFullYear(nextDate.getUTCFullYear() + interval)
-            if (nextDate.getUTCDate() !== originalDay) nextDate.setUTCDate(0)
-          }
-        }
-
-        const endReached = rule.end_date && nextDate && nextDate.toISOString().slice(0, 10) >= rule.end_date
-
-        if (nextDate && !endReached) {
-          db.prepare(`
-            UPDATE caseload_tasks SET is_completed = 0, completed_at = NULL,
-              snoozed_until = NULL, due_date = ?, updated_at = datetime('now')
-            WHERE id = ?
-          `).run(nextDate.toISOString().slice(0, 10), id)
-        } else {
-          // End of recurrence — mark complete
-          db.prepare(`
-            UPDATE caseload_tasks SET is_completed = 1, completed_at = ?, updated_at = datetime('now')
-            WHERE id = ?
-          `).run(now, id)
-        }
+      const rule = parseRepeatRule(task.recurrence_rule)
+      const next = rule ? nextRepeatDate(task.due_date, rule, localDateString()) : null
+      if (next) {
+        db.prepare(`
+          UPDATE caseload_tasks SET is_completed = 0, completed_at = NULL,
+            snoozed_until = NULL, due_date = ?, updated_at = datetime('now')
+          WHERE id = ?
+        `).run(next, id)
       } else {
+        // Doesn't repeat, or the repeats have ended
         db.prepare(`
           UPDATE caseload_tasks SET is_completed = 1, completed_at = ?, updated_at = datetime('now')
           WHERE id = ?
         `).run(now, id)
       }
+      return true
     })
-    doComplete()
-    return ok(true)
+    return ok(doComplete())
   })
 
   secureWrap(IPC.TASK_SNOOZE, 'ipc-tasks', (_e, id: number, until: string) => {
