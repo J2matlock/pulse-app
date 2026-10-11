@@ -36,7 +36,7 @@ vi.mock('../../../../src/renderer/components/profile/Breadcrumb', () => ({
 }))
 
 vi.mock('../../../../src/renderer/components/shared/UndoHistoryPanel', () => ({
-  UndoHistoryPanel: () => <div data-testid="undo-history-panel" />,
+  UndoHistoryPanel: () => <div data-testid="undo-history-panel"><button>Clear all</button></div>,
 }))
 
 let mockUndoStack: Array<{ description: string }> = []
@@ -44,6 +44,7 @@ let mockRedoStack: Array<{ description: string }> = []
 let mockGridName = 'Test Grid'
 let mockRows: Array<Record<string, unknown>> = []
 let mockSearch = ''
+let mockRecent: Array<{ rowId: number; gridId: number; name: string; gridName: string }> = []
 
 vi.mock('../../../../src/renderer/stores/gridStore', () => ({
   useGridStore: (selector: Function) => selector({
@@ -60,7 +61,7 @@ vi.mock('../../../../src/renderer/stores/gridStore', () => ({
 
 vi.mock('../../../../src/renderer/stores/profileStore', () => ({
   useProfileStore: (selector: Function) => selector({
-    recentProfiles: [],
+    recentProfiles: mockRecent,
   }),
 }))
 
@@ -93,6 +94,7 @@ describe('TopBar', () => {
     mockGridName = 'Test Grid'
     mockRows = []
     mockSearch = ''
+    mockRecent = []
   })
 
   it('renders grid name on grid view', () => {
@@ -156,5 +158,38 @@ describe('TopBar', () => {
   it('renders search input on grid view', () => {
     renderTopBar('/grid')
     expect(screen.getByPlaceholderText(/Search clients/)).toBeDefined()
+  })
+
+  // AUDIT-044: the pop-ups take focus, answer the keyboard and give focus back
+  it('recent records menu: focus moves in, arrows move, Escape closes and focus goes back', () => {
+    mockRecent = [
+      { rowId: 1, gridId: 1, name: 'Test Person', gridName: 'Test Grid' },
+      { rowId: 2, gridId: 1, name: 'Sample Person', gridName: 'Test Grid' },
+    ]
+    renderTopBar('/grid')
+    const trigger = screen.getByRole('button', { name: /Recently viewed/ })
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+    trigger.focus()
+    fireEvent.click(trigger)
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    const items = screen.getAllByRole('menuitem')
+    expect(document.activeElement).toBe(items[0])
+    fireEvent.keyDown(items[0] as HTMLElement, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(items[1])
+    fireEvent.keyDown(items[1] as HTMLElement, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  it('undo history: focus moves in, Escape closes and focus goes back', () => {
+    renderTopBar('/grid')
+    const trigger = screen.getByRole('button', { name: 'Undo history' })
+    trigger.focus()
+    fireEvent.click(trigger)
+    expect(screen.getByTestId('undo-history-panel')).toBeDefined()
+    expect(document.activeElement?.textContent).toBe('Clear all')
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' })
+    expect(screen.queryByTestId('undo-history-panel')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
   })
 })

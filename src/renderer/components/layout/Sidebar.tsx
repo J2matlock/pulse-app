@@ -10,6 +10,7 @@ import { pulseEvents } from '../../events'
 import { AnimatePresence, motion } from 'motion/react'
 import { dropdownVariants, backdropVariants, modalPanelVariants } from '../../utils/animations'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { useMenuKeys } from '../../hooks/useMenuKeys'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -44,7 +45,7 @@ interface DeleteConfirmProps {
 function DeleteCaseloadModal({ gridId, gridName, onConfirm, onCancel }: DeleteConfirmProps): React.ReactElement {
   const { t } = useVocab(gridId)
   const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
+  useFocusTrap(trapRef, true, { onEscape: onCancel })
   // Links to other lists go with it (W04 §8)
   const [links, setLinks] = useState<{ types: number; links: number } | null>(null)
   useEffect(() => {
@@ -122,6 +123,9 @@ function SortableGridItem({
   const { t } = useVocab(grid.id)
   const menuBtnRef = useRef<HTMLButtonElement>(null)
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
+  // Focus goes into the menu, arrows move, Escape or Tab closes it, focus goes back (AUDIT-044)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const menuKeys = useMenuKeys(menuRef, menuOpen && !!menuPos, onMenuClose)
 
   // Compute dropdown position when menu opens
   useEffect(() => {
@@ -209,6 +213,8 @@ function SortableGridItem({
           onClick={onMenuToggle}
           title={`${t('list', { cap: true })} options`}
           aria-label={`${t('list', { cap: true })} options`}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
         >
           <MoreHorizontal className="w-4 h-4" />
         </button>
@@ -220,6 +226,10 @@ function SortableGridItem({
         <>
           <div className="fixed inset-0 z-40" onClick={onMenuClose} />
           <motion.div
+            ref={menuRef}
+            onKeyDown={menuKeys}
+            role="menu"
+            aria-label={`${t('list', { cap: true })} options for ${grid.name}`}
             className="fixed z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 min-w-44"
             style={{ top: menuPos.top, left: menuPos.left }}
             variants={dropdownVariants}
@@ -228,6 +238,7 @@ function SortableGridItem({
             exit="exit"
           >
             <button
+              role="menuitem"
               className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={onSettingsStart}
             >
@@ -235,6 +246,7 @@ function SortableGridItem({
               {t('list', { cap: true })} settings…
             </button>
             <button
+              role="menuitem"
               className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={onRenameStart}
             >
@@ -243,6 +255,7 @@ function SortableGridItem({
             </button>
             {onFormsStart && (
               <button
+                role="menuitem"
                 className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                 onClick={onFormsStart}
               >
@@ -252,6 +265,7 @@ function SortableGridItem({
             )}
             {onContactReqStart && (
               <button
+                role="menuitem"
                 className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                 onClick={onContactReqStart}
               >
@@ -261,6 +275,7 @@ function SortableGridItem({
             )}
             {onMoveUp && (
               <button
+                role="menuitem"
                 className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                 onClick={onMoveUp}
               >
@@ -270,6 +285,7 @@ function SortableGridItem({
             )}
             {onMoveDown && (
               <button
+                role="menuitem"
                 className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                 onClick={onMoveDown}
               >
@@ -277,8 +293,9 @@ function SortableGridItem({
                 Move down
               </button>
             )}
-            <div className="my-1 border-t border-slate-200 dark:border-slate-700" />
+            <div role="separator" className="my-1 border-t border-slate-200 dark:border-slate-700" />
             <button
+              role="menuitem"
               className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
               onClick={onDeleteStart}
             >

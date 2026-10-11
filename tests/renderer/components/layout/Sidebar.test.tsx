@@ -233,6 +233,21 @@ describe('Sidebar', () => {
     expect(mockReorderGrids).toHaveBeenLastCalledWith([2, 1])
   })
 
+  it('the options menu takes focus, answers the arrow keys, and Escape closes it and gives focus back (AUDIT-044)', () => {
+    renderSidebar()
+    const trigger = screen.getAllByRole('button', { name: /options$/ })[0] as HTMLElement
+    trigger.focus()
+    fireEvent.click(trigger)
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    const items = screen.getAllByRole('menuitem')
+    expect(document.activeElement).toBe(items[0])
+    fireEvent.keyDown(items[0] as HTMLElement, { key: 'End' })
+    expect(document.activeElement).toBe(items[items.length - 1])
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
   it("the Tasks badge leaves out snoozed tasks and tasks of a list in the Trash (bug sweep S2/S5)", async () => {
     const { useTaskStore } = await import('../../../../src/renderer/stores/taskStore')
     const { localDateString } = await import('../../../../src/shared/dates')
