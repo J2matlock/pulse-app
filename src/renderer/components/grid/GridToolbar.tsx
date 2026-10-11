@@ -308,7 +308,7 @@ export function GridToolbar(): React.ReactElement {
       <div className="relative" data-tour="archived-toggle">
         <button
           onClick={() => { setShowViewMenu(v => !v); setShowMoreMenu(false); setShowReportsMenu(false) }}
-          aria-label="View" title="View"
+          aria-label={showArchived || viewMode === 'board' ? 'View (changed)' : 'View'} title="View"
           className="btn-secondary flex items-center gap-2"
             style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
           aria-expanded={showViewMenu}
@@ -316,7 +316,7 @@ export function GridToolbar(): React.ReactElement {
         >
           <Eye className={`w-4 h-4 ${TOOLBAR_ICON}`} />
           <span className={TOOLBAR_LABEL}>View</span>
-          {(showArchived || viewMode === 'board') && <span className="w-2 h-2 rounded-full bg-amber-500" aria-label="(changed)" />}
+          {(showArchived || viewMode === 'board') && <span className="w-2 h-2 rounded-full bg-amber-500" aria-hidden="true" />}
           <ChevronDown className="w-3.5 h-3.5 opacity-60" />
         </button>
         {showViewMenu && (

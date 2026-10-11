@@ -495,7 +495,8 @@ export const SortableRow = React.memo(function SortableRow({
               />
             ) : (
               <>
-                {alertIcon}
+                {/* The sr-only words below already say how it stands, so the shape isn't read twice */}
+                {alertIcon && <span aria-hidden="true" className="contents">{alertIcon}</span>}
                 <CellDisplay column={col} value={value} row={row.original} allColumns={columns} parsedConfig={parsedColumnConfigs.get(col.id)?.config} highlightText={searchQuery} isActiveMatch={findReplaceActiveRowId === rowId && findReplaceActiveColId === col.id} />
                 {isSample && col.is_name_column === 1 && <SamplePill compact />}
                 {alertChip && <span className="ml-1.5 min-w-0 truncate text-sm text-slate-700 dark:text-slate-200" data-testid="deadline-chip">{alertChip}</span>}

@@ -26,7 +26,7 @@ const _ALERT_SIZE = 'w-3.5 h-3.5'
 
 // Static SVG nodes for non-overdue alert states (overdue uses dynamic aria-label with day count)
 const _ALERT_SHAPE_RED = (
-  <span className={_ALERT_BASE} aria-label="Urgent">
+  <span className={_ALERT_BASE} role="img" aria-label="Urgent">
     <svg className={_ALERT_SIZE} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
       <path d="M8 2L1.5 13.5h13L8 2z"/>
       <path d="M8 7v3" strokeWidth="2" strokeLinecap="round"/>
@@ -35,14 +35,14 @@ const _ALERT_SHAPE_RED = (
   </span>
 )
 const _ALERT_SHAPE_ORANGE = (
-  <span className={_ALERT_BASE} aria-label="Warning">
+  <span className={_ALERT_BASE} role="img" aria-label="Warning">
     <svg className={_ALERT_SIZE} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
       <path d="M8 1.5L14.5 8L8 14.5L1.5 8z"/>
     </svg>
   </span>
 )
 const _ALERT_SHAPE_YELLOW = (
-  <span className={_ALERT_BASE} aria-label="Caution">
+  <span className={_ALERT_BASE} role="img" aria-label="Caution">
     <svg className={_ALERT_SIZE} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
       <rect x="2.5" y="2.5" width="11" height="11" rx="1"/>
     </svg>
@@ -50,7 +50,7 @@ const _ALERT_SHAPE_YELLOW = (
 )
 
 const _ALERT_SHAPE_CIRCLE = (label: string) => (
-  <span className={_ALERT_BASE} aria-label={label}>
+  <span className={_ALERT_BASE} role="img" aria-label={label}>
     <svg className={_ALERT_SIZE} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
       <circle cx="8" cy="8" r="5.5"/>
     </svg>
@@ -68,7 +68,7 @@ export function alertShapeForBand(daysUntil: number, threshold: { daysBefore: nu
   const label = threshold.label?.trim()
   if (daysUntil < 0) {
     return (
-      <span className={_ALERT_BASE} aria-label={`${label ? `${label}: ` : ''}${Math.abs(daysUntil)} day${daysUntil === -1 ? '' : 's'} overdue`}>
+      <span className={_ALERT_BASE} role="img" aria-label={`${label ? `${label}: ` : ''}${Math.abs(daysUntil)} day${daysUntil === -1 ? '' : 's'} overdue`}>
         <svg className={_ALERT_SIZE} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
           <path d="M8 1L1 14h14L8 1z" fill="none" stroke="currentColor" strokeWidth="1.5"/>
           <path d="M8 6v4M8 11.5v1" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
