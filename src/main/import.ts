@@ -917,14 +917,12 @@ export function autoMatchColumns(gridId: number, headers: string[]): ColumnMappi
 
 const IMPORT_CHUNK_SIZE = 50
 
-function yieldToEventLoop(): Promise<void> {
-  return new Promise(resolve => setImmediate(resolve))
-}
-
 export async function executeImport(options: ImportOptions, preview: ImportPreview, onProgress?: (imported: number, total: number) => void): Promise<ImportResult> {
   const { gridId, filePath, sheetName, columnMappings, duplicateStrategy, duplicateColumnId, cleanData } = options
-  const db = getDb()
   const warnings: string[] = []
+  /** The file row being saved, to name it if saving fails */
+  let currentRow: number | null = null
+  let began = false
 
   // Prevent concurrent imports — the cache and DB state are not safe for parallel access
   if (_importInProgress) throw new Error('An import is already in progress')
@@ -935,6 +933,12 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
   try {
     const cached = await getCachedOrParse(filePath, sheetName, options.headerRowIndex)
     warnings.push(...cached.warnings)
+    // Fetched after reading the file: Pulse may have locked meanwhile
+    const db = getDb()
+    // One transaction for the whole import (columns, rows, names, numbers): a failure
+    // anywhere rolls all of it back. Nested db.transaction() calls become savepoints.
+    db.exec('BEGIN')
+    began = true
   const headers = cached.headers
   const allRows = cached.allRows
 
@@ -947,7 +951,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
   let nextPos = (maxPosRow.p ?? -1) + 1
 
   // --- Column creation + name column reassignment (small, fast — single transaction) ---
-  const setupColumns = db.transaction(() => {
+  const setupColumns = () => {
     for (const mapping of columnMappings) {
       if (mapping.action === 'skip') continue
       if (mapping.action === 'create') {
@@ -992,7 +996,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
       }
     }
     return nameColIdInner
-  })
+  }
 
   const nameColId = setupColumns()
 
@@ -1151,103 +1155,66 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
       `INSERT OR REPLACE INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))`
     )
 
-    // Process rows in per-chunk transactions. Each chunk commits independently,
-    // releasing the write lock between chunks so other writes are not blocked
-    // during large imports. If a chunk fails, previously committed chunks persist
-    // (partial import is acceptable — the user sees how many rows were imported).
-    for (let chunkStart = 0; chunkStart < allRows.length; chunkStart += IMPORT_CHUNK_SIZE) {
-      const chunkEnd = Math.min(chunkStart + IMPORT_CHUNK_SIZE, allRows.length)
+    // Every row goes in inside the one transaction around the whole import, so an import
+    // that fails part-way leaves nothing behind. There's no await in here: a lock
+    // (sleep, screen lock) waits until the import is done instead of closing the
+    // database under it. Progress messages are still sent every 50 rows.
+    for (let i = 0; i < allRows.length; i++) {
+      currentRow = i
+      if (onProgress && i > 0 && i % IMPORT_CHUNK_SIZE === 0) onProgress(imported, allRows.length)
+      const importRow = allRows[i]!
+      if (importRow.every(c => String(c).trim() === '')) continue // skip blank rows
 
-      // Only rows from chunks that commit get numbers later
-      const chunkRowIds: number[] = []
-      // The counts and notes from a chunk that rolls back are taken back out too,
-      // so the results screen matches what's in the list
-      const before = {
-        imported, skipped, skippedNames: skippedNames.length, warnings: warnings.length,
-        unreadableDates: new Map(unreadableDates), unclearChecks: new Map(unclearChecks), birthAs1900s: new Map(birthAs1900s),
-        unmatched: new Map([...linkCols].map(([k, lc]) => [k, new Set(lc.unmatched)])),
-      }
-      const insertChunk = db.transaction(() => {
-        for (let i = chunkStart; i < chunkEnd; i++) {
-          const importRow = allRows[i]!
-          if (importRow.every(c => String(c).trim() === '')) continue // skip blank rows
-
-          // Duplicate detection
-          if (dupKeys && dupKeyOf) {
-            const key = dupKeyOf(importRow)
-            if (key !== null) {
-              if (dupKeys.has(key)) {
-                skippedNames.push(cellValue(importRow, dupLabelSrc ?? 0) || `Row ${i + 2}`)
-                skipped++
-                continue
-              }
-              dupKeys.add(key)
-            }
+      // Duplicate detection
+      if (dupKeys && dupKeyOf) {
+        const key = dupKeyOf(importRow)
+        if (key !== null) {
+          if (dupKeys.has(key)) {
+            skippedNames.push(cellValue(importRow, dupLabelSrc ?? 0) || `Row ${i + 2}`)
+            skipped++
+            continue
           }
-
-          // Create row
-          const rowResult = insertRow.run(gridId, nextRowPos++)
-          const rowId = rowResult.lastInsertRowid as number
-          chunkRowIds.push(rowId)
-
-          // Insert cell values
-          for (const [srcIdx, info] of colMap.entries()) {
-            const rawVal = cellValue(importRow, srcIdx)
-            if (!rawVal) continue
-            if (info.type === 'link') { importLinks(rowId, srcIdx, rawVal); continue }
-
-            // The destination column's type decides the format (an existing date
-            // column gets YYYY-MM-DD even if the samples looked like text)
-            const normalized = holdsDate(info.type)
-              ? importedDate(importRow, srcIdx, true)
-              : normalizeValue(rawVal, info.type, cleanData, dateOrders.get(srcIdx))
-            if (holdsDate(info.type) && !/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
-              unreadableDates.set(srcIdx, (unreadableDates.get(srcIdx) ?? 0) + 1)
-            }
-            if (info.type === 'checkbox' && unclearCheckbox(rawVal)) {
-              unclearChecks.set(srcIdx, (unclearChecks.get(srcIdx) ?? 0) + 1)
-            }
-
-            if (normalized) {
-              let cellValue = normalized
-              if (cellValue.length > MAX_CELL_VALUE_LENGTH) {
-                cellValue = cellValue.slice(0, MAX_CELL_VALUE_LENGTH)
-                warnings.push(`Row ${i + 2}, column ${srcIdx + 1}: value truncated to ${MAX_CELL_VALUE_LENGTH} characters`)
-              }
-              insertCell.run(rowId, info.columnId, cellValue)
-            }
-          }
-
-          imported++
+          dupKeys.add(key)
         }
-      })
-
-      try {
-        insertChunk()
-        newRowIds.push(...chunkRowIds)
-      } catch (chunkErr) {
-        imported = before.imported
-        skipped = before.skipped
-        skippedNames.length = before.skippedNames
-        warnings.length = before.warnings
-        unreadableDates.clear(); for (const [k, n] of before.unreadableDates) unreadableDates.set(k, n)
-        unclearChecks.clear(); for (const [k, n] of before.unclearChecks) unclearChecks.set(k, n)
-        birthAs1900s.clear(); for (const [k, n] of before.birthAs1900s) birthAs1900s.set(k, n)
-        for (const [k, lc] of linkCols) lc.unmatched = before.unmatched.get(k) ?? new Set()
-        // Chunk failed — log the error. Previously committed chunks are preserved.
-        // This is acceptable: the user sees the imported count and can re-attempt.
-        logger.error('import', `Chunk failed at rows ${chunkStart + 2}–${chunkEnd + 1}`, {
-          error: chunkErr instanceof Error ? chunkErr.message : String(chunkErr)
-        })
-        // The SQLite text is in the log; the person sees where it stopped and what to do
-        warnings.push(`The import stopped at row ${chunkStart + 2} because something in that part of the file couldn't be saved. Everything before it came in. Check that row, then import the rest.`)
-        break
       }
 
-      // Report progress and yield to event loop between chunks
-      if (onProgress) onProgress(imported, allRows.length)
-      if (chunkEnd < allRows.length) await yieldToEventLoop()
+      // Create row
+      const rowResult = insertRow.run(gridId, nextRowPos++)
+      const rowId = rowResult.lastInsertRowid as number
+      newRowIds.push(rowId)
+
+      // Insert cell values
+      for (const [srcIdx, info] of colMap.entries()) {
+        const rawVal = cellValue(importRow, srcIdx)
+        if (!rawVal) continue
+        if (info.type === 'link') { importLinks(rowId, srcIdx, rawVal); continue }
+
+        // The destination column's type decides the format (an existing date
+        // column gets YYYY-MM-DD even if the samples looked like text)
+        const normalized = holdsDate(info.type)
+          ? importedDate(importRow, srcIdx, true)
+          : normalizeValue(rawVal, info.type, cleanData, dateOrders.get(srcIdx))
+        if (holdsDate(info.type) && !/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+          unreadableDates.set(srcIdx, (unreadableDates.get(srcIdx) ?? 0) + 1)
+        }
+        if (info.type === 'checkbox' && unclearCheckbox(rawVal)) {
+          unclearChecks.set(srcIdx, (unclearChecks.get(srcIdx) ?? 0) + 1)
+        }
+
+        if (normalized) {
+          let cellValue = normalized
+          if (cellValue.length > MAX_CELL_VALUE_LENGTH) {
+            cellValue = cellValue.slice(0, MAX_CELL_VALUE_LENGTH)
+            warnings.push(`Row ${i + 2}, column ${srcIdx + 1}: value truncated to ${MAX_CELL_VALUE_LENGTH} characters`)
+          }
+          insertCell.run(rowId, info.columnId, cellValue)
+        }
+      }
+
+      imported++
     }
+    currentRow = null
+    if (onProgress) onProgress(imported, allRows.length)
 
   // Backfill display_name for all rows in this grid — the SQLite trigger fires on cell
   // INSERT/UPDATE, but if is_name_column was reassigned during import setup, rows inserted
@@ -1284,6 +1251,8 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
     assignAutoNumbers(gridId, newRowIds)
   })()
   if (hasDisplayFormat(gridId)) db.transaction(() => refreshDisplayNames(gridId))()
+  db.exec('COMMIT')
+  began = false
 
   for (const [srcIdx, n] of birthAs1900s) {
     warnings.push(`${n} date${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" had a two-digit year and ${n === 1 ? 'was' : 'were'} read as 19xx. Check ${n === 1 ? 'it' : 'them'}.`)
@@ -1307,7 +1276,19 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
   logger.info('import', 'Import complete', { rowsImported: imported, skipped, warningCount: warnings.length, durationMs: Date.now() - importStart })
   return { imported, skipped, warnings, skippedNames, newRowIds }
   } catch (err) {
-    logger.error('import', 'Import failed', { error: err instanceof Error ? err.message : String(err) })
+    logger.error('import', 'Import failed', { error: err instanceof Error ? err.message : String(err), row: currentRow === null ? undefined : currentRow + 2 })
+    if (began) {
+      try {
+        const db = getDb()
+        if (db.inTransaction) db.exec('ROLLBACK')
+      } catch (rollbackErr) {
+        logger.warn('import', 'Rollback after failed import', { error: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr) })
+      }
+    }
+    // The SQLite text is in the log; the person sees which row to check
+    if (currentRow !== null) {
+      throw new ImportFileError(`Nothing was imported, because row ${currentRow + 2} couldn't be saved. Check that row in the file, then try again.`)
+    }
     throw err
   } finally {
     _importInProgress = false
