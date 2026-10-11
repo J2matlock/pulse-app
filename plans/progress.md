@@ -1724,3 +1724,8 @@ Build state: npm test 4355 pass / 4 skip; typecheck 0; eslint 0 errors; e2e 11/1
 - Verified: npm test 439 files / 5034 tests (0 skipped), typecheck 0, eslint 0; e2e subset (setup, unlock, grid CRUD, backup/restore) 4/4 on Electron 44; packaged fused Linux build sets a password and opens the encrypted DB; .deb control file and AppArmor profile inspected.
 - Still to do by hand: Ubuntu 24.04 VM .deb install and launch; Windows and macOS launch with asar integrity. Not pushed.
 - Follow-up: the `.deb` target, its Fedora build check (libxcrypt-compat) and the README Ubuntu section were removed at the user's request (Fedora only). Linux stays AppImage-only; AUDIT-019 closed as won't-fix. Tests 439 files / 5034 passed.
+
+## 2026-10-11 (cont.) — Pulse 2.4.0 released
+- Version 2.4.0 (audit fixes, approved decisions, Electron 44 + SQLCipher 13), What's New entry, SBOM/licenses regenerated, tagged v2.4.0 in pulse-app.
+- `pulse-releases` v2.4.0: `PULSE.exe`, `BaringaSoftPulse-2.4.0.AppImage`, `SHA256SUMS.txt`, marked latest; `latest.json` announces 2.4.0. Downloaded assets verified against the checksums.
+- AppImage smoke-launched on Fedora with an isolated home. The Windows exe (asar integrity on) was published without a real-Windows launch test, at the user's choice; if Windows users report Pulse won't open, rebuild with the integrity fuse off as 2.4.1.
