@@ -275,6 +275,8 @@ function setupStores(overrides: Record<string, unknown> = {}) {
     lastAddedRowId: null,
     pinnedRowId: null,
     sampleRows: {},
+    loadedGridId: null,
+    loadError: null,
     ...overrides,
   } as unknown as Parameters<typeof useGridStore.setState>[0])
   useSettingsStore.setState({ gridDensity: 'comfortable' })
@@ -405,6 +407,33 @@ describe('DataGrid', () => {
       await flushEffects()
       expect(screen.getByRole('status')).toBeTruthy()
       expect(screen.getByText('Loading…')).toBeTruthy()
+    })
+
+    it('keeps the table on screen while the open list reloads (AUDIT-039)', async () => {
+      setupStores({ loadedGridId: 1 })
+      const { container } = renderDataGrid()
+      await flushEffects()
+      const scroller = container.querySelector('.overflow-auto') as HTMLDivElement
+      scroller.scrollTop = 600
+      const cell = screen.getAllByRole('gridcell')[5]!
+      act(() => { cell.focus() })
+      await act(async () => { useGridStore.setState({ isLoading: true }) })
+      expect(screen.queryByText('Loading…')).toBeNull()
+      expect(container.querySelector('.overflow-auto')).toBe(scroller)
+      expect(scroller.scrollTop).toBe(600)
+      await act(async () => { useGridStore.setState({ isLoading: false, rows: makeTestRows(5) }) })
+      expect(container.querySelector('.overflow-auto')).toBe(scroller)
+      expect(document.activeElement).toBe(screen.getAllByRole('gridcell')[5])
+    })
+
+    it('says when a list could not be opened, and tries again (AUDIT-041)', async () => {
+      const loadGrid = vi.fn().mockResolvedValue(undefined)
+      setupStores({ columns: [], rows: [], loadError: "We couldn't open this caseload.", loadGrid })
+      renderDataGrid()
+      await flushEffects()
+      expect(screen.getByRole('alert').textContent).toContain("We couldn't open this caseload.")
+      fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+      expect(loadGrid).toHaveBeenCalledWith(1)
     })
 
     it('shows empty columns state when columns array is empty', async () => {

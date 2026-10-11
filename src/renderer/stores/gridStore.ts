@@ -7,6 +7,7 @@ import type { SideEffect, UndoItem } from './undoStore'
 import { getClientName } from '../utils/clientName'
 import { wordNow } from '../utils/vocab'
 import { rlog } from '../utils/rendererLogger'
+import { friendlyError } from '../utils/friendlyError'
 import toast from 'react-hot-toast'
 import { storeInvoke as invoke } from '../utils/safeInvoke'
 import { createFilterSlice, viewModeKey, tagsColumnKey } from './gridFilterSlice'
@@ -74,6 +75,8 @@ export const useGridStore = create<GridState>((set, get) => ({
   hiddenColumns: [],
   rows: [],
   isLoading: false,
+  loadedGridId: null,
+  loadError: null,
   isSaving: false,
   saveError: null,
   showArchived: false,
@@ -206,9 +209,9 @@ export const useGridStore = create<GridState>((set, get) => ({
         const s = get()
         _listViews.set(prevGridId, { activeFilters: s.activeFilters, filterMode: s.filterMode, searchQuery: s.searchQuery, groupByColumnId: s.groupByColumnId, showStarredOnly: s.showStarredOnly })
       }
-      set({ ...(_listViews.get(gridId) ?? DEFAULT_LIST_VIEW) })
+      set({ ...(_listViews.get(gridId) ?? DEFAULT_LIST_VIEW), loadedGridId: null })
     }
-    set({ isLoading: true, activeGridId: gridId, _loadVersion: version, sortedRowIds: [], selectedRowIds: new Set<number>(), pinnedRowId: null })
+    set({ isLoading: true, loadError: null, activeGridId: gridId, _loadVersion: version, sortedRowIds: [], selectedRowIds: new Set<number>(), pinnedRowId: null })
     try {
       const showArchived = get().showArchived
       const fullData = await invoke<{
@@ -255,7 +258,7 @@ export const useGridStore = create<GridState>((set, get) => ({
       set({
         ...(keptFilters.length !== activeFilters.length ? { activeFilters: keptFilters } : {}),
         ...(typeof groupByColumnId === 'number' && !known.has(groupByColumnId) ? { groupByColumnId: null } : {}),
-        columns, hiddenColumns, rows, sortConfig, isLoading: false,
+        columns, hiddenColumns, rows, sortConfig, isLoading: false, loadedGridId: gridId,
         acuityLevels: acuityLevels ?? [],
         acuityEnabled: grid.acuity_enabled === 1,
         cellFormats: cellFormatsMap,
@@ -282,8 +285,20 @@ export const useGridStore = create<GridState>((set, get) => ({
         .then(ctx => { if (get()._loadVersion === version && ctx && typeof ctx === 'object' && ctx.meter) set({ deadlineContext: ctx }) })
         .catch(err => rlog.warn('GridStore', 'Could not load deadline context', err))
     } catch (err) {
-      if (get()._loadVersion === version) set({ isLoading: false })
       rlog.error('GridStore', 'Failed to load grid', err)
+      if (get()._loadVersion !== version) return
+      if (get().loadedGridId === gridId) {
+        // A reload of the open list: what's on screen is still this list's, so keep it and say so
+        set({ isLoading: false })
+        toast.error(`We couldn't refresh this ${wordNow('list')}. Please try again.`)
+      } else {
+        // Another list's records must not show under this one's name (AUDIT-041)
+        set({
+          isLoading: false, columns: [], hiddenColumns: [], rows: [], cellFormats: new Map(), rowTagsMap: new Map(),
+          sampleRows: {}, deadlineContext: { meter: {}, quota: {}, progress: {}, extensions: {} },
+          loadError: `We couldn't open this ${wordNow('list')}.`,
+        })
+      }
     }
   },
 
@@ -682,16 +697,16 @@ export const useGridStore = create<GridState>((set, get) => ({
       }
       return true
     } catch (err) {
-      // Rollback optimistic update to previous value
+      // Roll back to the previous value, unless a newer edit has replaced this one meanwhile (AUDIT-130)
       set(s => ({
-        rows: s.rows.map(r => r.row_id === rowId ? { ...r, [key]: prevValue } : r),
+        rows: s.rows.map(r => r.row_id === rowId && (r[key] ?? null) === value ? { ...r, [key]: prevValue } : r),
         isSaving: false,
         saveError: fromUndo || collect ? null : "We couldn't save your changes — please try again."
       }))
       rlog.error('GridStore', 'Cell update failed', err)
       if (fromUndo) throw err
       // A bulk action counts its failures and says so once
-      if (!collect) toast.error('Could not save — please try again')
+      if (!collect) toast.error(friendlyError(err instanceof Error ? err.message : null, 'Could not save — please try again'))
       return false
     }
   },

@@ -81,7 +81,7 @@ export function DataGrid(): React.ReactElement {
           rowTagsMap, showStarredOnly, cellFormats,
           acuityEnabled: acuityFlag, acuityLevels, groupByColumnId, isLoading,
           activeGridId, copiedFormatRules, customGroups, activeCustomGroupId,
-          lastAddedRowId, pinnedRowId, frozenColumnCount, sampleRows } = useGridStore(useShallow(s => ({
+          lastAddedRowId, pinnedRowId, frozenColumnCount, sampleRows, loadedGridId, loadError } = useGridStore(useShallow(s => ({
     columns: s.columns, rows: s.rows, sortConfig: s.sortConfig,
     searchQuery: s.searchQuery, findReplaceQuery: s.findReplaceQuery,
     findReplaceActiveMatch: s.findReplaceActiveMatch,
@@ -97,6 +97,7 @@ export function DataGrid(): React.ReactElement {
     pinnedRowId: s.pinnedRowId,
     frozenColumnCount: s.frozenColumnCount,
     sampleRows: s.sampleRows,
+    loadedGridId: s.loadedGridId, loadError: s.loadError,
   })))
   // A list's own setting, shown only while the feature is switched on
   const priorityOn = useFeature('priority')
@@ -744,8 +745,21 @@ export function DataGrid(): React.ReactElement {
     />
   )
 
-  if (isLoading) {
+  // Only a first load or another list shows the placeholder. A reload of this list keeps the
+  // table mounted, so the scroll position and the focused cell stay put (AUDIT-039)
+  if (isLoading && loadedGridId !== activeGridId) {
     return <GridLoadingSkeleton rowHeight={rowHeight} />
+  }
+
+  if (loadError && !isLoading) {
+    return (
+      <div role="alert" className="flex flex-col items-center justify-center h-full gap-4 px-6 text-center">
+        <p className="text-base text-slate-700 dark:text-slate-300">{loadError} Please try again.</p>
+        <button type="button" className="btn-primary" onClick={() => { if (activeGridId !== null) void useGridStore.getState().loadGrid(activeGridId) }}>
+          Try again
+        </button>
+      </div>
+    )
   }
 
   if (columns.length === 0) {
