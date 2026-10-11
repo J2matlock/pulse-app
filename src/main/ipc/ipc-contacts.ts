@@ -20,7 +20,10 @@ import { PROVIDER_CONTACT_TYPES } from '../../shared/types'
 import type { ContactFilterParams, Provider } from '../../shared/types'
 import { localDateString } from '../../shared/dates'
 import { safeFileName } from '../../shared/fileName'
+import { normalizeHexColor } from '../../shared/color'
 import { word } from '../vocab'
+
+const BAD_COLOR = 'Choose a color from the swatches, or type one like #3b82f6.'
 
 export function registerContactHandlers(): void {
   secureWrap(IPC.CONTACTS_GET_CATEGORIES, 'ipc-contacts', () => {
@@ -30,16 +33,23 @@ export function registerContactHandlers(): void {
   secureWrap(IPC.CONTACTS_CREATE_CATEGORY, 'ipc-contacts', (_e, name: string, color: string) => {
     const guard = enforceWritable(); if (guard) return guard
     if (typeof name !== 'string' || name.trim().length === 0 || name.length > 200) return fail('Invalid category name (max 200 chars)')
-    if (typeof color !== 'string' || color.length > 50) return fail('Invalid color')
-    return ok(createCategory(name, color))
+    const hex = normalizeHexColor(color)
+    if (!hex) return fail(BAD_COLOR)
+    return ok(createCategory(name, hex))
   })
 
   secureWrap(IPC.CONTACTS_UPDATE_CATEGORY, 'ipc-contacts', (_e, id: number, data: { name?: string; color?: string; position?: number }) => {
     const guard = enforceWritable(); if (guard) return guard; if (!validId(id)) return fail('Invalid ID')
+    if (!data || typeof data !== 'object') return fail('Invalid data')
     if (typeof data.name === 'string' && (data.name.trim().length === 0 || data.name.length > 200)) return fail('Invalid name')
-    if (data.color !== undefined && (typeof data.color !== 'string' || data.color.length > 50)) return fail('Invalid color')
+    let color: string | undefined
+    if (data.color !== undefined) {
+      const hex = normalizeHexColor(data.color)
+      if (!hex) return fail(BAD_COLOR)
+      color = hex
+    }
     if (data.position !== undefined && (typeof data.position !== 'number' || data.position < 0 || data.position > 10000)) return fail('Invalid position')
-    updateCategory(id, data); return ok(true)
+    updateCategory(id, { name: data.name, color, position: data.position }); return ok(true)
   })
 
   secureWrap(IPC.CONTACTS_DELETE_CATEGORY, 'ipc-contacts', (_e, id: number) => {

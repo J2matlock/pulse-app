@@ -187,6 +187,19 @@ async function createProvider(name = 'Dr. Smith', extra?: Record<string, unknown
   return await invoke(IPC.CONTACTS_CREATE, { name, ...extra }) as any
 }
 
+describe('category colors', () => {
+  it('refuses a color the directory PDF cannot print, and normalises short hex', async () => {
+    expect((await createCategory('Named', 'red')).ok).toBe(false)
+    const short = await createCategory('Short', '#abc')
+    expect(short.ok).toBe(true)
+    expect(short.data.color).toBe('#aabbcc')
+    expect((await invoke(IPC.CONTACTS_UPDATE_CATEGORY, short.data.id, { color: 'blue' })).ok).toBe(false)
+    expect((await invoke(IPC.CONTACTS_UPDATE_CATEGORY, short.data.id, { color: '#ABCDEF' })).ok).toBe(true)
+    const row = testDb.db.prepare('SELECT color FROM provider_categories WHERE id = ?').get(short.data.id) as { color: string }
+    expect(row.color).toBe('#abcdef')
+  })
+})
+
 describe('CONTACTS_GET_CATEGORIES', () => {
   it('returns categories array', async () => {
     const r = await invoke(IPC.CONTACTS_GET_CATEGORIES) as any

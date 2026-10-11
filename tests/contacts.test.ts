@@ -75,6 +75,19 @@ describe('Categories', () => {
     expect(cats[9].name).toBe('Other')
   })
 
+  it('deleting every category does not bring the defaults back', () => {
+    for (const c of getCategories()) deleteCategory(c.id)
+    expect(getCategories()).toHaveLength(0)
+    expect(getCategories()).toHaveLength(0)
+  })
+
+  it('a workspace that already has its own categories never gets the defaults later', () => {
+    createCategory('Mine', '#112233')
+    expect(getCategories().map(c => c.name)).toEqual(['Mine'])
+    for (const c of getCategories()) deleteCategory(c.id)
+    expect(getCategories()).toHaveLength(0)
+  })
+
   it('createCategory adds at end', () => {
     getCategories() // seed defaults
     const newCat = createCategory('Dental', '#10b981')
