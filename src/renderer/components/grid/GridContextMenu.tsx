@@ -473,7 +473,7 @@ export function GridContextMenu({
           onClick={() => onDeleteRow(contextMenu.rowId)}
         >
           <Trash2 className="w-4 h-4" />
-          Move to trash
+          Move to the Trash
         </button>
       </motion.div>
     </>

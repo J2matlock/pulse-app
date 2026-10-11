@@ -71,7 +71,7 @@ function DeleteCaseloadModal({ gridId, gridName, onConfirm, onCancel }: DeleteCo
             onClick={onConfirm}
             className="btn-primary bg-red-600 hover:bg-red-700"
           >
-            Move to Trash
+            Move to the Trash
           </button>
         </div>
       </motion.div>

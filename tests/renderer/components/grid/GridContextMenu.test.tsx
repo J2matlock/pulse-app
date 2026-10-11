@@ -129,7 +129,7 @@ describe('GridContextMenu', () => {
     expect(screen.getByText('Duplicate client')).toBeTruthy()
     expect(screen.getByText('Move / Copy to another caseload…')).toBeTruthy()
     expect(screen.getByText('Archive client…')).toBeTruthy()
-    expect(screen.getByText('Move to trash')).toBeTruthy()
+    expect(screen.getByText('Move to the Trash')).toBeTruthy()
   })
 
   it('left-aligns every item at full height, so a wrapped one reads like the rest (V1)', () => {
@@ -168,7 +168,7 @@ describe('GridContextMenu', () => {
   it('clicking Move to trash fires onDeleteRow', () => {
     const props = makeProps()
     render(<GridContextMenu {...props} />)
-    fireEvent.click(screen.getByText('Move to trash'))
+    fireEvent.click(screen.getByText('Move to the Trash'))
     expect(props.onDeleteRow).toHaveBeenCalledWith(1)
   })
 

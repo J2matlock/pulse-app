@@ -112,7 +112,7 @@ describe('DeleteRowDialog', () => {
       <DeleteRowDialog deleteTarget={1} deleteRow={vi.fn()} setDeleteTarget={vi.fn()} setSelectedRowIds={vi.fn()} />
     )
     expect(screen.getByTestId('confirm-dialog')).toBeTruthy()
-    expect(screen.getByText('Move to trash?')).toBeTruthy()
+    expect(screen.getByText('Move this client to the Trash?')).toBeTruthy()
   })
 })
 
@@ -128,7 +128,7 @@ describe('BulkDeleteDialog', () => {
         setBulkDeleteTarget={vi.fn()}
       />
     )
-    expect(screen.getByText('Move 3 clients to trash?')).toBeTruthy()
+    expect(screen.getByText('Move 3 clients to the Trash?')).toBeTruthy()
   })
 
   it('moves to trash with a plain confirm and one Undo that restores them all (G-34)', async () => {
@@ -141,7 +141,7 @@ describe('BulkDeleteDialog', () => {
     fireEvent.click(screen.getByText('Confirm'))
     await waitFor(() => expect(useUndoStore.getState().undoStack).toHaveLength(1))
     expect(vi.mocked(safeInvoke)).toHaveBeenCalledWith('row:bulk-action', 'delete', [4, 5])
-    expect(useUndoStore.getState().undoStack[0]!.description).toBe('Moved 2 clients to trash')
+    expect(useUndoStore.getState().undoStack[0]!.description).toBe('Moved 2 clients to the Trash')
     await useUndoStore.getState().undo()
     expect(vi.mocked(mustInvoke)).toHaveBeenCalledWith('row:bulk-action', 'restore', [4, 5])
   })

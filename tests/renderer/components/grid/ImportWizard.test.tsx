@@ -193,7 +193,7 @@ describe('ImportWizard', () => {
       fireEvent.click(screen.getByRole('button', { name: /Next/ }))
       fireEvent.click(await screen.findByRole('button', { name: /^Import/ }))
       fireEvent.click(await screen.findByRole('button', { name: 'Undo this import' }))
-      expect(await screen.findByText(/in Trash, where they can be restored/)).toBeTruthy()
+      expect(await screen.findByText(/in the Trash, where they can be restored/)).toBeTruthy()
       expect(mockInvoke).toHaveBeenCalledWith('import:undo', 1, [41, 42])
     })
 
@@ -233,7 +233,7 @@ describe('ImportWizard', () => {
       fireEvent.click(screen.getByRole('button', { name: /Next/ }))
       fireEvent.click(await screen.findByRole('button', { name: /^Import/ }))
       fireEvent.click(await screen.findByRole('button', { name: 'Undo this import' }))
-      await screen.findByText(/in Trash, where they can be restored/)
+      await screen.findByText(/in the Trash, where they can be restored/)
       fireEvent.click(screen.getByRole('button', { name: 'Done' }))
       expect(onImported).toHaveBeenCalledWith(expect.objectContaining({ undone: true }))
     })

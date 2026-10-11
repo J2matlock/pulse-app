@@ -125,7 +125,7 @@ describe('TrashView — interactions', () => {
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
 
-    expect(screen.getByText('Empty Trash')).toBeDefined()
+    expect(screen.getByText('Empty the Trash')).toBeDefined()
   })
 
   it('emptying the Trash drops undo steps that would bring back what is gone (polish R2)', async () => {
@@ -135,7 +135,7 @@ describe('TrashView — interactions', () => {
     mockTrash(sampleDeletedRows)
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
-    fireEvent.click(screen.getByText('Empty Trash'))
+    fireEvent.click(screen.getByText('Empty the Trash'))
     await act(async () => { fireEvent.click(screen.getByTestId('confirm-btn')) })
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('row:purge-all'))
     expect(clear).toHaveBeenCalled()
@@ -147,7 +147,7 @@ describe('TrashView — interactions', () => {
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
 
-    expect(screen.queryByText('Empty Trash')).toBeNull()
+    expect(screen.queryByText('Empty the Trash')).toBeNull()
   })
 
   it('shows empty state when no deleted items', async () => {
@@ -157,7 +157,7 @@ describe('TrashView — interactions', () => {
     await flushEffects()
 
     expect(screen.getByTestId('empty-state')).toBeDefined()
-    expect(screen.getByText('Trash is empty')).toBeDefined()
+    expect(screen.getByText('The Trash is empty')).toBeDefined()
   })
 })
 
@@ -173,8 +173,8 @@ describe('TrashView — removed files (S1)', () => {
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
     expect(screen.getByText('consent.pdf')).toBeDefined()
-    expect(screen.queryByText('Trash is empty')).toBeNull()
-    expect(screen.getByText('Empty Trash')).toBeDefined()
+    expect(screen.queryByText('The Trash is empty')).toBeNull()
+    expect(screen.getByText('Empty the Trash')).toBeDefined()
   })
 
   it('Empty Trash removes the files too and reloads the Files list', async () => {
@@ -186,12 +186,12 @@ describe('TrashView — removed files (S1)', () => {
     })
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
-    fireEvent.click(screen.getByText('Empty Trash'))
+    fireEvent.click(screen.getByText('Empty the Trash'))
     await act(async () => { fireEvent.click(screen.getByTestId('confirm-btn')) })
     await flushEffects()
     expect(mockInvoke).toHaveBeenCalledWith('attachments:purge')
     expect(screen.queryByText('consent.pdf')).toBeNull()
-    expect(screen.getByText('Trash is empty')).toBeDefined()
+    expect(screen.getByText('The Trash is empty')).toBeDefined()
   })
 
   it('deleting a record for good reloads the Files list (its files went with it)', async () => {
@@ -203,7 +203,9 @@ describe('TrashView — removed files (S1)', () => {
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
     const before = listed
-    fireEvent.click(screen.getAllByTitle('Delete permanently')[0]!)
+    fireEvent.click(screen.getAllByTitle('Delete forever')[0]!)
+    // Names the record, like the list version (AUDIT-158)
+    expect(screen.getByText('Delete "Alice Johnson" forever?')).toBeDefined()
     await act(async () => { fireEvent.click(screen.getByTestId('confirm-btn')) })
     await flushEffects()
     expect(listed).toBeGreaterThan(before)

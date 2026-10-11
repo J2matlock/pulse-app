@@ -572,7 +572,7 @@ describe('IPC Row — ROW_BULK_ACTION', () => {
     const rows = testDb.db.prepare('SELECT id, is_active, deleted_at FROM rows ORDER BY id').all() as Array<{ id: number; is_active: number; deleted_at: string | null }>
     expect(rows.map(r => [r.is_active, r.deleted_at])).toEqual([[0, null], [1, null], [1, null]])
     // Only the two that were in the trash get a "restored" note
-    const logs = testDb.db.prepare("SELECT COUNT(*) AS n FROM case_log WHERE content LIKE '%restored from trash'").get() as { n: number }
+    const logs = testDb.db.prepare("SELECT COUNT(*) AS n FROM case_log WHERE content LIKE '%restored from the Trash'").get() as { n: number }
     expect(logs.n).toBe(2)
   })
 

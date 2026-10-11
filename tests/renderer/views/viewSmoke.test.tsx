@@ -527,13 +527,13 @@ describe('TrashView', () => {
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
     expect(screen.getByTestId('empty-state')).toBeDefined()
-    expect(screen.getByText('Trash is empty')).toBeDefined()
+    expect(screen.getByText('The Trash is empty')).toBeDefined()
   })
 
   it('does not show Empty Trash button when no items', async () => {
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.queryByText('Empty Trash')).toBeNull()
+    expect(screen.queryByText('Empty the Trash')).toBeNull()
   })
 })
 

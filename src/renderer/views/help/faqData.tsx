@@ -159,14 +159,14 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-archive',
     question: 'How do I archive {a record} instead of deleting it?',
-    answer: 'Right-click the row and select "Archive." Archived {record:many} are hidden from your main view but not deleted \u2014 you can see archived {record:many} by clicking the "Archived" toggle in the toolbar, and unarchive any of them at any time. Archiving is different from deleting: archived {record:many} stay in your database indefinitely, while deleted {record:many} go to Trash and are permanently removed after 30 days.',
+    answer: 'Right-click the row and select "Archive." Archived {record:many} are hidden from your main view but not deleted \u2014 you can see archived {record:many} by clicking the "Archived" toggle in the toolbar, and unarchive any of them at any time. Archiving is different from deleting: archived {record:many} stay in your database indefinitely, while deleted {record:many} go to the Trash and are removed for good after 30 days.',
     category: 'caseload-grid',
     tourStepIds: ['archived-toggle'],
   },
   {
     id: 'grid-trash',
     question: 'What happens when I delete {a record}?',
-    answer: 'Deleting {a record} moves it to Trash \u2014 nothing is permanently removed right away. You have 30 days to recover a deleted {record} from the Trash view (click "Trash" in the sidebar). After 30 days, trashed {record:many} are automatically and permanently removed. This gives you a safety net if you delete something by accident.',
+    answer: 'Deleting {a record} moves it to the Trash \u2014 nothing is removed for good right away. You have 30 days to recover a deleted {record} from the Trash view (click "Trash" in the sidebar). After 30 days, {record:many} in the Trash are removed for good automatically. This gives you a safety net if you delete something by accident.',
     category: 'caseload-grid',
   },
   {

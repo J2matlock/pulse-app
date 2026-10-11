@@ -320,7 +320,7 @@ export default function ProfileView(): React.ReactElement {
     ...(row && row.is_active !== 0 ? [{ label: 'Archive…', onSelect: () => setAskArchive(true) }] : []),
     ...(rowInList ? [{ label: 'Duplicate', onSelect: () => { if (rowId != null) void duplicateRow(rowId) } }] : []),
     ...(grids.length > 1 ? [{ label: `Move to another ${t('list')}…`, onSelect: () => setShowMove(true) }] : []),
-    { label: 'Move to Trash…', onSelect: () => setAskTrash(true), danger: true },
+    { label: 'Move to the Trash…', onSelect: () => setAskTrash(true), danger: true },
   ]
 
   // Refs to avoid stale closures in keyboard handler
@@ -623,7 +623,7 @@ export default function ProfileView(): React.ReactElement {
         open={askTrash}
         title={`Move ${clientName} to the Trash?`}
         message={`It stays in the Trash for 30 days, and you can restore it from there or with Undo.`}
-        confirmLabel="Move to Trash"
+        confirmLabel="Move to the Trash"
         onConfirm={() => void confirmTrash()}
         onCancel={() => setAskTrash(false)}
       />

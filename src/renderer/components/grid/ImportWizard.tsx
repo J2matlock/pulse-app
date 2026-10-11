@@ -976,7 +976,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                     <div className="flex items-center gap-3 flex-wrap">
                       {undo === 'done' ? (
                         <p role="status" className="text-base text-slate-700 dark:text-slate-200">
-                          Undone: the {importResult.newRowIds!.length} imported {t('record', { count: importResult.newRowIds!.length })} {importResult.newRowIds!.length === 1 ? 'is' : 'are'} in Trash, where {importResult.newRowIds!.length === 1 ? 'it' : 'they'} can be restored.
+                          Undone: the {importResult.newRowIds!.length} imported {t('record', { count: importResult.newRowIds!.length })} {importResult.newRowIds!.length === 1 ? 'is' : 'are'} in the Trash, where {importResult.newRowIds!.length === 1 ? 'it' : 'they'} can be restored.
                         </p>
                       ) : (
                         <>
