@@ -440,7 +440,8 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
     const wasActive = activeGridId === deleteTarget.id
     await deleteGrid(deleteTarget.id)
     setDeleteTarget(null)
-    if (wasActive) navigate('/dashboard')
+    // The list page opens the next list, or, after the last one, offers to bring it back from the Trash
+    if (wasActive) navigate('/grid')
   }
 
   return (

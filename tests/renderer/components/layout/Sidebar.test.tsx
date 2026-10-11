@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 const mockNavigate = vi.fn()
@@ -111,6 +111,17 @@ describe('Sidebar', () => {
       { id: 2, name: 'Second Grid' },
     ]
     mockActiveGridId = 1
+  })
+
+  it('deleting the open list goes to the list page (next list, or the empty screen with its Trash link)', async () => {
+    mockDeleteGrid.mockResolvedValue(undefined)
+    renderSidebar(false, '/grid')
+    fireEvent.click(screen.getAllByRole('button', { name: /options$/ })[0]!)
+    fireEvent.click(screen.getByText(/^Delete .*…$/))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Move to Trash' })) })
+    expect(mockDeleteGrid).toHaveBeenCalledWith(1)
+    expect(mockNavigate).toHaveBeenCalledWith('/grid')
+    expect(mockNavigate).not.toHaveBeenCalledWith('/dashboard')
   })
 
   it('renders grid list items', () => {
