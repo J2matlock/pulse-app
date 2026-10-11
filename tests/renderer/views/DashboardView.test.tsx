@@ -221,9 +221,9 @@ describe('DashboardView — interactions', () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
 
-    const archivedTab = screen.getByRole('tab', { name: /Recently Archived/i })
-    fireEvent.click(archivedTab)
-    expect(archivedTab.getAttribute('aria-selected')).toBe('true')
+    const archivedLink = screen.getByRole('button', { name: /Recently archived/i })
+    fireEvent.click(archivedLink)
+    expect(archivedLink.getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByTestId('archived-tab')).toBeDefined()
   })
 

@@ -11,7 +11,7 @@ import { localDateString } from '../../shared/dates'
 import { noteUnencryptedExport } from '../utils/exportNotice'
 import { IPC } from '../../shared/ipc-channels'
 import type { DashboardStats, AlertThreshold, ParsedAlertRule, CaseloadTask, ChecklistDueItem } from '../../shared/types'
-import { DEBOUNCE_SEARCH, DEBOUNCE_TASK_RELOAD, SPINNER_DELAY, MS_PER_DAY, DAYS_THIS_WEEK, DAYS_THIS_MONTH } from '../../shared/constants'
+import { DEBOUNCE_SEARCH, DEBOUNCE_TASK_RELOAD, SPINNER_DELAY, MS_PER_DAY } from '../../shared/constants'
 import { safeInvoke } from '../utils/safeInvoke'
 import { useShallow } from 'zustand/react/shallow'
 import { useAlertStore } from '../stores/alertStore'
@@ -28,7 +28,9 @@ import { wordNow } from '../utils/vocab'
 import type { FollowUpRow, RawDeadlineRow, ArchivedRow, ExtendedDeadlineInfo, TopTab, FilterTab, PriorityItem } from './dashboard/types'
 import { SummaryCard } from './dashboard/SummaryCard'
 import { DeadlineRow } from './dashboard/DeadlineRow'
-import { completeDeadlines } from './dashboard/completeDeadline'
+import { completeDeadlines, skippedForBulkDone } from './dashboard/completeDeadline'
+import { countDeadlineTiles } from './dashboard/tileCounts'
+import { RuleColorKey } from '../components/alerts/RuleColorKey'
 import { DashboardCards } from './dashboard/cards/DashboardCards'
 import { BatchDocumentsDialog } from '../components/documents/BatchDocumentsDialog'
 import { useGridStore } from '../stores/gridStore'
@@ -77,7 +79,8 @@ export default function DashboardView(): React.ReactElement {
     })
   }, [])
   useEffect(() => { setSelectedDeadlines(new Set()) }, [topTab])
-  const [filterTab, setFilterTab] = useState<FilterTab>('all')
+  // The "All | Overdue" sub-filter is gone: the Overdue tab covers it (D-21)
+  const [filterTab] = useState<FilterTab>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [archiveSearch, setArchiveSearch] = useState('')
@@ -252,6 +255,9 @@ export default function DashboardView(): React.ReactElement {
         ruleKind: row.rule_kind,
         step: row.step,
         extensionId: row.extension_id,
+        state: row.state,
+        label: row.label,
+        meter: row.meter,
       }]
     }).sort((a, b) => a.daysUntil - b.daysUntil)
   }, [rawDeadlines, alertRules])
@@ -292,18 +298,24 @@ export default function DashboardView(): React.ReactElement {
     })
   }, [followUps])
 
+  // Done from the Week and Month tabs: like the Priority List, drop the row then reload
+  const dropAndReload = useCallback((rowId: number, columnId: number) => {
+    setRawDeadlines(prev => prev.filter(r => !(r.row_id === rowId && r.column_id === columnId)))
+    void reloadDeadlines()
+  }, [reloadDeadlines])
+
+  const rulesInUse = useMemo(() => {
+    const ids = new Set(deadlines.map(d => d.alertRuleId).filter((id): id is number => id != null))
+    return alertRules.filter(r => ids.has(r.id))
+  }, [deadlines, alertRules])
+
+  // The tiles count deadlines the way the morning briefing and desktop reminder do
+  // (overdue includes a used-up quota); tasks, checklist items and follow-ups due
+  // or late get their own tile, the same as the briefing's "task due" lines
   const derivedCounts = useMemo(() => {
-    let overdue = 0, dueThisWeek = 0, dueThisMonth = 0
-    const countDays = (d: number) => {
-      if (d < 0) overdue++
-      else if (d <= DAYS_THIS_WEEK) dueThisWeek++
-      if (d >= 0 && d <= DAYS_THIS_MONTH) dueThisMonth++
-    }
-    for (const d of deadlines) countDays(d.daysUntil)
-    for (const t of tasksWithDays) countDays(t.daysUntil)
-    for (const c of checklistWithDays) countDays(c.daysUntil)
-    for (const f of followUpsWithDays) countDays(f.daysUntil)
-    return { overdue, dueThisWeek, dueThisMonth }
+    const c = countDeadlineTiles(deadlines)
+    const otherDue = [...tasksWithDays, ...checklistWithDays, ...followUpsWithDays].filter(x => x.daysUntil <= 0).length
+    return { ...c, otherDue }
   }, [deadlines, tasksWithDays, checklistWithDays, followUpsWithDays])
 
   const filteredItems = useMemo((): PriorityItem[] => {
@@ -363,13 +375,7 @@ export default function DashboardView(): React.ReactElement {
     { key: 'overdue',    label: 'Overdue',              icon: <AlertTriangle className="w-4 h-4" /> },
     { key: 'week',       label: 'This Week',            icon: <Clock className="w-4 h-4" /> },
     { key: 'month',      label: 'This Month',           icon: <Calendar className="w-4 h-4" /> },
-    { key: 'archived',   label: 'Recently Archived',    icon: <Archive className="w-4 h-4" /> },
   ], [])
-
-  const FILTER_TABS = useMemo<{ key: FilterTab; label: string; count?: number }[]>(() => [
-    { key: 'all', label: 'All' },
-    { key: 'overdue', label: 'Overdue', count: derivedCounts.overdue },
-  ], [derivedCounts])
 
   if (loadError) return (
     <div className="max-w-4xl mx-auto px-6 py-16">
@@ -388,15 +394,16 @@ export default function DashboardView(): React.ReactElement {
     const chosen = visible
       .filter((it): it is Extract<PriorityItem, { kind: 'deadline' }> => it.kind === 'deadline' && selectedDeadlines.has(deadlineKey(it.data)))
       .map(it => ({ rowId: it.data.rowId, columnId: it.data.columnId, columnName: it.data.columnName, clientName: it.data.clientName, dateValue: it.data.dateValue, interval: it.data.interval, checklistTemplateId: it.data.checklistTemplateId, ruleKind: it.data.ruleKind, step: it.data.step }))
-    // Readings are asked one at a time, so those wait for their own Mark done
-    const needReading = chosen.filter(c => c.ruleKind === 'meter').length
-    if (needReading > 0) toast(`${needReading} need a reading — mark ${needReading === 1 ? 'it' : 'them'} done one at a time.`)
-    // Limited-visit deadlines are renewed on the record, not marked done
-    chosen.splice(0, chosen.length, ...chosen.filter(c => c.ruleKind !== 'meter' && c.ruleKind !== 'quota'))
+    // Say what can't be marked done from here, and why, instead of quietly leaving it ticked
+    const skipped = skippedForBulkDone(chosen)
+    if (skipped.message) toast(skipped.message, { duration: 8000 })
+    chosen.splice(0, chosen.length, ...skipped.rest)
     if (chosen.length === 0) return
     setBulkBusy(true)
     try {
       const done = await completeDeadlines(chosen, { onUndone: reloadDeadlines })
+      const failed = chosen.length - done.length
+      if (failed > 0) toast.error(`${failed} couldn't be marked done. Try ${failed === 1 ? 'it' : 'them'} one at a time.`)
       setRawDeadlines(prev => prev.filter(r => !done.some(d => d.rowId === r.row_id && d.columnId === r.column_id)))
       setSelectedDeadlines(new Set())
       // Repeating deadlines come back with their next due date
@@ -430,90 +437,9 @@ export default function DashboardView(): React.ReactElement {
     )
   }
 
-  return (
-    <div className="h-full overflow-auto bg-white dark:bg-slate-900">
-      <div className="max-w-4xl xl:max-w-6xl mx-auto px-6 py-6">
-        <div className="flex flex-wrap items-center gap-3 mb-6">
-          <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 flex-1">Dashboard</h1>
-          <button type="button" className="btn-compact-secondary" onClick={() => void printWeeklyPlanner()} title="A one-page PDF of everything due this week, to print or carry">
-            <Printer className="w-4 h-4" aria-hidden="true" />
-            Print this week
-          </button>
-          <button type="button" className="btn-compact-secondary" onClick={() => setShowCompliance(true)} title={`${t('activity', { many: true, cap: true })} and deadlines for a month, with exceptions, as a PDF`}>
-            <ShieldCheck className="w-4 h-4" aria-hidden="true" />
-            Monthly summary
-          </button>
-          <button type="button" className="btn-compact-secondary" onClick={() => setShowCalendar(true)} title="Save deadlines and follow-ups to Outlook or Google Calendar">
-            <CalendarPlus className="w-4 h-4" aria-hidden="true" />
-            Add to calendar
-          </button>
-          {lettersOn && allGrids.length > 0 && (
-            <button type="button" className="btn-compact-secondary" onClick={() => setPickingLettersList(true)} title="Letters or postcards for everyone with a deadline next month">
-              <Mail className="w-4 h-4" aria-hidden="true" />
-              Print reminder letters
-            </button>
-          )}
-          {/* The dashboard covers every list, so ask which one the letters are for (audit D-35) */}
-          {pickingLettersList && (
-            <ChooseListDialog title="Print reminder letters" grids={allGrids} initialId={openGridId} confirmLabel="Continue"
-              onCancel={() => setPickingLettersList(false)}
-              onChoose={id => {
-                setPickingLettersList(false)
-                void useGridStore.getState().loadGrid(id).then(() => setReminderLetters(true))
-              }} />
-          )}
-          {reminderLetters && openGridId != null && <BatchDocumentsDialog gridId={openGridId} onClose={() => setReminderLetters(false)} />}
-          <button type="button" className="btn-compact-secondary" aria-pressed={customizing} onClick={() => setCustomizing(c => !c)} title="Choose which cards show, and their order">
-            <LayoutGrid className="w-4 h-4" aria-hidden="true" />
-            Customize
-          </button>
-          {showCompliance && <ComplianceSummaryDialog onClose={closeCompliance} />}
-          {showCalendar && <CalendarExportDialog onClose={closeCalendar} />}
-        </div>
-
-        <GettingStartedCard />
-
-        {/* Cards, in the order people chose (W10 §4) */}
-        <DashboardCards customizing={customizing} onDoneCustomizing={() => setCustomizing(false)} summary={
-        <div className="grid grid-cols-2 gap-4 mb-6 sm:grid-cols-3 xl:grid-cols-5">
-          <SummaryCard
-            label={`Active ${t('record', { many: true, cap: true })}`}
-            value={stats?.totalActive ?? '—'}
-            icon={<Users className="w-5 h-5" />}
-            colorClass="text-blue-600 dark:text-blue-400"
-          />
-          <SummaryCard
-            label="Overdue"
-            value={isLoading ? '—' : derivedCounts.overdue}
-            icon={<AlertTriangle className="w-5 h-5" />}
-            colorClass={derivedCounts.overdue > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-500'}
-            urgent={derivedCounts.overdue > 0}
-          />
-          <SummaryCard
-            label="Due This Week"
-            value={isLoading ? '—' : derivedCounts.dueThisWeek}
-            icon={<Clock className="w-5 h-5" />}
-            colorClass="text-orange-600 dark:text-orange-400"
-          />
-          <SummaryCard
-            label="Due This Month"
-            value={isLoading ? '—' : derivedCounts.dueThisMonth}
-            icon={<Calendar className="w-5 h-5" />}
-            colorClass="text-yellow-600 dark:text-yellow-400"
-          />
-          {(showTasks || showChecklists) && (<>
-            <SummaryCard
-              label="Items Due Today"
-              value={isLoading ? '—' : tasksWithDays.filter(t => t.daysUntil <= 0).length + checklistWithDays.filter(c => c.daysUntil <= 0).length}
-              icon={<ClipboardList className="w-5 h-5" />}
-              colorClass={tasksWithDays.length + checklistWithDays.length > 0 ? 'text-purple-600 dark:text-purple-400' : 'text-slate-500'}
-              urgent={tasksWithDays.some(t => t.daysUntil <= 0) || checklistWithDays.some(c => c.daysUntil <= 0)}
-              href="/tasks"
-            />
-          </>)}
-        </div>
-        } />
-
+  // "What's due" is a card like the others, second by default (D-21)
+  const whatsDue = (
+      <div className="mb-6">
         {/* Utilities row: color legend toggle */}
         <div className="flex items-center mb-4">
           <button
@@ -533,27 +459,14 @@ export default function DashboardView(): React.ReactElement {
         {showColorLegend && (
           <div className="mb-4 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
             <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Deadline Color Guide</h3>
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                <div className="w-3 h-3 rounded-full bg-green-500 shrink-0" aria-hidden="true" />
-                <span>Safe — deadline is far away</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                <div className="w-3 h-3 rounded-full bg-yellow-500 shrink-0" aria-hidden="true" />
-                <span>Approaching — due date getting closer</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                <div className="w-3 h-3 rounded-full bg-orange-500 shrink-0" aria-hidden="true" />
-                <span>Soon — due within a few days</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                <div className="w-3 h-3 rounded-full bg-red-500 shrink-0" aria-hidden="true" />
-                <span>Urgent — due very soon or overdue</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                <div className="w-3 h-3 rounded-full bg-red-700 animate-pulse shrink-0" aria-hidden="true" />
-                <span>Critical — significantly overdue</span>
-              </div>
+            {/* Built from the rules in use: each sets its own colors (D-29) */}
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+              The stripe on the left of each row: red = late or due today, orange = due this week, yellow = due this month.
+            </p>
+            <div className="space-y-2">
+              {rulesInUse.length === 0
+                ? <p className="text-sm text-slate-500 dark:text-slate-400">No deadline rules are in use yet.</p>
+                : rulesInUse.map(r => <RuleColorKey key={r.id} rule={r} />)}
             </div>
           </div>
         )}
@@ -577,34 +490,19 @@ export default function DashboardView(): React.ReactElement {
                 {tab.label}
               </button>
             ))}
+            {/* Recently archived sits behind a link, not among the deadline tabs (D-21) */}
+            <button type="button" onClick={() => setTopTab(topTab === 'archived' ? 'priority' : 'archived')} aria-pressed={topTab === 'archived'}
+              className="ml-auto flex items-center gap-1.5 px-4 text-base text-blue-700 dark:text-blue-300 underline hover:no-underline whitespace-nowrap focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+              style={{ minHeight: 44 }}>
+              <Archive className="w-4 h-4" aria-hidden="true" />
+              {topTab === 'archived' ? 'Back to what\'s due' : 'Recently archived'}
+            </button>
           </div>
 
           {/* Priority List tab */}
           {topTab === 'priority' && (
             <>
-              <div className="flex items-center justify-between px-4 border-b border-slate-200 dark:border-slate-700 flex-wrap gap-2">
-                <div className="flex gap-1" role="tablist">
-                  {FILTER_TABS.map(tab => (
-                    <button
-                      key={tab.key}
-                      role="tab"
-                      aria-selected={filterTab === tab.key}
-                      onClick={() => setFilterTab(tab.key)}
-                      className={`px-3 py-3 text-base font-medium border-b-2 transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-                        ${filterTab === tab.key
-                          ? 'border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400'
-                          : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                      style={{ minHeight: 44 }}
-                    >
-                      {tab.label}
-                      {tab.count !== undefined && tab.count > 0 && (
-                        <span className="ml-1.5 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 text-sm font-semibold px-1.5 py-0.5 rounded-full">
-                          {tab.count}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
+              <div className="flex items-center justify-end px-4 py-2 border-b border-slate-200 dark:border-slate-700 flex-wrap gap-2">
                 <input
                   type="search"
                   placeholder="Search…"
@@ -763,12 +661,13 @@ export default function DashboardView(): React.ReactElement {
 
           {/* This Week tab */}
           {topTab === 'week' && (
-            <WeekViewTab deadlines={deadlines} tasksWithDays={tasksWithDays} checklistWithDays={checklistWithDays} followUpsWithDays={followUpsWithDays} isLoading={showSpinner} />
+            <WeekViewTab deadlines={deadlines} tasksWithDays={tasksWithDays} checklistWithDays={checklistWithDays} followUpsWithDays={followUpsWithDays} isLoading={showSpinner}
+              onMarkDone={dropAndReload} onUndone={reloadDeadlines} />
           )}
 
           {/* This Month tab */}
           {topTab === 'month' && (
-            <MonthViewTab deadlines={deadlines} isLoading={showSpinner} />
+            <MonthViewTab deadlines={deadlines} isLoading={showSpinner} onMarkDone={dropAndReload} onUndone={reloadDeadlines} />
           )}
 
           {/* Recently Archived tab */}
@@ -782,6 +681,93 @@ export default function DashboardView(): React.ReactElement {
             />
           )}
         </div>
+      </div>
+  )
+
+  return (
+    <div className="h-full overflow-auto bg-white dark:bg-slate-900">
+      <div className="max-w-4xl xl:max-w-6xl mx-auto px-6 py-6">
+        <div className="flex flex-wrap items-center gap-3 mb-6">
+          <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 flex-1">Dashboard</h1>
+          <button type="button" className="btn-compact-secondary" onClick={() => void printWeeklyPlanner()} title="A one-page PDF of everything due this week, to print or carry">
+            <Printer className="w-4 h-4" aria-hidden="true" />
+            Print this week
+          </button>
+          <button type="button" className="btn-compact-secondary" onClick={() => setShowCompliance(true)} title={`${t('activity', { many: true, cap: true })} and deadlines for a month, with exceptions, as a PDF`}>
+            <ShieldCheck className="w-4 h-4" aria-hidden="true" />
+            Monthly summary
+          </button>
+          <button type="button" className="btn-compact-secondary" onClick={() => setShowCalendar(true)} title="Save deadlines and follow-ups to Outlook or Google Calendar">
+            <CalendarPlus className="w-4 h-4" aria-hidden="true" />
+            Add to calendar
+          </button>
+          {lettersOn && allGrids.length > 0 && (
+            <button type="button" className="btn-compact-secondary" onClick={() => setPickingLettersList(true)} title="Letters or postcards for everyone with a deadline next month">
+              <Mail className="w-4 h-4" aria-hidden="true" />
+              Print reminder letters
+            </button>
+          )}
+          {/* The dashboard covers every list, so ask which one the letters are for (audit D-35) */}
+          {pickingLettersList && (
+            <ChooseListDialog title="Print reminder letters" grids={allGrids} initialId={openGridId} confirmLabel="Continue"
+              onCancel={() => setPickingLettersList(false)}
+              onChoose={id => {
+                setPickingLettersList(false)
+                void useGridStore.getState().loadGrid(id).then(() => setReminderLetters(true))
+              }} />
+          )}
+          {reminderLetters && openGridId != null && <BatchDocumentsDialog gridId={openGridId} onClose={() => setReminderLetters(false)} />}
+          <button type="button" className="btn-compact-secondary" aria-pressed={customizing} onClick={() => setCustomizing(c => !c)} title="Choose which cards show, and their order">
+            <LayoutGrid className="w-4 h-4" aria-hidden="true" />
+            Customize
+          </button>
+          {showCompliance && <ComplianceSummaryDialog onClose={closeCompliance} />}
+          {showCalendar && <CalendarExportDialog onClose={closeCalendar} />}
+        </div>
+
+        <GettingStartedCard />
+
+        {/* Cards, in the order people chose (W10 §4) */}
+        <DashboardCards customizing={customizing} onDoneCustomizing={() => setCustomizing(false)} whatsDue={whatsDue} summary={
+        <div className="grid grid-cols-2 gap-4 mb-6 sm:grid-cols-3 xl:grid-cols-5">
+          <SummaryCard
+            label={`Active ${t('record', { many: true, cap: true })}`}
+            value={stats?.totalActive ?? '—'}
+            icon={<Users className="w-5 h-5" />}
+            colorClass="text-blue-600 dark:text-blue-400"
+          />
+          <SummaryCard
+            label="Overdue deadlines"
+            value={isLoading ? '—' : derivedCounts.overdue}
+            icon={<AlertTriangle className="w-5 h-5" />}
+            colorClass={derivedCounts.overdue > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-500'}
+            urgent={derivedCounts.overdue > 0}
+          />
+          <SummaryCard
+            label="Due in the next 7 days"
+            value={isLoading ? '—' : derivedCounts.dueThisWeek}
+            icon={<Clock className="w-5 h-5" />}
+            colorClass="text-orange-600 dark:text-orange-400"
+          />
+          <SummaryCard
+            label="Due in the next 30 days"
+            value={isLoading ? '—' : derivedCounts.dueThisMonth}
+            icon={<Calendar className="w-5 h-5" />}
+            colorClass="text-yellow-600 dark:text-yellow-400"
+          />
+          {(showTasks || showChecklists) && (<>
+            <SummaryCard
+              label="Tasks & follow-ups due or late"
+              value={isLoading ? '—' : derivedCounts.otherDue}
+              icon={<ClipboardList className="w-5 h-5" />}
+              colorClass={derivedCounts.otherDue > 0 ? 'text-purple-600 dark:text-purple-400' : 'text-slate-500'}
+              urgent={derivedCounts.otherDue > 0}
+              href="/tasks"
+            />
+          </>)}
+        </div>
+        } />
+
       </div>
     </div>
   )

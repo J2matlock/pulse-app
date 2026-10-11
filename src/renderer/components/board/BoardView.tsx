@@ -161,6 +161,7 @@ export function BoardView(): React.ReactElement | null {
     showStarredOnly: s.showStarredOnly, searchQuery: s.searchQuery, rowTagsMap: s.rowTagsMap, acuityLevels: s.acuityLevels, acuityEnabled: s.acuityEnabled,
   })))
   const rules = useAlertStore(s => s.rules) as ParsedAlertRule[]
+  const deadlineContext = useGridStore(s => s.deadlineContext)
   const allColumns = useMemo(() => [...columns, ...hiddenColumns], [columns, hiddenColumns])
   const stageCol = stageColumnOf(allColumns)
   const config = stageCol ? stageConfigOf(stageCol) : null
@@ -188,7 +189,9 @@ export function BoardView(): React.ReactElement | null {
     const visible = visibleRows(rows, allColumns, { activeFilters, filterMode, showStarredOnly, searchQuery, rowTagsMap })
     const info = new Map(visible.map(r => [r.row_id, { name: getClientName(r, allColumns), due: nearestDeadline(r, allColumns, rules) }]))
     return { visible, info }
-  }, [rows, allColumns, activeFilters, filterMode, showStarredOnly, searchQuery, rowTagsMap, rules])
+    // deadlineContext: meter, quota, step and extension data that arrives after the rows
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, allColumns, activeFilters, filterMode, showStarredOnly, searchQuery, rowTagsMap, rules, deadlineContext])
 
   // Time in stage (W06 §5), refreshed after changes settle
   const [durations, setDurations] = useState<Record<number, StageDurations>>({})

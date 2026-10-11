@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { Bell, Pencil, Trash2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
-import { useAlertStore } from '../../stores/alertStore'
+import { useAlertStore, usedByText } from '../../stores/alertStore'
+import { useGridStore } from '../../stores/gridStore'
 import type { ParsedAlertRule } from '../../../shared/types'
-import toast from 'react-hot-toast'
 import { AlertRuleEditor } from '../alerts/AlertRuleEditor'
+import { DeleteRuleConfirm } from '../alerts/DeleteRuleConfirm'
 import { IPC } from '../../../shared/ipc-channels'
-import { toRuleInterval, hasInterval, describeInterval } from '../../../shared/ruleInterval'
+import { ruleSummary } from '../../../shared/ruleSummary'
+import { resolveAlertColor } from '../../utils/alertColors'
 import { ContactRequirementsSettings } from '../contact-req/ContactRequirementsSettings'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useFeature } from '../../hooks/useFeature'
@@ -17,10 +19,17 @@ import { BackgroundSection } from './BackgroundSection'
 export function AlertsSection(): React.ReactElement {
   const showRequirements = useFeature('requirements')
   const showReminders = useFeature('notifications')
-  const { rules: alertRules, isLoaded: alertsLoaded, loadRules: loadAlertRules, deleteRule: deleteAlertRule } = useAlertStore(useShallow(s => ({
-    rules: s.rules, isLoaded: s.isLoaded, loadRules: s.loadRules, deleteRule: s.deleteRule,
+  const { rules: alertRules, isLoaded: alertsLoaded, loadRules: loadAlertRules } = useAlertStore(useShallow(s => ({
+    rules: s.rules, isLoaded: s.isLoaded, loadRules: s.loadRules,
   })))
   const [editingAlertRule, setEditingAlertRule] = useState<ParsedAlertRule | null | undefined>(undefined)
+  const [deleting, setDeleting] = useState<ParsedAlertRule | null>(null)
+  // Column names for the summaries ("45 days after Referral date"), from the columns that use the rules
+  const usage = useAlertStore(s => s.usage)
+  const storeColumns = useGridStore(s => s.columns)
+  const storeHidden = useGridStore(s => s.hiddenColumns)
+  const columnName = (id: number) => usage.find(u => u.column_id === id)?.column_name
+    ?? [...storeColumns, ...storeHidden].find(c => c.id === id)?.name
 
   useEffect(() => {
     if (!alertsLoaded) void loadAlertRules()
@@ -33,13 +42,13 @@ export function AlertsSection(): React.ReactElement {
       {showReminders && <BackgroundSection />}
       {showRequirements && <ContactRequirementsSettings />}
       <DaysOffSection />
-      <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Alert Rules</h2>
+      <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Deadline rules</h2>
       <p className="text-sm text-slate-500 dark:text-slate-400">
-        Alert rules color-code date columns based on how close a deadline is.
+        A deadline rule works out when a date comes due, and colors it as it gets close. One rule can be used by many columns.
       </p>
 
       {alertRules.length === 0 && alertsLoaded && (
-        <p className="text-sm text-slate-500 dark:text-slate-400 italic">No alert rules yet.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 italic">No deadline rules yet.</p>
       )}
 
       <div className="space-y-2">
@@ -58,10 +67,15 @@ export function AlertsSection(): React.ReactElement {
               {rule.description && (
                 <p className="text-sm text-slate-500 dark:text-slate-400 truncate">{rule.description}</p>
               )}
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                {rule.thresholds.length} threshold{rule.thresholds.length !== 1 ? 's' : ''}
-                {hasInterval(toRuleInterval(rule)) ? ` \u00b7 ${describeInterval(toRuleInterval(rule))}` : ''}
-              </p>
+              {/* What it does, in plain words, and its colors (D-16) */}
+              <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">{ruleSummary(rule, columnName)}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 truncate">Used by: {usedByText(usage.filter(u => u.rule_id === rule.id))}</p>
+              <span className="flex items-center gap-1 mt-1" aria-hidden="true">
+                {[...rule.thresholds].sort((a, b) => b.daysBefore - a.daysBefore).map((t, i) => {
+                  const { className, style } = resolveAlertColor(t.bgClass)
+                  return <span key={i} title={t.label} className={`inline-block w-4 h-4 rounded-sm border border-slate-300 dark:border-slate-600 ${className}`} style={style} />
+                })}
+              </span>
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <button
@@ -75,10 +89,7 @@ export function AlertsSection(): React.ReactElement {
               </button>
               {rule.is_system !== 1 && (
                 <button
-                  onClick={async () => {
-                    const ok = await deleteAlertRule(rule.id)
-                    if (ok) toast.success('Alert rule deleted.')
-                  }}
+                  onClick={() => setDeleting(rule)}
                   className="hit-44 p-2 rounded-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-500 dark:text-slate-400 hover:text-red-600"
                   title="Delete"
                   aria-label="Delete"
@@ -98,8 +109,10 @@ export function AlertsSection(): React.ReactElement {
         style={{ minHeight: 44 }}
       >
         <Bell className="w-4 h-4" />
-        Add Alert Rule
+        Add deadline rule
       </button>
+
+      <DeleteRuleConfirm rule={deleting} onDone={() => setDeleting(null)} />
 
       {editingAlertRule !== undefined && (
         <AlertRuleEditor

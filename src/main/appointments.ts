@@ -528,6 +528,24 @@ export function setAppointmentStatus(id: number, status: ApptStatus, opts: Statu
   })()
 }
 
+/** How many days back "needs an outcome" looks (S-09) */
+export const OUTCOME_LOOKBACK_DAYS = 14
+
+/**
+ * Appointments from the last two weeks still marked scheduled: nobody said
+ * whether they happened, so no note was written and nothing was counted (S-09).
+ */
+export function appointmentsNeedingOutcome(today = localDateString()): number {
+  if (!featureOn('appointments')) return 0
+  const d = new Date(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1, Number(today.slice(8, 10)) - OUTCOME_LOOKBACK_DAYS)
+  const from = localDateString(d)
+  const r = getDb().prepare(`
+    SELECT COUNT(*) AS n FROM appointments a LEFT JOIN rows r ON r.id = a.row_id
+    WHERE a.status = 'scheduled' AND a.start_at >= ? AND a.start_at < ? AND (a.row_id IS NULL OR r.deleted_at IS NULL)
+  `).get(from, today) as { n: number }
+  return r.n
+}
+
 /** Today's scheduled appointments, for the briefing (W07 §7) */
 export function appointmentsToday(today = localDateString()): { appointmentsToday: number; firstAppointment: string | null } {
   if (!featureOn('appointments')) return { appointmentsToday: 0, firstAppointment: null }

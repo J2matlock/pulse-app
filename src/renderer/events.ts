@@ -15,6 +15,10 @@ type PulseEvents = {
   'form:fill': { formId: number; gridId: number; rowId?: number }
   /** The app is about to lock: save anything pending while the database is still open */
   'app:locking': undefined
+  /** A cell was saved with a new value (not by undo) */
+  'cell:changed': { rowId: number; columnId: number; from: string | null; to: string | null }
+  /** Open a column's deadline rule picker (from a "Choose a rule" cell) */
+  'column:choose-rule': { columnId: number }
   /** Open the spreadsheet import for the open list */
   'grid:open-import': undefined
   /** Open the example gallery (adding to this workspace), optionally with sample data ticked */

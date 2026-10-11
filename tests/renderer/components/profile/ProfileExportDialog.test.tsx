@@ -15,7 +15,7 @@ describe('ProfileExportDialog', () => {
   it('leaves scrap notes out by default', () => {
     const onSave = vi.fn()
     render(<ProfileExportDialog gridId={1} clientName="Maria" onSave={onSave} onClose={vi.fn()} />)
-    expect((screen.getByLabelText('Scrap notes') as HTMLInputElement).checked).toBe(false)
+    expect((screen.getByLabelText('Scratch notes') as HTMLInputElement).checked).toBe(false)
     fireEvent.click(screen.getByRole('button', { name: 'Save PDF…' }))
     expect(onSave).toHaveBeenCalledWith({ gridData: true, deadlines: true, checklist: true, caseLog: true, contactInfo: true, scratchPad: false })
   })
@@ -23,7 +23,7 @@ describe('ProfileExportDialog', () => {
   it('saves only the ticked sections', () => {
     const onSave = vi.fn()
     render(<ProfileExportDialog gridId={1} clientName="Maria" onSave={onSave} onClose={vi.fn()} />)
-    fireEvent.click(screen.getByLabelText('Scrap notes'))
+    fireEvent.click(screen.getByLabelText('Scratch notes'))
     fireEvent.click(screen.getByLabelText('Deadlines'))
     fireEvent.click(screen.getByRole('button', { name: 'Save PDF…' }))
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ scratchPad: true, deadlines: false }))

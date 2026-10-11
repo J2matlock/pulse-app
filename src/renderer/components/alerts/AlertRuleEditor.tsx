@@ -16,6 +16,9 @@ import { toRuleInterval, hasInterval, describeInterval, type RuleInterval } from
 import { useVocab } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
 import { draftFromRule, draftToConfig, draftToCondition, type RuleDraft } from './ruleDraft'
+import { useRuleList } from './useRuleList'
+import { ruleSummary } from '../../../shared/ruleSummary'
+import { usedByText } from '../../stores/alertStore'
 import { KindCards, KindFields, ConditionFields, RulePreview, previewRule } from './RuleKindFields'
 
 // ── Color palette ──────────────────────────────────────────────────────────────
@@ -75,7 +78,7 @@ const INTERVAL_PRESETS: Array<{ key: string; label: string; days: number; months
   { key: 'm36',  label: '3 years after',        days: 0,  months: 36 },
 ]
 
-type IntervalUnit = 'days' | 'months' | 'years'
+type IntervalUnit = 'days' | 'months' | 'years' | 'workingDays'
 
 function initialInterval(rule?: ParsedAlertRule): { key: string; amount: string; unit: IntervalUnit } {
   const iv = toRuleInterval(rule)
@@ -210,6 +213,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
   })))
   const isSystem = rule?.is_system === 1
   const isNew = !rule
+  const { t: w } = useVocab(null)
 
   const [name, setName] = useState(rule?.name ?? '')
   const [description, setDescription] = useState(rule?.description ?? '')
@@ -225,12 +229,18 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
     const onDeadlineColumn = useGridStore.getState().columns.find(c => c.id === columnId)?.column_type === 'deadline'
     return !rule && onDeadlineColumn ? { ...d, kind: 'calendar' } : d
   })
-  const [businessDays, setBusinessDays] = useState(!!rule?.business_days)
+  // 0 = leave the date, 1 = a day off moves to the working day before, 2 = to the next one
+  const [businessDays, setBusinessDays] = useState<0 | 1 | 2>(rule?.business_days === 2 ? 2 : rule?.business_days ? 1 : 0)
   const patchDraft = (patch: Partial<RuleDraft>) => setDraft(d => ({ ...d, ...patch }))
-  const columns = useGridStore(s => s.columns)
-  const rows = useGridStore(s => s.rows)
+  // The list the rule works in: from the columns that use it, not whichever list is open (D-09)
+  const ruleList = useRuleList(rule?.id, columnId)
+  const { columns, rows } = ruleList
+  const ownColumnId = ruleList.columnId
+  // Editing a shared rule from one of its columns: change it for all, or copy it for this column
+  const sharedHere = !isNew && columnId !== undefined && ruleList.uses.length > 1
+  const [makeCopy, setMakeCopy] = useState(false)
   // Other columns to work from; the rule's own column is offered as "this column"
-  const otherColumns = columns.filter(c => c.id !== columnId)
+  const otherColumns = columns.filter(c => c.id !== ownColumnId)
 
   const [thresholds, setThresholds] = useState<AlertThreshold[]>(
     rule?.thresholds ?? [
@@ -251,14 +261,22 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
       return { days: p.days, months: p.months, endOfMonth }
     }
     const n = Math.max(0, parseInt(customAmount, 10) || 0)
-    if (customUnit === 'days') return { days: n, months: 0, endOfMonth }
+    if (customUnit === 'days' || customUnit === 'workingDays') return { days: n, months: 0, endOfMonth }
     return { days: 0, months: customUnit === 'years' ? n * 12 : n, endOfMonth }
   })()
   const isInterval = draft.kind === 'interval'
-  const intervalFields = isInterval
+  // "10 working days after the date entered" is saved as a rule counted from this column (D-18)
+  const workingDayInterval = isInterval && intervalKey === 'custom' && customUnit === 'workingDays'
+  const savedDraft: RuleDraft = workingDayInterval
+    ? { ...draft, kind: 'relative', relAnchor: 'self', relAmount: customAmount, relUnit: 'businessDays', relDirection: 'after' }
+    : draft
+  const intervalFields = isInterval && !workingDayInterval
     ? { interval_days: interval.days || null, interval_months: interval.months || null, end_of_month: interval.endOfMonth ? 1 : 0 }
     : { interval_days: null, interval_months: null, end_of_month: 0 }
-  const preview = previewRule(draft, {
+  const previewRuleForName = previewRule(savedDraft, { id: 0, name: '', description: null, is_system: 0, thresholds: [], created_at: '', ...intervalFields }, false)
+  // What a name left blank becomes: "Every 6 months", "45 days after Referral date"
+  const autoName = 'error' in previewRuleForName ? 'New deadline rule' : ruleSummary(previewRuleForName, id => columns.find(c => c.id === id)?.name)
+  const preview = previewRule(savedDraft, {
     id: rule?.id ?? 0, name, description: null, is_system: 0, thresholds, created_at: '', ...intervalFields,
   }, businessDays)
 
@@ -282,24 +300,40 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
   }
 
   async function handleSave() {
-    if (!name.trim()) { setError('Rule name is required.'); return }
-    if (thresholds.length === 0) { setError('Add at least one threshold.'); return }
-    const cfg = draftToConfig(draft)
+    // A new rule is named after what it does unless someone typed a name (D-17)
+    const finalName = (name.trim() || autoName).slice(0, 200)
+    if (thresholds.length === 0) { setError('Add at least one color.'); return }
+    const cfg = draftToConfig(savedDraft)
     if (!cfg.ok) { setError(cfg.error); return }
-    const cond = draftToCondition(draft)
+    const cond = draftToCondition(savedDraft)
     if (!cond.ok) { setError(cond.error); return }
     const engineFields = {
-      kind: draft.kind,
+      kind: savedDraft.kind,
       rule_config: cfg.value ? JSON.stringify(cfg.value) : null,
       rule_condition: cond.value ? JSON.stringify(cond.value) : null,
-      business_days: businessDays ? 1 : 0,
+      business_days: draft.kind !== 'quota' ? businessDays : 0,
     }
     setIsSaving(true)
     setError(null)
     try {
       if (isNew) {
         const newId = await createRule({
-          name: name.trim(),
+          name: finalName,
+          description: description.trim() || null,
+          is_system: 0,
+          thresholds: JSON.stringify(thresholds),
+          ...intervalFields,
+          ...engineFields,
+        })
+        onClose(newId ?? undefined)
+      } else if (makeCopy) {
+        // Shared rule, changed for this column only: a copy, which the column then uses (Decision F1)
+        const ownName = columns.find(c => c.id === columnId)?.name
+        const taken = new Set(useAlertStore.getState().rules.map(r => r.name.toLowerCase()))
+        let copyName = `${finalName} (${ownName ?? 'copy'})`.slice(0, 200)
+        for (let i = 2; taken.has(copyName.toLowerCase()); i++) copyName = `${finalName} (${ownName ?? 'copy'} ${i})`.slice(0, 200)
+        const newId = await createRule({
+          name: copyName,
           description: description.trim() || null,
           is_system: 0,
           thresholds: JSON.stringify(thresholds),
@@ -309,7 +343,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
         onClose(newId ?? undefined)
       } else {
         await updateRule(rule!.id, {
-          name: name.trim(),
+          name: finalName,
           description: description.trim() || null,
           thresholds: JSON.stringify(thresholds),
           ...intervalFields,
@@ -318,7 +352,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
         onClose()
       }
     } catch {
-      setError('Failed to save alert rule. Please try again.')
+      setError("We couldn't save this deadline rule. Please try again.")
     } finally {
       setIsSaving(false)
     }
@@ -331,7 +365,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-            {isNew ? 'New Alert Rule' : isSystem ? 'View Alert Rule' : 'Edit Alert Rule'}
+            {isNew ? 'New deadline rule' : isSystem ? 'View deadline rule' : 'Edit deadline rule'}
           </h2>
           <button onClick={() => onClose()} className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
             <X className="w-5 h-5 text-slate-500" />
@@ -347,21 +381,23 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
             </div>
           )}
 
-          {/* Name */}
-          <div>
-            <label htmlFor="alert-rule-name" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Rule Name</label>
-            <input id="alert-rule-name" className="input" value={name} onChange={e => setName(e.target.value)}
-              disabled={isSystem} placeholder="e.g. Annual Plan of Care" />
-          </div>
+          {/* Rules are shared between columns: say which (Decision F1) */}
+          {!isNew && ruleList.uses.length > 0 && (
+            <p className="text-base text-slate-700 dark:text-slate-200" data-testid="rule-used-by">
+              <span className="font-medium">Used by:</span> {usedByText(ruleList.uses)}
+            </p>
+          )}
 
-          {/* Description */}
-          <div>
-            <label htmlFor="alert-rule-description" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Description <span className="font-normal text-slate-500 dark:text-slate-400">— optional</span>
-            </label>
-            <input id="alert-rule-description" className="input" value={description} onChange={e => setDescription(e.target.value)}
-              disabled={isSystem} placeholder="Brief description of this rule" />
-          </div>
+          {ruleList.choices.length > 0 && (
+            <div>
+              <label htmlFor="alert-rule-list" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
+                {ruleList.uses.length > 0 ? `Used in more than one ${w('list')}. Show the columns of` : `Columns from which ${w('list')}?`}
+              </label>
+              <select id="alert-rule-list" className="input" value={ruleList.gridId ?? ''} onChange={e => ruleList.setGridId(Number(e.target.value))}>
+                {ruleList.choices.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+          )}
 
           {/* How it's worked out */}
           <div>
@@ -369,7 +405,8 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
             <KindCards value={draft.kind} onChange={k => patchDraft({ kind: k })} disabled={isSystem} />
           </div>
 
-          {!isInterval && <KindFields d={draft} set={patchDraft} columns={otherColumns} disabled={isSystem} />}
+          {ruleList.loading ? <p className="text-base text-slate-500 dark:text-slate-400">Loading the {w('list')}'s columns…</p>
+            : !isInterval && <KindFields d={draft} set={patchDraft} columns={otherColumns} disabled={isSystem} />}
 
           {isInterval && (
           <div>
@@ -410,6 +447,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
                   <option value="days">days</option>
                   <option value="months">months</option>
                   <option value="years">years</option>
+                  <option value="workingDays">working days</option>
                 </select>
                 <span className="text-base text-slate-600 dark:text-slate-300">after the date entered</span>
               </div>
@@ -427,29 +465,58 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
           </div>
           )}
 
-          <label className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-300 cursor-pointer">
-            <input type="checkbox" className="w-5 h-5" checked={businessDays} disabled={isSystem} onChange={e => setBusinessDays(e.target.checked)} />
-            Count working days only <span className="text-sm text-slate-500 dark:text-slate-400">— a due date on a weekend or day off moves to the working day before</span>
-          </label>
+          {/* A quota's date is the end of its period; moving it would only hide its warnings */}
+          {draft.kind !== 'quota' && (
+          <fieldset>
+            <legend className="text-base font-medium text-slate-700 dark:text-slate-300">If it lands on a weekend or day off</legend>
+            {([[0, 'Leave it on that day'], [1, 'Move it to the working day before'], [2, 'Move it to the next working day']] as const).map(([v, text]) => (
+              <label key={v} className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-300 cursor-pointer">
+                <input type="radio" name="rule-days-off" className="w-5 h-5" checked={businessDays === v} disabled={isSystem} onChange={() => setBusinessDays(v)} />
+                {text}
+              </label>
+            ))}
+          </fieldset>
+          )}
 
-          <ConditionFields d={draft} set={patchDraft} columns={columns} disabled={isSystem} />
+          {!ruleList.loading && <ConditionFields d={draft} set={patchDraft} columns={columns} disabled={isSystem} />}
+
+          {/* Name and description, under More: a new rule is named after what it does (D-17) */}
+          <details open={!isNew} className="rounded-lg border border-slate-200 dark:border-slate-600 px-3">
+            <summary className="hit-44 flex items-center text-base font-medium text-slate-700 dark:text-slate-300 cursor-pointer" style={{ minHeight: 44 }}>
+              More: name and description
+            </summary>
+            <div className="space-y-3 pb-3">
+              <div>
+                <label htmlFor="alert-rule-name" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Rule name</label>
+                <input id="alert-rule-name" className="input" value={name} onChange={e => setName(e.target.value)}
+                  disabled={isSystem} placeholder={autoName} />
+              </div>
+              <div>
+                <label htmlFor="alert-rule-description" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Description <span className="font-normal text-slate-500 dark:text-slate-400">— optional</span>
+                </label>
+                <input id="alert-rule-description" className="input" value={description} onChange={e => setDescription(e.target.value)}
+                  disabled={isSystem} placeholder="Brief description of this rule" />
+              </div>
+            </div>
+          </details>
 
           {/* Thresholds */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-base font-medium text-slate-700 dark:text-slate-300">Color Thresholds</label>
+              <label className="text-base font-medium text-slate-700 dark:text-slate-300">Colors as it gets close</label>
               {!isSystem && (
                 <button onClick={addThreshold}
                   className="hit-44 flex items-center gap-1 text-base text-blue-600 dark:text-blue-400 hover:underline focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm">
-                  <Plus className="w-4 h-4" />Add threshold
+                  <Plus className="w-4 h-4" />Add a color
                 </button>
               )}
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">
-              Click a threshold to expand its color picker.
+              Click a color step to change it.
             </p>
 
-            {thresholds.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400 py-2">No thresholds yet.</p>}
+            {thresholds.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400 py-2">No colors yet.</p>}
 
             <div className="space-y-2">
               {thresholds.map((t, i) => {
@@ -541,7 +608,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
             </div>
           </div>
 
-          <RulePreview rule={preview} rows={rows} columns={columns} columnId={columnId} />
+          <RulePreview key={ruleList.gridId ?? 0} rule={preview} rows={rows} columns={columns} columnId={ownColumnId} />
 
           {error && (
             <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm">
@@ -551,6 +618,19 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
         </div>
 
         {/* Footer */}
+        {sharedHere && !isSystem && (
+          <fieldset className="flex-shrink-0 px-6 pt-3 border-t border-slate-200 dark:border-slate-700">
+            <legend className="sr-only">Which columns get this change?</legend>
+            <label className="flex items-center gap-2 text-base text-slate-800 dark:text-slate-100 cursor-pointer" style={{ minHeight: 44 }}>
+              <input type="radio" name="rule-scope" className="w-5 h-5" checked={!makeCopy} onChange={() => setMakeCopy(false)} />
+              Change it for all {ruleList.uses.length} columns that use it
+            </label>
+            <label className="flex items-center gap-2 text-base text-slate-800 dark:text-slate-100 cursor-pointer" style={{ minHeight: 44 }}>
+              <input type="radio" name="rule-scope" className="w-5 h-5" checked={makeCopy} onChange={() => setMakeCopy(true)} />
+              Make a copy just for "{columns.find(c => c.id === columnId)?.name ?? 'this column'}"
+            </label>
+          </fieldset>
+        )}
         <div className="flex-shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
           <button onClick={() => onClose()} className="btn-secondary">Cancel</button>
           {!isSystem && (

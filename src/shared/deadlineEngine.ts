@@ -10,7 +10,7 @@
  */
 import { z } from 'zod'
 import { addInterval, describeInterval, hasInterval, toRuleInterval, type RuleInterval } from './ruleInterval'
-import { addBusinessDays, rollBackToBusinessDay, DEFAULT_WEEKEND, type WorkCalendar } from './businessDays'
+import { addBusinessDays, rollBackToBusinessDay, rollForwardToBusinessDay, DEFAULT_WEEKEND, type WorkCalendar } from './businessDays'
 import { toYmd, ymdToDate, dateToYmd, daysBetween } from './ymd'
 
 export { toYmd, ymdToDate, dateToYmd, daysBetween }
@@ -32,8 +32,10 @@ export interface EngineRule {
   /** Kind-specific settings; null for interval rules */
   config: unknown | null
   condition: Condition | null
-  /** Roll a due date that falls on a day off back to the previous working day */
+  /** Move a due date that falls on a day off to a working day */
   businessDays: boolean
+  /** ...the next one instead of the one before (business_days = 2) */
+  rollForward?: boolean
 }
 
 export interface RecordContext {
@@ -47,6 +49,14 @@ export interface RecordContext {
   activityCount?: number
   extension?: { newDue: string; reason: string } | null
   progress?: number[]
+  /**
+   * The rule's own date before its latest change (calendar rules), when
+   * known: tells a late completion of an unpaid date from an early one of
+   * the next date. Undefined = not known.
+   */
+  previousDone?: string | null
+  /** One-off dates marked Finished (Decision E1): the dates they were finished for */
+  finishedFor?: string[]
   /** Business-day calendar */
   holidays?: Set<string>
   weekend?: number[]
@@ -194,6 +204,7 @@ export function engineRuleFrom(row: {
     config: cfg.ok ? cfg.config : null,
     condition: cond.success ? cond.data : null,
     businessDays: !!row.business_days,
+    rollForward: row.business_days === 2,
   }
 }
 
@@ -209,6 +220,13 @@ const DUE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'nume
 
 export function formatDue(ymd: string): string {
   return DUE_FORMAT.format(ymdToDate(ymd))
+}
+
+const URGENCY: Record<DeadlineState, number> = { none: 0, done: 0, paused: 0, ok: 1, soon: 2, due: 3, overdue: 4 }
+
+/** Overdue while its date hasn't come: a used-up quota ("All 12 used"). Show the label, not a day count. */
+export function isUsedUp(res: { state?: DeadlineState; daysUntil: number | null }): boolean {
+  return res.state === 'overdue' && res.daysUntil !== null && res.daysUntil >= 0
 }
 
 function stateFor(daysUntil: number): DeadlineState {
@@ -258,9 +276,10 @@ function describeOffset(o: RelativeConfig['offset']): string {
 
 /**
  * "90 days after Eligibility date", "60 days before Lease end". The rule's
- * own column, when filled in, is the date it was done: on or after the
- * start of this cycle (the anchor, or the due date for "before" rules) it
- * counts as done.
+ * own column, when filled in, is the date it was done. It counts as done for
+ * this cycle when it's on or after the cycle's start: the anchor for "after"
+ * rules; for "before" rules, one offset ahead of the due date (so "10 working
+ * days before the hearing" can be done from 20 working days before it).
  */
 function evaluateRelative(rule: EngineRule, ctx: RecordContext): DeadlineResult {
   const cfg = rule.config as RelativeConfig
@@ -282,6 +301,10 @@ function evaluateRelative(rule: EngineRule, ctx: RecordContext): DeadlineResult 
 function evaluateInterval(rule: EngineRule, ctx: RecordContext): DeadlineResult {
   const base = toYmd(ctx.columnDate)
   if (!base) return NONE
+  // A one-off date marked Finished keeps its date and is done; a new date is a new deadline
+  if (!hasInterval(rule.interval) && ctx.finishedFor?.includes(base)) {
+    return { due: base, state: 'done', daysUntil: null, estimated: false, detail: `Finished · was due ${formatDue(base)}` }
+  }
   const due = dateToYmd(addInterval(ymdToDate(base), rule.interval))
   const detail = hasInterval(rule.interval)
     ? `Due ${formatDue(due)} (${describeInterval(rule.interval).toLowerCase()}, from ${formatDue(base)})`
@@ -316,11 +339,21 @@ function evaluateCalendar(rule: EngineRule, ctx: RecordContext): DeadlineResult 
   if (months.length === 0) return NONE
   const doneOn = toYmd(ctx.columnDate)
   const sorted = [...new Set(months)].sort((a, b) => a - b)
-  // Done a little early, while it was already showing (within the lead time),
-  // counts for that date: irrigation started Apr 22 covers "by Apr 30". Capped
-  // at half the shortest gap between dates so it can't swallow the next one.
+  // Done a little early counts for that date: irrigation started Apr 22 covers
+  // "by Apr 30", an estimate paid Apr 10 covers Apr 15. The grace is the lead
+  // time (while it was already showing), or with no lead time half the gap
+  // between dates; never more than half the shortest gap, so it can't swallow
+  // the next one.
   const gapMonths = Math.min(...sorted.map((m, i) => ((sorted[(i + 1) % sorted.length]! - m + 12) % 12) || 12))
-  const early = Math.min(cfg.lead ?? 0, Math.floor((gapMonths * 28) / 2))
+  const halfGap = Math.floor((gapMonths * 28) / 2)
+  let early = Math.min(cfg.lead ?? halfGap, halfGap)
+  // A late completion of a date still owed counts for that date, not as an
+  // early one of the next: April's estimate paid May 20 doesn't cover June
+  if (doneOn && early > 0 && ctx.previousDone !== undefined) {
+    const owed = occurrenceOnOrBefore(sorted, day, doneOn)
+    const prev = toYmd(ctx.previousDone)
+    if (owed && owed < doneOn && (!prev || prev < addDaysYmd(owed, -early))) early = 0
+  }
   // Strictly after the last time it was done (plus that grace); never done: on or after today
   const after = doneOn ? addDaysYmd(doneOn, early) : null
   const from = doneOn ?? ctx.today
@@ -341,6 +374,18 @@ function evaluateCalendar(rule: EngineRule, ctx: RecordContext): DeadlineResult 
   // Not shown until the lead time, unless it's already late
   if (cfg.lead !== undefined && res.daysUntil !== null && res.daysUntil > cfg.lead) return { ...NONE, detail: `Next: ${formatDue(due)}`, upcoming: due }
   return res
+}
+
+/** The latest date in these months (day `day`) on or before `ymd`. */
+function occurrenceOnOrBefore(months: number[], day: number | 'last', ymd: string): string | null {
+  const y = Number(ymd.slice(0, 4))
+  for (let year = y; year >= y - 2; year--) {
+    for (const m of [...months].reverse()) {
+      const d = dayIn(year, m, day)
+      if (d <= ymd) return d
+    }
+  }
+  return null
 }
 
 function addDaysYmd(ymd: string, days: number): string {
@@ -446,8 +491,8 @@ function evaluateQuota(rule: EngineRule, ctx: RecordContext): DeadlineResult {
   const daysUntil = daysBetween(ctx.today, end)
   const range = `${formatDue(start)} – ${formatDue(end)}`
   if (used >= limit) {
-    // Out of visits: as urgent as a deadline due today, whatever the end date
-    return { due: end, state: 'overdue', daysUntil: Math.min(daysUntil, 0), estimated: false, label, detail: `All ${limit} used (${range})` }
+    // Out of visits: needs action now, whatever the end date. Shown by its label, not a day count
+    return { due: end, state: 'overdue', daysUntil: Math.min(daysUntil, 0), estimated: false, label: `All ${limit} used`, detail: `All ${limit} used (${range})` }
   }
   if (daysUntil < 0) return { due: end, state: 'overdue', daysUntil, estimated: false, label, detail: `Ended ${formatDue(end)} with ${left} left` }
   const soon = left <= cfg.warnRemaining || daysUntil <= cfg.warnDaysBeforeEnd
@@ -567,19 +612,60 @@ export function evaluate(rule: EngineRule, ctx: RecordContext): DeadlineResult {
   }
   const res = evaluateKind(rule, ctx)
   if (ctx.extension) return applyExtension(res, ctx.extension, ctx.today)
-  // "Count business days only": a due date on a day off moves to the working day before
-  if (rule.businessDays && res.due && res.state !== 'done') {
-    const rolled = rollBackToBusinessDay(res.due, calendarOf(ctx))
+  // "Count business days only": a due date on a day off moves to the working day before.
+  // Only the date moves: the step, label and anything else the kind worked out stay,
+  // and a state the kind already made more urgent (a used-up quota) is kept
+  if (rule.businessDays && res.due && res.state !== 'done' && rule.kind !== 'quota') {
+    const rolled = rule.rollForward ? rollForwardToBusinessDay(res.due, calendarOf(ctx)) : rollBackToBusinessDay(res.due, calendarOf(ctx))
     if (rolled !== res.due) {
-      return result(rolled, ctx.today, `Due ${formatDue(rolled)}, the working day before ${formatDue(res.due)} · ${res.detail}`, { estimated: res.estimated, label: res.label })
+      const daysUntil = daysBetween(ctx.today, rolled)
+      const rolledState = stateFor(daysUntil)
+      const state = URGENCY[res.state] > URGENCY[rolledState] ? res.state : rolledState
+      return { ...res, due: rolled, daysUntil, state, detail: `Due ${formatDue(rolled)}, the working day ${rule.rollForward ? 'after' : 'before'} ${formatDue(res.due)} · ${res.detail}` }
     }
   }
   return res
 }
 
+/** A one-off date: "the date is the deadline", no repeat. Done asks Renewed or Finished (Decision E1). */
+export function isOneOff(rule: EngineRule): boolean {
+  return rule.kind === 'interval' && !hasInterval(rule.interval)
+}
+
+/**
+ * Rules whose own column holds the day it was done, not a due date: those
+ * belong on a Deadline column (Decision E1). Rules counted from their own
+ * column ('self') keep a Date column.
+ */
+export function needsDeadlineColumn(rule: EngineRule): boolean {
+  if (!rule.config) return false
+  if (rule.kind === 'calendar') return true
+  if (rule.kind === 'relative' || rule.kind === 'sequence') return (rule.config as RelativeConfig | SequenceConfig).anchorColumnId !== 'self'
+  return false
+}
+
 /** Whether a rule needs more than the cell itself (loaders fetch every row, not only filled cells). */
 export function needsRowContext(rule: EngineRule): boolean {
   return rule.kind !== 'interval' || rule.condition !== null
+}
+
+/** What the "current reading?" question needs for a meter rule: the unit, the interval and the readings now (D-31). */
+export interface MeterInfo { unit: string; every: number; current: number | null; lastService: number | null }
+
+export function meterInfo(rule: EngineRule, values: Record<number, string | null> | undefined): MeterInfo | null {
+  if (rule.kind !== 'meter' || !rule.config) return null
+  const c = rule.config as MeterConfig
+  return { unit: c.unit, every: c.every, current: toNumber(values?.[c.readingColumnId]), lastService: toNumber(values?.[c.lastServiceReadingColumnId]) }
+}
+
+/** A reading that's probably a typo: below the last service, or far beyond what the interval allows. */
+export function implausibleReading(reading: number, info: MeterInfo): string | null {
+  const fmt = (n: number) => `${n.toLocaleString('en-US', { maximumFractionDigits: 1 })} ${info.unit}`
+  if (info.lastService !== null && reading < info.lastService) return `That's lower than the reading at the last service (${fmt(info.lastService)}).`
+  if (info.current !== null && reading < info.current) return `That's lower than the reading on file (${fmt(info.current)}).`
+  const base = info.current ?? info.lastService
+  if (base !== null && reading - base > info.every * 10) return `That's ${fmt(reading - base)} more than the reading on file. Is it right?`
+  return null
 }
 
 /** The column whose history a meter rule needs (its readings), or null. */

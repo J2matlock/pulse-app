@@ -3,14 +3,14 @@ import { type Row } from '@tanstack/react-table'
 import { User } from 'lucide-react'
 import type { GridRow, Column, ParsedAlertRule, CellFormatRule, AcuityLevel } from '../../../shared/types'
 import { isNotTypedColumnType, takesDeadlineRule } from '../../../shared/types'
-import { getMatchingThreshold, evaluateRuleForRow, formatResultTooltip } from '../../utils/deadlineCalc'
+import { getMatchingThreshold, evaluateRuleForRow, formatResultTooltip, deadlineChipText } from '../../utils/deadlineCalc'
 import { resolveAlertColor } from '../../utils/alertColors'
 import { evalCellFormat } from './CellConditionalFormatPanel'
 import { CellEditor, type NavDirection } from './CellEditor'
 import { GridLinkEditor } from '../links/LinkPicker'
 import { CellDisplay } from './CellDisplay'
 import { AcuityBadge } from './AcuityBadge'
-import { alertShapeForThreshold, HANDLE_STYLE, HANDLE_WIDTH, PROFILE_BTN_WIDTH } from './gridConstants'
+import { alertShapeForBand, HANDLE_STYLE, HANDLE_WIDTH, PROFILE_BTN_WIDTH } from './gridConstants'
 import { useVocab } from '../../hooks/useVocab'
 import { SamplePill } from '../shared/SampleDataBanner'
 
@@ -27,6 +27,8 @@ export interface SortableRowProps {
   columns: Column[]
   columnMap: Map<number, Column>
   alertRuleMap: Map<number, ParsedAlertRule>
+  /** Meter readings, quota counts, steps and extensions; a new one redraws deadline colors */
+  deadlineContext?: unknown
   cellFormats: Map<string, CellFormatRule[]>
   parsedColumnConfigs: Map<number, { config: Record<string, unknown>; conditionalFormat: CellFormatRule[] }>
   hasAnyHighlightRules: boolean
@@ -244,6 +246,9 @@ export const SortableRow = React.memo(function SortableRow({
         let hasAlertStyle = false
         let alertTooltip = ''
         let alertIcon: React.ReactNode = null
+        // Date columns with a rule say how they stand, not only by color (G-09)
+        let alertChip: string | null = null
+        let alertSpoken = ''
         if (takesDeadlineRule(col.column_type)) {
           const cfg = parsedColumnConfigs.get(col.id)?.config as { alert_rule_id?: number } | undefined
           if (cfg?.alert_rule_id) {
@@ -252,6 +257,7 @@ export const SortableRow = React.memo(function SortableRow({
               // The shared engine (W05): relative and other kinds can be due with this cell empty
               const res = evaluateRuleForRow(rule, value, rowOriginal as unknown as Record<string, unknown>, col.id)
               const days = res.daysUntil
+              if (col.column_type === 'date') alertChip = deadlineChipText(res, value)
               // Unparseable dates yield null — don't let them coerce to "due today"
               const threshold = days !== null ? getMatchingThreshold(days, rule.thresholds) : undefined
               if (days !== null && threshold) {
@@ -260,7 +266,8 @@ export const SortableRow = React.memo(function SortableRow({
                 alertBgStyle = resolved.style
                 hasAlertStyle = !!(resolved.className || Object.keys(resolved.style).length > 0)
                 alertTooltip = formatResultTooltip(res)
-                alertIcon = alertShapeForThreshold(threshold.bgClass, days)
+                alertIcon = alertShapeForBand(days, threshold, rule.thresholds)
+                alertSpoken = [threshold.label, alertTooltip].filter(Boolean).join('. ')
               }
             }
           }
@@ -430,6 +437,8 @@ export const SortableRow = React.memo(function SortableRow({
                 {alertIcon}
                 <CellDisplay column={col} value={value} row={row.original} allColumns={columns} parsedConfig={parsedColumnConfigs.get(col.id)?.config} highlightText={searchQuery} isActiveMatch={findReplaceActiveRowId === rowId && findReplaceActiveColId === col.id} />
                 {isSample && col.is_name_column === 1 && <SamplePill />}
+                {alertChip && <span className="ml-1.5 text-sm text-slate-700 dark:text-slate-200 whitespace-nowrap" data-testid="deadline-chip">{alertChip}</span>}
+                {alertSpoken && <span className="sr-only">{alertSpoken}</span>}
               </>
             )}
           </div>
@@ -463,6 +472,7 @@ export const SortableRow = React.memo(function SortableRow({
   if (prev.acuityEnabled !== next.acuityEnabled) return false
   if (prev.acuityLevels !== next.acuityLevels) return false
   if (prev.alertRuleMap !== next.alertRuleMap) return false
+  if (prev.deadlineContext !== next.deadlineContext) return false
   if (prev.searchQuery !== next.searchQuery) return false
   if (prev.findReplaceActiveRowId !== next.findReplaceActiveRowId) return false
   if (prev.findReplaceActiveColId !== next.findReplaceActiveColId) return false

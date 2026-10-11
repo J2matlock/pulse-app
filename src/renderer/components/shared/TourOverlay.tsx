@@ -156,7 +156,7 @@ export const STEPS: TourStep[] = [
     title: 'Deadline colors',
     subtitle: 'Never miss a due date again',
     description:
-      'Any date column can turn colors as it comes due — green when you have time, yellow as it approaches, orange when it\'s close, red when it\'s urgent, and pulsing red when overdue. Open the menu (⋯) on a date column\'s header and pick a rule under "Alert Rule". Your dashboard uses these colors to keep you on track.',
+      'Any date column can turn colors as it comes due — green when you have time, yellow as it approaches, orange when it\'s close, red when it\'s urgent, and pulsing red when overdue. Open the menu (⋯) on a date column\'s header and pick a rule under "Deadline rule". Your dashboard uses these colors to keep you on track.',
     icon: <Palette className="w-6 h-6" />,
     position: 'bottom',
     route: '#/grid',

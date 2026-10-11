@@ -50,6 +50,14 @@ export function rollBackToBusinessDay(ymd: string, cal: WorkCalendar): string {
   return cur
 }
 
+/** The same day if it's a working day, otherwise the next working day (most court and agency rules). */
+export function rollForwardToBusinessDay(ymd: string, cal: WorkCalendar): string {
+  if (cal.weekend.length >= 7) return ymd
+  let cur = ymd
+  for (let guard = 0; isDayOff(cur, cal) && guard < MAX_HOLIDAYS + 7; guard++) cur = shift(cur, 1)
+  return cur
+}
+
 function nthWeekday(year: number, month: number, weekday: number, n: number): string {
   const first = new Date(year, month, 1)
   const day = 1 + ((weekday - first.getDay() + 7) % 7) + (n - 1) * 7

@@ -16,7 +16,8 @@ export interface PendingColumnTypeChange {
 
 export interface ColumnSliceState {
   /** numberExisting: for an auto-number column, also number the records already in the list */
-  addColumn: (name: string, columnType: string, config?: string, opts?: { numberExisting?: boolean }) => Promise<void>
+  /** Returns the new column's id, or null if it couldn't be added */
+  addColumn: (name: string, columnType: string, config?: string, opts?: { numberExisting?: boolean }) => Promise<number | null>
   updateColumn: (columnId: number, updates: Partial<Column>) => Promise<void>
   deleteColumn: (columnId: number) => Promise<void>
   reorderColumns: (orderedIds: number[]) => Promise<void>
@@ -70,7 +71,7 @@ export const createColumnSlice = (set: Set, get: Get) => ({
 
   addColumn: async (name: string, columnType: string, config?: string, opts?: { numberExisting?: boolean }) => {
     const gridId = get().activeGridId
-    if (!gridId) return
+    if (!gridId) return null
     const numberExisting = columnType === 'auto_number' && !!opts?.numberExisting
     try {
       const colId = await invoke<number>(IPC.COLUMN_CREATE, gridId, name, columnType)
@@ -102,9 +103,11 @@ export const createColumnSlice = (set: Set, get: Get) => ({
           await get().loadGrid(gId)
         },
       })
+      return colId
     } catch (err) {
       rlog.error('GridColumnSlice', 'Failed to add column', err)
       toast.error('Could not add column — please try again')
+      return null
     }
   },
 

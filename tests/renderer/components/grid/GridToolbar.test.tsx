@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render as rtlRender, screen, fireEvent } from '@testing-library/react'
+import { render as rtlRender, screen, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 // The Export menu links to Reports, so the toolbar needs a router
 const render = (ui: React.ReactElement) => rtlRender(ui, { wrapper: MemoryRouter })
@@ -105,6 +105,7 @@ vi.mock('../../../../src/renderer/components/shared/ColumnSelectDialog', () => (
 // ── Store imports ───────────────────────────────────────────────────────────
 
 import { useGridStore } from '../../../../src/renderer/stores/gridStore'
+import { useAlertStore } from '../../../../src/renderer/stores/alertStore'
 import { GridToolbar } from '../../../../src/renderer/components/grid/GridToolbar'
 import type { Column } from '../../../../src/shared/types'
 import { setWords, setFeatures, EXISTING_FEATURES } from '../../vocabFixture'
@@ -211,6 +212,39 @@ describe('GridToolbar', () => {
     fireEvent.click(screen.getByText('Add Column'))
     expect(screen.getByLabelText('Column name')).toBeTruthy()
     expect(screen.getByLabelText('Type')).toBeTruthy()
+  })
+
+  it('asks whether a new date comes due again, and reuses a matching rule (D-15)', async () => {
+    const addColumn = vi.fn().mockResolvedValue(9)
+    setupStores({ addColumn })
+    const createRule = vi.fn()
+    useAlertStore.setState({ rules: [{ id: 3, name: 'Yearly', description: null, is_system: 0, thresholds: [], interval_days: null, interval_months: 12, end_of_month: 0, kind: 'interval', created_at: '' }], createRule } as never)
+    render(<GridToolbar />)
+    fireEvent.click(screen.getByText('Add Column'))
+    fireEvent.change(screen.getByLabelText('Column name'), { target: { value: 'Annual review' } })
+    fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'date' } })
+    expect(screen.getByText('Does this date come due again?')).toBeTruthy()
+    fireEvent.click(screen.getByLabelText('Yes, every'))
+    fireEvent.change(screen.getByLabelText('How often'), { target: { value: '1' } })
+    fireEvent.change(screen.getByLabelText('Months or years'), { target: { value: 'years' } })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Add' })) })
+    expect(createRule).not.toHaveBeenCalled()
+    expect(addColumn).toHaveBeenCalledWith('Annual review', 'date', JSON.stringify({ alert_rule_id: 3 }), expect.anything())
+  })
+
+  it('makes a plain rule when none matches', async () => {
+    const addColumn = vi.fn().mockResolvedValue(9)
+    setupStores({ addColumn })
+    const createRule = vi.fn().mockResolvedValue(21)
+    useAlertStore.setState({ rules: [], createRule } as never)
+    render(<GridToolbar />)
+    fireEvent.click(screen.getByText('Add Column'))
+    fireEvent.change(screen.getByLabelText('Column name'), { target: { value: 'Lease end' } })
+    fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'date' } })
+    fireEvent.click(screen.getByLabelText("It's the due date"))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Add' })) })
+    expect(createRule).toHaveBeenCalledWith(expect.objectContaining({ name: 'The date entered is the deadline', interval_days: null, interval_months: null }))
+    expect(addColumn).toHaveBeenCalledWith('Lease end', 'date', JSON.stringify({ alert_rule_id: 21 }), expect.anything())
   })
 
   it('shows Columns button with hidden count when columns are hidden', () => {

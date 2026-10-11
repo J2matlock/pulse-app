@@ -101,17 +101,37 @@ export function setActivityTypeArchived(id: number, archived: boolean): void {
   invalidate()
 }
 
-/** How many notes, requirements and date-column rules use a key. */
-export function activityTypeUsage(key: string): { notes: number; rules: number } {
+/**
+ * How many notes use a key, and what else depends on it: requirements,
+ * date columns, deadline rules that count it, forms that log it, stage
+ * steps that write it, and appointments. `uses` names the non-note ones.
+ */
+export function activityTypeUsage(key: string): { notes: number; rules: number; uses: string[] } {
   const db = getDb()
   const notes = (db.prepare('SELECT COUNT(*) AS n FROM case_log WHERE log_type = ?').get(key) as { n: number }).n
+  const uses: string[] = []
   // Stored JSON could be malformed; treat that as "uses nothing" rather than failing
-  const reqs = (db.prepare(`SELECT COUNT(*) AS n FROM contact_requirements r,
-    json_each(CASE WHEN json_valid(r.note_types) THEN r.note_types ELSE '[]' END) j WHERE j.value = ?`).get(key) as { n: number }).n
-  const cols = (db.prepare(`SELECT COUNT(*) AS n FROM columns c,
+  const reqs = db.prepare(`SELECT DISTINCT r.label FROM contact_requirements r,
+    json_each(CASE WHEN json_valid(r.note_types) THEN r.note_types ELSE '[]' END) j WHERE j.value = ?`).all(key) as Array<{ label: string }>
+  for (const r of reqs) uses.push(`${word('requirement')} "${r.label}"`)
+  const cols = db.prepare(`SELECT DISTINCT c.name FROM columns c,
     json_each(CASE WHEN json_valid(c.config) AND json_type(c.config, '$.note_updates') = 'array' THEN json_extract(c.config, '$.note_updates') ELSE '[]' END) j
-    WHERE j.value = ?`).get(key) as { n: number }).n
-  return { notes, rules: reqs + cols }
+    WHERE j.value = ?`).all(key) as Array<{ name: string }>
+  for (const c of cols) uses.push(`date column "${c.name}"`)
+  const rules = db.prepare(`SELECT DISTINCT a.name FROM alert_rules a,
+    json_each(CASE WHEN a.kind = 'quota' AND json_valid(a.rule_config) AND json_type(a.rule_config, '$.activityTypes') = 'array'
+      THEN json_extract(a.rule_config, '$.activityTypes') ELSE '[]' END) j WHERE j.value = ?`).all(key) as Array<{ name: string }>
+  for (const r of rules) uses.push(`deadline rule "${r.name}"`)
+  const forms = db.prepare('SELECT name FROM forms WHERE log_activity_type = ?').all(key) as Array<{ name: string }>
+  for (const f of forms) uses.push(`form "${f.name}"`)
+  const stageCols = db.prepare(`SELECT DISTINCT c.name FROM columns c,
+    json_each(CASE WHEN json_valid(c.config) AND json_type(c.config, '$.stage.options') = 'array' THEN json_extract(c.config, '$.stage.options') ELSE '[]' END) o
+    WHERE json_extract(o.value, '$.onEnter.activityTypeKey') = ?`).all(key) as Array<{ name: string }>
+  for (const c of stageCols) uses.push(`${word('stage')} column "${c.name}"`)
+  const appts = (db.prepare('SELECT COUNT(*) AS n FROM appointments WHERE activity_type_key = ?').get(key) as { n: number }).n
+    + (db.prepare("SELECT COUNT(*) AS n FROM appointment_series WHERE json_valid(template) AND json_extract(template, '$.activity_type_key') = ?").get(key) as { n: number }).n
+  if (appts > 0) uses.push(`${appts} ${word('appointment', { count: appts })}`)
+  return { notes, rules: uses.length, uses }
 }
 
 /** Only a type nothing uses can be deleted; anything else is archived instead. */
@@ -119,9 +139,12 @@ export function deleteActivityType(id: number): void {
   const db = getDb()
   const type = byId(id)
   if (!type) throw new ActivityTypeError('That type no longer exists.')
-  const { notes, rules } = activityTypeUsage(type.key)
+  const { notes, uses } = activityTypeUsage(type.key)
   if (notes > 0) throw new ActivityTypeError(`This type is used by ${notes} ${word('activity', { count: notes })}. Archive it instead.`)
-  if (rules > 0) throw new ActivityTypeError(`This type is used by ${word('requirement', { article: true })} or a date column. Archive it instead.`)
+  if (uses.length > 0) {
+    const named = uses.length > 3 ? `${uses.slice(0, 3).join(', ')} and ${uses.length - 3} more` : uses.join(', ')
+    throw new ActivityTypeError(`This type is used by ${named}. Archive it instead.`)
+  }
   if (!type.is_archived) {
     const active = (db.prepare('SELECT COUNT(*) AS n FROM activity_types WHERE is_archived = 0').get() as { n: number }).n
     if (active <= 1) throw new ActivityTypeError('Keep at least one type to choose from.')

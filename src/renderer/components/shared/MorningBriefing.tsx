@@ -17,6 +17,8 @@ interface Briefing {
   tasksDue: number
   checklistDue: number
   appointmentsToday?: number
+  /** Past appointments still marked scheduled (S-09) */
+  needsOutcome?: number
   firstAppointment?: string | null
 }
 
@@ -69,13 +71,14 @@ export function MorningBriefing({ suppressed, onFocusMode }: { suppressed: boole
   }
 
   const b = briefing
-  const nothingUrgent = b.overdue + b.dueToday + b.followUpsDue + b.tasksDue + b.checklistDue === 0
+  const nothingUrgent = b.overdue + b.dueToday + b.followUpsDue + b.tasksDue + b.checklistDue + (b.needsOutcome ?? 0) === 0
   const items: Array<[number, string, string]> = [
     [b.overdue, 'overdue deadline', 'text-red-700 dark:text-red-300'],
     [b.dueToday, 'deadline due today', 'text-orange-700 dark:text-orange-300'],
-    [b.dueThisWeek, 'more due this week', 'text-slate-800 dark:text-slate-100'],
+    [b.dueThisWeek, 'more due in the next 7 days', 'text-slate-800 dark:text-slate-100'],
     [b.followUpsDue, 'follow-up due', 'text-slate-800 dark:text-slate-100'],
     [b.tasksDue + b.checklistDue, 'task due', 'text-slate-800 dark:text-slate-100'],
+    [b.needsOutcome ?? 0, `past ${t('appointment')} without an outcome`, 'text-amber-800 dark:text-amber-200'],
   ]
 
   return (

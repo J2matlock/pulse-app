@@ -10,11 +10,11 @@ vi.mock('../src/main/database', () => ({
     ON CONFLICT(row_id, column_id) DO UPDATE SET value = excluded.value`).run(rowId, columnId, value),
 }))
 
-import { createAppointment, endSeriesOn, followingRule, listAppointments, updateAppointment, deleteAppointment, restoreAppointments, ensureMaterialized, rematerializeForRecord, recordAppointments, ApptError, setAppointmentStatus, appointmentsToday, countUpcomingForRecords, cancelUpcomingForRecords } from '../src/main/appointments'
+import { createAppointment, endSeriesOn, followingRule, listAppointments, updateAppointment, deleteAppointment, restoreAppointments, ensureMaterialized, rematerializeForRecord, recordAppointments, ApptError, setAppointmentStatus, appointmentsToday, countUpcomingForRecords, cancelUpcomingForRecords, appointmentsNeedingOutcome } from '../src/main/appointments'
 import { seriesDates, addMinutes, addMonths, minutesBetween, validWallTime, describeRule } from '../src/shared/appointments'
 import { up as migration040 } from '../src/main/migrations/040_appointments'
 import { addMissingActivityTypes } from '../src/main/activity-types'
-import { localDateString } from '../src/shared/dates'
+import { localDateString, localDateFromToday } from '../src/shared/dates'
 
 let g: { gridId: number; rowIds: number[]; columnIds: number[] }
 const today = localDateString()
@@ -362,5 +362,19 @@ describe('today\'s appointments for the briefing', () => {
     expect(appointmentsToday(today)).toEqual({ appointmentsToday: 0, firstAppointment: null })
     t.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('workspace_features', ?)").run(JSON.stringify({ appointments: true }))
     expect(appointmentsToday(today)).toEqual({ appointmentsToday: 3, firstAppointment: `${today}T08:30` })
+  })
+})
+
+describe('past appointments that need an outcome (S-09)', () => {
+  it('counts scheduled ones from the last two weeks, not today, older ones or ones with an outcome', () => {
+    t.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('workspace_features', ?)").run(JSON.stringify({ appointments: true }))
+    const day = (n: number) => localDateFromToday(n)
+    createAppointment({ title: 'Tuesday visit', start_at: `${day(-2)}T10:00` })
+    createAppointment({ title: 'Last week', start_at: `${day(-8)}T10:00` })
+    createAppointment({ title: 'Long ago', start_at: `${day(-20)}T10:00` })
+    createAppointment({ title: 'Today', start_at: `${today}T08:00` })
+    const done = createAppointment({ title: 'Had it', start_at: `${day(-3)}T10:00` }).ids[0]!
+    setAppointmentStatus(done, 'done')
+    expect(appointmentsNeedingOutcome(today)).toBe(2)
   })
 })

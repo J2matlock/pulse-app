@@ -5,7 +5,7 @@
  * through here, so they all agree.
  */
 import { getDb } from './database'
-import { evaluate, engineRuleFrom, meterHistoryColumn, referencedColumns, sequenceAnchor, extensionAnchor, matchExtension, applyExtension, type StoredExtension, type QuotaConfig, type DeadlineResult, type EngineRule, type RecordContext, type RuleKind } from '../shared/deadlineEngine'
+import { evaluate, isUsedUp, meterInfo, type MeterInfo, engineRuleFrom, meterHistoryColumn, referencedColumns, sequenceAnchor, extensionAnchor, matchExtension, applyExtension, type StoredExtension, type QuotaConfig, type DeadlineResult, type EngineRule, type RecordContext, type RuleKind } from '../shared/deadlineEngine'
 import type { WorkCalendar } from '../shared/businessDays'
 import type { GridDeadlineContext } from '../shared/ipc-contract'
 import { workCalendarSetting } from './vocab'
@@ -34,6 +34,8 @@ export interface DeadlineItem extends DeadlineResult {
   rule_kind: RuleKind
   /** The extension in effect, so it can be removed */
   extension_id?: number
+  /** Meter rules: unit and readings, for the "current reading?" question */
+  meter?: MeterInfo
 }
 
 export interface DeadlineQuery {
@@ -66,6 +68,8 @@ interface Row extends RuleFields {
   row_id: number; grid_id: number; grid_name: string; column_id: number; column_name: string; column_config: string
   date_value: string; client_name: string | null; record_kind: string | null; rule_id: number | null
   interval_days: number | null; interval_months: number | null; end_of_month: number | null; alert_thresholds: string | null
+  /** A one-off date marked Finished for this value (Decision E1) */
+  finished_for?: string | null
 }
 
 interface RuleColumn extends RuleFields {
@@ -82,15 +86,16 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
     SELECT r.id AS row_id, r.grid_id, g.name AS grid_name, col.id AS column_id, col.name AS column_name,
            col.config AS column_config, c.value AS date_value, r.display_name AS client_name, g.record_kind, ar.id AS rule_id,
            ar.interval_days, ar.interval_months, ar.end_of_month, ar.thresholds AS alert_thresholds,
-           ar.kind, ar.rule_config, ar.rule_condition, ar.business_days
+           ar.kind, ar.rule_config, ar.rule_condition, ar.business_days, dd.done_for AS finished_for
     FROM cells c
     JOIN rows r   ON r.id = c.row_id AND r.is_active = 1 AND r.deleted_at IS NULL
     JOIN grids g  ON g.id = r.grid_id AND g.is_active = 1
     JOIN columns col ON col.id = c.column_id AND col.column_type IN ('date', 'deadline')
       AND json_extract(col.config, '$.alert_rule_id') IS NOT NULL
-    LEFT JOIN alert_rules ar ON ar.id = CAST(json_extract(col.config, '$.alert_rule_id') AS INTEGER)
+    JOIN alert_rules ar ON ar.id = CAST(json_extract(col.config, '$.alert_rule_id') AS INTEGER)
+    LEFT JOIN deadline_done dd ON dd.row_id = r.id AND dd.column_id = col.id AND dd.done_for = substr(c.value, 1, 10)
     WHERE c.value IS NOT NULL AND c.value != ''
-      AND (ar.id IS NULL OR (COALESCE(ar.kind, 'interval') = 'interval' AND ar.rule_condition IS NULL))
+      AND COALESCE(ar.kind, 'interval') = 'interval' AND ar.rule_condition IS NULL
       AND (? IS NULL OR r.grid_id = ?) ${rowFilter}
   `).all(q.gridId ?? null, q.gridId ?? null, ...(q.rowIds ?? [])) as Row[]
 
@@ -116,7 +121,9 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
     if (res.state === 'paused' && !q.includePaused) return
     if (q.from && res.due < q.from) return
     if (q.to && res.due > q.to) return
+    const meter = meterInfo(rule, ctx.values)
     items.push({
+      ...(meter ? { meter } : {}),
       row_id: r.row_id, grid_id: r.grid_id, grid_name: r.grid_name, column_id: r.column_id, column_name: r.column_name,
       column_config: r.column_config, date_value: r.date_value, client_name: r.client_name, record_kind: r.record_kind,
       interval_days: r.interval_days, interval_months: r.interval_months, end_of_month: r.end_of_month,
@@ -124,7 +131,7 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
       ...(ext && res.extended ? { extension_id: ext.id } : {}),
     })
   }
-  for (const r of rows) add(r, { today, columnDate: r.date_value, holidays: cal.holidays, weekend: cal.weekend })
+  for (const r of rows) add(r, { today, columnDate: r.date_value, holidays: cal.holidays, weekend: cal.weekend, ...(r.finished_for ? { finishedFor: [r.finished_for] } : {}) })
 
   // Other kinds (and rules with conditions) can be due with their own cell empty, and
   // read other columns: load each such column's rows with the columns it refers to
@@ -152,6 +159,8 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
     const history = meterHistories(meterHistoryColumn(parsed))
     const counts = parsed.kind === 'quota' && parsed.config ? quotaCounts(rc.grid_id, parsed.config as QuotaConfig) : new Map<number, number>()
     const progress = parsed.kind === 'sequence' ? progressEntries(rc.column_id) : new Map<number, Array<{ step: number; anchor: string | null }>>()
+    const previous = parsed.kind === 'calendar' ? previousValues(rc.column_id) : null
+    const finished = parsed.kind === 'interval' ? finishedDates(rc.column_id) : null
     for (const rec of recs) {
       const values: Record<number, string | null> = {}
       refs.forEach((id, i) => { values[id] = (rec[`ref_${i}`] as string | null) ?? null })
@@ -159,7 +168,9 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
       const anchor = sequenceAnchor(parsed, rec.own, values)
       const steps = (progress.get(rec.row_id) ?? []).filter(p => p.anchor === anchor).map(p => p.step)
       add({ ...rc, row_id: rec.row_id, client_name: rec.client_name, record_kind: rec.record_kind, date_value: rec.own ?? '' },
-        { today, columnDate: rec.own, values, meterHistory: history.get(rec.row_id), activityCount: counts.get(rec.row_id) ?? 0, progress: steps, holidays: cal.holidays, weekend: cal.weekend })
+        { today, columnDate: rec.own, values, meterHistory: history.get(rec.row_id), activityCount: counts.get(rec.row_id) ?? 0, progress: steps, holidays: cal.holidays, weekend: cal.weekend,
+          ...(previous?.has(rec.row_id) ? { previousDone: previous.get(rec.row_id) ?? null } : {}),
+          ...(finished?.has(rec.row_id) ? { finishedFor: finished.get(rec.row_id) } : {}) })
     }
   }
   // Soonest first; ties in a stable order so lists don't shuffle between loads
@@ -172,7 +183,8 @@ export function deadlineCounts(today: string = localDateString()): { overdue: nu
   let overdue = 0, dueToday = 0, dueThisWeek = 0
   for (const d of loadDeadlines({ today })) {
     if (d.daysUntil === null) continue
-    if (d.daysUntil < 0) overdue++
+    // A used-up quota is overdue, not "due today", until its end date
+    if (d.daysUntil < 0 || isUsedUp(d)) overdue++
     else if (d.daysUntil === 0) dueToday++
     else if (d.daysUntil <= 7) dueThisWeek++
   }
@@ -182,8 +194,9 @@ export function deadlineCounts(today: string = localDateString()): { overdue: nu
 /**
  * For a quota rule: per record, the notes of the counted kinds between that
  * record's own start and end dates (local days; voided notes don't count).
+ * `until` (a stored UTC timestamp) counts only notes that happened by then, for reports as of a past day.
  */
-export function quotaCounts(gridId: number, cfg: QuotaConfig): Map<number, number> {
+export function quotaCounts(gridId: number, cfg: QuotaConfig, until?: string): Map<number, number> {
   const types = cfg.activityTypes
   const rows = getDb().prepare(`
     SELECT r.id AS row_id, COUNT(cl.id) AS n
@@ -193,9 +206,9 @@ export function quotaCounts(gridId: number, cfg: QuotaConfig): Map<number, numbe
     JOIN case_log cl ON cl.row_id = r.id AND cl.voided_at IS NULL
       AND cl.log_type IN (${types.map(() => '?').join(',')})
       AND date(cl.occurred_at, 'localtime') BETWEEN substr(s.value, 1, 10) AND substr(e.value, 1, 10)
-    WHERE r.grid_id = ?
+    WHERE r.grid_id = ? AND (? IS NULL OR cl.occurred_at <= ?)
     GROUP BY r.id
-  `).all(cfg.startColumnId, cfg.endColumnId, ...types, gridId) as Array<{ row_id: number; n: number }>
+  `).all(cfg.startColumnId, cfg.endColumnId, ...types, gridId, until ?? null, until ?? null) as Array<{ row_id: number; n: number }>
   return new Map(rows.map(r => [r.row_id, r.n]))
 }
 
@@ -212,9 +225,11 @@ export function activeExtensions(): Map<string, StoredExtension[]> {
 }
 
 /** Steps done on a sequence column, by record, with the anchor date each was done for. */
-export function progressEntries(columnId: number): Map<number, Array<{ step: number; anchor: string | null }>> {
+export function progressEntries(columnId: number, doneBy?: string): Map<number, Array<{ step: number; anchor: string | null }>> {
   const out = new Map<number, Array<{ step: number; anchor: string | null }>>()
-  const rows = getDb().prepare('SELECT row_id, step, anchor_value FROM deadline_progress WHERE column_id = ?').all(columnId) as Array<{ row_id: number; step: number; anchor_value: string | null }>
+  // doneBy ('YYYY-MM-DD'): only steps checked off by that day, for reports as of a past day
+  const rows = getDb().prepare('SELECT row_id, step, anchor_value FROM deadline_progress WHERE column_id = ? AND (? IS NULL OR done_at <= ?)')
+    .all(columnId, doneBy ?? null, doneBy ?? null) as Array<{ row_id: number; step: number; anchor_value: string | null }>
   for (const r of rows) out.set(r.row_id, [...(out.get(r.row_id) ?? []), { step: r.step, anchor: r.anchor_value }])
   return out
 }
@@ -232,17 +247,56 @@ export function meterHistories(columnId: number | null): Map<number, Array<{ at:
     if (!r.new_value || !Number.isFinite(value)) continue
     out.set(r.row_id, [...(out.get(r.row_id) ?? []), { at: r.at, value }])
   }
+  // The reading before the first recorded change was on file since the record was
+  // added: one more point, so two readings are enough for a forecast (D-32)
+  const firsts = getDb().prepare(`
+    SELECT h.row_id, h.old_value, date(r.created_at, 'localtime') AS created, date(h.changed_at, 'localtime') AS changed
+    FROM cell_history h JOIN rows r ON r.id = h.row_id
+    WHERE h.column_id = ? AND r.created_at >= datetime('now', '-181 days')
+      AND h.id = (SELECT MIN(h2.id) FROM cell_history h2 WHERE h2.row_id = h.row_id AND h2.column_id = h.column_id)
+  `).all(columnId) as Array<{ row_id: number; old_value: string | null; created: string; changed: string }>
+  for (const f of firsts) {
+    const value = Number((f.old_value ?? '').replace(/,/g, ''))
+    if (!f.old_value || !Number.isFinite(value) || f.created >= f.changed) continue
+    out.set(f.row_id, [{ at: f.created, value }, ...(out.get(f.row_id) ?? [])])
+  }
   return out
 }
 
 
+/**
+ * For calendar rules: per record, what the column held before its latest
+ * change (the previous done date). Records with no recorded change are left
+ * out, which the engine reads as "not known".
+ */
+export function previousValues(columnId: number): Map<number, string | null> {
+  const rows = getDb().prepare(`
+    SELECT h.row_id, h.old_value FROM cell_history h
+    WHERE h.column_id = ? AND h.id = (SELECT MAX(h2.id) FROM cell_history h2 WHERE h2.row_id = h.row_id AND h2.column_id = h.column_id)
+  `).all(columnId) as Array<{ row_id: number; old_value: string | null }>
+  return new Map(rows.map(r => [r.row_id, r.old_value]))
+}
+
+/** One-off dates marked Finished on a column, by record (Decision E1). */
+export function finishedDates(columnId: number): Map<number, string[]> {
+  const out = new Map<number, string[]>()
+  for (const r of getDb().prepare('SELECT row_id, done_for FROM deadline_done WHERE column_id = ?').all(columnId) as Array<{ row_id: number; done_for: string }>) {
+    out.set(r.row_id, [...(out.get(r.row_id) ?? []), r.done_for])
+  }
+  return out
+}
+
 export function loadGridDeadlineContext(gridId: number): GridDeadlineContext {
-  const ctx: GridDeadlineContext = { meter: {}, quota: {}, progress: {}, extensions: {} }
+  const ctx: GridDeadlineContext = { meter: {}, quota: {}, progress: {}, extensions: {}, previous: {}, finished: {} }
+  for (const r of getDb().prepare('SELECT dd.row_id, dd.column_id, dd.done_for FROM deadline_done dd JOIN rows r ON r.id = dd.row_id WHERE r.grid_id = ?').all(gridId) as Array<{ row_id: number; column_id: number; done_for: string }>) {
+    const key = `${r.row_id}:${r.column_id}`
+    ctx.finished![key] = [...(ctx.finished![key] ?? []), r.done_for]
+  }
   for (const [key, exts] of activeExtensions()) ctx.extensions[key] = exts
   const ruleRows = getDb().prepare(`
     SELECT col.id AS column_id, ar.id, ar.kind, ar.rule_config, ar.rule_condition, ar.business_days, ar.interval_days, ar.interval_months, ar.end_of_month
     FROM columns col JOIN alert_rules ar ON ar.id = CAST(json_extract(col.config, '$.alert_rule_id') AS INTEGER)
-    WHERE col.grid_id = ? AND ar.kind IN ('meter', 'quota', 'sequence')
+    WHERE col.grid_id = ? AND ar.kind IN ('meter', 'quota', 'sequence', 'calendar')
   `).all(gridId) as Array<Parameters<typeof engineRuleFrom>[0] & { column_id: number }>
   for (const r of ruleRows) {
     const rule = engineRuleFrom(r)
@@ -253,6 +307,9 @@ export function loadGridDeadlineContext(gridId: number): GridDeadlineContext {
     }
     if (rule.kind === 'sequence') {
       for (const [rowId, entries] of progressEntries(r.column_id)) ctx.progress[`${rowId}:${r.column_id}`] = entries
+    }
+    if (rule.kind === 'calendar') {
+      for (const [rowId, prev] of previousValues(r.column_id)) ctx.previous![`${rowId}:${r.column_id}`] = prev
     }
   }
   return ctx

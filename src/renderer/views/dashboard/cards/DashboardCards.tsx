@@ -20,9 +20,11 @@ import { TodayCard } from './TodayCard'
 import { SavedReportCard } from './SavedReportCard'
 import { loadPinnedReports, setReportPinned } from '../../../utils/pinnedReports'
 
-export function DashboardCards({ summary, customizing, onDoneCustomizing }: {
+export function DashboardCards({ summary, whatsDue, customizing, onDoneCustomizing }: {
   /** The summary tiles, which use the dashboard's own counts */
   summary: React.ReactNode
+  /** The deadline tabs: Priority List, Overdue, This Week, This Month */
+  whatsDue: React.ReactNode
   customizing: boolean
   onDoneCustomizing: () => void
 }): React.ReactElement {
@@ -32,6 +34,14 @@ export function DashboardCards({ summary, customizing, onDoneCustomizing }: {
   const rulesLoaded = useAlertStore(s => s.isLoaded)
   const [saved, setSaved] = useState<SavedLayout | null | undefined>(undefined)
   const [pinned, setPinned] = useState<number[]>([])
+  // Pinned reports are listed in Customize too (D-21)
+  const [reportNames, setReportNames] = useState<Record<number, string>>({})
+  useEffect(() => {
+    if (!customizing || pinned.length === 0) return
+    void safeInvoke<Array<{ id: number; name: string }>>(IPC.REPORT_LIST).then(r => {
+      if (r.ok && Array.isArray(r.data)) setReportNames(Object.fromEntries(r.data.map(x => [x.id, x.name])))
+    })
+  }, [customizing, pinned.length])
 
   useEffect(() => { if (!rulesLoaded) void useAlertStore.getState().loadRules() }, [rulesLoaded])
   useEffect(() => {
@@ -61,6 +71,7 @@ export function DashboardCards({ summary, customizing, onDoneCustomizing }: {
 
   const render: Record<CardKey, () => React.ReactNode> = {
     summary: () => summary,
+    whatsDue: () => whatsDue,
     today: () => <TodayCard />,
     requirements: () => <MonthlyContactsCard />,
     stages: () => <StagesCard />,
@@ -70,7 +81,7 @@ export function DashboardCards({ summary, customizing, onDoneCustomizing }: {
     recentActivity: () => <RecentActivityCard />,
   }
 
-  if (saved === undefined) return <>{summary}</>
+  if (saved === undefined) return <>{summary}{whatsDue}</>
 
   return (
     <>
@@ -95,6 +106,20 @@ export function DashboardCards({ summary, customizing, onDoneCustomizing }: {
               </li>
             ))}
           </ol>
+          {pinned.length > 0 && (
+            <>
+              <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 pt-2">Pinned reports</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-300">These show at the end. Pin reports from the Reports page.</p>
+              <ul className="space-y-1" aria-label="Pinned reports">
+                {pinned.map(id => (
+                  <li key={id} className="flex items-center gap-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3" style={{ minHeight: 44 }}>
+                    <span className="flex-1 text-base text-slate-800 dark:text-slate-100">{reportNames[id] ?? 'Report'}</span>
+                    <button type="button" className="btn-compact-secondary" onClick={() => void setReportPinned(id, false).then(setPinned)}>Unpin</button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </section>
       )}
       {cards.filter(c => c.on).map(c => <React.Fragment key={c.def.key}>{render[c.def.key]()}</React.Fragment>)}

@@ -303,7 +303,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
   const setFocusModeOpen = useSettingsStore(s => s.setFocusModeOpen)
   const tasks = useTaskStore(s => s.tasks)
 
-  // Count tasks due today (only if tasks are already loaded — no new IPC calls)
+  // Count tasks due today or late
   const todayDueCount = useMemo(() => {
     if (tasks.length === 0) return 0
     const today = localDateString()
@@ -311,6 +311,11 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
       !t.is_completed && t.due_date && t.due_date.slice(0, 10) <= today
     ).length
   }, [tasks])
+
+  // Load tasks once at startup so the badge shows before Tasks is visited (N-24)
+  useEffect(() => {
+    if (showTasks && useTaskStore.getState().tasks.length === 0) void useTaskStore.getState().loadTasks?.()
+  }, [showTasks])
 
   // Ensure grids are loaded regardless of which view mounts first
   useEffect(() => {

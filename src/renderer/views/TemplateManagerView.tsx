@@ -264,7 +264,7 @@ export default function TemplateManagerView(): React.ReactElement {
             </h2>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-            Saved as .pulse files. Captures your columns, column types, alert rules, deadline settings, activity tracking, and checklist assignments.
+            Saved as .pulse files. Captures your columns, column types, deadline rules, activity tracking, and checklist assignments.
             Use these to start a new {w('list')} with the same setup, or share your structure with a colleague.
           </p>
 

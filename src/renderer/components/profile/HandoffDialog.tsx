@@ -95,7 +95,7 @@ export function HandoffDialog({ rowId, gridId, clientName, onClose }: {
           </div>
           <label className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-200 cursor-pointer">
             <input type="checkbox" className="w-5 h-5" checked={includeScratchPad} onChange={e => setIncludeScratchPad(e.target.checked)} />
-            Include scrap notes
+            Include scratch notes
           </label>
           {filesOn && (
             <label className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-200 cursor-pointer">

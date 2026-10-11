@@ -57,7 +57,7 @@ const alertRuleSchema = z.object({
   kind: z.enum(['interval', 'relative', 'calendar', 'meter', 'quota', 'sequence']).optional(),
   rule_config: z.string().max(10_000).nullable().optional(),
   rule_condition: z.string().max(2_000).nullable().optional(),
-  business_days: z.number().int().min(0).max(1).optional(),
+  business_days: z.number().int().min(0).max(2).optional(),
 }).strict()
 
 const checklistSchema = z.object({

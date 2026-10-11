@@ -8,10 +8,9 @@ import { X, CheckCircle2, AlertTriangle, Pin, ListChecks, MessageSquare, Calenda
 import { useNavigate } from 'react-router-dom'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import { IPC } from '../../shared/ipc-channels'
-import type { CaseloadTask, AlertThreshold, ChecklistDueItem } from '../../shared/types'
+import type { CaseloadTask, ChecklistDueItem } from '../../shared/types'
 import { MS_PER_DAY } from '../../shared/constants'
 import { safeInvoke } from '../utils/safeInvoke'
-import { computeDaysUntil, computeEffectiveDeadline, getMatchingThreshold } from '../utils/deadlineCalc'
 import { useGridStore } from '../stores/gridStore'
 import { useTaskStore } from '../stores/taskStore'
 import { useUndoStore } from '../stores/undoStore'
@@ -23,7 +22,10 @@ import { ChecklistFocusItem } from './focus-mode/ChecklistFocusItem'
 import { FollowUpFocusItem } from './focus-mode/FollowUpFocusItem'
 import { TaskFocusItem } from './focus-mode/TaskFocusItem'
 import { rlog } from '../utils/rendererLogger'
-import { toRuleInterval } from '../../shared/ruleInterval'
+import { focusDeadlineItems } from './focus-mode/focusItems'
+import { completeDeadlines, isOneOffDeadline } from './dashboard/completeDeadline'
+import { OneOffDoneDialog, type OneOffChoice } from './dashboard/OneOffDoneDialog'
+import { MeterReadingDialog } from './dashboard/MeterReadingDialog'
 import { useVocab } from '../hooks/useVocab'
 import { wordNow } from '../utils/vocab'
 import { useFeature } from '../hooks/useFeature'
@@ -60,6 +62,8 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
   const [checklistsExpanded, setChecklistsExpanded] = useState(true)
   const [checklistDueExpanded, setChecklistDueExpanded] = useState(true)
   const [followUpsExpanded, setFollowUpsExpanded] = useState(true)
+  const [askReading, setAskReading] = useState<FocusItem | null>(null)
+  const [askOneOff, setAskOneOff] = useState<FocusItem | null>(null)
 
   // Clean up celebration timer on unmount
   useEffect(() => () => { clearTimeout(celebrationTimerRef.current) }, [])
@@ -67,7 +71,8 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
   // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      // A dialog open on top (the meter reading) closes itself first
+      if (e.key === 'Escape' && document.querySelectorAll('[aria-modal="true"]').length <= 1) onClose()
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -87,46 +92,7 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
           }>>(IPC.DASHBOARD_GET_FOLLOWUPS),
         ])
 
-        if (deadlinesResult.ok) {
-          const items: FocusItem[] = deadlinesResult.data
-            .flatMap(r => {
-              const daysUntil = computeDaysUntil(r.date_value, toRuleInterval(r))
-              // Unparseable date: not a real deadline (and would crash the date formatting below)
-              if (daysUntil === null) return []
-              let thresholds: AlertThreshold[] = []
-              try {
-                thresholds = r.alert_thresholds ? JSON.parse(r.alert_thresholds) as AlertThreshold[] : []
-              } catch { /* ignore malformed */ }
-              return [{ ...r, daysUntil, thresholds }]
-            })
-            .filter(r => {
-              // Show if overdue/today OR if an alert threshold is actively triggered
-              if (r.daysUntil <= 0) return true
-              if (r.thresholds.length > 0) {
-                return getMatchingThreshold(r.daysUntil, r.thresholds) !== undefined
-              }
-              return false
-            })
-            .slice(0, 20)
-            .map(r => {
-              const effectiveDate = computeEffectiveDeadline(r.date_value, toRuleInterval(r))
-              const dueDateStr = effectiveDate?.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) ?? r.date_value
-              return {
-                id: `${r.row_id}-${r.column_id}`,
-                rowId: r.row_id,
-                columnId: r.column_id,
-                clientName: r.client_name ?? `Unknown ${wordNow('record', {}, r.grid_id)}`,
-                label: r.column_name,
-                subLabel: r.grid_name,
-                urgency: (r.daysUntil < 0 ? 'overdue' : r.daysUntil === 0 ? 'today' : 'upcoming') as 'overdue' | 'today' | 'upcoming',
-                type: 'client' as const,
-                daysUntil: r.daysUntil,
-                dueDateStr,
-                dateValue: r.date_value,
-              }
-            })
-          setClientItems(items)
-        }
+        if (deadlinesResult.ok) setClientItems(focusDeadlineItems(deadlinesResult.data))
 
         if (tasksResult.ok) {
           const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -180,49 +146,50 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
     load()
   }, [])
 
-  const handleDismissClientItem = useCallback(async (item: FocusItem) => {
-    const key = item.id
-    setCelebratingId(key)
+  const reloadClientItems = useCallback(async () => {
+    const res = await safeInvoke<RawDeadlineRow[]>(IPC.DASHBOARD_GET_DEADLINES)
+    if (res.ok) { setClientItems(focusDeadlineItems(res.data)); setDismissed(new Set()) }
+  }, [])
+
+  // Done goes through the deadline engine, like the dashboard: a repeating
+  // rule starts its next cycle, a step is checked off, a meter asks for the
+  // reading. Only a plain one-off date is cleared.
+  const completeClientItem = useCallback(async (item: FocusItem, reading?: number, oneOff?: OneOffChoice) => {
+    setCelebratingId(item.id)
+    let ok = false
     try {
-      const res = await safeInvoke<{ sysLogId: number | null }>(IPC.CELL_UPDATE, item.rowId, item.columnId, null)
-      if (activeGridId) void loadGrid(activeGridId)
-      let sysLogId = res.ok ? res.data.sysLogId : null
-      // If the column doesn't have log_changes enabled, create a case log entry explicitly
-      if (sysLogId == null && res.ok) {
-        const fmt = (d: string) => new Date(d.includes('T') ? d : `${d}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-        const content = `${item.label} completed (was ${fmt(item.dateValue)})`
-        const logRes = await safeInvoke<{ id: number }>(IPC.CASE_LOG_CREATE, item.rowId, content, 'system', null)
-        if (logRes.ok) sysLogId = logRes.data.id
-      }
-      useUndoStore.getState().pushWithToast({
-        id: crypto.randomUUID(),
-        description: `Cleared deadline for ${item.clientName}`,
-        timestamp: Date.now(),
-        category: 'logged',
-        icon: 'x',
-        contextLabel: item.clientName,
-        sideEffects: sysLogId != null ? [{ type: 'void_case_log', caseLogId: sysLogId }] : undefined,
-        undo: async () => {
-          setDismissed(prev => { const s = new Set(prev); s.delete(key); return s })
-          await safeInvoke(IPC.CELL_UPDATE, item.rowId, item.columnId, item.dateValue)
+      const done = await completeDeadlines([{
+        rowId: item.rowId, columnId: item.columnId, columnName: item.columnName, clientName: item.clientName,
+        dateValue: item.dateValue, interval: item.interval, checklistTemplateId: item.checklistTemplateId,
+        ruleKind: item.ruleKind, reading, step: item.step, oneOff,
+      }], {
+        onUndone: async () => {
           if (activeGridId) void loadGrid(activeGridId)
-          pulseEvents.emit('deadline:changed')
-        },
-        redo: async () => {
-          setDismissed(prev => new Set([...prev, key]))
-          await safeInvoke(IPC.CELL_UPDATE, item.rowId, item.columnId, null)
-          if (activeGridId) void loadGrid(activeGridId)
+          await reloadClientItems()
           pulseEvents.emit('deadline:changed')
         },
       })
-      pulseEvents.emit('deadline:changed')
-    } catch (err) { rlog.error('FocusModeView', 'Failed to dismiss client item', err) }
+      ok = done.length > 0
+      if (ok) {
+        if (activeGridId) void loadGrid(activeGridId)
+        pulseEvents.emit('deadline:changed')
+      }
+    } catch (err) { rlog.error('FocusModeView', 'Failed to mark deadline done', err) }
     clearTimeout(celebrationTimerRef.current)
+    if (!ok) { setCelebratingId(null); return }
     celebrationTimerRef.current = setTimeout(() => {
       setDismissed(prev => new Set([...prev, item.id]))
       setCelebratingId(null)
     }, 600)
-  }, [activeGridId, loadGrid])
+  }, [activeGridId, loadGrid, reloadClientItems])
+
+  const handleDoneClientItem = useCallback((item: FocusItem) => {
+    // Quotas are renewed with new dates and a new count, on the record
+    if (item.ruleKind === 'quota') { onClose(); navigate(`/profile/${item.rowId}?gridId=${item.gridId}`); return }
+    if (item.ruleKind === 'meter') { setAskReading(item); return }
+    if (isOneOffDeadline(item)) { setAskOneOff(item); return }
+    void completeClientItem(item)
+  }, [completeClientItem, onClose, navigate])
 
   const navigateToProfile = useCallback((rowId: number) => {
     onClose()
@@ -487,7 +454,7 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
                       key={item.id}
                       item={item}
                       celebrating={celebratingId === item.id}
-                      onComplete={() => void handleDismissClientItem(item)}
+                      onComplete={() => handleDoneClientItem(item)}
                       onNavigate={() => navigateToProfile(item.rowId)}
                     />
                   ))}
@@ -614,6 +581,15 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
           )}
         </div>
       </div>
+
+      {askOneOff && (
+        <OneOffDoneDialog title={`${askOneOff.columnName}: ${askOneOff.clientName}`} currentDue={askOneOff.dueYmd} onClose={() => setAskOneOff(null)}
+          onSave={choice => { const item = askOneOff; setAskOneOff(null); void completeClientItem(item, undefined, choice) }} />
+      )}
+      {askReading && (
+        <MeterReadingDialog title={`${askReading.columnName}: ${askReading.clientName}`} info={askReading.meter} onClose={() => setAskReading(null)}
+          onSave={reading => { const item = askReading; setAskReading(null); void completeClientItem(item, reading) }} />
+      )}
 
       {/* CSS animations */}
       <style>{`

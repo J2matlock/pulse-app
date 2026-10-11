@@ -236,7 +236,7 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
     <section className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
         <StickyNote className="w-4 h-4 text-slate-500 dark:text-slate-400 flex-shrink-0" />
-        <span className="text-sm font-medium text-slate-600 dark:text-slate-300 flex-1">Scrap Notes</span>
+        <span className="text-sm font-medium text-slate-600 dark:text-slate-300 flex-1">Scratch notes</span>
         {saving && <span className="text-sm text-slate-500 dark:text-slate-400 italic">Saving…</span>}
         {saveError && !saving && <span role="alert" className="text-base text-red-700 dark:text-red-400">We couldn't save this — keep typing to try again</span>}
       </div>

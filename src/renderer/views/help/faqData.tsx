@@ -151,7 +151,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-date-colors',
     question: 'How do I set up deadline alerts on a date column?',
-    answer: 'Click the menu icon (⋯) or right-click a date column\'s header and choose "Alert Rule," then pick a rule. Rules decide when the cells change color — for example, yellow 14 days before the date, orange 7 days before, red 3 days before. Change or remove the rule from the same menu, and manage rules you reuse in Settings > Deadlines & reminders. Dates with a rule show on your dashboard so you never miss one.',
+    answer: 'Click the menu icon (⋯) or right-click a date column\'s header and choose "Deadline rule," then pick a rule. Rules decide when the cells change color — for example, yellow 14 days before the date, orange 7 days before, red 3 days before. Change or remove the rule from the same menu, and manage rules you reuse in Settings > Deadlines & reminders. Dates with a rule show on your dashboard so you never miss one.',
     category: 'caseload-grid',
     tourStepIds: ['deadline-colors'],
     demo: <DemoDeadlineColors />,
@@ -432,7 +432,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'ie-pulse-file',
     question: 'What is a .pulse file?',
-    answer: 'A .pulse file holds the layout of one {list} — its columns, alert rules and checklist templates — never any {record:many}. Save or open one on the Templates page ("Save Current Grid as Template" / "Import Template File"). To share your whole setup instead (every {list}, your words and rules), use Settings > Workspace > Share your setup.',
+    answer: 'A .pulse file holds the layout of one {list} — its columns, deadline rules and checklist templates — never any {record:many}. Save or open one on the Templates page ("Save Current Grid as Template" / "Import Template File"). To share your whole setup instead (every {list}, your words and rules), use Settings > Workspace > Share your setup.',
     category: 'import-export',
   },
   {

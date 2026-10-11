@@ -58,6 +58,42 @@ describe('compliance summary', () => {
     ])
   })
 
+  it('runs the real rule for each kind as of month end (D-03)', () => {
+    const db = testDb.db
+    const addCol = (name: string, type: string, ruleId: number | bigint, pos: number) =>
+      Number(db.prepare('INSERT INTO columns (grid_id, name, column_type, position, config) VALUES (?, ?, ?, ?, ?)').run(gridId, name, type, pos, JSON.stringify({ alert_rule_id: Number(ruleId) })).lastInsertRowid)
+    const put = db.prepare("INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))")
+    // A calendar rule on Mar 15: the column holds the day it was last done
+    const quarterly = db.prepare("INSERT INTO alert_rules (name, thresholds, kind, rule_config) VALUES ('Quarterly', '[]', 'calendar', ?)")
+      .run(JSON.stringify({ kind: 'calendar', months: [3, 6, 9, 12], day: 15 })).lastInsertRowid
+    const qCol = addCol('Quarterly check', 'date', quarterly, 5)
+    put.run(rows[0], qCol, '2026-03-15')  // done for March: not an exception
+    put.run(rows[1], qCol, '2025-12-10')  // never done for March: overdue
+    // Hidden by "only when Status is Open" for Cy (Closed)
+    const status = Number(db.prepare("INSERT INTO columns (grid_id, name, column_type, position, config) VALUES (?, 'Status', 'text', 6, '{}')").run(gridId).lastInsertRowid)
+    for (const [i, v] of ['Open', 'Open', 'Closed'].entries()) put.run(rows[i], status, v)
+    db.prepare("UPDATE alert_rules SET rule_condition = ? WHERE id = ?").run(JSON.stringify({ columnId: status, op: 'is', values: ['Open'], whenFalse: 'hide' }), quarterly)
+    put.run(rows[2], qCol, '2025-01-01')
+    // A sequence on a Deadline column, extended past month end for Ana
+    const seq = db.prepare("INSERT INTO alert_rules (name, thresholds, kind, rule_config) VALUES ('Intake steps', '[]', 'sequence', ?)")
+      .run(JSON.stringify({ kind: 'sequence', anchorColumnId: dateCol, steps: [{ label: 'Plan', offset: { days: 5 } }] })).lastInsertRowid
+    const sCol = addCol('Plan due', 'deadline', seq, 7)
+    db.prepare("INSERT INTO deadline_extensions (row_id, column_id, step, original_due, new_due, reason, anchor_value, created_at) VALUES (?, ?, 0, '2026-03-25', '2026-04-15', 'Family away', '2026-03-20', ?)")
+      .run(rows[0], sCol, utc('2026-03-26 09:00:00'))
+
+    const [g] = getComplianceSummary('2026-03').grids
+    const ex = g!.deadlines.exceptions.map(e => `${e.clientName}|${e.column}`)
+    expect(ex).toContain('Ben|Quarterly check')
+    expect(ex).not.toContain('Ana|Quarterly check')
+    expect(ex).not.toContain('Cy|Quarterly check')
+    // Deadline columns count; Ana's step was extended, Ben's (Feb 15) and Cy's (Jan 10) are late
+    expect(ex).not.toContain('Ana|Plan due')
+    expect(ex).toContain('Ben|Plan due')
+    expect(ex).toContain('Cy|Plan due')
+    // 3 Last Visit + 2 quarterly (Cy hidden) + 3 plan
+    expect(g!.deadlines.total).toBe(8)
+  })
+
   it('leaves requirements out while the feature is switched off', () => {
     setDbFeatures(testDb.db, { requirements: false })
     const s = getComplianceSummary('2026-03')

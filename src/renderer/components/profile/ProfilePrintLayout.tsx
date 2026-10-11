@@ -220,7 +220,7 @@ export function ProfilePrintLayout({ rowId, gridId, clientName, row, sections, o
 
       {scrapNotes.trim() && (
         <div style={sectionStyle}>
-          <h2 style={headingStyle}>Scrap notes</h2>
+          <h2 style={headingStyle}>Scratch notes</h2>
           <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{scrapNotes}</p>
         </div>
       )}

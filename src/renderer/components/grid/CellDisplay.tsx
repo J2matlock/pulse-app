@@ -2,9 +2,10 @@ import React from 'react'
 import type { Column, GridRow } from '../../../shared/types'
 import { computeDaysUntil, computeAge, formatCalculatedDays, evaluateRuleForRow } from '../../utils/deadlineCalc'
 import { useAlertStore } from '../../stores/alertStore'
-import { formatDue } from '../../../shared/deadlineEngine'
+import { formatDue, isUsedUp } from '../../../shared/deadlineEngine'
 import { canBeRequired, isMissingValue } from '../../../shared/requiredFields'
 import { LinkCell } from './LinkCell'
+import { pulseEvents } from '../../events'
 
 export interface CellDisplayProps {
   column: Column
@@ -216,12 +217,20 @@ function formatDate(value: string): string {
 function DeadlineCell({ column, value, row, parsedConfig }: { column: Column; value: string | null; row?: GridRow; parsedConfig?: unknown }): React.ReactElement {
   const ruleId = (parsedConfig as { alert_rule_id?: number } | undefined)?.alert_rule_id
   const rule = useAlertStore(s => s.rules.find(r => r.id === ruleId))
-  if (!rule) return <span className="text-slate-500 dark:text-slate-400 italic">Choose a rule</span>
+  // Not set up yet: the cell itself opens the column's rule picker (G-20)
+  if (!rule) return (
+    <button type="button" className="text-blue-700 dark:text-blue-300 underline hover:no-underline focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
+      onClick={e => { e.stopPropagation(); pulseEvents.emit('column:choose-rule', { columnId: column.id }) }}>
+      Choose a deadline rule
+    </button>
+  )
   const res = evaluateRuleForRow(rule, value, (row ?? {}) as unknown as Record<string, unknown>, column.id)
   if (res.state === 'done') return <span className="text-green-700 dark:text-green-300">Done{value ? ` ${formatDue(value.slice(0, 10))}` : ''}</span>
   if (res.state === 'paused') return <span className="text-slate-500 dark:text-slate-400 italic" title={res.detail}>Paused</span>
   if (!res.due || res.daysUntil === null) return <span className="text-slate-300 dark:text-slate-500">—</span>
   const d = res.daysUntil
+  // A used-up quota: "All 12 used · ends Dec 31, 2026", not "today"
+  if (isUsedUp(res)) return <span className="tabular-nums" title={res.detail}>{res.label ?? 'All used'} · ends {formatDue(res.due)}</span>
   const when = d < 0 ? `${-d} day${d === -1 ? '' : 's'} late` : d === 0 ? 'today' : `in ${d} day${d === 1 ? '' : 's'}`
   return <span className="tabular-nums" title={res.detail}>{res.label ? `${res.label} · ` : ''}{formatDue(res.due)} · {when}</span>
 }

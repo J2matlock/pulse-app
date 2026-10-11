@@ -2,7 +2,7 @@
  * Rule editor v2 (W05 §6): "How is this deadline worked out?" cards, the
  * fields for each kind, "Only when…", and a live preview on a real record.
  */
-import React, { useMemo, useState } from 'react'
+import React, { useId, useMemo, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import type { Column, GridRow, ParsedAlertRule } from '../../../shared/types'
 import type { RuleKind } from '../../../shared/deadlineEngine'
@@ -48,13 +48,22 @@ export function KindCards({ value, onChange, disabled }: { value: RuleKind; onCh
 function ColumnSelect({ value, onChange, columns, ariaLabel, allowSelf, disabled, placeholder = 'Choose a column…' }: {
   value: Anchor; onChange: (v: Anchor) => void; columns: Column[]; ariaLabel: string; allowSelf?: boolean; disabled: boolean; placeholder?: string
 }): React.ReactElement {
+  // A saved column that isn't here any more (deleted, or the wrong kind): say so in red (D-25)
+  const missing = typeof value === 'number' && !columns.some(c => c.id === value)
+  const msgId = useId()
   return (
-    <select className="input" aria-label={ariaLabel} disabled={disabled} value={value === null ? '' : String(value)}
-      onChange={e => onChange(e.target.value === '' ? null : e.target.value === 'self' ? 'self' : Number(e.target.value))}>
-      <option value="">{placeholder}</option>
-      {allowSelf && <option value="self">This column (the one the rule is on)</option>}
-      {columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-    </select>
+    <span className="inline-flex flex-col gap-1 max-w-full">
+      <select className={`input ${missing ? 'border-red-500 dark:border-red-400 text-red-700 dark:text-red-300' : ''}`} aria-label={ariaLabel} disabled={disabled}
+        aria-invalid={missing || undefined} aria-describedby={missing ? msgId : undefined}
+        value={value === null ? '' : String(value)}
+        onChange={e => onChange(e.target.value === '' ? null : e.target.value === 'self' ? 'self' : Number(e.target.value))}>
+        <option value="">{placeholder}</option>
+        {missing && <option value={String(value)}>Missing column</option>}
+        {allowSelf && <option value="self">This column (the one the rule is on)</option>}
+        {columns.map(c => <option key={c.id} value={c.id}>{c.name}{c.is_visible === 0 ? ' (hidden)' : ''}</option>)}
+      </select>
+      {missing && <span id={msgId} role="alert" className="text-sm text-red-700 dark:text-red-300">The column this used is gone. Choose another, or the deadline won't work.</span>}
+    </span>
   )
 }
 
@@ -97,7 +106,7 @@ export function KindFields({ d, set, columns, disabled }: { d: RuleDraft; set: S
             </select>
           </div>
           {dates.length === 0 ? <NoColumns kind="date" /> : (
-            <ColumnSelect ariaLabel="Worked out from" value={d.relAnchor} onChange={v => set({ relAnchor: v })} columns={dates} disabled={disabled} placeholder="Choose the date…" />
+            <ColumnSelect ariaLabel="Worked out from" value={d.relAnchor} onChange={v => set({ relAnchor: v })} columns={dates} allowSelf disabled={disabled} placeholder="Choose the date…" />
           )}
           <p className={hint}>A date typed in this rule's own column counts as done for that cycle.</p>
         </div>
@@ -276,7 +285,11 @@ function optionsOf(col: Column | undefined): string[] {
 /** "Only when…": the rule hides or pauses unless a column says so (W05 §3.7). */
 export function ConditionFields({ d, set, columns, disabled }: { d: RuleDraft; set: Set; columns: Column[]; disabled: boolean }): React.ReactElement {
   const usable = columns.filter(c => c.column_type !== 'deadline' && c.column_type !== 'calculated_days' && c.column_type !== 'age_from_dob')
-  const options = optionsOf(columns.find(c => c.id === d.condColumn))
+  const condCol = columns.find(c => c.id === d.condColumn)
+  const options = optionsOf(condCol)
+  // A checkbox is stored as true/1, which nobody would think to type (D-26)
+  const isCheckbox = condCol?.column_type === 'checkbox'
+  const checkedChoice = d.condOp === 'is_not' ? 'unchecked' : 'checked'
   return (
     <div className="space-y-2">
       <label className="flex items-center gap-2 text-base font-medium text-slate-700 dark:text-slate-300 cursor-pointer" style={{ minHeight: 44 }}>
@@ -286,14 +299,27 @@ export function ConditionFields({ d, set, columns, disabled }: { d: RuleDraft; s
       {d.condOn && (
         <div className="space-y-2 pl-7">
           <div className="flex flex-wrap items-center gap-2">
-            <ColumnSelect ariaLabel="Only when column" value={d.condColumn} onChange={v => set({ condColumn: typeof v === 'number' ? v : null })} columns={usable} disabled={disabled} />
+            <ColumnSelect ariaLabel="Only when column" value={d.condColumn} disabled={disabled} columns={usable}
+              onChange={v => {
+                const col = columns.find(c => c.id === v)
+                // Picking a checkbox starts at "is checked"
+                set(col?.column_type === 'checkbox' ? { condColumn: col.id, condOp: d.condOp === 'is_not' ? 'is_not' : 'is', condValues: 'true, 1' } : { condColumn: typeof v === 'number' ? v : null })
+              }} />
+            {isCheckbox ? (
+              <select className="input w-44" aria-label="Only when test" disabled={disabled} value={checkedChoice}
+                onChange={e => set({ condOp: e.target.value === 'unchecked' ? 'is_not' : 'is', condValues: 'true, 1' })}>
+                <option value="checked">is checked</option>
+                <option value="unchecked">is not checked</option>
+              </select>
+            ) : (
             <select className="input w-40" aria-label="Only when test" disabled={disabled} value={d.condOp} onChange={e => set({ condOp: e.target.value as RuleDraft['condOp'] })}>
               <option value="is">is</option>
               <option value="is_not">is not</option>
               <option value="empty">is empty</option>
               <option value="not_empty">is filled in</option>
             </select>
-            {(d.condOp === 'is' || d.condOp === 'is_not') && (
+            )}
+            {!isCheckbox && (d.condOp === 'is' || d.condOp === 'is_not') && (
               <>
                 <input type="text" className="input flex-1 min-w-[8rem]" aria-label="Only when value" list="rule-cond-options" disabled={disabled}
                   value={d.condValues} onChange={e => set({ condValues: e.target.value })} placeholder="e.g. Active" />
@@ -301,7 +327,7 @@ export function ConditionFields({ d, set, columns, disabled }: { d: RuleDraft; s
               </>
             )}
           </div>
-          <p className={hint}>Separate more than one value with commas. Capital letters and extra spaces don't matter.</p>
+          {!isCheckbox && <p className={hint}>Separate more than one value with commas. Capital letters and extra spaces don't matter.</p>}
           <div className="flex flex-wrap gap-4">
             {(['pause', 'hide'] as const).map(w => (
               <label key={w} className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-300 cursor-pointer" style={{ minHeight: 44 }}>
@@ -317,13 +343,13 @@ export function ConditionFields({ d, set, columns, disabled }: { d: RuleDraft; s
 }
 
 /** The rule as the editor would save it, for the preview. */
-export function previewRule(d: RuleDraft, base: Omit<ParsedAlertRule, 'kind' | 'rule_config' | 'rule_condition' | 'business_days'>, businessDays: boolean): ParsedAlertRule | { error: string } {
+export function previewRule(d: RuleDraft, base: Omit<ParsedAlertRule, 'kind' | 'rule_config' | 'rule_condition' | 'business_days'>, businessDays: boolean | 0 | 1 | 2): ParsedAlertRule | { error: string } {
   const cfg = draftToConfig(d)
   if (!cfg.ok) return { error: cfg.error }
   const cond = draftToCondition(d)
   if (!cond.ok) return { error: cond.error }
   return {
-    ...base, kind: d.kind, business_days: businessDays ? 1 : 0,
+    ...base, kind: d.kind, business_days: businessDays === 2 ? 2 : businessDays ? 1 : 0,
     rule_config: cfg.value ? JSON.stringify(cfg.value) : null,
     rule_condition: cond.value ? JSON.stringify(cond.value) : null,
   }

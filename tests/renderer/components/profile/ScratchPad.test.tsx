@@ -75,9 +75,9 @@ describe('ScratchPad', () => {
     })
   })
 
-  it('renders the Scrap Notes header', () => {
+  it('renders the Scratch notes header', () => {
     render(<ScratchPad rowId={1} />)
-    expect(screen.getByText('Scrap Notes')).toBeTruthy()
+    expect(screen.getByText('Scratch notes')).toBeTruthy()
   })
 
   it('renders the tiptap editor area', () => {

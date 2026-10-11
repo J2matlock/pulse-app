@@ -37,6 +37,7 @@ import { ResetPasswordAfterRecoveryDialog } from './components/shared/ResetPassw
 import { ErrorBoundary } from './components/shared/ErrorBoundary'
 import { rlog } from './utils/rendererLogger'
 import { MorningBriefing } from './components/shared/MorningBriefing'
+import { AnchorChangeDialog } from './components/alerts/AnchorChangeDialog'
 import toast from 'react-hot-toast'
 
 // Extracted hooks
@@ -293,6 +294,7 @@ export default function App(): React.ReactElement {
         <ErrorBoundary fallback={<></>}>
           <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} onFocusMode={() => { setFocusModeOpen(true); setCommandPaletteOpen(false) }} />
           <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+          <AnchorChangeDialog />
           <MorningBriefing suppressed={!!showTour || !!miniTourSteps || focusModeOpen} onFocusMode={() => setFocusModeOpen(true)} />
           <WhatsNewModal open={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
           <UndoToast />

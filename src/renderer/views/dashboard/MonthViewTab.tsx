@@ -1,13 +1,16 @@
 import React, { useMemo } from 'react'
 import { Calendar } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
-import { classifyDeadline } from '../../utils/deadlineCalc'
 import { LoadingOverlay } from '../../components/shared/LoadingSpinner'
 import type { ExtendedDeadlineInfo } from './types'
 import { getEffectiveDate } from './getEffectiveDate'
+import { DeadlineRow } from './DeadlineRow'
 
-export function MonthViewTab({ deadlines, isLoading }: { deadlines: ExtendedDeadlineInfo[]; isLoading: boolean }): React.ReactElement {
-  const navigate = useNavigate()
+export function MonthViewTab({ deadlines, isLoading, onMarkDone, onUndone }: {
+  deadlines: ExtendedDeadlineInfo[]; isLoading: boolean
+  /** After Done: drop the row and reload */
+  onMarkDone?: (rowId: number, columnId: number) => void
+  onUndone?: () => Promise<void>
+}): React.ReactElement {
   const now = new Date()
   const year = now.getFullYear()
   const month = now.getMonth()
@@ -59,27 +62,12 @@ export function MonthViewTab({ deadlines, isLoading }: { deadlines: ExtendedDead
                   Week {week} &nbsp;·&nbsp; {monthName.split(' ')[0]} {startDay}–{endDay}
                 </div>
                 <div className="space-y-1">
-                  {items.map((d, i) => {
-                    const effDate = getEffectiveDate(d)
-                    const dayLabel = effDate ? effDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : ''
-                    const bucket = classifyDeadline(d.daysUntil)
-                    const dotColor =
-                      bucket === 'overdue' || bucket === 'today' ? 'bg-red-500' :
-                      bucket === 'this-week' ? 'bg-orange-400' : 'bg-yellow-400'
-                    return (
-                      <div key={`${d.rowId}-${d.columnId}-${i}`}
-                        className="flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-700/40 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600/40"
-                        onClick={() => navigate(`/profile/${d.rowId}?gridId=${d.gridId}`)}
-                      >
-                        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dotColor}`} />
-                        <div className="flex-1 min-w-0">
-                          <span className="font-medium text-slate-800 dark:text-slate-100 hover:underline">{d.clientName}</span>
-                          <span className="text-slate-500 dark:text-slate-400 text-sm ml-2">{d.columnName}</span>
-                        </div>
-                        <span className="text-sm text-slate-500 dark:text-slate-400 flex-shrink-0 tabular-nums">{dayLabel}</span>
-                      </div>
-                    )
-                  })}
+                  {items.map((d, i) => (
+                    // The same row as the Priority List: Done, Extend, Renew (D-22)
+                    <div key={`${d.rowId}-${d.columnId}-${i}`} role="list" className="rounded-lg bg-slate-50 dark:bg-slate-700/40 overflow-hidden">
+                      <DeadlineRow deadline={d} onMarkDone={onMarkDone ?? (() => {})} onUndoneMarkDone={onUndone} />
+                    </div>
+                  ))}
                 </div>
               </div>
             )

@@ -45,7 +45,7 @@ export function ProfileExportDialog({ gridId, clientName, onSave, onPrint, onClo
     ...(checklistsOn ? [['checklist', 'Open checklist items'] as [keyof ProfileSections, string]] : []),
     ['caseLog', `Recent ${t('activity', { many: true })} (last 10)`],
     ['contactInfo', 'Other contact info'],
-    ['scratchPad', 'Scrap notes'],
+    ['scratchPad', 'Scratch notes'],
   ]
   const nothing = options.every(([k]) => !sections[k])
 

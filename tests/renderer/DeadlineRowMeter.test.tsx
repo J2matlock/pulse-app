@@ -54,7 +54,8 @@ describe('Done on another day… (audit 1.22)', () => {
     const dialog = screen.getByRole('dialog')
     fireEvent.change(within(dialog).getByLabelText('Day it was done'), { target: { value: '2026-01-02' } })
     await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Mark done' })) })
-    expect(invoke).toHaveBeenCalledWith(IPC.CELL_UPDATE, 4, 9, '2026-01-02')
+    // One step in main (L-25), dated the day it was done
+    expect(invoke).toHaveBeenCalledWith(IPC.DEADLINE_MARK_DONE, 4, 9, { kind: 'repeat' }, null, '2026-01-02')
   })
 
   it('will not take a day in the future', () => {

@@ -44,6 +44,7 @@ vi.mock('../../../../src/renderer/components/grid/AcuityBadge', () => ({
 
 vi.mock('../../../../src/renderer/components/grid/gridConstants', () => ({
   alertShapeForThreshold: () => null,
+  alertShapeForBand: () => null,
   HANDLE_STYLE: { width: 32 },
   HANDLE_WIDTH: 32,
   PROFILE_BTN_WIDTH: 32,
@@ -152,6 +153,13 @@ describe('SortableRow', () => {
     render(<SortableRow {...makeProps({ onToggleSelect })} />)
     fireEvent.click(screen.getByTitle('Select client'))
     expect(onToggleSelect).toHaveBeenCalled()
+  })
+
+  it('redraws when meter, quota, step or extension data arrives (G-13)', () => {
+    const compare = (SortableRow as unknown as { compare: (a: SortableRowProps, b: SortableRowProps) => boolean }).compare
+    const props = makeProps({ deadlineContext: { meter: {} } })
+    expect(compare(props, { ...props })).toBe(true)
+    expect(compare(props, { ...props, deadlineContext: { meter: { '1:2': [] } } })).toBe(false)
   })
 
   it('applies selected styling when isSelected is true', () => {

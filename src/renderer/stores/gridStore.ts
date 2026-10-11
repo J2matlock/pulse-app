@@ -562,6 +562,8 @@ export const useGridStore = create<GridState>((set, get) => ({
     try {
       const result = await invoke<{ sysLogId: number | null }>(IPC.CELL_UPDATE, rowId, columnId, value)
       set({ isSaving: false })
+      // Lets a sequence ask "correction or new start?" when its start date changes (D-37)
+      if (prevValue !== value && !useUndoStore.getState().isUndoing) pulseEvents.emit('cell:changed', { rowId, columnId, from: prevValue, to: value })
       // The first edit to a made-up sample entry: ask once whether it's real now
       if (prevValue !== value && get().sampleRows[rowId] === 0 && !useUndoStore.getState().isUndoing) set({ sampleKeepPrompt: rowId })
       // Push undo for cell change (only if value actually changed)

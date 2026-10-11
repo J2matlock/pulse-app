@@ -61,6 +61,8 @@ export const IPC = {
   ALERT_RULE_CREATE: 'alert-rule:create',
   ALERT_RULE_UPDATE: 'alert-rule:update',
   ALERT_RULE_DELETE: 'alert-rule:delete',
+  ALERT_RULE_RESTORE: 'alert-rule:restore',
+  ALERT_RULE_USAGE: 'alert-rule:usage',
 
   // Checklists
   CHECKLIST_GET: 'checklist:get',
@@ -243,6 +245,9 @@ export const IPC = {
   DEADLINE_METER_DONE: 'deadlines:meter-done',
   DEADLINE_STEP_DONE: 'deadlines:step-done',
   DEADLINE_STEP_UNDO: 'deadlines:step-undo',
+  DEADLINE_PROGRESS_REANCHOR: 'deadlines:progress-reanchor',
+  DEADLINE_MARK_DONE: 'deadlines:mark-done',
+  DEADLINE_MARK_DONE_UNDO: 'deadlines:mark-done-undo',
   DEADLINE_EXTEND: 'deadlines:extend',
   DEADLINE_EXTENSION_REVOKE: 'deadlines:extension-revoke',
   DEADLINE_EXTENSION_RESTORE: 'deadlines:extension-restore',

@@ -10,7 +10,7 @@
 
 import type {
   Grid, Column, GridRow, AcuityLevel, CellFormat,
-  AlertRule, ChecklistItem, ChecklistTemplate, UrgentChecklistItem,
+  AlertRule, AlertRuleUse, DeletedAlertRule, ChecklistItem, ChecklistTemplate, UrgentChecklistItem,
   CaseLogEntry, ScrapNote,
   Snippet, CaseloadTask, CaseloadTaskHistory, DashboardStats,
   DeletedRow, AppInfo, SortConfig,
@@ -164,6 +164,10 @@ export interface GridDeadlineContext {
   progress: Record<string, Array<{ step: number; anchor: string | null }>>
   /** `${rowId}:${ruleColumnId}` → extensions in effect */
   extensions: Record<string, Array<{ id: number; newDue: string; reason: string; anchor: string | null; step: number | null }>>
+  /** `${rowId}:${ruleColumnId}` → calendar rules: the done date before its latest change */
+  previous?: Record<string, string | null>
+  /** `${rowId}:${ruleColumnId}` → one-off dates marked Finished (Decision E1) */
+  finished?: Record<string, string[]>
 }
 
 /** GRID_SETTINGS_UPDATE: the "List settings…" fields; only those given change */
@@ -239,7 +243,9 @@ export interface IPCContract {
   'alert-rule:get-all': { args: [];                                             return: AlertRule[] }
   'alert-rule:create':  { args: [rule: Omit<AlertRule, 'id' | 'created_at'>];   return: number | bigint }
   'alert-rule:update':  { args: [id: number, updates: Partial<AlertRule>];      return: true }
-  'alert-rule:delete':  { args: [id: number];                                   return: true }
+  'alert-rule:delete':  { args: [id: number];                                   return: DeletedAlertRule }
+  'alert-rule:restore': { args: [snapshot: DeletedAlertRule];                   return: number }
+  'alert-rule:usage':   { args: [];                                             return: AlertRuleUse[] }
 
   // ── Checklists ──────────────────────────────────────────────────────────
   'checklist:get':            { args: [rowId: number];                                                   return: ChecklistItem[] }

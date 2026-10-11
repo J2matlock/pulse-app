@@ -4,11 +4,13 @@
  * in field history and on the record's timeline, like any edit.
  */
 import { getDb } from './database'
-import { engineRuleFrom, formatDue, sequenceAnchor, extensionAnchor, referencedColumns, type MeterConfig, type SequenceConfig } from '../shared/deadlineEngine'
+import { engineRuleFrom, isOneOff, ymdToDate, dateToYmd, formatDue, sequenceAnchor, extensionAnchor, referencedColumns, type MeterConfig, type SequenceConfig } from '../shared/deadlineEngine'
 import { loadDeadlines } from './deadlines'
 import { toYmd } from '../shared/ymd'
 import { localDateString } from '../shared/dates'
 import { setCellWithHistory } from './cell-write'
+import { applyChecklistTemplate } from './checklist-apply'
+import { addInterval } from '../shared/ruleInterval'
 import { checkOccurredOn } from './note-date-updates'
 
 /** "Done on another day…": a past day, or today when none is given */
@@ -67,6 +69,75 @@ export function markMeterDone(rowId: number, columnId: number, reading: number, 
   })()
 }
 
+/** How a deadline was done: a repeating one starts again today; a one-off was renewed or finished (Decision E1). */
+export type DoneChoice = { kind: 'repeat' } | { kind: 'renewed'; newDate: string } | { kind: 'finished' }
+
+export interface MarkDoneResult {
+  /** The cell before and after, for undo */
+  previous: string | null
+  newValue: string | null
+  /** The date a one-off was marked Finished for */
+  finishedFor: string | null
+  sysLogId: number
+  checklistItemIds: number[]
+}
+
+/**
+ * Mark a deadline done in one step (L-25): the date, the timeline note and
+ * the column's checklist, all in one transaction. Meter readings, sequence
+ * steps and quotas have their own actions.
+ */
+export function markDone(rowId: number, columnId: number, choice: DoneChoice, checklistTemplateId: number | null = null, doneOn?: string | null): MarkDoneResult {
+  const { name, rule } = ruleFor(rowId, columnId)
+  if (rule.kind === 'meter' || rule.kind === 'sequence' || rule.kind === 'quota') throw new DeadlineActionError('That deadline is marked done another way.')
+  const oneOff = isOneOff(rule)
+  if (oneOff && choice.kind === 'repeat') throw new DeadlineActionError('Say whether it was renewed or finished.')
+  if (!oneOff && choice.kind !== 'repeat') throw new DeadlineActionError("That deadline repeats; it's marked done with today's date.")
+  const db = getDb()
+  // "Done on another day…": the day it was done (a past day), else today
+  const today = doneDay(doneOn)
+  const current = cellValue(rowId, columnId)
+  return db.transaction((): MarkDoneResult => {
+    let previous = current, newValue = current, finishedFor: string | null = null, content: string
+    if (choice.kind === 'repeat') {
+      previous = setCellWithHistory(rowId, columnId, today)
+      newValue = today
+      content = rule.kind === 'interval'
+        ? `${name} done ${formatDue(today)}; next due ${formatDue(dateToYmd(addInterval(ymdToDate(today), rule.interval)))}`
+        : `${name} done ${formatDue(today)}`
+    } else if (choice.kind === 'renewed') {
+      const next = toYmd(choice.newDate)
+      if (!next || next !== choice.newDate) throw new DeadlineActionError('Choose the new date.')
+      previous = setCellWithHistory(rowId, columnId, next)
+      newValue = next
+      content = `${name} renewed: now due ${formatDue(next)}${toYmd(current) ? ` (was ${formatDue(toYmd(current)!)})` : ''}`
+    } else {
+      const base = toYmd(current)
+      if (!base) throw new DeadlineActionError("There's no date to mark finished.")
+      db.prepare("INSERT OR REPLACE INTO deadline_done (row_id, column_id, done_for, done_at) VALUES (?, ?, ?, datetime('now'))").run(rowId, columnId, base)
+      finishedFor = base
+      content = `${name} finished (was due ${formatDue(base)})`
+    }
+    db.prepare("UPDATE rows SET updated_at = datetime('now') WHERE id = ?").run(rowId)
+    const sysLogId = Number(db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))")
+      .run(rowId, content).lastInsertRowid)
+    const checklistItemIds = checklistTemplateId && db.prepare('SELECT 1 FROM checklist_templates WHERE id = ?').get(checklistTemplateId)
+      ? applyChecklistTemplate(rowId, checklistTemplateId) : []
+    return { previous, newValue, finishedFor, sysLogId, checklistItemIds }
+  })()
+}
+
+/** Undo of markDone (its note is voided by the caller, like other undos): the date back, the flag and checklist items gone. */
+export function undoMarkDone(rowId: number, columnId: number, snap: Pick<MarkDoneResult, 'previous' | 'newValue' | 'finishedFor' | 'checklistItemIds'>): void {
+  const db = getDb()
+  db.transaction(() => {
+    if (snap.finishedFor) db.prepare('DELETE FROM deadline_done WHERE row_id = ? AND column_id = ? AND done_for = ?').run(rowId, columnId, snap.finishedFor)
+    else if (snap.previous !== snap.newValue && cellValue(rowId, columnId) === snap.newValue) setCellWithHistory(rowId, columnId, snap.previous)
+    const del = db.prepare('DELETE FROM checklist_items WHERE id = ? AND row_id = ?')
+    for (const id of snap.checklistItemIds) del.run(id, rowId)
+  })()
+}
+
 /** A deadline column's rule and record, checked to belong together. */
 function ruleFor(rowId: number, columnId: number) {
   const db = getDb()
@@ -112,6 +183,16 @@ export function markStepDone(rowId: number, columnId: number, step: number, done
 /** Undo a step (the timeline entry is voided by the caller's undo). */
 export function undoStep(rowId: number, columnId: number, step: number): void {
   getDb().prepare('DELETE FROM deadline_progress WHERE row_id = ? AND column_id = ? AND step = ?').run(rowId, columnId, step)
+}
+
+/**
+ * A corrected start date (a typo, not a new referral): the steps done for
+ * the old date count for the new one (D-37). Returns how many moved.
+ */
+export function reanchorProgress(rowId: number, columnId: number, from: string, to: string): number {
+  const f = toYmd(from), t = toYmd(to)
+  if (!f || !t) throw new DeadlineActionError('Choose the dates.')
+  return getDb().prepare('UPDATE deadline_progress SET anchor_value = ? WHERE row_id = ? AND column_id = ? AND anchor_value = ?').run(t, rowId, columnId, f).changes
 }
 
 /**

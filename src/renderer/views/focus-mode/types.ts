@@ -1,4 +1,6 @@
 import type { CaseloadTask, UrgentChecklistItem } from '../../../shared/types'
+import type { RuleKind, MeterInfo } from '../../../shared/deadlineEngine'
+import type { RuleInterval } from '../../../shared/ruleInterval'
 
 export interface RawDeadlineRow {
   row_id: number
@@ -13,6 +15,14 @@ export interface RawDeadlineRow {
   interval_months?: number | null
   end_of_month?: number | null
   alert_thresholds: string | null
+  /** Worked out by the shared engine in main (W05) */
+  due?: string | null
+  daysUntil?: number | null
+  rule_kind?: RuleKind
+  /** Sequence step that's due, and its label ("IFSP meeting (step 1 of 4)") */
+  step?: number
+  label?: string
+  meter?: MeterInfo
 }
 
 export interface FocusItem {
@@ -27,6 +37,16 @@ export interface FocusItem {
   daysUntil: number
   dueDateStr: string
   dateValue: string
+  gridId: number
+  columnName: string
+  /** How the rule works, so Done does the right thing (repeat, step, reading, renew) */
+  ruleKind: RuleKind
+  interval: RuleInterval
+  step?: number
+  checklistTemplateId: number | null
+  meter?: MeterInfo
+  /** The engine's due date ('YYYY-MM-DD') */
+  dueYmd: string | null
 }
 
 export interface FocusTask {
