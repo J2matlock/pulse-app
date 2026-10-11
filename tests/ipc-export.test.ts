@@ -344,6 +344,19 @@ describe('BACKUP_RESTORE_OTHER', () => {
   })
 })
 
+describe('a restored backup that will not open (AUDIT-162)', () => {
+  const path = join(tmpdir(), 'pulse-test-export', 'temp', 'old.pulse-backup')
+
+  it.each([IPC.BACKUP_RESTORE_FILE, IPC.BACKUP_RESTORE_AUTO])('%s explains plainly, without "Restore failed" or "database"', async (channel) => {
+    // The mocked restore reports a safety copy that doesn't exist on disk
+    backupMock.openError = new Error('SQLITE_CORRUPT: database disk image is malformed')
+    const result = await invoke(channel, path) as { ok: false; error: string }
+    expect(result.ok).toBe(false)
+    expect(result.error).toBe("That backup couldn't be opened. Close Pulse and open it again. If your data is missing, restore a different backup from Settings → Backup.")
+    expect(result.error).not.toMatch(/Restore failed|database/i)
+  })
+})
+
 describe('a restore that fails before anything is replaced (polish R5)', () => {
   const path = join(tmpdir(), 'pulse-test-export', 'temp', 'old.pulse-backup')
   afterEach(() => { backupMock.restoreError = null })

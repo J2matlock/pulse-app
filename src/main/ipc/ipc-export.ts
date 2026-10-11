@@ -58,6 +58,33 @@ function failedBeforeReplace(corrId: string, err: unknown) {
   return fail(describeRestoreError(err))
 }
 
+/**
+ * Open the database a restore just put in place. openDatabase() runs migrations
+ * on the restored (possibly older) data; they are idempotent, so that's safe.
+ * If it won't open, copy the safety backup made before the restore back over it.
+ * Returns a plain failure to send to the renderer, or null when all is well.
+ */
+function openRestoredOrRollBack(corrId: string, safetyPath: string): ReturnType<typeof fail> | null {
+  try {
+    openDatabase()
+    return null
+  } catch (openErr) {
+    logger.error('ipc-export', `[${corrId}] Failed to open restored database, rolling back to safety backup`, openErr)
+  }
+  if (!existsSync(safetyPath)) {
+    return fail("That backup couldn't be opened. Close Pulse and open it again. If your data is missing, restore a different backup from Settings → Backup.")
+  }
+  try {
+    closeDatabase()
+    copyFileSync(safetyPath, resolveDatabasePath())
+    openDatabase()
+  } catch (rollbackErr) {
+    logger.error('ipc-export', `[${corrId}] Safety backup rollback also failed`, rollbackErr)
+    return fail(`That backup couldn't be opened, and Pulse couldn't put your previous data back on its own. A copy of it is saved at ${safetyPath}. Close Pulse, open it again, and restore that copy from Settings → Backup.`)
+  }
+  return fail("That backup couldn't be opened, so Pulse put your previous data back. Nothing was lost.")
+}
+
 export function registerExportHandlers(): void {
   // ── Backup (Auto listing) ──────────────────────────────────────────────────
   secureWrap(IPC.BACKUP_AUTO_LIST, 'ipc-export', () => {
@@ -112,28 +139,8 @@ export function registerExportHandlers(): void {
       } catch (err) {
         return failedBeforeReplace(corrId, err)
       }
-      // openDatabase() will run migrations on the restored (possibly older) DB.
-      // Migrations are designed to be idempotent (IF NOT EXISTS / column-exists checks),
-      // so upgrading a restored older DB to the current schema is safe.
-      try {
-        openDatabase()
-      } catch (openErr) {
-        logger.error('ipc-export', `[${corrId}] Failed to open restored database, rolling back to safety backup`, openErr)
-        // Roll back: copy the safety backup back over the broken restored DB
-        const dbPath = resolveDatabasePath()
-        if (existsSync(safetyPath)) {
-          try {
-            closeDatabase()
-            copyFileSync(safetyPath, dbPath)
-            openDatabase()
-          } catch (rollbackErr) {
-            logger.error('ipc-export', `[${corrId}] Safety backup rollback also failed`, rollbackErr)
-            return fail('Restore failed: could not open the restored database, and recovery from the safety backup also failed. Your safety backup is preserved at: ' + safetyPath)
-          }
-          return fail('Restore failed: could not open the restored database. Your previous data has been preserved.')
-        }
-        return fail('Restore failed: could not open the restored database and no safety backup was available.')
-      }
+      const openFailure = openRestoredOrRollBack(corrId, safetyPath)
+      if (openFailure) return openFailure
       logger.info('ipc-export', `[${corrId}] restore complete, safety backup at ${safetyPath}`)
       return ok({ safetyPath })
     })
@@ -150,27 +157,8 @@ export function registerExportHandlers(): void {
       } catch (err) {
         return failedBeforeReplace(corrId, err)
       }
-      // openDatabase() will run migrations on the restored (possibly older) DB.
-      // Migrations are designed to be idempotent (IF NOT EXISTS / column-exists checks),
-      // so upgrading a restored older DB to the current schema is safe.
-      try {
-        openDatabase()
-      } catch (openErr) {
-        logger.error('ipc-export', `[${corrId}] Failed to open restored database, rolling back to safety backup`, openErr)
-        const dbPath = resolveDatabasePath()
-        if (existsSync(safetyPath)) {
-          try {
-            closeDatabase()
-            copyFileSync(safetyPath, dbPath)
-            openDatabase()
-          } catch (rollbackErr) {
-            logger.error('ipc-export', `[${corrId}] Safety backup rollback also failed`, rollbackErr)
-            return fail('Restore failed: could not open the restored database, and recovery from the safety backup also failed. Your safety backup is preserved at: ' + safetyPath)
-          }
-          return fail('Restore failed: could not open the restored database. Your previous data has been preserved.')
-        }
-        return fail('Restore failed: could not open the restored database and no safety backup was available.')
-      }
+      const openFailure = openRestoredOrRollBack(corrId, safetyPath)
+      if (openFailure) return openFailure
       logger.info('ipc-export', `[${corrId}] restore complete, safety backup at ${safetyPath}`)
       return ok({ safetyPath })
     })
