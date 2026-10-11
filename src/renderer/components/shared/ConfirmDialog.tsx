@@ -39,6 +39,7 @@ export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | n
   const previousFocusRef = useRef<Element | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
+  const messageId = useId()
 
   useEffect(() => {
     if (open) {
@@ -80,7 +81,7 @@ export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | n
     // Focus trap: Tab/Shift+Tab stays within dialog
     if (e.key === 'Tab' && panelRef.current) {
       const focusable = panelRef.current.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
       )
       if (focusable.length === 0) return
       const first = focusable[0]!
@@ -100,9 +101,11 @@ export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | n
       {open && (
         <div
           className="fixed inset-0 z-[200] flex items-center justify-center"
-          role="dialog"
+          // A destructive confirmation interrupts the user, which is what alertdialog means
+          role={destructive ? 'alertdialog' : 'dialog'}
           aria-modal="true"
           aria-labelledby={titleId}
+          aria-describedby={message ? messageId : undefined}
           onKeyDown={handleKeyDown}
         >
           {/* Backdrop */}
@@ -147,7 +150,7 @@ export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | n
                   {title}
                 </h2>
                 {message && (
-                  <p className="mt-1 text-base text-slate-500 dark:text-slate-400">{message}</p>
+                  <p id={messageId} className="mt-1 text-base text-slate-500 dark:text-slate-400">{message}</p>
                 )}
               </div>
             </div>
