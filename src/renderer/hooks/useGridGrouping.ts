@@ -3,6 +3,17 @@ import type { Row } from '@tanstack/react-table'
 import type { GridRow, Column, AcuityLevel, CustomGroupDef } from '../../shared/types'
 import { ACUITY_GROUP_KEY } from '../../shared/types'
 import { linkValueText } from '../../shared/links'
+import { columnOptionLabels } from '../../shared/stages'
+
+/** A tag cell's tags as words: ["urgent","new"] → "urgent, new" */
+function tagText(raw: string): string {
+  if (!raw) return ''
+  try {
+    const tags = JSON.parse(raw) as unknown
+    if (Array.isArray(tags)) return tags.map(String).filter(Boolean).join(', ')
+  } catch { /* stored as plain text */ }
+  return raw.split(',').map(t => t.trim()).filter(Boolean).join(', ')
+}
 
 /** A single item in the flat display list: either a group header or a row reference. */
 export type DisplayItem =
@@ -139,11 +150,16 @@ export function useGridGrouping({
     const groupCol = columns.find(c => c.id === groupByColumnId)
     const isCheckbox = groupCol?.column_type === 'checkbox'
     const isLink = groupCol?.column_type === 'link'
+    const isTag = groupCol?.column_type === 'tag'
+    // Status and dropdown groups come in the column's own order (Intake, Active, Closed), not A–Z
+    const optionOrder = groupCol && (groupCol.column_type === 'status' || groupCol.column_type === 'dropdown')
+      ? new Map(columnOptionLabels(groupCol).map((label, i) => [label, i]))
+      : null
     const groups = new Map<string, number[]>()
     tableRows.forEach((tr, i) => {
       const raw = (tr.original[`col_${groupByColumnId}` as keyof typeof tr.original] as string | null) ?? ''
-      // Link columns (W04) group by the linked names: "Owner: Jane Smith"
-      const val = isCheckbox ? ((raw === 'true' || raw === '1') ? 'true' : 'false') : isLink ? linkValueText(raw) : raw
+      // Link columns (W04) group by the linked names: "Owner: Jane Smith"; tags by "urgent, new", not the stored ["urgent","new"]
+      const val = isCheckbox ? ((raw === 'true' || raw === '1') ? 'true' : 'false') : isLink ? linkValueText(raw) : isTag ? tagText(raw) : raw
       if (!groups.has(val)) groups.set(val, [])
       groups.get(val)!.push(i)
     })
@@ -151,6 +167,10 @@ export function useGridGrouping({
       if (isCheckbox) return a === 'true' ? -1 : 1
       if (!a && b) return 1
       if (a && !b) return -1
+      if (optionOrder) {
+        const ia = optionOrder.get(a) ?? Infinity, ib = optionOrder.get(b) ?? Infinity
+        if (ia !== ib) return ia - ib
+      }
       return a.localeCompare(b)
     })
     const items: DisplayItem[] = []

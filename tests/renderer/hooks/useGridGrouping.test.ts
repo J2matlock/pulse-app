@@ -184,4 +184,18 @@ describe('useGridGrouping', () => {
     // Grouped alphabetically: A(20) then B(10)
     expect(result.current.visualRowIds).toEqual([20, 10])
   })
+
+  it('labels tag groups with the tags, not the stored list (R1)', () => {
+    const rows = [makeTableRow(makeGridRow(1, { col_1: '["urgent","new"]' })), makeTableRow(makeGridRow(2, { col_1: '["urgent","new"]' }))]
+    const { result } = renderHook(() => useGridGrouping({ ...defaultParams, columns: [makeColumn(1, 'Tags', 'tag')], tableRows: rows, groupByColumnId: 1 }))
+    expect(result.current.displayItems[0]).toMatchObject({ kind: 'group-header', value: 'urgent, new', count: 2 })
+  })
+
+  it('puts status groups in the column\'s own order, not A to Z (R1)', () => {
+    const col = { ...makeColumn(1, 'Stage', 'status'), config: JSON.stringify({ options: [{ label: 'Intake', color: '#000' }, { label: 'Active', color: '#000' }, { label: 'Closed', color: '#000' }] }) }
+    const rows = ['Closed', 'Active', '', 'Intake', 'Other'].map((v, i) => makeTableRow(makeGridRow(i + 1, { col_1: v || null })))
+    const { result } = renderHook(() => useGridGrouping({ ...defaultParams, columns: [col], tableRows: rows, groupByColumnId: 1 }))
+    const headers = result.current.displayItems.filter(d => d.kind === 'group-header').map(d => (d as { value: string }).value)
+    expect(headers).toEqual(['Intake', 'Active', 'Closed', 'Other', ''])
+  })
 })
