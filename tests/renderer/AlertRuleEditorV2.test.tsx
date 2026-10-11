@@ -35,7 +35,7 @@ describe('the rule editor', () => {
   it('builds a "from another date" rule with a live preview and saves it', async () => {
     const onClose = vi.fn()
     render(<AlertRuleEditor columnId={3} onClose={onClose} />)
-    fireEvent.change(screen.getByLabelText('Rule Name'), { target: { value: 'Plan due' } })
+    fireEvent.change(screen.getByLabelText('Rule name'), { target: { value: 'Plan due' } })
     fireEvent.click(screen.getByRole('radio', { name: /From another date/ }))
     expect(screen.getByTestId('rule-preview').textContent).toBe('Choose the date this deadline is worked out from.')
     // The rule's own column isn't offered as the date to work from
@@ -61,7 +61,7 @@ describe('the rule editor', () => {
 
   it('will not save settings that are missing something', async () => {
     render(<AlertRuleEditor columnId={3} onClose={vi.fn()} />)
-    fireEvent.change(screen.getByLabelText('Rule Name'), { target: { value: 'Quarterly' } })
+    fireEvent.change(screen.getByLabelText('Rule name'), { target: { value: 'Quarterly' } })
     fireEvent.click(screen.getByRole('radio', { name: /On fixed dates/ }))
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create Rule' })) })
     expect(screen.getAllByText('Choose at least one month.').length).toBeGreaterThan(0)
@@ -101,5 +101,17 @@ describe('the rule editor', () => {
     render(<AlertRuleEditor rule={rule} onClose={vi.fn()} />)
     expect(screen.getByRole('alert').textContent).toMatch(/column this used is gone/)
     expect((screen.getByLabelText('Worked out from') as HTMLSelectElement).getAttribute('aria-invalid')).toBe('true')
+  })
+
+  it('names a new rule after what it does when no name is typed (D-17)', async () => {
+    invoke.mockImplementation(async (channel: string) => channel === 'alert-rule:create' ? { ok: true, data: 12 } : { ok: true, data: [] })
+    render(<AlertRuleEditor columnId={3} onClose={vi.fn()} />)
+    fireEvent.click(screen.getByRole('radio', { name: /From another date/ }))
+    fireEvent.change(screen.getByLabelText('Worked out from'), { target: { value: '2' } })
+    fireEvent.change(screen.getByLabelText('Offset amount'), { target: { value: '45' } })
+    expect((screen.getByLabelText('Rule name') as HTMLInputElement).placeholder).toBe('45 days after Referral')
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create Rule' })) })
+    const call = invoke.mock.calls.filter(c => c[0] === IPC.ALERT_RULE_CREATE).at(-1)!
+    expect((call[1] as { name: string }).name).toBe('45 days after Referral')
   })
 })

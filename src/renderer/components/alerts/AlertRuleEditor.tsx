@@ -17,6 +17,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
 import { draftFromRule, draftToConfig, draftToCondition, type RuleDraft } from './ruleDraft'
 import { useRuleList } from './useRuleList'
+import { ruleSummary } from '../../../shared/ruleSummary'
 import { KindCards, KindFields, ConditionFields, RulePreview, previewRule } from './RuleKindFields'
 
 // ── Color palette ──────────────────────────────────────────────────────────────
@@ -262,6 +263,9 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
   const intervalFields = isInterval
     ? { interval_days: interval.days || null, interval_months: interval.months || null, end_of_month: interval.endOfMonth ? 1 : 0 }
     : { interval_days: null, interval_months: null, end_of_month: 0 }
+  const previewRuleForName = previewRule(draft, { id: 0, name: '', description: null, is_system: 0, thresholds: [], created_at: '', ...intervalFields }, false)
+  // What a name left blank becomes: "Every 6 months", "45 days after Referral date"
+  const autoName = 'error' in previewRuleForName ? 'New deadline rule' : ruleSummary(previewRuleForName, id => columns.find(c => c.id === id)?.name)
   const preview = previewRule(draft, {
     id: rule?.id ?? 0, name, description: null, is_system: 0, thresholds, created_at: '', ...intervalFields,
   }, businessDays)
@@ -286,7 +290,8 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
   }
 
   async function handleSave() {
-    if (!name.trim()) { setError('Rule name is required.'); return }
+    // A new rule is named after what it does unless someone typed a name (D-17)
+    const finalName = (name.trim() || autoName).slice(0, 200)
     if (thresholds.length === 0) { setError('Add at least one threshold.'); return }
     const cfg = draftToConfig(draft)
     if (!cfg.ok) { setError(cfg.error); return }
@@ -303,7 +308,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
     try {
       if (isNew) {
         const newId = await createRule({
-          name: name.trim(),
+          name: finalName,
           description: description.trim() || null,
           is_system: 0,
           thresholds: JSON.stringify(thresholds),
@@ -313,7 +318,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
         onClose(newId ?? undefined)
       } else {
         await updateRule(rule!.id, {
-          name: name.trim(),
+          name: finalName,
           description: description.trim() || null,
           thresholds: JSON.stringify(thresholds),
           ...intervalFields,
@@ -350,22 +355,6 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
               <span>This is a built-in rule and cannot be edited.</span>
             </div>
           )}
-
-          {/* Name */}
-          <div>
-            <label htmlFor="alert-rule-name" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Rule Name</label>
-            <input id="alert-rule-name" className="input" value={name} onChange={e => setName(e.target.value)}
-              disabled={isSystem} placeholder="e.g. Annual Plan of Care" />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label htmlFor="alert-rule-description" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Description <span className="font-normal text-slate-500 dark:text-slate-400">— optional</span>
-            </label>
-            <input id="alert-rule-description" className="input" value={description} onChange={e => setDescription(e.target.value)}
-              disabled={isSystem} placeholder="Brief description of this rule" />
-          </div>
 
           {ruleList.choices.length > 0 && (
             <div>
@@ -452,6 +441,27 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
           )}
 
           {!ruleList.loading && <ConditionFields d={draft} set={patchDraft} columns={columns} disabled={isSystem} />}
+
+          {/* Name and description, under More: a new rule is named after what it does (D-17) */}
+          <details open={!isNew} className="rounded-lg border border-slate-200 dark:border-slate-600 px-3">
+            <summary className="hit-44 flex items-center text-base font-medium text-slate-700 dark:text-slate-300 cursor-pointer" style={{ minHeight: 44 }}>
+              More: name and description
+            </summary>
+            <div className="space-y-3 pb-3">
+              <div>
+                <label htmlFor="alert-rule-name" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Rule name</label>
+                <input id="alert-rule-name" className="input" value={name} onChange={e => setName(e.target.value)}
+                  disabled={isSystem} placeholder={autoName} />
+              </div>
+              <div>
+                <label htmlFor="alert-rule-description" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Description <span className="font-normal text-slate-500 dark:text-slate-400">— optional</span>
+                </label>
+                <input id="alert-rule-description" className="input" value={description} onChange={e => setDescription(e.target.value)}
+                  disabled={isSystem} placeholder="Brief description of this rule" />
+              </div>
+            </div>
+          </details>
 
           {/* Thresholds */}
           <div>

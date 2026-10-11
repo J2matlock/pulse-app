@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2, Edit2, EyeOff, GripVertical, Bell, BellOff, Plus, Pencil, Activity, List, Palette, ArrowUp, ArrowDown, Pin, PinOff, Asterisk, Link2, Columns3 } from 'lucide-react'
+import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2, Edit2, EyeOff, GripVertical, Bell, BellOff, Plus, Pencil, Activity, List, Palette, ArrowUp, ArrowDown, Pin, PinOff, Asterisk, Link2, Columns3, Clock } from 'lucide-react'
 import { canBeRequired } from '../../../shared/requiredFields'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
@@ -11,6 +11,8 @@ import { takesDeadlineRule } from '../../../shared/types'
 import { AlertRuleEditor } from '../alerts/AlertRuleEditor'
 import { DeleteRuleConfirm } from '../alerts/DeleteRuleConfirm'
 import { splitRulesByFit } from '../alerts/ruleFit'
+import { ruleSummary } from '../../../shared/ruleSummary'
+import { pulseEvents } from '../../events'
 import { DoneChecklistPicker } from './DoneChecklistPicker'
 import { NoteUpdatePicker } from './NoteUpdatePicker'
 import { CellConditionalFormatPanel } from './CellConditionalFormatPanel'
@@ -177,6 +179,16 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
     setShowEditOptions(false)
   }
 
+  // A "Choose a deadline rule" cell opens this column's rule picker (G-20)
+  const rootRef = useRef<HTMLDivElement>(null)
+  useEffect(() => pulseEvents.on('column:choose-rule', ({ columnId }) => {
+    if (columnId !== column.id) return
+    const rect = rootRef.current?.getBoundingClientRect()
+    setMenuPos({ x: rect?.left ?? 0, y: rect?.bottom ?? 0 })
+    setShowMenu(true)
+    setShowAlertPicker(true)
+  }), [column.id])
+
   function handleContextMenu(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
@@ -185,7 +197,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
   }
 
   return (
-    <div className="flex items-center h-full px-1 gap-0.5 relative group" onContextMenu={handleContextMenu}>
+    <div ref={rootRef} className="flex items-center h-full px-1 gap-0.5 relative group" onContextMenu={handleContextMenu}>
       {/* Drag handle — always visible at low opacity, full on hover */}
       {dragHandleProps && (
         <button
@@ -233,9 +245,13 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
         <span title="Log changes in timeline"><Activity className="w-3 h-3 text-green-500 dark:text-green-400 flex-shrink-0 opacity-70" /></span>
       )}
 
-      {/* Alert rule indicator for date columns */}
+      {/* Deadline rule badge: a clock, with what the rule does in the tooltip (D-15) */}
       {takesDeadlineRule(column.column_type) && currentAlertRule && (
-        <span title={`Alert: ${currentAlertRule.name}`}><Bell className="w-3 h-3 text-blue-400 flex-shrink-0 opacity-70" /></span>
+        <span title={`Deadline rule: ${currentAlertRule.name} · ${ruleSummary(currentAlertRule, id => allColumns.find(c => c.id === id)?.name)}`}
+          aria-label={`Deadline rule: ${currentAlertRule.name}`} role="img"
+          className="flex-shrink-0 inline-flex items-center rounded-sm bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-0.5">
+          <Clock className="w-3.5 h-3.5" />
+        </span>
       )}
 
       {/* Sort indicator — always visible */}
@@ -414,7 +430,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                     onClick={() => setShowAlertPicker(v => !v)}
                   >
                     <Bell className="w-4 h-4 text-blue-500" />
-                    <span className="flex-1 text-left">Alert Rule</span>
+                    <span className="flex-1 text-left">Deadline rule</span>
                     {currentAlertRule && (
                       <span className="text-sm text-blue-600 dark:text-blue-400 truncate max-w-20">{currentAlertRule.name}</span>
                     )}
@@ -428,12 +444,12 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                           onClick={() => handleSetAlertRule(null)}
                         >
                           <BellOff className="w-3.5 h-3.5" />
-                          Remove alert
+                          Remove deadline rule
                         </button>
                       )}
                       {alertRules.length === 0 && !currentAlertRule && (
                         <p className="px-2 py-1.5 text-sm text-slate-500 dark:text-slate-400">
-                          No alert rules yet.
+                          No deadline rules yet.
                         </p>
                       )}
                       {fittingRules.map(rule => (
@@ -498,7 +514,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                         onClick={() => { setEditingRule(undefined); setShowAlertEditor(true); setShowMenu(false); setShowAlertPicker(false) }}
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        Create alert rule…
+                        New deadline rule…
                       </button>
                     </div>
                   )}
