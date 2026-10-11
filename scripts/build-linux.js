@@ -8,7 +8,8 @@
  *
  * Steps:
  *   1. electron-vite build (creates out/)
- *   2. Create staging dir with out/, package.json, and production node_modules
+ *   2. Create staging dir with out/, package.json, package-lock.json and
+ *      production node_modules (npm ci, so versions match the lock)
  *   3. Rebuild native module for Linux in staging
  *   4. Run electron-builder --linux from the staging dir
  *   5. Copy artifacts back and clean up
@@ -16,6 +17,7 @@
 const { execSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
+const { writeStagingPackage, STAGING_INSTALL_CMD, assertStagedDepsMatchLock } = require('./staging-deps')
 
 const ROOT = path.resolve(__dirname, '..')
 const STAGING = path.join(ROOT, '.build-staging')
@@ -60,28 +62,16 @@ fs.copyFileSync(
 // Read the real package.json
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 
-// Create a minimal package.json for electron-builder
-const stagingPkg = {
-  name: pkg.name,
-  version: pkg.version,
-  description: pkg.description,
-  author: pkg.author,
-  main: pkg.main,
-  homepage: pkg.homepage,
-  dependencies: pkg.dependencies,
-  build: {
-    ...pkg.build,
-    npmRebuild: false, // we rebuild manually below
-  }
-}
-fs.writeFileSync(
-  path.join(STAGING, 'package.json'),
-  JSON.stringify(stagingPkg, null, 2)
-)
+// Minimal package.json + package-lock.json + license files for electron-builder
+writeStagingPackage(ROOT, STAGING, pkg, {
+  npmRebuild: false, // we rebuild manually below
+})
 
-// Install production deps in the staging directory (clean, small tree)
+// Install production deps in the staging directory (clean, small tree), at
+// exactly the versions in package-lock.json
 console.log('[build-linux] Installing production dependencies in staging...')
-run('npm install --production --ignore-scripts --legacy-peer-deps', { cwd: STAGING })
+run(STAGING_INSTALL_CMD, { cwd: STAGING })
+assertStagedDepsMatchLock(ROOT, STAGING)
 
 // Check staging node_modules size
 const stagingNmSize = runQuiet(`du -sh "${path.join(STAGING, 'node_modules')}"`)

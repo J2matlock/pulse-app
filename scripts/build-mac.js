@@ -17,6 +17,7 @@
 const { execSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
+const { writeStagingPackage, STAGING_INSTALL_CMD, assertStagedDepsMatchLock } = require('./staging-deps')
 
 const ROOT = path.resolve(__dirname, '..')
 const STAGING = path.join(ROOT, '.build-staging-mac')
@@ -50,12 +51,9 @@ fs.cpSync(path.join(ROOT, 'out'), path.join(STAGING, 'out'), { recursive: true }
 fs.cpSync(path.join(ROOT, 'build'), path.join(STAGING, 'build'), { recursive: true })
 fs.copyFileSync(path.join(ROOT, 'scripts', 'afterPack.js'), path.join(STAGING, 'scripts', 'afterPack.js'))
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
-fs.writeFileSync(path.join(STAGING, 'package.json'), JSON.stringify({
-  name: pkg.name, version: pkg.version, description: pkg.description, author: pkg.author,
-  main: pkg.main, homepage: pkg.homepage, dependencies: pkg.dependencies,
-  build: { ...pkg.build, npmRebuild: true },
-}, null, 2))
-run('npm install --omit=dev --ignore-scripts --legacy-peer-deps', { cwd: STAGING })
+writeStagingPackage(ROOT, STAGING, pkg, { npmRebuild: true })
+run(STAGING_INSTALL_CMD, { cwd: STAGING })
+assertStagedDepsMatchLock(ROOT, STAGING)
 
 console.log('\n=== Step 3: electron-builder --mac ===')
 const electronVersion = require('electron/package.json').version

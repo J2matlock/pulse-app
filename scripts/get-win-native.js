@@ -5,12 +5,20 @@
  *
  * The prebuild-install tool fetches the correct PE32+ DLL from the package's
  * GitHub releases, matching the Electron ABI version.
+ *
+ *   node scripts/get-win-native.js [package dir]
+ *
+ * build-win.js passes the staging copy of the package, so the dev tree's
+ * native binary (built for Linux) is never overwritten. With no argument it
+ * writes into the dev tree's node_modules; run electron-rebuild afterwards.
  */
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-const pkgDir = path.join(__dirname, '..', 'node_modules', 'better-sqlite3-multiple-ciphers');
+const pkgDir = process.argv[2]
+  ? path.resolve(process.argv[2])
+  : path.join(__dirname, '..', 'node_modules', 'better-sqlite3-multiple-ciphers');
 const electronVersion = require('electron/package.json').version;
 
 // Resolve prebuild-install from within the package's own deps first, then fallback
