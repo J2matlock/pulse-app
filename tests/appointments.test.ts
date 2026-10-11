@@ -272,6 +272,10 @@ describe('series', () => {
     const r = recordAppointments(g.rowIds[0]!)
     expect(r.upcoming).toHaveLength(5)
     expect(r.past.map(a => a.status)).toEqual(['done'])
+    // The section counts every one, not just the five shown
+    expect(r.upcomingTotal).toBeGreaterThan(5)
+    expect(r.upcomingTotal).toBe(all().filter(a => a.status === 'scheduled' && a.start_at >= today).length)
+    expect(r.pastTotal).toBe(1)
   })
 })
 
@@ -383,5 +387,13 @@ describe('past appointments that need an outcome (S-09)', () => {
     const done = createAppointment({ title: 'Had it', start_at: `${day(-3)}T10:00` }).ids[0]!
     setAppointmentStatus(done, 'done')
     expect(appointmentsNeedingOutcome(today)).toBe(2)
+  })
+
+  it('leaves out archived records, as the calendar does', () => {
+    t.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('workspace_features', ?)").run(JSON.stringify({ appointments: true }))
+    createAppointment({ row_id: g.rowIds[0]!, title: 'Visit', start_at: `${localDateFromToday(-2)}T10:00` })
+    expect(appointmentsNeedingOutcome(today)).toBe(1)
+    t.db.prepare('UPDATE rows SET is_active = 0 WHERE id = ?').run(g.rowIds[0]!)
+    expect(appointmentsNeedingOutcome(today)).toBe(0)
   })
 })
