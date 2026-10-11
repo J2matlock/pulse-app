@@ -240,6 +240,52 @@ describe('TasksView — interactions', () => {
     } finally { Object.assign(data, usual) }
   })
 
+  it('a group still called "New Group" opens for typing only when just added, not on every visit (bug sweep S2)', async () => {
+    const data = taskStoreData()
+    const usual = { sortMode: data.sortMode }
+    data.sortMode = 'manual'
+    const old = { id: 4, name: 'New Group', position: 0, is_collapsed: 0, created_at: '2026-10-11' }
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(
+      channel === 'task:group-get-all' ? { ok: true, data: [old] }
+      : channel === 'task:group-create' ? { ok: true, data: { ...old, id: 5, position: 1 } }
+      : { ok: true, data: [] }))
+    try {
+      render(<MemoryRouter><TasksView /></MemoryRouter>)
+      await flushEffects()
+      expect(screen.queryByDisplayValue('New Group')).toBeNull()
+      await act(async () => { fireEvent.click(screen.getByTitle('Add a group to organize tasks')) })
+      // Only the one just made opens
+      expect(screen.getAllByDisplayValue('New Group')).toHaveLength(1)
+      expect(screen.getAllByTitle('Click to rename')).toHaveLength(1)
+    } finally { Object.assign(data, usual) }
+  })
+
+  it('a group rename that fails says so, keeps the old name and adds no undo step (bug sweep S2)', async () => {
+    const toast = (await import('react-hot-toast')).default
+    const undo = (await import('../../../src/renderer/stores/undoStore')).useUndoStore.getState()
+    const data = taskStoreData()
+    const usual = { sortMode: data.sortMode }
+    data.sortMode = 'manual'
+    const group = { id: 4, name: 'Calls', position: 0, is_collapsed: 0, created_at: '2026-10-11' }
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(
+      channel === 'task:group-get-all' ? { ok: true, data: [group] }
+      : channel === 'task:group-update' || channel === 'task:group-delete' ? { ok: false, error: 'disk full' }
+      : { ok: true, data: [] }))
+    vi.mocked(undo.push).mockClear()
+    vi.mocked(toast.error).mockClear()
+    try {
+      render(<MemoryRouter><TasksView /></MemoryRouter>)
+      await flushEffects()
+      fireEvent.click(screen.getByTitle('Click to rename'))
+      const input = screen.getByDisplayValue('Calls')
+      fireEvent.change(input, { target: { value: 'Phone calls' } })
+      await act(async () => { fireEvent.keyDown(input, { key: 'Enter' }) })
+      expect(toast.error).toHaveBeenCalledWith("We couldn't rename the group — try again")
+      expect(screen.getByText('Calls')).toBeDefined()
+      expect(undo.push).not.toHaveBeenCalled()
+    } finally { Object.assign(data, usual) }
+  })
+
   it('adding a group while sorted by date switches to My order, where groups show', async () => {
     const data = taskStoreData()
     mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'task:group-create'

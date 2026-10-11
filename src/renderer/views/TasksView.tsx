@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import toast from 'react-hot-toast'
 import { ChevronDown, ChevronRight, ClipboardList, FolderPlus, RefreshCw } from 'lucide-react'
 import { GroupPicker } from '../components/shared/GroupPicker'
 import { useSearchParams, useNavigate } from 'react-router-dom'
@@ -74,6 +75,10 @@ export default function TasksView(): React.ReactElement {
 
   // Task groups
   const [taskGroups, setTaskGroups] = useState<TaskGroupType[]>([])
+  /** The group just added here, whose name opens for typing once (bug sweep S2) */
+  const [justAddedGroupId, setJustAddedGroupId] = useState<number | null>(null)
+  // Its header has opened by now (child effects run first); a later remount shouldn't reopen it
+  useEffect(() => { if (justAddedGroupId != null) setJustAddedGroupId(null) }, [justAddedGroupId])
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set())
   const [groupAddTitles, setGroupAddTitles] = useState<Record<number, string>>({})
   const [confirmDeleteGroup, setConfirmDeleteGroup] = useState<{ id: number; name: string } | null>(null)
@@ -213,7 +218,7 @@ export default function TasksView(): React.ReactElement {
   }, [tasks, completeTask, updateTask])
 
   const handleInlineAdd = useCallback(async (title: string) => {
-    await createTask({
+    return createTask({
       grid_id: null,
       group_id: null,
       title,
@@ -238,6 +243,7 @@ export default function TasksView(): React.ReactElement {
     if (res.ok) {
       const created = res.data
       setTaskGroups(prev => [...prev, created])
+      setJustAddedGroupId(created.id)
       // Redo makes the group again under a new id; undo must delete that one
       let groupId = created.id
       useUndoStore.getState().push({
@@ -262,7 +268,9 @@ export default function TasksView(): React.ReactElement {
   const handleRenameGroup = useCallback(async (groupId: number, name: string) => {
     const prevGroup = taskGroups.find(g => g.id === groupId)
     const prevName = prevGroup?.name ?? ''
-    await safeInvoke(IPC.TASK_GROUP_UPDATE, groupId, { name })
+    const res = await safeInvoke(IPC.TASK_GROUP_UPDATE, groupId, { name })
+    // A rename that didn't save leaves the name and the undo list alone (bug sweep S2)
+    if (!res.ok) { toast.error("We couldn't rename the group — try again"); return }
     setTaskGroups(prev => prev.map(g => g.id === groupId ? { ...g, name } : g))
     useUndoStore.getState().push({
       id: crypto.randomUUID(),
@@ -284,7 +292,8 @@ export default function TasksView(): React.ReactElement {
   const handleDeleteGroup = useCallback(async (groupId: number) => {
     const deletedGroup = taskGroups.find(g => g.id === groupId)
     const affectedTasks = tasks.filter(t => t.group_id === groupId)
-    await safeInvoke(IPC.TASK_GROUP_DELETE, groupId)
+    const res = await safeInvoke(IPC.TASK_GROUP_DELETE, groupId)
+    if (!res.ok) { toast.error("We couldn't delete the group — try again"); setConfirmDeleteGroup(null); return }
     setTaskGroups(prev => prev.filter(g => g.id !== groupId))
     setConfirmDeleteGroup(null)
     void loadTasks() // Reload to reflect ungrouped tasks
@@ -629,10 +638,13 @@ export default function TasksView(): React.ReactElement {
                           onChange={e => setNewTitle(e.target.value)}
                           onKeyDown={e => {
                             if (e.key === 'Enter' && newTitle.trim()) {
-                              void handleInlineAdd(newTitle.trim())
+                              const title = newTitle.trim()
                               setNewTitle('')
+                              // A failed add puts the text back instead of losing it (bug sweep S2)
+                              void handleInlineAdd(title).then(made => { if (!made) setNewTitle(cur => cur || title) })
                             }
                           }}
+                          maxLength={500}
                           placeholder="+ Add task... (press Enter)"
                           style={{ fontSize: 15 }}
                           className="w-full px-3 py-2 text-slate-600 dark:text-slate-400
@@ -666,6 +678,7 @@ export default function TasksView(): React.ReactElement {
                               onRename={(name) => void handleRenameGroup(group.id, name)}
                               onDelete={() => setConfirmDeleteGroup({ id: group.id, name: group.name })}
                               isDragDisabled={false}
+                              autoEdit={group.id === justAddedGroupId}
                             />
 
                             {!isCollapsed && (
@@ -693,6 +706,7 @@ export default function TasksView(): React.ReactElement {
                                   onKeyDown={e => {
                                     const val = (groupAddTitles[group.id] ?? '').trim()
                                     if (e.key === 'Enter' && val) {
+                                      setGroupAddTitles(prev => ({ ...prev, [group.id]: '' }))
                                       void createTask({
                                         title: val,
                                         group_id: group.id,
@@ -706,10 +720,10 @@ export default function TasksView(): React.ReactElement {
                                         completed_at: null,
                                         snoozed_until: null,
                                         position: 0,
-                                      })
-                                      setGroupAddTitles(prev => ({ ...prev, [group.id]: '' }))
+                                      }).then(made => { if (!made) setGroupAddTitles(prev => ({ ...prev, [group.id]: prev[group.id] || val })) })
                                     }
                                   }}
+                                  maxLength={500}
                                   placeholder="+ Add task… (press Enter)"
                                   style={{ fontSize: 15 }}
                                   spellCheck={false}
@@ -743,10 +757,12 @@ export default function TasksView(): React.ReactElement {
                     onChange={e => setNewTitle(e.target.value)}
                     onKeyDown={e => {
                       if (e.key === 'Enter' && newTitle.trim()) {
-                        void handleInlineAdd(newTitle.trim())
+                        const title = newTitle.trim()
                         setNewTitle('')
+                        void handleInlineAdd(title).then(made => { if (!made) setNewTitle(cur => cur || title) })
                       }
                     }}
+                    maxLength={500}
                     placeholder="+ Add task... (press Enter)"
                     style={{ fontSize: 15 }}
                     className="w-full px-3 py-2 text-slate-600 dark:text-slate-400

@@ -40,6 +40,10 @@ interface Props {
 export function Checklist({ rowId, clientName, focusAddRef }: Props) {
   const [items, setItems] = useState<ChecklistItemType[]>([])
   const [groups, setGroups] = useState<ChecklistGroup[]>([])
+  /** The group just added here, whose name opens for typing once (bug sweep S2) */
+  const [justAddedGroupId, setJustAddedGroupId] = useState<number | null>(null)
+  // Its header has opened by now (child effects run first); a later remount shouldn't reopen it
+  useEffect(() => { if (justAddedGroupId != null) setJustAddedGroupId(null) }, [justAddedGroupId])
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set())
   const [loading, setLoading] = useState(true)
   const [completedExpanded, setCompletedExpanded] = useState(false)
@@ -394,6 +398,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
     if (result.ok) {
       const created = result.data
       setGroups(prev => [...prev, created])
+      setJustAddedGroupId(created.id)
       // Redo makes the group again under a new id; undo must delete that one (bug sweep S2)
       let currentId = created.id
       useUndoStore.getState().push({
@@ -640,6 +645,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
                     onRename={(name) => void handleRenameGroup(group.id, name)}
                     onDelete={() => setConfirmDeleteGroup({ id: group.id, name: group.name })}
                     isDragDisabled={false}
+                    autoEdit={group.id === justAddedGroupId}
                   />
 
                   {!isCollapsed && (

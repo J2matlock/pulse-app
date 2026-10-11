@@ -1,13 +1,14 @@
 import { create } from 'zustand'
 import { IPC } from '../../shared/ipc-channels'
 import type { CaseloadTask } from '../../shared/types'
+import toast from 'react-hot-toast'
 import { useUndoStore } from './undoStore'
-import { storeInvoke } from '../utils/safeInvoke'
+import { storeInvoke, ReadOnlyError } from '../utils/safeInvoke'
 
 export type TaskSortMode = 'manual' | 'due_date' | 'priority'
 
 export interface CompleteTaskOptions {
-  task?: Pick<CaseloadTask, 'title' | 'due_date'> & Partial<Pick<CaseloadTask, 'is_completed' | 'completed_at'>>
+  task?: Pick<CaseloadTask, 'title' | 'due_date'> & Partial<Pick<CaseloadTask, 'is_completed' | 'completed_at' | 'snoozed_until'>>
   toast?: boolean
   onUndo?: () => void
   onRedo?: () => void
@@ -34,6 +35,18 @@ interface TaskStore {
   snoozeTask: (id: number, until: string) => Promise<void>
   setSortMode: (mode: TaskSortMode) => void
   reorderTasks: (orderedIds: number[]) => Promise<void>
+}
+
+/**
+ * A save that main turned down, said in plain words. Read-only already has
+ * its own toast from storeInvoke (bug sweep S2).
+ */
+function tellFailure(err: unknown, fallback: string): void {
+  if (err instanceof ReadOnlyError) return
+  const msg = err instanceof Error ? err.message : ''
+  if (msg.startsWith('A repeating task')) toast.error(msg)
+  else if (/title/i.test(msg)) toast.error('That task title is too long. Keep it under 500 characters.')
+  else toast.error(fallback)
 }
 
 /** Tasks being ticked off right now: a quick second click is ignored (audit L-27) */
@@ -81,7 +94,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         },
       })
       return created
-    } catch {
+    } catch (err) {
+      tellFailure(err, "We couldn't add the task — try again")
       return null
     }
   },
@@ -90,7 +104,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const prev = get().tasks.find(t => t.id === id)
     try {
       await storeInvoke(IPC.TASK_UPDATE, id, updates)
-    } catch { return }
+    } catch (err) { tellFailure(err, "We couldn't save your change to the task — try again"); return }
     set(state => ({
       tasks: state.tasks.map(t => t.id === id ? { ...t, ...updates } : t)
     }))
@@ -120,7 +134,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const task = get().tasks.find(t => t.id === id)
     try {
       await storeInvoke(IPC.TASK_DELETE, id)
-    } catch { return }
+    } catch (err) { tellFailure(err, "We couldn't delete the task — try again"); return }
     set(state => ({ tasks: state.tasks.filter(t => t.id !== id) }))
     if (task) {
       useUndoStore.getState().push({
@@ -192,6 +206,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
             is_completed: task.is_completed ?? 0,
             completed_at: task.completed_at ?? null,
             due_date: task.due_date ?? null,
+            // A repeating task ticked off loses its snooze; undo brings it back (bug sweep S2)
+            ...(task.snoozed_until !== undefined ? { snoozed_until: task.snoozed_until ?? null } : {}),
           })
           await useTaskStore.getState().loadTasks()
           opts?.onUndo?.()
@@ -213,7 +229,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const prevSnooze = task?.snoozed_until ?? null
     try {
       await storeInvoke(IPC.TASK_SNOOZE, id, until)
-    } catch { return }
+    } catch (err) { tellFailure(err, "We couldn't snooze the task — try again"); return }
     set(state => ({
       tasks: state.tasks.map(t => t.id === id ? { ...t, snoozed_until: until } : t)
     }))

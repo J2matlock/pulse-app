@@ -23,6 +23,8 @@ interface Props {
   onRename: (name: string) => void
   onDelete: () => void
   isDragDisabled: boolean
+  /** The group was just made here: open its name for typing */
+  autoEdit?: boolean
 }
 
 export function ChecklistGroupHeader({
@@ -34,6 +36,7 @@ export function ChecklistGroupHeader({
   onRename,
   onDelete,
   isDragDisabled,
+  autoEdit = false,
 }: Props) {
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState(group.name)
@@ -66,13 +69,14 @@ export function ChecklistGroupHeader({
     }
   }, [editing])
 
-  // Auto-enter edit mode for newly created groups
+  // Only the group just made opens for typing. Matching on the name "New Group"
+  // opened every un-renamed group on every visit (bug sweep S2)
   useEffect(() => {
-    if (group.name === 'New Group') {
+    if (autoEdit) {
       setEditing(true)
       setEditValue(group.name)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [autoEdit]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function commitRename() {
     const trimmed = editValue.trim()

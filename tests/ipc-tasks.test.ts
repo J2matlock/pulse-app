@@ -485,6 +485,18 @@ describe('IPC Tasks', () => {
       expect(row.due_date).toBe('2026-03-01')
     })
 
+    it('puts back the snooze that ticking off a repeating task cleared (bug sweep S2)', async () => {
+      const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
+      const id = insertTask(gridId, 'Weekly', { due_date: '2030-03-01', recurrence_rule: '{"type":"weekly","interval":1}' }).lastInsertRowid as number
+      testDb.db.prepare("UPDATE caseload_tasks SET snoozed_until = '2030-02-27' WHERE id = ?").run(id)
+      await invoke(IPC.TASK_COMPLETE, id)
+      expect((testDb.db.prepare('SELECT snoozed_until FROM caseload_tasks WHERE id = ?').get(id) as any).snoozed_until).toBeNull()
+      const r = await invoke(IPC.TASK_UNCOMPLETE, id, { is_completed: 0, completed_at: null, due_date: '2030-03-01', snoozed_until: '2030-02-27' }) as any
+      expect(r.ok).toBe(true)
+      expect(testDb.db.prepare('SELECT due_date, snoozed_until FROM caseload_tasks WHERE id = ?').get(id)).toEqual({ due_date: '2030-03-01', snoozed_until: '2030-02-27' })
+      expect((await invoke(IPC.TASK_UNCOMPLETE, id, { is_completed: 0, completed_at: null, due_date: null, snoozed_until: 'soon' }) as any).ok).toBe(false)
+    })
+
     it('removes latest history entry', async () => {
       const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
       const t = insertTask(gridId, 'Task')

@@ -38,7 +38,7 @@ export function TaskRow({
     : '—'
 
   const priorityDot =
-    task.priority === 'high'   ? '🔴' :
+    task.priority === 'high' || task.priority === 'urgent' ? '🔴' :
     task.priority === 'normal' ? '🟡' : '⚪'
 
   async function handleComplete() {

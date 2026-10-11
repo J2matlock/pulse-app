@@ -207,13 +207,15 @@ export function registerTaskHandlers(): void {
     return ok(true)
   })
 
-  secureWrap(IPC.TASK_UNCOMPLETE, 'ipc-tasks', (_e, id: number, original: { is_completed: number; completed_at: string | null; due_date: string | null }) => {
+  secureWrap(IPC.TASK_UNCOMPLETE, 'ipc-tasks', (_e, id: number, original: { is_completed: number; completed_at: string | null; due_date: string | null; snoozed_until?: string | null }) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(id)) return fail('Invalid ID')
     if (!original || typeof original !== 'object') return fail('Invalid original state')
     if (original.is_completed !== 0 && original.is_completed !== 1) return fail('is_completed must be 0 or 1')
     if (original.completed_at !== null && (typeof original.completed_at !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(original.completed_at))) return fail('Invalid completed_at date format')
     if (original.due_date !== null && (typeof original.due_date !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(original.due_date))) return fail('Invalid due_date date format')
+    const snooze = original.snoozed_until
+    if (snooze != null && (typeof snooze !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(snooze))) return fail('Invalid snoozed_until date format')
     const db = getDb()
     db.transaction(() => {
       // Remove the most recent history entry created by the completion
@@ -225,6 +227,8 @@ export function registerTaskHandlers(): void {
       db.prepare(`
         UPDATE caseload_tasks SET is_completed = ?, completed_at = ?, due_date = ?, updated_at = datetime('now') WHERE id = ?
       `).run(original.is_completed, original.completed_at ?? null, original.due_date ?? null, id)
+      // Ticking off a snoozed repeating task clears the snooze; undo puts it back (bug sweep S2)
+      if (snooze !== undefined) db.prepare('UPDATE caseload_tasks SET snoozed_until = ? WHERE id = ?').run(snooze ?? null, id)
     })()
     return ok(true)
   })
