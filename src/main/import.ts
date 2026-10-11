@@ -574,29 +574,60 @@ function excelDateToYmd(d: Date): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
 }
 
+/** Cells an Excel read couldn't turn into a value, for the preview's warnings */
+interface ExcelReadNotes { errors: number; noResult: number }
+
+/** "9:30 AM" or "14:05", following the cell's format */
+function excelTime(d: Date, numFmt: string): string {
+  const h = d.getUTCHours(), m = String(d.getUTCMinutes()).padStart(2, '0')
+  if (/AM\/PM|A\/P/i.test(numFmt)) return `${h % 12 || 12}:${m} ${h < 12 ? 'AM' : 'PM'}`
+  return `${String(h).padStart(2, '0')}:${m}`
+}
+
+/** A number as the sheet shows it where that matters: zip codes with leading zeros, percents */
+function excelNumber(n: number, numFmt: string): string {
+  const fmt = numFmt.replace(/"[^"]*"|\[[^\]]*\]|\\./g, '').split(';')[0] ?? ''
+  if (/^0+$/.test(fmt) && Number.isInteger(n) && n >= 0) return String(n).padStart(fmt.length, '0')
+  if (/%$/.test(fmt)) {
+    const decimals = (/\.(0+)%$/.exec(fmt)?.[1] ?? '').length
+    return `${Number((n * 100).toFixed(decimals))}%`
+  }
+  return String(n)
+}
+
 /** Convert an ExcelJS cell value to a plain string */
-function excelCellToString(cell: ExcelJS.Cell): string {
-  const v = cell.value
+function excelValueToString(v: ExcelJS.CellValue | undefined, numFmt: string, notes: ExcelReadNotes): string {
   if (v === null || v === undefined) return ''
   if (typeof v === 'string') return v
-  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
-  if (v instanceof Date) return excelDateToYmd(v)
+  if (typeof v === 'number') return excelNumber(v, numFmt)
+  if (typeof v === 'boolean') return String(v)
+  if (v instanceof Date) {
+    if (isNaN(v.getTime())) return ''
+    // A time with no date sits on Excel's day zero
+    if (v.getUTCFullYear() === 1899 && v.getUTCMonth() === 11 && v.getUTCDate() >= 30) return excelTime(v, numFmt)
+    return excelDateToYmd(v)
+  }
+  if (typeof v !== 'object') return ''
+  if ('error' in v) { notes.errors++; return '' }
   // ExcelJS rich text: { richText: [{text: '...'}] }
-  if (typeof v === 'object' && 'richText' in v && Array.isArray(v.richText)) {
-    return v.richText.map((r: { text: string }) => r.text).join('')
+  if ('richText' in v && Array.isArray(v.richText)) return v.richText.map(r => r.text).join('')
+  // Formulas: the value Excel saved. =A2+90, =EDATE(...) and =TODAY() give a Date result
+  if ('formula' in v || 'sharedFormula' in v || 'result' in v) {
+    const result = (v as { result?: ExcelJS.CellValue }).result
+    if (result === undefined || result === null) { notes.noResult++; return '' }
+    return excelValueToString(result, numFmt, notes)
   }
-  // ExcelJS formula result
-  if (typeof v === 'object' && 'result' in v) {
-    // =A2+90, =EDATE(...) and =TODAY() formatted as a date give a Date result
-    const result = (v as { result: unknown }).result
-    if (result instanceof Date) return excelDateToYmd(result)
-    return String(result ?? '')
-  }
-  // ExcelJS hyperlink
-  if (typeof v === 'object' && 'hyperlink' in v && 'text' in v) {
-    return String((v as { text: unknown }).text ?? '')
-  }
-  return String(v)
+  // Hyperlinks: the text shown, which may itself be rich text
+  if ('hyperlink' in v && 'text' in v) return excelValueToString((v as { text: ExcelJS.CellValue }).text, numFmt, notes)
+  return ''
+}
+
+function excelReadWarnings(notes: ExcelReadNotes): string[] {
+  const out: string[] = []
+  const e = notes.errors, f = notes.noResult
+  if (e > 0) out.push(`${e} cell${e === 1 ? '' : 's'} showed a spreadsheet error (like #N/A) and came in blank.`)
+  if (f > 0) out.push(`${f} formula${f === 1 ? '' : 's'} had no saved value and came in blank. Open the file in Excel, save it, then import it again.`)
+  return out
 }
 
 interface ParseResult {
@@ -667,14 +698,17 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
       const colCount = ws.columnCount
       const maxRow = Math.min(ws.rowCount, MAX_RAW_ROWS)
       if (ws.rowCount > MAX_RAW_ROWS) parseWarnings.push(rowCapWarning())
+      const notes: ExcelReadNotes = { errors: 0, noResult: 0 }
       for (let r = 1; r <= maxRow; r++) {
         const row = ws.getRow(r)
         const rowData: string[] = []
         for (let c = 1; c <= colCount; c++) {
-          rowData.push(excelCellToString(row.getCell(c)))
+          const cell = row.getCell(c)
+          rowData.push(excelValueToString(cell.value, cell.numFmt ?? '', notes))
         }
         rawRows.push(rowData)
       }
+      parseWarnings.push(...excelReadWarnings(notes))
     }
   }
 

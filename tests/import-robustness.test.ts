@@ -212,3 +212,51 @@ describe('values into checkbox and money columns', () => {
     expect(cellsOf(columnIds[1]!)).toEqual(['1234.50', '-50.00', '12.00', '1234.56'])
   })
 })
+
+// ── Excel cell shapes (AUDIT-029) and number formats (AUDIT-030) ─────────────
+
+describe('Excel cells', () => {
+  it('error, formula, rich-text hyperlink cells never come in as [object Object]', async () => {
+    const filePath = await writeXlsx('shapes.xlsx', ws => {
+      ws.addRow(['Name', 'Err', 'Formula err', 'No result', 'Link', 'Plain link'])
+      ws.getCell('A2').value = 'Test Person'
+      ws.getCell('B2').value = { error: '#N/A' } as ExcelJS.CellErrorValue
+      ws.getCell('C2').value = { formula: '1/0', result: { error: '#DIV/0!' } } as ExcelJS.CellFormulaValue
+      ws.getCell('D2').value = { formula: 'A2' } as ExcelJS.CellFormulaValue
+      ws.getCell('E2').value = { text: { richText: [{ text: 'Site ' }, { text: 'page' }] }, hyperlink: 'https://example.org' } as unknown as ExcelJS.CellHyperlinkValue
+      ws.getCell('F2').value = { text: 'Example', hyperlink: 'https://example.org' }
+    })
+    const preview = await parseImportFile(filePath)
+    const row = preview.rows[0]!
+    expect(row.join('|')).not.toMatch(/object/)
+    expect(row).toEqual(['Test Person', '', '', '', 'Site page', 'Example'])
+    const w = (preview.warnings ?? []).join(' ')
+    expect(w).toMatch(/2 cells showed a spreadsheet error/)
+    expect(w).toMatch(/1 formula had no saved value/)
+  })
+
+  it('time-only cells become a time, not 1899-12-30', async () => {
+    const filePath = await writeXlsx('time.xlsx', ws => {
+      ws.addRow(['Name', 'Visit time', 'Clock'])
+      ws.addRow(['Test Person', new Date(Date.UTC(1899, 11, 30, 9, 30)), new Date(Date.UTC(1899, 11, 30, 14, 5))])
+      ws.getCell('B2').numFmt = 'h:mm AM/PM'
+      ws.getCell('C2').numFmt = 'hh:mm'
+    })
+    const preview = await parseImportFile(filePath)
+    expect(preview.rows[0]).toEqual(['Test Person', '9:30 AM', '14:05'])
+    expect(preview.detectedColumns[1]!.detectedType).not.toBe('date')
+  })
+
+  it('leading-zero and percent formats keep what the sheet shows', async () => {
+    const filePath = await writeXlsx('fmt.xlsx', ws => {
+      ws.addRow(['Name', 'Zip', 'Share', 'Rate'])
+      ws.addRow(['Test Person', 2139, 0.25, 0.125])
+      ws.getCell('B2').numFmt = '00000'
+      ws.getCell('C2').numFmt = '0%'
+      ws.getCell('D2').numFmt = '0.0%'
+    })
+    const preview = await parseImportFile(filePath)
+    expect(preview.rows[0]).toEqual(['Test Person', '02139', '25%', '12.5%'])
+    expect(preview.detectedColumns[1]!.detectedType).toBe('text')
+  })
+})
