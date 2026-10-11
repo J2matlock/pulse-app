@@ -519,7 +519,8 @@ export const useGridStore = create<GridState>((set, get) => ({
     // collect: a bulk action gathers each change's undo step and pushes one for all of them (G-26)
     const collect = opts?.collect
     // Computed and auto-number values are Pulse's to fill in (paste, Delete, bulk edit all land here)
-    const column = get().columns.find(c => c.id === columnId)
+    // Hidden columns too: a hidden stage column edited on the record page still runs its stage actions (S-25)
+    const column = get().columns.find(c => c.id === columnId) ?? get().hiddenColumns.find(c => c.id === columnId)
     if (column && isReadOnlyColumnType(column.column_type)) return false
     // The stage column (W06): moves run their on-enter actions as one undo step
     if (column && stageConfigOf(column) && !fromUndo) {

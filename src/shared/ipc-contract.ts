@@ -163,6 +163,8 @@ export interface IPCContract {
   'column:number-existing':         { args: [columnId: number];                                        return: { numbered: number } }
   'column:dependents':              { args: [columnId: number];                                        return: string[] }
   'column:set-name':                { args: [columnId: number];                                        return: { previousId: number | null } }
+  'column:option-usage':            { args: [columnId: number];                                        return: Record<string, number> }
+  'column:set-options':             { args: [columnId: number, change: { options: string[]; renames?: Record<string, string>; updateRecords?: boolean }]; return: { updated: number } }
 
   // ── Row ─────────────────────────────────────────────────────────────────
   'row:create':              { args: [gridId: number];                                                                    return: number | bigint }

@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'motion/react'
 import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2, Edit2, EyeOff, GripVertical, Bell, BellOff, Plus, Pencil, Activity, List, Palette, ArrowUp, ArrowDown, Pin, PinOff, Asterisk, Link2, Columns3, IdCard } from 'lucide-react'
 import { canBeRequired } from '../../../shared/requiredFields'
 import { useShallow } from 'zustand/react/shallow'
@@ -16,12 +15,13 @@ import { NoteUpdatePicker } from './NoteUpdatePicker'
 import { CellConditionalFormatPanel } from './CellConditionalFormatPanel'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { Tooltip } from '../shared/Tooltip'
-import { dropdownVariants } from '../../utils/animations'
 import { useFeature } from '../../hooks/useFeature'
 import { useVocab } from '../../hooks/useVocab'
 import { useLinkStore } from '../../stores/linkStore'
 import { LinkSetupDialog } from '../links/LinkSetupDialog'
 import { StageSettingsDialog } from '../stages/StageSettingsDialog'
+import { EditOptionsDialog } from './EditOptionsDialog'
+import toast from 'react-hot-toast'
 import { canBeStage, stageConfigOf } from '../../../shared/stages'
 
 interface Props {
@@ -61,7 +61,6 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
   const [dependents, setDependents] = useState<string[]>([])
   const [deleteAlertRuleTarget, setDeleteAlertRuleTarget] = useState<ParsedAlertRule | null>(null)
   const [showEditOptions, setShowEditOptions] = useState(false)
-  const [editOptionsText, setEditOptionsText] = useState('')
   const [showColFormat, setShowColFormat] = useState(false)
   const renameRef = useRef<HTMLInputElement>(null)
 
@@ -143,36 +142,8 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
   }
 
   function handleOpenEditOptions() {
-    // Pre-populate textarea with current options
-    if (column.column_type === 'dropdown') {
-      const opts: string[] = colConfig.options ?? []
-      setEditOptionsText(opts.join('\n'))
-    } else if (column.column_type === 'status') {
-      const opts: Array<{ label: string }> = colConfig.options ?? []
-      setEditOptionsText(opts.map(o => o.label).join('\n'))
-    }
     setShowMenu(false)
     setShowEditOptions(true)
-  }
-
-  async function handleSaveOptions() {
-    const lines = editOptionsText.split('\n').map(l => l.trim()).filter(Boolean)
-    let newConfig: string
-    if (column.column_type === 'status') {
-      const STATUS_COLORS = ['#22c55e', '#3b82f6', '#eab308', '#f97316', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899']
-      // Preserve existing colors for options that haven't changed
-      const existing: Array<{ label: string; color: string }> = colConfig.options ?? []
-      const existingMap = new Map(existing.map(o => [o.label, o.color]))
-      const options = lines.map((label, i) => ({
-        label,
-        color: existingMap.get(label) ?? STATUS_COLORS[i % STATUS_COLORS.length],
-      }))
-      newConfig = JSON.stringify({ ...colConfig, options })
-    } else {
-      newConfig = JSON.stringify({ ...colConfig, options: lines })
-    }
-    await updateColumn(column.id, { config: newConfig })
-    setShowEditOptions(false)
   }
 
   function handleContextMenu(e: React.MouseEvent) {
@@ -534,54 +505,18 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
           />
         )}
 
-        {/* Edit options panel for dropdown/status columns */}
-        <AnimatePresence>
-          {showEditOptions && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowEditOptions(false)} />
-              <motion.div
-                className="absolute right-0 top-full mt-1 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl p-4 z-50"
-                variants={dropdownVariants}
-                initial="hidden" animate="visible" exit="exit"
-              >
-                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
-                  {column.column_type === 'status' ? 'Edit statuses' : 'Edit options'}
-                </p>
-                <textarea
-                  autoFocus
-                  className="input resize-none w-full"
-                  rows={5}
-                  value={editOptionsText}
-                  onChange={e => setEditOptionsText(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Escape') setShowEditOptions(false)
-                  }}
-                  placeholder={column.column_type === 'status' ? 'Active\nPending\nClosed' : 'Option A\nOption B\nOption C'}
-                  style={{ minHeight: 'unset', height: 'auto', padding: '8px 12px' }}
-                />
-                {column.column_type === 'status' && (
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-2">Colors are preserved for existing statuses.</p>
-                )}
-                <div className="flex gap-2 mt-3">
-                  <button
-                    className="btn-primary flex-1"
-                    style={{ minHeight: 36, fontSize: 15 }}
-                    onClick={() => void handleSaveOptions()}
-                  >
-                    Save
-                  </button>
-                  <button
-                    className="btn-secondary flex-1"
-                    style={{ minHeight: 36, fontSize: 15 }}
-                    onClick={() => setShowEditOptions(false)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
+        {/* Edit options for dropdown/status columns: a real dialog, so nothing clips it (G-36) */}
+        {showEditOptions && (
+          <EditOptionsDialog
+            column={column}
+            onClose={() => setShowEditOptions(false)}
+            onSaved={async updated => {
+              const gridId = useGridStore.getState().activeGridId
+              if (gridId) await useGridStore.getState().loadGrid(gridId)
+              if (updated > 0) toast.success(`Changed ${updated} ${t('record', { count: updated })}`)
+            }}
+          />
+        )}
 
         {showLinkSettings && linkType && <LinkSetupDialog mode="edit" type={linkType} onClose={() => setShowLinkSettings(false)} />}
         {showStageSettings && <StageSettingsDialog column={column} onClose={() => setShowStageSettings(false)} />}

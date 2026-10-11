@@ -147,6 +147,14 @@ describe('BulkEditDialog', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('shows a status column\'s choices by label instead of crashing (G-01)', () => {
+    const status = { ...makeColumn(2, 'Stage', 'status'), config: JSON.stringify({ options: [{ label: 'Estimate', color: '#000' }, { label: 'Done', color: '#111' }] }) }
+    const rows = [makeRow(1)]
+    render(<BulkEditDialog open onClose={vi.fn()} selectedRowIds={new Set([1])} columns={[status]} rowById={new Map(rows.map(r => [r.row_id, r]))} />)
+    const select = document.getElementById('bulk-edit-value') as HTMLSelectElement
+    expect([...select.options].map(o => o.text)).toEqual(['— None —', 'Estimate', 'Done'])
+  })
+
   it('makes the whole bulk edit one undo step, and Undo puts every value back (G-26)', async () => {
     const { useGridStore } = await import('../../../../src/renderer/stores/gridStore')
     const { useUndoStore } = await import('../../../../src/renderer/stores/undoStore')

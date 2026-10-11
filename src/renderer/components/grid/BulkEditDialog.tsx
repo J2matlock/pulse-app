@@ -5,6 +5,7 @@ import { backdropVariants, modalPanelVariants } from '../../utils/animations'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import type { Column, GridRow } from '../../../shared/types'
 import { READ_ONLY_COLUMN_TYPES } from '../../../shared/types'
+import { columnOptionLabels } from '../../../shared/stages'
 import { useGridStore } from '../../stores/gridStore'
 import { useUndoStore, batchUndoItem, type UndoItem } from '../../stores/undoStore'
 import { getClientName } from '../../utils/clientName'
@@ -291,11 +292,8 @@ function ValueEditor({
 
     case 'dropdown':
     case 'status': {
-      let options: string[] = []
-      try {
-        const cfg = JSON.parse(column.config || '{}')
-        options = Array.isArray(cfg.options) ? cfg.options : []
-      } catch { /* empty */ }
+      // Status choices are { label, color } objects; this gives the labels for both kinds (G-01)
+      const options = columnOptionLabels(column)
       return (
         <select
           id="bulk-edit-value"

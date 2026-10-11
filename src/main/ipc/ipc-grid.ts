@@ -11,6 +11,7 @@ import { fileCountColumnIds } from '../../shared/attachments'
 import type { Column, Grid, GridRow } from '../../shared/types'
 import { VALID_COLUMN_TYPES, canNameRecords } from '../../shared/types'
 import { columnDependents } from '../column-usage'
+import { optionUsage, saveColumnOptions, OptionsError } from '../column-options'
 import { invalidateColumnCache } from './ipc-cell'
 import { afterColumnRenamed, hasDisplayFormat, refreshDisplayNames } from '../display-names'
 import { numberExistingRows } from '../auto-number'
@@ -345,6 +346,28 @@ export function registerGridHandlers(): void {
     })()
     invalidateGridStmtCache()
     return ok({ previousId: prev?.id ?? null })
+  })
+
+  // How many records use each choice, for the options editor (G-36)
+  secureWrap(IPC.COLUMN_OPTION_USAGE, 'ipc-grid', (_e, columnId: number) => {
+    if (!validId(columnId)) return fail('Invalid ID')
+    return ok(optionUsage(columnId))
+  })
+
+  // Save a status or dropdown column's choices; renamed ones can carry their records along (G-02, G-36)
+  secureWrap(IPC.COLUMN_SET_OPTIONS, 'ipc-grid', (_e, columnId: number, change: { options: string[]; renames?: Record<string, string>; updateRecords?: boolean }) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(columnId)) return fail('Invalid ID')
+    if (!change || !Array.isArray(change.options)) return fail('Choose the options first.')
+    if (change.renames !== undefined && (typeof change.renames !== 'object' || change.renames === null)) return fail('Invalid rename list')
+    try {
+      const res = saveColumnOptions(columnId, change)
+      invalidateColumnCache(columnId)
+      return ok(res)
+    } catch (err) {
+      if (err instanceof OptionsError) return fail(err.message)
+      throw err
+    }
   })
 
   // After adding an auto-number column: give the records already in the list a number

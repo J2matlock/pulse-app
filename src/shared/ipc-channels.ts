@@ -18,6 +18,8 @@ export const IPC = {
   COLUMN_NUMBER_EXISTING: 'column:number-existing',
   COLUMN_DEPENDENTS: 'column:dependents',
   COLUMN_SET_NAME: 'column:set-name',
+  COLUMN_OPTION_USAGE: 'column:option-usage',
+  COLUMN_SET_OPTIONS: 'column:set-options',
 
   // Rows
   ROW_CREATE: 'row:create',

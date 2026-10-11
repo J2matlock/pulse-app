@@ -232,6 +232,16 @@ describe('gridStore', () => {
       expect((useGridStore.getState().rows[0] as Record<string, unknown>)['col_5']).toBe('new')
     })
 
+    it('runs stage actions for a stage column that is hidden in the table (S-25)', async () => {
+      const stageCol = makeColumn(9, 'Stage', { column_type: 'status', config: JSON.stringify({ options: [{ label: 'A', color: '#000' }, { label: 'B', color: '#111' }], stage: { options: [{ value: 'A' }, { value: 'B' }] } }) })
+      useGridStore.setState({ activeGridId: 1, rows: [makeRow(1)], columns: [makeColumn(5, 'Notes')], hiddenColumns: [stageCol] })
+      mockInvoke.mockReset()
+      mockInvoke.mockResolvedValue({ ok: true, data: { previous: 'A', changed: true, sysLogIds: [], checklistItemIds: [], stamped: null } })
+      await useGridStore.getState().updateCell(1, 9, 'B')
+      expect(mockInvoke.mock.calls.some(c => c[0] === 'stages:move')).toBe(true)
+      useGridStore.setState({ hiddenColumns: [] })
+    })
+
     it('merges saves of one cell only while it is the latest step and moments apart (L-17)', async () => {
       useUndoStore.setState({ undoStack: [], redoStack: [], toast: null, isUndoing: false })
       const row = makeRow(1)
