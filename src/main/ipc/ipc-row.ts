@@ -216,8 +216,8 @@ export function registerRowHandlers(): void {
   secureWrap(IPC.ROW_BULK_ACTION, 'ipc-row', (_e, action: 'archive' | 'unarchive' | 'delete' | 'restore', rowIds: number[]) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!ALLOWED_BULK_ACTIONS.has(action)) return fail(`Invalid bulk action: ${action}`)
-    if (!Array.isArray(rowIds) || rowIds.length === 0) return fail('No rows specified')
-    if (rowIds.length > MAX_BULK_ROW_ACTION) return fail(`Bulk action limited to ${MAX_BULK_ROW_ACTION} rows`)
+    if (!Array.isArray(rowIds) || rowIds.length === 0) return fail(`Choose at least one ${word('record')}.`)
+    if (rowIds.length > MAX_BULK_ROW_ACTION) return fail(`You can change up to ${MAX_BULK_ROW_ACTION.toLocaleString('en-US')} ${word('record', { many: true })} at once.`)
     if (!rowIds.every(id => Number.isInteger(id) && id > 0)) return fail('Invalid row IDs')
     const db = getDb()
     const logStmt = cachedStmt('row_sys_log', `INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`)

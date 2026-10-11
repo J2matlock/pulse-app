@@ -143,7 +143,7 @@ export function registerContactHandlers(): void {
       if (link) {
         notifyRowId = link.row_id
         const providerName = db.prepare('SELECT name FROM providers WHERE id = ?').pluck().get(link.provider_id) as string | undefined
-        const providerLabel = providerName ?? `Provider #${link.provider_id}`
+        const providerLabel = providerName ?? `${word('contact', { cap: true })} #${link.provider_id}`
         const logResult = db.prepare(`
           INSERT INTO case_log (row_id, content, log_type, created_at, updated_at)
           VALUES (?, ?, 'system', datetime('now'), datetime('now'))

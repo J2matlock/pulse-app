@@ -489,7 +489,7 @@ export async function exportContactPdf(providerId: number, destPath: string): Pr
   const db = getDb()
 
   const provider = getProvider(providerId)
-  if (!provider) throw new Error('Provider not found')
+  if (!provider) throw new Error(`That ${word('contact')} no longer exists.`)
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageW = doc.internal.pageSize.width

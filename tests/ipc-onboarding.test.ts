@@ -242,7 +242,7 @@ describe('IPC Onboarding — ONBOARDING_SETUP_GRID', () => {
   it('rejects empty grid name', async () => {
     const result = await invoke(IPC.ONBOARDING_SETUP_GRID, { gridName: '', columns: [] }) as any
     expect(result.ok).toBe(false)
-    expect(result.error).toMatch(/Grid name/i)
+    expect(result.error).toBe("Give the list a name.")
   })
 
   it('rejects missing grid name', async () => {
@@ -253,7 +253,7 @@ describe('IPC Onboarding — ONBOARDING_SETUP_GRID', () => {
   it('rejects whitespace-only grid name', async () => {
     const result = await invoke(IPC.ONBOARDING_SETUP_GRID, { gridName: '   ', columns: [{ name: 'A', type: 'text' }] }) as any
     expect(result.ok).toBe(false)
-    expect(result.error).toMatch(/empty/i)
+    expect(result.error).toBe("Give the list a name.")
   })
 
   it('truncates grid name to 200 chars', async () => {

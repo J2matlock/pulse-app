@@ -2,7 +2,7 @@
  * IPC Row handler tests — tests ROW_* IPC handlers.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
-import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
+import { createTestDb, cleanupTestDb, seedGrid, setDbWords, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
 
 // ── Handler capture map ──────────────────────────────────────────────────────
@@ -585,13 +585,17 @@ describe('IPC Row — ROW_BULK_ACTION', () => {
   it('rejects empty array', async () => {
     const result = await invoke(IPC.ROW_BULK_ACTION, 'archive', []) as any
     expect(result.ok).toBe(false)
+    expect(result.error).toBe('Choose at least one record.')
   })
 
   it('rejects too many rows (>1000)', async () => {
     const bigArray = Array.from({ length: 1001 }, (_, i) => i + 1)
     const result = await invoke(IPC.ROW_BULK_ACTION, 'archive', bigArray) as any
     expect(result.ok).toBe(false)
-    expect(result.error).toMatch(/limited to/i)
+    // A plain sentence with the workspace word (AUDIT-156)
+    setDbWords(testDb.db)
+    const again = await invoke(IPC.ROW_BULK_ACTION, 'archive', bigArray) as any
+    expect(again.error).toBe('You can change up to 1,000 clients at once.')
   })
 
   it('rejects non-integer IDs', async () => {

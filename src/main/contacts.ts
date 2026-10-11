@@ -341,7 +341,7 @@ export function addTag(providerId: number, tag: string): void {
   if (trimmed.length > 100) throw new Error('Tag too long (100 character limit)')
   const db = getDb()
   const count = (cachedStmt('contacts_tag_count', 'SELECT COUNT(*) as c FROM provider_tags WHERE provider_id = ?').get(providerId) as { c: number }).c
-  if (count >= 50) throw new Error('Maximum of 50 tags per provider')
+  if (count >= 50) throw new Error('You can add up to 50 tags.')
   db.prepare(
     'INSERT OR IGNORE INTO provider_tags (provider_id, tag) VALUES (?, ?)'
   ).run(providerId, trimmed)
