@@ -1708,3 +1708,8 @@ Build state: npm test 4355 pass / 4 skip; typecheck 0; eslint 0 errors; e2e 11/1
 - Real bugs found while fixing: pre-v14 upgrade could fail at unlock (orphan rows before migration 014); restoring a damaged `.pulse-backup` could overwrite the live DB.
 - New migration 048 (schema 48). Tests 4355 (+4 skipped) → 4921 (0 skipped); typecheck/lint 0 errors; coverage 76.7% lines / 65.3% branches.
 - Not pushed, not merged; awaiting review. AUDIT.md / POLISH-REPORT.md contain security findings — keep them off the public main.
+
+## 2026-10-11 (cont.) — Approved audit decisions implemented (branch `polish/2026-10-11`)
+- User approved all 22 needs-decision items with the noted tweaks. Implemented: AUDIT-021, 026, 037, 055, 074, 087, 098, 107, 108 (incl. 30-day auto-purge), 109, 113, 114, 127, 139, 153, 164, 170; AUDIT-090 recorded in the CLAUDE.md decision log.
+- Planned, awaiting go-ahead: Electron 44 upgrade, Linux .deb, asar integrity (`plans/electron-upgrade-and-linux-packaging-plan.md`).
+- Gates: 439 files / 5028 tests passed, typecheck 0, lint 0 errors, build OK. Still not pushed.
