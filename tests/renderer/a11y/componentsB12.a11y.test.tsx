@@ -28,6 +28,7 @@ import { UndoToast } from '../../../src/renderer/components/shared/UndoToast'
 import { useUndoStore } from '../../../src/renderer/stores/undoStore'
 import { ChecklistTemplateEditor } from '../../../src/renderer/components/profile/ChecklistTemplateEditor'
 import { ImportPreviewModal } from '../../../src/renderer/components/shared/ImportPreviewModal'
+import { ResetPasswordAfterRecoveryDialog } from '../../../src/renderer/components/shared/ResetPasswordAfterRecoveryDialog'
 import { setWords } from '../vocabFixture'
 
 beforeEach(() => { setWords() })
@@ -91,6 +92,19 @@ describe('dialogs are named by their headings (audit A06-22)', () => {
     const imported = { filePath: '/tmp/test.pulse', preview: { name: 'Test template', columnCount: 2, alertRuleCount: 0, checklistCount: 0, columns: [{ name: 'Due', column_type: 'date' }], warnings: [] } }
     render(<ImportPreviewModal imported={imported} grids={[]} onClose={() => {}} onApplied={() => {}} />)
     expect(screen.getByRole('dialog', { name: 'Import Template' })).toBeTruthy()
+    await expectNoAxeViolations(document.body)
+  })
+})
+
+describe('set a new password after recovery (audit A06-14, A06-22)', () => {
+  it('is a named dialog and a mismatch is tied to the confirm box', async () => {
+    render(<ResetPasswordAfterRecoveryDialog open onComplete={() => {}} />)
+    expect(screen.getByRole('dialog', { name: 'Set a new password' })).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'a long enough test password 42' } })
+    const confirm = screen.getByLabelText('Confirm password')
+    fireEvent.change(confirm, { target: { value: 'different' } })
+    expect(confirm.getAttribute('aria-invalid')).toBe('true')
+    expect(document.getElementById(confirm.getAttribute('aria-describedby') ?? '')?.textContent).toBe('Passwords do not match')
     await expectNoAxeViolations(document.body)
   })
 })

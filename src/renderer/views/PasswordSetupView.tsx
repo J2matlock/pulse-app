@@ -9,6 +9,7 @@ import { RecoveryKeyDisplayModal } from '../components/shared/RecoveryKeyDisplay
 import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { RestoreFromBackupForm } from '../components/shared/RestoreFromBackupForm'
 import { PasswordStrength } from '../components/shared/PasswordStrength'
+import { FieldError, fieldErrorProps } from '../components/shared/FieldError'
 import { checkNewPassword } from '../../shared/passwordPolicy'
 import { PRODUCT_NAME } from '../../shared/constants'
 
@@ -36,6 +37,10 @@ export function PasswordSetupView(): React.ReactElement {
   const setLocked = useSettingsStore(s => s.setLocked)
 
   const passwordsMatch = password === confirm
+  // Which box the submit-time message is about, so that box points at it
+  const passwordInvalid = !!missing && !checkNewPassword(password).ok
+  const confirmInvalid = !!missing && !passwordInvalid && !passwordsMatch
+  const confirmMismatch = confirm.length > 0 && !passwordsMatch && 'Passwords do not match'
 
   function finishSetup() {
     setPasswordSetup(true)
@@ -236,7 +241,8 @@ export function PasswordSetupView(): React.ReactElement {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="At least 12 characters"
-                  aria-describedby="password-setup-strength"
+                  aria-invalid={passwordInvalid || undefined}
+                  aria-describedby={passwordInvalid ? 'password-setup-strength password-setup-missing' : 'password-setup-strength'}
                   autoFocus
                   autoComplete="new-password"
                 />
@@ -265,10 +271,11 @@ export function PasswordSetupView(): React.ReactElement {
                 onChange={e => setConfirm(e.target.value)}
                 placeholder="Re-enter your password"
                 autoComplete="new-password"
+                {...fieldErrorProps('password-setup-confirm', confirmMismatch, confirmInvalid ? 'password-setup-missing' : undefined)}
+                aria-invalid={confirmMismatch || confirmInvalid ? true : undefined}
               />
-              {confirm.length > 0 && !passwordsMatch && (
-                <p className="text-red-600 dark:text-red-400 text-sm mt-1">Passwords do not match</p>
-              )}
+              {/* Not announced while typing; the submit message is */}
+              <FieldError fieldId="password-setup-confirm" error={confirmMismatch} className="text-red-600 dark:text-red-400 text-sm mt-1" announce={false} />
             </div>
 
             <div>
@@ -330,7 +337,7 @@ export function PasswordSetupView(): React.ReactElement {
               </span>
             </label>
 
-            {missing && <p role="alert" className="text-base text-red-700 dark:text-red-300">{missing}</p>}
+            {missing && <p id="password-setup-missing" role="alert" className="text-base text-red-700 dark:text-red-300">{missing}</p>}
 
             <button
               type="submit"
