@@ -4,6 +4,7 @@ import { motion } from 'motion/react'
 import { backdropVariants, modalPanelVariants } from '../../utils/animations'
 import toast from 'react-hot-toast'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { copyText } from '../../hooks/useCopyFeedback'
 import { PRODUCT_NAME } from '../../../shared/constants'
 
 interface RecoveryKeyDisplayModalProps {
@@ -22,13 +23,9 @@ export function RecoveryKeyDisplayModal({ open, recoveryKey, onClose }: Recovery
   // Clean up print iframe timer on unmount
   useEffect(() => () => { clearTimeout(printTimerRef.current) }, [])
 
-  function handleCopy() {
-    try {
-      window.api.copyToClipboard(recoveryKey)
-      toast.success('Recovery key copied to clipboard')
-    } catch {
-      toast.error('Failed to copy — please select and copy manually')
-    }
+  async function handleCopy() {
+    // copyText says so itself when the copy didn't happen
+    if (await copyText(recoveryKey)) toast.success('Recovery key copied to clipboard')
   }
 
   function handlePrint() {
@@ -107,7 +104,7 @@ p { font-size: 15px; color: #555; margin-bottom: 24px; }
         <div className="flex gap-3 mb-6">
           <button
             type="button"
-            onClick={handleCopy}
+            onClick={() => void handleCopy()}
             className="btn-secondary flex-1 flex items-center justify-center gap-2"
             style={{ minHeight: 44 }}
           >

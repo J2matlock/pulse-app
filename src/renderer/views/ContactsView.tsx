@@ -18,6 +18,7 @@ import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
 import { isEditableElement } from '../utils/domHelpers'
 import { isMod } from '../utils/keys'
+import { copyText } from '../hooks/useCopyFeedback'
 import { useVocab } from '../hooks/useVocab'
 
 export default function ContactsView() {
@@ -137,7 +138,7 @@ export default function ContactsView() {
           e.preventDefault()
           const p = currentProviders[focusedIndex]
           const phone = p.phone_main || p.phone_direct || ''
-          if (phone) void window.api.copyToClipboard(phone)
+          if (phone) void copyText(phone)
         }
       }
     }

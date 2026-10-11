@@ -4,7 +4,7 @@ import {
   Star, Pencil, Trash2, Copy, Check, Phone, Mail, Globe, MapPin,
   Clock, CheckCircle, XCircle, Download, Printer
 } from 'lucide-react'
-import { useCopyFeedback } from '../../hooks/useCopyFeedback'
+import { useCopyFeedback, copyText } from '../../hooks/useCopyFeedback'
 import { AvailabilityBadge } from './AvailabilityBadge'
 import { ContactInteractionLog } from './ContactInteractionLog'
 import { ContactLinkedClients } from './ContactLinkedClients'
@@ -322,7 +322,7 @@ export function ContactDetail({ provider, onEdit, onDeleted }: Props) {
                   {p.referral_process}
                 </div>
                 <button
-                  onClick={() => window.api.copyToClipboard(p.referral_process!)}
+                  onClick={() => { if (p.referral_process) void copyText(p.referral_process) }}
                   className="hit-44 mt-1.5 flex items-center gap-1 text-base text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                   style={{ fontSize: 15 }}>
                   <Copy size={12} /> Copy Referral Process

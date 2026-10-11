@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { ShieldCheck, Copy, Check, X } from 'lucide-react'
 import { PRODUCT_NAME } from '../../../shared/constants'
 import { useVocab } from '../../hooks/useVocab'
+import { copyText } from '../../hooks/useCopyFeedback'
 
 /**
  * Plain-English security summary a worker can show (or paste to) their
@@ -54,7 +55,7 @@ export function SecuritySummaryDialog({ open, onClose }: { open: boolean; onClos
   if (!open) return null
 
   async function copy() {
-    await window.api.copyToClipboard(f(SECURITY_SUMMARY_TEXT))
+    if (!await copyText(f(SECURITY_SUMMARY_TEXT))) return
     setCopied(true)
     setTimeout(() => setCopied(false), 2500)
   }
