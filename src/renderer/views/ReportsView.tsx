@@ -11,7 +11,7 @@ import { IPC } from '../../shared/ipc-channels'
 import { chartableReport, formatReportCell, type ReportResult, type SavedReport } from '../../shared/reports'
 import { safeInvoke } from '../utils/safeInvoke'
 import { useGridStore } from '../stores/gridStore'
-import { ReportBuilder } from '../components/reports/ReportBuilder'
+import { ReportBuilder, forgetReportDraft, reportDraftKey } from '../components/reports/ReportBuilder'
 import { ReportChart } from '../components/reports/ReportChart'
 import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 
@@ -135,7 +135,7 @@ export default function ReportsView(): React.ReactElement {
         message="Your changes to this report haven't been saved. If you leave now, they're lost."
         confirmLabel="Leave without saving"
         destructive
-        onConfirm={() => { const to = leaving!.to; setLeaving(null); go(to) }}
+        onConfirm={() => { const to = leaving!.to; setLeaving(null); forgetReportDraft(reportDraftKey(openId ? { id: openId } : null)); go(to) }}
         onCancel={() => setLeaving(null)}
       />
     </div>

@@ -336,7 +336,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'dash-alert-rules',
     question: 'How do I set up deadline alerts for a column?',
-    answer: 'You can set alert rules in two ways: click the menu icon (\u22ef) on any date column header and choose "Deadline Alert," or go to Settings > Alerts to manage reusable rules. Rules determine when colors change \u2014 for example, "Turn yellow 14 days before due, orange 7 days before, red 3 days before."',
+    answer: 'You can set alert rules in two ways: click the menu icon (\u22ef) on any date column header and choose "Deadline Alert," or go to Settings > Deadlines & reminders to manage reusable rules. Rules determine when colors change \u2014 for example, "Turn yellow 14 days before due, orange 7 days before, red 3 days before."',
     category: 'dashboard-deadlines',
     tourStepIds: ['settings'],
   },
@@ -372,7 +372,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'tasks-priorities',
     question: 'What do the priority levels mean?',
-    answer: 'Tasks have four priority levels: Low (gray), Medium (blue), High (orange), and Urgent (red). Use priorities to sort and organize your task list. Urgent tasks always appear at the top to make sure they get your attention. Checklist items marked Urgent on a profile checklist will also show up on the main task page.',
+    answer: 'Tasks have four priority levels: Low, Normal, High and Urgent. Tasks stay in the order you put them in; to put the most urgent first, choose Sort: Priority at the top of the Tasks page, or Sort: Due date to put overdue ones first. Checklist items marked Urgent on a profile checklist also show up on the Tasks page.',
     category: 'tasks',
     demo: <DemoTaskPriorities />,
   },
@@ -559,7 +559,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'dl-days-off',
     question: 'Can a deadline count working days only, or skip holidays?',
-    answer: 'Yes. In a deadline rule, tick "Count working days only" so a due date that lands on a weekend or day off moves to the working day before. Deadlines like "10 school days before" count working days too. Set your weekend and days off in Settings > Alerts > Days off, where you can add a single day, a break such as a school vacation, or the US federal holidays for this year or next.',
+    answer: 'Yes. In a deadline rule, tick "Count working days only" so a due date that lands on a weekend or day off moves to the working day before. Deadlines like "10 school days before" count working days too. Set your weekend and days off in Settings > Deadlines & reminders > Days off, where you can add a single day, a break such as a school vacation, or the US federal holidays for this year or next.',
     category: 'dashboard-deadlines',
   },
   {
@@ -571,7 +571,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'dl-reminders',
     question: 'Can Pulse remind me each morning?',
-    answer: 'Yes. In Settings > Alerts > Reminders, turn on "Desktop reminder each morning" and choose a time. While Pulse is open and unlocked, you get a notification like "3 due today, 1 overdue". It never shows names. Clicking it opens the dashboard. If nothing appears, click "Send a test reminder" and check that notifications are allowed for Pulse in your computer\'s settings.',
+    answer: 'Yes. In Settings > Deadlines & reminders > Reminders, turn on "Desktop reminder each morning" and choose a time. While Pulse is open and unlocked, you get a notification like "3 due today, 1 overdue". It never shows names. Clicking it opens the dashboard. If nothing appears, click "Send a test reminder" and check that notifications are allowed for Pulse in your computer\'s settings.',
     category: 'dashboard-deadlines',
     feature: 'notifications',
   },
@@ -684,7 +684,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'background-mode',
     question: 'Can Pulse remind me about things when its window is closed?',
-    answer: 'Yes. In Settings → Alerts, turn on "Keep Pulse running in the background". Closing the window then backs up and locks Pulse, and it keeps running next to the clock, where you can open it, lock it or quit. While it\'s locked, reminders show only counts and times, never names. You can also turn on "Open Pulse when I sign in" (Windows and Mac) so reminders start without opening it yourself.',
+    answer: 'Yes. In Settings → Deadlines & reminders, turn on "Keep Pulse running in the background". Closing the window then backs up and locks Pulse, and it keeps running next to the clock, where you can open it, lock it or quit. While it\'s locked, reminders show only counts and times, never names. You can also turn on "Open Pulse when I sign in" (Windows and Mac) so reminders start without opening it yourself.',
     category: 'tips-shortcuts',
   },
 ]

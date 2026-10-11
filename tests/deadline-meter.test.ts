@@ -88,6 +88,13 @@ describe('meter rules in main', () => {
     expect((t.db.prepare('SELECT COUNT(*) AS n FROM cell_history WHERE row_id = ?').get(rowId) as { n: number }).n).toBe(4)
   })
 
+  it('can be marked done on an earlier day, but not a future one (audit 1.22)', () => {
+    const res = markMeterDone(rowId, serviced, 41250, localDateFromToday(-3))
+    expect((t.db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?').get(rowId, serviced) as { value: string }).value).toBe(localDateFromToday(-3))
+    expect(res.sysLogId).toBeGreaterThan(0)
+    expect(() => markMeterDone(rowId, serviced, 41300, localDateFromToday(2))).toThrow(/hasn't happened yet/)
+  })
+
   it('refuses rules without readings and bad numbers', () => {
     expect(() => markMeterDone(rowId, serviced, -5)).toThrow(/number/)
     t.db.prepare("UPDATE alert_rules SET kind = 'interval', rule_config = NULL").run()

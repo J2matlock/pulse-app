@@ -33,6 +33,6 @@ describe('sequence steps on the profile', () => {
     expect(within(steps).getByText('IFSP meeting').className).toMatch(/line-through/)
     expect(within(steps).getByText('Review')).toBeTruthy()
     await act(async () => { fireEvent.click(within(steps).getByRole('button', { name: 'Mark done' })) })
-    expect(invoke).toHaveBeenCalledWith(IPC.DEADLINE_STEP_DONE, 9, 3, 1)
+    expect(invoke).toHaveBeenCalledWith(IPC.DEADLINE_STEP_DONE, 9, 3, 1, null)
   })
 })

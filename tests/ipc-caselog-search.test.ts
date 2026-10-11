@@ -114,4 +114,10 @@ describe('CASE_LOG_GET search and sort', () => {
     const page = await invoke(IPC.CASE_LOG_GET, rowId, true, false, 1000, 250, { logType: 'visit' })
     expect(page.data.every((e: { log_type: string }) => e.log_type === 'visit')).toBe(true)
   })
+
+  it('sorts by the day a note happened, not when it was written', async () => {
+    testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at, occurred_at) VALUES (?, 'Written today about 2023', 'note', '2025-01-01 10:00:00', '2025-01-01 10:00:00', '2023-06-01 10:00:00')").run(rowId)
+    const oldest = await invoke(IPC.CASE_LOG_GET, rowId, false, false, 1, 0, { oldestFirst: true })
+    expect(oldest.data[0].content).toBe('Written today about 2023')
+  })
 })

@@ -7,7 +7,7 @@ import { CalendarClock, X } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { CrossGridSearchResult } from '../../../shared/ipc-contract'
 import type { Column } from '../../../shared/types'
-import { apptInputSchema, addMinutes, minutesBetween, type Appointment, type ApptInput, type SeriesRule } from '../../../shared/appointments'
+import { apptInputSchema, addMinutes, minutesBetween, seriesRuleSchema, type Appointment, type ApptInput, type SeriesRule } from '../../../shared/appointments'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { createAppointment, updateAppointment } from '../../utils/appointmentActions'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
@@ -20,6 +20,18 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 type Repeat = 'none' | 'daily' | 'weekly' | 'monthly'
 type Ends = 'never' | 'date' | 'count' | 'column'
+
+/** A repeating appointment's stored rule */
+function ruleOf(a: Appointment | undefined): SeriesRule | null {
+  if (!a || a.series_id === null || !a.series_rule) return null
+  try { const r = seriesRuleSchema.safeParse(JSON.parse(a.series_rule)); return r.success ? r.data : null } catch { return null }
+}
+
+/** Two rules that make the same dates compare equal */
+function ruleKey(r: SeriesRule | null): string {
+  if (!r) return ''
+  return JSON.stringify([r.freq, r.interval, r.freq === 'weekly' ? [...(r.byDay ?? [])].sort() : [], r.until ?? null, r.count ?? null, r.untilColumnId ?? null])
+}
 
 export interface AppointmentDialogProps {
   /** Editing this one; otherwise a new appointment */
@@ -50,13 +62,15 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
   const [location, setLocation] = useState(a?.location ?? '')
   const [kind, setKind] = useState(a?.activity_type_key ?? '')
   const [notes, setNotes] = useState(a?.notes ?? '')
-  const [repeat, setRepeat] = useState<Repeat>('none')
-  const [every, setEvery] = useState('1')
-  const [byDay, setByDay] = useState<number[]>([])
-  const [ends, setEnds] = useState<Ends>('never')
-  const [until, setUntil] = useState('')
-  const [count, setCount] = useState('10')
-  const [untilCol, setUntilCol] = useState<number | null>(null)
+  // Editing a repeating one shows its pattern, which can be changed from this one on (audit S-18)
+  const initialRule = ruleOf(a)
+  const [repeat, setRepeat] = useState<Repeat>(initialRule?.freq ?? 'none')
+  const [every, setEvery] = useState(String(initialRule?.interval ?? 1))
+  const [byDay, setByDay] = useState<number[]>(initialRule?.byDay ?? [])
+  const [ends, setEnds] = useState<Ends>(initialRule?.count ? 'count' : initialRule?.until ? 'date' : initialRule?.untilColumnId ? 'column' : 'never')
+  const [until, setUntil] = useState(initialRule?.until ?? '')
+  const [count, setCount] = useState(String(initialRule?.count ?? 10))
+  const [untilCol, setUntilCol] = useState<number | null>(initialRule?.untilColumnId ?? null)
   const [dateColumns, setDateColumns] = useState<Column[]>([])
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -109,11 +123,14 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
     setError(null)
     const input = prepared ?? build()
     if (!input) return
-    if (a && a.series_id !== null && !scope) { setAskScope(input); return }
+    // A changed pattern applies from this one on, so there's nothing to ask
+    const newRule = a && initialRule ? rule() : null
+    const ruleChanged = !!newRule && ruleKey(newRule) !== ruleKey(initialRule)
+    if (a && a.series_id !== null && !scope && !ruleChanged) { setAskScope(input); return }
     setSaving(true)
     try {
       const ok = a
-        ? await updateAppointment(a, input, scope ?? 'one')
+        ? ruleChanged ? await updateAppointment(a, input, 'following', newRule) : await updateAppointment(a, input, scope ?? 'one')
         : (await createAppointment(input, rule())) !== null
       if (ok) onClose()
     } finally { setSaving(false); setAskScope(null) }
@@ -196,17 +213,18 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
         <label className="block">
           <span className={label}>When it's done, log it as</span>
           <select className="input w-full" value={kind} onChange={e => setKind(e.target.value)}>
-            <option value="">The usual kind (a visit)</option>
+            <option value="">Usual: {(noteTypes.find(nt => nt.key === 'visit') ?? noteTypes[0])?.label ?? 'a note'}</option>
             {noteTypes.map(nt => <option key={nt.key} value={nt.key}>{nt.label}</option>)}
           </select>
         </label>
 
-        {!a && (
+        {(!a || initialRule) && (
           <fieldset className="space-y-2">
             <legend className={label}>Repeats</legend>
+            {initialRule && <p className="text-base text-slate-600 dark:text-slate-300">Changing how it repeats applies from this one on.</p>}
             <div className="flex flex-wrap items-center gap-2">
               <select className="input w-auto" aria-label="Repeats" value={repeat} onChange={e => setRepeat(e.target.value as Repeat)}>
-                <option value="none">Doesn't repeat</option>
+                {!initialRule && <option value="none">Doesn't repeat</option>}
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
@@ -262,7 +280,8 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
           <button type="button" className="btn-primary" disabled={saving || !title.trim() || !date} onClick={() => void save()}>{a ? 'Save' : 'Schedule'}</button>
         </div>
       </div>
-      {askScope && <ScopeDialog verb="Change" onChoose={scope => void save(scope, askScope)} onCancel={() => setAskScope(null)} />}
+      {askScope && <ScopeDialog verb="Change" onChoose={scope => void save(scope, askScope)} onCancel={() => setAskScope(null)}
+        dateChanged={!!a && askScope.start_at.slice(0, 10) !== a.start_at.slice(0, 10)} />}
     </div>
   )
 }

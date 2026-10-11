@@ -9,6 +9,7 @@ import { useGridStore } from '../../stores/gridStore'
 import { useVocab } from '../../hooks/useVocab'
 import { useHoldsPeople } from '../../hooks/useRecordKind'
 import { useFeature } from '../../hooks/useFeature'
+import { CancelAppointmentsCheckbox, useUpcomingAppointments } from '../grid/GridDialogs'
 
 /**
  * Client handoff packet (transfer or discharge): cover page, full profile and
@@ -27,6 +28,8 @@ export function HandoffDialog({ rowId, gridId, clientName, onClose }: {
   const [receiving, setReceiving] = useState('')
   const [summary, setSummary] = useState('')
   const [archive, setArchive] = useState(false)
+  const upcoming = useUpcomingAppointments(archive ? [rowId] : null)
+  const [cancelAppts, setCancelAppts] = useState(true)
   const filesOn = useFeature('attachments')
   const [includePictures, setIncludePictures] = useState(false)
   // Scrap notes are private jottings; the packet goes to someone else
@@ -54,7 +57,7 @@ export function HandoffDialog({ rowId, gridId, clientName, onClose }: {
       toast.success(`Saved the ${packet}`)
       onClose()
       if (archive) {
-        await useGridStore.getState().archiveRow(rowId, reason)
+        await useGridStore.getState().archiveRow(rowId, reason, { cancelAppointments: upcoming > 0 && cancelAppts })
         navigate('/grid')
       }
     } finally {
@@ -115,6 +118,7 @@ export function HandoffDialog({ rowId, gridId, clientName, onClose }: {
                 ))}
               </div>
             )}
+            {archive && <div className="pl-7"><CancelAppointmentsCheckbox count={upcoming} checked={cancelAppts} onChange={setCancelAppts} /></div>}
           </div>
         </div>
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-slate-700">

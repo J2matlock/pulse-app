@@ -7,6 +7,7 @@ import { APPT_STATUSES, DATE_RE, type ApptStatus, type EditScope } from '../../s
 import { secureWrap, ok, fail, enforceWritable, validId, notifyCaseLogChanged } from './ipc-utils'
 import {
   ApptError, listAppointments, recordAppointments, createAppointment, updateAppointment, deleteAppointment, restoreAppointments, setAppointmentStatus,
+  countUpcomingForRecords, cancelUpcomingForRecords, endSeriesOn,
   type ApptSnapshot,
 } from '../appointments'
 import { calendarItems } from '../calendar'
@@ -29,8 +30,12 @@ function validSnapshot(v: unknown): v is ApptSnapshot {
   const s = v as Record<string, unknown>
   return ['appointments', 'series', 'createdAppointmentIds', 'createdSeriesIds'].every(k => Array.isArray(s[k]))
     && (s.createdAppointmentIds as unknown[]).every(validId) && (s.createdSeriesIds as unknown[]).every(validId)
-    && (s.appointments as unknown[]).length <= 2000 && (s.series as unknown[]).length <= 20
+    // Archiving many records at once can end many series in one step
+    && (s.appointments as unknown[]).length <= 50_000 && (s.series as unknown[]).length <= 1000
 }
+
+const MAX_RECORDS = 1000
+const validRowIds = (v: unknown): v is number[] => Array.isArray(v) && v.length > 0 && v.length <= MAX_RECORDS && v.every(validId)
 
 export function registerAppointmentHandlers(): void {
   secureWrap(IPC.APPT_LIST, 'ipc-appointments', (_e, range: unknown, filter?: unknown) => {
@@ -58,11 +63,20 @@ export function registerAppointmentHandlers(): void {
     return res
   })
 
-  secureWrap(IPC.APPT_UPDATE, 'ipc-appointments', (_e, id: unknown, patch: unknown, scope?: unknown) => {
+  secureWrap(IPC.APPT_UPDATE, 'ipc-appointments', (_e, id: unknown, patch: unknown, scope?: unknown, rule?: unknown) => {
     const guard = enforceWritable(); if (guard) return guard
     const sc = scopeOf(scope)
     if (!validId(id) || !sc || !patch || typeof patch !== 'object') return fail('Invalid request')
-    const res = action(() => updateAppointment(id, patch as never, sc))
+    if (rule != null && typeof rule !== 'object') return fail('Invalid request')
+    const res = action(() => updateAppointment(id, patch as never, sc, (rule ?? null) as never))
+    if (res.ok) announceAppointments()
+    return res
+  })
+
+  secureWrap(IPC.APPT_END_SERIES, 'ipc-appointments', (_e, id: unknown, lastDate: unknown) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(id) || typeof lastDate !== 'string' || !DATE_RE.test(lastDate)) return fail('Invalid request')
+    const res = action(() => endSeriesOn(id, lastDate))
     if (res.ok) announceAppointments()
     return res
   })
@@ -102,8 +116,23 @@ export function registerAppointmentHandlers(): void {
     return res
   })
 
-  secureWrap(IPC.CALENDAR_ITEMS, 'ipc-appointments', (_e, from: unknown, to: unknown) => {
+  secureWrap(IPC.APPT_UPCOMING_COUNT, 'ipc-appointments', (_e, rowIds: unknown) => {
+    if (!validRowIds(rowIds)) return fail('Invalid request')
+    return ok(countUpcomingForRecords(rowIds))
+  })
+
+  /** Archiving: end the records' series and remove their upcoming appointments (audit 1.13) */
+  secureWrap(IPC.APPT_CANCEL_UPCOMING, 'ipc-appointments', (_e, rowIds: unknown) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validRowIds(rowIds)) return fail('Invalid request')
+    const res = action(() => cancelUpcomingForRecords(rowIds))
+    if (res.ok) announceAppointments()
+    return res
+  })
+
+  secureWrap(IPC.CALENDAR_ITEMS, 'ipc-appointments', (_e, from: unknown, to: unknown, gridId?: unknown) => {
     if (typeof from !== 'string' || typeof to !== 'string' || !DATE_RE.test(from) || !DATE_RE.test(to) || to < from) return fail('Invalid dates')
-    return ok(calendarItems(from, to))
+    if (gridId != null && !validId(gridId)) return fail('Invalid ID')
+    return ok(calendarItems(from, to, gridId == null ? undefined : gridId))
   })
 }

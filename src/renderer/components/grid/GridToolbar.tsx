@@ -85,6 +85,7 @@ export function GridToolbar(): React.ReactElement {
   const timeOn = useFeature('timeTracking')
   const mileageOn = useFeature('mileage')
   const measuresOn = useFeature('measures')
+  const requirementsOn = useFeature('requirements')
   const acuityEnabled = acuityFlag && priorityOn
   const activeGridName = useGridStore(s => s.grids.find(g => g.id === s.activeGridId)?.name)
   const { addRow, addColumn, toggleColumnVisibility, setShowArchived } = useGridStore(useShallow(s => ({
@@ -535,6 +536,7 @@ export function GridToolbar(): React.ReactElement {
                     Summary report…
                   </button>
                 </>)}
+                {requirementsOn && (
                 <button
                   className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
                   style={{ minHeight: 44 }}
@@ -542,6 +544,7 @@ export function GridToolbar(): React.ReactElement {
                 >
                   {t('requirement', { many: true, cap: true })} summary…
                 </button>
+                )}
                 <button
                   className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
                   style={{ minHeight: 44 }}

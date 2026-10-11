@@ -142,6 +142,37 @@ describe('Checklist', () => {
     })
   })
 
+  it('a repeating item ticked off stays on the list with its next date (audit 1.26)', async () => {
+    const items = [makeItem({ id: 1, title: 'Monthly safety check', due_date: '2026-10-10', recurrence_rule: JSON.stringify({ type: 'monthly', interval: 1 }) })]
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'checklist:get') return Promise.resolve({ ok: true, data: items })
+      if (channel === 'checklist:group-get-all') return Promise.resolve({ ok: true, data: [] })
+      if (channel === 'checklist:update-item') return Promise.resolve({ ok: true, data: { sysLogId: 5, repeat: { previousDue: '2026-10-10', nextDue: '2026-11-10' } } })
+      return Promise.resolve({ ok: true, data: [] })
+    })
+    render(<Checklist rowId={10} clientName="Test Client" />)
+    await waitFor(() => expect(screen.getByText('Every month')).toBeTruthy())
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark complete' }))
+    await waitFor(() => expect(screen.getByText(/Nov 10/)).toBeTruthy())
+    expect(screen.getByRole('checkbox', { name: 'Mark complete' })).toBeTruthy()
+  })
+
+  it('a tick that fails to save is put back (audit L-28)', async () => {
+    const items = [makeItem({ id: 1, title: 'Call landlord' })]
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'checklist:get') return Promise.resolve({ ok: true, data: items })
+      if (channel === 'checklist:group-get-all') return Promise.resolve({ ok: true, data: [] })
+      if (channel === 'checklist:update-item') return Promise.resolve({ ok: false, error: 'Database is locked' })
+      return Promise.resolve({ ok: true, data: [] })
+    })
+    render(<Checklist rowId={10} clientName="Test Client" />)
+    await waitFor(() => expect(screen.getByText('Call landlord')).toBeTruthy())
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Mark complete' }))
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Mark complete' })).toBeTruthy())
+    await new Promise(r => setTimeout(r, 500))
+    expect(screen.getByRole('checkbox', { name: 'Mark complete' })).toBeTruthy()
+  })
+
   it('shows progress indicator with count', async () => {
     const items = [
       makeItem({ id: 1, title: 'Done', is_completed: 1, completed_at: new Date().toISOString(), position: 0 }),

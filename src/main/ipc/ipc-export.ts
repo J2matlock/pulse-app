@@ -11,7 +11,8 @@ import { getProvider } from '../contacts'
 import {
   listAutoBackupsRich, runScheduledBackup, runManualBackup,
   restoreFromDb, restoreFromPulseBackup, getBackupInfo,
-  verifyBackup, getScheduledConfig, setScheduledConfig, withBackupDbFile,
+  verifyBackup, getScheduledConfig, setScheduledConfig, withBackupDbFile, runScheduledBackupNow,
+  describeBackupError, getBackupHealth, getBackupMadeInfo, restoreOtherPulseBackup,
   type ScheduledBackupConfig, type PersistentScheduledConfig
 } from '../backup'
 import { getDbKey } from '../auth'
@@ -32,10 +33,12 @@ import {
 import { statSync, copyFileSync, existsSync, mkdirSync } from 'fs'
 import { writeFile, unlink } from 'fs/promises'
 import { join } from 'path'
+import { checkNewPassword } from '../../shared/passwordPolicy'
 import { localDateString } from '../../shared/dates'
+import { MS_PER_DAY } from '../../shared/constants'
 import { word } from '../vocab'
 import { placeholderFields } from '../placeholders'
-import { buildBatchPdf, buildLabelsPdf, DocumentError, MAX_BATCH, type DocTarget } from '../export-documents'
+import { buildBatchPdf, buildLabelsPdf, previewBatch, DocumentError, MAX_BATCH, type DocTarget } from '../export-documents'
 import { atomicWriteFileAsync } from '../export-shared'
 
 export function registerExportHandlers(): void {
@@ -79,10 +82,19 @@ export function registerExportHandlers(): void {
     return ok(result)
   })
 
+  // "Run now" runs entirely in main, so the renderer never fakes a config to trigger it
+  secureWrap(IPC.BACKUP_SCHEDULED_RUN_NOW, 'ipc-export', async () => {
+    return ok(await runScheduledBackupNow())
+  })
+
   secureWrap(IPC.BACKUP_MANUAL_CREATE, 'ipc-export', async (_e, destPath: string) => {
     assertSafePath(destPath)
-    const result = await runManualBackup(destPath)
-    return ok(result)
+    try {
+      return ok(await runManualBackup(destPath))
+    } catch (err) {
+      logger.error('ipc-export', 'Manual backup failed', err)
+      return fail(describeBackupError(err))
+    }
   })
 
   secureWrap(IPC.BACKUP_RESTORE_AUTO, 'ipc-export', async (_e, backupDbPath: string) => {
@@ -151,6 +163,34 @@ export function registerExportHandlers(): void {
     })
   })
 
+  // A backup made by another Pulse: unlocked with that Pulse's password or recovery key
+  secureWrap(IPC.BACKUP_RESTORE_OTHER, 'ipc-export', async (_e, backupPath: string, secret: string, newPassword: string, hint: string) => {
+    return withCorrelation('backup-restore-other', async (corrId) => {
+      if (typeof backupPath !== 'string' || backupPath.length === 0 || backupPath.length > 4096) return fail('Choose a backup file')
+      if (typeof secret !== 'string' || secret.length === 0 || secret.length > 1024) return fail('Enter the password or recovery key used with this backup')
+      if (typeof newPassword !== 'string' || newPassword.length > 1024) return fail('Invalid password')
+      { const check = checkNewPassword(newPassword); if (!check.ok) return fail(check.message ?? 'Choose a stronger password') }
+      if (typeof hint !== 'string' || hint.length > 512) return fail('Hint too long')
+      assertSafePath(backupPath)
+      let result: { safetyPath: string }
+      try {
+        result = await restoreOtherPulseBackup({ backupPath, secret, newPassword, hint })
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Restore failed'
+        logger.warn('ipc-export', `[${corrId}] restore of another Pulse's backup failed: ${msg}`)
+        // Nothing was replaced; carry on with the current data
+        try { openDatabase() } catch (openErr) { logger.error('ipc-export', `[${corrId}] could not reopen the database after a failed restore`, openErr) }
+        if (msg === 'Incorrect password or recovery key') {
+          return fail("That password or recovery key doesn't match this backup. Use the password you had when the backup was made.")
+        }
+        return fail(msg)
+      }
+      openDatabase()
+      logger.info('ipc-export', `[${corrId}] restored another Pulse's backup, safety copy at ${result.safetyPath}`)
+      return ok({ safetyPath: result.safetyPath })
+    })
+  })
+
   secureWrap(IPC.BACKUP_VERIFY, 'ipc-export', async (_e, backupPath: string) => {
     assertSafePath(backupPath)
     const result = await verifyBackup(backupPath)
@@ -170,7 +210,9 @@ export function registerExportHandlers(): void {
       if (typeof config.destinationDir !== 'string') return fail('Invalid destination directory')
       assertSafePath(config.destinationDir)
     }
-    setScheduledConfig(config)
+    // Main owns the run history; the renderer only changes the settings
+    const current = getScheduledConfig()
+    setScheduledConfig({ ...current, enabled: config.enabled, intervalHours: config.intervalHours, destinationDir: config.destinationDir ?? current.destinationDir })
     return ok(true)
   })
 
@@ -178,10 +220,26 @@ export function registerExportHandlers(): void {
   secureWrap(IPC.BACKUP_GET_STATUS, 'ipc-export', () => {
     const info = getBackupInfo()
     const backups = listAutoBackupsRich()
+    // Reminders are on unless switched off, and count only copies kept somewhere else
+    let reminderEnabled = true
+    let remindAfterDays = 7
+    try {
+      const rows = getDb().prepare("SELECT key, value FROM settings WHERE key IN ('backup_reminder_enabled', 'backup_reminder_days')").all() as Array<{ key: string; value: string }>
+      for (const r of rows) {
+        if (r.key === 'backup_reminder_enabled') reminderEnabled = r.value !== 'false'
+        if (r.key === 'backup_reminder_days') remindAfterDays = Math.max(1, Math.min(365, Number(r.value) || 7))
+      }
+    } catch (err) { logNonFatal('ipc-export', 'read backup reminder settings', err) }
+    const health = getBackupHealth()
+    const lastOffsiteMs = Date.parse(health.lastOffsiteISO ?? health.trackingSinceISO)
     return ok({
       lastAutoBackup: backups.length > 0 ? backups[0]!.timestamp.toISOString() : null,
       lastAutoBackupSuccess: !info.lastAutoBackupFailed,
-      lastAutoBackupError: info.lastAutoBackupError
+      lastAutoBackupError: info.lastAutoBackupError,
+      ...health,
+      reminderEnabled,
+      remindAfterDays,
+      offsiteOverdue: reminderEnabled && Date.now() - lastOffsiteMs >= remindAfterDays * MS_PER_DAY,
     })
   })
 
@@ -227,7 +285,9 @@ export function registerExportHandlers(): void {
 
     // .pulse-backup files are zips; preview the database inside (it used to try
     // to open the zip itself as a database, so previews never worked for them)
-    return withBackupDbFile(backupPath, (dbFile) => {
+    // When the backup was made, not when the first list in it was
+    const made = await getBackupMadeInfo(backupPath)
+    const counts = await withBackupDbFile(backupPath, (dbFile) => {
       let db: InstanceType<typeof BetterSqlite3> | null = null
       try {
         db = new BetterSqlite3(dbFile, { readonly: true })
@@ -249,17 +309,13 @@ export function registerExportHandlers(): void {
         const versionRow = db.prepare("SELECT value FROM app_meta WHERE key = 'schema_version'").get() as { value: string } | undefined
         const schemaVersion = versionRow ? parseInt(versionRow.value, 10) : 0
 
-        let createdAt: string | null = null
-        try {
-          const earliest = db.prepare("SELECT MIN(created_at) as ca FROM grids").get() as { ca: string | null }
-          createdAt = earliest?.ca ?? null
-        } catch (err) { logNonFatal('ipc-export', 'read earliest grid created_at from backup', err) }
-
-        return ok({ gridCount, rowCount, schemaVersion, createdAt })
+        return ok({ gridCount, rowCount, schemaVersion })
       } finally {
         try { db?.close() } catch (err) { logNonFatal('ipc-export', 'close backup preview db', err) }
       }
     })
+    if (!counts.ok) return counts
+    return ok({ ...counts.data, madeAt: made.madeAt, appVersion: made.appVersion })
   })
 
   // ── Export All CSV (Finding 3.24) ─────────────────────────────────────────
@@ -484,10 +540,23 @@ export function registerExportHandlers(): void {
     const onProgress = (imported: number, total: number) => {
       if (win && !win.isDestroyed()) win.webContents.send(IPC.IMPORT_PROGRESS, { imported, total })
     }
-    // Get preview first (needed for type detection during import)
-    const preview = await parseImportFile(options.filePath, 0, options.headerRowIndex)
+    if (options.sheetName !== undefined && (typeof options.sheetName !== 'string' || options.sheetName.length > 255)) return fail('Invalid sheet')
+    // Preview of the chosen sheet (types and name flipping come from it)
+    const preview = await parseImportFile(options.filePath, 0, options.headerRowIndex, options.sheetName)
     const result = await executeImport({ ...options, createMissingLinks: options.createMissingLinks === true }, preview, onProgress)
     return ok(result)
+  })
+
+  // "Undo this import": the records it added go to Trash, where they can still be restored
+  secureWrap(IPC.IMPORT_UNDO, 'ipc-export', (_e, gridId: number, rowIds: number[]) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(gridId)) return fail('Invalid list')
+    if (!Array.isArray(rowIds) || rowIds.length === 0 || rowIds.length > 50_000 || !rowIds.every(validId)) return fail('Nothing to undo')
+    const db = getDb()
+    const stmt = db.prepare("UPDATE rows SET is_active = 0, deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND grid_id = ? AND deleted_at IS NULL")
+    let moved = 0
+    db.transaction(() => { for (const id of rowIds) moved += stmt.run(id, gridId).changes })()
+    return ok({ moved })
   })
 
   // ── Setup Templates (.pulse) ────────────────────────────────────────────────
@@ -519,6 +588,18 @@ export function registerExportHandlers(): void {
     writePulseFile(pulse, destPath)
     // Also save to setup_templates library for reuse
     createSetupTemplate(pulse.name, pulse.description ?? null, JSON.stringify(pulse))
+    return ok(true)
+  })
+
+  // A template from the library (Templates page → Export): write what's stored.
+  // SETUP_TEMPLATE_EXPORT takes a list id, so this used to fail with "Invalid grid ID".
+  secureWrap(IPC.SETUP_TEMPLATE_EXPORT_SAVED, 'ipc-export', (_e, templateId: number, destPath: string) => {
+    if (!validId(templateId)) return fail('Invalid template')
+    if (typeof destPath !== 'string' || destPath.length === 0) return fail('Choose where to save it')
+    assertSafePath(destPath)
+    const row = getDb().prepare('SELECT template_data FROM setup_templates WHERE id = ?').get(templateId) as { template_data: string } | undefined
+    if (!row) return fail("That template doesn't exist any more.")
+    writePulseFile(validatePulseJson(row.template_data), destPath)
     return ok(true)
   })
 
@@ -602,6 +683,12 @@ export function registerExportHandlers(): void {
     assertSafePath(filePath)
     await atomicWriteFileAsync(filePath, Buffer.from(built.pdf.output('arraybuffer')))
     return ok({ filePath, count: built.count, unknown: built.unknown })
+  })
+
+  secureWrap(IPC.DOC_BATCH_PREVIEW, 'ipc-export', (_e, templateId: unknown, target: unknown) => {
+    const t = docTarget(target)
+    if (!t || (templateId !== null && !validId(templateId))) return fail('Invalid request')
+    return ok(previewBatch(templateId as number | null, t))
   })
 
   secureWrap(IPC.DOC_LABELS, 'ipc-export', async (_e, target: unknown, addressColumnId: unknown, layout: unknown) => {

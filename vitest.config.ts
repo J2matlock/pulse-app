@@ -8,7 +8,8 @@ export default defineConfig({
     globals: true,
     testTimeout: 10000,
     hookTimeout: 10000,
-    exclude: ['e2e/**', 'node_modules/**'],
+    // Agent worktrees under .claude/ hold whole copies of the repo (and its node_modules)
+    exclude: ['e2e/**', 'node_modules/**', '.claude/**'],
     globalSetup: ['tests/globalSetup.ts'],
     coverage: {
       provider: 'v8',

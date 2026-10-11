@@ -59,18 +59,12 @@ vi.mock('../../../src/renderer/components/settings/DataSection', () => ({
 vi.mock('../../../src/renderer/components/settings/AlertsSection', () => ({
   AlertsSection: () => <div data-testid="section-alerts">Alerts Section</div>,
 }))
-vi.mock('../../../src/renderer/components/settings/ShortcutsSection', () => ({
-  ShortcutsSection: () => <div data-testid="section-shortcuts">Shortcuts Section</div>,
-}))
-vi.mock('../../../src/renderer/components/settings/SnippetsSection', () => ({
-  SnippetsSection: () => <div data-testid="section-snippets">Snippets Section</div>,
-}))
 vi.mock('../../../src/renderer/components/settings/AboutSection', () => ({
   AboutSection: () => <div data-testid="section-about">About Section</div>,
 }))
 
 import SettingsView from '../../../src/renderer/views/SettingsView'
-import { setWords, setFeatures, EXISTING_FEATURES } from '../vocabFixture'
+import { setWords } from '../vocabFixture'
 
 beforeEach(() => { setWords() })
 
@@ -80,18 +74,26 @@ describe('SettingsView — data smoke tests', () => {
     mockInvoke.mockResolvedValue({ ok: true, data: {} })
   })
 
-  it('renders all 11 nav tabs', () => {
+  it('renders the 9 nav tabs, without the read-only Shortcuts and Snippets copies', () => {
     render(<SettingsView />)
     const tabs = screen.getAllByRole('tab')
-    expect(tabs.length).toBe(11)
+    expect(tabs.length).toBe(9)
+    expect(tabs.some(t => /Shortcuts|Snippets/.test(t.textContent ?? ''))).toBe(false)
   })
 
-  it('hides the Snippets tab while snippets are switched off', () => {
-    setFeatures({ ...EXISTING_FEATURES, snippets: false })
+  it('opens the default tab for an unknown or removed ?tab= link (audit X-02)', () => {
+    window.location.hash = '#/settings?tab=shortcuts'
     render(<SettingsView />)
-    const tabs = screen.getAllByRole('tab')
-    expect(tabs).toHaveLength(10)
-    expect(tabs.some(t => t.textContent?.includes('Snippets'))).toBe(false)
+    expect(screen.getByTestId('section-appearance')).toBeDefined()
+    window.location.hash = '#/settings?tab=backup'
+    render(<SettingsView />)
+    expect(screen.getByTestId('section-backup')).toBeDefined()
+    window.location.hash = ''
+  })
+
+  it('lets the tab list scroll on short screens', () => {
+    render(<SettingsView />)
+    expect(screen.getByRole('tablist').className).toContain('overflow-y-auto')
   })
 
   it('defaults to Appearance tab active', () => {
@@ -114,9 +116,7 @@ describe('SettingsView — data smoke tests', () => {
       { tab: 'Security', testId: 'section-security' },
       { tab: 'Backup', testId: 'section-backup' },
       { tab: 'Data', testId: 'section-data' },
-      { tab: 'Alerts', testId: 'section-alerts' },
-      { tab: 'Shortcuts', testId: 'section-shortcuts' },
-      { tab: 'Snippets', testId: 'section-snippets' },
+      { tab: 'Deadlines & reminders', testId: 'section-alerts' },
       { tab: 'About', testId: 'section-about' },
     ]
     for (const { tab, testId } of sections) {

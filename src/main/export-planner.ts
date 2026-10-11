@@ -11,6 +11,7 @@ import { jsPDF, autoTable, lastTableY, atomicWriteFileAsync } from './export-sha
 import { loadDeadlines } from './deadlines'
 import { featureOn, word } from './vocab'
 import { formatTime } from '../shared/calendar'
+import { OPEN_RECORD_SQL } from '../shared/appointments'
 
 interface PlannerRow { due: string; client: string; what: string; kind: string }
 
@@ -56,8 +57,8 @@ export function loadPlannerRows(start: string, end: string): { week: PlannerRow[
   rows.push(...deadlines)
   // Scheduled appointments this week, with their times (W07 §7)
   if (featureOn('appointments')) {
-    const appts = db.prepare(`SELECT a.title, a.start_at, a.all_day, COALESCE(r.display_name, '') AS client FROM appointments a LEFT JOIN rows r ON r.id = a.row_id
-      WHERE a.status = 'scheduled' AND a.start_at >= ? AND a.start_at <= ? AND (a.row_id IS NULL OR r.deleted_at IS NULL)`).all(start, `${end}T99:99`) as Array<{ title: string; start_at: string; all_day: number; client: string }>
+    const appts = db.prepare(`SELECT a.title, a.start_at, a.all_day, COALESCE(r.display_name, '') AS client FROM appointments a LEFT JOIN rows r ON r.id = a.row_id LEFT JOIN grids g ON g.id = r.grid_id
+      WHERE a.status = 'scheduled' AND a.start_at >= ? AND a.start_at <= ? AND ${OPEN_RECORD_SQL}`).all(start, `${end}T99:99`) as Array<{ title: string; start_at: string; all_day: number; client: string }>
     rows.push(...appts.map(a => ({ due: a.start_at.slice(0, 10), client: a.client, what: a.all_day ? a.title : `${formatTime(a.start_at, '12h')}  ${a.title}`, kind: word('appointment', { cap: true }) })))
   }
   rows.sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : (a.client ?? '') < (b.client ?? '') ? -1 : (a.client ?? '') > (b.client ?? '') ? 1 : 0))

@@ -22,16 +22,16 @@ export function getTotals(month: string, gridId?: number): TotalsReport {
   const unitMinutes = Number(setting('unit_minutes')) || DEFAULT_UNIT_MINUTES
   const rate = Number(setting('mileage_rate'))
   const rows = getDb().prepare(`
-    SELECT cl.id, date(cl.created_at, 'localtime') AS date, r.id AS row_id,
+    SELECT cl.id, date(cl.occurred_at, 'localtime') AS date, r.id AS row_id,
            COALESCE(NULLIF(r.display_name, ''), ?) AS client_name, g.name AS grid_name,
            cl.log_type, cl.minutes, cl.miles, cl.extra_measures, cl.content
     FROM case_log cl
     JOIN rows r ON r.id = cl.row_id
     JOIN grids g ON g.id = r.grid_id
     WHERE cl.voided_at IS NULL AND (cl.minutes IS NOT NULL OR cl.miles IS NOT NULL OR cl.extra_measures IS NOT NULL)
-      AND strftime('%Y-%m', cl.created_at, 'localtime') = ?
+      AND strftime('%Y-%m', cl.occurred_at, 'localtime') = ?
       AND (? IS NULL OR r.grid_id = ?)
-    ORDER BY cl.created_at ASC
+    ORDER BY cl.occurred_at ASC, cl.id ASC
   `).all(`Unnamed ${word('record')}`, month, gridId ?? null, gridId ?? null) as Array<{
     id: number; date: string; row_id: number; client_name: string; grid_name: string; log_type: string
     minutes: number | null; miles: number | null; extra_measures: string | null; content: string

@@ -13,6 +13,8 @@ export interface NoteDraft {
   minutes: string
   miles: string
   extra: Record<string, string>
+  /** The day it happened, when not today */
+  day?: string
 }
 
 const drafts = new Map<number, NoteDraft>()

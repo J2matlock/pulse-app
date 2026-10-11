@@ -208,7 +208,7 @@ export function ProfilePrintLayout({ rowId, gridId, clientName, row, sections, o
             <tbody>
               {caseLog.map(entry => (
                 <tr key={entry.id}>
-                  <td style={cellStyle}>{parseDbTimestamp(entry.created_at).toLocaleDateString()}</td>
+                  <td style={cellStyle}>{parseDbTimestamp(entry.occurred_at ?? entry.created_at).toLocaleDateString()}</td>
                   <td style={cellStyle}>{activity.label(entry.log_type)}</td>
                   <td style={{ ...cellStyle, whiteSpace: 'pre-wrap' }}>{entry.content}</td>
                 </tr>

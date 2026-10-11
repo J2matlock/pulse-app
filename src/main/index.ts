@@ -7,7 +7,7 @@ import { join, normalize, resolve, sep } from 'path'
 import { pathToFileURL } from 'url'
 import { initDatabase, closeDatabase, getDb } from './database'
 import { registerIpcHandlers } from './ipc-handlers'
-import { runAutoBackup, checkAndRunScheduled, recordAutoBackupFailure } from './backup'
+import { runAutoBackup, checkAndRunScheduled, recordAutoBackupFailure, runAutoBackupOnLock } from './backup'
 import { startReminders, stopReminders } from './reminders'
 import { initTray, isTrayMode, closeToTray, refreshTray } from './tray'
 import { prefs } from './prefs'
@@ -94,6 +94,8 @@ function currentAutoLockMinutes(): number {
 function forceLock(reason: string): void {
   if (!isUnlocked()) return
   logger.info('auto-lock', `Locking: ${reason}`)
+  // Back up while the database is still open: a sleeping laptop may never quit
+  runAutoBackupOnLock()
   try { lockApp() } catch (err) { logger.warn('auto-lock', 'lockApp failed', err) }
   try { closeDatabase() } catch (err) { logger.warn('auto-lock', 'closeDatabase failed', err) }
   stopScheduledBackup()

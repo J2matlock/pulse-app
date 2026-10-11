@@ -10,6 +10,7 @@ import type { WorkCalendar } from '../shared/businessDays'
 import type { GridDeadlineContext } from '../shared/ipc-contract'
 import { workCalendarSetting } from './vocab'
 import { localDateString } from '../shared/dates'
+import { daysBetween } from '../shared/ymd'
 
 /** One deadline: the same fields the dashboard always had, plus the engine's result */
 export interface DeadlineItem extends DeadlineResult {
@@ -49,11 +50,13 @@ export interface DeadlineQuery {
   includeDone?: boolean
   /** Also list deadlines paused by their "only when…" condition */
   includePaused?: boolean
+  /** Also list calendar rules not shown yet because of their lead time, at the date they're next due (calendar files) */
+  includeUpcoming?: boolean
 }
 
 type RuleFields = { kind: string | null; rule_config: string | null; rule_condition: string | null; business_days: number | null }
 
-/** Days off for business-day rules (Settings → Alerts → Days off). */
+/** Days off for business-day rules (Settings → Deadlines & reminders → Days off). */
 export function loadWorkCalendar(): WorkCalendar {
   const c = workCalendarSetting()
   return { holidays: new Set(c.holidays), weekend: c.weekend }
@@ -107,6 +110,7 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
     // An extension applies while the date it extended (and the step) is unchanged
     const ext = matchExtension(extensions.get(`${r.row_id}:${r.column_id}`), extensionAnchor(rule, ctx.columnDate, ctx.values), res.step)
     if (ext) res = { ...applyExtension(res, ext, today) }
+    if (res.due === null && q.includeUpcoming && res.upcoming) res = { ...res, due: res.upcoming, state: 'ok', daysUntil: daysBetween(today, res.upcoming) }
     if (res.due === null) return
     if (res.state === 'done' && !q.includeDone) return
     if (res.state === 'paused' && !q.includePaused) return
@@ -188,7 +192,7 @@ export function quotaCounts(gridId: number, cfg: QuotaConfig): Map<number, numbe
     JOIN cells e ON e.row_id = r.id AND e.column_id = ?
     JOIN case_log cl ON cl.row_id = r.id AND cl.voided_at IS NULL
       AND cl.log_type IN (${types.map(() => '?').join(',')})
-      AND date(cl.created_at, 'localtime') BETWEEN substr(s.value, 1, 10) AND substr(e.value, 1, 10)
+      AND date(cl.occurred_at, 'localtime') BETWEEN substr(s.value, 1, 10) AND substr(e.value, 1, 10)
     WHERE r.grid_id = ?
     GROUP BY r.id
   `).all(cfg.startColumnId, cfg.endColumnId, ...types, gridId) as Array<{ row_id: number; n: number }>

@@ -29,6 +29,8 @@ interface Props {
   /** Time/mileage tracking (Settings → Case notes) */
   tracking?: NoteTracking
   onSetMeasures?: (id: number, measures: NoteMeasureValues) => void
+  /** Correct the day it happened (YYYY-MM-DD) */
+  onSetDay?: (id: number, day: string) => void
 }
 
 /** Built-in and custom numbers sent when a note's numbers are corrected; extra is left out when unchanged */
@@ -42,14 +44,24 @@ function isWithinDeleteWindow(createdAt: string): boolean {
 
 
 
-function formatDate(dateStr: string): string {
+/** The day a note happened and the day it was written, when those differ (a late write-up) */
+export function noteDays(entry: Pick<CaseLogEntryType, 'created_at' | 'occurred_at'>): { happened: string; written: string; backdated: boolean } {
+  const happened = localDateString(parseDbTimestamp(entry.occurred_at ?? entry.created_at))
+  const written = localDateString(parseDbTimestamp(entry.created_at))
+  return { happened, written, backdated: happened !== written }
+}
+
+/** "Oct 31, 2026" for a YYYY-MM-DD day */
+export function formatDate(dateStr: string): string {
   const [y = NaN, m = NaN, d = NaN] = dateStr.split('-').map(Number)
   return new Date(y, m - 1, d).toLocaleDateString(undefined, {
     month: 'short', day: 'numeric', year: 'numeric'
   })
 }
 
-export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onCompleteFollowUp, onRestore, tracking, onSetMeasures }: Props) {
+export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onCompleteFollowUp, onRestore, tracking, onSetMeasures, onSetDay }: Props) {
+  const days = noteDays(entry)
+  const [editDay, setEditDay] = useState(days.happened)
   const [editMinutes, setEditMinutes] = useState('')
   const [editMiles, setEditMiles] = useState('')
   const showTime = !!tracking?.trackTime || entry.minutes != null
@@ -101,12 +113,15 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
   function startEdit() {
     setEditing(true)
     setEditContent(entry.content)
+    setEditDay(days.happened)
     setEditMinutes(entry.minutes != null ? String(entry.minutes) : '')
     setEditMiles(entry.miles != null ? String(entry.miles) : '')
     setEditExtra(Object.fromEntries(Object.entries(savedExtra).map(([k, v]) => [k, String(v)])))
   }
 
   async function handleSaveEdit() {
+    // An emptied note would leave a blank entry; Save is disabled then, and Void removes notes
+    if (!editContent.trim()) return
     const minutes = editMinutes.trim() ? Math.round(Number(editMinutes)) : null
     const miles = editMiles.trim() ? Number(editMiles) : null
     const extra = Object.fromEntries(extraDefs.map(d => [d.key, editExtra[d.key]?.trim() ? Number(editExtra[d.key]) : null]))
@@ -115,10 +130,9 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
       && (minutes === null || Number.isFinite(minutes)) && (miles === null || Number.isFinite(miles))) {
       onSetMeasures(entry.id, { minutes, miles, ...(extraChanged ? { extra } : {}) })
     }
-    // An emptied note would leave a blank entry; Save is disabled then, and Void removes notes
-    if (!editContent.trim()) return
     // Stay in the editor when the save fails, so the change isn't lost
     if (editContent.trim() !== entry.content && await onEdit(entry.id, editContent.trim()) === false) return
+    if (onSetDay && /^\d{4}-\d{2}-\d{2}$/.test(editDay) && editDay !== days.happened) onSetDay(entry.id, editDay)
     setEditing(false)
   }
 
@@ -144,13 +158,21 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
           </span>
         )}
 
-        <time
-          dateTime={entry.created_at}
-          className="text-sm text-slate-500 dark:text-slate-400 text-right"
-        >
-          <span>{relativeTime(entry.created_at)}</span>
-          <span className="block text-slate-400/70 dark:text-slate-500/70">{formatDateTime(entry.created_at)}</span>
-        </time>
+        {days.backdated ? (
+          // Written up later: show the day it happened, and when it was written for the record
+          <span className="text-sm text-slate-500 dark:text-slate-400 text-right" title={`Written ${formatDateTime(entry.created_at)}`}>
+            <time dateTime={days.happened} className="block">{formatDate(days.happened)}</time>
+            <span className="block">(written {formatDate(days.written)})</span>
+          </span>
+        ) : (
+          <time
+            dateTime={entry.created_at}
+            className="text-sm text-slate-500 dark:text-slate-400 text-right"
+          >
+            <span>{relativeTime(entry.created_at)}</span>
+            <span className="block text-slate-400/70 dark:text-slate-500/70">{formatDateTime(entry.created_at)}</span>
+          </time>
+        )}
 
         {isVoided && (
           <span className="px-1.5 py-0.5 rounded-sm text-sm font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">Voided</span>
@@ -281,6 +303,11 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
                          focus:outline-hidden focus:ring-3 focus:ring-blue-500"
               style={{ fontSize: 15 }}
             />
+            {onSetDay && !isSystem && (
+              <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200">When
+                <input type="date" className="input w-auto" max={localDateString()} value={editDay} onChange={e => setEditDay(e.target.value)} />
+              </label>
+            )}
             {(showTime || showMiles || extraDefs.length > 0) && (
               <div className="flex flex-wrap gap-3">
                 {showTime && (

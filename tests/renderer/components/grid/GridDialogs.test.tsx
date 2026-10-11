@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 
 const mockInvoke = vi.fn().mockResolvedValue({ ok: true, data: null })
 Object.defineProperty(window, 'api', {
@@ -47,6 +47,7 @@ vi.mock('react-hot-toast', () => ({
 
 import { ArchiveDialog, DeleteRowDialog, BulkDeleteDialog } from '../../../../src/renderer/components/grid/GridDialogs'
 import { setWords } from '../../vocabFixture'
+import { safeInvoke } from '../../../../src/renderer/utils/safeInvoke'
 
 beforeEach(() => { setWords() })
 
@@ -81,7 +82,25 @@ describe('ArchiveDialog', () => {
       <ArchiveDialog archiveTarget={1} archiveReason="" setArchiveReason={vi.fn()} onConfirm={onConfirm} onCancel={vi.fn()} />
     )
     fireEvent.click(screen.getByText('Archive'))
-    expect(onConfirm).toHaveBeenCalled()
+    expect(onConfirm).toHaveBeenCalledWith({ cancelAppointments: false })
+  })
+
+  it('offers to cancel upcoming appointments, ticked by default', async () => {
+    vi.mocked(safeInvoke).mockImplementation(async (channel: string) => (channel === 'appointments:upcoming-count' ? { ok: true, data: 6 } : { ok: true, data: null }) as never)
+    const onConfirm = vi.fn()
+    render(
+      <ArchiveDialog archiveTarget={1} archiveReason="" setArchiveReason={vi.fn()} onConfirm={onConfirm} onCancel={vi.fn()} />
+    )
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    expect(safeInvoke).toHaveBeenCalledWith('appointments:upcoming-count', [1])
+    const box = screen.getByLabelText('Also cancel its 6 upcoming appointments') as HTMLInputElement
+    expect(box.checked).toBe(true)
+    fireEvent.click(screen.getByText('Archive'))
+    expect(onConfirm).toHaveBeenLastCalledWith({ cancelAppointments: true })
+    fireEvent.click(box)
+    fireEvent.click(screen.getByText('Archive'))
+    expect(onConfirm).toHaveBeenLastCalledWith({ cancelAppointments: false })
+    vi.mocked(safeInvoke).mockResolvedValue({ ok: true, data: null } as never)
   })
 })
 

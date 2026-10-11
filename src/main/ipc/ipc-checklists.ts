@@ -11,6 +11,8 @@ import { getDb } from '../database'
 import type { ChecklistItem, ChecklistTemplate, ChecklistGroup } from '../../shared/types'
 import { seedChecklistTemplates } from '../templates'
 import { applyChecklistTemplate, ChecklistApplyError } from '../checklist-apply'
+import { parseRepeatRule, nextRepeatDate } from '../../shared/recurrence'
+import { localDateString } from '../../shared/dates'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_CHECKLIST = 500
@@ -41,7 +43,13 @@ export function registerChecklistHandlers(): void {
     return ok(item)
   })
 
-  secureWrap(IPC.CHECKLIST_UPDATE_ITEM, 'ipc-checklists', (_e, id: number, updates: Partial<ChecklistItem>) => {
+  /**
+   * `silent` (undo and redo) puts an item back as it was: no "Completed" or
+   * "Reopened" entry in the activity log and no repeat, since undo voids or
+   * restores the original entry instead (audit S-23).
+   */
+  secureWrap(IPC.CHECKLIST_UPDATE_ITEM, 'ipc-checklists', (_e, id: number, updates: Partial<ChecklistItem>, opts?: { silent?: boolean }) => {
+    const silent = !!opts && typeof opts === 'object' && opts.silent === true
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(id)) return fail('Invalid ID')
     // Validate field values when present
@@ -60,20 +68,29 @@ export function registerChecklistHandlers(): void {
     // Wrap read-then-write in a transaction to prevent race conditions
     let sysLogId: number | null = null
     let rowIdForNotify: number | null = null
+    /** A repeating item ticked off comes straight back with its next due date (audit 1.26) */
+    let repeat: { previousDue: string | null; nextDue: string } | null = null
     const updateItem = db.transaction(() => {
       // Fetch item before update so we can detect completion transitions
-      const before = db.prepare('SELECT row_id, title, is_completed FROM checklist_items WHERE id = ?').get(id) as { row_id: number; title: string; is_completed: number } | undefined
+      const before = db.prepare('SELECT row_id, title, is_completed, due_date, recurrence_rule FROM checklist_items WHERE id = ?').get(id) as { row_id: number; title: string; is_completed: number; due_date: string | null; recurrence_rule: string | null } | undefined
 
       db.prepare(`UPDATE checklist_items SET ${result.setClause} WHERE id = ?`).run(...result.values, id)
 
       // System log: completion and un-completion events
-      if (before && 'is_completed' in updates) {
+      if (before && 'is_completed' in updates && !silent) {
         const wasComplete = before.is_completed === 1
         const nowComplete = updates.is_completed === 1
         if (!wasComplete && nowComplete) {
           const logResult = db.prepare(`INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`).run(before.row_id, `Completed checklist item: ${before.title}`)
           sysLogId = logResult.lastInsertRowid as number
           rowIdForNotify = before.row_id
+          const rule = parseRepeatRule('recurrence_rule' in updates ? updates.recurrence_rule : before.recurrence_rule)
+          const due = 'due_date' in updates ? updates.due_date : before.due_date
+          const next = rule ? nextRepeatDate(due, rule, localDateString()) : null
+          if (next) {
+            db.prepare('UPDATE checklist_items SET is_completed = 0, completed_at = NULL, completed_by = NULL, due_date = ? WHERE id = ?').run(next, id)
+            repeat = { previousDue: due ?? null, nextDue: next }
+          }
         } else if (wasComplete && !nowComplete) {
           const logResult = db.prepare(`INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`).run(before.row_id, `Reopened checklist item: ${before.title}`)
           sysLogId = logResult.lastInsertRowid as number
@@ -86,7 +103,7 @@ export function registerChecklistHandlers(): void {
     // Notify outside the transaction (renderer-side effect)
     if (rowIdForNotify !== null) notifyCaseLogChanged(rowIdForNotify)
 
-    return ok({ sysLogId })
+    return ok({ sysLogId, repeat })
   })
 
   secureWrap(IPC.CHECKLIST_DELETE_ITEM, 'ipc-checklists', (_e, id: number) => {

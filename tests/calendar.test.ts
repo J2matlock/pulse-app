@@ -5,7 +5,7 @@ import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 let t: TestDb
 vi.mock('../src/main/database', () => ({ getDb: () => t.db, cachedStmt: (_k: string, sql: string) => t.db.prepare(sql) }))
 
-import { calendarItems } from '../src/main/calendar'
+import { calendarItems, noteSnippet } from '../src/main/calendar'
 import { monthGrid, startOfWeek, formatTime } from '../src/shared/calendar'
 import { localDateFromToday } from '../src/shared/dates'
 
@@ -37,10 +37,32 @@ describe('calendar items', () => {
     t.db.prepare("INSERT INTO case_log (row_id, content, log_type, follow_up_date) VALUES (?, 'Call back', 'note', ?)").run(g.rowIds[0], localDateFromToday(3))
     t.db.prepare("INSERT INTO caseload_tasks (title, due_date) VALUES ('Order forms', ?)").run(localDateFromToday(5))
     const items = calendarItems(localDateFromToday(-7), localDateFromToday(7))
+    // A follow-up shows the first words of its note; a task knows which it is (audit S-28)
     expect(items.map(i => [i.kind, i.title, i.recordName ?? null])).toEqual([
-      ['deadline', 'Review', 'Pat'], ['followup', 'Follow-up', 'Pat'], ['task', 'Order forms', null],
+      ['deadline', 'Review', 'Pat'], ['followup', 'Call back', 'Pat'], ['task', 'Order forms', null],
     ])
+    expect(items[2]!.taskId).toBeTypeOf('number')
     expect(items[0]).toMatchObject({ state: 'overdue', rowId: g.rowIds[0] })
     expect(calendarItems(localDateFromToday(10), localDateFromToday(20))).toEqual([])
+  })
+})
+
+describe('one list on the calendar (audit S-32)', () => {
+  it('shows only that list\'s deadlines, follow-ups and tasks', () => {
+    const a = seedGrid(t.db, { name: 'Clients', rowCount: 1, columnCount: 1 })
+    const b = seedGrid(t.db, { name: 'Staff', rowCount: 1, columnCount: 1 })
+    t.db.prepare("INSERT INTO case_log (row_id, content, log_type, follow_up_date) VALUES (?, 'Client call', 'note', ?)").run(a.rowIds[0], localDateFromToday(3))
+    t.db.prepare("INSERT INTO case_log (row_id, content, log_type, follow_up_date) VALUES (?, 'Staff call', 'note', ?)").run(b.rowIds[0], localDateFromToday(3))
+    t.db.prepare("INSERT INTO caseload_tasks (title, due_date, grid_id) VALUES ('Staff task', ?, ?)").run(localDateFromToday(4), b.gridId)
+    const all = calendarItems(localDateFromToday(0), localDateFromToday(7))
+    expect(all.map(i => i.title).sort()).toEqual(['Client call', 'Staff call', 'Staff task'])
+    expect(calendarItems(localDateFromToday(0), localDateFromToday(7), a.gridId).map(i => i.title)).toEqual(['Client call'])
+  })
+
+  it('cuts note text to its first words, without formatting', () => {
+    const cut = noteSnippet('<p>Call the <b>pharmacy</b> about the refill and the new insurance card</p>')
+    expect(cut).toMatch(/^Call the pharmacy about the refill/)
+    expect(cut.endsWith('…') && cut.length <= 40).toBe(true)
+    expect(noteSnippet('')).toBe('')
   })
 })
