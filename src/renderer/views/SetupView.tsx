@@ -195,7 +195,7 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
       const term = { one: chosen.one, many: chosen.many, article: guessArticle(chosen.one) }
       // The list keeps its own words too (as the guided start does), so a later example's words don't rename it
       const listRes = await safeInvoke(IPC.GRID_SETTINGS_UPDATE, gridId, { record_kind: chosen.kind, vocab: { record: term } })
-      if (!listRes.ok) { setError(listRes.error); return }
+      if (!listRes.ok) { setError(friendlyError(listRes.error, "We couldn't save that. Please try again.")); return }
       await updateWorkspace({ vocab: { record: term } })
       const grid = await safeInvoke(IPC.GRID_GET, gridId)
       const found = grid.ok ? [...grid.data.columns, ...grid.data.hiddenColumns].filter(c => c.column_type === 'date') : []
@@ -204,7 +204,7 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
       setDates(Object.fromEntries(found.map(c => [c.id, suggestRepeat(c.name)])))
       go('sheet-dates')
     } catch (err) {
-      setError(err instanceof Error ? err.message : "We couldn't save that. Please try again.")
+      setError(friendlyError(err instanceof Error ? err.message : null, "We couldn't save that. Please try again."))
     } finally { setBusy(false) }
   }
 

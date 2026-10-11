@@ -14,6 +14,7 @@ import { ImportWizard } from '../grid/ImportWizard'
 import { useFeature } from '../../hooks/useFeature'
 import { localDateString } from '../../../shared/dates'
 import { HUMAN_SERVICES_VOCAB } from '../../../shared/vocab'
+import { friendlyError } from '../../utils/friendlyError'
 
 /** Add or remove the sample caseload (made-up clients for trying things out). */
 function SampleDataControls(): React.ReactElement {
@@ -91,7 +92,7 @@ export function DataSection(): React.ReactElement {
       if (!saveRes.ok || saveRes.data.canceled || !saveRes.data.filePath) return
       const res = await safeInvoke(IPC.BACKUP_MANUAL_CREATE, saveRes.data.filePath)
       if (res.ok) toast.success('Backup saved. Keep it somewhere safe.')
-      else toast.error(res.error || 'The backup couldn\'t be saved. Try again, or choose a different folder.')
+      else toast.error(friendlyError(res.error, 'The backup couldn\'t be saved. Try again, or choose a different folder.'))
     } finally {
       setBackingUp(false)
     }
@@ -370,7 +371,7 @@ export function DataSection(): React.ReactElement {
                   toast.success('Everything was erased. Pulse is restarting.')
                   void safeInvoke(IPC.APP_RELAUNCH)
                 } else {
-                  toast.error(res.error || 'Reset failed. Please try again.')
+                  toast.error(friendlyError(res.error, 'Reset failed. Please try again.'))
                 }
               }}
               className="btn-primary bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed w-full"

@@ -3,6 +3,7 @@ import toast from 'react-hot-toast'
 import { FEATURES, isOn, type FeatureGroup, type FeatureKey } from '../../../shared/features'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { useVocab } from '../../hooks/useVocab'
+import { friendlyError } from '../../utils/friendlyError'
 
 const GROUPS: FeatureGroup[] = ['Records', 'Notes & activity', 'Planning', 'Reports']
 
@@ -22,9 +23,8 @@ export function FeaturesSection(): React.ReactElement {
     try {
       await update({ features: { [key]: on } })
     } catch (err) {
-      toast.error(err instanceof Error && err.message !== 'READ_ONLY'
-        ? err.message
-        : "We couldn't change that setting. Please try again.")
+      const fallback = "We couldn't change that setting. Please try again."
+      toast.error(err instanceof Error && err.message !== 'READ_ONLY' ? friendlyError(err.message, fallback) : fallback)
     } finally {
       setSaving(null)
     }

@@ -53,7 +53,7 @@ export function saveForm(input: FormInput): Form {
   for (const f of v.fields) {
     if (f.kind !== 'column') continue
     const c = cols.get(f.columnId)
-    if (!c) throw new FormError('A field on this form is for a column that no longer exists.')
+    if (!c) throw new FormError('A question on this form is for a column that no longer exists.')
     if (seen.has(f.columnId)) throw new FormError(`"${c.name}" is on the form twice.`)
     if (NOT_FILLABLE.has(c.column_type)) throw new FormError(`"${c.name}" is filled in by Pulse, so it can't be on a form.`)
     seen.add(f.columnId)

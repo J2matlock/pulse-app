@@ -9,6 +9,7 @@ import type { Provider, OpenDialogResult } from '../../../shared/types'
 import { useContactsStore } from '../../stores/contactsStore'
 import { rlog } from '../../utils/rendererLogger'
 import { useVocab } from '../../hooks/useVocab'
+import { friendlyError } from '../../utils/friendlyError'
 
 interface Props {
   open: boolean
@@ -76,7 +77,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
       const parseRes = await safeInvoke<Partial<Provider>[]>(IPC.CONTACTS_IMPORT_VCF, filePath)
 
       if (!parseRes.ok) {
-        setError(parseRes.error ?? 'Could not parse the vCard file. Please check the file format.')
+        setError(friendlyError(parseRes.error, 'Could not parse the vCard file. Please check the file format.'))
         return
       }
 
@@ -126,7 +127,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
     try {
       const res = await safeInvoke<number>(IPC.CONTACTS_CONFIRM_IMPORT_VCF, selected)
       if (!res.ok) {
-        setError(res.error ?? 'Import failed. Please try again.')
+        setError(friendlyError(res.error, 'Import failed. Please try again.'))
         setImporting(false)
         return
       }
@@ -154,7 +155,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
     try {
       const res = await safeInvoke<string | null>(IPC.CONTACTS_EXPORT_VCF, null)
       if (!res.ok) {
-        setError(res.error ?? 'Export failed. Please try again.')
+        setError(friendlyError(res.error, 'Export failed. Please try again.'))
         setExporting(false)
         return
       }

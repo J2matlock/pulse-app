@@ -138,7 +138,7 @@ export function registerCaseLogHandlers(): void {
     const recent = cachedStmt('case_log_recent', `SELECT row_id FROM case_log WHERE id = ? AND created_at >= datetime('now', ?)`)
       .get(id, `-${CASE_NOTE_DELETE_WINDOW_MINUTES} minutes`) as { row_id: number } | undefined
     if (!recent) {
-      return fail(`Notes older than ${CASE_NOTE_DELETE_WINDOW_MINUTES} minutes can't be deleted. Void it instead — it stays in the record but is hidden.`)
+      return fail(`${word('activity', { many: true, cap: true })} older than ${CASE_NOTE_DELETE_WINDOW_MINUTES} minutes can't be deleted. Void it instead: it's kept but hidden.`)
     }
     // Dates the note moved go back first (L-05)
     const reverted_dates = db.transaction((): NoteDateRevert[] => {
@@ -264,7 +264,7 @@ export function registerCaseLogHandlers(): void {
     const db = getDb()
     // Verify the ID doesn't collide with an existing record to prevent overwriting
     const existing = db.prepare('SELECT id FROM case_log WHERE id = ?').get(entry.id)
-    if (existing) return fail('Case log entry with this ID already exists')
+    if (existing) return fail(`That ${word('activity')} is already there.`)
     const restoredMeasures = validMeasures({ minutes: entry.minutes, miles: entry.miles })
     // A number archived since the note was written still comes back with it
     const restoredExtra = cleanExtraMeasures(parseExtraMeasures(entry.extra_measures), { allowArchived: true })

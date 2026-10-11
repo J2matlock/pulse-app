@@ -279,7 +279,7 @@ describe('ALERT_RULE_DELETE', () => {
     const sysRule = all.data.find((x: any) => x.is_system === 1)
     const r = await invoke(IPC.ALERT_RULE_DELETE, sysRule.id) as any
     expect(r.ok).toBe(false)
-    expect(r.error).toMatch(/built-in/)
+    expect(r.error).toMatch(/Built-in deadline rules can't be deleted/)
   })
 
   it('fails for non-existent rule', async () => {

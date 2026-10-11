@@ -386,7 +386,7 @@ describe('CASE_LOG_RESTORE', () => {
     }
     const r = await invoke(IPC.CASE_LOG_RESTORE, entry) as any
     expect(r.ok).toBe(false)
-    expect(r.error).toContain('already exists')
+    expect(r.error).toMatch(/is already there\./)
   })
 
   it('fails for invalid entry format', async () => {
@@ -483,6 +483,9 @@ describe('Case note records integrity', () => {
     const r = await invoke(IPC.CASE_LOG_DELETE, e.data.id) as any
     expect(r.ok).toBe(false)
     expect(r.error).toMatch(/Void it instead/)
+    // Uses the activity word, and no longer says "in the record" (AUDIT-155)
+    expect(r.error).toMatch(/^(Notes|Case notes) older than \d+ minutes can't be deleted/)
+    expect(r.error).not.toMatch(/record/)
     expect(testDb.db.prepare('SELECT COUNT(*) AS n FROM case_log WHERE id = ?').get(e.data.id)).toEqual({ n: 1 })
   })
 })

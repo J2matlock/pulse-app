@@ -20,6 +20,7 @@ import { isEditableElement } from '../utils/domHelpers'
 import { isMod } from '../utils/keys'
 import { copyText } from '../hooks/useCopyFeedback'
 import { useVocab } from '../hooks/useVocab'
+import { friendlyError } from '../utils/friendlyError'
 
 export default function ContactsView() {
   const { t } = useVocab(null)
@@ -216,7 +217,7 @@ export default function ContactsView() {
               <button
                 onClick={async () => {
                   const res = await safeInvoke<string | null>(IPC.EXPORT_PDF_DIRECTORY, filterParams)
-                  if (!res.ok) toast.error(res.error || 'Export failed. Please try again.')
+                  if (!res.ok) toast.error(friendlyError(res.error, 'Export failed. Please try again.'))
                 }}
                 className="flex items-center gap-1.5 px-3 rounded-md border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-hidden focus:ring-3 focus:ring-blue-500"
                 style={{ minHeight: 44, fontSize: 15 }}

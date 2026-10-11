@@ -10,6 +10,7 @@ import { localDateString } from '../../../shared/dates'
 import { noteUnencryptedExport } from '../../utils/exportNotice'
 import { useVocab } from '../../hooks/useVocab'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { friendlyError } from '../../utils/friendlyError'
 
 interface Props {
   gridId: number
@@ -170,7 +171,7 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
       })
 
       if (!result.ok) {
-        setError(result.error || 'Export failed. Please try again.')
+        setError(friendlyError(result.error, 'Export failed. Please try again.'))
       } else {
         noteUnencryptedExport()
         onClose()

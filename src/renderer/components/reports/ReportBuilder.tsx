@@ -178,7 +178,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
     const timer = setTimeout(() => {
       void safeInvoke<ReportResult>(IPC.REPORT_RUN, gridId, config).then(r => {
         if (!alive) return
-        if (r.ok) { setResult(r.data); setError(null) } else { setError(r.error) }
+        if (r.ok) { setResult(r.data); setError(null) } else { setError(friendlyError(r.error, "This report couldn't be shown. Please try again.")) }
       })
     }, 300)
     return () => { alive = false; clearTimeout(timer) }

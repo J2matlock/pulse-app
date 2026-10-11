@@ -8,6 +8,7 @@ import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { useGridStore } from '../../stores/gridStore'
 import { ListSettingsDialog } from '../grid/ListSettingsDialog'
 import { useVocab } from '../../hooks/useVocab'
+import { friendlyError } from '../../utils/friendlyError'
 
 /** The words people can change, in the order they matter. (Appointments and stages arrive with their features.) */
 const ROWS: Array<{ key: VocabKey; label: string; hint: string }> = [
@@ -105,7 +106,8 @@ export function WordsEditor(): React.ReactElement {
       await update({ vocab: toStored(trimmed(draft)) })
       toast.success(ownWords.length > 0 ? `Words saved. ${t('list', { many: true, cap: true })} with their own words keep them.` : 'Words saved. They now appear everywhere.')
     } catch (err) {
-      toast.error(err instanceof Error && err.message !== 'READ_ONLY' ? err.message : "We couldn't save the words. Please try again.")
+      const fallback = "We couldn't save the words. Please try again."
+      toast.error(err instanceof Error && err.message !== 'READ_ONLY' ? friendlyError(err.message, fallback) : fallback)
     } finally {
       setSaving(false)
     }

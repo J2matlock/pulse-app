@@ -120,7 +120,7 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
         lists: [...lists], applyWords: useWords && preview.words.length > 0, applyFeatures: useFeatures && preview.features.length > 0,
         sampleData: sample && preview.hasSampleData, ...(variant ? { variant } : {}),
       })
-      if (!r.ok) { toast.error(r.error === 'READ_ONLY' ? "Examples can't be added right now." : r.error); return }
+      if (!r.ok) { toast.error(r.error === 'READ_ONLY' ? "Examples can't be added right now." : friendlyError(r.error, "We couldn't add that example. Please try again.")); return }
       if (mode === 'setup') { onApplied?.(r.data); return }
       // Its lists' own words and link types too, even when the workspace's words were left alone
       await reloadAfterApply()
