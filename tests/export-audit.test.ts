@@ -59,6 +59,15 @@ describe('audit trail', () => {
     expect(a!.events[5]!.details).toContain('Reason: Undone')
   })
 
+  it('orders a checklist tick stored as ISO among notes by time, not by text (S5)', () => {
+    testDb.db.prepare("INSERT INTO checklist_items (row_id, title, position, is_completed, completed_at, created_at) VALUES (?, 'Early tick', 1, 1, '2027-03-05T13:00:00.000Z', datetime('now'))").run(rowA)
+    testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, 'Later note', 'note', '2027-03-05 15:00:00', '2027-03-05 15:00:00')").run(rowA)
+    const [a] = loadAuditTrail({ rowId: rowA })
+    const tail = a!.events.slice(-2).map(e => e.details ?? e.what)
+    expect(tail[0]).toBe('Early tick')
+    expect(tail[1]).toContain('Later note')
+  })
+
   it('filters by local date range, inclusive', () => {
     const [a] = loadAuditTrail({ rowId: rowA, from: '2027-03-02', to: '2027-03-02' })
     expect(a!.events.map(e => e.what)).toEqual(['Phone note', 'Note voided'])
