@@ -344,6 +344,28 @@ describe('BACKUP_RESTORE_OTHER', () => {
   })
 })
 
+describe('restores in a read-only mode (AUDIT-093)', () => {
+  const path = join(tmpdir(), 'pulse-test-export', 'temp', 'old.pulse-backup')
+
+  it.each([
+    [IPC.BACKUP_RESTORE_FILE, [path]],
+    [IPC.BACKUP_RESTORE_AUTO, [path]],
+    [IPC.BACKUP_RESTORE_OTHER, [path, 'secret', 'A-Strong-New-Pass-42', '']],
+  ] as const)('%s is refused and replaces nothing', async (channel, args) => {
+    const { registerReadOnlyChecker } = await import('../src/main/ipc/ipc-utils')
+    backupMock.restoreOther = vi.fn()
+    backupMock.opened = 0
+    registerReadOnlyChecker(() => true)
+    try {
+      expect(await invoke(channel, ...args)).toEqual({ ok: false, error: 'READ_ONLY' })
+      expect(backupMock.restoreOther).not.toHaveBeenCalled()
+      expect(backupMock.opened).toBe(0)
+    } finally {
+      registerReadOnlyChecker(null)
+    }
+  })
+})
+
 describe('a restored backup that will not open (AUDIT-162)', () => {
   const path = join(tmpdir(), 'pulse-test-export', 'temp', 'old.pulse-backup')
 

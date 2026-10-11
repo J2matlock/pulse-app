@@ -51,7 +51,8 @@ export function registerOnboardingHandlers(): void {
     // If no flag, check if any grids exist (existing installation → treat as complete)
     const gridCount = (db.prepare('SELECT COUNT(*) as cnt FROM grids WHERE is_active = 1').get() as { cnt: number }).cnt
     const complete = gridCount > 0
-    if (complete) {
+    // Caching the answer is a write; a read-only mode just answers (AUDIT-093)
+    if (complete && !enforceWritable()) {
       db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('onboarding_complete', '1')").run()
     }
     return ok({ complete, progress: null })

@@ -130,6 +130,9 @@ export function registerExportHandlers(): void {
   })
 
   secureWrap(IPC.BACKUP_RESTORE_AUTO, 'ipc-export', async (_e, backupDbPath: string) => {
+    // A restore replaces every piece of data, so it is the first write a
+    // read-only mode (e.g. viewing a backup) must stop; leave that mode first
+    const guard = enforceWritable(); if (guard) return guard
     return withCorrelation('backup-restore-auto', async (corrId) => {
       assertSafePath(backupDbPath)
       logger.info('ipc-export', `[${corrId}] restoring from auto backup: ${backupDbPath}`)
@@ -147,6 +150,9 @@ export function registerExportHandlers(): void {
   })
 
   secureWrap(IPC.BACKUP_RESTORE_FILE, 'ipc-export', async (_e, backupPath: string) => {
+    // A restore replaces every piece of data, so it is the first write a
+    // read-only mode (e.g. viewing a backup) must stop; leave that mode first
+    const guard = enforceWritable(); if (guard) return guard
     return withCorrelation('backup-restore-file', async (corrId) => {
       assertSafePath(backupPath)
       logger.info('ipc-export', `[${corrId}] restoring from file: ${backupPath}`)
@@ -166,6 +172,7 @@ export function registerExportHandlers(): void {
 
   // A backup made by another Pulse: unlocked with that Pulse's password or recovery key
   secureWrap(IPC.BACKUP_RESTORE_OTHER, 'ipc-export', async (_e, backupPath: string, secret: string, newPassword: string, hint: string) => {
+    const guard = enforceWritable(); if (guard) return guard
     return withCorrelation('backup-restore-other', async (corrId) => {
       if (typeof backupPath !== 'string' || backupPath.length === 0 || backupPath.length > 4096) return fail('Choose a backup file')
       if (typeof secret !== 'string' || secret.length === 0 || secret.length > 1024) return fail('Enter the password or recovery key used with this backup')

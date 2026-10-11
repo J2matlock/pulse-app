@@ -97,6 +97,19 @@ describe('IPC Onboarding — ONBOARDING_CHECK', () => {
     expect(meta.value).toBe('1')
   })
 
+  it('still answers in a read-only mode, without writing the flag (AUDIT-093)', async () => {
+    const { registerReadOnlyChecker } = await import('../src/main/ipc/ipc-utils')
+    seedGrid(testDb.db, { name: 'Existing Grid', rowCount: 0, columnCount: 1 })
+    registerReadOnlyChecker(() => true)
+    try {
+      const result = await invoke(IPC.ONBOARDING_CHECK) as any
+      expect(result).toEqual({ ok: true, data: { complete: true, progress: null } })
+      expect(testDb.db.prepare("SELECT value FROM app_meta WHERE key = 'onboarding_complete'").get()).toBeUndefined()
+    } finally {
+      registerReadOnlyChecker(null)
+    }
+  })
+
   it('returns { complete: false } if onboarding_complete is "0"', async () => {
     testDb.db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('onboarding_complete', '0')").run()
     const result = await invoke(IPC.ONBOARDING_CHECK) as any

@@ -19,6 +19,14 @@ export function fail(error: string) { return { ok: false as const, error } }
  * that does INSERT/UPDATE/DELETE. Nothing registers a checker today, so writes
  * are always allowed; keeping every write behind one gate means a read-only
  * mode (say, viewing a backup) needs only a checker, not a pass over every handler.
+ *
+ * Deliberately not gated: AUTH_* (credentials, lock/unlock — the way into and
+ * out of any mode), APP_FACTORY_RESET (erasing everything must always work),
+ * backups that only write a file elsewhere (BACKUP_MANUAL_CREATE,
+ * BACKUP_SCHEDULED_RUN_NOW), and prefs/OS settings outside the database
+ * (BACKGROUND_SET, FILE_ASSOC_REGISTER, APP_MIGRATION_STATUS clear).
+ * Restores ARE gated: they replace the whole database. ONBOARDING_CHECK reads,
+ * and only skips its cached-flag write while read-only.
  */
 let _readOnlyChecker: (() => boolean) | null = null
 
