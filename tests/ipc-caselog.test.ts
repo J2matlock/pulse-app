@@ -518,6 +518,15 @@ describe('notes dated by when they happened', () => {
     expect(cellValue()).toBe(day(-3))
   })
 
+  it("doesn't keep the note when the date it moves can't be saved, so the two never disagree (AUDIT-105)", async () => {
+    testDb.db.exec("CREATE TRIGGER fail_cells BEFORE INSERT ON cells BEGIN SELECT RAISE(ABORT, 'disk trouble'); END")
+    const before = (testDb.db.prepare('SELECT COUNT(*) AS n FROM case_log WHERE row_id = ?').get(rowId) as { n: number }).n
+    const r = await invoke(IPC.CASE_LOG_CREATE, rowId, 'Home visit', 'visit', null)
+    expect(r.ok).toBe(false)
+    expect((testDb.db.prepare('SELECT COUNT(*) AS n FROM case_log WHERE row_id = ?').get(rowId) as { n: number }).n).toBe(before)
+    expect(cellValue()).toBe(null)
+  })
+
   it('refuses a day in the future or a made-up date', async () => {
     const future = await invoke(IPC.CASE_LOG_CREATE, rowId, 'x', 'visit', null, undefined, day(1))
     expect(future.ok).toBe(false)

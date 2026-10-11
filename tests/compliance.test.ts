@@ -20,6 +20,8 @@ let dateCol: number
 const utc = (local: string) => (testDb.db.prepare("SELECT datetime(?, 'utc') AS t").get(local) as { t: string }).t
 
 beforeEach(() => {
+  // March 2026 is a past month in these checks, whatever day the suite runs (AUDIT-184)
+  vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 4, 15, 12, 0, 0) })
   testDb = createTestDb()
   setDbFeatures(testDb.db)
   const g = seedGrid(testDb.db, { columnTypes: ['text', 'date'], columnCount: 2, rowCount: 3 })
@@ -39,7 +41,7 @@ beforeEach(() => {
   saveRequirements(gridId, [{ label: 'Visit', note_types: ['visit'], per_month: 1 }])
   db.prepare("INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, 'x', 'visit', ?, datetime('now'))").run(rows[0], utc('2026-03-15 10:00:00'))
 })
-afterEach(() => cleanupTestDb(testDb))
+afterEach(() => { vi.useRealTimers(); cleanupTestDb(testDb) })
 
 describe('compliance summary', () => {
   it('uses month end for past months', () => {

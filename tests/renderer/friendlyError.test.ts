@@ -117,6 +117,8 @@ const PLAIN = new Set<string>([
   "That password didn't work. Nothing was erased.",
   "That reminder setting isn't valid.",
   'That report is no longer available.',
+  "That ${word('record')} is no longer available.",
+  '"${meta.name}" needs a full date between ${MIN_YEAR} and ${MAX_YEAR}. Pick one from the calendar and try again.',
   "That setting isn't valid.",
   "That template doesn't exist any more.",
   'That text is too long',

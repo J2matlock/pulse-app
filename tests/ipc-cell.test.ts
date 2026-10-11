@@ -153,6 +153,26 @@ describe('CELL_UPDATE', () => {
     expect(n.n).toBe(4)
   })
 
+  it('refuses a date cell value that is not a full YYYY-MM-DD date in range, and allows clearing (AUDIT-112)', async () => {
+    testDb.db.prepare("UPDATE columns SET name = 'Review', column_type = 'date', config = '{}' WHERE id = ?").run(columnId)
+    const { invalidateColumnCache } = await import('../src/main/ipc/ipc-cell')
+    invalidateColumnCache(columnId)
+    for (const bad of ['0026-10-11', '20266-01-01', '2026-02-31', '10/11/2026', 'soon', '2026-10-11T09:00', ' 2026-10-11']) {
+      const r = await invoke(IPC.CELL_UPDATE, rowId, columnId, bad) as any
+      expect(r.ok, bad).toBe(false)
+      expect(r.error).toMatch(/"Review" needs a full date between 1900 and 2999/)
+    }
+    expect(testDb.db.prepare('SELECT COUNT(*) AS n FROM cells WHERE column_id = ?').get(columnId)).toEqual({ n: 0 })
+    expect((await invoke(IPC.CELL_UPDATE, rowId, columnId, '2026-10-11') as any).ok).toBe(true)
+    expect((await invoke(IPC.CELL_UPDATE, rowId, columnId, '')).ok).toBe(true)
+    expect((await invoke(IPC.CELL_UPDATE, rowId, columnId, null)).ok).toBe(true)
+    // Deadline columns hold their start date the same way
+    testDb.db.prepare("UPDATE columns SET column_type = 'deadline' WHERE id = ?").run(columnId)
+    invalidateColumnCache(columnId)
+    expect((await invoke(IPC.CELL_UPDATE, rowId, columnId, '1899-12-31') as any).ok).toBe(false)
+    expect((await invoke(IPC.CELL_UPDATE, rowId, columnId, '2999-12-31') as any).ok).toBe(true)
+  })
+
   it('logs a Deadline column change as a date sentence, not a quoted ISO date', async () => {
     testDb.db.prepare("UPDATE columns SET name = 'Annual Review', column_type = 'deadline', config = ? WHERE id = ?").run(JSON.stringify({ log_changes: true }), columnId)
     const { invalidateColumnCache } = await import('../src/main/ipc/ipc-cell')

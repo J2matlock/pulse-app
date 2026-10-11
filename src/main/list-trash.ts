@@ -35,7 +35,60 @@ function childTables(parent: string): Array<{ table: string; column: string }> {
   return out
 }
 
-function insertRow(table: string, row: Row): boolean {
+interface ForeignKey { parent: string; from: string[]; to: string[]; setNull: boolean }
+const fkCache = new WeakMap<object, Map<string, ForeignKey[]>>()
+
+function foreignKeys(table: string): ForeignKey[] {
+  const db = getDb()
+  let perDb = fkCache.get(db)
+  if (!perDb) { perDb = new Map(); fkCache.set(db, perDb) }
+  const cached = perDb.get(table)
+  if (cached) return cached
+  const list = db.prepare(`SELECT id, seq, "table" AS parent, "from" AS col, "to" AS ref, on_delete FROM pragma_foreign_key_list(?) ORDER BY id, seq`).all(table) as
+    Array<{ id: number; seq: number; parent: string; col: string; ref: string | null; on_delete: string }>
+  const byId = new Map<number, ForeignKey>()
+  for (const f of list) {
+    let fk = byId.get(f.id)
+    if (!fk) { fk = { parent: f.parent, from: [], to: [], setNull: f.on_delete.toUpperCase() === 'SET NULL' }; byId.set(f.id, fk) }
+    fk.from.push(f.col)
+    fk.to.push(f.ref ?? '')
+  }
+  const out = [...byId.values()]
+  for (const fk of out) {
+    // A key that names no column points at the parent's primary key
+    if (fk.to.some(c => !c)) {
+      const pk = (db.prepare('SELECT name FROM pragma_table_info(?) WHERE pk > 0 ORDER BY pk').all(fk.parent) as Array<{ name: string }>).map(c => c.name)
+      fk.to = pk.length === fk.from.length ? pk : fk.from.map(() => 'rowid')
+    }
+  }
+  perDb.set(table, out)
+  return out
+}
+
+/**
+ * A saved row whose parents are gone since (a note deleted after the column was,
+ * a record removed for good) can't go back: `INSERT OR IGNORE` doesn't skip
+ * foreign key failures, so one such row would block the whole restore. Keys the
+ * database would have cleared on delete are cleared; otherwise the row is left out.
+ */
+function withLiveParents(table: string, row: Row): Row | null {
+  const db = getDb()
+  let out = row
+  for (const fk of foreignKeys(table)) {
+    const vals = fk.from.map(c => row[c])
+    if (vals.some(v => v == null)) continue
+    const where = fk.to.map(c => `${quoteId(c)} = ?`).join(' AND ')
+    if (db.prepare(`SELECT 1 FROM ${quoteId(fk.parent)} WHERE ${where}`).get(...vals as never[])) continue
+    if (!fk.setNull) return null
+    out = { ...out }
+    for (const c of fk.from) out[c] = null
+  }
+  return out
+}
+
+function insertRow(table: string, saved: Row): boolean {
+  const row = withLiveParents(table, saved)
+  if (!row) return false
   const keys = Object.keys(row)
   if (!keys.length) return false
   const sql = `INSERT OR IGNORE INTO ${quoteId(table)} (${keys.map(quoteId).join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`

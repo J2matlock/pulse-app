@@ -1,6 +1,7 @@
 import type { Column, GridRow } from '../../../shared/types'
 import { isNotTypedColumnType } from '../../../shared/types'
 import { parseDate, looksLikeBirthColumn } from '../../../shared/parseDate'
+import { toYmd } from '../../../shared/ymd'
 import { columnOptionLabels } from '../../../shared/stages'
 import { cellText } from '../../../shared/cellText'
 import { computedColumnText, isComputedColumnType } from '../../utils/computedColumns'
@@ -33,7 +34,8 @@ export function validateForColumnType(value: string, column: Column): string | n
       // Stored as YYYY-MM-DD, read the way Import reads dates; "March 3" (no year) is refused (G-14)
       // A birth-date column reads "3/15/40" as 1940, never next decade.
       // 06/10/2026 is 6 October with the DD/MM/YYYY date format, June 10 otherwise
-      return parseDate(trimmed, useSettingsStore.getState().dateFormat === 'eu' ? 'dmy' : 'mdy', { birth: looksLikeBirthColumn(column.name) })
+      // Only years 1900–2999 are kept, the same as saving checks (AUDIT-112)
+      return toYmd(parseDate(trimmed, useSettingsStore.getState().dateFormat === 'eu' ? 'dmy' : 'mdy', { birth: looksLikeBirthColumn(column.name) }))
     case 'number':
     case 'currency': {
       // Strip currency symbols for currency type
