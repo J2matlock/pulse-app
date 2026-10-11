@@ -422,6 +422,11 @@ const migrations: Array<{ version: number; up: (db: BetterSqlite3DB) => void; no
   { version: 47, up: migration047 },
 ]
 
+/** The newest schema this Pulse knows; a database above it was made by a newer Pulse */
+export function latestSchemaVersion(): number {
+  return migrations[migrations.length - 1]!.version
+}
+
 // ── Migration failure tracking ────────────────────────────────────────────────
 // Persists in electron-store so the renderer can warn on next launch.
 interface MigrationStatusStore {

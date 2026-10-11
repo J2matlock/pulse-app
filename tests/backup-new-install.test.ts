@@ -44,6 +44,7 @@ vi.mock('electron-store', () => ({
 vi.mock('../src/main/database', () => ({
   getPortableDataDir: () => state.dir,
   resolveDatabasePath: () => join(state.dir, 'pulse.db'),
+  latestSchemaVersion: () => 47,
   setEncryptionKey: (db: { pragma: (s: string) => unknown }, hex: string) => {
     if (!/^[0-9a-f]{64}$/.test(hex)) throw new Error('Invalid database key format')
     db.pragma(`key='${hex}'`)
@@ -72,14 +73,14 @@ function openWithKey(path: string, hex: string) {
 
 const PWD = 'Old-Computer-Pass-1'
 
-async function makeBackupOnOldComputer(): Promise<{ backupPath: string; keyHex: string; recoveryKey: string }> {
+async function makeBackupOnOldComputer(schemaVersion = '31'): Promise<{ backupPath: string; keyHex: string; recoveryKey: string }> {
   const dbPath = join(state.dir, 'pulse.db')
   await setupPassword(PWD, 'old hint', dbPath)
   const recoveryKey = await generateRecoveryKey()
   const keyHex = getDbKey().toString('hex')
   const db = openWithKey(dbPath, keyHex)
   db.exec(`CREATE TABLE app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-           INSERT INTO app_meta VALUES ('schema_version', '31');
+           INSERT INTO app_meta VALUES ('schema_version', '${schemaVersion}');
            CREATE TABLE clients (name TEXT); INSERT INTO clients VALUES ('Jane Doe');`)
   db.close()
   const { destPath } = await runManualBackup(join(state.dir, 'usb', 'caseload'))
@@ -304,6 +305,21 @@ describe('Restoring another Pulse\'s backup from Settings', { timeout: 60_000 },
     wipeToFreshInstall()
     await restoreBackupOnNewInstall({ backupPath: usbCopy, secret: NEW_PWD, newPassword: 'Third-Password-123', hint: '' })
     expect(getDbKey().toString('hex')).toBe(newKey)
+  })
+
+  it('refuses a backup from a newer Pulse before changing the data or the password (S4)', async () => {
+    const { backupPath } = await makeBackupOnOldComputer('48')
+    wipeToFreshInstall()
+    const newKey = await setUpNewComputerWithData()
+    await expect(restoreOtherPulseBackup({ backupPath, secret: PWD, newPassword: 'Chosen-After-Restore-1', hint: '' }))
+      .rejects.toThrow('made by a newer version of Pulse')
+    expect(getDbKey().toString('hex')).toBe(newKey)
+    const db = openWithKey(join(state.dir, 'pulse.db'), newKey)
+    expect(db.prepare('SELECT name FROM clients').get()).toEqual({ name: 'Sam New' })
+    db.close()
+    expect(readdirSync(state.dir).filter(f => f.startsWith('pulse-orphaned-'))).toEqual([])
+    lockApp()
+    await verifyAndUnlock(NEW_PWD)
   })
 
   it('changes nothing when the password is wrong', async () => {
