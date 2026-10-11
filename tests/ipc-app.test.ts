@@ -82,7 +82,7 @@ vi.mock('../src/main/database', async () => {
     ...actual,
     getDb: () => testDb.db,
     openDatabase: () => {},
-    closeDatabase: () => {},
+    closeDatabase: () => { lifecycle.calls.push('closeDatabase') },
     resolveDatabasePath: () => '/tmp/test.db',
     checkCloudSyncPath: () => null,
     getPortableDataDir: () => '/tmp/pulse-test-app',
@@ -97,6 +97,7 @@ vi.mock('../src/main/auth', () => ({
   setupPassword: async () => 'key',
   verifyAndUnlock: async (pw: string) => {
     if (pw === 'wrong') throw new Error('Incorrect password')
+    if (pw === 'locked-out') throw new Error('Too many failed attempts. Try again in 30 seconds.')
     return 'key'
   },
   verifyAndUnlockRecovery: async () => 'key',
@@ -104,7 +105,7 @@ vi.mock('../src/main/auth', () => ({
   resetPasswordAfterRecovery: async () => {},
   generateRecoveryKey: async () => 'ABCD-EFGH',
   revokeRecoveryKey: () => {},
-  lockApp: () => {},
+  lockApp: () => { lifecycle.calls.push('lockApp') },
   getPasswordHint: () => 'hint',
   hasRecoveryKey: () => false,
   setStoredDbPath: () => {},
@@ -113,8 +114,10 @@ vi.mock('../src/main/auth', () => ({
 
 vi.mock('../src/main/index', () => ({
   startScheduledBackup: () => {},
-  stopScheduledBackup: () => {},
+  stopScheduledBackup: () => { lifecycle.calls.push('stopScheduledBackup') },
 }))
+
+const lifecycle = vi.hoisted(() => ({ calls: [] as string[] }))
 
 const fakeEvent = { senderFrame: { parent: null } }
 
@@ -261,6 +264,30 @@ describe('APP_SHOW_SAVE_DIALOG', () => {
   })
 })
 
+describe('dialog choices vouch for paths (AUDIT-001)', () => {
+  it('a file picked in the open dialog passes the path check later, wherever it is', async () => {
+    const { assertSafePath } = await import('../src/main/ipc/ipc-utils')
+    expect(() => assertSafePath('/srv/test-share/pick.pulse-backup')).toThrow()
+    mockDialogOpen.mockResolvedValueOnce({ canceled: false, filePaths: ['/srv/test-share/pick.pulse-backup'] } as never)
+    await invoke(IPC.APP_SHOW_FILE_DIALOG, { properties: ['openFile'] })
+    expect(() => assertSafePath('/srv/test-share/pick.pulse-backup')).not.toThrow()
+  })
+
+  it('a save choice vouches for its folder, so an added extension still passes', async () => {
+    const { assertSafePath } = await import('../src/main/ipc/ipc-utils')
+    mockDialogSave.mockResolvedValueOnce({ canceled: false, filePath: '/srv/test-save/backup' } as never)
+    await invoke(IPC.APP_SHOW_SAVE_DIALOG, { title: 'Save' })
+    expect(() => assertSafePath('/srv/test-save/backup.pulse-backup')).not.toThrow()
+  })
+
+  it('a cancelled dialog vouches for nothing', async () => {
+    const { assertSafePath } = await import('../src/main/ipc/ipc-utils')
+    mockDialogOpen.mockResolvedValueOnce({ canceled: true, filePaths: ['/srv/test-cancel/x.csv'] } as never)
+    await invoke(IPC.APP_SHOW_FILE_DIALOG, { properties: ['openFile'] })
+    expect(() => assertSafePath('/srv/test-cancel/x.csv')).toThrow()
+  })
+})
+
 describe('APP_FACTORY_RESET', () => {
   it('rejects missing password', async () => {
     const r = await invoke(IPC.APP_FACTORY_RESET, '') as any
@@ -273,10 +300,16 @@ describe('APP_FACTORY_RESET', () => {
     expect(r.ok).toBe(false)
   })
 
-  it('rejects wrong password', async () => {
+  it('rejects wrong password and says nothing was erased (AUDIT-064)', async () => {
     const r = await invoke(IPC.APP_FACTORY_RESET, 'wrong') as any
     expect(r.ok).toBe(false)
-    expect(r.error).toMatch(/failed/)
+    expect(r.error).toBe("That password didn't work. Nothing was erased.")
+  })
+
+  it('passes a lockout message through, still saying nothing was erased (AUDIT-064)', async () => {
+    const r = await invoke(IPC.APP_FACTORY_RESET, 'locked-out') as any
+    expect(r.ok).toBe(false)
+    expect(r.error).toBe('Too many failed attempts. Try again in 30 seconds. Nothing was erased.')
   })
 
   it('succeeds with correct password', async () => {
@@ -330,6 +363,51 @@ describe('APP_CHECK_FOR_UPDATES', () => {
   })
 })
 
+describe('APP_CHECK_FOR_UPDATES honours the setting in main (AUDIT-188) and stays quiet offline (AUDIT-099)', () => {
+  const latest = () => new Response(JSON.stringify({ version: '9.9.9' }), { status: 200 })
+
+  it('an automatic check does nothing when the setting is off; the button still checks', async () => {
+    testDb.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('auto_update_check', 'false')").run()
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => latest())
+    try {
+      expect(await invoke(IPC.APP_CHECK_FOR_UPDATES)).toEqual({ ok: true, data: { available: false } })
+      expect(fetchSpy).not.toHaveBeenCalled()
+      const manual = await invoke(IPC.APP_CHECK_FOR_UPDATES, { manual: true }) as any
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      expect(manual.data).toMatchObject({ available: true, version: '9.9.9' })
+    } finally { fetchSpy.mockRestore() }
+  })
+
+  it('an automatic check runs when the setting is on or unset', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => latest())
+    try {
+      expect((await invoke(IPC.APP_CHECK_FOR_UPDATES) as any).data.available).toBe(true)
+      testDb.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('auto_update_check', 'true')").run()
+      expect((await invoke(IPC.APP_CHECK_FOR_UPDATES) as any).data.available).toBe(true)
+      expect(fetchSpy).toHaveBeenCalledTimes(2)
+    } finally { fetchSpy.mockRestore() }
+  })
+
+  it('fails closed: an automatic check does nothing when the setting cannot be read', async () => {
+    testDb.db.close()
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => latest())
+    try {
+      expect(await invoke(IPC.APP_CHECK_FOR_UPDATES)).toEqual({ ok: true, data: { available: false } })
+      expect(fetchSpy).not.toHaveBeenCalled()
+    } finally { fetchSpy.mockRestore() }
+  })
+
+  it('offline: answers "no update" without logging an error', async () => {
+    const { logger } = await import('../src/main/logger')
+    const errorSpy = vi.spyOn(logger, 'error')
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('fetch failed'))
+    try {
+      expect(await invoke(IPC.APP_CHECK_FOR_UPDATES, { manual: true })).toEqual({ ok: true, data: { available: false } })
+      expect(errorSpy).not.toHaveBeenCalled()
+    } finally { fetchSpy.mockRestore(); errorSpy.mockRestore() }
+  })
+})
+
 describe('APP_MIGRATION_STATUS', () => {
   it('returns null when no migration failure', async () => {
     const r = await invoke(IPC.APP_MIGRATION_STATUS) as any
@@ -348,5 +426,11 @@ describe('APP_RELAUNCH', () => {
   it('reloads the window', async () => {
     await invoke(IPC.APP_RELAUNCH)
     expect(mockReloadIgnoringCache).toHaveBeenCalled()
+  })
+
+  it('stops scheduled backups, locks and closes the database before reloading (AUDIT-020)', async () => {
+    lifecycle.calls.length = 0
+    await invoke(IPC.APP_RELAUNCH)
+    expect(lifecycle.calls).toEqual(['stopScheduledBackup', 'lockApp', 'closeDatabase'])
   })
 })

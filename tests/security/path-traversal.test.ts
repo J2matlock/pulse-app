@@ -53,7 +53,7 @@ vi.mock('electron-store', () => {
   }
 })
 
-import { assertSafePath } from '../../src/main/ipc/ipc-utils'
+import { assertSafePath, PATH_REFUSED_MESSAGE } from '../../src/main/ipc/ipc-utils'
 import { assertPathWithin } from '../../src/main/backup'
 
 describe('assertPathWithin — path traversal payloads', () => {
@@ -136,39 +136,33 @@ describe('assertPathWithin — path traversal payloads', () => {
 
 describe('assertSafePath — security validation', () => {
   it('rejects null bytes in path', () => {
-    expect(() => assertSafePath('/tmp/test\0.db')).toThrow('null bytes')
+    expect(() => assertSafePath('/tmp/test\0.db')).toThrow(expect.objectContaining({ reason: 'null byte', message: PATH_REFUSED_MESSAGE }))
   })
 
   it('rejects relative paths', () => {
-    expect(() => assertSafePath('relative/path/file.db')).toThrow('Relative paths not allowed')
-    expect(() => assertSafePath('./file.db')).toThrow('Relative paths not allowed')
-    expect(() => assertSafePath('../file.db')).toThrow('Relative paths not allowed')
+    expect(() => assertSafePath('relative/path/file.db')).toThrow(expect.objectContaining({ reason: 'relative', message: PATH_REFUSED_MESSAGE }))
+    expect(() => assertSafePath('./file.db')).toThrow(expect.objectContaining({ reason: 'relative', message: PATH_REFUSED_MESSAGE }))
+    expect(() => assertSafePath('../file.db')).toThrow(expect.objectContaining({ reason: 'relative', message: PATH_REFUSED_MESSAGE }))
   })
 
   it('rejects dot-only relative path', () => {
-    expect(() => assertSafePath('.')).toThrow('Relative paths not allowed')
-    expect(() => assertSafePath('..')).toThrow('Relative paths not allowed')
+    expect(() => assertSafePath('.')).toThrow(expect.objectContaining({ reason: 'relative', message: PATH_REFUSED_MESSAGE }))
+    expect(() => assertSafePath('..')).toThrow(expect.objectContaining({ reason: 'relative', message: PATH_REFUSED_MESSAGE }))
   })
 
   it('accepts paths inside allowed directories', () => {
     const home = process.env.HOME || '/home/testuser'
     const docsPath = join(home, 'Documents', 'pulse-data', 'test.db')
-    // This may throw if the directory doesn't exist, but should NOT throw for null bytes or relative
-    try {
-      assertSafePath(docsPath)
-    } catch (e) {
-      // Only acceptable error is "Path outside allowed directories" (if dir doesn't exist)
-      expect((e as Error).message).not.toContain('null bytes')
-      expect((e as Error).message).not.toContain('Relative paths')
-    }
+    // The whole home folder is allowed, even folders that don't exist yet
+    expect(() => assertSafePath(docsPath)).not.toThrow()
   })
 
   it('rejects paths in system directories on this platform', () => {
     if (process.platform !== 'win32') {
       // On Linux/macOS, /etc should be outside allowed dirs
-      expect(() => assertSafePath('/etc/passwd')).toThrow('Path outside allowed directories')
-      expect(() => assertSafePath('/usr/bin/something')).toThrow('Path outside allowed directories')
-      expect(() => assertSafePath('/var/log/syslog')).toThrow('Path outside allowed directories')
+      expect(() => assertSafePath('/etc/passwd')).toThrow(PATH_REFUSED_MESSAGE)
+      expect(() => assertSafePath('/usr/bin/something')).toThrow(PATH_REFUSED_MESSAGE)
+      expect(() => assertSafePath('/var/log/syslog')).toThrow(PATH_REFUSED_MESSAGE)
     }
   })
 

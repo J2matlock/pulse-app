@@ -394,7 +394,7 @@ export interface IPCContract {
   'app:show-file-dialog':   { args: [options: Record<string, unknown>];   return: OpenDialogResult }
   'app:show-save-dialog':   { args: [options: Record<string, unknown>];   return: SaveDialogResult }
   'app:factory-reset':      { args: [password: string];                   return: true }
-  'app:check-for-updates':  { args: [];                                   return: { available: boolean; version?: string; downloadUrl?: string; releaseNotes?: string; reason?: string } }
+  'app:check-for-updates':  { args: [opts?: { manual?: boolean }];        return: { available: boolean; version?: string; downloadUrl?: string; releaseNotes?: string; reason?: string } }
   'app:integrity-check':    { args: [];                                   return: boolean }
 
   // ── Backup ──────────────────────────────────────────────────────────────

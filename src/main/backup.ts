@@ -33,6 +33,7 @@ const BetterSqlite3 = require('better-sqlite3-multiple-ciphers') as typeof impor
 export interface DatabaseBridge {
   pragma(sql: string): unknown
   exec(sql: string): void
+  prepare(sql: string): { run(...params: unknown[]): unknown }
 }
 
 let _closeDatabase: (() => void) | null = null
@@ -267,15 +268,10 @@ function createAtomicDbSnapshot(dbPath: string, snapshotDir: string, opts?: { co
   }
 
   if (database) {
-    // VACUUM INTO is atomic — no window for interleaved writes
-    const SAFE_PATH_RE = /^[a-zA-Z0-9_\-./\\: ]+$/
-    if (!SAFE_PATH_RE.test(tmpDbPath)) {
-      throw new Error('Snapshot path contains unsafe characters')
-    }
-    // No quote check needed — SAFE_PATH_RE already rejects quotes, so the
-    // replace(/'/g, "''") below is defense-in-depth (not dead code per se,
-    // but the regex guarantees no quotes reach this point).
-    database.exec(`VACUUM INTO '${tmpDbPath}'`)
+    // VACUUM INTO is atomic — no window for interleaved writes. The path is a
+    // bound parameter, so any folder name works (O'Brien, José, "Smith & Co")
+    // and nothing in it can be read as SQL.
+    database.prepare('VACUUM INTO ?').run(tmpDbPath)
   } else {
     // Fallback: checkpoint WAL then copy (less safe but works without DB bridge).
     // No exclusive lock possible without a DB handle — best-effort only.

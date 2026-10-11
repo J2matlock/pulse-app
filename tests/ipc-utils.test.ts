@@ -102,7 +102,7 @@ describe('secureWrap', () => {
 
     const registeredHandler = mockHandle.mock.calls[0][1]
     const result = await registeredHandler({ senderFrame: { parent: null } })
-    expect(result).toEqual({ ok: false, error: 'The database is temporarily busy — please try again' })
+    expect(result).toEqual({ ok: false, error: 'Pulse is busy for a moment. Please try again.' })
   })
 
   it('passes through successful results from handler', async () => {

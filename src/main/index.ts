@@ -18,7 +18,7 @@ import { extractPulseFileFromArgv, handleFileOpen } from './file-association'
 import { checkSafeStorageAvailability, getDbKey, lockApp } from './auth'
 import { PRODUCT_NAME, normalizeAutoLockMinutes } from '../shared/constants'
 import { clearImportCache } from './import'
-import { logger } from './logger'
+import { logger, formatForwardedLogData } from './logger'
 import { IPC } from '../shared/ipc-channels'
 import { secureWrap, logNonFatal } from './ipc/ipc-utils'
 
@@ -341,9 +341,8 @@ app.whenReady().then(async () => {
     if (typeof msg !== 'string' || msg.length > MAX_LOG_MSG_LEN) return
     const level = rawLevel as 'error' | 'warn' | 'info'
     const fn = logger[level]
-    const dataStr = payload.data ? JSON.stringify(payload.data) : ''
-    const safeData = dataStr.length > 4096 ? dataStr.slice(0, 4096) + '...[truncated]' : dataStr
-    if (fn) fn(`renderer:${component}`, msg, safeData || undefined)
+    // Scrub as an object first: once stringified, key-based redaction can't see it
+    if (fn) fn(`renderer:${component}`, msg, formatForwardedLogData(payload.data))
   })
 
   // Dev mode needs 'unsafe-inline' for script-src because Vite injects inline HMR preambles.

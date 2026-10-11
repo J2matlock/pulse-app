@@ -237,6 +237,15 @@ describe('BACKUP_SCHEDULED_SET_CONFIG', () => {
     expect(result.ok).toBe(true)
     expect(backupMock.lastSet).toEqual({ enabled: true, intervalHours: 12, destinationDir: '/old/dest', lastRunISO: '2026-10-01T09:00:00.000Z' })
   })
+
+  it('accepts the folder already saved without re-checking it, but checks a new one (AUDIT-001)', async () => {
+    // '/old/dest' was vouched for when it was picked; a later toggle mustn't refuse it
+    const same = await invoke(IPC.BACKUP_SCHEDULED_SET_CONFIG, { enabled: false, intervalHours: 24, destinationDir: '/old/dest' }) as { ok: boolean }
+    expect(same.ok).toBe(true)
+    const other = await invoke(IPC.BACKUP_SCHEDULED_SET_CONFIG, { enabled: true, intervalHours: 24, destinationDir: '/etc/pulse' }) as { ok: boolean; error?: string }
+    expect(other.ok).toBe(false)
+    expect(other.error).toMatch(/can't use that location/)
+  })
 })
 
 describe('BACKUP_SCHEDULED_RUN_NOW', () => {
@@ -332,6 +341,41 @@ describe('BACKUP_RESTORE_OTHER', () => {
     const result = await invoke(IPC.BACKUP_RESTORE_OTHER, path, 'right', 'A-Strong-New-Pass-42', '') as { ok: true; data: { safetyPath: string } }
     expect(result.ok).toBe(true)
     expect(result.data.safetyPath).toBe('/b/pulse-pre-restore-x.pulse-backup')
+  })
+})
+
+describe('restores in a read-only mode (AUDIT-093)', () => {
+  const path = join(tmpdir(), 'pulse-test-export', 'temp', 'old.pulse-backup')
+
+  it.each([
+    [IPC.BACKUP_RESTORE_FILE, [path]],
+    [IPC.BACKUP_RESTORE_AUTO, [path]],
+    [IPC.BACKUP_RESTORE_OTHER, [path, 'secret', 'A-Strong-New-Pass-42', '']],
+  ] as const)('%s is refused and replaces nothing', async (channel, args) => {
+    const { registerReadOnlyChecker } = await import('../src/main/ipc/ipc-utils')
+    backupMock.restoreOther = vi.fn()
+    backupMock.opened = 0
+    registerReadOnlyChecker(() => true)
+    try {
+      expect(await invoke(channel, ...args)).toEqual({ ok: false, error: 'READ_ONLY' })
+      expect(backupMock.restoreOther).not.toHaveBeenCalled()
+      expect(backupMock.opened).toBe(0)
+    } finally {
+      registerReadOnlyChecker(null)
+    }
+  })
+})
+
+describe('a restored backup that will not open (AUDIT-162)', () => {
+  const path = join(tmpdir(), 'pulse-test-export', 'temp', 'old.pulse-backup')
+
+  it.each([IPC.BACKUP_RESTORE_FILE, IPC.BACKUP_RESTORE_AUTO])('%s explains plainly, without "Restore failed" or "database"', async (channel) => {
+    // The mocked restore reports a safety copy that doesn't exist on disk
+    backupMock.openError = new Error('SQLITE_CORRUPT: database disk image is malformed')
+    const result = await invoke(channel, path) as { ok: false; error: string }
+    expect(result.ok).toBe(false)
+    expect(result.error).toBe("That backup couldn't be opened. Close Pulse and open it again. If your data is missing, restore a different backup from Settings → Backup.")
+    expect(result.error).not.toMatch(/Restore failed|database/i)
   })
 })
 

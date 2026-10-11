@@ -48,7 +48,7 @@ describe('wrapHandler', () => {
       throw new Error('SQLITE_BUSY: database is locked')
     })
     const result = await handler()
-    expect(result).toEqual({ ok: false, error: 'The database is temporarily busy — please try again' })
+    expect(result).toEqual({ ok: false, error: 'Pulse is busy for a moment. Please try again.' })
   })
 
   it('logs via logger.error when handler throws', async () => {
@@ -76,7 +76,7 @@ describe('wrapHandler', () => {
       throw new Error("ENOENT: no such file or directory, open '/path'")
     })
     const result = await handler()
-    expect(result).toEqual({ ok: false, error: 'The requested file was not found' })
+    expect(result).toEqual({ ok: false, error: "Pulse couldn't find that file. It may have been moved, renamed or deleted." })
   })
 
   it('works with sync handlers', async () => {
