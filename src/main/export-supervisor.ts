@@ -31,7 +31,7 @@ import { evaluate } from '../shared/deadlineEngine'
 import { loadDeadlines } from './deadlines'
 import { PRODUCT_NAME } from '../shared/constants'
 import { vocabFor } from './vocab'
-import { term } from '../shared/vocab'
+import { HUMAN_SERVICES_VOCAB, term } from '../shared/vocab'
 
 export async function exportSupervisorReport(options: SupervisorReportOptions): Promise<void> {
   // Report words follow the list's vocabulary ("Total Active Clients" / "Total Active Vehicles")
@@ -42,6 +42,11 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   const WorkerCap = term(v, 'worker', { cap: true })
   const acts = term(v, 'activity', { many: true }), ActsCap = term(v, 'activity', { many: true, cap: true })
   const Pri = term(v, 'priority', { cap: true }), PriMany = term(v, 'priority', { many: true, cap: true })
+  // "Protected health information" is a legal term for human services; a car shop's report
+  // shouldn't claim it. Other words get a plain confidentiality line in their own record word.
+  const confidentialBanner = v.record.one.toLowerCase() === HUMAN_SERVICES_VOCAB.record.one
+    ? 'CONFIDENTIAL \u2014 PROTECTED HEALTH INFORMATION'
+    : `CONFIDENTIAL \u2014 CONTAINS ${term(v, 'record').toUpperCase()} INFORMATION`
   const { gridId, dateRange, columnIds, includeActivityLog, includeSystemActivity, includeTaskSummary, format, destPath, workerName, workerTitle, workerOrg } = options
   const db = getDb()
   const grid = db.prepare('SELECT * FROM grids WHERE id = ?').get(gridId) as Grid & { acuity_enabled?: number }
@@ -169,7 +174,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   if (format === 'csv') {
     // ── CSV report ──
     const csvSections: unknown[][] = [
-      ['CONFIDENTIAL — PROTECTED HEALTH INFORMATION'],
+      [confidentialBanner],
       [],
       ['Summary report', ''],
       [ListCap, sanitizeCsvFormula(grid.name)],
@@ -313,7 +318,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   doc.setFontSize(7)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(146, 64, 14)
-  doc.text('CONFIDENTIAL \u2014 PROTECTED HEALTH INFORMATION', pageW / 2, y + 5.5, { align: 'center' })
+  doc.text(confidentialBanner, pageW / 2, y + 5.5, { align: 'center' })
   doc.setTextColor(0)
   doc.setFont('helvetica', 'normal')
   y += 12

@@ -14,6 +14,7 @@ import { localDateString } from '../shared/dates'
 import { VALID_COLUMN_TYPES, canImportInto } from '../shared/types'
 import type { ColumnType } from '../shared/types'
 import ExcelJS from 'exceljs'
+import { unguardCsvFormula } from '../shared/csvGuard'
 
 import { getDb } from './database'
 import { logger } from './logger'
@@ -60,6 +61,10 @@ export interface ImportPreview {
   rawPreviewRows?: string[][]
   /** Things about the file itself worth checking (its text format, rows past the limit) */
   warnings?: string[]
+  /** Data rows hidden in the spreadsheet (Excel only). They import unless skipHiddenRows is set (AUDIT-127) */
+  hiddenRowCount?: number
+  /** Headers of columns hidden in the spreadsheet (Excel only) */
+  hiddenColumns?: string[]
 }
 
 export interface ColumnMapping {
@@ -92,6 +97,8 @@ export interface ImportOptions {
   flipLastFirst?: boolean
   /** Link columns (W04): add a record to the other list for names that match no one */
   createMissingLinks?: boolean
+  /** Leave out rows hidden in the spreadsheet (AUDIT-127) */
+  skipHiddenRows?: boolean
 }
 
 export interface ImportResult {
@@ -378,7 +385,7 @@ function looksLastFirst(samples: string[]): boolean {
  *   "Program" merged down ten rows applies to all ten clients;
  * - blank headers become "Column N" and repeated ones get a number.
  */
-export function buildTable(rawRows: string[][], headerIdx: number, mergedRanges?: MergedCellInfo[]): { headers: string[]; allRows: string[][] } {
+export function buildTable(rawRows: string[][], headerIdx: number, mergedRanges?: MergedCellInfo[], hiddenRawRows?: ReadonlySet<number>): { headers: string[]; allRows: string[][]; hiddenRows: boolean[] } {
   const rows = rawRows.map(r => [...r])
   for (const m of mergedRanges ?? []) {
     if (m.row <= headerIdx) continue
@@ -412,8 +419,13 @@ export function buildTable(rawRows: string[][], headerIdx: number, mergedRanges?
   // Trailing columns with no header and no data are just sheet width
   let keep = headers.length
   while (keep > 0 && !(headerRow[keep - 1] ?? '').trim() && !groupFor(keep - 1) && rows.slice(headerIdx + 1).every(r => !(r[keep - 1] ?? '').trim())) keep--
-  const allRows = rows.slice(headerIdx + 1).filter(row => row.some(c => c.trim() !== ''))
-  return { headers: headers.slice(0, keep), allRows }
+  const kept = rows.map((row, i) => ({ row, i })).slice(headerIdx + 1).filter(({ row }) => row.some(c => c.trim() !== ''))
+  return {
+    headers: headers.slice(0, keep),
+    allRows: kept.map(k => k.row),
+    // Parallel to allRows: which rows the spreadsheet hides
+    hiddenRows: kept.map(k => hiddenRawRows?.has(k.i) ?? false),
+  }
 }
 
 /** Normalize a checkbox value to 'true' or 'false' (matching the app's internal format) */
@@ -546,7 +558,8 @@ function parseCsvText(text: string): { rows: string[][]; truncated: boolean } {
         }
         return
       }
-      rows.push(result.data)
+      // Undo the export's formula guard ('=1+1 back to =1+1) so Pulse files round-trip (AUDIT-037)
+      rows.push(result.data.map(unguardCsvFormula))
       rowStart = result.meta.cursor
     },
   })
@@ -559,7 +572,7 @@ function parseCsvText(text: string): { rows: string[][]; truncated: boolean } {
 
 // Cache parsed file data between preview and execute to avoid re-parsing
 /** `sheet` is the sheet the rows came from, so going back and choosing another sheet re-reads it */
-let _parsedCache: { filePath: string; mtime: number; sheet: string; rawRows: string[][]; sheets: string[]; mergedRanges?: MergedCellInfo[]; warnings: string[] } | null = null
+let _parsedCache: { filePath: string; mtime: number; sheet: string; rawRows: string[][]; sheets: string[]; mergedRanges?: MergedCellInfo[]; warnings: string[]; hiddenRawRows: Set<number>; hiddenCols: number[] } | null = null
 let _parsedCacheTimer: ReturnType<typeof setTimeout> | null = null
 let _importInProgress = false // prevents concurrent executeImport calls
 const IMPORT_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
@@ -639,6 +652,10 @@ interface ParseResult {
   headerDetectionConfidence: HeaderDetectionResult['confidence']
   mergedRanges?: MergedCellInfo[]
   warnings: string[]
+  /** Parallel to allRows: hidden in the spreadsheet */
+  hiddenRows: boolean[]
+  /** 0-based indexes of hidden columns */
+  hiddenCols: number[]
 }
 
 async function getCachedOrParse(filePath: string, sheetName?: string, headerRowIndex?: number): Promise<ParseResult> {
@@ -654,9 +671,10 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
     const detection = clampedIdx != null
       ? { headerRowIndex: clampedIdx, confidence: 'high' as const, reason: 'user override' }
       : detectHeaderRow(rawRows, mergedRanges)
-    const { headers, allRows } = buildTable(rawRows, detection.headerRowIndex, mergedRanges)
+    const { headers, allRows, hiddenRows } = buildTable(rawRows, detection.headerRowIndex, mergedRanges, _parsedCache.hiddenRawRows)
     return {
-      headers, allRows, sheets: _parsedCache.sheets, rawRows, mergedRanges, warnings: _parsedCache.warnings,
+      headers, allRows, hiddenRows, hiddenCols: _parsedCache.hiddenCols.filter(c => c < headers.length),
+      sheets: _parsedCache.sheets, rawRows, mergedRanges, warnings: _parsedCache.warnings,
       detectedHeaderRow: detection.headerRowIndex, headerDetectionConfidence: detection.confidence,
     }
   }
@@ -667,6 +685,8 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
   let parsedSheet = ''
   let mergedRanges: MergedCellInfo[] | undefined
   const parseWarnings: string[] = []
+  const hiddenRawRows = new Set<number>()
+  const hiddenCols: number[] = []
 
   if (ext === 'csv') {
     // The whole file is decoded before parsing: decoding read-stream chunks one by one
@@ -699,12 +719,14 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
       const maxRow = Math.min(ws.rowCount, MAX_RAW_ROWS)
       if (ws.rowCount > MAX_RAW_ROWS) parseWarnings.push(rowCapWarning())
       const notes: ExcelReadNotes = { errors: 0, noResult: 0 }
+      for (let c = 1; c <= colCount; c++) if (ws.getColumn(c).hidden) hiddenCols.push(c - 1)
       for (let r = 1; r <= maxRow; r++) {
         const row = ws.getRow(r)
+        if (row.hidden) hiddenRawRows.add(r - 1)
         const rowData: string[] = []
         for (let c = 1; c <= colCount; c++) {
           const cell = row.getCell(c)
-          rowData.push(excelValueToString(cell.value, cell.numFmt ?? '', notes))
+          rowData.push(unguardCsvFormula(excelValueToString(cell.value, cell.numFmt ?? '', notes)))
         }
         rawRows.push(rowData)
       }
@@ -718,18 +740,19 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
     ? { headerRowIndex: clampedIdx, confidence: 'high' as const, reason: 'user override' }
     : detectHeaderRow(rawRows, mergedRanges)
 
-  const { headers, allRows } = buildTable(rawRows, detection.headerRowIndex, mergedRanges)
+  const { headers, allRows, hiddenRows } = buildTable(rawRows, detection.headerRowIndex, mergedRanges, hiddenRawRows)
 
   // Only cache if row count is within the size limit to avoid unbounded memory use
   if (rawRows.length <= MAX_CACHE_ROWS) {
-    _parsedCache = { filePath, mtime, sheet: parsedSheet, rawRows, sheets, mergedRanges, warnings: parseWarnings }
+    _parsedCache = { filePath, mtime, sheet: parsedSheet, rawRows, sheets, mergedRanges, warnings: parseWarnings, hiddenRawRows, hiddenCols }
     resetImportCacheTTL()
   } else {
     clearImportCache()
   }
 
   return {
-    headers, allRows, sheets, rawRows, mergedRanges, warnings: parseWarnings,
+    headers, allRows, hiddenRows, hiddenCols: hiddenCols.filter(c => c < headers.length),
+    sheets, rawRows, mergedRanges, warnings: parseWarnings,
     detectedHeaderRow: detection.headerRowIndex, headerDetectionConfidence: detection.confidence,
   }
 }
@@ -784,6 +807,10 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
   const sheets = cached.sheets
   const rawRows = cached.rawRows
   if (sheetName) sheetIndex = Math.max(0, sheets.indexOf(sheetName))
+  const hiddenInfo = {
+    hiddenRowCount: cached.hiddenRows.filter(Boolean).length,
+    hiddenColumns: cached.hiddenCols.map(c => headers[c] ?? `Column ${c + 1}`),
+  }
 
   if (dataRows.length === 0) return {
     sheets, activeSheet: sheetIndex, headers, rows: [], detectedColumns: [],
@@ -792,6 +819,7 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
     rawRowCount: rawRows.length,
     rawPreviewRows: rawRows.slice(0, Math.min(20, rawRows.length)),
     warnings: cached.warnings,
+    ...hiddenInfo,
   }
 
   const previewRows = dataRows.slice(0, 20)
@@ -848,6 +876,7 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
     rawRowCount: rawRows.length,
     rawPreviewRows: rawRows.slice(0, Math.min(20, rawRows.length)),
     warnings: cached.warnings,
+    ...hiddenInfo,
   }
 }
 
@@ -941,7 +970,9 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
     db.exec('BEGIN')
     began = true
   const headers = cached.headers
-  const allRows = cached.allRows
+  const allRows = options.skipHiddenRows ? cached.allRows.filter((_, i) => !cached.hiddenRows[i]) : cached.allRows
+  const leftOutHidden = cached.allRows.length - allRows.length
+  if (leftOutHidden > 0) warnings.push(`Left out ${leftOutHidden} row${leftOutHidden === 1 ? '' : 's'} hidden in the spreadsheet, as you chose.`)
 
   // Build column map: sourceIndex → {columnId, type}
   // Create new columns as needed

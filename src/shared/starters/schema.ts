@@ -229,7 +229,6 @@ export const starterSchema = z.object({
 
 export type Starter = z.infer<typeof starterSchema>
 export type StarterList = z.infer<typeof listSchema>
-export type StarterVariant = z.infer<typeof variantSchema>
 export type SampleDataSpec = z.infer<typeof sampleDataSchema>
 
 export type ParseResult = { ok: true; starter: Starter } | { ok: false; error: string }

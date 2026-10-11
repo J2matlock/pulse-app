@@ -136,12 +136,50 @@ describe('summary report CSV header', () => {
     const csv = readFileSync(destPath, 'utf8')
     expect(csv.startsWith('\uFEFF')).toBe(true)
     const lines = csv.slice(1).split('\r\n')
-    expect(lines).toContain('Caseload,"\t=HYPERLINK(""http://x"")"')
-    expect(lines).toContain('Case manager,\t@Test Person')
-    expect(lines).toContain('Title,\t+Lead')
-    expect(lines).toContain('Organization,\t-Org')
+    expect(lines).toContain('Caseload,"\'=HYPERLINK(""http://x"")"')
+    expect(lines).toContain('Case manager,\'@Test Person')
+    expect(lines).toContain('Title,\'+Lead')
+    expect(lines).toContain('Organization,\'-Org')
     expect(csv).not.toMatch(/^Grid,/m)
     expect(csv).not.toMatch(/^Worker,/m)
+  })
+})
+
+describe('summary report confidentiality line (AUDIT-153)', () => {
+  async function both(): Promise<string[]> {
+    const outs: string[] = []
+    for (const format of ['csv', 'pdf'] as const) {
+      const destPath = join(testDb.tmpDir, `banner.${format}`)
+      await exportSupervisorReport({
+        gridId: grid.gridId, columnIds: [], dateRange: { start: localDateFromToday(-30), end: today },
+        includeActivityLog: false, includeSystemActivity: false, includeTaskSummary: false, format, destPath,
+      })
+      outs.push(readFileSync(destPath).toString('latin1'))
+    }
+    return outs
+  }
+
+  it('says protected health information only for human-services words', async () => {
+    setDbWords(testDb.db)
+    for (const out of await both()) expect(out).toContain('PROTECTED HEALTH INFORMATION')
+  })
+
+  it("uses the workspace's record word otherwise", async () => {
+    setDbWords(testDb.db, { record: { one: 'vehicle', many: 'vehicles', article: 'a' } })
+    for (const out of await both()) {
+      expect(out).not.toContain('PROTECTED HEALTH')
+      expect(out).toContain('CONTAINS VEHICLE INFORMATION')
+    }
+  })
+
+  it('follows the list\'s own words over the workspace\'s', async () => {
+    setDbWords(testDb.db)
+    testDb.db.prepare('UPDATE grids SET vocab = ? WHERE id = ?')
+      .run(JSON.stringify({ record: { one: 'property', many: 'properties', article: 'a' } }), grid.gridId)
+    for (const out of await both()) {
+      expect(out).not.toContain('PROTECTED HEALTH')
+      expect(out).toContain('CONTAINS PROPERTY INFORMATION')
+    }
   })
 })
 

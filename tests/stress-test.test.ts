@@ -131,7 +131,6 @@ vi.mock('../main/backup', () => ({
   restoreFromDb: vi.fn(),
   restoreFromPulseBackup: vi.fn(),
   getBackupInfo: vi.fn().mockReturnValue({}),
-  listScheduledBackups: vi.fn().mockReturnValue([]),
   getBackupDir: vi.fn().mockReturnValue(tmpTestDir),
   verifyBackup: vi.fn().mockReturnValue(true),
   getScheduledConfig: vi.fn().mockReturnValue({ enabled: false, intervalHours: 24, retainCount: 10, lastRun: null }),

@@ -60,8 +60,15 @@ async function checkForUpdateOnce(): Promise<UpdateInfo | null> {
     const pref = await safeInvoke(IPC.SETTINGS_GET, 'auto_update_check')
     if (pref.ok && pref.data === 'false') return null
     const res = await safeInvoke<{
-      available: boolean; version?: string; downloadUrl?: string
+      available: boolean; version?: string; downloadUrl?: string; setupPending?: boolean
     }>(IPC.APP_CHECK_FOR_UPDATES)
+    // The layout can mount for a moment before setup opens on first launch. Main
+    // won't check until setup (which asks about this) is done, so forget this
+    // attempt and check when the layout comes back after setup (AUDIT-087).
+    if (res.ok && res.data.setupPending) {
+      updateCheck = null
+      return null
+    }
     if (res.ok && res.data.available && res.data.version) {
       return { version: res.data.version, downloadUrl: res.data.downloadUrl }
     }

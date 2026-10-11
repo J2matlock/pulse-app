@@ -405,12 +405,40 @@ describe('APP_CHECK_FOR_UPDATES honours the setting in main (AUDIT-188) and stay
   })
 
   it('an automatic check runs when the setting is on or unset', async () => {
+    testDb.db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('onboarding_complete', '1')").run()
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => latest())
     try {
       expect((await invoke(IPC.APP_CHECK_FOR_UPDATES) as any).data.available).toBe(true)
       testDb.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('auto_update_check', 'true')").run()
       expect((await invoke(IPC.APP_CHECK_FOR_UPDATES) as any).data.available).toBe(true)
       expect(fetchSpy).toHaveBeenCalledTimes(2)
+    } finally { fetchSpy.mockRestore() }
+  })
+
+  it('an automatic check waits until first-run setup is finished; the button still checks (AUDIT-087)', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => latest())
+    try {
+      // A new workspace: no lists and no finished-setup flag yet
+      expect(await invoke(IPC.APP_CHECK_FOR_UPDATES)).toEqual({ ok: true, data: { available: false, setupPending: true } })
+      // Setup under way (it has made a list but not finished)
+      testDb.db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('onboarding_complete', '0')").run()
+      testDb.db.prepare("INSERT INTO grids (name, created_at, updated_at) VALUES ('Test list', datetime('now'), datetime('now'))").run()
+      expect(await invoke(IPC.APP_CHECK_FOR_UPDATES)).toEqual({ ok: true, data: { available: false, setupPending: true } })
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect((await invoke(IPC.APP_CHECK_FOR_UPDATES, { manual: true }) as any).data.available).toBe(true)
+      // Setup finished
+      testDb.db.prepare("UPDATE app_meta SET value = '1' WHERE key = 'onboarding_complete'").run()
+      expect((await invoke(IPC.APP_CHECK_FOR_UPDATES) as any).data.available).toBe(true)
+      expect(fetchSpy).toHaveBeenCalledTimes(2)
+    } finally { fetchSpy.mockRestore() }
+  })
+
+  it('an install from before the setup flag counts as set up when it has a list', async () => {
+    testDb.db.prepare("DELETE FROM app_meta WHERE key = 'onboarding_complete'").run()
+    testDb.db.prepare("INSERT INTO grids (name, created_at, updated_at) VALUES ('Test list', datetime('now'), datetime('now'))").run()
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => latest())
+    try {
+      expect((await invoke(IPC.APP_CHECK_FOR_UPDATES) as any).data.available).toBe(true)
     } finally { fetchSpy.mockRestore() }
   })
 

@@ -650,15 +650,6 @@ export async function getBackupMadeInfo(backupPath: string): Promise<{ madeAt: s
 // Layer 2 — Scheduled backup (interval-based, user destination, rolling 10)
 // ──────────────────────────────────────────────────────────────────────────────
 
-export function listScheduledBackups(destinationDir: string): string[] {
-  if (!destinationDir || !existsSync(destinationDir)) return []
-  return readdirSync(destinationDir)
-    .filter(f => f.startsWith('pulse-scheduled-') && (f.endsWith('.pulse-backup') || f.endsWith('.db')))
-    .sort()
-    .reverse()
-    .map(f => join(destinationDir, f))
-}
-
 // ── Scheduled backup config persistence ──────────────────────────────────────
 
 interface ScheduledConfigStore {

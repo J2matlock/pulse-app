@@ -81,7 +81,6 @@ vi.mock('../src/main/backup', () => ({
   restoreFromDb: async () => {},
   restoreFromPulseBackup: async () => {},
   getBackupInfo: () => ({}),
-  listScheduledBackups: () => [],
   getBackupDir: () => '/tmp',
   verifyBackup: async () => ({ valid: true }),
   getScheduledConfig: () => null,
