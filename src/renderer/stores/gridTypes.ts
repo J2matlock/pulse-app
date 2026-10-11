@@ -46,6 +46,8 @@ export interface CoreGridState {
   setShowArchived: (show: boolean) => void
 
   lastAddedRowId: number | null
+  /** A record just added stays on screen even if the filter or search would hide it (G-28) */
+  pinnedRowId: number | null
 
   /** What deadline rules need besides each row (meter readings…), for grid coloring (W05) */
   deadlineContext: GridDeadlineContext

@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast'
 import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react'
 import {
   useReactTable,
@@ -74,7 +75,7 @@ export function DataGrid(): React.ReactElement {
           rowTagsMap, showStarredOnly, cellFormats,
           acuityEnabled: acuityFlag, acuityLevels, groupByColumnId, isLoading,
           activeGridId, copiedFormatRules, customGroups, activeCustomGroupId,
-          lastAddedRowId, frozenColumnCount } = useGridStore(useShallow(s => ({
+          lastAddedRowId, pinnedRowId, frozenColumnCount } = useGridStore(useShallow(s => ({
     columns: s.columns, rows: s.rows, sortConfig: s.sortConfig,
     searchQuery: s.searchQuery, findReplaceQuery: s.findReplaceQuery,
     findReplaceActiveMatch: s.findReplaceActiveMatch,
@@ -87,6 +88,7 @@ export function DataGrid(): React.ReactElement {
     copiedFormatRules: s.copiedFormatRules,
     customGroups: s.customGroups, activeCustomGroupId: s.activeCustomGroupId,
     lastAddedRowId: s.lastAddedRowId,
+    pinnedRowId: s.pinnedRowId,
     frozenColumnCount: s.frozenColumnCount,
   })))
   // A list's own setting, shown only while the feature is switched on
@@ -207,17 +209,26 @@ export function DataGrid(): React.ReactElement {
   // Apply starred pre-filter + column filters + acuity sort before passing to TanStack
   const filteredRows = useMemo(() => {
     let result = rows
+    // A record just added stays in view until the filter changes (G-28)
+    const pinned = (row: GridRow) => row.row_id === pinnedRowId
     if (showStarredOnly) {
-      result = result.filter(row => row.is_starred === 1)
+      result = result.filter(row => row.is_starred === 1 || pinned(row))
     }
     if (activeFilters.length > 0) {
       const matcher = filterMode === 'or'
         ? (row: GridRow) => activeFilters.some(f => matchFilter(row, f, columns, rowTagsMap))
         : (row: GridRow) => activeFilters.every(f => matchFilter(row, f, columns, rowTagsMap))
-      result = result.filter(matcher)
+      result = result.filter(row => matcher(row) || pinned(row))
     }
     return result
-  }, [rows, activeFilters, filterMode, columns, rowTagsMap, showStarredOnly])
+  }, [rows, activeFilters, filterMode, columns, rowTagsMap, showStarredOnly, pinnedRowId])
+
+  // Changing what's filtered lets the pinned record go (not the first render: the grid may mount after an add)
+  const filterMounted = useRef(false)
+  useEffect(() => {
+    if (!filterMounted.current) { filterMounted.current = true; return }
+    if (useGridStore.getState().pinnedRowId !== null) useGridStore.setState({ pinnedRowId: null })
+  }, [activeFilters, filterMode, searchQuery, showStarredOnly])
 
   // Map for O(1) column lookup
   const columnMap = useMemo(() => new Map(columns.map(c => [c.id, c])), [columns])
@@ -468,6 +479,7 @@ export function DataGrid(): React.ReactElement {
   // Custom global filter: only search name + text/dropdown columns
   const globalFilterFn = useCallback((row: Row<GridRow>, _columnId: string, filterValue: string) => {
     if (!filterValue) return true
+    if (row.original.row_id === useGridStore.getState().pinnedRowId) return true
     const lower = filterValue.toLowerCase()
     const data = row.original
     for (const col of columns) {
@@ -622,6 +634,25 @@ export function DataGrid(): React.ReactElement {
   // Auto-edit first editable cell when a new row is added
   useEffect(() => {
     if (!lastAddedRowId) return
+    // Show where it went: a long or sorted list puts it out of sight (G-28)
+    scrollToRowId(lastAddedRowId)
+    const s = useGridStore.getState()
+    const newRow = s.rows.find(r => r.row_id === lastAddedRowId)
+    const hiddenByFilter = !!newRow && ((s.showStarredOnly && newRow.is_starred !== 1) || !!s.searchQuery
+      || (s.activeFilters.length > 0 && !(s.filterMode === 'or'
+        ? s.activeFilters.some(f => matchFilter(newRow, f, columns, rowTagsMap))
+        : s.activeFilters.every(f => matchFilter(newRow, f, columns, rowTagsMap)))))
+    if (hiddenByFilter) {
+      toast(tt => (
+        <span className="flex items-center gap-3 text-base">
+          Added — your filter would hide it.
+          <button type="button" className="btn-secondary" onClick={() => {
+            toast.dismiss(tt.id)
+            useGridStore.setState({ activeFilters: [], searchQuery: '', showStarredOnly: false })
+          }}>Show all</button>
+        </span>
+      ), { duration: 8000 })
+    }
     const timer = setTimeout(() => {
       const firstEditableCol = columns.find(c => !isNotTypedColumnType(c.column_type))
       if (firstEditableCol) {
@@ -631,7 +662,7 @@ export function DataGrid(): React.ReactElement {
       useGridStore.setState({ lastAddedRowId: null })
     }, 50)
     return () => clearTimeout(timer)
-  }, [lastAddedRowId, columns, setEditingCell])
+  }, [lastAddedRowId, columns, setEditingCell]) // eslint-disable-line react-hooks/exhaustive-deps -- once per added record
 
   const handleBulkSetAcuityLevel = useCallback((levelId: number | null) => {
     const ids = Array.from(selectedRowIdsRef.current)

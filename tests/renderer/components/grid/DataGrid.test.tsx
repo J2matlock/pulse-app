@@ -117,6 +117,7 @@ vi.mock('@tanstack/react-virtual', () => ({
       })),
     getTotalSize: () => count * 44,
     measureElement: vi.fn(),
+    scrollToIndex: vi.fn(),
   }),
 }))
 
@@ -504,6 +505,22 @@ describe('DataGrid', () => {
       await flushEffects()
       expect([...useGridStore.getState().selectedRowIds]).toEqual([3])
       expect(useGridStore.getState().sortedRowIds).toEqual([3])
+    })
+
+    it('keeps a record just added on screen, and says when the filter would hide it (G-28)', async () => {
+      const toast = (await import('react-hot-toast')).default as unknown as ReturnType<typeof vi.fn>
+      toast.mockClear()
+      const rows = [...makeTestRows(5).map(r => ({ ...r, is_starred: 1 as const })), makeRow(6, {})]
+      setupStores({ rows, showStarredOnly: true, lastAddedRowId: 6, pinnedRowId: 6 })
+      renderDataGrid()
+      await flushEffects()
+      expect(useGridStore.getState().sortedRowIds).toContain(6)
+      expect(toast).toHaveBeenCalledTimes(1)
+      // Changing the filter lets it go
+      act(() => { useGridStore.setState({ searchQuery: 'Client' }) })
+      await flushEffects()
+      expect(useGridStore.getState().pinnedRowId).toBeNull()
+      expect(useGridStore.getState().sortedRowIds).not.toContain(6)
     })
 
     it('a search that hides selected records unselects them (G-05)', async () => {

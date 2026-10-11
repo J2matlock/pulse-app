@@ -76,6 +76,7 @@ export const useGridStore = create<GridState>((set, get) => ({
   showArchived: false,
   groupByColumnId: null,
   lastAddedRowId: null,
+  pinnedRowId: null,
   deadlineContext: { meter: {}, quota: {}, progress: {}, extensions: {} },
   refreshDeadlineContext: async () => {
     const gridId = get().activeGridId
@@ -163,7 +164,7 @@ export const useGridStore = create<GridState>((set, get) => ({
       }
       set({ ...(_listViews.get(gridId) ?? DEFAULT_LIST_VIEW) })
     }
-    set({ isLoading: true, activeGridId: gridId, _loadVersion: version, sortedRowIds: [], selectedRowIds: new Set<number>() })
+    set({ isLoading: true, activeGridId: gridId, _loadVersion: version, sortedRowIds: [], selectedRowIds: new Set<number>(), pinnedRowId: null })
     try {
       const showArchived = get().showArchived
       const fullData = await invoke<{
@@ -311,7 +312,7 @@ export const useGridStore = create<GridState>((set, get) => ({
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
-      set(s => ({ rows: [...s.rows, newRow], lastAddedRowId: newRowId }))
+      set(s => ({ rows: [...s.rows, newRow], lastAddedRowId: newRowId, pinnedRowId: newRowId }))
       // Container object shared between undo/redo closures.
       // Redo updates `ref.rowId` immediately after creating the new row,
       // so a subsequent undo always targets the correct (most recent) row.
