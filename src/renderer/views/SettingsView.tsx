@@ -127,6 +127,7 @@ export default function SettingsView(): React.ReactElement {
         style={{ minHeight: 48 }}
       >
         <ViewBreadcrumb items={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Settings' }]} />
+        <h1 className="sr-only">Settings</h1>
       </div>
 
       <div className="flex-1 flex overflow-hidden">

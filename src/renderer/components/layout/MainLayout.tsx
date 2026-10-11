@@ -1,4 +1,4 @@
-import React, { Suspense, useState, useEffect, useCallback } from 'react'
+import React, { Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useFeature } from '../../hooks/useFeature'
 import { FormFillHost } from '../forms/FormFillHost'
@@ -10,6 +10,9 @@ import { SampleDataBanner } from '../shared/SampleDataBanner'
 import { ErrorBoundary } from '../shared/ErrorBoundary'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
+import { useVocab } from '../../hooks/useVocab'
+import { PRODUCT_NAME } from '../../../shared/constants'
+import type { VocabKey, TermOptions } from '../../../shared/vocab'
 
 interface UpdateInfo {
   version: string
@@ -29,6 +32,27 @@ let sidebarCollapsedLast = false
 export function resetMainLayoutSession(): void {
   updateCheck = null
   sidebarCollapsedLast = false
+}
+
+/** The page's name for the window title and for screen readers (audit A06-10) */
+export function viewName(pathname: string, t: (key: VocabKey, opts?: TermOptions) => string): string {
+  const first = pathname.split('/')[1] ?? ''
+  switch (first) {
+    case '': case 'grid': return t('record', { many: true, cap: true })
+    case 'profile': return t('record', { cap: true })
+    case 'dashboard': return 'Dashboard'
+    case 'tasks': return 'Tasks'
+    case 'calendar': return 'Calendar'
+    case 'reports': return 'Reports'
+    case 'contacts': return t('contactDirectory', { cap: true })
+    case 'trash': return 'Trash'
+    case 'snippets': return 'Snippets'
+    case 'templates': return 'Templates'
+    case 'letter-templates': return 'Letters'
+    case 'settings': return 'Settings'
+    case 'help': return 'Help'
+    default: return PRODUCT_NAME
+  }
 }
 
 async function checkForUpdateOnce(): Promise<UpdateInfo | null> {
@@ -61,6 +85,31 @@ export function MainLayout({ children }: Props): React.ReactElement {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const formsOn = useFeature('forms')
+  const { t } = useVocab()
+  const mainRef = useRef<HTMLElement>(null)
+  const lastPathname = useRef(pathname)
+  const [announcement, setAnnouncement] = useState('')
+  const pageName = viewName(pathname, t)
+
+  // The window title names the page; the lock screen goes back to the plain name
+  useEffect(() => {
+    document.title = pageName === PRODUCT_NAME ? PRODUCT_NAME : `${pageName} – ${PRODUCT_NAME}`
+  }, [pageName])
+  useEffect(() => () => { document.title = PRODUCT_NAME }, [])
+
+  // Moving to another page takes keyboard focus to it and says which page it is,
+  // instead of leaving focus on the sidebar with nothing announced (audit A06-10).
+  // A page that already put focus somewhere inside itself keeps it. New words
+  // for the same page don't count as a move.
+  useEffect(() => {
+    if (lastPathname.current === pathname) return
+    lastPathname.current = pathname
+    setAnnouncement(pageName)
+    const main = mainRef.current
+    const active = document.activeElement
+    const focusInPage = !!main && !!active && active !== document.body && active !== main && main.contains(active)
+    if (main && !focusInPage) main.focus({ preventScroll: true })
+  }, [pathname, pageName])
 
   // A desktop reminder was clicked (W11): open what it was about
   useEffect(() => window.api.on(IPC.REMINDER_OPEN, (route: unknown) => {
@@ -104,15 +153,18 @@ export function MainLayout({ children }: Props): React.ReactElement {
   return (
     <div className="flex h-screen overflow-hidden bg-white dark:bg-slate-900">
       {formsOn && <FormFillHost />}
-      {/* Skip to main content link — visible only on focus */}
-      <a
-        href="#main-content"
+      {/* Skip to main content — visible only on focus. A button, not an href="#…"
+          link: under the hash router a link would change the page (audit A06-2). */}
+      <button
+        type="button"
+        onClick={() => mainRef.current?.focus()}
         className="sr-only focus:not-sr-only focus:absolute focus:z-[300] focus:top-2 focus:left-2
                    focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg
                    focus:text-base focus:font-medium focus:shadow-lg focus:outline-hidden focus:ring-3 focus:ring-blue-300"
       >
         Skip to main content
-      </a>
+      </button>
+      <div id="page-announcer" role="status" aria-live="polite" aria-atomic="true" className="sr-only">{announcement}</div>
 
       {/* Sidebar */}
       <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(v => !v)} />
@@ -128,7 +180,7 @@ export function MainLayout({ children }: Props): React.ReactElement {
           />
         )}
         <SampleDataBanner />
-        <main id="main-content" className="flex-1 overflow-hidden">
+        <main id="main-content" ref={mainRef} tabIndex={-1} aria-label={pageName} className="flex-1 overflow-hidden focus:outline-none">
           {/* A page loading for the first time doesn't blank the sidebar and top bar (audit N-29) */}
           {/* A page that crashes keeps the sidebar and top bar, and moving to another page clears it */}
           <ErrorBoundary resetKey={pathname}>
