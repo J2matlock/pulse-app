@@ -235,7 +235,9 @@ describe('10J — Renderer handles ok:false gracefully', () => {
 
     mockInvoke.mockRejectedValueOnce(new Error('Network error'))
 
-    // Should not throw — error is caught internally
-    await useGridStore.getState().updateColumn(1, { name: 'New Name' })
+    // Should not throw — error is caught internally, reported as failure, and the name is unchanged
+    const saved = await useGridStore.getState().updateColumn(1, { name: 'New Name' })
+    expect(saved).toBe(false)
+    expect(useGridStore.getState().columns[0]?.name).toBe('Name')
   })
 })
