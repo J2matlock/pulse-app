@@ -23,7 +23,7 @@ describe('profileStore', () => {
   beforeEach(() => {
     useProfileStore.setState({
       recentProfiles: [],
-      savedScrollTop: 0,
+      savedScroll: null,
     })
   })
 
@@ -56,12 +56,15 @@ describe('profileStore', () => {
     expect(useProfileStore.getState().recentProfiles[0].rowId).toBe(15)
   })
 
-  it('saveScrollTop persists scroll position', () => {
-    useProfileStore.getState().saveScrollTop(500)
-    expect(useProfileStore.getState().savedScrollTop).toBe(500)
+  it('saveScrollTop persists scroll position, for its list', () => {
+    useProfileStore.getState().saveScrollTop(3, 500)
+    expect(useProfileStore.getState().savedScroll).toEqual({ gridId: 3, top: 500 })
 
-    useProfileStore.getState().saveScrollTop(0)
-    expect(useProfileStore.getState().savedScrollTop).toBe(0)
+    useProfileStore.getState().saveScrollTop(3, 0)
+    expect(useProfileStore.getState().savedScroll).toEqual({ gridId: 3, top: 0 })
+
+    useProfileStore.getState().clearSavedScroll()
+    expect(useProfileStore.getState().savedScroll).toBeNull()
   })
 
   it('clearRecentProfiles resets state', () => {

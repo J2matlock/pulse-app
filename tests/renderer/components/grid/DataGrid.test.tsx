@@ -188,6 +188,7 @@ vi.mock('../../../../src/renderer/utils/filterMatch', () => ({
 import { useGridStore } from '../../../../src/renderer/stores/gridStore'
 import { useSettingsStore } from '../../../../src/renderer/stores/settingsStore'
 import { useAlertStore } from '../../../../src/renderer/stores/alertStore'
+import { useProfileStore } from '../../../../src/renderer/stores/profileStore'
 import { DataGrid } from '../../../../src/renderer/components/grid/DataGrid'
 import { setWords } from '../../vocabFixture'
 
@@ -424,6 +425,27 @@ describe('DataGrid', () => {
       await act(async () => { useGridStore.setState({ isLoading: false, rows: makeTestRows(5) }) })
       expect(container.querySelector('.overflow-auto')).toBe(scroller)
       expect(document.activeElement).toBe(screen.getAllByRole('gridcell')[5])
+    })
+
+    it('back from a record, scrolls to where this list was once its records arrive, then forgets it (AUDIT-129)', async () => {
+      useProfileStore.setState({ savedScroll: { gridId: 1, top: 300 } })
+      setupStores({ isLoading: true, loadedGridId: null })
+      const { container } = renderDataGrid()
+      await flushEffects()
+      expect(useProfileStore.getState().savedScroll).not.toBeNull()
+      await act(async () => { useGridStore.setState({ isLoading: false, loadedGridId: 1 }) })
+      const scroller = container.querySelector('.overflow-auto') as HTMLDivElement
+      expect(scroller.scrollTop).toBe(300)
+      expect(useProfileStore.getState().savedScroll).toBeNull()
+    })
+
+    it('does not use another list\'s scroll position (AUDIT-129)', async () => {
+      useProfileStore.setState({ savedScroll: { gridId: 2, top: 300 } })
+      setupStores({ loadedGridId: 1 })
+      const { container } = renderDataGrid()
+      await flushEffects()
+      expect((container.querySelector('.overflow-auto') as HTMLDivElement).scrollTop).toBe(0)
+      expect(useProfileStore.getState().savedScroll).toBeNull()
     })
 
     it('says when a list could not be opened, and tries again (AUDIT-041)', async () => {

@@ -139,8 +139,8 @@ export function DataGrid(): React.ReactElement {
 
   const handleNavigateToProfile = useCallback((rowId: number) => {
     const scrollEl = containerRef.current
-    if (scrollEl) saveScrollTop(scrollEl.scrollTop)
     const { grids: currentGrids, rows: currentRows, columns: currentCols, activeGridId: currentGridId } = useGridStore.getState()
+    if (scrollEl && currentGridId !== null) saveScrollTop(currentGridId, scrollEl.scrollTop)
     const grid = currentGrids.find(g => g.id === currentGridId)
     const row = currentRows.find(r => r.row_id === rowId)
     const name = row ? getClientName(row, currentCols, 'Unknown') : 'Unknown'
@@ -190,15 +190,18 @@ export function DataGrid(): React.ReactElement {
   const columnSizingRef = useRef<ColumnSizingState>({})
   const resizeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Restore scroll position when returning from profile view
-  const savedScrollTop = useProfileStore(s => s.savedScrollTop)
+  // Back from a record's page: scroll to where this list was, once the records are
+  // on screen, then forget it. Another list's position is dropped (AUDIT-129)
+  const savedScroll = useProfileStore(s => s.savedScroll)
+  const listReady = !isLoading && loadedGridId !== null && loadedGridId === activeGridId && rows.length > 0
   useEffect(() => {
-    if (!savedScrollTop) return
+    if (!savedScroll) return
+    if (savedScroll.gridId !== activeGridId) { useProfileStore.getState().clearSavedScroll(); return }
+    if (!listReady) return
     const el = containerRef.current
-    if (el) {
-      el.scrollTop = savedScrollTop
-    }
-  }, []) // Only on mount — intentional
+    if (el) el.scrollTop = savedScroll.top
+    useProfileStore.getState().clearSavedScroll()
+  }, [savedScroll, activeGridId, listReady])
 
   // Clean up resizeTimeoutRef on unmount to prevent stale callbacks
   useEffect(() => {
