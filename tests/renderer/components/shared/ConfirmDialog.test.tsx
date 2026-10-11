@@ -77,6 +77,42 @@ describe('ConfirmDialog', () => {
     expect(screen.getByText('Delete Forever')).toBeDefined()
   })
 
+  describe('Enter key', () => {
+    it('does not confirm when Enter is pressed on Cancel', () => {
+      render(<ConfirmDialog {...baseProps} />)
+      fireEvent.keyDown(screen.getByText('Cancel'), { key: 'Enter' })
+      expect(baseProps.onConfirm).not.toHaveBeenCalled()
+    })
+
+    it('does not confirm when Enter is pressed on the close button', () => {
+      render(<ConfirmDialog {...baseProps} />)
+      fireEvent.keyDown(screen.getByLabelText('Close'), { key: 'Enter' })
+      expect(baseProps.onConfirm).not.toHaveBeenCalled()
+    })
+
+    it('confirms once when Enter is pressed on the confirm button', () => {
+      render(<ConfirmDialog {...baseProps} />)
+      fireEvent.keyDown(screen.getByText('Confirm'), { key: 'Enter' })
+      expect(baseProps.onConfirm).toHaveBeenCalledTimes(1)
+    })
+
+    it('confirms when Enter is pressed in an input inside the dialog', () => {
+      render(<ConfirmDialog {...baseProps}><input aria-label="Reason" /></ConfirmDialog>)
+      fireEvent.keyDown(screen.getByLabelText('Reason'), { key: 'Enter' })
+      expect(baseProps.onConfirm).toHaveBeenCalledTimes(1)
+    })
+
+    it('confirms on Enter in the typed input only once the phrase matches', () => {
+      render(<ConfirmDialog {...baseProps} variant="typed" requiredPhrase="DELETE" />)
+      const input = screen.getByRole('textbox')
+      fireEvent.keyDown(input, { key: 'Enter' })
+      expect(baseProps.onConfirm).not.toHaveBeenCalled()
+      fireEvent.change(input, { target: { value: 'DELETE' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      expect(baseProps.onConfirm).toHaveBeenCalledTimes(1)
+    })
+  })
+
   describe('typed variant', () => {
     const typedProps = {
       ...baseProps,

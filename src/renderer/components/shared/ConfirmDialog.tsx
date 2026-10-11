@@ -66,7 +66,13 @@ export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | n
       onCancel()
     }
     if (e.key === 'Enter' && canConfirm) {
+      // Enter on Cancel, the X or any other control must do that control's
+      // job, never the (usually destructive) confirm.
+      const target = e.target as HTMLElement
+      if (target !== primaryRef.current && target.closest('button, a, select, textarea')) return
       e.stopPropagation()
+      // The confirm button would also fire its own click on Enter; confirm once.
+      e.preventDefault()
       onConfirm()
     }
     // Focus trap: Tab/Shift+Tab stays within dialog
