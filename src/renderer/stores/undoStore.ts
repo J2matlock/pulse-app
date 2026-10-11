@@ -11,6 +11,7 @@ import { create } from 'zustand'
 import { IPC } from '../../shared/ipc-channels'
 import { storeInvoke } from '../utils/safeInvoke'
 import { rlog } from '../utils/rendererLogger'
+import { isTechnicalError } from '../utils/friendlyError'
 
 // ── Side effects ──────────────────────────────────────────────────────────────
 
@@ -90,7 +91,7 @@ export interface PushOptions { evenWhileUndoing?: boolean }
 /** The reason an undo or redo failed, for the toast: handler messages are already plain English */
 function failureText(kind: 'Undo' | 'Redo', err: unknown): string {
   const reason = err instanceof Error ? err.message.trim() : ''
-  const plain = reason && reason !== 'READ_ONLY' && reason.length < 200 && !/sqlite|ipc|undefined|null|TypeError/i.test(reason)
+  const plain = reason && reason.length < 200 && !isTechnicalError(reason) && !/sqlite|ipc|undefined|null|TypeError/i.test(reason)
   return plain ? `${kind} didn't work: ${reason}` : `${kind} failed — your change could not be ${kind === 'Undo' ? 'reverted' : 'reapplied'}`
 }
 

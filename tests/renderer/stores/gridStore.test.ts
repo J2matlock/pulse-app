@@ -17,6 +17,7 @@ vi.stubGlobal('crypto', { randomUUID: () => 'test-uuid-' + Math.random().toStrin
 
 import { useGridStore } from '../../../src/renderer/stores/gridStore'
 import { useUndoStore } from '../../../src/renderer/stores/undoStore'
+import { IPC } from '../../../src/shared/ipc-channels'
 import type { GridRow, Column, Grid } from '../../../src/shared/types'
 
 // Helpers
@@ -384,6 +385,42 @@ describe('gridStore', () => {
       await useGridStore.getState().addRow()
       expect(useUndoStore.getState().undoStack).toHaveLength(1)
       expect(useUndoStore.getState().undoStack[0]!.icon).toBe('plus-circle')
+    })
+  })
+
+  describe('undo and redo of a new record keep its id (bug sweep S3)', () => {
+    const loadData = { grid: { id: 1, name: 'L', sort_config: '[]' }, columns: [], hiddenColumns: [], rows: [], acuityLevels: [], cellFormats: [], rowTagsMap: {}, savedViews: [], customGroups: '[]' }
+    function route(newId: number) {
+      mockInvoke.mockImplementation(async (channel: string) => {
+        if (channel === IPC.ROW_CREATE || channel === IPC.ROW_DUPLICATE) return { ok: true, data: newId }
+        if (channel === IPC.GRID_GET_FULL) return { ok: true, data: loadData }
+        return { ok: true, data: true }
+      })
+    }
+    const callsTo = (ch: string) => mockInvoke.mock.calls.filter(c => c[0] === ch).map(c => c.slice(1))
+
+    it('Undo of "Added new record" moves it to the Trash, and Redo brings back the same record', async () => {
+      useGridStore.setState({ activeGridId: 1, rows: [] })
+      route(42)
+      await useGridStore.getState().addRow()
+      await useUndoStore.getState().undo()
+      expect(callsTo(IPC.ROW_HARD_DELETE)).toEqual([])
+      expect(callsTo(IPC.ROW_DELETE)).toEqual([[42]])
+      await useUndoStore.getState().redo()
+      expect(callsTo(IPC.ROW_RESTORE_DELETED)).toEqual([[42]])
+      // No second record is made, so edits typed into 42 can be redone
+      expect(callsTo(IPC.ROW_CREATE)).toHaveLength(1)
+    })
+
+    it('Undo of a duplicate moves it to the Trash, and Redo restores it rather than duplicating again', async () => {
+      useGridStore.setState({ activeGridId: 1, rows: [makeRow(1)] })
+      route(77)
+      await useGridStore.getState().duplicateRow(1)
+      await useUndoStore.getState().undo()
+      expect(callsTo(IPC.ROW_DELETE)).toEqual([[77]])
+      await useUndoStore.getState().redo()
+      expect(callsTo(IPC.ROW_RESTORE_DELETED)).toEqual([[77]])
+      expect(callsTo(IPC.ROW_DUPLICATE)).toHaveLength(1)
     })
   })
 

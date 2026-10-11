@@ -132,6 +132,21 @@ describe('undoStore', () => {
     })
   })
 
+  describe('failure text (bug sweep S3)', () => {
+    it('keeps developer wording out of the toast', async () => {
+      useUndoStore.getState().push(makeItem({ undo: vi.fn().mockRejectedValue(new Error('Hard delete only allowed for recently-created rows')) }))
+      await useUndoStore.getState().undo()
+      expect(useUndoStore.getState().toast?.description).not.toMatch(/Hard delete/)
+      expect(useUndoStore.getState().toast?.description).toMatch(/^Undo failed/)
+    })
+
+    it('passes a plain sentence through', async () => {
+      useUndoStore.getState().push(makeItem({ undo: vi.fn().mockRejectedValue(new Error("That can't be undone any more.")) }))
+      await useUndoStore.getState().undo()
+      expect(useUndoStore.getState().toast?.description).toBe("Undo didn't work: That can't be undone any more.")
+    })
+  })
+
   describe('clear', () => {
     it('empties both stacks', () => {
       useUndoStore.getState().push(makeItem())

@@ -177,7 +177,7 @@ describe('IPC Row — ROW_HARD_DELETE', () => {
     testDb.db.prepare("UPDATE rows SET created_at = datetime('now', '-2 minutes') WHERE id = ?").run(rowIds[0])
     const result = await invoke(IPC.ROW_HARD_DELETE, rowIds[0]) as any
     expect(result.ok).toBe(false)
-    expect(result.error).toMatch(/recently-created/i)
+    expect(result.error).toMatch(/can't be undone any more/)
   })
 
   it('rejects non-existent row', async () => {

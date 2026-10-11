@@ -17,6 +17,29 @@ async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
   return result.data
 }
 
+/** Undo of a copy moves the new copies to the Trash; redo brings the same ones back */
+function pushCopyUndo(copyIds: number[], description: string): void {
+  const reload = async () => {
+    const gId = useGridStore.getState().activeGridId
+    if (gId) await useGridStore.getState().loadGrid(gId)
+  }
+  useUndoStore.getState().pushWithToast({
+    id: crypto.randomUUID(),
+    description,
+    timestamp: Date.now(),
+    category: 'structural',
+    icon: 'copy',
+    undo: async () => {
+      for (const id of copyIds) await invoke(IPC.ROW_DELETE, id)
+      await reload()
+    },
+    redo: async () => {
+      for (const id of copyIds) await invoke(IPC.ROW_RESTORE_DELETED, id)
+      await reload()
+    },
+  })
+}
+
 /** Which columns carry over by name, and what waits behind (G-18): the same note in both dialogs */
 export function ColumnCarryPreview({ sourceColumns, targetColumns, targetName, mode, many }: {
   sourceColumns: Column[]; targetColumns: Column[]; targetName: string; mode: 'move' | 'copy'; many: boolean
@@ -108,7 +131,8 @@ export function MoveToGridModal({ rowId, sourceGridId, sourceColumns, onDone, on
           },
         })
       } else {
-        await invoke(IPC.ROW_COPY_TO_GRID, rowId, targetGridId)
+        const copyId = await invoke<number>(IPC.ROW_COPY_TO_GRID, rowId, targetGridId)
+        pushCopyUndo([copyId], `Copied ${t('record')} to ${targetName}`)
       }
       onDone()
     } catch (err) {
@@ -261,11 +285,20 @@ export function BulkMoveToGridModal({ rowIds, sourceGridId, sourceColumns, onDon
     setBusy(true)
     setError(null)
     try {
-      for (const rowId of rowIds) {
-        if (mode === 'move') {
-          await invoke(IPC.ROW_MOVE_TO_GRID, rowId, targetGridId, true)
-        } else {
-          await invoke(IPC.ROW_COPY_TO_GRID, rowId, targetGridId)
+      const copyIds: number[] = []
+      try {
+        for (const rowId of rowIds) {
+          if (mode === 'move') {
+            await invoke(IPC.ROW_MOVE_TO_GRID, rowId, targetGridId, true)
+          } else {
+            copyIds.push(await invoke<number>(IPC.ROW_COPY_TO_GRID, rowId, targetGridId))
+          }
+        }
+      } finally {
+        // Copies made before a failure can still be undone
+        if (copyIds.length) {
+          const targetName = grids.find(g => g.id === targetGridId)?.name ?? `another ${t('list')}`
+          pushCopyUndo(copyIds, `Copied ${copyIds.length} ${t('record', { count: copyIds.length })} to ${targetName}`)
         }
       }
       if (mode === 'move') {

@@ -710,7 +710,7 @@ export function GridToolbar(): React.ReactElement {
           const rule = useAlertStore.getState().rules.find(r => r.id === createdRuleId)
           // A rule that reads the done date needs a Deadline column (Decision E1)
           const toDeadline = col?.column_type === 'date' && !!rule && needsDeadlineColumn(engineRuleFrom(rule))
-          await updateColumn(colId, { config: JSON.stringify({ ...cfg, alert_rule_id: createdRuleId }), ...(toDeadline ? { column_type: 'deadline' } : {}) })
+          await updateColumn(colId, { config: JSON.stringify({ ...cfg, alert_rule_id: createdRuleId }), ...(toDeadline ? { column_type: 'deadline' } : {}) }, { skipConfirm: true })
         }} />
       )}
 

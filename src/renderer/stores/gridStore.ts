@@ -373,10 +373,8 @@ export const useGridStore = create<GridState>((set, get) => ({
         updated_at: new Date().toISOString()
       }
       set(s => ({ rows: [...s.rows, newRow], lastAddedRowId: newRowId, pinnedRowId: newRowId }))
-      // Container object shared between undo/redo closures.
-      // Redo updates `ref.rowId` immediately after creating the new row,
-      // so a subsequent undo always targets the correct (most recent) row.
-      const ref = { rowId: newRowId }
+      // Undo moves it to the Trash and redo brings back the same record, so
+      // later steps (the values typed into it) still find it by id
       useUndoStore.getState().push({
         id: crypto.randomUUID(),
         description: `Added new ${wordNow('record')}`,
@@ -384,13 +382,11 @@ export const useGridStore = create<GridState>((set, get) => ({
         category: 'structural',
         icon: 'plus-circle',
         undo: async () => {
-          const idToDelete = ref.rowId
-          await invoke(IPC.ROW_HARD_DELETE, idToDelete)
-          set(s => ({ rows: s.rows.filter(r => r.row_id !== idToDelete) }))
+          await invoke(IPC.ROW_DELETE, newRowId)
+          set(s => ({ rows: s.rows.filter(r => r.row_id !== newRowId) }))
         },
         redo: async () => {
-          const redoRowId = await invoke<number>(IPC.ROW_CREATE, gridId)
-          ref.rowId = redoRowId
+          await invoke(IPC.ROW_RESTORE_DELETED, newRowId)
           if (get().activeGridId === gridId) await get().loadGrid(gridId)
         },
       })
@@ -517,7 +513,7 @@ export const useGridStore = create<GridState>((set, get) => ({
     const gridId = get().activeGridId
     if (!gridId) return
     try {
-      let currentNewRowId = await invoke<number>(IPC.ROW_DUPLICATE, rowId)
+      const newRowId = await invoke<number>(IPC.ROW_DUPLICATE, rowId)
       await get().loadGrid(gridId)
       // Get client name after grid reload for a meaningful description
       const sourceRow = get().rows.find(r => r.row_id === rowId)
@@ -529,14 +525,14 @@ export const useGridStore = create<GridState>((set, get) => ({
         category: 'structural',
         icon: 'copy',
         contextLabel: clientName,
-        contextId: currentNewRowId,
+        contextId: newRowId,
+        // To the Trash and back, keeping the id later steps refer to
         undo: async () => {
-          await invoke(IPC.ROW_HARD_DELETE, currentNewRowId)
-          if (gridId && get().activeGridId === gridId) await get().loadGrid(gridId)
+          await invoke(IPC.ROW_DELETE, newRowId)
+          if (get().activeGridId === gridId) await get().loadGrid(gridId)
         },
         redo: async () => {
-          if (!gridId) return
-          currentNewRowId = await invoke<number>(IPC.ROW_DUPLICATE, rowId)
+          await invoke(IPC.ROW_RESTORE_DELETED, newRowId)
           if (get().activeGridId === gridId) await get().loadGrid(gridId)
         },
       })

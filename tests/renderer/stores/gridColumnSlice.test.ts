@@ -117,6 +117,23 @@ describe('gridColumnSlice', () => {
     })
   })
 
+  describe('undo and redo of an added column (bug sweep S3)', () => {
+    it('Undo parks it in the Trash and Redo restores that copy, keeping its id', async () => {
+      mockInvoke.mockImplementation(async (channel: string) => {
+        if (channel === 'column:create') return { ok: true, data: 9 }
+        if (channel === 'column:delete') return { ok: true, data: { deletedId: 31 } }
+        if (channel === 'grid:get-full') return { ok: true, data: { grid: { id: 1, name: 'L', sort_config: '[]' }, columns: [], hiddenColumns: [], rows: [], acuityLevels: [], cellFormats: [], rowTagsMap: {}, savedViews: [], customGroups: '[]' } }
+        return { ok: true, data: null }
+      })
+      await useGridStore.getState().addColumn('Phone', 'phone')
+      await useUndoStore.getState().undo()
+      expect(mockInvoke).toHaveBeenCalledWith('column:delete', 9)
+      await useUndoStore.getState().redo()
+      expect(mockInvoke).toHaveBeenCalledWith('column:restore', 31)
+      expect(mockInvoke.mock.calls.filter(c => c[0] === 'column:create')).toHaveLength(1)
+    })
+  })
+
   describe('updateColumn (renameColumn)', () => {
     it('updates column name in state', async () => {
       useGridStore.setState({ columns: [makeColumn(1, 'Old Name')] })
@@ -133,6 +150,22 @@ describe('gridColumnSlice', () => {
       await useGridStore.getState().updateColumn(1, { name: 'After' })
       expect(useUndoStore.getState().undoStack).toHaveLength(1)
       expect(useUndoStore.getState().undoStack[0]!.description).toContain('Renamed column')
+    })
+
+    it('a type change waits for confirmation, unless the person already chose it (E1 done-date rule, bug sweep S3)', async () => {
+      useGridStore.setState({ columns: [makeColumn(1, 'Seen', { column_type: 'date' })] })
+      mockInvoke.mockResolvedValue({ ok: true, data: true })
+      expect(await useGridStore.getState().updateColumn(1, { column_type: 'deadline' })).toBe(false)
+      expect(useGridStore.getState().pendingColumnTypeChange?.newType).toBe('deadline')
+      expect(mockInvoke).not.toHaveBeenCalledWith('column:update', 1, expect.anything())
+      useGridStore.getState().cancelColumnTypeChange()
+
+      mockInvoke.mockImplementation(async (channel: string) => channel === 'grid:get-full'
+        ? { ok: true, data: { grid: { id: 1, name: 'L', sort_config: '[]' }, columns: [makeColumn(1, 'Seen', { column_type: 'deadline' })], hiddenColumns: [], rows: [], acuityLevels: [], cellFormats: [], rowTagsMap: {}, savedViews: [], customGroups: '[]' } }
+        : { ok: true, data: true })
+      expect(await useGridStore.getState().updateColumn(1, { column_type: 'deadline', config: '{"alert_rule_id":3}' }, { skipConfirm: true })).toBe(true)
+      expect(useGridStore.getState().pendingColumnTypeChange).toBeNull()
+      expect(mockInvoke).toHaveBeenCalledWith('column:update', 1, { column_type: 'deadline', config: '{"alert_rule_id":3}' })
     })
 
     it('does not push undo for non-name updates', async () => {

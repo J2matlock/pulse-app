@@ -90,7 +90,7 @@ export function registerCellHandlers(): void {
     // A cell must pair a row and a column from the same grid — otherwise a renderer
     // bug could write orphan data that never shows up in any grid.
     const pairOk = cachedStmt('cell_row_col_same_grid_id', 'SELECT r.grid_id FROM rows r JOIN columns c ON c.grid_id = r.grid_id WHERE r.id = ? AND c.id = ?').get(rowId, columnId) as { grid_id: number } | undefined
-    if (!pairOk) return fail(`We couldn't save that change — the ${word('record')} or column no longer exists. Try reloading the grid.`)
+    if (!pairOk) return fail(`We couldn't save that change — the ${word('record')} or column no longer exists. Reopen the list and try again.`)
     // Link columns (W04) have no cells; their links change through RECORD_LINK_ADD/REMOVE
     if (storesNoCells(getColMeta(columnId)?.column_type ?? '')) return fail('That column shows links. Use the link picker to change it.')
     if (getColMeta(columnId)?.column_type === 'auto_number') return fail('Numbers are filled in automatically and can\'t be changed.')

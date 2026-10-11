@@ -38,7 +38,7 @@ export interface GridContextMenuProps {
   setCellFormat: (rowId: number, colId: number, rules: CellFormatRule[]) => Promise<void>
   batchSetCellFormat: (entries: Array<{ rowId: number; columnId: number; rules: CellFormatRule[] }>) => Promise<void>
   setCopiedFormatRules: (rules: CellFormatRule[] | null) => void
-  updateColumn: (colId: number, updates: Record<string, unknown>) => Promise<void>
+  updateColumn: (colId: number, updates: Record<string, unknown>) => Promise<unknown>
 }
 
 export function GridContextMenu({

@@ -312,14 +312,14 @@ export function registerRowHandlers(): void {
   secureWrap(IPC.ROW_HARD_DELETE, 'ipc-row', (_e, rowId: number) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(rowId)) return fail('Invalid ID')
-    // True hard delete — restricted to recently-created rows (within 60 seconds) for undo of addRow/duplicateRow
+    // True hard delete — restricted to recently-created rows (within 60 seconds) (the link picker's undo of a record it just made)
     const db = getDb()
     const result = db.transaction(() => {
       const row = cachedStmt('row_check_recent', "SELECT created_at FROM rows WHERE id = ? AND created_at >= datetime('now', '-60 seconds')").get(rowId) as { created_at: string } | undefined
       if (!row) {
         // Either row doesn't exist or it's too old for hard delete
         const exists = cachedStmt('row_exists', "SELECT 1 FROM rows WHERE id = ?").get(rowId)
-        return exists ? fail('Hard delete only allowed for recently-created rows') : fail('Row not found')
+        return exists ? fail("That can't be undone any more.") : fail('Row not found')
       }
       cachedStmt('row_hard_delete', 'DELETE FROM rows WHERE id = ?').run(rowId)
       return ok(true)

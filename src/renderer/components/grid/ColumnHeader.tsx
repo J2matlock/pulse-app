@@ -125,8 +125,10 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
     // A rule that reads the done date, not a due date, needs a Deadline column (Decision E1)
     const rule = ruleId != null ? useAlertStore.getState().rules.find(r => r.id === ruleId) : undefined
     if (rule && column.column_type === 'date' && needsDeadlineColumn(engineRuleFrom(rule))) {
-      await updateColumn(column.id, { config: newConfig, column_type: 'deadline' })
-      toast(`"${column.name}" is now a Deadline column: it shows when it's due, and when it was done.`, { duration: 8000 })
+      // The person chose this rule, so no "Change column type?" question; say so once it's saved
+      if (await updateColumn(column.id, { config: newConfig, column_type: 'deadline' }, { skipConfirm: true })) {
+        toast(`"${column.name}" is now a Deadline column: it shows when it's due, and when it was done.`, { duration: 8000 })
+      }
     } else {
       await updateColumn(column.id, { config: newConfig })
     }
