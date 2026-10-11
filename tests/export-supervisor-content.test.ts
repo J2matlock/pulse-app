@@ -74,6 +74,21 @@ describe('summary report', () => {
     expect(csv).not.toContain('No tasks completed in this period.')
   })
 
+  it('lists each time a repeating task was done, once each (bug sweep S2)', async () => {
+    const id = testDb.db.prepare(`INSERT INTO caseload_tasks (grid_id, title, is_completed, due_date, recurrence_rule, position)
+      VALUES (?, 'Weekly call', 0, ?, '{"type":"weekly","interval":1}', 0)`).run(grid.gridId, today).lastInsertRowid as number
+    const hist = testDb.db.prepare('INSERT INTO caseload_task_history (task_id, completed_at, cycle_number) VALUES (?, ?, ?)')
+    hist.run(id, new Date(Date.now() - 7 * 86400000).toISOString(), 1)
+    hist.run(id, new Date(Date.now() - 86400000).toISOString(), 2)
+    // A one-off task done for good has a history row too; it's listed once
+    const doneAt = new Date().toISOString()
+    const one = testDb.db.prepare("INSERT INTO caseload_tasks (grid_id, title, is_completed, completed_at, position) VALUES (?, 'One-off', 1, ?, 1)").run(grid.gridId, doneAt).lastInsertRowid as number
+    hist.run(one, doneAt, 1)
+    const csv = await summaryCsv()
+    expect(csv.match(/Weekly call/g)).toHaveLength(2)
+    expect(csv.match(/One-off/g)).toHaveLength(1)
+  })
+
   it('leaves out struck-out notes and notes on records in the Trash, and strips HTML', async () => {
     const [a, b] = grid.rowIds as [number, number]
     const note = testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type, voided_at) VALUES (?, ?, 'note', ?)")

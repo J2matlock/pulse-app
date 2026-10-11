@@ -200,6 +200,13 @@ describe('CHECKLIST_UPDATE_ITEM', () => {
     expect((testDb.db.prepare('SELECT due_date FROM checklist_items WHERE id = ?').get(item.data.id) as any).due_date).toBe(today)
   })
 
+  it('a monthly item due on the 31st comes back on the 31st after February (bug sweep S2)', async () => {
+    const item = await createItem('Monthly visit', { due_date: '2099-01-31', recurrence_rule: JSON.stringify({ type: 'monthly', interval: 1 }) })
+    const tick = () => invoke(IPC.CHECKLIST_UPDATE_ITEM, item.data.id, { is_completed: 1, completed_at: new Date().toISOString() }) as any
+    expect((await tick()).data.repeat.nextDue).toBe('2099-02-28')
+    expect((await tick()).data.repeat.nextDue).toBe('2099-03-31')
+  })
+
   it('a late repeating item comes back due this cycle, not still overdue; one without a date counts from today', async () => {
     const today = localDateString()
     const weekly = { type: 'weekly', interval: 1 } as const
@@ -346,6 +353,13 @@ describe('CHECKLIST_GET_URGENT', () => {
     expect(r.data[0].priority).toBe('urgent')
   })
 
+  it('leaves out items of records in a list in the Trash (bug sweep S2)', async () => {
+    await createItem('Urgent task', { priority: 'urgent' })
+    testDb.db.prepare("UPDATE grids SET is_active = 0, deleted_at = datetime('now')").run()
+    const r = await invoke(IPC.CHECKLIST_GET_URGENT) as any
+    expect(r.data).toHaveLength(0)
+  })
+
   it('excludes completed urgent items', async () => {
     const item = await createItem('Done urgent', { priority: 'urgent' })
     await invoke(IPC.CHECKLIST_UPDATE_ITEM, item.data.id, { is_completed: 1 })
@@ -388,6 +402,17 @@ describe('CHECKLIST_RESTORE_ITEM', () => {
     expect(r.ok).toBe(true)
     const back = testDb.db.prepare('SELECT title, created_at FROM checklist_items WHERE id = 99999').get() as { title: string; created_at: string }
     expect(back).toEqual({ title: 'Restored', created_at: '2026-03-01 12:00:00' })
+  })
+
+  it('puts an item back ungrouped when its group is gone (bug sweep S2)', async () => {
+    const item = {
+      id: 99998, row_id: rowId, title: 'Restored', description: null,
+      is_completed: 0, due_date: null, completed_at: null, completed_by: null,
+      position: 0, category: null, priority: 'normal', is_archived: 0,
+      created_at: '2026-03-01 12:00:00', template_source_id: null, recurrence_rule: null, group_id: 424242,
+    }
+    expect((await invoke(IPC.CHECKLIST_RESTORE_ITEM, item) as any).ok).toBe(true)
+    expect((testDb.db.prepare('SELECT group_id FROM checklist_items WHERE id = 99998').get() as any).group_id).toBeNull()
   })
 
   it('fails for duplicate ID', async () => {

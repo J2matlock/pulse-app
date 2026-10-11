@@ -232,12 +232,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
     )
 
     if (includeTaskSummary) {
-      const completedTasks = db.prepare(`
-        SELECT title, priority, category, completed_at, due_date FROM caseload_tasks
-        WHERE (grid_id = ? OR grid_id IS NULL)
-          AND is_completed = 1 AND date(completed_at, 'localtime') BETWEEN ? AND ?
-        ORDER BY completed_at DESC
-      `).all(gridId, dateRange.start, dateRange.end) as Array<{ title: string; priority: string; category: string | null; completed_at: string; due_date: string | null }>
+      const completedTasks = completedTasksInPeriod(db, gridId, dateRange.start, dateRange.end)
       csvSections.push([], ['Task Summary'], ['Task', 'Priority', 'Category', 'Due Date', 'Completed'])
       for (const t of completedTasks) {
         csvSections.push([sanitizeCsvFormula(t.title), t.priority, sanitizeCsvFormula(t.category ?? ''), t.due_date ?? '', localDateString(parseDbTimestamp(t.completed_at))])
@@ -513,12 +508,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
 
   // Task Summary (optional)
   if (includeTaskSummary) {
-    const completedTasks = db.prepare(`
-      SELECT title, priority, category, completed_at, due_date FROM caseload_tasks
-      WHERE (grid_id = ? OR grid_id IS NULL)
-        AND is_completed = 1 AND date(completed_at, 'localtime') BETWEEN ? AND ?
-      ORDER BY completed_at DESC
-    `).all(gridId, dateRange.start, dateRange.end) as Array<{ title: string; priority: string; category: string | null; completed_at: string; due_date: string | null }>
+    const completedTasks = completedTasksInPeriod(db, gridId, dateRange.start, dateRange.end)
 
     if (y > pageH - footerBarH - 40) { doc.addPage(); y = 18 }
     sectionTitle('Task Summary \u2014 Completed This Period')
@@ -652,4 +642,27 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
 
   await new Promise(resolve => setImmediate(resolve))
   await atomicWriteFileAsync(destPath, Buffer.from(doc.output('arraybuffer')))
+}
+
+/**
+ * Tasks finished in the period. A repeating task goes straight back to open
+ * when it's ticked off, so each time it was done comes from its history; a
+ * weekly task done four times shows four times (bug sweep S2). Tasks that are
+ * done for good come from the task itself, as before.
+ */
+function completedTasksInPeriod(db: ReturnType<typeof getDb>, gridId: number, start: string, end: string): Array<{ title: string; priority: string; category: string | null; completed_at: string; due_date: string | null }> {
+  return db.prepare(`
+    SELECT title, priority, category, completed_at, due_date FROM (
+      SELECT t.title, t.priority, t.category, h.completed_at, NULL AS due_date
+      FROM caseload_task_history h JOIN caseload_tasks t ON t.id = h.task_id
+      WHERE (t.grid_id = ? OR t.grid_id IS NULL)
+        AND date(h.completed_at, 'localtime') BETWEEN ? AND ?
+        AND NOT (t.is_completed = 1 AND t.completed_at IS h.completed_at)
+      UNION ALL
+      SELECT title, priority, category, completed_at, due_date FROM caseload_tasks
+      WHERE (grid_id = ? OR grid_id IS NULL)
+        AND is_completed = 1 AND date(completed_at, 'localtime') BETWEEN ? AND ?
+    )
+    ORDER BY completed_at DESC
+  `).all(gridId, start, end, gridId, start, end) as Array<{ title: string; priority: string; category: string | null; completed_at: string; due_date: string | null }>
 }

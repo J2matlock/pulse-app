@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import toast from 'react-hot-toast'
 import { ChevronDown, ChevronRight, ClipboardList, FolderPlus, RefreshCw } from 'lucide-react'
 import { GroupPicker } from '../components/shared/GroupPicker'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   DndContext,
-  closestCenter,
   PointerSensor,
   useSensor,
   useSensors,
@@ -13,7 +13,6 @@ import {
 import {
   SortableContext,
   verticalListSortingStrategy,
-  arrayMove,
 } from '@dnd-kit/sortable'
 import { useShallow } from 'zustand/react/shallow'
 import { ConfirmDialog } from '../components/shared/ConfirmDialog'
@@ -31,6 +30,7 @@ import { safeInvoke, mustInvoke } from '../utils/safeInvoke'
 import { rlog } from '../utils/rendererLogger'
 import { pulseEvents } from '../events'
 import { tickChecklistItem } from '../utils/checklistTick'
+import { resolveGroupDrop, groupAwareCollision } from './tasks/groupDrag'
 import { LoadingOverlay } from '../components/shared/LoadingSpinner'
 
 import { ViewBreadcrumb } from '../components/shared/ViewBreadcrumb'
@@ -74,6 +74,10 @@ export default function TasksView(): React.ReactElement {
 
   // Task groups
   const [taskGroups, setTaskGroups] = useState<TaskGroupType[]>([])
+  /** The group just added here, whose name opens for typing once (bug sweep S2) */
+  const [justAddedGroupId, setJustAddedGroupId] = useState<number | null>(null)
+  // Its header has opened by now (child effects run first); a later remount shouldn't reopen it
+  useEffect(() => { if (justAddedGroupId != null) setJustAddedGroupId(null) }, [justAddedGroupId])
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set())
   const [groupAddTitles, setGroupAddTitles] = useState<Record<number, string>>({})
   const [confirmDeleteGroup, setConfirmDeleteGroup] = useState<{ id: number; name: string } | null>(null)
@@ -146,6 +150,8 @@ export default function TasksView(): React.ReactElement {
       onRedo: () => setUrgentItems(prev => prev.filter(i => i.id !== item.id)),
     })
     if (!done) setUrgentItems(prev => prev.some(i => i.id === item.id) ? prev : [...prev, item])
+    // A repeating one is still open and urgent at its next date: bring it back (bug sweep S2)
+    else if (item.recurrence_rule) void loadUrgentItems()
   }
 
   // Open new task dialog when navigated here via ?action=new
@@ -213,7 +219,7 @@ export default function TasksView(): React.ReactElement {
   }, [tasks, completeTask, updateTask])
 
   const handleInlineAdd = useCallback(async (title: string) => {
-    await createTask({
+    return createTask({
       grid_id: null,
       group_id: null,
       title,
@@ -238,6 +244,7 @@ export default function TasksView(): React.ReactElement {
     if (res.ok) {
       const created = res.data
       setTaskGroups(prev => [...prev, created])
+      setJustAddedGroupId(created.id)
       // Redo makes the group again under a new id; undo must delete that one
       let groupId = created.id
       useUndoStore.getState().push({
@@ -262,7 +269,9 @@ export default function TasksView(): React.ReactElement {
   const handleRenameGroup = useCallback(async (groupId: number, name: string) => {
     const prevGroup = taskGroups.find(g => g.id === groupId)
     const prevName = prevGroup?.name ?? ''
-    await safeInvoke(IPC.TASK_GROUP_UPDATE, groupId, { name })
+    const res = await safeInvoke(IPC.TASK_GROUP_UPDATE, groupId, { name })
+    // A rename that didn't save leaves the name and the undo list alone (bug sweep S2)
+    if (!res.ok) { toast.error("We couldn't rename the group — try again"); return }
     setTaskGroups(prev => prev.map(g => g.id === groupId ? { ...g, name } : g))
     useUndoStore.getState().push({
       id: crypto.randomUUID(),
@@ -284,7 +293,8 @@ export default function TasksView(): React.ReactElement {
   const handleDeleteGroup = useCallback(async (groupId: number) => {
     const deletedGroup = taskGroups.find(g => g.id === groupId)
     const affectedTasks = tasks.filter(t => t.group_id === groupId)
-    await safeInvoke(IPC.TASK_GROUP_DELETE, groupId)
+    const res = await safeInvoke(IPC.TASK_GROUP_DELETE, groupId)
+    if (!res.ok) { toast.error("We couldn't delete the group — try again"); setConfirmDeleteGroup(null); return }
     setTaskGroups(prev => prev.filter(g => g.id !== groupId))
     setConfirmDeleteGroup(null)
     void loadTasks() // Reload to reflect ungrouped tasks
@@ -343,13 +353,15 @@ export default function TasksView(): React.ReactElement {
   // Grouped items memo (only used in manual mode with groups)
   const groupedActiveTasks = useMemo(() => {
     const map = new Map<number | null, CaseloadTask[]>()
+    // A task whose group is gone shows ungrouped instead of nowhere (bug sweep S2)
+    const groupIds = new Set(taskGroups.map(g => g.id))
     for (const task of activeManualItems) {
-      const key = task.group_id ?? null
+      const key = task.group_id != null && groupIds.has(task.group_id) ? task.group_id : null
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(task)
     }
     return map
-  }, [activeManualItems])
+  }, [activeManualItems, taskGroups])
 
   // Sort: My order (with groups and dragging), Due date (overdue first, no date last), or Priority
   const sortedActiveItems = useMemo(() => {
@@ -383,32 +395,53 @@ export default function TasksView(): React.ReactElement {
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event
-    if (!over || active.id === over.id) return
+    if (!over) return
+    const currentItems = activeManualRef.current
+    const drop = resolveGroupDrop(active.id, over.id, currentItems, taskGroups)
+    if (!drop) return
 
-    // Group reorder
-    const activeStr = String(active.id)
-    const overStr = String(over.id)
-    if (activeStr.startsWith('group-') && overStr.startsWith('group-')) {
-      const activeGroupId = Number(activeStr.replace('group-', ''))
-      const overGroupId = Number(overStr.replace('group-', ''))
-      const sorted = [...taskGroups].sort((a, b) => a.position - b.position)
-      const oldIdx = sorted.findIndex(g => g.id === activeGroupId)
-      const newIdx = sorted.findIndex(g => g.id === overGroupId)
-      if (oldIdx === -1 || newIdx === -1) return
-      const newOrder = arrayMove(sorted, oldIdx, newIdx)
-      setTaskGroups(newOrder.map((g, i) => ({ ...g, position: i })))
-      await safeInvoke(IPC.TASK_GROUP_REORDER, newOrder.map(g => g.id))
+    if (drop.kind === 'groups') {
+      const byId = new Map(taskGroups.map(g => [g.id, g]))
+      setTaskGroups(drop.order.map((id, i) => ({ ...byId.get(id)!, position: i })))
+      await safeInvoke(IPC.TASK_GROUP_REORDER, drop.order)
       return
     }
 
-    // Item reorder
-    const currentItems = activeManualRef.current
-    const activeIdx = currentItems.findIndex(i => i.id === active.id)
-    const overIdx = currentItems.findIndex(i => i.id === over.id)
-    if (activeIdx === -1 || overIdx === -1) return
-    const newOrder = arrayMove(currentItems, activeIdx, overIdx)
-    await reorderTasks(newOrder.map(i => i.id))
-  }, [reorderTasks, taskGroups])
+    const moved = drop.moved
+    if (!moved) { await reorderTasks(drop.order); return }
+
+    // Dropped in another group: it moves there, as one undo step (bug sweep S2)
+    const task = currentItems.find(t => t.id === moved.id)
+    const fromGroup = task?.group_id ?? null
+    const oldOrder = currentItems.map(t => t.id)
+    const newOrder = drop.order
+    useTaskStore.setState(state => ({ tasks: state.tasks.map(t => t.id === moved.id ? { ...t, group_id: moved.groupId } : t) }))
+    const res = await safeInvoke(IPC.TASK_MOVE_TO_GROUP, moved.id, moved.groupId)
+    if (!res.ok) {
+      toast.error("We couldn't move that task — try again")
+      await loadTasks()
+      return
+    }
+    await safeInvoke(IPC.TASK_REORDER, newOrder)
+    await loadTasks()
+    useUndoStore.getState().push({
+      id: crypto.randomUUID(),
+      description: `Moved task "${task?.title ?? ''}" to another group`,
+      timestamp: Date.now(),
+      category: 'logged',
+      icon: 'reorder',
+      undo: async () => {
+        await mustInvoke(IPC.TASK_MOVE_TO_GROUP, moved.id, fromGroup)
+        await mustInvoke(IPC.TASK_REORDER, oldOrder)
+        await loadTasks()
+      },
+      redo: async () => {
+        await mustInvoke(IPC.TASK_MOVE_TO_GROUP, moved.id, moved.groupId)
+        await mustInvoke(IPC.TASK_REORDER, newOrder)
+        await loadTasks()
+      },
+    })
+  }, [reorderTasks, taskGroups, loadTasks])
 
   /** createdGroupName: the template went into a group made just for it, which undo removes and redo makes again */
   const applyTaskTemplate = useCallback(async (templateId: number, groupId: number | null, createdGroupName?: string) => {
@@ -578,7 +611,7 @@ export default function TasksView(): React.ReactElement {
                   </SortableContext>
                 </DndContext>
               ) : (
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd}>
                   {!hasTaskGroups ? (
                     /* Flat mode (no groups) */
                     <SortableContext items={activeManualItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
@@ -627,10 +660,13 @@ export default function TasksView(): React.ReactElement {
                           onChange={e => setNewTitle(e.target.value)}
                           onKeyDown={e => {
                             if (e.key === 'Enter' && newTitle.trim()) {
-                              void handleInlineAdd(newTitle.trim())
+                              const title = newTitle.trim()
                               setNewTitle('')
+                              // A failed add puts the text back instead of losing it (bug sweep S2)
+                              void handleInlineAdd(title).then(made => { if (!made) setNewTitle(cur => cur || title) })
                             }
                           }}
+                          maxLength={500}
                           placeholder="+ Add task... (press Enter)"
                           style={{ fontSize: 15 }}
                           className="w-full px-3 py-2 text-slate-600 dark:text-slate-400
@@ -664,6 +700,7 @@ export default function TasksView(): React.ReactElement {
                               onRename={(name) => void handleRenameGroup(group.id, name)}
                               onDelete={() => setConfirmDeleteGroup({ id: group.id, name: group.name })}
                               isDragDisabled={false}
+                              autoEdit={group.id === justAddedGroupId}
                             />
 
                             {!isCollapsed && (
@@ -691,6 +728,7 @@ export default function TasksView(): React.ReactElement {
                                   onKeyDown={e => {
                                     const val = (groupAddTitles[group.id] ?? '').trim()
                                     if (e.key === 'Enter' && val) {
+                                      setGroupAddTitles(prev => ({ ...prev, [group.id]: '' }))
                                       void createTask({
                                         title: val,
                                         group_id: group.id,
@@ -704,10 +742,10 @@ export default function TasksView(): React.ReactElement {
                                         completed_at: null,
                                         snoozed_until: null,
                                         position: 0,
-                                      })
-                                      setGroupAddTitles(prev => ({ ...prev, [group.id]: '' }))
+                                      }).then(made => { if (!made) setGroupAddTitles(prev => ({ ...prev, [group.id]: prev[group.id] || val })) })
                                     }
                                   }}
+                                  maxLength={500}
                                   placeholder="+ Add task… (press Enter)"
                                   style={{ fontSize: 15 }}
                                   spellCheck={false}
@@ -741,10 +779,12 @@ export default function TasksView(): React.ReactElement {
                     onChange={e => setNewTitle(e.target.value)}
                     onKeyDown={e => {
                       if (e.key === 'Enter' && newTitle.trim()) {
-                        void handleInlineAdd(newTitle.trim())
+                        const title = newTitle.trim()
                         setNewTitle('')
+                        void handleInlineAdd(title).then(made => { if (!made) setNewTitle(cur => cur || title) })
                       }
                     }}
+                    maxLength={500}
                     placeholder="+ Add task... (press Enter)"
                     style={{ fontSize: 15 }}
                     className="w-full px-3 py-2 text-slate-600 dark:text-slate-400

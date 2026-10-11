@@ -221,4 +221,23 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByText('Move up'))
     expect(mockReorderGrids).toHaveBeenLastCalledWith([2, 1])
   })
+
+  it("the Tasks badge leaves out snoozed tasks and tasks of a list in the Trash (bug sweep S2/S5)", async () => {
+    const { useTaskStore } = await import('../../../../src/renderer/stores/taskStore')
+    const { localDateString } = await import('../../../../src/shared/dates')
+    const today = localDateString()
+    const tomorrow = localDateString(new Date(Date.now() + 86400000))
+    const base = { description: null, priority: 'normal', category: null, recurrence_rule: null, is_completed: 0, completed_at: null, position: 0, group_id: null, created_at: '', updated_at: '' }
+    useTaskStore.setState({ tasks: [
+      { ...base, id: 1, grid_id: null, title: 'Late', due_date: '2020-01-01', snoozed_until: null },
+      { ...base, id: 2, grid_id: 1, title: 'Today', due_date: today, snoozed_until: null },
+      { ...base, id: 3, grid_id: null, title: 'Snoozed', due_date: today, snoozed_until: tomorrow },
+      { ...base, id: 4, grid_id: 99, title: 'Trashed list', due_date: today, snoozed_until: null },
+    ] as never })
+    renderSidebar()
+    const tasksBtn = screen.getByText('Tasks').closest('button')!
+    expect(tasksBtn.textContent).toContain('2')
+    expect(tasksBtn.textContent).not.toContain('4')
+    useTaskStore.setState({ tasks: [] })
+  })
 })
