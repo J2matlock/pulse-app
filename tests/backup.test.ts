@@ -116,11 +116,6 @@ function useLiveDbBridge(): void {
   })
 }
 
-/** For tests that close the test DB themselves: restore code must not need a live handle */
-function useClosedDbBridge(): void {
-  setDatabaseBridge({ closeDatabase: () => {}, getDb: () => { throw new Error('DB closed') } })
-}
-
 beforeEach(() => {
   for (const data of storeState.stores.values()) for (const k of Object.keys(data)) delete data[k]
   t = createTestDb()
@@ -718,6 +713,17 @@ describe('getBackupInfo', () => {
     } finally {
       Store.prototype.get = origGet
     }
+  })
+})
+
+describe('pruneBackups', () => {
+  it('keeps only the newest N files with the prefix and suffix, leaving other files alone', () => {
+    for (let i = 0; i < 7; i++) writeFileSync(join(backupDir, `pulse-scheduled-20260222-12000${i}.pulse-backup`), 'x')
+    writeFileSync(join(backupDir, 'pulse-auto-20200101-000000.db'), 'x')
+    pruneBackups(backupDir, 'pulse-scheduled-', '.pulse-backup', 5)
+    const remaining = readdirSync(backupDir).filter(f => f.startsWith('pulse-scheduled-')).sort()
+    expect(remaining).toEqual([2, 3, 4, 5, 6].map(i => `pulse-scheduled-20260222-12000${i}.pulse-backup`))
+    expect(existsSync(join(backupDir, 'pulse-auto-20200101-000000.db'))).toBe(true)
   })
 })
 
