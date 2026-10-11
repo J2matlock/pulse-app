@@ -3,7 +3,7 @@ import type { Theme } from '../../shared/types'
 import { IPC } from '../../shared/ipc-channels'
 import { useUndoStore } from './undoStore'
 import { rlog } from '../utils/rendererLogger'
-import { pulseEvents } from '../events'
+import { flushPendingEdits } from '../utils/flushPendingEdits'
 import { storeInvoke } from '../utils/safeInvoke'
 import { normalizeAutoLockMinutes, AUTO_LOCK_DEFAULT_MINUTES } from '../../shared/constants'
 
@@ -107,8 +107,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   },
 
   lock: async () => {
-    // Pending saves (scratch pad) go out before the lock closes the database
-    pulseEvents.emit('app:locking')
+    // Pending saves (an open cell, the scratch pad) go out before the lock
+    // closes the database; IPC keeps them ahead of AUTH_LOCK
+    flushPendingEdits()
     try {
       await storeInvoke(IPC.AUTH_LOCK)
     } catch (err) {

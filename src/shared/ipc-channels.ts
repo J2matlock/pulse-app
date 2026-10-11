@@ -386,6 +386,10 @@ export const IPC = {
   AUTH_LOCK: 'auth:lock',
   AUTH_FORCE_LOCK: 'auth:force-lock',
   AUTH_ACTIVITY_PING: 'auth:activity-ping',
+  /** Main → renderer: save pending edits now, the database is about to close (lock or quit) */
+  APP_FLUSH_PENDING: 'app:flush-pending',
+  /** Renderer → main: pending edits have been sent */
+  APP_FLUSH_DONE: 'app:flush-done',
   AUTH_GET_HINT: 'auth:get-hint',
   AUTH_IS_SETUP: 'auth:is-setup',
   AUTH_GENERATE_RECOVERY_KEY: 'auth:generate-recovery-key',

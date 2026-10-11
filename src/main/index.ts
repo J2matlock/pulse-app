@@ -90,18 +90,56 @@ function currentAutoLockMinutes(): number {
   }
 }
 
+// ── Saving pending edits before the database closes ─────────────────────────
+// A forced lock or a quit closes the database from here. The window may still
+// hold edits that haven't gone out (the scratch pad saves after a pause, an open
+// cell saves on blur), so ask it to send them first and wait briefly.
+
+const FLUSH_WAIT_MS = 1000
+let flushWaiters: Array<() => void> = []
+
+function flushRenderer(): Promise<void> {
+  const win = mainWindow
+  if (!win || win.isDestroyed() || win.webContents.isCrashed()) return Promise.resolve()
+  return new Promise(resolve => {
+    const done = () => {
+      clearTimeout(timer)
+      flushWaiters = flushWaiters.filter(w => w !== done)
+      resolve()
+    }
+    // A frozen window never answers: lock anyway
+    const timer = setTimeout(done, FLUSH_WAIT_MS)
+    flushWaiters.push(done)
+    try { win.webContents.send(IPC.APP_FLUSH_PENDING) } catch { done() }
+  })
+}
+
+let lockInFlight: Promise<void> | null = null
+let closeFlushed = false
+
 /** Lock in the main process (works even if the renderer has crashed), then tell the window. */
-function forceLock(reason: string): void {
-  if (!isUnlocked()) return
-  logger.info('auto-lock', `Locking: ${reason}`)
-  // Back up while the database is still open: a sleeping laptop may never quit
-  runAutoBackupOnLock()
-  try { lockApp() } catch (err) { logger.warn('auto-lock', 'lockApp failed', err) }
-  try { closeDatabase() } catch (err) { logger.warn('auto-lock', 'closeDatabase failed', err) }
-  stopScheduledBackup()
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(IPC.AUTH_FORCE_LOCK)
-  }
+function forceLock(reason: string): Promise<void> {
+  if (!isUnlocked()) return Promise.resolve()
+  if (lockInFlight) return lockInFlight
+  lockInFlight = (async () => {
+    try {
+      await flushRenderer()
+      // The window may have locked itself meanwhile
+      if (!isUnlocked()) return
+      logger.info('auto-lock', `Locking: ${reason}`)
+      // Back up while the database is still open: a sleeping laptop may never quit
+      runAutoBackupOnLock()
+      try { lockApp() } catch (err) { logger.warn('auto-lock', 'lockApp failed', err) }
+      try { closeDatabase() } catch (err) { logger.warn('auto-lock', 'closeDatabase failed', err) }
+      stopScheduledBackup()
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(IPC.AUTH_FORCE_LOCK)
+      }
+    } finally {
+      lockInFlight = null
+    }
+  })()
+  return lockInFlight
 }
 
 function resetAutoLockTimer(): void {
@@ -195,6 +233,15 @@ function createWindow(): void {
     if (!isQuitting && !sessionEnding && isTrayMode()) {
       e.preventDefault()
       void closeToTray(mainWindow!)
+      return
+    }
+    // Closing quits, and the window is gone before 'before-quit' runs: have it
+    // send any pending edits first, then close for real
+    if (!closeFlushed && isUnlocked()) {
+      e.preventDefault()
+      closeFlushed = true
+      const win = mainWindow!
+      void flushRenderer().finally(() => { if (!win.isDestroyed()) win.close() })
     }
   })
   // Signing out or shutting down must not be held up by the tray
@@ -264,6 +311,9 @@ app.whenReady().then(async () => {
   // Main-process auto-lock: renderer sends activity pings to reset the timer
   secureWrap(IPC.AUTH_ACTIVITY_PING, 'app', () => {
     resetAutoLockTimer()
+  })
+  secureWrap(IPC.APP_FLUSH_DONE, 'app', () => {
+    for (const done of flushWaiters.slice()) done()
   })
   resetAutoLockTimer()
 
@@ -386,6 +436,9 @@ app.on('before-quit', async (event) => {
     // Quitting while locked: the database is closed (and was backed up when it
     // locked). Trying again would only record a false "backup failed".
     if (!isUnlocked()) return
+
+    // Text typed in the last moments (scratch pad, an open cell) goes in first
+    await flushRenderer()
 
     // Checkpoint WAL first to ensure data durability
     try { getDb()?.pragma('wal_checkpoint(PASSIVE)') } catch (err) { logNonFatal('app', 'WAL checkpoint on quit', err) }

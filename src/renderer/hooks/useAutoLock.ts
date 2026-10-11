@@ -3,6 +3,9 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
 import { isMod } from '../utils/keys'
+import { flushPendingEdits } from '../utils/flushPendingEdits'
+
+const FLUSH_SETTLE_MS = 150
 
 /**
  * Auto-lock on inactivity + Ctrl+L manual lock shortcut.
@@ -89,6 +92,16 @@ export function useAutoLock(
 
     return unsub
   }, [isLocked, isPasswordSetup])
+
+  // The main process is about to close the database (a forced lock, a quit):
+  // send pending edits, then say so. Main waits about a second at most.
+  useEffect(() => {
+    return window.api.on(IPC.APP_FLUSH_PENDING, () => {
+      flushPendingEdits()
+      // Let the saves set off by blur go out ahead of the answer
+      setTimeout(() => { safeInvoke(IPC.APP_FLUSH_DONE).catch(() => {/* main stops waiting on its own */}) }, FLUSH_SETTLE_MS)
+    })
+  }, [])
 
   // Ctrl+L global lock shortcut
   useEffect(() => {
