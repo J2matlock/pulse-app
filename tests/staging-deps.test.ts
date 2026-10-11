@@ -43,10 +43,20 @@ describe('staging install', () => {
     }
   })
 
-  it('build-win downloads the Windows binary into staging, not the dev tree', () => {
+  it('build-win checks the bundled Windows binary in staging, not the dev tree', () => {
     const src = readFileSync(join(ROOT, 'scripts', 'build-win.js'), 'utf8')
-    expect(src).toMatch(/get-win-native\.js "\$\{stagingSqlite\}"/)
+    expect(src).toMatch(/stagingSqlite = path\.join\(STAGING, 'node_modules', 'better-sqlite3-multiple-ciphers'\)/)
+    expect(src).toMatch(/path\.join\(stagingSqlite, 'prebuilds', 'win32-x64\.node'\)/)
+    expect(src).toContain("includes('PE32+')")
     expect(src).not.toMatch(/nativeSrc = path\.join\(ROOT/)
+  })
+
+  it('build-linux builds and checks both the AppImage and the .deb', () => {
+    const src = readFileSync(join(ROOT, 'scripts', 'build-linux.js'), 'utf8')
+    expect(src).toContain('.AppImage`')
+    expect(src).toContain('.deb`')
+    expect(src).toMatch(/path\.join\(STAGING, 'node_modules', 'better-sqlite3-multiple-ciphers', 'prebuilds', 'linux-x64\.node'\)/)
+    expect(src).toContain("includes('ELF')")
   })
 
   it('writes the staging package.json and copies the lock and license files', () => {

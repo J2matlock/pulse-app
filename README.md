@@ -17,41 +17,73 @@ Website: https://baringasoft.com
 Get the latest version from the [releases page](https://github.com/J2matlock/pulse-releases/releases/latest).
 
 - **Windows 10/11:** download `PULSE.exe` and run it. It's portable: your data is kept in a `PulseData` folder next to it. Pulse isn't code-signed, so the first time Windows may say "Windows protected your PC": click **More info → Run anyway**.
-- **Linux:** download the AppImage, make it executable (`chmod +x`) and run it, or see [Building](#building).
+- **Linux:** download the `.deb` (Ubuntu, Debian, Mint) or the AppImage (any distribution), or see [Building](#building). For the AppImage, make it executable (`chmod +x`) and run it.
+- **Mac:** macOS 13 (Ventura) or newer.
+
+### Ubuntu 24.04 and newer
+
+Use the `.deb`. It installs Pulse to `/opt` with an AppArmor profile that lets Pulse's security sandbox start:
+
+```bash
+sudo apt install ./BaringaSoftPulse-<version>.deb
+```
+
+Then open Pulse from your applications menu. To remove it: `sudo apt remove baringasoft-pulse` (your data stays in `~/.config`).
+
+If you'd rather use the AppImage on Ubuntu 24.04+, it needs two extra steps:
+
+1. Install FUSE 2, which AppImages need and Ubuntu no longer installs by default:
+   ```bash
+   sudo apt install libfuse2t64
+   ```
+2. Allow its sandbox through AppArmor. Ubuntu 24.04 blocks the kernel feature Chromium's sandbox uses, so without this the AppImage closes straight away with an error about the "SUID sandbox helper". Create a profile for the AppImage (change the path to wherever you keep it):
+   ```bash
+   sudo tee /etc/apparmor.d/baringasoft-pulse-appimage > /dev/null <<'EOF'
+   abi <abi/4.0>,
+   include <tunables/global>
+
+   profile baringasoft-pulse-appimage /home/*/Applications/BaringaSoftPulse-*.AppImage flags=(unconfined) {
+     userns,
+   }
+   EOF
+   sudo apparmor_parser -r /etc/apparmor.d/baringasoft-pulse-appimage
+   ```
+
+Don't turn the sandbox off to get around this: it's one of the things that keeps your data safe.
 
 Each release lists SHA-256 checksums in `SHA256SUMS.txt`.
 
 ## Building
 
-You need Node.js 22 and npm. On Linux you also need the usual build tools for native modules (`make`, `g++`, `python3`).
+You need Node.js 22 or newer and npm. The encrypted SQLite module ships prebuilt for Windows, macOS and Linux (x64 and arm64; Linux needs glibc 2.35+, e.g. Ubuntu 22.04+), so a C++ toolchain is only needed on other platforms.
 
 ```bash
 git clone https://github.com/J2matlock/pulse-app.git
 cd pulse-app
-npm install          # also rebuilds the encrypted SQLite module for Electron
+npm install
 npm run dev          # run Pulse in development mode
 ```
 
 Packages:
 
 ```bash
-npm run package:linux   # AppImage in dist/
+npm run package:linux   # AppImage and .deb in dist/
 npm run package:win     # Windows PULSE.exe (needs Inno Setup; on Linux, under Wine: bash scripts/setup-innosetup.sh)
 npm run package:mac     # macOS (on a Mac)
 ```
 
-If Pulse starts but setting a password or unlocking silently fails, the native module was built for the wrong Node version. Rebuild it for Electron: `npx electron-rebuild -f -w better-sqlite3-multiple-ciphers`.
+The first `npm run dev` downloads Electron itself (Electron 42+ no longer downloads during `npm install`).
 
 ## Tests
 
 ```bash
-npm test             # unit and integration tests (rebuilds the native module for Node, then back for Electron)
+npm test             # unit and integration tests
 npm run typecheck
 npm run lint
 npm run test:e2e     # Playwright end-to-end tests against the built app
 ```
 
-Always run tests through `npm test`, not `vitest` directly: the script switches the native module between Node's and Electron's ABI.
+Always run tests through `npm test`, not `vitest` directly.
 
 ## How it's built
 

@@ -27,6 +27,37 @@ describe('app.asar contents', () => {
   })
 })
 
+describe('native database module', () => {
+  // better-sqlite3-multiple-ciphers 13 bundles a Node-API binary for every
+  // platform; each build keeps its own and leaves the rest out
+  const build = JSON.parse(read('package.json')).build
+  const dropped = (platform: 'linux' | 'win' | 'mac') => (build[platform].files as string[]).join(' ')
+  it("ships only the platform's own prebuilt binaries", () => {
+    expect(dropped('linux')).toMatch(/!\*\*\/node_modules\/better-sqlite3-multiple-ciphers\/prebuilds\/\{win32,darwin,linuxmusl\}-\*\.node/)
+    expect(dropped('win')).toMatch(/prebuilds\/\{linux,linuxmusl,darwin\}-\*\.node/)
+    expect(dropped('mac')).toMatch(/prebuilds\/\{linux,linuxmusl,win32\}-\*\.node/)
+  })
+})
+
+describe('Linux packages', () => {
+  // AUDIT-019: the AppImage can't start Chromium's sandbox on stock Ubuntu 24.04+;
+  // the .deb installs electron-builder's AppArmor profile, which can
+  const pkg = JSON.parse(read('package.json'))
+  it('builds a .deb next to the AppImage', () => {
+    expect(pkg.build.linux.target).toEqual(['AppImage', 'deb'])
+    expect(pkg.build.deb.maintainer).toMatch(/<.+@.+>/)
+    expect(pkg.build.deb.depends).toContain('libsecret-1-0') // safeStorage keyring
+    expect(pkg.build.linux.synopsis).toBe(pkg.description)
+    // fpm writes the homepage into the package's control file
+    expect(pkg.homepage).toMatch(/^https:\/\//)
+  })
+
+  it('does not turn the sandbox off', () => {
+    expect(JSON.stringify(pkg.build)).not.toContain('no-sandbox')
+    expect(read('README.md')).not.toContain('--no-sandbox')
+  })
+})
+
 describe('Electron fuses', () => {
   // AUDIT-094/186: electron-builder embeds the asar hash on Windows and macOS only
   const afterPack = createRequire(import.meta.url)('../scripts/afterPack.js') as { asarIntegritySupported: (p: string) => boolean }

@@ -9,8 +9,8 @@
  *   1. electron-vite build (creates out/)
  *   2. Create staging dir with out/, package.json, package-lock.json and
  *      production node_modules (npm ci, so versions match the lock)
- *   3. Download the Windows native binary for better-sqlite3-multiple-ciphers
- *      straight into staging (the dev tree's Linux binary is never touched)
+ *   3. Check the Windows binary that better-sqlite3-multiple-ciphers bundles
+ *      (Node-API, so it works with any Electron version; nothing to download)
  *   4. Run electron-builder --win (produces win-unpacked/ directory)
  *   5. Verify win-unpacked directory
  *   6. Package win-unpacked into PULSE.exe launcher via Inno Setup
@@ -89,14 +89,18 @@ console.log('[build-win] Installing production dependencies in staging...')
 run(STAGING_INSTALL_CMD, { cwd: STAGING })
 assertStagedDepsMatchLock(ROOT, STAGING)
 
-// ---------- step 3: download Windows native into staging ----------
-console.log('\n=== Step 3: Download Windows native binary ===')
+// ---------- step 3: check the Windows native binary in staging ----------
+console.log('\n=== Step 3: Check Windows native binary ===')
+// package.json build.win.files leaves the other platforms' binaries out of the app
 const stagingSqlite = path.join(STAGING, 'node_modules', 'better-sqlite3-multiple-ciphers')
-run(`node scripts/get-win-native.js "${stagingSqlite}"`)
-const nativeDest = path.join(stagingSqlite, 'build', 'Release')
+const nativeWin = path.join(stagingSqlite, 'prebuilds', 'win32-x64.node')
+if (!fs.existsSync(nativeWin)) {
+  console.error(`[build-win] ERROR: ${nativeWin} is missing`)
+  process.exit(1)
+}
 
 // Verify it's a PE32+ binary
-const fileType = runQuiet(`file "${path.join(nativeDest, 'better_sqlite3.node')}"`)
+const fileType = runQuiet(`file "${nativeWin}"`)
 if (!fileType.includes('PE32+')) {
   console.error('[build-win] ERROR: Native binary is not PE32+!')
   console.error(`  file output: ${fileType}`)

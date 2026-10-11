@@ -4,8 +4,8 @@
  *
  * Must run on a Mac (dmg creation, code signing and notarization need
  * macOS tools). Uses a staging directory with production dependencies only,
- * like build-linux.js; electron-builder rebuilds the native database module
- * for each architecture.
+ * like build-linux.js. The native database module ships prebuilt for both
+ * Mac architectures (Node-API), so nothing is rebuilt.
  *
  * Signing and notarization are optional and driven by environment variables:
  *   CSC_NAME or CSC_LINK (+ CSC_KEY_PASSWORD)   Developer ID Application certificate
@@ -51,7 +51,7 @@ fs.cpSync(path.join(ROOT, 'out'), path.join(STAGING, 'out'), { recursive: true }
 fs.cpSync(path.join(ROOT, 'build'), path.join(STAGING, 'build'), { recursive: true })
 fs.copyFileSync(path.join(ROOT, 'scripts', 'afterPack.js'), path.join(STAGING, 'scripts', 'afterPack.js'))
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
-writeStagingPackage(ROOT, STAGING, pkg, { npmRebuild: true })
+writeStagingPackage(ROOT, STAGING, pkg, { npmRebuild: false })
 run(STAGING_INSTALL_CMD, { cwd: STAGING })
 assertStagedDepsMatchLock(ROOT, STAGING)
 
@@ -63,7 +63,7 @@ const flags = [
   canSign ? '' : '-c.mac.identity=null',
   canNotarize ? '-c.mac.notarize=true' : '',
 ].filter(Boolean).join(' ')
-// One architecture at a time, so each gets its own native module build
+// One architecture at a time, so each gets its own dmg and zip
 for (const arch of ['arm64', 'x64']) {
   run(`npx electron-builder --mac --${arch} ${flags}`)
 }
