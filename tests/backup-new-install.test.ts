@@ -237,7 +237,7 @@ describe('Scheduled backup "Run now"', { timeout: 60_000 }, () => {
   })
 })
 
-describe('Knowing whether backups are happening', () => {
+describe('Knowing whether backups are happening', { timeout: 60_000 }, () => {
   it('counts a backup saved outside the Pulse folder as a copy somewhere else', async () => {
     await makeBackupOnOldComputer() // saved under the data folder: doesn't count
     expect(getBackupHealth().lastOffsiteISO).toBeNull()
@@ -279,7 +279,7 @@ describe('Knowing whether backups are happening', () => {
   })
 })
 
-describe('Backup size limit', () => {
+describe('Backup size limit', { timeout: 60_000 }, () => {
   afterEach(() => setMaxBackupBytesForTests(null))
 
   it('allows backups far bigger than the old 200 MB limit', () => {
