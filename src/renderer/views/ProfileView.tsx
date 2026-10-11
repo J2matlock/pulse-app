@@ -123,16 +123,21 @@ export default function ProfileView(): React.ReactElement {
     })
   }, [])
 
-  // If navigated from dashboard with a gridId param, switch grids if needed
+  // A ?gridId= hint (Dashboard, Calendar, links) opens that list once per record.
+  // Applying it again whenever the list changes fought the lookup below when the
+  // record had since moved to another list: the two reloaded each other forever.
+  const appliedGridParam = useRef<string | null>(null)
   useEffect(() => {
     const gridIdParam = searchParams.get('gridId')
-    if (gridIdParam) {
-      const targetGridId = parseInt(gridIdParam, 10)
-      if (!isNaN(targetGridId) && targetGridId !== activeGridId) {
-        void loadGrid(targetGridId)
-      }
+    if (!gridIdParam || rowId == null) return
+    const key = `${rowId}:${gridIdParam}`
+    if (appliedGridParam.current === key) return
+    appliedGridParam.current = key
+    const targetGridId = parseInt(gridIdParam, 10)
+    if (!isNaN(targetGridId) && targetGridId !== useGridStore.getState().activeGridId) {
+      void loadGrid(targetGridId)
     }
-  }, [searchParams, activeGridId, loadGrid])
+  }, [searchParams, rowId, loadGrid])
 
   const stagesOn = useFeature('stages')
   const apptsOn = useFeature('appointments')
@@ -154,6 +159,9 @@ export default function ProfileView(): React.ReactElement {
   // lives, open that list, and fetch an archived record on its own (1.24).
   const rowInList = rowId != null ? rows.find(r => r.row_id === rowId) : undefined
   const [lookup, setLookup] = useState<{ rowId: number; status: RowLocation['status'] | 'missing'; archivedRow?: GridRow; archivedReason?: string | null } | null>(null)
+  // The record whose list was reloaded for it, so a record that still isn't there
+  // after one reload counts as missing instead of reloading again
+  const reloadedFor = useRef<number | null>(null)
   useEffect(() => {
     if (rowId == null || rowInList || isLoading || lookup?.rowId === rowId) return
     let live = true
@@ -163,8 +171,15 @@ export default function ProfileView(): React.ReactElement {
       if (!res.ok || !res.data) { setLookup({ rowId, status: 'missing' }); return }
       const loc = res.data
       if ((loc.status === 'active' || loc.status === 'archived') && loc.gridId !== useGridStore.getState().activeGridId) {
+        reloadedFor.current = rowId
         await loadGrid(loc.gridId)
         if (!live) return
+      } else if (loc.status === 'active' && reloadedFor.current !== rowId) {
+        // Active in the open list but not in its loaded rows: the record was added
+        // somewhere else (a linked "New", another window). Reload the list once.
+        reloadedFor.current = rowId
+        await loadGrid(loc.gridId)
+        if (!live || useGridStore.getState().rows.some(r => r.row_id === rowId)) return
       }
       if (loc.status === 'archived') {
         const got = await safeInvoke<GridRow | null>(IPC.ROW_GET, loc.gridId, rowId)

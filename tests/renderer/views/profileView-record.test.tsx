@@ -179,6 +179,52 @@ describe('A record opens from anywhere (1.24)', () => {
     expect(screen.queryByText(/couldn't find/)).toBeNull()
   })
 
+  it('does not bounce between two lists when ?gridId= points at the old list', async () => {
+    // Record 7 was moved from list 1 to list 2; the link still says list 1
+    const listRows: Record<number, ReturnType<typeof rowOf>[]> = { 1: [rowOf(1, 'Maria')], 2: [rowOf(7, 'J-0007')] }
+    const loadGrid = vi.fn(async (gridId: number) => {
+      if (loadGrid.mock.calls.length > 10) return // the old loop: stop it so the test fails instead of hanging
+      setGrid({ activeGridId: gridId, isLoading: true })
+      setGrid({ rows: listRows[gridId], sortedRowIds: listRows[gridId].map(r => r.row_id), isLoading: false })
+    })
+    setGrid({ loadGrid, activeGridId: 2, rows: listRows[2], sortedRowIds: [7] })
+    invokeMock.fn = async (channel: string) => channel === 'row:locate'
+      ? { ok: true, data: { gridId: 2, status: 'active', archivedReason: null } }
+      : { ok: true, data: [] }
+    renderAt('/profile/7?gridId=1')
+    for (let i = 0; i < 6; i++) await flush()
+    expect(loadGrid.mock.calls.length).toBeLessThanOrEqual(2)
+    expect(screen.getByLabelText('note for 7')).toBeTruthy()
+  })
+
+  it('reloads the open list once for a record added elsewhere, instead of saying it was deleted', async () => {
+    const loadGrid = vi.fn(async () => {
+      setGrid({ rows: [rowOf(1, 'Maria'), rowOf(2, 'Robert'), rowOf(8, 'New one')], sortedRowIds: [1, 2, 8] })
+    })
+    setGrid({ loadGrid })
+    invokeMock.fn = async (channel: string) => channel === 'row:locate'
+      ? { ok: true, data: { gridId: 1, status: 'active', archivedReason: null } }
+      : { ok: true, data: [] }
+    renderAt('/profile/8')
+    await flush()
+    await flush()
+    expect(loadGrid).toHaveBeenCalledTimes(1)
+    expect(screen.getByLabelText('note for 8')).toBeTruthy()
+    expect(screen.queryByText(/couldn't find/)).toBeNull()
+  })
+
+  it('says it could not find the record when one reload does not bring it', async () => {
+    const loadGrid = vi.fn(async () => {})
+    setGrid({ loadGrid })
+    invokeMock.fn = async (channel: string) => channel === 'row:locate'
+      ? { ok: true, data: { gridId: 1, status: 'active', archivedReason: null } }
+      : { ok: true, data: [] }
+    renderAt('/profile/8')
+    for (let i = 0; i < 4; i++) await flush()
+    expect(loadGrid).toHaveBeenCalledTimes(1)
+    expect(screen.getByText(/couldn't find/)).toBeTruthy()
+  })
+
   it('shows Loading while the list loads, not "not found"', async () => {
     setGrid({ isLoading: true, rows: [] })
     renderAt('/profile/7')
