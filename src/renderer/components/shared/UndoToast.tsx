@@ -39,12 +39,12 @@ export function UndoToast(): React.ReactElement | null {
     <div
       className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] flex flex-col overflow-hidden rounded-xl shadow-2xl bg-slate-800 text-white"
       style={{ minWidth: 300, maxWidth: 420 }}
-      role="alert"
+      role="status"
       aria-live="polite"
     >
       {/* Content row */}
       <div className="flex items-center gap-3 px-4 py-3">
-        <span className="flex-1 text-sm truncate">{toast.description}</span>
+        <span className="flex-1 text-sm break-words min-w-0">{toast.description}</span>
         {canUndo && (
           <button
             onClick={() => void undo()}
