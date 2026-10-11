@@ -3,6 +3,7 @@ import './app-identity'
 import { isOpenableExternal } from './external-links'
 import { app, shell, BrowserWindow, dialog, session, protocol, net, clipboard, powerMonitor, Menu, screen } from 'electron'
 import { buildMacMenuTemplate } from './app-menu'
+import { configureSpellchecker, spellcheckAllowed } from './spellcheck'
 import { windowStateToSave, restorableWindowState, type SavedWindowState } from './window-state'
 import { join, normalize, resolve, sep } from 'path'
 import { pathToFileURL } from 'url'
@@ -220,7 +221,8 @@ function createWindow(): void {
       sandbox: true,           // ipcRenderer available in sandboxed preload since Electron 20+
       contextIsolation: true,  // renderer cannot access Node.js directly
       nodeIntegration: false,  // renderer is a plain web page
-      devTools: isDev           // disable DevTools in production builds
+      devTools: isDev,          // disable DevTools in production builds
+      spellcheck: spellcheckAllowed(process.platform)  // no dictionary downloads (see spellcheck.ts)
     }
   })
 
@@ -383,6 +385,9 @@ app.whenReady().then(async () => {
 
   // Also deny synchronous permission checks (clipboard-read, media, etc.)
   session.defaultSession.setPermissionCheckHandler(() => false)
+
+  // Keep the spellchecker from downloading dictionaries from Google (Windows/Linux)
+  configureSpellchecker(session.defaultSession, process.platform)
 
   // Also enforce CSP on http(s) responses (the dev server) — meta tag alone can be stripped in dev mode
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
