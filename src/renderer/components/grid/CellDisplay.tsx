@@ -1,10 +1,11 @@
 import React from 'react'
-import type { Column, GridRow } from '../../../shared/types'
-import { computeAge, formatCalculatedDays, evaluateRuleForRow } from '../../utils/deadlineCalc'
+import type { Column, GridRow, ParsedAlertRule } from '../../../shared/types'
+import { computeAge, formatCalculatedDays, evaluateRuleForRow, deadlineChipText } from '../../utils/deadlineCalc'
 import { daysUntilSource } from './gridSort'
 import { useAlertStore } from '../../stores/alertStore'
 import { useGridStore } from '../../stores/gridStore'
-import { formatDue, isUsedUp } from '../../../shared/deadlineEngine'
+import { formatDue, isUsedUp, type DeadlineResult } from '../../../shared/deadlineEngine'
+import { cellText } from '../../../shared/cellText'
 import { canBeRequired, isMissingValue } from '../../../shared/requiredFields'
 import { LinkCell } from './LinkCell'
 import { pulseEvents } from '../../events'
@@ -235,14 +236,41 @@ function DeadlineCell({ column, value, row, parsedConfig }: { column: Column; va
     </button>
   )
   const res = evaluateRuleForRow(rule, value, (row ?? {}) as unknown as Record<string, unknown>, column.id)
-  if (res.state === 'done') return <span className="truncate min-w-0 text-green-700 dark:text-green-300">Done{value ? ` ${formatDue(value.slice(0, 10))}` : ''}</span>
-  if (res.state === 'paused') return <span className="truncate min-w-0 text-slate-500 dark:text-slate-400 italic" title={res.detail}>Paused</span>
+  const text = deadlineCellText(res, value)
+  if (res.state === 'done') return <span className="truncate min-w-0 text-green-700 dark:text-green-300">{text}</span>
+  if (res.state === 'paused') return <span className="truncate min-w-0 text-slate-500 dark:text-slate-400 italic" title={res.detail}>{text}</span>
   // A calendar rule before its lead time: say when it's next due, rather than a bare dash
-  if (!res.due && res.upcoming) return <span className="truncate min-w-0 tabular-nums text-slate-500 dark:text-slate-400" title={res.detail}>Next {formatDue(res.upcoming)}</span>
+  if (!res.due && res.upcoming) return <span className="truncate min-w-0 tabular-nums text-slate-500 dark:text-slate-400" title={res.detail}>{text}</span>
   if (!res.due || res.daysUntil === null) return <span className="text-slate-300 dark:text-slate-500">—</span>
-  const d = res.daysUntil
+  return <span className="truncate min-w-0 tabular-nums" title={res.detail}>{text}</span>
+}
+
+/** What a deadline column's cell says for a rule's result */
+export function deadlineCellText(res: DeadlineResult, value: string | null): string {
+  if (res.state === 'done') return `Done${value ? ` ${formatDue(value.slice(0, 10))}` : ''}`
+  if (res.state === 'paused') return 'Paused'
+  if (!res.due && res.upcoming) return `Next ${formatDue(res.upcoming)}`
+  if (!res.due || res.daysUntil === null) return '—'
   // A used-up quota: "All 12 used · ends Dec 31, 2026", not "today"
-  if (isUsedUp(res)) return <span className="truncate min-w-0 tabular-nums" title={res.detail}>{res.label ?? 'All used'} · ends {formatDue(res.due)}</span>
+  if (isUsedUp(res)) return `${res.label ?? 'All used'} · ends ${formatDue(res.due)}`
+  const d = res.daysUntil
   const when = d < 0 ? `${-d} day${d === -1 ? '' : 's'} late` : d === 0 ? 'today' : `in ${d} day${d === 1 ? '' : 's'}`
-  return <span className="truncate min-w-0 tabular-nums" title={res.detail}>{res.label ? `${res.label} · ` : ''}{formatDue(res.due)} · {when}</span>
+  return `${res.label ? `${res.label} · ` : ''}${formatDue(res.due)} · ${when}`
+}
+
+/**
+ * About what a cell shows, for double-click auto-fit: a date with a rule
+ * shows its shape and words beside the date, a deadline column its status,
+ * a link column names rather than its stored ids.
+ */
+export function cellFitText(column: Column, value: string | null, row: GridRow, rule: ParsedAlertRule | undefined): string {
+  if (column.column_type === 'deadline') {
+    return rule ? deadlineCellText(evaluateRuleForRow(rule, value, row as unknown as Record<string, unknown>, column.id), value) : 'Choose a deadline rule'
+  }
+  if (column.column_type === 'date' && rule) {
+    const chip = deadlineChipText(evaluateRuleForRow(rule, value, row as unknown as Record<string, unknown>, column.id), value)
+    // Three characters or so for the shape in front of the date
+    return `   ${value ? formatDate(value) : '—'}${chip ? `  ${chip}` : ''}`
+  }
+  return cellText(column.column_type, value)
 }

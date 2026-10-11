@@ -37,7 +37,7 @@ import { CellHistoryPopover } from '../shared/CellHistoryPopover'
 import { getClientName } from '../../utils/clientName'
 import { BADGE_WIDTH as ACUITY_BADGE_WIDTH } from './AcuityBadge'
 import { linkValueText } from '../../../shared/links'
-import { CellDisplay } from './CellDisplay'
+import { CellDisplay, cellFitText } from './CellDisplay'
 import { SortableRow } from './SortableRow'
 import { GridContextMenu } from './GridContextMenu'
 import { BulkActionBar } from './BulkActionBar'
@@ -68,6 +68,11 @@ import { ACUITY_GROUP_KEY, isNotTypedColumnType, takesDeadlineRule } from '../..
 const columnHelper = createColumnHelper<GridRow>()
 
 // ── Main DataGrid ─────────────────────────────────────────────────────────────
+
+
+function ruleIdFromConfig(config: string | null | undefined): number | undefined {
+  try { return (JSON.parse(config || '{}') as { alert_rule_id?: number }).alert_rule_id } catch { return undefined }
+}
 
 export function DataGrid(): React.ReactElement {
   const { t } = useVocab()
@@ -369,8 +374,11 @@ export function DataGrid(): React.ReactElement {
     const storeRows = useGridStore.getState().rows
     const sample = storeRows.length > 500 ? storeRows.slice(0, 500) : storeRows
     const headerWidth = col.name.length * CHAR_WIDTH_HEADER + HEADER_PADDING
+    // Measure what the cell shows, not what it stores: a date's deadline words, a link's names
+    const ruleId = takesDeadlineRule(col.column_type) ? ruleIdFromConfig(col.config) : undefined
+    const rule = ruleId !== undefined ? useAlertStore.getState().rules.find(r => r.id === ruleId) : undefined
     const maxContentWidth = sample.reduce((max, row) => {
-      const val = String(row[`col_${colId}` as keyof GridRow] ?? '')
+      const val = cellFitText(col, (row[`col_${colId}` as keyof GridRow] as string | null) ?? null, row, rule)
       return Math.max(max, val.length * CHAR_WIDTH_CELL + CELL_PADDING)
     }, MIN_COL_WIDTH)
     const newWidth = Math.min(Math.max(headerWidth, maxContentWidth, DEFAULT_COL_WIDTH), MAX_AUTO_FIT_WIDTH)

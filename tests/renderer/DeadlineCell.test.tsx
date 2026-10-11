@@ -7,7 +7,8 @@ import { render, screen, fireEvent } from '@testing-library/react'
 vi.mock('lucide-react', async () => (await import('./lucideMock')).lucideMock)
 Object.defineProperty(window, 'api', { value: { invoke: vi.fn(), on: () => () => {} }, writable: true, configurable: true })
 
-import { CellDisplay } from '../../src/renderer/components/grid/CellDisplay'
+import { CellDisplay, cellFitText } from '../../src/renderer/components/grid/CellDisplay'
+import { LINK_FIELD_SEP, LINK_ITEM_SEP } from '../../src/shared/links'
 import { useAlertStore } from '../../src/renderer/stores/alertStore'
 import { useGridStore } from '../../src/renderer/stores/gridStore'
 import { pulseEvents } from '../../src/renderer/events'
@@ -56,6 +57,18 @@ describe('deadline cells', () => {
     // Last visit Sep 7, every 30 days: due Oct 7, in 5 days (not "25 days overdue")
     render(<CellDisplay column={days} value={null} row={{ row_id: 1, col_2: '2026-09-07' } as unknown as GridRow} allColumns={[visit, days]} parsedConfig={{ source_column_id: 2 }} />)
     expect(screen.getByText('5 days')).toBeTruthy()
+  })
+
+  it('auto-fit measures what the cell shows: deadline words, link names (R1)', () => {
+    const every30 = { ...rule, id: 8, kind: 'interval', interval_days: 30, rule_config: null } as unknown as ParsedAlertRule
+    const visit = { ...column, id: 2, name: 'Last visit', column_type: 'date', config: '{"alert_rule_id":8}' } as Column
+    const row = { row_id: 1, col_2: '2026-08-07', col_4: null } as unknown as GridRow
+    // Due Sep 6: the date and its chip, not just "2026-08-07"
+    expect(cellFitText(visit, '2026-08-07', row, every30)).toContain('due Sep 6 · 26 days late')
+    expect(cellFitText(column, null, row, rule)).toBe('Jan 15, 2027 · in 105 days')
+    expect(cellFitText(column, null, row, undefined)).toBe('Choose a deadline rule')
+    const link = { ...column, id: 5, column_type: 'link', config: '{}' } as Column
+    expect(cellFitText(link, `12${LINK_FIELD_SEP}Ann Lee${LINK_ITEM_SEP}13${LINK_FIELD_SEP}Bo Chan`, row, undefined)).toBe('Ann Lee, Bo Chan')
   })
 
   it('show a used-up quota by its label, not "today" (D-13)', () => {
