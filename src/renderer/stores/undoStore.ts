@@ -214,8 +214,9 @@ export const useUndoStore = create<UndoState>((set, get) => {
       }))
       clearToast()
       try {
-        await applySideEffects(item.sideEffects, 'undo')
+        // The change first: its note is voided only once the change is really undone (AUDIT-023)
         await item.undo()
+        await applySideEffects(item.sideEffects, 'undo')
       } catch (err) {
         rlog.error('UndoStore', 'Undo failed', err)
         // Revert stack mutation so the item isn't lost
@@ -241,8 +242,8 @@ export const useUndoStore = create<UndoState>((set, get) => {
         isUndoing: true,
       }))
       try {
-        await applySideEffects(item.sideEffects, 'redo')
         await item.redo()
+        await applySideEffects(item.sideEffects, 'redo')
       } catch (err) {
         rlog.error('UndoStore', 'Redo failed', err)
         // Revert stack mutation so the item isn't lost
@@ -275,8 +276,8 @@ export const useUndoStore = create<UndoState>((set, get) => {
             isUndoing: true,
           }))
           try {
-            await applySideEffects(item.sideEffects, 'undo')
             await item.undo()
+            await applySideEffects(item.sideEffects, 'undo')
           } catch (err) {
             // Earlier steps really were undone; this one wasn't, so it goes back on the undo stack
             rlog.error('UndoStore', 'undoTo partial failure:', err)

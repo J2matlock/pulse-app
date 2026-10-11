@@ -34,6 +34,15 @@ describe('grid keys', () => {
     expect(d.setEditingCell).toHaveBeenCalledWith({ rowId: 7, columnId: 1 })
   })
 
+  it('Enter in the cell being edited is left to the editor (AUDIT-040)', () => {
+    const d = deps([col(1, 'notes')])
+    d.editingCellRef = { current: { rowId: 7, columnId: 1 } }
+    const ev = key('Enter')
+    handleCellKeyDown(ev, 7, 1, d)
+    expect(ev.preventDefault).not.toHaveBeenCalled()
+    expect(d.setEditingCell).not.toHaveBeenCalled()
+  })
+
   it('Tab moves to the next cell, but leaves the list at the last cell (G-32)', () => {
     const d = deps([col(1, 'text')])
     const inside = key('Tab')

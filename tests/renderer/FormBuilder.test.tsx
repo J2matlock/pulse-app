@@ -80,4 +80,29 @@ describe('the form builder', () => {
       fields: [{ kind: 'column', columnId: 1, required: true }, { kind: 'column', columnId: 2 }, { kind: 'note', label: 'Why now?' }],
     })
   })
+
+  it('after "Move up", focus stays with the field that moved, so pressing again moves it again (AUDIT-138)', async () => {
+    forms = []
+    render(<FormsDialog gridId={3} gridName="Clients" onClose={vi.fn()} />)
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    fireEvent.click(screen.getByRole('button', { name: /New form/ }))
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    const add = screen.getByRole('group', { name: 'Add to the form' })
+    fireEvent.click(within(add).getByRole('button', { name: /Phone/ }))
+    fireEvent.click(within(add).getByRole('button', { name: /Section heading/ }))
+    fireEvent.click(within(add).getByRole('button', { name: /Question for the/ }))
+    const label = screen.getByLabelText(/^Label for Question/) as HTMLInputElement
+    fireEvent.change(label, { target: { value: 'Why now?' } })
+    const up = screen.getByRole('button', { name: /^Move Question for the .* up$/ })
+    up.focus()
+    await act(async () => { fireEvent.click(up) })
+    expect(document.activeElement?.getAttribute('aria-label')).toMatch(/^Move Question for the .* up$/)
+    // The same input went with it
+    expect(screen.getByLabelText(/^Label for Question/)).toBe(label)
+    await act(async () => { fireEvent.click(document.activeElement as HTMLElement) })
+    const list = screen.getByRole('list', { name: 'Fields on the form' })
+    expect(within(list).getAllByRole('listitem').map(li => li.querySelector('span')?.textContent)).toEqual([expect.stringMatching(/^Question for the/), 'Phone', 'Section heading'])
+    // At the top now: focus moves to the arrow that still works
+    expect(document.activeElement?.getAttribute('aria-label')).toMatch(/^Move Question for the .* down$/)
+  })
 })

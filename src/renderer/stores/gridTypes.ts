@@ -32,6 +32,10 @@ export interface CoreGridState {
   hiddenColumns: Column[]
   rows: GridRow[]
   isLoading: boolean
+  /** The list whose columns and records are loaded now; a reload of it keeps the table on screen (AUDIT-039) */
+  loadedGridId: number | null
+  /** The open list couldn't be read: the table shows this with a "Try again" button (AUDIT-041) */
+  loadError: string | null
   isSaving: boolean
   saveError: string | null
 

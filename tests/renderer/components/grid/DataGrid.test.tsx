@@ -188,6 +188,7 @@ vi.mock('../../../../src/renderer/utils/filterMatch', () => ({
 import { useGridStore } from '../../../../src/renderer/stores/gridStore'
 import { useSettingsStore } from '../../../../src/renderer/stores/settingsStore'
 import { useAlertStore } from '../../../../src/renderer/stores/alertStore'
+import { useProfileStore } from '../../../../src/renderer/stores/profileStore'
 import { DataGrid } from '../../../../src/renderer/components/grid/DataGrid'
 import { setWords } from '../../vocabFixture'
 
@@ -275,6 +276,8 @@ function setupStores(overrides: Record<string, unknown> = {}) {
     lastAddedRowId: null,
     pinnedRowId: null,
     sampleRows: {},
+    loadedGridId: null,
+    loadError: null,
     ...overrides,
   } as unknown as Parameters<typeof useGridStore.setState>[0])
   useSettingsStore.setState({ gridDensity: 'comfortable' })
@@ -405,6 +408,54 @@ describe('DataGrid', () => {
       await flushEffects()
       expect(screen.getByRole('status')).toBeTruthy()
       expect(screen.getByText('Loading…')).toBeTruthy()
+    })
+
+    it('keeps the table on screen while the open list reloads (AUDIT-039)', async () => {
+      setupStores({ loadedGridId: 1 })
+      const { container } = renderDataGrid()
+      await flushEffects()
+      const scroller = container.querySelector('.overflow-auto') as HTMLDivElement
+      scroller.scrollTop = 600
+      const cell = screen.getAllByRole('gridcell')[5]!
+      act(() => { cell.focus() })
+      await act(async () => { useGridStore.setState({ isLoading: true }) })
+      expect(screen.queryByText('Loading…')).toBeNull()
+      expect(container.querySelector('.overflow-auto')).toBe(scroller)
+      expect(scroller.scrollTop).toBe(600)
+      await act(async () => { useGridStore.setState({ isLoading: false, rows: makeTestRows(5) }) })
+      expect(container.querySelector('.overflow-auto')).toBe(scroller)
+      expect(document.activeElement).toBe(screen.getAllByRole('gridcell')[5])
+    })
+
+    it('back from a record, scrolls to where this list was once its records arrive, then forgets it (AUDIT-129)', async () => {
+      useProfileStore.setState({ savedScroll: { gridId: 1, top: 300 } })
+      setupStores({ isLoading: true, loadedGridId: null })
+      const { container } = renderDataGrid()
+      await flushEffects()
+      expect(useProfileStore.getState().savedScroll).not.toBeNull()
+      await act(async () => { useGridStore.setState({ isLoading: false, loadedGridId: 1 }) })
+      const scroller = container.querySelector('.overflow-auto') as HTMLDivElement
+      expect(scroller.scrollTop).toBe(300)
+      expect(useProfileStore.getState().savedScroll).toBeNull()
+    })
+
+    it('does not use another list\'s scroll position (AUDIT-129)', async () => {
+      useProfileStore.setState({ savedScroll: { gridId: 2, top: 300 } })
+      setupStores({ loadedGridId: 1 })
+      const { container } = renderDataGrid()
+      await flushEffects()
+      expect((container.querySelector('.overflow-auto') as HTMLDivElement).scrollTop).toBe(0)
+      expect(useProfileStore.getState().savedScroll).toBeNull()
+    })
+
+    it('says when a list could not be opened, and tries again (AUDIT-041)', async () => {
+      const loadGrid = vi.fn().mockResolvedValue(undefined)
+      setupStores({ columns: [], rows: [], loadError: "We couldn't open this caseload.", loadGrid })
+      renderDataGrid()
+      await flushEffects()
+      expect(screen.getByRole('alert').textContent).toContain("We couldn't open this caseload.")
+      fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+      expect(loadGrid).toHaveBeenCalledWith(1)
     })
 
     it('shows empty columns state when columns array is empty', async () => {
@@ -716,6 +767,34 @@ describe('DataGrid', () => {
         useGridStore.setState({ deadlineContext: { meter: {}, quota: { '1:2': 30, '2:2': 5, '3:2': 12 }, progress: {}, extensions: {} } } as never)
       })
       expect(names()).toEqual(['Bob', 'Cy', 'Ann'])
+    })
+
+    it('filters again by due status when the counts arrive after the records (AUDIT-011)', async () => {
+      const { matchFilter } = await import('../../../../src/renderer/utils/filterMatch')
+      // "Overdue" here means the count says fewer than 10 days left
+      vi.mocked(matchFilter).mockImplementation(row => {
+        const n = useGridStore.getState().deadlineContext?.quota?.[`${row.row_id}:2`]
+        return n != null && n < 10
+      })
+      try {
+        const cols = [makeColumn(1, 'Name', 'text'), makeColumn(2, 'Visits', 'date', { config: '{"alert_rule_id":9}' })]
+        setupStores({
+          columns: cols,
+          rows: [makeRow(1, { col_1: 'Ann' }), makeRow(2, { col_1: 'Bob' }), makeRow(3, { col_1: 'Cy' })],
+          activeFilters: [{ columnId: 2, operator: 'due_status', value: 'overdue' }],
+          deadlineContext: null,
+        })
+        renderDataGrid()
+        await flushEffects()
+        const names = () => screen.queryAllByRole('row').map(r => (r.textContent ?? '').match(/Ann|Bob|Cy/)?.[0]).filter(Boolean)
+        expect(names()).toEqual([])
+        await act(async () => {
+          useGridStore.setState({ deadlineContext: { meter: {}, quota: { '1:2': 30, '2:2': 5, '3:2': 2 }, progress: {}, extensions: {} } } as never)
+        })
+        expect(names()).toEqual(['Bob', 'Cy'])
+      } finally {
+        vi.mocked(matchFilter).mockImplementation(() => true)
+      }
     })
   })
 

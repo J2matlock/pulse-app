@@ -15,7 +15,8 @@ export interface RecentProfile {
 
 interface ProfileState {
   recentProfiles: RecentProfile[]
-  savedScrollTop: number
+  /** Where the list was scrolled when a record was opened from it; used once, by that list only (AUDIT-129) */
+  savedScroll: { gridId: number; top: number } | null
 
   addRecentProfile: (profile: RecentProfile) => void
   /** A record that's gone (Trash, deleted list) leaves Recent */
@@ -26,13 +27,14 @@ interface ProfileState {
    * is in the Trash" or to the old list.
    */
   pruneRecentProfiles: () => Promise<void>
-  saveScrollTop: (pos: number) => void
+  saveScrollTop: (gridId: number, pos: number) => void
+  clearSavedScroll: () => void
   clearRecentProfiles: () => void
 }
 
 export const useProfileStore = create<ProfileState>((set, get) => ({
   recentProfiles: [],
-  savedScrollTop: 0,
+  savedScroll: null,
 
   addRecentProfile: (profile) =>
     set((state) => {
@@ -68,7 +70,8 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     }))
   },
 
-  saveScrollTop: (pos) => set({ savedScrollTop: pos }),
+  saveScrollTop: (gridId, pos) => set({ savedScroll: { gridId, top: pos } }),
+  clearSavedScroll: () => set({ savedScroll: null }),
 
   clearRecentProfiles: () => set({ recentProfiles: [] }),
 }))

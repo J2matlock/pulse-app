@@ -30,7 +30,7 @@ import { useAlertStore } from '../../stores/alertStore'
 import { useProfileStore } from '../../stores/profileStore'
 import type { GridRow, SortConfig, CellFormatRule } from '../../../shared/types'
 import { matchFilter } from '../../utils/filterMatch'
-import { deadlineCompare, numberCompare, dateCompare, textCompare, keyCompare, daysUntilSource } from './gridSort'
+import { deadlineCompare, numberCompare, dateCompare, textCompare, keyCompare, daysUntilSource, memoKey } from './gridSort'
 import { rowMatchesSearch } from '../../utils/searchMatch'
 import { CellConditionalFormatPanel } from './CellConditionalFormatPanel'
 import { CellHistoryPopover } from '../shared/CellHistoryPopover'
@@ -81,7 +81,7 @@ export function DataGrid(): React.ReactElement {
           rowTagsMap, showStarredOnly, cellFormats,
           acuityEnabled: acuityFlag, acuityLevels, groupByColumnId, isLoading,
           activeGridId, copiedFormatRules, customGroups, activeCustomGroupId,
-          lastAddedRowId, pinnedRowId, frozenColumnCount, sampleRows } = useGridStore(useShallow(s => ({
+          lastAddedRowId, pinnedRowId, frozenColumnCount, sampleRows, loadedGridId, loadError } = useGridStore(useShallow(s => ({
     columns: s.columns, rows: s.rows, sortConfig: s.sortConfig,
     searchQuery: s.searchQuery, findReplaceQuery: s.findReplaceQuery,
     findReplaceActiveMatch: s.findReplaceActiveMatch,
@@ -97,6 +97,7 @@ export function DataGrid(): React.ReactElement {
     pinnedRowId: s.pinnedRowId,
     frozenColumnCount: s.frozenColumnCount,
     sampleRows: s.sampleRows,
+    loadedGridId: s.loadedGridId, loadError: s.loadError,
   })))
   // A list's own setting, shown only while the feature is switched on
   const priorityOn = useFeature('priority')
@@ -138,8 +139,8 @@ export function DataGrid(): React.ReactElement {
 
   const handleNavigateToProfile = useCallback((rowId: number) => {
     const scrollEl = containerRef.current
-    if (scrollEl) saveScrollTop(scrollEl.scrollTop)
     const { grids: currentGrids, rows: currentRows, columns: currentCols, activeGridId: currentGridId } = useGridStore.getState()
+    if (scrollEl && currentGridId !== null) saveScrollTop(currentGridId, scrollEl.scrollTop)
     const grid = currentGrids.find(g => g.id === currentGridId)
     const row = currentRows.find(r => r.row_id === rowId)
     const name = row ? getClientName(row, currentCols, 'Unknown') : 'Unknown'
@@ -189,15 +190,18 @@ export function DataGrid(): React.ReactElement {
   const columnSizingRef = useRef<ColumnSizingState>({})
   const resizeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Restore scroll position when returning from profile view
-  const savedScrollTop = useProfileStore(s => s.savedScrollTop)
+  // Back from a record's page: scroll to where this list was, once the records are
+  // on screen, then forget it. Another list's position is dropped (AUDIT-129)
+  const savedScroll = useProfileStore(s => s.savedScroll)
+  const listReady = !isLoading && loadedGridId !== null && loadedGridId === activeGridId && rows.length > 0
   useEffect(() => {
-    if (!savedScrollTop) return
+    if (!savedScroll) return
+    if (savedScroll.gridId !== activeGridId) { useProfileStore.getState().clearSavedScroll(); return }
+    if (!listReady) return
     const el = containerRef.current
-    if (el) {
-      el.scrollTop = savedScrollTop
-    }
-  }, []) // Only on mount — intentional
+    if (el) el.scrollTop = savedScroll.top
+    useProfileStore.getState().clearSavedScroll()
+  }, [savedScroll, activeGridId, listReady])
 
   // Clean up resizeTimeoutRef on unmount to prevent stale callbacks
   useEffect(() => {
@@ -222,6 +226,9 @@ export function DataGrid(): React.ReactElement {
 
   // Apply starred pre-filter + column filters + acuity sort before passing to TanStack
   const filteredRows = useMemo(() => {
+    // A due-status or Days-until filter reads counts, readings and done flags that
+    // arrive after the rows (AUDIT-011): filter again when they land
+    void deadlineContext
     let result = rows
     // A record just added stays in view until the filter changes (G-28)
     const pinned = (row: GridRow) => row.row_id === pinnedRowId
@@ -235,7 +242,7 @@ export function DataGrid(): React.ReactElement {
       result = result.filter(row => matcher(row) || pinned(row))
     }
     return result
-  }, [rows, activeFilters, filterMode, allColumns, rowTagsMap, showStarredOnly, pinnedRowId, alertRuleMap])
+  }, [rows, activeFilters, filterMode, allColumns, rowTagsMap, showStarredOnly, pinnedRowId, alertRuleMap, deadlineContext])
 
   // Changing what's filtered lets the pinned record go (not the first render: the grid may mount after an add)
   const filterMounted = useRef(false)
@@ -274,6 +281,14 @@ export function DataGrid(): React.ReactElement {
     for (const pc of parsedColumnConfigs.values()) {
       if (pc.conditionalFormat.some(r => r.highlightRow)) return true
     }
+    return false
+  }, [cellFormats, parsedColumnConfigs])
+
+  // Does any rule color a cell from another record's cell? Then any record's change can redraw others (AUDIT-038)
+  const hasCrossRowRules = useMemo(() => {
+    const cross = (rules: CellFormatRule[]) => rules.some(r => r.sourceType === 'specific_cell')
+    for (const rules of cellFormats.values()) if (cross(rules)) return true
+    for (const pc of parsedColumnConfigs.values()) if (cross(pc.conditionalFormat)) return true
     return false
   }, [cellFormats, parsedColumnConfigs])
 
@@ -449,7 +464,7 @@ export function DataGrid(): React.ReactElement {
       const byDate = dateCompare(col.id, desc)
       const srcId = compCfg?.source_column_id
       // The same days the cell shows: to when it's due when the date has a rule (R4)
-      const byDaysUntil = keyCompare(r => srcId ? daysUntilSource(srcId, r, alertRules) : null, desc)
+      const byDaysUntil = keyCompare(memoKey(r => srcId ? daysUntilSource(srcId, r, alertRules) : null), desc)
       // Ages sort by date of birth (an earlier date is older)
       const byAge = keyCompare(r => srcId ? (r[`col_${srcId}` as keyof GridRow] as string | null) || null : null, desc)
       // Link columns (W04) sort by the linked names, not the stored ids
@@ -549,11 +564,21 @@ export function DataGrid(): React.ReactElement {
 
   visualRowIdsRef.current = visualRowIds
 
+  // Group headers are their own height, and the Collapse all bar sits above the list
+  // inside the scroll area: both count, so scrolling to a record lands on it (AUDIT-132)
+  const sizeOf = useMemo(() => isGroupedFromHook
+    ? (i: number) => displayItems[i]?.kind === 'group-header' ? GROUP_HEADER_HEIGHT : rowHeight
+    : undefined, [isGroupedFromHook, displayItems, rowHeight])
+  const [collapseBarHeight, setCollapseBarHeight] = useState(0)
+  const collapseBarRef = useCallback((el: HTMLDivElement | null) => setCollapseBarHeight(el?.offsetHeight ?? 0), [])
+
   // Virtual scrolling (extracted hook)
   const { virtualRows, totalSize: totalHeight, paddingTop, paddingBottom, scrollToRow } = useGridVirtualizer({
     parentRef: containerRef,
     count: isGroupedFromHook ? displayItems.length : tableRows.length,
     rowHeight,
+    sizeOf,
+    scrollMargin: collapseBarHeight,
   })
 
   /** Bring a record into view, whether or not the list is grouped */
@@ -703,6 +728,7 @@ export function DataGrid(): React.ReactElement {
       hasAnyHighlightRules={hasAnyHighlightRules}
       highlightColumnIds={highlightColumnIds}
       rowMap={rowMap}
+      hasCrossRowRules={hasCrossRowRules}
       containerRef={containerRef as React.RefObject<HTMLDivElement>}
       isSelected={selectedRowIds.has(row.original.row_id)}
       selectedCount={selectedRowIds.size}
@@ -732,8 +758,21 @@ export function DataGrid(): React.ReactElement {
     />
   )
 
-  if (isLoading) {
+  // Only a first load or another list shows the placeholder. A reload of this list keeps the
+  // table mounted, so the scroll position and the focused cell stay put (AUDIT-039)
+  if (isLoading && loadedGridId !== activeGridId) {
     return <GridLoadingSkeleton rowHeight={rowHeight} />
+  }
+
+  if (loadError && !isLoading) {
+    return (
+      <div role="alert" className="flex flex-col items-center justify-center h-full gap-4 px-6 text-center">
+        <p className="text-base text-slate-700 dark:text-slate-300">{loadError} Please try again.</p>
+        <button type="button" className="btn-primary" onClick={() => { if (activeGridId !== null) void useGridStore.getState().loadGrid(activeGridId) }}>
+          Try again
+        </button>
+      </div>
+    )
   }
 
   if (columns.length === 0) {
@@ -812,7 +851,9 @@ export function DataGrid(): React.ReactElement {
         <div>
           {/* Collapse/Expand All toolbar (grouped mode only) */}
           {isGrouped && (
-            <CollapseExpandBar onCollapseAll={handleCollapseAll} onExpandAll={handleExpandAll} />
+            <div ref={collapseBarRef}>
+              <CollapseExpandBar onCollapseAll={handleCollapseAll} onExpandAll={handleExpandAll} />
+            </div>
           )}
           {/* ── Unified virtualized rendering (both grouped and ungrouped) ── */}
           <div style={{ position: 'relative', height: totalHeight }}>

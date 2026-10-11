@@ -33,12 +33,13 @@ vi.mock('../../../src/shared/constants', async () => ({
 
 // ── Store mocks ──────────────────────────────────────────────────────────────
 
+const wholeStoreReads = vi.hoisted(() => ({ n: 0 }))
 vi.mock('../../../src/renderer/stores/settingsStore', () => {
   const storeData = {
     setPasswordSetup: vi.fn(), setLocked: vi.fn(),
     theme: 'light',
   }
-  return { useSettingsStore: (selector?: Function) => selector ? selector(storeData) : storeData }
+  return { useSettingsStore: (selector?: Function) => { if (!selector) wholeStoreReads.n++; return selector ? selector(storeData) : storeData } }
 })
 
 // ── Mock child components ─────────────────────────────────────────────────────
@@ -104,5 +105,12 @@ describe('PasswordSetupView', () => {
     fireEvent.click(submit)
     expect((await screen.findByRole('alert')).textContent).toMatch(/Tick the box to agree/)
     expect(document.activeElement).toBe(screen.getByRole('checkbox'))
+  })
+
+  it('reads only the settings it needs, so other settings changes don\'t redraw it (AUDIT-137)', async () => {
+    wholeStoreReads.n = 0
+    render(<MemoryRouter><PasswordSetupView /></MemoryRouter>)
+    await flushEffects()
+    expect(wholeStoreReads.n).toBe(0)
   })
 })

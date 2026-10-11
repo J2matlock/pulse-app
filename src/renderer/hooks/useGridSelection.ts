@@ -3,35 +3,39 @@
  * Handles single click, Ctrl+click, Shift+click, select-all, and clear.
  * Selection state lives in gridStore so other components (e.g. GridStatusFooter) can read it.
  */
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../stores/gridStore'
 
 interface UseGridSelectionOptions {
   /** Ref to the current visual row IDs (post-sort, post-filter, post-group order) */
   visualRowIdsRef: React.RefObject<number[]>
-  /** Active grid ID — selection is cleared on grid switch */
+  /** Active grid ID — the Shift+click starting point is forgotten on grid switch */
   activeGridId: number | null
 }
 
-export function useGridSelection({ visualRowIdsRef }: UseGridSelectionOptions) {
+export function useGridSelection({ visualRowIdsRef, activeGridId }: UseGridSelectionOptions) {
   const { selectedRowIds, setSelectedRowIds } = useGridStore(useShallow(s => ({
     selectedRowIds: s.selectedRowIds,
     setSelectedRowIds: s.setSelectedRowIds,
   })))
   const selectedRowIdsRef = useRef<Set<number>>(new Set())
   selectedRowIdsRef.current = selectedRowIds
-  const lastSelectedIndexRef = useRef<number | null>(null)
+  // Shift+click ranges start at the last clicked record, wherever a sort or filter
+  // has moved it since, not at whatever now sits in its old place (AUDIT-131)
+  const anchorRowIdRef = useRef<number | null>(null)
+
+  useEffect(() => { anchorRowIdRef.current = null }, [activeGridId])
 
   const handleToggleRowSelect = useCallback((e: React.MouseEvent, rowId: number) => {
     e.stopPropagation()
     const vIds = visualRowIdsRef.current
     const idx = vIds.indexOf(rowId)
-    const lastIdx = lastSelectedIndexRef.current
+    const anchorIdx = anchorRowIdRef.current !== null ? vIds.indexOf(anchorRowIdRef.current) : -1
 
-    if (e.shiftKey && lastIdx !== null) {
-      const from = Math.min(lastIdx, idx)
-      const to = Math.max(lastIdx, idx)
+    if (e.shiftKey && anchorIdx !== -1 && idx !== -1) {
+      const from = Math.min(anchorIdx, idx)
+      const to = Math.max(anchorIdx, idx)
       setSelectedRowIds(prev => {
         const next = new Set(prev)
         for (let i = from; i <= to; i++) {
@@ -48,14 +52,14 @@ export function useGridSelection({ visualRowIdsRef }: UseGridSelectionOptions) {
         return next
       })
     }
-    lastSelectedIndexRef.current = idx
+    anchorRowIdRef.current = rowId
   }, [visualRowIdsRef, setSelectedRowIds])
 
   return {
     selectedRowIds,
     setSelectedRowIds,
     selectedRowIdsRef,
-    lastSelectedIndexRef,
+    anchorRowIdRef,
     handleToggleRowSelect,
   }
 }

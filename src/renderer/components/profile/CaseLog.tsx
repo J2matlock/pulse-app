@@ -242,12 +242,23 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     setLoading(false)
   }, [rowId, PAGE_SIZE, query, oldestFirst, includeSystem, showVoided, kindFilter])
 
+  // One page at a time: a second click before the first page arrives would ask for the same page again (AUDIT-136)
+  const loadingMoreRef = useRef(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const loadMore = useCallback(async () => {
-    const res = await safeInvoke<CaseLogEntryType[]>(IPC.CASE_LOG_GET, rowId, includeSystem, showVoided, PAGE_SIZE + 1, entries.length, { query, oldestFirst, ...(kindFilter ? { logType: kindFilter } : {}) })
-    if (res.ok) {
-      const data = res.data
-      setHasMore(data.length > PAGE_SIZE)
-      setEntries(prev => [...prev, ...data.slice(0, PAGE_SIZE)])
+    if (loadingMoreRef.current) return
+    loadingMoreRef.current = true
+    setLoadingMore(true)
+    try {
+      const res = await safeInvoke<CaseLogEntryType[]>(IPC.CASE_LOG_GET, rowId, includeSystem, showVoided, PAGE_SIZE + 1, entries.length, { query, oldestFirst, ...(kindFilter ? { logType: kindFilter } : {}) })
+      if (res.ok) {
+        const data = res.data
+        setHasMore(data.length > PAGE_SIZE)
+        setEntries(prev => [...prev, ...data.slice(0, PAGE_SIZE)])
+      }
+    } finally {
+      loadingMoreRef.current = false
+      setLoadingMore(false)
     }
   }, [rowId, entries.length, PAGE_SIZE, query, oldestFirst, includeSystem, showVoided, kindFilter])
 
@@ -910,7 +921,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             {total != null && <span className="text-base text-slate-600 dark:text-slate-300">Showing {entries.length} of {total}</span>}
             <button
               onClick={() => void loadMore()}
-              className="hit-44 text-base text-blue-600 dark:text-blue-400 hover:underline"
+              disabled={loadingMore}
+              className="hit-44 text-base text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-60"
             >
               Load more entries…
             </button>

@@ -6,6 +6,7 @@
 import type { Column, GridRow, ParsedAlertRule } from '../../../shared/types'
 import { computeDaysUntil, evaluateRuleForRow } from '../../utils/deadlineCalc'
 import { useGridStore } from '../../stores/gridStore'
+import { useWorkspaceStore } from '../../stores/workspaceStore'
 
 type Cmp = (a: GridRow, b: GridRow) => number
 
@@ -57,13 +58,41 @@ export function keyCompare(key: (r: GridRow) => number | string | null, desc: Is
   }
 }
 
+/**
+ * Remembers each record's sort key, so a sort works it out once per record
+ * instead of twice per comparison (AUDIT-010: the deadline engine made a
+ * 10,000-record sort take seconds). A record edit makes a new row object, so
+ * its key is worked out again. Everything is forgotten when the counts and
+ * readings arrive, the days off change, or the day turns over.
+ */
+export function memoKey<K>(key: (r: GridRow) => K): (r: GridRow) => K {
+  let cache = new WeakMap<GridRow, { k: K }>()
+  let ctx: unknown, cal: unknown, until = 0
+  return (r) => {
+    const c = useGridStore.getState().deadlineContext
+    const w = useWorkspaceStore.getState().calendar
+    const now = Date.now()
+    if (c !== ctx || w !== cal || now >= until) {
+      cache = new WeakMap()
+      ctx = c; cal = w
+      const d = new Date(now)
+      until = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime()
+    }
+    const hit = cache.get(r)
+    if (hit) return hit.k
+    const k = key(r)
+    cache.set(r, { k })
+    return k
+  }
+}
+
 export function deadlineCompare(columnId: number, rule: ParsedAlertRule, desc: IsDesc = ASC): Cmp {
-  const key = (r: GridRow): [number, number] => {
+  const key = memoKey((r: GridRow): [number, number] => {
     const res = evaluateRuleForRow(rule, (r[`col_${columnId}`] as string | null) ?? null, r as unknown as Record<string, unknown>, columnId)
     if (res.state === 'done' || res.state === 'paused') return [2, 0]
     if (res.daysUntil === null) return [1, 0]
     return [0, res.daysUntil]
-  }
+  })
   return (ra, rb) => {
     const [ba, da] = key(ra), [bb, db] = key(rb)
     // Nothing due, then done or paused, stay after the dates either way

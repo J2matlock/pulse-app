@@ -51,4 +51,14 @@ describe('note paging', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Load more/ })) })
     expect(mockInvoke).toHaveBeenCalledWith('case-log:get', 10, true, false, 51, 50, { query: '', oldestFirst: false })
   })
+
+  it('a quick second click on "Load more" doesn\'t load the same page twice (AUDIT-136)', async () => {
+    render(<CaseLog rowId={10} />)
+    await screen.findByText('Showing 50 of 312', undefined, { timeout: 5000 })
+    mockInvoke.mockClear()
+    const button = screen.getByRole('button', { name: /Load more/ })
+    await act(async () => { fireEvent.click(button); fireEvent.click(button) })
+    expect(mockInvoke.mock.calls.filter(c => c[0] === 'case-log:get')).toHaveLength(1)
+    expect(await screen.findByText('Showing 100 of 312', undefined, { timeout: 5000 })).toBeTruthy()
+  })
 })

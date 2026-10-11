@@ -283,6 +283,24 @@ describe('gridStore', () => {
       expect(useGridStore.getState().saveError).toBeTruthy()
     })
 
+    it('a failed save does not undo a newer edit to the same cell (AUDIT-130)', async () => {
+      const toast = (await import('react-hot-toast')).default
+      const row = makeRow(1)
+      ;(row as Record<string, unknown>)['col_5'] = 'A'
+      useGridStore.setState({ activeGridId: 1, rows: [row], columns: [makeColumn(5, 'Notes')] })
+      let failFirst: (v: unknown) => void = () => {}
+      mockInvoke
+        .mockImplementationOnce(() => new Promise(r => { failFirst = r }))
+        .mockResolvedValueOnce({ ok: true, data: { sysLogId: null } })
+      const first = useGridStore.getState().updateCell(1, 5, 'B')
+      await useGridStore.getState().updateCell(1, 5, 'C')
+      failFirst({ ok: false, error: 'That record is no longer available.' })
+      await first
+      expect((useGridStore.getState().rows[0] as Record<string, unknown>)['col_5']).toBe('C')
+      // Main's own words reach the person
+      expect(toast.error).toHaveBeenCalledWith('That record is no longer available.')
+    })
+
     it('pushes to undo stack when value changes', async () => {
       const row = makeRow(1)
       ;(row as Record<string, unknown>)['col_5'] = 'old'
@@ -613,6 +631,42 @@ describe('gridStore', () => {
 
       await useGridStore.getState().loadGrid(1)
       expect(useGridStore.getState().isLoading).toBe(false)
+    })
+
+    it('a list that fails to open shows none of the previous list\'s records (AUDIT-041)', async () => {
+      useGridStore.setState({ activeGridId: 1, loadedGridId: 1, rows: [makeRow(1)], columns: [makeColumn(1, 'Name')] })
+      mockInvoke.mockRejectedValue(new Error('DB error'))
+      await useGridStore.getState().loadGrid(2)
+      const s = useGridStore.getState()
+      expect(s.activeGridId).toBe(2)
+      expect(s.rows).toEqual([])
+      expect(s.columns).toEqual([])
+      expect(s.loadError).toMatch(/couldn't open this/)
+    })
+
+    it('a failed reload of the open list keeps its records on screen (AUDIT-041)', async () => {
+      useGridStore.setState({ activeGridId: 1, loadedGridId: 1, rows: [makeRow(1)], columns: [makeColumn(1, 'Name')] })
+      mockInvoke.mockRejectedValue(new Error('DB error'))
+      await useGridStore.getState().loadGrid(1)
+      const s = useGridStore.getState()
+      expect(s.rows).toHaveLength(1)
+      expect(s.loadError).toBeNull()
+      expect(s.isLoading).toBe(false)
+    })
+
+    it('remembers which list is loaded; a new list clears it until it arrives (AUDIT-039)', async () => {
+      const data = (id: number) => ({ ok: true, data: { grid: { id, name: 'L', sort_config: '[]' }, columns: [], hiddenColumns: [], rows: [], acuityLevels: [], cellFormats: [], rowTagsMap: {}, savedViews: [], customGroups: '[]' } })
+      mockInvoke.mockImplementation(async (channel: string, id: number) => channel === 'grid:get-full' ? data(id) : { ok: true, data: null })
+      await useGridStore.getState().loadGrid(1)
+      expect(useGridStore.getState().loadedGridId).toBe(1)
+      const same = useGridStore.getState().loadGrid(1)
+      expect(useGridStore.getState().loadedGridId).toBe(1)
+      await same
+      const other = useGridStore.getState().loadGrid(2)
+      expect(useGridStore.getState().loadedGridId).toBeNull()
+      await other
+      expect(useGridStore.getState().loadedGridId).toBe(2)
+      mockInvoke.mockReset()
     })
 
     it('discards stale response when loadVersion changes', async () => {
