@@ -71,6 +71,29 @@ describe('remove sample data', () => {
     off()
   })
 
+  it('removing the samples reloads deadline rules and tasks, which went with them', async () => {
+    const { useAlertStore } = await import('../../../../src/renderer/stores/alertStore')
+    const { useTaskStore } = await import('../../../../src/renderer/stores/taskStore')
+    const { removeSampleData } = await import('../../../../src/renderer/components/shared/SampleDataBanner')
+    const loadRules = vi.fn(async () => {}), loadTasks = vi.fn(async () => {})
+    useAlertStore.setState({ loadRules })
+    useTaskStore.setState({ loadTasks })
+    useGridStore.setState({ grids: [{ id: 3, name: 'Real' }] as never })
+    await removeSampleData()
+    expect(loadRules).toHaveBeenCalled()
+    expect(loadTasks).toHaveBeenCalled()
+  })
+
+  it('the banner checks again when a list goes to the Trash', async () => {
+    useGridStore.setState({ grids: [{ id: 3, name: 'Real' }, { id: 4, name: 'Sample' }] as never })
+    render(<SampleDataBanner />)
+    await tick()
+    const before = invoke.mock.calls.filter(c => c[0] === 'sample-data:status').length
+    await act(async () => { useGridStore.setState({ grids: [{ id: 3, name: 'Real' }] as never }) })
+    await tick()
+    expect(invoke.mock.calls.filter(c => c[0] === 'sample-data:status').length).toBeGreaterThan(before)
+  })
+
   it('Settings → Data asks first, too', async () => {
     render(<DataSection />)
     await tick()

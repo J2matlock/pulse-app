@@ -15,6 +15,7 @@
 import { getDb } from './database'
 import { deleteLinksForGrid } from './links'
 import { hasDisplayFormat, refreshDisplayNames } from './display-names'
+import { keepSamplesUntouched } from './sample-marks'
 
 export class TrashError extends Error {}
 
@@ -103,7 +104,7 @@ export function restoreColumn(deletedId: number): { columnId: number; gridId: nu
   if (db.prepare('SELECT 1 FROM columns WHERE id = ?').get(entry.column_id)) throw new TrashError('That column is already back.')
   if (!db.prepare('SELECT 1 FROM grids WHERE id = ?').get(entry.grid_id)) throw new TrashError(`Its list is gone, so the column can't come back.`)
   const hasRowId = (rows: Row[]) => rows.length > 0 && 'row_id' in rows[0]!
-  db.transaction(() => {
+  db.transaction(() => keepSamplesUntouched(db, entry.grid_id, () => {
     // One name column per list: it comes back as the name only if the list has none now
     const named = db.prepare('SELECT 1 FROM columns WHERE grid_id = ? AND is_name_column = 1').get(entry.grid_id)
     insertRow('columns', { ...snap.column, ...(named ? { is_name_column: 0 } : {}) })
@@ -115,7 +116,7 @@ export function restoreColumn(deletedId: number): { columnId: number; gridId: nu
     }
     db.prepare('DELETE FROM deleted_columns WHERE id = ?').run(deletedId)
     if (hasDisplayFormat(entry.grid_id) || !named) refreshDisplayNames(entry.grid_id)
-  })()
+  }))()
   return { columnId: entry.column_id, gridId: entry.grid_id }
 }
 

@@ -19,6 +19,39 @@ export function sampleFingerprint(db: Database, rowId: number): string {
   return (db.prepare(FINGERPRINT_SQL).get(rowId) as { fp: string } | undefined)?.fp ?? ''
 }
 
+/**
+ * Whether a sample row's cells still read as they did when it was loaded. Pairs
+ * for columns that have since been deleted are left out of the comparison, so
+ * removing a column from the list doesn't make every entry look edited.
+ */
+export function sampleFingerprintMatches(db: Database, rowId: number, stored: string): boolean {
+  const now = sampleFingerprint(db, rowId)
+  if (now === stored) return true
+  const [cells = '', ...rest] = stored.split('\u001d')
+  const pairs = cells === '' ? [] : cells.split('\u001e')
+  const ids = [...new Set(pairs.map(p => Number(p.slice(0, p.indexOf(':')))))].filter(Number.isInteger)
+  if (ids.length === 0) return false
+  const exists = db.prepare('SELECT 1 FROM columns WHERE id = ?')
+  const live = new Set(ids.filter(id => exists.get(id)))
+  if (live.size === ids.length) return false
+  const kept = pairs.filter(p => live.has(Number(p.slice(0, p.indexOf(':')))))
+  return now === [kept.join('\u001e'), ...rest].join('\u001d')
+}
+
+/**
+ * Run a change to a whole list (deleting, restoring or retyping a column,
+ * renaming a choice) without it counting as an edit to its sample entries:
+ * entries untouched before the change are re-fingerprinted after it.
+ */
+export function keepSamplesUntouched<T>(db: Database, gridId: number, change: () => T): T {
+  const tracked = db.prepare('SELECT row_id, fingerprint FROM sample_rows WHERE grid_id = ?').all(gridId) as Array<{ row_id: number; fingerprint: string }>
+  const untouched = tracked.filter(r => sampleFingerprintMatches(db, r.row_id, r.fingerprint)).map(r => r.row_id)
+  const result = change()
+  const update = db.prepare('UPDATE sample_rows SET fingerprint = ? WHERE row_id = ?')
+  for (const id of untouched) update.run(sampleFingerprint(db, id), id)
+  return result
+}
+
 export interface SampleMarks {
   log: number; file: number; appt: number; series: number; item: number; link: number; contact: number
 }

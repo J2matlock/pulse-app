@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import { noteUnencryptedExport } from '../../utils/exportNotice'
 import { pulseEvents } from '../../events'
 import { useGridStore } from '../../stores/gridStore'
-import { RemoveSampleDataDialog } from '../shared/SampleDataBanner'
+import { RemoveSampleDataDialog, sampleDataChanged } from '../shared/SampleDataBanner'
 import { useVocab } from '../../hooks/useVocab'
 import { FilesStorageSection } from './FilesStorageSection'
 import { ImportWizard } from '../grid/ImportWizard'
@@ -34,7 +34,7 @@ function SampleDataControls(): React.ReactElement {
       const res = await safeInvoke(IPC.SAMPLE_DATA_CREATE)
       if (!res.ok) { toast.error(res.error === 'READ_ONLY' ? 'Sample data is not available right now.' : `We couldn't add the sample ${t('list')}.`); return }
       await useGridStore.getState().loadGridList()
-      pulseEvents.emit('sample-data:changed')
+      sampleDataChanged()
       toast.success(`Sample ${t('list')} added — find it in the sidebar.`)
     } finally { setBusy(false) }
   }
