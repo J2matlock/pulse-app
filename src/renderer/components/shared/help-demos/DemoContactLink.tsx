@@ -35,7 +35,7 @@ export function DemoContactLink() {
           style={{ animation: 'clLeft 8s ease infinite', fontSize: 13 }}
         >
           <div className="text-blue-700 dark:text-blue-300 font-medium">Maria Johnson</div>
-          <div className="text-[11px] text-blue-500 dark:text-blue-400">{t('record', { cap: true })}</div>
+          <div className="text-xs text-blue-500 dark:text-blue-400">{t('record', { cap: true })}</div>
         </div>
         {/* Connecting line with arrows */}
         <div className="flex-1 flex items-center justify-center relative" style={{ minWidth: 60 }}>
@@ -57,7 +57,7 @@ export function DemoContactLink() {
           style={{ animation: 'clRight 8s ease infinite', fontSize: 13 }}
         >
           <div className="text-green-700 dark:text-green-300 font-medium">Dr. Rivera</div>
-          <div className="text-[11px] text-green-500 dark:text-green-400">{t('contact', { cap: true })}</div>
+          <div className="text-xs text-green-500 dark:text-green-400">{t('contact', { cap: true })}</div>
         </div>
       </div>
       <div className="text-xs text-slate-500 dark:text-slate-400 text-center mt-3">Links visible from both the {t('record')} profile and the {t('contact')} details</div>

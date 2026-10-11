@@ -43,7 +43,7 @@ export function DemoAvailabilityStatus() {
               </span>
               {s.status === 'Unknown' && (
                 <span
-                  className="text-[10px] text-slate-500 dark:text-slate-400 italic"
+                  className="text-xs text-slate-500 dark:text-slate-400 italic"
                   style={{ animation: `avStaleness 9s ease ${i * 0.6}s infinite` }}
                 >
                   90d ago

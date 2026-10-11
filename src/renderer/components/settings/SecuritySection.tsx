@@ -112,7 +112,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
         <label htmlFor="settings-auto-lock" className="block text-base font-medium text-slate-700 dark:text-slate-300">
           Auto-lock after inactivity
         </label>
-        <p className="text-xs text-slate-500 dark:text-slate-400">Automatically lock the app after a period of inactivity</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Automatically lock the app after a period of inactivity</p>
         <select
           id="settings-auto-lock"
           className="input"

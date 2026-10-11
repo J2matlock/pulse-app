@@ -153,7 +153,7 @@ export function GroupingBar(): React.ReactElement {
         </button>
       </Tooltip>
       {isGroupingActive && triggerLabel && (
-        <span className="text-xs text-slate-500 dark:text-slate-400">
+        <span className="text-sm text-slate-500 dark:text-slate-400">
           Grouped by: <span className="font-medium text-slate-500 dark:text-slate-400">{triggerLabel}</span>
         </span>
       )}
@@ -233,7 +233,7 @@ export function GroupingBar(): React.ReactElement {
                 >
                   <Star className="w-3.5 h-3.5 flex-shrink-0 text-amber-400" />
                   <span className="flex-1 text-left truncate">{def.name}</span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400 mr-1">custom</span>
+                  <span className="text-sm text-slate-500 dark:text-slate-400 mr-1">custom</span>
                   <span
                     role="button"
                     tabIndex={0}

@@ -636,7 +636,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                             </td>
                           ))}
                           {ri === 0 && (
-                            <td className="px-2 py-1 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Skipped</td>
+                            <td className="px-2 py-1 text-sm text-slate-500 dark:text-slate-400 whitespace-nowrap">Skipped</td>
                           )}
                         </tr>
                       ))}

@@ -68,7 +68,7 @@ export function AcuityBadge({ levels, currentLevelId, onSetLevel, bulkCount }: A
   return (
     <div className="relative flex-shrink-0 flex items-center justify-center" style={{ width: BADGE_WIDTH, height: 44 }}>
       {bulkCount && bulkCount > 1 && (
-        <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold z-10">
+        <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full min-w-5 h-5 px-1 flex items-center justify-center font-bold z-10">
           {bulkCount > 9 ? '9+' : bulkCount}
         </span>
       )}

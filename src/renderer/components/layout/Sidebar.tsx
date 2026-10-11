@@ -424,7 +424,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
         {/* Workspace group */}
         <div role="group" aria-label="Workspace">
           {!collapsed && (
-            <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold px-3 py-2 mb-1"
+            <div className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold px-3 py-2 mb-1"
                  aria-hidden="true">
               Workspace
             </div>
@@ -527,7 +527,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
         {/* Tools group */}
         <div role="group" aria-label="Tools">
           {!collapsed && (
-            <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold px-3 py-2 mt-3 mb-1 border-t border-slate-200 dark:border-slate-700 pt-3"
+            <div className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold px-3 py-2 mt-3 mb-1 border-t border-slate-200 dark:border-slate-700 pt-3"
                  aria-hidden="true">
               Tools
             </div>
@@ -730,7 +730,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
         {/* System group */}
         <div role="group" aria-label="System">
           {!collapsed && (
-            <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold px-3 py-2 mt-3 mb-1 border-t border-slate-200 dark:border-slate-700 pt-3"
+            <div className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold px-3 py-2 mt-3 mb-1 border-t border-slate-200 dark:border-slate-700 pt-3"
                  aria-hidden="true">
               System
             </div>

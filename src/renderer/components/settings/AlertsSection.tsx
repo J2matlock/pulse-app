@@ -83,7 +83,7 @@ export function AlertsSection(): React.ReactElement {
                 className="hit-44 p-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 hover:text-blue-600"
                 title="Edit"
                 aria-label="Edit"
-                style={{ minHeight: 36, minWidth: 36 }}
+                style={{ minHeight: 44, minWidth: 44 }}
               >
                 <Pencil className="w-4 h-4" />
               </button>
@@ -93,7 +93,7 @@ export function AlertsSection(): React.ReactElement {
                   className="hit-44 p-2 rounded-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-500 dark:text-slate-400 hover:text-red-600"
                   title="Delete"
                   aria-label="Delete"
-                  style={{ minHeight: 36, minWidth: 36 }}
+                  style={{ minHeight: 44, minWidth: 44 }}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

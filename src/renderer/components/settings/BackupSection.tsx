@@ -356,7 +356,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
                 <button
                   onClick={() => void initiateRestore(entry.path, new Date(entry.timestamp).toLocaleString())}
                   className="btn-secondary flex items-center gap-1.5 flex-shrink-0 text-base"
-                  style={{ minHeight: 36 }}
+                  style={{ minHeight: 44 }}
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   Restore
@@ -393,7 +393,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
             type="checkbox"
             checked={scheduledConfig.enabled}
             onChange={e => updateScheduledConfig({ enabled: e.target.checked })}
-            className="w-4 h-4 accent-blue-600"
+            className="w-5 h-5 accent-blue-600 flex-shrink-0"
           />
           <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
             Enable scheduled backups
@@ -493,7 +493,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
               setBackupReminderEnabled(e.target.checked)
               void saveSetting('backup_reminder_enabled', e.target.checked ? 'true' : 'false')
             }}
-            className="w-4 h-4 accent-blue-600"
+            className="w-5 h-5 accent-blue-600 flex-shrink-0"
           />
           <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
             Enable backup reminders

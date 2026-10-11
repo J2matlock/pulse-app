@@ -152,7 +152,7 @@ export function VariableInsertMenu({ open, onClose, onInsert, anchorRef, extraGr
               <span className="font-mono text-sm text-blue-600 dark:text-blue-400">
                 {item.key}
               </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
+              <span className="text-sm text-slate-500 dark:text-slate-400">
                 {f(item.desc)}
               </span>
             </button>
@@ -161,7 +161,7 @@ export function VariableInsertMenu({ open, onClose, onInsert, anchorRef, extraGr
 
         return (
           <div key={group.label} className="mb-1">
-            <div className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <div className="px-3 py-1 text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               {f(group.label)}
             </div>
             {groupItems}
@@ -170,7 +170,7 @@ export function VariableInsertMenu({ open, onClose, onInsert, anchorRef, extraGr
       })}
 
       <div className="px-3 py-2 border-t border-slate-200 dark:border-slate-700 mt-1">
-        <span className="text-xs text-slate-500 dark:text-slate-400 italic">
+        <span className="text-sm text-slate-500 dark:text-slate-400 italic">
           Tip: Any column name works too, e.g. {'{{'}column_name{'}}'}
         </span>
       </div>

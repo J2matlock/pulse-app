@@ -152,7 +152,7 @@ export default function SettingsView(): React.ReactElement {
               <item.icon className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <div>
                 <span className="text-base">{item.label}</span>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-normal">{item.desc}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 font-normal">{item.desc}</p>
               </div>
             </button>
           ))}

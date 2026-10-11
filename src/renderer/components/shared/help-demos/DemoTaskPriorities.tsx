@@ -25,7 +25,7 @@ export function DemoTaskPriorities() {
             style={{ animation: `tpSlide 8s ease ${i * 0.5}s infinite`, fontSize: 13 }}
           >
             <div className="flex-1 text-slate-700 dark:text-slate-300">{t.title}</div>
-            <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${t.badge}`}>{t.priority}</span>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${t.badge}`}>{t.priority}</span>
           </div>
         ))}
       </div>

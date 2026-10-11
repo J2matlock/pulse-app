@@ -329,7 +329,7 @@ export function TopBar(): React.ReactElement {
         )}
 
         {/* Shortcut discovery hint */}
-        <span className="text-xs text-slate-500 dark:text-slate-400 select-none hidden sm:inline" aria-hidden="true">
+        <span className="text-sm text-slate-500 dark:text-slate-400 select-none hidden sm:inline" aria-hidden="true">
           Press <kbd className="px-1 py-0.5 rounded border border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">?</kbd> for shortcuts
         </span>
       </div>

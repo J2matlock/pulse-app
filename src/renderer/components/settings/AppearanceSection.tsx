@@ -49,7 +49,7 @@ export function AppearanceSection({
       {/* Subsection 1: Theme */}
       <div className="space-y-2">
         <label className="block text-base font-medium text-slate-700 dark:text-slate-300">Theme</label>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Switch between light and dark mode</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Switch between light and dark mode</p>
         <div className="flex gap-3 flex-wrap">
           {([
             { value: 'light' as Theme, label: 'Light', icon: Sun },
@@ -77,7 +77,7 @@ export function AppearanceSection({
         <div className="flex items-center justify-between">
           <label htmlFor="settings-ui-scale" className="block text-base font-medium text-slate-700 dark:text-slate-300">
             UI Scale
-            <span className="block text-xs text-slate-500 dark:text-slate-400 font-normal mt-0.5">Adjust the overall interface size (100% is default)</span>
+            <span className="block text-sm text-slate-500 dark:text-slate-400 font-normal mt-0.5">Adjust the overall interface size (100% is default)</span>
             {' '}
             <input
               type="number"
@@ -115,7 +115,7 @@ export function AppearanceSection({
           className="w-full accent-slate-700 dark:accent-slate-300"
           style={{ minHeight: 44 }}
         />
-        <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
+        <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400">
           <span>50%</span>
           <span>100%</span>
           <span>150%</span>
@@ -134,7 +134,7 @@ export function AppearanceSection({
         <div className="flex items-center justify-between gap-4">
           <div>
             <span className="text-base text-slate-700 dark:text-slate-300">Density</span>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Height of each row in the grid</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Height of each row in the grid</p>
           </div>
           <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
             {([
@@ -161,7 +161,7 @@ export function AppearanceSection({
         <div className="flex items-center justify-between gap-4">
           <div>
             <span className="text-base text-slate-700 dark:text-slate-300">Row Striping</span>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Alternate row colors for easier reading</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Alternate row colors for easier reading</p>
           </div>
           <button
             role="switch"
@@ -177,7 +177,7 @@ export function AppearanceSection({
         <div className="flex items-center justify-between gap-4">
           <div>
             <span className="text-base text-slate-700 dark:text-slate-300">Grid Lines</span>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Show borders between grid cells</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Show borders between grid cells</p>
           </div>
           <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
             {([
@@ -204,7 +204,7 @@ export function AppearanceSection({
       {/* Subsection 4: Sidebar Width */}
       <div className="border-t border-slate-200 dark:border-slate-700 pt-6 mt-6 space-y-3">
         <label className="block text-base font-medium text-slate-700 dark:text-slate-300">Sidebar Width</label>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Width of the navigation sidebar</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Width of the navigation sidebar</p>
         <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden w-fit">
           {([
             { value: 'narrow', label: 'Narrow' },
@@ -233,7 +233,7 @@ export function AppearanceSection({
         {/* Date Format */}
         <div className="space-y-1">
           <label htmlFor="settings-date-format" className="block text-base text-slate-700 dark:text-slate-300">Date Format</label>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">How dates are written in CSV and PDF exports</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">How dates are written in CSV and PDF exports</p>
           <select
             id="settings-date-format"
             className="input"
@@ -251,7 +251,7 @@ export function AppearanceSection({
         <div className="flex items-center justify-between gap-4">
           <div>
             <span className="text-base text-slate-700 dark:text-slate-300">Clock Format</span>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Choose 12-hour or 24-hour time</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Choose 12-hour or 24-hour time</p>
           </div>
           <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
             {([
@@ -277,7 +277,7 @@ export function AppearanceSection({
         <div className="flex items-center justify-between gap-4">
           <div>
             <span className="text-base text-slate-700 dark:text-slate-300">Week Starts On</span>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">First day of the week in calendars</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">First day of the week in calendars</p>
           </div>
           <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
             {([

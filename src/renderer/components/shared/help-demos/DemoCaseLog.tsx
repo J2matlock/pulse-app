@@ -51,7 +51,7 @@ export function DemoCaseLog() {
           <span>📝</span>
           <span className="font-medium">Phone call — all is well</span>
         </div>
-        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Today at 2:30 PM · You</div>
+        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Today at 2:30 PM · You</div>
       </div>
       {/* Existing entries */}
       <div className="mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg px-3 py-2" style={{ fontSize: 13 }}>
@@ -59,7 +59,7 @@ export function DemoCaseLog() {
           <span>📋</span>
           <span>Home visit completed</span>
         </div>
-        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Yesterday · You</div>
+        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Yesterday · You</div>
       </div>
     </DemoWrapper>
   )
