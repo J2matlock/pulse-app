@@ -188,10 +188,6 @@ describe('Edge cases', () => {
     for (let i = 0; i < 5; i++) {
       await expect(verifyAndUnlock(WRONG_PASSWORD)).rejects.toThrow('Incorrect password')
     }
-    try {
-      await verifyAndUnlock(WRONG_PASSWORD)
-    } catch (e) {
-      expect((e as Error).message).toMatch(/Try again in \d+ second/)
-    }
+    await expect(verifyAndUnlock(WRONG_PASSWORD)).rejects.toThrow(/Try again in \d+ second/)
   })
 })
