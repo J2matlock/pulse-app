@@ -160,11 +160,12 @@ vi.mock('../../../src/renderer/views/tasks/taskHelpers', () => ({
 vi.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   closestCenter: vi.fn(),
-  PointerSensor: class {},
+  PointerSensor: class {}, KeyboardSensor: class {},
   useSensor: () => ({}),
   useSensors: () => [],
 }))
 vi.mock('@dnd-kit/sortable', () => ({
+  sortableKeyboardCoordinates: vi.fn(),
   SortableContext: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   verticalListSortingStrategy: {},
   arrayMove: vi.fn(),

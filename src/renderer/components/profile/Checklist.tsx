@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import {
   DndContext,
+  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -13,8 +14,10 @@ import {
 } from '@dnd-kit/core'
 import {
   SortableContext,
+  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
+import { dndAccessibility } from '../../utils/dndAnnouncements'
 import { IPC } from '../../../shared/ipc-channels'
 import type { ChecklistItem as ChecklistItemType, ChecklistTemplate, ChecklistPriority, ChecklistGroup } from '../../../shared/types'
 import { ChecklistItem, CompletedChecklistItem } from './ChecklistItem'
@@ -60,9 +63,19 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
   const [pendingTemplateId, setPendingTemplateId] = useState<number | null>(null)
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Items and groups move from the keyboard too: Space on a handle, arrows, Space (AUDIT-049)
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
+  const dragA11y = useMemo(() => dndAccessibility(id => {
+    const s = String(id)
+    if (s.startsWith('group-')) {
+      const g = groups.find(x => `group-${x.id}` === s)
+      return g ? `${g.name} group` : null
+    }
+    return items.find(i => i.id === id)?.title
+  }), [items, groups])
 
   // Expose focus callback to parent
   useEffect(() => {
@@ -612,7 +625,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
           </div>
         ) : !hasGroups ? (
           /* ── Flat mode (no groups) — identical to previous behavior ── */
-          <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd} accessibility={dragA11y}>
             <SortableContext items={activeItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
               {activeItems.map(item => (
                 <ChecklistItem
@@ -628,7 +641,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
           </DndContext>
         ) : (
           /* ── Grouped mode ── */
-          <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd} accessibility={dragA11y}>
             {/* Ungrouped items first */}
             {(groupedActiveItems.get(null) ?? []).length > 0 && (
               <div className="mb-1">

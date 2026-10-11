@@ -209,7 +209,8 @@ function ColorPicker({
 export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.ReactElement {
   const dialogTitleId = useId()
   const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
+  // Escape closes like the X and Cancel (AUDIT-046)
+  useFocusTrap(trapRef, true, { onEscape: () => onClose() })
   const { createRule, updateRule } = useAlertStore(useShallow(s => ({
     createRule: s.createRule, updateRule: s.updateRule,
   })))

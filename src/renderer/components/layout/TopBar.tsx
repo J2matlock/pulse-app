@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react'
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Search, Clock, ChevronDown, RotateCcw, RotateCw } from 'lucide-react'
 import { useNavigate, useLocation, useParams } from 'react-router-dom'
@@ -14,6 +14,7 @@ import { UndoHistoryPanel } from '../shared/UndoHistoryPanel'
 import { isMod, modHelp } from '../../utils/keys'
 import { useVocab } from '../../hooks/useVocab'
 import { useShownCount } from '../../hooks/useShownCount'
+import { useMenuKeys } from '../../hooks/useMenuKeys'
 import type { FAQCategory } from '../../views/help/types'
 import { notePage } from '../../utils/navHistory'
 import { pulseEvents } from '../../events'
@@ -75,6 +76,13 @@ export function TopBar(): React.ReactElement {
   const [showHistory, setShowHistory] = useState(false)
   const recentMenuRef = useRef<HTMLDivElement>(null)
   const historyAnchorRef = useRef<HTMLDivElement>(null)
+  // Both pop-ups take focus, close on Escape and give focus back to their button (AUDIT-044)
+  const recentListRef = useRef<HTMLDivElement>(null)
+  const historyPanelRef = useRef<HTMLDivElement>(null)
+  const closeRecent = useCallback(() => setShowRecent(false), [])
+  const closeHistory = useCallback(() => setShowHistory(false), [])
+  const recentKeys = useMenuKeys(recentListRef, showRecent, closeRecent)
+  const historyKeys = useMenuKeys(historyPanelRef, showHistory, closeHistory, { kind: 'panel' })
   const navigate = useNavigate()
   const location = useLocation()
   const params = useParams<{ rowId?: string }>()
@@ -228,6 +236,8 @@ export function TopBar(): React.ReactElement {
             <button
               onClick={() => setShowHistory(v => !v)}
               aria-label="Undo history"
+              aria-haspopup="dialog"
+              aria-expanded={showHistory}
               className={`hit-44 flex items-center px-1 py-1.5 rounded-r-md transition-colors
                          border border-slate-200 dark:border-slate-700
                          focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
@@ -261,10 +271,10 @@ export function TopBar(): React.ReactElement {
           {/* History panel */}
           <AnimatePresence>
             {showHistory && (
-              <motion.div variants={dropdownVariants} initial="hidden" animate="visible" exit="exit">
+              <motion.div ref={historyPanelRef} onKeyDown={historyKeys} variants={dropdownVariants} initial="hidden" animate="visible" exit="exit">
                 <UndoHistoryPanel
                   anchorRef={historyAnchorRef as React.RefObject<HTMLElement>}
-                  onClose={() => setShowHistory(false)}
+                  onClose={closeHistory}
                 />
               </motion.div>
             )}
@@ -282,6 +292,8 @@ export function TopBar(): React.ReactElement {
                            hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors
                            focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
                 aria-label={`Recently viewed ${tw('record', { many: true })}`}
+                aria-haspopup="menu"
+                aria-expanded={showRecent}
               >
                 <Clock className="w-4 h-4" />
                 <ChevronDown className="w-3 h-3" />
@@ -293,6 +305,10 @@ export function TopBar(): React.ReactElement {
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowRecent(false)} />
                   <motion.div
+                    ref={recentListRef}
+                    onKeyDown={recentKeys}
+                    role="menu"
+                    aria-label={`Recent ${tw('record', { many: true })}`}
                     className="absolute right-0 top-full mt-1 w-64 bg-white dark:bg-slate-800
                                 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50 py-1"
                     variants={dropdownVariants}
@@ -300,12 +316,13 @@ export function TopBar(): React.ReactElement {
                     animate="visible"
                     exit="exit"
                   >
-                    <div className="px-3 py-1.5 text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                    <div aria-hidden="true" className="px-3 py-1.5 text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                       Recent {tw('record', { many: true, cap: true })}
                     </div>
                     {recentProfiles.map(p => (
                       <button
                         key={p.rowId}
+                        role="menuitem"
                         onClick={() => {
                           setShowRecent(false)
                           navigate(`/profile/${p.rowId}?gridId=${p.gridId}`)

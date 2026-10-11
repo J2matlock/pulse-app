@@ -15,7 +15,7 @@ export function SnoozeDialog({ onClose, onSnooze }: { onClose: () => void; onSno
   const today = localDateString()
   const trapRef = useRef<HTMLDivElement>(null)
 
-  useFocusTrap(trapRef, true)
+  useFocusTrap(trapRef, true, { onEscape: onClose })
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
