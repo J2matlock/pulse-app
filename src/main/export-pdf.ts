@@ -2,7 +2,7 @@
  * export-pdf.ts — PDF export: letter, grid, profile, batch, contact, directory.
  */
 
-import type { Column, Grid, ContactFilterParams } from '../shared/types'
+import type { ContactFilterParams } from '../shared/types'
 import { PRODUCT_NAME } from '../shared/constants'
 import { getDb } from './database'
 import { logger } from './logger'
@@ -170,12 +170,13 @@ export function renderProfileToDoc(
   const db = getDb()
   const clientName = getClientName(db, rowId, gridId)
   const v = vocabFor(gridId)
-  const grid = db.prepare('SELECT * FROM grids WHERE id = ?').get(gridId) as Grid
-  const columns = db.prepare('SELECT * FROM columns WHERE grid_id = ? AND is_visible = 1 ORDER BY position').all(gridId) as Column[]
-  const nameColId = (db.prepare('SELECT id FROM columns WHERE grid_id = ? AND is_name_column = 1 LIMIT 1').get(gridId) as { id: number } | undefined)?.id
-
-  const cells = db.prepare('SELECT column_id, value FROM cells WHERE row_id = ?').all(rowId) as Array<{ column_id: number; value: string | null }>
-  const cellMap = new Map(cells.map(c => [c.column_id, c.value]))
+  // What the table shows: deadlines as "Due …", Age and Days-until worked out, linked
+  // records by name, file counts (AUDIT-036). Archived records print too.
+  const { grid, columns, rows } = loadGridData(gridId, { includeArchived: true })
+  const nameColId = columns.find(c => c.is_name_column)?.id
+  const shownRow = rows.filter(r => r.row_id === rowId)
+  showDeadlinesAsText(gridId, columns, shownRow)
+  const valueOf = (colId: number): string | null => (shownRow[0]?.[`col_${colId}` as const] as string | null | undefined) ?? null
 
   const pageW = doc.internal.pageSize.width
   const pageH = doc.internal.pageSize.height
@@ -265,7 +266,7 @@ export function renderProfileToDoc(
     addSection(`${term(v, 'record', { cap: true })} information`)
     for (const col of columns) {
       if (col.id === nameColId) continue
-      const val = cellDisplayText(cellMap.get(col.id) ?? null, col.column_type)
+      const val = cellDisplayText(valueOf(col.id), col.column_type)
       addKeyValue(col.name, val)
     }
     y += 4

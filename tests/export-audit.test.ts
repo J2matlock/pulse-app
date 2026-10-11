@@ -88,12 +88,12 @@ describe('audit trail', () => {
   it("words note events and the trash with the workspace's words (AUDIT-066)", () => {
     setDbWords(testDb.db, { activity: { one: 'job note', many: 'job notes', article: 'a' } })
     testDb.db.prepare("UPDATE rows SET deleted_at = ? WHERE id = ?").run(utc('2027-03-04 09:00:00'), rowA)
-    const [a] = loadAuditTrail({ rowId: rowA })
-    const whats = a!.events.map(e => e.what)
+    const events = loadAuditTrail({ rowId: rowA })[0]?.events ?? []
+    const whats = events.map(e => e.what)
     expect(whats).toContain('Job note edited')
     expect(whats).toContain('Job note voided')
     expect(whats).toContain('Moved to the Trash')
-    expect(a!.events.find(e => e.what === 'Job note voided')!.details).toContain('Job note: Wrong client')
+    expect(events.find(e => e.what === 'Job note voided')?.details).toContain('Job note: Wrong client')
   })
 
   it('counts entries, not records, under each name in the PDF (AUDIT-066)', async () => {

@@ -4,7 +4,7 @@
 
 import Papa from 'papaparse'
 
-import type { Column, Grid } from '../shared/types'
+import type { Grid } from '../shared/types'
 import { getDb } from './database'
 import { activityLabel } from './activity-types'
 
@@ -18,6 +18,9 @@ import {
   cellDisplayText,
   batchGetClientNames,
   stripHtml,
+  loadGridData,
+  pickColumns,
+  showDeadlinesAsText,
 } from './export-shared'
 import type { SupervisorReportOptions } from './export-shared'
 import { parseDbTimestamp } from '../shared/dates'
@@ -42,8 +45,15 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   const { gridId, dateRange, columnIds, includeActivityLog, includeSystemActivity, includeTaskSummary, format, destPath, workerName, workerTitle, workerOrg } = options
   const db = getDb()
   const grid = db.prepare('SELECT * FROM grids WHERE id = ?').get(gridId) as Grid & { acuity_enabled?: number }
-  const allColumns = db.prepare('SELECT * FROM columns WHERE grid_id = ? AND is_visible = 1 ORDER BY position').all(gridId) as Column[]
-  const selectedColumns = columnIds.length > 0 ? allColumns.filter(c => columnIds.includes(c.id)) : allColumns
+  // The roster shows what the table shows: deadlines as "Due …", Age and Days-until worked out,
+  // linked records by name and file counts, from the same loader as the other exports (AUDIT-036)
+  const { columns: allColumns, rows } = loadGridData(gridId)
+  const selectedColumns = pickColumns(allColumns, columnIds)
+  showDeadlinesAsText(gridId, selectedColumns, rows)
+  const rosterText = (format: 'csv' | 'pdf') => rows.map(r => selectedColumns.map(col => {
+    const value = (r[`col_${col.id}` as const] as string | null | undefined) ?? null
+    return format === 'csv' ? formatCellValue(value, col.column_type) : cellDisplayText(value, col.column_type)
+  }))
 
   // Compute stats
   const totalActive = (db.prepare('SELECT COUNT(*) as n FROM rows WHERE grid_id = ? AND is_active = 1').get(gridId) as { n: number }).n
@@ -100,25 +110,6 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
         ORDER BY r.created_at DESC
       `).all(gridId, dateRange.start, dateRange.end) as Array<{ client_name: string; added_date: string }>
     : []
-
-  const rows = db.prepare(`
-    SELECT r.id as row_id, r.created_at, r.updated_at FROM rows r
-    WHERE r.grid_id = ? AND r.is_active = 1
-    ORDER BY r.position
-  `).all(gridId) as Array<{ row_id: number; created_at: string; updated_at: string }>
-
-  // Batch-load all cells for active rows to avoid N+1 per-row queries in roster sections
-  const allCells = db.prepare(`
-    SELECT c.row_id, c.column_id, c.value FROM cells c
-    JOIN rows r ON r.id = c.row_id
-    WHERE r.grid_id = ? AND r.is_active = 1
-  `).all(gridId) as Array<{ row_id: number; column_id: number; value: string | null }>
-  const cellsByRow = new Map<number, Map<number, string | null>>()
-  for (const c of allCells) {
-    let rowMap = cellsByRow.get(c.row_id)
-    if (!rowMap) { rowMap = new Map(); cellsByRow.set(c.row_id, rowMap) }
-    rowMap.set(c.column_id, c.value)
-  }
 
   // Acuity breakdown (if enabled)
   interface AcuityRow { name: string; points: number; color: string; cnt: number }
@@ -227,10 +218,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       [],
       [`${ListCap} Roster`],
       selectedColumns.map(c => sanitizeCsvFormula(c.name)),
-      ...rows.map(r => {
-        const cellMap = cellsByRow.get(r.row_id) ?? new Map()
-        return selectedColumns.map(col => formatCellValue(cellMap.get(col.id) ?? null, col.column_type))
-      }),
+      ...rosterText('csv'),
     )
 
     if (includeTaskSummary) {
@@ -470,10 +458,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
 
   sectionTitle(`${ListCap} Roster`)
 
-  const rosterBody = rows.map(r => {
-    const cellMap = cellsByRow.get(r.row_id) ?? new Map()
-    return selectedColumns.map(col => cellDisplayText(cellMap.get(col.id) ?? null, col.column_type))
-  })
+  const rosterBody = rosterText('pdf')
 
   const rosterMarginL = rosterLandscape ? 12 : marginL
   const rosterMarginR = rosterLandscape ? 12 : 16

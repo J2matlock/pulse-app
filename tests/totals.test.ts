@@ -116,7 +116,7 @@ describe('your own numbers in the totals', () => {
     ]))
     const dest = join(testDb.tmpDir, 'guard.csv')
     await exportTotalsCsv('2026-03', undefined, dest)
-    const header = readFileSync(dest, 'utf8').split('\n')[0]!
+    const [header] = readFileSync(dest, 'utf8').split('\n')
     expect(header).toContain(',\t=Labor (hours),')
   })
 

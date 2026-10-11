@@ -51,6 +51,24 @@ function seedRecord() {
 
 const text = (path: string) => readFileSync(path).toString('latin1')
 
+function seedComputed(db: TestDb['db']) {
+  const g = seedGrid(db, { rowCount: 1, columnTypes: ['text', 'date', 'date', 'age_from_dob', 'calculated_days'] })
+  const [name, dob, next, age, days] = g.columnIds as [number, number, number, number, number]
+  const rename = db.prepare('UPDATE columns SET name = ?, config = ? WHERE id = ?')
+  rename.run('Name', '{}', name)
+  rename.run('Birth date', '{}', dob)
+  rename.run('Next visit', '{}', next)
+  rename.run('Age', JSON.stringify({ source_column_id: dob }), age)
+  rename.run('Days to visit', JSON.stringify({ source_column_id: next }), days)
+  db.prepare('UPDATE columns SET is_name_column = 1 WHERE id = ?').run(name)
+  const insert = db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')
+  const [rowId = 0] = g.rowIds
+  insert.run(rowId, name, 'Test Person')
+  insert.run(rowId, dob, `${new Date().getFullYear() - 10}-01-01`)
+  insert.run(rowId, next, localDateFromToday(5))
+  return { gridId: g.gridId, rowId }
+}
+
 describe('profile PDF', () => {
   it('prints deadlines from the deadline engine', async () => {
     const { gridId, rowId } = seedRecord()
@@ -83,6 +101,15 @@ describe('profile PDF', () => {
     expect(pdf).toContain('(Call Mom)')
     expect(pdf).toContain('(Bring forms)')
     expect(pdf).not.toContain('Call MomBring forms')
+  })
+
+  it('shows Age and Days-until as the table does, not blank (AUDIT-036)', async () => {
+    const { gridId, rowId } = seedComputed(testDb.db)
+    const dest = join(testDb.tmpDir, 'computed.pdf')
+    await exportPdfProfile({ rowId, gridId, destPath: dest, includeSections: { ...ALL, deadlines: false } })
+    const pdf = text(dest)
+    expect(pdf).toContain('(10 yrs)')
+    expect(pdf).toContain('(5 days)')
   })
 
   it('describes overdue, step and extended deadlines', () => {

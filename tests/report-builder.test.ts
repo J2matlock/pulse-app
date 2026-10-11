@@ -335,7 +335,8 @@ describe('export', () => {
 
   it('writes report CSV dates in the date format setting (AUDIT-128)', async () => {
     const { reportToCsv } = await import('../src/main/export-report')
-    cell(rows[0]!, dueCol, '2026-10-06')
+    const [first = 0] = rows
+    cell(first, dueCol, '2026-10-06')
     const r = runReport(gridId, { source: 'records', columns: [`col:${nameCol}`, `col:${dueCol}`] }, NOW)
     const us = reportToCsv(r, 'us').slice(1).split('\r\n')
     expect(us.some(l => l.endsWith(',10/06/2026'))).toBe(true)
