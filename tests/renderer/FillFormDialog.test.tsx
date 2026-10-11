@@ -60,6 +60,14 @@ describe('filling in a form', () => {
     expect(invoke).toHaveBeenCalledWith('forms:undo', change)
   })
 
+  it('shows a Tags answer as "a, b", not the stored JSON', () => {
+    const tagCols = [...columns, { id: 5, grid_id: 3, name: 'Tags', column_type: 'tag', config: '{}' }] as Column[]
+    const tagForm: Form = { ...form, fields: [{ kind: 'column', columnId: 5 }] }
+    const row = { row_id: 9, col_5: '["urgent","spanish"]' } as unknown as GridRow
+    render(<FillFormDialog form={tagForm} columns={tagCols} row={row} onClose={vi.fn()} />)
+    expect((screen.getByLabelText(/Tags/) as HTMLInputElement).value).toBe('urgent, spanish')
+  })
+
   it('prefills from the record when updating', () => {
     const row = { row_id: 9, col_1: 'Bo', col_2: '1990-01-02', col_3: 'Active', col_4: 'true' } as unknown as GridRow
     render(<FillFormDialog form={form} columns={columns} row={row} onClose={vi.fn()} />)

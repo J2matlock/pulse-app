@@ -20,13 +20,19 @@ const mockCategories = [
   { id: 2, name: 'Legal', color: '#3b82f6', position: 1, created_at: '2026-01-01' },
 ]
 
+const mockSelectProvider = vi.fn().mockResolvedValue(undefined)
+let mockSelectedProviderId: number | null = null
+
 vi.mock('../../../../src/renderer/stores/contactsStore', () => ({
-  useContactsStore: (selector: (s: Record<string, unknown>) => unknown) =>
-    selector({
-      categories: mockCategories,
-      createProvider: mockCreateProvider,
-      updateProvider: mockUpdateProvider,
-    }),
+  useContactsStore: Object.assign(
+    (selector: (s: Record<string, unknown>) => unknown) =>
+      selector({
+        categories: mockCategories,
+        createProvider: mockCreateProvider,
+        updateProvider: mockUpdateProvider,
+      }),
+    { getState: () => ({ selectedProviderId: mockSelectedProviderId, selectProvider: mockSelectProvider }) },
+  ),
 }))
 
 vi.mock('react-hot-toast', () => ({ default: { error: vi.fn(), success: vi.fn() } }))
@@ -186,6 +192,28 @@ describe('ContactForm', () => {
       fireEvent.click(screen.getByText('Cancel'))
       expect(defaultProps.onClose).not.toHaveBeenCalled()
     })
+  })
+
+  it('a failed save keeps the form open with what was typed, and says so', async () => {
+    const toast = (await import('react-hot-toast')).default
+    mockCreateProvider.mockRejectedValueOnce(new Error('database is busy'))
+    render(<ContactForm {...defaultProps} />)
+    fireEvent.change(screen.getByLabelText(/Name/), { target: { value: 'Keep Me' } })
+    fireEvent.click(screen.getByText('Save'))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("couldn't save")))
+    expect(defaultProps.onClose).not.toHaveBeenCalled()
+    expect(defaultProps.onSaved).not.toHaveBeenCalled()
+    expect((screen.getByLabelText(/Name/) as HTMLInputElement).value).toBe('Keep Me')
+  })
+
+  it('re-reads the open contact after saving tag changes, so the detail shows them', async () => {
+    mockSelectedProviderId = 1
+    render(<ContactForm provider={makeProvider({ tags: ['old'] })} {...defaultProps} />)
+    fireEvent.change(screen.getByLabelText(/Name/), { target: { value: 'Renamed' } })
+    fireEvent.click(screen.getByText('Save'))
+    await waitFor(() => expect(defaultProps.onClose).toHaveBeenCalled())
+    expect(mockSelectProvider).toHaveBeenCalledWith(1)
+    mockSelectedProviderId = null
   })
 
   it('submits form data via updateProvider on save for existing provider', async () => {

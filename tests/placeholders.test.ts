@@ -78,6 +78,50 @@ describe('placeholders', () => {
   })
 })
 
+describe('placeholders that used to print the wrong thing or nothing', () => {
+  const addCol = (gridId: number, name: string, type: string, config = '{}') =>
+    Number(t.db.prepare('INSERT INTO columns (grid_id, name, column_type, position, config) VALUES (?, ?, ?, 99, ?)').run(gridId, name, type, config).lastInsertRowid)
+
+  it('{{dob}} and {{age}} come from the birth date, not a later "Birth certificate received" checkbox', () => {
+    const cert = addCol(vehicles.gridId, 'Birth certificate received', 'checkbox')
+    set(vehicles.rowIds[0]!, cert, 'true')
+    expect(fill('{{dob}}|{{age}}').text).toBe('October 5, 2000|25')
+  })
+
+  it('{{medicaid_cin}} matches CIN as a word, so "Vaccine date" and "Medicine" do not overwrite it', () => {
+    set(vehicles.rowIds[0]!, addCol(vehicles.gridId, 'Vaccine date', 'date'), '2026-01-01')
+    set(vehicles.rowIds[0]!, addCol(vehicles.gridId, 'Medicine', 'text'), 'Aspirin')
+    expect(fill('{{medicaid_cin}}').text).toBe('AB12345C')
+  })
+
+  it('computed columns offered under "Insert field" fill in: Age, Days until, Files and links', () => {
+    const dob = vehicles.columnIds[1]!
+    addCol(vehicles.gridId, 'Age', 'age_from_dob', JSON.stringify({ source_column_id: dob }))
+    addCol(vehicles.gridId, 'Until service', 'calculated_days', JSON.stringify({ source_column_id: vehicles.columnIds[4]! }))
+    addCol(vehicles.gridId, 'Files', 'file_count')
+    const owner = saveLinkType({ from_grid_id: vehicles.gridId, to_grid_id: customers.gridId, label_forward: 'Owner', label_backward: 'Vehicles', cardinality: 'many_to_one' })
+    addCol(vehicles.gridId, 'Owner', 'link', JSON.stringify({ link_type_id: owner.id, direction: 'forward' }))
+    addLink(owner.id, vehicles.rowIds[0]!, customers.rowIds[0]!)
+    const att = t.db.prepare("INSERT INTO attachments (row_id, file_name, mime_type, size_bytes, sha256, deleted_at) VALUES (?, 'a.pdf', 'application/pdf', 1, 'x', ?)")
+    att.run(vehicles.rowIds[0], null); att.run(vehicles.rowIds[0], null); att.run(vehicles.rowIds[0], '2026-01-01')
+    expect(fill('{{field:Age}}|{{field:Until service}}|{{field:Files}}|{{field:Owner}}')).toEqual({ text: '25|12 days overdue|2|Jane Smith', unknown: [] })
+  })
+
+  it('a linked column whose name has dots ("D.O.B.") fills in', () => {
+    const owner = saveLinkType({ from_grid_id: vehicles.gridId, to_grid_id: customers.gridId, label_forward: 'Owner', label_backward: 'Vehicles', cardinality: 'many_to_one' })
+    const dob = addCol(customers.gridId, 'D.O.B.', 'date')
+    set(customers.rowIds[0]!, dob, '1980-02-03')
+    addLink(owner.id, vehicles.rowIds[0]!, customers.rowIds[0]!)
+    expect(fill('{{linked:Owner.D.O.B.}}')).toEqual({ text: 'February 3, 1980', unknown: [] })
+  })
+
+  it('a Tags column prints as a list, not JSON', () => {
+    const tags = addCol(vehicles.gridId, 'Tags', 'tag')
+    set(vehicles.rowIds[0]!, tags, '["urgent","spanish"]')
+    expect(fill('{{field:Tags}}').text).toBe('urgent, spanish')
+  })
+})
+
 describe('next appointment placeholders (W07 §7)', () => {
   it('fill from the record\'s next scheduled appointment, or blank', () => {
     expect(fill('[{{appointment.date}}|{{appointment.time}}]').text).toBe('[|]')

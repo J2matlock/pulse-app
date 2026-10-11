@@ -30,13 +30,15 @@ import { term } from '../shared/vocab'
 import { activityLabel } from './activity-types'
 import { loadDeadlines } from './deadlines'
 import { deadlineSummary } from '../shared/deadlineSummary'
+import { availabilityLabel } from '../shared/availability'
+import { normalizeHexColor } from '../shared/color'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Letter Template PDF Export
 // ──────────────────────────────────────────────────────────────────────────────
 
 export async function exportLetterPdf(text: string, destPath: string): Promise<void> {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' }) // US Letter, like batch letters and forms
   const pageW = doc.internal.pageSize.width
   const pageH = doc.internal.pageSize.height
   const margin = 20
@@ -518,7 +520,13 @@ export async function exportContactPdf(providerId: number, destPath: string): Pr
     doc.text(label + ':', marginL, y)
     doc.setFont('helvetica', 'normal')
     const labelW = doc.getStringUnitWidth(label + ':') * 9 / doc.internal.scaleFactor
-    doc.text(value || '\u2014', marginL + labelW + 2, y)
+    // Wrap long values (an address, notes, hours) instead of running off the page
+    const valueX = marginL + labelW + 2
+    const lines = doc.splitTextToSize(value || '\u2014', Math.max(20, marginR - valueX)) as string[]
+    lines.forEach((line, i) => {
+      if (i > 0) { y += 5; if (y > pageH - 15) { doc.addPage(); y = 18 } }
+      doc.text(line, valueX, y)
+    })
     y += 6
   }
 
@@ -543,7 +551,7 @@ export async function exportContactPdf(providerId: number, destPath: string): Pr
 
   // ── Availability ──
   sectionTitle('Availability')
-  kv('Status', provider.availability_status || 'Unknown')
+  kv('Status', availabilityLabel(provider.availability_status))
   if (provider.availability_notes) kv('Notes', provider.availability_notes)
   y += 4
 
@@ -704,11 +712,6 @@ export async function exportDirectoryPdf(filterParams: Record<string, unknown>, 
 
   let y = 38
 
-  function availabilityLabel(status: string | null): string {
-    if (!status) return 'Unknown'
-    return status.charAt(0).toUpperCase() + status.slice(1)
-  }
-
   for (const catId of sortedKeys) {
     const cat = catId != null ? catMap.get(catId) : null
     const catProviders = grouped.get(catId) || []
@@ -718,7 +721,8 @@ export async function exportDirectoryPdf(filterParams: Record<string, unknown>, 
     if (y > pageH - 30) { doc.addPage(); y = 18 }
 
     // Category header with color stripe
-    const catColor = cat?.color || '#64748b'
+    // A category saved before colors were checked can hold "red"; jsPDF throws on NaN.
+    const catColor = normalizeHexColor(cat?.color) ?? '#64748b'
     const r = parseInt(catColor.slice(1, 3), 16)
     const g = parseInt(catColor.slice(3, 5), 16)
     const b = parseInt(catColor.slice(5, 7), 16)

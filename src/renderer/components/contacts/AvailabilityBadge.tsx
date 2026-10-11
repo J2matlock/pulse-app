@@ -1,12 +1,13 @@
 import type { AvailabilityStatus } from '../../../shared/types'
 import { MS_PER_DAY } from '../../../shared/constants'
 import { parseDbTimestamp } from '../../../shared/dates'
+import { AVAILABILITY_LABELS } from '../../../shared/availability'
 
 const STATUS_CONFIG: Record<AvailabilityStatus, { label: string; bg: string; text: string }> = {
-  accepting: { label: 'Accepting', bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-300' },
-  waitlist: { label: 'Waitlist', bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-800 dark:text-amber-300' },
-  full: { label: 'Not Accepting', bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-300' },
-  unknown: { label: 'Unknown', bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-500 dark:text-slate-400' },
+  accepting: { label: AVAILABILITY_LABELS.accepting, bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-300' },
+  waitlist: { label: AVAILABILITY_LABELS.waitlist, bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-800 dark:text-amber-300' },
+  full: { label: AVAILABILITY_LABELS.full, bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-300' },
+  unknown: { label: AVAILABILITY_LABELS.unknown, bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-500 dark:text-slate-400' },
 }
 
 interface Props {

@@ -11,6 +11,7 @@ import { pulseEvents } from '../../events'
 import { useVocab } from '../../hooks/useVocab'
 import { useCopyFeedback } from '../../hooks/useCopyFeedback'
 import { parseDbTimestamp } from '../../../shared/dates'
+import { availabilityLabel } from '../../../shared/availability'
 
 interface Props {
   rowId: number
@@ -378,7 +379,7 @@ export function LinkedProviders({ rowId, gridId, onCount }: Props) {
               {open && (
                 <div className="mt-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 space-y-1 text-base text-slate-700 dark:text-slate-200">
                   {link.provider_availability_status && link.provider_availability_status !== 'unknown' && (
-                    <p>Status: {link.provider_availability_status.charAt(0).toUpperCase() + link.provider_availability_status.slice(1)}</p>
+                    <p>Status: {availabilityLabel(link.provider_availability_status)}</p>
                   )}
                   <p>Linked {parseDbTimestamp(link.linked_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                   <button

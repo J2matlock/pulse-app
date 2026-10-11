@@ -3,7 +3,7 @@ import toast from 'react-hot-toast'
 import { IPC } from '../../shared/ipc-channels'
 import { rlog } from '../utils/rendererLogger'
 import { useUndoStore, type SideEffect, type UndoCategory } from './undoStore'
-import { storeInvoke } from '../utils/safeInvoke'
+import { storeInvoke, ReadOnlyError } from '../utils/safeInvoke'
 import { wordNow } from '../utils/vocab'
 import { pulseEvents } from '../events'
 import type {
@@ -37,7 +37,9 @@ interface ContactsStore {
   loadProviders: () => Promise<void>
   loadCategories: () => Promise<void>
   selectProvider: (id: number | null) => Promise<void>
-  createProvider: (data: Partial<Provider>) => Promise<Provider | null>
+  /** Throws when the save fails, so the form can keep what was typed. */
+  createProvider: (data: Partial<Provider>) => Promise<Provider>
+  /** Throws when the save fails, so the form can keep what was typed. */
   updateProvider: (id: number, data: Partial<Provider>) => Promise<void>
   deleteProvider: (id: number) => Promise<void>
   toggleStar: (id: number) => Promise<void>
@@ -93,6 +95,79 @@ function pushContactUndo(
   })
 }
 
+// Every saved contact field, so an undo snapshot and its restore cover them all.
+const PROVIDER_FIELDS = [
+  'category_id', 'name', 'org_name', 'title',
+  'phone_main', 'phone_direct', 'phone_fax', 'phone_cell', 'phone_after_hours',
+  'email', 'website', 'address', 'hours', 'languages',
+  'availability_status', 'availability_notes', 'availability_checked_at',
+  'referral_process', 'notes', 'is_starred',
+] as const
+
+interface ProviderSnapshot {
+  fields: Partial<Provider>
+  tags: string[]
+  customValues: Array<{ custom_field_id: number; value: string }>
+  interactions: Array<{ contact_type: string; content: string; created_at?: string }>
+  links: Array<{ row_id: number; grid_id: number; notes?: string | null }>
+}
+
+function pickProviderFields(p: Partial<Provider>): Partial<Provider> {
+  const out: Record<string, unknown> = {}
+  for (const k of PROVIDER_FIELDS) {
+    const v = p[k]
+    if (v !== undefined) out[k] = v
+  }
+  return out as Partial<Provider>
+}
+
+/** The whole contact as saved: every field, tags, custom fields, log and linked records. */
+async function snapshotProvider(id: number): Promise<ProviderSnapshot> {
+  const full = await storeInvoke<Provider>(IPC.CONTACTS_GET_ONE, id)
+  const customValues = await storeInvoke<Array<{ custom_field_id: number; value: string }>>(IPC.CONTACTS_GET_CUSTOM_VALUES, id)
+  const interactions = await storeInvoke<ProviderInteraction[]>(IPC.CONTACTS_GET_INTERACTIONS, id)
+  const links = await storeInvoke<ProviderClientLink[]>(IPC.CONTACTS_GET_CLIENT_LINKS, { providerId: id })
+  return {
+    fields: pickProviderFields(full),
+    tags: full.tags ?? [],
+    customValues: customValues ?? [],
+    interactions: (interactions ?? []).map(i => ({ contact_type: i.contact_type, content: i.content, created_at: i.created_at })),
+    links: (links ?? []).map(l => ({ row_id: l.row_id, grid_id: l.grid_id, notes: l.notes })),
+  }
+}
+
+/** Makes the contact again from a snapshot. Returns the new id, or null if it couldn't be made. */
+async function restoreProvider(snapshot: ProviderSnapshot): Promise<number | null> {
+  let newId: number
+  try {
+    const created = await storeInvoke<{ id: number }>(IPC.CONTACTS_CREATE, snapshot.fields)
+    newId = created.id
+  } catch (err) {
+    rlog.error('contactsStore', 'restoreProvider failed', err)
+    return null
+  }
+  for (const tag of snapshot.tags) {
+    try { await storeInvoke(IPC.CONTACTS_ADD_TAG, newId, tag) } catch (err) { rlog.error('contactsStore', 'undo restore tag failed', err) }
+  }
+  for (const v of snapshot.customValues) {
+    try { await storeInvoke(IPC.CONTACTS_SAVE_CUSTOM_VALUE, newId, v.custom_field_id, v.value) } catch (err) { rlog.error('contactsStore', 'undo restore custom value failed', err) }
+  }
+  for (const inter of snapshot.interactions) {
+    try { await storeInvoke(IPC.CONTACTS_ADD_INTERACTION, newId, inter.contact_type, inter.content, inter.created_at) } catch (err) { rlog.error('contactsStore', 'undo restore interaction failed', err) }
+  }
+  for (const link of snapshot.links) {
+    try { await storeInvoke(IPC.CONTACTS_LINK_CLIENT, newId, link.row_id, link.grid_id, link.notes ?? undefined) } catch (err) { rlog.error('contactsStore', 'undo restore client link failed', err) }
+  }
+  return newId
+}
+
+/** After an undo or redo removes a contact: close it if it was open, and refresh the list. */
+async function afterProviderRemoved(id: number): Promise<void> {
+  const store = useContactsStore.getState()
+  if (store.selectedProviderId === id) await store.selectProvider(null)
+  await useContactsStore.getState().loadProviders()
+}
+
 export const useContactsStore = create<ContactsStore>((set, get) => ({
   providers: [],
   categories: [],
@@ -144,32 +219,40 @@ export const useContactsStore = create<ContactsStore>((set, get) => ({
   },
 
   createProvider: async (data) => {
-    try {
-      const created = await storeInvoke<Provider>(IPC.CONTACTS_CREATE, data)
-      await get().loadProviders()
-      pushContactUndo(
-        `Created ${wordNow('contact', {}, null)} "${created.name}"`, 'plus',
-        async () => {
-          await storeInvoke(IPC.CONTACTS_DELETE, created.id)
-          await useContactsStore.getState().loadProviders()
-        },
-        async () => {
-          await storeInvoke(IPC.CONTACTS_CREATE, data)
-          await useContactsStore.getState().loadProviders()
-        },
-      )
-      return created
-    } catch (err) {
-      rlog.error('contactsStore', 'createProvider failed', err)
-      return null
-    }
+    // A failure throws, so the form stays open with what was typed.
+    const created = await storeInvoke<Provider>(IPC.CONTACTS_CREATE, data)
+    await get().loadProviders()
+    // Redo makes a new contact with a new id; undo must delete whichever is current.
+    let currentId = created.id
+    let snapshot: ProviderSnapshot | null = null
+    pushContactUndo(
+      `Created ${wordNow('contact', {}, null)} "${created.name}"`, 'plus',
+      async () => {
+        // Snapshot first, so redo also brings back tags and custom fields added after creating.
+        snapshot = await snapshotProvider(currentId)
+        await storeInvoke(IPC.CONTACTS_DELETE, currentId)
+        await afterProviderRemoved(currentId)
+      },
+      async () => {
+        const newId = await restoreProvider(snapshot ?? { fields: data, tags: [], customValues: [], interactions: [], links: [] })
+        if (newId != null) currentId = newId
+        await useContactsStore.getState().loadProviders()
+      },
+    )
+    return created
   },
 
   updateProvider: async (id, data) => {
-    const prev = get().providers.find(p => p.id === id)
+    // The list rows hold only a few columns, so the "before" values come from the full contact.
+    let prev: Provider | undefined
     try {
-      await storeInvoke(IPC.CONTACTS_UPDATE, id, data)
-    } catch (err) { rlog.error('contactsStore', 'updateProvider failed', err); return }
+      prev = await storeInvoke<Provider>(IPC.CONTACTS_GET_ONE, id)
+    } catch (err) {
+      rlog.error('contactsStore', 'updateProvider snapshot failed', err)
+      prev = get().selectedProvider?.id === id ? get().selectedProvider ?? undefined : undefined
+    }
+    // A failure throws, so the form stays open with what was typed.
+    await storeInvoke(IPC.CONTACTS_UPDATE, id, data)
     // Full reload when category changes (joined fields like category_name/color need refresh)
     // Otherwise optimistic patch is sufficient
     if ('category_id' in data) {
@@ -185,11 +268,13 @@ export const useContactsStore = create<ContactsStore>((set, get) => ({
       await get().selectProvider(id)
     }
     if (prev) {
+      const before = prev
+      // Explicit nulls: the server skips undefined, so an emptied field would never come back.
       const prevValues = Object.fromEntries(
-        (Object.keys(data) as Array<keyof Provider>).map(k => [k, prev[k]])
+        (Object.keys(data) as Array<keyof Provider>).map(k => [k, before[k] ?? null])
       ) as Partial<Provider>
       pushContactUndo(
-        `Updated ${wordNow('contact', {}, null)} "${prev.name}"`, 'edit',
+        `Updated ${wordNow('contact', {}, null)} "${before.name}"`, 'edit',
         async () => {
           await storeInvoke(IPC.CONTACTS_UPDATE, id, prevValues)
           await useContactsStore.getState().loadProviders()
@@ -210,20 +295,17 @@ export const useContactsStore = create<ContactsStore>((set, get) => ({
 
   deleteProvider: async (id) => {
     const provider = get().providers.find(p => p.id === id)
+      ?? (get().selectedProvider?.id === id ? get().selectedProvider : null)
     if (!provider) return
 
-    // Snapshot related data BEFORE delete for full undo
-    let savedTags: string[] = []
-    let savedInteractions: Array<{contact_type: string; content: string; created_at?: string}> = []
-    let savedLinks: Array<{row_id: number; grid_id: number; notes?: string}> = []
+    // Snapshot the full contact (not the list row) BEFORE delete, so undo brings everything back
+    let snapshot: ProviderSnapshot
     try {
-      const interData = await storeInvoke<Array<{contact_type: string; content: string; created_at?: string}>>(IPC.CONTACTS_GET_INTERACTIONS, id)
-      savedInteractions = interData.map(i => ({ contact_type: i.contact_type, content: i.content, created_at: i.created_at }))
-      const linkData = await storeInvoke<Array<{row_id: number; grid_id: number; notes?: string}>>(IPC.CONTACTS_GET_CLIENT_LINKS, { providerId: id })
-      savedLinks = linkData.map(l => ({ row_id: l.row_id, grid_id: l.grid_id, notes: l.notes }))
-      // Tags are on the provider object
-      savedTags = provider.tags || []
-    } catch (err) { rlog.error('contactsStore', 'deleteProvider snapshot failed', err) /* continue with delete */ }
+      snapshot = await snapshotProvider(id)
+    } catch (err) {
+      rlog.error('contactsStore', 'deleteProvider snapshot failed', err)
+      snapshot = { fields: pickProviderFields(provider), tags: provider.tags ?? [], customValues: [], interactions: [], links: [] }
+    }
 
     try {
       await storeInvoke(IPC.CONTACTS_DELETE, id)
@@ -233,62 +315,22 @@ export const useContactsStore = create<ContactsStore>((set, get) => ({
     }
     await get().loadProviders()
     toast(`${wordNow('contact', { cap: true }, null)} deleted. Press ${modHelp('Ctrl+Z')} to undo.`, { duration: 5000 })
-    const providerSnapshot = {
-      name: provider.name, org_name: provider.org_name,
-      title: provider.title, phone_main: provider.phone_main,
-      phone_direct: provider.phone_direct, phone_fax: provider.phone_fax,
-      phone_cell: provider.phone_cell, phone_after_hours: provider.phone_after_hours,
-      email: provider.email, website: provider.website, address: provider.address,
-      availability_status: provider.availability_status,
-      availability_notes: provider.availability_notes,
-      referral_process: provider.referral_process,
-      hours: provider.hours, languages: provider.languages, notes: provider.notes,
-      category_id: provider.category_id, is_starred: provider.is_starred,
-    }
 
-    const recreateProvider = async (): Promise<number | null> => {
-      try {
-        const created = await storeInvoke<{ id: number }>(IPC.CONTACTS_CREATE, providerSnapshot)
-        const newId = created.id
-        // Restore tags
-        for (const tag of savedTags) {
-          try { await storeInvoke(IPC.CONTACTS_ADD_TAG, newId, tag) } catch (err) { rlog.error('contactsStore', 'undo restore tag failed', err) }
-        }
-        // Restore interactions
-        for (const inter of savedInteractions) {
-          try { await storeInvoke(IPC.CONTACTS_ADD_INTERACTION, newId, inter.contact_type, inter.content, inter.created_at) } catch (err) { rlog.error('contactsStore', 'undo restore interaction failed', err) }
-        }
-        // Restore client links
-        for (const link of savedLinks) {
-          try { await storeInvoke(IPC.CONTACTS_LINK_CLIENT, newId, link.row_id, link.grid_id, link.notes) } catch (err) { rlog.error('contactsStore', 'undo restore client link failed', err) }
-        }
-        return newId
-      } catch (err) {
-        rlog.error('contactsStore', 'recreateProvider failed', err)
-        return null
-      }
-    }
-
-    const findRecreatedProvider = (): number | null => {
-      const match = useContactsStore.getState().providers.find(
-        p => p.name === providerSnapshot.name && p.org_name === providerSnapshot.org_name
-          && p.email === providerSnapshot.email
-      )
-      return match?.id ?? null
-    }
-
+    // Undo makes a new contact; redo deletes that one, not a look-alike found by name.
+    let currentId: number | null = null
     pushContactUndo(
       `Deleted ${wordNow('contact', {}, null)} "${provider.name}"`, 'trash',
       async () => {
-        await recreateProvider()
+        currentId = await restoreProvider(snapshot)
         await useContactsStore.getState().loadProviders()
       },
       async () => {
-        const targetId = findRecreatedProvider()
-        if (targetId != null) {
-          await storeInvoke(IPC.CONTACTS_DELETE, targetId)
+        if (currentId != null) {
+          await storeInvoke(IPC.CONTACTS_DELETE, currentId)
+          await afterProviderRemoved(currentId)
+        } else {
+          await useContactsStore.getState().loadProviders()
         }
-        await useContactsStore.getState().loadProviders()
       },
     )
   },
@@ -357,6 +399,8 @@ export const useContactsStore = create<ContactsStore>((set, get) => ({
       return data
     } catch (err) {
       rlog.error('contactsStore', 'createCategory failed', err)
+      // Read-only already shows its own message.
+      if (!(err instanceof ReadOnlyError)) toast.error("We couldn't add that category — try again")
       return null
     }
   },
@@ -365,15 +409,34 @@ export const useContactsStore = create<ContactsStore>((set, get) => ({
     try {
       await storeInvoke(IPC.CONTACTS_UPDATE_CATEGORY, id, data)
     } catch (err) { rlog.error('ContactsStore', 'Failed to update category', err); return }
-    await get().loadCategories()
+    // Cards, rows and the open contact show the category's name and colour, so they reload too.
+    const selectedId = get().selectedProviderId
+    await Promise.all([
+      get().loadCategories(),
+      get().loadProviders(),
+      selectedId != null ? get().selectProvider(selectedId) : Promise.resolve(),
+    ])
   },
 
   deleteCategory: async (id) => {
     await storeInvoke(IPC.CONTACTS_DELETE_CATEGORY, id).catch((err) => { rlog.error('contactsStore', 'deleteCategory failed', err) })
-    await Promise.all([get().loadCategories(), get().loadProviders()])
+    // A filter on the deleted category would match nothing and leave no chip to clear it.
+    if (get().filterParams.categoryId === id) {
+      const { categoryId: _dropped, ...rest } = get().filterParams
+      set({ filterParams: rest })
+    }
+    const selectedId = get().selectedProviderId
+    await Promise.all([
+      get().loadCategories(),
+      get().loadProviders(),
+      selectedId != null ? get().selectProvider(selectedId) : Promise.resolve(),
+    ])
   },
 
   addTag: async (providerId, tag) => {
+    // Already there: the server ignores the repeat, and an undo step for it would remove the original tag.
+    const open = get().selectedProvider
+    if (open?.id === providerId && (open.tags ?? []).includes(tag)) return
     try {
       await storeInvoke(IPC.CONTACTS_ADD_TAG, providerId, tag)
     } catch (err) { rlog.error('contactsStore', 'addTag failed', err); return }

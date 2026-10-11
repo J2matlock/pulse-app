@@ -127,9 +127,10 @@ export function ContactRequirementsDialog({ gridId, gridName, onClose }: {
             </fieldset>
           ))}
 
-          {drafts && drafts.length > 0 && drafts.length < 10 && (
+          {/* Always a way in, even with no suggestions (a starter can archive the built-in note types) */}
+          {drafts && drafts.length < 10 && (
             <button type="button" className="btn-compact-secondary" onClick={() => add()}>
-              <Plus className="w-4 h-4" aria-hidden="true" />Add another
+              <Plus className="w-4 h-4" aria-hidden="true" />{drafts.length > 0 ? 'Add another' : `Add a ${t('requirement')}`}
             </button>
           )}
           {error && <p role="alert" className="text-base text-red-700 dark:text-red-300">{error}</p>}

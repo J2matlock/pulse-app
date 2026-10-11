@@ -133,9 +133,11 @@ describe('contactsStore', () => {
     const p1 = makeProvider(1, { name: 'To Delete' })
     useContactsStore.setState({ providers: [p1] })
 
-    // CONTACTS_GET_INTERACTIONS (snapshot), CONTACTS_GET_CLIENT_LINKS (snapshot),
-    // CONTACTS_DELETE, then CONTACTS_GET_ALL (loadProviders returns empty)
+    // Snapshot: CONTACTS_GET_ONE, CONTACTS_GET_CUSTOM_VALUES, CONTACTS_GET_INTERACTIONS,
+    // CONTACTS_GET_CLIENT_LINKS; then CONTACTS_DELETE, then CONTACTS_GET_ALL (returns empty)
     mockInvoke
+      .mockResolvedValueOnce({ ok: true, data: p1 })
+      .mockResolvedValueOnce({ ok: true, data: [] })
       .mockResolvedValueOnce({ ok: true, data: [] })
       .mockResolvedValueOnce({ ok: true, data: [] })
       .mockResolvedValueOnce({ ok: true, data: true })
@@ -156,8 +158,11 @@ describe('contactsStore', () => {
     const p1 = makeProvider(1)
     useContactsStore.setState({ providers: [p1], selectedProviderId: 1, selectedProvider: p1 })
 
-    // CONTACTS_GET_INTERACTIONS, CONTACTS_GET_CLIENT_LINKS, CONTACTS_DELETE, CONTACTS_GET_ALL
+    // CONTACTS_GET_ONE, CONTACTS_GET_CUSTOM_VALUES, CONTACTS_GET_INTERACTIONS, CONTACTS_GET_CLIENT_LINKS,
+    // CONTACTS_DELETE, CONTACTS_GET_ALL
     mockInvoke
+      .mockResolvedValueOnce({ ok: true, data: p1 })
+      .mockResolvedValueOnce({ ok: true, data: [] })
       .mockResolvedValueOnce({ ok: true, data: [] })
       .mockResolvedValueOnce({ ok: true, data: [] })
       .mockResolvedValueOnce({ ok: true, data: true })

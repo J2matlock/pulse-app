@@ -223,6 +223,40 @@ describe('ContactsView — interactions', () => {
     expect(mockSelectProvider).toHaveBeenCalledWith(1)
   })
 
+  it('arrow keys do not switch contacts while a dialog is open (a delete confirm would move to another contact)', async () => {
+    render(<MemoryRouter><ContactsView /></MemoryRouter>)
+    await flushEffects()
+    fireEvent.click(screen.getAllByTestId('contact-row')[0]!)
+    mockSelectProvider.mockClear()
+    const dialog = document.createElement('div')
+    dialog.setAttribute('role', 'dialog')
+    dialog.setAttribute('aria-modal', 'true')
+    const btn = document.createElement('button')
+    dialog.appendChild(btn)
+    document.body.appendChild(dialog)
+    btn.focus()
+    fireEvent.keyDown(window, { key: 'ArrowDown' })
+    expect(mockSelectProvider).not.toHaveBeenCalled()
+    dialog.remove()
+    fireEvent.keyDown(window, { key: 'ArrowDown' })
+    expect(mockSelectProvider).toHaveBeenCalled()
+  })
+
+  it('Ctrl+C copies selected text instead of the phone number', async () => {
+    render(<MemoryRouter><ContactsView /></MemoryRouter>)
+    await flushEffects()
+    fireEvent.click(screen.getAllByTestId('contact-row')[0]!)
+    const copy = window.api.copyToClipboard as ReturnType<typeof vi.fn>
+    copy.mockClear()
+    const spy = vi.spyOn(window, 'getSelection').mockReturnValue({ toString: () => '123 Main St' } as Selection)
+    fireEvent.keyDown(window, { key: 'c', ctrlKey: true, metaKey: true })
+    expect(copy).not.toHaveBeenCalled()
+    spy.mockReturnValue({ toString: () => '' } as Selection)
+    fireEvent.keyDown(window, { key: 'c', ctrlKey: true, metaKey: true })
+    expect(copy).toHaveBeenCalledWith('555-0101')
+    spy.mockRestore()
+  })
+
   it('shows detail panel when a provider is selected', async () => {
     contactsStoreOverride = {
       selectedProviderId: 1,

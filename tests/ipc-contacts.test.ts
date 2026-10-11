@@ -79,7 +79,8 @@ vi.mock('../src/main/contacts', () => ({
   getProviders: (params: Record<string, unknown>) => {
     if (params.search) return testDb.db.prepare("SELECT * FROM providers WHERE name LIKE ? ORDER BY name").all(`%${params.search}%`)
     if (params.categoryId) return testDb.db.prepare('SELECT * FROM providers WHERE category_id = ? ORDER BY name').all(params.categoryId)
-    return testDb.db.prepare('SELECT * FROM providers ORDER BY name').all()
+    // Like the real list query: a few columns, at most 1,000 rows
+    return testDb.db.prepare('SELECT id, name, org_name, title, phone_main, email, category_id, is_starred FROM providers ORDER BY name LIMIT 1000').all()
   },
   getProvider: (id: number) => testDb.db.prepare('SELECT * FROM providers WHERE id = ?').get(id) ?? null,
   getProvidersByIds: (ids: number[]) => {
@@ -143,10 +144,12 @@ vi.mock('../src/main/contacts', () => ({
     testDb.db.prepare("INSERT INTO provider_custom_values (provider_id, custom_field_id, value) VALUES (?, ?, ?) ON CONFLICT(provider_id, custom_field_id) DO UPDATE SET value = excluded.value").run(providerId, customFieldId, value)
   },
   parseVCard: (content: string) => [],
-  emitVCard: () => '',
+  emitVCard: (p: Record<string, unknown>) => { emitted.push(p); return '' },
   getAllCustomFieldsByCategory: () => ({}),
   getBatchCustomValues: () => ({}),
 }))
+
+const emitted: Array<Record<string, unknown>> = []
 
 const fakeEvent = { senderFrame: { parent: null } }
 
@@ -183,6 +186,19 @@ async function createCategory(name = 'Medical', color = '#ff0000') {
 async function createProvider(name = 'Dr. Smith', extra?: Record<string, unknown>) {
   return await invoke(IPC.CONTACTS_CREATE, { name, ...extra }) as any
 }
+
+describe('category colors', () => {
+  it('refuses a color the directory PDF cannot print, and normalises short hex', async () => {
+    expect((await createCategory('Named', 'red')).ok).toBe(false)
+    const short = await createCategory('Short', '#abc')
+    expect(short.ok).toBe(true)
+    expect(short.data.color).toBe('#aabbcc')
+    expect((await invoke(IPC.CONTACTS_UPDATE_CATEGORY, short.data.id, { color: 'blue' })).ok).toBe(false)
+    expect((await invoke(IPC.CONTACTS_UPDATE_CATEGORY, short.data.id, { color: '#ABCDEF' })).ok).toBe(true)
+    const row = testDb.db.prepare('SELECT color FROM provider_categories WHERE id = ?').get(short.data.id) as { color: string }
+    expect(row.color).toBe('#abcdef')
+  })
+})
 
 describe('CONTACTS_GET_CATEGORIES', () => {
   it('returns categories array', async () => {
@@ -625,10 +641,17 @@ describe('CONTACTS_CONFIRM_IMPORT_VCF', () => {
     expect(r.ok).toBe(false)
   })
 
-  it('fails for over 500 providers', async () => {
-    const providers = Array.from({ length: 501 }, (_, i) => ({ name: `P${i}` }))
+  it('fails for over 1,000 providers', async () => {
+    const providers = Array.from({ length: 1001 }, (_, i) => ({ name: `P${i}` }))
     const r = await invoke(IPC.CONTACTS_CONFIRM_IMPORT_VCF, providers) as any
     expect(r.ok).toBe(false)
+  })
+
+  it('imports every contact a file can preview (up to 1,000), not just 500', async () => {
+    const providers = Array.from({ length: 600 }, (_, i) => ({ name: `P${i}` }))
+    const r = await invoke(IPC.CONTACTS_CONFIRM_IMPORT_VCF, providers) as any
+    expect(r.ok).toBe(true)
+    expect(r.data).toBe(600)
   })
 
   it('truncates long names to 500 chars', async () => {
@@ -655,6 +678,23 @@ describe('CONTACTS_EXPORT_VCF', () => {
     // Dialog is mocked to return canceled
     expect(r.ok).toBe(true)
     expect(r.data).toBeNull()
+  })
+
+  it('export all writes full contacts (every phone, address, notes), not the list rows', async () => {
+    await createProvider('Full Card', { phone_cell: '555-CELL', phone_after_hours: '555-NITE', address: '1 Main St', notes: 'Call first' })
+    emitted.length = 0
+    await invoke(IPC.CONTACTS_EXPORT_VCF, null)
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0]).toMatchObject({ name: 'Full Card', phone_cell: '555-CELL', phone_after_hours: '555-NITE', address: '1 Main St', notes: 'Call first' })
+  })
+
+  it('export all includes more than 1,000 contacts', async () => {
+    const insert = testDb.db.prepare("INSERT INTO providers (name, created_at, updated_at) VALUES (?, datetime('now'), datetime('now'))")
+    testDb.db.transaction(() => { for (let i = 0; i < 1005; i++) insert.run(`Bulk ${String(i).padStart(4, '0')}`) })()
+    emitted.length = 0
+    await invoke(IPC.CONTACTS_EXPORT_VCF, null)
+    expect(emitted).toHaveLength(1005)
+    expect(emitted[0].name).toBe('Bulk 0000')
   })
 
   it('fails for non-array providerIds', async () => {

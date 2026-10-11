@@ -58,7 +58,8 @@ export default function LetterTemplateView(): React.ReactElement {
 
   // ── Load data ──────────────────────────────────────────────────────────
 
-  const load = useCallback(async () => {
+  /** Reload; selectId opens that template (a new one, straight after it's made) */
+  const load = useCallback(async (selectId?: number) => {
     setLoading(true)
     try {
       const [tRes, gRes] = await Promise.all([
@@ -69,6 +70,8 @@ export default function LetterTemplateView(): React.ReactElement {
         setTemplates(tRes.data)
         // Keep selection valid after reload
         setSelected(prev => {
+          const wanted = selectId != null ? tRes.data.find(t => t.id === selectId) : undefined
+          if (wanted) return wanted
           if (!prev) return tRes.data[0] ?? null
           return tRes.data.find(t => t.id === prev.id) ?? tRes.data[0] ?? null
         })
@@ -79,7 +82,7 @@ export default function LetterTemplateView(): React.ReactElement {
     }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { void load() }, [load])
 
   // ── CRUD operations ────────────────────────────────────────────────────
 
@@ -94,6 +97,8 @@ export default function LetterTemplateView(): React.ReactElement {
         IPC.LETTER_TEMPLATE_CREATE, name, description, content
       )
       if (!res.ok) throw new Error(res.error ?? 'Could not create the template.')
+      await load(res.data)
+      return
     }
     await load()
   }
@@ -183,7 +188,8 @@ export default function LetterTemplateView(): React.ReactElement {
 
       {/* Right panel — selected template */}
       <div className="flex-1 flex flex-col min-w-0">
-        {!selected && !loading && (
+        {/* With no templates the left panel's "Create your first template" says it all */}
+        {!selected && !loading && templates.length > 0 && (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <FileText className="w-12 h-12 text-slate-200 dark:text-slate-700 mx-auto mb-3" />

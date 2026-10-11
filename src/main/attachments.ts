@@ -51,6 +51,18 @@ export function sniffType(b: Buffer, fileName: string): string | null {
 }
 
 /** A safe display name: the last part of the path, no control characters, at most 200 characters */
+const EXTENSION = /\.[A-Za-z0-9]{1,8}$/
+
+/**
+ * Renaming "scan.pdf" to "Intake scan" keeps ".pdf": without it "Save a copy"
+ * writes a file the computer can't open with a double-click.
+ */
+export function keepExtension(newName: string, oldName: string): string {
+  const ext = EXTENSION.exec(oldName)?.[0]
+  if (!ext || EXTENSION.test(newName)) return newName
+  return cleanFileName(newName + ext)
+}
+
 export function cleanFileName(path: string): string {
   const name = basename(path).replace(/[\u0000-\u001f\u007f<>:"/\\|?*]+/g, '_').trim() || 'file'
   if (name.length <= 200) return name
@@ -156,7 +168,7 @@ export function addAttachments(rowId: number, paths: string[], opts: { caseLogId
 export function describeAttachment(id: number, patch: { fileName?: string; description?: string | null }): Attachment {
   const a = getAttachment(id)
   if (!a || a.deleted_at) throw new AttachmentError('That file is no longer available.')
-  const name = patch.fileName !== undefined ? cleanFileName(patch.fileName) : a.file_name
+  const name = patch.fileName !== undefined ? keepExtension(cleanFileName(patch.fileName), a.file_name) : a.file_name
   const desc = patch.description !== undefined ? (patch.description?.trim().slice(0, 500) || null) : a.description
   getDb().transaction(() => {
     getDb().prepare('UPDATE attachments SET file_name = ?, description = ? WHERE id = ?').run(name, desc, id)

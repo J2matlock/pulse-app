@@ -10,12 +10,31 @@ import type { Provider, ProviderCustomField } from '../shared/types'
 // vCard helpers
 // ──────────────────────────────────────────────────────────────────────────────
 
+// One pass, so an escaped backslash followed by "n" ("C:\\new") stays a
+// backslash and an "n" instead of turning into a line break.
 function unescapeVCard(value: string): string {
-  return value
-    .replace(/\\n/gi, '\n')
-    .replace(/\\,/g, ',')
-    .replace(/\\;/g, ';')
-    .replace(/\\\\/g, '\\')
+  return value.replace(/\\([\\,;nN])/g, (_m, ch: string) => (ch === 'n' || ch === 'N' ? '\n' : ch))
+}
+
+// vCard 2.1 (Android, Outlook) writes non-ASCII text as quoted-printable:
+// "Jos=C3=A9". Bytes are decoded in the declared charset, UTF-8 by default.
+function decodeQuotedPrintable(value: string, charset: string): string {
+  const bytes: number[] = []
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i] ?? ''
+    if (ch === '=' && /^[0-9A-Fa-f]{2}$/.test(value.slice(i + 1, i + 3))) {
+      bytes.push(parseInt(value.slice(i + 1, i + 3), 16))
+      i += 2
+    } else {
+      const code = ch.charCodeAt(0)
+      if (code < 0x80) bytes.push(code)
+      else for (const b of Buffer.from(ch, 'utf-8')) bytes.push(b)
+    }
+  }
+  const buf = Buffer.from(bytes)
+  const cs = charset.toLowerCase()
+  if (cs === 'iso-8859-1' || cs === 'latin1' || cs === 'windows-1252') return buf.toString('latin1')
+  return buf.toString('utf-8')
 }
 
 function escapeVCard(value: string): string {
@@ -57,7 +76,8 @@ export function parseVCard(content: string, maxEntries = 1000): Array<Partial<Pr
   let currentEntrySize = 0
   let totalBytes = 0
 
-  for (const rawLine of lines) {
+  for (let li = 0; li < lines.length; li++) {
+    const rawLine = lines[li] ?? ''
     const line = rawLine.trim()
     totalBytes += rawLine.length
     if (totalBytes > MAX_TOTAL_BYTES) {
@@ -96,12 +116,27 @@ export function parseVCard(content: string, maxEntries = 1000): Array<Partial<Pr
     if (colonIdx < 0) continue
 
     const propPart = line.substring(0, colonIdx)
-    const value = line.substring(colonIdx + 1).trim()
 
-    // Split property name from parameters
+    // Split property name from parameters. Apple Contacts groups related
+    // lines ("item1.EMAIL", "item1.X-ABLabel"); the group prefix is dropped.
     const semiIdx = propPart.indexOf(';')
-    const propName = (semiIdx >= 0 ? propPart.substring(0, semiIdx) : propPart).toUpperCase()
+    const rawName = (semiIdx >= 0 ? propPart.substring(0, semiIdx) : propPart).toUpperCase()
+    const propName = rawName.includes('.') ? rawName.substring(rawName.lastIndexOf('.') + 1) : rawName
     const paramsStr = semiIdx >= 0 ? propPart.substring(semiIdx + 1).toUpperCase() : ''
+
+    let value: string
+    if (/(^|;)(ENCODING=)?QUOTED-PRINTABLE(;|$)/.test(paramsStr)) {
+      // Quoted-printable soft line breaks: a line ending in "=" continues on the next.
+      let qp = line.substring(colonIdx + 1)
+      while (qp.endsWith('=') && li + 1 < lines.length) {
+        li++
+        qp = qp.slice(0, -1) + (lines[li] ?? '').trim()
+      }
+      const charset = /CHARSET=([^;:]+)/.exec(paramsStr)?.[1] ?? 'UTF-8'
+      value = decodeQuotedPrintable(qp, charset).trim()
+    } else {
+      value = line.substring(colonIdx + 1).trim()
+    }
 
     switch (propName) {
       case 'FN':
@@ -123,7 +158,10 @@ export function parseVCard(content: string, maxEntries = 1000): Array<Partial<Pr
           current.phone_fax = current.phone_fax || telValue
         } else if (paramsStr.includes('CELL')) {
           current.phone_cell = current.phone_cell || telValue
-        } else if (paramsStr.includes('HOME')) {
+        } else if (paramsStr.includes('X-AFTER-HOURS') || paramsStr.includes('PAGER')) {
+          // Older Pulse exports wrote the after-hours line as PAGER.
+          current.phone_after_hours = current.phone_after_hours || telValue
+        } else if (paramsStr.includes('X-DIRECT') || paramsStr.includes('HOME')) {
           current.phone_direct = current.phone_direct || telValue
         } else if (paramsStr.includes('WORK') || !current.phone_main) {
           // WORK type or first untyped TEL maps to phone_main
@@ -201,7 +239,8 @@ export function emitVCard(
     lines.push(`TEL;TYPE=WORK:${escapeVCard(provider.phone_main)}`)
   }
   if (provider.phone_direct) {
-    lines.push(`TEL;TYPE=HOME:${escapeVCard(provider.phone_direct)}`)
+    // A direct line is a work number; X-DIRECT lets Pulse tell it apart from the main one.
+    lines.push(`TEL;TYPE=WORK,X-DIRECT:${escapeVCard(provider.phone_direct)}`)
   }
   if (provider.phone_cell) {
     lines.push(`TEL;TYPE=CELL:${escapeVCard(provider.phone_cell)}`)
@@ -210,7 +249,7 @@ export function emitVCard(
     lines.push(`TEL;TYPE=FAX:${escapeVCard(provider.phone_fax)}`)
   }
   if (provider.phone_after_hours) {
-    lines.push(`TEL;TYPE=PAGER:${escapeVCard(provider.phone_after_hours)}`)
+    lines.push(`TEL;TYPE=WORK,X-AFTER-HOURS:${escapeVCard(provider.phone_after_hours)}`)
   }
   if (provider.email) {
     lines.push(`EMAIL:${escapeVCard(provider.email)}`)
@@ -224,6 +263,10 @@ export function emitVCard(
   }
   if (provider.notes) {
     lines.push(`NOTE:${escapeVCard(provider.notes)}`)
+  }
+  if (provider.category_name) {
+    // Import matches this back to the category, which also brings back custom fields.
+    lines.push(`CATEGORIES:${escapeVCard(provider.category_name)}`)
   }
 
   // X-PULSE-* custom field extensions

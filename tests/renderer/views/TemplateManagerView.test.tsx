@@ -69,6 +69,8 @@ vi.mock('../../../src/renderer/views/template-manager/ChecklistTemplateRow', () 
 // ── Import (after mocks) ─────────────────────────────────────────────────────
 
 import TemplateManagerView from '../../../src/renderer/views/TemplateManagerView'
+import { useGridStore } from '../../../src/renderer/stores/gridStore'
+import { fireEvent } from '@testing-library/react'
 import { setWords } from '../vocabFixture'
 
 async function flushEffects() {
@@ -83,6 +85,17 @@ describe('TemplateManagerView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockInvoke.mockResolvedValue({ ok: true, data: [] })
+  })
+
+  it('sees a list made while the page is open, and the picker starts on the open list', async () => {
+    useGridStore.setState({ grids: [], activeGridId: null } as never)
+    render(<MemoryRouter><TemplateManagerView /></MemoryRouter>)
+    await flushEffects()
+    // e.g. applying a template as a new list updates the grid store
+    act(() => { useGridStore.setState({ grids: [{ id: 1, name: 'Intake', is_active: 1 }, { id: 2, name: 'Waitlist', is_active: 1 }], activeGridId: 2 } as never) })
+    fireEvent.click(screen.getByTitle(/as a reusable template/))
+    expect(screen.queryByText(/no .* to save yet/i)).toBeNull()
+    expect((screen.getByLabelText(/Which/) as HTMLSelectElement).value).toBe('2')
   })
 
   it('renders without crashing', async () => {

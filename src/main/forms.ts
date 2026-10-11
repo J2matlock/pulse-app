@@ -13,6 +13,7 @@ import { isValidLogType, userTypeKeys } from './activity-types'
 import { applyNoteDateUpdates, revertNoteDates, localDayOf } from './note-date-updates'
 import { formInputSchema, NOT_FILLABLE, type Form, type FormChange, type FormField, type FormInput } from '../shared/forms'
 import { linkColumnSpecs } from '../shared/links'
+import { tagList, tagValueFromText } from '../shared/tagValue'
 
 export class FormError extends Error {}
 
@@ -91,6 +92,8 @@ function cleanValue(c: Col, raw: unknown): string | null {
   if ((c.column_type === 'date' || c.column_type === 'deadline') && !/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new FormError(`"${c.name}" needs a date.`)
   if ((c.column_type === 'number' || c.column_type === 'currency') && !/^-?[\d,]*\.?\d+$/.test(v.replace(/^\$/, ''))) throw new FormError(`"${c.name}" needs a number.`)
   if (c.column_type === 'checkbox') return v === 'true' || v === '1' ? 'true' : 'false'
+  // A Tags cell holds a JSON array; the form's box takes "urgent, spanish"
+  if (c.column_type === 'tag') return tagValueFromText(tagList(v).join(','))
   return v
 }
 

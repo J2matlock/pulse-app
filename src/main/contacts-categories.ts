@@ -48,14 +48,24 @@ export function seedDefaultCategories(): void {
   tx()
 }
 
+const CATEGORIES_SEEDED_KEY = 'contact_categories_seeded'
+
 export function getCategories(): ProviderCategory[] {
   const rows = cachedStmt('categories_get_all',
     'SELECT * FROM provider_categories ORDER BY position ASC'
   ).all() as ProviderCategory[]
 
-  // Lazy-seed defaults if table is empty (human-services workspaces only; others start with none)
-  if (rows.length === 0 && usesHumanServicesWords()) {
+  // Lazy-seed defaults once (human-services workspaces only; others start with none).
+  // The flag stops the defaults coming back after someone deletes every category.
+  const db = getDb()
+  const seeded = db.prepare(`SELECT 1 FROM app_meta WHERE key = '${CATEGORIES_SEEDED_KEY}'`).get()
+  if (rows.length > 0) {
+    if (!seeded) db.prepare(`INSERT OR REPLACE INTO app_meta (key, value) VALUES ('${CATEGORIES_SEEDED_KEY}', '1')`).run()
+    return rows
+  }
+  if (!seeded && usesHumanServicesWords()) {
     seedDefaultCategories()
+    db.prepare(`INSERT OR REPLACE INTO app_meta (key, value) VALUES ('${CATEGORIES_SEEDED_KEY}', '1')`).run()
     return cachedStmt('categories_get_all',
       'SELECT * FROM provider_categories ORDER BY position ASC'
     ).all() as ProviderCategory[]

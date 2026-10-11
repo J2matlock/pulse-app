@@ -7,10 +7,11 @@
 import { getDb } from './database'
 import { loadDeadlines } from './deadlines'
 import { listLinkTypes } from './links'
-import { holdsOne, linkValueText } from '../shared/links'
+import { holdsOne, linkValueText, linkColumnSpecs, linkSelectSql } from '../shared/links'
 import { formatDue } from '../shared/deadlineEngine'
 import { formatTime } from '../shared/calendar'
 import { featureOn, word } from './vocab'
+import { tagText } from '../shared/tagValue'
 
 interface Col { id: number; grid_id: number; name: string; column_type: string; is_name_column: number; config: string | null }
 
@@ -34,8 +35,38 @@ function formatValue(value: string | null | undefined, type: string): string {
       return Number.isFinite(n) ? n.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : value
     }
     case 'link': return linkValueText(value)
+    case 'tag': return tagText(value)
     default: return value
   }
+}
+
+/** Whole years from a "YYYY-MM-DD" birth date to `today`; '' when there's no date */
+function ageOn(dob: string | null | undefined, today: Date): string {
+  const m = dob ? /^(\d{4})-(\d{2})-(\d{2})/.exec(dob) : null
+  if (!m) return ''
+  let age = today.getFullYear() - Number(m[1])
+  const month = today.getMonth() + 1, day = today.getDate()
+  if (month < Number(m[2]) || (month === Number(m[2]) && day < Number(m[3]))) age--
+  return age >= 0 ? String(age) : ''
+}
+
+/** "5 days", "Due today", "3 days overdue", as the list shows a Days-until column */
+function daysText(target: string | null | undefined, today: Date): string {
+  const m = target ? /^(\d{4})-(\d{2})-(\d{2})/.exec(target) : null
+  if (!m) return ''
+  const due = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  const now = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+  const n = Math.round((due - now) / 86_400_000)
+  if (n === 0) return 'Due today'
+  const abs = Math.abs(n)
+  return `${abs} day${abs === 1 ? '' : 's'}${n < 0 ? ' overdue' : ''}`
+}
+
+const sourceOf = (config: string | null): number | null => {
+  try {
+    const id = (JSON.parse(config || '{}') as { source_column_id?: unknown }).source_column_id
+    return typeof id === 'number' ? id : null
+  } catch { return null }
 }
 
 const snake = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
@@ -51,8 +82,34 @@ export interface ResolveResult {
 export function resolvePlaceholders(content: string, rowId: number, gridId: number, today = new Date()): ResolveResult {
   const db = getDb()
   const columns = db.prepare('SELECT id, grid_id, name, column_type, is_name_column, config FROM columns WHERE grid_id = ? ORDER BY position').all(gridId) as Col[]
-  const cellOf = db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?')
-  const cells = new Map((db.prepare('SELECT column_id, value FROM cells WHERE row_id = ?').all(rowId) as Array<{ column_id: number; value: string | null }>).map(c => [c.column_id, c.value]))
+  const cellsOfRow = (id: number) => new Map((db.prepare('SELECT column_id, value FROM cells WHERE row_id = ?').all(id) as Array<{ column_id: number; value: string | null }>).map(c => [c.column_id, c.value]))
+  const cells = cellsOfRow(rowId)
+  /**
+   * A column's value as the document shows it. Links, file counts, Age and
+   * Days-until have no cell of their own; they're worked out here, as the grid does.
+   */
+  const columnText = (c: Col, id: number, rowCells: Map<number, string | null>): string => {
+    switch (c.column_type) {
+      case 'link': {
+        const specs = linkColumnSpecs([c])
+        if (specs.length === 0) return ''
+        const r = db.prepare(`SELECT ${linkSelectSql(specs)} FROM rows r WHERE r.id = ?`).get(id) as Record<string, string | null> | undefined
+        return formatValue(r?.[`col_${Math.trunc(c.id)}`] ?? null, 'link')
+      }
+      case 'file_count':
+        return String((db.prepare('SELECT COUNT(*) AS n FROM attachments WHERE row_id = ? AND deleted_at IS NULL').get(id) as { n: number }).n)
+      case 'age_from_dob': {
+        const src = sourceOf(c.config)
+        return src ? ageOn(rowCells.get(src), today) : ''
+      }
+      case 'calculated_days': {
+        const src = sourceOf(c.config)
+        return src ? daysText(rowCells.get(src), today) : ''
+      }
+      default:
+        return formatValue(rowCells.get(c.id) ?? null, c.column_type)
+    }
+  }
   const row = db.prepare('SELECT display_name FROM rows WHERE id = ?').get(rowId) as { display_name: string | null } | undefined
   const nameCol = columns.find(c => c.is_name_column === 1)
   // "(unnamed)" is the list's stand-in; a document leaves it blank
@@ -71,23 +128,16 @@ export function resolvePlaceholders(content: string, rowId: number, gridId: numb
     today: formatDue(ymdToday), 'today:long': longDate(ymdToday), today_date: longDate(ymdToday),
   }
   // Older letters name columns in snake case ({{date_of_birth}}), with a few well-known extras
-  for (const c of columns) {
-    const raw = cells.get(c.id) ?? null
-    const shown = formatValue(raw, c.column_type)
-    fixed[snake(c.name)] ??= shown
-    const lower = c.name.toLowerCase()
-    if (lower.includes('dob') || lower.includes('birth')) {
-      fixed.dob = shown
-      const m = raw ? /^(\d{4})-(\d{2})-(\d{2})/.exec(raw) : null
-      if (m) {
-        const born = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
-        let age = today.getFullYear() - born.getFullYear()
-        if (today.getMonth() < born.getMonth() || (today.getMonth() === born.getMonth() && today.getDate() < born.getDate())) age--
-        fixed.age = String(age)
-      }
-    }
-    if (lower.includes('medicaid') || lower.includes('cin')) fixed.medicaid_cin = raw ?? ''
-  }
+  for (const c of columns) fixed[snake(c.name)] ??= columnText(c, rowId, cells)
+  // {{dob}}/{{age}}: the birth-date column, preferring a Date column, so a
+  // "Birth certificate received" checkbox after it can't make {{dob}} print "Yes"
+  const birthCols = columns.filter(c => /dob|birth/i.test(c.name) && c.column_type !== 'checkbox')
+  const dobCol = birthCols.find(c => c.column_type === 'date') ?? birthCols[0]
+  fixed.dob = dobCol ? formatValue(cells.get(dobCol.id) ?? null, dobCol.column_type) : ''
+  fixed.age = dobCol ? ageOn(cells.get(dobCol.id), today) : ''
+  // {{medicaid_cin}}: "CIN" as a whole word, so "Vaccine date" or "Medicine" don't match; the first column wins
+  const cinCol = columns.find(c => /medicaid|\bcin\b/i.test(c.name))
+  fixed.medicaid_cin = cinCol ? cells.get(cinCol.id) ?? '' : ''
 
   // The record's next scheduled appointment (W07 §7)
   let nextAppt: { start_at: string; all_day: number; location: string | null } | null | undefined
@@ -123,7 +173,7 @@ export function resolvePlaceholders(content: string, rowId: number, gridId: numb
     if (!arg) return undefined
     if (kind === 'field') {
       const c = columns.find(x => norm(x.name) === norm(arg))
-      return c ? formatValue(cells.get(c.id) ?? null, c.column_type) : undefined
+      return c ? columnText(c, rowId, cells) : undefined
     }
     if (kind === 'deadline') {
       const c = columns.find(x => norm(x.name) === norm(arg) && (x.column_type === 'date' || x.column_type === 'deadline'))
@@ -132,22 +182,28 @@ export function resolvePlaceholders(content: string, rowId: number, gridId: numb
       return due ? longDate(due) : ''
     }
     if (kind === 'linked') {
-      // "Owner.Phone": the record this one links to as its Owner, then its Phone
-      const dot = arg.lastIndexOf('.')
-      if (dot < 1) return undefined
-      const label = norm(arg.slice(0, dot)), field = norm(arg.slice(dot + 1))
+      // "Owner.Phone": the record this one links to as its Owner, then its Phone.
+      // The label is matched as a prefix, so a column named "D.O.B." or "Policy No." still works.
+      const whole = norm(arg)
+      const sides: Array<{ lt: ReturnType<typeof listLinkTypes>[number]; side: 'forward' | 'backward'; label: string }> = []
       for (const lt of listLinkTypes(gridId)) {
-        const side = lt.from_grid_id === gridId && norm(lt.label_forward) === label && holdsOne(lt.cardinality, 'forward') ? 'forward'
-          : lt.to_grid_id === gridId && norm(lt.label_backward) === label && holdsOne(lt.cardinality, 'backward') ? 'backward' : null
-        if (!side) continue
+        if (lt.from_grid_id === gridId && holdsOne(lt.cardinality, 'forward')) sides.push({ lt, side: 'forward', label: norm(lt.label_forward) })
+        if (lt.to_grid_id === gridId && holdsOne(lt.cardinality, 'backward')) sides.push({ lt, side: 'backward', label: norm(lt.label_backward) })
+      }
+      // The longest label first, so "Owner" doesn't swallow "Owner.Billing"
+      sides.sort((a, b) => b.label.length - a.label.length)
+      for (const { lt, side, label } of sides) {
+        if (!label || !whole.startsWith(label + '.')) continue
+        const field = norm(whole.slice(label.length + 1))
+        if (!field) continue
         const otherGrid = side === 'forward' ? lt.to_grid_id : lt.from_grid_id
         const target = (side === 'forward'
           ? db.prepare('SELECT l.to_row_id AS id FROM record_links l JOIN rows t ON t.id = l.to_row_id WHERE l.link_type_id = ? AND l.from_row_id = ? AND t.deleted_at IS NULL').get(lt.id, rowId)
           : db.prepare('SELECT l.from_row_id AS id FROM record_links l JOIN rows t ON t.id = l.from_row_id WHERE l.link_type_id = ? AND l.to_row_id = ? AND t.deleted_at IS NULL').get(lt.id, rowId)) as { id: number } | undefined
         if (field === 'name') return target ? (db.prepare('SELECT display_name FROM rows WHERE id = ?').get(target.id) as { display_name: string | null }).display_name ?? '' : ''
-        const col = db.prepare('SELECT id, column_type FROM columns WHERE grid_id = ? AND LOWER(TRIM(name)) = ?').get(otherGrid, field) as { id: number; column_type: string } | undefined
+        const col = db.prepare('SELECT id, grid_id, name, column_type, is_name_column, config FROM columns WHERE grid_id = ? AND LOWER(TRIM(name)) = ?').get(otherGrid, field) as Col | undefined
         if (!col) return undefined
-        return target ? formatValue((cellOf.get(target.id, col.id) as { value: string | null } | undefined)?.value ?? null, col.column_type) : ''
+        return target ? columnText(col, target.id, cellsOfRow(target.id)) : ''
       }
       return undefined
     }

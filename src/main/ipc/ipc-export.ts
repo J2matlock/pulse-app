@@ -41,6 +41,7 @@ import { placeholderFields } from '../placeholders'
 import { buildBatchPdf, buildLabelsPdf, previewBatch, DocumentError, MAX_BATCH, type DocTarget } from '../export-documents'
 import { atomicWriteFileAsync } from '../export-shared'
 import { describeRestoreError } from '../restore-errors'
+import { safeFileName } from '../../shared/fileName'
 
 /** Row and column choices for an export: whole positive ids, and not absurdly many */
 function validIdList(v: unknown): v is number[] {
@@ -416,7 +417,7 @@ export function registerExportHandlers(): void {
   secureWrap(IPC.EXPORT_PDF_CONTACT, 'ipc-export', async (_e, providerId: number) => {
     if (!validId(providerId)) return fail('Invalid ID')
     const provider = getProvider(providerId)
-    const defaultName = provider ? provider.name.replace(/[^a-zA-Z0-9 ]/g, '') : 'contact'
+    const defaultName = provider ? safeFileName(provider.name) : 'contact'
     const { canceled, filePath } = await dialog.showSaveDialog({
       title: 'Export Contact as PDF',
       defaultPath: `${defaultName}-profile.pdf`,

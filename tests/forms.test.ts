@@ -153,6 +153,15 @@ describe('submitting a form', () => {
   })
 })
 
+describe('tags on forms', () => {
+  it('typed "a, b" is saved as the tag list a Tags cell holds', () => {
+    t.db.prepare("UPDATE columns SET name = 'Tags', column_type = 'tag' WHERE id = ?").run(agree)
+    const f = saveForm({ grid_id: g.gridId, name: 'Tagged', fields: [{ kind: 'column', columnId: agree }] })
+    const change = submitForm(f.id, null, { [agree]: 'urgent, spanish, urgent' })
+    expect(cell(change.rowId, agree)).toBe('["urgent","spanish"]')
+  })
+})
+
 describe('printing forms', () => {
   it('a blank has the title, intro, labels and date boxes; a long form runs onto more pages', () => {
     const f = intake()
@@ -162,6 +171,37 @@ describe('printing forms', () => {
     for (const part of ['Intake', 'Welcome', 'About you', 'Name *', 'Best phone', 'Birth date', '____ / ____ / ________', 'What brings you in? *', 'Page 1 of 1', 'Clients']) expect(text).toContain(part)
     const long = saveForm({ grid_id: g.gridId, name: 'Long', fields: Array.from({ length: 30 }, (_, i) => ({ kind: 'note' as const, label: `Question ${i + 1}` })) })
     expect(buildFormPdf(long.id, null).pdf.getNumberOfPages()).toBeGreaterThan(1)
+  })
+
+  // Where jsPDF put a run of text: "x y Td (text) Tj"
+  const yOf = (pdfText: string, label: string): number => {
+    const m = new RegExp(`([\\d.]+) ([\\d.]+) Td\\s*\\(${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\) Tj`).exec(pdfText)
+    if (!m) throw new Error(`"${label}" not found`)
+    return Number(m[2])
+  }
+
+  it('a full-width field after a lone half-width one prints below it, not on top', () => {
+    const text = buildFormPdf(intake().id, null).pdf.output()
+    // "Best phone" is half width and alone; "Birth date" (full width) comes next
+    expect(yOf(text, 'Birth date')).toBeLessThan(yOf(text, 'Best phone') - 10)
+  })
+
+  it('a long answer prints every line, not just the first', () => {
+    const f = intake()
+    const r = g.rowIds[0]!
+    const long = 'Bo Diaz ' + 'and family members who also attend '.repeat(6) + 'THE-END'
+    t.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)').run(r, nameC, long)
+    expect(buildFormPdf(f.id, r).pdf.output()).toContain('THE-END')
+  })
+
+  it('a Tags answer prints as a list, not JSON', () => {
+    t.db.prepare("UPDATE columns SET name = 'Tags', column_type = 'tag' WHERE id = ?").run(agree)
+    const f = saveForm({ grid_id: g.gridId, name: 'Tagged', fields: [{ kind: 'column', columnId: agree }] })
+    const r = g.rowIds[0]!
+    t.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)').run(r, agree, '["urgent","spanish"]')
+    const text = buildFormPdf(f.id, r).pdf.output()
+    expect(text).toContain('urgent, spanish')
+    expect(text).not.toContain('["urgent"')
   })
 
   it('a filled one prints the saved answers', () => {
