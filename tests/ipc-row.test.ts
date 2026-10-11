@@ -385,6 +385,22 @@ describe('IPC Row — ROW_MOVE_TO_GRID', () => {
     expect(testDb.db.prepare('SELECT COUNT(*) AS n FROM parked_cells').get()).toEqual({ n: 0 })
   })
 
+  it('a deadline\'s finished mark, done steps and extension follow it to the same-named column (polish R6)', async () => {
+    const src = seedGrid(testDb.db, { name: 'Intake', rowCount: 1, columnCount: 2, columnTypes: ['text', 'deadline'] })
+    const tgt = seedGrid(testDb.db, { name: 'Active', rowCount: 0, columnCount: 2, columnTypes: ['text', 'deadline'] })
+    testDb.db.prepare("UPDATE columns SET name = 'Background check' WHERE id IN (?, ?)").run(src.columnIds[1], tgt.columnIds[1])
+    const rowId = src.rowIds[0]!
+    const [from, to] = [src.columnIds[1]!, tgt.columnIds[1]!]
+    testDb.db.prepare("INSERT INTO deadline_done (row_id, column_id, done_for) VALUES (?, ?, 'once')").run(rowId, from)
+    testDb.db.prepare("INSERT INTO deadline_progress (row_id, column_id, step, done_at) VALUES (?, ?, 1, '2026-10-01')").run(rowId, from)
+    testDb.db.prepare("INSERT INTO deadline_extensions (row_id, column_id, original_due, new_due, reason) VALUES (?, ?, '2026-10-05', '2026-10-20', 'Waiting on county')").run(rowId, from)
+
+    await invoke(IPC.ROW_MOVE_TO_GRID, rowId, tgt.gridId)
+    for (const table of ['deadline_done', 'deadline_progress', 'deadline_extensions']) {
+      expect(testDb.db.prepare(`SELECT column_id FROM ${table} WHERE row_id = ?`).all(rowId)).toEqual([{ column_id: to }])
+    }
+  })
+
   it('returns same rowId when moving to same grid', async () => {
     const { gridId, rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
     const result = await invoke(IPC.ROW_MOVE_TO_GRID, rowIds[0], gridId) as any

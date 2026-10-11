@@ -75,9 +75,9 @@ describe('ImportWizard', () => {
     expect(screen.getByText('Supports .csv and .xlsx')).toBeTruthy()
   })
 
-  it('renders step indicator with Select File active', () => {
+  it('renders step indicator with Choose a file active', () => {
     render(<ImportWizard open={true} gridId={1} onClose={onClose} onImported={onImported} />)
-    expect(screen.getByText('Select File')).toBeTruthy()
+    expect(screen.getByText('Choose a file')).toBeTruthy()
   })
 
   it('close button calls onClose', () => {
@@ -165,6 +165,23 @@ describe('ImportWizard', () => {
       expect(selects.some(s => s.value === 'skip')).toBe(false)
     })
 
+    it('names column types in plain words, not "currency" or "checkbox" (polish R5)', async () => {
+      await goToMapping()
+      expect(screen.getAllByRole('option', { name: 'Money ($)' }).length).toBeGreaterThan(0)
+      expect(screen.queryByRole('option', { name: 'currency' })).toBeNull()
+    })
+
+    it('a developer error from the import becomes a plain sentence (polish R5)', async () => {
+      const base = mockInvoke.getMockImplementation()!
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) =>
+        channel === 'import:file' ? Promise.resolve({ ok: false, error: 'Invalid grid ID' }) : base(channel, ...args))
+      await goToMapping()
+      fireEvent.click(screen.getByRole('button', { name: /Next/ }))
+      fireEvent.click(await screen.findByRole('button', { name: /^Import/ }))
+      expect((await screen.findAllByText('The import failed. Please check your file and try again.')).length).toBeGreaterThan(0)
+      expect(screen.queryByText('Invalid grid ID')).toBeNull()
+    })
+
     it('can undo the import, moving the new records to Trash (audit X-19)', async () => {
       const base = mockInvoke.getMockImplementation()!
       mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
@@ -190,6 +207,35 @@ describe('ImportWizard', () => {
       expect(await screen.findByText('Import failed')).toBeTruthy()
       fireEvent.click(screen.getByRole('button', { name: /Back/ }))
       expect(await screen.findByText('Duplicate detection')).toBeTruthy()
+    })
+
+    it.each([
+      ['the ✕ button', () => fireEvent.click(screen.getByLabelText('Close'))],
+      ['Escape', () => fireEvent.keyDown(window, { key: 'Escape' })],
+    ])('closing a finished import with %s still reports it, so the list reloads', async (_how, closeIt) => {
+      await goToMapping()
+      fireEvent.click(screen.getByRole('button', { name: /Next/ }))
+      fireEvent.click(await screen.findByRole('button', { name: /^Import/ }))
+      await screen.findByText(/3 .* imported/)
+      closeIt()
+      expect(onImported).toHaveBeenCalledWith(expect.objectContaining({ imported: 3 }))
+      expect(onClose).toHaveBeenCalledOnce()
+    })
+
+    it('an undone import is reported as undone', async () => {
+      const base = mockInvoke.getMockImplementation()!
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'import:file') return Promise.resolve({ ok: true, data: { imported: 2, skipped: 0, warnings: [], newRowIds: [41, 42] } })
+        if (channel === 'import:undo') return Promise.resolve({ ok: true, data: { moved: 2 } })
+        return base(channel, ...args)
+      })
+      await goToMapping()
+      fireEvent.click(screen.getByRole('button', { name: /Next/ }))
+      fireEvent.click(await screen.findByRole('button', { name: /^Import/ }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Undo this import' }))
+      await screen.findByText(/in Trash, where they can be restored/)
+      fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+      expect(onImported).toHaveBeenCalledWith(expect.objectContaining({ undone: true }))
     })
 
     it('lists who was skipped as already here', async () => {

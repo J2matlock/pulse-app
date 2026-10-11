@@ -66,6 +66,9 @@ describe('ApplyStarterDialog', () => {
       { lists: ['caseload'], applyWords: false, applyFeatures: false, sampleData: false, variant: 'school-counselor' }))
     expect(await screen.findByText('Added 1 list.')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Open' })).toBeTruthy()
+    // The new list's own words and link types load even though the workspace's words were left alone (polish R2)
+    expect(mockInvoke).toHaveBeenCalledWith(IPC.WORKSPACE_GET)
+    expect(mockInvoke).toHaveBeenCalledWith(IPC.LINK_TYPE_GET_ALL)
   })
 
   it('checks words and features by default during setup, and needs at least one list', async () => {

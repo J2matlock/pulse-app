@@ -7,7 +7,7 @@ import { join, normalize, resolve, sep } from 'path'
 import { pathToFileURL } from 'url'
 import { initDatabase, closeDatabase, getDb } from './database'
 import { registerIpcHandlers } from './ipc-handlers'
-import { runAutoBackup, checkAndRunScheduled, recordAutoBackupFailure, runAutoBackupOnLock } from './backup'
+import { runAutoBackup, checkAndRunScheduled, recordAutoBackupFailure, runAutoBackupOnLock, describeBackupError } from './backup'
 import { startReminders, stopReminders } from './reminders'
 import { initTray, isTrayMode, closeToTray, refreshTray } from './tray'
 import { prefs } from './prefs'
@@ -393,7 +393,7 @@ app.on('before-quit', async (event) => {
       .then(() => { backupSucceeded = true })
       .catch((err) => {
         logNonFatal('app', 'auto-backup on quit failed', err)
-        try { recordAutoBackupFailure(err instanceof Error ? err.message : String(err)) } catch (recErr) { logNonFatal('app', 'Failed to record backup failure', recErr) }
+        try { recordAutoBackupFailure(describeBackupError(err)) } catch (recErr) { logNonFatal('app', 'Failed to record backup failure', recErr) }
       })
       .finally(() => { backupDone = true })
     const timeoutPromise = new Promise(resolve => setTimeout(resolve, 12000))

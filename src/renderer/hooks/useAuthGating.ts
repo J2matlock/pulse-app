@@ -3,6 +3,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useAlertStore } from '../stores/alertStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
+import { useLinkStore } from '../stores/linkStore'
 import { useActivityTypeStore } from '../stores/activityTypeStore'
 import { useGridStore } from '../stores/gridStore'
 import { IPC } from '../../shared/ipc-channels'
@@ -95,11 +96,14 @@ export function useAuthGating(): UseAuthGatingReturn {
   }, [isLocked, isPasswordSetup, loadRules])
 
   // Setup made lists the main screen hasn't fetched yet: fetch them and open the first,
-  // so the new list shows straight away instead of after a trip to another page
+  // so the new list shows straight away instead of after a trip to another page.
+  // An example added there also brings link types and list words, which load only once.
   const finishSetup = useCallback(() => {
     setShowOnboarding(false)
     setSetupStart('welcome')
     loadRules()
+    void useLinkStore.getState().load()
+    void useWorkspaceStore.getState().load()
     void (async () => {
       const store = useGridStore.getState()
       await store.loadGridList()

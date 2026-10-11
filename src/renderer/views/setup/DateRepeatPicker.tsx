@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 
 export type DateAnswer = { repeat: 'no' } | { repeat: 'due' } | { repeat: 'every'; n: number; unit: 'days' | 'months' | 'years' }
 
@@ -24,6 +24,29 @@ function SampleChip({ answer }: { answer: DateAnswer }): React.ReactElement | nu
       <span className="px-2 py-0.5 rounded-md font-medium bg-yellow-300 text-slate-900" aria-hidden="true">Due soon</span>
       Turns yellow, then red as {when} comes near
     </span>
+  )
+}
+
+/**
+ * The "every N" box. What's typed is kept as typed while the box has focus, so
+ * it can be cleared and retyped (6, not 16); only a whole number from 1 to 999
+ * is passed on, and leaving the box puts back the last good one.
+ */
+function EveryBox({ id, n, onChange }: { id: string; n: number; onChange: (n: number) => void }): React.ReactElement {
+  const [draft, setDraft] = useState<string | null>(null)
+  return (
+    <input id={id} type="number" min={1} max={999} className="input w-24" value={draft ?? String(n)}
+      onChange={e => {
+        const raw = e.target.value
+        setDraft(raw)
+        const v = Number(raw)
+        if (raw.trim() !== '' && Number.isInteger(v) && v >= 1 && v <= 999) onChange(v)
+      }}
+      onBlur={() => {
+        const v = Number(draft)
+        if (draft !== null && draft.trim() !== '' && Number.isFinite(v) && v > 999) onChange(999)
+        setDraft(null)
+      }} />
   )
 }
 
@@ -55,8 +78,7 @@ export function DateRepeatPicker({ columns, value, onChange }: {
               {a.repeat === 'every' && (
                 <>
                   <label className="sr-only" htmlFor={`setup-n-${c.id}`}>How many</label>
-                  <input id={`setup-n-${c.id}`} type="number" min={1} max={999} className="input w-24" value={a.n}
-                    onChange={e => set({ ...a, n: Math.max(1, Math.min(999, Number(e.target.value) || 1)) })} />
+                  <EveryBox id={`setup-n-${c.id}`} n={a.n} onChange={n => set({ ...a, n })} />
                   <label className="sr-only" htmlFor={`setup-unit-${c.id}`}>Unit</label>
                   <select id={`setup-unit-${c.id}`} className="input w-auto" value={a.unit} onChange={e => set({ ...a, unit: e.target.value as 'days' | 'months' | 'years' })}>
                     <option value="days">days</option>

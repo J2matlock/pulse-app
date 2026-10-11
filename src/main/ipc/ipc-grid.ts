@@ -16,6 +16,7 @@ import { previewTypeChange, changeColumnType, undoColumnTypeChange, ColumnTypeEr
 import { invalidateColumnCache } from './ipc-cell'
 import { afterColumnRenamed, hasDisplayFormat, refreshDisplayNames } from '../display-names'
 import { numberExistingRows } from '../auto-number'
+import { keepSamplesUntouched } from '../sample-marks'
 import { DEFAULT_AUTO_NUMBER } from '../../shared/autoNumber'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
@@ -320,7 +321,8 @@ export function registerGridHandlers(): void {
       }
       // A copy of it and its values waits in the Trash for 30 days (D1), then the delete cascades
       deletedId = trashColumn(columnId)
-      db.prepare('DELETE FROM columns WHERE id = ?').run(columnId)
+      // Its values go with it; that isn't an edit to the list's sample entries
+      keepSamplesUntouched(db, col.grid_id, () => db.prepare('DELETE FROM columns WHERE id = ?').run(columnId))
       // Names elsewhere (dashboard, search, links) come from rows.display_name, which no trigger updates here
       if (col.is_name_column === 1 || hasDisplayFormat(col.grid_id)) refreshDisplayNames(col.grid_id)
     })

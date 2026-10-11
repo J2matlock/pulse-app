@@ -334,7 +334,9 @@ export default function ContactsView() {
           )}
         </div>
 
-        {/* Right panel */}
+        {/* Right panel. With no contacts at all there's nothing to pick, so the empty
+            directory gets the whole width instead of two empty panels side by side */}
+        {(showForm || providers.length > 0 || hasActiveFilters) && (
         <div className="w-[420px] border-l border-slate-200 dark:border-slate-700 flex-shrink-0 overflow-hidden bg-white dark:bg-slate-900">
           {showForm ? (
             <ContactForm provider={editingProvider} onClose={handleFormClosed} onSaved={handleFormSaved} />
@@ -353,6 +355,7 @@ export default function ContactsView() {
             </div>
           )}
         </div>
+        )}
       </div>
 
       <CategoryManager open={showCategoryManager} onClose={() => setShowCategoryManager(false)} />

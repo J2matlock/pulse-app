@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'vitest'
 import type { Database } from 'better-sqlite3'
-import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
+import { createTestDb, cleanupTestDb, seedGrid, setDbWords, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
@@ -167,6 +167,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   testDb = createTestDb()
+  setDbWords(testDb.db)
   const seed = seedGrid(testDb.db, { rowCount: 2 })
   gridId = seed.gridId
   rowId = seed.rowIds[0]

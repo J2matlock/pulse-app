@@ -4,7 +4,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { useFeature } from '../../hooks/useFeature'
-import { BackupStatusChip } from './BackupStatusChip'
+import { BackupWarningButton, useBackupWarning } from './BackupStatusChip'
 
 /** How long "Saved" stays after a real save */
 export const SAVED_SHOWN_MS = 3000
@@ -14,6 +14,8 @@ export const SAVED_SHOWN_MS = 3000
  * name and priority total on a list or record page, nothing about a hidden
  * "current list" elsewhere, and "Saved" only for a few seconds after a save.
  * The record count lives in the list's own footer, not here as well.
+ * Separators go only between things shown, and with nothing to show (a
+ * dashboard with backups fine) the bar takes no room at all.
  */
 export function StatusBar(): React.ReactElement {
   const { rows, grids, activeGridId, isSaving, saveError, acuityEnabled: acuityFlag, acuityLevels } = useGridStore(useShallow(s => ({
@@ -48,51 +50,38 @@ export function StatusBar(): React.ReactElement {
     return rows.reduce((sum, r) => sum + (levelMap.get(r.acuity_level_id as number) ?? 0), 0)
   }, [acuityEnabled, acuityLevels, rows])
 
+  const backupWarning = useBackupWarning()
+
+  const saveStatus = isSaving
+    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /><span>Saving…</span></>
+    : saveError
+      ? <><AlertCircle className="w-3.5 h-3.5 text-red-600 dark:text-red-400" /><span className="text-red-600 dark:text-red-400">{saveError}</span></>
+      : justSaved
+        ? <><CheckCircle className="w-3.5 h-3.5 text-green-500" /><span className="text-green-600 dark:text-green-400">Saved</span></>
+        : null
+  const items: Array<{ key: string; node: React.ReactNode }> = []
+  if (onList && acuityEnabled && acuityTotal > 0) items.push({ key: 'points', node: <span className="text-sm">{acuityTotal} pts</span> })
+  // List name, only where the screen is that list
+  if ((onList || onRecord) && activeGrid) items.push({ key: 'list', node: <span className="text-sm truncate">{activeGrid.name}</span> })
+  if (backupWarning) items.push({ key: 'backup', node: <BackupWarningButton warning={backupWarning} /> })
+  const shown = !!saveStatus || items.length > 0
+
   return (
     <footer
-      className="flex items-center gap-4 px-4 border-t border-slate-200 dark:border-slate-700
-                 bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex-shrink-0"
-      style={{ height: 36 }}
+      className={`flex items-center gap-4 px-4 overflow-hidden bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex-shrink-0 ${
+        shown ? 'border-t border-slate-200 dark:border-slate-700' : ''}`}
+      style={{ height: shown ? 36 : 0 }}
     >
-      {/* Save status */}
-      <div className="flex items-center gap-1.5 text-sm" aria-live="polite" aria-atomic="true" role="status">
-        {isSaving && (
-          <>
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            <span>Saving…</span>
-          </>
-        )}
-        {!isSaving && !saveError && justSaved && (
-          <>
-            <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-            <span className="text-green-600 dark:text-green-400">Saved</span>
-          </>
-        )}
-        {saveError && (
-          <>
-            <AlertCircle className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
-            <span className="text-red-600 dark:text-red-400">{saveError}</span>
-          </>
-        )}
+      {/* Save status: always in place (even while the bar is folded away) so a change is read out */}
+      <div className="flex items-center gap-1.5 text-sm empty:hidden" aria-live="polite" aria-atomic="true" role="status">
+        {saveStatus}
       </div>
-
-      {/* Priority total */}
-      {onList && acuityEnabled && acuityTotal > 0 && (
-        <>
-          <div className="h-3 border-l border-slate-300 dark:border-slate-600" />
-          <span className="text-sm">{acuityTotal} pts</span>
-        </>
-      )}
-
-      {/* List name, only where the screen is that list */}
-      {(onList || onRecord) && activeGrid && (
-        <>
-          <div className="h-3 border-l border-slate-300 dark:border-slate-600" />
-          <span className="text-sm truncate">{activeGrid.name}</span>
-        </>
-      )}
-
-      <BackupStatusChip />
+      {items.map((item, i) => (
+        <React.Fragment key={item.key}>
+          {(i > 0 || saveStatus) && <div className="h-3 border-l border-slate-300 dark:border-slate-600" aria-hidden="true" />}
+          {item.node}
+        </React.Fragment>
+      ))}
     </footer>
   )
 }

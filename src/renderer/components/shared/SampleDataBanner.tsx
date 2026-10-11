@@ -6,6 +6,8 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import { pulseEvents } from '../../events'
 import { useGridStore } from '../../stores/gridStore'
 import { useUndoStore } from '../../stores/undoStore'
+import { useAlertStore } from '../../stores/alertStore'
+import { useTaskStore } from '../../stores/taskStore'
 import { ConfirmDialog } from './ConfirmDialog'
 import { useVocab } from '../../hooks/useVocab'
 import { wordNow } from '../../utils/vocab'
@@ -69,6 +71,16 @@ export function SampleKeepPrompt(): React.ReactElement | null {
   )
 }
 
+/**
+ * Sample data came or went. Its deadline rules and tasks came or went with it, so the
+ * rule pickers, deadline colors and the Tasks badge reload along with the banner.
+ */
+export function sampleDataChanged(): void {
+  void useAlertStore.getState().loadRules()
+  void useTaskStore.getState().loadTasks()
+  pulseEvents.emit('sample-data:changed')
+}
+
 /** Remove sample data (keeping anything the user made their own) and point the grid at real data again. */
 export async function removeSampleData(): Promise<boolean> {
   const status = await safeInvoke(IPC.SAMPLE_DATA_STATUS)
@@ -86,7 +98,7 @@ export async function removeSampleData(): Promise<boolean> {
     void useGridStore.getState().loadGrid(activeGridId)
   }
   await useGridStore.getState().loadGridList()
-  pulseEvents.emit('sample-data:changed')
+  sampleDataChanged()
   // Nothing left after the samples: offer setup again, so the next step is clear (audit 5.9)
   if (useGridStore.getState().grids.length === 0) pulseEvents.emit('setup:open', { step: 'start' })
   const records = (n: number) => wordNow('record', { count: n }, null)
@@ -139,16 +151,17 @@ export function SampleDataBanner(): React.ReactElement | null {
   const { t } = useVocab(null)
   const [status, setStatus] = useState<{ gridId: number | null; sampleRows: number } | null>(null)
   const [confirming, setConfirming] = useState(false)
+  // A list or entries going to the Trash (or coming back) can take the samples with them
+  const grids = useGridStore(s => s.grids)
+  const shownRows = useGridStore(s => s.rows.length)
 
   const refresh = useCallback(async () => {
     const res = await safeInvoke(IPC.SAMPLE_DATA_STATUS)
     setStatus(res.ok ? res.data : null)
   }, [])
 
-  useEffect(() => {
-    void refresh()
-    return pulseEvents.on('sample-data:changed', () => { void refresh() })
-  }, [refresh])
+  useEffect(() => pulseEvents.on('sample-data:changed', () => { void refresh() }), [refresh])
+  useEffect(() => { void refresh() }, [refresh, grids, shownRows])
 
   if (!status || (status.gridId === null && status.sampleRows === 0)) return <SampleKeepPrompt />
   const sampleList = status.gridId !== null

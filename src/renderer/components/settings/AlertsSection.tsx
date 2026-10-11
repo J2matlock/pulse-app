@@ -31,9 +31,11 @@ export function AlertsSection(): React.ReactElement {
   const columnName = (id: number) => usage.find(u => u.column_id === id)?.column_name
     ?? [...storeColumns, ...storeHidden].find(c => c.id === id)?.name
 
+  // Load when opened, not only once at unlock: rules come and go with examples and sample
+  // data, and "Used by" changes whenever a column gets or loses a rule
   useEffect(() => {
-    if (!alertsLoaded) void loadAlertRules()
-  }, [alertsLoaded, loadAlertRules])
+    void loadAlertRules()
+  }, [loadAlertRules])
 
   return (
     <>

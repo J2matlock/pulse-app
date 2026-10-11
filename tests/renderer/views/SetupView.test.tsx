@@ -11,7 +11,11 @@ vi.mock('lucide-react', async () => (await import('../lucideMock')).lucideMock)
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }))
 // The import wizard and example dialog have their own tests; here they just finish
 vi.mock('../../../src/renderer/components/grid/ImportWizard', () => ({
-  ImportWizard: ({ onImported }: { onImported: () => void }) => <button onClick={onImported}>finish import</button>,
+  ImportWizard: ({ onImported, onClose }: { onImported: (r: { imported: number; undone?: boolean }) => void; onClose: () => void }) => <>
+    <button onClick={() => onImported({ imported: 3 })}>finish import</button>
+    <button onClick={onClose}>cancel import</button>
+    <button onClick={() => { onImported({ imported: 3, undone: true }); onClose() }}>undo and close</button>
+  </>,
 }))
 const example = vi.hoisted(() => ({ warnings: [] as string[] }))
 vi.mock('../../../src/renderer/components/starters/ApplyStarterDialog', () => ({
@@ -98,6 +102,27 @@ describe('SetupView', () => {
     fireEvent.click(screen.getByRole('button', { name: /Finish/ }))
     await screen.findByText('Your workspace is ready')
     expect(mockInvoke).toHaveBeenCalledWith(IPC.ONBOARDING_DATE_RULES, 7, [{ columnId: 71, repeat: 'every', n: 6, unit: 'months' }])
+  })
+
+  it('spreadsheet: cancelling removes the empty list for good, rather than leaving it in the Trash', async () => {
+    toStart()
+    fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Choose file/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'cancel import' }))
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.GRID_PURGE, 7))
+    expect(mockInvoke).toHaveBeenCalledWith(IPC.GRID_DELETE, 7)
+    expect(screen.getByLabelText('List name')).toBeTruthy()
+  })
+
+  it('spreadsheet: an undone import goes back to naming the list, and its records stay in the Trash', async () => {
+    toStart()
+    fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Choose file/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'undo and close' }))
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.GRID_DELETE, 7))
+    expect(mockInvoke).not.toHaveBeenCalledWith(IPC.GRID_PURGE, 7)
+    expect(screen.queryByRole('heading', { name: 'What are these rows?' })).toBeNull()
+    expect(screen.getByLabelText('List name')).toBeTruthy()
   })
 
   it('spreadsheet: "something else" asks for both words and what kind of thing', async () => {

@@ -41,14 +41,14 @@ export function SnoozeDialog({ onClose, onSnooze }: { onClose: () => void; onSno
           <input
             id="task-snooze-custom"
             type="date"
-            min={today}
+            min={tomorrow}
             value={custom}
             onChange={e => setCustom(e.target.value)}
             className="input w-full text-base"
           />
           <button
-            onClick={() => { if (custom) { onSnooze(custom); onClose() } }}
-            disabled={!custom}
+            onClick={() => { if (custom && custom > today) { onSnooze(custom); onClose() } }}
+            disabled={!custom || custom <= today}
             className="btn-primary w-full mt-2 disabled:opacity-40"
           >
             Snooze

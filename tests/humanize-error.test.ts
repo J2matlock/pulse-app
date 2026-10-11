@@ -59,6 +59,11 @@ describe('humanizeError', () => {
     expect(humanizeError(err)).toBe('Permission denied — check file permissions')
   })
 
+  it('EBUSY → the file is open in another program', () => {
+    const err = Object.assign(new Error("EBUSY: resource busy or locked, open 'C:\\Users\\me\\Clients.csv'"), { code: 'EBUSY' })
+    expect(humanizeError(err)).toMatch(/open in another program/)
+  })
+
   it('EPERM → permission denied', () => {
     const err = new Error('EPERM: operation not permitted')
     expect(humanizeError(err)).toBe('Permission denied — check file permissions')

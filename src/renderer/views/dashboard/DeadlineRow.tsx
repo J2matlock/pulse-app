@@ -12,6 +12,7 @@ import { DoneOnDayDialog } from './DoneOnDayDialog'
 import { ExtendDeadlineDialog } from './ExtendDeadlineDialog'
 import { extendDeadline, removeExtension } from './extendDeadline'
 import { ymdToDate, isUsedUp } from '../../../shared/deadlineEngine'
+import { useVocab } from '../../hooks/useVocab'
 
 export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, onToggleSelect }: {
   deadline: ExtendedDeadlineInfo
@@ -22,6 +23,7 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
   onToggleSelect?: () => void
 }): React.ReactElement {
   const navigate = useNavigate()
+  const { t } = useVocab(deadline.gridId)
   const [marking, setMarking] = useState(false)
   const [askReading, setAskReading] = useState(false)
   const [askOneOff, setAskOneOff] = useState(false)
@@ -73,7 +75,8 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
 
   // "IFSP meeting (step 1 of 4)" → "IFSP meeting"
   const stepName = ruleKind === 'sequence' && deadline.label ? deadline.label.replace(/ \((step|repeat) [^)]*\)$/, '') : null
-  const tooltip = deadline.detail && ruleKind !== 'interval' ? deadline.detail : formatDeadlineTooltip(dateValue, ruleInterval, daysUntil)
+  // The engine's own words, for every kind: they include a working-day move and an extension
+  const tooltip = deadline.detail || formatDeadlineTooltip(dateValue, ruleInterval, daysUntil)
 
   async function markDone(reading?: number, doneOn?: string, oneOff?: OneOffChoice) {
     setMarking(true)
@@ -150,7 +153,7 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
       {onMarkDone && ruleKind === 'quota' && (
         <button
           onClick={() => navigate(`/profile/${rowId}?gridId=${gridId}`)}
-          title="Open the record to set new dates and how many are allowed"
+          title={`Open the ${t('record')} to set new dates and how many are allowed`}
           className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm font-medium focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
           style={{ minHeight: 44 }}
         >

@@ -128,6 +128,19 @@ describe('TrashView — interactions', () => {
     expect(screen.getByText('Empty Trash')).toBeDefined()
   })
 
+  it('emptying the Trash drops undo steps that would bring back what is gone (polish R2)', async () => {
+    const { useUndoStore } = await import('../../../src/renderer/stores/undoStore')
+    const clear = vi.fn()
+    useUndoStore.setState({ clear })
+    mockTrash(sampleDeletedRows)
+    render(<MemoryRouter><TrashView /></MemoryRouter>)
+    await flushEffects()
+    fireEvent.click(screen.getByText('Empty Trash'))
+    await act(async () => { fireEvent.click(screen.getByTestId('confirm-btn')) })
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('row:purge-all'))
+    expect(clear).toHaveBeenCalled()
+  })
+
   it('does not show Empty Trash button when trash is empty', async () => {
     mockInvoke.mockResolvedValue({ ok: true, data: [] })
 

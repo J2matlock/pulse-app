@@ -67,6 +67,16 @@ describe('making a column the stage', () => {
   })
 })
 
+describe('stages and Deadline columns', () => {
+  it('fill in today on a date column that became a Deadline column', () => {
+    t.db.prepare("UPDATE columns SET column_type = 'deadline' WHERE id = ?").run(dateCol)
+    saveStageConfig(status, stage([{ value: 'Estimate' }, { value: 'In progress', onEnter: { stampColumnId: dateCol } }, { value: 'Done', done: true }]))
+    const rowId = (t.db.prepare('SELECT id FROM rows WHERE grid_id = ?').get(grid.gridId) as { id: number }).id
+    expect(moveStage(rowId, status, 'In progress').stamped).toMatchObject({ columnId: dateCol })
+    expect((t.db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?').get(rowId, dateCol) as { value: string }).value).toBe(localDateString())
+  })
+})
+
 describe('moving a record to a stage', () => {
   let rowId: number, cl: number
   beforeEach(() => {

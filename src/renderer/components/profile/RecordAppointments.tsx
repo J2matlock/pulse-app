@@ -13,6 +13,8 @@ import { AppointmentActions } from '../calendar/AppointmentActions'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { AppointmentDialog } from '../calendar/AppointmentDialog'
 
+interface RecordAppts { upcoming: Appointment[]; past: Appointment[]; upcomingTotal: number; pastTotal: number }
+
 const STATUS: Record<Appointment['status'], string> = { scheduled: 'Scheduled', done: 'Done', no_show: 'No-show', cancelled: 'Cancelled' }
 
 export function RecordAppointments({ rowId, gridId, name, onCount }: {
@@ -21,16 +23,17 @@ export function RecordAppointments({ rowId, gridId, name, onCount }: {
   onCount?: (total: number, upcoming: number) => void
 }): React.ReactElement {
   const clock = useSettingsStore(s => s.clockFormat)
-  const [data, setData] = useState<{ upcoming: Appointment[]; past: Appointment[] }>({ upcoming: [], past: [] })
+  const [data, setData] = useState<RecordAppts>({ upcoming: [], past: [], upcomingTotal: 0, pastTotal: 0 })
   const [editing, setEditing] = useState<Appointment | 'new' | null>(null)
   const today = localDateString()
 
   const load = useCallback(async () => {
-    const r = await safeInvoke<{ upcoming: Appointment[]; past: Appointment[] }>(IPC.APPT_FOR_RECORD, rowId)
+    const r = await safeInvoke<RecordAppts>(IPC.APPT_FOR_RECORD, rowId)
     if (r.ok) setData(r.data)
   }, [rowId])
   useEffect(() => { void load() }, [load])
-  useEffect(() => { onCount?.(data.upcoming.length + data.past.length, data.upcoming.length) }, [data, onCount])
+  // The lists show five each; the counts are the real totals
+  useEffect(() => { onCount?.(data.upcomingTotal + data.pastTotal, data.upcomingTotal) }, [data, onCount])
   useEffect(() => window.api.on(IPC.APPOINTMENTS_CHANGED, () => { void load() }), [load])
 
   const when = (a: Appointment) => `${longDay(a.start_at)}${a.all_day ? '' : `, ${formatTime(a.start_at, clock)}`}`

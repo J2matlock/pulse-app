@@ -55,7 +55,7 @@ export function applyNoteDateUpdates(rowId: number, logType: string, noteDate: s
   const columns = cachedStmt('note_update_cols', `
     SELECT col.id, col.name, col.config, c.id AS cell_id, c.value
     FROM rows r
-    JOIN columns col ON col.grid_id = r.grid_id AND col.column_type = 'date'
+    JOIN columns col ON col.grid_id = r.grid_id AND col.column_type IN ('date', 'deadline')
       AND json_extract(col.config, '$.note_updates') IS NOT NULL
     LEFT JOIN cells c ON c.row_id = r.id AND c.column_id = col.id
     WHERE r.id = ?

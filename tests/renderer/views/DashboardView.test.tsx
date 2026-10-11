@@ -178,7 +178,7 @@ describe('DashboardView — interactions', () => {
     const cards = screen.getAllByTestId('summary-card')
     expect(cards.length).toBe(5)
     // Active Clients should show 15
-    const activeCard = cards.find(c => c.getAttribute('data-label') === 'Active Clients')
+    const activeCard = cards.find(c => c.getAttribute('data-label') === 'Active clients')
     expect(activeCard?.getAttribute('data-value')).toBe('15')
   })
 
@@ -274,5 +274,56 @@ describe('DashboardView — interactions', () => {
     await flushEffects()
     expect(screen.getByText(/Your dashboard fills up as you add clients with dates/)).toBeDefined()
     expect(screen.queryByText('All clear!')).toBeNull()
+  })
+
+  it('says the dashboard could not load instead of "all caught up" when loading fails', async () => {
+    mockSafeInvoke.mockImplementation(() => Promise.resolve({ ok: false, error: 'Database is locked' }))
+    render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.getByRole('alert').textContent).toMatch(/couldn\u2019t load the dashboard/)
+    expect(screen.queryByText('Nothing overdue')).toBeNull()
+    setupDefaultMocks()
+    fireEvent.click(screen.getByRole('button', { name: /Retry/ }))
+    await flushEffects()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('reloads when sample data is added or removed while it is open', async () => {
+    const { pulseEvents } = await import('../../../src/renderer/events')
+    render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await flushEffects()
+    const loads = () => mockSafeInvoke.mock.calls.filter(c => c[0] === 'dashboard:get-all').length
+    expect(loads()).toBe(1)
+    await act(async () => { pulseEvents.emit('sample-data:changed') })
+    await flushEffects()
+    expect(loads()).toBe(2)
+  })
+
+  it('the Overdue tab lists a used-up allowance, like the Overdue tile', async () => {
+    mockSafeInvoke.mockImplementation((channel: string) => channel === 'dashboard:get-all'
+      ? Promise.resolve({ ok: true, data: { stats: sampleStats, archived: [], followUps: [], deadlines: [
+        { row_id: 7, client_name: 'Used Up', grid_id: 1, grid_name: 'Grid A', column_id: 12, column_name: 'Sessions left', date_value: '', column_config: '{}', daysUntil: 0, state: 'overdue', label: 'All 12 used' },
+      ] } })
+      : Promise.resolve({ ok: true, data: [] }))
+    render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await flushEffects()
+    const tile = screen.getAllByTestId('summary-card').find(c => c.getAttribute('data-label') === 'Overdue deadlines')
+    expect(tile?.getAttribute('data-value')).toBe('1')
+    const overdueTab = Array.from(screen.getAllByRole('tablist')[0]!.querySelectorAll('[role="tab"]'))
+      .find(t => t.textContent?.includes('Overdue'))! as HTMLElement
+    fireEvent.click(overdueTab)
+    expect(screen.getAllByTestId('deadline-row').map(r => r.textContent)).toEqual(['Used Up'])
+  })
+
+  it("names the Active tile in each list's own words, lower case like the other tiles", async () => {
+    const w = (one: string, many: string) => ({ one, many, article: 'a' as const })
+    setWords(undefined, { 1: { record: w('customer', 'customers') }, 2: { record: w('job', 'jobs') } })
+    mockSafeInvoke.mockImplementation((channel: string) => channel === 'dashboard:get-all'
+      ? Promise.resolve({ ok: true, data: { stats: { totalActive: 49, activeByList: [{ grid_id: 1, n: 12 }, { grid_id: 2, n: 37 }] }, deadlines: [], followUps: [], archived: [] } })
+      : Promise.resolve({ ok: true, data: [] }))
+    render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await flushEffects()
+    const labels = screen.getAllByTestId('summary-card').map(c => c.getAttribute('data-label'))
+    expect(labels).toContain('Active customers and jobs')
   })
 })

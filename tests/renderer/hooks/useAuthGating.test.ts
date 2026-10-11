@@ -40,6 +40,11 @@ vi.mock('../../../src/renderer/stores/workspaceStore', () => ({
   useWorkspaceStore: { getState: () => ({ load: mockLoadWorkspace }) },
 }))
 
+const mockLoadLinks = vi.fn().mockResolvedValue(undefined)
+vi.mock('../../../src/renderer/stores/linkStore', () => ({
+  useLinkStore: { getState: () => ({ load: mockLoadLinks }) },
+}))
+
 const gridState = {
   grids: [] as Array<{ id: number }>,
   activeGridId: null as number | null,
@@ -135,8 +140,12 @@ describe('useAuthGating', () => {
     await act(async () => {})
     act(() => { result.current.setShowOnboarding(true) })
     expect(result.current.authState).toBe('onboarding')
+    mockLoadWorkspace.mockClear()
     act(() => { result.current.completeOnboarding() })
     expect(mockLoadRules).toHaveBeenCalled()
+    // An example added during setup brings link types and list words (polish R2)
+    expect(mockLoadLinks).toHaveBeenCalled()
+    expect(mockLoadWorkspace).toHaveBeenCalled()
   })
 
   it('finishing setup fetches the new lists and opens the first one', async () => {

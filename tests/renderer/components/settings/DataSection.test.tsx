@@ -44,6 +44,14 @@ describe('DataSection — reset everything', () => {
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('backup:manual-create', '/usb/before-reset.pulse-backup'))
   })
 
+  it('cleaning up the edit history says what was removed without calling it records (polish R7)', async () => {
+    const toast = (await import('react-hot-toast')).default as unknown as { success: ReturnType<typeof vi.fn> }
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'cell-history:compact' ? { ok: true, data: 340 } : { ok: false, error: 'not in this test' }))
+    render(<DataSection />)
+    fireEvent.click(screen.getByRole('button', { name: 'Compact Now' }))
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Removed 340 old cell changes from the edit history.'))
+  })
+
   it('offers "Import a spreadsheet…" into a chosen list (audit X-22)', () => {
     useGridStore.setState({ grids: [{ id: 3, name: 'Intake' }, { id: 4, name: 'Closed' }] as never, activeGridId: 4 })
     render(<DataSection />)

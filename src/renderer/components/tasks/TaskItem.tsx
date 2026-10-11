@@ -4,45 +4,15 @@ import { relativeTime } from '../../utils/relativeTime'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { CaseloadTask, TaskPriority } from '../../../shared/types'
-import { MS_PER_DAY } from '../../../shared/constants'
 import { localDateString } from '../../../shared/dates'
+import { dueDateBadge, isOverdue, isDueToday, isSnoozed } from '../../views/tasks/taskHelpers'
+import { snoozeDay } from '../../views/tasks/SnoozeDialog'
 
 const PRIORITY_CONFIG: Record<TaskPriority, { label: string; dot: string; badge: string }> = {
   urgent: { label: 'Urgent', dot: '!!!!', badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
   high:   { label: 'High',   dot: '!!!',  badge: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
   normal: { label: 'Normal', dot: '',      badge: 'bg-slate-100 text-slate-500 dark:bg-slate-600 dark:text-slate-300' },
   low:    { label: 'Low',    dot: '',      badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
-}
-
-function dueDateBadge(dateStr: string | null): { text: string; className: string } | null {
-  if (!dateStr) return null
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const due = new Date(dateStr + 'T00:00:00')
-  const diffDays = Math.round((due.getTime() - today.getTime()) / MS_PER_DAY)
-  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
-  if (due.getFullYear() !== today.getFullYear()) opts.year = 'numeric'
-  const text = due.toLocaleDateString(undefined, opts)
-  let className = 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
-  if (diffDays < 0)       className = 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-  else if (diffDays === 0) className = 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
-  else if (diffDays <= 7)  className = 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-600'
-  return { text, className }
-}
-
-function isOverdue(task: CaseloadTask): boolean {
-  if (!task.due_date || task.is_completed) return false
-  return task.due_date < localDateString()
-}
-
-function isDueToday(task: CaseloadTask): boolean {
-  if (!task.due_date || task.is_completed) return false
-  return task.due_date === localDateString()
-}
-
-function isSnoozed(task: CaseloadTask): boolean {
-  if (!task.snoozed_until || task.is_completed) return false
-  return task.snoozed_until > localDateString()
 }
 
 interface Props {
@@ -128,7 +98,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
 
   const overdue = isOverdue(task)
   const today = isDueToday(task)
-  const snoozed = isSnoozed(task)
+  const snoozed = isSnoozed(task) && !task.is_completed
   const dueDate = dueDateBadge(task.due_date)
   const priority = task.priority ?? 'normal'
   const priorityCfg = PRIORITY_CONFIG[priority]
@@ -248,7 +218,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
             <button
               onClick={() => { setDateDraft(''); setEditingDate(true) }}
               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base
-                         text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100
+                         text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100
                          hover:bg-slate-200 dark:hover:bg-slate-600 transition-opacity"
             >
               <Calendar className="w-3 h-3" />
@@ -262,7 +232,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
               onClick={() => setShowPriorityMenu(prev => !prev)}
               className={`px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity
                          ${priorityCfg.badge}
-                         ${priority === 'normal' ? 'opacity-0 group-hover:opacity-100' : ''}`}
+                         ${priority === 'normal' ? 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100' : ''}`}
             >
               {priority !== 'normal' ? priorityCfg.label : '+ Priority'}
             </button>
@@ -292,7 +262,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
               className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity
                          ${hasRecurrence
                            ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                           : 'text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100 hover:bg-slate-200 dark:hover:bg-slate-600'}`}
+                           : 'text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-slate-200 dark:hover:bg-slate-600'}`}
               title={hasRecurrence ? 'Change recurrence' : 'Set recurrence'}
             >
               <RotateCw className="w-3 h-3" />
@@ -350,14 +320,14 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
                          hover:text-amber-700 dark:hover:text-amber-300
                          focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
             >
-              Snoozed until {task.snoozed_until} ×
+              Snoozed until {task.snoozed_until ? snoozeDay(task.snoozed_until) : ''} ×
             </button>
           )}
         </div>
       </div>
 
       {/* Hover actions */}
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex-shrink-0">
         {snoozed ? (
           <button
             onClick={() => onUpdate({ snoozed_until: null })}
@@ -446,7 +416,7 @@ export function CompletedTaskItem({ task, onUncheck, onDelete }: {
         onClick={onDelete}
         className="flex-shrink-0 mt-0.5 text-slate-500 dark:text-slate-400
                    hover:text-red-500 dark:hover:text-red-400
-                   opacity-0 group-hover:opacity-100 focus-visible:opacity-100
+                   opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100
                    focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400 rounded-sm
                    transition-opacity"
         aria-label="Delete item"

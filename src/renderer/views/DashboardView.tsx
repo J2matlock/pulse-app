@@ -21,7 +21,7 @@ import { useTaskStore } from '../stores/taskStore'
 import { rlog } from '../utils/rendererLogger'
 import { LoadingOverlay } from '../components/shared/LoadingSpinner'
 import { pulseEvents } from '../events'
-import { useVocab } from '../hooks/useVocab'
+import { useVocab, useVocabByList } from '../hooks/useVocab'
 import { GettingStartedCard } from './dashboard/GettingStartedCard'
 import { ChooseListDialog } from '../components/shared/ChooseListDialog'
 import { wordNow } from '../utils/vocab'
@@ -30,7 +30,8 @@ import type { FollowUpRow, RawDeadlineRow, ArchivedRow, ExtendedDeadlineInfo, To
 import { SummaryCard } from './dashboard/SummaryCard'
 import { DeadlineRow } from './dashboard/DeadlineRow'
 import { completeDeadlines, skippedForBulkDone } from './dashboard/completeDeadline'
-import { countDeadlineTiles } from './dashboard/tileCounts'
+import { countDeadlineTiles, isLateDeadline } from './dashboard/tileCounts'
+import { useListsChanged } from './dashboard/useDashboardRefresh'
 import { RuleColorKey } from '../components/alerts/RuleColorKey'
 import { DashboardCards } from './dashboard/cards/DashboardCards'
 import { BatchDocumentsDialog } from '../components/documents/BatchDocumentsDialog'
@@ -43,6 +44,8 @@ import { WeekViewTab } from './dashboard/WeekViewTab'
 import { MonthViewTab } from './dashboard/MonthViewTab'
 import { RecentlyArchivedTab } from './dashboard/RecentlyArchivedTab'
 import { useFeature } from '../hooks/useFeature'
+
+const LOAD_ERROR = 'We couldn\u2019t load the dashboard \u2014 try again.'
 
 export default function DashboardView(): React.ReactElement {
   const showTasks = useFeature('tasks')
@@ -142,8 +145,11 @@ export default function DashboardView(): React.ReactElement {
     if (result.ok) setRawDeadlines(result.data)
   }, [])
 
-  const reload = useCallback(async () => {
-    setIsLoading(true)
+  // Everything on the dashboard. `quiet` refreshes in place (after sample data or a list
+  // changes) without blanking the tiles; a failed load says so instead of "all caught up"
+  const loadAll = useCallback(async (opts: { quiet?: boolean; isCancelled?: () => boolean } = {}) => {
+    const cancelled = opts.isCancelled ?? (() => false)
+    if (!opts.quiet) setIsLoading(true)
     setLoadError(null)
     try {
       const [allRes, tasksRes, clRes] = await Promise.all([
@@ -151,6 +157,7 @@ export default function DashboardView(): React.ReactElement {
         safeInvoke<CaseloadTask[]>(IPC.TASK_GET_DUE),
         safeInvoke<ChecklistDueItem[]>(IPC.CHECKLIST_GET_DUE),
       ])
+      if (cancelled()) return
       if (allRes.ok) {
         setStats(allRes.data.stats)
         setRawDeadlines(allRes.data.deadlines)
@@ -158,51 +165,37 @@ export default function DashboardView(): React.ReactElement {
         setArchivedRows(allRes.data.archived)
       } else {
         rlog.error('Dashboard', 'Dashboard load failed:', allRes.error)
+        setLoadError(LOAD_ERROR)
       }
       if (tasksRes.ok) setTasksDue(tasksRes.data)
       else rlog.error('Dashboard', 'Dashboard tasks load failed:', tasksRes.error)
       if (clRes.ok) setChecklistDue(clRes.data)
       else rlog.error('Dashboard', 'Dashboard checklist load failed:', clRes.error)
     } catch (err) {
-      setLoadError('We couldn\u2019t load dashboard data \u2014 please try again.')
+      rlog.error('Dashboard', 'Dashboard load failed:', err)
+      if (!cancelled()) setLoadError(LOAD_ERROR)
     } finally {
-      setIsLoading(false)
+      if (!cancelled()) setIsLoading(false)
     }
   }, [])
+
+  const reload = useCallback(() => loadAll(), [loadAll])
 
   // Initial load
   useEffect(() => {
     let cancelled = false
-    void (async () => {
-      try {
-        const [allRes, tasksRes, clRes] = await Promise.all([
-          safeInvoke<{ stats: DashboardStats; deadlines: RawDeadlineRow[]; followUps: FollowUpRow[]; archived: ArchivedRow[] }>(IPC.DASHBOARD_GET_ALL),
-          safeInvoke<CaseloadTask[]>(IPC.TASK_GET_DUE),
-          safeInvoke<ChecklistDueItem[]>(IPC.CHECKLIST_GET_DUE),
-        ])
-        if (cancelled) return
-        if (allRes.ok) {
-          setStats(allRes.data.stats)
-          setRawDeadlines(allRes.data.deadlines)
-          setFollowUps(allRes.data.followUps)
-          setArchivedRows(allRes.data.archived)
-        } else {
-          rlog.error('Dashboard', 'Dashboard load failed:', allRes.error)
-        }
-        if (tasksRes.ok) setTasksDue(tasksRes.data)
-        else rlog.error('Dashboard', 'Dashboard tasks load failed:', tasksRes.error)
-        if (clRes.ok) setChecklistDue(clRes.data)
-        else rlog.error('Dashboard', 'Dashboard checklist load failed:', clRes.error)
-      } catch (err) {
-        if (!cancelled) setLoadError('We couldn\u2019t load dashboard data \u2014 please try again.')
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
-    })()
+    void loadAll({ isCancelled: () => cancelled })
     return () => { cancelled = true }
-  }, [])
+  }, [loadAll])
 
-  // Refresh deadlines when cleared from FocusModeView (or undone)
+  // Sample data added or removed, or a list added, deleted or restored, while the dashboard is open
+  useListsChanged(() => { void loadAll({ quiet: true }) })
+
+  // Done, Undo or an extension from any of the dashboard's lists: tell everything showing
+  // deadlines (the cards too), and reload ours through the listener below
+  const deadlinesChanged = useCallback(async () => { pulseEvents.emit('deadline:changed') }, [])
+
+  // Refresh deadlines when cleared here, from FocusModeView or a note (or undone)
   useEffect(() => {
     const unsub = pulseEvents.on('deadline:changed', () => { void reloadDeadlines() })
     return unsub
@@ -302,8 +295,19 @@ export default function DashboardView(): React.ReactElement {
   // Done from the Week and Month tabs: like the Priority List, drop the row then reload
   const dropAndReload = useCallback((rowId: number, columnId: number) => {
     setRawDeadlines(prev => prev.filter(r => !(r.row_id === rowId && r.column_id === columnId)))
-    void reloadDeadlines()
-  }, [reloadDeadlines])
+    void deadlinesChanged()
+  }, [deadlinesChanged])
+
+  // In each list's own words, lower case like the other tiles: "Active clients",
+  // "Active customers and jobs"; more kinds than that read as a count of lists
+  const tFor = useVocabByList()
+  const activeLabel = useMemo(() => {
+    const lists = stats?.activeByList ?? []
+    const words = [...new Set(lists.map(l => tFor(l.grid_id)('record', { many: true })))]
+    if (words.length <= 1) return `Active ${words[0] ?? t('record', { many: true })}`
+    if (words.length === 2) return `Active ${words[0]} and ${words[1]}`
+    return `Active, in ${lists.length} ${t('list', { many: true })}`
+  }, [stats, tFor, t])
 
   const rulesInUse = useMemo(() => {
     const ids = new Set(deadlines.map(d => d.alertRuleId).filter((id): id is number => id != null))
@@ -354,7 +358,8 @@ export default function DashboardView(): React.ReactElement {
 
   const overdueItems = useMemo((): PriorityItem[] => {
     const items: PriorityItem[] = []
-    for (const d of deadlines) { if (d.daysUntil < 0) items.push({ kind: 'deadline', data: d, sortKey: d.daysUntil }) }
+    // Like the Overdue tile: late, or a used-up quota
+    for (const d of deadlines) { if (isLateDeadline(d)) items.push({ kind: 'deadline', data: d, sortKey: d.daysUntil }) }
     for (const { task, daysUntil } of tasksWithDays) { if (daysUntil < 0) items.push({ kind: 'task', data: task, daysUntil, sortKey: daysUntil }) }
     for (const { item: ci, daysUntil } of checklistWithDays) { if (daysUntil < 0) items.push({ kind: 'checklist', data: ci, daysUntil, sortKey: daysUntil }) }
     for (const { followUp, daysUntil } of followUpsWithDays) { if (daysUntil < 0) items.push({ kind: 'followup', data: followUp, daysUntil, sortKey: daysUntil }) }
@@ -402,13 +407,13 @@ export default function DashboardView(): React.ReactElement {
     if (chosen.length === 0) return
     setBulkBusy(true)
     try {
-      const done = await completeDeadlines(chosen, { onUndone: reloadDeadlines })
+      const done = await completeDeadlines(chosen, { onUndone: deadlinesChanged })
       const failed = chosen.length - done.length
       if (failed > 0) toast.error(`${failed} couldn't be marked done. Try ${failed === 1 ? 'it' : 'them'} one at a time.`)
       setRawDeadlines(prev => prev.filter(r => !done.some(d => d.rowId === r.row_id && d.columnId === r.column_id)))
       setSelectedDeadlines(new Set())
       // Repeating deadlines come back with their next due date
-      void reloadDeadlines()
+      void deadlinesChanged()
     } finally {
       setBulkBusy(false)
     }
@@ -552,9 +557,9 @@ export default function DashboardView(): React.ReactElement {
                         onToggleSelect={() => toggleDeadline(item.data)}
                         onMarkDone={(rowId, columnId) => {
                           setRawDeadlines(prev => prev.filter(r => !(r.row_id === rowId && r.column_id === columnId)))
-                          void reloadDeadlines()
+                          void deadlinesChanged()
                         }}
-                        onUndoneMarkDone={reloadDeadlines}
+                        onUndoneMarkDone={deadlinesChanged}
                       />
                     ) : item.kind === 'task' ? (
                       <TaskRow
@@ -617,9 +622,9 @@ export default function DashboardView(): React.ReactElement {
                       onToggleSelect={() => toggleDeadline(item.data)}
                       onMarkDone={(rowId, columnId) => {
                           setRawDeadlines(prev => prev.filter(r => !(r.row_id === rowId && r.column_id === columnId)))
-                          void reloadDeadlines()
+                          void deadlinesChanged()
                         }}
-                        onUndoneMarkDone={reloadDeadlines}
+                        onUndoneMarkDone={deadlinesChanged}
                     />
                   ) : item.kind === 'task' ? (
                     <TaskRow
@@ -664,12 +669,12 @@ export default function DashboardView(): React.ReactElement {
           {/* This Week tab */}
           {topTab === 'week' && (
             <WeekViewTab deadlines={deadlines} tasksWithDays={tasksWithDays} checklistWithDays={checklistWithDays} followUpsWithDays={followUpsWithDays} isLoading={showSpinner}
-              onMarkDone={dropAndReload} onUndone={reloadDeadlines} />
+              onMarkDone={dropAndReload} onUndone={deadlinesChanged} />
           )}
 
           {/* This Month tab */}
           {topTab === 'month' && (
-            <MonthViewTab deadlines={deadlines} isLoading={showSpinner} onMarkDone={dropAndReload} onUndone={reloadDeadlines} />
+            <MonthViewTab deadlines={deadlines} isLoading={showSpinner} onMarkDone={dropAndReload} onUndone={deadlinesChanged} />
           )}
 
           {/* Recently Archived tab */}
@@ -679,7 +684,11 @@ export default function DashboardView(): React.ReactElement {
               isLoading={showSpinner}
               search={archiveSearch}
               onSearchChange={setArchiveSearch}
-              onReactivated={(id) => setArchivedRows(prev => prev.filter(r => r.id !== id))}
+              onReactivated={(id) => {
+                setArchivedRows(prev => prev.filter(r => r.id !== id))
+                // Back on the list: its deadlines and the counts come back too
+                void loadAll({ quiet: true })
+              }}
             />
           )}
         </div>
@@ -689,40 +698,43 @@ export default function DashboardView(): React.ReactElement {
   return (
     <div className="h-full overflow-auto bg-white dark:bg-slate-900">
       <div className="max-w-4xl xl:max-w-6xl mx-auto px-6 py-6">
-        <div className="flex flex-wrap items-center gap-3 mb-6">
-          <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 flex-1">Dashboard</h1>
-          <button type="button" className="btn-compact-secondary" onClick={() => void printWeeklyPlanner()} title="A one-page PDF of everything due this week, to print or carry">
-            <Printer className="w-4 h-4" aria-hidden="true" />
-            Print this week
-          </button>
-          <button type="button" className="btn-compact-secondary" onClick={() => setShowCompliance(true)} title={`${t('activity', { many: true, cap: true })} and deadlines for a month, with exceptions, as a PDF`}>
-            <ShieldCheck className="w-4 h-4" aria-hidden="true" />
-            Monthly summary
-          </button>
-          <button type="button" className="btn-compact-secondary" onClick={() => setShowCalendar(true)} title="Save deadlines and follow-ups to Outlook or Google Calendar">
-            <CalendarPlus className="w-4 h-4" aria-hidden="true" />
-            Add to calendar
-          </button>
-          {lettersOn && allGrids.length > 0 && (
-            <button type="button" className="btn-compact-secondary" onClick={() => setPickingLettersList(true)} title="Letters or postcards for everyone with a deadline next month">
-              <Mail className="w-4 h-4" aria-hidden="true" />
-              Print reminder letters
+        {/* The buttons wrap among themselves, right-aligned, instead of dropping under the title */}
+        <div className="flex items-start gap-3 mb-6">
+          <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 shrink-0 py-2">Dashboard</h1>
+          <div className="flex flex-1 min-w-0 flex-wrap justify-end gap-3">
+            <button type="button" className="btn-compact-secondary" onClick={() => void printWeeklyPlanner()} title="A one-page PDF of everything due this week, to print or carry">
+              <Printer className="w-4 h-4" aria-hidden="true" />
+              Print this week
             </button>
-          )}
-          {/* The dashboard covers every list, so ask which one the letters are for (audit D-35) */}
-          {pickingLettersList && (
-            <ChooseListDialog title="Print reminder letters" grids={allGrids} initialId={openGridId} confirmLabel="Continue"
-              onCancel={() => setPickingLettersList(false)}
-              onChoose={id => {
-                setPickingLettersList(false)
-                void useGridStore.getState().loadGrid(id).then(() => setReminderLetters(true))
-              }} />
-          )}
-          {reminderLetters && openGridId != null && <BatchDocumentsDialog gridId={openGridId} onClose={() => setReminderLetters(false)} />}
-          <button type="button" className="btn-compact-secondary" aria-pressed={customizing} onClick={() => setCustomizing(c => !c)} title="Choose which cards show, and their order">
-            <LayoutGrid className="w-4 h-4" aria-hidden="true" />
-            Customize
-          </button>
+            <button type="button" className="btn-compact-secondary" onClick={() => setShowCompliance(true)} title={`${t('activity', { many: true, cap: true })} and deadlines for a month, with exceptions, as a PDF`}>
+              <ShieldCheck className="w-4 h-4" aria-hidden="true" />
+              Monthly summary
+            </button>
+            <button type="button" className="btn-compact-secondary" onClick={() => setShowCalendar(true)} title="Save deadlines and follow-ups to Outlook or Google Calendar">
+              <CalendarPlus className="w-4 h-4" aria-hidden="true" />
+              Add to calendar
+            </button>
+            {lettersOn && allGrids.length > 0 && (
+              <button type="button" className="btn-compact-secondary" onClick={() => setPickingLettersList(true)} title="Letters or postcards for everyone with a deadline next month">
+                <Mail className="w-4 h-4" aria-hidden="true" />
+                Print reminder letters
+              </button>
+            )}
+            {/* The dashboard covers every list, so ask which one the letters are for (audit D-35) */}
+            {pickingLettersList && (
+              <ChooseListDialog title="Print reminder letters" grids={allGrids} initialId={openGridId} confirmLabel="Continue"
+                onCancel={() => setPickingLettersList(false)}
+                onChoose={id => {
+                  setPickingLettersList(false)
+                  void useGridStore.getState().loadGrid(id).then(() => setReminderLetters(true))
+                }} />
+            )}
+            {reminderLetters && openGridId != null && <BatchDocumentsDialog gridId={openGridId} onClose={() => setReminderLetters(false)} />}
+            <button type="button" className="btn-compact-secondary" aria-pressed={customizing} onClick={() => setCustomizing(c => !c)} title="Choose which cards show, and their order">
+              <LayoutGrid className="w-4 h-4" aria-hidden="true" />
+              Customize
+            </button>
+          </div>
           {showCompliance && <ComplianceSummaryDialog onClose={closeCompliance} />}
           {showCalendar && <CalendarExportDialog onClose={closeCalendar} />}
         </div>
@@ -733,7 +745,7 @@ export default function DashboardView(): React.ReactElement {
         <DashboardCards customizing={customizing} onDoneCustomizing={() => setCustomizing(false)} whatsDue={whatsDue} summary={
         <div className="grid grid-cols-2 gap-4 mb-6 sm:grid-cols-3 xl:grid-cols-5">
           <SummaryCard
-            label={`Active ${t('record', { many: true, cap: true })}`}
+            label={activeLabel}
             value={stats?.totalActive ?? '—'}
             icon={<Users className="w-5 h-5" />}
             colorClass="text-blue-600 dark:text-blue-400"

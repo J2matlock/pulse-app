@@ -39,4 +39,10 @@ describe('Reminders in Settings', () => {
     expect(within(section).getByText('Summary when I first unlock Pulse')).toBeTruthy()
     expect(screen.queryByText('Desktop notification at a set time')).toBeNull()
   })
+
+  it('reloads the rules and "Used by" each time it opens, not only at unlock', () => {
+    invoke.mockClear()
+    render(<AlertsSection />)
+    expect(invoke.mock.calls.some(c => (c as unknown[])[0] === 'alert-rule:get-all')).toBe(true)
+  })
 })

@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 import { FileDown, Pin, PinOff, Plus, Save, Sparkles, Trash2 } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import {
-  DATE_BUCKETS, FN_LABELS, OPERATOR_LABELS, REPORT_LIMITS, SOURCE_LABELS, chartableReport, defaultFilterField, defaultGroupField, defaultValueField,
+  DATE_BUCKETS, FN_LABELS, OPERATOR_LABELS, REPORT_LIMITS, SOURCE_LABELS, SOURCE_LABELS_ONE, chartableReport, defaultFilterField, defaultGroupField, defaultValueField,
   explainReport, filterNeedsValue, operatorsFor, suggestReportName,
   type DatePreset, type ReportConfig, type ReportField, type ReportResult, type ReportSource, type SavedReport, type ValueFn,
 } from '../../../shared/reports'
@@ -469,7 +469,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
         {config.about && <p className="text-base text-slate-700 dark:text-slate-200">{config.about}</p>}
         {fields.length > 0 && (
           <p className="text-sm text-slate-500 dark:text-slate-400" aria-live="polite">
-            {explainReport(config, fields, words(config.source), grids.find(g => g.id === gridId)?.name ?? '', result?.matched ?? null)}
+            {explainReport(config, fields, { one: f(SOURCE_LABELS_ONE[config.source]), many: words(config.source) }, grids.find(g => g.id === gridId)?.name ?? '', result?.matched ?? null)}
           </p>
         )}
         {error ? <p role="alert" className="text-base text-red-700 dark:text-red-300">{error}</p>

@@ -1,8 +1,8 @@
 /**
  * ImportWizard — Multi-step overlay modal for importing CSV/Excel files into a grid.
- * Steps: 1=Select File, 2=Sheet, 3=Preview, 4=Column Mapping, 5=Options, 6=Results
+ * Steps: 1=Choose a file, 2=Sheet, 3=Preview, 4=Match columns, 5=Options, 6=Results
  */
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ChevronLeft,
   ChevronRight,
@@ -21,6 +21,8 @@ import type { Column } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
 import toast from 'react-hot-toast'
 import { useVocab } from '../../hooks/useVocab'
+import { friendlyError } from '../../utils/friendlyError'
+import { columnTypeLabel } from '../../../shared/columnTypes'
 
 // ── Local types ───────────────────────────────────────────────────────────────
 
@@ -68,6 +70,8 @@ interface ImportResult {
   warnings: string[]
   skippedNames?: string[]
   newRowIds?: number[]
+  /** The user pressed "Undo this import" before closing: the imported records are in the Trash */
+  undone?: boolean
 }
 
 interface Props {
@@ -80,10 +84,10 @@ interface Props {
 type Step = 1 | 2 | 3 | 4 | 5 | 6
 
 const STEP_LABELS: Record<Step, string> = {
-  1: 'Select File',
+  1: 'Choose a file',
   2: 'Sheet',
   3: 'Preview',
-  4: 'Column Mapping',
+  4: 'Match columns',
   5: 'Options',
   6: 'Results',
 }
@@ -108,7 +112,7 @@ function TypeBadge({ type }: { type: string }): React.ReactElement {
   const cls = TYPE_BADGE_CLASSES[type] ?? TYPE_BADGE_CLASSES.text
   return (
     <span className={`inline-flex items-center px-1.5 py-0.5 rounded-sm text-sm font-medium ${cls}`}>
-      {type}
+      {columnTypeLabel(type)}
     </span>
   )
 }
@@ -170,15 +174,25 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
     }
   }, [open])
 
+  // Every way out (Done, ✕, Escape, a click outside) reports a finished import, so the
+  // caller reloads the list, and setup doesn't throw away a list that was just filled
+  const closeRef = useRef<() => void>(() => {})
+  closeRef.current = () => {
+    if (step === 6 && loading) return // the import is still running
+    if (importResult) onImported(undo === 'done' ? { ...importResult, undone: true } : importResult)
+    onClose()
+  }
+  const close = useCallback(() => closeRef.current(), [])
+
   // Escape to close
   useEffect(() => {
     if (!open) return
     function handler(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') close()
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [open, onClose])
+  }, [open, close])
 
   // ── IPC helpers ──────────────────────────────────────────────────────────
 
@@ -190,7 +204,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
         IPC.IMPORT_FILE_PREVIEW, path, sheetIndex, hdrRowIdx
       )
       if (!res.ok) {
-        setError(res.error ?? 'Could not read the file. Please check the format and try again.')
+        setError(friendlyError(res.error, 'Could not read the file. Please check the format and try again.'))
         return null
       }
       return res.data
@@ -362,7 +376,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
       }
       const res = await safeInvoke<ImportResult>(IPC.IMPORT_FILE, options)
       if (!res.ok) {
-        setError(res.error ?? 'The import failed. Please check your file and try again.')
+        setError(friendlyError(res.error, 'The import failed. Please check your file and try again.'))
       } else {
         setImportResult(res.data)
       }
@@ -381,7 +395,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
     setUndo('busy')
     const res = await safeInvoke(IPC.IMPORT_UNDO, gridId, ids)
     if (res.ok) setUndo('done')
-    else { setUndo('idle'); toast.error(res.error || 'We couldn\'t undo the import. Try again.') }
+    else { setUndo('idle'); toast.error(friendlyError(res.error, 'We couldn\'t undo the import. Try again.')) }
   }
 
   // ── Render helpers ───────────────────────────────────────────────────────
@@ -410,7 +424,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
           role="dialog"
           aria-modal="true"
         >
-          <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 bg-black/60" onClick={onClose} />
+          <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 bg-black/60" onClick={close} />
           <motion.div variants={modalPanelVariants} initial="hidden" animate="visible" className="relative bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
@@ -419,7 +433,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
             Import {t('record', { many: true, cap: true })}
           </h2>
           <button
-            onClick={onClose}
+            onClick={close}
             className="p-2 rounded-sm text-slate-500 hover:text-slate-600 dark:hover:text-slate-200
                        focus:outline-hidden focus:ring-3 focus:ring-blue-500 min-h-[44px] min-w-[44px]
                        flex items-center justify-center"
@@ -784,7 +798,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                                                min-h-[44px]"
                                   >
                                     {COLUMN_TYPES.map(t => (
-                                      <option key={t} value={t}>{t}</option>
+                                      <option key={t} value={t}>{columnTypeLabel(t)}</option>
                                     ))}
                                   </select>
                                   <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-slate-400" />
@@ -1057,10 +1071,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
 
             {step === 6 && !loading && (
               <button
-                onClick={() => {
-                  if (importResult) onImported(importResult)
-                  onClose()
-                }}
+                onClick={close}
                 className="flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-500 hover:bg-blue-600
                            text-white text-base font-medium focus:outline-hidden focus:ring-3 focus:ring-blue-500
                            focus:ring-offset-3 min-h-[44px]"

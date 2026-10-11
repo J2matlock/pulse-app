@@ -8,6 +8,7 @@ import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 vi.mock('lucide-react', async () => (await import('./lucideMock')).lucideMock)
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }))
 import { localDateString } from '../../src/shared/dates'
+import { monthGrid } from '../../src/shared/calendar'
 const today = localDateString()
 const appt = (id: number, time: string, title: string, extra: Record<string, unknown> = {}) => ({ id, row_id: 4, series_id: null, title, start_at: `${today}T${time}`, end_at: null, all_day: 0, location: null, activity_type_key: null, status: 'scheduled', case_log_id: null, notes: null, is_exception: 0, created_at: '', updated_at: '', record_name: 'Jane', grid_id: 2, grid_name: 'Clients', ...extra })
 let appointments = [appt(1, '15:00', 'Session'), appt(2, '09:00', 'Intake')]
@@ -59,6 +60,14 @@ describe('the calendar', () => {
     expect(within(cell).getByText('Jane: Review')).toBeTruthy()
   })
 
+  it('leaves tasks off the calendar while the Tasks feature is switched off', async () => {
+    useWorkspaceStore.setState({ features: { appointments: true, tasks: false } } as never)
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: 'Agenda' }))
+    expect(screen.queryByText('Task: Order forms')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Tasks' })).toBeNull()
+  })
+
   it('labels the layers, shows done with a check, and opens a clicked task (audit S-28)', async () => {
     appointments = [appt(1, '15:00', 'Session', { status: 'done' }), appt(2, '09:00', 'Intake', { status: 'cancelled' })]
     const usual = invoke.getMockImplementation()!
@@ -90,6 +99,13 @@ describe('the calendar', () => {
     expect(screen.getByTestId('where').textContent).toBe('/profile/4?gridId=2')
   })
 
+  it('shows only the weeks the month needs, so the last row is not cut off', async () => {
+    await show()
+    const grid = screen.getByRole('grid')
+    const needed = monthGrid(today, 'sunday').filter(w => w.some(d => d.slice(0, 7) === today.slice(0, 7))).length
+    expect(within(grid).getAllByRole('row')).toHaveLength(needed + 1) // + the day names
+  })
+
   it('N opens a new appointment on the focused day', async () => {
     await show()
     const cell = document.querySelector(`[data-day="${today}"]`) as HTMLElement
@@ -107,6 +123,9 @@ describe('week view', () => {
     const day = screen.getByRole('group', { name: new RegExp(`^${new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date())}`) })
     const intake = within(day).getByRole('button', { name: /Intake with Jane/ })
     expect((intake.parentElement as HTMLElement).style.top).toBe(`${9 * 48}px`)
+    // Text starts at the top of the block, in lines short enough for two in the 44px minimum
+    expect(intake.className).toMatch(/flex-col/)
+    expect((intake.parentElement as HTMLElement).className).toMatch(/leading-\[18px\]/)
     // The deadline and task sit in the all-day row, not the hours
     expect(within(day).queryByText('Jane: Review')).toBeNull()
     expect(screen.getByText('Jane: Review')).toBeTruthy()

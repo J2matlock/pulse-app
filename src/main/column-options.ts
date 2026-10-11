@@ -8,6 +8,7 @@
  */
 import { getDb } from './database'
 import { setCellWithHistory } from './cell-write'
+import { keepSamplesUntouched } from './sample-marks'
 import { columnAffectsDisplayName, refreshDisplayNames } from './display-names'
 
 export class OptionsError extends Error {}
@@ -46,7 +47,8 @@ export function saveColumnOptions(columnId: number, change: OptionsChange): { up
   let cfg: Record<string, unknown> = {}
   try { cfg = JSON.parse(col.config || '{}') as Record<string, unknown> } catch { cfg = {} }
 
-  return db.transaction(() => {
+  // Renaming a choice "everywhere" isn't an edit to the list's sample entries
+  return db.transaction(() => keepSamplesUntouched(db, col.grid_id, () => {
     if (col.column_type === 'status') {
       const old = (Array.isArray(cfg.options) ? cfg.options : []) as Array<{ label?: string; color?: string } | string>
       const colorOf = (label: string) => {
@@ -83,6 +85,6 @@ export function saveColumnOptions(columnId: number, change: OptionsChange): { up
       if (touched.length && columnAffectsDisplayName(col.grid_id, col.id)) refreshDisplayNames(col.grid_id, touched)
     }
     return { updated }
-  })()
+  }))()
 }
 

@@ -540,3 +540,13 @@ describe('CL_TEMPLATE_DELETE', () => {
     expect(r.ok).toBe(false)
   })
 })
+
+describe('checklist template files (polish R6)', () => {
+  it('won\'t write or read a file outside the folders Pulse may use', async () => {
+    const id = Number(testDb.db.prepare("INSERT INTO checklist_templates (name, items) VALUES ('Intake', '[]')").run().lastInsertRowid)
+    const exp = await invoke(IPC.CL_TEMPLATE_EXPORT, id, '/etc/intake.pulse-checklist')
+    expect(exp).toMatchObject({ ok: false, error: expect.stringMatching(/can't use that folder/) })
+    const imp = await invoke(IPC.CL_TEMPLATE_IMPORT, 'relative/intake.pulse-checklist')
+    expect(imp).toMatchObject({ ok: false, error: expect.stringMatching(/can't use that folder/) })
+  })
+})

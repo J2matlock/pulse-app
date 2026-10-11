@@ -40,6 +40,8 @@ describe('calendar rules', () => {
   it('handle the last day and short months', () => {
     const lastDay = calendar({ months: [2], day: 'last' })
     expect(evaluate(lastDay, { today: '2027-01-01', columnDate: null }).due).toBe('2027-02-28')
+    // No brackets inside brackets: "(last day of Feb)", not "(Feb (last day))"
+    expect(evaluate(lastDay, { today: '2027-01-01', columnDate: null }).detail).toBe('Due Feb 28, 2027 (last day of Feb)')
     const the31st = calendar({ months: [4, 6], day: 31 })
     expect(evaluate(the31st, { today: '2026-04-01', columnDate: null }).due).toBe('2026-04-30')
   })
@@ -84,6 +86,11 @@ describe('days off (D-18)', () => {
     expect(evaluate(rule(1), { today: '2026-01-05', columnDate: '2026-01-03' }).due).toBe('2026-01-09')
     expect(evaluate(rule(2), { today: '2026-01-05', columnDate: '2026-01-03' })).toMatchObject({ due: '2026-01-12', detail: expect.stringMatching(/working day after/) })
     expect(evaluate(rule(0), { today: '2026-01-05', columnDate: '2026-01-03' }).due).toBe('2026-01-10')
+  })
+
+  it('words a last-day date without nested parentheses', () => {
+    const r = evaluate(calendar({ months: [10], day: 'last' }), { today: '2026-10-11', columnDate: null })
+    expect(r.detail).toBe('Due Oct 31, 2026 (last day of Oct)')
   })
   it('can count working days after the date in this column', () => {
     const r = engineRuleFrom({ id: 1, kind: 'relative', rule_config: JSON.stringify({ kind: 'relative', anchorColumnId: 'self', offset: { businessDays: 10, direction: 'after' } }) })

@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { extname } from 'node:path'
 import { IPC } from '../../shared/ipc-channels'
 import { QUERY_LIMITS } from '../../shared/query-limits'
-import { secureWrap, ok, fail, buildSafeSetClause, validId, notifyCaseLogChanged, enforceWritable } from './ipc-utils'
+import { secureWrap, ok, fail, buildSafeSetClause, validId, notifyCaseLogChanged, enforceWritable, assertSafePath } from './ipc-utils'
 import { getDb } from '../database'
 import type { ChecklistItem, ChecklistTemplate, ChecklistGroup } from '../../shared/types'
 import { seedChecklistTemplates } from '../templates'
@@ -16,6 +16,13 @@ import { localDateString } from '../../shared/dates'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_CHECKLIST = 500
+
+const UNSAFE_PATH = "Pulse can't use that folder. Choose a file in your Documents, Desktop or Downloads folder."
+
+/** The same folder check every other file handler makes */
+function safePath(filePath: string): boolean {
+  try { assertSafePath(filePath); return true } catch { return false }
+}
 
 export function registerChecklistHandlers(): void {
   // ── Checklists ─────────────────────────────────────────────────────────────
@@ -346,6 +353,7 @@ export function registerChecklistHandlers(): void {
     if (!validId(id)) return fail('Invalid ID')
     if (typeof filePath !== 'string' || !filePath) return fail('Invalid file path')
     if (extname(filePath).toLowerCase() !== '.pulse-checklist') return fail('File must have .pulse-checklist extension')
+    if (!safePath(filePath)) return fail(UNSAFE_PATH)
 
     const template = getDb().prepare('SELECT * FROM checklist_templates WHERE id = ?').get(id) as ChecklistTemplate | undefined
     if (!template) return fail('Template not found')
@@ -377,6 +385,7 @@ export function registerChecklistHandlers(): void {
     const guard = enforceWritable(); if (guard) return guard
     if (typeof filePath !== 'string' || !filePath) return fail('Invalid file path')
     if (extname(filePath).toLowerCase() !== '.pulse-checklist') return fail('File must have .pulse-checklist extension')
+    if (!safePath(filePath)) return fail(UNSAFE_PATH)
 
     let raw: string
     try { raw = readFileSync(filePath, 'utf-8') } catch { return fail('Could not read file') }

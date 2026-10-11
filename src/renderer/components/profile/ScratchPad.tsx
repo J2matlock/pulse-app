@@ -241,14 +241,14 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
         {saveError && !saving && <span role="alert" className="text-base text-red-700 dark:text-red-400">We couldn't save this — keep typing to try again</span>}
       </div>
 
-      <div className="flex items-center gap-0.5 px-2 py-1 border-b border-slate-100 dark:border-slate-700/50">
+      <div className="flex flex-wrap items-center gap-0.5 px-2 py-1 border-b border-slate-100 dark:border-slate-700/50">
         {toolbarBtn(editor?.isActive('bold') ?? false, () => editor?.chain().focus().toggleBold().run(), <Bold className="w-4 h-4" />, 'Bold (Ctrl+B)')}
         {toolbarBtn(editor?.isActive('italic') ?? false, () => editor?.chain().focus().toggleItalic().run(), <Italic className="w-4 h-4" />, 'Italic (Ctrl+I)')}
         {toolbarBtn(editor?.isActive('underline') ?? false, () => editor?.chain().focus().toggleUnderline().run(), <UnderlineIcon className="w-4 h-4" />, 'Underline (Ctrl+U)')}
         <div className="w-px h-5 bg-slate-200 dark:bg-slate-600 mx-1" />
         {toolbarBtn(editor?.isActive('bulletList') ?? false, () => editor?.chain().focus().toggleBulletList().run(), <List className="w-4 h-4" />, 'Bullet list (Ctrl+Shift+8)')}
         {toolbarBtn(editor?.isActive('orderedList') ?? false, () => editor?.chain().focus().toggleOrderedList().run(), <ListOrdered className="w-4 h-4" />, 'Numbered list (Ctrl+Shift+7)')}
-        {snippetsOn && <div className="ml-2 text-base text-slate-500 dark:text-slate-400">Type / for snippets</div>}
+        {snippetsOn && <div className="ml-2 text-base text-slate-500 dark:text-slate-400 whitespace-nowrap">Type / for snippets</div>}
       </div>
 
       {/* onKeyDownCapture fires before tiptap sees the event */}

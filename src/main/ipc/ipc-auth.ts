@@ -8,6 +8,7 @@ import { secureWrap, ok, fail, withCorrelation, assertSafePath } from './ipc-uti
 import { checkNewPassword } from '../../shared/passwordPolicy'
 import { openDatabase, closeDatabase, resolveDatabasePath, checkCloudSyncPath } from '../database'
 import { moveAsideExistingDatabase, restoreBackupOnNewInstall, runAutoBackupOnLock } from '../backup'
+import { describeRestoreError } from '../restore-errors'
 import { stopScheduledBackup, startScheduledBackup } from '../index'
 import { ensureMaterialized } from '../appointments'
 import {
@@ -125,10 +126,7 @@ export function registerAuthHandlers(): void {
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Restore failed'
         logger.warn('ipc-auth', `[${corrId}] restore from backup failed: ${msg}`)
-        if (msg === 'Incorrect password or recovery key') {
-          return fail("That password or recovery key doesn't match this backup. Use the password you had when the backup was made.")
-        }
-        return fail(msg)
+        return fail(describeRestoreError(err))
       }
       openDatabase()
       startScheduledBackup()

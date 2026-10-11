@@ -6,6 +6,7 @@
  */
 import { getDb } from './database'
 import { setCellWithHistory } from './cell-write'
+import { keepSamplesUntouched } from './sample-marks'
 import { parseDate } from '../shared/parseDate'
 import { CHANGEABLE_TYPES } from '../shared/columnTypes'
 
@@ -69,7 +70,8 @@ export function changeColumnType(columnId: number, to: string): TypeChangeSnapsh
   const db = getDb()
   const { col, cells } = load(columnId, to)
   if (col.column_type === to) return { previousType: to, previousConfig: col.config, changed: [] }
-  return db.transaction((): TypeChangeSnapshot => {
+  // Converted values aren't edits to the list's sample entries
+  return db.transaction((): TypeChangeSnapshot => keepSamplesUntouched(db, col.grid_id, () => {
     const changed: TypeChangeSnapshot['changed'] = []
     for (const c of cells) {
       const v = convertValue(c.value, to)
@@ -85,15 +87,16 @@ export function changeColumnType(columnId: number, to: string): TypeChangeSnapsh
     }
     db.prepare('UPDATE columns SET column_type = ?, config = ? WHERE id = ?').run(to, JSON.stringify(cfg), columnId)
     return { previousType: col.column_type, previousConfig: col.config, changed }
-  })()
+  }))()
 }
 
 /** Undo: the old type and settings, and every value as it was */
 export function undoColumnTypeChange(columnId: number, snap: TypeChangeSnapshot): void {
   const db = getDb()
   if (!CHANGEABLE_TYPES.has(snap.previousType)) throw new ColumnTypeError("That change can't be undone.")
-  db.transaction(() => {
+  const gridId = (db.prepare('SELECT grid_id FROM columns WHERE id = ?').get(columnId) as { grid_id: number } | undefined)?.grid_id ?? 0
+  db.transaction(() => keepSamplesUntouched(db, gridId, () => {
     db.prepare('UPDATE columns SET column_type = ?, config = ? WHERE id = ?').run(snap.previousType, snap.previousConfig, columnId)
     for (const c of snap.changed) setCellWithHistory(c.rowId, columnId, c.old)
-  })()
+  }))()
 }

@@ -1,9 +1,9 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Calendar } from 'lucide-react'
 import type { Column, GridRow, ParsedAlertRule } from '../../../shared/types'
 import { computeDaysUntil, computeEffectiveDeadline, getAlertThreshold, evaluateRuleForRow } from '../../utils/deadlineCalc'
 import { takesDeadlineRule } from '../../../shared/types'
-import { engineRuleFrom, referencedColumns, meterInfo, sequenceAnchor, sequenceStepDue, type DeadlineResult, type SequenceConfig } from '../../../shared/deadlineEngine'
+import { engineRuleFrom, referencedColumns, meterInfo, sequenceAnchor, sequenceStepDue, ymdToDate, type DeadlineResult, type SequenceConfig } from '../../../shared/deadlineEngine'
 import { useGridStore } from '../../stores/gridStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { completeDeadlines, isOneOffDeadline } from '../../views/dashboard/completeDeadline'
@@ -176,6 +176,10 @@ export function DeadlinePanel({
       // The engine too, so an extension (W05) moves the date here as everywhere else
       const engineResult = rule ? evaluateRuleForRow(rule, rawValue, row as unknown as Record<string, unknown>, col.id) : null
       const daysUntil = engineResult ? engineResult.daysUntil : computeDaysUntil(rawValue, toRuleInterval(rule))
+      // A one-off date marked Finished (Decision E1): say so, as the list's chip does
+      if (engineResult?.state === 'done') {
+        return { col, rawValue, rule, daysUntil: null, bgClass: null, urgencyScore: Infinity, result: engineResult, engine: engineResult }
+      }
       // Unparseable date: no color, sort with the empties instead of as "due today"
       if (daysUntil === null) {
         return { col, rawValue, rule, daysUntil: null, bgClass: null, urgencyScore: Infinity, result: null, engine: null }
@@ -194,6 +198,16 @@ export function DeadlinePanel({
       }
     })
     .sort((a, b) => a.urgencyScore - b.urgencyScore)
+
+  // A counted note (a session, a visit) changes how many are left: reload the counts
+  // when this record's notes change, as the list does when it loads
+  const countsNotes = deadlines.some(d => d.rule?.kind === 'quota')
+  useEffect(() => {
+    if (!countsNotes) return
+    return window.api.on(IPC.CASE_LOG_CHANGED, (changed: unknown) => {
+      if (changed === row.row_id) void useGridStore.getState().refreshDeadlineContext()
+    })
+  }, [countsNotes, row.row_id])
 
   if (deadlines.length === 0) return null
 
@@ -291,7 +305,8 @@ export function DeadlinePanel({
             daysUntil !== null && daysUntil <= 0 ? 'text-red-700 dark:text-red-300'
               : 'text-slate-700 dark:text-slate-200'
           const interval = toRuleInterval(rule)
-          const nextDue = rawValue && hasInterval(interval) ? computeEffectiveDeadline(rawValue, interval) : null
+          // The engine's date: it moves a due date off a day off, like the list and the dashboard
+          const nextDue = rawValue && hasInterval(interval) ? (engine?.due ? ymdToDate(engine.due) : computeEffectiveDeadline(rawValue, interval)) : null
           // The stored date is when it was last done for repeating and worked-out rules; for a plain date it's the due date (R-23)
           const storedIsLastDone = !!rule && ((rule.kind ?? 'interval') !== 'interval' || hasInterval(interval))
           const kind = rule?.kind ?? 'interval'

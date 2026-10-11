@@ -10,7 +10,7 @@ import { app, Menu, Tray, nativeImage, type BrowserWindow } from 'electron'
 import { join } from 'path'
 import { prefs } from './prefs'
 import { registerCloseHook } from './database'
-import { runAutoBackup, recordAutoBackupFailure } from './backup'
+import { runAutoBackup, recordAutoBackupFailure, describeBackupError } from './backup'
 import { snapshotForLock, setLockedSnapshot, type LockedSnapshot } from './reminders'
 import { logger } from './logger'
 import { logNonFatal } from './ipc/ipc-utils'
@@ -122,7 +122,7 @@ export function closeToTray(win: BrowserWindow): Promise<void> {
           await Promise.race([runAutoBackup(), new Promise(resolve => setTimeout(resolve, 12000))])
         } catch (err) {
           logNonFatal('tray', 'auto-backup on close to tray', err)
-          try { recordAutoBackupFailure(err instanceof Error ? err.message : String(err)) } catch (recErr) { logNonFatal('tray', 'record backup failure', recErr) }
+          try { recordAutoBackupFailure(describeBackupError(err)) } catch (recErr) { logNonFatal('tray', 'record backup failure', recErr) }
         }
         hooks.lock('window closed to the tray')
       }

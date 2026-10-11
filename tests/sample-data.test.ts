@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 
 let testDb: TestDb
-vi.mock('../src/main/database', () => ({ getDb: () => testDb.db }))
+vi.mock('../src/main/database', () => ({ getDb: () => testDb.db, cachedStmt: (_k: string, sql: string) => testDb.db.prepare(sql) }))
 
 import { createSampleCaseload, removeSampleData, planSampleRemoval, getSampleGridId, getSampleRowIds, countSampleRows, answerSampleRow, SAMPLE_GRID_NAME } from '../src/main/sample-data'
 
@@ -36,10 +36,17 @@ describe('sample caseload', () => {
   it('removal of an untouched sample list deletes only sample data', () => {
     const real = seedGrid(testDb.db, { rowCount: 3 })
     testDb.db.prepare("INSERT INTO providers (name) VALUES ('Real Provider')").run()
-    createSampleCaseload()
+    const gridId = createSampleCaseload()
     expect(planSampleRemoval()).toMatchObject({ keep: [], ownInSampleList: 0 })
     expect(removeSampleData()).toEqual({ removed: 25, kept: 0, keptListName: null })
     expect(getSampleGridId()).toBeNull()
+    // The list and its entries are in the Trash, as the dialog promises, not deleted for good
+    expect(count('SELECT COUNT(*) AS n FROM grids WHERE id = ? AND is_active = 0 AND deleted_at IS NOT NULL', gridId)).toBe(1)
+    expect(count('SELECT COUNT(*) AS n FROM rows WHERE grid_id = ?', gridId)).toBe(25)
+    expect(count('SELECT COUNT(*) AS n FROM caseload_tasks WHERE grid_id = ?', gridId)).toBe(0)
+    expect(countSampleRows()).toBe(0)
+    // No column is left pointing at a removed rule
+    expect(count("SELECT COUNT(*) AS n FROM columns WHERE json_extract(config, '$.alert_rule_id') IS NOT NULL AND grid_id = ?", gridId)).toBe(0)
     expect(count('SELECT COUNT(*) AS n FROM rows WHERE grid_id = ?', real.gridId)).toBe(3)
     expect(count('SELECT COUNT(*) AS n FROM providers')).toBe(1)
     expect(count("SELECT COUNT(*) AS n FROM alert_rules WHERE name LIKE 'Sample:%'")).toBe(0)
@@ -114,6 +121,32 @@ describe('sample caseload', () => {
     answerSampleRow(b, 'later')
     expect(getSampleRowIds()).not.toContain(a)
     expect(count('SELECT asked AS n FROM sample_rows WHERE row_id = ?', b)).toBe(2)
+  })
+
+  it('a sample list moved to the Trash no longer counts as sample data that is out', () => {
+    const gridId = createSampleCaseload()
+    testDb.db.prepare("UPDATE grids SET is_active = 0, deleted_at = datetime('now') WHERE id = ?").run(gridId)
+    expect(countSampleRows()).toBe(0)
+    expect(planSampleRemoval().remove).toEqual([])
+  })
+
+  it('deleting, retyping or renaming choices in a column doesn\'t make the entries look edited', async () => {
+    const { saveColumnOptions } = await import('../src/main/column-options')
+    const { changeColumnType } = await import('../src/main/column-type')
+    const gridId = createSampleCaseload()
+    const [first] = getSampleRowIds() as [number]
+    const colId = (name: string) => (testDb.db.prepare('SELECT id FROM columns WHERE grid_id = ? AND name = ?').get(gridId, name) as { id: number }).id
+    // A column deleted before this was handled: its values are simply left out of the comparison
+    testDb.db.prepare('DELETE FROM columns WHERE id = ?').run(colId('Phone'))
+    expect(planSampleRemoval().keep).toEqual([])
+    // Program as a dropdown, then a choice renamed everywhere
+    changeColumnType(colId('Program'), 'dropdown')
+    saveColumnOptions(colId('Program'), { options: ['Waiver program', 'Case Management', 'Housing', 'Behavioral Health', 'Employment'], renames: { Waiver: 'Waiver program' }, updateRecords: true })
+    expect(planSampleRemoval().keep).toEqual([])
+    // A real edit still counts
+    testDb.db.prepare('UPDATE cells SET value = ? WHERE row_id = ? AND column_id = ?').run('Real Person', first, colId('Client Name'))
+    expect(planSampleRemoval().keep).toEqual([first])
+    expect(removeSampleData()).toMatchObject({ removed: 24, kept: 1 })
   })
 
   it('a sample entry restored from the Trash is still a sample', () => {

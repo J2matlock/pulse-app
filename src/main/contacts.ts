@@ -369,7 +369,8 @@ export function getClientLinks(
         r.display_name AS client_name
       FROM provider_client_links pcl
       JOIN rows r ON r.id = pcl.row_id AND r.is_active = 1 AND r.deleted_at IS NULL
-      LEFT JOIN grids g ON pcl.grid_id = g.id
+      -- The record's own list, and only while it isn't in the Trash
+      JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
       WHERE pcl.provider_id = ?
       ORDER BY pcl.linked_at DESC
     `).all(params.providerId) as ProviderClientLink[]

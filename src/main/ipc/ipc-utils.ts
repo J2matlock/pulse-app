@@ -106,6 +106,8 @@ const CODE_MAP: Record<string, string> = {
   ENOENT: 'The requested file was not found',
   EACCES: 'Permission denied — check file permissions',
   EPERM: 'Permission denied — check file permissions',
+  // Windows: the file is open in another program, most often a CSV still open in Excel
+  EBUSY: 'That file is open in another program (such as Excel). Close it there and try again.',
   ENOSPC: 'The disk is full — free some space and try again',
   ENOMEM: 'Not enough memory to complete the operation',
 }

@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import { noteUnencryptedExport } from '../../utils/exportNotice'
 import { pulseEvents } from '../../events'
 import { useGridStore } from '../../stores/gridStore'
-import { RemoveSampleDataDialog } from '../shared/SampleDataBanner'
+import { RemoveSampleDataDialog, sampleDataChanged } from '../shared/SampleDataBanner'
 import { useVocab } from '../../hooks/useVocab'
 import { FilesStorageSection } from './FilesStorageSection'
 import { ImportWizard } from '../grid/ImportWizard'
@@ -34,7 +34,7 @@ function SampleDataControls(): React.ReactElement {
       const res = await safeInvoke(IPC.SAMPLE_DATA_CREATE)
       if (!res.ok) { toast.error(res.error === 'READ_ONLY' ? 'Sample data is not available right now.' : `We couldn't add the sample ${t('list')}.`); return }
       await useGridStore.getState().loadGridList()
-      pulseEvents.emit('sample-data:changed')
+      sampleDataChanged()
       toast.success(`Sample ${t('list')} added — find it in the sidebar.`)
     } finally { setBusy(false) }
   }
@@ -246,8 +246,9 @@ export function DataSection(): React.ReactElement {
               const sel = document.getElementById('history-retention') as HTMLSelectElement | null
               const months = parseInt(sel?.value ?? '12', 10)
               const res = await safeInvoke<number>(IPC.CELL_HISTORY_COMPACT, months)
-              if (res.ok) toast.success(`Compacted: ${res.data} records removed.`)
-              else toast.error('History compaction failed. Please try again.')
+              // "records removed" read as if entries were deleted; these are old cell changes
+              if (res.ok) toast.success(res.data === 0 ? 'There were no old cell changes to remove.' : `Removed ${res.data} old cell ${res.data === 1 ? 'change' : 'changes'} from the edit history.`)
+              else toast.error("We couldn't clean up the edit history. Please try again.")
             }}
           >
             Compact Now

@@ -174,7 +174,8 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
         useUndoStore.getState().clear()
         setRestoreResult({ safetyPath: res.data.safetyPath })
       } else {
-        toast.error('Restore failed. Please try a different backup.')
+        // Main says why in plain words ("This file is damaged…"); your data is unchanged either way
+        toast.error(res.error || 'Restore failed. Please try a different backup.')
       }
     } catch {
       toast.error('Restore failed. Please try again.')
@@ -319,7 +320,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
               Your last auto-backup didn't complete
             </p>
             <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5">
-              {backupInfo.lastAutoBackupError || 'Unknown error'}. Use "Back up now" above to make sure your data is safe.
+              {(backupInfo.lastAutoBackupError || "We don't know why").replace(/\.$/, '')}. Use "Back up now" above to make sure your data is safe.
             </p>
           </div>
         </div>

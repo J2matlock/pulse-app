@@ -11,11 +11,13 @@ function daysSince(iso: string): string {
   return `${n} day${n === 1 ? '' : 's'}`
 }
 
+export interface BackupWarning { text: string; tone: 'red' | 'amber' }
+
 /**
- * Shows, outside Settings, when backups aren't keeping a copy off this
- * computer. Quiet while everything is fine.
+ * What to say, outside Settings, when backups aren't keeping a copy off this
+ * computer; null while everything is fine. Keeps the status fresh while mounted.
  */
-export function BackupStatusChip(): React.ReactElement | null {
+export function useBackupWarning(): BackupWarning | null {
   const status = useBackupStatusStore(s => s.status)
   const loadStatus = useBackupStatusStore(s => s.loadStatus)
 
@@ -38,12 +40,14 @@ export function BackupStatusChip(): React.ReactElement | null {
       ? `Last backup to another place: ${daysSince(status.lastOffsiteISO)} ago`
       : 'No backup saved to another place yet'
   }
-  if (!text) return null
+  return text ? { text, tone } : null
+}
 
+/** The warning as a link to Backup settings (the status bar puts any separator before it) */
+export function BackupWarningButton({ warning }: { warning: BackupWarning }): React.ReactElement {
+  const { text, tone } = warning
   const color = tone === 'red' ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300'
   return (
-    <>
-      <div className="h-3 border-l border-slate-300 dark:border-slate-600" />
       <button
         type="button"
         className={`hit-44 flex items-center gap-1.5 text-sm underline ${color}`}
@@ -53,6 +57,11 @@ export function BackupStatusChip(): React.ReactElement | null {
         <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" />
         <span>{text}</span>
       </button>
-    </>
   )
+}
+
+/** Shows when backups aren't keeping a copy off this computer. Quiet while everything is fine. */
+export function BackupStatusChip(): React.ReactElement | null {
+  const warning = useBackupWarning()
+  return warning ? <BackupWarningButton warning={warning} /> : null
 }

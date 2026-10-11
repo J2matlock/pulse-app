@@ -60,7 +60,7 @@ vi.mock('../src/main/database', async () => {
   return {
     ...actual,
     getDb: () => testDb.db,
-    openDatabase: () => {},
+    openDatabase: () => { backupMock.opened++ },
     closeDatabase: () => {},
     resolveDatabasePath: () => '/tmp/test.db',
     cachedStmt: (key: string, sql: string) => testDb.db.prepare(sql),
@@ -83,8 +83,8 @@ vi.mock('../src/main/backup', () => ({
   listAutoBackupsRich: () => [{ timestamp: new Date(), path: '/tmp/backup.db', sizeBytes: 1024 }],
   runScheduledBackup: async (config: unknown) => ({ ran: true }),
   runManualBackup: async (path: string) => ({ destPath: path, sizeBytes: 1024 }),
-  restoreFromDb: async () => '/tmp/safety.db',
-  restoreFromPulseBackup: async () => '/tmp/safety.db',
+  restoreFromDb: async () => { if (backupMock.restoreError) throw backupMock.restoreError; return '/tmp/safety.db' },
+  restoreFromPulseBackup: async () => { if (backupMock.restoreError) throw backupMock.restoreError; return '/tmp/safety.db' },
   getBackupInfo: () => ({ layer1: { count: 1 }, lastAutoBackupFailed: false, lastAutoBackupError: null }),
   verifyBackup: async () => ({ valid: true, rowCount: 10 }),
   getScheduledConfig: () => ({ enabled: false, intervalHours: 24, destinationDir: '/old/dest', lastRunISO: '2026-10-01T09:00:00.000Z' }),
@@ -97,7 +97,7 @@ vi.mock('../src/main/backup', () => ({
   describeBackupError: () => 'The backup couldn\'t be saved.',
   runPreMigrationBackup: () => {},
 }))
-const backupMock = vi.hoisted(() => ({ lastSet: null as unknown, restoreOther: null as null | ((opts: unknown) => Promise<unknown>) }))
+const backupMock = vi.hoisted(() => ({ lastSet: null as unknown, restoreOther: null as null | ((opts: unknown) => Promise<unknown>), restoreError: null as Error | null, opened: 0 }))
 
 vi.mock('../src/main/export', () => ({
   exportCsv: vi.fn(async () => '/tmp/export.csv'),
@@ -347,6 +347,26 @@ describe('BACKUP_RESTORE_OTHER', () => {
     const result = await invoke(IPC.BACKUP_RESTORE_OTHER, path, 'right', 'A-Strong-New-Pass-42', '') as { ok: true; data: { safetyPath: string } }
     expect(result.ok).toBe(true)
     expect(result.data.safetyPath).toBe('/b/pulse-pre-restore-x.pulse-backup')
+  })
+})
+
+describe('a restore that fails before anything is replaced (polish R5)', () => {
+  const path = join(tmpdir(), 'pulse-test-export', 'temp', 'old.pulse-backup')
+  afterEach(() => { backupMock.restoreError = null })
+
+  it.each([IPC.BACKUP_RESTORE_FILE, IPC.BACKUP_RESTORE_AUTO])('%s reopens the database and explains in plain words', async (channel) => {
+    backupMock.restoreError = new Error('end of central directory record signature not found')
+    backupMock.opened = 0
+    const result = await invoke(channel, path) as { ok: false; error: string }
+    expect(result.ok).toBe(false)
+    expect(result.error).toBe("This file is damaged or isn't a Pulse backup. Try a different backup file.")
+    expect(backupMock.opened).toBe(1)
+  })
+
+  it('a damaged backup from another Pulse is explained, not quoted', async () => {
+    backupMock.restoreOther = vi.fn(async () => { throw new Error('Database file hash mismatch — backup may be corrupted') })
+    const result = await invoke(IPC.BACKUP_RESTORE_OTHER, path, 'right', 'A-Strong-New-Pass-42', '') as { ok: false; error: string }
+    expect(result.error).toMatch(/damaged or isn't a Pulse backup/)
   })
 })
 

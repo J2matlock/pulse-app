@@ -66,13 +66,23 @@ export function getAppointment(id: number): Appointment | undefined {
   return getDb().prepare(`${SELECT} WHERE a.id = ?`).get(id) as Appointment | undefined
 }
 
-/** A record's next and last few appointments, for its page */
-export function recordAppointments(rowId: number, today = localDateString(), limit = 5): { upcoming: Appointment[]; past: Appointment[] } {
+/**
+ * A record's next and last few appointments, for its page, with how many
+ * there are in all (the lists stop at five; the section's count shouldn't).
+ * Upcoming counts what's on the calendar so far: a repeating series without
+ * an end keeps adding more as time goes on.
+ */
+export function recordAppointments(rowId: number, today = localDateString(), limit = 5): { upcoming: Appointment[]; past: Appointment[]; upcomingTotal: number; pastTotal: number } {
   ensureMaterialized(addMonths(today, 1))
   const db = getDb()
+  const upcomingWhere = "a.row_id = ? AND a.start_at >= ? AND a.status = 'scheduled'"
+  const pastWhere = "a.row_id = ? AND (a.start_at < ? OR a.status != 'scheduled')"
+  const count = (where: string) => (db.prepare(`SELECT COUNT(*) AS n FROM appointments a WHERE ${where}`).get(rowId, today) as { n: number }).n
   return {
-    upcoming: db.prepare(`${SELECT} WHERE a.row_id = ? AND a.start_at >= ? AND a.status = 'scheduled' ORDER BY a.start_at LIMIT ?`).all(rowId, today, limit) as Appointment[],
-    past: db.prepare(`${SELECT} WHERE a.row_id = ? AND (a.start_at < ? OR a.status != 'scheduled') ORDER BY a.start_at DESC LIMIT ?`).all(rowId, today, limit) as Appointment[],
+    upcoming: db.prepare(`${SELECT} WHERE ${upcomingWhere} ORDER BY a.start_at LIMIT ?`).all(rowId, today, limit) as Appointment[],
+    past: db.prepare(`${SELECT} WHERE ${pastWhere} ORDER BY a.start_at DESC LIMIT ?`).all(rowId, today, limit) as Appointment[],
+    upcomingTotal: count(upcomingWhere),
+    pastTotal: count(pastWhere),
   }
 }
 
@@ -534,14 +544,16 @@ export const OUTCOME_LOOKBACK_DAYS = 14
 /**
  * Appointments from the last two weeks still marked scheduled: nobody said
  * whether they happened, so no note was written and nothing was counted (S-09).
+ * Archived records and deleted lists are left out, as on the calendar, or the
+ * briefing would count appointments nobody can find.
  */
 export function appointmentsNeedingOutcome(today = localDateString()): number {
   if (!featureOn('appointments')) return 0
   const d = new Date(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1, Number(today.slice(8, 10)) - OUTCOME_LOOKBACK_DAYS)
   const from = localDateString(d)
   const r = getDb().prepare(`
-    SELECT COUNT(*) AS n FROM appointments a LEFT JOIN rows r ON r.id = a.row_id
-    WHERE a.status = 'scheduled' AND a.start_at >= ? AND a.start_at < ? AND (a.row_id IS NULL OR r.deleted_at IS NULL)
+    SELECT COUNT(*) AS n FROM appointments a LEFT JOIN rows r ON r.id = a.row_id LEFT JOIN grids g ON g.id = r.grid_id
+    WHERE a.status = 'scheduled' AND a.start_at >= ? AND a.start_at < ? AND ${OPEN_RECORD_SQL}
   `).get(from, today) as { n: number }
   return r.n
 }

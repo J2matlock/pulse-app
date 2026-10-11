@@ -411,7 +411,8 @@ export async function runAutoBackup(): Promise<void> {
   } catch (err) {
     // Clean up partial file
     try { if (existsSync(destPath)) unlinkSync(destPath) } catch (err2) { logNonFatal('backup', 'cleanup partial auto-backup file', err2) }
-    recordAutoBackupFailure(err instanceof Error ? err.message : 'Unknown backup error')
+    // Settings shows this word for word, so it's the plain-language reason, not ENOSPC and a path
+    recordAutoBackupFailure(describeBackupError(err))
     throw err
   }
 

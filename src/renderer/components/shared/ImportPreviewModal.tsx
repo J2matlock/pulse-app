@@ -13,7 +13,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Grid } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
-import { useGridStore } from '../../stores/gridStore'
+import { reloadAfterApply } from '../../utils/reloadAfterApply'
 
 export interface PulseImportPreview {
   name: string
@@ -68,7 +68,7 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
   async function handleApply() {
     setError(null)
     if (applyMode === 'existing' && !selectedGridId) {
-      setError('Please select a grid to apply to.')
+      setError(`Choose a ${t('list')} to add it to.`)
       return
     }
     setApplying(true)
@@ -96,7 +96,8 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
         return
       }
 
-      await useGridStore.getState().loadGridList()
+      // Its deadline rules and, in an existing list, its new columns show straight away
+      await reloadAfterApply(applyMode === 'existing' ? selectedGridId : null)
       onApplied()
     } catch {
       setError('Something went wrong while applying the template. Please try again.')

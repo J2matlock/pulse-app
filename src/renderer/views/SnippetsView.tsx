@@ -331,7 +331,7 @@ export default function SnippetsView(): React.ReactElement {
                 </span>
 
                 {/* Actions */}
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                <div className={`flex items-center gap-1 transition-opacity flex-shrink-0 ${confirmDeleteId === s.id ? '' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'}`}>
                   <button
                     onClick={() => { setEditTarget(s); setShowEditor(true) }}
                     title="Edit"

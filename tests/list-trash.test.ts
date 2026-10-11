@@ -69,6 +69,19 @@ describe('a deleted list', () => {
     expect(listDeletedLists()).toEqual([])
   })
 
+  it('deleting it again while it\'s in the Trash keeps the links it will bring back (polish R6)', () => {
+    const cars = seedGrid(t.db, { name: 'Vehicles', rowCount: 1, columnCount: 1 })
+    const people = seedGrid(t.db, { name: 'Customers', rowCount: 1, columnCount: 1 })
+    const typeId = Number(t.db.prepare("INSERT INTO link_types (from_grid_id, to_grid_id, label_forward, label_backward, cardinality) VALUES (?, ?, 'Owner', 'Vehicles', 'many_to_one')").run(cars.gridId, people.gridId).lastInsertRowid)
+    t.db.prepare('INSERT INTO record_links (link_type_id, from_row_id, to_row_id) VALUES (?, ?, ?)').run(typeId, cars.rowIds[0], people.rowIds[0])
+    trashList(cars.gridId)
+    const before = t.db.prepare('SELECT deleted_at, deleted_snapshot FROM grids WHERE id = ?').get(cars.gridId)
+    trashList(cars.gridId)
+    expect(t.db.prepare('SELECT deleted_at, deleted_snapshot FROM grids WHERE id = ?').get(cars.gridId)).toEqual(before)
+    restoreList(cars.gridId)
+    expect(count('SELECT COUNT(*) AS n FROM record_links WHERE link_type_id = ?', typeId)).toBe(1)
+  })
+
   it('can be removed for good, records and all, only from the Trash', () => {
     const g = seedGrid(t.db, { rowCount: 2, columnCount: 1 })
     expect(purgeList(g.gridId)).toBe(false)

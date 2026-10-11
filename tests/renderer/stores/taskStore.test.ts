@@ -69,9 +69,14 @@ describe('taskStore', () => {
     it('sets loading false even on IPC failure', async () => {
       mockInvoke.mockResolvedValue({ ok: false, error: 'DB error' })
 
-      await useTaskStore.getState().loadTasks()
+      expect(await useTaskStore.getState().loadTasks()).toBe(false)
       expect(useTaskStore.getState().loading).toBe(false)
       expect(useTaskStore.getState().tasks).toEqual([])
+    })
+
+    it('resolves true when the tasks loaded', async () => {
+      mockInvoke.mockResolvedValue({ ok: true, data: [] })
+      expect(await useTaskStore.getState().loadTasks()).toBe(true)
     })
   })
 

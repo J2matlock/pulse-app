@@ -293,6 +293,22 @@ function SortableGridItem({
   )
 }
 
+/** Whether a scroll box has more below what it shows (kept up to date as it scrolls or resizes) */
+function useMoreBelow(ref: React.RefObject<HTMLElement | null>): boolean {
+  const [more, setMore] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const check = () => setMore(el.scrollTop + el.clientHeight < el.scrollHeight - 2)
+    check()
+    el.addEventListener('scroll', check, { passive: true })
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(check)
+    if (ro) { ro.observe(el); for (const child of Array.from(el.children)) ro.observe(child) }
+    return () => { el.removeEventListener('scroll', check); ro?.disconnect() }
+  }, [ref])
+  return more
+}
+
 export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
   const { grids, gridListLoaded, activeGridId } = useGridStore(useShallow(s => ({
     grids: s.grids, gridListLoaded: s.gridListLoaded, activeGridId: s.activeGridId,
@@ -302,6 +318,8 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
     deleteGrid: s.deleteGrid, updateGridMeta: s.updateGridMeta, reorderGrids: s.reorderGrids,
   })))
   const { t } = useVocab(null)
+  const navRef = useRef<HTMLElement>(null)
+  const moreBelow = useMoreBelow(navRef)
   const showTasks = useFeature('tasks')
   const showContacts = useFeature('contactsDirectory')
   const showSnippets = useFeature('snippets')
@@ -448,8 +466,13 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
         </button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-2" aria-label="Main navigation">
+      {/* Navigation. On a short screen the last item fades out rather than being cut in half, so it
+          reads as "more below"; the collapsed rail hides its scrollbar, which covered the list badges */}
+      <nav ref={navRef} className="flex-1 overflow-y-auto py-2" aria-label="Main navigation" data-more-below={moreBelow || undefined}
+        style={{
+          ...(collapsed ? { scrollbarWidth: 'none' as const } : {}),
+          ...(moreBelow ? { maskImage: 'linear-gradient(to bottom, black calc(100% - 40px), transparent)' } : {}),
+        }}>
         {/* Workspace group */}
         <div role="group" aria-label="Workspace">
           {!collapsed && (

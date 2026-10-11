@@ -3,7 +3,7 @@ import { X, ChevronDown } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Grid } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
-import { useGridStore } from '../../stores/gridStore'
+import { reloadAfterApply } from '../../utils/reloadAfterApply'
 import type { SetupTemplate } from './types'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
@@ -23,7 +23,6 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
   const [selectedGridId, setSelectedGridId] = useState<number | null>(grids[0]?.id ?? null)
   const [applying, setApplying] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const loadGridList = useGridStore(s => s.loadGridList)
   const trapRef = useRef<HTMLDivElement>(null)
 
   useFocusTrap(trapRef, true)
@@ -39,7 +38,7 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
   async function handleApply() {
     setError(null)
     if (applyMode === 'existing' && !selectedGridId) {
-      setError('Please select a grid.')
+      setError(`Choose a ${t('list')} first.`)
       return
     }
     setApplying(true)
@@ -55,7 +54,8 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
         setError(res.error ?? 'Could not apply the template. Please try again.')
         return
       }
-      await loadGridList()
+      // Its deadline rules and, in an existing list, its new columns show straight away
+      await reloadAfterApply(applyMode === 'existing' ? selectedGridId : null)
       onApplied()
     } catch {
       setError('Something went wrong. Please try again.')

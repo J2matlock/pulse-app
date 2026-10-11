@@ -27,7 +27,7 @@ function longDate(ymd: string): string {
 function formatValue(value: string | null | undefined, type: string): string {
   if (value == null || value === '') return ''
   switch (type) {
-    case 'date': return longDate(value)
+    case 'date': case 'deadline': return longDate(value)
     case 'checkbox': return value === 'true' || value === '1' ? 'Yes' : 'No'
     case 'currency': {
       const n = Number(value)

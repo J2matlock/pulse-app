@@ -13,6 +13,7 @@ import { useVocab, useVocabByList } from '../hooks/useVocab'
 import { useFeature } from '../hooks/useFeature'
 import { TrashFiles } from '../components/shared/TrashFiles'
 import { useGridStore } from '../stores/gridStore'
+import { useUndoStore } from '../stores/undoStore'
 import { friendlyError } from '../utils/friendlyError'
 
 type DeletedList = { id: number; name: string; deleted_at: string; records: number }
@@ -73,16 +74,21 @@ export default function TrashView() {
     toast.success(`The ${t('list')} is back, with its ${t('record', { many: true })}.`)
   }
 
+  // An undo step that brings back what was just removed for good would fail, and a failed step
+  // stays on top of the stack, so every later Ctrl+Z hit the same error (polish R2)
+  const forgetUndoSteps = () => useUndoStore.getState().clear()
+
   const purgeList = async (gridId: number) => {
     const res = await safeInvoke(IPC.GRID_PURGE, gridId)
     if (!res.ok) { toast.error(friendlyError(res.error)); return }
+    forgetUndoSteps()
     await loadTrash()
   }
 
   const purgeRow = async (rowId: number) => {
     try {
       const result = await safeInvoke(IPC.ROW_PURGE, rowId)
-      if (result.ok) setRows(r => r.filter(row => row.id !== rowId))
+      if (result.ok) { setRows(r => r.filter(row => row.id !== rowId)); forgetUndoSteps() }
     } catch (err) {
       rlog.error('TrashView', 'Failed to purge row', err)
     }
@@ -91,7 +97,7 @@ export default function TrashView() {
   // One call, one transaction (X-38)
   const emptyTrash = async () => {
     const result = await safeInvoke(IPC.ROW_PURGE_ALL)
-    if (result.ok) { setRows([]); setLists([]) }
+    if (result.ok) { setRows([]); setLists([]); forgetUndoSteps() }
     else {
       rlog.error('TrashView', 'Failed to empty trash', result.error)
       toast.error("We couldn't empty the Trash. Please try again.")

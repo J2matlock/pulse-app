@@ -15,6 +15,7 @@
 import { getDb } from './database'
 import { deleteLinksForGrid } from './links'
 import { hasDisplayFormat, refreshDisplayNames } from './display-names'
+import { keepSamplesUntouched } from './sample-marks'
 
 export class TrashError extends Error {}
 
@@ -103,7 +104,7 @@ export function restoreColumn(deletedId: number): { columnId: number; gridId: nu
   if (db.prepare('SELECT 1 FROM columns WHERE id = ?').get(entry.column_id)) throw new TrashError('That column is already back.')
   if (!db.prepare('SELECT 1 FROM grids WHERE id = ?').get(entry.grid_id)) throw new TrashError(`Its list is gone, so the column can't come back.`)
   const hasRowId = (rows: Row[]) => rows.length > 0 && 'row_id' in rows[0]!
-  db.transaction(() => {
+  db.transaction(() => keepSamplesUntouched(db, entry.grid_id, () => {
     // One name column per list: it comes back as the name only if the list has none now
     const named = db.prepare('SELECT 1 FROM columns WHERE grid_id = ? AND is_name_column = 1').get(entry.grid_id)
     insertRow('columns', { ...snap.column, ...(named ? { is_name_column: 0 } : {}) })
@@ -115,7 +116,7 @@ export function restoreColumn(deletedId: number): { columnId: number; gridId: nu
     }
     db.prepare('DELETE FROM deleted_columns WHERE id = ?').run(deletedId)
     if (hasDisplayFormat(entry.grid_id) || !named) refreshDisplayNames(entry.grid_id)
-  })()
+  }))()
   return { columnId: entry.column_id, gridId: entry.grid_id }
 }
 
@@ -132,6 +133,8 @@ export function trashList(gridId: number): void {
   const db = getDb()
   const grid = db.prepare('SELECT id, is_active FROM grids WHERE id = ?').get(gridId) as { id: number; is_active: number } | undefined
   if (!grid) throw new TrashError('That list no longer exists.')
+  // Already there (a double click, a second window): trashing again would overwrite its saved links with none
+  if (grid.is_active === 0) return
   db.transaction(() => {
     const linkTypes = db.prepare('SELECT * FROM link_types WHERE from_grid_id = ? OR to_grid_id = ?').all(gridId, gridId) as Row[]
     const typeIds = new Set(linkTypes.map(t => t.id as number))

@@ -71,6 +71,18 @@ describe('StatusBar', () => {
     expect(screen.getByText('My Caseload')).toBeDefined()
   })
 
+  it('puts no separator in front of the list name when nothing comes before it (polish V1)', () => {
+    const { container } = render(at('/grid'))
+    expect(container.querySelectorAll('footer [aria-hidden="true"].border-l')).toHaveLength(0)
+  })
+
+  it('takes no room on a screen with nothing to say (polish V1)', () => {
+    const { container } = render(at('/dashboard'))
+    expect((container.querySelector('footer') as HTMLElement).style.height).toBe('0px')
+    // The save status stays in place, so a save is still read out
+    expect(screen.getByRole('status')).toBeDefined()
+  })
+
   it('stays out of screens that cover every list', () => {
     render(at('/calendar'))
     expect(screen.queryByText('My Caseload')).toBeNull()

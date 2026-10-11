@@ -16,6 +16,7 @@ import {
   sanitizeCsvFormula,
   formatCellValue,
   batchGetClientNames,
+  stripHtml,
 } from './export-shared'
 import type { SupervisorReportOptions } from './export-shared'
 import { parseDbTimestamp } from '../shared/dates'
@@ -45,30 +46,30 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   const totalActive = (db.prepare('SELECT COUNT(*) as n FROM rows WHERE grid_id = ? AND is_active = 1').get(gridId) as { n: number }).n
   const newAdded = (db.prepare(`
     SELECT COUNT(*) as n FROM rows WHERE grid_id = ? AND is_active = 1
-    AND date(created_at) >= ? AND date(created_at) <= ?
+    AND date(created_at, 'localtime') >= ? AND date(created_at, 'localtime') <= ?
   `).get(gridId, dateRange.start, dateRange.end) as { n: number }).n
 
   const archivedClients = (db.prepare(`
     SELECT COUNT(*) as n FROM rows
     WHERE grid_id = ? AND is_active = 0 AND archived_at IS NOT NULL AND deleted_at IS NULL
-    AND date(archived_at) >= ? AND date(archived_at) <= ?
+    AND date(archived_at, 'localtime') >= ? AND date(archived_at, 'localtime') <= ?
   `).get(gridId, dateRange.start, dateRange.end) as { n: number }).n
 
   const deletedClients = (db.prepare(`
     SELECT COUNT(*) as n FROM rows
     WHERE grid_id = ? AND deleted_at IS NOT NULL
-    AND date(deleted_at) >= ? AND date(deleted_at) <= ?
+    AND date(deleted_at, 'localtime') >= ? AND date(deleted_at, 'localtime') <= ?
   `).get(gridId, dateRange.start, dateRange.end) as { n: number }).n
 
   // Names of archived clients in this period (for the report detail)
   const archivedClientNames = archivedClients > 0
     ? db.prepare(`
         SELECT r.display_name AS client_name,
-               date(r.archived_at) AS archived_date,
+               date(r.archived_at, 'localtime') AS archived_date,
                COALESCE(r.archived_reason, '') AS reason
         FROM rows r
         WHERE r.grid_id = ? AND r.is_active = 0 AND r.archived_at IS NOT NULL AND r.deleted_at IS NULL
-          AND date(r.archived_at) >= ? AND date(r.archived_at) <= ?
+          AND date(r.archived_at, 'localtime') >= ? AND date(r.archived_at, 'localtime') <= ?
         ORDER BY r.archived_at DESC
       `).all(gridId, dateRange.start, dateRange.end) as Array<{ client_name: string; archived_date: string; reason: string }>
     : []
@@ -77,10 +78,10 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   const deletedClientNames = deletedClients > 0
     ? db.prepare(`
         SELECT r.display_name AS client_name,
-               date(r.deleted_at) AS deleted_date
+               date(r.deleted_at, 'localtime') AS deleted_date
         FROM rows r
         WHERE r.grid_id = ? AND r.deleted_at IS NOT NULL
-          AND date(r.deleted_at) >= ? AND date(r.deleted_at) <= ?
+          AND date(r.deleted_at, 'localtime') >= ? AND date(r.deleted_at, 'localtime') <= ?
         ORDER BY r.deleted_at DESC
       `).all(gridId, dateRange.start, dateRange.end) as Array<{ client_name: string; deleted_date: string }>
     : []
@@ -89,10 +90,10 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   const newClientNames = newAdded > 0
     ? db.prepare(`
         SELECT r.display_name AS client_name,
-               date(r.created_at) AS added_date
+               date(r.created_at, 'localtime') AS added_date
         FROM rows r
         WHERE r.grid_id = ? AND r.is_active = 1
-          AND date(r.created_at) >= ? AND date(r.created_at) <= ?
+          AND date(r.created_at, 'localtime') >= ? AND date(r.created_at, 'localtime') <= ?
         ORDER BY r.created_at DESC
       `).all(gridId, dateRange.start, dateRange.end) as Array<{ client_name: string; added_date: string }>
     : []
@@ -228,12 +229,12 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       const completedTasks = db.prepare(`
         SELECT title, priority, category, completed_at, due_date FROM caseload_tasks
         WHERE (grid_id = ? OR grid_id IS NULL)
-          AND is_completed = 1 AND completed_at >= ? AND completed_at < ?
+          AND is_completed = 1 AND date(completed_at, 'localtime') BETWEEN ? AND ?
         ORDER BY completed_at DESC
       `).all(gridId, dateRange.start, dateRange.end) as Array<{ title: string; priority: string; category: string | null; completed_at: string; due_date: string | null }>
       csvSections.push([], ['Task Summary'], ['Task', 'Priority', 'Category', 'Due Date', 'Completed'])
       for (const t of completedTasks) {
-        csvSections.push([sanitizeCsvFormula(t.title), t.priority, sanitizeCsvFormula(t.category ?? ''), t.due_date ?? '', t.completed_at.slice(0, 10)])
+        csvSections.push([sanitizeCsvFormula(t.title), t.priority, sanitizeCsvFormula(t.category ?? ''), t.due_date ?? '', localDateString(parseDbTimestamp(t.completed_at))])
       }
       if (completedTasks.length === 0) csvSections.push(['No tasks completed in this period.'])
     }
@@ -242,14 +243,14 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       const logRows = db.prepare(`
         SELECT cl.content, cl.log_type, cl.occurred_at AS created_at, r.id as row_id
         FROM case_log cl JOIN rows r ON r.id = cl.row_id
-        WHERE r.grid_id = ? AND cl.log_type != 'system'
+        WHERE r.grid_id = ? AND cl.log_type != 'system' AND cl.voided_at IS NULL AND r.deleted_at IS NULL
           AND date(cl.occurred_at, 'localtime') >= ? AND date(cl.occurred_at, 'localtime') <= ?
         ORDER BY cl.occurred_at DESC LIMIT 200
       `).all(gridId, dateRange.start, dateRange.end) as Array<{ content: string; log_type: string; created_at: string; row_id: number }>
       const activityNames = batchGetClientNames(db, logRows.map(e => e.row_id), gridId)
       csvSections.push([], [`Activity Log (${ActsCap})`], ['Date', 'Type', `${RecCap}`, 'Notes'])
       for (const e of logRows) {
-        csvSections.push([localDateString(parseDbTimestamp(e.created_at)), activityLabel(e.log_type), sanitizeCsvFormula(activityNames.get(e.row_id) || `${RecCap} #${e.row_id}`), sanitizeCsvFormula(e.content)])
+        csvSections.push([localDateString(parseDbTimestamp(e.created_at)), activityLabel(e.log_type), sanitizeCsvFormula(activityNames.get(e.row_id) || `${RecCap} #${e.row_id}`), sanitizeCsvFormula(stripHtml(e.content))])
       }
       if (logRows.length === 0) csvSections.push([`No ${acts} in this period.`])
     }
@@ -259,13 +260,13 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
         SELECT cl.content, cl.created_at, r.id as row_id
         FROM case_log cl JOIN rows r ON r.id = cl.row_id
         WHERE r.grid_id = ? AND cl.log_type = 'system'
-          AND date(cl.created_at) >= ? AND date(cl.created_at) <= ?
+          AND date(cl.created_at, 'localtime') >= ? AND date(cl.created_at, 'localtime') <= ?
         ORDER BY cl.created_at DESC LIMIT 500
       `).all(gridId, dateRange.start, dateRange.end) as Array<{ content: string; created_at: string; row_id: number }>
       const sysNames = batchGetClientNames(db, sysRows.map(e => e.row_id), gridId)
       csvSections.push([], ['System Activity (Auto-Logged)'], ['Date', `${RecCap}`, 'Activity'])
       for (const e of sysRows) {
-        csvSections.push([e.created_at.slice(0, 10), sanitizeCsvFormula(sysNames.get(e.row_id) || `${RecCap} #${e.row_id}`), sanitizeCsvFormula(e.content)])
+        csvSections.push([localDateString(parseDbTimestamp(e.created_at)), sanitizeCsvFormula(sysNames.get(e.row_id) || `${RecCap} #${e.row_id}`), sanitizeCsvFormula(e.content)])
       }
       if (sysRows.length === 0) csvSections.push(['No system activity in this period.'])
     }
@@ -509,7 +510,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
     const completedTasks = db.prepare(`
       SELECT title, priority, category, completed_at, due_date FROM caseload_tasks
       WHERE (grid_id = ? OR grid_id IS NULL)
-        AND is_completed = 1 AND completed_at >= ? AND completed_at < ?
+        AND is_completed = 1 AND date(completed_at, 'localtime') BETWEEN ? AND ?
       ORDER BY completed_at DESC
     `).all(gridId, dateRange.start, dateRange.end) as Array<{ title: string; priority: string; category: string | null; completed_at: string; due_date: string | null }>
 
@@ -549,7 +550,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       SELECT cl.content, cl.log_type, cl.occurred_at AS created_at, r.id as row_id
       FROM case_log cl
       JOIN rows r ON r.id = cl.row_id
-      WHERE r.grid_id = ? AND cl.log_type != 'system'
+      WHERE r.grid_id = ? AND cl.log_type != 'system' AND cl.voided_at IS NULL AND r.deleted_at IS NULL
         AND date(cl.occurred_at, 'localtime') >= ? AND date(cl.occurred_at, 'localtime') <= ?
       ORDER BY cl.occurred_at DESC
       LIMIT 200
@@ -572,7 +573,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
           parseDbTimestamp(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
           activityLabel(e.log_type),
           pdfActivityNames.get(e.row_id) || `${RecCap} #${e.row_id}`,
-          e.content.slice(0, 120)
+          stripHtml(e.content).slice(0, 120)
         ]),
         startY: y,
         styles: { fontSize: 7, cellPadding: 1.5 },
@@ -591,7 +592,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       FROM case_log cl
       JOIN rows r ON r.id = cl.row_id
       WHERE r.grid_id = ? AND cl.log_type = 'system'
-        AND date(cl.created_at) >= ? AND date(cl.created_at) <= ?
+        AND date(cl.created_at, 'localtime') >= ? AND date(cl.created_at, 'localtime') <= ?
       ORDER BY cl.created_at DESC
       LIMIT 500
     `).all(gridId, dateRange.start, dateRange.end) as Array<{ content: string; created_at: string; row_id: number }>

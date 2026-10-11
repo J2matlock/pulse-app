@@ -368,7 +368,9 @@ function evaluateCalendar(rule: EngineRule, ctx: RecordContext): DeadlineResult 
   if (!due) return NONE
   const when = cfg.fromColumnMonth ? 'every year on that date'
     : sorted.length === 12 ? `monthly on the ${day === 'last' ? 'last day' : ordinal(day)}`
-    : `${sorted.map(m => MONTH_NAMES[m - 1]).join(', ')} ${day === 'last' ? '(last day)' : day}`
+    // "last day of Oct", not "Oct (last day)" inside the detail's own brackets
+    : day === 'last' ? `last day of ${sorted.map(m => MONTH_NAMES[m - 1]).join(', ')}`
+    : `${sorted.map(m => MONTH_NAMES[m - 1]).join(', ')} ${day}`
   const detail = `Due ${formatDue(due)} (${when}${doneOn ? `; last done ${formatDue(doneOn)}` : ''})`
   const res = result(due, ctx.today, detail)
   // Not shown until the lead time, unless it's already late
@@ -555,14 +557,17 @@ function evaluateKind(rule: EngineRule, ctx: RecordContext): DeadlineResult {
 
 /**
  * The date an extension is tied to: the anchor for relative and sequence
- * rules, the rule's own date for the rest. A different date means a new
- * cycle, and the extension no longer applies.
+ * rules, the authorization's end date for quotas (their own column holds
+ * nothing, so a renewal would otherwise keep the extension forever), the
+ * rule's own date for the rest. A different date means a new cycle, and
+ * the extension no longer applies.
  */
 export function extensionAnchor(rule: EngineRule, columnDate: string | null, values: Record<number, string | null> | undefined): string {
   if ((rule.kind === 'relative' || rule.kind === 'sequence') && rule.config) {
     const a = (rule.config as RelativeConfig | SequenceConfig).anchorColumnId
     return toYmd(a === 'self' ? columnDate : values?.[a] ?? null) ?? ''
   }
+  if (rule.kind === 'quota' && rule.config) return toYmd(values?.[(rule.config as QuotaConfig).endColumnId] ?? null) ?? ''
   return toYmd(columnDate) ?? ''
 }
 
@@ -577,6 +582,8 @@ export function matchExtension(exts: StoredExtension[] | undefined, anchor: stri
 export function applyExtension(res: DeadlineResult, ext: { newDue: string; reason: string }, today: string): DeadlineResult {
   if (!res.due || res.state === 'done' || res.state === 'paused' || res.state === 'none') return res
   const moved = result(ext.newDue, today, `Extended to ${formatDue(ext.newDue)} (was ${formatDue(res.due)}): ${ext.reason}`, { label: res.label, step: res.step })
+  // A used-up quota still needs action now: a later end date doesn't give back visits
+  if (isUsedUp(res)) return { ...moved, state: 'overdue', daysUntil: Math.min(moved.daysUntil ?? 0, 0), extended: { from: res.due, reason: ext.reason } }
   return { ...moved, extended: { from: res.due, reason: ext.reason } }
 }
 
