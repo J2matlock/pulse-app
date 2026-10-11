@@ -87,11 +87,17 @@ vi.mock('../src/main/backup', () => ({
   restoreFromPulseBackup: async () => '/tmp/safety.db',
   getBackupInfo: () => ({ layer1: { count: 1 }, lastAutoBackupFailed: false, lastAutoBackupError: null }),
   verifyBackup: async () => ({ valid: true, rowCount: 10 }),
-  getScheduledConfig: () => ({ enabled: false, intervalHours: 24, destinationDir: null }),
-  setScheduledConfig: () => {},
+  getScheduledConfig: () => ({ enabled: false, intervalHours: 24, destinationDir: '/old/dest', lastRunISO: '2026-10-01T09:00:00.000Z' }),
+  setScheduledConfig: (cfg: unknown) => { backupMock.lastSet = cfg },
   checkAndRunScheduled: async () => {},
+  runScheduledBackupNow: async () => ({ ran: true, destPath: '/old/dest/pulse-scheduled-x.pulse-backup', lastRunISO: '2026-10-10T09:00:00.000Z' }),
+  restoreOtherPulseBackup: (opts: unknown) => backupMock.restoreOther!(opts),
+  getBackupMadeInfo: async () => ({ madeAt: '2026-10-09T08:00:00.000Z', appVersion: '2.2.0' }),
+  getBackupHealth: () => ({ lastOffsiteISO: null, trackingSinceISO: '2020-01-01T00:00:00.000Z', scheduled: { enabled: false, intervalHours: 24, lastRunISO: null, lastError: null, overdue: false } }),
+  describeBackupError: () => 'The backup couldn\'t be saved.',
   runPreMigrationBackup: () => {},
 }))
+const backupMock = vi.hoisted(() => ({ lastSet: null as unknown, restoreOther: null as null | ((opts: unknown) => Promise<unknown>) }))
 
 vi.mock('../src/main/export', () => ({
   exportCsv: async () => '/tmp/export.csv',
@@ -240,6 +246,21 @@ describe('BACKUP_SCHEDULED_SET_CONFIG', () => {
     const result = await invoke(IPC.BACKUP_SCHEDULED_SET_CONFIG, { enabled: true, intervalHours: 800 }) as { ok: false }
     expect(result.ok).toBe(false)
   })
+
+  it('keeps the recorded last run when the renderer saves settings', async () => {
+    const result = await invoke(IPC.BACKUP_SCHEDULED_SET_CONFIG, { enabled: true, intervalHours: 12, lastRunISO: null }) as { ok: true }
+    expect(result.ok).toBe(true)
+    expect(backupMock.lastSet).toEqual({ enabled: true, intervalHours: 12, destinationDir: '/old/dest', lastRunISO: '2026-10-01T09:00:00.000Z' })
+  })
+})
+
+describe('BACKUP_SCHEDULED_RUN_NOW', () => {
+  it('runs the scheduled backup in main and returns the result', async () => {
+    const result = await invoke(IPC.BACKUP_SCHEDULED_RUN_NOW) as { ok: true; data: { ran: boolean; lastRunISO: string } }
+    expect(result.ok).toBe(true)
+    expect(result.data.ran).toBe(true)
+    expect(result.data.lastRunISO).toBe('2026-10-10T09:00:00.000Z')
+  })
 })
 
 describe('BACKUP_GET_STATUS', () => {
@@ -248,6 +269,20 @@ describe('BACKUP_GET_STATUS', () => {
     expect(result.ok).toBe(true)
     expect(result.data).toHaveProperty('lastAutoBackup')
     expect(result.data).toHaveProperty('lastAutoBackupSuccess')
+  })
+
+  it('reminds by default when nothing has been saved to another place', async () => {
+    const result = await invoke(IPC.BACKUP_GET_STATUS) as { ok: true; data: { reminderEnabled: boolean; offsiteOverdue: boolean; remindAfterDays: number } }
+    expect(result.data.reminderEnabled).toBe(true)
+    expect(result.data.remindAfterDays).toBe(7)
+    expect(result.data.offsiteOverdue).toBe(true)
+  })
+
+  it('stays quiet when the user switched reminders off', async () => {
+    testDb.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('backup_reminder_enabled', 'false')").run()
+    const result = await invoke(IPC.BACKUP_GET_STATUS) as { ok: true; data: { reminderEnabled: boolean; offsiteOverdue: boolean } }
+    expect(result.data.reminderEnabled).toBe(false)
+    expect(result.data.offsiteOverdue).toBe(false)
   })
 })
 
@@ -262,6 +297,48 @@ describe('BACKUP_VALIDATE_DESTINATION', () => {
     const result = await invoke(IPC.BACKUP_VALIDATE_DESTINATION, '/nonexistent/path/to/dir') as { ok: true; data: { valid: boolean } }
     expect(result.ok).toBe(true)
     expect(result.data.valid).toBe(false)
+  })
+})
+
+describe('IMPORT_UNDO (audit X-19)', () => {
+  it('moves the imported records to Trash, and only that list\'s', async () => {
+    const a = seedGrid(testDb.db, { rowCount: 3 })
+    const b = seedGrid(testDb.db, { name: 'Other', rowCount: 1 })
+    const result = await invoke(IPC.IMPORT_UNDO, a.gridId, [...a.rowIds.slice(0, 2), b.rowIds[0]]) as { ok: true; data: { moved: number } }
+    expect(result.ok).toBe(true)
+    expect(result.data.moved).toBe(2)
+    const trashed = testDb.db.prepare('SELECT COUNT(*) AS n FROM rows WHERE deleted_at IS NOT NULL').get() as { n: number }
+    expect(trashed.n).toBe(2)
+  })
+
+  it('rejects an empty or bad request', async () => {
+    expect((await invoke(IPC.IMPORT_UNDO, 1, []) as { ok: boolean }).ok).toBe(false)
+    expect((await invoke(IPC.IMPORT_UNDO, 0, [1]) as { ok: boolean }).ok).toBe(false)
+  })
+})
+
+describe('BACKUP_RESTORE_OTHER', () => {
+  const path = join(tmpdir(), 'pulse-test-export', 'temp', 'old.pulse-backup')
+
+  it('rejects a weak new password before touching anything', async () => {
+    backupMock.restoreOther = vi.fn()
+    const result = await invoke(IPC.BACKUP_RESTORE_OTHER, path, 'old secret', 'short', '') as { ok: false }
+    expect(result.ok).toBe(false)
+    expect(backupMock.restoreOther).not.toHaveBeenCalled()
+  })
+
+  it('explains a wrong password in plain words', async () => {
+    backupMock.restoreOther = vi.fn(async () => { throw new Error('Incorrect password or recovery key') })
+    const result = await invoke(IPC.BACKUP_RESTORE_OTHER, path, 'wrong', 'A-Strong-New-Pass-42', '') as { ok: false; error: string }
+    expect(result.ok).toBe(false)
+    expect(result.error).toMatch(/doesn't match this backup/)
+  })
+
+  it('returns the safety copy path', async () => {
+    backupMock.restoreOther = vi.fn(async () => ({ safetyPath: '/b/pulse-pre-restore-x.pulse-backup', schemaVersion: 43 }))
+    const result = await invoke(IPC.BACKUP_RESTORE_OTHER, path, 'right', 'A-Strong-New-Pass-42', '') as { ok: true; data: { safetyPath: string } }
+    expect(result.ok).toBe(true)
+    expect(result.data.safetyPath).toBe('/b/pulse-pre-restore-x.pulse-backup')
   })
 })
 
@@ -486,6 +563,22 @@ describe('SETUP_TEMPLATE_EXPORT', () => {
   it('rejects invalid grid ID', async () => {
     const result = await invoke(IPC.SETUP_TEMPLATE_EXPORT, 0, '/tmp/out.pulse') as { ok: false }
     expect(result.ok).toBe(false)
+  })
+})
+
+describe('SETUP_TEMPLATE_EXPORT_SAVED (audit X-27)', () => {
+  const dest = join(tmpdir(), 'pulse-test-export', 'temp', 'mine.pulse')
+
+  it('exports a template from the library by its id', async () => {
+    const id = testDb.db.prepare(`INSERT INTO setup_templates (name, description, template_data, is_system, created_at) VALUES ('Mine', NULL, '{"name":"Mine","columns":[]}', 0, datetime('now'))`).run().lastInsertRowid as number
+    const result = await invoke(IPC.SETUP_TEMPLATE_EXPORT_SAVED, id, dest) as { ok: boolean }
+    expect(result.ok).toBe(true)
+  })
+
+  it('says so when the template is gone', async () => {
+    const result = await invoke(IPC.SETUP_TEMPLATE_EXPORT_SAVED, 999999, dest) as { ok: false; error: string }
+    expect(result.ok).toBe(false)
+    expect(result.error).toMatch(/doesn't exist/)
   })
 })
 

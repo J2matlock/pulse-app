@@ -83,6 +83,32 @@ describe('SnippetsView', () => {
     })
   })
 
+  it('refuses a trigger another snippet already uses, keeping the text (audit X-34)', async () => {
+    mockInvoke.mockResolvedValue({ ok: true, data: sampleSnippets })
+    render(<SnippetsView />)
+    await waitFor(() => expect(screen.getByText('/lm')).toBeDefined())
+    fireEvent.click(screen.getByText('New Snippet'))
+    fireEvent.change(await screen.findByLabelText(/Trigger/), { target: { value: 'LM' } })
+    fireEvent.change(screen.getByLabelText(/Expansion/), { target: { value: 'A long signature' } })
+    fireEvent.click(screen.getByText('Add Snippet'))
+    expect(await screen.findByText(/already used by another snippet/)).toBeDefined()
+    expect((screen.getByLabelText(/Expansion/) as HTMLTextAreaElement).value).toBe('A long signature')
+    expect(mockInvoke).not.toHaveBeenCalledWith('snippet:create', expect.anything(), expect.anything(), expect.anything())
+  })
+
+  it('stays open when saving fails', async () => {
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'snippet:create' ? { ok: false, error: 'UNIQUE constraint failed' } : { ok: true, data: [] }))
+    render(<SnippetsView />)
+    await waitFor(() => expect(screen.getByText('New Snippet')).toBeDefined())
+    fireEvent.click(screen.getByText('New Snippet'))
+    fireEvent.change(await screen.findByLabelText(/Trigger/), { target: { value: 'sig' } })
+    fireEvent.change(screen.getByLabelText(/Expansion/), { target: { value: 'Signature text' } })
+    fireEvent.click(screen.getByText('Add Snippet'))
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('snippet:create', 'sig', 'Signature text', null))
+    expect(screen.getByText('Add Snippet')).toBeDefined()
+    expect((screen.getByLabelText(/Expansion/) as HTMLTextAreaElement).value).toBe('Signature text')
+  })
+
   it('filters snippets by search input', async () => {
     mockInvoke.mockResolvedValue({ ok: true, data: sampleSnippets })
 

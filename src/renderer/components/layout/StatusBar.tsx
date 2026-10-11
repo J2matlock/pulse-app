@@ -4,6 +4,7 @@ import { useGridStore } from '../../stores/gridStore'
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
+import { BackupStatusChip } from './BackupStatusChip'
 
 export function StatusBar(): React.ReactElement {
   const { rows, grids, activeGridId, isSaving, saveError, searchQuery, acuityEnabled: acuityFlag, acuityLevels } = useGridStore(useShallow(s => ({
@@ -79,6 +80,8 @@ export function StatusBar(): React.ReactElement {
           <span className="text-sm truncate">{activeGrid.name}</span>
         </>
       )}
+
+      <BackupStatusChip />
     </footer>
   )
 }

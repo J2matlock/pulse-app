@@ -4,7 +4,7 @@ import { IPC } from '../../shared/ipc-channels'
 import { useUndoStore } from './undoStore'
 import { rlog } from '../utils/rendererLogger'
 import { storeInvoke } from '../utils/safeInvoke'
-import { normalizeAutoLockMinutes } from '../../shared/constants'
+import { normalizeAutoLockMinutes, AUTO_LOCK_DEFAULT_MINUTES } from '../../shared/constants'
 
 interface SettingsState {
   isLocked: boolean
@@ -46,7 +46,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   isLocked: true,
   isPasswordSetup: false,
   theme: 'dark',
-  autoLockMinutes: 30,
+  autoLockMinutes: AUTO_LOCK_DEFAULT_MINUTES,
   focusModeOpen: false,
   recoverySession: false,
   uiScale: 100,

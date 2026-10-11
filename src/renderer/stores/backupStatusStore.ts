@@ -1,32 +1,24 @@
 import { create } from 'zustand'
 import { storeInvoke } from '../utils/safeInvoke'
+import type { BackupStatusResult } from '../../shared/ipc-contract'
 
-interface BackupStatus {
-  lastAutoBackup: string | null
-  lastAutoBackupSuccess: boolean
-  lastAutoBackupError: string | null
+interface BackupStatusState {
+  status: BackupStatusResult | null
   loadedAt: number | null
   loading: boolean
   loadStatus: () => Promise<void>
 }
 
-export const useBackupStatusStore = create<BackupStatus>((set) => ({
-  lastAutoBackup: null,
-  lastAutoBackupSuccess: true,
-  lastAutoBackupError: null,
+/** Whether backups are actually happening, for the status bar and reminders. */
+export const useBackupStatusStore = create<BackupStatusState>((set) => ({
+  status: null,
   loadedAt: null,
   loading: false,
   loadStatus: async () => {
     set({ loading: true })
     try {
-      const data = await storeInvoke<{ lastAutoBackup: string | null; lastAutoBackupSuccess: boolean; lastAutoBackupError: string | null }>('backup:get-status')
-      set({
-        lastAutoBackup: data.lastAutoBackup,
-        lastAutoBackupSuccess: data.lastAutoBackupSuccess,
-        lastAutoBackupError: data.lastAutoBackupError,
-        loadedAt: Date.now(),
-        loading: false,
-      })
+      const status = await storeInvoke('backup:get-status')
+      set({ status, loadedAt: Date.now(), loading: false })
     } catch {
       set({ loading: false })
     }

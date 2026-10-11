@@ -53,7 +53,7 @@ export interface DeadlineQuery {
 
 type RuleFields = { kind: string | null; rule_config: string | null; rule_condition: string | null; business_days: number | null }
 
-/** Days off for business-day rules (Settings → Alerts → Days off). */
+/** Days off for business-day rules (Settings → Deadlines & reminders → Days off). */
 export function loadWorkCalendar(): WorkCalendar {
   const c = workCalendarSetting()
   return { holidays: new Set(c.holidays), weekend: c.weekend }
