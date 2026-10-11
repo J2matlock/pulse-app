@@ -673,4 +673,21 @@ describe('gridStore', () => {
       expect(mockInvoke).toHaveBeenCalledWith('grid:get-all')
     })
   })
+
+  // The dashboard reloads when a record leaves or comes back, Undo included (R2)
+  describe('archiving and reactivating', () => {
+    it('tells the dashboard each time', async () => {
+      const { pulseEvents } = await import('../../../src/renderer/events')
+      const heard = vi.fn()
+      const off = pulseEvents.on('records:archive-changed', heard)
+      useGridStore.setState({ rows: [{ row_id: 5, is_active: 1 } as unknown as GridRow], columns: [] })
+      mockInvoke.mockResolvedValue({ ok: true, data: true })
+      await useGridStore.getState().archiveRow(5)
+      await useGridStore.getState().unarchiveRow(5)
+      off()
+      expect(mockInvoke).toHaveBeenCalledWith('row:archive', 5, undefined)
+      expect(mockInvoke).toHaveBeenCalledWith('row:unarchive', 5)
+      expect(heard).toHaveBeenCalledTimes(2)
+    })
+  })
 })

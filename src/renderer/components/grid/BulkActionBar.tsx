@@ -5,6 +5,7 @@ import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { useGridStore } from '../../stores/gridStore'
 import { useUndoStore } from '../../stores/undoStore'
+import { pulseEvents } from '../../events'
 import { getClientName } from '../../utils/clientName'
 import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
@@ -54,6 +55,7 @@ export function BulkActionBar({
     })
     const result = await safeInvoke(IPC.ROW_BULK_ACTION, 'archive', ids)
     if (!result.ok) return
+    pulseEvents.emit('records:archive-changed')
     let apptSnapshot: unknown = null
     if (cancelAppointments) {
       const res = await safeInvoke<{ snapshot: unknown }>(IPC.APPT_CANCEL_UPCOMING, ids)
@@ -69,11 +71,13 @@ export function BulkActionBar({
       icon: 'archive',
       undo: async () => {
         await mustInvoke(IPC.ROW_BULK_ACTION, 'unarchive', ids)
+        pulseEvents.emit('records:archive-changed')
         if (apptSnapshot) await mustInvoke(IPC.APPT_RESTORE, apptSnapshot)
         if (activeGridId) await useGridStore.getState().loadGrid(activeGridId)
       },
       redo: async () => {
         await mustInvoke(IPC.ROW_BULK_ACTION, 'archive', ids)
+        pulseEvents.emit('records:archive-changed')
         if (cancelAppointments) {
           const res = await mustInvoke<{ snapshot: unknown }>(IPC.APPT_CANCEL_UPCOMING, ids)
           if (res.ok) apptSnapshot = res.data.snapshot
@@ -108,6 +112,7 @@ export function BulkActionBar({
             const ids = Array.from(selectedRowIds)
             const result = await safeInvoke(IPC.ROW_BULK_ACTION, 'unarchive', ids)
             if (result.ok) {
+              pulseEvents.emit('records:archive-changed')
               setSelectedRowIds(new Set())
               if (activeGridId) await useGridStore.getState().loadGrid(activeGridId)
               useUndoStore.getState().pushWithToast({
@@ -118,10 +123,12 @@ export function BulkActionBar({
                 icon: 'archive',
                 undo: async () => {
                   await mustInvoke(IPC.ROW_BULK_ACTION, 'archive', ids)
+                  pulseEvents.emit('records:archive-changed')
                   if (activeGridId) await useGridStore.getState().loadGrid(activeGridId)
                 },
                 redo: async () => {
                   await mustInvoke(IPC.ROW_BULK_ACTION, 'unarchive', ids)
+                  pulseEvents.emit('records:archive-changed')
                   if (activeGridId) await useGridStore.getState().loadGrid(activeGridId)
                 },
               })

@@ -3,7 +3,7 @@
  * but deadlines also change from controls that don't remount it: Done and
  * Undo in its own lists, sample data added or removed from the global
  * banner, a list deleted from the sidebar, an example added from the empty
- * state.
+ * state, a record reactivated (or an archive undone).
  */
 import { useEffect, useRef, useState } from 'react'
 import { pulseEvents } from '../../events'
@@ -16,7 +16,7 @@ function useListIdsKey(): { key: string; loaded: boolean } {
   return { key, loaded }
 }
 
-/** Calls `onChange` after lists are added, deleted or restored, or sample data is added or removed. */
+/** Calls `onChange` after lists are added, deleted or restored, sample data is added or removed, or records are archived or reactivated. */
 export function useListsChanged(onChange: () => void): void {
   const { key, loaded } = useListIdsKey()
   const seen = useRef<string | null>(null)
@@ -29,6 +29,7 @@ export function useListsChanged(onChange: () => void): void {
     seen.current = key
   }, [key, loaded])
   useEffect(() => pulseEvents.on('sample-data:changed', () => cb.current()), [])
+  useEffect(() => pulseEvents.on('records:archive-changed', () => cb.current()), [])
 }
 
 /**

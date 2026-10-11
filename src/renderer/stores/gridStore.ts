@@ -443,6 +443,7 @@ export const useGridStore = create<GridState>((set, get) => ({
     const clientName = row ? getClientName(row, get().columns) : wordNow('record', { cap: true })
     try {
       await invoke(IPC.ROW_ARCHIVE, rowId, reason)
+      pulseEvents.emit('records:archive-changed')
       // Its upcoming appointments end with it, in the same undo step (audit 1.13)
       let apptSnapshot: unknown = null
       if (opts?.cancelAppointments) {
@@ -484,6 +485,7 @@ export const useGridStore = create<GridState>((set, get) => ({
     const clientName = row ? getClientName(row, get().columns) : wordNow('record', { cap: true })
     try {
       await invoke(IPC.ROW_UNARCHIVE, rowId)
+      pulseEvents.emit('records:archive-changed')
       const rowExists = get().rows.some(r => r.row_id === rowId)
       if (rowExists) {
         set(s => ({ rows: s.rows.map(r => r.row_id === rowId ? { ...r, is_active: 1 as const } : r) }))

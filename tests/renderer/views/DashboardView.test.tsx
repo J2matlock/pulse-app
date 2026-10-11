@@ -299,6 +299,17 @@ describe('DashboardView — interactions', () => {
     expect(loads()).toBe(2)
   })
 
+  it('reloads its priority list when a record is reactivated (here or by Undo)', async () => {
+    const { pulseEvents } = await import('../../../src/renderer/events')
+    render(<MemoryRouter><DashboardView /></MemoryRouter>)
+    await flushEffects()
+    const loads = () => mockSafeInvoke.mock.calls.filter(c => c[0] === 'dashboard:get-all').length
+    expect(loads()).toBe(1)
+    await act(async () => { pulseEvents.emit('records:archive-changed') })
+    await flushEffects()
+    expect(loads()).toBe(2)
+  })
+
   it('the Overdue tab lists a used-up allowance, like the Overdue tile', async () => {
     mockSafeInvoke.mockImplementation((channel: string) => channel === 'dashboard:get-all'
       ? Promise.resolve({ ok: true, data: { stats: sampleStats, archived: [], followUps: [], deadlines: [

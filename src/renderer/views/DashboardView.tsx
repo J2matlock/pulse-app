@@ -188,7 +188,8 @@ export default function DashboardView(): React.ReactElement {
     return () => { cancelled = true }
   }, [loadAll])
 
-  // Sample data added or removed, or a list added, deleted or restored, while the dashboard is open
+  // Sample data added or removed, a list added, deleted or restored, or a record reactivated
+  // (here or by Undo) while the dashboard is open
   useListsChanged(() => { void loadAll({ quiet: true }) })
 
   // Done, Undo or an extension from any of the dashboard's lists: tell everything showing
@@ -684,11 +685,8 @@ export default function DashboardView(): React.ReactElement {
               isLoading={showSpinner}
               search={archiveSearch}
               onSearchChange={setArchiveSearch}
-              onReactivated={(id) => {
-                setArchivedRows(prev => prev.filter(r => r.id !== id))
-                // Back on the list: its deadlines and the counts come back too
-                void loadAll({ quiet: true })
-              }}
+              // The tab announces it, and useListsChanged reloads the rest
+              onReactivated={(id) => setArchivedRows(prev => prev.filter(r => r.id !== id))}
             />
           )}
         </div>

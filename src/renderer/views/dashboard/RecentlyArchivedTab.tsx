@@ -3,6 +3,7 @@ import { Archive, ChevronRight, RotateCcw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
+import { pulseEvents } from '../../events'
 import { LoadingOverlay } from '../../components/shared/LoadingSpinner'
 import type { ArchivedRow } from './types'
 import { parseDbTimestamp } from '../../../shared/dates'
@@ -23,7 +24,10 @@ export function RecentlyArchivedTab({
 
   async function handleReactivate(id: number) {
     const result = await safeInvoke(IPC.ROW_UNARCHIVE, id)
-    if (result.ok) onReactivated(id)
+    if (!result.ok) return
+    onReactivated(id)
+    // The dashboard and its cards reload: its deadlines and the counts come back
+    pulseEvents.emit('records:archive-changed')
   }
 
   return (

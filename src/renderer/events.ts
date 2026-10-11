@@ -9,6 +9,8 @@ type PulseEvents = {
   'urgentchecklist:changed': undefined
   'toggle-find-replace': undefined
   'sample-data:changed': undefined
+  /** Records were archived or reactivated (Undo and Redo included), so what's due changed */
+  'records:archive-changed': undefined
   'contact-req:changed': undefined
   'note-tracking:changed': undefined
   /** Open a form to fill in (W08): a new record, or this one */
