@@ -16,10 +16,8 @@ import { cellText, deadlineText, type DateFormat } from '../shared/cellText'
 import { loadDeadlines, type DeadlineItem } from './deadlines'
 
 // jsPDF is a CJS module; use require() to avoid ESM/CJS interop issues in Electron main.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { jsPDF } = require('jspdf') as typeof import('jspdf')
 // jspdf-autotable v5 requires explicit plugin registration (no longer auto-patches on require)
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { applyPlugin: applyAutoTablePlugin } = require('jspdf-autotable') as { applyPlugin: (jsPDFClass: typeof jsPDF) => void }
 applyAutoTablePlugin(jsPDF)
 

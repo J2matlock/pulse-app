@@ -20,7 +20,7 @@ export function MonthViewTab({ deadlines, isLoading, onMarkDone, onUndone }: {
       const effDate = getEffectiveDate(d)
       return effDate !== null && effDate.getFullYear() === year && effDate.getMonth() === month
     }).sort((a, b) => a.daysUntil - b.daysUntil)
-  }, [deadlines, year, month]) // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deadlines, year, month])
 
   const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 

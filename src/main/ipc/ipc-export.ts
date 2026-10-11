@@ -16,7 +16,6 @@ import {
   type PersistentScheduledConfig
 } from '../backup'
 import { getDbKey } from '../auth'
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const BetterSqlite3 = require('better-sqlite3-multiple-ciphers') as typeof import('better-sqlite3')
 import { exportCsv, exportPdfGrid, exportPdfProfile, exportLetterPdf, exportSupervisorReport, exportContactPdf, exportDirectoryPdf, type CsvExportOptions, type PdfGridOptions, type PdfProfileOptions, type SupervisorReportOptions } from '../export'
 import { parseImportFile, autoMatchColumns, executeImport, type ImportOptions } from '../import'

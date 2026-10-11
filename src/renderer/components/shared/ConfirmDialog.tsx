@@ -56,7 +56,7 @@ export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | n
         previousFocusRef.current = null
       }
     }
-  }, [open]) // eslint-disable-next-line react-hooks/exhaustive-deps -- focus management: save/restore focus on open/close; no other deps needed
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps -- focus management: save/restore focus on open/close; no other deps needed
 
   const canConfirm = props.variant === 'typed' ? typed === props.requiredPhrase : true
 

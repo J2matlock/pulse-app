@@ -50,7 +50,7 @@ export function ColumnSelectDialog({ open, columns, onConfirm, onCancel, title =
       setSelectedIds(columns.filter(c => !c.hidden).map(c => c.id))
       setScope(defaultScope(rowScope))
     }
-  }, [open]) // eslint-disable-next-line react-hooks/exhaustive-deps -- reset selection to all columns when dialog opens; columns ref is intentionally excluded to avoid mid-edit resets
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps -- reset selection to all columns when dialog opens; columns ref is intentionally excluded to avoid mid-edit resets
 
   const scopeCount = rowScope ? rowScope[scope] : pdfPreview?.rowCount ?? 0
   const scopeOptions: Array<{ value: RowScope; label: string }> = rowScope ? [

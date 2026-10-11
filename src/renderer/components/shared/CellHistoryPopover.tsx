@@ -82,7 +82,7 @@ export function CellHistoryPopover({
         } else {
           setError('Could not load history. Please try again.');
         }
-      } catch (err) {
+      } catch {
         if (!cancelled) {
           setError('Failed to load history');
         }

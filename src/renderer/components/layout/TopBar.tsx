@@ -102,7 +102,7 @@ export function TopBar(): React.ReactElement {
       if (inputValue !== searchQuery) { sentSearch.current = inputValue; setSearchQuery(inputValue) }
     }, DEBOUNCE_SEARCH)
     return () => clearTimeout(id)
-  }, [inputValue]) // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce pattern: setSearchQuery is stable, only re-run on inputValue change
+  }, [inputValue]) // eslint-disable-line react-hooks/exhaustive-deps -- debounce pattern: setSearchQuery is stable, only re-run on inputValue change
 
   // Ctrl+F focuses search
   useEffect(() => {

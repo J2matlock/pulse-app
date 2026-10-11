@@ -73,7 +73,7 @@ export function WeekViewTab({
     }
 
     return items
-  }, [deadlines, tasksWithDays, checklistWithDays, followUpsWithDays, daysLeft]) // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deadlines, tasksWithDays, checklistWithDays, followUpsWithDays, daysLeft]) // eslint-disable-line react-hooks/exhaustive-deps -- today only changes with the day, and the lists change with it
 
   const dayGroups = useMemo(() => {
     const map = new Map<string, WeekItem[]>()

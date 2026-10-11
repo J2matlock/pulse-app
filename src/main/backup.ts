@@ -15,7 +15,6 @@ import { join, dirname, basename, resolve, sep } from 'path'
 import { createHash } from 'crypto'
 import { pipeline } from 'stream/promises'
 import yazl from 'yazl'
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const yauzl = require('yauzl') as typeof import('yauzl')
 import { app } from 'electron'
 import { logger } from './logger'
@@ -25,7 +24,6 @@ import { getStoredDbPath, getDbKey, getKeyEnvelope, isValidKeyEnvelope, unwrapKe
 import { MS_PER_DAY } from '../shared/constants'
 import { LIMIT_MB_RANGE, formatBytes } from '../shared/attachments'
 import { getPortableDataDir, setEncryptionKey, resolveDatabasePath } from './database'
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const BetterSqlite3 = require('better-sqlite3-multiple-ciphers') as typeof import('better-sqlite3')
 
 // ── Bridge to database.ts (avoids circular require that breaks in bundled builds) ──

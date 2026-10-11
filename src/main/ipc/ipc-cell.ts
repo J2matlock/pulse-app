@@ -177,7 +177,7 @@ export function registerCellHandlers(): void {
     if (!validId(rowId) || !validId(columnId)) return fail('Invalid ID')
     if (typeof rules !== 'string') return fail('Invalid rules format')
     if (rules.length > 50_000) return fail('Formatting rules too large')
-    try { JSON.parse(rules) } catch (err) { return fail('Invalid rules JSON') }
+    try { JSON.parse(rules) } catch { return fail('Invalid rules JSON') }
     const db = getDb()
     if (!rules || rules === '[]') {
       db.prepare('DELETE FROM cell_formats WHERE row_id = ? AND column_id = ?').run(rowId, columnId)
@@ -196,7 +196,7 @@ export function registerCellHandlers(): void {
     for (const e of entries) {
       if (!validId(e.rowId) || !validId(e.columnId)) return fail('Invalid ID in batch entry')
       if (typeof e.rules !== 'string' || e.rules.length > 50_000) return fail('Entry rules invalid')
-      if (e.rules && e.rules !== '[]') { try { JSON.parse(e.rules) } catch (err) { return fail('Invalid rules JSON in batch entry') } }
+      if (e.rules && e.rules !== '[]') { try { JSON.parse(e.rules) } catch { return fail('Invalid rules JSON in batch entry') } }
     }
     const db = getDb()
     const deleteStmt = db.prepare('DELETE FROM cell_formats WHERE row_id = ? AND column_id = ?')

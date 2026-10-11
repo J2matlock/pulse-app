@@ -52,7 +52,7 @@ export function ContactFilterBar({ viewMode, onViewModeChange, searchInputRef }:
       }
     }, 200)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [search]) // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce pattern: filterParams/setFilterParams are stable store refs, only re-run on search input change
+  }, [search]) // eslint-disable-line react-hooks/exhaustive-deps -- debounce pattern: filterParams/setFilterParams are stable store refs, only re-run on search input change
 
   const selectedCategoryIds = filterParams.categoryId != null ? [filterParams.categoryId] : []
 

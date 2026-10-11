@@ -33,7 +33,7 @@ export default [
     rules: {
       // TypeScript safety
       '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', ignoreRestSiblings: true }],
 
       // Security
       'security/detect-object-injection': 'off', // too noisy for bracket access

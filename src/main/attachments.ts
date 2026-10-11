@@ -52,7 +52,6 @@ export function sniffType(b: Buffer, fileName: string): string | null {
 
 /** A safe display name: the last part of the path, no control characters, at most 200 characters */
 export function cleanFileName(path: string): string {
-  // eslint-disable-next-line no-control-regex
   const name = basename(path).replace(/[\u0000-\u001f\u007f<>:"/\\|?*]+/g, '_').trim() || 'file'
   if (name.length <= 200) return name
   const dot = name.lastIndexOf('.')
