@@ -76,6 +76,7 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
           </h2>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="hit-44 p-1.5 rounded-sm text-slate-500 hover:text-slate-600 dark:hover:text-slate-200
                        focus:outline-hidden focus:ring-3 focus:ring-blue-500 min-w-[44px] flex items-center justify-center"
           >

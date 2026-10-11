@@ -287,6 +287,7 @@ export function ContactInteractionLog({ providerId }: Props) {
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
+              aria-label="Clear search"
               className="hit-44 absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-sm text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 focus:outline-hidden focus:ring-3 focus:ring-blue-500"
             >
               <X size={14} />

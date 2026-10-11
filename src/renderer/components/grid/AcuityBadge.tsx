@@ -105,6 +105,7 @@ export function AcuityBadge({ levels, currentLevelId, onSetLevel, bulkCount }: A
           transition={reduceMotion ? undefined : { duration: 2, repeat: Infinity, ease: 'easeInOut' }}
           whileHover={{ opacity: 1, scale: 1.15 }}
           title={`Assign ${t('priority')}`}
+          aria-label={`Assign ${t('priority')}`}
         >+</motion.button>
       )}
 

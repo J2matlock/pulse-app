@@ -188,6 +188,7 @@ export function UndoHistoryPanel({ anchorRef, onClose }: Props): React.ReactElem
           </button>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="hit-44 p-1 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500
                        focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
           >

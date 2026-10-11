@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import { render, cleanup, act } from '@testing-library/react'
+import { render, screen, cleanup, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { expectNoAxeViolations, axeViolations, formatViolations } from './axe'
 
@@ -25,6 +25,9 @@ Element.prototype.scrollIntoView = function scrollIntoView() {}
 
 import { ConfirmDialog } from '../../../src/renderer/components/shared/ConfirmDialog'
 import { CommandPalette } from '../../../src/renderer/components/shared/CommandPalette'
+import { CategoryManager } from '../../../src/renderer/components/contacts/CategoryManager'
+import { UndoHistoryPanel } from '../../../src/renderer/components/shared/UndoHistoryPanel'
+import { useContactsStore } from '../../../src/renderer/stores/contactsStore'
 import { setWords } from '../vocabFixture'
 
 beforeEach(() => { setWords() })
@@ -49,6 +52,23 @@ describe('axe: shared dialogs', () => {
   it('command palette has no accessibility problems', async () => {
     render(<MemoryRouter><CommandPalette open onOpenChange={() => {}} /></MemoryRouter>)
     await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    await expectNoAxeViolations(document.body)
+  })
+})
+
+describe('axe: small panels with icon-only buttons (audit A06-13)', () => {
+  it('category manager: close, save, cancel and field buttons have names', async () => {
+    useContactsStore.setState({ categories: [{ id: 1, name: 'Housing', color: '#3b82f6', position: 0, created_at: '2026-01-01' }], customFields: [] } as never)
+    render(<CategoryManager open onClose={() => {}} />)
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy()
+    await expectNoAxeViolations(document.body)
+  })
+
+  it('undo history panel: the close button has a name', async () => {
+    const anchor = { current: document.createElement('button') }
+    render(<UndoHistoryPanel anchorRef={anchor} onClose={() => {}} />)
+    expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy()
     await expectNoAxeViolations(document.body)
   })
 })
