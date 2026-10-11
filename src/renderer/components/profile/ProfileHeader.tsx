@@ -11,6 +11,7 @@ import { rlog } from '../../utils/rendererLogger'
 import toast from 'react-hot-toast'
 import { useCopyFeedbackKeyed } from '../../hooks/useCopyFeedback'
 import { useVocab } from '../../hooks/useVocab'
+import { useGridStore } from '../../stores/gridStore'
 import { ProfileMoreMenu, type MoreMenuItem } from './ProfileMoreMenu'
 
 const CONTACT_TYPES = ['phone', 'email', 'address'] as const
@@ -101,6 +102,7 @@ export function ProfileHeader({
   const { copiedKey, copyToClipboard } = useCopyFeedbackKeyed()
   const [showAddContact, setShowAddContact] = useState(false)
   const [newContactType, setNewContactType] = useState<ContactType>('phone')
+  const [addAsColumn, setAddAsColumn] = useState(false)
   const [newContactLabel, setNewContactLabel] = useState('')
   const [newContactValue, setNewContactValue] = useState('')
 
@@ -159,9 +161,21 @@ export function ProfileHeader({
     const value = newContactValue.trim()
     if (!value) return
     const label = newContactLabel.trim() || (newContactType === 'phone' ? 'Phone' : newContactType === 'email' ? 'Email' : 'Address')
-    const updated = [...manualContacts, { type: newContactType, label, value }]
-    // Keep what was typed if the save failed, so it can be tried again
-    if (!await saveManualContacts(updated)) return
+    if (addAsColumn) {
+      // A real column: every record gets one, and it's in the list, search and exports (R-27)
+      const grid = useGridStore.getState()
+      await grid.addColumn(label, newContactType)
+      const added = useGridStore.getState().columns
+        .filter(c => c.name === label && c.column_type === newContactType)
+        .sort((a, b) => b.id - a.id)[0]
+      if (!added) return // addColumn already said what went wrong
+      await useGridStore.getState().updateCell(row.row_id, added.id, value)
+    } else {
+      const updated = [...manualContacts, { type: newContactType, label, value }]
+      // Keep what was typed if the save failed, so it can be tried again
+      if (!await saveManualContacts(updated)) return
+    }
+    setAddAsColumn(false)
     setNewContactValue('')
     setNewContactLabel('')
     setNewContactType('phone')
@@ -647,8 +661,13 @@ export function ProfileHeader({
             >
               Cancel
             </button>
+            <label className="basis-full flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-200 cursor-pointer">
+              <input type="checkbox" className="w-5 h-5" checked={addAsColumn} onChange={e => setAddAsColumn(e.target.checked)} />
+              Add &ldquo;{newContactLabel.trim() || (newContactType === 'phone' ? 'Phone' : newContactType === 'email' ? 'Email' : 'Address')}&rdquo; as a column, so every {t('record')} has one and it shows in the {t('list')}, search and exports
+            </label>
           </div>
-        ) : (
+        ) : holdsPeople && (
+          // Extra phone numbers and emails are for people; a car or a job doesn't need them (R-27)
           <div className={hasAnyContacts ? 'mt-2' : 'mt-3 pt-3 border-t border-slate-100 dark:border-slate-700'}>
             <button
               onClick={() => setShowAddContact(true)}

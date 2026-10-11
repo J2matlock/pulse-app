@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BookUser, Plus, X, Search, ChevronRight } from 'lucide-react'
+import { BookUser, Plus, X, Search, ChevronRight, Phone, Mail, Copy, Check } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Provider, ProviderClientLink } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
@@ -9,12 +9,25 @@ import { useContactsStore } from '../../stores/contactsStore'
 import { useUndoStore, type SideEffect } from '../../stores/undoStore'
 import { pulseEvents } from '../../events'
 import { useVocab } from '../../hooks/useVocab'
+import { useCopyFeedback } from '../../hooks/useCopyFeedback'
+import { parseDbTimestamp } from '../../../shared/dates'
 
 interface Props {
   rowId: number
   gridId: number
   /** How many are linked, for the section title */
   onCount?: (n: number) => void
+}
+
+/** A small copy button next to a phone number or email */
+function CopyValue({ value, label }: { value: string; label: string }): React.ReactElement {
+  const { copied, copyToClipboard } = useCopyFeedback()
+  return (
+    <button type="button" onClick={() => void copyToClipboard(value)} aria-label={copied ? 'Copied' : label} title="Copy"
+      className="hit-44 p-1.5 rounded-sm text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+    </button>
+  )
 }
 
 export function LinkedProviders({ rowId, gridId, onCount }: Props) {
@@ -32,6 +45,7 @@ export function LinkedProviders({ rowId, gridId, onCount }: Props) {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const [openId, setOpenId] = useState<number | null>(null)
 
   const loadLinks = useCallback(async () => {
     try {
@@ -304,74 +318,83 @@ export function LinkedProviders({ rowId, gridId, onCount }: Props) {
           </div>
         )}
 
-        {links.map(link => (
-          <div
-            key={link.id}
-            className="group flex items-center gap-0 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
-          >
+        {links.map(link => {
+          const open = openId === link.id
+          const sub = [link.provider_title, link.provider_org_name].filter(Boolean).join(', ')
+          return (
+          <div key={link.id} className="flex items-stretch hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
             {/* Category color stripe */}
-            <div
-              className="w-1 self-stretch flex-shrink-0 rounded-l"
-              style={{
-                backgroundColor: link.provider_category_color ?? '#94a3b8',
-              }}
-            />
+            <div className="w-1 flex-shrink-0 rounded-l" style={{ backgroundColor: link.provider_category_color ?? '#94a3b8' }} />
 
-            {/* Provider info */}
-            <div className="flex-1 min-w-0 px-3 py-3 flex items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <span
-                  className="text-base font-medium text-slate-900 dark:text-slate-100 truncate block"
-                  style={{ fontSize: 15 }}
-                >
-                  {link.provider_name ?? `Unknown ${t('contact')}`}
-                </span>
-                {link.provider_category_color && (
-                  <span className="inline-flex items-center gap-1 mt-0.5">
-                    <span
-                      className="w-2 h-2 rounded-full inline-block"
-                      style={{ backgroundColor: link.provider_category_color }}
-                    />
-                    <span className="text-sm text-slate-500 dark:text-slate-400">
-                      {link.provider_availability_status
-                        ? link.provider_availability_status.charAt(0).toUpperCase() + link.provider_availability_status.slice(1)
-                        : ''}
-                    </span>
+            <div className="flex-1 min-w-0 px-3 py-2">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <span className="text-base font-medium text-slate-900 dark:text-slate-100 truncate block">
+                    {link.provider_name ?? `Unknown ${t('contact')}`}
                   </span>
-                )}
+                  {(sub || link.provider_category_name) && (
+                    <span className="block text-base text-slate-600 dark:text-slate-300 truncate">{[sub, link.provider_category_name].filter(Boolean).join(' · ')}</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpenId(open ? null : link.id)}
+                  aria-expanded={open}
+                  className="btn-compact-secondary"
+                >
+                  {open ? 'Less' : 'Details'}
+                </button>
+                <button
+                  onClick={() => handleUnlink(link.id)}
+                  title={`Unlink this ${t('contact')}`}
+                  aria-label={`Unlink ${link.provider_name ?? t('contact')}`}
+                  className="hit-44 p-2 rounded-sm text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20
+                             focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+                  style={{ minWidth: 44, minHeight: 44 }}
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
-              {/* View link */}
-              <button
-                onClick={() => handleViewContacts(link.provider_id)}
-                title={`View in ${t('contactDirectory', { cap: true })}`}
-                aria-label={`View ${t('contact')} in ${t('contactDirectory', { cap: true })}`}
-                className="hit-44 flex items-center gap-0.5 text-base text-blue-600 dark:text-blue-400
-                           hover:underline
-                           focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm px-1"
-                style={{ minHeight: 32 }}
-              >
-                View
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+              {/* Phone and email right here, so calling the doctor doesn't mean leaving the page (R-28) */}
+              {(link.provider_phone_main || link.provider_email) && (
+                <div className="flex flex-wrap items-center gap-x-4">
+                  {link.provider_phone_main && (
+                    <span className="inline-flex items-center gap-1 text-base text-slate-800 dark:text-slate-100">
+                      <Phone className="w-4 h-4 text-slate-500" aria-hidden="true" />{link.provider_phone_main}
+                      <CopyValue value={link.provider_phone_main} label={`Copy ${link.provider_name ?? ''} phone`} />
+                    </span>
+                  )}
+                  {link.provider_email && (
+                    <span className="inline-flex items-center gap-1 text-base text-slate-800 dark:text-slate-100 min-w-0">
+                      <Mail className="w-4 h-4 text-slate-500" aria-hidden="true" /><span className="truncate">{link.provider_email}</span>
+                      <CopyValue value={link.provider_email} label={`Copy ${link.provider_name ?? ''} email`} />
+                    </span>
+                  )}
+                </div>
+              )}
+              {link.notes && <p className="text-base text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{link.notes}</p>}
 
-              {/* Unlink button — visible on hover */}
-              <button
-                onClick={() => handleUnlink(link.id)}
-                title={`Unlink this ${t('contact')}`}
-                aria-label={`Unlink this ${t('contact')}`}
-                className="hit-44 opacity-40 group-hover:opacity-100
-                           p-1.5 rounded-sm text-slate-500 hover:text-red-500 hover:bg-red-50
-                           dark:hover:bg-red-900/20 transition-all
-                           focus-visible:opacity-100
-                           focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-                style={{ minWidth: 32, minHeight: 32 }}
-              >
-                <X className="w-4 h-4" />
-              </button>
+              {open && (
+                <div className="mt-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3 space-y-1 text-base text-slate-700 dark:text-slate-200">
+                  {link.provider_availability_status && link.provider_availability_status !== 'unknown' && (
+                    <p>Status: {link.provider_availability_status.charAt(0).toUpperCase() + link.provider_availability_status.slice(1)}</p>
+                  )}
+                  <p>Linked {parseDbTimestamp(link.linked_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                  <button
+                    type="button"
+                    onClick={() => handleViewContacts(link.provider_id)}
+                    className="hit-44 inline-flex items-center gap-1 text-base text-blue-700 dark:text-blue-400 hover:underline focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
+                  >
+                    Open in {t('contactDirectory', { cap: true })}
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
     </section>
   )
