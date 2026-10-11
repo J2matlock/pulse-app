@@ -5,7 +5,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Download, Upload, FileText, Plus, Check } from 'lucide-react'
 import { IPC } from '../../shared/ipc-channels'
-import type { ChecklistTemplate, Grid, SaveDialogResult, OpenDialogResult } from '../../shared/types'
+import type { ChecklistTemplate, SaveDialogResult, OpenDialogResult } from '../../shared/types'
+import { useGridStore } from '../stores/gridStore'
 import { safeInvoke } from '../utils/safeInvoke'
 import toast from 'react-hot-toast'
 import { rlog } from '../utils/rendererLogger'
@@ -26,7 +27,9 @@ export default function TemplateManagerView(): React.ReactElement {
   const { t: w } = useVocab(null)
   const [setupTemplates, setSetupTemplates] = useState<SetupTemplate[]>([])
   const [clTemplates, setClTemplates] = useState<ChecklistTemplate[]>([])
-  const [grids, setGrids] = useState<Grid[]>([])
+  // From the grid store, so a list made while this page is open (applying a
+  // template, or from the sidebar) shows up here too
+  const grids = useGridStore(s => s.grids)
   const [loadingSetup, setLoadingSetup] = useState(true)
   const [loadingCL, setLoadingCL] = useState(true)
   const [setupError, setSetupError] = useState<string | null>(null)
@@ -83,12 +86,7 @@ export default function TemplateManagerView(): React.ReactElement {
   }, [])
 
   const loadGrids = useCallback(async () => {
-    try {
-      const res = await safeInvoke<Grid[]>(IPC.GRID_GET_ALL)
-      if (res.ok) setGrids(res.data)
-    } catch {
-      // grids are best-effort for selectors
-    }
+    await useGridStore.getState().loadGridList()
   }, [])
 
   useEffect(() => {
@@ -133,7 +131,9 @@ export default function TemplateManagerView(): React.ReactElement {
     if (grids.length === 1) {
       void doExport(grids[0]!.id)
     } else {
-      setPickerGridId(grids.find(g => g.is_active === 1)?.id ?? grids[0]!.id)
+      // The open list, when there is one
+      const open = useGridStore.getState().activeGridId
+      setPickerGridId(grids.some(g => g.id === open) ? open! : grids[0]!.id)
       setGridPickerOpen(true)
     }
   }
