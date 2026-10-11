@@ -1,5 +1,5 @@
 import toast from 'react-hot-toast'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { MessageSquare, Search, Plus, X, ArrowUpDown } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { CaseLogEntry as CaseLogEntryType, CreatedCaseLogEntry, Snippet } from '../../../shared/types'
@@ -187,6 +187,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
   const snippets = snippetsOn ? (externalSnippets ?? internalSnippets) : NO_SNIPPETS
   const [snippetMenu, setSnippetMenu] = useState<{ items: Snippet[]; query: string } | null>(null)
   const [selectedIndex, setSelectedIndex] = useState(-1)
+  // The "/" menu is a listbox the text box points at (audit A06-32)
+  const snippetMenuId = useId()
   const contentRef = useRef<HTMLTextAreaElement>(null)
   const snippetMenuRef = useRef(snippetMenu)
   const selectedIndexRef = useRef(selectedIndex)
@@ -686,6 +688,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             value={newContent}
             onChange={handleContentInput}
             onKeyDown={handleTextareaKeyDown}
+            aria-controls={snippetMenu && snippetMenu.items.length > 0 ? snippetMenuId : undefined}
+            aria-activedescendant={snippetMenu && snippetMenu.items.length > 0 && selectedIndex >= 0 ? `${snippetMenuId}-opt-${selectedIndex}` : undefined}
             placeholder={modHelp(`Add ${guessArticle(activity.label(chosenType))} ${activity.label(chosenType).toLowerCase()} entry… (Ctrl+Enter to save, type / for snippets)`)}
             rows={3}
             className="w-full rounded-lg border border-slate-300 dark:border-slate-600
@@ -694,17 +698,25 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
             style={{ fontSize: 15 }}
           />
 
+          <span role="status" className="sr-only">
+            {snippetMenu && snippetMenu.items.length > 0
+              ? `${snippetMenu.items.length} ${snippetMenu.items.length === 1 ? 'snippet matches' : 'snippets match'}. Tab inserts the first, or the one you choose with the up and down arrows.`
+              : ''}
+          </span>
+
           {/* Snippet autocomplete */}
           {snippetMenu && snippetMenu.items.length > 0 && (
             <div className="absolute left-0 bottom-full mb-1 z-50 bg-white dark:bg-slate-800
                             border border-slate-200 dark:border-slate-600 rounded-lg shadow-lg py-1 min-w-48 max-w-xs">
+              <div id={snippetMenuId} role="listbox" aria-label="Snippets">
               {snippetMenu.items.map((s, i) => (
-                <button
+                <div
                   key={s.id}
-                  type="button"
+                  id={`${snippetMenuId}-opt-${i}`}
+                  role="option"
+                  aria-selected={i === selectedIndex}
                   onMouseDown={e => { e.preventDefault(); applySnippet(s) }}
-                  className={`hit-44 flex items-start gap-2 w-full px-3 py-2 text-left
-                             focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-blue-500
+                  className={`hit-44 flex items-start gap-2 w-full px-3 py-2 text-left cursor-pointer
                              ${i === selectedIndex
                                ? 'bg-blue-100 dark:bg-blue-900/40'
                                : 'hover:bg-blue-50 dark:hover:bg-blue-900/20'
@@ -716,9 +728,10 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
                   <span className="text-sm text-slate-500 dark:text-slate-400 truncate">
                     {s.expansion.slice(0, 40)}
                   </span>
-                </button>
+                </div>
               ))}
-              <div className="px-3 py-1 border-t border-slate-100 dark:border-slate-700 mt-1">
+              </div>
+              <div aria-hidden="true" className="px-3 py-1 border-t border-slate-100 dark:border-slate-700 mt-1">
                 <span className="text-base text-slate-500 dark:text-slate-400">Tab inserts · ↑↓ then Enter to pick another · Esc closes</span>
               </div>
             </div>

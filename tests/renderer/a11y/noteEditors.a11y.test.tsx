@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 /**
- * Scratch pad accessibility with the real editor (audit A06-18, A06-32):
- * toolbar buttons work from the keyboard and say whether they're on, and the
- * "/" snippet menu is a listbox the editor points at.
+ * Scratch pad and note box accessibility with the real editor (audit A06-18,
+ * A06-32): toolbar buttons work from the keyboard and say whether they're on,
+ * and the "/" snippet menus are listboxes the text box points at.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import { render, screen, cleanup, act, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, act, fireEvent, within } from '@testing-library/react'
 import type { Editor } from '@tiptap/core'
 import { expectNoAxeViolations } from './axe'
 
@@ -24,6 +24,7 @@ Object.defineProperty(window, 'api', {
   value: {
     invoke: vi.fn(async (channel: string) => {
       if (channel === 'scrap-note:get') return { ok: true, data: { content: '' } }
+      if (channel === 'case-log:get') return { ok: true, data: [] }
       if (channel === 'snippet:get-all') return { ok: true, data: snippets }
       return { ok: true, data: null }
     }),
@@ -38,6 +39,7 @@ Range.prototype.getClientRects = () => ({ length: 0, item: () => null, [Symbol.i
 document.elementFromPoint = () => null
 
 import { ScratchPad } from '../../../src/renderer/components/profile/ScratchPad'
+import { CaseLog } from '../../../src/renderer/components/profile/CaseLog'
 import { setWords } from '../vocabFixture'
 
 async function flush() { await act(async () => { await new Promise(r => setTimeout(r, 0)) }) }
@@ -96,5 +98,23 @@ describe('scratch pad "/" snippet menu (audit A06-32)', () => {
     expect(screen.queryByRole('listbox')).toBeNull()
     expect(dom.getAttribute('aria-controls')).toBeNull()
     expect(dom.getAttribute('aria-activedescendant')).toBeNull()
+  })
+})
+
+describe('note box "/" snippet menu (audit A06-32)', () => {
+  it('is a listbox the text box controls, with the highlighted option as its active descendant', async () => {
+    render(<CaseLog rowId={10} snippets={snippets as never} />)
+    await flush()
+    const box = screen.getByPlaceholderText(/type \/ for snippets/) as HTMLTextAreaElement
+    fireEvent.change(box, { target: { value: '/l', selectionStart: 2 } })
+    const listbox = screen.getByRole('listbox', { name: 'Snippets' })
+    expect(box.getAttribute('aria-controls')).toBe(listbox.id)
+    expect(box.getAttribute('aria-activedescendant')).toBeNull()
+    expect(screen.getByRole('status').textContent).toMatch(/^2 snippets match/)
+    fireEvent.keyDown(box, { key: 'ArrowDown' })
+    const first = within(listbox).getAllByRole('option')[0]!
+    expect(first.getAttribute('aria-selected')).toBe('true')
+    expect(box.getAttribute('aria-activedescendant')).toBe(first.id)
+    await expectNoAxeViolations(document.body)
   })
 })
