@@ -39,6 +39,7 @@ function AcuityPointsBadge(): React.ReactElement | null {
 }
 import type { ColumnType, SaveDialogResult } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
+import { friendlyError } from '../../utils/friendlyError'
 import { noteUnencryptedExport } from '../../utils/exportNotice'
 import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
@@ -181,7 +182,7 @@ export function GridToolbar(): React.ReactElement {
         activeRowIds,
         destPath: saveRes.data.filePath,
       })
-      if (!result.ok) toast.error('Export failed. Please try again.')
+      if (!result.ok) toast.error(friendlyError(result.error, 'Export failed. Please try again.'))
       else noteUnencryptedExport()
     } else {
       const saveRes = await safeInvoke<SaveDialogResult>(IPC.APP_SHOW_SAVE_DIALOG, {
@@ -196,7 +197,7 @@ export function GridToolbar(): React.ReactElement {
         activeRowIds,
         destPath: saveRes.data.filePath
       })
-      if (!result.ok) toast.error('Export failed. Please try again.')
+      if (!result.ok) toast.error(friendlyError(result.error, 'Export failed. Please try again.'))
       else noteUnencryptedExport()
     }
   }

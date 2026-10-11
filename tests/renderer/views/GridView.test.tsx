@@ -182,6 +182,18 @@ describe('GridView', () => {
     off()
   })
 
+  it('after the last list was deleted, says it can come back from the Trash (R5)', async () => {
+    gridStoreOverride = { gridListLoaded: true, activeGridId: null, grids: [] }
+    const { safeInvoke } = await import('../../../src/renderer/utils/safeInvoke')
+    vi.mocked(safeInvoke).mockImplementation((async (channel: string) => channel === 'grid:deleted-list'
+      ? { ok: true, data: [{ id: 3, name: 'Foster kids', deleted_at: '', records: 8 }] }
+      : { ok: false, error: 'test-mock' }) as never)
+    render(<MemoryRouter><GridView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.getByRole('button', { name: /Bring back "Foster kids" from the Trash/ })).toBeDefined()
+    vi.mocked(safeInvoke).mockResolvedValue({ ok: false, error: 'test-mock' } as never)
+  })
+
   it('shows empty state when no grid is selected', async () => {
     gridStoreOverride = { gridListLoaded: true, activeGridId: null, grids: [{ id: 1, name: 'Test Grid', is_active: 1, position: 0, created_at: '', updated_at: '' }] }
     render(<MemoryRouter><GridView /></MemoryRouter>)

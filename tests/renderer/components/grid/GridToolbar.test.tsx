@@ -99,7 +99,8 @@ vi.mock('../../../../src/renderer/components/grid/SavedViewsDropdown', () => ({
   SavedViewsDropdown: () => null,
 }))
 vi.mock('../../../../src/renderer/components/shared/ColumnSelectDialog', () => ({
-  ColumnSelectDialog: () => null,
+  ColumnSelectDialog: ({ open, onConfirm }: { open: boolean; onConfirm: (ids: number[]) => void }) =>
+    open ? <button type="button" onClick={() => onConfirm([1])}>Confirm columns</button> : null,
 }))
 
 // ── Store imports ───────────────────────────────────────────────────────────
@@ -140,6 +141,20 @@ describe('GridToolbar', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setupStores()
+  })
+
+  it('says why an export failed, like the file being open in Excel (R5)', async () => {
+    const { safeInvoke } = await import('../../../../src/renderer/utils/safeInvoke')
+    const toast = (await import('react-hot-toast')).default
+    vi.mocked(safeInvoke).mockImplementation((async (channel: string) => channel === 'app:show-save-dialog'
+      ? { ok: true, data: { canceled: false, filePath: '/tmp/x.csv' } }
+      : { ok: false, error: "Pulse couldn't write that file. If it's open in Excel, close it and try again." }) as never)
+    render(<GridToolbar />)
+    fireEvent.click(screen.getByRole('button', { name: /^More/ }))
+    fireEvent.click(screen.getByText('Export as CSV'))
+    await act(async () => { fireEvent.click(screen.getByText('Confirm columns')) })
+    expect(toast.error).toHaveBeenCalledWith("Pulse couldn't write that file. If it's open in Excel, close it and try again.")
+    vi.mocked(safeInvoke).mockResolvedValue({ ok: false, error: 'test-mock' } as never)
   })
 
   it('renders Add Client button', () => {

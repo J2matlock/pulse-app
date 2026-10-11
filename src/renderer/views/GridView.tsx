@@ -16,6 +16,9 @@ import { useFeature } from '../hooks/useFeature'
 import { BoardView } from '../components/board/BoardView'
 import { stageConfigOf } from '../../shared/stages'
 import { columnTypeLabel } from '../../shared/columnTypes'
+import { useNavigate } from 'react-router-dom'
+import { IPC } from '../../shared/ipc-channels'
+import { safeInvoke } from '../utils/safeInvoke'
 
 export default function GridView(): React.ReactElement {
   const { t } = useVocab()
@@ -131,6 +134,7 @@ export default function GridView(): React.ReactElement {
               <span className="block text-base text-slate-600 dark:text-slate-300">{description}</span>
             </button>
           ))}
+          <DeletedListsLink />
         </div>
       </div>
     )
@@ -189,5 +193,29 @@ export default function GridView(): React.ReactElement {
         onCancel={cancelColumnTypeChange}
       />
     </div>
+  )
+}
+
+/** Lists stay in the Trash for 30 days: after deleting the last one, say how to get it back (R5) */
+function DeletedListsLink(): React.ReactElement | null {
+  const { t } = useVocab(null)
+  const navigate = useNavigate()
+  const [deleted, setDeleted] = useState<Array<{ id: number; name: string }>>([])
+  useEffect(() => {
+    let live = true
+    void safeInvoke(IPC.GRID_DELETED_LIST).then(r => { if (live && r.ok && Array.isArray(r.data)) setDeleted(r.data) })
+    return () => { live = false }
+  }, [])
+  if (deleted.length === 0) return null
+  const label = deleted.length === 1
+    ? `Bring back "${deleted[0]!.name}" from the Trash`
+    : `Bring back a deleted ${t('list')} from the Trash`
+  return (
+    <button type="button" onClick={() => navigate('/trash')}
+      className="w-full text-left p-5 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+      style={{ minHeight: 44 }}>
+      <span className="block text-lg font-semibold text-slate-900 dark:text-slate-100">{label}</span>
+      <span className="block text-base text-slate-600 dark:text-slate-300">Deleted {t('list', { many: true })} stay in the Trash for 30 days.</span>
+    </button>
   )
 }
