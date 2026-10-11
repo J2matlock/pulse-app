@@ -1,12 +1,12 @@
 /**
  * Guided blank start (W01 §5.2): six short questions that set up a first
- * list from nothing. Every step can be skipped; skipping everything still
- * makes a usable one-column list.
+ * list from nothing. Continuing without answering keeps what's on screen,
+ * so clicking straight through still makes a usable list.
  *
  *   1. What's it called?   2. People, things or jobs?   3. The words
  *   4. Details to keep     5. Which dates repeat?      6. A few quick questions
  */
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, ArrowRight, Plus, Trash2 } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { DateRuleAnswer } from '../../../shared/ipc-contract'
@@ -15,7 +15,7 @@ import { guessArticle } from '../../../shared/vocab'
 import { wordsFromListName } from '../../../shared/listWords'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
-import { DateRepeatPicker, type DateAnswer } from './DateRepeatPicker'
+import { DateRepeatPicker, suggestRepeat, type DateAnswer } from './DateRepeatPicker'
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6
 
@@ -71,20 +71,28 @@ const lead = 'text-base text-slate-600 dark:text-slate-300'
 const field = 'w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-base focus:outline-hidden focus:ring-3 focus:ring-blue-500'
 const box = 'w-5 h-5 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-3 focus:ring-blue-500 flex-shrink-0'
 
+export interface GuidedProgress { gridId: number; name: string; kind: RecordKind; one: string; many: string }
+
 interface Props {
   onBack: () => void
   /** Called once everything is saved; setup then shows its last screen */
   onFinished: () => Promise<void>
+  /** Carry on after an interruption: the list already exists */
+  resume?: GuidedProgress
+  /** The list was made (setup saves its place) */
+  onProgress?: (p: GuidedProgress) => void
 }
 
-export function GuidedBlankStart({ onBack, onFinished }: Props): React.ReactElement {
-  const [step, setStep] = useState<Step>(1)
-  const [name, setName] = useState('')
-  const [kind, setKind] = useState<RecordKind>('person')
-  const [words, setWords] = useState({ one: '', many: '' })
-  const [picks, setPicks] = useState<Suggestion[]>(SUGGESTIONS.person)
+export function GuidedBlankStart({ onBack, onFinished, resume, onProgress }: Props): React.ReactElement {
+  const [step, setStep] = useState<Step>(resume ? 6 : 1)
+  const [name, setName] = useState(resume?.name ?? '')
+  const [kind, setKind] = useState<RecordKind>(resume?.kind ?? 'person')
+  const [words, setWords] = useState({ one: resume?.one ?? '', many: resume?.many ?? '' })
+  // Typed words stay; guessed ones follow a renamed list
+  const [wordsTyped, setWordsTyped] = useState(!!resume)
+  const [picks, setPicks] = useState<Suggestion[]>(SUGGESTIONS[resume?.kind ?? 'person'])
   const [own, setOwn] = useState<Array<{ name: string; type: ColumnType }>>([])
-  const [gridId, setGridId] = useState<number | null>(null)
+  const [gridId, setGridId] = useState<number | null>(resume?.gridId ?? null)
   const [dateCols, setDateCols] = useState<Array<{ id: number; name: string }>>([])
   const [dates, setDates] = useState<Record<number, DateAnswer>>({})
   const [answers, setAnswers] = useState({ checklists: true, tasks: true, timeTracking: false, mileage: false })
@@ -108,17 +116,30 @@ export function GuidedBlankStart({ onBack, onFinished }: Props): React.ReactElem
 
   const go = (s: Step) => { setError(null); setStep(s) }
 
+  // Resuming: ask about the list's dates again if it has any
+  useEffect(() => {
+    if (!resume) return
+    void safeInvoke(IPC.GRID_GET, resume.gridId).then(r => {
+      if (!r.ok) return
+      const found = [...r.data.columns, ...r.data.hiddenColumns].filter(c => c.column_type === 'date').map(c => ({ id: c.id, name: c.name }))
+      if (found.length === 0) return
+      setDateCols(found)
+      setDates(Object.fromEntries(found.map(c => [c.id, suggestRepeat(c.name)])))
+      setStep(5)
+    }).catch(() => { /* stay on the last questions */ })
+  }, [resume])
+
   function chooseKind(k: RecordKind) {
     setKind(k)
     setPicks(SUGGESTIONS[k])
   }
 
   function toWords() {
-    setWords(w => (w.one || w.many ? w : guessed))
+    if (!wordsTyped) setWords(guessed)
     go(3)
   }
 
-  /** cols: what to create (Skip passes just the name column) */
+  /** cols: what to create ("Just the name column" passes only that one) */
   async function createList(cols: Array<{ name: string; type: ColumnType; options?: string[] }> = columns) {
     setBusy(true)
     setError(null)
@@ -131,19 +152,25 @@ export function GuidedBlankStart({ onBack, onFinished }: Props): React.ReactElem
         })),
       })
       if (!res.ok) { setError("We couldn't create the list. Please try again."); return }
-      setGridId(res.data.gridId)
+      const newId = res.data.gridId
+      setGridId(newId)
+      // Words are saved now, not at the end, so an interruption doesn't lose them
+      const term = { one: one.slice(0, 40), many: many.slice(0, 40), article: guessArticle(one) }
+      await safeInvoke(IPC.GRID_SETTINGS_UPDATE, newId, { record_kind: kind, vocab: { record: term } })
+      await updateWorkspace({ vocab: { record: term } })
+      onProgress?.({ gridId: newId, name: listName, kind, one: term.one, many: term.many })
       const found = cols.filter(c => c.type === 'date').flatMap(c => {
         const id = res.data.colIdByName[c.name.toLowerCase()]
         return id ? [{ id, name: c.name }] : []
       })
       setDateCols(found)
-      setDates(Object.fromEntries(found.map(c => [c.id, { repeat: 'no' } as DateAnswer])))
+      setDates(Object.fromEntries(found.map(c => [c.id, suggestRepeat(c.name)])))
       go(found.length > 0 ? 5 : 6)
     } finally { setBusy(false) }
   }
 
-  async function saveDates(skip: boolean) {
-    if (gridId !== null && !skip) {
+  async function saveDates() {
+    if (gridId !== null) {
       const list: DateRuleAnswer[] = Object.entries(dates).flatMap(([id, a]): DateRuleAnswer[] =>
         a.repeat === 'due' ? [{ columnId: Number(id), repeat: 'due' }]
           : a.repeat === 'every' ? [{ columnId: Number(id), repeat: 'every', n: a.n, unit: a.unit }] : [])
@@ -158,7 +185,7 @@ export function GuidedBlankStart({ onBack, onFinished }: Props): React.ReactElem
     go(6)
   }
 
-  async function finish(skip: boolean) {
+  async function finish() {
     if (gridId === null) return
     setBusy(true)
     setError(null)
@@ -167,14 +194,14 @@ export function GuidedBlankStart({ onBack, onFinished }: Props): React.ReactElem
       // The list keeps its own words too, so a later list with other words doesn't change it
       const listRes = await safeInvoke(IPC.GRID_SETTINGS_UPDATE, gridId, { record_kind: kind, vocab: { record: term } })
       if (!listRes.ok) { setError(listRes.error); return }
-      await updateWorkspace({ vocab: { record: term }, ...(skip ? {} : { features: answers }) })
+      await updateWorkspace({ vocab: { record: term }, features: answers })
       await onFinished()
     } catch (err) {
       setError(err instanceof Error ? err.message : "We couldn't save that. Please try again.")
     } finally { setBusy(false) }
   }
 
-  const nav = (opts: { back?: () => void; skip?: () => void; next: () => void; nextLabel?: string; nextDisabled?: boolean }) => (
+  const nav = (opts: { back?: () => void; skip?: () => void; skipLabel?: string; next: () => void; nextLabel?: string; nextDisabled?: boolean }) => (
     <div className="flex flex-wrap items-center gap-3 pt-2">
       {opts.back && (
         <button type="button" onClick={opts.back} className="hit-44 inline-flex items-center gap-2 text-base text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
@@ -182,7 +209,7 @@ export function GuidedBlankStart({ onBack, onFinished }: Props): React.ReactElem
         </button>
       )}
       <span className="flex-1" />
-      {opts.skip && <button type="button" className="btn-secondary" disabled={busy} onClick={opts.skip}>Skip</button>}
+      {opts.skip && <button type="button" className="btn-secondary" disabled={busy} onClick={opts.skip}>{opts.skipLabel ?? 'Skip'}</button>}
       <button type="button" className="btn-primary inline-flex items-center gap-2" disabled={busy || opts.nextDisabled} onClick={opts.next}>
         {busy ? 'Working…' : opts.nextLabel ?? 'Continue'} {!busy && <ArrowRight className="w-4 h-4" aria-hidden="true" />}
       </button>
@@ -208,7 +235,7 @@ export function GuidedBlankStart({ onBack, onFinished }: Props): React.ReactElem
               </button>
             ))}
           </div>
-          {nav({ back: onBack, skip: () => { setName(''); go(2) }, next: () => go(2) })}
+          {nav({ back: onBack, next: () => go(2) })}
         </>
       )}
 
@@ -227,7 +254,7 @@ export function GuidedBlankStart({ onBack, onFinished }: Props): React.ReactElem
               </label>
             ))}
           </fieldset>
-          {nav({ back: () => go(1), skip: () => { chooseKind('person'); toWords() }, next: toWords })}
+          {nav({ back: () => go(1), next: toWords })}
         </>
       )}
 
@@ -238,14 +265,14 @@ export function GuidedBlankStart({ onBack, onFinished }: Props): React.ReactElem
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="guided-one" className="block text-base font-semibold text-slate-700 dark:text-slate-200 mb-1">One</label>
-              <input id="guided-one" className={field} maxLength={40} value={words.one} onChange={e => setWords(w => ({ ...w, one: e.target.value }))} />
+              <input id="guided-one" className={field} maxLength={40} value={words.one} onChange={e => { setWordsTyped(true); setWords(w => ({ ...w, one: e.target.value })) }} />
             </div>
             <div>
               <label htmlFor="guided-many" className="block text-base font-semibold text-slate-700 dark:text-slate-200 mb-1">More than one</label>
-              <input id="guided-many" className={field} maxLength={40} value={words.many} onChange={e => setWords(w => ({ ...w, many: e.target.value }))} />
+              <input id="guided-many" className={field} maxLength={40} value={words.many} onChange={e => { setWordsTyped(true); setWords(w => ({ ...w, many: e.target.value })) }} />
             </div>
           </div>
-          {nav({ back: () => go(2), skip: () => { setWords(guessed); go(4) }, next: () => go(4) })}
+          {nav({ back: () => go(2), next: () => go(4) })}
         </>
       )}
 
@@ -291,7 +318,7 @@ export function GuidedBlankStart({ onBack, onFinished }: Props): React.ReactElem
           {error && <p role="alert" className="text-base text-red-700 dark:text-red-300">{error}</p>}
           {nav({
             back: () => go(3),
-            skip: () => void createList([picks[0]!]),
+            skip: () => void createList([picks[0]!]), skipLabel: 'Just the name column',
             next: () => void createList(), nextLabel: 'Create list',
           })}
         </>
@@ -303,7 +330,7 @@ export function GuidedBlankStart({ onBack, onFinished }: Props): React.ReactElem
           <p className={lead}>Dates with a reminder change color as they come due: green, then yellow, orange and red.</p>
           <DateRepeatPicker columns={dateCols} value={dates} onChange={setDates} />
           {error && <p role="alert" className="text-base text-red-700 dark:text-red-300">{error}</p>}
-          {nav({ skip: () => void saveDates(true), next: () => void saveDates(false) })}
+          {nav({ next: () => void saveDates() })}
         </>
       )}
 
@@ -323,7 +350,7 @@ export function GuidedBlankStart({ onBack, onFinished }: Props): React.ReactElem
             </label>
           ))}
           {error && <p role="alert" className="text-base text-red-700 dark:text-red-300">{error}</p>}
-          {nav({ back: dateCols.length > 0 ? () => go(5) : undefined, skip: () => void finish(true), next: () => void finish(false), nextLabel: 'Finish' })}
+          {nav({ back: dateCols.length > 0 ? () => go(5) : undefined, next: () => void finish(), nextLabel: 'Finish' })}
         </>
       )}
     </div>

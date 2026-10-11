@@ -21,11 +21,11 @@ import {
   type Starter, type StarterList, type StarterSummary, type SampleDataSpec,
   type StarterSource, type ApplyOptions, type ApplyResult, type StarterPreview,
 } from '../shared/starters/schema'
-import { getSampleGridId, getStarterSampleRowIds, STARTER_SAMPLE_META_KEY } from './sample-data'
+import { getSampleGridId, markSampleRows } from './sample-data'
 import { addSampleHistory } from './sample-history'
 import { addStarterReports } from './starter-reports'
 import { assignAutoNumbers, bumpAutoNumbersPastValues, freshAutoNumberConfig } from './auto-number'
-import { addMissingActivityTypes, listActivityTypes, userTypeKeys } from './activity-types'
+import { addMissingActivityTypes, listActivityTypes, replaceStartingTypes, userTypeKeys } from './activity-types'
 import { addMissingMeasures, listMeasures } from './measures'
 import { hasDisplayFormat, refreshDisplayNames } from './display-names'
 import { normalizeDisplayFormat } from '../shared/displayFormat'
@@ -286,7 +286,7 @@ export function previewStarter(src: StarterSource, variant?: string): StarterPre
     lists: lists.map(l => {
       const finalName = freeGridName(db, l.name, taken)
       taken.add(finalName.toLowerCase())
-      return { key: l.key, name: l.name, finalName, kind: l.kind, columns: l.columns.length, rules: (l.alertRules ?? []).map(r => r.name) }
+      return { key: l.key, name: l.name, finalName, kind: l.kind, columns: l.columns.length, columnNames: l.columns.map(c => c.name), rules: (l.alertRules ?? []).map(r => r.name) }
     }),
     words: s.vocab
       ? (Object.keys(s.vocab) as VocabKey[])
@@ -364,6 +364,8 @@ export function applyStarter(src: StarterSource, opts: ApplyOptions): ApplyResul
   db.transaction(() => {
     // 0. Note types and numbers first, so requirements can use them; the user's own are never changed
     if (s.activityTypes?.length && addMissingActivityTypes(s.activityTypes) > 0) result.activityTypesChanged = true
+    // A full set of the example's own replaces the starting Phone/Meeting/Email/Visit in a fresh workspace
+    if (s.activityTypes?.length && replaceStartingTypes(s.activityTypes.map(t => t.key)) > 0) result.activityTypesChanged = true
     if (s.measures?.length) {
       const m = addMissingMeasures(s.measures)
       if (m.added > 0) result.workspaceChanged = true
@@ -582,8 +584,8 @@ function loadSampleData(sd: SampleDataSpec, gridIds: Record<string, number>, war
     loadSampleAppointments(sd.appointments ?? [], byRef, warnings)
     // About a year of everyday history, so reports have something to show
     rowIds.push(...addSampleHistory(seed, rowsByGrid))
-    db.prepare('INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)')
-      .run(STARTER_SAMPLE_META_KEY, JSON.stringify({ rowIds: [...getStarterSampleRowIds(), ...rowIds] }))
+    // Tracked once everything is in, so the fingerprints match what the user first sees
+    markSampleRows(rowIds)
   })()
 }
 
@@ -617,7 +619,7 @@ function loadSampleAppointments(appts: NonNullable<SampleDataSpec['appointments'
   }
 }
 
-export { removeStarterSampleData, getStarterSampleRowIds as starterSampleRowIds } from './sample-data'
+export { removeSampleData, getSampleRowIds as sampleRowIds } from './sample-data'
 
 // ── Date rules from setup answers ─────────────────────────────────────────────
 

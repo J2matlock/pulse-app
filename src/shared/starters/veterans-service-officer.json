@@ -6,6 +6,12 @@
   "description": "For county and nonprofit veterans service officers: intent-to-file deadlines one year out, claims, decisions and appeal windows. Pulse is a tracking aid, not your official record system.",
   "icon": "shield-check",
   "group": "Legal and government",
+  "keywords": [
+    "veteran",
+    "va",
+    "claims",
+    "military"
+  ],
   "vocab": {
     "record": {
       "one": "veteran",

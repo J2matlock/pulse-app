@@ -6,6 +6,14 @@
   "description": "For keeping your family's health on track: kids' checkups by age, yearly physicals, dentist every 6 months, eye exams, flu shots, refills and insurance renewals, with doctors and appointments in one place. It isn't medical advice: follow your doctor's schedule. Pulse is a tracking aid, not your official record system.",
   "icon": "baby",
   "group": "Personal",
+  "keywords": [
+    "family",
+    "doctor",
+    "dentist",
+    "dental",
+    "kids",
+    "medical"
+  ],
   "vocab": {
     "record": {
       "one": "family member",

@@ -31,7 +31,7 @@ beforeEach(() => {
 })
 
 const next = (name: RegExp | string = /Continue/) => fireEvent.click(screen.getByRole('button', { name }))
-const skip = () => fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
+
 
 describe('GuidedBlankStart', () => {
   it('walks through all six questions and saves what was chosen', async () => {
@@ -76,15 +76,59 @@ describe('GuidedBlankStart', () => {
     expect(mockInvoke).toHaveBeenCalledWith(IPC.WORKSPACE_UPDATE, { vocab: { record: term }, features: { checklists: true, tasks: true, timeTracking: false, mileage: true } })
   })
 
-  it('skipping everything still makes a usable one-column list with neutral words', async () => {
-    render(<GuidedBlankStart onBack={vi.fn()} onFinished={onFinished} />)
-    skip(); skip(); skip(); skip()
+  it('clicking straight through makes a usable list with neutral words, saved as soon as the list exists', async () => {
+    const onProgress = vi.fn()
+    render(<GuidedBlankStart onBack={vi.fn()} onFinished={onFinished} onProgress={onProgress} />)
+    next(); next(); next()
+    fireEvent.click(screen.getByRole('button', { name: 'Just the name column' }))
     await screen.findByText('A few quick questions')
     expect(mockInvoke).toHaveBeenCalledWith(IPC.ONBOARDING_SETUP_GRID, { gridName: 'My list', columns: [{ name: 'Name', type: 'text', isNameCol: true }] })
     expect(mockInvoke).not.toHaveBeenCalledWith(IPC.ONBOARDING_DATE_RULES, expect.anything(), expect.anything())
-    skip()
+    // The words are kept before the last questions, in case setup is interrupted
+    const term = { one: 'record', many: 'records', article: 'a' }
+    expect(mockInvoke).toHaveBeenCalledWith(IPC.WORKSPACE_UPDATE, { vocab: { record: term } })
+    expect(onProgress).toHaveBeenCalledWith({ gridId: 5, name: 'My list', kind: 'person', one: 'record', many: 'records' })
+    next(/Finish/)
     await waitFor(() => expect(onFinished).toHaveBeenCalled())
-    expect(mockInvoke).toHaveBeenCalledWith(IPC.WORKSPACE_UPDATE, { vocab: { record: { one: 'record', many: 'records', article: 'a' } } })
+  })
+
+  it('"Continue" keeps what is on screen: the typed name and the ticked details (audit F-20)', async () => {
+    render(<GuidedBlankStart onBack={vi.fn()} onFinished={onFinished} />)
+    expect(screen.queryByRole('button', { name: 'Skip' })).toBeNull()
+    fireEvent.change(screen.getByLabelText('List name'), { target: { value: 'Tenants' } })
+    next(); next(); next()
+    next(/Create list/)
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.ONBOARDING_SETUP_GRID, expect.objectContaining({ gridName: 'Tenants' })))
+    const setup = mockInvoke.mock.calls.find(c => c[0] === IPC.ONBOARDING_SETUP_GRID)![1]
+    expect(setup.columns.map((c: { name: string }) => c.name)).toEqual(['Name', 'Phone', 'Email', 'Status'])
+  })
+
+  it('guessed words follow a renamed list; typed words stay (audit F-21)', () => {
+    render(<GuidedBlankStart onBack={vi.fn()} onFinished={onFinished} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Vehicles' }))
+    next(); next()
+    expect((screen.getByLabelText('One') as HTMLInputElement).value).toBe('vehicle')
+    fireEvent.click(screen.getByRole('button', { name: /Back/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Back/ }))
+    fireEvent.change(screen.getByLabelText('List name'), { target: { value: 'Tenants' } })
+    next(); next()
+    expect((screen.getByLabelText('One') as HTMLInputElement).value).toBe('tenant')
+    fireEvent.change(screen.getByLabelText('One'), { target: { value: 'renter' } })
+    fireEvent.click(screen.getByRole('button', { name: /Back/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Back/ }))
+    fireEvent.change(screen.getByLabelText('List name'), { target: { value: 'Units' } })
+    next(); next()
+    expect((screen.getByLabelText('One') as HTMLInputElement).value).toBe('renter')
+  })
+
+  it('resumes after an interruption at the date question, with the list already made', async () => {
+    mockInvoke.mockImplementation((channel: string) => channel === IPC.GRID_GET
+      ? Promise.resolve({ ok: true, data: { columns: [{ id: 41, name: 'Lease ends', column_type: 'date' }], hiddenColumns: [] } })
+      : Promise.resolve({ ok: true, data: ws }))
+    render(<GuidedBlankStart onBack={vi.fn()} onFinished={onFinished} resume={{ gridId: 9, name: 'Tenants', kind: 'person', one: 'tenant', many: 'tenants' }} />)
+    await screen.findByText(/Do any of these dates repeat/)
+    expect(screen.getByLabelText('Lease ends')).toBeTruthy()
+    expect(mockInvoke).not.toHaveBeenCalledWith(IPC.ONBOARDING_SETUP_GRID, expect.anything())
   })
 
   it('goes back through the steps before the list exists', () => {

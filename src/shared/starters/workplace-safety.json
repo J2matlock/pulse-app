@@ -6,6 +6,12 @@
   "description": "OSHA-style training records: forklift, first aid, hazard communication, fall protection, respirator fit tests and hearing tests, with what each employee is due for. Pulse is a tracking aid, not your official record system.",
   "icon": "hard-hat",
   "group": "Property and safety",
+  "keywords": [
+    "osha",
+    "safety",
+    "training",
+    "incident"
+  ],
   "vocab": {
     "record": {
       "one": "employee",

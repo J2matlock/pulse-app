@@ -13,6 +13,7 @@ import { useCopyFeedbackKeyed } from '../../hooks/useCopyFeedback'
 import { useVocab } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
 import { ProfileMoreMenu, type MoreMenuItem } from './ProfileMoreMenu'
+import { SamplePill } from '../shared/SampleDataBanner'
 
 const CONTACT_TYPES = ['phone', 'email', 'address'] as const
 type ContactType = typeof CONTACT_TYPES[number]
@@ -298,6 +299,7 @@ export function ProfileHeader({
   const hasAnyContacts = populatedContacts.length > 0 || manualContacts.length > 0
 
   const clientName = getClientName(row, columns, `Unknown ${t('record')}`)
+  const isSample = useGridStore(s => s.sampleRows[row.row_id] !== undefined)
 
   const initials = clientName
     .split(/\s+/)
@@ -357,6 +359,7 @@ export function ProfileHeader({
               >
                 {clientName}
               </h1>
+              {isSample && <SamplePill />}
               {statusIdentifiers.map(col => {
                 const val = row[`col_${col.id}` as keyof GridRow] as string | null
                 if (!val) return null

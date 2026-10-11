@@ -6,6 +6,12 @@
   "description": "For fire protection and alarm companies: customers, their sites and every device at each site, with yearly inspections and 5-year hydrostatic tests on extinguishers, and inspection certificates kept with each site.",
   "icon": "shield-check",
   "group": "Property and safety",
+  "keywords": [
+    "fire",
+    "sprinkler",
+    "extinguisher",
+    "inspection"
+  ],
   "vocab": {
     "record": {
       "one": "record",

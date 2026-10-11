@@ -185,7 +185,7 @@ export default function ContactsView() {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Header bar */}
           <div className="px-4 pt-3 pb-3 border-b border-slate-200 dark:border-slate-700 flex flex-col gap-1">
-            <ViewBreadcrumb items={[{ label: 'Home', to: '/grid' }, { label: `${t('contact', { cap: true })} directory` }]} />
+            <ViewBreadcrumb items={[{ label: 'Dashboard', to: '/dashboard' }, { label: `${t('contact', { cap: true })} directory` }]} />
             <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-xl font-semibold text-slate-900 dark:text-white min-w-0">{t('contact', { cap: true })} directory</h1>
             <span className="text-sm text-slate-500 dark:text-slate-400 flex-shrink-0">

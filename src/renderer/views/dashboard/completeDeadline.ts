@@ -7,6 +7,7 @@ import { localDateString } from '../../../shared/dates'
 import { addInterval, type RuleInterval } from '../../../shared/ruleInterval'
 import type { RuleKind } from '../../../shared/deadlineEngine'
 import toast from 'react-hot-toast'
+import { friendlyError } from '../../utils/friendlyError'
 
 export interface DeadlineToComplete {
   rowId: number
@@ -78,7 +79,7 @@ export async function completeDeadlines(
     if (item.ruleKind === 'sequence') {
       if (item.step === undefined) continue
       const res = await safeInvoke<{ sysLogId: number }>(IPC.DEADLINE_STEP_DONE, item.rowId, item.columnId, item.step, item.doneOn ?? null)
-      if (!res.ok) { toast.error(res.error); continue }
+      if (!res.ok) { toast.error(friendlyError(res.error)); continue }
       const checklistIds = await addChecklist(item.rowId, item.checklistTemplateId)
       done.push({ ...item, sysLogId: res.data.sysLogId, newValue: item.dateValue, checklistIds, isStep: true })
       continue
@@ -86,7 +87,7 @@ export async function completeDeadlines(
     if (item.ruleKind === 'meter') {
       if (item.reading === undefined) continue
       const res = await safeInvoke<{ previous: Record<number, string | null>; sysLogId: number }>(IPC.DEADLINE_METER_DONE, item.rowId, item.columnId, item.reading, item.doneOn ?? null)
-      if (!res.ok) { toast.error(res.error); continue }
+      if (!res.ok) { toast.error(friendlyError(res.error)); continue }
       const checklistIds = await addChecklist(item.rowId, item.checklistTemplateId)
       done.push({ ...item, sysLogId: res.data.sysLogId, newValue: item.doneOn ?? today, checklistIds, previous: res.data.previous })
       continue

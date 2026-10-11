@@ -18,6 +18,7 @@ import type { SavedView } from './gridFilterSlice'
 import type { GridState } from './gridTypes'
 import type { GridDeadlineContext } from '../../shared/ipc-contract'
 import { stageConfigOf } from '../../shared/stages'
+import { pulseEvents } from '../events'
 
 export type { GridState } from './gridTypes'
 
@@ -68,6 +69,22 @@ export const useGridStore = create<GridState>((set, get) => ({
   showArchived: false,
   groupByColumnId: null,
   lastAddedRowId: null,
+  sampleRows: {},
+  sampleKeepPrompt: null,
+  answerSampleRow: async (rowId: number, answer: 'keep' | 'sample' | 'later') => {
+    set(s => {
+      const sampleRows = { ...s.sampleRows }
+      if (answer === 'keep') delete sampleRows[rowId]
+      else if (rowId in sampleRows) sampleRows[rowId] = answer === 'sample' ? 1 : 2
+      return { sampleRows, sampleKeepPrompt: null }
+    })
+    try {
+      await invoke(IPC.SAMPLE_ROW_ANSWER, rowId, answer)
+      if (answer === 'keep') pulseEvents.emit('sample-data:changed')
+    } catch (err) {
+      rlog.warn('GridStore', 'Could not save the sample answer', err)
+    }
+  },
   deadlineContext: { meter: {}, quota: {}, progress: {}, extensions: {} },
   refreshDeadlineContext: async () => {
     const gridId = get().activeGridId
@@ -154,7 +171,7 @@ export const useGridStore = create<GridState>((set, get) => ({
       const fullData = await invoke<{
         grid: Grid, columns: Column[], hiddenColumns: Column[], rows: GridRow[], acuityLevels: AcuityLevel[],
         cellFormats: CellFormat[], rowTagsMap: Record<number, string[]>,
-        savedViews: SavedView[], customGroups: string | null,
+        savedViews: SavedView[], customGroups: string | null, sampleRows?: Record<number, number>,
       }>(IPC.GRID_GET_FULL, gridId, showArchived)
       // Discard stale response if another loadGrid was called while awaiting
       if (get()._loadVersion !== version) return
@@ -197,6 +214,8 @@ export const useGridStore = create<GridState>((set, get) => ({
         savedViews: fullData.savedViews as SavedView[],
         customGroups,
         frozenColumnCount: grid.frozen_columns ?? 0,
+        sampleRows: fullData.sampleRows ?? {},
+        sampleKeepPrompt: null,
       })
       // Table or board, as last left for this list (W06)
       // Awaited, so a caller that sets the mode after loading (dashboard → board) wins
@@ -543,6 +562,8 @@ export const useGridStore = create<GridState>((set, get) => ({
     try {
       const result = await invoke<{ sysLogId: number | null }>(IPC.CELL_UPDATE, rowId, columnId, value)
       set({ isSaving: false })
+      // The first edit to a made-up sample entry: ask once whether it's real now
+      if (prevValue !== value && get().sampleRows[rowId] === 0 && !useUndoStore.getState().isUndoing) set({ sampleKeepPrompt: rowId })
       // Push undo for cell change (only if value actually changed)
       if (prevValue !== value) {
         const col = get().columns.find(c => c.id === columnId)

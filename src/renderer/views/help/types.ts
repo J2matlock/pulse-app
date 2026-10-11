@@ -18,17 +18,18 @@ export interface FAQItem {
 }
 
 /** Labels contain {word} tokens; show them through useVocab().f */
+/** Grouped by the job people came to do (audit N-22) */
 export const CATEGORY_LABELS: Record<FAQCategory, string> = {
-  'getting-started': 'Getting Started',
-  'caseload-grid': '{List} grid',
-  'client-profiles': '{Record} profiles',
-  'dashboard-deadlines': 'Dashboard & Deadlines',
-  'tasks': 'Tasks',
-  'contacts': 'Contacts',
-  'import-export': 'Import & Export',
-  'snippets-templates': 'Snippets & Templates',
-  'security-backups': 'Security & Backups',
-  'tips-shortcuts': 'Tips & Shortcuts',
+  'getting-started': 'Getting started',
+  'caseload-grid': 'Set up my {list:many}',
+  'client-profiles': 'Write {activity:many} and keep details',
+  'dashboard-deadlines': 'Track deadlines and schedule',
+  'tasks': 'Tasks and to-dos',
+  'contacts': '{ContactDirectory}',
+  'import-export': 'Reports, printing and sharing',
+  'snippets-templates': 'Letters and templates',
+  'security-backups': 'Keep my data safe',
+  'tips-shortcuts': 'Tips and shortcuts',
 }
 
 export const ALL_CATEGORIES: FAQCategory[] = Object.keys(CATEGORY_LABELS) as FAQCategory[]

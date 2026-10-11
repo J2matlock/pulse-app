@@ -5,6 +5,7 @@ import { Paperclip } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import { LIMIT_MB_RANGE, formatBytes } from '../../../shared/attachments'
 import { safeInvoke } from '../../utils/safeInvoke'
+import { friendlyError } from '../../utils/friendlyError'
 
 export function FilesStorageSection(): React.ReactElement {
   const [usage, setUsage] = useState<{ count: number; bytes: number; limitBytes: number } | null>(null)
@@ -19,12 +20,12 @@ export function FilesStorageSection(): React.ReactElement {
     const mb = Math.round(Number(limit))
     if (!Number.isFinite(mb) || mb < LIMIT_MB_RANGE.min || mb > LIMIT_MB_RANGE.max) { toast.error(`Choose between ${LIMIT_MB_RANGE.min} and ${LIMIT_MB_RANGE.max} MB.`); return }
     const r = await safeInvoke(IPC.SETTINGS_UPDATE, 'attachments_max_mb', String(mb))
-    if (r.ok) { toast.success('Saved'); void load() } else toast.error(r.error)
+    if (r.ok) { toast.success('Saved'); void load() } else toast.error(friendlyError(r.error))
   }
 
   async function emptyTrash() {
     const r = await safeInvoke<number>(IPC.ATTACHMENT_PURGE)
-    if (r.ok) { toast.success(r.data ? `Removed ${r.data} file${r.data === 1 ? '' : 's'} from the trash` : 'No files in the trash'); void load() } else toast.error(r.error)
+    if (r.ok) { toast.success(r.data ? `Removed ${r.data} file${r.data === 1 ? '' : 's'} from the trash` : 'No files in the trash'); void load() } else toast.error(friendlyError(r.error))
   }
 
   const pct = usage ? Math.min(100, Math.round((usage.bytes / usage.limitBytes) * 100)) : 0

@@ -6,6 +6,7 @@ import { ContactRequirementsDialog } from '../contact-req/ContactRequirementsDia
 import { ListSettingsDialog } from '../grid/ListSettingsDialog'
 import { NewListDialog } from '../grid/NewListDialog'
 import { ApplyStarterDialog } from '../starters/ApplyStarterDialog'
+import { pulseEvents } from '../../events'
 import { AnimatePresence, motion } from 'motion/react'
 import { dropdownVariants, backdropVariants, modalPanelVariants } from '../../utils/animations'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
@@ -113,6 +114,14 @@ interface SortableGridItemProps {
   onNavigate: () => void
 }
 
+/** "Tree Customers" → "TC", "Jobs" → "JO" */
+export function listInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(w => /[A-Za-z0-9]/.test(w))
+  if (words.length === 0) return '?'
+  if (words.length === 1) return words[0]!.slice(0, 2).toUpperCase()
+  return (words[0]![0]! + words[1]![0]!).toUpperCase()
+}
+
 function SortableGridItem({
   grid, collapsed, isActive, isRenaming, renameValue, renameInputRef,
   menuOpen, onRenameChange, onRenameCommit, onRenameCancel,
@@ -185,8 +194,12 @@ function SortableGridItem({
           `}
           style={{ minHeight: 44, paddingLeft: collapsed ? undefined : '1.5rem' }}
           title={collapsed ? grid.name : undefined}
+          aria-current={isActive ? 'page' : undefined}
         >
-          <Grid3X3 className="w-5 h-5 flex-shrink-0" />
+          {collapsed
+            // Collapsed, each list shows its initials so they can be told apart (audit N-31)
+            ? <span aria-hidden="true" className="w-7 h-7 rounded-md flex items-center justify-center text-sm font-semibold bg-slate-200 dark:bg-slate-700 flex-shrink-0">{listInitials(grid.name)}</span>
+            : <Grid3X3 className="w-5 h-5 flex-shrink-0" />}
           {!collapsed && (
             <span className="text-base truncate flex-1">{grid.name}</span>
           )}
@@ -306,6 +319,8 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
   const navigate = useNavigate()
   const location = useLocation()
   const isDashboard = location.pathname.startsWith('/dashboard')
+  // A list is "here" only on the list itself or one of its records (audit 2.11)
+  const onListPage = location.pathname === '/' || location.pathname.startsWith('/grid') || location.pathname.startsWith('/profile/')
   const isTasks = location.pathname.startsWith('/tasks')
   const isCalendar = location.pathname.startsWith('/calendar')
   const isReports = location.pathname.startsWith('/reports')
@@ -329,7 +344,9 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
   const closeSettings = useCallback(() => setSettingsGridId(null), [])
   const renameInputRef = useRef<HTMLInputElement>(null)
   const [creatingGrid, setCreatingGrid] = useState(false)
-  const [pickingExample, setPickingExample] = useState(false)
+  const [pickingExample, setPickingExample] = useState<false | { sample: boolean }>(false)
+  // "See an example" from an empty list or the empty dashboard
+  useEffect(() => pulseEvents.on('starters:open', ({ sample }) => setPickingExample({ sample })), [])
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -492,7 +509,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
                 key={grid.id}
                 grid={grid}
                 collapsed={collapsed}
-                isActive={activeGridId === grid.id && !isDashboard}
+                isActive={activeGridId === grid.id && onListPage}
                 isRenaming={renamingGridId === grid.id}
                 renameValue={renameValue}
                 renameInputRef={renamingGridId === grid.id ? renameInputRef : undefined}
@@ -526,6 +543,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
 
           {/* Calendar link (W07): always, since it shows deadlines too */}
           <button
+            data-tour="calendar"
             onClick={() => navigate('/calendar')}
             className={`
               relative flex items-center gap-3 w-full px-3 text-left transition-colors
@@ -841,10 +859,11 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
         <NewListDialog
           onClose={() => setCreatingGrid(false)}
           onCreated={id => { setCreatingGrid(false); void loadGrid(id); navigate('/grid') }}
-          onPickExample={() => { setCreatingGrid(false); setPickingExample(true) }}
+          onPickExample={() => { setCreatingGrid(false); setPickingExample({ sample: false }) }}
         />
       )}
-      {pickingExample && <ApplyStarterDialog mode="add" onClose={() => setPickingExample(false)} />}
+      {pickingExample && <ApplyStarterDialog mode="add" withSamples={pickingExample.sample} onClose={() => setPickingExample(false)}
+        onStartBlank={() => { setPickingExample(false); setCreatingGrid(true) }} />}
       {settingsGridId !== null && (
         <ListSettingsDialog
           gridId={settingsGridId}

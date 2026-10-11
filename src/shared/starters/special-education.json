@@ -6,6 +6,13 @@
   "description": "For IEP case managers and coordinators: the referral timeline (consent, evaluation in 60 school days, eligibility, first IEP), annual IEP reviews and 3-year re-evaluations.",
   "icon": "graduation-cap",
   "group": "Education and youth",
+  "keywords": [
+    "iep",
+    "special ed",
+    "teacher",
+    "school",
+    "student"
+  ],
   "vocab": {
     "record": {
       "one": "student",

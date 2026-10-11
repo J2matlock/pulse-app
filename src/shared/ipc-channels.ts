@@ -342,9 +342,13 @@ export const IPC = {
   ONBOARDING_COMPLETE: 'onboarding:complete',
   ONBOARDING_SETUP_GRID: 'onboarding:setup-grid',
   ONBOARDING_DATE_RULES: 'onboarding:date-rules',
+  ONBOARDING_SAVE_PROGRESS: 'onboarding:save-progress',
+  ONBOARDING_GETTING_STARTED: 'onboarding:getting-started',
   SAMPLE_DATA_STATUS: 'sample-data:status',
   SAMPLE_DATA_CREATE: 'sample-data:create',
   SAMPLE_DATA_REMOVE: 'sample-data:remove',
+  SAMPLE_DATA_PREVIEW: 'sample-data:preview',
+  SAMPLE_ROW_ANSWER: 'sample-data:answer',
 
   // App utilities
   APP_GET_INFO: 'app:get-info',
@@ -379,6 +383,7 @@ export const IPC = {
   AUTH_VERIFY_RECOVERY_KEY: 'auth:verify-recovery-key',
   AUTH_REVOKE_RECOVERY_KEY: 'auth:revoke-recovery-key',
   AUTH_HAS_RECOVERY_KEY: 'auth:has-recovery-key',
+  AUTH_LOCKOUT_REMAINING: 'auth:lockout-remaining',
   AUTH_RESET_PASSWORD_AFTER_RECOVERY: 'auth:reset-password-after-recovery',
   AUTH_CREDENTIALS_UNREADABLE: 'auth:credentials-unreadable',
   AUTH_RESTORE_FROM_BACKUP: 'auth:restore-from-backup',

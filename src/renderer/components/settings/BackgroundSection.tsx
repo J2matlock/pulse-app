@@ -8,6 +8,7 @@ import { MonitorUp } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { BackgroundSettings } from '../../../shared/ipc-contract'
 import { safeInvoke } from '../../utils/safeInvoke'
+import { friendlyError } from '../../utils/friendlyError'
 
 export function BackgroundSection(): React.ReactElement {
   const [settings, setSettings] = useState<BackgroundSettings | null>(null)
@@ -19,7 +20,7 @@ export function BackgroundSection(): React.ReactElement {
   async function save(patch: Partial<Pick<BackgroundSettings, 'trayMode' | 'openAtLogin'>>) {
     const res = await safeInvoke<BackgroundSettings>(IPC.BACKGROUND_SET, patch)
     if (res.ok) setSettings(res.data)
-    else toast.error(res.error)
+    else toast.error(friendlyError(res.error))
   }
 
   return (

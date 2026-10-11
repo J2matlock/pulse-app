@@ -153,6 +153,33 @@ export function addMissingActivityTypes(types: Array<{ key: string; label: strin
   return added
 }
 
+/** The people-centric types every new workspace starts with (besides Note) */
+const STARTING_TYPES = ['phone', 'meeting', 'email', 'visit']
+
+/**
+ * An example that lists its own full set of note types (it includes "note")
+ * replaces the starting ones in a fresh workspace, so a tree service doesn't
+ * get both Phone and Call, or Visit and Site visit. Only starting types no
+ * note, requirement or rule uses are archived (never deleted), and only while
+ * the workspace has no notes of its own. Returns how many were archived.
+ */
+export function replaceStartingTypes(exampleKeys: string[]): number {
+  if (!exampleKeys.includes('note')) return 0
+  const db = getDb()
+  const ownNotes = (db.prepare("SELECT COUNT(*) AS n FROM case_log WHERE log_type != 'system'").get() as { n: number }).n
+  if (ownNotes > 0) return 0
+  const archive = db.prepare('UPDATE activity_types SET is_archived = 1 WHERE key = ? AND is_archived = 0')
+  let archived = 0
+  for (const key of STARTING_TYPES) {
+    if (exampleKeys.includes(key)) continue
+    const use = activityTypeUsage(key)
+    if (use.notes > 0 || use.rules > 0) continue
+    archived += archive.run(key).changes
+  }
+  if (archived) invalidate()
+  return archived
+}
+
 export function reorderActivityTypes(ids: number[]): void {
   const db = getDb()
   const update = db.prepare('UPDATE activity_types SET position = ? WHERE id = ?')

@@ -5,6 +5,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Search, ChevronDown, Eye, BookOpen, Sparkles, ShieldCheck } from 'lucide-react'
 import { STEPS } from '../components/shared/TourOverlay'
+import { featureNow } from '../hooks/useFeature'
+import { pulseEvents } from '../events'
 import type { TourStep } from '../components/shared/TourOverlay'
 import { DEBOUNCE_SEARCH } from '../../shared/constants'
 import type { FAQCategory } from './help/types'
@@ -22,6 +24,13 @@ import { FEATURES, isOn, type FeatureKey } from '../../shared/features'
 interface Props {
   onStartTour: () => void
   onStartMiniTour: (steps: TourStep[]) => void
+}
+
+/** A "Show me" tour's steps, leaving out switched-off features (no walk to a hidden page) */
+export function showMeSteps(ids: string[]): TourStep[] {
+  return ids
+    .map(id => STEPS.find(s => s.id === id))
+    .filter((s): s is TourStep => s != null && (!s.feature || featureNow(s.feature)))
 }
 
 // SessionStorage key for persisting state across mini-tour navigation
@@ -132,7 +141,7 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
                 Turn on {f(FEATURES.find(x => x.key === off)?.label ?? '')}
               </button>
             )}
-            {item.tourStepIds && item.tourStepIds.length > 0 && (
+            {item.tourStepIds && showMeSteps(item.tourStepIds).length > 0 && (
               <button
                 onClick={() => handleShowMe(item.tourStepIds!)}
                 className="hit-44 inline-flex items-center gap-1.5 px-3 py-1.5 text-base font-medium
@@ -159,9 +168,7 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
   }
 
   function handleShowMe(tourStepIds: string[]) {
-    const steps = tourStepIds
-      .map(id => STEPS.find(s => s.id === id))
-      .filter((s): s is TourStep => s != null)
+    const steps = showMeSteps(tourStepIds)
     if (steps.length > 0) {
       // Persist current state so it restores when we return from the tour
       try {
@@ -216,6 +223,10 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
         </div>
         <SecuritySummaryDialog open={showSecuritySummary} onClose={() => setShowSecuritySummary(false)} />
 
+        <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('whats-new:open')}>
+          What's new in this version
+        </button>
+
         {/* Retake Full Tour card */}
         <button
           onClick={onStartTour}
@@ -230,10 +241,10 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-base font-semibold text-blue-800 dark:text-blue-200">
-              Take the guided tour
+              Retake the full tour
             </div>
             <div className="text-sm text-blue-600 dark:text-blue-400">
-              Want a refresher? Walk through all of Pulse's key features step by step.
+              Want a refresher? Walk through every part of Pulse you have switched on, step by step.
             </div>
           </div>
         </button>

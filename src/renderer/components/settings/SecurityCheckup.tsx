@@ -51,7 +51,7 @@ export function SecurityCheckup({ hasRecovery, onGoToBackup }: { hasRecovery: bo
     {
       ok: autoLockMinutes <= 15,
       label: `Auto-lock after ${autoLockMinutes} minutes`,
-      fix: 'Most agencies expect 15 minutes or less. Change it above.',
+      fix: 'Most organizations expect 15 minutes or less. Change it above.',
     },
     {
       ok: !!backup?.enabled && !backupBesideData && !backupFailing,
@@ -60,7 +60,7 @@ export function SecurityCheckup({ hasRecovery, onGoToBackup }: { hasRecovery: bo
         : backup?.enabled ? (backupBesideData ? 'Scheduled backups go to the same folder as your data' : 'Scheduled backups are on') : 'Scheduled backups are off',
       fix: backupFailing
         ? `${backup!.lastError} Check the backup folder, then use "Run now" to test it.`
-        : 'Back up to a different drive (an agency network folder or an encrypted USB), so one failure can\'t take both.',
+        : 'Back up to a different drive (a work network folder or an encrypted USB), so one failure can\'t take both.',
       action: onGoToBackup ? { label: 'Backup settings', onClick: onGoToBackup } : undefined,
     },
     {
@@ -84,7 +84,7 @@ export function SecurityCheckup({ hasRecovery, onGoToBackup }: { hasRecovery: bo
       <div className="flex items-center gap-2">
         <ShieldCheck className="w-5 h-5 text-green-600 dark:text-green-400" aria-hidden="true" />
         <p className="text-base font-semibold text-slate-800 dark:text-slate-100 flex-1">Security checkup: {passed} of {checks.length}</p>
-        <button type="button" className="btn-compact-soft" onClick={() => setShowSummary(true)}>Security summary for my supervisor</button>
+        <button type="button" className="btn-compact-soft" onClick={() => setShowSummary(true)}>Security summary to share</button>
       </div>
       <ul className="space-y-2">
         {checks.map(c => (

@@ -15,9 +15,10 @@ Object.defineProperty(window, 'api', {
 // Mock settingsStore
 const mockLock = vi.fn()
 const mockSetLocked = vi.fn()
+let passwordSetup = true
 vi.mock('../../../src/renderer/stores/settingsStore', () => ({
   useSettingsStore: {
-    getState: () => ({ lock: mockLock, setLocked: mockSetLocked }),
+    getState: () => ({ lock: mockLock, setLocked: mockSetLocked, isPasswordSetup: passwordSetup }),
   },
 }))
 
@@ -30,6 +31,7 @@ describe('useAutoLock', () => {
     mockSetLocked.mockReset()
     mockInvoke.mockClear()
     mockOn.mockClear()
+    passwordSetup = true
   })
 
   afterEach(() => {
@@ -105,6 +107,23 @@ describe('useAutoLock', () => {
 
     expect(mockLock).toHaveBeenCalled()
     expect(mockSetLocked).toHaveBeenCalledWith(true)
+  })
+
+  it('Ctrl+L does nothing before a password exists (audit F-33)', () => {
+    passwordSetup = false
+    renderHook(() => useAutoLock(false, false, 5))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', ctrlKey: true }))
+    expect(mockLock).not.toHaveBeenCalled()
+  })
+
+  it('keeps the main-process timer from firing during password setup (audit F-33)', () => {
+    renderHook(() => useAutoLock(false, false, 5))
+    expect(mockInvoke).toHaveBeenCalledWith('auth:activity-ping')
+    mockInvoke.mockClear()
+    vi.advanceTimersByTime(31_000)
+    window.dispatchEvent(new MouseEvent('mousedown'))
+    expect(mockInvoke).toHaveBeenCalledWith('auth:activity-ping')
+    expect(mockLock).not.toHaveBeenCalled()
   })
 
   it('cleans up listeners on unmount', () => {

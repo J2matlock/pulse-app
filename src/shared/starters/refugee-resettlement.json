@@ -6,6 +6,12 @@
   "description": "For resettlement case managers: milestones from arrival (home visit in 5 days, core services in 30 days, 90- and 180-day check-ins) and two contacts a month.",
   "icon": "home",
   "group": "Human services",
+  "keywords": [
+    "refugee",
+    "immigrant",
+    "resettlement",
+    "asylum"
+  ],
   "vocab": {
     "record": {
       "one": "client",

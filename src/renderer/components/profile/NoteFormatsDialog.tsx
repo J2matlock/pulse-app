@@ -3,7 +3,8 @@ import { Plus, Trash2, X } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
-import { BUILTIN_NOTE_FORMATS, MAX_CUSTOM_FORMATS, MAX_FORMAT_FIELDS, type NoteFormat } from '../../../shared/noteFormats'
+import { builtinFormatsFor, MAX_CUSTOM_FORMATS, MAX_FORMAT_FIELDS, type NoteFormat } from '../../../shared/noteFormats'
+import { useVocab } from '../../hooks/useVocab'
 
 interface Draft { id: string; name: string; fields: string }
 
@@ -14,6 +15,7 @@ export function NoteFormatsDialog({ formats, onClose }: {
 }): React.ReactElement {
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, true)
+  const builtins = builtinFormatsFor(useVocab(null).t('record'))
   const [drafts, setDrafts] = useState<Draft[]>(() => formats.map(f => ({ id: f.id, name: f.name, fields: f.fields.join('\n') })))
   const [error, setError] = useState<string | null>(null)
 
@@ -51,9 +53,11 @@ export function NoteFormatsDialog({ formats, onClose }: {
           </button>
         </div>
         <div className="px-6 py-5 space-y-4">
-          <p className="text-base text-slate-700 dark:text-slate-200">
-            Built in: {BUILTIN_NOTE_FORMATS.map(f => `${f.name} (${f.fields.join(', ')})`).join('; ')}.
-          </p>
+          {builtins.length > 0 && (
+            <p className="text-base text-slate-700 dark:text-slate-200">
+              Built in: {builtins.map(f => `${f.name} (${f.fields.join(', ')})`).join('; ')}.
+            </p>
+          )}
           <p className="text-base text-slate-700 dark:text-slate-200">Your own formats: one section name per line.</p>
           {drafts.map((d, i) => (
             <fieldset key={d.id} className="rounded-lg border border-slate-300 dark:border-slate-600 p-4 space-y-2">

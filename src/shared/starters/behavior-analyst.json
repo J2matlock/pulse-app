@@ -6,6 +6,12 @@
   "description": "For BCBAs and ABA practices: learners with authorized sessions counted as you log them, treatment plan reviews every 6 months, and technicians with RBT certification and monthly supervision. Pulse is a tracking aid, not your official record system.",
   "icon": "heart-handshake",
   "group": "Health",
+  "keywords": [
+    "aba",
+    "bcba",
+    "autism",
+    "therapy"
+  ],
   "vocab": {
     "record": {
       "one": "learner",

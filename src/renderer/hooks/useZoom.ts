@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { useSettingsStore } from '../stores/settingsStore'
-import { isEditableElement } from '../utils/domHelpers'
 import { isMod } from '../utils/keys'
 
 /**
@@ -12,9 +11,8 @@ export function useZoom(
 ): void {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Works from text fields too: these keys don't edit text (audit N-30)
       if (!isMod(e)) return
-      const active = document.activeElement
-      if (isEditableElement(active)) return
       if (e.key === '=') {
         e.preventDefault()
         setUiScale(Math.min(150, useSettingsStore.getState().uiScale + 5))

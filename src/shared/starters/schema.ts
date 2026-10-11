@@ -197,6 +197,8 @@ export const starterSchema = z.object({
   /** lucide icon name */
   icon: z.string().regex(/^[a-z0-9-]{1,40}$/),
   group: optionalText(60),
+  /** Other words people search for ("daycare", "plumber"), for the gallery search */
+  keywords: z.array(text(40)).max(30).optional(),
   vocab: vocabSchema.optional(),
   suggestedFeatures: featureMapSchema.optional(),
   /** Exactly one of `lists` and `variants` */
@@ -288,10 +290,41 @@ export interface StarterSummary {
   description: string
   icon: string
   group: string | null
+  keywords: string[]
   listNames: string[]
   hasSampleData: boolean
   variantQuestion: string | null
   variants: Array<{ key: string; name: string; description: string; listNames: string[] }>
+}
+
+/**
+ * How well a starter matches a gallery search (0 = not at all). Every typed
+ * word must start a word of the starter (name, group, keywords, lists,
+ * description); a whole-word match scores higher, and when some starters
+ * match every word whole, only those are shown, so "car" doesn't bring up
+ * "Caring for a parent" (audit F-16).
+ */
+export function starterSearchScore(s: StarterSummary, query: string): number {
+  const terms = query.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+  if (terms.length === 0) return 1
+  const phrases = s.keywords.map(k => k.toLowerCase())
+  const words = [s.name, s.description, s.group ?? '', ...s.listNames, ...s.variants.map(v => v.name), ...s.keywords]
+    .join(' ').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+  let score = 0
+  for (const t of terms) {
+    if (words.includes(t) || words.includes(`${t}s`) || phrases.includes(t)) score += 3
+    else if (words.some(w => w.startsWith(t))) score += 1
+    else return 0
+  }
+  return score
+}
+
+/** The starters to show for a search, best first */
+export function searchStarters(starters: StarterSummary[], query: string): StarterSummary[] {
+  const scored = starters.map(s => ({ s, score: starterSearchScore(s, query) })).filter(x => x.score > 0)
+  const terms = query.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).length
+  const whole = scored.filter(x => x.score === 3 * terms)
+  return (terms > 0 && whole.length > 0 ? whole : scored).map(x => x.s)
 }
 
 /** The sample data that goes with the chosen (default: first) variant, if any. */
@@ -308,6 +341,7 @@ export function summarizeStarter(s: Starter): StarterSummary {
     description: s.description,
     icon: s.icon,
     group: s.group ?? null,
+    keywords: s.keywords ?? [],
     listNames: starterLists(s).map(l => l.name),
     hasSampleData: !!s.sampleData || !!s.variants?.some(v => v.sampleData),
     variantQuestion: s.variantQuestion ?? null,
@@ -346,7 +380,7 @@ export interface ApplyResult {
 export interface StarterPreview {
   summary: StarterSummary
   variant: string | null
-  lists: Array<{ key: string; name: string; finalName: string; kind: StarterList['kind']; columns: number; rules: string[] }>
+  lists: Array<{ key: string; name: string; finalName: string; kind: StarterList['kind']; columns: number; columnNames: string[]; rules: string[] }>
   /** Words that would change: current → proposed, plural forms */
   words: Array<{ key: VocabKey; current: string; proposed: string }>
   /** Features the starter would switch on that are off now */

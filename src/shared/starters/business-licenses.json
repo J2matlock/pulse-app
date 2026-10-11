@@ -6,6 +6,12 @@
   "description": "Track every license, permit and registration your business holds, with warnings 90, 60, 30 and 7 days before each expires and a renewal checklist.",
   "icon": "file-badge",
   "group": "Business",
+  "keywords": [
+    "permit",
+    "license",
+    "renewal",
+    "compliance"
+  ],
   "vocab": {
     "record": {
       "one": "license",

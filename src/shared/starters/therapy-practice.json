@@ -6,6 +6,13 @@
   "description": "For therapists and counselors: weekly sessions on the calendar, authorized sessions counted as you write session notes, treatment plan reviews every 90 days, PHQ-9 and GAD-7 scores over time and an intake form. Pulse is a tracking aid, not your official record system.",
   "icon": "brain",
   "group": "Health",
+  "keywords": [
+    "therapist",
+    "counselor",
+    "mental health",
+    "sessions",
+    "private practice"
+  ],
   "vocab": {
     "record": {
       "one": "client",

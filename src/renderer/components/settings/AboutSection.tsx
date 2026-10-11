@@ -4,6 +4,7 @@ import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { PRODUCT_NAME, SOURCE_CODE_URL, LICENSE_URL } from '../../../shared/constants'
 import { useVocab } from '../../hooks/useVocab'
+import { pulseEvents } from '../../events'
 
 /** Some IT teams want no automatic connections at all; the manual button still works. */
 function AutoUpdateCheckToggle(): React.ReactElement {
@@ -130,6 +131,9 @@ export function AboutSection(): React.ReactElement {
         {dbInfo?.version && (
           <p className="text-sm text-slate-500 dark:text-slate-400 font-mono">v{dbInfo.version}</p>
         )}
+        <button type="button" className="btn-compact-secondary" onClick={() => pulseEvents.emit('whats-new:open')}>
+          What's new
+        </button>
       </div>
 
       <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">

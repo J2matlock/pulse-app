@@ -17,7 +17,7 @@ import { setWords } from '../../vocabFixture'
 
 const summary = {
   id: 'human-services', name: 'Human services', description: 'Caseloads for care roles', icon: 'heart-handshake', group: 'Human services',
-  listNames: ['OPWDD Caseload'], hasSampleData: false, variantQuestion: 'Which describes your work best?',
+  keywords: [], listNames: ['OPWDD Caseload'], hasSampleData: false, variantQuestion: 'Which describes your work best?',
   variants: [
     { key: 'opwdd-caseload', name: 'OPWDD Caseload', description: 'OPWDD columns', listNames: ['OPWDD Caseload'] },
     { key: 'school-counselor', name: 'School Counselor', description: 'Check-ins', listNames: ['School Counselor'] },
@@ -25,7 +25,7 @@ const summary = {
 }
 const preview = {
   summary, variant: 'school-counselor',
-  lists: [{ key: 'caseload', name: 'School Counselor', finalName: 'School Counselor 2', kind: 'person', columns: 10, rules: ['Every 30 days', 'Due date'] }],
+  lists: [{ key: 'caseload', name: 'School Counselor', finalName: 'School Counselor 2', kind: 'person', columns: 3, columnNames: ['Student', 'Grade', 'Next check-in'], rules: ['Every 30 days', 'Due date'] }],
   words: [{ key: 'record', current: 'records', proposed: 'clients' }],
   features: [{ key: 'letters', label: 'Letters and documents' }],
   hasSampleData: false,
@@ -78,6 +78,38 @@ describe('ApplyStarterDialog', () => {
     expect((screen.getByRole('button', { name: 'Add' }) as HTMLButtonElement).disabled).toBe(true)
   })
 
+  it('first run ticks "Add sample data" and shows what a list holds (audit F-14)', async () => {
+    const withSamples = { ...preview, hasSampleData: true }
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === IPC.STARTER_LIST) return Promise.resolve({ ok: true, data: [{ ...summary, hasSampleData: true }] })
+      if (channel === IPC.STARTER_PREVIEW) return Promise.resolve({ ok: true, data: withSamples })
+      return Promise.resolve({ ok: true, data: [] })
+    })
+    renderDialog('setup')
+    // Every example has samples, so the badge says nothing and is left out
+    const card = await screen.findByRole('button', { name: /Human services/ })
+    expect(card.textContent).not.toMatch(/Includes sample data/)
+    fireEvent.click(card)
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByText('School Counselor 2')
+    expect((screen.getByRole('checkbox', { name: /Add sample data/ }) as HTMLInputElement).checked).toBe(true)
+    expect(screen.getByText(/remove them in one click/)).toBeTruthy()
+    expect(screen.getByText('Student, Grade, Next check-in')).toBeTruthy()
+  })
+
+  it('adding from the sidebar leaves sample data off unless asked', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === IPC.STARTER_LIST) return Promise.resolve({ ok: true, data: [summary] })
+      if (channel === IPC.STARTER_PREVIEW) return Promise.resolve({ ok: true, data: { ...preview, hasSampleData: true } })
+      return Promise.resolve({ ok: true, data: [] })
+    })
+    renderDialog('add')
+    fireEvent.click(await screen.findByRole('button', { name: /Human services/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByText('School Counselor 2')
+    expect((screen.getByRole('checkbox', { name: /Add sample data/ }) as HTMLInputElement).checked).toBe(false)
+  })
+
   it('filters the gallery by search', async () => {
     renderDialog()
     await screen.findByRole('button', { name: /Human services/ })
@@ -85,6 +117,25 @@ describe('ApplyStarterDialog', () => {
     expect(screen.getByRole('button', { name: /Human services/ })).toBeTruthy()
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search examples' }), { target: { value: 'bakery' } })
     expect(screen.getByText(/No examples match/)).toBeTruthy()
+  })
+
+  it('offers other ways to start when nothing matches, and focuses the search box (audit F-16, F-17)', async () => {
+    const blank = vi.fn()
+    render(<MemoryRouter><ApplyStarterDialog mode="setup" onClose={vi.fn()} onStartBlank={blank} onStartSpreadsheet={vi.fn()} /></MemoryRouter>)
+    const search = await screen.findByRole('searchbox', { name: 'Search examples' })
+    await waitFor(() => expect(document.activeElement).toBe(search))
+    fireEvent.change(search, { target: { value: 'bakery' } })
+    expect(screen.getByRole('button', { name: 'Bring in a spreadsheet' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Start blank' }))
+    expect(blank).toHaveBeenCalled()
+  })
+
+  it('a stray click outside doesn\'t close it during setup (audit F-18)', async () => {
+    const close = vi.fn()
+    const { container } = render(<MemoryRouter><ApplyStarterDialog mode="setup" onClose={close} /></MemoryRouter>)
+    await screen.findByRole('button', { name: /Human services/ })
+    fireEvent.click(container.querySelector('.fixed.inset-0')!)
+    expect(close).not.toHaveBeenCalled()
   })
 
   it('opens a template file straight at review and applies it by token', async () => {

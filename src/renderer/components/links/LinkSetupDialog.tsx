@@ -14,6 +14,7 @@ import { useVocab, useVocabByList } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
 import { useLinkStore } from '../../stores/linkStore'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
+import { friendlyError } from '../../utils/friendlyError'
 
 const label = 'block text-base font-semibold text-slate-800 dark:text-slate-100 mb-1'
 
@@ -80,7 +81,7 @@ export function LinkSetupDialog(props: Props): React.ReactElement {
       const res = editing
         ? await safeInvoke(IPC.LINK_TYPE_SAVE, { ...input, id: editing.id, to_grid_id: editing.to_grid_id })
         : await safeInvoke(IPC.LINK_SETUP, input, { showOnOther, logChanges })
-      if (!res.ok) { toast.error(res.error); return }
+      if (!res.ok) { toast.error(friendlyError(res.error)); return }
       await afterChange()
       props.onClose()
     } finally { setSaving(false) }
@@ -96,7 +97,7 @@ export function LinkSetupDialog(props: Props): React.ReactElement {
     if (!editing) return
     const res = await safeInvoke(IPC.LINK_TYPE_DELETE, editing.id)
     setConfirmDelete(null)
-    if (!res.ok) { toast.error(res.error); return }
+    if (!res.ok) { toast.error(friendlyError(res.error)); return }
     await afterChange()
     props.onClose()
   }

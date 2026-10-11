@@ -21,6 +21,8 @@ import { rlog } from '../utils/rendererLogger'
 import { LoadingOverlay } from '../components/shared/LoadingSpinner'
 import { pulseEvents } from '../events'
 import { useVocab } from '../hooks/useVocab'
+import { GettingStartedCard } from './dashboard/GettingStartedCard'
+import { ChooseListDialog } from '../components/shared/ChooseListDialog'
 import { wordNow } from '../utils/vocab'
 
 import type { FollowUpRow, RawDeadlineRow, ArchivedRow, ExtendedDeadlineInfo, TopTab, FilterTab, PriorityItem } from './dashboard/types'
@@ -45,6 +47,8 @@ export default function DashboardView(): React.ReactElement {
   const [customizing, setCustomizing] = useState(false)
   const lettersOn = useFeature('letters')
   const openGridId = useGridStore(s => s.activeGridId)
+  const allGrids = useGridStore(s => s.grids)
+  const [pickingLettersList, setPickingLettersList] = useState(false)
   const [reminderLetters, setReminderLetters] = useState(false)
   // The dashboard spans every list, so it uses the workspace's words
   const { t } = useVocab(null)
@@ -443,11 +447,20 @@ export default function DashboardView(): React.ReactElement {
             <CalendarPlus className="w-4 h-4" aria-hidden="true" />
             Add to calendar
           </button>
-          {lettersOn && openGridId != null && (
-            <button type="button" className="btn-compact-secondary" onClick={() => setReminderLetters(true)} title="Letters or postcards for everyone with a deadline next month">
+          {lettersOn && allGrids.length > 0 && (
+            <button type="button" className="btn-compact-secondary" onClick={() => setPickingLettersList(true)} title="Letters or postcards for everyone with a deadline next month">
               <Mail className="w-4 h-4" aria-hidden="true" />
               Print reminder letters
             </button>
+          )}
+          {/* The dashboard covers every list, so ask which one the letters are for (audit D-35) */}
+          {pickingLettersList && (
+            <ChooseListDialog title="Print reminder letters" grids={allGrids} initialId={openGridId} confirmLabel="Continue"
+              onCancel={() => setPickingLettersList(false)}
+              onChoose={id => {
+                setPickingLettersList(false)
+                void useGridStore.getState().loadGrid(id).then(() => setReminderLetters(true))
+              }} />
           )}
           {reminderLetters && openGridId != null && <BatchDocumentsDialog gridId={openGridId} onClose={() => setReminderLetters(false)} />}
           <button type="button" className="btn-compact-secondary" aria-pressed={customizing} onClick={() => setCustomizing(c => !c)} title="Choose which cards show, and their order">
@@ -457,6 +470,8 @@ export default function DashboardView(): React.ReactElement {
           {showCompliance && <ComplianceSummaryDialog onClose={closeCompliance} />}
           {showCalendar && <CalendarExportDialog onClose={closeCalendar} />}
         </div>
+
+        <GettingStartedCard />
 
         {/* Cards, in the order people chose (W10 §4) */}
         <DashboardCards customizing={customizing} onDoneCustomizing={() => setCustomizing(false)} summary={
@@ -603,7 +618,15 @@ export default function DashboardView(): React.ReactElement {
                 showSpinner ? <LoadingOverlay label="Loading dashboard…" /> : <div className="py-16" />
               ) : filteredItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-2 text-slate-500 dark:text-slate-400">
-                  {filterTab === 'all' ? (
+                  {filterTab === 'all' && stats?.totalActive === 0 ? (
+                    <>
+                      <p className="text-base font-semibold text-slate-700 dark:text-slate-300">Nothing here yet</p>
+                      <p className="text-base text-slate-500 dark:text-slate-400">Your dashboard fills up as you add {t('record', { many: true })} with dates.</p>
+                      <button type="button" className="btn-secondary mt-2" onClick={() => pulseEvents.emit('starters:open', { sample: true })}>
+                        See an example with sample data
+                      </button>
+                    </>
+                  ) : filterTab === 'all' ? (
                     <>
                       <CheckCircle className="w-12 h-12 text-green-400 dark:text-green-500 opacity-60" />
                       <p className="text-base font-semibold text-slate-700 dark:text-slate-300">All clear!</p>

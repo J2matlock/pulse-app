@@ -58,7 +58,7 @@ describe('LockScreenView', () => {
     expect(btn.hasAttribute('disabled')).toBe(true)
   })
 
-  it('shows error toast on failed unlock attempt', async () => {
+  it('says a wrong password on the screen, not in a passing toast (audit F-27)', async () => {
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === 'auth:verify-password') return Promise.resolve({ ok: false, error: 'Incorrect password' })
       if (channel === 'auth:get-hint') return Promise.resolve({ ok: true, data: '' })
@@ -71,14 +71,21 @@ describe('LockScreenView', () => {
     fireEvent.change(input, { target: { value: 'wrongpass' } })
     fireEvent.submit(input.closest('form')!)
 
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Incorrect password. Please try again.', expect.anything())
-    })
+    expect((await screen.findByRole('alert')).textContent).toMatch(/That password didn't work/)
+    expect(toast.error).not.toHaveBeenCalled()
   })
 
-  it('shows lockout messages from the main process as-is', async () => {
+  it('warns when Caps Lock is on', () => {
+    render(<LockScreenView />)
+    const input = screen.getByLabelText('Password')
+    fireEvent.keyDown(input, { key: 'a', modifierCapsLock: true })
+    expect(screen.getByText('Caps Lock is on')).toBeTruthy()
+  })
+
+  it('counts down a lockout with Unlock disabled', async () => {
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === 'auth:verify-password') return Promise.resolve({ ok: false, error: 'Too many failed attempts. Try again in 30 seconds.' })
+      if (channel === 'auth:lockout-remaining') return Promise.resolve({ ok: true, data: 30 })
       if (channel === 'auth:get-hint') return Promise.resolve({ ok: true, data: '' })
       if (channel === 'auth:has-recovery-key') return Promise.resolve({ ok: true, data: false })
       return Promise.resolve({ ok: false })
@@ -89,9 +96,39 @@ describe('LockScreenView', () => {
     fireEvent.change(input, { target: { value: 'x' } })
     fireEvent.submit(input.closest('form')!)
 
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('Too many failed attempts. Try again in 30 seconds.', expect.anything())
+    expect((await screen.findByRole('alert')).textContent).toMatch(/try again in 30 seconds/)
+    expect(screen.getByRole('button', { name: /Wait 30s/ }).hasAttribute('disabled')).toBe(true)
+  })
+
+  it('keeps a mistyped recovery key and says how to check it (audit F-30)', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'auth:has-recovery-key') return Promise.resolve({ ok: true, data: true })
+      if (channel === 'auth:verify-recovery-key') return Promise.resolve({ ok: true, data: false })
+      if (channel === 'auth:get-hint') return Promise.resolve({ ok: true, data: '' })
+      return Promise.resolve({ ok: false })
     })
+    render(<LockScreenView />)
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('auth:has-recovery-key'))
+    fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }))
+    const key = screen.getByLabelText('Recovery key') as HTMLInputElement
+    fireEvent.change(key, { target: { value: 'ABCD1234EFGH5678IJKL9012MNOP' } })
+    fireEvent.submit(key.closest('form')!)
+    expect((await screen.findByRole('alert')).textContent).toMatch(/Check each group of 4/)
+    expect(key.value).toBe('ABCD-1234-EFGH-5678-IJKL-9012-MNOP')
+  })
+
+  it('without a recovery key, explains honestly and offers no restore that cannot work (audit F-29)', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'auth:get-hint') return Promise.resolve({ ok: true, data: 'my dog' })
+      if (channel === 'auth:has-recovery-key') return Promise.resolve({ ok: true, data: false })
+      return Promise.resolve({ ok: false })
+    })
+    render(<LockScreenView />)
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('auth:get-hint'))
+    fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }))
+    expect(screen.getByText(/can't be opened by anyone/)).toBeTruthy()
+    expect(screen.getAllByText('my dog').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/restore from it/)).toBeNull()
   })
 
   it('offers restore from backup when this computer cannot read the credentials', async () => {

@@ -6,6 +6,13 @@
   "description": "For pastors and care teams: birthdays and anniversaries every year, bereavement care at 1, 3, 6 and 13 months after a loss, and regular visits.",
   "icon": "church",
   "group": "Faith and community",
+  "keywords": [
+    "church",
+    "ministry",
+    "congregation",
+    "chaplain",
+    "hospice"
+  ],
   "vocab": {
     "record": {
       "one": "member",

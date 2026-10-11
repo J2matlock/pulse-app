@@ -128,6 +128,26 @@ describe('CommandPalette', () => {
     expect(screen.queryByText('Go to Tasks')).toBeNull()
   })
 
+  it('opens any list, Calendar, Help and Trash by name (audit N-09)', () => {
+    render(<CommandPalette open={true} onOpenChange={onOpenChange} />)
+    const input = screen.getByPlaceholderText(/Search clients in every caseload/)
+    fireEvent.change(input, { target: { value: 'test grid' } })
+    expect(screen.getByText('Go to Test Grid')).toBeDefined()
+    for (const page of ['calendar', 'help', 'trash']) {
+      fireEvent.change(input, { target: { value: page } })
+      expect(screen.getByText(`Go to ${page[0]!.toUpperCase()}${page.slice(1)}`)).toBeDefined()
+    }
+    expect(screen.queryByText('Go to Grid')).toBeNull()
+  })
+
+  it('finds Help answers and opens them in Help', () => {
+    render(<CommandPalette open={true} onOpenChange={onOpenChange} />)
+    fireEvent.change(screen.getByPlaceholderText(/Search clients in every caseload/), { target: { value: 'dark mode' } })
+    fireEvent.click(screen.getByText(/switch between light and dark mode/i))
+    expect(mockNavigate).toHaveBeenCalledWith('/help')
+    expect(sessionStorage.getItem('pulse-help-view-state')).toMatch(/gs-dark-mode/)
+  })
+
   it('closes when backdrop is clicked', () => {
     render(<CommandPalette open={true} onOpenChange={onOpenChange} />)
     const backdrop = screen.getByRole('presentation')

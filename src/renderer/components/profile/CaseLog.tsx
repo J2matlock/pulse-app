@@ -10,7 +10,7 @@ import { MeasureInput } from './MeasureInput'
 import type { NoteMeasureValues } from './CaseLogEntry'
 import { useGridStore } from '../../stores/gridStore'
 import { pulseEvents } from '../../events'
-import { BUILTIN_NOTE_FORMATS, composeNote, parseCustomFormats, type NoteFormat } from '../../../shared/noteFormats'
+import { builtinFormatsFor, composeNote, parseCustomFormats, type NoteFormat } from '../../../shared/noteFormats'
 import { NoteFormatsDialog } from './NoteFormatsDialog'
 import { useNoteTracking } from '../../hooks/useNoteTracking'
 import { CaseLogEntry } from './CaseLogEntry'
@@ -26,6 +26,7 @@ import type { Attachment } from '../../../shared/attachments'
 import { getNoteDraft, setNoteDraft } from '../../utils/noteDrafts'
 import type { NoteDateUpdate, NoteDateRevert } from '../../../shared/types'
 import { localDateString, parseDbTimestamp } from '../../../shared/dates'
+import { friendlyError } from '../../utils/friendlyError'
 
 /** Show dates the main process changed (notes that update deadline columns) without a reload. */
 function applyDatesLocally(rowId: number, values: Array<[columnId: number, value: string | null]>): void {
@@ -177,7 +178,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     setNoteDraft(rowId, { content: newContent, fieldValues, followUp: newFollowUp, minutes: newMinutes, miles: newMiles, extra: newExtra, day: newDay })
   }, [rowId, newContent, fieldValues, newFollowUp, newMinutes, newMiles, newExtra, newDay])
   const [editingFormats, setEditingFormats] = useState(false)
-  const allFormats = [...BUILTIN_NOTE_FORMATS, ...customFormats]
+  const builtinFormats = builtinFormatsFor(t('record'))
+  const allFormats = [...builtinFormats, ...customFormats]
   const format = allFormats.find(f => f.id === formatId)
   const composedContent = format ? composeNote(format, fieldValues) : newContent.trim()
   const [internalSnippets, setInternalSnippets] = useState<Snippet[]>([])
@@ -199,8 +201,9 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
         const custom = formatsRes.ok ? parseCustomFormats(formatsRes.data) : []
         setCustomFormats(custom)
         const last = lastRes.ok ? lastRes.data : null
-        if (last && [...BUILTIN_NOTE_FORMATS, ...custom].some(f => f.id === last)) setFormatId(last)
+        if (last && [...builtinFormats, ...custom].some(f => f.id === last)) setFormatId(last)
       })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the note box opens
   }, [])
 
   function chooseFormat(id: string) {
@@ -385,14 +388,14 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
       })
     } else {
       // e.g. minutes or miles out of range; the note text is kept so nothing is lost
-      toast.error(res.error)
+      toast.error(friendlyError(res.error))
     }
     setAdding(false)
   }
 
   async function handleSetMeasures(id: number, values: NoteMeasureValues) {
     const res = await safeInvoke(IPC.CASE_LOG_SET_MEASURES, id, values)
-    if (!res.ok) { toast.error(res.error); return }
+    if (!res.ok) { toast.error(friendlyError(res.error)); return }
     const { extra, ...builtIn } = values
     const kept = Object.entries(extra ?? {}).filter(([, v]) => v != null)
     setEntries(prev => prev.map(e => e.id === id
@@ -407,7 +410,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     const prevDay = localDateString(parseDbTimestamp(happenedAt(entry)))
     const setDay = async (to: string): Promise<boolean> => {
       const res = await safeInvoke<{ occurred_at: string; updated_dates: NoteDateUpdate[]; reverted_dates: NoteDateRevert[] }>(IPC.CASE_LOG_SET_OCCURRED, id, to)
-      if (!res.ok) { toast.error(res.error); return false }
+      if (!res.ok) { toast.error(friendlyError(res.error)); return false }
       setEntries(prev => prev.map(e => e.id === id ? { ...e, occurred_at: res.data.occurred_at } : e).sort(byHappened))
       showDateChanges(rowId, res.data)
       if (res.data.updated_dates.length > 0) toast.success(`Also updated ${datesText(res.data.updated_dates)}`, { id: 'note-dates' })
@@ -473,7 +476,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
   async function handleDelete(id: number) {
     const entry = entries.find(e => e.id === id)
     const res = await safeInvoke(IPC.CASE_LOG_DELETE, id)
-    if (!res.ok) { toast.error(res.error); return }
+    if (!res.ok) { toast.error(friendlyError(res.error)); return }
     setEntries(prev => prev.filter(e => e.id !== id))
     showDateChanges(rowId, res.data)
     if (entry) {
@@ -635,13 +638,16 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
               Today
             </button>
           )}
-          <span className="w-2" aria-hidden />
-          <label htmlFor={`note-format-${rowId}`} className="text-base text-slate-600 dark:text-slate-300">Format</label>
-          <select id={`note-format-${rowId}`} className="input w-auto" value={formatId} onChange={e => chooseFormat(e.target.value)}>
-            <option value="">Free text</option>
-            {allFormats.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-            <option value="__edit">Edit formats…</option>
-          </select>
+          {/* Format only when one exists (built-in under human-services words, or the user's own); Settings → Notes adds them */}
+          {allFormats.length > 0 && (<>
+            <span className="w-2" aria-hidden />
+            <label htmlFor={`note-format-${rowId}`} className="text-base text-slate-600 dark:text-slate-300">Format</label>
+            <select id={`note-format-${rowId}`} className="input w-auto" value={formatId} onChange={e => chooseFormat(e.target.value)}>
+              <option value="">Free text</option>
+              {allFormats.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+              <option value="__edit">Edit formats…</option>
+            </select>
+          </>)}
         </div>
 
         {format && (

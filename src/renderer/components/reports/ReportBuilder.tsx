@@ -20,6 +20,7 @@ import { loadPinnedReports, setReportPinned } from '../../utils/pinnedReports'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { ReportTable } from './ReportTable'
 import { ReportChart, chartValues } from './ReportChart'
+import { friendlyError } from '../../utils/friendlyError'
 
 export const EMPTY_CONFIG: ReportConfig = { source: 'records', filters: [], groupBy: [], values: [{ fn: 'count' }] }
 
@@ -227,7 +228,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
     if (gridId === null) return null
     const finalName = name.trim() || suggested || 'Report'
     const r = await safeInvoke<SavedReport>(IPC.REPORT_SAVE, { id: initial?.id, name: finalName, gridId, config })
-    if (!r.ok) { toast.error(r.error); return null }
+    if (!r.ok) { toast.error(friendlyError(r.error)); return null }
     toast.success(`Saved "${r.data.name}"`)
     setName(r.data.name)
     setBaseline(JSON.stringify({ g: gridId, c: config, n: r.data.name }))
@@ -237,7 +238,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
   async function exportAs(format: 'csv' | 'pdf') {
     if (gridId === null) return
     const r = await safeInvoke<string | null>(IPC.REPORT_EXPORT, gridId, config, format, name.trim() || suggested || 'Report')
-    if (!r.ok) toast.error(r.error)
+    if (!r.ok) toast.error(friendlyError(r.error))
     else if (r.data) toast.success(format === 'csv' ? 'Saved the CSV' : 'Saved the PDF')
   }
   async function togglePin() {
@@ -255,7 +256,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
     setConfirmDelete(false)
     if (!initial) return
     const r = await safeInvoke(IPC.REPORT_DELETE, initial.id)
-    if (r.ok) { toast.success(`Deleted "${initial.name}"`); onDeleted(initial.id) } else toast.error(r.error)
+    if (r.ok) { toast.success(`Deleted "${initial.name}"`); onDeleted(initial.id) } else toast.error(friendlyError(r.error))
   }
   function onSort(field: string) {
     patch({ sort: config.sort?.field === field && config.sort.dir === 'asc' ? { field, dir: 'desc' } : { field, dir: 'asc' } })

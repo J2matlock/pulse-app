@@ -1,9 +1,11 @@
-import { useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
+import { pulseEvents } from '../events'
 import type { TourStep } from '../components/shared/TourOverlay'
 
 interface UseModalManagerReturn {
-  showTour: boolean
-  setShowTour: Dispatch<SetStateAction<boolean>>
+  /** true: the short first-run tour; 'full': every step (Help → Retake full tour) */
+  showTour: boolean | 'full'
+  setShowTour: Dispatch<SetStateAction<boolean | 'full'>>
   commandPaletteOpen: boolean
   setCommandPaletteOpen: Dispatch<SetStateAction<boolean>>
   shortcutsOpen: boolean
@@ -17,12 +19,14 @@ interface UseModalManagerReturn {
 }
 
 export function useModalManager(): UseModalManagerReturn {
-  const [showTour, setShowTour] = useState(false)
+  const [showTour, setShowTour] = useState<boolean | 'full'>(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [whatsNewOpen, setWhatsNewOpen] = useState(false)
   const [miniTourSteps, setMiniTourSteps] = useState<TourStep[] | null>(null)
   const [globalTaskOpen, setGlobalTaskOpen] = useState(false)
+  // Help, Settings → About, and the first unlock after an update open What's New
+  useEffect(() => pulseEvents.on('whats-new:open', () => setWhatsNewOpen(true)), [])
 
   return {
     showTour,

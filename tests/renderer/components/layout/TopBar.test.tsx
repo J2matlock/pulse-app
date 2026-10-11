@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 const mockNavigate = vi.fn()
@@ -94,6 +94,18 @@ describe('TopBar', () => {
   it('renders grid name on grid view', () => {
     renderTopBar('/grid')
     expect(screen.getByText('Test Grid')).toBeDefined()
+  })
+
+  it('names the page, not the last list, on screens that cover every list (audit 2.11)', () => {
+    renderTopBar('/calendar')
+    expect(screen.getByText('Calendar')).toBeDefined()
+    expect(screen.queryByText('Test Grid')).toBeNull()
+  })
+
+  it('"?" opens Help on the topic for this page (audit N-22)', () => {
+    renderTopBar('/dashboard')
+    fireEvent.click(screen.getByRole('button', { name: 'Help for this page' }))
+    expect(sessionStorage.getItem('pulse-help-view-state')).toMatch(/dashboard-deadlines/)
   })
 
   it('renders breadcrumb on profile view', () => {

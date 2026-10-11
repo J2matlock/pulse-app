@@ -6,6 +6,13 @@
   "description": "For small-business HR: probation reviews 90 days after hire, benefits eligibility at 60 days and a yearly review on each hire anniversary.",
   "icon": "users",
   "group": "Business",
+  "keywords": [
+    "hr",
+    "employee",
+    "staff",
+    "onboarding",
+    "personnel"
+  ],
   "vocab": {
     "record": {
       "one": "employee",

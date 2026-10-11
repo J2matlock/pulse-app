@@ -8,32 +8,96 @@ import { logger } from '../logger'
 import { secureWrap, ok, fail, enforceWritable, logNonFatal, withCorrelation, validId } from './ipc-utils'
 import { getDb } from '../database'
 import { VALID_COLUMN_TYPES } from '../../shared/types'
-import { createSampleCaseload, removeSampleCaseload, getSampleGridId, countStarterSampleRows, removeStarterSampleData } from '../sample-data'
+import { createSampleCaseload, getSampleGridId, countSampleRows, planSampleRemoval, removeSampleData, answerSampleRow } from '../sample-data'
 import { z } from 'zod'
 import { applyDateRules, StarterError } from '../starters'
+import type { SetupProgress } from '../../shared/ipc-contract'
 
 const dateAnswersSchema = z.array(z.union([
   z.object({ columnId: z.number().int().positive(), repeat: z.literal('due') }).strict(),
   z.object({ columnId: z.number().int().positive(), repeat: z.literal('every'), n: z.number().int().min(1).max(999), unit: z.enum(['days', 'months', 'years']) }).strict(),
 ])).max(100)
 
+/** Where an interrupted setup stopped, once it has made a list (audit 2.3 / F-02) */
+const setupProgressSchema = z.object({
+  step: z.enum(['sheet-import', 'sheet-rows', 'blank']),
+  gridId: z.number().int().positive(),
+  listName: z.string().max(200).optional(),
+  blank: z.object({
+    name: z.string().max(200),
+    kind: z.enum(['person', 'thing', 'job']),
+    one: z.string().max(40),
+    many: z.string().max(40),
+  }).strict().optional(),
+}).strict()
+
+function readSetupProgress(): SetupProgress | null {
+  const db = getDb()
+  const row = db.prepare("SELECT value FROM app_meta WHERE key = 'setup_progress'").get() as { value: string } | undefined
+  if (!row) return null
+  let parsed: unknown
+  try { parsed = JSON.parse(row.value) } catch { return null }
+  const res = setupProgressSchema.safeParse(parsed)
+  if (!res.success) return null
+  // The list may have been deleted since
+  return db.prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 1').get(res.data.gridId) ? res.data : null
+}
+
 export function registerOnboardingHandlers(): void {
   secureWrap(IPC.ONBOARDING_CHECK, 'ipc-onboarding', () => {
     const db = getDb()
     const meta = db.prepare("SELECT value FROM app_meta WHERE key = 'onboarding_complete'").get() as { value: string } | undefined
-    if (meta) return ok({ complete: meta.value === '1' })
+    if (meta) return ok({ complete: meta.value === '1', progress: meta.value === '1' ? null : readSetupProgress() })
     // If no flag, check if any grids exist (existing installation → treat as complete)
     const gridCount = (db.prepare('SELECT COUNT(*) as cnt FROM grids WHERE is_active = 1').get() as { cnt: number }).cnt
     const complete = gridCount > 0
     if (complete) {
       db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('onboarding_complete', '1')").run()
     }
-    return ok({ complete })
+    return ok({ complete, progress: null })
+  })
+
+  // "Getting started" card: which first steps have happened (the user's own data, not samples)
+  secureWrap(IPC.ONBOARDING_GETTING_STARTED, 'ipc-onboarding', () => {
+    const db = getDb()
+    const setting = (key: string) => (db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined)?.value ?? null
+    const any = (sql: string) => !!db.prepare(`${sql} LIMIT 1`).get()
+    const real = 'NOT EXISTS (SELECT 1 FROM sample_rows s WHERE s.row_id = r.id)'
+    return ok({
+      show: setting('onboarding_completed_at') !== null && setting('onboarding_getting_started_dismissed') !== '1',
+      record: any(`SELECT 1 FROM rows r JOIN grids g ON g.id = r.grid_id AND g.is_active = 1 WHERE r.deleted_at IS NULL AND ${real}`),
+      reminder: any(`SELECT 1 FROM cells c JOIN columns col ON col.id = c.column_id JOIN rows r ON r.id = c.row_id
+        WHERE r.deleted_at IS NULL AND ${real} AND COALESCE(c.value, '') != ''
+        AND (col.column_type = 'deadline' OR (json_valid(col.config) AND json_extract(col.config, '$.alert_rule_id') IS NOT NULL))`),
+      note: any(`SELECT 1 FROM case_log cl JOIN rows r ON r.id = cl.row_id WHERE cl.log_type != 'system' AND ${real}`),
+      recoverySnoozedUntil: setting('onboarding_recovery_snooze_until'),
+    })
+  })
+
+  // Setup saves its place once it has made a list, so a lock or a closed window resumes it
+  secureWrap(IPC.ONBOARDING_SAVE_PROGRESS, 'ipc-onboarding', (_e, progress: unknown) => {
+    const guard = enforceWritable(); if (guard) return guard
+    const db = getDb()
+    if (progress === null) {
+      db.prepare("DELETE FROM app_meta WHERE key = 'setup_progress'").run()
+      return ok(true as const)
+    }
+    const parsed = setupProgressSchema.safeParse(progress)
+    if (!parsed.success) return fail("We couldn't save your place in setup.")
+    db.transaction(() => {
+      // Setup isn't finished just because a list exists now
+      db.prepare("INSERT OR IGNORE INTO app_meta (key, value) VALUES ('onboarding_complete', '0')").run()
+      db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('setup_progress', ?)").run(JSON.stringify(parsed.data))
+    })()
+    return ok(true as const)
   })
 
   secureWrap(IPC.ONBOARDING_COMPLETE, 'ipc-onboarding', () => {
     const guard = enforceWritable(); if (guard) return guard
     getDb().prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('onboarding_complete', '1')").run()
+    getDb().prepare("DELETE FROM app_meta WHERE key = 'setup_progress'").run()
+    // New workspaces get the "Getting started" card on the dashboard (existing installs never set this)
+    getDb().prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('onboarding_completed_at', datetime('now'))").run()
     // No daily briefing on the day someone finishes setup: they just saw everything
     getDb().prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('briefing_last_shown', date('now', 'localtime'))").run()
     return ok(true)
@@ -116,7 +180,8 @@ export function registerOnboardingHandlers(): void {
         }
       }
 
-      db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('onboarding_complete', '1')").run()
+      // Setup has more questions after this; only ONBOARDING_COMPLETE finishes it
+      db.prepare("INSERT OR IGNORE INTO app_meta (key, value) VALUES ('onboarding_complete', '0')").run()
       return { gridId, colIdByName: Object.fromEntries(colIdByName) }
     })
     const result = doSetup()
@@ -140,7 +205,21 @@ export function registerOnboardingHandlers(): void {
     }
   })
 
-  secureWrap(IPC.SAMPLE_DATA_STATUS, 'ipc-onboarding', () => ok({ gridId: getSampleGridId(), starterRows: countStarterSampleRows() }))
+  secureWrap(IPC.SAMPLE_DATA_STATUS, 'ipc-onboarding', () => ok({ gridId: getSampleGridId(), sampleRows: countSampleRows() }))
+
+  // "Keep this as a real entry?" after the first edit to a sample entry
+  secureWrap(IPC.SAMPLE_ROW_ANSWER, 'ipc-onboarding', (_e, rowId: unknown, answer: unknown) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(rowId)) return fail('Invalid ID')
+    if (answer !== 'keep' && answer !== 'sample' && answer !== 'later') return fail("We couldn't save that answer.")
+    answerSampleRow(rowId, answer)
+    return ok(true as const)
+  })
+
+  secureWrap(IPC.SAMPLE_DATA_PREVIEW, 'ipc-onboarding', () => {
+    const plan = planSampleRemoval()
+    return ok({ remove: plan.remove.length, keep: plan.keep.length, ownInSampleList: plan.ownInSampleList })
+  })
 
   secureWrap(IPC.SAMPLE_DATA_CREATE, 'ipc-onboarding', () => {
     const guard = enforceWritable(); if (guard) return guard
@@ -149,8 +228,11 @@ export function registerOnboardingHandlers(): void {
 
   secureWrap(IPC.SAMPLE_DATA_REMOVE, 'ipc-onboarding', () => {
     const guard = enforceWritable(); if (guard) return guard
-    const removedCaseload = removeSampleCaseload()
-    const removedRows = removeStarterSampleData()
-    return ok(removedCaseload || removedRows > 0)
+    try {
+      return ok(removeSampleData())
+    } catch (err) {
+      logger.error('ipc-onboarding', 'Removing sample data failed', { error: err instanceof Error ? err.message : String(err) })
+      return fail("We couldn't remove the sample data. Nothing was changed; please try again.")
+    }
   })
 }

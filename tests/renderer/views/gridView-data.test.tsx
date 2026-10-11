@@ -190,7 +190,7 @@ describe('GridView — data smoke tests (10 rows, 5 columns)', () => {
   })
 
   it('shows empty state when grid list is loaded but no grid selected', async () => {
-    gridStoreOverride = { activeGridId: null, grids: [], rows: [], columns: [] }
+    gridStoreOverride = { activeGridId: null, grids: [{ id: 1, name: 'Test', is_active: 1, position: 0, created_at: '', updated_at: '' }], rows: [], columns: [] }
     render(<MemoryRouter><GridView /></MemoryRouter>)
     await flushEffects()
     expect(screen.getByTestId('empty-state')).toBeDefined()

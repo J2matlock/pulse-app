@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { BUILTIN_NOTE_FORMATS, composeNote, parseCustomFormats } from '../src/shared/noteFormats'
+import { BUILTIN_NOTE_FORMATS, builtinFormatsFor, composeNote, parseCustomFormats } from '../src/shared/noteFormats'
+
+describe('builtinFormatsFor', () => {
+  it('offers the clinical formats only under human-services words (audit R-16)', () => {
+    expect(builtinFormatsFor('client')).toBe(BUILTIN_NOTE_FORMATS)
+    expect(builtinFormatsFor('customer')).toEqual([])
+    expect(builtinFormatsFor('record')).toEqual([])
+  })
+})
 
 const dap = BUILTIN_NOTE_FORMATS.find(f => f.id === 'dap')!
 

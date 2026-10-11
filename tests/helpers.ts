@@ -55,6 +55,7 @@ import { up as migration041 } from '../src/main/migrations/041_forms'
 import { up as migration042 } from '../src/main/migrations/042_attachments'
 import { up as migration043 } from '../src/main/migrations/043_report_definitions'
 import { up as migration044 } from '../src/main/migrations/044_note_occurred_at'
+import { up as migration047 } from '../src/main/migrations/047_sample_rows'
 
 const TEST_PASSWORD = 'test-key-hex-0123456789abcdef'
 
@@ -128,6 +129,7 @@ export function createTestDb(): TestDb {
   migration042(db)
   migration043(db)
   migration044(db)
+  migration047(db)
 
   return { db, dbPath, tmpDir }
 }
@@ -221,9 +223,10 @@ export const allMigrations = [
   { version: 42, up: migration042 },
   { version: 43, up: migration043 },
   { version: 44, up: migration044 },
+  { version: 47, up: migration047 },
 ]
 
-export const LATEST_SCHEMA_VERSION = 44
+export const LATEST_SCHEMA_VERSION = 47
 
 /** Create a grid with some columns and rows, returning their IDs */
 export function seedGrid(db: Database, opts?: {

@@ -46,6 +46,7 @@ vi.mock('../../../src/renderer/utils/safeInvoke', () => ({
 
 vi.mock('../../../src/renderer/hooks/useBackupReminder', () => ({
   checkBackupReminder: vi.fn().mockResolvedValue(undefined),
+  checkWhatsNew: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('react-hot-toast', () => ({
