@@ -1,16 +1,11 @@
 /** A number column's values over time, for the profile's history charts (W10 §5). */
 import { getDb } from './database'
+import { parseNumberCell } from '../shared/numbers'
 
 export interface SeriesPoint { at: string; value: number }
 
 /** "$1,234.50" → 1234.5; anything that isn't a number → null */
-export function toNumber(v: string | null | undefined): number | null {
-  if (v == null) return null
-  const cleaned = v.replace(/[$,\s]/g, '')
-  if (!/^-?\d+(\.\d+)?$/.test(cleaned)) return null
-  const n = Number(cleaned)
-  return Number.isFinite(n) ? n : null
-}
+export const toNumber = parseNumberCell
 
 /**
  * Each change to these number columns of a record, oldest first (stored

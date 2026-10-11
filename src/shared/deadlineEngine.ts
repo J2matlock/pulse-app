@@ -12,6 +12,7 @@ import { z } from 'zod'
 import { addInterval, describeInterval, hasInterval, toRuleInterval, type RuleInterval } from './ruleInterval'
 import { addBusinessDays, rollBackToBusinessDay, rollForwardToBusinessDay, DEFAULT_WEEKEND, type WorkCalendar } from './businessDays'
 import { toYmd, ymdToDate, dateToYmd, daysBetween } from './ymd'
+import { parseNumberCell } from './numbers'
 
 export { toYmd, ymdToDate, dateToYmd, daysBetween }
 
@@ -402,11 +403,7 @@ function ordinal(n: number): string {
   return `${n}${s}`
 }
 
-function toNumber(v: string | null | undefined): number | null {
-  if (v == null || v.trim() === '') return null
-  const n = Number(v.replace(/,/g, ''))
-  return Number.isFinite(n) ? n : null
-}
+const toNumber = parseNumberCell
 
 /**
  * Usage per day from readings (least squares over the last 180 days). Needs
