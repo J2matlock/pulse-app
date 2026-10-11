@@ -10,27 +10,54 @@ interface PdfPreviewInfo {
   orientation: 'landscape' | 'portrait'
 }
 
+/** Which records an export takes (G-07) */
+export type RowScope = 'shown' | 'selected' | 'all'
+
+export interface RowScopeCounts {
+  /** On screen after filters and search */
+  shown: number
+  selected: number
+  all: number
+}
+
 interface Props {
   open: boolean
-  columns: Array<{ id: number; name: string }>
-  onConfirm: (selectedIds: number[]) => void
+  /** hidden: offered, but not ticked to start with */
+  columns: Array<{ id: number; name: string; hidden?: boolean }>
+  onConfirm: (selectedIds: number[], scope: RowScope) => void
   onCancel: () => void
   title?: string
   /** When provided, shows a PDF export summary below the column list */
   pdfPreview?: PdfPreviewInfo
+  /** When provided, asks which records to export */
+  rowScope?: RowScopeCounts
 }
 
-export function ColumnSelectDialog({ open, columns, onConfirm, onCancel, title = 'Select Columns to Export', pdfPreview }: Props): React.ReactElement | null {
+function defaultScope(c: RowScopeCounts | undefined): RowScope {
+  if (!c) return 'all'
+  return c.shown < c.all ? 'shown' : 'all'
+}
+
+export function ColumnSelectDialog({ open, columns, onConfirm, onCancel, title = 'Select Columns to Export', pdfPreview, rowScope }: Props): React.ReactElement | null {
   const { t } = useVocab()
   const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [scope, setScope] = useState<RowScope>('all')
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, open)
 
   useEffect(() => {
     if (open) {
-      setSelectedIds(columns.map(c => c.id))
+      setSelectedIds(columns.filter(c => !c.hidden).map(c => c.id))
+      setScope(defaultScope(rowScope))
     }
   }, [open]) // eslint-disable-next-line react-hooks/exhaustive-deps -- reset selection to all columns when dialog opens; columns ref is intentionally excluded to avoid mid-edit resets
+
+  const scopeCount = rowScope ? rowScope[scope] : pdfPreview?.rowCount ?? 0
+  const scopeOptions: Array<{ value: RowScope; label: string }> = rowScope ? [
+    ...(rowScope.shown < rowScope.all ? [{ value: 'shown' as const, label: `The ${rowScope.shown} shown (filtered)` }] : []),
+    ...(rowScope.selected > 0 ? [{ value: 'selected' as const, label: `The ${rowScope.selected} selected` }] : []),
+    { value: 'all' as const, label: `All ${rowScope.all} ${t('record', { count: rowScope.all })}` },
+  ] : []
 
   function toggleId(id: number) {
     setSelectedIds(prev =>
@@ -53,7 +80,7 @@ export function ColumnSelectDialog({ open, columns, onConfirm, onCancel, title =
     }
     if (e.key === 'Enter' && selectedIds.length > 0) {
       e.stopPropagation()
-      onConfirm(selectedIds)
+      onConfirm(selectedIds, scope)
     }
   }
 
@@ -81,6 +108,20 @@ export function ColumnSelectDialog({ open, columns, onConfirm, onCancel, title =
         >
           {title}
         </h2>
+
+        {/* Which records */}
+        {scopeOptions.length > 1 && (
+          <fieldset className="mb-4">
+            <legend className="text-base font-medium text-slate-700 dark:text-slate-200 mb-1">Which {t('record', { many: true })}</legend>
+            {scopeOptions.map(o => (
+              <label key={o.value} className="flex items-center gap-3 cursor-pointer text-slate-700 dark:text-slate-200" style={{ minHeight: 44, fontSize: 15 }}>
+                <input type="radio" name="export-scope" value={o.value} checked={scope === o.value} onChange={() => setScope(o.value)}
+                  className="w-4 h-4 text-blue-600 focus:ring-blue-500 focus:ring-3" />
+                {o.label}
+              </label>
+            ))}
+          </fieldset>
+        )}
 
         {/* Select All / Select None */}
         <div className="flex gap-3 mb-3">
@@ -115,7 +156,7 @@ export function ColumnSelectDialog({ open, columns, onConfirm, onCancel, title =
                 className="w-4 h-4 rounded-sm border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 focus:ring-3"
               />
               <span className="text-slate-700 dark:text-slate-200 truncate">
-                {col.name}
+                {col.name}{col.hidden && <span className="text-slate-500 dark:text-slate-400"> (hidden)</span>}
               </span>
             </label>
           ))}
@@ -133,7 +174,7 @@ export function ColumnSelectDialog({ open, columns, onConfirm, onCancel, title =
             <div className="space-y-1 text-blue-700 dark:text-blue-300" style={{ fontSize: 15 }}>
               <div className="flex justify-between">
                 <span>{t('record', { many: true, cap: true })}:</span>
-                <span className="font-medium">{pdfPreview.rowCount}</span>
+                <span className="font-medium">{scopeCount}</span>
               </div>
               <div className="flex justify-between">
                 <span>Columns:</span>
@@ -141,7 +182,7 @@ export function ColumnSelectDialog({ open, columns, onConfirm, onCancel, title =
               </div>
               <div className="flex justify-between">
                 <span>Estimated pages:</span>
-                <span className="font-medium">{Math.max(1, Math.ceil(pdfPreview.rowCount / 30))}</span>
+                <span className="font-medium">{Math.max(1, Math.ceil(scopeCount / 30))}</span>
               </div>
               <div className="flex justify-between">
                 <span>Orientation:</span>
@@ -161,7 +202,7 @@ export function ColumnSelectDialog({ open, columns, onConfirm, onCancel, title =
             Cancel
           </button>
           <button
-            onClick={() => onConfirm(selectedIds)}
+            onClick={() => onConfirm(selectedIds, scope)}
             disabled={selectedIds.length === 0}
             className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ minHeight: 40, padding: '0 16px', fontSize: 15 }}

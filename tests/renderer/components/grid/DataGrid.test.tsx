@@ -496,6 +496,25 @@ describe('DataGrid', () => {
       expect(screen.getByLabelText('Deselect client')).toBeTruthy()
     })
 
+    it('"Select all" selects only the records the search shows (G-05)', async () => {
+      setupStores({ searchQuery: 'Client 3' })
+      renderDataGrid()
+      await flushEffects()
+      fireEvent.click(screen.getByLabelText('Select all rows'))
+      await flushEffects()
+      expect([...useGridStore.getState().selectedRowIds]).toEqual([3])
+      expect(useGridStore.getState().sortedRowIds).toEqual([3])
+    })
+
+    it('a search that hides selected records unselects them (G-05)', async () => {
+      setupStores({ selectedRowIds: new Set([1, 3]) })
+      renderDataGrid()
+      await flushEffects()
+      act(() => { useGridStore.setState({ searchQuery: 'Client 3' }) })
+      await flushEffects()
+      expect([...useGridStore.getState().selectedRowIds]).toEqual([3])
+    })
+
     it('clicking selected row deselects it', async () => {
       renderDataGrid()
       await flushEffects()

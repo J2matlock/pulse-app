@@ -20,7 +20,7 @@ import { FilterControls } from './FilterBar'
 import { GroupingBar } from './GroupingBar'
 import { AcuityConfigPanel } from './AcuityConfigPanel'
 import { SavedViewsDropdown } from './SavedViewsDropdown'
-import { ColumnSelectDialog } from '../shared/ColumnSelectDialog'
+import { ColumnSelectDialog, type RowScope, type RowScopeCounts } from '../shared/ColumnSelectDialog'
 import { dropdownVariants } from '../../utils/animations'
 
 /** Isolated component — subscribes to rows independently so GridToolbar doesn't re-render on cell edits. */
@@ -126,23 +126,42 @@ export function GridToolbar(): React.ReactElement {
   const [linkSetup, setLinkSetup] = useState(false)
 
   function handleExportCsvStart() {
-    setShowExportMenu(false)
-    setExportColumnSelect('csv')
+    openExport('csv')
   }
 
   const [pdfRowCount, setPdfRowCount] = useState(0)
+  const [scopeCounts, setScopeCounts] = useState<RowScopeCounts>({ shown: 0, selected: 0, all: 0 })
 
-  function handleExportPdfStart() {
-    setShowExportMenu(false)
-    // Read row count from store at open time to avoid subscribing to rows
-    setPdfRowCount(useGridStore.getState().rows.length)
-    setExportColumnSelect('pdf')
+  // The records on screen, in screen order; the board shows every record
+  function shownRowIds(): number[] {
+    const s = useGridStore.getState()
+    return s.viewMode === 'board' ? s.rows.map(r => r.row_id) : s.sortedRowIds
   }
 
-  async function handleExportWithColumns(selectedIds: number[]) {
+  function openExport(format: 'csv' | 'pdf') {
+    setShowExportMenu(false)
+    // Read counts from the store at open time to avoid subscribing to rows
+    const s = useGridStore.getState()
+    setScopeCounts({ shown: shownRowIds().length, selected: s.selectedRowIds.size, all: s.rows.length })
+    setPdfRowCount(s.rows.length)
+    setExportColumnSelect(format)
+  }
+
+  function handleExportPdfStart() {
+    openExport('pdf')
+  }
+
+  async function handleExportWithColumns(selectedIds: number[], scope: RowScope = 'all') {
     const format = exportColumnSelect
     setExportColumnSelect(null)
     if (!activeGridId || !format) return
+    // What the person sees is what leaves the app (G-07): shown or selected records, in screen order
+    const shown = shownRowIds()
+    const picked = useGridStore.getState().selectedRowIds
+    const activeRowIds = scope === 'shown' ? shown
+      : scope === 'selected' ? [...shown.filter(id => picked.has(id)), ...[...picked].filter(id => !shown.includes(id))]
+      : []
+    if (scope !== 'all' && activeRowIds.length === 0) { toast.error(`No ${t('record', { many: true })} to export.`); return }
 
     if (format === 'csv') {
       const saveRes = await safeInvoke<SaveDialogResult>(IPC.APP_SHOW_SAVE_DIALOG, {
@@ -154,7 +173,7 @@ export function GridToolbar(): React.ReactElement {
       const result = await safeInvoke<boolean>(IPC.EXPORT_CSV, {
         gridId: activeGridId,
         columnIds: selectedIds,
-        activeRowIds: [],
+        activeRowIds,
         destPath: saveRes.data.filePath,
         dateFormat: 'us'
       })
@@ -170,7 +189,7 @@ export function GridToolbar(): React.ReactElement {
       const result = await safeInvoke<boolean>(IPC.EXPORT_PDF_GRID, {
         gridId: activeGridId,
         columnIds: selectedIds,
-        activeRowIds: [],
+        activeRowIds,
         destPath: saveRes.data.filePath
       })
       if (!result.ok) toast.error('Export failed. Please try again.')
@@ -685,7 +704,8 @@ export function GridToolbar(): React.ReactElement {
       {/* Column select dialog for exports */}
       <ColumnSelectDialog
         open={exportColumnSelect != null}
-        columns={allColumns.filter(c => c.is_visible !== 0)}
+        columns={allColumns.map(c => ({ id: c.id, name: c.name, hidden: c.is_visible === 0 }))}
+        rowScope={scopeCounts}
         onConfirm={handleExportWithColumns}
         onCancel={() => setExportColumnSelect(null)}
         title={exportColumnSelect === 'csv' ? 'Select Columns for CSV Export' : 'Select Columns for PDF Export'}

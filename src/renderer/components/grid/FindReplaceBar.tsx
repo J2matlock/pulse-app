@@ -1,11 +1,36 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { X, ChevronUp, ChevronDown, ArrowRightLeft } from 'lucide-react'
 import type { GridRow, Column, ColumnType } from '../../../shared/types'
+import { columnOptionLabels } from '../../../shared/stages'
+import { ConfirmDialog } from '../shared/ConfirmDialog'
+import { useVocab } from '../../hooks/useVocab'
 
 /** Column types that support text-based find/replace */
 const SEARCHABLE_TYPES = new Set<ColumnType>([
   'text', 'number', 'dropdown', 'phone', 'email', 'url', 'notes', 'status', 'address', 'currency',
 ])
+
+/**
+ * Numbers, money and choices match and replace the whole value: replacing
+ * "1" with "2" must not turn 1,150 into 2,250, and a choice can only become
+ * another choice (G-27).
+ */
+const WHOLE_VALUE_TYPES = new Set<string>(['number', 'currency', 'status', 'dropdown'])
+
+/** The replacement for one match, or null when it can't be used there */
+export function replacementFor(col: Column, value: string, find: string, replace: string): string | null {
+  if (WHOLE_VALUE_TYPES.has(col.column_type)) {
+    if (value.trim().toLowerCase() !== find.trim().toLowerCase()) return null
+    const options = columnOptionLabels(col)
+    if (options.length > 0 && replace !== '') {
+      const hit = options.find(o => o.toLowerCase() === replace.trim().toLowerCase())
+      return hit ?? null
+    }
+    if ((col.column_type === 'number' || col.column_type === 'currency') && replace.trim() !== '' && isNaN(Number(replace.trim()))) return null
+    return replace.trim()
+  }
+  return value.replace(new RegExp(escapeRegex(find), 'gi'), replace)
+}
 
 interface FindMatch {
   rowId: number
@@ -29,6 +54,8 @@ function escapeRegex(str: string): string {
 }
 
 export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onReplaceAll, onHighlightChange, onActiveMatchChange }: FindReplaceBarProps): React.ReactElement | null {
+  const { t } = useVocab()
+  const [confirmAll, setConfirmAll] = useState<{ replacements: Array<{ rowId: number; colId: number; oldVal: string; newVal: string }>; records: number; skipped: number } | null>(null)
   const [findText, setFindText] = useState('')
   const [replaceText, setReplaceText] = useState('')
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0)
@@ -64,7 +91,7 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
     [columns]
   )
 
-  // Find all matches
+  // Find all matches, in the rows given (the ones on screen, in screen order)
   const matches: FindMatch[] = useMemo(() => {
     if (!debouncedFind) return []
     const result: FindMatch[] = []
@@ -72,13 +99,16 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
     for (const row of rows) {
       for (const col of searchableColumns) {
         const cellValue = row[`col_${col.id}` as keyof GridRow] as string | null
-        if (cellValue && cellValue.toLowerCase().includes(lowerFind)) {
-          result.push({ rowId: row.row_id, colId: col.id, value: cellValue })
-        }
+        if (!cellValue) continue
+        const hit = WHOLE_VALUE_TYPES.has(col.column_type)
+          ? cellValue.trim().toLowerCase() === lowerFind.trim()
+          : cellValue.toLowerCase().includes(lowerFind)
+        if (hit) result.push({ rowId: row.row_id, colId: col.id, value: cellValue })
       }
     }
     return result
   }, [debouncedFind, rows, searchableColumns])
+  const columnById = useMemo(() => new Map(columns.map(c => [c.id, c])), [columns])
 
   // Clamp currentMatchIndex when matches change
   useEffect(() => {
@@ -112,23 +142,26 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
   const handleReplace = useCallback(async () => {
     if (matches.length === 0 || !debouncedFind) return
     const match = matches[currentMatchIndex]
-    if (!match) return
-    const regex = new RegExp(escapeRegex(debouncedFind), 'gi')
-    const newVal = match.value.replace(regex, replaceText)
+    const col = match ? columnById.get(match.colId) : undefined
+    if (!match || !col) return
+    const newVal = replacementFor(col, match.value, debouncedFind, replaceText)
+    if (newVal === null) return
     await onReplace(match.rowId, match.colId, match.value, newVal)
-  }, [matches, currentMatchIndex, debouncedFind, replaceText, onReplace])
+  }, [matches, currentMatchIndex, debouncedFind, replaceText, onReplace, columnById])
 
-  const handleReplaceAll = useCallback(async () => {
+  // Replace All asks first, with the counts (G-27)
+  const handleReplaceAll = useCallback(() => {
     if (matches.length === 0 || !debouncedFind) return
-    const regex = new RegExp(escapeRegex(debouncedFind), 'gi')
-    const replacements = matches.map(m => ({
-      rowId: m.rowId,
-      colId: m.colId,
-      oldVal: m.value,
-      newVal: m.value.replace(regex, replaceText),
-    }))
-    await onReplaceAll(replacements)
-  }, [matches, debouncedFind, replaceText, onReplaceAll])
+    const replacements: Array<{ rowId: number; colId: number; oldVal: string; newVal: string }> = []
+    let skipped = 0
+    for (const m of matches) {
+      const col = columnById.get(m.colId)
+      const newVal = col ? replacementFor(col, m.value, debouncedFind, replaceText) : null
+      if (newVal === null) skipped++
+      else replacements.push({ rowId: m.rowId, colId: m.colId, oldVal: m.value, newVal })
+    }
+    setConfirmAll({ replacements, records: new Set(replacements.map(r => r.rowId)).size, skipped })
+  }, [matches, debouncedFind, replaceText, columnById])
 
   const handleFindKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -285,7 +318,7 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
             Replace
           </button>
           <button
-            onClick={() => void handleReplaceAll()}
+            onClick={handleReplaceAll}
             disabled={!hasMatches || !hasFind}
             title="Replace all matches"
             className="hit-44 flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-base font-medium
@@ -301,6 +334,23 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
           </button>
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmAll !== null}
+        destructive={false}
+        title={confirmAll && confirmAll.replacements.length > 0
+          ? `Replace in ${confirmAll.replacements.length} ${confirmAll.replacements.length === 1 ? 'cell' : 'cells'} across ${confirmAll.records} ${t('record', { count: confirmAll.records })}?`
+          : 'Nothing can be replaced'}
+        message={confirmAll && confirmAll.skipped > 0
+          ? `${confirmAll.skipped} ${confirmAll.skipped === 1 ? 'match is' : 'matches are'} left alone: "${replaceText}" isn't a number or one of the column's choices there. You can undo this.`
+          : 'You can undo this.'}
+        confirmLabel="Replace"
+        onConfirm={() => {
+          const all = confirmAll
+          setConfirmAll(null)
+          if (all && all.replacements.length > 0) void onReplaceAll(all.replacements)
+        }}
+        onCancel={() => setConfirmAll(null)}
+      />
     </div>
   )
 }

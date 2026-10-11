@@ -4,11 +4,12 @@ import { useGridStore } from '../../stores/gridStore'
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
+import { useShownCount, shownLabel } from '../../hooks/useShownCount'
 
 export function StatusBar(): React.ReactElement {
-  const { rows, grids, activeGridId, isSaving, saveError, searchQuery, acuityEnabled: acuityFlag, acuityLevels } = useGridStore(useShallow(s => ({
+  const { rows, grids, activeGridId, isSaving, saveError, acuityEnabled: acuityFlag, acuityLevels } = useGridStore(useShallow(s => ({
     rows: s.rows, grids: s.grids, activeGridId: s.activeGridId, isSaving: s.isSaving,
-    saveError: s.saveError, searchQuery: s.searchQuery, acuityEnabled: s.acuityEnabled, acuityLevels: s.acuityLevels,
+    saveError: s.saveError, acuityEnabled: s.acuityEnabled, acuityLevels: s.acuityLevels,
   })))
   // A list's own setting, shown only while the feature is switched on
   const priorityOn = useFeature('priority')
@@ -17,13 +18,8 @@ export function StatusBar(): React.ReactElement {
   const { t } = useVocab()
   const activeGrid = useMemo(() => grids.find(g => g.id === activeGridId), [grids, activeGridId])
 
-  const visibleCount = rows.length
-  const filteredLabel = useMemo(() =>
-    searchQuery
-      ? `${visibleCount} matching`
-      : `${visibleCount} ${t('record', { count: visibleCount })}`,
-    [searchQuery, visibleCount, t]
-  )
+  const { shown, total } = useShownCount()
+  const filteredLabel = useMemo(() => shownLabel(shown, total, n => t('record', { count: n })), [shown, total, t])
 
   const acuityTotal = useMemo(() => {
     if (!acuityEnabled || acuityLevels.length === 0) return 0

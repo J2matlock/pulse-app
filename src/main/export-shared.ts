@@ -52,9 +52,9 @@ export function lastTableY(doc: AutoTableDoc): number {
 
 export interface CsvExportOptions {
   gridId: number
-  /** Column IDs to include; empty = all visible columns */
+  /** Column IDs to include (hidden ones too); empty = all visible columns */
   columnIds: number[]
-  /** Only export rows matching activeRowIds (filtered rows); empty = all */
+  /** Only these rows, in this order (what's on screen); empty = all */
   activeRowIds: number[]
   /** Output file path (provided by renderer via save dialog) */
   destPath: string
@@ -202,15 +202,30 @@ export function formatCellValue(value: string | null, columnType: string, dateFo
   }
 }
 
-/** Load grid data needed for exports */
-export function loadGridData(gridId: number): {
+/**
+ * The rows an export asked for, in the order it asked (the on-screen sort);
+ * every row, in list order, when it named none (G-07).
+ */
+export function pickRows(rows: GridRow[], activeRowIds: number[]): GridRow[] {
+  if (activeRowIds.length === 0) return rows
+  const byId = new Map(rows.map(r => [r.row_id, r]))
+  return activeRowIds.map(id => byId.get(id)).filter((r): r is GridRow => r !== undefined)
+}
+
+/** The columns an export asked for, in list order; the visible ones when it named none */
+export function pickColumns(columns: Column[], columnIds: number[]): Column[] {
+  return columnIds.length > 0 ? columns.filter(c => columnIds.includes(c.id)) : columns.filter(c => c.is_visible !== 0)
+}
+
+/** Load grid data needed for exports (includeHidden: hidden columns too, so they can be chosen) */
+export function loadGridData(gridId: number, opts: { includeHidden?: boolean } = {}): {
   grid: Grid
   columns: Column[]
   rows: GridRow[]
 } {
   const db = getDb()
   const grid = db.prepare('SELECT * FROM grids WHERE id = ?').get(gridId) as Grid
-  const columns = db.prepare('SELECT * FROM columns WHERE grid_id = ? AND is_visible = 1 ORDER BY position').all(gridId) as Column[]
+  const columns = db.prepare(`SELECT * FROM columns WHERE grid_id = ?${opts.includeHidden ? '' : ' AND is_visible = 1'} ORDER BY position`).all(gridId) as Column[]
 
   // Pivot query for rows (uses shared buildGridQuery so deleted rows are excluded)
   if (columns.length === 0) return { grid, columns, rows: [] }

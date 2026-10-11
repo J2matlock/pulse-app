@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { Grid, Column, GridRow, SortConfig, CellFormat, CellFormatRule, AcuityLevel, CustomGroupDef } from '../../shared/types'
-import { isReadOnlyColumnType } from '../../shared/types'
+import { isReadOnlyColumnType, ROW_TAG_COLUMN_ID } from '../../shared/types'
 import { IPC } from '../../shared/ipc-channels'
 import { useUndoStore, rethrowIfUndoing } from './undoStore'
 import type { SideEffect, UndoItem } from './undoStore'
@@ -19,6 +19,11 @@ import type { GridState, UpdateCellOptions } from './gridTypes'
 
 /** Saves of the same cell closer together than this are one undo step (L-17) */
 const COALESCE_MS = 3000
+
+/** What narrows a list on screen; each list keeps its own (G-03) */
+type ListView = Pick<GridState, 'activeFilters' | 'filterMode' | 'searchQuery' | 'groupByColumnId' | 'showStarredOnly'>
+const DEFAULT_LIST_VIEW: ListView = { activeFilters: [], filterMode: 'and', searchQuery: '', groupByColumnId: null, showStarredOnly: false }
+const _listViews = new Map<number, ListView>()
 import type { GridDeadlineContext } from '../../shared/ipc-contract'
 import { stageConfigOf } from '../../shared/stages'
 
@@ -149,6 +154,15 @@ export const useGridStore = create<GridState>((set, get) => ({
     // reloads only the list it belongs to. It's cleared on lock, restore and sample removal.
     const version = get()._loadVersion + 1
     _coalesceIndex.clear()
+    // Another list: put this one's filters, search and grouping away and bring back that one's (G-03)
+    const prevGridId = get().activeGridId
+    if (prevGridId !== gridId) {
+      if (prevGridId !== null) {
+        const s = get()
+        _listViews.set(prevGridId, { activeFilters: s.activeFilters, filterMode: s.filterMode, searchQuery: s.searchQuery, groupByColumnId: s.groupByColumnId, showStarredOnly: s.showStarredOnly })
+      }
+      set({ ...(_listViews.get(gridId) ?? DEFAULT_LIST_VIEW) })
+    }
     set({ isLoading: true, activeGridId: gridId, _loadVersion: version, sortedRowIds: [], selectedRowIds: new Set<number>() })
     try {
       const showArchived = get().showArchived
@@ -189,7 +203,13 @@ export const useGridStore = create<GridState>((set, get) => ({
         try { customGroups = JSON.parse(fullData.customGroups) } catch { /* ignore */ }
       }
 
+      // A filter or grouping on a column this list doesn't have would hide everything (G-03)
+      const known = new Set([...columns, ...hiddenColumns].map(c => c.id))
+      const { activeFilters, groupByColumnId } = get()
+      const keptFilters = activeFilters.filter(f => f.columnId === ROW_TAG_COLUMN_ID || known.has(f.columnId))
       set({
+        ...(keptFilters.length !== activeFilters.length ? { activeFilters: keptFilters } : {}),
+        ...(typeof groupByColumnId === 'number' && !known.has(groupByColumnId) ? { groupByColumnId: null } : {}),
         columns, hiddenColumns, rows, sortConfig, isLoading: false,
         acuityLevels: acuityLevels ?? [],
         acuityEnabled: grid.acuity_enabled === 1,

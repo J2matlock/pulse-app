@@ -38,6 +38,11 @@ import { placeholderFields } from '../placeholders'
 import { buildBatchPdf, buildLabelsPdf, DocumentError, MAX_BATCH, type DocTarget } from '../export-documents'
 import { atomicWriteFileAsync } from '../export-shared'
 
+/** Row and column choices for an export: whole positive ids, and not absurdly many */
+function validIdList(v: unknown): v is number[] {
+  return Array.isArray(v) && v.length <= 100_000 && v.every(id => Number.isInteger(id) && id > 0)
+}
+
 export function registerExportHandlers(): void {
   // ── Backup (Auto listing) ──────────────────────────────────────────────────
   secureWrap(IPC.BACKUP_AUTO_LIST, 'ipc-export', () => {
@@ -302,6 +307,7 @@ export function registerExportHandlers(): void {
   secureWrap(IPC.EXPORT_CSV, 'ipc-export', async (_e, options: CsvExportOptions) => {
     assertSafePath(options.destPath)
     if (!validId(options.gridId)) return fail('Invalid grid ID')
+    if (!validIdList(options.columnIds) || !validIdList(options.activeRowIds)) return fail('Invalid export choice')
     await exportCsv(options)
     return ok(true)
   })
@@ -309,6 +315,7 @@ export function registerExportHandlers(): void {
   secureWrap(IPC.EXPORT_PDF_GRID, 'ipc-export', async (_e, options: PdfGridOptions) => {
     assertSafePath(options.destPath)
     if (!validId(options.gridId)) return fail('Invalid grid ID')
+    if (!validIdList(options.columnIds) || !validIdList(options.activeRowIds)) return fail('Invalid export choice')
     await exportPdfGrid(options)
     return ok(true)
   })

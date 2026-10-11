@@ -126,6 +126,32 @@ describe('gridStore', () => {
       expect(useGridStore.getState().columns).toEqual([])
     })
 
+    it('each list keeps its own filters, search, grouping and starred view (G-03)', async () => {
+      const full = (id: number, colIds: number[]) => ({
+        ok: true,
+        data: { grid: { id, name: `L${id}`, sort_config: '[]' }, columns: colIds.map(c => makeColumn(c, `C${c}`)), hiddenColumns: [], rows: [], acuityLevels: [], cellFormats: [], rowTagsMap: {}, savedViews: [], customGroups: '[]' },
+      })
+      mockInvoke.mockImplementation(async (channel: string, id: number) => channel === 'grid:get-full' ? full(id, id === 1 ? [11, 12] : [21]) : { ok: true, data: null })
+      await useGridStore.getState().loadGrid(1)
+      useGridStore.setState({ activeFilters: [{ columnId: 11, operator: 'equals', value: 'Text' }], searchQuery: 'smith', groupByColumnId: 12, showStarredOnly: true })
+      await useGridStore.getState().loadGrid(2)
+      expect(useGridStore.getState()).toMatchObject({ activeFilters: [], searchQuery: '', groupByColumnId: null, showStarredOnly: false })
+      await useGridStore.getState().loadGrid(1)
+      expect(useGridStore.getState()).toMatchObject({ activeFilters: [{ columnId: 11, operator: 'equals', value: 'Text' }], searchQuery: 'smith', groupByColumnId: 12, showStarredOnly: true })
+      mockInvoke.mockReset()
+    })
+
+    it('drops a filter or grouping on a column the list does not have (G-03)', async () => {
+      useGridStore.setState({ activeGridId: 7, activeFilters: [{ columnId: 412, operator: 'equals', value: 'Text' }, { columnId: -1, operator: 'contains', value: 'vip' }], groupByColumnId: 412 })
+      mockInvoke.mockResolvedValue({
+        ok: true,
+        data: { grid: { id: 7, name: 'L', sort_config: '[]' }, columns: [makeColumn(1, 'Name')], hiddenColumns: [], rows: [], acuityLevels: [], cellFormats: [], rowTagsMap: {}, savedViews: [], customGroups: '[]' },
+      })
+      await useGridStore.getState().loadGrid(7)
+      expect(useGridStore.getState().activeFilters).toEqual([{ columnId: -1, operator: 'contains', value: 'vip' }])
+      expect(useGridStore.getState().groupByColumnId).toBeNull()
+    })
+
     it('parses sort_config from grid JSON', async () => {
       const sortConfig = [{ columnId: 1, direction: 'asc', priority: 0 }]
       const mockGrid: Partial<Grid> = { id: 1, name: 'Test', sort_config: JSON.stringify(sortConfig) }

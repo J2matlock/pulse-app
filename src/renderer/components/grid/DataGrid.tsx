@@ -217,7 +217,6 @@ export function DataGrid(): React.ReactElement {
     }
     return result
   }, [rows, activeFilters, filterMode, columns, rowTagsMap, showStarredOnly])
-  filteredRowsRef.current = filteredRows
 
   // Map for O(1) column lookup
   const columnMap = useMemo(() => new Map(columns.map(c => [c.id, c])), [columns])
@@ -504,10 +503,21 @@ export function DataGrid(): React.ReactElement {
   const tableRows = table.getRowModel().rows
   const headerGroups = table.getHeaderGroups()
 
+  // The rows on screen, in screen order (after the search too): select-all, Ctrl+A,
+  // export, Find & Replace and the counts act on these (G-05, G-24)
+  const visibleRows = useMemo(() => tableRows.map(r => r.original), [tableRows])
+  filteredRowsRef.current = visibleRows
+
   // Keep sortedRowIds in sync so ProfileView can compute prev/next
   useEffect(() => {
-    setSortedRowIds(tableRows.map(r => r.original.row_id))
-  }, [tableRows, setSortedRowIds])
+    setSortedRowIds(visibleRows.map(r => r.row_id))
+  }, [visibleRows, setSortedRowIds])
+
+  // A filter or search that hides selected records also unselects them, so bulk actions only touch what's shown
+  useEffect(() => {
+    const shown = new Set(visibleRows.map(r => r.row_id))
+    setSelectedRowIds(prev => [...prev].every(id => shown.has(id)) ? prev : new Set([...prev].filter(id => shown.has(id))))
+  }, [visibleRows, setSelectedRowIds])
 
   // Grouping (extracted hook)
   const {
@@ -523,11 +533,24 @@ export function DataGrid(): React.ReactElement {
   visualRowIdsRef.current = visualRowIds
 
   // Virtual scrolling (extracted hook)
-  const { virtualRows, totalSize: totalHeight, paddingTop, paddingBottom } = useGridVirtualizer({
+  const { virtualRows, totalSize: totalHeight, paddingTop, paddingBottom, scrollToRow } = useGridVirtualizer({
     parentRef: containerRef,
     count: isGroupedFromHook ? displayItems.length : tableRows.length,
     rowHeight,
   })
+
+  /** Bring a record into view, whether or not the list is grouped */
+  const scrollToRowId = useCallback((rowId: number) => {
+    const tableIdx = tableRows.findIndex(r => r.original.row_id === rowId)
+    if (tableIdx < 0) return
+    const idx = isGroupedFromHook ? displayItems.findIndex(it => it.kind === 'row' && it.tableRowIndex === tableIdx) : tableIdx
+    if (idx >= 0) scrollToRow(idx)
+  }, [tableRows, displayItems, isGroupedFromHook, scrollToRow])
+
+  // Find & Replace: the active match comes into view (G-27)
+  useEffect(() => {
+    if (findReplaceActiveMatch) scrollToRowId(findReplaceActiveMatch.rowId)
+  }, [findReplaceActiveMatch]) // eslint-disable-line react-hooks/exhaustive-deps -- only when the match changes, not on every re-render of the rows
 
   const totalWidth = HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0) + table.getTotalSize()
   const columnIds = useMemo(() => columns.map(c => `col_${c.id}`), [columns])
@@ -696,7 +719,7 @@ export function DataGrid(): React.ReactElement {
             acuitySortDir={acuitySortDir}
             setAcuitySortDir={setAcuitySortDir}
             selectedRowIds={selectedRowIds}
-            filteredRows={filteredRows}
+            filteredRows={visibleRows}
             setSelectedRowIds={setSelectedRowIds}
             colSensors={colSensors}
             onColumnDragEnd={handleColumnDragEnd}

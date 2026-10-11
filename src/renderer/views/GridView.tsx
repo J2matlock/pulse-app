@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../stores/gridStore'
 import { useUndoStore, batchUndoItem, type UndoItem } from '../stores/undoStore'
@@ -37,6 +37,12 @@ export default function GridView(): React.ReactElement {
   const stagesOn = useFeature('stages')
   const viewMode = useGridStore(s => s.viewMode)
   const hasStage = useGridStore(s => s.columns.concat(s.hiddenColumns).some(c => stageConfigOf(c) !== null))
+  // Find & Replace works on the records on screen, in screen order (G-27)
+  const sortedRowIds = useGridStore(s => s.sortedRowIds)
+  const visibleRows = useMemo(() => {
+    const byId = new Map(rows.map(r => [r.row_id, r]))
+    return sortedRowIds.map(id => byId.get(id)).filter((r): r is NonNullable<typeof r> => r !== undefined)
+  }, [rows, sortedRowIds])
   const showBoard = stagesOn && hasStage && viewMode === 'board'
   const pendingTypeChange = useGridStore(s => s.pendingColumnTypeChange)
   const confirmColumnTypeChange = useGridStore(s => s.confirmColumnTypeChange)
@@ -125,7 +131,7 @@ export default function GridView(): React.ReactElement {
         <FindReplaceBar
           open={findReplaceOpen}
           onClose={handleClose}
-          rows={rows}
+          rows={visibleRows}
           columns={columns}
           onReplace={handleReplace}
           onReplaceAll={handleReplaceAll}

@@ -112,6 +112,24 @@ describe('exportCsv', () => {
     expect(parsed.data).toHaveLength(2)
   })
 
+  it('keeps the on-screen order of the rows it was given, and can include a hidden column (G-07)', async () => {
+    const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 3, columnCount: 2 })
+    testDb.db.prepare("UPDATE columns SET name = 'Name' WHERE id = ?").run(columnIds[0])
+    testDb.db.prepare("UPDATE columns SET name = 'Secret', is_visible = 0 WHERE id = ?").run(columnIds[1])
+    const insert = testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')
+    for (let i = 0; i < 3; i++) { insert.run(rowIds[i], columnIds[0], `Client ${i}`); insert.run(rowIds[i], columnIds[1], `s${i}`) }
+
+    const destPath = join(testDb.tmpDir, 'ordered.csv')
+    await exportCsv({ gridId, columnIds: [columnIds[0]!, columnIds[1]!], activeRowIds: [rowIds[2]!, rowIds[0]!], destPath, dateFormat: 'iso' })
+    const parsed = Papa.parse<Record<string, string>>(readFileSync(destPath, 'utf-8'), { header: true, skipEmptyLines: true })
+    expect(parsed.data).toEqual([{ Name: 'Client 2', Secret: 's2' }, { Name: 'Client 0', Secret: 's0' }])
+
+    // No columns named: the visible ones only, as before
+    const plain = join(testDb.tmpDir, 'plain.csv')
+    await exportCsv({ gridId, columnIds: [], activeRowIds: [], destPath: plain, dateFormat: 'iso' })
+    expect(Papa.parse<Record<string, string>>(readFileSync(plain, 'utf-8'), { header: true }).meta.fields).toEqual(['Name'])
+  })
+
   it('formats dates according to dateFormat setting', async () => {
     const { gridId, columnIds, rowIds } = seedGrid(testDb.db, {
       rowCount: 1, columnCount: 1, columnTypes: ['date'],

@@ -34,6 +34,8 @@ describe('StatusBar', () => {
       searchQuery: '',
       acuityEnabled: false,
       acuityLevels: [],
+      sortedRowIds: [1, 2, 3],
+      viewMode: 'table',
     }
   })
 
@@ -69,7 +71,7 @@ describe('StatusBar', () => {
   })
 
   it('shows singular client when count is 1', () => {
-    mockStoreState = { ...mockStoreState, rows: [{ row_id: 1 }] }
+    mockStoreState = { ...mockStoreState, rows: [{ row_id: 1 }], sortedRowIds: [1] }
     render(<StatusBar />)
     expect(screen.getByText('1 client')).toBeDefined()
   })
@@ -79,9 +81,15 @@ describe('StatusBar', () => {
     expect(screen.getByText('My Caseload')).toBeDefined()
   })
 
-  it('shows matching count when search is active', () => {
-    mockStoreState = { ...mockStoreState, searchQuery: 'john' }
+  it('shows how many of them the search leaves on screen (G-24)', () => {
+    mockStoreState = { ...mockStoreState, searchQuery: 'john', sortedRowIds: [2] }
     render(<StatusBar />)
-    expect(screen.getByText('3 matching')).toBeDefined()
+    expect(screen.getByText('1 of 3 clients')).toBeDefined()
+  })
+
+  it('counts every record on the board', () => {
+    mockStoreState = { ...mockStoreState, sortedRowIds: [], viewMode: 'board' }
+    render(<StatusBar />)
+    expect(screen.getByText('3 clients')).toBeDefined()
   })
 })

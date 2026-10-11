@@ -5,21 +5,16 @@
 import Papa from 'papaparse'
 
 import type { CsvExportOptions } from './export-shared'
-import { atomicWriteFileAsync, formatCellValue, loadGridData, sanitizeCsvFormula } from './export-shared'
+import { atomicWriteFileAsync, formatCellValue, loadGridData, pickColumns, pickRows, sanitizeCsvFormula } from './export-shared'
 import { logger } from './logger'
 
 export async function exportCsv(options: CsvExportOptions): Promise<void> {
   const { gridId, columnIds, activeRowIds, destPath, dateFormat } = options
-  const { columns, rows } = loadGridData(gridId)
+  const { columns, rows } = loadGridData(gridId, { includeHidden: true })
   logger.info('export', 'CSV export started', { rowCount: rows.length })
 
-  const selectedColumns = columnIds.length > 0
-    ? columns.filter(c => columnIds.includes(c.id))
-    : columns
-
-  const filteredRows = activeRowIds.length > 0
-    ? rows.filter(r => activeRowIds.includes(r.row_id))
-    : rows
+  const selectedColumns = pickColumns(columns, columnIds)
+  const filteredRows = pickRows(rows, activeRowIds)
 
   const headers = selectedColumns.map(c => sanitizeCsvFormula(c.name))
   const data = filteredRows.map(row =>
