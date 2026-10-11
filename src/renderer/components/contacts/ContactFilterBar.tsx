@@ -68,14 +68,15 @@ export function ContactFilterBar({ viewMode, onViewModeChange, searchInputRef }:
     <div className="space-y-2">
       {/* Search + view toggle + sort */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative flex-1 min-w-[240px]">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
           <input
             ref={searchInputRef}
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder={`Search ${t('contact', { many: true })}… (press /)`}
+            // The "/" shortcut is in the tooltip; in the placeholder it got cut off mid-word
+            placeholder={`Search ${t('contact', { many: true })}…`}
             title={`Search ${t('contact', { many: true })} (/)`}
             className="w-full pl-9 pr-8 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-3 focus:ring-blue-500"
             style={{ fontSize: 15, minHeight: 44 }}
@@ -157,9 +158,9 @@ export function ContactFilterBar({ viewMode, onViewModeChange, searchInputRef }:
         </div>
       </div>
 
-      {/* Category chips */}
+      {/* Category chips: they wrap to a second line instead of a scrollbar under them */}
       {categories.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto overflow-y-hidden flex-shrink-0 py-1">
+        <div className="flex flex-wrap items-center gap-2 py-1">
           <button
             onClick={() => setFilterParams({ ...filterParams, categoryId: undefined })}
             className={`hit-44 px-3 py-1 rounded-full text-base font-medium flex-shrink-0 transition-colors ${

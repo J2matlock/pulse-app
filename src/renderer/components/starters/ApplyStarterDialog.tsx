@@ -210,8 +210,8 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
               <legend className="text-base font-medium text-slate-800 dark:text-slate-100 mb-2">{chosen.variantQuestion ?? 'Which describes your work best?'}</legend>
               {chosen.variants.map(v => (
                 <label key={v.key} className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-600 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20" style={{ minHeight: 44 }}>
-                  <input type="radio" name="starter-variant" className="w-5 h-5 mt-0.5" checked={variant === v.key} onChange={() => setVariant(v.key)} />
-                  <span>
+                  <input type="radio" name="starter-variant" className="w-5 h-5 mt-0.5 flex-shrink-0" checked={variant === v.key} onChange={() => setVariant(v.key)} />
+                  <span className="min-w-0">
                     <span className="block text-base font-medium text-slate-900 dark:text-slate-100">{v.name}</span>
                     <span className="block text-sm text-slate-600 dark:text-slate-300">{v.description}</span>
                   </span>

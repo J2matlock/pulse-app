@@ -132,13 +132,13 @@ export function AppearanceSection({
       <div className="border-t border-slate-200 dark:border-slate-700 pt-6 mt-6 space-y-4">
         <label className="block text-base font-medium text-slate-700 dark:text-slate-300">{t('list', { many: true, cap: true })}</label>
 
-        {/* Density */}
-        <div className="flex items-center justify-between gap-4">
-          <div>
+        {/* Density: the choices drop under the label when the column is narrow, rather than cutting off "Spacious" */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="flex-1 min-w-[12rem]">
             <span className="text-base text-slate-700 dark:text-slate-300">Density</span>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">How tall each line of a {t('list')} is</p>
           </div>
-          <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+          <div role="group" aria-label="Density" className="flex flex-shrink-0 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
             {([
               { value: 'compact', label: 'Compact' },
               { value: 'comfortable', label: 'Comfortable' },

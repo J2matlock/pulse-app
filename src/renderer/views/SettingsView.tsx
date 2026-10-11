@@ -142,12 +142,12 @@ export default function SettingsView(): React.ReactElement {
               tabIndex={activeSection === item.id ? 0 : -1}
               aria-controls={`settings-panel-${item.id}`}
               onClick={() => setActiveSection(item.id)}
-              className={`flex items-start gap-3 w-full px-4 py-2 text-left transition-colors
-                hover:bg-slate-200 dark:hover:bg-slate-700
+              // No color fade, and a bar down the left edge: the open tab shows at once, in dark mode too
+              className={`flex items-start gap-3 w-full pl-3 pr-4 py-2 text-left border-l-4
                 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
                 ${activeSection === item.id
-                  ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium'
-                  : 'text-slate-700 dark:text-slate-300'}`}
+                  ? 'border-blue-600 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/60 text-blue-700 dark:text-blue-200 font-medium'
+                  : 'border-transparent hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'}`}
               style={{ minHeight: 44 }}
               {...(item.id === 'security' ? { 'data-tour': 'settings-security-tab' } : item.id === 'backup' ? { 'data-tour': 'settings-backup-tab' } : {})}
             >

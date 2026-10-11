@@ -260,6 +260,8 @@ describe('ContactsView — interactions', () => {
 
     expect(screen.getByTestId('empty-state')).toBeDefined()
     expect(screen.getByText('No providers yet')).toBeDefined()
+    // Nothing to pick, so no second empty panel beside it (polish V1)
+    expect(screen.queryByText(/to view details/)).toBeNull()
   })
 
   it('shows provider count as singular when one provider', async () => {

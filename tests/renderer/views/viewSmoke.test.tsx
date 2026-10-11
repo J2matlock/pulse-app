@@ -456,10 +456,10 @@ describe('ContactsView', () => {
     expect(screen.getByText('0 providers')).toBeDefined()
   })
 
-  it('renders the right panel placeholder text', async () => {
+  it('with no contacts, leaves out the empty "select one" panel (polish V1)', async () => {
     render(<MemoryRouter><ContactsView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByText('Select a provider to view details')).toBeDefined()
+    expect(screen.queryByText('Select a provider to view details')).toBeNull()
   })
 })
 

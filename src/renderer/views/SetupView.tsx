@@ -336,12 +336,12 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
                 <legend className="sr-only">What are these rows?</legend>
                 {ROW_CHOICES.map((c, i) => (
                   <label key={c.many} className="flex items-center gap-2 p-3 rounded-lg border border-slate-200 dark:border-slate-600 cursor-pointer text-base text-slate-800 dark:text-slate-100 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20" style={{ minHeight: 44 }}>
-                    <input type="radio" name="setup-rows" className="w-5 h-5" checked={rows.choice === i} onChange={() => setRows(r => ({ ...r, choice: i }))} />
+                    <input type="radio" name="setup-rows" className="w-5 h-5 flex-shrink-0" checked={rows.choice === i} onChange={() => setRows(r => ({ ...r, choice: i }))} />
                     {c.many.charAt(0).toUpperCase() + c.many.slice(1)}
                   </label>
                 ))}
                 <label className="flex items-center gap-2 p-3 rounded-lg border border-slate-200 dark:border-slate-600 cursor-pointer text-base text-slate-800 dark:text-slate-100 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20" style={{ minHeight: 44 }}>
-                  <input type="radio" name="setup-rows" className="w-5 h-5" checked={rows.choice === 'other'} onChange={() => setRows(r => ({ ...r, choice: 'other' }))} />
+                  <input type="radio" name="setup-rows" className="w-5 h-5 flex-shrink-0" checked={rows.choice === 'other'} onChange={() => setRows(r => ({ ...r, choice: 'other' }))} />
                   Something else
                 </label>
               </fieldset>
@@ -361,7 +361,7 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
                     <legend className="text-base font-semibold text-slate-700 dark:text-slate-200 mb-1">Are they…</legend>
                     {KINDS.map(k => (
                       <label key={k.kind} className="flex items-center gap-2 text-base text-slate-800 dark:text-slate-100 cursor-pointer" style={{ minHeight: 44 }}>
-                        <input type="radio" name="setup-kind" className="w-5 h-5" checked={rows.kind === k.kind} onChange={() => setRows(r => ({ ...r, kind: k.kind }))} />
+                        <input type="radio" name="setup-kind" className="w-5 h-5 flex-shrink-0" checked={rows.kind === k.kind} onChange={() => setRows(r => ({ ...r, kind: k.kind }))} />
                         {k.label} <span className="text-sm text-slate-500 dark:text-slate-400">({k.example})</span>
                       </label>
                     ))}
