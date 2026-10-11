@@ -235,6 +235,7 @@ export const IPC = {
   DEADLINE_METER_DONE: 'deadlines:meter-done',
   DEADLINE_STEP_DONE: 'deadlines:step-done',
   DEADLINE_STEP_UNDO: 'deadlines:step-undo',
+  DEADLINE_PROGRESS_REANCHOR: 'deadlines:progress-reanchor',
   DEADLINE_EXTEND: 'deadlines:extend',
   DEADLINE_EXTENSION_REVOKE: 'deadlines:extension-revoke',
   DEADLINE_EXTENSION_RESTORE: 'deadlines:extension-restore',

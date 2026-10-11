@@ -42,6 +42,7 @@ export function focusDeadlineItems(rows: RawDeadlineRow[]): FocusItem[] {
         interval: toRuleInterval(r),
         step: r.step,
         checklistTemplateId,
+        meter: r.meter,
       }
     })
 }

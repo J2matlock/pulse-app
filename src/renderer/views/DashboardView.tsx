@@ -253,6 +253,7 @@ export default function DashboardView(): React.ReactElement {
         extensionId: row.extension_id,
         state: row.state,
         label: row.label,
+        meter: row.meter,
       }]
     }).sort((a, b) => a.daysUntil - b.daysUntil)
   }, [rawDeadlines, alertRules])

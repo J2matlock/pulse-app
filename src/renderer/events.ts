@@ -13,6 +13,8 @@ type PulseEvents = {
   'note-tracking:changed': undefined
   /** Open a form to fill in (W08): a new record, or this one */
   'form:fill': { formId: number; gridId: number; rowId?: number }
+  /** A cell was saved with a new value (not by undo) */
+  'cell:changed': { rowId: number; columnId: number; from: string | null; to: string | null }
   /** Open a column's deadline rule picker (from a "Choose a rule" cell) */
   'column:choose-rule': { columnId: number }
 }

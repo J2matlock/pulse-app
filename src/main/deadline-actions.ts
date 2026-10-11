@@ -104,6 +104,16 @@ export function undoStep(rowId: number, columnId: number, step: number): void {
 }
 
 /**
+ * A corrected start date (a typo, not a new referral): the steps done for
+ * the old date count for the new one (D-37). Returns how many moved.
+ */
+export function reanchorProgress(rowId: number, columnId: number, from: string, to: string): number {
+  const f = toYmd(from), t = toYmd(to)
+  if (!f || !t) throw new DeadlineActionError('Choose the dates.')
+  return getDb().prepare('UPDATE deadline_progress SET anchor_value = ? WHERE row_id = ? AND column_id = ? AND anchor_value = ?').run(t, rowId, columnId, f).changes
+}
+
+/**
  * Give a deadline a new date with a reason ("waiting on the doctor's report").
  * It's tied to the date it extends, so a new cycle doesn't inherit it, and
  * replaces any extension already in effect for the same deadline.

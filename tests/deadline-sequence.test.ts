@@ -7,7 +7,7 @@ let t: TestDb
 vi.mock('../src/main/database', () => ({ getDb: () => t.db, cachedStmt: (_k: string, sql: string) => t.db.prepare(sql) }))
 
 import { loadDeadlines, loadGridDeadlineContext } from '../src/main/deadlines'
-import { markStepDone, undoStep } from '../src/main/deadline-actions'
+import { markStepDone, undoStep, reanchorProgress } from '../src/main/deadline-actions'
 
 const ei = (extra: object = {}) => engineRuleFrom({ id: 1, kind: 'sequence', rule_config: JSON.stringify({
   kind: 'sequence', anchorColumnId: 2,
@@ -79,5 +79,18 @@ describe('sequence rules in main', () => {
     t.db.prepare('DELETE FROM cells WHERE column_id = ?').run(referral)
     expect(() => markStepDone(rowId, col, 0)).toThrow(/count from/)
     expect(() => markStepDone(rowId, col, -1)).toThrow(/step/)
+  })
+})
+
+describe('a corrected start date (D-37)', () => {
+  beforeEach(() => { t = createTestDb() })
+  afterEach(() => cleanupTestDb(t))
+  it('moves the steps done for the old date to the new one', () => {
+    const g = seedGrid(t.db, { columnTypes: ['text', 'date', 'deadline'], rowCount: 1 })
+    const [, , col] = g.columnIds as [number, number, number]
+    const ins = t.db.prepare("INSERT INTO deadline_progress (row_id, column_id, step, done_at, anchor_value) VALUES (?, ?, ?, '2026-02-01', ?)")
+    ins.run(g.rowIds[0], col, 0, '2026-01-10'); ins.run(g.rowIds[0], col, 1, '2026-01-10')
+    expect(reanchorProgress(g.rowIds[0]!, col, '2026-01-10', '2026-01-11')).toBe(2)
+    expect(t.db.prepare('SELECT DISTINCT anchor_value AS a FROM deadline_progress').all()).toEqual([{ a: '2026-01-11' }])
   })
 })

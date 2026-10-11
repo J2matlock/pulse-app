@@ -3,7 +3,7 @@ import { Calendar } from 'lucide-react'
 import type { Column, GridRow, ParsedAlertRule } from '../../../shared/types'
 import { computeDaysUntil, computeEffectiveDeadline, getAlertThreshold, evaluateRuleForRow } from '../../utils/deadlineCalc'
 import { takesDeadlineRule } from '../../../shared/types'
-import { engineRuleFrom, sequenceAnchor, sequenceStepDue, type DeadlineResult, type SequenceConfig } from '../../../shared/deadlineEngine'
+import { engineRuleFrom, referencedColumns, meterInfo, sequenceAnchor, sequenceStepDue, type DeadlineResult, type SequenceConfig } from '../../../shared/deadlineEngine'
 import { useGridStore } from '../../stores/gridStore'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { completeDeadlines } from '../../views/dashboard/completeDeadline'
@@ -460,6 +460,12 @@ export function DeadlinePanel({
       )}
       {askReading && (
         <MeterReadingDialog title={askReading.col.name} onClose={() => setAskReading(null)}
+          info={(() => {
+            const r = engineRuleFrom(askReading.rule)
+            const values: Record<number, string | null> = {}
+            for (const id of referencedColumns(r)) values[id] = (row[`col_${id}` as `col_${number}`] ?? null) as string | null
+            return meterInfo(r, values)
+          })()}
           onSave={reading => { const a = askReading; setAskReading(null); void markDone(a.col, a.rawValue, a.rule, reading) }} />
       )}
     </section>

@@ -39,7 +39,8 @@ function validEngineFields(input: Partial<AlertRule>, current?: { kind?: string 
       fields.rule_condition = JSON.stringify(c.data)
     }
   }
-  if (input.business_days !== undefined) fields.business_days = input.business_days ? 1 : 0
+  // 1 = a day off moves to the working day before, 2 = to the next working day
+  if (input.business_days !== undefined) fields.business_days = input.business_days === 2 ? 2 : input.business_days ? 1 : 0
   return { fields }
 }
 
@@ -136,7 +137,7 @@ export function registerAlertHandlers(): void {
       `).run(taken ? null : r.id, r.name, r.description ?? null, r.thresholds,
         Number.isInteger(r.interval_days) ? r.interval_days : null, r.interval_months || null, r.end_of_month ? 1 : 0,
         (f.kind as string | undefined) ?? 'interval', (f.rule_config as string | null | undefined) ?? null,
-        (f.rule_condition as string | null | undefined) ?? null, r.business_days ? 1 : 0,
+        (f.rule_condition as string | null | undefined) ?? null, r.business_days === 2 ? 2 : r.business_days ? 1 : 0,
         typeof r.created_at === 'string' ? r.created_at : null)
       const newId = Number(res.lastInsertRowid)
       const relink = db.prepare(`UPDATE columns SET config = json_set(COALESCE(config, '{}'), '$.alert_rule_id', ?)

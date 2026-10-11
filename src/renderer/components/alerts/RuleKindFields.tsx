@@ -106,7 +106,7 @@ export function KindFields({ d, set, columns, disabled }: { d: RuleDraft; set: S
             </select>
           </div>
           {dates.length === 0 ? <NoColumns kind="date" /> : (
-            <ColumnSelect ariaLabel="Worked out from" value={d.relAnchor} onChange={v => set({ relAnchor: v })} columns={dates} disabled={disabled} placeholder="Choose the date…" />
+            <ColumnSelect ariaLabel="Worked out from" value={d.relAnchor} onChange={v => set({ relAnchor: v })} columns={dates} allowSelf disabled={disabled} placeholder="Choose the date…" />
           )}
           <p className={hint}>A date typed in this rule's own column counts as done for that cycle.</p>
         </div>
@@ -343,13 +343,13 @@ export function ConditionFields({ d, set, columns, disabled }: { d: RuleDraft; s
 }
 
 /** The rule as the editor would save it, for the preview. */
-export function previewRule(d: RuleDraft, base: Omit<ParsedAlertRule, 'kind' | 'rule_config' | 'rule_condition' | 'business_days'>, businessDays: boolean): ParsedAlertRule | { error: string } {
+export function previewRule(d: RuleDraft, base: Omit<ParsedAlertRule, 'kind' | 'rule_config' | 'rule_condition' | 'business_days'>, businessDays: boolean | 0 | 1 | 2): ParsedAlertRule | { error: string } {
   const cfg = draftToConfig(d)
   if (!cfg.ok) return { error: cfg.error }
   const cond = draftToCondition(d)
   if (!cond.ok) return { error: cond.error }
   return {
-    ...base, kind: d.kind, business_days: businessDays ? 1 : 0,
+    ...base, kind: d.kind, business_days: businessDays === 2 ? 2 : businessDays ? 1 : 0,
     rule_config: cfg.value ? JSON.stringify(cfg.value) : null,
     rule_condition: cond.value ? JSON.stringify(cond.value) : null,
   }

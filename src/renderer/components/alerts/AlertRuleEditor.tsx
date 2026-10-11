@@ -77,7 +77,7 @@ const INTERVAL_PRESETS: Array<{ key: string; label: string; days: number; months
   { key: 'm36',  label: '3 years after',        days: 0,  months: 36 },
 ]
 
-type IntervalUnit = 'days' | 'months' | 'years'
+type IntervalUnit = 'days' | 'months' | 'years' | 'workingDays'
 
 function initialInterval(rule?: ParsedAlertRule): { key: string; amount: string; unit: IntervalUnit } {
   const iv = toRuleInterval(rule)
@@ -228,7 +228,8 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
     const onDeadlineColumn = useGridStore.getState().columns.find(c => c.id === columnId)?.column_type === 'deadline'
     return !rule && onDeadlineColumn ? { ...d, kind: 'calendar' } : d
   })
-  const [businessDays, setBusinessDays] = useState(!!rule?.business_days)
+  // 0 = leave the date, 1 = a day off moves to the working day before, 2 = to the next one
+  const [businessDays, setBusinessDays] = useState<0 | 1 | 2>(rule?.business_days === 2 ? 2 : rule?.business_days ? 1 : 0)
   const patchDraft = (patch: Partial<RuleDraft>) => setDraft(d => ({ ...d, ...patch }))
   // The list the rule works in: from the columns that use it, not whichever list is open (D-09)
   const ruleList = useRuleList(rule?.id, columnId)
@@ -256,17 +257,22 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
       return { days: p.days, months: p.months, endOfMonth }
     }
     const n = Math.max(0, parseInt(customAmount, 10) || 0)
-    if (customUnit === 'days') return { days: n, months: 0, endOfMonth }
+    if (customUnit === 'days' || customUnit === 'workingDays') return { days: n, months: 0, endOfMonth }
     return { days: 0, months: customUnit === 'years' ? n * 12 : n, endOfMonth }
   })()
   const isInterval = draft.kind === 'interval'
-  const intervalFields = isInterval
+  // "10 working days after the date entered" is saved as a rule counted from this column (D-18)
+  const workingDayInterval = isInterval && intervalKey === 'custom' && customUnit === 'workingDays'
+  const savedDraft: RuleDraft = workingDayInterval
+    ? { ...draft, kind: 'relative', relAnchor: 'self', relAmount: customAmount, relUnit: 'businessDays', relDirection: 'after' }
+    : draft
+  const intervalFields = isInterval && !workingDayInterval
     ? { interval_days: interval.days || null, interval_months: interval.months || null, end_of_month: interval.endOfMonth ? 1 : 0 }
     : { interval_days: null, interval_months: null, end_of_month: 0 }
-  const previewRuleForName = previewRule(draft, { id: 0, name: '', description: null, is_system: 0, thresholds: [], created_at: '', ...intervalFields }, false)
+  const previewRuleForName = previewRule(savedDraft, { id: 0, name: '', description: null, is_system: 0, thresholds: [], created_at: '', ...intervalFields }, false)
   // What a name left blank becomes: "Every 6 months", "45 days after Referral date"
   const autoName = 'error' in previewRuleForName ? 'New deadline rule' : ruleSummary(previewRuleForName, id => columns.find(c => c.id === id)?.name)
-  const preview = previewRule(draft, {
+  const preview = previewRule(savedDraft, {
     id: rule?.id ?? 0, name, description: null, is_system: 0, thresholds, created_at: '', ...intervalFields,
   }, businessDays)
 
@@ -293,15 +299,15 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
     // A new rule is named after what it does unless someone typed a name (D-17)
     const finalName = (name.trim() || autoName).slice(0, 200)
     if (thresholds.length === 0) { setError('Add at least one threshold.'); return }
-    const cfg = draftToConfig(draft)
+    const cfg = draftToConfig(savedDraft)
     if (!cfg.ok) { setError(cfg.error); return }
-    const cond = draftToCondition(draft)
+    const cond = draftToCondition(savedDraft)
     if (!cond.ok) { setError(cond.error); return }
     const engineFields = {
-      kind: draft.kind,
+      kind: savedDraft.kind,
       rule_config: cfg.value ? JSON.stringify(cfg.value) : null,
       rule_condition: cond.value ? JSON.stringify(cond.value) : null,
-      business_days: businessDays && draft.kind !== 'quota' ? 1 : 0,
+      business_days: draft.kind !== 'quota' ? businessDays : 0,
     }
     setIsSaving(true)
     setError(null)
@@ -415,6 +421,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
                   <option value="days">days</option>
                   <option value="months">months</option>
                   <option value="years">years</option>
+                  <option value="workingDays">working days</option>
                 </select>
                 <span className="text-base text-slate-600 dark:text-slate-300">after the date entered</span>
               </div>
@@ -434,10 +441,15 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
 
           {/* A quota's date is the end of its period; moving it would only hide its warnings */}
           {draft.kind !== 'quota' && (
-          <label className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-300 cursor-pointer">
-            <input type="checkbox" className="w-5 h-5" checked={businessDays} disabled={isSystem} onChange={e => setBusinessDays(e.target.checked)} />
-            Count working days only <span className="text-sm text-slate-500 dark:text-slate-400">— a due date on a weekend or day off moves to the working day before</span>
-          </label>
+          <fieldset>
+            <legend className="text-base font-medium text-slate-700 dark:text-slate-300">If it lands on a weekend or day off</legend>
+            {([[0, 'Leave it on that day'], [1, 'Move it to the working day before'], [2, 'Move it to the next working day']] as const).map(([v, text]) => (
+              <label key={v} className="flex items-center gap-2 min-h-[44px] text-base text-slate-700 dark:text-slate-300 cursor-pointer">
+                <input type="radio" name="rule-days-off" className="w-5 h-5" checked={businessDays === v} disabled={isSystem} onChange={() => setBusinessDays(v)} />
+                {text}
+              </label>
+            ))}
+          </fieldset>
           )}
 
           {!ruleList.loading && <ConditionFields d={draft} set={patchDraft} columns={columns} disabled={isSystem} />}

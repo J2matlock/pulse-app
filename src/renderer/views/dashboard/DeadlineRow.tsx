@@ -174,7 +174,7 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
           onSave={(newDue, reason) => { setExtending(false); void extendDeadline(rowId, columnId, columnName, newDue, reason, onUndoneMarkDone) }} />
       )}
       {askReading && (
-        <MeterReadingDialog title={`${columnName}: ${clientName}`} onClose={() => setAskReading(false)}
+        <MeterReadingDialog title={`${columnName}: ${clientName}`} info={deadline.meter} onClose={() => setAskReading(false)}
           onSave={reading => { setAskReading(false); void markDone(reading) }} />
       )}
     </div>

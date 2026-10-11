@@ -62,7 +62,7 @@ export function portableRuleFields(rule: { kind?: string | null; rule_config?: s
     const name = columnName(cond.columnId)
     if (name) out.rule_condition = JSON.stringify({ ...cond, columnId: { column: name } })
   }
-  if (rule.business_days) out.business_days = 1
+  if (rule.business_days) out.business_days = rule.business_days === 2 ? 2 : 1
   return out
 }
 
@@ -103,8 +103,11 @@ export function resolveRuleFields(r: RuleSpec, columnId: (name: string) => numbe
     const checked = missing.length === before ? conditionSchema.safeParse(cond) : null
     if (checked?.success) ruleCondition = JSON.stringify(checked.data)
   }
-  return { fields: { kind, rule_config: ruleConfig, rule_condition: ruleCondition, business_days: r.business_days ? 1 : 0 }, missing }
+  return { fields: { kind, rule_config: ruleConfig, rule_condition: ruleCondition, business_days: workDays(r.business_days) }, missing }
 }
+
+/** 0 = dates stay put, 1 = a day off moves to the working day before, 2 = to the next one */
+const workDays = (v: number | null | undefined): 0 | 1 | 2 => v === 2 ? 2 : v ? 1 : 0
 
 const sameJson = (a: string | null | undefined, b: string | null | undefined): boolean => {
   try { return JSON.stringify(JSON.parse(a ?? 'null')) === JSON.stringify(JSON.parse(b ?? 'null')) } catch { return a === b }
@@ -125,7 +128,7 @@ export function ensureRule(db: Database, r: RuleSpec, renamed: Record<string, st
           kind, rule_config, rule_condition, business_days, created_at)
         VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
       `).run(name, r.description ?? null, r.thresholds, r.interval_days ?? null, r.interval_months ?? null, r.end_of_month ? 1 : 0,
-        r.kind ?? 'interval', r.rule_config ?? null, r.rule_condition ?? null, r.business_days ? 1 : 0).lastInsertRowid)
+        r.kind ?? 'interval', r.rule_config ?? null, r.rule_condition ?? null, workDays(r.business_days)).lastInsertRowid)
       if (n > 1) renamed[r.name] = name
       return { id, name }
     }
@@ -136,7 +139,7 @@ export function ensureRule(db: Database, r: RuleSpec, renamed: Record<string, st
       && (row.kind ?? 'interval') === (r.kind ?? 'interval')
       && sameJson(row.rule_config, r.rule_config)
       && sameJson(row.rule_condition, r.rule_condition)
-      && (row.business_days ? 1 : 0) === (r.business_days ? 1 : 0)
+      && workDays(row.business_days) === workDays(r.business_days)
     if (same) {
       if (n > 1) renamed[r.name] = name
       return { id: row.id, name }

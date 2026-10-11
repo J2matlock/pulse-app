@@ -1,5 +1,5 @@
 import type { CaseloadTask, UrgentChecklistItem } from '../../../shared/types'
-import type { RuleKind } from '../../../shared/deadlineEngine'
+import type { RuleKind, MeterInfo } from '../../../shared/deadlineEngine'
 import type { RuleInterval } from '../../../shared/ruleInterval'
 
 export interface RawDeadlineRow {
@@ -22,6 +22,7 @@ export interface RawDeadlineRow {
   /** Sequence step that's due, and its label ("IFSP meeting (step 1 of 4)") */
   step?: number
   label?: string
+  meter?: MeterInfo
 }
 
 export interface FocusItem {
@@ -43,6 +44,7 @@ export interface FocusItem {
   interval: RuleInterval
   step?: number
   checklistTemplateId: number | null
+  meter?: MeterInfo
 }
 
 export interface FocusTask {

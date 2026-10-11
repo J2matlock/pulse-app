@@ -5,7 +5,7 @@
 import { IPC } from '../../shared/ipc-channels'
 import { secureWrap, ok, fail, enforceWritable, validId, notifyCaseLogChanged } from './ipc-utils'
 import { loadDeadlines, loadGridDeadlineContext } from '../deadlines'
-import { DeadlineActionError, markMeterDone, markStepDone, undoStep, extendDeadline, revokeExtension, setExtensionActive } from '../deadline-actions'
+import { DeadlineActionError, markMeterDone, markStepDone, undoStep, reanchorProgress, extendDeadline, revokeExtension, setExtensionActive } from '../deadline-actions'
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/
 
@@ -71,6 +71,13 @@ export function registerDeadlineHandlers(): void {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(rowId) || !validId(columnId) || !Number.isInteger(step)) return fail('Invalid ID')
     return action(() => { undoStep(rowId, columnId, step as number); return true as const })
+  })
+
+  secureWrap(IPC.DEADLINE_PROGRESS_REANCHOR, 'ipc-deadlines', (_e, rowId: unknown, columnId: unknown, from: unknown, to: unknown) => {
+    const guard = enforceWritable(); if (guard) return guard
+    if (!validId(rowId) || !validId(columnId)) return fail('Invalid ID')
+    if (typeof from !== 'string' || typeof to !== 'string' || from.length > 30 || to.length > 30) return fail('Invalid dates')
+    return action(() => reanchorProgress(rowId, columnId, from, to))
   })
 
   secureWrap(IPC.DEADLINE_METER_DONE, 'ipc-deadlines', (_e, rowId: unknown, columnId: unknown, reading: unknown) => {

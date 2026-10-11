@@ -5,7 +5,7 @@
  * through here, so they all agree.
  */
 import { getDb } from './database'
-import { evaluate, isUsedUp, engineRuleFrom, meterHistoryColumn, referencedColumns, sequenceAnchor, extensionAnchor, matchExtension, applyExtension, type StoredExtension, type QuotaConfig, type DeadlineResult, type EngineRule, type RecordContext, type RuleKind } from '../shared/deadlineEngine'
+import { evaluate, isUsedUp, meterInfo, type MeterInfo, engineRuleFrom, meterHistoryColumn, referencedColumns, sequenceAnchor, extensionAnchor, matchExtension, applyExtension, type StoredExtension, type QuotaConfig, type DeadlineResult, type EngineRule, type RecordContext, type RuleKind } from '../shared/deadlineEngine'
 import type { WorkCalendar } from '../shared/businessDays'
 import type { GridDeadlineContext } from '../shared/ipc-contract'
 import { workCalendarSetting } from './vocab'
@@ -33,6 +33,8 @@ export interface DeadlineItem extends DeadlineResult {
   rule_kind: RuleKind
   /** The extension in effect, so it can be removed */
   extension_id?: number
+  /** Meter rules: unit and readings, for the "current reading?" question */
+  meter?: MeterInfo
 }
 
 export interface DeadlineQuery {
@@ -112,7 +114,9 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
     if (res.state === 'paused' && !q.includePaused) return
     if (q.from && res.due < q.from) return
     if (q.to && res.due > q.to) return
+    const meter = meterInfo(rule, ctx.values)
     items.push({
+      ...(meter ? { meter } : {}),
       row_id: r.row_id, grid_id: r.grid_id, grid_name: r.grid_name, column_id: r.column_id, column_name: r.column_name,
       column_config: r.column_config, date_value: r.date_value, client_name: r.client_name, record_kind: r.record_kind,
       interval_days: r.interval_days, interval_months: r.interval_months, end_of_month: r.end_of_month,
@@ -233,6 +237,19 @@ export function meterHistories(columnId: number | null): Map<number, Array<{ at:
     const value = Number((r.new_value ?? '').replace(/,/g, ''))
     if (!r.new_value || !Number.isFinite(value)) continue
     out.set(r.row_id, [...(out.get(r.row_id) ?? []), { at: r.at, value }])
+  }
+  // The reading before the first recorded change was on file since the record was
+  // added: one more point, so two readings are enough for a forecast (D-32)
+  const firsts = getDb().prepare(`
+    SELECT h.row_id, h.old_value, date(r.created_at, 'localtime') AS created, date(h.changed_at, 'localtime') AS changed
+    FROM cell_history h JOIN rows r ON r.id = h.row_id
+    WHERE h.column_id = ? AND r.created_at >= datetime('now', '-181 days')
+      AND h.id = (SELECT MIN(h2.id) FROM cell_history h2 WHERE h2.row_id = h.row_id AND h2.column_id = h.column_id)
+  `).all(columnId) as Array<{ row_id: number; old_value: string | null; created: string; changed: string }>
+  for (const f of firsts) {
+    const value = Number((f.old_value ?? '').replace(/,/g, ''))
+    if (!f.old_value || !Number.isFinite(value) || f.created >= f.changed) continue
+    out.set(f.row_id, [{ at: f.created, value }, ...(out.get(f.row_id) ?? [])])
   }
   return out
 }

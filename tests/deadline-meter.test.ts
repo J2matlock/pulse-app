@@ -1,7 +1,7 @@
 /** Meter deadlines (W05 §3.4): every N miles or a time limit, whichever is first. */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
-import { evaluate, engineRuleFrom, meterRate, referencedColumns, meterHistoryColumn } from '../src/shared/deadlineEngine'
+import { evaluate, engineRuleFrom, meterRate, referencedColumns, meterHistoryColumn, implausibleReading } from '../src/shared/deadlineEngine'
 
 let t: TestDb
 vi.mock('../src/main/database', () => ({ getDb: () => t.db, cachedStmt: (_k: string, sql: string) => t.db.prepare(sql) }))
@@ -86,6 +86,24 @@ describe('meter rules in main', () => {
     expect([value(serviced), value(lastOdo), value(odo)]).toEqual([localDateString(), '41250', '41250'])
     expect((t.db.prepare('SELECT content FROM case_log WHERE id = ?').get(res.sysLogId) as { content: string }).content).toMatch(/Oil change done .* at 41,250 mi/)
     expect((t.db.prepare('SELECT COUNT(*) AS n FROM cell_history WHERE row_id = ?').get(rowId) as { n: number }).n).toBe(4)
+  })
+
+  it('uses the reading on file before the first change, so two readings give a forecast (D-32)', () => {
+    t.db.prepare("UPDATE rows SET created_at = datetime('now', '-60 days') WHERE id = ?").run(rowId)
+    t.db.prepare("UPDATE cell_history SET old_value = '38000' WHERE row_id = ?").run(rowId)
+    const points = loadGridDeadlineContext(gridId).meter[`${rowId}:${odo}`]!
+    expect(points).toHaveLength(2)
+    expect(points[0]!.value).toBe(38000)
+    expect(points[0]!.at).toBe(localDateFromToday(-60))
+  })
+
+  it('tells the dialog the unit and the readings on file (D-31)', () => {
+    const [d] = loadDeadlines({ gridId })
+    expect(d!.meter).toEqual({ unit: 'mi', every: 5000, current: 40000, lastService: 37000 })
+    const info = d!.meter!
+    expect(implausibleReading(4521, info)).toMatch(/lower than the reading at the last service/)
+    expect(implausibleReading(41000, info)).toBeNull()
+    expect(implausibleReading(400000, info)).toMatch(/more than the reading on file/)
   })
 
   it('refuses rules without readings and bad numbers', () => {

@@ -336,6 +336,13 @@ describe('ALERT_RULE_DELETE', () => {
     expect(JSON.parse((db.prepare('SELECT config FROM columns WHERE id = ?').get(c) as { config: string }).config).alert_rule_id).toBe(77)
   })
 
+  it('stores "move to the next working day" as business_days 2 (D-18)', async () => {
+    const cr = await invoke(IPC.ALERT_RULE_CREATE, { name: 'Court', thresholds: validThresholds, interval_days: 10, business_days: 2 }) as any
+    expect((testDb.db.prepare('SELECT business_days FROM alert_rules WHERE id = ?').get(cr.data) as { business_days: number }).business_days).toBe(2)
+    await invoke(IPC.ALERT_RULE_UPDATE, cr.data, { business_days: 1 })
+    expect((testDb.db.prepare('SELECT business_days FROM alert_rules WHERE id = ?').get(cr.data) as { business_days: number }).business_days).toBe(1)
+  })
+
   it('restore rejects a malformed snapshot', async () => {
     expect((await invoke(IPC.ALERT_RULE_RESTORE, { rule: { id: 0, name: 'x', thresholds: '[]' }, columnIds: [] }) as any).ok).toBe(false)
     expect((await invoke(IPC.ALERT_RULE_RESTORE, { rule: { id: 5, name: 'x', thresholds: '[]' }, columnIds: ['a'] }) as any).ok).toBe(false)

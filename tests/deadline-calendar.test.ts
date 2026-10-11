@@ -77,6 +77,21 @@ describe('calendar rules', () => {
   })
 })
 
+describe('days off (D-18)', () => {
+  it('can move a due date on a day off to the next working day', () => {
+    const rule = (bd: number) => engineRuleFrom({ id: 1, interval_days: 7, business_days: bd })
+    // Jan 3, 2026 + 7 = Sat Jan 10
+    expect(evaluate(rule(1), { today: '2026-01-05', columnDate: '2026-01-03' }).due).toBe('2026-01-09')
+    expect(evaluate(rule(2), { today: '2026-01-05', columnDate: '2026-01-03' })).toMatchObject({ due: '2026-01-12', detail: expect.stringMatching(/working day after/) })
+    expect(evaluate(rule(0), { today: '2026-01-05', columnDate: '2026-01-03' }).due).toBe('2026-01-10')
+  })
+  it('can count working days after the date in this column', () => {
+    const r = engineRuleFrom({ id: 1, kind: 'relative', rule_config: JSON.stringify({ kind: 'relative', anchorColumnId: 'self', offset: { businessDays: 10, direction: 'after' } }) })
+    // Fri Jan 2, 2026 + 10 working days = Fri Jan 16
+    expect(evaluate(r, { today: '2026-01-05', columnDate: '2026-01-02' }).due).toBe('2026-01-16')
+  })
+})
+
 describe('relative "before" rules (D-24)', () => {
   const report = engineRuleFrom({ id: 1, kind: 'relative', rule_config: JSON.stringify({ kind: 'relative', anchorColumnId: 9, offset: { days: 10, direction: 'before' } }) })
   // Hearing Nov 30: report due Nov 20; done counts from one offset ahead of that (Nov 10)

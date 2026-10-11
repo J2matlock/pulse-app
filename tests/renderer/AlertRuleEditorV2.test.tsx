@@ -40,7 +40,7 @@ describe('the rule editor', () => {
     expect(screen.getByTestId('rule-preview').textContent).toBe('Choose the date this deadline is worked out from.')
     // The rule's own column isn't offered as the date to work from
     const anchor = screen.getByLabelText('Worked out from') as HTMLSelectElement
-    expect([...anchor.options].map(o => o.text)).toEqual(['Choose the date…', 'Referral'])
+    expect([...anchor.options].map(o => o.text)).toEqual(['Choose the date…', 'This column (the one the rule is on)', 'Referral'])
     fireEvent.change(anchor, { target: { value: '2' } })
     fireEvent.change(screen.getByLabelText('Offset amount'), { target: { value: '45' } })
     // Pat has a referral date, so the preview picks Pat
@@ -85,7 +85,7 @@ describe('the rule editor', () => {
     expect(invoke).toHaveBeenCalledWith('grid:get-full', 2, false)
     const anchor = screen.getByLabelText('Worked out from') as HTMLSelectElement
     expect(anchor.value).toBe('22')
-    expect([...anchor.options].map(o => o.text)).toEqual(['Choose the date…', 'Estimate sent on'])
+    expect([...anchor.options].map(o => o.text)).toEqual(['Choose the date…', 'This column (the one the rule is on)', 'Estimate sent on'])
     expect(screen.queryByText(/column this used is gone/)).toBeNull()
     // Hidden columns can be chosen, marked as hidden; a checkbox reads "is not checked"
     const cond = screen.getByLabelText('Only when column') as HTMLSelectElement
@@ -113,5 +113,18 @@ describe('the rule editor', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create Rule' })) })
     const call = invoke.mock.calls.filter(c => c[0] === IPC.ALERT_RULE_CREATE).at(-1)!
     expect((call[1] as { name: string }).name).toBe('45 days after Referral')
+  })
+
+  it('saves "working days" and "the next working day" (D-18)', async () => {
+    invoke.mockImplementation(async (channel: string) => channel === 'alert-rule:create' ? { ok: true, data: 13 } : { ok: true, data: [] })
+    render(<AlertRuleEditor columnId={3} onClose={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Custom…' }))
+    fireEvent.change(screen.getByLabelText('How many'), { target: { value: '10' } })
+    fireEvent.change(screen.getByLabelText('Unit'), { target: { value: 'workingDays' } })
+    fireEvent.click(screen.getByLabelText('Move it to the next working day'))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create Rule' })) })
+    const call = invoke.mock.calls.filter(c => c[0] === IPC.ALERT_RULE_CREATE).at(-1)!
+    expect(call[1]).toMatchObject({ kind: 'relative', business_days: 2, interval_days: null,
+      rule_config: JSON.stringify({ kind: 'relative', anchorColumnId: 'self', offset: { businessDays: 10, direction: 'after' } }) })
   })
 })

@@ -580,7 +580,7 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
       </div>
 
       {askReading && (
-        <MeterReadingDialog title={`${askReading.columnName}: ${askReading.clientName}`} onClose={() => setAskReading(null)}
+        <MeterReadingDialog title={`${askReading.columnName}: ${askReading.clientName}`} info={askReading.meter} onClose={() => setAskReading(null)}
           onSave={reading => { const item = askReading; setAskReading(null); void completeClientItem(item, reading) }} />
       )}
 

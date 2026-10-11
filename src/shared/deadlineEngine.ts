@@ -10,7 +10,7 @@
  */
 import { z } from 'zod'
 import { addInterval, describeInterval, hasInterval, toRuleInterval, type RuleInterval } from './ruleInterval'
-import { addBusinessDays, rollBackToBusinessDay, DEFAULT_WEEKEND, type WorkCalendar } from './businessDays'
+import { addBusinessDays, rollBackToBusinessDay, rollForwardToBusinessDay, DEFAULT_WEEKEND, type WorkCalendar } from './businessDays'
 import { toYmd, ymdToDate, dateToYmd, daysBetween } from './ymd'
 
 export { toYmd, ymdToDate, dateToYmd, daysBetween }
@@ -32,8 +32,10 @@ export interface EngineRule {
   /** Kind-specific settings; null for interval rules */
   config: unknown | null
   condition: Condition | null
-  /** Roll a due date that falls on a day off back to the previous working day */
+  /** Move a due date that falls on a day off to a working day */
   businessDays: boolean
+  /** ...the next one instead of the one before (business_days = 2) */
+  rollForward?: boolean
 }
 
 export interface RecordContext {
@@ -198,6 +200,7 @@ export function engineRuleFrom(row: {
     config: cfg.ok ? cfg.config : null,
     condition: cond.success ? cond.data : null,
     businessDays: !!row.business_days,
+    rollForward: row.business_days === 2,
   }
 }
 
@@ -605,12 +608,12 @@ export function evaluate(rule: EngineRule, ctx: RecordContext): DeadlineResult {
   // Only the date moves: the step, label and anything else the kind worked out stay,
   // and a state the kind already made more urgent (a used-up quota) is kept
   if (rule.businessDays && res.due && res.state !== 'done' && rule.kind !== 'quota') {
-    const rolled = rollBackToBusinessDay(res.due, calendarOf(ctx))
+    const rolled = rule.rollForward ? rollForwardToBusinessDay(res.due, calendarOf(ctx)) : rollBackToBusinessDay(res.due, calendarOf(ctx))
     if (rolled !== res.due) {
       const daysUntil = daysBetween(ctx.today, rolled)
       const rolledState = stateFor(daysUntil)
       const state = URGENCY[res.state] > URGENCY[rolledState] ? res.state : rolledState
-      return { ...res, due: rolled, daysUntil, state, detail: `Due ${formatDue(rolled)}, the working day before ${formatDue(res.due)} · ${res.detail}` }
+      return { ...res, due: rolled, daysUntil, state, detail: `Due ${formatDue(rolled)}, the working day ${rule.rollForward ? 'after' : 'before'} ${formatDue(res.due)} · ${res.detail}` }
     }
   }
   return res
@@ -619,6 +622,25 @@ export function evaluate(rule: EngineRule, ctx: RecordContext): DeadlineResult {
 /** Whether a rule needs more than the cell itself (loaders fetch every row, not only filled cells). */
 export function needsRowContext(rule: EngineRule): boolean {
   return rule.kind !== 'interval' || rule.condition !== null
+}
+
+/** What the "current reading?" question needs for a meter rule: the unit, the interval and the readings now (D-31). */
+export interface MeterInfo { unit: string; every: number; current: number | null; lastService: number | null }
+
+export function meterInfo(rule: EngineRule, values: Record<number, string | null> | undefined): MeterInfo | null {
+  if (rule.kind !== 'meter' || !rule.config) return null
+  const c = rule.config as MeterConfig
+  return { unit: c.unit, every: c.every, current: toNumber(values?.[c.readingColumnId]), lastService: toNumber(values?.[c.lastServiceReadingColumnId]) }
+}
+
+/** A reading that's probably a typo: below the last service, or far beyond what the interval allows. */
+export function implausibleReading(reading: number, info: MeterInfo): string | null {
+  const fmt = (n: number) => `${n.toLocaleString('en-US', { maximumFractionDigits: 1 })} ${info.unit}`
+  if (info.lastService !== null && reading < info.lastService) return `That's lower than the reading at the last service (${fmt(info.lastService)}).`
+  if (info.current !== null && reading < info.current) return `That's lower than the reading on file (${fmt(info.current)}).`
+  const base = info.current ?? info.lastService
+  if (base !== null && reading - base > info.every * 10) return `That's ${fmt(reading - base)} more than the reading on file. Is it right?`
+  return null
 }
 
 /** The column whose history a meter rule needs (its readings), or null. */
