@@ -88,6 +88,9 @@ export default function GridView(): React.ReactElement {
     if (!gridListLoaded) loadGridList()
   }, [gridListLoaded, loadGridList])
 
+  // Deadline colors and days-until are worked out against today: redraw at midnight
+  useEffect(() => pulseEvents.on('day:changed', () => { void useGridStore.getState().refreshRows() }), [])
+
   // Coming back to a list that's already loaded: read its records again, so ones restored
   // from the Trash or reactivated on the Dashboard show (R2). Quietly, keeping the selection.
   useEffect(() => {

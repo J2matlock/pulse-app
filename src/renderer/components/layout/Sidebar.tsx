@@ -23,9 +23,9 @@ import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useTaskStore } from '../../stores/taskStore'
-import { localDateString } from '../../../shared/dates'
 import { isMod, modHelp } from '../../utils/keys'
 import { useVocab } from '../../hooks/useVocab'
+import { useToday } from '../../hooks/useToday'
 import { useFeature } from '../../hooks/useFeature'
 import { FormsDialog } from '../forms/FormsDialog'
 
@@ -332,16 +332,16 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
 
   // Count tasks due today or late, leaving out snoozed ones and those of a
   // list in the Trash, as the Tasks page and Dashboard do (bug sweep S2/S5)
+  const today = useToday()
   const todayDueCount = useMemo(() => {
     if (tasks.length === 0) return 0
-    const today = localDateString()
     const listIds = gridListLoaded ? new Set(grids.map(g => g.id)) : null
     return tasks.filter(t =>
       !t.is_completed && t.due_date && t.due_date.slice(0, 10) <= today
       && !(t.snoozed_until && t.snoozed_until > today)
       && (t.grid_id == null || !listIds || listIds.has(t.grid_id))
     ).length
-  }, [tasks, grids, gridListLoaded])
+  }, [tasks, grids, gridListLoaded, today])
 
   // Load tasks once at startup so the badge shows before Tasks is visited (N-24)
   useEffect(() => {

@@ -167,6 +167,15 @@ describe('GridView', () => {
     expect(refreshRowsMock).toHaveBeenCalledTimes(1)
   })
 
+  it('reads the records again at midnight, so deadline colors move on (bug sweep S5)', async () => {
+    const { pulseEvents } = await import('../../../src/renderer/events')
+    render(<MemoryRouter><GridView /></MemoryRouter>)
+    await flushEffects()
+    refreshRowsMock.mockClear()
+    act(() => { pulseEvents.emit('day:changed', { date: '2026-10-12' }) })
+    expect(refreshRowsMock).toHaveBeenCalledTimes(1)
+  })
+
   it('with no lists at all, offers the setup starting points (audit 2.1)', async () => {
     gridStoreOverride = { gridListLoaded: true, activeGridId: null, grids: [] }
     const { pulseEvents } = await import('../../../src/renderer/events')
