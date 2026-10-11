@@ -186,7 +186,7 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
   })))
 
   const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
+  useFocusTrap(trapRef, true, { onEscape: onClose })
 
   const isColumnMode = mode === 'column'
   const thisColumn  = columns.find(c => c.id === columnId)
@@ -396,7 +396,7 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
                       </select>
                     )}
                     {rule.sourceType === 'same_row_column' && !rule.sourceColumnId && (
-                      <p className="text-sm text-amber-500 dark:text-amber-400">Pick a column above to trigger from.</p>
+                      <p className="text-sm text-amber-700 dark:text-amber-400">Pick a column above to trigger from.</p>
                     )}
 
                     {!isColumnMode && rule.sourceType === 'specific_cell' && (
@@ -454,7 +454,7 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
                     </div>
                     {/* Warn if value is empty for operators that require a value */}
                     {needsValue && !rule.value && !['not_equals', 'not_contains'].includes(rule.operator) && (
-                      <p className="text-sm text-amber-500 dark:text-amber-400">
+                      <p className="text-sm text-amber-700 dark:text-amber-400">
                         Enter a value above — without one this rule will never match.
                       </p>
                     )}

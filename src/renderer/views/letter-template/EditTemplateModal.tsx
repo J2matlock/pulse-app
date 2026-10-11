@@ -23,6 +23,8 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
   const [content, setContent] = useState(template?.content ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Which box a missing-value message is about, so that box points at it (audit A06-14)
+  const [errorField, setErrorField] = useState<'name' | 'content' | null>(null)
   const [showVarMenu, setShowVarMenu] = useState(false)
   const { t } = useVocab(null)
   // "Insert field" offers a list's columns, deadlines and links (W10 §3): the
@@ -73,10 +75,11 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
   }
 
   async function handleSave() {
-    if (!name.trim()) { setError('Template name is required.'); return }
-    if (!content.trim()) { setError('Template content cannot be empty.'); return }
+    if (!name.trim()) { setError('Template name is required.'); setErrorField('name'); nameRef.current?.focus(); return }
+    if (!content.trim()) { setError('Template content cannot be empty.'); setErrorField('content'); contentRef.current?.focus(); return }
     setSaving(true)
     setError(null)
+    setErrorField(null)
     try {
       await onSave(name.trim(), description.trim(), content.trim())
       rememberList(template?.id, fieldGridId)
@@ -115,7 +118,7 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
           {error && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+            <div id="letter-edit-error" role="alert" className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
               <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
               <p className="text-base text-red-700 dark:text-red-300">{error}</p>
             </div>
@@ -128,6 +131,9 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
             <input
               id="letter-name"
               ref={nameRef}
+              aria-required="true"
+              aria-invalid={(error && errorField === 'name') || undefined}
+              aria-describedby={error && errorField === 'name' ? 'letter-edit-error' : undefined}
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
@@ -174,10 +180,10 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
                              dark:border-slate-600 text-base text-slate-700 dark:text-slate-200
                              hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-hidden focus:ring-3
                              focus:ring-blue-500 min-h-[44px]"
-                  title="Insert a placeholder variable"
+                  title="Add a detail that fills in by itself"
                 >
                   <Braces className="w-4 h-4" />
-                  Insert field
+                  Insert a detail
                 </button>
                 <VariableInsertMenu
                   open={showVarMenu}
@@ -191,6 +197,9 @@ export function EditTemplateModal({ template, onSave, onClose }: EditModalProps)
             <textarea
               id="letter-content"
               ref={contentRef}
+              aria-required="true"
+              aria-invalid={(error && errorField === 'content') || undefined}
+              aria-describedby={error && errorField === 'content' ? 'letter-edit-error' : undefined}
               value={content}
               onChange={e => setContent(e.target.value)}
               rows={15}

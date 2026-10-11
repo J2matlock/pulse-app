@@ -30,6 +30,8 @@ interface IcsItem {
   /** Timed events (appointments): local wall times, written as floating times */
   start?: string
   end?: string | null
+  /** All-day items running over several days: the last day (inclusive) */
+  lastDate?: string
   /** Sent as cancelled, so a calendar that imported it before drops it */
   cancelled?: boolean
 }
@@ -70,6 +72,12 @@ function nextDay(ymd: string): string {
   const [y, m, d] = ymd.split('-').map(Number)
   const dt = new Date(y!, m! - 1, d! + 1)
   return `${dt.getFullYear()}${String(dt.getMonth() + 1).padStart(2, '0')}${String(dt.getDate()).padStart(2, '0')}`
+}
+
+/** An all-day appointment that ends on a later day keeps its last day (AUDIT-116) */
+function allDayEnd(start: string, end: string | null): Pick<IcsItem, 'lastDate'> {
+  const last = end?.slice(0, 10)
+  return last && /^\d{4}-\d{2}-\d{2}$/.test(last) && last > start.slice(0, 10) ? { lastDate: last } : {}
 }
 
 export function loadIcsItems(opts: IcsOptions = {}): IcsItem[] {
@@ -119,7 +127,7 @@ export function loadIcsItems(opts: IcsOptions = {}): IcsItem[] {
     for (const a of [...gone, ...removedAppointments().filter(r => r.start_at >= from && r.start_at <= `${to}T99:99`)]) {
       cancelled.push({
         uid: `appointment-${a.id}@pulse`, date: a.start_at.slice(0, 10), summary: `Cancelled: ${word('appointment', { cap: true })}`, cancelled: true,
-        ...(a.all_day ? {} : { start: a.start_at, end: a.end_at }),
+        ...(a.all_day ? allDayEnd(a.start_at, a.end_at) : { start: a.start_at, end: a.end_at }),
       })
     }
   }
@@ -129,7 +137,7 @@ export function loadIcsItems(opts: IcsOptions = {}): IcsItem[] {
     ...appointments.map(a => ({
       uid: `appointment-${a.id}@pulse`, date: a.start_at.slice(0, 10),
       summary: opts.fullNames ? `${a.title}${a.name ? ` (${a.name})` : ''}` : `${word('appointment', { cap: true })}${a.name ? ` with ${who(a.name, a.kind)}` : ''}`,
-      ...(a.all_day ? {} : { start: a.start_at, end: a.end_at }),
+      ...(a.all_day ? allDayEnd(a.start_at, a.end_at) : { start: a.start_at, end: a.end_at }),
     })),
     // Stable UIDs, so importing a newer file updates events instead of duplicating them
     ...deadlines.map(d => ({ uid: `deadline-${d.row_id}-${d.column_id}@pulse`, date: d.due.slice(0, 10), summary: `${who(d.name, d.kind)}: ${d.what}` })),
@@ -171,7 +179,8 @@ export function buildIcs(items: IcsItem[], now = new Date()): string {
       `UID:${it.uid}`,
       `DTSTAMP:${stamp}`,
       `DTSTART;VALUE=DATE:${ymdCompact(it.date)}`,
-      `DTEND;VALUE=DATE:${nextDay(it.date)}`,
+      // DTEND is exclusive: the day after the last day
+      `DTEND;VALUE=DATE:${nextDay(it.lastDate && it.lastDate > it.date ? it.lastDate : it.date)}`,
       `SUMMARY:${esc(it.summary)}`,
       'TRANSP:TRANSPARENT',
       // 9 AM the day before an all-day event

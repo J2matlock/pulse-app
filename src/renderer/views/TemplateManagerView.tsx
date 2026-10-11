@@ -21,6 +21,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap'
 import { EmptyState } from '../components/shared/EmptyState'
 import { useVocab } from '../hooks/useVocab'
 import { useFeature } from '../hooks/useFeature'
+import { friendlyError } from '../utils/friendlyError'
 
 export default function TemplateManagerView(): React.ReactElement {
   const checklistsOn = useFeature('checklists')
@@ -58,7 +59,7 @@ export default function TemplateManagerView(): React.ReactElement {
       if (res.ok) {
         setSetupTemplates(res.data)
       } else {
-        setSetupError(res.error ?? 'Could not load setup templates. Please try again.')
+        setSetupError(friendlyError(res.error, 'Could not load setup templates. Please try again.'))
       }
     } catch (err) {
       rlog.error('TemplateManagerView', 'Failed to load setup templates', err)
@@ -111,7 +112,7 @@ export default function TemplateManagerView(): React.ReactElement {
       const previewRes = await safeInvoke<{ pulse: unknown; preview: PulseImportPreview }>(IPC.SETUP_TEMPLATE_IMPORT, filePath)
 
       if (!previewRes.ok) {
-        setSetupError(previewRes.error ?? 'Could not read that template file. Make sure it is a valid .pulse file.')
+        setSetupError(friendlyError(previewRes.error, 'Could not read that template file. Make sure it is a valid .pulse file.'))
         return
       }
 
@@ -151,7 +152,7 @@ export default function TemplateManagerView(): React.ReactElement {
     try {
       const res = await safeInvoke<true>(IPC.SETUP_TEMPLATE_EXPORT, gridId, saveRes.data.filePath)
       if (!res.ok) {
-        setSetupError(res.error ?? 'Could not export the template. Please try again.')
+        setSetupError(friendlyError(res.error, 'Could not export the template. Please try again.'))
       } else {
         void loadSetupTemplates()
       }
@@ -168,7 +169,7 @@ export default function TemplateManagerView(): React.ReactElement {
       if (res.ok) {
         setSetupTemplates(prev => prev.filter(t => t.id !== id))
       } else {
-        setSetupError(res.error ?? 'Could not delete the template. Please try again.')
+        setSetupError(friendlyError(res.error, 'Could not delete the template. Please try again.'))
       }
     } catch {
       setSetupError('Could not delete the template. Please try again.')
@@ -181,7 +182,7 @@ export default function TemplateManagerView(): React.ReactElement {
       if (res.ok) {
         setClTemplates(prev => prev.filter(t => t.id !== id))
       } else {
-        setClError(res.error ?? 'Could not delete the template. Please try again.')
+        setClError(friendlyError(res.error, 'Could not delete the template. Please try again.'))
       }
     } catch {
       setClError('Could not delete the template. Please try again.')
@@ -210,7 +211,7 @@ export default function TemplateManagerView(): React.ReactElement {
       })
       if (!saveRes.ok || saveRes.data.canceled || !saveRes.data.filePath) return
       const res = await safeInvoke<true>(IPC.CL_TEMPLATE_EXPORT, template.id, saveRes.data.filePath)
-      if (!res.ok) setClError(res.error ?? 'Could not export the template.')
+      if (!res.ok) setClError(friendlyError(res.error, 'Could not export the template.'))
     } catch {
       setClError('Could not export the template.')
     }
@@ -228,7 +229,7 @@ export default function TemplateManagerView(): React.ReactElement {
       if (res.ok) {
         setClTemplates(prev => [...prev, res.data])
       } else {
-        setClError(res.error ?? 'Could not import the template.')
+        setClError(friendlyError(res.error, 'Could not import the template.'))
       }
     } catch {
       setClError('Could not import the template.')
@@ -302,7 +303,7 @@ export default function TemplateManagerView(): React.ReactElement {
           </div>
 
           {setupError && (
-            <div className="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-3">
+            <div role="alert" className="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-3">
               {setupError}
               <button
                 type="button"
@@ -338,7 +339,7 @@ export default function TemplateManagerView(): React.ReactElement {
                     })
                     if (!saveRes.ok || !saveRes.data || saveRes.data.canceled || !saveRes.data.filePath) return
                     const res = await safeInvoke<true>(IPC.SETUP_TEMPLATE_EXPORT_SAVED, id, saveRes.data.filePath)
-                    if (!res.ok) setSetupError(res.error ?? 'Could not export the template.')
+                    if (!res.ok) setSetupError(friendlyError(res.error, 'Could not export the template.'))
                     else toast.success('Template saved.')
                   }}
                   onRefresh={loadSetupTemplates}
@@ -393,7 +394,7 @@ export default function TemplateManagerView(): React.ReactElement {
             </p>
 
             {clError && (
-              <div className="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-3">
+              <div role="alert" className="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-3">
                 {clError}
                 <button
                   type="button"

@@ -187,7 +187,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     completing.add(id)
     try {
       // The due date it was ticked at: main ignores it if the task has already moved on
-      const done = await storeInvoke<boolean>(IPC.TASK_COMPLETE, id, task ? task.due_date ?? null : undefined)
+      const done = await storeInvoke(IPC.TASK_COMPLETE, id, task ? task.due_date ?? null : undefined)
       if (done === false) return false
     } catch { return false } finally { completing.delete(id) }
     try {

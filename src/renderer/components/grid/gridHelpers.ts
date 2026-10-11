@@ -1,11 +1,14 @@
 import type { Column, GridRow } from '../../../shared/types'
 import { isNotTypedColumnType } from '../../../shared/types'
 import { parseDate, looksLikeBirthColumn } from '../../../shared/parseDate'
+import { toYmd } from '../../../shared/ymd'
 import { columnOptionLabels } from '../../../shared/stages'
 import { cellText } from '../../../shared/cellText'
 import { computedColumnText, isComputedColumnType } from '../../utils/computedColumns'
 import { useGridStore } from '../../stores/gridStore'
 import { useAlertStore } from '../../stores/alertStore'
+import { useSettingsStore } from '../../stores/settingsStore'
+import { wordNow } from '../../utils/vocab'
 
 // ── Clipboard format helper ────────────────────────────────────────────────────
 
@@ -29,8 +32,10 @@ export function validateForColumnType(value: string, column: Column): string | n
   switch (column.column_type) {
     case 'date':
       // Stored as YYYY-MM-DD, read the way Import reads dates; "March 3" (no year) is refused (G-14)
-      // A birth-date column reads "3/15/40" as 1940, never next decade
-      return parseDate(trimmed, 'mdy', { birth: looksLikeBirthColumn(column.name) })
+      // A birth-date column reads "3/15/40" as 1940, never next decade.
+      // 06/10/2026 is 6 October with the DD/MM/YYYY date format, June 10 otherwise
+      // Only years 1900–2999 are kept, the same as saving checks (AUDIT-112)
+      return toYmd(parseDate(trimmed, useSettingsStore.getState().dateFormat === 'eu' ? 'dmy' : 'mdy', { birth: looksLikeBirthColumn(column.name) }))
     case 'number':
     case 'currency': {
       // Strip currency symbols for currency type
@@ -69,7 +74,7 @@ export function checkPaste(text: string, column: Column): { value: string } | { 
     const inner = quoted[1]!.replace(/""/g, '"')
     body = multiLineOk ? inner : inner.replace(/\s*\r?\n\s*/g, ' ').replace(/\t/g, ' ')
   } else if (body.includes('\t') || (!multiLineOk && /\r?\n/.test(body))) {
-    return { error: 'That looks like several cells from a spreadsheet. To bring in many records, use Import.' }
+    return { error: `That looks like several cells from a spreadsheet. To bring in many ${wordNow('record', { many: true }, column.grid_id)}, use Import.` }
   }
   const value = validateForColumnType(body, column)
   if (value === null) {

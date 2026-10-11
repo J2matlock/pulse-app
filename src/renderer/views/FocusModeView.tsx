@@ -3,7 +3,7 @@
  * Shows only what needs attention today: client deadlines + admin tasks.
  * Big [Complete ✓] buttons with celebration animation.
  */
-import React, { useEffect, useState, useCallback, useRef } from 'react'
+import React, { useEffect, useState, useCallback, useRef, useId } from 'react'
 import { X, CheckCircle2, AlertTriangle, Pin, ListChecks, MessageSquare, CalendarClock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useFocusTrap } from '../hooks/useFocusTrap'
@@ -15,6 +15,7 @@ import { useGridStore } from '../stores/gridStore'
 import { useTaskStore } from '../stores/taskStore'
 import { useUndoStore } from '../stores/undoStore'
 import { pulseEvents } from '../events'
+import { useToday } from '../hooks/useToday'
 import { tickChecklistItem } from '../utils/checklistTick'
 import type { RawDeadlineRow, FocusItem, FocusTask, FocusFollowUp, UrgentChecklistItem } from './focus-mode/types'
 import { FocusSection } from './focus-mode/FocusSection'
@@ -36,6 +37,7 @@ interface Props {
 }
 
 export default function FocusModeView({ onClose }: Props): React.ReactElement {
+  const dialogTitleId = useId()
   const tasksOn = useFeature('tasks')
   const checklistsOn = useFeature('checklists')
   const { t: w } = useVocab(null)
@@ -79,6 +81,7 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
 
+  const today = useToday()
   useEffect(() => {
     async function load() {
       try {
@@ -150,7 +153,8 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
       }
     }
     load()
-  }, [])
+    // Loaded again at midnight: "due today" and "overdue" move on with the day
+  }, [today])
 
   const reloadClientItems = useCallback(async () => {
     const res = await safeInvoke<RawDeadlineRow[]>(IPC.DASHBOARD_GET_DEADLINES)
@@ -348,7 +352,7 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
   )
 
   return (
-    <div ref={trapRef} className="fixed inset-0 z-[200] bg-slate-900 flex flex-col overflow-hidden" role="dialog" aria-modal="true">
+    <div ref={trapRef} className="fixed inset-0 z-[200] bg-slate-900 flex flex-col overflow-hidden" role="dialog" aria-modal="true" aria-labelledby={dialogTitleId}>
       {/* Header */}
       <div className="flex-shrink-0 flex items-center justify-between px-8 py-5 border-b border-slate-700 flex-wrap gap-3">
         <div className="flex items-center gap-3">
@@ -356,7 +360,7 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
             <CheckCircle2 className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-white">Focus Mode</h1>
+            <h1 id={dialogTitleId} className="text-lg font-semibold text-white">Focus Mode</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400">What needs your attention today</p>
           </div>
         </div>

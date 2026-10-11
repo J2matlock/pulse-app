@@ -19,6 +19,9 @@ vi.mock('../../../src/renderer/utils/snippetExpander', () => ({
   expandVariables: (text: string) => text,
 }))
 
+const toastError = vi.hoisted(() => vi.fn())
+vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: toastError, success: vi.fn() }) }))
+
 import SnippetsView from '../../../src/renderer/views/SnippetsView'
 
 const sampleSnippets = [
@@ -92,6 +95,11 @@ describe('SnippetsView', () => {
     fireEvent.change(screen.getByLabelText(/Expansion/), { target: { value: 'A long signature' } })
     fireEvent.click(screen.getByText('Add Snippet'))
     expect(await screen.findByText(/already used by another snippet/)).toBeDefined()
+    // The trigger box points at the message, which is announced (audit A06-14)
+    const trigger = screen.getByLabelText(/Trigger/)
+    expect(trigger.getAttribute('aria-invalid')).toBe('true')
+    expect(trigger.getAttribute('aria-describedby')?.split(' ')).toContain(screen.getByRole('alert').id)
+    expect(screen.getByRole('dialog', { name: 'New Snippet' })).toBeTruthy()
     expect((screen.getByLabelText(/Expansion/) as HTMLTextAreaElement).value).toBe('A long signature')
     expect(mockInvoke).not.toHaveBeenCalledWith('snippet:create', expect.anything(), expect.anything(), expect.anything())
   })
@@ -107,6 +115,17 @@ describe('SnippetsView', () => {
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('snippet:create', 'sig', 'Signature text', null))
     expect(screen.getByText('Add Snippet')).toBeDefined()
     expect((screen.getByLabelText(/Expansion/) as HTMLTextAreaElement).value).toBe('Signature text')
+  })
+
+  it('keeps a snippet in the list and says so when deleting it failed', async () => {
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'snippet:delete' ? { ok: false, error: 'Invalid ID' } : { ok: true, data: sampleSnippets }))
+    render(<SnippetsView />)
+    await waitFor(() => expect(screen.getByText('/lm')).toBeDefined())
+    fireEvent.click(screen.getAllByLabelText('Delete')[0])
+    fireEvent.click(screen.getByLabelText('Confirm delete snippet'))
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith("We couldn't delete that snippet — try again"))
+    expect(screen.getByText('/lm')).toBeDefined()
+    expect(screen.getByText('/fu')).toBeDefined()
   })
 
   it('filters snippets by search input', async () => {

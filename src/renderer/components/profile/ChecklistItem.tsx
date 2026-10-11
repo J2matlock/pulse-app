@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { GripVertical, Trash2, Calendar, X, Pencil, Repeat } from 'lucide-react'
+import { GripVertical, Trash2, Calendar, X, Pencil, Repeat, AlertTriangle } from 'lucide-react'
 import { relativeTime } from '../../utils/relativeTime'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -276,16 +276,17 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
                  ${item.is_completed ? 'opacity-60' : ''}`}
     >
       {/* Drag handle */}
+      {/* Reached with Tab: Space picks it up, the arrows move it, Space drops it (AUDIT-049) */}
       <button
         {...attributes}
         {...listeners}
-        tabIndex={-1}
+        tabIndex={isDragDisabled ? -1 : 0}
         style={{ touchAction: 'none' }}
         className={`hit-44 mt-0.5 flex-shrink-0 text-slate-300 dark:text-slate-500 cursor-grab active:cursor-grabbing
-                   hover:text-slate-500
-                   ${isDragDisabled ? 'invisible' : 'opacity-40 group-hover:opacity-100 transition-opacity'}`}
-        title="Drag to reorder"
-        aria-label="Drag to reorder"
+                   hover:text-slate-500 rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
+                   ${isDragDisabled ? 'invisible' : 'opacity-40 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity'}`}
+        title="Drag to reorder, or press Space and use the arrow keys"
+        aria-label={`Reorder ${item.title}`}
       >
         <GripVertical className="w-4 h-4" />
       </button>
@@ -381,15 +382,18 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
               onClick={() => { setDateDraft(item.due_date ?? ''); setEditingDate(true) }}
               className={`hit-44 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity ${dueDate.className}`}
             >
-              <Calendar className="w-3 h-3" />
+              {/* A shape as well as a color for late and due-today dates (A06-12), like the grid's warning icon */}
+              {dueDate.urgency === 'overdue' || dueDate.urgency === 'today'
+                ? <AlertTriangle className="w-3 h-3" aria-hidden="true" />
+                : <Calendar className="w-3 h-3" aria-hidden="true" />}
               {dueDate.text}
             </button>
           ) : (
             <button
               onClick={() => { setDateDraft(''); setEditingDate(true) }}
               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base
-                         text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100
-                         hover:bg-slate-200 dark:hover:bg-slate-600 transition-opacity"
+                         text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100
+                         hover:bg-slate-200 dark:hover:bg-slate-600 transition-opacity focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
             >
               <Calendar className="w-3 h-3" />
               Add date
@@ -410,7 +414,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
               onClick={() => setShowPriorityMenu(prev => !prev)}
               className={`px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity
                          ${priorityCfg.badge}
-                         ${priority === 'normal' ? 'opacity-0 group-hover:opacity-100' : ''}`}
+                         ${priority === 'normal' ? 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100' : ''} focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500`}
               title="Set priority"
             >
               {priorityCfg.dot} {priority !== 'normal' ? priorityCfg.label : '+ Priority'}

@@ -25,6 +25,7 @@ import { ImportWizard } from '../components/grid/ImportWizard'
 import { ApplyStarterDialog } from '../components/starters/ApplyStarterDialog'
 import { DateRepeatPicker, suggestRepeat, type DateAnswer } from './setup/DateRepeatPicker'
 import { GuidedBlankStart } from './setup/GuidedBlankStart'
+import { UpdateCheckChoice } from './setup/UpdateCheckChoice'
 import { friendlyError } from '../utils/friendlyError'
 
 type Step = 'welcome' | 'profile' | 'start' | 'sheet-name' | 'sheet-import' | 'sheet-rows' | 'sheet-dates' | 'blank' | 'done'
@@ -185,7 +186,7 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
 
   async function saveRows() {
     if (gridId === null) return
-    if (rows.choice === null) { setError('Pick what the rows are, or choose "Something else".'); return }
+    if (rows.choice === null) { setError('Pick what each row of your spreadsheet is, or choose "Something else".'); return }
     const chosen = rows.choice === 'other'
       ? { one: rows.one.trim(), many: rows.many.trim() || rows.one.trim(), kind: rows.kind }
       : ROW_CHOICES[rows.choice]!
@@ -195,7 +196,7 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
       const term = { one: chosen.one, many: chosen.many, article: guessArticle(chosen.one) }
       // The list keeps its own words too (as the guided start does), so a later example's words don't rename it
       const listRes = await safeInvoke(IPC.GRID_SETTINGS_UPDATE, gridId, { record_kind: chosen.kind, vocab: { record: term } })
-      if (!listRes.ok) { setError(listRes.error); return }
+      if (!listRes.ok) { setError(friendlyError(listRes.error, "We couldn't save that. Please try again.")); return }
       await updateWorkspace({ vocab: { record: term } })
       const grid = await safeInvoke(IPC.GRID_GET, gridId)
       const found = grid.ok ? [...grid.data.columns, ...grid.data.hiddenColumns].filter(c => c.column_type === 'date') : []
@@ -204,7 +205,7 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
       setDates(Object.fromEntries(found.map(c => [c.id, suggestRepeat(c.name)])))
       go('sheet-dates')
     } catch (err) {
-      setError(err instanceof Error ? err.message : "We couldn't save that. Please try again.")
+      setError(friendlyError(err instanceof Error ? err.message : null, "We couldn't save that. Please try again."))
     } finally { setBusy(false) }
   }
 
@@ -405,6 +406,9 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
                   </ul>
                 </div>
               )}
+              <div className="mb-6 rounded-lg border border-slate-200 dark:border-slate-600 px-4 py-3 max-w-md mx-auto">
+                <UpdateCheckChoice />
+              </div>
               <p className="text-lg text-slate-600 dark:text-slate-300 mb-6 max-w-sm mx-auto">Would you like a quick tour of the main features?</p>
               <button type="button" className="btn-primary inline-flex items-center gap-2 px-8" onClick={onStartTour}>
                 Show me around <ArrowRight className="w-5 h-5" aria-hidden="true" />

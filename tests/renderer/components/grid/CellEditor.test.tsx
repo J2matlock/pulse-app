@@ -51,6 +51,18 @@ describe('CellEditor', () => {
     expect((input as HTMLInputElement).value).toBe('hello')
   })
 
+  it('names every editor by its column and says how to finish (AUDIT-043)', () => {
+    const types = ['text', 'date', 'number', 'dropdown', 'status', 'notes', 'address', 'tag', 'checkbox', 'phone', 'email', 'url', 'currency']
+    for (const type of types) {
+      const { container, unmount } = render(<CellEditor column={{ ...makeColumn(type), name: 'Due date' }} value={null} onSave={onSave} onCancel={onCancel} />)
+      const editor = container.querySelector<HTMLElement>('input, select, textarea')!
+      expect(editor.getAttribute('aria-label'), type).toBe('Due date')
+      const hint = document.getElementById(editor.getAttribute('aria-describedby') ?? '')
+      expect(hint?.textContent, type).toMatch(/Escape/)
+      unmount()
+    }
+  })
+
   it('follows dark mode instead of a hard-coded white box (V1)', () => {
     for (const type of ['text', 'date', 'number', 'dropdown', 'status', 'notes', 'tag', 'checkbox']) {
       const { container, unmount } = render(<CellEditor column={makeColumn(type)} value={null} onSave={onSave} onCancel={onCancel} />)
@@ -69,6 +81,28 @@ describe('CellEditor', () => {
     const input = container.querySelector('input[type="date"]')
     expect(input).toBeTruthy()
     expect((input as HTMLInputElement).value).toBe('2026-03-01')
+  })
+
+  it('keeps the old date instead of saving a half-typed year (AUDIT-112)', () => {
+    const { container } = render(
+      <CellEditor column={makeColumn('date')} value="2026-03-01" onSave={onSave} onCancel={onCancel} />
+    )
+    const input = container.querySelector('input[type="date"]') as HTMLInputElement
+    expect(input.min).toBe('1900-01-01')
+    fireEvent.change(input, { target: { value: '0026-10-11' } })
+    fireEvent.blur(input)
+    expect(onSave).not.toHaveBeenCalled()
+    expect(onCancel).toHaveBeenCalled()
+  })
+
+  it('saves a real date from the date input', () => {
+    const { container } = render(
+      <CellEditor column={makeColumn('date')} value="2026-03-01" onSave={onSave} onCancel={onCancel} />
+    )
+    const input = container.querySelector('input[type="date"]') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '2026-10-11' } })
+    fireEvent.blur(input)
+    expect(onSave).toHaveBeenCalledWith('2026-10-11', undefined)
   })
 
   it('renders a number input for number columns', () => {

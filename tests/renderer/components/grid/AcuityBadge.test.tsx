@@ -5,6 +5,7 @@ import React from 'react'
 
 // Mock motion/react
 vi.mock('motion/react', () => ({
+  useReducedMotionConfig: () => false,
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   motion: {
     div: React.forwardRef(
@@ -27,7 +28,7 @@ vi.mock('../../../../src/renderer/utils/animations', () => ({
   dropdownVariants: {},
 }))
 
-import { AcuityBadge } from '../../../../src/renderer/components/grid/AcuityBadge'
+import { AcuityBadge, badgeTextColor } from '../../../../src/renderer/components/grid/AcuityBadge'
 import type { AcuityLevel } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
 
@@ -105,5 +106,53 @@ describe('AcuityBadge', () => {
     expect(screen.getByText('1 pts')).toBeTruthy()
     expect(screen.getByText('3 pts')).toBeTruthy()
     expect(screen.getByText('5 pts')).toBeTruthy()
+  })
+
+  // AUDIT-045
+  it('is not its own Tab stop, and its name says the priority or offers to set one', () => {
+    const { unmount } = render(<AcuityBadge levels={levels} currentLevelId={3} onSetLevel={onSetLevel} />)
+    const badge = screen.getByRole('button', { name: 'Acuity level: High' })
+    expect(badge.tabIndex).toBe(-1)
+    expect(badge.getAttribute('aria-haspopup')).toBe('menu')
+    unmount()
+    render(<AcuityBadge levels={levels} currentLevelId={null} onSetLevel={onSetLevel} />)
+    expect(screen.getByRole('button', { name: 'Set acuity level' }).tabIndex).toBe(-1)
+  })
+
+  it('its pick list takes focus, moves with the arrows, closes on Escape and gives focus back', () => {
+    render(<AcuityBadge levels={levels} currentLevelId={1} onSetLevel={onSetLevel} />)
+    const badge = screen.getByRole('button', { name: 'Acuity level: Low' })
+    badge.focus()
+    fireEvent.click(badge)
+    expect(badge.getAttribute('aria-expanded')).toBe('true')
+    const items = Array.from(screen.getByRole('menu').querySelectorAll<HTMLElement>('[role^="menuitem"]'))
+    expect(document.activeElement).toBe(items[0])
+    expect(items[0]!.getAttribute('aria-checked')).toBe('true')
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(items[1])
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(document.activeElement).toBe(badge)
+  })
+
+  it('gives focus back to the badge after a pick, even from the unset "+"', () => {
+    function Host() {
+      const [id, setId] = React.useState<number | null>(null)
+      return <AcuityBadge levels={levels} currentLevelId={id} onSetLevel={setId} />
+    }
+    render(<Host />)
+    const badge = screen.getByRole('button', { name: 'Set acuity level' })
+    badge.focus()
+    fireEvent.click(badge)
+    fireEvent.click(screen.getByText('High'))
+    expect(screen.getByRole('button', { name: 'Acuity level: High' })).toBe(badge)
+    expect(document.activeElement).toBe(badge)
+  })
+
+  it('picks dark or white text by WCAG contrast, so the default colors are readable', () => {
+    // White on the default green was 2.3:1
+    expect(badgeTextColor('#22c55e')).toBe('#1e293b')
+    expect(badgeTextColor('#1e40af')).toBe('#ffffff')
+    expect(badgeTextColor('not-a-color')).toBe('#1e293b')
   })
 })

@@ -4,8 +4,6 @@
 
 import { ListChecks, FolderPlus } from 'lucide-react'
 
-export type SortMode = 'manual' | 'due_date' | 'priority'
-
 interface Props {
   loading: boolean
   total: number

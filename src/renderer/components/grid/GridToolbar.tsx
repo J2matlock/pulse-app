@@ -23,6 +23,19 @@ import { AcuityConfigPanel } from './AcuityConfigPanel'
 import { SavedViewsDropdown } from './SavedViewsDropdown'
 import { ColumnSelectDialog, type RowScope, type RowScopeCounts } from '../shared/ColumnSelectDialog'
 import { dropdownVariants } from '../../utils/animations'
+import { useMenuKeys, type MenuKeysOptions } from '../../hooks/useMenuKeys'
+
+/** A toolbar pop-up's ref (kept in view at the window's edge) and its keyboard model (AUDIT-044) */
+function useToolbarPopup(open: boolean, close: () => void, options?: MenuKeysOptions & { edgeAware?: boolean }) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const edgeAware = options?.edgeAware ?? true
+  const setRef = useCallback((el: HTMLDivElement | null) => {
+    ref.current = el
+    if (edgeAware) edgeAwareRefCallback(el)
+  }, [edgeAware])
+  const onKeyDown = useMenuKeys(ref, open, close, options)
+  return { ref: setRef, onKeyDown }
+}
 
 /** Isolated component — subscribes to rows independently so GridToolbar doesn't re-render on cell edits. */
 function AcuityPointsBadge(): React.ReactElement | null {
@@ -118,6 +131,12 @@ export function GridToolbar(): React.ReactElement {
   const formsOn = useFeature('forms')
   const filesOn = useFeature('attachments')
   const [showFormMenu, setShowFormMenu] = useState(false)
+  const formMenu = useToolbarPopup(showFormMenu, useCallback(() => setShowFormMenu(false), []), { edgeAware: false })
+  const viewMenu = useToolbarPopup(showViewMenu, useCallback(() => setShowViewMenu(false), []))
+  const reportsMenu = useToolbarPopup(showReportsMenu, useCallback(() => setShowReportsMenu(false), []))
+  const moreMenu = useToolbarPopup(showMoreMenu, useCallback(() => setShowMoreMenu(false), []))
+  const addColumnPanel = useToolbarPopup(showAddColumn, useCallback(() => setShowAddColumn(false), []), { kind: 'panel' })
+  const manageColumnsMenu = useToolbarPopup(showManageColumns, useCallback(() => setShowManageColumns(false), []))
   const listForms = useFormStore(s => (activeGridId != null ? s.byGrid[activeGridId] : undefined)) ?? EMPTY_FORMS
   useEffect(() => { if (formsOn && activeGridId != null) void useFormStore.getState().load(activeGridId) }, [formsOn, activeGridId])
   // "Bring in a spreadsheet" from the empty list
@@ -275,14 +294,14 @@ export function GridToolbar(): React.ReactElement {
       {formsOn && listForms.length > 0 && activeGridId != null && (
         <div className="relative">
           <button type="button" className="btn-secondary flex items-center gap-2" style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
-            aria-expanded={showFormMenu} onClick={() => setShowFormMenu(v => !v)}>
+            aria-expanded={showFormMenu} aria-haspopup="menu" onClick={() => setShowFormMenu(v => !v)}>
             <ClipboardPen className="w-4 h-4" />Use a form
             <ChevronDown className="w-3.5 h-3.5 opacity-60" />
           </button>
           {showFormMenu && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowFormMenu(false)} />
-              <div role="menu" className="absolute left-0 top-full mt-1 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-50">
+              <div role="menu" aria-label="Use a form" ref={formMenu.ref} onKeyDown={formMenu.onKeyDown} className="absolute left-0 top-full mt-1 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-50">
                 {listForms.map(f => (
                   <button key={f.id} role="menuitem" type="button" className="w-full text-left px-4 text-base text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700" style={{ minHeight: 44 }}
                     onClick={() => { setShowFormMenu(false); pulseEvents.emit('form:fill', { formId: f.id, gridId: activeGridId }) }}>
@@ -308,7 +327,7 @@ export function GridToolbar(): React.ReactElement {
       <div className="relative" data-tour="archived-toggle">
         <button
           onClick={() => { setShowViewMenu(v => !v); setShowMoreMenu(false); setShowReportsMenu(false) }}
-          aria-label="View" title="View"
+          aria-label={showArchived || viewMode === 'board' ? 'View (changed)' : 'View'} title="View"
           className="btn-secondary flex items-center gap-2"
             style={{ minHeight: 36, padding: '0 12px', fontSize: 15 }}
           aria-expanded={showViewMenu}
@@ -316,13 +335,13 @@ export function GridToolbar(): React.ReactElement {
         >
           <Eye className={`w-4 h-4 ${TOOLBAR_ICON}`} />
           <span className={TOOLBAR_LABEL}>View</span>
-          {(showArchived || viewMode === 'board') && <span className="w-2 h-2 rounded-full bg-amber-500" aria-label="(changed)" />}
+          {(showArchived || viewMode === 'board') && <span className="w-2 h-2 rounded-full bg-amber-500" aria-hidden="true" />}
           <ChevronDown className="w-3.5 h-3.5 opacity-60" />
         </button>
         {showViewMenu && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setShowViewMenu(false)} />
-            <div role="menu" ref={edgeAwareRefCallback} className="absolute left-0 top-full mt-1 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-50">
+            <div role="menu" aria-label="View" ref={viewMenu.ref} onKeyDown={viewMenu.onKeyDown} className="absolute left-0 top-full mt-1 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-50">
               {stagesOn && hasStage && (<>
                 <p className="px-4 pt-2 pb-1 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400" aria-hidden="true">Show as</p>
                 {(['table', 'board'] as const).map(mode => (
@@ -385,12 +404,14 @@ export function GridToolbar(): React.ReactElement {
               <div className="fixed inset-0 z-40" onClick={() => setShowReportsMenu(false)} />
               <motion.div
                 role="menu"
-                ref={edgeAwareRefCallback}
+                aria-label="Reports"
+                ref={reportsMenu.ref}
+                onKeyDown={reportsMenu.onKeyDown}
                 className="absolute left-0 top-full mt-1 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-50"
                 variants={dropdownVariants}
                 initial="hidden" animate="visible" exit="exit"
               >
-                <button
+                <button role="menuitem"
                   className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
                   style={{ minHeight: 44 }}
                   onClick={() => { setShowReportsMenu(false); navigate('/reports?new=1') }}
@@ -398,7 +419,7 @@ export function GridToolbar(): React.ReactElement {
                   Build a report…
                 </button>
                 {showSummaryReport && (<>
-                  <button
+                  <button role="menuitem"
                     className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
                     style={{ minHeight: 44 }}
                     onClick={() => { setShowReportsMenu(false); setShowSupervisorReport(true) }}
@@ -407,7 +428,7 @@ export function GridToolbar(): React.ReactElement {
                   </button>
                 </>)}
                 {requirementsOn && (
-                <button
+                <button role="menuitem"
                   className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
                   style={{ minHeight: 44 }}
                   onClick={() => { setShowReportsMenu(false); setReport('compliance') }}
@@ -415,14 +436,14 @@ export function GridToolbar(): React.ReactElement {
                   {t('requirement', { many: true, cap: true })} summary…
                 </button>
                 )}
-                <button
+                <button role="menuitem"
                   className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
                   style={{ minHeight: 44 }}
                   onClick={() => { setShowReportsMenu(false); setReport('missing') }}
                 >
                   Missing information…
                 </button>
-                <button
+                <button role="menuitem"
                   className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
                   style={{ minHeight: 44 }}
                   onClick={() => { setShowReportsMenu(false); setReport('audit') }}
@@ -430,7 +451,7 @@ export function GridToolbar(): React.ReactElement {
                   Audit trail…
                 </button>
                 {(timeOn || mileageOn || measuresOn) && (<>
-                  <button
+                  <button role="menuitem"
                     className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
                     style={{ minHeight: 44 }}
                     onClick={() => { setShowReportsMenu(false); setReport('time') }}
@@ -439,7 +460,7 @@ export function GridToolbar(): React.ReactElement {
                   </button>
                 </>)}
                 <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
-                <button className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
+                <button role="menuitem" className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
                   style={{ minHeight: 44 }}
                   onClick={() => { setShowReportsMenu(false); navigate('/reports') }}>
                   All reports
@@ -474,7 +495,9 @@ export function GridToolbar(): React.ReactElement {
               <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
               <motion.div
                 role="menu"
-                ref={edgeAwareRefCallback}
+                aria-label="More"
+                ref={moreMenu.ref}
+                onKeyDown={moreMenu.onKeyDown}
                 className="absolute left-0 top-full mt-1 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-50"
                 variants={dropdownVariants}
                 initial="hidden" animate="visible" exit="exit"
@@ -498,14 +521,14 @@ export function GridToolbar(): React.ReactElement {
                   onClick={() => { setShowMoreMenu(false); setShowImportWizard(true) }}>
                   <Upload className="w-4 h-4" />Import from CSV or Excel…
                 </button>
-                <button
+                <button role="menuitem"
                   className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
                   style={{ minHeight: 44 }}
                   onClick={handleExportCsvStart}
                 >
                   Export as CSV
                 </button>
-                <button
+                <button role="menuitem"
                   className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
                   style={{ minHeight: 44 }}
                   onClick={handleExportPdfStart}
@@ -513,7 +536,7 @@ export function GridToolbar(): React.ReactElement {
                   Export as PDF
                 </button>
                 {lettersOn && (
-                  <button
+                  <button role="menuitem"
                     className="flex items-center gap-2 w-full px-4 py-2.5 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
                     style={{ minHeight: 44 }}
                     onClick={() => { setShowMoreMenu(false); setBatchDocs(true) }}
@@ -530,7 +553,10 @@ export function GridToolbar(): React.ReactElement {
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowAddColumn(false)} />
               <motion.div
-                ref={edgeAwareRefCallback}
+                ref={addColumnPanel.ref}
+                onKeyDown={addColumnPanel.onKeyDown}
+                role="dialog"
+                aria-label="Add a column"
                 className="absolute left-0 top-full mt-1 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-4 z-50"
                 variants={dropdownVariants}
                 initial="hidden" animate="visible" exit="exit"
@@ -668,12 +694,15 @@ export function GridToolbar(): React.ReactElement {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowManageColumns(false)} />
                 <motion.div
-                  ref={edgeAwareRefCallback}
+                  ref={manageColumnsMenu.ref}
+                  onKeyDown={manageColumnsMenu.onKeyDown}
+                  role="menu"
+                  aria-label="Show or hide columns"
                   className="absolute left-0 top-full mt-1 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-2 z-50"
                   variants={dropdownVariants}
                   initial="hidden" animate="visible" exit="exit"
                 >
-                  <p className="px-3 pb-2 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                  <p className="px-3 pb-2 text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide" aria-hidden="true">
                     All columns
                   </p>
                   <div className="max-h-72 overflow-y-auto">
@@ -682,6 +711,8 @@ export function GridToolbar(): React.ReactElement {
                       return (
                         <button
                           key={col.id}
+                          role="menuitemcheckbox"
+                          aria-checked={isVisible}
                           className="hit-44 flex items-center gap-3 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-left"
                           onClick={() => toggleColumnVisibility(col.id, !isVisible)}
                         >

@@ -5,6 +5,7 @@
  * columns get their choices from the values already there.
  */
 import { getDb } from './database'
+import { word } from './vocab'
 import { setCellWithHistory } from './cell-write'
 import { keepSamplesUntouched } from './sample-marks'
 import { parseDate } from '../shared/parseDate'
@@ -24,7 +25,7 @@ const STATUS_COLORS = ['#22c55e', '#3b82f6', '#eab308', '#f97316', '#ef4444', '#
  * the old type's stored form is read as the text it shows first, so tags
  * become "urgent, new" (not ["urgent","new"]) and a checkbox "Yes" or "No".
  */
-export function convertValue(value: string, to: string, from?: string): string | null {
+export function convertValue(value: string, to: string, from?: string, dateOrder: 'mdy' | 'dmy' = 'mdy'): string | null {
   const shown = from && from !== to && STORED_FORM_TYPES.has(from) ? cellText(from, value) : value
   const v = shown.trim()
   if (!v) return ''
@@ -34,7 +35,7 @@ export function convertValue(value: string, to: string, from?: string): string |
       const n = Number(v.replace(/[$,\s]/g, ''))
       return isNaN(n) ? null : String(n)
     }
-    case 'date': return parseDate(v)
+    case 'date': return parseDate(v, dateOrder)
     case 'checkbox': {
       const l = v.toLowerCase()
       if (['true', 'yes', 'y', '1', 'x', '✓'].includes(l)) return 'true'
@@ -52,13 +53,19 @@ export function convertValue(value: string, to: string, from?: string): string |
   }
 }
 
+/** Day first with Settings → Date format DD/MM/YYYY, so 06/10/2026 is 6 October; month first otherwise */
+function savedDateOrder(): 'mdy' | 'dmy' {
+  const v = (getDb().prepare("SELECT value FROM settings WHERE key = 'date_format'").get() as { value: string } | undefined)?.value
+  return v === 'eu' ? 'dmy' : 'mdy'
+}
+
 interface Col { id: number; grid_id: number; name: string; column_type: string; config: string | null; is_name_column: number }
 
 function load(columnId: number, to: string): { col: Col; cells: Array<{ row_id: number; value: string }> } {
   const db = getDb()
   const col = db.prepare('SELECT id, grid_id, name, column_type, config, is_name_column FROM columns WHERE id = ?').get(columnId) as Col | undefined
   if (!col) throw new ColumnTypeError('That column no longer exists.')
-  if (col.is_name_column === 1 && !canNameRecords(to)) throw new ColumnTypeError('This column names the records, so it can\'t become that type. Choose another name column first.')
+  if (col.is_name_column === 1 && !canNameRecords(to)) throw new ColumnTypeError(`This column names the ${word('record', { many: true }, col.grid_id)}, so it can't become that type. Choose another name column first.`)
   if (!CHANGEABLE_TYPES.has(col.column_type)) throw new ColumnTypeError("This kind of column can't be changed to another type.")
   if (!CHANGEABLE_TYPES.has(to)) throw new ColumnTypeError("A column can't be changed to that type. Add a new column instead.")
   const cells = db.prepare(`SELECT c.row_id, c.value FROM cells c JOIN rows r ON r.id = c.row_id
@@ -71,7 +78,8 @@ export interface TypePreview { total: number; clean: number; examples: string[] 
 /** How many filled-in values fit the new type, and a few that don't */
 export function previewTypeChange(columnId: number, to: string): TypePreview {
   const { col, cells } = load(columnId, to)
-  const bad = cells.filter(c => convertValue(c.value, to, col.column_type) === null)
+  const order = savedDateOrder()
+  const bad = cells.filter(c => convertValue(c.value, to, col.column_type, order) === null)
   return { total: cells.length, clean: cells.length - bad.length, examples: [...new Set(bad.map(c => c.value))].slice(0, 5) }
 }
 
@@ -81,12 +89,13 @@ export function changeColumnType(columnId: number, to: string): TypeChangeSnapsh
   const db = getDb()
   const { col, cells } = load(columnId, to)
   if (col.column_type === to) return { previousType: to, previousConfig: col.config, changed: [] }
+  const order = savedDateOrder()
   // Converted values aren't edits to the list's sample entries
   return db.transaction((): TypeChangeSnapshot => keepSamplesUntouched(db, col.grid_id, () => {
     const changed: TypeChangeSnapshot['changed'] = []
     const after: string[] = []
     for (const c of cells) {
-      const v = convertValue(c.value, to, col.column_type)
+      const v = convertValue(c.value, to, col.column_type, order)
       if (v !== null && v !== c.value) { setCellWithHistory(c.row_id, columnId, v); changed.push({ rowId: c.row_id, old: c.value }) }
       after.push(v ?? c.value)
     }

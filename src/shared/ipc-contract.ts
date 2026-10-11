@@ -2,10 +2,13 @@
  * ipc-contract.ts — Typed IPC contract map.
  *
  * Maps each IPC channel string to its argument tuple and return type.
- * Used by safeInvoke/storeInvoke and window.api.invoke to provide
- * compile-time type checking without modifying existing call sites.
+ * Used by safeInvoke/storeInvoke/mustInvoke and window.api.invoke for
+ * compile-time type checking. Every invokable channel has an entry
+ * (ContractCoverage below fails to compile otherwise), and
+ * src/main/ipc/ipc-contract-check.ts checks the returns against main.
  *
- * Channels not listed here fall through to the untyped overload.
+ * Calls with an explicit generic (`safeInvoke<T>(...)`) still go through the
+ * untyped fallback overload and skip these types; see audit A08-2.
  */
 
 import type {
@@ -16,13 +19,25 @@ import type {
   DeletedRow, AppInfo, SortConfig,
   Provider, ProviderCategory, ProviderInteraction, ProviderClientLink,
   ProviderCustomField, ProviderCustomValue, ContactFilterParams,
-  SaveDialogResult, OpenDialogResult,
+  SaveDialogResult, OpenDialogResult, RecordKind,
+  ChecklistGroup, ChecklistDueItem, TaskGroup, NoteDateUpdate, NoteDateRevert, ContactRequirement, ContactStatusGrid, MissingInfoGrid,
 } from './types'
 import type { Vocab } from './vocab'
 import type { FeatureMap } from './features'
 import type { ActivityType } from './activityTypes'
 import type { MeasureDef, MeasureKind } from './measures'
-import type { RecordKind } from './types'
+import type { LicenseDoc } from './constants'
+import type { DeadlineResult, MeterInfo, RuleKind } from './deadlineEngine'
+import type { LinkType, LinkTypeInput, LinkedRecord, RowLinks, LinkChange, LinkDirection } from './links'
+import type { StageConfig, StageMoveResult, StageDurations, StageSummary } from './stages'
+import type { Appointment, ApptInput, ApptPatch, ApptStatus, EditScope, SeriesRule } from './appointments'
+import type { CalendarItem } from './calendar'
+import type { Form, FormInput, FormChange } from './forms'
+import type { Attachment, AttachmentUsage } from './attachments'
+import type { ReportSource, ReportField, ReportConfig, ReportResult, SavedReport } from './reports'
+import type { TotalsReport } from './timeMileage'
+import type { StarterSummary, StarterRef, StarterPreview, ApplyOptions, ApplyResult } from './starters/schema'
+import type { IPC, IPCChannel } from './ipc-channels'
 
 /** Search and filter for a record's notes (CASE_LOG_GET / CASE_LOG_COUNT) */
 export interface CaseLogQuery { query?: string; oldestFirst?: boolean; logType?: string }
@@ -34,7 +49,6 @@ export interface RowLocation {
   archivedReason: string | null
 }
 
-/** Setup's "Which of these dates repeat?" answer for one date column */
 /** Where an interrupted first-run setup stopped, once it has made a list */
 export interface SetupProgress {
   step: 'sheet-import' | 'sheet-rows' | 'blank'
@@ -44,8 +58,8 @@ export interface SetupProgress {
   blank?: { name: string; kind: RecordKind; one: string; many: string }
 }
 
-export type DateRuleAnswer ={ columnId: number; repeat: 'due' } | { columnId: number; repeat: 'every'; n: number; unit: 'days' | 'months' | 'years' }
-import type { StarterSummary, StarterRef, StarterPreview, ApplyOptions, ApplyResult } from './starters/schema'
+/** Setup's "Which of these dates repeat?" answer for one date column */
+export type DateRuleAnswer = { columnId: number; repeat: 'due' } | { columnId: number; repeat: 'every'; n: number; unit: 'days' | 'months' | 'years' }
 
 // ── Helper types for complex return shapes ────────────────────────────────
 
@@ -66,7 +80,6 @@ export interface WorkspacePatch {
   features?: FeatureMap
 }
 
-/** Return shape for grid:get */
 /** backup:get-status — whether backups are actually happening */
 export interface BackupStatusResult {
   lastAutoBackup: string | null
@@ -80,6 +93,7 @@ export interface BackupStatusResult {
   offsiteOverdue: boolean
 }
 
+/** Return shape for grid:get */
 export interface GridGetResult {
   grid: Grid
   columns: Column[]
@@ -145,14 +159,39 @@ export interface CrossGridSearchResult {
   clientName: string
 }
 
+/** checklist:update-item — a repeating item ticked off came straight back, due again */
+export interface ChecklistRepeat { previousDue: string | null; nextDue: string }
+
+/** import:file-preview — what Pulse found in a spreadsheet before importing it */
+export interface ImportFilePreview {
+  /** Sheet names (Excel only) */
+  sheets: string[]
+  activeSheet: number
+  headers: string[]
+  /** First 20 data rows */
+  rows: string[][]
+  detectedColumns: Array<{
+    index: number
+    originalName: string
+    detectedType: 'text' | 'date' | 'number' | 'phone' | 'email' | 'currency' | 'checkbox'
+    /** First 5 non-empty values */
+    samples: string[]
+    /** Most values look like "Smith, Jane" */
+    lastFirstNames?: boolean
+  }>
+  /** 0-based header row, detected or chosen */
+  detectedHeaderRow: number
+  headerDetectionConfidence: 'high' | 'medium' | 'low'
+  rawRowCount: number
+  rawPreviewRows?: string[][]
+}
+
 /** Manual contact entry */
 export interface ManualContact {
   type: string
   label: string
   value: string
 }
-
-// ── The contract ──────────────────────────────────────────────────────────
 
 /** GRID_DEADLINE_CONTEXT: what the grid needs besides each row to work out deadlines (W05) */
 export interface GridDeadlineContext {
@@ -180,6 +219,8 @@ export interface GridSettingsPatch {
   display_format?: string | null
   acuity_enabled?: boolean
 }
+
+// ── The contract ──────────────────────────────────────────────────────────
 
 export interface IPCContract {
   // ── Grid ────────────────────────────────────────────────────────────────
@@ -261,9 +302,10 @@ export interface IPCContract {
   // ── Checklists ──────────────────────────────────────────────────────────
   'checklist:get':            { args: [rowId: number];                                                   return: ChecklistItem[] }
   'checklist:create-item':    { args: [rowId: number, title: string, extra?: Partial<ChecklistItem>];    return: ChecklistItem }
-  'checklist:update-item':    { args: [id: number, updates: Partial<ChecklistItem>];                     return: { sysLogId: number | null } }
+  /** `silent`: undo/redo put an item back without writing a note or repeating it again */
+  'checklist:update-item':    { args: [id: number, updates: Partial<ChecklistItem>, opts?: { silent?: boolean }]; return: { sysLogId: number | null; repeat: ChecklistRepeat | null } }
   'checklist:delete-item':    { args: [id: number];                                                      return: true }
-  'checklist:apply-template': { args: [rowId: number, templateId: number];                               return: ChecklistItem[] }
+  'checklist:apply-template': { args: [rowId: number, templateId: number, groupId?: number | null];      return: { createdIds: number[] } }
   'checklist:reorder':        { args: [rowId: number, orderedIds: number[]];                             return: true }
   'checklist:get-urgent':     { args: [];                                                                return: UrgentChecklistItem[] }
   'checklist:reset-cycle':    { args: [rowId: number];                                                   return: true }
@@ -318,7 +360,8 @@ export interface IPCContract {
   'task:create':      { args: [task: Omit<CaseloadTask, 'id' | 'created_at' | 'updated_at'>];                                                      return: CaseloadTask }
   'task:update':      { args: [id: number, updates: Partial<CaseloadTask>];                                                                         return: true }
   'task:delete':      { args: [id: number];                                                                                                          return: true }
-  'task:complete':    { args: [id: number];                                                                                                          return: true }
+  /** false: already done, or its due date changed since `expectedDue` was read (nothing changed) */
+  'task:complete':    { args: [id: number, expectedDue?: string | null];                                                                             return: boolean }
   'task:snooze':      { args: [id: number, until: string];                                                                                           return: true }
   'task:get-due':     { args: [];                                                                                                                    return: CaseloadTask[] }
   'task:reorder':     { args: [orderedIds: number[]];                                                                                                return: true }
@@ -391,10 +434,11 @@ export interface IPCContract {
   // ── App Utilities ───────────────────────────────────────────────────────
   'app:get-info':           { args: [];                                   return: AppInfo }
   'app:open-external':      { args: [url: string];                        return: true }
+  'app:open-license':       { args: [which: LicenseDoc];                  return: true }
   'app:show-file-dialog':   { args: [options: Record<string, unknown>];   return: OpenDialogResult }
   'app:show-save-dialog':   { args: [options: Record<string, unknown>];   return: SaveDialogResult }
   'app:factory-reset':      { args: [password: string];                   return: true }
-  'app:check-for-updates':  { args: [];                                   return: { available: boolean; version?: string; downloadUrl?: string; releaseNotes?: string; reason?: string } }
+  'app:check-for-updates':  { args: [opts?: { manual?: boolean }];        return: { available: boolean; version?: string; downloadUrl?: string; releaseNotes?: string; reason?: string } }
   'app:integrity-check':    { args: [];                                   return: boolean }
 
   // ── Backup ──────────────────────────────────────────────────────────────
@@ -419,7 +463,7 @@ export interface IPCContract {
   'export:pdf-contact':       { args: [providerId: number];               return: string | null }
   'export:pdf-directory':     { args: [filterParams: Record<string, unknown>]; return: string | null }
   'import:file':              { args: [options: Record<string, unknown>];  return: unknown }
-  'import:file-preview':      { args: [filePath: string, sheetIndex?: number]; return: unknown }
+  'import:file-preview':      { args: [filePath: string, sheetIndex?: number, headerRowIndex?: number]; return: ImportFilePreview }
   'import:detect-columns':    { args: [gridId: number, headers: string[]]; return: unknown }
 
   // ── Templates ───────────────────────────────────────────────────────────
@@ -488,10 +532,176 @@ export interface IPCContract {
   'contacts:import-vcf':                { args: [filePath: string];                                                                     return: Array<Partial<Provider>> }
   'contacts:confirm-import-vcf':        { args: [providers: Array<Partial<Provider>>];                                                  return: number }
   'contacts:export-vcf':                { args: [providerIds: number[] | null];                                                         return: string | null }
+
+  // ── Checklist groups ────────────────────────────────────────────────────
+  'checklist:get-due':          { args: [];                                                    return: ChecklistDueItem[] }
+  'checklist:group-get-all':    { args: [rowId: number];                                       return: ChecklistGroup[] }
+  'checklist:group-create':     { args: [rowId: number, name: string];                         return: ChecklistGroup }
+  'checklist:group-update':     { args: [groupId: number, updates: GroupPatch];                return: true }
+  'checklist:group-delete':     { args: [groupId: number];                                     return: true }
+  'checklist:group-reorder':    { args: [rowId: number, orderedGroupIds: number[]];            return: true }
+  'checklist:move-item-group':  { args: [itemId: number, groupId: number | null];              return: true }
+
+  // ── Task groups ─────────────────────────────────────────────────────────
+  'task:group-get-all':   { args: [];                                                          return: TaskGroup[] }
+  'task:group-create':    { args: [name: string];                                              return: TaskGroup }
+  'task:group-update':    { args: [groupId: number, updates: GroupPatch];                      return: true }
+  'task:group-delete':    { args: [groupId: number];                                           return: true }
+  'task:group-reorder':   { args: [orderedGroupIds: number[]];                                 return: true }
+  'task:move-to-group':   { args: [taskId: number, groupId: number | null];                    return: true }
+  'task:apply-template':  { args: [templateId: number, groupId?: number | null];               return: { createdIds: number[] } }
+
+  // ── Notes: numbers and dates ────────────────────────────────────────────
+  'case-log:set-measures':  { args: [id: number, measures: NoteMeasures];                      return: true }
+  'case-log:set-occurred':  { args: [id: number, occurredOn: string];                          return: { occurred_at: string; updated_dates: NoteDateUpdate[]; reverted_dates: NoteDateRevert[] } }
+
+  // ── Documents and other exports ─────────────────────────────────────────
+  'letter-template:placeholder-fields': { args: [gridId: number];                                                     return: PlaceholderFieldGroup[] }
+  'documents:batch':        { args: [templateId: number, target: DocTarget, page: 'letter' | 'postcard'];               return: { filePath: string; count: number; unknown: string[] } | null }
+  'documents:labels':       { args: [target: DocTarget, addressColumnId: number, layout: 'avery-5160' | 'avery-5163']; return: { filePath: string; count: number; skipped: number } | null }
+  'dashboard:recent-activity': { args: [];                                                                             return: RecentActivityItem[] }
+  'export:audit-report':    { args: [scope: AuditScope];                                       return: { filePath: string; clients: number; events: number } | null }
+  'export:handoff-packet':  { args: [opts: HandoffOptions];                                    return: string | null }
+  'export:ics':             { args: [opts?: { fullNames?: boolean }];                          return: { filePath: string; count: number } | null }
+  'export:all-csv':         { args: [destFolder: string];                                      return: { exported: number; errors: string[]; notes: number } }
+  'backup:validate-destination': { args: [destPath: string];                                   return: { valid: boolean; error?: string } }
+
+  // ── Requirements, missing information, totals ───────────────────────────
+  'contact-req:get':          { args: [gridId?: number | null];                                return: ContactRequirement[] }
+  'contact-req:save':         { args: [gridId: number, reqs: ContactRequirement[]];            return: ContactRequirement[] }
+  /** `ref`: a month ('YYYY-MM') or a day ('YYYY-MM-DD'); today when not given */
+  'contact-req:status':       { args: [ref?: string, gridId?: number | null];                  return: ContactStatusGrid[] }
+  'missing-info:get':         { args: [gridId?: number | null];                                return: MissingInfoGrid[] }
+  'missing-info:export-csv':  { args: [gridId?: number | null];                                return: { filePath: string; count: number } | null }
+  'compliance:summary':       { args: [month: string, gridId?: number | null];                 return: ComplianceSummary }
+  'compliance:export-summary': { args: [month: string, gridId?: number | null];                return: string | null }
+  'totals:get':               { args: [month: string, gridId?: number | null];                 return: TotalsReport }
+  'totals:export-csv':        { args: [month: string, gridId?: number | null];                 return: { filePath: string; count: number } | null }
+
+  // ── Deadlines ───────────────────────────────────────────────────────────
+  'deadlines:get':                { args: [opts?: DeadlinesQuery];                                                    return: DeadlineListItem[] }
+  'deadlines:grid-context':       { args: [gridId: number];                                                           return: GridDeadlineContext }
+  'deadlines:meter-done':         { args: [rowId: number, columnId: number, reading: number, doneOn?: string | null]; return: MeterDoneResult }
+  'deadlines:step-done':          { args: [rowId: number, columnId: number, step: number, doneOn?: string | null];    return: { sysLogId: number } }
+  'deadlines:step-undo':          { args: [rowId: number, columnId: number, step: number];                            return: true }
+  /** How many steps moved to the new anchor date */
+  'deadlines:progress-reanchor':  { args: [rowId: number, columnId: number, from: string, to: string];                return: number }
+  'deadlines:mark-done':          { args: [rowId: number, columnId: number, choice: DoneChoice, checklistTemplateId?: number | null, doneOn?: string | null]; return: MarkDoneResult }
+  'deadlines:mark-done-undo':     { args: [rowId: number, columnId: number, snap: Omit<MarkDoneResult, 'sysLogId'>];  return: true }
+  'deadlines:extend':             { args: [rowId: number, columnId: number, newDue: string, reason: string];          return: { id: number; sysLogId: number } }
+  'deadlines:extension-revoke':   { args: [extensionId: number];                                                      return: { rowId: number; sysLogId: number } }
+  'deadlines:extension-restore':  { args: [extensionId: number, active: boolean];                                     return: true }
+
+  // ── Linked records ──────────────────────────────────────────────────────
+  'links:types-get-all':  { args: [gridId?: number];                                           return: LinkType[] }
+  'links:type-save':      { args: [input: LinkTypeInput];                                      return: LinkType }
+  'links:setup':          { args: [input: LinkTypeInput, opts?: { showOnOther?: boolean; logChanges?: boolean }]; return: { type: LinkType; columnIds: number[] } }
+  'links:type-delete':    { args: [id: number];                                                return: { removedLinks: number; removedColumns: number[] } }
+  'links:type-count':     { args: [id: number];                                                return: number }
+  'links:get':            { args: [rowId: number];                                             return: RowLinks[] }
+  'links:add':            { args: [typeId: number, fromRowId: number, toRowId: number];        return: LinkChange }
+  'links:remove':         { args: [typeId: number, fromRowId: number, toRowId: number];        return: LinkChange }
+  'links:search':         { args: [typeId: number, direction: LinkDirection, query: string];   return: LinkedRecord[] }
+  'links:create-record':  { args: [typeId: number, direction: LinkDirection, rowId: number, name: string]; return: { rowId: number; change: LinkChange } }
+  'links:grid-values':    { args: [gridId: number];                                            return: Array<Record<string, unknown>> }
+  /** Names of the links that the list it moves to has no place for */
+  'links:move-check':     { args: [rowId: number, targetGridId: number];                       return: string[] }
+  'links:counts-for-grid': { args: [gridId: number];                                           return: { types: number; links: number } }
+
+  // ── Stages ──────────────────────────────────────────────────────────────
+  /** Returns the columns whose settings changed */
+  'stages:config-save':   { args: [columnId: number, config: StageConfig | null];              return: number[] }
+  'stages:move':          { args: [rowId: number, columnId: number, value: string | null];     return: StageMoveResult }
+  'stages:undo':          { args: [rowId: number, columnId: number, move: StageMoveResult];    return: void }
+  'stages:durations':     { args: [gridId: number, columnId: number, rowIds?: number[]];       return: Record<number, StageDurations> }
+  'stages:summary':       { args: [];                                                          return: StageSummary[] }
+
+  // ── Appointments and calendar ───────────────────────────────────────────
+  'appointments:list':            { args: [range: { from: string; to: string }, filter?: { gridId?: number; rowId?: number; status?: ApptStatus[] }]; return: Appointment[] }
+  'appointments:for-record':      { args: [rowId: number];                                     return: { upcoming: Appointment[]; past: Appointment[]; upcomingTotal: number; pastTotal: number } }
+  'appointments:create':          { args: [input: ApptInput, rule?: SeriesRule | null];        return: ApptChange }
+  'appointments:update':          { args: [id: number, patch: ApptPatch, scope?: EditScope, rule?: SeriesRule | null]; return: ApptChange }
+  'appointments:delete':          { args: [id: number, scope?: EditScope];                     return: ApptChange }
+  'appointments:restore':         { args: [snapshot: ApptSnapshot];                            return: void }
+  'appointments:set-status':      { args: [id: number, status: ApptStatus, opts?: ApptStatusOptions]; return: ApptStatusChange }
+  'appointments:upcoming-count':  { args: [rowIds: number[]];                                  return: number }
+  'appointments:cancel-upcoming': { args: [rowIds: number[]];                                  return: ApptChange }
+  'appointments:end-series':      { args: [id: number, lastDate: string];                      return: ApptChange }
+  'calendar:items':               { args: [from: string, to: string, gridId?: number];         return: CalendarItem[] }
+
+  // ── Forms ───────────────────────────────────────────────────────────────
+  'forms:list':    { args: [gridId: number];                                                   return: Form[] }
+  'forms:save':    { args: [input: FormInput];                                                 return: Form }
+  'forms:delete':  { args: [id: number];                                                       return: void }
+  'forms:submit':  { args: [formId: number, rowId: number | null, values: FormValues, noteAnswers?: Record<string, string>]; return: FormChange }
+  'forms:undo':    { args: [change: FormChange];                                               return: void }
+  /** false: nothing could be put back */
+  'forms:redo':    { args: [change: FormChange];                                               return: boolean }
+  /** The saved file's path; null when the save dialog was cancelled */
+  'forms:print':   { args: [formId: number, rowId: number | null];                             return: string | null }
+
+  // ── Attachments ─────────────────────────────────────────────────────────
+  'attachments:add':        { args: [rowId: number, opts?: AttachmentAddOptions];              return: AttachmentAddResult }
+  'attachments:add-paths':  { args: [rowId: number, paths: string[], opts?: AttachmentAddOptions]; return: AttachmentAddResult }
+  'attachments:list':       { args: [rowId: number, includeDeleted?: boolean];                 return: Attachment[] }
+  'attachments:describe':   { args: [id: number, patch: { fileName?: string; description?: string | null }]; return: Attachment }
+  'attachments:delete':     { args: [id: number];                                              return: void }
+  'attachments:restore':    { args: [id: number];                                              return: void }
+  'attachments:usage':      { args: [];                                                        return: AttachmentUsage & { text: string } }
+  /** One file, or (no id) every file in the trash; returns how many were removed */
+  'attachments:purge':      { args: [id?: number];                                             return: number }
+  'attachments:trash-list': { args: [];                                                        return: Array<Attachment & { record_name: string | null }> }
+  'attachments:open':       { args: [id: number];                                              return: true }
+  'attachments:save-as':    { args: [id: number];                                              return: string | null }
+  'attachments:preview':    { args: [id: number];                                              return: { dataUrl: string } | null }
+
+  // ── Reports ─────────────────────────────────────────────────────────────
+  'reports:fields':     { args: [gridId: number, source: ReportSource];                        return: ReportField[] }
+  'reports:run':        { args: [gridId: number, config: ReportConfig];                        return: ReportResult }
+  'reports:run-saved':  { args: [id: number];                                                  return: { report: SavedReport; result: ReportResult; explanation: string; listName: string } }
+  'reports:list':       { args: [gridId?: number];                                             return: SavedReport[] }
+  'reports:save':       { args: [input: { id?: number; name: string; gridId: number; config: ReportConfig }]; return: SavedReport }
+  'reports:delete':     { args: [id: number];                                                  return: void }
+  'reports:export':     { args: [gridId: number, config: ReportConfig, format: 'csv' | 'pdf', name?: string]; return: string | null }
+
+  // ── Reminders and running in the background ─────────────────────────────
+  'reminders:get':    { args: [];                                                              return: ReminderSettings }
+  'reminders:set':    { args: [patch: Partial<ReminderSettings>];                              return: ReminderSettings }
+  'reminders:test':   { args: [];                                                              return: true }
+  'background:get':   { args: [];                                                              return: BackgroundSettings }
+  'background:set':   { args: [patch: Partial<Pick<BackgroundSettings, 'trayMode' | 'openAtLogin'>>]; return: BackgroundSettings }
+
+  // ── App lifecycle ───────────────────────────────────────────────────────
+  'app:relaunch':          { args: [];                                                         return: void }
+  /** true: forget the failure once it has been shown */
+  'app:migration-status':  { args: [clearFlag?: boolean];                                      return: { version: number; error: string; timestamp: string } | null }
+  'app:flush-done':        { args: [];                                                         return: void }
+  'log:forward':           { args: [payload: { level: 'error' | 'warn' | 'info'; component: string; msg: string; data?: unknown }]; return: void }
+  'cell-history:series':   { args: [rowId: number, columnIds: number[]];                       return: Record<number, Array<{ at: string; value: number }>> }
 }
 
 /** Union of all typed channel names */
 export type ContractChannel = keyof IPCContract
+
+/** Channels main sends to the renderer (window.api.on); nothing invokes them */
+export type EventChannel =
+  | typeof IPC.MENU_COMMAND | typeof IPC.CASE_LOG_CHANGED | typeof IPC.IMPORT_PROGRESS | typeof IPC.WORKSPACE_CHANGED
+  | typeof IPC.ACTIVITY_TYPES_CHANGED | typeof IPC.RECORD_LINKS_CHANGED | typeof IPC.APPOINTMENTS_CHANGED
+  | typeof IPC.ATTACHMENTS_CHANGED | typeof IPC.REMINDER_OPEN | typeof IPC.FILE_ASSOC_PENDING_ARRIVED | typeof IPC.APP_FLUSH_PENDING
+
+/** Channels the renderer can invoke */
+export type InvokeChannel = Exclude<IPCChannel, EventChannel>
+
+/**
+ * Every invokable channel has a contract entry, and every entry names a real
+ * channel. A new channel without an entry, or a renamed channel value, fails
+ * to compile here and names the channel (audit A08-4).
+ */
+type MustBeEmpty<T extends never> = T
+export type ContractCoverage = [
+  MustBeEmpty<Exclude<InvokeChannel, ContractChannel>>,
+  MustBeEmpty<Exclude<ContractChannel, InvokeChannel>>,
+]
 
 /** REMINDERS_GET / REMINDERS_SET: desktop reminder settings (W11) */
 export interface ReminderSettings {
@@ -527,4 +737,159 @@ export interface RecentActivityItem {
   /** Plain text, shortened */
   text: string
   created_at: string
+}
+
+// ── Shapes for the newer feature channels ─────────────────────────────────
+
+/** checklist:group-update / task:group-update — only these fields change */
+export type GroupPatch = Partial<Pick<ChecklistGroup, 'name' | 'position' | 'is_collapsed'>>
+
+/** case-log:set-measures — time, mileage and your own numbers on a note */
+export interface NoteMeasures { minutes?: number | null; miles?: number | null; extra?: Record<string, number | null> | null }
+
+/** letter-template:placeholder-fields — the {placeholders} a letter can use, grouped */
+export interface PlaceholderFieldGroup { label: string; items: Array<{ key: string; desc: string }> }
+
+/** documents:batch / documents:labels — who a batch of letters or labels is for */
+export interface DocTarget {
+  gridId: number
+  /** These records; otherwise everyone active in the list */
+  rowIds?: number[]
+  /** Everyone with this column's deadline due in the range (local dates) */
+  deadline?: { columnId: number; from: string; to: string }
+}
+
+/** export:audit-report — one record, one list, or everything; dates inclusive */
+export interface AuditScope { rowId?: number; gridId?: number; from?: string; to?: string }
+
+/** export:handoff-packet */
+export interface HandoffOptions {
+  rowId: number
+  gridId: number
+  /** Who is taking over */
+  receiving?: string
+  /** Notes for the next worker */
+  summary?: string
+  includePictures?: boolean
+  /** The scrap notes: private jottings, so only when asked for */
+  includeScratchPad?: boolean
+}
+
+/** compliance:summary — one month, per list */
+export interface ComplianceSummary {
+  month: string
+  /** Month end, or today for the current month */
+  asOf: string
+  /** Requirements are switched on; when off the report leaves them out */
+  requirementsOn: boolean
+  grids: Array<{
+    gridId: number
+    gridName: string
+    contacts: null | { total: number; met: number; requirementLabels: string[]; exceptions: Array<{ clientName: string; missing: string[] }> }
+    /** extended: extensions given during the month */
+    deadlines: { total: number; onTime: number; extended: number; exceptions: Array<{ clientName: string; column: string; due: string; daysOverdue: number }> }
+    missingInfo: { clients: number; exceptions: Array<{ clientName: string; missing: string[] }> }
+  }>
+}
+
+/** deadlines:get — which deadlines (all optional; dates inclusive, 'YYYY-MM-DD') */
+export interface DeadlinesQuery {
+  gridId?: number
+  rowIds?: number[]
+  from?: string
+  to?: string
+  limit?: number
+  /** Also list deadlines already done */
+  includeDone?: boolean
+}
+
+/** deadlines:get — one deadline, worked out */
+export interface DeadlineListItem extends DeadlineResult {
+  row_id: number
+  grid_id: number
+  grid_name: string
+  column_id: number
+  column_name: string
+  column_config: string
+  date_value: string
+  client_name: string | null
+  /** What the list holds (person/thing/job) */
+  record_kind: string | null
+  interval_days: number | null
+  interval_months: number | null
+  end_of_month: number | null
+  alert_thresholds: string | null
+  /** Same as `due` */
+  effective_date: string | null
+  rule_kind: RuleKind
+  /** The extension in effect, so it can be removed */
+  extension_id?: number
+  meter?: MeterInfo
+}
+
+/** deadlines:meter-done */
+export interface MeterDoneResult {
+  /** Column id → value before, for undo */
+  previous: Record<number, string | null>
+  sysLogId: number
+}
+
+/** deadlines:mark-done — what kind of done */
+export type DoneChoice = { kind: 'repeat' } | { kind: 'renewed'; newDate: string } | { kind: 'finished' }
+
+/** deadlines:mark-done — the cell before and after, for undo */
+export interface MarkDoneResult {
+  previous: string | null
+  newValue: string | null
+  /** The date a one-off was marked Finished for */
+  finishedFor: string | null
+  sysLogId: number
+  checklistItemIds: number[]
+}
+
+/** What an appointment change replaced, so undo can put it back (rows are Pulse's own) */
+export interface ApptSnapshot {
+  appointments: unknown[]
+  series: unknown[]
+  createdAppointmentIds: number[]
+  createdSeriesIds: number[]
+}
+
+/** appointments:create / update / delete / end-series / cancel-upcoming */
+export interface ApptChange { snapshot: ApptSnapshot; ids: number[] }
+
+/** appointments:set-status — the note written for the change */
+export interface ApptStatusOptions {
+  /** The note's text; "Appointment: {title}" when empty */
+  noteContent?: string
+  minutes?: number | null
+  miles?: number | null
+  extra?: Record<string, number> | null
+}
+
+/** appointments:set-status */
+export interface ApptStatusChange {
+  previous: ApptStatus
+  /** The note made for this change, if any */
+  caseLogId: number | null
+  /** The note voided because the appointment left that status */
+  voidedNoteId: number | null
+  /** Dates moved by the note, with what they held, for undo */
+  updatedDates: NoteDateUpdate[]
+  /** Dates put back because the earlier note was voided */
+  revertedDates: NoteDateRevert[]
+  rowId: number | null
+}
+
+/** forms:submit — answers by field key */
+export type FormValues = Record<string, string | null | number[]>
+
+/** attachments:add / add-paths */
+export interface AttachmentAddOptions { caseLogId?: number; description?: string }
+
+/** attachments:add / add-paths */
+export interface AttachmentAddResult {
+  added: Attachment[]
+  /** Files already on this record (same contents), not added unless allowed */
+  duplicates: Array<{ path: string; fileName: string; existingDate: string }>
 }

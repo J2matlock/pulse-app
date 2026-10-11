@@ -10,7 +10,7 @@
 import { getDb } from './database'
 import { jsPDF, atomicWriteFileAsync, getClientName } from './export-shared'
 import { renderProfileToDoc } from './export-pdf'
-import { loadAuditTrail, drawAuditClients, AUDIT_FOOTNOTE } from './export-audit'
+import { loadAuditTrail, drawAuditClients, auditFootnote } from './export-audit'
 import { listAttachments, attachmentBytes } from './attachments'
 import { formatBytes } from '../shared/attachments'
 import { parseDbTimestamp } from '../shared/dates'
@@ -150,7 +150,7 @@ export async function exportHandoffPacket(opts: HandoffOptions, destPath: string
   doc.text('Audit trail', marginL, 20)
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
-  doc.text(doc.splitTextToSize(AUDIT_FOOTNOTE, width), marginL, 27)
+  doc.text(doc.splitTextToSize(auditFootnote(opts.gridId), width), marginL, 27)
   drawAuditClients(doc, loadAuditTrail({ rowId: opts.rowId }), 38, marginL)
 
   const pages = doc.getNumberOfPages()

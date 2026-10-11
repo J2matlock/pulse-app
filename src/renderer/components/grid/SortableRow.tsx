@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react'
 import { type Row } from '@tanstack/react-table'
-import { User, Star } from 'lucide-react'
+import { User, Star, AlertTriangle } from 'lucide-react'
 import { BADGE_WIDTH as ACUITY_BADGE_WIDTH } from './AcuityBadge'
 import type { GridRow, Column, ParsedAlertRule, CellFormatRule, AcuityLevel } from '../../../shared/types'
 import { isNotTypedColumnType, takesDeadlineRule } from '../../../shared/types'
+import { isNotADate } from '../../../shared/ymd'
 import { getMatchingThreshold, evaluateRuleForRow, formatResultTooltip, deadlineChipText } from '../../utils/deadlineCalc'
 import { resolveAlertColor } from '../../utils/alertColors'
 import { evalCellFormat } from './CellConditionalFormatPanel'
@@ -22,6 +23,8 @@ type CellCoord = { rowId: number; columnId: number }
 export interface SortableRowProps {
   row: Row<GridRow>
   rowIndex: number
+  /** Where this row sits for a screen reader: the header row is 1, group headers count (AUDIT-042) */
+  ariaRowIndex?: number
   rowHeight: number
   editingRowId: number | null
   editingColId: number | null
@@ -39,6 +42,8 @@ export interface SortableRowProps {
   hasAnyHighlightRules: boolean
   highlightColumnIds: Set<number>
   rowMap: Map<number, GridRow>
+  /** Some rule colors a cell from another record's cell, so any record's change can redraw this one */
+  hasCrossRowRules?: boolean
   containerRef: React.RefObject<HTMLDivElement>
   isSelected: boolean
   selectedCount: number
@@ -74,6 +79,7 @@ const COMPUTED_NAV_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRi
 export const SortableRow = React.memo(function SortableRow({
   row,
   rowIndex,
+  ariaRowIndex,
   rowHeight,
   editingRowId,
   editingColId,
@@ -158,6 +164,10 @@ export const SortableRow = React.memo(function SortableRow({
   }, [hasAnyHighlightRules, highlightColumnIds, cellFormats, parsedColumnConfigs, evalRow, rowMap, rowId])
 
   const isArchived = row.original.is_active === 0
+  // Each cell names its column's place, matching the header (AUDIT-012)
+  const priorityColIndex = acuityEnabled ? 3 : undefined
+  const tagsColIndex = showTags ? 3 + (acuityEnabled ? 1 : 0) : undefined
+  const leadingColCount = 2 + (acuityEnabled ? 1 : 0) + (showTags ? 1 : 0)
 
   const rowStyle = useMemo<React.CSSProperties>(() => ({
     height: rowHeight,
@@ -167,6 +177,8 @@ export const SortableRow = React.memo(function SortableRow({
   return (
     <div
       role="row"
+      aria-rowindex={ariaRowIndex}
+      aria-selected={isSelected}
       data-row-index={rowIndex}
       className={`flex border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 group
         ${isArchived ? 'opacity-50' : ''}
@@ -176,6 +188,8 @@ export const SortableRow = React.memo(function SortableRow({
     >
       {/* Selection checkbox */}
       <div
+        role="gridcell"
+        aria-colindex={1}
         className="flex-shrink-0 flex items-center justify-center bg-white dark:bg-slate-900"
         style={{
           ...HANDLE_STYLE,
@@ -205,6 +219,8 @@ export const SortableRow = React.memo(function SortableRow({
 
       {/* Profile button */}
       <div
+        role="gridcell"
+        aria-colindex={2}
         className="flex-shrink-0 flex items-center justify-center border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
         style={{
           width: PROFILE_BTN_WIDTH, height: rowHeight,
@@ -239,6 +255,8 @@ export const SortableRow = React.memo(function SortableRow({
       {/* Acuity badge */}
       {acuityEnabled && (
         <div
+          role="gridcell"
+          aria-colindex={priorityColIndex}
           className="bg-white dark:bg-slate-900"
           style={frozenColumnCount > 0 ? { position: 'sticky', left: HANDLE_WIDTH + PROFILE_BTN_WIDTH, zIndex: 10 } : undefined}
         >
@@ -259,7 +277,7 @@ export const SortableRow = React.memo(function SortableRow({
 
       {/* Tags from the record's page, as a built-in column (G-37) */}
       {showTags && (
-        <div className="flex-shrink-0 flex items-center gap-1 px-2 overflow-hidden border-r border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+        <div role="gridcell" aria-colindex={tagsColIndex} className="flex-shrink-0 flex items-center gap-1 px-2 overflow-hidden border-r border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
           style={{ width: TAGS_COL_WIDTH, height: rowHeight, ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0), zIndex: 10 } : {}) }}
           title={rowTags?.join(', ')} data-testid="row-tags-cell">
           {(rowTags ?? []).slice(0, 2).map(tag => (
@@ -292,14 +310,20 @@ export const SortableRow = React.memo(function SortableRow({
         let alertChip: string | null = null
         let alertSpoken = ''
         let hasRule = false
+        // A value the deadline engine can't read ("TBD", "2/30/2026") would quietly show no deadline (AUDIT-026)
+        let notADate = false
         if (takesDeadlineRule(col.column_type)) {
           const cfg = parsedColumnConfigs.get(col.id)?.config as { alert_rule_id?: number } | undefined
           if (cfg?.alert_rule_id) {
             const rule = alertRuleMap.get(cfg.alert_rule_id)
             hasRule = !!rule
-            if (rule) {
+            if (rule && isNotADate(value)) {
+              notADate = true
+              alertTooltip = `Pulse can't read this as a date, so no deadline is shown for this ${t('record')}. Pick a date to fix it.`
+              alertSpoken = alertTooltip
+            } else if (rule) {
               // The shared engine (W05): relative and other kinds can be due with this cell empty
-              const res = evaluateRuleForRow(rule, value, rowOriginal as unknown as Record<string, unknown>, col.id)
+              const res = evaluateRuleForRow(rule, value, rowOriginal, col.id)
               const days = res.daysUntil
               if (col.column_type === 'date') alertChip = deadlineChipText(res, value)
               // Cut-off words can still be read on hover, colored or not
@@ -386,6 +410,7 @@ export const SortableRow = React.memo(function SortableRow({
             onContextMenu={e => onCellContextMenu(e, rowId, colId)}
             tabIndex={tabStopColId === colId ? 0 : -1}
             role="gridcell"
+            aria-colindex={leadingColCount + colIdx + 1}
             aria-selected={isFocused}
             onFocus={() => setFocusedCell({ rowId, columnId: colId })}
             onMouseDown={(e) => {
@@ -493,7 +518,13 @@ export const SortableRow = React.memo(function SortableRow({
               />
             ) : (
               <>
-                {alertIcon}
+                {/* The sr-only words below already say how it stands, so the shape isn't read twice */}
+                {alertIcon && <span aria-hidden="true" className="contents">{alertIcon}</span>}
+                {notADate && (
+                  <span className="mr-1.5 inline-flex flex-shrink-0 items-center gap-1 text-sm font-medium text-red-800 dark:text-red-300" data-testid="not-a-date">
+                    <AlertTriangle className="w-4 h-4" aria-hidden="true" />Not a date
+                  </span>
+                )}
                 <CellDisplay column={col} value={value} row={row.original} allColumns={columns} parsedConfig={parsedColumnConfigs.get(col.id)?.config} highlightText={searchQuery} isActiveMatch={findReplaceActiveRowId === rowId && findReplaceActiveColId === col.id} />
                 {isSample && col.is_name_column === 1 && <SamplePill compact />}
                 {alertChip && <span className="ml-1.5 min-w-0 truncate text-sm text-slate-700 dark:text-slate-200" data-testid="deadline-chip">{alertChip}</span>}
@@ -520,6 +551,7 @@ export const SortableRow = React.memo(function SortableRow({
   if (prev.row.original !== next.row.original) return false
   if (prev.isSelected !== next.isSelected) return false
   if (prev.rowIndex !== next.rowIndex) return false
+  if (prev.ariaRowIndex !== next.ariaRowIndex) return false
   // Only compare selectedCount for selected rows (affects AcuityBadge bulkCount display)
   if (prev.isSelected && prev.selectedCount !== next.selectedCount) return false
 
@@ -550,6 +582,16 @@ export const SortableRow = React.memo(function SortableRow({
   if (prev.frozenLeftOffsets !== next.frozenLeftOffsets) return false
   if (prev.frozenColumnCount !== next.frozenColumnCount) return false
   if (prev.isSample !== next.isSample) return false
+  if (prev.rowHeight !== next.rowHeight) return false
+  // A "cell of another record" rule reads rowMap: a change to that record redraws this one (AUDIT-038)
+  if (prev.hasCrossRowRules !== next.hasCrossRowRules) return false
+  if (next.hasCrossRowRules && prev.rowMap !== next.rowMap) return false
+  // Stable today, but a new handler must reach the cells (AUDIT-133)
+  if (prev.onCellKeyDown !== next.onCellKeyDown || prev.onCellContextMenu !== next.onCellContextMenu) return false
+  if (prev.onNavigateToProfile !== next.onNavigateToProfile || prev.onNavigateAfterEdit !== next.onNavigateAfterEdit) return false
+  if (prev.onToggleSelect !== next.onToggleSelect || prev.onToggleStar !== next.onToggleStar) return false
+  if (prev.updateCell !== next.updateCell || prev.setEditingCell !== next.setEditingCell || prev.setFocusedCell !== next.setFocusedCell) return false
+  if (prev.onSetAcuityLevel !== next.onSetAcuityLevel || prev.onBulkSetAcuityLevel !== next.onBulkSetAcuityLevel) return false
 
   return true
 })

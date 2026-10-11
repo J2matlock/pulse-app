@@ -51,6 +51,24 @@ function seedRecord() {
 
 const text = (path: string) => readFileSync(path).toString('latin1')
 
+function seedComputed(db: TestDb['db']) {
+  const g = seedGrid(db, { rowCount: 1, columnTypes: ['text', 'date', 'date', 'age_from_dob', 'calculated_days'] })
+  const [name, dob, next, age, days] = g.columnIds as [number, number, number, number, number]
+  const rename = db.prepare('UPDATE columns SET name = ?, config = ? WHERE id = ?')
+  rename.run('Name', '{}', name)
+  rename.run('Birth date', '{}', dob)
+  rename.run('Next visit', '{}', next)
+  rename.run('Age', JSON.stringify({ source_column_id: dob }), age)
+  rename.run('Days to visit', JSON.stringify({ source_column_id: next }), days)
+  db.prepare('UPDATE columns SET is_name_column = 1 WHERE id = ?').run(name)
+  const insert = db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')
+  const [rowId = 0] = g.rowIds
+  insert.run(rowId, name, 'Test Person')
+  insert.run(rowId, dob, `${new Date().getFullYear() - 10}-01-01`)
+  insert.run(rowId, next, localDateFromToday(5))
+  return { gridId: g.gridId, rowId }
+}
+
 describe('profile PDF', () => {
   it('prints deadlines from the deadline engine', async () => {
     const { gridId, rowId } = seedRecord()
@@ -72,6 +90,47 @@ describe('profile PDF', () => {
     expect(pdf).toContain('Guardian cell')
     expect(pdf).toContain('555-0199')
     expect(pdf).not.toContain('check with mom')
+  })
+
+  it('prints scrap-note paragraphs on their own lines (AUDIT-069)', async () => {
+    const { gridId, rowId } = seedRecord()
+    testDb.db.prepare("UPDATE scrap_notes SET content = '<p>Call Mom</p><p>Bring forms</p>' WHERE row_id = ?").run(rowId)
+    const dest = join(testDb.tmpDir, 'p.pdf')
+    await exportPdfProfile({ rowId, gridId, destPath: dest, includeSections: ALL })
+    const pdf = text(dest)
+    expect(pdf).toContain('(Call Mom)')
+    expect(pdf).toContain('(Bring forms)')
+    expect(pdf).not.toContain('Call MomBring forms')
+  })
+
+  it('shows Age and Days-until as the table does, not blank (AUDIT-036)', async () => {
+    const { gridId, rowId } = seedComputed(testDb.db)
+    const dest = join(testDb.tmpDir, 'computed.pdf')
+    await exportPdfProfile({ rowId, gridId, destPath: dest, includeSections: { ...ALL, deadlines: false } })
+    const pdf = text(dest)
+    expect(pdf).toContain('(10 yrs)')
+    expect(pdf).toContain('(5 days)')
+  })
+
+  it('prints open checklist items with a drawn box, not a garbled line (AUDIT-035)', async () => {
+    const { gridId, rowId } = seedRecord()
+    testDb.db.prepare("INSERT INTO checklist_items (row_id, title, position) VALUES (?, 'Call landlord', 0)").run(rowId)
+    const dest = join(testDb.tmpDir, 'checklist.pdf')
+    await exportPdfProfile({ rowId, gridId, destPath: dest, includeSections: ALL })
+    const pdf = text(dest)
+    expect(pdf).toContain('(Call landlord)')
+    expect(pdf).not.toContain('C\u0000a\u0000l\u0000l')
+  })
+
+  it('prints a Polish name in the header with the Unicode font (AUDIT-009)', async () => {
+    const { gridId, rowId } = seedRecord()
+    testDb.db.prepare("UPDATE rows SET display_name = 'Łukasz Wójcik' WHERE id = ?").run(rowId)
+    testDb.db.prepare('UPDATE cells SET value = ? WHERE row_id = ? AND value = ?').run('Łukasz Wójcik', rowId, 'Maria')
+    const dest = join(testDb.tmpDir, 'polish.pdf')
+    await exportPdfProfile({ rowId, gridId, destPath: dest, includeSections: ALL })
+    const pdf = text(dest)
+    expect(pdf).toContain('/FontName /LiberationSans')
+    expect(pdf).not.toMatch(/u\x00k\x00a\x00s\x00z/)
   })
 
   it('describes overdue, step and extended deadlines', () => {

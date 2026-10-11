@@ -120,6 +120,18 @@ describe('settingsStore', () => {
       expect(useSettingsStore.getState().theme).toBe('dark')
     })
 
+    it('keeps a saved zoom anywhere from 50% to 200%, and drops one outside it (AUDIT-055)', () => {
+      useSettingsStore.getState().hydrateFromSettings({ ui_scale: '200' })
+      expect(useSettingsStore.getState().uiScale).toBe(200)
+      // The Settings slider goes down to 50%, so a saved 60% comes back too
+      useSettingsStore.getState().hydrateFromSettings({ ui_scale: '60' })
+      expect(useSettingsStore.getState().uiScale).toBe(60)
+      useSettingsStore.getState().hydrateFromSettings({ ui_scale: '205' })
+      expect(useSettingsStore.getState().uiScale).toBe(60)
+      useSettingsStore.getState().hydrateFromSettings({ ui_scale: '40' })
+      expect(useSettingsStore.getState().uiScale).toBe(60)
+    })
+
     it('ignores non-numeric autoLock values', () => {
       useSettingsStore.getState().hydrateFromSettings({ auto_lock_minutes: 'abc' })
       expect(useSettingsStore.getState().autoLockMinutes).toBe(15)

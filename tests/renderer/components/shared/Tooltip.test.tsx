@@ -72,7 +72,52 @@ describe('Tooltip', () => {
     expect(screen.getByRole('tooltip')).toBeDefined()
 
     fireEvent.mouseLeave(wrapper)
+    // A short grace period lets the pointer move onto the tooltip (WCAG 1.4.13)
+    act(() => { vi.advanceTimersByTime(200) })
     expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it('stays while the pointer moves onto the tooltip, then hides when it leaves (WCAG 1.4.13)', () => {
+    render(
+      <Tooltip content="Help text" delay={100}>
+        <button>Hover me</button>
+      </Tooltip>
+    )
+    const wrapper = screen.getByText('Hover me').parentElement!
+    fireEvent.mouseEnter(wrapper)
+    act(() => { vi.advanceTimersByTime(150) })
+    fireEvent.mouseLeave(wrapper)
+    fireEvent.mouseEnter(screen.getByRole('tooltip'))
+    act(() => { vi.advanceTimersByTime(500) })
+    expect(screen.getByRole('tooltip')).toBeDefined()
+    fireEvent.mouseLeave(screen.getByRole('tooltip'))
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it('Escape hides a showing tooltip (WCAG 1.4.13)', () => {
+    render(
+      <Tooltip content="Help text" delay={100}>
+        <button>Hover me</button>
+      </Tooltip>
+    )
+    fireEvent.focus(screen.getByText('Hover me'))
+    act(() => { vi.advanceTimersByTime(150) })
+    expect(screen.getByRole('tooltip')).toBeDefined()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it('links the showing hint to its trigger with aria-describedby', () => {
+    render(
+      <Tooltip content="Click to sort" delay={100}>
+        <button>Name</button>
+      </Tooltip>
+    )
+    const btn = screen.getByRole('button', { name: 'Name' })
+    expect(btn.getAttribute('aria-describedby')).toBeNull()
+    fireEvent.focus(btn)
+    act(() => { vi.advanceTimersByTime(150) })
+    expect(btn.getAttribute('aria-describedby')).toBe(screen.getByRole('tooltip').id)
   })
 
   it('does not show tooltip if mouse leaves before delay', () => {

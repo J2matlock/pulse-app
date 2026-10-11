@@ -6,7 +6,7 @@
  * and file output.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync, chmodSync } from 'fs'
 import { join } from 'path'
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
@@ -208,6 +208,60 @@ describe('Logger — file output', () => {
     expect(parsed.component).toBe('db')
     expect(parsed.msg).toBe('Slow query')
     expect(parsed.data.duration).toBe(150)
+  })
+})
+
+describe('Logger — file permissions (AUDIT-096)', () => {
+  it.skipIf(process.platform === 'win32')('creates the logs folder 0700 and the log file 0600', async () => {
+    const logger = await getLogger()
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    logger.info('test', 'Permissions')
+    stderrSpy.mockRestore()
+    expect(statSync(tmpLogDir).mode & 0o777).toBe(0o700)
+    expect(statSync(join(tmpLogDir, 'pulse-main.log')).mode & 0o777).toBe(0o600)
+  })
+
+  it.skipIf(process.platform === 'win32')('tightens a logs folder and log files left readable by older versions', async () => {
+    mkdirSync(tmpLogDir, { recursive: true })
+    chmodSync(tmpLogDir, 0o755)
+    const oldLog = join(tmpLogDir, 'pulse-main.log')
+    const rotated = join(tmpLogDir, 'pulse-main.log.1')
+    writeFileSync(oldLog, '')
+    writeFileSync(rotated, '')
+    chmodSync(oldLog, 0o644)
+    chmodSync(rotated, 0o644)
+    const logger = await getLogger()
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    logger.info('test', 'Tighten')
+    stderrSpy.mockRestore()
+    expect(statSync(tmpLogDir).mode & 0o777).toBe(0o700)
+    expect(statSync(oldLog).mode & 0o777).toBe(0o600)
+    expect(statSync(rotated).mode & 0o777).toBe(0o600)
+  })
+})
+
+describe('formatForwardedLogData — renderer logs are scrubbed before they become text (AUDIT-095)', () => {
+  it('redacts sensitive keys in forwarded objects', async () => {
+    const { formatForwardedLogData } = await import('../src/main/logger')
+    const out = formatForwardedLogData({ id: 7, client_name: 'Test Person', notes: 'private', nested: { email: 'test@example.invalid' } })
+    expect(out).toBeDefined()
+    expect(out).not.toContain('Test Person')
+    expect(out).not.toContain('private')
+    expect(out).not.toContain('test@example.invalid')
+    expect(out).toContain('"id":7')
+  })
+
+  it('keeps the message of a forwarded Error (JSON.stringify alone drops it)', async () => {
+    const { formatForwardedLogData } = await import('../src/main/logger')
+    expect(formatForwardedLogData({ error: new Error('render blew up'), componentStack: 'at X' })).toContain('render blew up')
+  })
+
+  it('truncates long data and returns undefined for nothing', async () => {
+    const { formatForwardedLogData } = await import('../src/main/logger')
+    expect(formatForwardedLogData(undefined)).toBeUndefined()
+    const long = formatForwardedLogData({ text: 'y'.repeat(10_000) }) as string
+    expect(long.length).toBeLessThanOrEqual(4096 + '...[truncated]'.length)
+    expect(long.endsWith('...[truncated]')).toBe(true)
   })
 })
 

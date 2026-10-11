@@ -207,15 +207,31 @@ describe('CHECKLIST_UPDATE_ITEM', () => {
     expect((await tick()).data.repeat.nextDue).toBe('2099-03-31')
   })
 
-  it('a late repeating item comes back due this cycle, not still overdue; one without a date counts from today', async () => {
+  it('a late repeating item comes back due after today, not still overdue or due today (AUDIT-113); one without a date counts from today', async () => {
     const today = localDateString()
     const weekly = { type: 'weekly', interval: 1 } as const
     const late = await createItem('Weekly call', { due_date: addRepeats(today, weekly, -3), recurrence_rule: JSON.stringify(weekly) })
     const r = await invoke(IPC.CHECKLIST_UPDATE_ITEM, late.data.id, { is_completed: 1 }) as any
-    expect(r.data.repeat.nextDue).toBe(today)
+    expect(r.data.repeat.nextDue).toBe(addRepeats(today, weekly))
     const undated = await createItem('Check in', { recurrence_rule: JSON.stringify(weekly) })
     const r2 = await invoke(IPC.CHECKLIST_UPDATE_ITEM, undated.data.id, { is_completed: 1 }) as any
     expect(r2.data.repeat.nextDue).toBe(addRepeats(today, weekly))
+  })
+
+  it('a due date changed by hand drops the old day of the month; undo and redo leave it (AUDIT-114)', async () => {
+    const rule = (id: number) => JSON.parse((testDb.db.prepare('SELECT recurrence_rule FROM checklist_items WHERE id = ?').get(id) as { recurrence_rule: string }).recurrence_rule)
+    const item = await createItem('Monthly', { due_date: '2037-01-31', recurrence_rule: JSON.stringify({ type: 'monthly', interval: 1, day: 31 }) })
+    const id = item.data.id
+    // Undo and redo put an item back exactly as it was
+    await invoke(IPC.CHECKLIST_UPDATE_ITEM, id, { due_date: '2037-02-28' }, { silent: true })
+    expect(rule(id)).toEqual({ type: 'monthly', interval: 1, day: 31 })
+    await invoke(IPC.CHECKLIST_UPDATE_ITEM, id, { title: 'Monthly visit', due_date: '2037-02-28' })
+    expect(rule(id)).toEqual({ type: 'monthly', interval: 1, day: 31 })
+    // Moved by hand (from Feb 28 to Apr 30, with the dialog sending the rule it kept)
+    await invoke(IPC.CHECKLIST_UPDATE_ITEM, id, { due_date: '2037-04-30', recurrence_rule: JSON.stringify({ type: 'monthly', interval: 1, day: 31 }) })
+    expect(rule(id)).toEqual({ type: 'monthly', interval: 1 })
+    const r = await invoke(IPC.CHECKLIST_UPDATE_ITEM, id, { is_completed: 1 }) as any
+    expect(r.data.repeat.nextDue).toBe('2037-05-30')
   })
 
   it('a repeating item past its end date, or one that doesn\'t repeat, stays done', async () => {
@@ -570,8 +586,40 @@ describe('checklist template files (polish R6)', () => {
   it('won\'t write or read a file outside the folders Pulse may use', async () => {
     const id = Number(testDb.db.prepare("INSERT INTO checklist_templates (name, items) VALUES ('Intake', '[]')").run().lastInsertRowid)
     const exp = await invoke(IPC.CL_TEMPLATE_EXPORT, id, '/etc/intake.pulse-checklist')
-    expect(exp).toMatchObject({ ok: false, error: expect.stringMatching(/can't use that folder/) })
+    expect(exp).toMatchObject({ ok: false, error: expect.stringMatching(/can't use that location/) })
     const imp = await invoke(IPC.CL_TEMPLATE_IMPORT, 'relative/intake.pulse-checklist')
-    expect(imp).toMatchObject({ ok: false, error: expect.stringMatching(/can't use that folder/) })
+    expect(imp).toMatchObject({ ok: false, error: expect.stringMatching(/can't use that location/) })
+  })
+
+  describe('plain messages (AUDIT-062)', () => {
+    const { join } = require('path') as typeof import('path')
+    const { tmpdir } = require('os') as typeof import('os')
+    const fs = require('fs') as typeof import('fs')
+    const home = join(tmpdir(), 'pulse-test-checklists')
+    const write = (name: string, body: string): string => {
+      fs.mkdirSync(home, { recursive: true })
+      const p = join(home, name)
+      fs.writeFileSync(p, body)
+      return p
+    }
+    const importError = async (p: string): Promise<string> => ((await invoke(IPC.CL_TEMPLATE_IMPORT, p)) as { error: string }).error
+
+    it('explains files that are not checklists, from newer versions, or with the wrong ending', async () => {
+      expect(await importError(write('a.pulse-checklist', '{not json'))).toBe("This file isn't a Pulse checklist, or it's damaged.")
+      expect(await importError(write('b.pulse-checklist', JSON.stringify({ pulse_type: 'other', version: 1 })))).toBe("This file isn't a Pulse checklist, or it's damaged.")
+      expect(await importError(write('c.pulse-checklist', JSON.stringify({ pulse_type: 'checklist-template', version: 2 })))).toMatch(/newer version of Pulse/)
+      expect(await importError(write('d.json', '{}'))).toMatch(/Choose a Pulse checklist file/)
+    })
+
+    it('never shows raw file-system text when saving fails', async () => {
+      const id = Number(testDb.db.prepare("INSERT INTO checklist_templates (name, items) VALUES ('Intake', '[]')").run().lastInsertRowid)
+      // A folder where the file should go: writing fails with EISDIR
+      const dir = join(home, 'taken.pulse-checklist')
+      fs.mkdirSync(dir, { recursive: true })
+      const res = await invoke(IPC.CL_TEMPLATE_EXPORT, id, dir) as { ok: boolean; error: string }
+      expect(res.ok).toBe(false)
+      expect(res.error).not.toMatch(/EISDIR|EACCES|open '/)
+      expect(res.error).toMatch(/couldn't save the file there/)
+    })
   })
 })

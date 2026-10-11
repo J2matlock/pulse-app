@@ -321,7 +321,7 @@ describe('Excel Parsing — Edge Cases', () => {
 
   describe('date cells west of UTC (S5)', () => {
     const originalTz = process.env.TZ
-    afterEach(() => { process.env.TZ = originalTz })
+    afterEach(() => { if (originalTz === undefined) delete process.env.TZ; else process.env.TZ = originalTz })
 
     for (const tz of ['America/New_York', 'America/Los_Angeles', 'UTC', 'Australia/Sydney']) {
       it(`keeps the calendar day of a real date cell and a date formula in ${tz}`, async () => {
@@ -789,18 +789,19 @@ describe('executeImport', () => {
     })
   })
 
-  it('a chunk that fails is taken back out of the counts (S4)', async () => {
+  it('a row that fails to save leaves nothing behind and names the row (S4, AUDIT-123)', async () => {
     const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }])
-    let csv = 'Name\n'
-    for (let i = 0; i < 120; i++) csv += i === 76 ? 'Boom\n' : `Client ${i}\n`
+    let csv = 'Name,Extra\n'
+    for (let i = 0; i < 120; i++) csv += i === 76 ? 'Boom,x\n' : `Client ${i},x\n`
     const filePath = writeImportCsv('fails.csv', csv)
     testDb.db.exec("CREATE TEMP TRIGGER boom BEFORE INSERT ON cells WHEN NEW.value = 'Boom' BEGIN SELECT RAISE(ABORT, 'boom'); END")
     const preview = await parseImportFile(filePath)
-    const result = await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'none', columnMappings: [{ sourceIndex: 0, action: columnIds[0] }] }, preview)
-    expect(countRows(gridId)).toBe(50)
-    expect(result.imported).toBe(50)
-    expect(result.newRowIds).toHaveLength(50)
-    expect(result.warnings.join(' ')).toMatch(/stopped at row 52/)
+    await expect(executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'none', columnMappings: [{ sourceIndex: 0, action: columnIds[0] }, { sourceIndex: 1, action: 'create', newName: 'Extra', newType: 'text' }] }, preview))
+      .rejects.toThrow(/Nothing was imported, because row 78/)
+    expect(countRows(gridId)).toBe(0)
+    // The column the import would have added is gone too
+    expect((testDb.db.prepare('SELECT COUNT(*) AS c FROM columns WHERE grid_id = ?').get(gridId) as { c: number }).c).toBe(1)
+    expect(testDb.db.inTransaction).toBe(false)
   })
 
   it('progress callback fires with correct counts', async () => {
@@ -1077,7 +1078,7 @@ describe('executeImport', () => {
 
 describe('normalizeDate across timezones', () => {
   const originalTz = process.env.TZ
-  afterEach(() => { process.env.TZ = originalTz })
+  afterEach(() => { if (originalTz === undefined) delete process.env.TZ; else process.env.TZ = originalTz })
 
   for (const tz of ['America/New_York', 'UTC', 'Europe/London', 'Australia/Sydney', 'Pacific/Kiritimati']) {
     it(`keeps the calendar day in ${tz}`, () => {

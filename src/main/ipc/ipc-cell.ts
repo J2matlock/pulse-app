@@ -7,6 +7,7 @@ import { QUERY_LIMITS } from '../../shared/query-limits'
 import { secureWrap, ok, fail, validId, logNonFatal, notifyCaseLogChanged, enforceWritable } from './ipc-utils'
 import { getDb, upsertCell, cachedStmt, registerCloseHook } from '../database'
 import { storesNoCells } from '../../shared/types'
+import { toYmd, MIN_YEAR, MAX_YEAR } from '../../shared/ymd'
 import { word } from '../vocab'
 import { columnAffectsDisplayName, refreshDisplayNames } from '../display-names'
 import { numberSeries } from '../number-history'
@@ -100,6 +101,11 @@ export function registerCellHandlers(): void {
     // Link columns (W04) have no cells; their links change through RECORD_LINK_ADD/REMOVE
     if (storesNoCells(getColMeta(columnId)?.column_type ?? '')) return fail('That column shows links. Use the link picker to change it.')
     if (getColMeta(columnId)?.column_type === 'auto_number') return fail('Numbers are filled in automatically and can\'t be changed.')
+    // Dates are stored as YYYY-MM-DD; a half-typed year (0026) or free text would throw the deadlines off (AUDIT-112)
+    const meta = getColMeta(columnId)
+    if ((meta?.column_type === 'date' || meta?.column_type === 'deadline') && value !== null && value !== '' && toYmd(value) !== value) {
+      return fail(`"${meta.name}" needs a full date between ${MIN_YEAR} and ${MAX_YEAR}. Pick one from the calendar and try again.`)
+    }
     const db = getDb()
 
     let sysLogId: number | null = null

@@ -3,59 +3,23 @@
  * special character handling, and supervisor report queries.
  * Tests the data-layer logic directly against real SQLCipher DB.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 import Papa from 'papaparse'
 
 let t: TestDb
+vi.mock('electron', () => ({ app: { getPath: () => '/tmp', isPackaged: false }, BrowserWindow: { getAllWindows: () => [] } }))
+vi.mock('../src/main/database', async () => {
+  const actual = await vi.importActual<typeof import('../src/main/database')>('../src/main/database')
+  return { ...actual, getDb: () => t.db, cachedStmt: (_k: string, sql: string) => t.db.prepare(sql) }
+})
+
+import { formatDate, sanitizeCsvFormula, unguardCsvFormula, formatCellValue, stripHtml } from '../src/main/export-shared'
 
 beforeEach(() => { t = createTestDb() })
 afterEach(() => { cleanupTestDb(t) })
 
-// ── Mirrors of export.ts pure functions (tested in isolation) ────────────────
-
-function formatDate(value: string | null, fmt: 'iso' | 'us' | 'eu'): string {
-  if (!value) return ''
-  const d = new Date(value.length === 10 ? value + 'T00:00:00' : value)
-  if (isNaN(d.getTime())) return value
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  if (fmt === 'iso') return `${y}-${m}-${day}`
-  if (fmt === 'us') return `${m}/${day}/${y}`
-  return `${day}/${m}/${y}`
-}
-
-function sanitizeCsvFormula(v: string): string {
-  if (/^[=+\-@\t\r]/.test(v)) return `\t${v}`
-  if (/\r?\n[=+\-@]/.test(v)) return `\t${v}`
-  return v
-}
-
-function formatCellValue(value: string | null, columnType: string, dateFormat: 'iso' | 'us' | 'eu' = 'iso'): string {
-  if (value === null || value === '') return ''
-  switch (columnType) {
-    case 'date': return formatDate(value, dateFormat)
-    case 'checkbox': return (value === 'true' || value === '1') ? 'Yes' : 'No'
-    case 'currency': {
-      const n = parseFloat(value)
-      return isNaN(n) ? sanitizeCsvFormula(value) : '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    }
-    default: return sanitizeCsvFormula(value)
-  }
-}
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-}
-
+// The real export helpers (the file used to test hand-copied mirrors of them)
 // ── CSV Export Logic ─────────────────────────────────────────────────────────
 
 describe('CSV Export Logic', () => {
@@ -174,29 +138,63 @@ describe('CSV Export Logic', () => {
 // ── CSV Formula Injection Prevention ─────────────────────────────────────────
 
 describe('CSV Formula Injection Prevention', () => {
-  it('prefixes cells starting with = with tab', () => {
-    expect(sanitizeCsvFormula('=SUM(A1)')).toBe('\t=SUM(A1)')
+  it('prefixes cells starting with = with an apostrophe', () => {
+    expect(sanitizeCsvFormula('=SUM(A1)')).toBe('\'=SUM(A1)')
   })
 
-  it('prefixes cells starting with + with tab', () => {
-    expect(sanitizeCsvFormula('+1-555-1234')).toBe('\t+1-555-1234')
+  it('prefixes cells starting with + with an apostrophe', () => {
+    expect(sanitizeCsvFormula('+1-555-1234')).toBe('\'+1-555-1234')
   })
 
-  it('prefixes cells starting with - with tab', () => {
-    expect(sanitizeCsvFormula('-HYPERLINK("evil")')).toBe('\t-HYPERLINK("evil")')
+  it('prefixes cells starting with - with an apostrophe', () => {
+    expect(sanitizeCsvFormula('-HYPERLINK("evil")')).toBe('\'-HYPERLINK("evil")')
   })
 
-  it('prefixes cells starting with @ with tab', () => {
-    expect(sanitizeCsvFormula('@SUM(A1)')).toBe('\t@SUM(A1)')
+  it('prefixes cells starting with @ with an apostrophe', () => {
+    expect(sanitizeCsvFormula('@SUM(A1)')).toBe('\'@SUM(A1)')
   })
 
   it('prefixes cells with formula-like content after newline', () => {
-    expect(sanitizeCsvFormula('safe\n=evil')).toBe('\tsafe\n=evil')
+    expect(sanitizeCsvFormula('safe\n=evil')).toBe('\'safe\n=evil')
+  })
+
+  it('leaves a negative number in a number column alone, but guards it in a text column', () => {
+    expect(formatCellValue('-5', 'number')).toBe('-5')
+    expect(formatCellValue('-5', 'text')).toBe('\'-5')
   })
 
   it('leaves normal text unchanged', () => {
     expect(sanitizeCsvFormula('Alice Smith')).toBe('Alice Smith')
     expect(sanitizeCsvFormula('123 Main St')).toBe('123 Main St')
+  })
+
+  it('uses the OWASP apostrophe, not a TAB, for cells starting with TAB or CR too (AUDIT-037)', () => {
+    expect(sanitizeCsvFormula('\t=1+1')).toBe("'\t=1+1")
+    expect(sanitizeCsvFormula('\r=1+1')).toBe("'\r=1+1")
+    // What it writes doesn't itself start with a character a spreadsheet reads as a formula
+    for (const v of ['=1+1', '+1', '-1', '@x', '\tx', '\rx']) expect(sanitizeCsvFormula(v)).toMatch(/^'/)
+    expect(sanitizeCsvFormula('=1+1').trimStart()).toBe("'=1+1")
+  })
+
+  it("leaves a name that starts with an apostrophe alone ('Til)", () => {
+    expect(sanitizeCsvFormula("'Til")).toBe("'Til")
+    expect(unguardCsvFormula("'Til")).toBe("'Til")
+    expect(unguardCsvFormula("'hello")).toBe("'hello")
+  })
+
+  it('import takes off exactly the apostrophe the export added', () => {
+    expect(unguardCsvFormula("'=1+1")).toBe('=1+1')
+    expect(unguardCsvFormula("'+1 555 0100")).toBe('+1 555 0100')
+    expect(unguardCsvFormula("'-")).toBe('-')
+    expect(unguardCsvFormula("'@home")).toBe('@home')
+    expect(unguardCsvFormula("'\tx")).toBe('\tx')
+    expect(unguardCsvFormula("''=1")).toBe("'=1")
+  })
+
+  it('round-trips every value exactly', () => {
+    const values = ['=1+1', '+1 555 0100', '-', '-12', '@home', '\tTabbed', '\rx', "'Til", "'=1", "''=1", 'safe\n=evil',
+      "'", "''", 'Test Person', '', '123 Main St', "O'Brien"]
+    for (const v of values) expect(unguardCsvFormula(sanitizeCsvFormula(v))).toBe(v)
   })
 })
 
@@ -210,6 +208,10 @@ describe('HTML Stripping', () => {
   it('decodes common HTML entities', () => {
     // &nbsp; → regular space ' ', so the result has a trailing space after the apostrophe space
     expect(stripHtml('&amp; &lt; &gt; &quot; &#39; &nbsp;')).toBe('& < > " \' '+ ' ')
+  })
+
+  it('decodes numeric entities', () => {
+    expect(stripHtml('caf&#233; &#x2014; ok')).toBe('café — ok')
   })
 
   it('handles empty string', () => {

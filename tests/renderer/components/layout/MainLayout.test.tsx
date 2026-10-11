@@ -61,6 +61,24 @@ describe('MainLayout', () => {
     expect(checks).toHaveLength(1)
   })
 
+  it('does not keep an attempt made before setup finished, so it checks after setup (AUDIT-087)', async () => {
+    let setupDone = false
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'app:check-for-updates') {
+        return Promise.resolve({ ok: true, data: setupDone ? { available: true, version: '9.9.9' } : { available: false, setupPending: true } })
+      }
+      return Promise.resolve({ ok: true, data: null })
+    })
+    // The layout shows for a moment before setup opens on first launch
+    const first = render(<MemoryRouter><MainLayout><p>page</p></MainLayout></MemoryRouter>)
+    await waitFor(() => expect(mockInvoke.mock.calls.filter(c => c[0] === 'app:check-for-updates')).toHaveLength(1))
+    first.unmount()
+    setupDone = true
+    render(<MemoryRouter><MainLayout><p>page</p></MainLayout></MemoryRouter>)
+    expect(await screen.findByTestId('update-banner')).toBeTruthy()
+    expect(mockInvoke.mock.calls.filter(c => c[0] === 'app:check-for-updates')).toHaveLength(2)
+  })
+
   it('remembers a collapsed sidebar across a lock', async () => {
     const first = render(<MemoryRouter><MainLayout><p>page</p></MainLayout></MemoryRouter>)
     fireEvent.click(screen.getByText('Toggle sidebar'))

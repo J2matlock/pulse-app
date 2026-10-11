@@ -124,6 +124,40 @@ describe('exportPdfGrid', () => {
     expect(isPdfBuffer(readFileSync(destPath))).toBe(true)
   })
 
+  it('prints cells starting with + or - as they are, without the CSV guard (AUDIT-121)', async () => {
+    const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 2 })
+    const insert = testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')
+    insert.run(rowIds[0], columnIds[0], '+1 555 0100')
+    insert.run(rowIds[0], columnIds[1], '-follow up')
+    const destPath = join(testDb.tmpDir, 'grid-guard.pdf')
+    await exportPdfGrid({ gridId, columnIds: [], activeRowIds: [], destPath })
+    const pdf = readFileSync(destPath).toString('latin1')
+    expect(pdf).toContain('(+1 555 0100)')
+    expect(pdf).toContain('(-follow up)')
+  })
+
+  it('prints names outside Windows-1252 with the Unicode font, plain ones without it (AUDIT-009)', async () => {
+    const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 3, columnCount: 1 })
+    const insert = testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')
+    insert.run(rowIds[0], columnIds[0], 'Łukasz Wójcik')
+    insert.run(rowIds[1], columnIds[0], 'Иван Петров')
+    insert.run(rowIds[2], columnIds[0], 'Nguyễn Thị Lan')
+    const destPath = join(testDb.tmpDir, 'unicode.pdf')
+    await exportPdfGrid({ gridId, columnIds: [], activeRowIds: [], destPath, title: 'Ayşe Yılmaz' })
+    const pdf = readFileSync(destPath).toString('latin1')
+    expect(pdf).toContain('/LiberationSans')
+    // The broken path wrote each character as two bytes, a NUL between letters
+    expect(pdf).not.toMatch(/u\x00k\x00a\x00s\x00z/)
+    expect(pdf).not.toMatch(/Y\x001\x00l/)
+
+    const plainPath = join(testDb.tmpDir, 'plain.pdf')
+    testDb.db.prepare('UPDATE cells SET value = ? WHERE row_id IN (?, ?, ?)').run('José Núñez', rowIds[0], rowIds[1], rowIds[2])
+    await exportPdfGrid({ gridId, columnIds: [], activeRowIds: [], destPath: plainPath })
+    const plain = readFileSync(plainPath).toString('latin1')
+    expect(plain).not.toContain('LiberationSans')
+    expect(plain).toContain('(Jos\xe9 N\xfa\xf1ez)')
+  })
+
   it('handles grid with zero rows', async () => {
     const { gridId } = seedGrid(testDb.db, { rowCount: 0, columnCount: 2 })
     const destPath = join(testDb.tmpDir, 'empty-grid.pdf')

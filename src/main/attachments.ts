@@ -150,7 +150,7 @@ export function addAttachments(rowId: number, paths: string[], opts: { caseLogId
   const adding = toAdd.reduce((n, f) => n + f.data.length, 0)
   const usage = attachmentUsage()
   if (usage.bytes + adding > usage.limitBytes) {
-    throw new AttachmentError(`That would use ${formatBytes(usage.bytes + adding)} of the ${formatBytes(usage.limitBytes)} set aside for files. Remove files from the trash, or raise the limit in Settings → Data.`)
+    throw new AttachmentError(`That would use ${formatBytes(usage.bytes + adding)} of the ${formatBytes(usage.limitBytes)} set aside for files. Remove files from the Trash, or raise the limit in Settings → Data.`)
   }
   return db.transaction((): AddResult => {
     const ins = db.prepare('INSERT INTO attachments (row_id, case_log_id, file_name, mime_type, size_bytes, sha256, description) VALUES (?, ?, ?, ?, ?, ?, ?)')
@@ -189,7 +189,7 @@ export function deleteAttachment(id: number): void {
 export function restoreAttachment(id: number): void {
   const db = getDb()
   db.transaction(() => {
-    if (db.prepare('UPDATE attachments SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL').run(id).changes === 0) throw new AttachmentError("That file isn't in the trash.")
+    if (db.prepare('UPDATE attachments SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL').run(id).changes === 0) throw new AttachmentError("That file isn't in the Trash.")
     const a = getAttachment(id)!
     auditNote(a.row_id, `File restored: ${a.file_name}`)
   })()
@@ -209,5 +209,5 @@ export function trashedAttachments(): Array<Attachment & { record_name: string |
 
 /** Remove one file from the trash for good */
 export function purgeAttachment(id: number): void {
-  if (getDb().prepare('DELETE FROM attachments WHERE id = ? AND deleted_at IS NOT NULL').run(id).changes === 0) throw new AttachmentError("That file isn't in the trash.")
+  if (getDb().prepare('DELETE FROM attachments WHERE id = ? AND deleted_at IS NOT NULL').run(id).changes === 0) throw new AttachmentError("That file isn't in the Trash.")
 }

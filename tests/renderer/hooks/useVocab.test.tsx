@@ -16,7 +16,6 @@ import { useWorkspaceStore } from '../../../src/renderer/stores/workspaceStore'
 import { useGridStore } from '../../../src/renderer/stores/gridStore'
 import { useVocab } from '../../../src/renderer/hooks/useVocab'
 import { useFeature } from '../../../src/renderer/hooks/useFeature'
-import { V } from '../../../src/renderer/components/shared/V'
 import { HUMAN_SERVICES_VOCAB } from '../../../src/shared/vocab'
 import { IPC } from '../../../src/shared/ipc-channels'
 
@@ -52,7 +51,7 @@ describe('workspaceStore', () => {
   })
 })
 
-describe('useVocab / <V>', () => {
+describe('useVocab', () => {
   it('uses generic words for a new workspace', () => {
     const { result } = renderHook(() => useVocab(null))
     expect(result.current.t('record', { many: true, cap: true })).toBe('Records')
@@ -74,8 +73,12 @@ describe('useVocab / <V>', () => {
     expect(renderHook(() => useVocab(99)).result.current.t('record')).toBe('customer')
   })
 
-  it('<V> renders the word and updates when the words change', () => {
-    const { container } = render(<p><V k="record" many cap gridId={null} /> due</p>)
+  it('re-renders with the new word when the words change', () => {
+    function Due(): React.ReactElement {
+      const { t } = useVocab(null)
+      return <p>{t('record', { many: true, cap: true })} due</p>
+    }
+    const { container } = render(<Due />)
     expect(container.textContent).toBe('Records due')
     act(() => { useWorkspaceStore.setState({ vocab: customer }) })
     expect(container.textContent).toBe('Customers due')

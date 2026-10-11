@@ -13,17 +13,12 @@ import { safeInvoke, mustInvoke } from './safeInvoke'
 import { useUndoStore } from '../stores/undoStore'
 import { pulseEvents } from '../events'
 
-interface TickResult {
-  sysLogId: number | null
-  repeat?: { previousDue: string | null; nextDue: string } | null
-}
-
 export async function tickChecklistItem(
   item: { id: number; title: string; client_name?: string | null; row_id?: number | null },
   hooks: { onUndo?: () => void; onRedo?: () => void; onRepeat?: (nextDue: string) => void } = {},
 ): Promise<boolean> {
   const completedAt = new Date().toISOString()
-  const res = await safeInvoke<TickResult>(IPC.CHECKLIST_UPDATE_ITEM, item.id, { is_completed: 1, completed_at: completedAt })
+  const res = await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, item.id, { is_completed: 1, completed_at: completedAt })
   if (!res.ok) {
     toast.error(`We couldn't tick off "${item.title}" — try again`)
     return false

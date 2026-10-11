@@ -91,7 +91,7 @@ export function SecurityCheckup({ hasRecovery, onGoToBackup }: { hasRecovery: bo
           <li key={c.label} className="flex items-start gap-2">
             {c.ok
               ? <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" aria-label="Done" />
-              : <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" aria-label="Needs attention" />}
+              : <AlertTriangle className="w-5 h-5 text-amber-700 dark:text-amber-400 flex-shrink-0 mt-0.5" aria-label="Needs attention" />}
             <div className="min-w-0">
               <p className="text-base text-slate-800 dark:text-slate-100">{c.label}</p>
               {!c.ok && c.fix && <p className="text-sm text-slate-600 dark:text-slate-300">{c.fix}</p>}

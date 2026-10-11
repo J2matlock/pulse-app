@@ -30,7 +30,7 @@ import { useAlertStore } from '../../stores/alertStore'
 import { useProfileStore } from '../../stores/profileStore'
 import type { GridRow, SortConfig, CellFormatRule } from '../../../shared/types'
 import { matchFilter } from '../../utils/filterMatch'
-import { deadlineCompare, numberCompare, dateCompare, textCompare, keyCompare, daysUntilSource } from './gridSort'
+import { deadlineCompare, numberCompare, dateCompare, textCompare, keyCompare, daysUntilSource, memoKey } from './gridSort'
 import { rowMatchesSearch } from '../../utils/searchMatch'
 import { CellConditionalFormatPanel } from './CellConditionalFormatPanel'
 import { CellHistoryPopover } from '../shared/CellHistoryPopover'
@@ -81,7 +81,7 @@ export function DataGrid(): React.ReactElement {
           rowTagsMap, showStarredOnly, cellFormats,
           acuityEnabled: acuityFlag, acuityLevels, groupByColumnId, isLoading,
           activeGridId, copiedFormatRules, customGroups, activeCustomGroupId,
-          lastAddedRowId, pinnedRowId, frozenColumnCount, sampleRows } = useGridStore(useShallow(s => ({
+          lastAddedRowId, pinnedRowId, frozenColumnCount, sampleRows, loadedGridId, loadError } = useGridStore(useShallow(s => ({
     columns: s.columns, rows: s.rows, sortConfig: s.sortConfig,
     searchQuery: s.searchQuery, findReplaceQuery: s.findReplaceQuery,
     findReplaceActiveMatch: s.findReplaceActiveMatch,
@@ -97,6 +97,7 @@ export function DataGrid(): React.ReactElement {
     pinnedRowId: s.pinnedRowId,
     frozenColumnCount: s.frozenColumnCount,
     sampleRows: s.sampleRows,
+    loadedGridId: s.loadedGridId, loadError: s.loadError,
   })))
   // A list's own setting, shown only while the feature is switched on
   const priorityOn = useFeature('priority')
@@ -138,8 +139,8 @@ export function DataGrid(): React.ReactElement {
 
   const handleNavigateToProfile = useCallback((rowId: number) => {
     const scrollEl = containerRef.current
-    if (scrollEl) saveScrollTop(scrollEl.scrollTop)
     const { grids: currentGrids, rows: currentRows, columns: currentCols, activeGridId: currentGridId } = useGridStore.getState()
+    if (scrollEl && currentGridId !== null) saveScrollTop(currentGridId, scrollEl.scrollTop)
     const grid = currentGrids.find(g => g.id === currentGridId)
     const row = currentRows.find(r => r.row_id === rowId)
     const name = row ? getClientName(row, currentCols, 'Unknown') : 'Unknown'
@@ -189,15 +190,18 @@ export function DataGrid(): React.ReactElement {
   const columnSizingRef = useRef<ColumnSizingState>({})
   const resizeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Restore scroll position when returning from profile view
-  const savedScrollTop = useProfileStore(s => s.savedScrollTop)
+  // Back from a record's page: scroll to where this list was, once the records are
+  // on screen, then forget it. Another list's position is dropped (AUDIT-129)
+  const savedScroll = useProfileStore(s => s.savedScroll)
+  const listReady = !isLoading && loadedGridId !== null && loadedGridId === activeGridId && rows.length > 0
   useEffect(() => {
-    if (!savedScrollTop) return
+    if (!savedScroll) return
+    if (savedScroll.gridId !== activeGridId) { useProfileStore.getState().clearSavedScroll(); return }
+    if (!listReady) return
     const el = containerRef.current
-    if (el) {
-      el.scrollTop = savedScrollTop
-    }
-  }, []) // Only on mount — intentional
+    if (el) el.scrollTop = savedScroll.top
+    useProfileStore.getState().clearSavedScroll()
+  }, [savedScroll, activeGridId, listReady])
 
   // Clean up resizeTimeoutRef on unmount to prevent stale callbacks
   useEffect(() => {
@@ -222,6 +226,9 @@ export function DataGrid(): React.ReactElement {
 
   // Apply starred pre-filter + column filters + acuity sort before passing to TanStack
   const filteredRows = useMemo(() => {
+    // A due-status or Days-until filter reads counts, readings and done flags that
+    // arrive after the rows (AUDIT-011): filter again when they land
+    void deadlineContext
     let result = rows
     // A record just added stays in view until the filter changes (G-28)
     const pinned = (row: GridRow) => row.row_id === pinnedRowId
@@ -235,7 +242,7 @@ export function DataGrid(): React.ReactElement {
       result = result.filter(row => matcher(row) || pinned(row))
     }
     return result
-  }, [rows, activeFilters, filterMode, allColumns, rowTagsMap, showStarredOnly, pinnedRowId, alertRuleMap])
+  }, [rows, activeFilters, filterMode, allColumns, rowTagsMap, showStarredOnly, pinnedRowId, alertRuleMap, deadlineContext])
 
   // Changing what's filtered lets the pinned record go (not the first render: the grid may mount after an add)
   const filterMounted = useRef(false)
@@ -274,6 +281,14 @@ export function DataGrid(): React.ReactElement {
     for (const pc of parsedColumnConfigs.values()) {
       if (pc.conditionalFormat.some(r => r.highlightRow)) return true
     }
+    return false
+  }, [cellFormats, parsedColumnConfigs])
+
+  // Does any rule color a cell from another record's cell? Then any record's change can redraw others (AUDIT-038)
+  const hasCrossRowRules = useMemo(() => {
+    const cross = (rules: CellFormatRule[]) => rules.some(r => r.sourceType === 'specific_cell')
+    for (const rules of cellFormats.values()) if (cross(rules)) return true
+    for (const pc of parsedColumnConfigs.values()) if (cross(pc.conditionalFormat)) return true
     return false
   }, [cellFormats, parsedColumnConfigs])
 
@@ -356,11 +371,9 @@ export function DataGrid(): React.ReactElement {
           }
         }
         if (widthUpdates.length > 0) {
-          try {
-            await safeInvoke(IPC.COLUMN_BATCH_UPDATE_WIDTHS, widthUpdates)
-          } catch (err) {
-            rlog.error('DataGrid', 'Failed to batch update column widths', err)
-          }
+          // The new widths stay for this visit either way; only reopening would lose them
+          const res = await safeInvoke(IPC.COLUMN_BATCH_UPDATE_WIDTHS, widthUpdates)
+          if (!res.ok) rlog.error('DataGrid', 'Failed to batch update column widths', res.error)
         }
       }, 500)
 
@@ -390,6 +403,19 @@ export function DataGrid(): React.ReactElement {
     })
     updateColumn(colId, { width: newWidth })
   }, [updateColumn])
+
+  // Wider, Narrower and Fit from a column's menu, so widths change without a mouse (AUDIT-150)
+  useEffect(() => pulseEvents.on('column:resize', ({ columnId, change }) => {
+    if (change === 'fit') { autoFitColumn(columnId); return }
+    const col = useGridStore.getState().columns.find(c => c.id === columnId)
+    if (!col) return
+    const key = `col_${columnId}`
+    handleColumnSizingChange((prev: ColumnSizingState) => {
+      const cur = prev[key] ?? col.width
+      const next = Math.min(800, Math.max(MIN_COL_WIDTH, cur + (change === 'wider' ? 40 : -40)))
+      return { ...prev, [key]: next }
+    })
+  }), [autoFitColumn, handleColumnSizingChange])
 
   // Links changed somewhere (W04): refresh just the link columns
   useEffect(() => window.api.on(IPC.RECORD_LINKS_CHANGED, () => { void useGridStore.getState().refreshLinkValues() }), [])
@@ -449,7 +475,7 @@ export function DataGrid(): React.ReactElement {
       const byDate = dateCompare(col.id, desc)
       const srcId = compCfg?.source_column_id
       // The same days the cell shows: to when it's due when the date has a rule (R4)
-      const byDaysUntil = keyCompare(r => srcId ? daysUntilSource(srcId, r, alertRules) : null, desc)
+      const byDaysUntil = keyCompare(memoKey(r => srcId ? daysUntilSource(srcId, r, alertRules) : null), desc)
       // Ages sort by date of birth (an earlier date is older)
       const byAge = keyCompare(r => srcId ? (r[`col_${srcId}` as keyof GridRow] as string | null) || null : null, desc)
       // Link columns (W04) sort by the linked names, not the stored ids
@@ -520,8 +546,9 @@ export function DataGrid(): React.ReactElement {
   const tableRows = table.getRowModel().rows
   const headerGroups = table.getHeaderGroups()
 
-  // The rows on screen, in screen order (after the search too): select-all, Ctrl+A,
-  // export, Find & Replace and the counts act on these (G-05, G-24)
+  // The rows the filter and search leave, in screen order: export, Find & Replace and
+  // the counts act on these (G-05, G-24). Select-all and Ctrl+A use visualRowIds, which
+  // also leaves out rows inside collapsed groups (AUDIT-139)
   const visibleRows = useMemo(() => tableRows.map(r => r.original), [tableRows])
   filteredRowsRef.current = visibleRows
 
@@ -549,11 +576,18 @@ export function DataGrid(): React.ReactElement {
 
   visualRowIdsRef.current = visualRowIds
 
+  // Group headers are their own height, so scrolling to a record lands on it (AUDIT-132).
+  // The Collapse all bar sits above the list, outside the scroll area and the grid (AUDIT-042)
+  const sizeOf = useMemo(() => isGroupedFromHook
+    ? (i: number) => displayItems[i]?.kind === 'group-header' ? GROUP_HEADER_HEIGHT : rowHeight
+    : undefined, [isGroupedFromHook, displayItems, rowHeight])
+
   // Virtual scrolling (extracted hook)
   const { virtualRows, totalSize: totalHeight, paddingTop, paddingBottom, scrollToRow } = useGridVirtualizer({
     parentRef: containerRef,
     count: isGroupedFromHook ? displayItems.length : tableRows.length,
     rowHeight,
+    sizeOf,
   })
 
   /** Bring a record into view, whether or not the list is grouped */
@@ -631,7 +665,7 @@ export function DataGrid(): React.ReactElement {
 
   // Keyboard navigation
   const keyNavDeps = useMemo<KeyboardNavDeps>(() => ({
-    editingCellRef, rowsRef, filteredRowsRef, selectedRowIdsRef,
+    editingCellRef, rowsRef, filteredRowsRef, visualRowIdsRef, selectedRowIdsRef,
     columns, columnMap, updateCell, navigateCell,
     setEditingCell, setSelectedRowIds, openRecord: handleNavigateToProfile,
   }), [columns, columnMap, updateCell, navigateCell, setEditingCell, handleNavigateToProfile])
@@ -677,17 +711,38 @@ export function DataGrid(): React.ReactElement {
     return () => clearTimeout(timer)
   }, [lastAddedRowId, columns, setEditingCell]) // eslint-disable-line react-hooks/exhaustive-deps -- once per added record
 
+  // Said out loud for screen readers: entering and leaving a cell's editor (AUDIT-043)
+  const [announcement, setAnnouncement] = useState('')
+  const announcedEditRef = useRef<{ rowId: number; columnId: number } | null>(null)
+  useEffect(() => {
+    const prev = announcedEditRef.current
+    if (prev?.rowId === editingCell?.rowId && prev?.columnId === editingCell?.columnId) return
+    announcedEditRef.current = editingCell
+    const name = (id: number) => columnMap.get(id)?.name
+    if (editingCell) setAnnouncement(`Editing ${name(editingCell.columnId) ?? 'cell'}`)
+    else if (prev) setAnnouncement(`Done editing ${name(prev.columnId) ?? 'cell'}`)
+  }, [editingCell, columnMap])
+  // ...and how many records are picked for bulk actions, after Shift+Space, Ctrl+A or a click (AUDIT-057)
+  const announcedSelectedRef = useRef(selectedRowIds.size)
+  useEffect(() => {
+    const n = selectedRowIds.size
+    if (announcedSelectedRef.current === n) return
+    announcedSelectedRef.current = n
+    setAnnouncement(n === 0 ? 'Nothing selected' : `${n} ${t('record', { count: n })} selected`)
+  }, [selectedRowIds, t])
+
   const handleBulkSetAcuityLevel = useCallback((levelId: number | null) => {
     const ids = Array.from(selectedRowIdsRef.current)
     void bulkSetRowAcuityLevel(ids, levelId)
   }, [bulkSetRowAcuityLevel])
 
   // Render helper for SortableRow — eliminates duplication between grouped and ungrouped paths
-  const renderSortableRow = (row: Row<GridRow>, rowIndex: number) => (
+  const renderSortableRow = (row: Row<GridRow>, rowIndex: number, ariaRowIndex: number) => (
     <SortableRow
       key={row.id}
       row={row}
       rowIndex={rowIndex}
+      ariaRowIndex={ariaRowIndex}
       rowHeight={rowHeight}
       editingRowId={editingCell?.rowId ?? null}
       editingColId={editingCell?.columnId ?? null}
@@ -703,6 +758,7 @@ export function DataGrid(): React.ReactElement {
       hasAnyHighlightRules={hasAnyHighlightRules}
       highlightColumnIds={highlightColumnIds}
       rowMap={rowMap}
+      hasCrossRowRules={hasCrossRowRules}
       containerRef={containerRef as React.RefObject<HTMLDivElement>}
       isSelected={selectedRowIds.has(row.original.row_id)}
       selectedCount={selectedRowIds.size}
@@ -732,8 +788,21 @@ export function DataGrid(): React.ReactElement {
     />
   )
 
-  if (isLoading) {
+  // Only a first load or another list shows the placeholder. A reload of this list keeps the
+  // table mounted, so the scroll position and the focused cell stay put (AUDIT-039)
+  if (isLoading && loadedGridId !== activeGridId) {
     return <GridLoadingSkeleton rowHeight={rowHeight} />
+  }
+
+  if (loadError && !isLoading) {
+    return (
+      <div role="alert" className="flex flex-col items-center justify-center h-full gap-4 px-6 text-center">
+        <p className="text-base text-slate-700 dark:text-slate-300">{loadError} Please try again.</p>
+        <button type="button" className="btn-primary" onClick={() => { if (activeGridId !== null) void useGridStore.getState().loadGrid(activeGridId) }}>
+          Try again
+        </button>
+      </div>
+    )
   }
 
   if (columns.length === 0) {
@@ -745,14 +814,20 @@ export function DataGrid(): React.ReactElement {
   // Filter out synthetic _acuity_points header
   const headers = (headerGroups[0]?.headers ?? []).filter(h => h.id !== '_acuity_points')
   const isGrouped = isGroupedFromHook
+  // Screen readers pair each cell with its header by these numbers, and hear how many
+  // records there are while only some are drawn (AUDIT-012, AUDIT-042)
+  const leadingColCount = 2 + (acuityEnabled ? 1 : 0) + (showTagsColumn ? 1 : 0)
+  const colCount = leadingColCount + columns.length
+  const rowCount = 1 + (isGrouped ? displayItems.length : tableRows.length)
+  const isEmpty = tableRows.length === 0 && !isLoading
 
   return (
     <div
       data-tour="grid"
       className="h-full flex flex-col overflow-hidden"
-      role="grid"
-      aria-label={t('list', { cap: true })}
     >
+      {/* Only rows sit inside the grid: the tip, the Collapse all bar, the empty-list
+          message and the dialogs are outside it, so screen readers stay in table mode */}
       {/* ── Hint banner for new users ─── */}
       {!hintDismissed && tableRows.length > 0 && (
         <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 text-sm text-blue-600 dark:text-blue-300 px-3 py-1.5 flex-shrink-0">
@@ -769,6 +844,21 @@ export function DataGrid(): React.ReactElement {
         </div>
       )}
 
+      {/* Collapse/Expand All toolbar (grouped mode only) */}
+      {isGrouped && (
+        <div className="flex-shrink-0">
+          <CollapseExpandBar onCollapseAll={handleCollapseAll} onExpandAll={handleExpandAll} />
+        </div>
+      )}
+
+      <div
+        role="grid"
+        aria-label={t('list', { cap: true })}
+        aria-rowcount={rowCount}
+        aria-colcount={colCount}
+        aria-multiselectable="true"
+        className={`${isEmpty ? 'flex-none' : 'flex-1'} min-h-0 flex flex-col overflow-hidden`}
+      >
       {/* ── Fixed header (outside vertical scroll) ─── */}
       <div className="flex-shrink-0 overflow-x-hidden" style={{ ...columnWidthVars }}>
         <div style={{ minWidth: totalWidth + 1 }}>
@@ -781,7 +871,7 @@ export function DataGrid(): React.ReactElement {
             acuitySortDir={acuitySortDir}
             setAcuitySortDir={setAcuitySortDir}
             selectedRowIds={selectedRowIds}
-            filteredRows={visibleRows}
+            selectableRowIds={visualRowIds}
             setSelectedRowIds={setSelectedRowIds}
             showTags={showTagsColumn}
             onHideTags={() => setShowTagsColumn(false)}
@@ -810,12 +900,8 @@ export function DataGrid(): React.ReactElement {
       <div style={{ minWidth: totalWidth + 1, ...columnWidthVars }}>
         {/* ── Row body ─── */}
         <div>
-          {/* Collapse/Expand All toolbar (grouped mode only) */}
-          {isGrouped && (
-            <CollapseExpandBar onCollapseAll={handleCollapseAll} onExpandAll={handleExpandAll} />
-          )}
           {/* ── Unified virtualized rendering (both grouped and ungrouped) ── */}
-          <div style={{ position: 'relative', height: totalHeight }}>
+          <div role="rowgroup" style={{ position: 'relative', height: totalHeight }}>
             {paddingTop > 0 && <div style={{ height: paddingTop }} />}
 
             {virtualRows.map(vr => {
@@ -835,6 +921,8 @@ export function DataGrid(): React.ReactElement {
                       isCollapsed={item.isCollapsed}
                       bucketColor={headerBucketColor}
                       height={GROUP_HEADER_HEIGHT}
+                      ariaRowIndex={vr.index + 2}
+                      colCount={colCount}
                       onToggle={handleToggleGroup}
                       onContextMenu={e => { e.preventDefault(); setGroupContextMenu({ x: e.clientX, y: e.clientY }) }}
                     />
@@ -843,65 +931,69 @@ export function DataGrid(): React.ReactElement {
                 // kind === 'row' in grouped mode
                 const row = tableRows[item.tableRowIndex]
                 if (!row) return null
-                return renderSortableRow(row, item.tableRowIndex)
+                return renderSortableRow(row, item.tableRowIndex, vr.index + 2)
               }
 
               // Ungrouped mode
               const row = tableRows[vr.index]
               if (!row) return null
-              return renderSortableRow(row, vr.index)
+              return renderSortableRow(row, vr.index, vr.index + 2)
             })}
 
             {paddingBottom > 0 && <div style={{ height: paddingBottom }} />}
           </div>
         </div>
 
-        {/* Empty state */}
-        {tableRows.length === 0 && !isLoading && (
-          <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-            {searchQuery ? (
-              <p className="text-base text-slate-500 dark:text-slate-400">
-                No {t('record', { many: true })} found matching &ldquo;{searchQuery}&rdquo;
+      </div>
+      </div>
+      </div>
+
+      {/* Empty state */}
+      {isEmpty && (
+        <div className="flex-1 overflow-auto flex flex-col items-center justify-center py-16 px-6 text-center">
+          {searchQuery ? (
+            <p className="text-base text-slate-500 dark:text-slate-400">
+              No {t('record', { many: true })} found matching &ldquo;{searchQuery}&rdquo;
+            </p>
+          ) : rows.length > 0 ? (
+            <>
+              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                No {t('record', { many: true })} match your filters
+              </h3>
+              <button type="button" className="btn-secondary" onClick={() => {
+                useGridStore.setState({ activeFilters: [], showStarredOnly: false })
+                useGridStore.getState().setActiveCustomGroupId(null)
+              }}>
+                Clear filters
+              </button>
+            </>
+          ) : (
+            <>
+              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                No {t('record', { many: true })} yet
+              </h3>
+              <p className="text-base text-slate-500 dark:text-slate-400 mb-4">
+                Add your first {t('record')}{' '}
+                (or press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-base font-mono">{IS_MAC ? '⌘N' : 'Ctrl+N'}</kbd>),
+                or bring them in from a spreadsheet.
               </p>
-            ) : rows.length > 0 ? (
-              <>
-                <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-3">
-                  No {t('record', { many: true })} match your filters
-                </h3>
-                <button type="button" className="btn-secondary" onClick={() => {
-                  useGridStore.setState({ activeFilters: [], showStarredOnly: false })
-                  useGridStore.getState().setActiveCustomGroupId(null)
-                }}>
-                  Clear filters
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button type="button" className="btn-primary" onClick={() => void useGridStore.getState().addRow()}>
+                  Add {t('record', { cap: true })}
                 </button>
-              </>
-            ) : (
-              <>
-                <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  No {t('record', { many: true })} yet
-                </h3>
-                <p className="text-base text-slate-500 dark:text-slate-400 mb-4">
-                  Add your first {t('record')}{' '}
-                  (or press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-base font-mono">{IS_MAC ? '⌘N' : 'Ctrl+N'}</kbd>),
-                  or bring them in from a spreadsheet.
-                </p>
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                  <button type="button" className="btn-primary" onClick={() => void useGridStore.getState().addRow()}>
-                    Add {t('record', { cap: true })}
-                  </button>
-                  <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('grid:open-import')}>
-                    Bring in a spreadsheet
-                  </button>
-                  <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('starters:open', { sample: true })}>
-                    See an example with sample data
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-      </div>
+                <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('grid:open-import')}>
+                  Bring in a spreadsheet
+                </button>
+                <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('starters:open', { sample: true })}>
+                  See an example with sample data
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="grid-announcer">{announcement}</div>
 
       {/* Right-click context menu */}
       <AnimatePresence>

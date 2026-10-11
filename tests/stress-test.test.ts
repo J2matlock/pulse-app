@@ -131,7 +131,6 @@ vi.mock('../main/backup', () => ({
   restoreFromDb: vi.fn(),
   restoreFromPulseBackup: vi.fn(),
   getBackupInfo: vi.fn().mockReturnValue({}),
-  listScheduledBackups: vi.fn().mockReturnValue([]),
   getBackupDir: vi.fn().mockReturnValue(tmpTestDir),
   verifyBackup: vi.fn().mockReturnValue(true),
   getScheduledConfig: vi.fn().mockReturnValue({ enabled: false, intervalHours: 24, retainCount: 10, lastRun: null }),
@@ -206,6 +205,9 @@ async function runStep(name: string, fn: () => string | void | Promise<string | 
     const elapsed = performance.now() - start
     const errMsg = err instanceof Error ? err.message : String(err)
     result = { name, passed: false, durationMs: Math.round(elapsed * 100) / 100, detail: '', error: errMsg }
+    results.push(result)
+    // Recorded for the summary, then rethrown so the step's test actually fails
+    throw err
   }
   results.push(result)
   return result
@@ -779,7 +781,8 @@ describe('Stress Test Suite', () => {
     await runStep('Generate supervisor report', () => {
       // Simulate what exportSupervisorReport does: gather stats
       const dateStart = '2024-01-01'
-      const dateEnd = '2027-12-31'
+      // Through the end of next year, so everything made today counts whenever the suite runs (AUDIT-184)
+      const dateEnd = `${new Date().getFullYear() + 1}-12-31`
 
       const totalActive = (db.prepare(
         'SELECT COUNT(*) as n FROM rows WHERE grid_id = ? AND is_active = 1'

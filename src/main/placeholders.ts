@@ -5,7 +5,8 @@
  * forever. Unknown placeholders stay visible and are reported.
  */
 import { getDb } from './database'
-import { loadDeadlines } from './deadlines'
+import { loadDeadlines, type DeadlineItem } from './deadlines'
+import { daysUntilText } from './export-shared'
 import { listLinkTypes } from './links'
 import { holdsOne, linkValueText, linkColumnSpecs, linkSelectSql } from '../shared/links'
 import { formatDue } from '../shared/deadlineEngine'
@@ -56,10 +57,7 @@ function daysText(target: string | null | undefined, today: Date): string {
   if (!m) return ''
   const due = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
   const now = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
-  const n = Math.round((due - now) / 86_400_000)
-  if (n === 0) return 'Due today'
-  const abs = Math.abs(n)
-  return `${abs} day${abs === 1 ? '' : 's'}${n < 0 ? ' overdue' : ''}`
+  return daysUntilText(Math.round((due - now) / 86_400_000))
 }
 
 const sourceOf = (config: string | null): number | null => {
@@ -84,6 +82,28 @@ export function resolvePlaceholders(content: string, rowId: number, gridId: numb
   const columns = db.prepare('SELECT id, grid_id, name, column_type, is_name_column, config FROM columns WHERE grid_id = ? ORDER BY position').all(gridId) as Col[]
   const cellsOfRow = (id: number) => new Map((db.prepare('SELECT column_id, value FROM cells WHERE row_id = ?').all(id) as Array<{ column_id: number; value: string | null }>).map(c => [c.column_id, c.value]))
   const cells = cellsOfRow(rowId)
+  const ymdToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  // A Days-until column whose source date has a deadline rule counts to when
+  // it's due, as the list and the exports do, not to the date itself
+  const ruled = new Map<number, boolean>()
+  const hasRule = (columnId: number): boolean => {
+    let r = ruled.get(columnId)
+    if (r === undefined) {
+      const config = (db.prepare('SELECT config FROM columns WHERE id = ?').get(columnId) as { config: string | null } | undefined)?.config ?? null
+      try { r = typeof (JSON.parse(config || '{}') as { alert_rule_id?: unknown }).alert_rule_id === 'number' } catch { r = false }
+      ruled.set(columnId, r)
+    }
+    return r
+  }
+  const rowDeadlines = new Map<number, Map<number, DeadlineItem>>()
+  const deadlineItem = (id: number, columnId: number): DeadlineItem | undefined => {
+    let m = rowDeadlines.get(id)
+    if (!m) {
+      m = new Map(loadDeadlines({ rowIds: [id], today: ymdToday, includeDone: true, includePaused: true }).map(d => [d.column_id, d]))
+      rowDeadlines.set(id, m)
+    }
+    return m.get(columnId)
+  }
   /**
    * A column's value as the document shows it. Links, file counts, Age and
    * Days-until have no cell of their own; they're worked out here, as the grid does.
@@ -104,7 +124,10 @@ export function resolvePlaceholders(content: string, rowId: number, gridId: numb
       }
       case 'calculated_days': {
         const src = sourceOf(c.config)
-        return src ? daysText(rowCells.get(src), today) : ''
+        if (!src) return ''
+        if (!hasRule(src)) return daysText(rowCells.get(src), today)
+        const d = deadlineItem(id, src)
+        return d && d.state !== 'done' && d.state !== 'paused' && d.daysUntil != null ? daysUntilText(d.daysUntil) : ''
       }
       default:
         return formatValue(rowCells.get(c.id) ?? null, c.column_type)
@@ -116,7 +139,6 @@ export function resolvePlaceholders(content: string, rowId: number, gridId: numb
   const display = row?.display_name && row.display_name !== '(unnamed)' ? row.display_name : ''
   const name = display || (nameCol ? cells.get(nameCol.id) ?? '' : '')
   const profile = Object.fromEntries((db.prepare("SELECT key, value FROM settings WHERE key LIKE 'profile_%'").all() as Array<{ key: string; value: string }>).map(r => [r.key, r.value]))
-  const ymdToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
   // The fixed placeholders, new names and old ones
   const fixed: Record<string, string> = {

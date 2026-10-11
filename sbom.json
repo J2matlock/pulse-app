@@ -147,7 +147,7 @@
         "value": "true"
       }
     ],
-    "timestamp": "2026-10-11T14:43:51.246Z"
+    "timestamp": "2026-10-11T21:04:48.699Z"
   },
   "components": [
     {
@@ -3814,8 +3814,8 @@
     {
       "type": "library",
       "name": "better-sqlite3-multiple-ciphers",
-      "version": "12.6.2",
-      "bom-ref": "baringasoft-pulse@2.3.0|better-sqlite3-multiple-ciphers@12.6.2",
+      "version": "13.0.3",
+      "bom-ref": "baringasoft-pulse@2.3.0|better-sqlite3-multiple-ciphers@13.0.3",
       "author": "Mahesh Bandara Wijerathna",
       "description": "better-sqlite3 with multiple-cipher encryption support",
       "licenses": [
@@ -3826,10 +3826,10 @@
           }
         }
       ],
-      "purl": "pkg:npm/better-sqlite3-multiple-ciphers@12.6.2",
+      "purl": "pkg:npm/better-sqlite3-multiple-ciphers@13.0.3",
       "externalReferences": [
         {
-          "url": "https://registry.npmjs.org/better-sqlite3-multiple-ciphers/-/better-sqlite3-multiple-ciphers-12.6.2.tgz",
+          "url": "https://registry.npmjs.org/better-sqlite3-multiple-ciphers/-/better-sqlite3-multiple-ciphers-13.0.3.tgz",
           "type": "distribution",
           "comment": "as detected from npm-ls property \"resolved\""
         },
@@ -3852,11 +3852,59 @@
       "properties": [
         {
           "name": "cdx:npm:package:constraint:engine:node",
-          "value": "20.x || 22.x || 23.x || 24.x"
+          "value": ">=22"
         },
         {
           "name": "cdx:npm:package:path",
           "value": "node_modules/better-sqlite3-multiple-ciphers"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "node-addon-api",
+      "version": "8.9.2",
+      "bom-ref": "baringasoft-pulse@2.3.0|better-sqlite3-multiple-ciphers@13.0.3|node-addon-api@8.9.2",
+      "description": "Node.js API (Node-API)",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/node-addon-api@8.9.2",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/node-addon-api/-/node-addon-api-8.9.2.tgz",
+          "type": "distribution",
+          "comment": "as detected from npm-ls property \"resolved\""
+        },
+        {
+          "url": "https://github.com/nodejs/node-addon-api/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "git://github.com/nodejs/node-addon-api.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/nodejs/node-addon-api",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:constraint:engine:node",
+          "value": "^18 || ^20 || >= 21"
+        },
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/better-sqlite3-multiple-ciphers/node_modules/node-addon-api"
         }
       ]
     },
@@ -3951,51 +3999,6 @@
         {
           "name": "cdx:npm:package:path",
           "value": "node_modules/binary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "bindings",
-      "version": "1.5.0",
-      "bom-ref": "baringasoft-pulse@2.3.0|bindings@1.5.0",
-      "author": "Nathan Rajlich",
-      "description": "Helper module for loading your native module's .node file",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/bindings@1.5.0",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/bindings/-/bindings-1.5.0.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/TooTallNate/node-bindings/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git://github.com/TooTallNate/node-bindings.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/TooTallNate/node-bindings",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/bindings"
         }
       ]
     },
@@ -5015,209 +5018,6 @@
         {
           "name": "cdx:npm:package:path",
           "value": "node_modules/debounce-fn"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "decompress-response",
-      "version": "6.0.0",
-      "bom-ref": "baringasoft-pulse@2.3.0|decompress-response@6.0.0",
-      "author": "Sindre Sorhus",
-      "description": "Decompress a HTTP response if needed",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/decompress-response@6.0.0",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/decompress-response/-/decompress-response-6.0.0.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/sindresorhus/decompress-response/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git+https://github.com/sindresorhus/decompress-response.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/sindresorhus/decompress-response#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:constraint:engine:node",
-          "value": ">=10"
-        },
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/decompress-response"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "mimic-response",
-      "version": "3.1.0",
-      "bom-ref": "baringasoft-pulse@2.3.0|decompress-response@6.0.0|mimic-response@3.1.0",
-      "author": "Sindre Sorhus",
-      "description": "Mimic a Node.js HTTP response stream",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/mimic-response@3.1.0",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/mimic-response/-/mimic-response-3.1.0.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/sindresorhus/mimic-response/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git+https://github.com/sindresorhus/mimic-response.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/sindresorhus/mimic-response#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:constraint:engine:node",
-          "value": ">=10"
-        },
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/decompress-response/node_modules/mimic-response"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "deep-extend",
-      "version": "0.6.0",
-      "bom-ref": "baringasoft-pulse@2.3.0|deep-extend@0.6.0",
-      "author": "Viacheslav Lotsmanov",
-      "description": "Recursive object extending",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        },
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared",
-            "url": "https://raw.githubusercontent.com/unclechu/node-deep-extend/master/LICENSE"
-          }
-        }
-      ],
-      "purl": "pkg:npm/deep-extend@0.6.0",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/deep-extend/-/deep-extend-0.6.0.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/unclechu/node-deep-extend/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git://github.com/unclechu/node-deep-extend.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/unclechu/node-deep-extend",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:constraint:engine:node",
-          "value": ">=4.0.0"
-        },
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/deep-extend"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "detect-libc",
-      "version": "2.1.2",
-      "bom-ref": "baringasoft-pulse@2.3.0|detect-libc@2.1.2",
-      "author": "Lovell Fuller",
-      "description": "Node.js module to detect the C standard library (libc) implementation family and version",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/detect-libc@2.1.2",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/lovell/detect-libc/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git://github.com/lovell/detect-libc.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/lovell/detect-libc#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:constraint:engine:node",
-          "value": ">=8"
-        },
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/detect-libc"
         }
       ]
     },
@@ -6494,53 +6294,6 @@
     },
     {
       "type": "library",
-      "name": "expand-template",
-      "version": "2.0.3",
-      "bom-ref": "baringasoft-pulse@2.3.0|expand-template@2.0.3",
-      "author": "LM",
-      "description": "Expand placeholders in a template string",
-      "licenses": [
-        {
-          "expression": "(MIT OR WTFPL)",
-          "acknowledgement": "declared"
-        }
-      ],
-      "purl": "pkg:npm/expand-template@2.0.3",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/expand-template/-/expand-template-2.0.3.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/ralphtheninja/expand-template/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git+https://github.com/ralphtheninja/expand-template.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/ralphtheninja/expand-template",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:constraint:engine:node",
-          "value": ">=6"
-        },
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/expand-template"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "name": "fast-csv",
       "version": "4.3.6",
       "bom-ref": "baringasoft-pulse@2.3.0|fast-csv@4.3.6",
@@ -6814,51 +6567,6 @@
         {
           "name": "cdx:npm:package:path",
           "value": "node_modules/fflate"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "file-uri-to-path",
-      "version": "1.0.0",
-      "bom-ref": "baringasoft-pulse@2.3.0|file-uri-to-path@1.0.0",
-      "author": "Nathan Rajlich",
-      "description": "Convert a file: URI to a file path",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/file-uri-to-path@1.0.0",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/file-uri-to-path/-/file-uri-to-path-1.0.0.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/TooTallNate/file-uri-to-path/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git://github.com/TooTallNate/file-uri-to-path.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/TooTallNate/file-uri-to-path",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/file-uri-to-path"
         }
       ]
     },
@@ -7424,51 +7132,6 @@
     },
     {
       "type": "library",
-      "name": "github-from-package",
-      "version": "0.0.0",
-      "bom-ref": "baringasoft-pulse@2.3.0|github-from-package@0.0.0",
-      "author": "James Halliday",
-      "description": "return the github url from a package.json file",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/github-from-package@0.0.0",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/github-from-package/-/github-from-package-0.0.0.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/substack/github-from-package/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git://github.com/substack/github-from-package.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/substack/github-from-package",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/github-from-package"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "name": "goober",
       "version": "2.1.18",
       "bom-ref": "baringasoft-pulse@2.3.0|goober@2.1.18",
@@ -7780,51 +7443,6 @@
         {
           "name": "cdx:npm:package:path",
           "value": "node_modules/inherits"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "ini",
-      "version": "1.3.8",
-      "bom-ref": "baringasoft-pulse@2.3.0|ini@1.3.8",
-      "author": "Isaac Z. Schlueter",
-      "description": "An ini encoder/decoder for node",
-      "licenses": [
-        {
-          "license": {
-            "id": "ISC",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/ini@1.3.8",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/ini/-/ini-1.3.8.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/isaacs/ini/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git://github.com/isaacs/ini.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/isaacs/ini#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/ini"
         }
       ]
     },
@@ -9409,51 +9027,6 @@
     },
     {
       "type": "library",
-      "name": "mkdirp-classic",
-      "version": "0.5.3",
-      "bom-ref": "baringasoft-pulse@2.3.0|mkdirp-classic@0.5.3",
-      "author": "Mathias Buus",
-      "description": "Mirror of mkdirp 0.5.2",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/mkdirp-classic@0.5.3",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/mkdirp-classic/-/mkdirp-classic-0.5.3.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/mafintosh/mkdirp-classic/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git+https://github.com/mafintosh/mkdirp-classic.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/mafintosh/mkdirp-classic",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/mkdirp-classic"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "name": "motion-dom",
       "version": "12.34.3",
       "bom-ref": "baringasoft-pulse@2.3.0|motion-dom@12.34.3",
@@ -9582,100 +9155,6 @@
         {
           "name": "cdx:npm:package:path",
           "value": "node_modules/motion"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "napi-build-utils",
-      "version": "2.0.0",
-      "bom-ref": "baringasoft-pulse@2.3.0|napi-build-utils@2.0.0",
-      "author": "Jim Schlight",
-      "description": "A set of utilities to assist developers of tools that build N-API native add-ons",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/napi-build-utils@2.0.0",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/napi-build-utils/-/napi-build-utils-2.0.0.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/inspiredware/napi-build-utils/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git+https://github.com/inspiredware/napi-build-utils.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/inspiredware/napi-build-utils#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/napi-build-utils"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "node-abi",
-      "version": "3.87.0",
-      "bom-ref": "baringasoft-pulse@2.3.0|node-abi@3.87.0",
-      "author": "Lukas Geiger",
-      "description": "Get the Node ABI for a given target and runtime, and vice versa.",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/node-abi@3.87.0",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/node-abi/-/node-abi-3.87.0.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/electron/node-abi/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git+https://github.com/electron/node-abi.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/electron/node-abi#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:constraint:engine:node",
-          "value": ">=10"
-        },
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/node-abi"
         }
       ]
     },
@@ -10389,55 +9868,6 @@
     },
     {
       "type": "library",
-      "name": "prebuild-install",
-      "version": "7.1.3",
-      "bom-ref": "baringasoft-pulse@2.3.0|prebuild-install@7.1.3",
-      "author": "Mathias Buus",
-      "description": "A command line tool to easily install prebuilt binaries for multiple version of node/iojs on a specific platform",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/prebuild-install@7.1.3",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/prebuild-install/-/prebuild-install-7.1.3.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/prebuild/prebuild-install/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git+https://github.com/prebuild/prebuild-install.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/prebuild/prebuild-install",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:constraint:engine:node",
-          "value": ">=10"
-        },
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/prebuild-install"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "name": "process-nextick-args",
       "version": "2.0.1",
       "bom-ref": "baringasoft-pulse@2.3.0|process-nextick-args@2.0.1",
@@ -10994,51 +10424,6 @@
     },
     {
       "type": "library",
-      "name": "pump",
-      "version": "3.0.3",
-      "bom-ref": "baringasoft-pulse@2.3.0|pump@3.0.3",
-      "author": "Mathias Buus Madsen",
-      "description": "pipe streams together and close all of them if one of them closes",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/pump@3.0.3",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/pump/-/pump-3.0.3.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/mafintosh/pump/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git://github.com/mafintosh/pump.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/mafintosh/pump#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/pump"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "name": "raf",
       "version": "3.4.1",
       "bom-ref": "baringasoft-pulse@2.3.0|raf@3.4.1",
@@ -11079,49 +10464,6 @@
         {
           "name": "cdx:npm:package:path",
           "value": "node_modules/raf"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "rc",
-      "version": "1.2.8",
-      "bom-ref": "baringasoft-pulse@2.3.0|rc@1.2.8",
-      "author": "Dominic Tarr",
-      "description": "hardwired configuration loader",
-      "licenses": [
-        {
-          "expression": "(BSD-2-Clause OR MIT OR Apache-2.0)",
-          "acknowledgement": "declared"
-        }
-      ],
-      "purl": "pkg:npm/rc@1.2.8",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/rc/-/rc-1.2.8.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/dominictarr/rc/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git+https://github.com/dominictarr/rc.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/dominictarr/rc#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/rc"
         }
       ]
     },
@@ -12162,96 +11504,6 @@
     },
     {
       "type": "library",
-      "name": "simple-concat",
-      "version": "1.0.1",
-      "bom-ref": "baringasoft-pulse@2.3.0|simple-concat@1.0.1",
-      "author": "Feross Aboukhadijeh",
-      "description": "Super-minimalist version of `concat-stream`. Less than 15 lines!",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/simple-concat@1.0.1",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/simple-concat/-/simple-concat-1.0.1.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/feross/simple-concat/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git://github.com/feross/simple-concat.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/feross/simple-concat",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/simple-concat"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "simple-get",
-      "version": "4.0.1",
-      "bom-ref": "baringasoft-pulse@2.3.0|simple-get@4.0.1",
-      "author": "Feross Aboukhadijeh",
-      "description": "Simplest way to make http get requests. Supports HTTPS, redirects, gzip/deflate, streams in < 100 lines.",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/simple-get@4.0.1",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/simple-get/-/simple-get-4.0.1.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/feross/simple-get/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git://github.com/feross/simple-get.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/feross/simple-get",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/simple-get"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "name": "stackblur-canvas",
       "version": "2.7.0",
       "bom-ref": "baringasoft-pulse@2.3.0|stackblur-canvas@2.7.0",
@@ -12345,55 +11597,6 @@
     },
     {
       "type": "library",
-      "name": "strip-json-comments",
-      "version": "2.0.1",
-      "bom-ref": "baringasoft-pulse@2.3.0|strip-json-comments@2.0.1",
-      "author": "Sindre Sorhus",
-      "description": "Strip comments from JSON. Lets you use comments in your JSON files!",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/strip-json-comments@2.0.1",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/strip-json-comments/-/strip-json-comments-2.0.1.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/sindresorhus/strip-json-comments/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git+https://github.com/sindresorhus/strip-json-comments.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/sindresorhus/strip-json-comments#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:constraint:engine:node",
-          "value": ">=0.10.0"
-        },
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/strip-json-comments"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "name": "svg-pathdata",
       "version": "6.0.3",
       "bom-ref": "baringasoft-pulse@2.3.0|svg-pathdata@6.0.3",
@@ -12438,193 +11641,6 @@
         {
           "name": "cdx:npm:package:path",
           "value": "node_modules/svg-pathdata"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "tar-fs",
-      "version": "2.1.4",
-      "bom-ref": "baringasoft-pulse@2.3.0|tar-fs@2.1.4",
-      "author": "Mathias Buus",
-      "description": "filesystem bindings for tar-stream",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/tar-fs@2.1.4",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/tar-fs/-/tar-fs-2.1.4.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/mafintosh/tar-fs/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git+https://github.com/mafintosh/tar-fs.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/mafintosh/tar-fs",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/tar-fs"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "chownr",
-      "version": "1.1.4",
-      "bom-ref": "baringasoft-pulse@2.3.0|tar-fs@2.1.4|chownr@1.1.4",
-      "author": "Isaac Z. Schlueter",
-      "description": "like `chown -R`",
-      "licenses": [
-        {
-          "license": {
-            "id": "ISC",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/chownr@1.1.4",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/chownr/-/chownr-1.1.4.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/isaacs/chownr/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git://github.com/isaacs/chownr.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/isaacs/chownr#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/tar-fs/node_modules/chownr"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "readable-stream",
-      "version": "3.6.2",
-      "bom-ref": "baringasoft-pulse@2.3.0|tar-fs@2.1.4|readable-stream@3.6.2",
-      "description": "Streams3, a user-land copy of the stream library from Node.js",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/readable-stream@3.6.2",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/readable-stream/-/readable-stream-3.6.2.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/nodejs/readable-stream/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git://github.com/nodejs/readable-stream.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/nodejs/readable-stream#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:constraint:engine:node",
-          "value": ">= 6"
-        },
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/tar-fs/node_modules/readable-stream"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "tar-stream",
-      "version": "2.2.0",
-      "bom-ref": "baringasoft-pulse@2.3.0|tar-fs@2.1.4|tar-stream@2.2.0",
-      "author": "Mathias Buus",
-      "description": "tar-stream is a streaming tar parser and generator and nothing else. It is streams2 and operates purely using streams which means you can easily extract/parse tarballs without ever hitting the file system.",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/tar-stream@2.2.0",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/tar-stream/-/tar-stream-2.2.0.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/mafintosh/tar-stream/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git+https://github.com/mafintosh/tar-stream.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/mafintosh/tar-stream",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:constraint:engine:node",
-          "value": ">=6"
-        },
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/tar-fs/node_modules/tar-stream"
         }
       ]
     },
@@ -12808,55 +11824,6 @@
         {
           "name": "cdx:npm:package:path",
           "value": "node_modules/tslib"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "tunnel-agent",
-      "version": "0.6.0",
-      "bom-ref": "baringasoft-pulse@2.3.0|tunnel-agent@0.6.0",
-      "author": "Mikeal Rogers",
-      "description": "HTTP proxy tunneling agent. Formerly part of mikeal/request, now a standalone module.",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/tunnel-agent@0.6.0",
-      "externalReferences": [
-        {
-          "url": "https://registry.npmjs.org/tunnel-agent/-/tunnel-agent-0.6.0.tgz",
-          "type": "distribution",
-          "comment": "as detected from npm-ls property \"resolved\""
-        },
-        {
-          "url": "https://github.com/mikeal/tunnel-agent/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        },
-        {
-          "url": "git+https://github.com/mikeal/tunnel-agent.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/mikeal/tunnel-agent#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:constraint:engine:node",
-          "value": "*"
-        },
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/tunnel-agent"
         }
       ]
     },
@@ -13788,9 +12755,9 @@
     {
       "type": "framework",
       "name": "electron",
-      "version": "39.7.0",
-      "bom-ref": "pkg:npm/electron@39.7.0",
-      "purl": "pkg:npm/electron@39.7.0",
+      "version": "44.4.5",
+      "bom-ref": "pkg:npm/electron@44.4.5",
+      "purl": "pkg:npm/electron@44.4.5",
       "licenses": [
         {
           "license": {
@@ -13815,7 +12782,7 @@
         "baringasoft-pulse@2.3.0|@tiptap/react@3.31.4",
         "baringasoft-pulse@2.3.0|@tiptap/starter-kit@3.31.4",
         "baringasoft-pulse@2.3.0|bcryptjs@3.0.3",
-        "baringasoft-pulse@2.3.0|better-sqlite3-multiple-ciphers@12.6.2",
+        "baringasoft-pulse@2.3.0|better-sqlite3-multiple-ciphers@13.0.3",
         "baringasoft-pulse@2.3.0|cmdk@1.1.1",
         "baringasoft-pulse@2.3.0|date-fns@4.1.0",
         "baringasoft-pulse@2.3.0|dompurify@3.4.16",
@@ -14435,11 +13402,13 @@
       "ref": "baringasoft-pulse@2.3.0|bcryptjs@3.0.3"
     },
     {
-      "ref": "baringasoft-pulse@2.3.0|better-sqlite3-multiple-ciphers@12.6.2",
+      "ref": "baringasoft-pulse@2.3.0|better-sqlite3-multiple-ciphers@13.0.3",
       "dependsOn": [
-        "baringasoft-pulse@2.3.0|bindings@1.5.0",
-        "baringasoft-pulse@2.3.0|prebuild-install@7.1.3"
+        "baringasoft-pulse@2.3.0|better-sqlite3-multiple-ciphers@13.0.3|node-addon-api@8.9.2"
       ]
+    },
+    {
+      "ref": "baringasoft-pulse@2.3.0|better-sqlite3-multiple-ciphers@13.0.3|node-addon-api@8.9.2"
     },
     {
       "ref": "baringasoft-pulse@2.3.0|big-integer@1.6.52"
@@ -14449,12 +13418,6 @@
       "dependsOn": [
         "baringasoft-pulse@2.3.0|buffers@0.1.1",
         "baringasoft-pulse@2.3.0|chainsaw@0.1.0"
-      ]
-    },
-    {
-      "ref": "baringasoft-pulse@2.3.0|bindings@1.5.0",
-      "dependsOn": [
-        "baringasoft-pulse@2.3.0|file-uri-to-path@1.0.0"
       ]
     },
     {
@@ -14581,21 +13544,6 @@
       "dependsOn": [
         "baringasoft-pulse@2.3.0|mimic-fn@3.1.0"
       ]
-    },
-    {
-      "ref": "baringasoft-pulse@2.3.0|decompress-response@6.0.0",
-      "dependsOn": [
-        "baringasoft-pulse@2.3.0|decompress-response@6.0.0|mimic-response@3.1.0"
-      ]
-    },
-    {
-      "ref": "baringasoft-pulse@2.3.0|decompress-response@6.0.0|mimic-response@3.1.0"
-    },
-    {
-      "ref": "baringasoft-pulse@2.3.0|deep-extend@0.6.0"
-    },
-    {
-      "ref": "baringasoft-pulse@2.3.0|detect-libc@2.1.2"
     },
     {
       "ref": "baringasoft-pulse@2.3.0|detect-node-es@1.1.0"
@@ -14805,9 +13753,6 @@
       ]
     },
     {
-      "ref": "baringasoft-pulse@2.3.0|expand-template@2.0.3"
-    },
-    {
       "ref": "baringasoft-pulse@2.3.0|fast-csv@4.3.6",
       "dependsOn": [
         "baringasoft-pulse@2.3.0|@fast-csv/format@4.3.5",
@@ -14833,9 +13778,6 @@
     },
     {
       "ref": "baringasoft-pulse@2.3.0|fflate@0.8.3"
-    },
-    {
-      "ref": "baringasoft-pulse@2.3.0|file-uri-to-path@1.0.0"
     },
     {
       "ref": "baringasoft-pulse@2.3.0|find-up@3.0.0",
@@ -14911,9 +13853,6 @@
       "ref": "baringasoft-pulse@2.3.0|get-nonce@1.0.1"
     },
     {
-      "ref": "baringasoft-pulse@2.3.0|github-from-package@0.0.0"
-    },
-    {
       "ref": "baringasoft-pulse@2.3.0|goober@2.1.18",
       "dependsOn": [
         "baringasoft-pulse@2.3.0|csstype@3.2.3"
@@ -14944,9 +13883,6 @@
     },
     {
       "ref": "baringasoft-pulse@2.3.0|inherits@2.0.4"
-    },
-    {
-      "ref": "baringasoft-pulse@2.3.0|ini@1.3.8"
     },
     {
       "ref": "baringasoft-pulse@2.3.0|iobuffer@5.4.0"
@@ -15109,9 +14045,6 @@
       "ref": "baringasoft-pulse@2.3.0|minimist@1.2.8"
     },
     {
-      "ref": "baringasoft-pulse@2.3.0|mkdirp-classic@0.5.3"
-    },
-    {
       "ref": "baringasoft-pulse@2.3.0|motion-dom@12.34.3",
       "dependsOn": [
         "baringasoft-pulse@2.3.0|motion-utils@12.29.2"
@@ -15127,15 +14060,6 @@
         "baringasoft-pulse@2.3.0|react-dom@19.2.4",
         "baringasoft-pulse@2.3.0|react@19.2.4",
         "baringasoft-pulse@2.3.0|tslib@2.8.1"
-      ]
-    },
-    {
-      "ref": "baringasoft-pulse@2.3.0|napi-build-utils@2.0.0"
-    },
-    {
-      "ref": "baringasoft-pulse@2.3.0|node-abi@3.87.0",
-      "dependsOn": [
-        "baringasoft-pulse@2.3.0|semver@7.7.4"
       ]
     },
     {
@@ -15196,23 +14120,6 @@
       "ref": "baringasoft-pulse@2.3.0|pkg-up@3.1.0",
       "dependsOn": [
         "baringasoft-pulse@2.3.0|find-up@3.0.0"
-      ]
-    },
-    {
-      "ref": "baringasoft-pulse@2.3.0|prebuild-install@7.1.3",
-      "dependsOn": [
-        "baringasoft-pulse@2.3.0|detect-libc@2.1.2",
-        "baringasoft-pulse@2.3.0|expand-template@2.0.3",
-        "baringasoft-pulse@2.3.0|github-from-package@0.0.0",
-        "baringasoft-pulse@2.3.0|minimist@1.2.8",
-        "baringasoft-pulse@2.3.0|mkdirp-classic@0.5.3",
-        "baringasoft-pulse@2.3.0|napi-build-utils@2.0.0",
-        "baringasoft-pulse@2.3.0|node-abi@3.87.0",
-        "baringasoft-pulse@2.3.0|pump@3.0.3",
-        "baringasoft-pulse@2.3.0|rc@1.2.8",
-        "baringasoft-pulse@2.3.0|simple-get@4.0.1",
-        "baringasoft-pulse@2.3.0|tar-fs@2.1.4",
-        "baringasoft-pulse@2.3.0|tunnel-agent@0.6.0"
       ]
     },
     {
@@ -15319,25 +14226,9 @@
       ]
     },
     {
-      "ref": "baringasoft-pulse@2.3.0|pump@3.0.3",
-      "dependsOn": [
-        "baringasoft-pulse@2.3.0|end-of-stream@1.4.5",
-        "baringasoft-pulse@2.3.0|once@1.4.0"
-      ]
-    },
-    {
       "ref": "baringasoft-pulse@2.3.0|raf@3.4.1",
       "dependsOn": [
         "baringasoft-pulse@2.3.0|performance-now@2.1.0"
-      ]
-    },
-    {
-      "ref": "baringasoft-pulse@2.3.0|rc@1.2.8",
-      "dependsOn": [
-        "baringasoft-pulse@2.3.0|deep-extend@0.6.0",
-        "baringasoft-pulse@2.3.0|ini@1.3.8",
-        "baringasoft-pulse@2.3.0|minimist@1.2.8",
-        "baringasoft-pulse@2.3.0|strip-json-comments@2.0.1"
       ]
     },
     {
@@ -15461,17 +14352,6 @@
       "ref": "baringasoft-pulse@2.3.0|setimmediate@1.0.5"
     },
     {
-      "ref": "baringasoft-pulse@2.3.0|simple-concat@1.0.1"
-    },
-    {
-      "ref": "baringasoft-pulse@2.3.0|simple-get@4.0.1",
-      "dependsOn": [
-        "baringasoft-pulse@2.3.0|decompress-response@6.0.0",
-        "baringasoft-pulse@2.3.0|once@1.4.0",
-        "baringasoft-pulse@2.3.0|simple-concat@1.0.1"
-      ]
-    },
-    {
       "ref": "baringasoft-pulse@2.3.0|stackblur-canvas@2.7.0"
     },
     {
@@ -15481,40 +14361,7 @@
       ]
     },
     {
-      "ref": "baringasoft-pulse@2.3.0|strip-json-comments@2.0.1"
-    },
-    {
       "ref": "baringasoft-pulse@2.3.0|svg-pathdata@6.0.3"
-    },
-    {
-      "ref": "baringasoft-pulse@2.3.0|tar-fs@2.1.4",
-      "dependsOn": [
-        "baringasoft-pulse@2.3.0|mkdirp-classic@0.5.3",
-        "baringasoft-pulse@2.3.0|pump@3.0.3",
-        "baringasoft-pulse@2.3.0|tar-fs@2.1.4|chownr@1.1.4",
-        "baringasoft-pulse@2.3.0|tar-fs@2.1.4|tar-stream@2.2.0"
-      ]
-    },
-    {
-      "ref": "baringasoft-pulse@2.3.0|tar-fs@2.1.4|chownr@1.1.4"
-    },
-    {
-      "ref": "baringasoft-pulse@2.3.0|tar-fs@2.1.4|readable-stream@3.6.2",
-      "dependsOn": [
-        "baringasoft-pulse@2.3.0|inherits@2.0.4",
-        "baringasoft-pulse@2.3.0|string_decoder@1.3.0",
-        "baringasoft-pulse@2.3.0|util-deprecate@1.0.2"
-      ]
-    },
-    {
-      "ref": "baringasoft-pulse@2.3.0|tar-fs@2.1.4|tar-stream@2.2.0",
-      "dependsOn": [
-        "baringasoft-pulse@2.3.0|bl@4.1.0",
-        "baringasoft-pulse@2.3.0|end-of-stream@1.4.5",
-        "baringasoft-pulse@2.3.0|fs-constants@1.0.0",
-        "baringasoft-pulse@2.3.0|inherits@2.0.4",
-        "baringasoft-pulse@2.3.0|tar-fs@2.1.4|readable-stream@3.6.2"
-      ]
     },
     {
       "ref": "baringasoft-pulse@2.3.0|text-segmentation@1.0.3",
@@ -15530,12 +14377,6 @@
     },
     {
       "ref": "baringasoft-pulse@2.3.0|tslib@2.8.1"
-    },
-    {
-      "ref": "baringasoft-pulse@2.3.0|tunnel-agent@0.6.0",
-      "dependsOn": [
-        "baringasoft-pulse@2.3.0|safe-buffer@5.2.1"
-      ]
     },
     {
       "ref": "baringasoft-pulse@2.3.0|type-fest@2.19.0"

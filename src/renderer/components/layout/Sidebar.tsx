@@ -10,6 +10,8 @@ import { pulseEvents } from '../../events'
 import { AnimatePresence, motion } from 'motion/react'
 import { dropdownVariants, backdropVariants, modalPanelVariants } from '../../utils/animations'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { useMenuKeys } from '../../hooks/useMenuKeys'
+import { dndAccessibility } from '../../utils/dndAnnouncements'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -29,6 +31,9 @@ import { useToday } from '../../hooks/useToday'
 import { useFeature } from '../../hooks/useFeature'
 import { FormsDialog } from '../forms/FormsDialog'
 
+/** What the Tasks count means, for screen readers and the collapsed tooltip */
+const TASKS_DUE_WORDS = 'due today or overdue'
+
 interface Props {
   collapsed: boolean
   onToggle: () => void
@@ -44,7 +49,7 @@ interface DeleteConfirmProps {
 function DeleteCaseloadModal({ gridId, gridName, onConfirm, onCancel }: DeleteConfirmProps): React.ReactElement {
   const { t } = useVocab(gridId)
   const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
+  useFocusTrap(trapRef, true, { onEscape: onCancel })
   // Links to other lists go with it (W04 §8)
   const [links, setLinks] = useState<{ types: number; links: number } | null>(null)
   useEffect(() => {
@@ -71,7 +76,7 @@ function DeleteCaseloadModal({ gridId, gridName, onConfirm, onCancel }: DeleteCo
             onClick={onConfirm}
             className="btn-primary bg-red-600 hover:bg-red-700"
           >
-            Move to Trash
+            Move to the Trash
           </button>
         </div>
       </motion.div>
@@ -122,6 +127,9 @@ function SortableGridItem({
   const { t } = useVocab(grid.id)
   const menuBtnRef = useRef<HTMLButtonElement>(null)
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
+  // Focus goes into the menu, arrows move, Escape or Tab closes it, focus goes back (AUDIT-044)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const menuKeys = useMenuKeys(menuRef, menuOpen && !!menuPos, onMenuClose)
 
   // Compute dropdown position when menu opens
   useEffect(() => {
@@ -209,6 +217,8 @@ function SortableGridItem({
           onClick={onMenuToggle}
           title={`${t('list', { cap: true })} options`}
           aria-label={`${t('list', { cap: true })} options`}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
         >
           <MoreHorizontal className="w-4 h-4" />
         </button>
@@ -220,6 +230,10 @@ function SortableGridItem({
         <>
           <div className="fixed inset-0 z-40" onClick={onMenuClose} />
           <motion.div
+            ref={menuRef}
+            onKeyDown={menuKeys}
+            role="menu"
+            aria-label={`${t('list', { cap: true })} options for ${grid.name}`}
             className="fixed z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 min-w-44"
             style={{ top: menuPos.top, left: menuPos.left }}
             variants={dropdownVariants}
@@ -228,6 +242,7 @@ function SortableGridItem({
             exit="exit"
           >
             <button
+              role="menuitem"
               className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={onSettingsStart}
             >
@@ -235,6 +250,7 @@ function SortableGridItem({
               {t('list', { cap: true })} settings…
             </button>
             <button
+              role="menuitem"
               className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={onRenameStart}
             >
@@ -243,6 +259,7 @@ function SortableGridItem({
             </button>
             {onFormsStart && (
               <button
+                role="menuitem"
                 className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                 onClick={onFormsStart}
               >
@@ -252,6 +269,7 @@ function SortableGridItem({
             )}
             {onContactReqStart && (
               <button
+                role="menuitem"
                 className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                 onClick={onContactReqStart}
               >
@@ -261,6 +279,7 @@ function SortableGridItem({
             )}
             {onMoveUp && (
               <button
+                role="menuitem"
                 className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                 onClick={onMoveUp}
               >
@@ -270,6 +289,7 @@ function SortableGridItem({
             )}
             {onMoveDown && (
               <button
+                role="menuitem"
                 className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                 onClick={onMoveDown}
               >
@@ -277,8 +297,9 @@ function SortableGridItem({
                 Move down
               </button>
             )}
-            <div className="my-1 border-t border-slate-200 dark:border-slate-700" />
+            <div role="separator" className="my-1 border-t border-slate-200 dark:border-slate-700" />
             <button
+              role="menuitem"
               className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
               onClick={onDeleteStart}
             >
@@ -452,7 +473,8 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
     <aside
       data-tour="sidebar"
       className="flex flex-col border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 transition-all duration-200 flex-shrink-0"
-      style={{ width: collapsed ? 48 : 'var(--width-sidebar-expanded, 220px)' }}
+      // Never more than a third of the window, so zoomed to 200% the list keeps most of the room (AUDIT-055)
+      style={{ width: collapsed ? 48 : 'min(var(--width-sidebar-expanded, 220px), 32vw)' }}
       aria-label="Sidebar"
     >
       {/* Toggle button */}
@@ -552,7 +574,8 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
         )}
 
         {/* Grid list — drag-to-reorder */}
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}
+          accessibility={dndAccessibility(id => grids.find(g => g.id === id)?.name)}>
           <SortableContext items={grids.map(g => g.id)} strategy={verticalListSortingStrategy}>
             {grids.map((grid, index) => (
               <SortableGridItem
@@ -650,7 +673,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
                   : 'text-slate-700 dark:text-slate-300'}
               `}
               style={{ minHeight: 44 }}
-              title={collapsed ? modHelp('Tasks (Ctrl+Shift+T)') : undefined}
+              title={collapsed ? modHelp(`Tasks${todayDueCount > 0 ? ` (${todayDueCount} ${TASKS_DUE_WORDS})` : ''} (Ctrl+Shift+T)`) : undefined}
               aria-current={isTasks ? 'page' : undefined}
             >
               {isTasks && (
@@ -661,12 +684,22 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
                 />
               )}
               <ClipboardList className="relative z-10 w-5 h-5 flex-shrink-0" />
+              {collapsed && (
+                <>
+                  <span className="sr-only">Tasks{todayDueCount > 0 ? `, ${todayDueCount} ${TASKS_DUE_WORDS}` : ''}</span>
+                  {todayDueCount > 0 && (
+                    <span aria-hidden="true" className="absolute z-10 top-2 left-6 w-2.5 h-2.5 rounded-full bg-blue-600 ring-2 ring-white dark:ring-slate-800" />
+                  )}
+                </>
+              )}
               {!collapsed && (
                 <span className="relative z-10 text-base flex-1 flex items-center justify-between">
                   Tasks
                   {todayDueCount > 0 && (
-                    <span className="bg-blue-500 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
-                      {todayDueCount}
+                    <span className="bg-blue-600 text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
+                      <span aria-hidden="true">{todayDueCount}</span>
+                      {/* Say what the number means; "Tasks 3" alone doesn't */}
+                      <span className="sr-only">, {todayDueCount} {TASKS_DUE_WORDS}</span>
                     </span>
                   )}
                 </span>

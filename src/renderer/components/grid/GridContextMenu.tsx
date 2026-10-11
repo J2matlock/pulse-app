@@ -3,6 +3,7 @@ import { motion } from 'motion/react'
 import { Palette, Trash2, Pencil, Star, Archive, RotateCcw, Copy, ArrowRightLeft, Clipboard, X as XIcon, Clock, User as UserIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { friendlyError } from '../../utils/friendlyError'
+import { copyText } from '../../hooks/useCopyFeedback'
 import type { GridRow, Column, CellFormatRule } from '../../../shared/types'
 import { evalCellFormat } from './CellConditionalFormatPanel'
 import { withComputedValues } from '../../utils/computedColumns'
@@ -160,7 +161,7 @@ export function GridContextMenu({
               onClick={() => {
                 if (cmCol && cmCellVal !== undefined) {
                   const text = formatCellForClipboard(cmCol, cmCellVal, cmRow)
-                  void window.api.copyToClipboard(text)
+                  void copyText(text)
                 }
                 onClose()
               }}
@@ -472,7 +473,7 @@ export function GridContextMenu({
           onClick={() => onDeleteRow(contextMenu.rowId)}
         >
           <Trash2 className="w-4 h-4" />
-          Move to trash
+          Move to the Trash
         </button>
       </motion.div>
     </>

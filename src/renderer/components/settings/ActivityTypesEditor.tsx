@@ -11,6 +11,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { dndAccessibility } from '../../utils/dndAnnouncements'
 import { IPC } from '../../../shared/ipc-channels'
 import { ACTIVITY_COLORS, ACTIVITY_LABEL_MAX, type ActivityColor, type ActivityType } from '../../../shared/activityTypes'
 import { safeInvoke } from '../../utils/safeInvoke'
@@ -127,7 +128,8 @@ export function ActivityTypesEditor(): React.ReactElement {
         <p className="text-base text-slate-500 dark:text-slate-400">Loading…</p>
       ) : (
         <>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}
+            accessibility={dndAccessibility(id => all.find(type => type.id === id)?.label)}>
             <SortableContext items={active.map(type => type.id)} strategy={verticalListSortingStrategy}>
               <ul className="space-y-2">
                 {active.map(type => <TypeRow key={`${type.id}-${type.label}-${type.icon}`} type={type} onlyOne={active.length <= 1} />)}

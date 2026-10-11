@@ -7,6 +7,7 @@ import {
   parseRuleConfig, conditionSchema,
   type RuleKind, type Condition, type RelativeConfig, type CalendarConfig, type MeterConfig, type QuotaConfig, type SequenceConfig,
 } from '../../../shared/deadlineEngine'
+import { wordNow } from '../../utils/vocab'
 
 export type OffsetUnit = 'days' | 'months' | 'businessDays'
 export type Anchor = number | 'self' | null
@@ -170,7 +171,7 @@ export function draftToConfig(d: RuleDraft): Built<object | null> {
       break
     }
     case 'quota': {
-      if (d.quotaTypes.length === 0) return { ok: false, error: 'Choose which kinds of notes count.' }
+      if (d.quotaTypes.length === 0) return { ok: false, error: `Choose which kinds of ${wordNow('activity', { many: true })} count.` }
       if (d.quotaStart === null || d.quotaEnd === null) return { ok: false, error: 'Choose the start and end date columns.' }
       const limit = num(d.quotaLimit)
       if (d.quotaLimitMode === 'column' ? d.quotaLimitColumn === null : !limit) return { ok: false, error: 'Set how many are allowed.' }

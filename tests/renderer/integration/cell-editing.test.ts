@@ -7,11 +7,10 @@ import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useGridEditing, type CellUpdateFn } from '../../../src/renderer/hooks/useGridEditing'
 
-function setup(opts: { isReadOnly?: boolean; onCellUpdate?: CellUpdateFn } = {}) {
+function setup(opts: { onCellUpdate?: CellUpdateFn } = {}) {
   const onCellUpdate = opts.onCellUpdate ?? vi.fn<CellUpdateFn>()
   return renderHook(() =>
     useGridEditing({
-      isReadOnly: opts.isReadOnly ?? false,
       onCellUpdate,
     }),
   )
@@ -53,12 +52,6 @@ describe('cell editing state machine', () => {
       expect(result.current.isEditing).toBe(true)
     })
 
-    it('startEditing is blocked when read-only', () => {
-      const { result } = setup({ isReadOnly: true })
-      act(() => result.current.startEditing(5, 20))
-      expect(result.current.editingCell).toBeNull()
-      expect(result.current.isEditing).toBe(false)
-    })
   })
 
   // --- Scenario 4: Escape cancels edit (reverts value) ---
@@ -139,11 +132,6 @@ describe('cell editing state machine', () => {
 
   // --- Additional edge cases ---
   describe('edge cases', () => {
-    it('setEditingCell is blocked when read-only', () => {
-      const { result } = setup({ isReadOnly: true })
-      act(() => result.current.setEditingCell({ rowId: 1, columnId: 1 }))
-      expect(result.current.editingCell).toBeNull()
-    })
 
     it('handleCellSave does not clear editing if a different cell is now active (race guard)', async () => {
       const onCellUpdate = vi.fn<CellUpdateFn>()

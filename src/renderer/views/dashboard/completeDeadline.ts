@@ -8,6 +8,7 @@ import { addInterval, type RuleInterval } from '../../../shared/ruleInterval'
 import type { RuleKind } from '../../../shared/deadlineEngine'
 import toast from 'react-hot-toast'
 import { friendlyError } from '../../utils/friendlyError'
+import { wordNow } from '../../utils/vocab'
 
 export interface DeadlineToComplete {
   rowId: number
@@ -68,10 +69,12 @@ export function skippedForBulkDone<T extends DeadlineToComplete>(items: T[]): { 
   const oneOff = items.filter(c => isOneOffDeadline(c) && !c.oneOff)
   const rest = items.filter(c => !reading.includes(c) && !quota.includes(c) && !noStep.includes(c) && !oneOff.includes(c))
   const names = (xs: T[]) => [...new Set(xs.map(x => x.columnName))].join(', ')
+  // The dashboard spans lists, so the workspace word
+  const record = wordNow('record', {}, null)
   const parts = [
     reading.length ? `${names(reading)} (needs a reading; mark done one at a time)` : '',
-    quota.length ? `${names(quota)} (renew on the record)` : '',
-    noStep.length ? `${names(noStep)} (open the record to choose the step)` : '',
+    quota.length ? `${names(quota)} (renew on the ${record})` : '',
+    noStep.length ? `${names(noStep)} (open the ${record} to choose the step)` : '',
     oneOff.length ? `${names(oneOff)} (say whether it was renewed or finished; one at a time)` : '',
   ].filter(Boolean)
   const n = reading.length + quota.length + noStep.length + oneOff.length
@@ -93,7 +96,7 @@ function formatDate(d: string | Date): string {
 
 async function addChecklist(rowId: number, templateId: number | null | undefined): Promise<number[]> {
   if (!templateId) return []
-  const res = await safeInvoke<{ createdIds: number[] }>(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId)
+  const res = await safeInvoke(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId)
   return res.ok ? res.data.createdIds : []
 }
 

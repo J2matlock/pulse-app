@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { useVocab } from '../../hooks/useVocab'
 import { localDateString, localDateFromToday } from '../../../shared/dates'
 
 type RangeKey = 'all' | 'year' | '12m' | '90d' | 'custom'
@@ -27,6 +28,7 @@ export function AuditReportDialog({ rowId, gridId, label, onClose }: {
   label: string
   onClose: () => void
 }): React.ReactElement {
+  const { t } = useVocab(gridId ?? null)
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, true)
   const [range, setRange] = useState<RangeKey>('all')
@@ -80,7 +82,7 @@ export function AuditReportDialog({ rowId, gridId, label, onClose }: {
         </div>
         <div className="px-6 py-5 space-y-4">
           <p className="text-base text-slate-700 dark:text-slate-200">
-            A PDF of everything recorded, in time order: field changes, notes (including voided notes and earlier versions of edited ones), and completed checklist items.
+            A PDF of everything recorded, in time order: changes to each column, {t('activity', { many: true })} (including voided ones and earlier versions of edited ones), and completed checklist items.
           </p>
           <fieldset>
             <legend className="text-base font-medium text-slate-800 dark:text-slate-100 mb-1">Dates</legend>

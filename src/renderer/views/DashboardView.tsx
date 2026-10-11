@@ -476,7 +476,9 @@ export default function DashboardView(): React.ReactElement {
 
         {/* Top tab bar */}
         <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-          <div data-tour="dashboard-tabs" className="flex border-b border-slate-200 dark:border-slate-700 overflow-x-auto overflow-y-hidden" role="tablist" onKeyDown={onTabListKeyDown}>
+          <div data-tour="dashboard-tabs" className="flex border-b border-slate-200 dark:border-slate-700 overflow-x-auto overflow-y-hidden">
+            {/* Only tabs inside the tablist; the archive link sits beside it */}
+            <div className="flex" role="tablist" aria-label="Dashboard views" onKeyDown={onTabListKeyDown}>
             {TOP_TABS.map(tab => (
               <button
                 key={tab.key}
@@ -494,6 +496,7 @@ export default function DashboardView(): React.ReactElement {
                 {tab.label}
               </button>
             ))}
+            </div>
             {/* Recently archived sits behind a link, not among the deadline tabs (D-21) */}
             <button type="button" onClick={() => setTopTab(topTab === 'archived' ? 'priority' : 'archived')} aria-pressed={topTab === 'archived'}
               className="ml-auto flex items-center gap-1.5 px-4 text-base text-blue-700 dark:text-blue-300 underline hover:no-underline whitespace-nowrap focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
@@ -752,13 +755,13 @@ export default function DashboardView(): React.ReactElement {
             label="Due in the next 7 days"
             value={isLoading ? '—' : derivedCounts.dueThisWeek}
             icon={<Clock className="w-5 h-5" />}
-            colorClass="text-orange-600 dark:text-orange-400"
+            colorClass="text-orange-700 dark:text-orange-400"
           />
           <SummaryCard
             label="Due in the next 30 days"
             value={isLoading ? '—' : derivedCounts.dueThisMonth}
             icon={<Calendar className="w-5 h-5" />}
-            colorClass="text-yellow-600 dark:text-yellow-400"
+            colorClass="text-yellow-700 dark:text-yellow-400"
           />
           {(showTasks || showChecklists) && (<>
             <SummaryCard

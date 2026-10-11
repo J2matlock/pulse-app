@@ -18,6 +18,7 @@ import { backdropVariants, modalPanelVariants } from '../../utils/animations'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Column } from '../../../shared/types'
+import { canImportInto } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
 import toast from 'react-hot-toast'
 import { useVocab } from '../../hooks/useVocab'
@@ -42,6 +43,9 @@ interface ImportPreview {
   headerDetectionConfidence: 'high' | 'medium' | 'low'
   rawRowCount: number
   rawPreviewRows?: string[][]
+  warnings?: string[]
+  hiddenRowCount?: number
+  hiddenColumns?: string[]
 }
 
 interface ColumnMapping {
@@ -62,6 +66,7 @@ interface ImportOptions {
   headerRowIndex?: number
   flipLastFirst?: boolean
   createMissingLinks?: boolean
+  skipHiddenRows?: boolean
 }
 
 interface ImportResult {
@@ -142,6 +147,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
   const [cleanData, setCleanData] = useState(true)
   const [flipNames, setFlipNames] = useState(true)
   const [createMissingLinks, setCreateMissingLinks] = useState(false)
+  const [skipHiddenRows, setSkipHiddenRows] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
@@ -165,6 +171,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
       setExistingColumns([])
       setDuplicateStrategy('none')
       setCleanData(true)
+      setSkipHiddenRows(false)
       setLoading(false)
       setError(null)
       setImportResult(null)
@@ -200,7 +207,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
     setLoading(true)
     setError(null)
     try {
-      const res = await safeInvoke<ImportPreview>(
+      const res = await safeInvoke(
         IPC.IMPORT_FILE_PREVIEW, path, sheetIndex, hdrRowIdx
       )
       if (!res.ok) {
@@ -373,6 +380,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
         headerRowIndex,
         flipLastFirst: flipNames,
         createMissingLinks,
+        skipHiddenRows: skipHiddenRows && (preview.hiddenRowCount ?? 0) > 0,
       }
       const res = await safeInvoke<ImportResult>(IPC.IMPORT_FILE, options)
       if (!res.ok) {
@@ -563,6 +571,41 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
           {/* Step 3: Preview */}
           {step === 3 && preview && (
             <div className="px-6 py-4 space-y-3">
+              {(preview.warnings ?? []).map((w, i) => (
+                <div key={i} role="status" className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-base text-amber-900 dark:text-amber-200">{w}</p>
+                </div>
+              ))}
+              {/* Hidden rows and columns come in like the rest unless left out (AUDIT-127) */}
+              {((preview.hiddenRowCount ?? 0) > 0 || (preview.hiddenColumns?.length ?? 0) > 0) && (
+                <div role="status" className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 space-y-2">
+                  {(preview.hiddenRowCount ?? 0) > 0 && (() => {
+                    const n = preview.hiddenRowCount ?? 0
+                    return (
+                      <>
+                        <p className="text-base text-slate-700 dark:text-slate-200">
+                          This spreadsheet has {n} hidden {n === 1 ? 'row' : 'rows'} (for example, rows filtered out or hidden in Excel). {n === 1 ? 'It comes in' : 'They come in'} like the others unless you leave {n === 1 ? 'it' : 'them'} out.
+                        </p>
+                        <label className="flex items-center gap-3 cursor-pointer min-h-[44px]">
+                          <input
+                            type="checkbox"
+                            checked={skipHiddenRows}
+                            onChange={e => setSkipHiddenRows(e.target.checked)}
+                            className="w-5 h-5 rounded-sm text-blue-500 focus:ring-3 focus:ring-blue-500 focus:ring-offset-0"
+                          />
+                          <span className="text-base text-slate-700 dark:text-slate-200">Leave out {n} hidden {n === 1 ? 'row' : 'rows'}</span>
+                        </label>
+                      </>
+                    )
+                  })()}
+                  {(preview.hiddenColumns?.length ?? 0) > 0 && (
+                    <p className="text-base text-slate-700 dark:text-slate-200">
+                      Hidden {(preview.hiddenColumns?.length ?? 0) === 1 ? 'column' : 'columns'} in the spreadsheet: {preview.hiddenColumns?.join(', ')}. To leave {(preview.hiddenColumns?.length ?? 0) === 1 ? 'it' : 'them'} out, choose Skip on the next step.
+                    </p>
+                  )}
+                </div>
+              )}
               {/* Header Row Selector — hide for clipboard paste */}
               {filePath && (
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700">
@@ -576,7 +619,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                           <Check className="w-3.5 h-3.5" /> Confident
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-sm text-amber-600 dark:text-amber-400">
+                        <span className="inline-flex items-center gap-1 text-sm text-amber-700 dark:text-amber-400">
                           <AlertTriangle className="w-3.5 h-3.5" /> Verify
                         </span>
                       )}
@@ -769,7 +812,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                               >
                                 <option value="create">Create new column</option>
                                 <option value="skip">Skip (do not import)</option>
-                                {existingColumns.map(ec => (
+                                {existingColumns.filter(ec => canImportInto(ec.column_type)).map(ec => (
                                   <option key={ec.id} value={String(ec.id)}>{ec.name}</option>
                                 ))}
                               </select>
@@ -968,7 +1011,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                     <div className="flex items-center gap-3 flex-wrap">
                       {undo === 'done' ? (
                         <p role="status" className="text-base text-slate-700 dark:text-slate-200">
-                          Undone: the {importResult.newRowIds!.length} imported {t('record', { count: importResult.newRowIds!.length })} {importResult.newRowIds!.length === 1 ? 'is' : 'are'} in Trash, where {importResult.newRowIds!.length === 1 ? 'it' : 'they'} can be restored.
+                          Undone: the {importResult.newRowIds!.length} imported {t('record', { count: importResult.newRowIds!.length })} {importResult.newRowIds!.length === 1 ? 'is' : 'are'} in the Trash, where {importResult.newRowIds!.length === 1 ? 'it' : 'they'} can be restored.
                         </p>
                       ) : (
                         <>
@@ -984,13 +1027,13 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                   {importResult.warnings.length > 0 && (
                     <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 overflow-hidden">
                       <div className="flex items-center gap-2 px-4 py-3">
-                        <AlertTriangle className="w-4 h-4 text-amber-500 dark:text-amber-400 flex-shrink-0" />
+                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
                         <span className="text-base font-medium text-amber-700 dark:text-amber-300">
                           {importResult.warnings.length} warning{importResult.warnings.length !== 1 ? 's' : ''}
                         </span>
                         <button
                           onClick={() => setWarningsExpanded(v => !v)}
-                          className="ml-auto text-base text-amber-600 dark:text-amber-400 hover:underline
+                          className="ml-auto text-base text-amber-700 dark:text-amber-400 hover:underline
                                      focus:outline-hidden focus:ring-3 focus:ring-amber-400 rounded-sm min-h-[44px] px-2"
                         >
                           {warningsExpanded ? 'Hide' : 'Show'}
@@ -1004,7 +1047,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
                             </li>
                           ))}
                           {importResult.warnings.length > 10 && (
-                            <li className="text-sm text-amber-500 dark:text-amber-400">
+                            <li className="text-sm text-amber-700 dark:text-amber-400">
                               ...and {importResult.warnings.length - 10} more
                             </li>
                           )}

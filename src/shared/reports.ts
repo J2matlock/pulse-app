@@ -5,6 +5,7 @@
  * ("col:12", "act:date") and checked against what the list actually has.
  */
 import { z } from 'zod'
+import { parseNumberCell } from './numbers'
 
 export type ReportSource = 'records' | 'activities' | 'appointments' | 'deadlines'
 export const REPORT_SOURCES: readonly ReportSource[] = ['records', 'activities', 'appointments', 'deadlines']
@@ -148,8 +149,7 @@ export function presetRange(preset: DatePreset, today: Date = new Date()): { fro
 export function toNumber(v: ReportCell): number | null {
   if (v === null || v === '') return null
   if (typeof v === 'number') return Number.isFinite(v) ? v : null
-  const n = Number(String(v).replace(/[$,\s]/g, ''))
-  return Number.isFinite(n) ? n : null
+  return parseNumberCell(String(v))
 }
 
 /** Operators that compare against a value (the rest stand alone) */

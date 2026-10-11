@@ -1,6 +1,6 @@
 /** Changing a column's type (audit 3.12 / G-19): values that fit are converted, the rest are kept, undo restores. */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
+import { createTestDb, cleanupTestDb, seedGrid, setDbWords, type TestDb } from './helpers'
 
 let t: TestDb
 vi.mock('../src/main/database', () => ({ getDb: () => t.db, cachedStmt: (_k: string, sql: string) => t.db.prepare(sql) }))
@@ -33,6 +33,13 @@ describe('changing a column type', () => {
     expect([0, 1, 2].map(i => cell(g.rowIds[i]!, g.columnIds[1]!))).toEqual(['10/6/2026', 'soon', 'Feb 19, 2026'])
   })
 
+  it('reads numeric dates day first with the DD/MM/YYYY date format (AUDIT-117)', () => {
+    t.db.prepare("INSERT INTO settings (key, value) VALUES ('date_format', 'eu')").run()
+    expect(previewTypeChange(g.columnIds[1]!, 'date')).toEqual({ total: 3, clean: 2, examples: ['soon'] })
+    changeColumnType(g.columnIds[1]!, 'date')
+    expect([0, 1, 2].map(i => cell(g.rowIds[i]!, g.columnIds[1]!))).toEqual(['2026-06-10', 'soon', '2026-02-19'])
+  })
+
   it('turns the values into the choices of a status column', () => {
     changeColumnType(g.columnIds[1]!, 'status')
     expect((JSON.parse(col(g.columnIds[1]!).config).options as Array<{ label: string }>).map(o => o.label)).toEqual(['10/6/2026', 'soon', 'Feb 19, 2026'])
@@ -58,6 +65,13 @@ describe('changing a column type', () => {
     expect(() => changeColumnType(g.columnIds[1]!, 'checkbox')).toThrow(/names the records/)
     expect(() => changeColumnType(g.columnIds[1]!, 'notes')).toThrow(ColumnTypeError)
     expect(() => changeColumnType(g.columnIds[1]!, 'phone')).not.toThrow()
+  })
+
+  it('names the records with the workspace word (AUDIT-068)', () => {
+    setDbWords(t.db)
+    t.db.prepare('UPDATE columns SET is_name_column = 1 WHERE id = ?').run(g.columnIds[1])
+    t.db.prepare('UPDATE columns SET is_name_column = 0 WHERE id = ?').run(g.columnIds[0])
+    expect(() => changeColumnType(g.columnIds[1]!, 'checkbox')).toThrow(/This column names the clients, so/)
   })
 
   it('refuses worked-out types', () => {

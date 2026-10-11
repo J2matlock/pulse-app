@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react'
+import toast from 'react-hot-toast'
 import { RefreshCw, Download, Shield, Code2 } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
-import { PRODUCT_NAME, SOURCE_CODE_URL, LICENSE_URL } from '../../../shared/constants'
+import { friendlyError } from '../../utils/friendlyError'
+import { PRODUCT_NAME, SOURCE_CODE_URL, type LicenseDoc } from '../../../shared/constants'
 import { useVocab } from '../../hooks/useVocab'
 import { pulseEvents } from '../../events'
 import { usePlatform, updateText } from '../../utils/platformText'
@@ -45,7 +47,8 @@ function CheckForUpdatesButton(): React.ReactElement {
   async function check() {
     setChecking(true)
     setResult(null)
-    const res = await safeInvoke(IPC.APP_CHECK_FOR_UPDATES)
+    // manual: the button works even when the automatic check is switched off
+    const res = await safeInvoke(IPC.APP_CHECK_FOR_UPDATES, { manual: true })
     if (res.ok) setResult(res.data)
     else setResult({ available: false })
     setChecking(false)
@@ -104,6 +107,11 @@ function CheckForUpdatesButton(): React.ReactElement {
   )
 }
 
+async function openLicense(which: LicenseDoc) {
+  const res = await safeInvoke(IPC.APP_OPEN_LICENSE, which)
+  if (!res.ok) toast.error(friendlyError(res.error))
+}
+
 export function AboutSection(): React.ReactElement {
   const { t } = useVocab(null)
   const [dbInfo, setDbInfo] = useState<{ version: string } | null>(null)
@@ -153,11 +161,18 @@ export function AboutSection(): React.ReactElement {
             See the source code
           </button>
           <button
-            onClick={() => void safeInvoke(IPC.APP_OPEN_EXTERNAL, LICENSE_URL)}
+            onClick={() => void openLicense('license')}
             className="btn-secondary"
             style={{ minHeight: 44 }}
           >
             Read the license
+          </button>
+          <button
+            onClick={() => void openLicense('third-party')}
+            className="btn-secondary"
+            style={{ minHeight: 44 }}
+          >
+            Licenses for included software
           </button>
         </div>
       </div>

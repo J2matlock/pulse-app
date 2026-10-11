@@ -5,7 +5,7 @@
  * through here, so they all agree.
  */
 import { getDb } from './database'
-import { evaluate, isUsedUp, meterInfo, type MeterInfo, engineRuleFrom, meterHistoryColumn, referencedColumns, sequenceAnchor, extensionAnchor, matchExtension, applyExtension, type StoredExtension, type QuotaConfig, type DeadlineResult, type EngineRule, type RecordContext, type RuleKind } from '../shared/deadlineEngine'
+import { evaluate, isUsedUp, meterInfo, type MeterInfo, engineRuleFrom, meterHistoryColumn, referencedColumns, extensionAnchor, matchExtension, applyExtension, type StoredExtension, type QuotaConfig, type DeadlineResult, type EngineRule, type RecordContext, type RuleKind, buildRecordContext } from '../shared/deadlineEngine'
 import type { WorkCalendar } from '../shared/businessDays'
 import type { GridDeadlineContext } from '../shared/ipc-contract'
 import { workCalendarSetting } from './vocab'
@@ -131,7 +131,7 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
       ...(ext && res.extended ? { extension_id: ext.id } : {}),
     })
   }
-  for (const r of rows) add(r, { today, columnDate: r.date_value, holidays: cal.holidays, weekend: cal.weekend, ...(r.finished_for ? { finishedFor: [r.finished_for] } : {}) })
+  for (const r of rows) add(r, buildRecordContext(ruleFor(r), { today, columnDate: r.date_value, holidays: cal.holidays, weekend: cal.weekend, ...(r.finished_for ? { finishedFor: [r.finished_for] } : {}) }))
 
   // Other kinds (and rules with conditions) can be due with their own cell empty, and
   // read other columns: load each such column's rows with the columns it refers to
@@ -164,13 +164,13 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
     for (const rec of recs) {
       const values: Record<number, string | null> = {}
       refs.forEach((id, i) => { values[id] = (rec[`ref_${i}`] as string | null) ?? null })
-      // Only steps done for this anchor date count; a new anchor starts a new cycle
-      const anchor = sequenceAnchor(parsed, rec.own, values)
-      const steps = (progress.get(rec.row_id) ?? []).filter(p => p.anchor === anchor).map(p => p.step)
       add({ ...rc, row_id: rec.row_id, client_name: rec.client_name, record_kind: rec.record_kind, date_value: rec.own ?? '' },
-        { today, columnDate: rec.own, values, meterHistory: history.get(rec.row_id), activityCount: counts.get(rec.row_id) ?? 0, progress: steps, holidays: cal.holidays, weekend: cal.weekend,
-          ...(previous?.has(rec.row_id) ? { previousDone: previous.get(rec.row_id) ?? null } : {}),
-          ...(finished?.has(rec.row_id) ? { finishedFor: finished.get(rec.row_id) } : {}) })
+        buildRecordContext(parsed, {
+          today, columnDate: rec.own, values, meterHistory: history.get(rec.row_id), activityCount: counts.get(rec.row_id) ?? 0,
+          progress: progress.get(rec.row_id) ?? [], holidays: cal.holidays, weekend: cal.weekend,
+          previousDone: previous?.has(rec.row_id) ? previous.get(rec.row_id) ?? null : undefined,
+          finishedFor: finished?.get(rec.row_id),
+        }))
     }
   }
   // Soonest first; ties in a stable order so lists don't shuffle between loads
@@ -268,12 +268,14 @@ export function meterHistories(columnId: number | null): Map<number, Array<{ at:
  * For calendar rules: per record, what the column held before its latest
  * change (the previous done date). Records with no recorded change are left
  * out, which the engine reads as "not known".
+ * `until` (a stored UTC timestamp): the latest change made by then, for reports as of a past day.
  */
-export function previousValues(columnId: number): Map<number, string | null> {
+export function previousValues(columnId: number, until?: string): Map<number, string | null> {
   const rows = getDb().prepare(`
     SELECT h.row_id, h.old_value FROM cell_history h
-    WHERE h.column_id = ? AND h.id = (SELECT MAX(h2.id) FROM cell_history h2 WHERE h2.row_id = h.row_id AND h2.column_id = h.column_id)
-  `).all(columnId) as Array<{ row_id: number; old_value: string | null }>
+    WHERE h.column_id = @columnId AND h.id = (SELECT MAX(h2.id) FROM cell_history h2 WHERE h2.row_id = h.row_id AND h2.column_id = h.column_id
+      AND (@until IS NULL OR h2.changed_at <= @until))
+  `).all({ columnId, until: until ?? null }) as Array<{ row_id: number; old_value: string | null }>
   return new Map(rows.map(r => [r.row_id, r.old_value]))
 }
 

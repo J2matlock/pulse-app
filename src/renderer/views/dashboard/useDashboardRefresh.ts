@@ -34,13 +34,15 @@ export function useListsChanged(onChange: () => void): void {
 
 /**
  * A number that goes up whenever deadlines may have changed: a deadline
- * marked done or undone, a note that counts toward one, sample data, or
- * a list added or deleted. Cards that load their own data list it as an
+ * marked done or undone, a note that counts toward one, sample data,
+ * a list added or deleted, or the day changing at midnight. Cards that load their own data list it as an
  * effect dependency.
  */
 export function useDeadlinesVersion(): number {
   const [version, setVersion] = useState(0)
   useEffect(() => pulseEvents.on('deadline:changed', () => setVersion(v => v + 1)), [])
+  // Due today and overdue move on at midnight
+  useEffect(() => pulseEvents.on('day:changed', () => setVersion(v => v + 1)), [])
   useListsChanged(() => setVersion(v => v + 1))
   return version
 }

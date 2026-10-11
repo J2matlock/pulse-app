@@ -1,11 +1,13 @@
 /**
- * deadlineCalc.ts — Pure deadline computation utilities.
- * No side effects, no store access. Can be used on main or renderer.
+ * deadlineCalc.ts — deadline helpers for the renderer.
+ * Most are pure, but evaluateRuleForRow reads the workspace's days off and the
+ * grid's deadline context from their stores at call time, so this module is
+ * renderer-only. Main works deadlines out in src/main/deadlines.ts.
  */
 
-import type { AlertThreshold, ParsedAlertRule } from '../../shared/types'
+import type { AlertThreshold, GridRow, ParsedAlertRule } from '../../shared/types'
 import { toRuleInterval, type RuleInterval } from '../../shared/ruleInterval'
-import { evaluate, isUsedUp, engineRuleFrom, meterHistoryColumn, referencedColumns, sequenceAnchor, extensionAnchor, matchExtension, applyExtension, ymdToDate, type DeadlineResult } from '../../shared/deadlineEngine'
+import { evaluate, isUsedUp, engineRuleFrom, meterHistoryColumn, referencedColumns, buildRecordContext, extensionAnchor, matchExtension, applyExtension, ymdToDate, type DeadlineResult } from '../../shared/deadlineEngine'
 import { useGridStore } from '../stores/gridStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { localDateString } from '../../shared/dates'
@@ -45,33 +47,34 @@ export function computeDaysUntil(dateValue: string, interval: IntervalInput = 0)
   return evaluateInterval(dateValue, interval).daysUntil
 }
 
+/** What a rule reads from a row: its id (for done flags and counts) and its column values */
+export type RuleRow = Partial<Pick<GridRow, 'row_id'>> & { [key: `col_${number}`]: string | null | undefined }
+
 /**
  * A rule's deadline for one grid row (W05): the engine with the row's other
  * columns and the workspace's days off. Read at call time, like the words.
  */
-export function evaluateRuleForRow(rule: ParsedAlertRule, columnValue: string | null, row: Record<string, unknown>, columnId?: number): DeadlineResult {
+export function evaluateRuleForRow(rule: ParsedAlertRule, columnValue: string | null, row: RuleRow, columnId?: number): DeadlineResult {
   const engineRule = engineRuleFrom(rule)
   const values: Record<number, string | null> = {}
   for (const id of referencedColumns(engineRule)) {
-    const v = row[`col_${id}`]
+    const v = row[`col_${id}` as const]
     values[id] = typeof v === 'string' ? v : null
   }
   const cal = useWorkspaceStore.getState().calendar
   const meterCol = meterHistoryColumn(engineRule)
   const context = useGridStore.getState().deadlineContext
   const meterHistory = meterCol ? context?.meter?.[`${String(row.row_id)}:${meterCol}`] : undefined
-  const activityCount = columnId !== undefined ? context?.quota?.[`${String(row.row_id)}:${columnId}`] ?? 0 : undefined
-  const anchor = sequenceAnchor(engineRule, columnValue, values)
-  const progress = columnId !== undefined
-    ? (context?.progress?.[`${String(row.row_id)}:${columnId}`] ?? []).filter(p => p.anchor === anchor).map(p => p.step)
-    : undefined
-  const prevKey = `${String(row.row_id)}:${columnId}`
-  const previous = columnId !== undefined && context?.previous && prevKey in context.previous ? { previousDone: context.previous[prevKey] ?? null } : {}
-  const finished = columnId !== undefined && context?.finished?.[prevKey] ? { finishedFor: context.finished[prevKey] } : {}
-  const res = evaluate(engineRule, {
-    today: localDateString(), columnDate: columnValue, values, meterHistory, activityCount, progress, ...previous, ...finished,
+  const key = `${String(row.row_id)}:${columnId}`
+  const known = columnId !== undefined
+  const res = evaluate(engineRule, buildRecordContext(engineRule, {
+    today: localDateString(), columnDate: columnValue, values, meterHistory,
+    activityCount: known ? context?.quota?.[key] ?? 0 : undefined,
+    progress: known ? context?.progress?.[key] ?? [] : undefined,
+    previousDone: known && context?.previous && key in context.previous ? context.previous[key] ?? null : undefined,
+    finishedFor: known ? context?.finished?.[key] : undefined,
     holidays: new Set(cal?.holidays ?? []), weekend: cal?.weekend ?? [0, 6],
-  })
+  }))
   const ext = columnId !== undefined
     ? matchExtension(context?.extensions?.[`${String(row.row_id)}:${columnId}`], extensionAnchor(engineRule, columnValue, values), res.step)
     : undefined
@@ -169,7 +172,7 @@ export function formatCalculatedDays(daysUntil: number | null): {
   if (daysUntil === null) return { text: '—', colorClass: 'text-slate-300 dark:text-slate-600', icon: null }
   if (daysUntil > DAYS_FAR_FUTURE) return { text: `${daysUntil} days`, colorClass: '', icon: null }
   if (daysUntil >= DAYS_APPROACHING)  return { text: `${daysUntil} days`, colorClass: '', icon: '📅' }
-  if (daysUntil >= DAYS_IMMINENT)  return { text: `${daysUntil} days`, colorClass: 'text-orange-600 dark:text-orange-400', icon: '⏰' }
+  if (daysUntil >= DAYS_IMMINENT)  return { text: `${daysUntil} days`, colorClass: 'text-orange-700 dark:text-orange-400', icon: '⏰' }
   if (daysUntil === DAYS_DUE_TODAY) return { text: 'Due today', colorClass: 'text-red-600 dark:text-red-400 font-semibold', icon: '⚠️' }
   if (daysUntil >= DAYS_RECENTLY_OVERDUE)  return { text: `${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? '' : 's'} overdue`, colorClass: 'text-red-600 dark:text-red-400 font-semibold', icon: '⚠️' }
   if (daysUntil >= DAYS_OVERDUE) return { text: `${Math.abs(daysUntil)} days overdue`, colorClass: 'text-red-700 dark:text-red-300 font-bold', icon: '⚠️' }

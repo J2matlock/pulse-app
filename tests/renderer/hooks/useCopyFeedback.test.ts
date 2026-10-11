@@ -5,19 +5,22 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 
 // Mock window.api.copyToClipboard
-const mockCopyToClipboard = vi.fn().mockResolvedValue(undefined)
+const mockCopyToClipboard = vi.fn().mockResolvedValue({ ok: true, data: true })
 Object.defineProperty(window, 'api', {
   value: { copyToClipboard: mockCopyToClipboard },
   writable: true,
   configurable: true,
 })
 
+const toastError = vi.hoisted(() => vi.fn())
+vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: toastError, success: vi.fn() }) }))
+
 import { useCopyFeedback, useCopyFeedbackKeyed, COPY_FEEDBACK_MS } from '../../../src/renderer/hooks/useCopyFeedback'
 
 describe('useCopyFeedback (simple)', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    mockCopyToClipboard.mockReset().mockResolvedValue(undefined)
+    mockCopyToClipboard.mockReset().mockResolvedValue({ ok: true, data: true })
   })
 
   afterEach(() => {
@@ -79,6 +82,17 @@ describe('useCopyFeedback (simple)', () => {
     expect(result.current.copied).toBe(false)
   })
 
+  it('does not say copied, and says why, when main refused the copy', async () => {
+    mockCopyToClipboard.mockResolvedValueOnce({ ok: false, error: "That's too much text to copy at once." })
+    const { result } = renderHook(() => useCopyFeedback())
+
+    await act(async () => {
+      await result.current.copyToClipboard('x'.repeat(10))
+    })
+    expect(result.current.copied).toBe(false)
+    expect(toastError).toHaveBeenCalledWith("That's too much text to copy at once.")
+  })
+
   it('clears timeout on unmount', async () => {
     const { result, unmount } = renderHook(() => useCopyFeedback())
 
@@ -86,8 +100,10 @@ describe('useCopyFeedback (simple)', () => {
       await result.current.copyToClipboard('test')
     })
 
+    expect(vi.getTimerCount()).toBe(1)
     unmount()
-    // Should not throw when timer fires after unmount
+    // The reset timer is cleared, so nothing fires against an unmounted component
+    expect(vi.getTimerCount()).toBe(0)
     vi.advanceTimersByTime(COPY_FEEDBACK_MS)
   })
 })
@@ -95,7 +111,7 @@ describe('useCopyFeedback (simple)', () => {
 describe('useCopyFeedbackKeyed', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    mockCopyToClipboard.mockReset().mockResolvedValue(undefined)
+    mockCopyToClipboard.mockReset().mockResolvedValue({ ok: true, data: true })
   })
 
   afterEach(() => {

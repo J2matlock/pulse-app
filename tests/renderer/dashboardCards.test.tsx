@@ -83,5 +83,8 @@ describe('cards that load their own deadlines', () => {
     expect(loads()).toBe(2)
     await act(async () => { pulseEvents.emit('sample-data:changed'); await new Promise(r => setTimeout(r, 0)) })
     expect(loads()).toBe(3)
+    // And at midnight, when due today and overdue move on (AUDIT-025)
+    await act(async () => { pulseEvents.emit('day:changed', { date: '2026-10-12' }); await new Promise(r => setTimeout(r, 0)) })
+    expect(loads()).toBe(4)
   })
 })

@@ -118,7 +118,7 @@ describe('Sidebar', () => {
     renderSidebar(false, '/grid')
     fireEvent.click(screen.getAllByRole('button', { name: /options$/ })[0]!)
     fireEvent.click(screen.getByText(/^Delete .*…$/))
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Move to Trash' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Move to the Trash' })) })
     expect(mockDeleteGrid).toHaveBeenCalledWith(1)
     expect(mockNavigate).toHaveBeenCalledWith('/grid')
     expect(mockNavigate).not.toHaveBeenCalledWith('/dashboard')
@@ -233,6 +233,21 @@ describe('Sidebar', () => {
     expect(mockReorderGrids).toHaveBeenLastCalledWith([2, 1])
   })
 
+  it('the options menu takes focus, answers the arrow keys, and Escape closes it and gives focus back (AUDIT-044)', () => {
+    renderSidebar()
+    const trigger = screen.getAllByRole('button', { name: /options$/ })[0] as HTMLElement
+    trigger.focus()
+    fireEvent.click(trigger)
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    const items = screen.getAllByRole('menuitem')
+    expect(document.activeElement).toBe(items[0])
+    fireEvent.keyDown(items[0] as HTMLElement, { key: 'End' })
+    expect(document.activeElement).toBe(items[items.length - 1])
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
   it("the Tasks badge leaves out snoozed tasks and tasks of a list in the Trash (bug sweep S2/S5)", async () => {
     const { useTaskStore } = await import('../../../../src/renderer/stores/taskStore')
     const { localDateString } = await import('../../../../src/shared/dates')
@@ -249,6 +264,21 @@ describe('Sidebar', () => {
     const tasksBtn = screen.getByText('Tasks').closest('button')!
     expect(tasksBtn.textContent).toContain('2')
     expect(tasksBtn.textContent).not.toContain('4')
+    useTaskStore.setState({ tasks: [] })
+  })
+
+  it('the Tasks badge says what its number means, open and collapsed (audit A06-29)', async () => {
+    const { useTaskStore } = await import('../../../../src/renderer/stores/taskStore')
+    const base = { description: null, priority: 'normal', category: null, recurrence_rule: null, is_completed: 0, completed_at: null, position: 0, group_id: null, created_at: '', updated_at: '', snoozed_until: null }
+    useTaskStore.setState({ tasks: [
+      { ...base, id: 1, grid_id: null, title: 'Late', due_date: '2020-01-01' },
+      { ...base, id: 2, grid_id: null, title: 'Late too', due_date: '2020-01-02' },
+    ] as never })
+    const { unmount } = renderSidebar()
+    expect(screen.getByRole('button', { name: 'Tasks, 2 due today or overdue' })).toBeTruthy()
+    unmount()
+    renderSidebar(true)
+    expect(screen.getByRole('button', { name: 'Tasks, 2 due today or overdue' })).toBeTruthy()
     useTaskStore.setState({ tasks: [] })
   })
 })

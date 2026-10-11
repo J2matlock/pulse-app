@@ -33,7 +33,8 @@ export function sequencesAnchoredOn(columnId: number, columns: Column[], rules: 
 export function AnchorChangeDialog(): React.ReactElement | null {
   const [pending, setPending] = useState<Pending | null>(null)
   const trapRef = React.useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, !!pending)
+  // Escape leaves the steps alone, like "It's a new start" (AUDIT-046)
+  useFocusTrap(trapRef, !!pending, { onEscape: () => setPending(null) })
 
   useEffect(() => pulseEvents.on('cell:changed', ({ rowId, columnId, from, to }) => {
     const f = toYmd(from), t = toYmd(to)

@@ -40,7 +40,7 @@ export function computedColumnNumber(col: Column, row: GridRow, columns: readonl
   if (col.column_type !== 'calculated_days') return null
   const rule = ruleFor(columns.find(c => c.id === srcId), rules)
   if (rule) {
-    const res = evaluateRuleForRow(rule, value, row as unknown as Record<string, unknown>, srcId)
+    const res = evaluateRuleForRow(rule, value, row, srcId)
     return res.state === 'done' || res.state === 'paused' ? null : res.daysUntil
   }
   return value ? computeDaysUntil(value) : null
@@ -64,7 +64,7 @@ export function withComputedValues(row: GridRow, columns: readonly Column[], rul
     if (!isComputedColumnType(col.column_type)) continue
     const n = computedColumnNumber(col, row, columns, rules)
     out ??= { ...row }
-    ;(out as unknown as Record<string, unknown>)[`col_${col.id}`] = n === null ? null : String(n)
+    out[`col_${col.id}` as const] = n === null ? null : String(n)
   }
   return out ?? row
 }

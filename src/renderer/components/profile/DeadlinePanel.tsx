@@ -15,6 +15,7 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import { IPC } from '../../../shared/ipc-channels'
 import { extendDeadline, removeExtension } from '../../views/dashboard/extendDeadline'
 import { localDateString } from '../../../shared/dates'
+import { useToday } from '../../hooks/useToday'
 import { hasInterval, toRuleInterval } from '../../../shared/ruleInterval'
 
 /** Maps a bgClass to a solid (full-opacity) hex color for borders / progress bars. */
@@ -140,6 +141,8 @@ export function DeadlinePanel({
   const [askReading, setAskReading] = useState<{ col: Column; rawValue: string | null; rule: ParsedAlertRule } | null>(null)
   const [askOneOff, setAskOneOff] = useState<{ col: Column; rawValue: string | null; rule: ParsedAlertRule; due: string | null } | null>(null)
   const refreshContext = () => useGridStore.getState().refreshDeadlineContext()
+  // Days-until is worked out on every render: render again when the day changes at midnight
+  useToday()
 
   const deadlines: DateDeadline[] = columns
     .filter(c => {
@@ -163,7 +166,7 @@ export function DeadlinePanel({
 
       // Other kinds than "date + interval" (W05) can be due with this cell empty: the engine decides
       if (rule && rule.kind && rule.kind !== 'interval') {
-        const result = evaluateRuleForRow(rule, rawValue, row as unknown as Record<string, unknown>, col.id)
+        const result = evaluateRuleForRow(rule, rawValue, row, col.id)
         const d = result.daysUntil
         const threshold = d !== null ? getAlertThreshold(d, rule) : null
         return { col, rawValue, rule, daysUntil: d, bgClass: threshold?.bgClass ?? null, urgencyScore: d ?? Infinity, result, engine: result }
@@ -174,7 +177,7 @@ export function DeadlinePanel({
       }
 
       // The engine too, so an extension (W05) moves the date here as everywhere else
-      const engineResult = rule ? evaluateRuleForRow(rule, rawValue, row as unknown as Record<string, unknown>, col.id) : null
+      const engineResult = rule ? evaluateRuleForRow(rule, rawValue, row, col.id) : null
       const daysUntil = engineResult ? engineResult.daysUntil : computeDaysUntil(rawValue, toRuleInterval(rule))
       // A one-off date marked Finished (Decision E1): say so, as the list's chip does
       if (engineResult?.state === 'done') {

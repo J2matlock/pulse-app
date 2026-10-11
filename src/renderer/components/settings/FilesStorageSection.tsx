@@ -25,7 +25,7 @@ export function FilesStorageSection(): React.ReactElement {
 
   async function emptyTrash() {
     const r = await safeInvoke<number>(IPC.ATTACHMENT_PURGE)
-    if (r.ok) { toast.success(r.data ? `Removed ${r.data} file${r.data === 1 ? '' : 's'} from the trash` : 'No files in the trash'); void load() } else toast.error(friendlyError(r.error))
+    if (r.ok) { toast.success(r.data ? `Removed ${r.data} file${r.data === 1 ? '' : 's'} from the Trash` : 'No files in the Trash'); void load() } else toast.error(friendlyError(r.error))
   }
 
   const pct = usage ? Math.min(100, Math.round((usage.bytes / usage.limitBytes) * 100)) : 0
@@ -34,7 +34,7 @@ export function FilesStorageSection(): React.ReactElement {
       <h3 id="files-storage-heading" className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2"><Paperclip className="w-5 h-5" aria-hidden="true" />Files</h3>
       {usage && (
         <>
-          <p className="text-base text-slate-700 dark:text-slate-200">{usage.count} file{usage.count === 1 ? '' : 's'} using {formatBytes(usage.bytes)} of {formatBytes(usage.limitBytes)}, including any in the trash.</p>
+          <p className="text-base text-slate-700 dark:text-slate-200">{usage.count} file{usage.count === 1 ? '' : 's'} using {formatBytes(usage.bytes)} of {formatBytes(usage.limitBytes)}, including any in the Trash.</p>
           <div className="h-3 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden" role="progressbar" aria-label="Room used by files" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
             <div className={`h-full ${pct > 90 ? 'bg-red-500' : pct > 70 ? 'bg-amber-500' : 'bg-blue-500'}`} style={{ width: `${pct}%` }} />
           </div>
@@ -46,7 +46,7 @@ export function FilesStorageSection(): React.ReactElement {
           <input type="number" min={LIMIT_MB_RANGE.min} max={LIMIT_MB_RANGE.max} className="input w-32 mt-1 block" value={limit} onChange={e => setLimit(e.target.value)} />
         </label>
         <button type="button" className="btn-secondary" onClick={() => void saveLimit()}>Save</button>
-        <button type="button" className="btn-secondary" onClick={() => void emptyTrash()}>Remove files in the trash now</button>
+        <button type="button" className="btn-secondary" onClick={() => void emptyTrash()}>Remove files in the Trash now</button>
       </div>
       <p className="text-sm text-slate-500 dark:text-slate-400">Files are kept inside the encrypted database, so they're part of every backup. Bigger files make backups slower.</p>
     </section>

@@ -5,6 +5,7 @@ import { GroupPicker } from '../components/shared/GroupPicker'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   DndContext,
+  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -12,8 +13,10 @@ import {
 } from '@dnd-kit/core'
 import {
   SortableContext,
+  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
+import { dndAccessibility } from '../utils/dndAnnouncements'
 import { useShallow } from 'zustand/react/shallow'
 import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { EmptyState } from '../components/shared/EmptyState'
@@ -28,6 +31,7 @@ import { IPC } from '../../shared/ipc-channels'
 import type { CaseloadTask, TaskGroup as TaskGroupType, UrgentChecklistItem } from '../../shared/types'
 import { safeInvoke, mustInvoke } from '../utils/safeInvoke'
 import { rlog } from '../utils/rendererLogger'
+import { friendlyError } from '../utils/friendlyError'
 import { pulseEvents } from '../events'
 import { tickChecklistItem } from '../utils/checklistTick'
 import { resolveGroupDrop, groupAwareCollision } from './tasks/groupDrag'
@@ -42,6 +46,7 @@ import { UrgentChecklistSection } from './tasks/UrgentChecklistSection'
 import { isMod, modHelp } from '../utils/keys'
 import { useVocab } from '../hooks/useVocab'
 import { useFeature } from '../hooks/useFeature'
+import { useToday } from '../hooks/useToday'
 
 export default function TasksView(): React.ReactElement {
   const checklistsOn = useFeature('checklists')
@@ -90,8 +95,10 @@ export default function TasksView(): React.ReactElement {
     return () => clearTimeout(t)
   }, [loading])
 
+  // Tasks and groups move from the keyboard too: Space on a handle, arrows, Space (AUDIT-049)
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
   const loadUrgentItems = useCallback(async () => {
@@ -135,6 +142,9 @@ export default function TasksView(): React.ReactElement {
     const timers = checkedTimersRef.current
     return () => { timers.forEach(t => clearTimeout(t)) }
   }, [])
+
+  // Which checklist items are urgent depends on the day
+  useEffect(() => pulseEvents.on('day:changed', () => { void loadUrgentItems() }), [loadUrgentItems])
 
   // Reload urgent items when undo/redo updates checklist state externally (cross-mount)
   useEffect(() => {
@@ -333,7 +343,9 @@ export default function TasksView(): React.ReactElement {
       else next.delete(groupId)
       return next
     })
-    await safeInvoke(IPC.TASK_GROUP_UPDATE, groupId, { is_collapsed: newCollapsed ? 1 : 0 })
+    // Only the open/closed look; the screen keeps it for this visit either way
+    const res = await safeInvoke(IPC.TASK_GROUP_UPDATE, groupId, { is_collapsed: newCollapsed ? 1 : 0 })
+    if (!res.ok) rlog.warn('TasksView', 'Could not save group collapse state', res.error)
   }, [collapsedGroups])
 
   const hasTaskGroups = taskGroups.length > 0
@@ -345,10 +357,13 @@ export default function TasksView(): React.ReactElement {
     [tasks, recentlyCheckedIds]
   )
 
+  // Moves on at midnight: overdue counts and snoozed tasks coming back
+  const today = useToday()
+
   const activeManualItems = useMemo(() => {
-    const nonSnoozed = activeRaw.filter(t => !isSnoozed(t))
+    const nonSnoozed = activeRaw.filter(t => !isSnoozed(t, today))
     return [...nonSnoozed].sort((a, b) => a.position - b.position)
-  }, [activeRaw])
+  }, [activeRaw, today])
 
   // Grouped items memo (only used in manual mode with groups)
   const groupedActiveTasks = useMemo(() => {
@@ -375,8 +390,8 @@ export default function TasksView(): React.ReactElement {
   const activeManualRef = useRef(activeManualItems)
   activeManualRef.current = activeManualItems
 
-  const overdueTasks = useMemo(() => activeRaw.filter(t => !isSnoozed(t) && isOverdue(t)), [activeRaw])
-  const snoozedTasks = useMemo(() => tasks.filter(t => t.is_completed !== 1 && isSnoozed(t)), [tasks])
+  const overdueTasks = useMemo(() => activeRaw.filter(t => !isSnoozed(t, today) && isOverdue(t, today)), [activeRaw, today])
+  const snoozedTasks = useMemo(() => tasks.filter(t => t.is_completed !== 1 && isSnoozed(t, today)), [tasks, today])
 
   const completedTasks = useMemo(() =>
     tasks.filter(t => t.is_completed === 1 && !recentlyCheckedIds.has(t.id))
@@ -393,6 +408,16 @@ export default function TasksView(): React.ReactElement {
   const progressPct = totalAll > 0 ? Math.round((completedTasks.length / totalAll) * 100) : 0
   const progressColor = progressPct === 100 ? '#22c55e' : progressPct >= 50 ? '#eab308' : '#94a3b8'
 
+  // A screen reader hears the task's or group's name while it moves, not its id
+  const dragA11y = useMemo(() => dndAccessibility(id => {
+    const s = String(id)
+    if (s.startsWith('group-')) {
+      const g = taskGroups.find(x => `group-${x.id}` === s)
+      return g ? `${g.name} group` : null
+    }
+    return tasks.find(t => t.id === id)?.title
+  }), [tasks, taskGroups])
+
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event
     if (!over) return
@@ -402,8 +427,13 @@ export default function TasksView(): React.ReactElement {
 
     if (drop.kind === 'groups') {
       const byId = new Map(taskGroups.map(g => [g.id, g]))
+      const before = taskGroups
       setTaskGroups(drop.order.map((id, i) => ({ ...byId.get(id)!, position: i })))
-      await safeInvoke(IPC.TASK_GROUP_REORDER, drop.order)
+      const res = await safeInvoke(IPC.TASK_GROUP_REORDER, drop.order)
+      if (!res.ok) {
+        setTaskGroups(before)
+        toast.error(friendlyError(res.error, "We couldn't move that group — try again"))
+      }
       return
     }
 
@@ -422,8 +452,13 @@ export default function TasksView(): React.ReactElement {
       await loadTasks()
       return
     }
-    await safeInvoke(IPC.TASK_REORDER, newOrder)
+    const reordered = await safeInvoke(IPC.TASK_REORDER, newOrder)
     await loadTasks()
+    if (!reordered.ok) {
+      // The move to the new group saved; only its place in the list didn't, so there's nothing to undo here
+      toast.error(friendlyError(reordered.error, "We couldn't save the new order — try again"))
+      return
+    }
     useUndoStore.getState().push({
       id: crypto.randomUUID(),
       description: `Moved task "${task?.title ?? ''}" to another group`,
@@ -611,7 +646,7 @@ export default function TasksView(): React.ReactElement {
                   </SortableContext>
                 </DndContext>
               ) : (
-                <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd}>
+                <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd} accessibility={dragA11y}>
                   {!hasTaskGroups ? (
                     /* Flat mode (no groups) */
                     <SortableContext items={activeManualItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
@@ -870,7 +905,7 @@ export default function TasksView(): React.ReactElement {
         open={confirmDeleteGroup !== null}
         title="Delete group"
         message={`Delete group "${confirmDeleteGroup?.name}"? Items will become ungrouped.`}
-        confirmLabel="Delete"
+        confirmLabel="Delete group"
         destructive
         onConfirm={() => confirmDeleteGroup && void handleDeleteGroup(confirmDeleteGroup.id)}
         onCancel={() => setConfirmDeleteGroup(null)}
@@ -881,7 +916,7 @@ export default function TasksView(): React.ReactElement {
         open={showClearConfirm}
         title="Delete completed tasks"
         message={`Delete ${completedTasks.length} completed task${completedTasks.length === 1 ? '' : 's'}? You can undo this.`}
-        confirmLabel="Delete"
+        confirmLabel={`Delete ${completedTasks.length} task${completedTasks.length === 1 ? '' : 's'}`}
         destructive
         onConfirm={async () => { setShowClearConfirm(false); await deleteTasks(completedTasks.map(t => t.id)); setShowCompleted(false) }}
         onCancel={() => setShowClearConfirm(false)}

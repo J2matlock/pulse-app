@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * build-linux.js — Build Linux AppImage using a staging directory.
+ * build-linux.js — Build the Linux AppImage using a staging directory.
  *
  * electron-builder's node_modules scanner OOMs on large dev trees.
  * This script creates a clean staging directory with only production
@@ -8,14 +8,17 @@
  *
  * Steps:
  *   1. electron-vite build (creates out/)
- *   2. Create staging dir with out/, package.json, and production node_modules
- *   3. Rebuild native module for Linux in staging
+ *   2. Create staging dir with out/, package.json, package-lock.json and
+ *      production node_modules (npm ci, so versions match the lock)
+ *   3. Check the SQLCipher module's bundled Linux binary (Node-API, so the
+ *      same prebuilt binary works with any Electron version; no rebuild)
  *   4. Run electron-builder --linux from the staging dir
- *   5. Copy artifacts back and clean up
+ *   5. Check the AppImage exists, copy it to dist/ and clean up
  */
 const { execSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
+const { writeStagingPackage, STAGING_INSTALL_CMD, assertStagedDepsMatchLock } = require('./staging-deps')
 
 const ROOT = path.resolve(__dirname, '..')
 const STAGING = path.join(ROOT, '.build-staging')
@@ -60,40 +63,28 @@ fs.copyFileSync(
 // Read the real package.json
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 
-// Create a minimal package.json for electron-builder
-const stagingPkg = {
-  name: pkg.name,
-  version: pkg.version,
-  description: pkg.description,
-  author: pkg.author,
-  main: pkg.main,
-  homepage: pkg.homepage,
-  dependencies: pkg.dependencies,
-  build: {
-    ...pkg.build,
-    npmRebuild: false, // we rebuild manually below
-  }
-}
-fs.writeFileSync(
-  path.join(STAGING, 'package.json'),
-  JSON.stringify(stagingPkg, null, 2)
-)
+// Minimal package.json + package-lock.json + license files for electron-builder
+writeStagingPackage(ROOT, STAGING, pkg, {
+  npmRebuild: false, // the native module ships prebuilt (Node-API)
+})
 
-// Install production deps in the staging directory (clean, small tree)
+// Install production deps in the staging directory (clean, small tree), at
+// exactly the versions in package-lock.json
 console.log('[build-linux] Installing production dependencies in staging...')
-run('npm install --production --ignore-scripts --legacy-peer-deps', { cwd: STAGING })
+run(STAGING_INSTALL_CMD, { cwd: STAGING })
+assertStagedDepsMatchLock(ROOT, STAGING)
 
 // Check staging node_modules size
 const stagingNmSize = runQuiet(`du -sh "${path.join(STAGING, 'node_modules')}"`)
 console.log(`[build-linux] Staging node_modules: ${stagingNmSize.split('\t')[0]}`)
 
-// ---------- step 3: rebuild native module for Linux ----------
-console.log('\n=== Step 3: Rebuild native module for Linux ===')
+// ---------- step 3: check the native module ----------
+console.log('\n=== Step 3: Check native module for Linux ===')
 const electronVersion = require('electron/package.json').version
-run(`npx electron-rebuild -f -w better-sqlite3-multiple-ciphers --module-dir "${STAGING}"`)
 
-// Verify the native binary is ELF (Linux)
-const nativePath = path.join(STAGING, 'node_modules', 'better-sqlite3-multiple-ciphers', 'build', 'Release', 'better_sqlite3.node')
+// better-sqlite3-multiple-ciphers 13+ bundles a Node-API binary per platform;
+// package.json build.linux.files leaves the other platforms' binaries out
+const nativePath = path.join(STAGING, 'node_modules', 'better-sqlite3-multiple-ciphers', 'prebuilds', 'linux-x64.node')
 if (fs.existsSync(nativePath)) {
   const fileType = runQuiet(`file "${nativePath}"`)
   if (!fileType.includes('ELF')) {
@@ -127,6 +118,14 @@ run(`npx electron-builder --linux --project "${STAGING}" -c.electronVersion=${el
 // ---------- step 5: copy artifacts ----------
 console.log('\n=== Step 5: Copy artifacts ===')
 const stagingDist = path.join(STAGING, 'dist')
+// The AppImage must have been built (a missing AppImage tool can fail quietly)
+const artifacts = [`BaringaSoftPulse-${pkg.version}.AppImage`]
+for (const a of artifacts) {
+  if (!fs.existsSync(path.join(stagingDist, a))) {
+    console.error(`[build-linux] ERROR: ${a} was not built`)
+    process.exit(1)
+  }
+}
 if (fs.existsSync(stagingDist)) {
   fs.mkdirSync(DIST, { recursive: true })
   const files = fs.readdirSync(stagingDist)
@@ -150,10 +149,7 @@ fs.rmSync(STAGING, { recursive: true, force: true })
 console.log('[build-linux] Staging directory removed')
 
 console.log('\n=== Build complete! ===')
-if (fs.existsSync(DIST)) {
-  const artifacts = fs.readdirSync(DIST).filter(f => f.endsWith('.AppImage'))
-  for (const a of artifacts) {
-    const size = fs.statSync(path.join(DIST, a)).size
-    console.log(`  ${a} (${(size / 1024 / 1024).toFixed(1)} MB)`)
-  }
+for (const a of artifacts) {
+  const size = fs.statSync(path.join(DIST, a)).size
+  console.log(`  ${a} (${(size / 1024 / 1024).toFixed(1)} MB)`)
 }

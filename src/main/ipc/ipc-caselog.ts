@@ -88,14 +88,18 @@ export function registerCaseLogHandlers(): void {
     if (day && typeof day === 'object') return fail(day.error)
     const noteDay = day ?? localDateString()
     const db = getDb()
-    const result = db.prepare(`
-      INSERT INTO case_log (row_id, content, log_type, follow_up_date, minutes, miles, extra_measures, occurred_at, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-    `).run(rowId, content, logType, followUpDate ?? null, m.minutes, m.miles, extra, occurredTimestamp(noteDay))
-    const entry = db.prepare(`SELECT ${CASE_LOG_COLS} FROM case_log WHERE id = ?`).get(result.lastInsertRowid) as CaseLogEntry
-    // A date column can follow notes of chosen types ("Last Face-to-Face" ← Visit), set to the day it happened
-    let updated_dates: NoteDateUpdate[] = []
-    try { updated_dates = applyNoteDateUpdates(rowId, logType, noteDay, entry.id) } catch (err) { logNonFatal('ipc-caselog', 'note date updates', err) }
+    // The note and the dates it moves are saved together: a note saying "Visit" while
+    // "Last Visit" never moved would be wrong without anyone knowing (AUDIT-105)
+    const { entry, updated_dates } = db.transaction(() => {
+      const result = db.prepare(`
+        INSERT INTO case_log (row_id, content, log_type, follow_up_date, minutes, miles, extra_measures, occurred_at, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      `).run(rowId, content, logType, followUpDate ?? null, m.minutes, m.miles, extra, occurredTimestamp(noteDay))
+      const entry = db.prepare(`SELECT ${CASE_LOG_COLS} FROM case_log WHERE id = ?`).get(result.lastInsertRowid) as CaseLogEntry
+      // A date column can follow notes of chosen types ("Last Face-to-Face" ← Visit), set to the day it happened
+      const updated_dates: NoteDateUpdate[] = applyNoteDateUpdates(rowId, logType, noteDay, entry.id)
+      return { entry, updated_dates }
+    })()
     notifyCaseLogChanged(rowId)
     return ok({ ...entry, updated_dates })
   })
@@ -138,7 +142,7 @@ export function registerCaseLogHandlers(): void {
     const recent = cachedStmt('case_log_recent', `SELECT row_id FROM case_log WHERE id = ? AND created_at >= datetime('now', ?)`)
       .get(id, `-${CASE_NOTE_DELETE_WINDOW_MINUTES} minutes`) as { row_id: number } | undefined
     if (!recent) {
-      return fail(`Notes older than ${CASE_NOTE_DELETE_WINDOW_MINUTES} minutes can't be deleted. Void it instead — it stays in the record but is hidden.`)
+      return fail(`${word('activity', { many: true, cap: true })} older than ${CASE_NOTE_DELETE_WINDOW_MINUTES} minutes can't be deleted. Void it instead: it's kept but hidden.`)
     }
     // Dates the note moved go back first (L-05)
     const reverted_dates = db.transaction((): NoteDateRevert[] => {
@@ -264,7 +268,7 @@ export function registerCaseLogHandlers(): void {
     const db = getDb()
     // Verify the ID doesn't collide with an existing record to prevent overwriting
     const existing = db.prepare('SELECT id FROM case_log WHERE id = ?').get(entry.id)
-    if (existing) return fail('Case log entry with this ID already exists')
+    if (existing) return fail(`That ${word('activity')} is already there.`)
     const restoredMeasures = validMeasures({ minutes: entry.minutes, miles: entry.miles })
     // A number archived since the note was written still comes back with it
     const restoredExtra = cleanExtraMeasures(parseExtraMeasures(entry.extra_measures), { allowArchived: true })
@@ -346,7 +350,7 @@ export function registerCaseLogHandlers(): void {
   secureWrap(IPC.SCRAP_NOTE_UPDATE, 'ipc-caselog', (_e, rowId: number, content: string) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(rowId)) return fail('Invalid ID')
-    if (typeof content !== 'string' || content.length > 500_000) return fail('Scrap note too large (max 500,000 characters)')
+    if (typeof content !== 'string' || content.length > 500_000) return fail('Scratch notes can be up to 500,000 characters.')
     getDb().prepare(`
       INSERT INTO scrap_notes (row_id, content, updated_at)
       VALUES (?, ?, datetime('now'))

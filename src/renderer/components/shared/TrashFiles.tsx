@@ -15,7 +15,7 @@ type TrashedFile = Attachment & { record_name: string | null }
 interface Props {
   /** Changing it reloads the list (the Trash page purged records, and their files with them) */
   reloadKey?: number
-  /** How many files are listed, so the page can count them in its empty state and Empty Trash */
+  /** How many files are listed, so the page can count them in its empty state and Empty the Trash */
   onCountChange?: (count: number) => void
 }
 
@@ -56,9 +56,9 @@ export function TrashFiles({ reloadKey = 0, onCountChange }: Props = {}): React.
       </ul>
       <ConfirmDialog
         open={purge !== null}
-        title="Delete this file for good?"
+        title="Delete this file forever?"
         message={`"${purge?.file_name ?? ''}" will be removed from Pulse. This cannot be undone.`}
-        confirmLabel="Delete Permanently"
+        confirmLabel="Delete forever"
         destructive
         onConfirm={async () => {
           if (purge) {

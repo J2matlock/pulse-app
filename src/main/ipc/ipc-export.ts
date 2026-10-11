@@ -58,6 +58,33 @@ function failedBeforeReplace(corrId: string, err: unknown) {
   return fail(describeRestoreError(err))
 }
 
+/**
+ * Open the database a restore just put in place. openDatabase() runs migrations
+ * on the restored (possibly older) data; they are idempotent, so that's safe.
+ * If it won't open, copy the safety backup made before the restore back over it.
+ * Returns a plain failure to send to the renderer, or null when all is well.
+ */
+function openRestoredOrRollBack(corrId: string, safetyPath: string): ReturnType<typeof fail> | null {
+  try {
+    openDatabase()
+    return null
+  } catch (openErr) {
+    logger.error('ipc-export', `[${corrId}] Failed to open restored database, rolling back to safety backup`, openErr)
+  }
+  if (!existsSync(safetyPath)) {
+    return fail("That backup couldn't be opened. Close Pulse and open it again. If your data is missing, restore a different backup from Settings → Backup.")
+  }
+  try {
+    closeDatabase()
+    copyFileSync(safetyPath, resolveDatabasePath())
+    openDatabase()
+  } catch (rollbackErr) {
+    logger.error('ipc-export', `[${corrId}] Safety backup rollback also failed`, rollbackErr)
+    return fail(`That backup couldn't be opened, and Pulse couldn't put your previous data back on its own. A copy of it is saved at ${safetyPath}. Close Pulse, open it again, and restore that copy from Settings → Backup.`)
+  }
+  return fail("That backup couldn't be opened, so Pulse put your previous data back. Nothing was lost.")
+}
+
 export function registerExportHandlers(): void {
   // ── Backup (Auto listing) ──────────────────────────────────────────────────
   secureWrap(IPC.BACKUP_AUTO_LIST, 'ipc-export', () => {
@@ -103,6 +130,9 @@ export function registerExportHandlers(): void {
   })
 
   secureWrap(IPC.BACKUP_RESTORE_AUTO, 'ipc-export', async (_e, backupDbPath: string) => {
+    // A restore replaces every piece of data, so it is the first write a
+    // read-only mode (e.g. viewing a backup) must stop; leave that mode first
+    const guard = enforceWritable(); if (guard) return guard
     return withCorrelation('backup-restore-auto', async (corrId) => {
       assertSafePath(backupDbPath)
       logger.info('ipc-export', `[${corrId}] restoring from auto backup: ${backupDbPath}`)
@@ -112,34 +142,17 @@ export function registerExportHandlers(): void {
       } catch (err) {
         return failedBeforeReplace(corrId, err)
       }
-      // openDatabase() will run migrations on the restored (possibly older) DB.
-      // Migrations are designed to be idempotent (IF NOT EXISTS / column-exists checks),
-      // so upgrading a restored older DB to the current schema is safe.
-      try {
-        openDatabase()
-      } catch (openErr) {
-        logger.error('ipc-export', `[${corrId}] Failed to open restored database, rolling back to safety backup`, openErr)
-        // Roll back: copy the safety backup back over the broken restored DB
-        const dbPath = resolveDatabasePath()
-        if (existsSync(safetyPath)) {
-          try {
-            closeDatabase()
-            copyFileSync(safetyPath, dbPath)
-            openDatabase()
-          } catch (rollbackErr) {
-            logger.error('ipc-export', `[${corrId}] Safety backup rollback also failed`, rollbackErr)
-            return fail('Restore failed: could not open the restored database, and recovery from the safety backup also failed. Your safety backup is preserved at: ' + safetyPath)
-          }
-          return fail('Restore failed: could not open the restored database. Your previous data has been preserved.')
-        }
-        return fail('Restore failed: could not open the restored database and no safety backup was available.')
-      }
+      const openFailure = openRestoredOrRollBack(corrId, safetyPath)
+      if (openFailure) return openFailure
       logger.info('ipc-export', `[${corrId}] restore complete, safety backup at ${safetyPath}`)
       return ok({ safetyPath })
     })
   })
 
   secureWrap(IPC.BACKUP_RESTORE_FILE, 'ipc-export', async (_e, backupPath: string) => {
+    // A restore replaces every piece of data, so it is the first write a
+    // read-only mode (e.g. viewing a backup) must stop; leave that mode first
+    const guard = enforceWritable(); if (guard) return guard
     return withCorrelation('backup-restore-file', async (corrId) => {
       assertSafePath(backupPath)
       logger.info('ipc-export', `[${corrId}] restoring from file: ${backupPath}`)
@@ -150,27 +163,8 @@ export function registerExportHandlers(): void {
       } catch (err) {
         return failedBeforeReplace(corrId, err)
       }
-      // openDatabase() will run migrations on the restored (possibly older) DB.
-      // Migrations are designed to be idempotent (IF NOT EXISTS / column-exists checks),
-      // so upgrading a restored older DB to the current schema is safe.
-      try {
-        openDatabase()
-      } catch (openErr) {
-        logger.error('ipc-export', `[${corrId}] Failed to open restored database, rolling back to safety backup`, openErr)
-        const dbPath = resolveDatabasePath()
-        if (existsSync(safetyPath)) {
-          try {
-            closeDatabase()
-            copyFileSync(safetyPath, dbPath)
-            openDatabase()
-          } catch (rollbackErr) {
-            logger.error('ipc-export', `[${corrId}] Safety backup rollback also failed`, rollbackErr)
-            return fail('Restore failed: could not open the restored database, and recovery from the safety backup also failed. Your safety backup is preserved at: ' + safetyPath)
-          }
-          return fail('Restore failed: could not open the restored database. Your previous data has been preserved.')
-        }
-        return fail('Restore failed: could not open the restored database and no safety backup was available.')
-      }
+      const openFailure = openRestoredOrRollBack(corrId, safetyPath)
+      if (openFailure) return openFailure
       logger.info('ipc-export', `[${corrId}] restore complete, safety backup at ${safetyPath}`)
       return ok({ safetyPath })
     })
@@ -178,6 +172,7 @@ export function registerExportHandlers(): void {
 
   // A backup made by another Pulse: unlocked with that Pulse's password or recovery key
   secureWrap(IPC.BACKUP_RESTORE_OTHER, 'ipc-export', async (_e, backupPath: string, secret: string, newPassword: string, hint: string) => {
+    const guard = enforceWritable(); if (guard) return guard
     return withCorrelation('backup-restore-other', async (corrId) => {
       if (typeof backupPath !== 'string' || backupPath.length === 0 || backupPath.length > 4096) return fail('Choose a backup file')
       if (typeof secret !== 'string' || secret.length === 0 || secret.length > 1024) return fail('Enter the password or recovery key used with this backup')
@@ -221,12 +216,14 @@ export function registerExportHandlers(): void {
     if (!config || typeof config !== 'object') return fail('Invalid config')
     if (typeof config.enabled !== 'boolean') return fail('Invalid enabled flag')
     if (typeof config.intervalHours !== 'number' || config.intervalHours < 1 || config.intervalHours > 720) return fail('Invalid interval (must be 1-720 hours)')
-    if (config.destinationDir !== undefined && config.destinationDir !== null) {
-      if (typeof config.destinationDir !== 'string') return fail('Invalid destination directory')
-      assertSafePath(config.destinationDir)
-    }
     // Main owns the run history; the renderer only changes the settings
     const current = getScheduledConfig()
+    if (config.destinationDir !== undefined && config.destinationDir !== null) {
+      if (typeof config.destinationDir !== 'string') return fail('Invalid destination directory')
+      // The folder already saved was checked when it was chosen; re-checking it
+      // would refuse a network folder picked in an earlier session
+      if (config.destinationDir !== current.destinationDir) assertSafePath(config.destinationDir)
+    }
     setScheduledConfig({ ...current, enabled: config.enabled, intervalHours: config.intervalHours, destinationDir: config.destinationDir ?? current.destinationDir })
     return ok(true)
   })
@@ -352,8 +349,7 @@ export function registerExportHandlers(): void {
 
     for (const grid of grids) {
       try {
-        // Sanitize grid name for filesystem: replace unsafe chars with _
-        const base = grid.name.replace(/[/\\:*?"<>|]/g, '_').trim() || `grid_${grid.id}`
+        const base = listFileBase(grid.name) || `${word('list', { cap: true }, grid.id)} ${grid.id}`
         let safeName = base
         for (let n = 2; used.has(safeName.toLowerCase()); n++) safeName = `${base} (${n})`
         used.add(safeName.toLowerCase())
@@ -369,7 +365,9 @@ export function registerExportHandlers(): void {
         })
         exported++
       } catch (err) {
-        errors.push(`${grid.name}: ${err instanceof Error ? err.message : 'Export failed'}`)
+        // The raw error ("EINVAL: open …") means nothing to the person reading the results
+        logger.error('ipc-export', 'Export All list failed', { gridId: grid.id, error: err instanceof Error ? err.message : String(err) })
+        errors.push(`${grid.name}: we couldn't save this file. Try a different folder.`)
       }
     }
 
@@ -419,7 +417,7 @@ export function registerExportHandlers(): void {
     const provider = getProvider(providerId)
     const defaultName = provider ? safeFileName(provider.name) : 'contact'
     const { canceled, filePath } = await dialog.showSaveDialog({
-      title: 'Export Contact as PDF',
+      title: `Export ${word('contact', { cap: true })} as PDF`,
       defaultPath: `${defaultName}-profile.pdf`,
       filters: [{ name: 'PDF', extensions: ['pdf'] }]
     })
@@ -557,7 +555,7 @@ export function registerExportHandlers(): void {
     if (options.sheetName !== undefined && (typeof options.sheetName !== 'string' || options.sheetName.length > 255)) return fail('Invalid sheet')
     // Preview of the chosen sheet (types and name flipping come from it)
     const preview = await parseImportFile(options.filePath, 0, options.headerRowIndex, options.sheetName)
-    const result = await executeImport({ ...options, createMissingLinks: options.createMissingLinks === true }, preview, onProgress)
+    const result = await executeImport({ ...options, createMissingLinks: options.createMissingLinks === true, skipHiddenRows: options.skipHiddenRows === true }, preview, onProgress)
     return ok(result)
   })
 
@@ -720,4 +718,15 @@ export function registerExportHandlers(): void {
     const result = generateLetter(templateId, rowId, gridId)
     return ok(result)
   })
+}
+
+/**
+ * A list name as a file name for Export All: characters no system allows become
+ * "_", trailing dots and spaces go (Windows drops them), and names Windows keeps
+ * for devices ("Con", "PRN", "Aux", "Nul", "COM1", "LPT1", also before a dot)
+ * get a "_" so the file can be written there.
+ */
+export function listFileBase(name: string): string {
+  const base = name.replace(/[/\\:*?"<>|]/g, '_').trim().replace(/[. ]+$/, '')
+  return /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i.test(base) ? base.replace(/^([^.]*)/, '$1_') : base
 }

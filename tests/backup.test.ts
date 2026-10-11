@@ -1,26 +1,18 @@
 /**
- * Backup & Restore Tests — verifies backup file creation, pruning, and restore integrity.
+ * Backup & Restore Tests — every test drives the real backup.ts functions
+ * (runAutoBackup, runManualBackup, checkAndRunScheduled, restoreFromDb,
+ * restoreFromPulseBackup, verifyBackup, getBackupInfo, ...) against real
+ * SQLCipher databases in temp folders. Only Electron, electron-store, the auth
+ * module (DB path + key) and the database module (data folder) are mocked.
  *
- * Where possible, tests call real backup.ts functions (pruneBackups, assertPathWithin,
- * verifyBackup, restoreFromDb, restoreFromPulseBackup). Functions that depend on Electron's
- * app module, electron-store, or the auth module are mocked at the module boundary so that
- * the real backup.ts logic still runs.
- *
- * Some tests (auto-backup creation, manual backup copy) still use direct file operations
- * because runAutoBackup() uses VACUUM INTO which requires a live DB bridge that the test
- * infrastructure cannot provide.
+ * The live database handed to backup.ts through setDatabaseBridge is the test
+ * database itself, so the snapshot paths (checkpoint + copy for auto-backups,
+ * VACUUM INTO for .pulse-backup files) run for real.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import {
-  copyFileSync, existsSync, readFileSync, readdirSync, writeFileSync,
-  mkdirSync, mkdtempSync, rmSync, unlinkSync, createWriteStream,
-} from 'fs'
-import { join, resolve, sep, basename } from 'path'
-import { tmpdir } from 'os'
+import { copyFileSync, existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 'fs'
+import { join, basename, dirname } from 'path'
 import { createHash } from 'crypto'
-import { pipeline } from 'stream/promises'
-import yazl from 'yazl'
-import BetterSqlite3 from 'better-sqlite3-multiple-ciphers'
 import type { Database } from 'better-sqlite3'
 import {
   createTestDb,
@@ -30,13 +22,14 @@ import {
   TEST_PASSWORD,
   type TestDb,
 } from './helpers'
+import { PROD_TEST_KEY_HEX, createProdFormatDb, writeZip, writeZipWithRawNames, readZip, countRows } from './backupTestUtils'
+import { allMigrations } from './helpers'
 
 let t: TestDb
 let backupDir: string
 
-// ── Mocks for Electron dependencies so we can import real backup.ts functions ──
+const storeState = vi.hoisted(() => ({ stores: new Map<string, Record<string, unknown>>() }))
 
-// Mock electron (backup.ts imports app for getVersion/getPath)
 vi.mock('electron', () => ({
   app: {
     isPackaged: false,
@@ -52,49 +45,50 @@ vi.mock('electron', () => ({
   dialog: { showMessageBoxSync: () => 0 },
 }))
 
-// Mock electron-store (used by getScheduledConfig/setScheduledConfig and backup status)
-// Methods are on the prototype so tests can monkey-patch them (e.g., to simulate store corruption).
+// In-memory electron-store. Methods live on the prototype so a test can make the
+// store throw (simulating a corrupt status file).
 vi.mock('electron-store', () => {
-  const stores = new Map<string, Record<string, unknown>>()
   class MockStore {
     _data: Record<string, unknown>
     constructor(opts?: { name?: string }) {
       const key = opts?.name ?? 'default'
-      if (!stores.has(key)) stores.set(key, {})
-      this._data = stores.get(key)!
+      let data = storeState.stores.get(key)
+      if (!data) { data = {}; storeState.stores.set(key, data) }
+      this._data = data
     }
+    get(k: string, def?: unknown): unknown { return this._data[k] ?? def }
+    set(k: string, v: unknown): void { this._data[k] = v }
   }
-  MockStore.prototype.get = function (k: string, def?: unknown): unknown { return this._data[k] ?? def }
-  MockStore.prototype.set = function (k: string, v: unknown): void { this._data[k] = v }
   return { default: MockStore }
 })
 
-// Mock auth module — getStoredDbPath returns the test DB path, getDbKey returns test key
+// The DB path follows the current test; the DB key is a fixed production-format key
 vi.mock('../src/main/auth', () => ({
   getStoredDbPath: () => _currentDbPath,
-  getDbKey: () => Buffer.from(TEST_PASSWORD.padEnd(64, '0').slice(0, 64), 'utf8'),
+  getDbKey: () => Buffer.from(PROD_TEST_KEY_HEX, 'hex'),
   getKeyEnvelope: () => null,
   isValidKeyEnvelope: () => false,
   unwrapKeyEnvelope: async () => { throw new Error('Incorrect password or recovery key') },
   adoptRestoredDbKey: async () => {},
 }))
 
-// Mock database module
+// Same as database.ts setEncryptionKey (importing database.ts here would create a
+// require cycle with backup.ts)
 vi.mock('../src/main/database', () => ({
-  getDb: () => null,
   getPortableDataDir: () => _currentTmpDir,
+  setEncryptionKey: (db: { pragma: (s: string) => unknown }, hexKey: string) => {
+    if (!/^[0-9a-f]{64}$/.test(hexKey)) throw new Error('Invalid database key format')
+    db.pragma(`key='${hexKey}'`)
+  },
 }))
 
-// Mock logger
 vi.mock('../src/main/logger', () => ({
   logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
 }))
 
-// Mutable paths that tests update in beforeEach
 let _currentDbPath: string
 let _currentTmpDir: string
 
-// Import real backup.ts functions (after mocks are set up)
 import {
   pruneBackups,
   selectAutoBackupsToKeep,
@@ -102,401 +96,311 @@ import {
   verifyBackup,
   restoreFromDb,
   restoreFromPulseBackup,
+  runAutoBackup,
+  runManualBackup,
+  checkAndRunScheduled,
   setDatabaseBridge,
   getScheduledConfig,
   setScheduledConfig,
   getBackupInfo,
   recordAutoBackupSuccess,
+  type DatabaseBridge,
 } from '../src/main/backup'
 
-/** Create a zip file from a map of entry-name → content. */
-async function createTestZip(destPath: string, entries: Record<string, Buffer | string>): Promise<void> {
-  const zip = new yazl.ZipFile()
-  for (const [name, data] of Object.entries(entries)) {
-    zip.addBuffer(Buffer.isBuffer(data) ? data : Buffer.from(data), name)
-  }
-  zip.end()
-  await pipeline(zip.outputStream, createWriteStream(destPath))
-}
+const LATEST_SCHEMA = allMigrations[allMigrations.length - 1]?.version ?? 0
 
-/** Create a zip from a local file (like addLocalFile in adm-zip). */
-async function createTestZipFromFile(destPath: string, filePath: string, entryName: string, extraEntries?: Record<string, Buffer | string>): Promise<void> {
-  const zip = new yazl.ZipFile()
-  zip.addFile(filePath, entryName)
-  if (extraEntries) {
-    for (const [name, data] of Object.entries(extraEntries)) {
-      zip.addBuffer(Buffer.isBuffer(data) ? data : Buffer.from(data), name)
-    }
-  }
-  zip.end()
-  await pipeline(zip.outputStream, createWriteStream(destPath))
-}
-
-/** Read a zip and return entries with their data (using yauzl). */
-async function readTestZip(zipPath: string): Promise<Map<string, Buffer>> {
-  const yauzl = require('yauzl') as typeof import('yauzl')
-  return new Promise((resolveP, rejectP) => {
-    yauzl.open(zipPath, { lazyEntries: true, autoClose: false }, (err, zipfile) => {
-      if (err || !zipfile) { rejectP(err ?? new Error('Failed to open zip')); return }
-      const result = new Map<string, Buffer>()
-      const entryMap = new Map<string, import('yauzl').Entry>()
-      const names: string[] = []
-
-      zipfile.on('entry', (entry: import('yauzl').Entry) => {
-        names.push(entry.fileName)
-        entryMap.set(entry.fileName, entry)
-        zipfile.readEntry()
-      })
-      zipfile.on('error', rejectP)
-      zipfile.on('end', async () => {
-        try {
-          for (const name of names) {
-            const entry = entryMap.get(name)!
-            const buf = await new Promise<Buffer>((res, rej) => {
-              zipfile.openReadStream(entry, (streamErr, readStream) => {
-                if (streamErr || !readStream) { rej(streamErr ?? new Error('No stream')); return }
-                const chunks: Buffer[] = []
-                readStream.on('data', (chunk: Buffer) => chunks.push(chunk))
-                readStream.on('end', () => res(Buffer.concat(chunks)))
-                readStream.on('error', rej)
-              })
-            })
-            result.set(name, buf)
-          }
-          zipfile.close()
-          resolveP(result)
-        } catch (e) { zipfile.close(); rejectP(e) }
-      })
-      zipfile.readEntry()
-    })
+function useLiveDbBridge(): void {
+  setDatabaseBridge({
+    closeDatabase: () => { try { t.db.close() } catch { /* already closed */ } },
+    getDb: () => t.db,
   })
 }
 
 beforeEach(() => {
+  for (const data of storeState.stores.values()) for (const k of Object.keys(data)) delete data[k]
   t = createTestDb()
   backupDir = join(t.tmpDir, 'backups')
   mkdirSync(backupDir, { recursive: true })
   _currentDbPath = t.dbPath
   _currentTmpDir = t.tmpDir
-
-  // Set up the database bridge so backup.ts can checkpoint WAL
-  setDatabaseBridge({
-    closeDatabase: () => { try { t.db.close() } catch { /* already closed */ } },
-    getDb: () => t.db as unknown as { pragma(sql: string): unknown },
-  })
+  useLiveDbBridge()
 })
 
-afterEach(() => { cleanupTestDb(t) })
+afterEach(() => {
+  vi.useRealTimers()
+  cleanupTestDb(t)
+})
 
 function openTestDb(path: string, key = TEST_PASSWORD): Database {
   return openEncryptedDb(path, key)
 }
 
-// ── Auto-Backup on Close ─────────────────────────────────────────────────────
+const autoFiles = (): string[] => readdirSync(backupDir).filter(f => f.startsWith('pulse-auto-') && f.endsWith('.db'))
 
-describe('Auto-Backup on Close', () => {
-  it('backup file is created by copying the DB', () => {
-    // Seed some data
+/** A production-format, fully migrated database outside the live test DB, closed and ready to verify */
+function makeProdFormatBackupDb(name: string, rowCount = 3, hexKey = PROD_TEST_KEY_HEX): string {
+  const p = join(t.tmpDir, name)
+  const db = createProdFormatDb(p, { hexKey })
+  seedGrid(db, { rowCount, columnCount: 2 })
+  db.pragma('wal_checkpoint(TRUNCATE)')
+  db.close()
+  return p
+}
+
+const sha256 = (path: string): string => createHash('sha256').update(readFileSync(path)).digest('hex')
+
+// ── Layer 1: auto-backup ─────────────────────────────────────────────────────
+
+describe('runAutoBackup', () => {
+  it('writes a timestamped pulse-auto file that opens with the key and holds every row', async () => {
+    const { gridId } = seedGrid(t.db, { rowCount: 5, columnCount: 3 })
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 1, 22, 12, 0, 0))
+
+    await runAutoBackup()
+
+    expect(autoFiles()).toEqual(['pulse-auto-20260222-120000.db'])
+    const db2 = openTestDb(join(backupDir, 'pulse-auto-20260222-120000.db'))
+    expect(countRows(db2, 'rows', 'grid_id = ?', gridId)).toBe(5)
+    db2.close()
+  })
+
+  it('includes changes still sitting in the WAL (it checkpoints before copying)', async () => {
+    const { gridId } = seedGrid(t.db, { rowCount: 2, columnCount: 1 })
+    t.db.prepare("INSERT INTO rows (grid_id, position, created_at, updated_at) VALUES (?, 50, datetime('now'), datetime('now'))").run(gridId)
+    expect(existsSync(t.dbPath + '-wal')).toBe(true)
+
+    await runAutoBackup()
+
+    const [file] = autoFiles()
+    const db2 = openTestDb(join(backupDir, file ?? 'missing'))
+    expect(countRows(db2, 'rows', 'grid_id = ?', gridId)).toBe(3)
+    db2.close()
+  })
+
+  it('writes an encrypted file (no SQLite header, no plaintext values)', async () => {
+    const { rowIds, columnIds } = seedGrid(t.db, { rowCount: 1, columnCount: 1 })
+    t.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)').run(rowIds[0], columnIds[0], 'PLAINTEXT_MARKER_VALUE')
+
+    await runAutoBackup()
+
+    const raw = readFileSync(join(backupDir, autoFiles()[0] ?? 'missing'))
+    expect(raw.subarray(0, 16).toString('latin1')).not.toContain('SQLite format 3')
+    expect(raw.toString('latin1')).not.toContain('PLAINTEXT_MARKER_VALUE')
+  })
+
+  it('prunes old auto-backups with the tiered rule and records success', async () => {
+    const old = Array.from({ length: 20 }, (_, i) => `pulse-auto-202601${String(i + 1).padStart(2, '0')}-080000.db`)
+    for (const f of old) writeFileSync(join(backupDir, f), 'old copy')
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 1, 22, 12, 0, 0))
+
+    await runAutoBackup()
+
+    const expected = selectAutoBackupsToKeep([...old, 'pulse-auto-20260222-120000.db'])
+    expect(new Set(autoFiles())).toEqual(expected)
+    expect(autoFiles()).toContain('pulse-auto-20260222-120000.db')
+    const info = getBackupInfo()
+    expect(info.lastAutoBackupFailed).toBe(false)
+    expect(info.layer1.newest).toBe(join(backupDir, 'pulse-auto-20260222-120000.db'))
+  })
+
+  it('does nothing when there is no database file yet', async () => {
+    _currentDbPath = join(t.tmpDir, 'not-created-yet.db')
+    await runAutoBackup()
+    expect(autoFiles()).toEqual([])
+  })
+
+  it('fails cleanly when the WAL checkpoint throws: no partial file, failure recorded, lock released', async () => {
     seedGrid(t.db, { rowCount: 5, columnCount: 3 })
-    t.db.close()
-
-    const destPath = join(backupDir, 'pulse-auto-20260222-120000.db')
-    copyFileSync(t.dbPath, destPath)
-
-    expect(existsSync(destPath)).toBe(true)
-  })
-
-  it('backup filename matches pattern pulse-auto-YYYY-MM-DD-HHMMSS.db', () => {
-    t.db.close()
-    const now = new Date()
-    const ts = [
-      now.getFullYear(),
-      String(now.getMonth() + 1).padStart(2, '0'),
-      String(now.getDate()).padStart(2, '0'),
-      '-',
-      String(now.getHours()).padStart(2, '0'),
-      String(now.getMinutes()).padStart(2, '0'),
-      String(now.getSeconds()).padStart(2, '0'),
-    ].join('')
-    const name = `pulse-auto-${ts}.db`
-
-    copyFileSync(t.dbPath, join(backupDir, name))
-    expect(name).toMatch(/^pulse-auto-\d{8}-\d{6}\.db$/)
-    expect(existsSync(join(backupDir, name))).toBe(true)
-  })
-
-  it('pruning keeps only 5 most recent auto-backups', () => {
-    t.db.close()
-
-    // Create 7 backups with different timestamps
-    for (let i = 0; i < 7; i++) {
-      const name = `pulse-auto-20260222-12000${i}.db`
-      copyFileSync(t.dbPath, join(backupDir, name))
-    }
-
-    // Call the real pruneBackups from backup.ts
-    pruneBackups(backupDir, 'pulse-auto-', '.db', 5)
-
-    const remaining = readdirSync(backupDir).filter(f => f.startsWith('pulse-auto-'))
-    expect(remaining).toHaveLength(5)
-    // The 2 oldest should be gone
-    expect(remaining).not.toContain('pulse-auto-20260222-120000.db')
-    expect(remaining).not.toContain('pulse-auto-20260222-120001.db')
-  })
-
-  // Skipped: test alias uses plain better-sqlite3 (no cipher) so DB is unencrypted in tests
-  it.skip('backup file is encrypted (not readable as plain SQLite)', () => {
-    t.db.close()
-    const destPath = join(backupDir, 'pulse-auto-test.db')
-    copyFileSync(t.dbPath, destPath)
-
-    const header = readFileSync(destPath).subarray(0, 16)
-    expect(header.toString('ascii')).not.toContain('SQLite format 3')
-  })
-
-  it('auto-backup succeeds even when WAL checkpoint throws', () => {
-    // Seed data so the DB is non-trivial
-    seedGrid(t.db, { rowCount: 5, columnCount: 3 })
-
-    // Set up a bridge where getDb().pragma('wal_checkpoint(TRUNCATE)') throws
-    const mockDb = {
-      pragma: vi.fn((sql: string) => {
-        if (sql.includes('wal_checkpoint')) {
-          throw new Error('checkpoint failed: database is locked')
-        }
+    const calls: string[] = []
+    const throwingDb: DatabaseBridge = {
+      pragma: (sql: string) => {
+        calls.push(sql)
+        if (sql.includes('wal_checkpoint')) throw new Error('checkpoint failed: database is locked')
         return t.db.pragma(sql)
-      }),
+      },
+      exec: (sql: string) => t.db.exec(sql),
     }
-    setDatabaseBridge({
-      closeDatabase: () => { try { t.db.close() } catch { /* already closed */ } },
-      getDb: () => mockDb as unknown as { pragma(sql: string): unknown },
-    })
+    setDatabaseBridge({ closeDatabase: () => {}, getDb: () => throwingDb })
 
-    // The createAtomicDbSnapshot with compact:false calls pragma('wal_checkpoint(TRUNCATE)')
-    // which will throw. The auto-backup code in runAutoBackup catches this and
-    // records it as a failure. But the copy-based fallback path (checkpointWal swallows errors)
-    // should still work.
-    // Since we can't call runAutoBackup directly (it reads getStoredDbPath which returns
-    // the mock path), test the checkpoint resilience via direct copy.
-    t.db.close()
-    const destPath = join(backupDir, 'pulse-auto-wal-fail.db')
-    copyFileSync(t.dbPath, destPath)
+    await expect(runAutoBackup()).rejects.toThrow('checkpoint failed')
 
-    expect(existsSync(destPath)).toBe(true)
-
-    // Verify the backup is valid even without a clean checkpoint
-    const db2 = openTestDb(destPath)
-    const count = (db2.prepare('SELECT COUNT(*) as c FROM rows').get() as { c: number }).c
-    expect(count).toBe(5)
-    db2.close()
+    expect(autoFiles()).toEqual([])
+    expect(readdirSync(backupDir).filter(f => f.startsWith('pulse-snapshot-'))).toEqual([])
+    const info = getBackupInfo()
+    expect(info.lastAutoBackupFailed).toBe(true)
+    expect(info.lastAutoBackupError).toMatch(/couldn't be saved/)
+    // The exclusive lock taken for the snapshot is always released
+    expect(calls.slice(calls.indexOf('wal_checkpoint(TRUNCATE)'))).toEqual(['wal_checkpoint(TRUNCATE)', 'locking_mode=NORMAL', 'journal_mode'])
+    // ...so the live database still accepts writes
+    expect(() => t.db.prepare("INSERT INTO rows (grid_id, position, created_at, updated_at) VALUES (1, 99, datetime('now'), datetime('now'))").run()).not.toThrow()
   })
 })
 
-// ── Manual Backup ────────────────────────────────────────────────────────────
+// ── Layer 3: manual backup (.pulse-backup) ───────────────────────────────────
 
-describe('Manual Backup', () => {
-  it('backup contains all data (open with password, verify row count)', () => {
-    const { gridId, rowIds } = seedGrid(t.db, { rowCount: 10, columnCount: 2 })
-    t.db.close()
+describe('runManualBackup', () => {
+  it('writes a .pulse-backup holding the database and matching metadata', async () => {
+    const { gridId } = seedGrid(t.db, { rowCount: 10, columnCount: 2 })
+    const dest = join(t.tmpDir, 'usb', 'my-backup')
 
-    const destPath = join(backupDir, 'manual-backup.db')
-    copyFileSync(t.dbPath, destPath)
+    const { destPath, sizeBytes } = await runManualBackup(dest)
 
-    const db2 = openTestDb(destPath)
+    expect(destPath).toBe(dest + '.pulse-backup')
+    expect(sizeBytes).toBeGreaterThan(0)
+    const entries = await readZip(destPath)
+    expect([...entries.keys()].sort()).toEqual(['backup-meta.json', 'test.db'])
+    const meta = JSON.parse(entries.get('backup-meta.json')?.toString('utf8') ?? '{}')
+    expect(meta).toMatchObject({ backupType: 'manual', appVersion: '0.0.0-test', dbFilename: 'test.db', has_key_envelope: false })
+    const dbData = entries.get('test.db') ?? Buffer.alloc(0)
+    expect(createHash('sha256').update(dbData).digest('hex')).toBe(meta.dbSha256)
+
+    const extracted = join(t.tmpDir, 'extracted.db')
+    writeFileSync(extracted, dbData)
+    const db2 = openTestDb(extracted)
+    expect(countRows(db2, 'rows', 'grid_id = ?', gridId)).toBe(10)
+    expect(Number((db2.prepare("SELECT value FROM app_meta WHERE key = 'schema_version'").get() as { value: string }).value)).toBe(LATEST_SCHEMA)
+    db2.close()
+    // The VACUUM INTO snapshot is cleaned up
+    expect(readdirSync(dirname(destPath)).filter(f => f.startsWith('pulse-snapshot-'))).toEqual([])
+  })
+
+  it('throws a clear error when the database file is missing', async () => {
+    _currentDbPath = join(t.tmpDir, 'gone.db')
+    await expect(runManualBackup(join(t.tmpDir, 'out'))).rejects.toThrow('Database file not found')
+  })
+})
+
+describe('Manual Backup into folders with apostrophes and accents (AUDIT-002)', () => {
+  it("backs up into a folder named like O'Brien (José) & co and the snapshot opens with the same key", async () => {
+    const { gridId } = seedGrid(t.db, { rowCount: 3, columnCount: 1 })
+    const oddDir = join(t.tmpDir, "Test O'Brien (José) & co, #1+")
+    mkdirSync(oddDir, { recursive: true })
+
+    const result = await runManualBackup(join(oddDir, 'backup'))
+    expect(existsSync(result.destPath)).toBe(true)
+    // The temporary snapshot is cleaned up after zipping
+    expect(readdirSync(oddDir).filter(f => f.endsWith('.db'))).toEqual([])
+
+    const entries = await readZip(result.destPath)
+    const dbEntry = [...entries.keys()].find(k => k.endsWith('.db'))
+    expect(dbEntry).toBeDefined()
+    const extracted = join(oddDir, 'extracted.db')
+    writeFileSync(extracted, entries.get(dbEntry as string) as Buffer)
+    const db2 = openTestDb(extracted)
     const count = (db2.prepare('SELECT COUNT(*) as c FROM rows WHERE grid_id = ?').get(gridId) as { c: number }).c
-    expect(count).toBe(10)
-    db2.close()
-  })
-
-  it('backup is a valid SQLCipher database', () => {
-    seedGrid(t.db, { rowCount: 1, columnCount: 1 })
-    t.db.close()
-
-    const destPath = join(backupDir, 'manual-backup.db')
-    copyFileSync(t.dbPath, destPath)
-
-    // Should open without error and have the schema_version
-    const db2 = openTestDb(destPath)
-    const row = db2.prepare("SELECT value FROM app_meta WHERE key = 'schema_version'").get() as { value: string }
-    expect(parseInt(row.value)).toBeGreaterThanOrEqual(1)
+    expect(count).toBe(3)
     db2.close()
   })
 })
 
-// ── Restore ──────────────────────────────────────────────────────────────────
+// ── Restore round trips through the real functions ───────────────────────────
 
 describe('Restore', () => {
-  it('create 10 clients → backup → delete 5 → restore → all 10 back', () => {
+  it('create 10 records → backup → delete 5 → restore → all 10 back, with a safety copy of the 5', async () => {
     const { gridId, columnIds, rowIds } = seedGrid(t.db, { rowCount: 10, columnCount: 1 })
-    const colId = columnIds[0]
     const ins = t.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')
-    for (let i = 0; i < 10; i++) {
-      ins.run(rowIds[i], colId, `Client ${i}`)
-    }
+    rowIds.forEach((id, i) => ins.run(id, columnIds[0], `Test Person ${i}`))
+    const { destPath } = await runManualBackup(join(t.tmpDir, 'out', 'before'))
 
-    // Close and backup
-    t.db.close()
-    const backupPath = join(backupDir, 'restore-test.db')
-    copyFileSync(t.dbPath, backupPath)
+    for (const id of rowIds.slice(0, 5)) t.db.prepare('DELETE FROM rows WHERE id = ?').run(id)
+    expect(countRows(t.db, 'rows', 'grid_id = ?', gridId)).toBe(5)
 
-    // Reopen and delete 5 clients
-    const db2 = openTestDb(t.dbPath)
-    for (let i = 0; i < 5; i++) {
-      db2.prepare('DELETE FROM rows WHERE id = ?').run(rowIds[i])
-    }
-    const countAfterDelete = (db2.prepare('SELECT COUNT(*) as c FROM rows WHERE grid_id = ?').get(gridId) as { c: number }).c
-    expect(countAfterDelete).toBe(5)
-    db2.close()
+    const safetyPath = await restoreFromPulseBackup(destPath)
 
-    // Restore: copy backup over the DB file
-    copyFileSync(backupPath, t.dbPath)
+    expect(basename(safetyPath)).toMatch(/^pulse-pre-restore-\d{8}-\d{6}\.db$/)
+    expect(t.db.open).toBe(false) // restore closes the live database first
     const db3 = openTestDb(t.dbPath)
-    const countAfterRestore = (db3.prepare('SELECT COUNT(*) as c FROM rows WHERE grid_id = ?').get(gridId) as { c: number }).c
-    expect(countAfterRestore).toBe(10)
+    expect(countRows(db3, 'rows', 'grid_id = ?', gridId)).toBe(10)
+    expect(countRows(db3, 'cells', 'column_id = ?', columnIds[0])).toBe(10)
     db3.close()
-  })
-
-  it('restore creates a pre-restore safety backup before overwriting', () => {
-    seedGrid(t.db, { rowCount: 1, columnCount: 1 })
-    t.db.close()
-
-    const backupPath = join(backupDir, 'to-restore.db')
-    copyFileSync(t.dbPath, backupPath)
-
-    // Simulate: before restoring, save current DB as pre-restore backup
-    const safetyPath = join(backupDir, 'pre-restore-safety.db')
-    copyFileSync(t.dbPath, safetyPath)
-
-    // Then overwrite with backup
-    copyFileSync(backupPath, t.dbPath)
-
-    // Both files should exist
-    expect(existsSync(safetyPath)).toBe(true)
-    expect(existsSync(t.dbPath)).toBe(true)
-
-    // Safety backup should be a valid DB
     const dbSafety = openTestDb(safetyPath)
-    expect(dbSafety.prepare("SELECT value FROM app_meta WHERE key = 'schema_version'").get()).toBeDefined()
+    expect(countRows(dbSafety, 'rows', 'grid_id = ?', gridId)).toBe(5)
     dbSafety.close()
+    expect(readdirSync(backupDir).filter(f => f.startsWith('restore-tmp-'))).toEqual([])
   })
 
-  it('corrupted backup file: does not destroy current database', () => {
-    seedGrid(t.db, { rowCount: 5, columnCount: 1 })
-    t.db.close()
+  it('a damaged .pulse-backup is refused and the current database is untouched', async () => {
+    const { gridId } = seedGrid(t.db, { rowCount: 5, columnCount: 1 })
+    const corrupt = join(t.tmpDir, 'corrupt.pulse-backup')
+    writeFileSync(corrupt, Buffer.alloc(1024, 0xFF))
 
-    // Create a corrupted "backup"
-    const corruptPath = join(backupDir, 'corrupt.db')
-    writeFileSync(corruptPath, Buffer.alloc(1024, 0xFF))
+    await expect(restoreFromPulseBackup(corrupt)).rejects.toThrow()
 
-    // SQLCipher defers the error until first query, so open + query should throw
-    expect(() => {
-      const badDb = openTestDb(corruptPath)
-      badDb.prepare("SELECT value FROM app_meta WHERE key = 'schema_version'").get()
-    }).toThrow()
-
-    // Original DB should still be fine
     const db2 = openTestDb(t.dbPath)
-    const count = (db2.prepare('SELECT COUNT(*) as c FROM rows').get() as { c: number }).c
-    expect(count).toBe(5)
+    expect(countRows(db2, 'rows', 'grid_id = ?', gridId)).toBe(5)
     db2.close()
+    expect(readdirSync(backupDir).filter(f => f.startsWith('restore-tmp-'))).toEqual([])
   })
-})
 
-// ── Pack & Go (zip compression simulation) ───────────────────────────────────
+  it('a .pulse-backup whose database does not match its recorded hash is refused', async () => {
+    const { gridId } = seedGrid(t.db, { rowCount: 2, columnCount: 1 })
+    const other = makeProdFormatBackupDb('tampered.db', 9)
+    const zip = join(t.tmpDir, 'tampered.pulse-backup')
+    await writeZip(zip, { 'test.db': { file: other }, 'backup-meta.json': JSON.stringify({ dbSha256: 'b'.repeat(64) }) })
 
-describe('Pack & Go', () => {
-  it('pack-and-go zip file is created and contains the database', async () => {
-    seedGrid(t.db, { rowCount: 5, columnCount: 2 })
-    t.db.close()
+    await expect(restoreFromPulseBackup(zip)).rejects.toThrow(/hash mismatch/)
 
-    // Simulate pack-and-go: create a zip containing the DB
-    const zipPath = join(backupDir, 'pack-and-go.pulse-backup')
-    await createTestZipFromFile(zipPath, t.dbPath, basename(t.dbPath))
-
-    // Verify the zip was created and contains a file
-    expect(existsSync(zipPath)).toBe(true)
-    const entries = await readTestZip(zipPath)
-    expect(entries.size).toBeGreaterThanOrEqual(1)
-
-    // Extract and verify the DB inside is valid
-    const extractDir = join(backupDir, 'extracted')
-    mkdirSync(extractDir, { recursive: true })
-    const dbEntryName = [...entries.keys()].find(k => k.endsWith('.db'))!
-    writeFileSync(join(extractDir, dbEntryName), entries.get(dbEntryName)!)
-    const extractedDb = openTestDb(join(extractDir, 'test.db'))
-    const count = (extractedDb.prepare('SELECT COUNT(*) as c FROM rows').get() as { c: number }).c
-    expect(count).toBe(5)
-    extractedDb.close()
-  })
-})
-
-// ── Password Change + Backup Interaction ─────────────────────────────────────
-
-describe('Password Change + Backup Interaction', () => {
-  // Skipped: test alias uses plain better-sqlite3 (no cipher) so password-based encryption is not tested
-  it.skip('backup with old password → change password → old backup requires OLD password', () => {
-    seedGrid(t.db, { rowCount: 3, columnCount: 1 })
-    t.db.close()
-
-    // Backup with original password
-    const backupPath = join(backupDir, 'before-password-change.db')
-    copyFileSync(t.dbPath, backupPath)
-
-    // Change password (rekey) — must exit WAL mode first
     const db2 = openTestDb(t.dbPath)
-    const newKey = 'new-password-for-test'
-    db2.pragma('journal_mode = DELETE')
-    db2.pragma(`rekey='${newKey}'`)
+    expect(countRows(db2, 'rows', 'grid_id = ?', gridId)).toBe(2)
     db2.close()
-
-    // Old backup still requires old password
-    const dbOld = openTestDb(backupPath, TEST_PASSWORD)
-    const count = (dbOld.prepare('SELECT COUNT(*) as c FROM rows').get() as { c: number }).c
-    expect(count).toBe(3)
-    dbOld.close()
-
-    // Old backup does NOT open with new password
-    expect(() => {
-      const dbBad = openTestDb(backupPath, newKey)
-      dbBad.pragma('schema_version')
-    }).toThrow()
-
-    // Current DB opens with new password
-    const dbNew = openTestDb(t.dbPath, newKey)
-    const count2 = (dbNew.prepare('SELECT COUNT(*) as c FROM rows').get() as { c: number }).c
-    expect(count2).toBe(3)
-    dbNew.close()
   })
 
-  // Skipped: test alias uses plain better-sqlite3 (no cipher) so password-based encryption is not tested
-  it.skip('after password change, new backups use the NEW password', () => {
-    seedGrid(t.db, { rowCount: 2, columnCount: 1 })
+  it('a .pulse-backup without a database is refused', async () => {
+    const { gridId } = seedGrid(t.db, { rowCount: 2, columnCount: 1 })
+    const zip = join(t.tmpDir, 'no-db.pulse-backup')
+    await writeZip(zip, { 'readme.txt': 'This is not a database' })
 
-    // Change password — must exit WAL mode first
-    const newKey = 'changed-key-789'
-    t.db.pragma('journal_mode = DELETE')
-    t.db.pragma(`rekey='${newKey}'`)
-    t.db.close()
+    await expect(restoreFromPulseBackup(zip)).rejects.toThrow('No database file found in backup archive')
 
-    // New backup (post-rekey)
-    const backupPath = join(backupDir, 'post-rekey-backup.db')
-    copyFileSync(t.dbPath, backupPath)
-
-    // Opens with new key
-    const db2 = openTestDb(backupPath, newKey)
-    const count = (db2.prepare('SELECT COUNT(*) as c FROM rows').get() as { c: number }).c
-    expect(count).toBe(2)
+    const db2 = openTestDb(t.dbPath)
+    expect(countRows(db2, 'rows', 'grid_id = ?', gridId)).toBe(2)
     db2.close()
+  })
 
-    // Does not open with old key
-    expect(() => {
-      const dbBad = openTestDb(backupPath, TEST_PASSWORD)
-      dbBad.pragma('schema_version')
-    }).toThrow()
+  it.each([
+    ['../evil.db'],
+    ['..\\evil.db'],
+    ['C:evil.db'],
+    ['/abs/evil.db'],
+  ])('refuses an archive whose database entry is named %s, writing nothing outside', async (name) => {
+    const { gridId } = seedGrid(t.db, { rowCount: 2, columnCount: 1 })
+    const evil = makeProdFormatBackupDb('evil-source.db', 7)
+    const zip = join(t.tmpDir, 'traversal.pulse-backup')
+    await writeZipWithRawNames(zip, [{ name, file: evil }])
+
+    // yauzl refuses such names outright; backup.ts's own entry filter is the second line of defense
+    await expect(restoreFromPulseBackup(zip)).rejects.toThrow(/invalid relative path|invalid characters|absolute path|No database file found/)
+    expect((await verifyBackup(zip)).valid).toBe(false)
+
+    expect(existsSync(join(t.tmpDir, 'evil.db'))).toBe(false)
+    expect(existsSync(join(backupDir, 'evil.db'))).toBe(false)
+    expect(readdirSync(backupDir).filter(f => f.startsWith('restore-tmp-'))).toEqual([])
+    const db2 = openTestDb(t.dbPath)
+    expect(countRows(db2, 'rows', 'grid_id = ?', gridId)).toBe(2)
+    db2.close()
+  })
+
+  it('ignores a database entry inside a folder in the archive', async () => {
+    const { gridId } = seedGrid(t.db, { rowCount: 2, columnCount: 1 })
+    const nested = makeProdFormatBackupDb('nested-source.db', 7)
+    const zip = join(t.tmpDir, 'nested.pulse-backup')
+    await writeZip(zip, { 'nested/pulse.db': { file: nested } })
+
+    await expect(restoreFromPulseBackup(zip)).rejects.toThrow('No database file found in backup archive')
+    expect(await verifyBackup(zip)).toMatchObject({ valid: false, error: 'No database file found in archive' })
+    const db2 = openTestDb(t.dbPath)
+    expect(countRows(db2, 'rows', 'grid_id = ?', gridId)).toBe(2)
+    db2.close()
+  })
+
+  it('assertPathWithin rejects a path that resolves outside its folder', () => {
+    const parentDir = join(backupDir, 'extract')
+    expect(() => assertPathWithin(join(parentDir, '..', '..', 'etc', 'passwd'), parentDir)).toThrow('Path traversal detected')
+    expect(() => assertPathWithin(join(parentDir, 'safe-file.db'), parentDir)).not.toThrow()
   })
 })
-
-// ── Restore from .db file ─────────────────────────────────────────────────────
 
 describe('restoreFromDb', () => {
   it('restores database to exact state at backup time', async () => {
@@ -645,488 +549,169 @@ describe('restoreFromDb', () => {
   })
 })
 
-// ── Restore from .pulse-backup (zip) ──────────────────────────────────────────
+// ── Verify (uses production-format databases: real key, real SQLCipher settings) ──
 
-describe('restoreFromPulseBackup', () => {
-  async function createPulseBackupFile(dbPath: string, destPath: string, backupType = 'test'): Promise<void> {
-    const dbData = readFileSync(dbPath)
-    const dbHash = createHash('sha256').update(dbData).digest('hex')
-    const meta = {
-      created: new Date().toISOString(),
-      appVersion: '0.0.0-test',
-      backupType,
-      dbFilename: basename(dbPath),
-      dbSha256: dbHash,
-    }
-    await createTestZipFromFile(destPath, dbPath, basename(dbPath), {
-      'backup-meta.json': JSON.stringify(meta, null, 2),
-    })
-  }
-
-  it('restores database from .pulse-backup zip to original state', async () => {
-    const { gridId, columnIds, rowIds } = seedGrid(t.db, { rowCount: 8, columnCount: 2 })
-    const colId = columnIds[0]
-    const ins = t.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')
-    for (let i = 0; i < 8; i++) {
-      ins.run(rowIds[i], colId, `Person-${i}`)
-    }
-    t.db.close()
-
-    // Create .pulse-backup
-    const backupZip = join(backupDir, 'test-backup.pulse-backup')
-    await createPulseBackupFile(t.dbPath, backupZip)
-
-    // Modify the DB: delete all rows
-    const db2 = openTestDb(t.dbPath)
-    db2.prepare('DELETE FROM rows WHERE grid_id = ?').run(gridId)
-    const countAfterDelete = (db2.prepare('SELECT COUNT(*) as c FROM rows WHERE grid_id = ?').get(gridId) as { c: number }).c
-    expect(countAfterDelete).toBe(0)
-    db2.close()
-
-    // Call the real restoreFromPulseBackup — extracts zip, creates safety backup, overwrites DB
-    setDatabaseBridge({
-      closeDatabase: () => {},
-      getDb: () => { throw new Error('DB closed') },
-    })
-    const safetyPath = await restoreFromPulseBackup(backupZip)
-    expect(existsSync(safetyPath)).toBe(true)
-
-    // Verify all 8 rows are back
-    const db3 = openTestDb(t.dbPath)
-    const countAfterRestore = (db3.prepare('SELECT COUNT(*) as c FROM rows WHERE grid_id = ?').get(gridId) as { c: number }).c
-    expect(countAfterRestore).toBe(8)
-
-    // Verify cell data
-    const cells = db3.prepare('SELECT value FROM cells WHERE column_id = ? ORDER BY value').all(colId) as { value: string }[]
-    expect(cells).toHaveLength(8)
-    db3.close()
-  })
-
-  it('zip must contain a .db entry to be valid', async () => {
-    t.db.close()
-
-    // Create a zip without any .db file
-    const badZipPath = join(backupDir, 'no-db.pulse-backup')
-    await createTestZip(badZipPath, { 'readme.txt': 'This is not a database' })
-
-    // Attempt extraction: no .db entry found
-    const entries = await readTestZip(badZipPath)
-    const dbEntryName = [...entries.keys()].find(k => k.endsWith('.db'))
-    expect(dbEntryName).toBeUndefined()
-  })
-
-  it('backup metadata contains correct SHA-256 hash', async () => {
-    seedGrid(t.db, { rowCount: 3, columnCount: 1 })
-    t.db.close()
-
-    const backupZip = join(backupDir, 'hash-check.pulse-backup')
-    await createPulseBackupFile(t.dbPath, backupZip)
-
-    // Read the zip and verify metadata hash matches the DB file hash
-    const entries = await readTestZip(backupZip)
-    const metaBuf = entries.get('backup-meta.json')
-    expect(metaBuf).toBeDefined()
-
-    const meta = JSON.parse(metaBuf!.toString('utf8'))
-    expect(meta.dbSha256).toBeDefined()
-    expect(meta.backupType).toBe('test')
-    expect(meta.dbFilename).toBe('test.db')
-
-    // Verify hash: extract the DB and compute its hash
-    const dbEntryName = [...entries.keys()].find(k => k.endsWith('.db'))!
-    const dbData = entries.get(dbEntryName)!
-    const actualHash = createHash('sha256').update(dbData).digest('hex')
-    expect(actualHash).toBe(meta.dbSha256)
-  })
-
-  it('rejects archives with path traversal entries', () => {
-    t.db.close()
-
-    // Entry-name filter logic (matches restoreFromPulseBackup's inline filter)
-    function findSafeDbEntry(entryNames: string[]): string | undefined {
-      return entryNames.find(name =>
-        name.endsWith('.db') && !name.includes('..') && !name.includes('/') && !name.includes('\\')
-      )
-    }
-
-    // Path traversal entry names should be rejected by the filter (no safe .db found)
-    const traversalNames = [
-      '../../../etc/passwd.db',
-      '..\\..\\windows\\system32\\config.db',
-      'subdir/../../../escape.db',
-      '/etc/shadow.db',
-      '\\windows\\system32\\evil.db',
-    ]
-    expect(findSafeDbEntry(traversalNames)).toBeUndefined()
-
-    // A safe entry name should pass the filter
-    expect(findSafeDbEntry(['pulse-backup.db'])).toBe('pulse-backup.db')
-
-    // Call the real assertPathWithin from backup.ts
-    const parentDir = join(backupDir, 'extract')
-    expect(() => assertPathWithin(join(parentDir, '..', '..', 'etc', 'passwd'), parentDir))
-      .toThrow('Path traversal detected')
-    expect(() => assertPathWithin(join(parentDir, 'safe-file.db'), parentDir))
-      .not.toThrow()
-  })
-})
-
-// ── Verify Backup Integrity ───────────────────────────────────────────────────
-
-// NOTE: verifyBackup() internally calls getDbKey() to decrypt the backup with SQLCipher.
-// The mock getDbKey() returns a dummy key that doesn't match the test DB's actual encryption
-// key (TEST_PASSWORD), so calling the real verifyBackup() on test DBs would always fail with
-// a decryption error. These tests therefore verify the same logic manually using openTestDb().
 describe('verifyBackup', () => {
-  it('valid .db backup opens and reports table count and schema version', () => {
-    seedGrid(t.db, { rowCount: 5, columnCount: 2 })
-    t.db.close()
-
-    const backupPath = join(backupDir, 'verify-valid.db')
-    copyFileSync(t.dbPath, backupPath)
-
-    // Cannot call real verifyBackup() — getDbKey() mock returns wrong key for test DBs
-    const db2 = openTestDb(backupPath)
-    const schemaVersion = db2.pragma('schema_version', { simple: true }) as number
-    const tableCount = (db2.prepare("SELECT count(*) as n FROM sqlite_master WHERE type='table'").get() as { n: number }).n
-    db2.close()
-
-    expect(schemaVersion).toBeGreaterThan(0)
-    expect(tableCount).toBeGreaterThan(0)
+  it('a valid .db backup reports the app schema version and table count', async () => {
+    const p = makeProdFormatBackupDb('verify-valid.db', 5)
+    const result = await verifyBackup(p)
+    expect(result).toMatchObject({ valid: true, schemaVersion: LATEST_SCHEMA })
+    expect(result.tableCount).toBeGreaterThan(10)
   })
 
-  it('corrupt file cannot be opened as a valid database', () => {
-    t.db.close()
-
+  it('a corrupt file is reported invalid with a reason', async () => {
     const corruptPath = join(backupDir, 'verify-corrupt.db')
     writeFileSync(corruptPath, Buffer.alloc(2048, 0xDE))
-
-    // Cannot call real verifyBackup() — getDbKey() mock returns wrong key for test DBs
-    let valid = true
-    let errorMsg = ''
-    try {
-      const badDb = openTestDb(corruptPath)
-      badDb.pragma('schema_version')
-    } catch (err) {
-      valid = false
-      errorMsg = err instanceof Error ? err.message : 'Unknown error'
-    }
-
-    expect(valid).toBe(false)
-    expect(errorMsg.length).toBeGreaterThan(0)
-  })
-
-  it('non-existent file reports file not found', async () => {
-    t.db.close()
-
-    const fakePath = join(backupDir, 'does-not-exist-at-all.db')
-    expect(existsSync(fakePath)).toBe(false)
-
-    // Call the real verifyBackup — it handles non-existent files without needing DB key
-    const result = await verifyBackup(fakePath)
+    const result = await verifyBackup(corruptPath)
     expect(result.valid).toBe(false)
-    expect(result.error).toBe('File not found')
+    expect(result.error).toBeTruthy()
   })
 
-  it('valid .pulse-backup zip verifies extracted DB successfully', async () => {
-    seedGrid(t.db, { rowCount: 4, columnCount: 3 })
-    t.db.close()
+  it('a missing file reports file not found', async () => {
+    const result = await verifyBackup(join(backupDir, 'does-not-exist-at-all.db'))
+    expect(result).toEqual({ valid: false, error: 'File not found' })
+  })
 
-    // Create .pulse-backup with metadata
-    const dbData = readFileSync(t.dbPath)
-    const dbHash = createHash('sha256').update(dbData).digest('hex')
-    const meta = {
-      created: new Date().toISOString(),
-      appVersion: '0.0.0-test',
-      backupType: 'manual',
-      dbFilename: 'test.db',
-      dbSha256: dbHash,
-    }
-    const backupZip = join(backupDir, 'verify-pulse.pulse-backup')
-    await createTestZipFromFile(backupZip, t.dbPath, 'test.db', {
-      'backup-meta.json': JSON.stringify(meta, null, 2),
+  it('a database encrypted with a different key is invalid (and not "another Pulse" without a key envelope)', async () => {
+    const p = makeProdFormatBackupDb('verify-wrong-key.db', 1, 'f'.repeat(64))
+    const result = await verifyBackup(p)
+    expect(result.valid).toBe(false)
+    expect(result.otherPulse).toBe(false)
+  })
+
+  it('a .pulse-backup from another Pulse (other key, key envelope inside) is flagged as such', async () => {
+    const p = makeProdFormatBackupDb('other.db', 1, 'e'.repeat(64))
+    const zip = join(t.tmpDir, 'other.pulse-backup')
+    await writeZip(zip, { 'pulse.db': { file: p }, 'key-envelope.json': '{}' })
+    const result = await verifyBackup(zip)
+    expect(result.valid).toBe(false)
+    expect(result.otherPulse).toBe(true)
+  })
+
+  it('a valid .pulse-backup verifies: hash checked, database opened', async () => {
+    const p = makeProdFormatBackupDb('zip-src.db', 4)
+    const zip = join(t.tmpDir, 'verify.pulse-backup')
+    await writeZip(zip, {
+      'pulse.db': { file: p },
+      'backup-meta.json': JSON.stringify({ backupType: 'manual', dbFilename: 'pulse.db', dbSha256: sha256(p) }),
     })
-
-    // Read zip entries
-    const entries = await readTestZip(backupZip)
-    const dbEntryName = [...entries.keys()].find(k => k.endsWith('.db'))
-    expect(dbEntryName).toBeDefined()
-
-    // Extract DB to temp dir
-    const tmpExtractDir = join(backupDir, 'verify-extract')
-    mkdirSync(tmpExtractDir, { recursive: true })
-    const extractedPath = join(tmpExtractDir, dbEntryName!)
-    writeFileSync(extractedPath, entries.get(dbEntryName!)!)
-
-    // 2. Verify hash matches
-    const extractedData = readFileSync(extractedPath)
-    const actualHash = createHash('sha256').update(extractedData).digest('hex')
-    expect(actualHash).toBe(dbHash)
-
-    // 3. Open extracted DB and check schema
-    const db2 = openTestDb(extractedPath)
-    const schemaVersion = db2.pragma('schema_version', { simple: true }) as number
-    const tableCount = (db2.prepare("SELECT count(*) as n FROM sqlite_master WHERE type='table'").get() as { n: number }).n
-    db2.close()
-
-    expect(schemaVersion).toBeGreaterThan(0)
-    expect(tableCount).toBeGreaterThan(0)
+    const result = await verifyBackup(zip)
+    expect(result).toMatchObject({ valid: true, schemaVersion: LATEST_SCHEMA })
+    expect(readdirSync(backupDir).filter(f => f.startsWith('verify-tmp-'))).toEqual([])
   })
 
-  it('.pulse-backup with mismatched hash is detected as corrupt', async () => {
-    seedGrid(t.db, { rowCount: 2, columnCount: 1 })
-    t.db.close()
-
-    // Create .pulse-backup with WRONG hash in metadata
-    const meta = {
-      created: new Date().toISOString(),
-      appVersion: '0.0.0-test',
-      backupType: 'manual',
-      dbFilename: 'test.db',
-      dbSha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', // wrong hash
-    }
-    const backupZip = join(backupDir, 'verify-bad-hash.pulse-backup')
-    await createTestZipFromFile(backupZip, t.dbPath, 'test.db', {
-      'backup-meta.json': JSON.stringify(meta, null, 2),
+  it('a .pulse-backup whose database does not match its recorded hash is reported corrupt', async () => {
+    const p = makeProdFormatBackupDb('zip-bad-hash.db', 2)
+    const zip = join(t.tmpDir, 'bad-hash.pulse-backup')
+    await writeZip(zip, {
+      'pulse.db': { file: p },
+      'backup-meta.json': JSON.stringify({ dbSha256: 'a'.repeat(64) }),
     })
-
-    // Read zip and verify hash mismatch
-    const entries = await readTestZip(backupZip)
-    const dbEntryName = [...entries.keys()].find(k => k.endsWith('.db'))
-    const metaBuf = entries.get('backup-meta.json')
-
-    expect(dbEntryName).toBeDefined()
-    expect(metaBuf).toBeDefined()
-
-    const parsedMeta = JSON.parse(metaBuf!.toString('utf8'))
-    const dbData = entries.get(dbEntryName!)!
-    const actualHash = createHash('sha256').update(dbData).digest('hex')
-
-    // Hash should NOT match — indicates corruption
-    expect(actualHash).not.toBe(parsedMeta.dbSha256)
+    const result = await verifyBackup(zip)
+    expect(result.valid).toBe(false)
+    expect(result.error).toMatch(/hash mismatch/)
   })
 
-  it('.pulse-backup without .db entry is invalid', async () => {
-    t.db.close()
-
-    const badZipPath = join(backupDir, 'verify-no-db.pulse-backup')
-    await createTestZip(badZipPath, {
-      'notes.txt': 'Not a database',
-      'backup-meta.json': JSON.stringify({ backupType: 'manual' }),
-    })
-
-    const entries = await readTestZip(badZipPath)
-    const dbEntryName = [...entries.keys()].find(k =>
-      k.endsWith('.db') && !k.includes('..') && !k.includes('/')
-    )
-    expect(dbEntryName).toBeUndefined()
-  })
-
-  // Skipped: test alias uses plain better-sqlite3 (no cipher) so wrong-key testing is not applicable
-  it.skip('file with wrong key produces error on schema query', () => {
-    seedGrid(t.db, { rowCount: 1, columnCount: 1 })
-    t.db.close()
-
-    const backupPath = join(backupDir, 'verify-wrong-key.db')
-    copyFileSync(t.dbPath, backupPath)
-
-    // Try to open with wrong key
-    expect(() => {
-      const badDb = openEncryptedDb(backupPath, 'totally-wrong-key-1234')
-      badDb.pragma('schema_version')
-    }).toThrow()
+  it('a .pulse-backup without a database entry is invalid', async () => {
+    const zip = join(backupDir, 'verify-no-db.pulse-backup')
+    await writeZip(zip, { 'notes.txt': 'Not a database', 'backup-meta.json': JSON.stringify({ backupType: 'manual' }) })
+    expect(await verifyBackup(zip)).toEqual({ valid: false, error: 'No database file found in archive' })
   })
 })
 
-// ── Scheduled Backup Config ───────────────────────────────────────────────────
+// ── Layer 2: scheduled backups ───────────────────────────────────────────────
 
-describe('Scheduled Backup Config', () => {
-  // These tests call the real getScheduledConfig/setScheduledConfig functions from backup.ts,
-  // backed by the mocked electron-store (in-memory Map).
+describe('Scheduled backups', () => {
+  const scheduledFiles = (dir: string): string[] => existsSync(dir) ? readdirSync(dir).filter(f => f.startsWith('pulse-scheduled-')) : []
 
   it('default config has correct values', () => {
-    // Call the real getScheduledConfig — returns defaults when store is empty
     const config = getScheduledConfig()
     expect(config.enabled).toBe(false)
     expect(config.intervalHours).toBe(24)
+    expect(config.destinationDir).toBe(backupDir)
     expect(config.lastRunISO).toBeNull()
   })
 
   it('set and get round-trip preserves all fields', () => {
-    const customConfig = {
-      enabled: true,
-      intervalHours: 168, // weekly
-      destinationDir: '/my/backup/folder',
-      lastRunISO: '2026-03-01T10:00:00.000Z',
-    }
-
-    // Call the real setScheduledConfig then getScheduledConfig
-    setScheduledConfig(customConfig)
-    const retrieved = getScheduledConfig()
-
-    expect(retrieved.enabled).toBe(true)
-    expect(retrieved.intervalHours).toBe(168)
-    expect(retrieved.destinationDir).toBe('/my/backup/folder')
-    expect(retrieved.lastRunISO).toBe('2026-03-01T10:00:00.000Z')
+    setScheduledConfig({ enabled: true, intervalHours: 168, destinationDir: '/my/backup/folder', lastRunISO: '2026-03-01T10:00:00.000Z' })
+    expect(getScheduledConfig()).toEqual({ enabled: true, intervalHours: 168, destinationDir: '/my/backup/folder', lastRunISO: '2026-03-01T10:00:00.000Z' })
   })
 
-  it('interval check: backup should not run if interval has not elapsed', () => {
-    setScheduledConfig({
-      enabled: true,
-      intervalHours: 24,
-      destinationDir: backupDir,
-      lastRunISO: new Date().toISOString(), // just now
-    })
-    const config = getScheduledConfig()
-
-    const lastRun = new Date(config.lastRunISO!).getTime()
-    const elapsedMs = Date.now() - lastRun
-    const intervalMs = config.intervalHours * 60 * 60 * 1000
-
-    // Should NOT be time to run yet
-    expect(elapsedMs).toBeLessThan(intervalMs)
+  it('does not run before the interval has passed', async () => {
+    const dest = join(t.tmpDir, 'scheduled')
+    const lastRunISO = new Date(Date.now() - 23 * 3600_000).toISOString()
+    setScheduledConfig({ enabled: true, intervalHours: 24, destinationDir: dest, lastRunISO })
+    await checkAndRunScheduled()
+    expect(scheduledFiles(dest)).toEqual([])
+    expect(getScheduledConfig().lastRunISO).toBe(lastRunISO)
   })
 
-  it('interval check: backup should run when interval has elapsed', () => {
-    setScheduledConfig({
-      enabled: true,
-      intervalHours: 24,
-      destinationDir: backupDir,
-      lastRunISO: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(), // 25 hours ago
-    })
-    const config = getScheduledConfig()
-
-    const lastRun = new Date(config.lastRunISO!).getTime()
-    const elapsedMs = Date.now() - lastRun
-    const intervalMs = config.intervalHours * 60 * 60 * 1000
-
-    // Should be time to run
-    expect(elapsedMs).toBeGreaterThanOrEqual(intervalMs)
+  it('runs once the interval has passed, and records the run', async () => {
+    seedGrid(t.db, { rowCount: 3, columnCount: 1 })
+    const dest = join(t.tmpDir, 'scheduled')
+    const lastRunISO = new Date(Date.now() - 25 * 3600_000).toISOString()
+    setScheduledConfig({ enabled: true, intervalHours: 24, destinationDir: dest, lastRunISO })
+    await checkAndRunScheduled()
+    const files = scheduledFiles(dest)
+    expect(files).toHaveLength(1)
+    expect(files[0]).toMatch(/^pulse-scheduled-\d{8}-\d{6}\.pulse-backup$/)
+    const cfg = getScheduledConfig()
+    expect(Date.parse(cfg.lastRunISO ?? '')).toBeGreaterThan(Date.parse(lastRunISO))
+    expect(cfg.lastError).toBeNull()
+    const entries = await readZip(join(dest, files[0] ?? 'missing'))
+    expect(entries.has('test.db')).toBe(true)
   })
 
-  it('disabled config should not trigger backup', () => {
-    setScheduledConfig({
-      enabled: false,
-      intervalHours: 24,
-      destinationDir: backupDir,
-      lastRunISO: null, // never run before — but disabled
-    })
-    const config = getScheduledConfig()
+  it('runs straight away when it has never run', async () => {
+    const dest = join(t.tmpDir, 'scheduled-first')
+    setScheduledConfig({ enabled: true, intervalHours: 24, destinationDir: dest, lastRunISO: null })
+    await checkAndRunScheduled()
+    expect(scheduledFiles(dest)).toHaveLength(1)
+  })
 
-    expect(config.enabled).toBe(false)
+  it('never runs while turned off', async () => {
+    const dest = join(t.tmpDir, 'scheduled-off')
+    setScheduledConfig({ enabled: false, intervalHours: 24, destinationDir: dest, lastRunISO: null })
+    await checkAndRunScheduled()
+    expect(scheduledFiles(dest)).toEqual([])
+    expect(getScheduledConfig().lastRunISO).toBeNull()
   })
 })
 
-// ── Backup Info ───────────────────────────────────────────────────────────────
+// ── Backup info ──────────────────────────────────────────────────────────────
 
 describe('getBackupInfo', () => {
-  it('returns correct count and newest/oldest with multiple auto-backups', () => {
-    t.db.close()
-
-    // Create 4 auto-backups with different timestamps
-    const filenames = [
-      'pulse-auto-20260301-080000.db',
-      'pulse-auto-20260301-120000.db',
-      'pulse-auto-20260301-160000.db',
-      'pulse-auto-20260301-200000.db',
-    ]
-    for (const name of filenames) {
-      copyFileSync(t.dbPath, join(backupDir, name))
-    }
-
-    // Simulate getBackupInfo: list auto-backups, sorted descending
-    const autoBackups = readdirSync(backupDir)
-      .filter(f => f.startsWith('pulse-auto-') && f.endsWith('.db'))
-      .sort()
-      .reverse()
-      .map(f => join(backupDir, f))
-
-    expect(autoBackups).toHaveLength(4)
-    expect(autoBackups[0]).toContain('pulse-auto-20260301-200000.db') // newest
-    expect(autoBackups[autoBackups.length - 1]).toContain('pulse-auto-20260301-080000.db') // oldest
+  it('returns count and newest/oldest across several auto-backups', () => {
+    const names = ['pulse-auto-20260301-080000.db', 'pulse-auto-20260301-120000.db', 'pulse-auto-20260301-160000.db', 'pulse-auto-20260301-200000.db']
+    for (const name of names) writeFileSync(join(backupDir, name), 'x')
+    const info = getBackupInfo()
+    expect(info.layer1.count).toBe(4)
+    expect(info.layer1.dir).toBe(backupDir)
+    expect(info.layer1.newest).toBe(join(backupDir, 'pulse-auto-20260301-200000.db'))
+    expect(info.layer1.oldest).toBe(join(backupDir, 'pulse-auto-20260301-080000.db'))
+    expect(info.lastAutoBackup).toBe(info.layer1.newest)
   })
 
   it('returns empty info when no backups exist', () => {
-    t.db.close()
-
-    const emptyDir = join(t.tmpDir, 'empty-backups')
-    mkdirSync(emptyDir, { recursive: true })
-
-    const autoBackups = readdirSync(emptyDir)
-      .filter(f => f.startsWith('pulse-auto-') && f.endsWith('.db'))
-      .sort()
-      .reverse()
-      .map(f => join(emptyDir, f))
-
-    const info = {
-      layer1: {
-        count: autoBackups.length,
-        newest: autoBackups[0] || null,
-        oldest: autoBackups[autoBackups.length - 1] || null,
-        dir: emptyDir,
-      },
-      lastAutoBackup: autoBackups[0] || null,
-      lastAutoBackupFailed: false,
-      lastAutoBackupError: null,
-    }
-
+    const info = getBackupInfo()
     expect(info.layer1.count).toBe(0)
     expect(info.layer1.newest).toBeNull()
     expect(info.layer1.oldest).toBeNull()
     expect(info.lastAutoBackup).toBeNull()
     expect(info.lastAutoBackupFailed).toBe(false)
-  })
-
-  it('ignores non-auto-backup files in the directory', () => {
-    t.db.close()
-
-    // Create a mix of files: some auto-backups, some other files
-    copyFileSync(t.dbPath, join(backupDir, 'pulse-auto-20260301-100000.db'))
-    copyFileSync(t.dbPath, join(backupDir, 'pulse-auto-20260301-110000.db'))
-    writeFileSync(join(backupDir, 'pulse-scheduled-20260301.pulse-backup'), Buffer.alloc(64))
-    writeFileSync(join(backupDir, 'random-file.txt'), Buffer.from('not a backup'))
-    writeFileSync(join(backupDir, 'pulse-pre-migration-v1-to-v2-20260301-090000.db'), Buffer.alloc(64))
-
-    const autoBackups = readdirSync(backupDir)
-      .filter(f => f.startsWith('pulse-auto-') && f.endsWith('.db'))
-      .sort()
-      .reverse()
-
-    // Only the 2 actual auto-backups should be listed
-    expect(autoBackups).toHaveLength(2)
-    expect(autoBackups[0]).toBe('pulse-auto-20260301-110000.db')
-    expect(autoBackups[1]).toBe('pulse-auto-20260301-100000.db')
-  })
-
-  it('backup info structure matches BackupInfo interface', () => {
-    t.db.close()
-
-    copyFileSync(t.dbPath, join(backupDir, 'pulse-auto-20260301-120000.db'))
-
-    const autoBackups = readdirSync(backupDir)
-      .filter(f => f.startsWith('pulse-auto-') && f.endsWith('.db'))
-      .sort()
-      .reverse()
-      .map(f => join(backupDir, f))
-
-    const info = {
-      layer1: {
-        count: autoBackups.length,
-        newest: autoBackups[0] || null,
-        oldest: autoBackups[autoBackups.length - 1] || null,
-        dir: backupDir,
-      },
-      lastAutoBackup: autoBackups[0] || null,
-      lastAutoBackupFailed: false,
-      lastAutoBackupError: null as string | null,
-    }
-
-    // Verify all BackupInfo fields are present and have correct types
-    expect(typeof info.layer1.count).toBe('number')
-    expect(typeof info.layer1.dir).toBe('string')
-    expect(info.layer1.newest).not.toBeNull()
-    expect(typeof info.lastAutoBackupFailed).toBe('boolean')
     expect(info.lastAutoBackupError).toBeNull()
+  })
+
+  it('ignores files that are not auto-backups', () => {
+    writeFileSync(join(backupDir, 'pulse-auto-20260301-100000.db'), 'x')
+    writeFileSync(join(backupDir, 'pulse-auto-20260301-110000.db'), 'x')
+    writeFileSync(join(backupDir, 'pulse-scheduled-20260301.pulse-backup'), Buffer.alloc(64))
+    writeFileSync(join(backupDir, 'random-file.txt'), 'not a backup')
+    writeFileSync(join(backupDir, 'pulse-pre-migration-v1-to-v2-20260301-090000.db'), Buffer.alloc(64))
+    const info = getBackupInfo()
+    expect(info.layer1.count).toBe(2)
+    expect(info.layer1.newest).toBe(join(backupDir, 'pulse-auto-20260301-110000.db'))
+    expect(info.layer1.oldest).toBe(join(backupDir, 'pulse-auto-20260301-100000.db'))
   })
 
   it('reports lastAutoBackupFailed: true when status store throws', async () => {
@@ -1151,6 +736,17 @@ describe('getBackupInfo', () => {
     } finally {
       Store.prototype.get = origGet
     }
+  })
+})
+
+describe('pruneBackups', () => {
+  it('keeps only the newest N files with the prefix and suffix, leaving other files alone', () => {
+    for (let i = 0; i < 7; i++) writeFileSync(join(backupDir, `pulse-scheduled-20260222-12000${i}.pulse-backup`), 'x')
+    writeFileSync(join(backupDir, 'pulse-auto-20200101-000000.db'), 'x')
+    pruneBackups(backupDir, 'pulse-scheduled-', '.pulse-backup', 5)
+    const remaining = readdirSync(backupDir).filter(f => f.startsWith('pulse-scheduled-')).sort()
+    expect(remaining).toEqual([2, 3, 4, 5, 6].map(i => `pulse-scheduled-20260222-12000${i}.pulse-backup`))
+    expect(existsSync(join(backupDir, 'pulse-auto-20200101-000000.db'))).toBe(true)
   })
 })
 

@@ -18,17 +18,18 @@ Get the latest version from the [releases page](https://github.com/J2matlock/pul
 
 - **Windows 10/11:** download `PULSE.exe` and run it. It's portable: your data is kept in a `PulseData` folder next to it. Pulse isn't code-signed, so the first time Windows may say "Windows protected your PC": click **More info → Run anyway**.
 - **Linux:** download the AppImage, make it executable (`chmod +x`) and run it, or see [Building](#building).
+- **Mac:** macOS 13 (Ventura) or newer.
 
 Each release lists SHA-256 checksums in `SHA256SUMS.txt`.
 
 ## Building
 
-You need Node.js 22 and npm. On Linux you also need the usual build tools for native modules (`make`, `g++`, `python3`).
+You need Node.js 22 or newer and npm. The encrypted SQLite module ships prebuilt for Windows, macOS and Linux (x64 and arm64; Linux needs glibc 2.35+, e.g. Ubuntu 22.04+), so a C++ toolchain is only needed on other platforms.
 
 ```bash
 git clone https://github.com/J2matlock/pulse-app.git
 cd pulse-app
-npm install          # also rebuilds the encrypted SQLite module for Electron
+npm install
 npm run dev          # run Pulse in development mode
 ```
 
@@ -40,18 +41,18 @@ npm run package:win     # Windows PULSE.exe (needs Inno Setup; on Linux, under W
 npm run package:mac     # macOS (on a Mac)
 ```
 
-If Pulse starts but setting a password or unlocking silently fails, the native module was built for the wrong Node version. Rebuild it for Electron: `npx electron-rebuild -f -w better-sqlite3-multiple-ciphers`.
+The first `npm run dev` downloads Electron itself (Electron 42+ no longer downloads during `npm install`).
 
 ## Tests
 
 ```bash
-npm test             # unit and integration tests (rebuilds the native module for Node, then back for Electron)
+npm test             # unit and integration tests
 npm run typecheck
 npm run lint
 npm run test:e2e     # Playwright end-to-end tests against the built app
 ```
 
-Always run tests through `npm test`, not `vitest` directly: the script switches the native module between Node's and Electron's ABI.
+Always run tests through `npm test`, not `vitest` directly.
 
 ## How it's built
 

@@ -9,12 +9,24 @@ import { getDb, cachedStmt } from '../database'
 import type { CaseloadTask, TaskGroup, Snippet } from '../../shared/types'
 import { localDateString } from '../../shared/dates'
 import { usesHumanServicesWords } from '../vocab'
-import { parseRepeatRule, nextRepeatDate, withAnchorDay } from '../../shared/recurrence'
+import { parseRepeatRule, nextRepeatDate, withAnchorDay, withoutAnchorDay } from '../../shared/recurrence'
+import { toYmd } from '../../shared/ymd'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_TASKS = 500
 const ALLOWED_PRIORITIES = new Set(['low', 'normal', 'high', 'urgent'])
 const VALID_RECURRENCE_TYPES = new Set(['daily', 'weekly', 'monthly', 'yearly'])
+
+/**
+ * A task date from the screen as a plain calendar day: null or '' clears it,
+ * a real date (a time after it is dropped) is kept as YYYY-MM-DD, anything
+ * else is refused. Days-until and "due today" compare these as strings.
+ */
+function taskDay(value: unknown): { day: string | null } | { error: string } {
+  if (value === null || value === '') return { day: null }
+  const day = typeof value === 'string' ? toYmd(value) : null
+  return day ? { day } : { error: 'Choose a real date.' }
+}
 
 export function registerTaskHandlers(): void {
   // ── Caseload Tasks ──────────────────────────────────────────────────────────
@@ -62,9 +74,11 @@ export function registerTaskHandlers(): void {
         if (!parsed.type || !VALID_RECURRENCE_TYPES.has(parsed.type)) return fail('Invalid recurrence type')
       } catch (err) { logNonFatal('ipc-tasks', 'parsing recurrence_rule JSON', err); return fail('Invalid recurrence rule JSON') }
     }
+    const due = task.due_date === undefined ? { day: null } : taskDay(task.due_date)
+    if ('error' in due) return fail(due.error)
     const db = getDb()
     // A repeating task needs a date to repeat from; it starts today (audit S-12)
-    const dueDate = task.due_date ?? (task.recurrence_rule ? localDateString() : null)
+    const dueDate = due.day ?? (task.recurrence_rule ? localDateString() : null)
     const groupId = (task as Record<string, unknown>).group_id != null ? Number((task as Record<string, unknown>).group_id) : null
     const maxPos = (db.prepare('SELECT COALESCE(MAX(position), -1) as m FROM caseload_tasks WHERE group_id IS ?').get(groupId) as { m: number }).m
     const result = db.prepare(`
@@ -86,6 +100,12 @@ export function registerTaskHandlers(): void {
       if (typeof updates.recurrence_rule !== 'string' || updates.recurrence_rule.length > 2000) return fail('Invalid recurrence rule')
       try { const p = JSON.parse(updates.recurrence_rule) as { type?: string }; if (!p.type || !VALID_RECURRENCE_TYPES.has(p.type)) return fail('Invalid recurrence type') } catch (err) { logNonFatal('ipc-tasks', 'parsing recurrence_rule JSON', err); return fail('Invalid recurrence rule JSON') }
     }
+    for (const key of ['due_date', 'snoozed_until'] as const) {
+      if (updates[key] === undefined) continue
+      const checked = taskDay(updates[key])
+      if ('error' in checked) return fail(checked.error)
+      updates = { ...updates, [key]: checked.day }
+    }
     const allowed = ['title', 'description', 'priority', 'category', 'due_date', 'recurrence_rule', 'snoozed_until', 'grid_id', 'group_id', 'position', 'is_completed', 'completed_at'] as const
     // A repeating task needs a due date: clearing it is refused, and turning repeat on starts it today
     const cur = getDb().prepare('SELECT due_date, recurrence_rule FROM caseload_tasks WHERE id = ?').get(id) as { due_date: string | null; recurrence_rule: string | null } | undefined
@@ -95,6 +115,11 @@ export function registerTaskHandlers(): void {
       if (rule && !due) {
         if ('due_date' in updates) return fail('A repeating task needs a due date. Turn off Repeat to remove the date.')
         updates = { ...updates, due_date: localDateString() }
+      }
+      // A due date changed by hand sets the pattern: forget the day of the month it used to fall on (AUDIT-114)
+      if (rule && 'due_date' in updates && updates.due_date !== cur.due_date) {
+        const kept = withoutAnchorDay(rule)
+        if (kept !== rule) updates = { ...updates, recurrence_rule: kept }
       }
     }
     const result = buildSafeSetClause(updates as Record<string, unknown>, allowed, ["updated_at = datetime('now')"])

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { screen, fireEvent, waitFor, act } from '@testing-library/react'
 import React from 'react'
 
 const mockInvoke = vi.fn()
@@ -30,12 +30,13 @@ vi.mock('../../../../src/renderer/stores/undoStore', () => ({
 vi.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }: { children: React.ReactNode }) => React.createElement('div', null, children),
   closestCenter: vi.fn(),
-  PointerSensor: vi.fn(),
+  PointerSensor: vi.fn(), KeyboardSensor: vi.fn(),
   useSensor: () => ({}),
   useSensors: () => [],
 }))
 
 vi.mock('@dnd-kit/sortable', () => ({
+  sortableKeyboardCoordinates: vi.fn(),
   SortableContext: ({ children }: { children: React.ReactNode }) => React.createElement('div', null, children),
   verticalListSortingStrategy: {},
   arrayMove: (arr: unknown[], from: number, to: number) => {
@@ -76,6 +77,7 @@ vi.mock('../../../../src/renderer/hooks/useFocusTrap', () => ({
 import { Checklist } from '../../../../src/renderer/components/profile/Checklist'
 import type { ChecklistItem } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
+import { renderSettled } from '../../renderSettled'
 
 function makeItem(overrides: Partial<ChecklistItem> = {}): ChecklistItem {
   return {
@@ -113,12 +115,12 @@ describe('Checklist', () => {
   })
 
   it('renders the Checklist header', async () => {
-    render(<Checklist rowId={10} clientName="Test Client" />)
+    await renderSettled(<Checklist rowId={10} clientName="Test Client" />)
     expect(screen.getByText('Checklist')).toBeTruthy()
   })
 
   it('shows empty state when no items', async () => {
-    render(<Checklist rowId={10} clientName="Test Client" />)
+    await renderSettled(<Checklist rowId={10} clientName="Test Client" />)
     await waitFor(() => {
       expect(screen.getByText(/No checklist items yet/)).toBeTruthy()
     })
@@ -135,7 +137,7 @@ describe('Checklist', () => {
       return Promise.resolve({ ok: true, data: [] })
     })
 
-    render(<Checklist rowId={10} clientName="Test Client" />)
+    await renderSettled(<Checklist rowId={10} clientName="Test Client" />)
     await waitFor(() => {
       expect(screen.getByText('Task A')).toBeTruthy()
       expect(screen.getByText('Task B')).toBeTruthy()
@@ -150,7 +152,7 @@ describe('Checklist', () => {
       if (channel === 'checklist:update-item') return Promise.resolve({ ok: true, data: { sysLogId: 5, repeat: { previousDue: '2026-10-10', nextDue: '2026-11-10' } } })
       return Promise.resolve({ ok: true, data: [] })
     })
-    render(<Checklist rowId={10} clientName="Test Client" />)
+    await renderSettled(<Checklist rowId={10} clientName="Test Client" />)
     await waitFor(() => expect(screen.getByText('Every month')).toBeTruthy())
     fireEvent.click(screen.getByRole('checkbox', { name: 'Mark complete' }))
     await waitFor(() => expect(screen.getByText(/Nov 10/)).toBeTruthy())
@@ -165,11 +167,11 @@ describe('Checklist', () => {
       if (channel === 'checklist:update-item') return Promise.resolve({ ok: false, error: 'Database is locked' })
       return Promise.resolve({ ok: true, data: [] })
     })
-    render(<Checklist rowId={10} clientName="Test Client" />)
+    await renderSettled(<Checklist rowId={10} clientName="Test Client" />)
     await waitFor(() => expect(screen.getByText('Call landlord')).toBeTruthy())
     fireEvent.click(screen.getByRole('checkbox', { name: 'Mark complete' }))
     await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Mark complete' })).toBeTruthy())
-    await new Promise(r => setTimeout(r, 500))
+    await act(async () => { await new Promise(r => setTimeout(r, 500)) })
     expect(screen.getByRole('checkbox', { name: 'Mark complete' })).toBeTruthy()
   })
 
@@ -185,7 +187,7 @@ describe('Checklist', () => {
       return Promise.resolve({ ok: true, data: [] })
     })
 
-    render(<Checklist rowId={10} clientName="Test Client" />)
+    await renderSettled(<Checklist rowId={10} clientName="Test Client" />)
     await waitFor(() => {
       // Shows "1/3" in header and "1 of 3 completed" in progress
       expect(screen.getByText('1/3')).toBeTruthy()
@@ -194,7 +196,7 @@ describe('Checklist', () => {
   })
 
   it('add item input is rendered with placeholder', async () => {
-    render(<Checklist rowId={10} clientName="Test Client" />)
+    await renderSettled(<Checklist rowId={10} clientName="Test Client" />)
     await waitFor(() => {
       expect(screen.getByPlaceholderText('+ Add an item… (press Enter)')).toBeTruthy()
     })
@@ -209,7 +211,7 @@ describe('Checklist', () => {
       return Promise.resolve({ ok: true, data: [] })
     })
 
-    render(<Checklist rowId={10} clientName="Test Client" />)
+    await renderSettled(<Checklist rowId={10} clientName="Test Client" />)
     await waitFor(() => {
       expect(screen.getByPlaceholderText('+ Add an item… (press Enter)')).toBeTruthy()
     })
@@ -234,7 +236,7 @@ describe('Checklist', () => {
       return Promise.resolve({ ok: true, data: [] })
     })
 
-    render(<Checklist rowId={10} clientName="Test Client" />)
+    await renderSettled(<Checklist rowId={10} clientName="Test Client" />)
     await waitFor(() => {
       expect(screen.getByText('Completed (1)')).toBeTruthy()
     })

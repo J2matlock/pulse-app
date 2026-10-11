@@ -7,12 +7,14 @@
  *
  * Steps:
  *   1. electron-vite build (creates out/)
- *   2. Download Windows native binary for better-sqlite3-multiple-ciphers
- *   3. Create staging dir with out/, package.json, and production node_modules
+ *   2. Create staging dir with out/, package.json, package-lock.json and
+ *      production node_modules (npm ci, so versions match the lock)
+ *   3. Check the Windows binary that better-sqlite3-multiple-ciphers bundles
+ *      (Node-API, so it works with any Electron version; nothing to download)
  *   4. Run electron-builder --win (produces win-unpacked/ directory)
  *   5. Verify win-unpacked directory
  *   6. Package win-unpacked into PULSE.exe launcher via Inno Setup
- *   7. Clean up staging dir, rebuild native module for Linux
+ *   7. Clean up staging dir
  *
  * The exe is not code-signed: Pulse is free and open source, so Windows
  * SmartScreen shows "More info → Run anyway" on first run.
@@ -23,6 +25,7 @@
 const { execSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
+const { writeStagingPackage, STAGING_INSTALL_CMD, assertStagedDepsMatchLock } = require('./staging-deps')
 
 const ROOT = path.resolve(__dirname, '..')
 const STAGING = path.join(ROOT, '.build-staging')
@@ -55,12 +58,8 @@ if (fs.existsSync(DIST)) {
 console.log('\n=== Step 1: electron-vite build ===')
 run('npx electron-vite build')
 
-// ---------- step 2: download Windows native ----------
-console.log('\n=== Step 2: Download Windows native binary ===')
-run('node scripts/get-win-native.js')
-
-// ---------- step 3: create staging directory ----------
-console.log('\n=== Step 3: Create staging directory ===')
+// ---------- step 2: create staging directory ----------
+console.log('\n=== Step 2: Create staging directory ===')
 fs.mkdirSync(STAGING, { recursive: true })
 
 // Copy out/ (the bundled app)
@@ -79,40 +78,29 @@ fs.copyFileSync(
 // Read the real package.json
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 
-// Create a minimal package.json for electron-builder
-const stagingPkg = {
-  name: pkg.name,
-  version: pkg.version,
-  description: pkg.description,
-  author: pkg.author,
-  main: pkg.main,
-  homepage: pkg.homepage,
-  dependencies: pkg.dependencies, // only 9 production deps
-  build: {
-    ...pkg.build,
-    npmRebuild: false, // we already have the right binary
-  }
-}
-fs.writeFileSync(
-  path.join(STAGING, 'package.json'),
-  JSON.stringify(stagingPkg, null, 2)
-)
+// Minimal package.json + package-lock.json + license files for electron-builder
+writeStagingPackage(ROOT, STAGING, pkg, {
+  npmRebuild: false, // we already have the right binary
+})
 
-// Install production deps in the staging directory (clean, small tree)
+// Install production deps in the staging directory (clean, small tree), at
+// exactly the versions in package-lock.json
 console.log('[build-win] Installing production dependencies in staging...')
-run('npm install --production --ignore-scripts --legacy-peer-deps', { cwd: STAGING })
+run(STAGING_INSTALL_CMD, { cwd: STAGING })
+assertStagedDepsMatchLock(ROOT, STAGING)
 
-// Copy the Windows native binary into the staging node_modules
-const nativeSrc = path.join(ROOT, 'node_modules', 'better-sqlite3-multiple-ciphers', 'build', 'Release', 'better_sqlite3.node')
-const nativeDest = path.join(STAGING, 'node_modules', 'better-sqlite3-multiple-ciphers', 'build', 'Release')
-fs.mkdirSync(nativeDest, { recursive: true })
-fs.copyFileSync(nativeSrc, path.join(nativeDest, 'better_sqlite3.node'))
+// ---------- step 3: check the Windows native binary in staging ----------
+console.log('\n=== Step 3: Check Windows native binary ===')
+// package.json build.win.files leaves the other platforms' binaries out of the app
+const stagingSqlite = path.join(STAGING, 'node_modules', 'better-sqlite3-multiple-ciphers')
+const nativeWin = path.join(stagingSqlite, 'prebuilds', 'win32-x64.node')
+if (!fs.existsSync(nativeWin)) {
+  console.error(`[build-win] ERROR: ${nativeWin} is missing`)
+  process.exit(1)
+}
 
-// Also copy the binding shims (bindings.js etc)
-const bindingsDir = path.join(STAGING, 'node_modules', 'better-sqlite3-multiple-ciphers', 'build')
-// The npm install should have installed the package, but we need the prebuilt .node file
 // Verify it's a PE32+ binary
-const fileType = runQuiet(`file "${path.join(nativeDest, 'better_sqlite3.node')}"`)
+const fileType = runQuiet(`file "${nativeWin}"`)
 if (!fileType.includes('PE32+')) {
   console.error('[build-win] ERROR: Native binary is not PE32+!')
   console.error(`  file output: ${fileType}`)
@@ -224,10 +212,6 @@ console.log(`[build-win] Launcher created: PULSE.exe (${(launcherSize / 1024 / 1
 console.log('\n=== Step 7: Cleanup ===')
 fs.rmSync(STAGING, { recursive: true, force: true })
 console.log('[build-win] Staging directory removed')
-
-// Rebuild native module for host platform (Linux)
-console.log('[build-win] Rebuilding native module for Linux...')
-run('npx electron-rebuild -f -w better-sqlite3-multiple-ciphers')
 
 console.log('\n=== Build complete! ===')
 // List output

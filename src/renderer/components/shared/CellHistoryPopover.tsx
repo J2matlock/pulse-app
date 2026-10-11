@@ -166,6 +166,7 @@ export function CellHistoryPopover({
 
         {error && (
           <div
+            role="alert"
             className="px-4 py-8 text-center text-red-600 dark:text-red-400"
             style={{ fontSize: 15 }}
           >

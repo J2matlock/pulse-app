@@ -116,6 +116,7 @@ describe('FocusModeView', () => {
     const { container } = render(<MemoryRouter><FocusModeView onClose={vi.fn()} /></MemoryRouter>)
     await flushEffects()
     expect(container.innerHTML.length).toBeGreaterThan(0)
+    expect(screen.getByRole('dialog', { name: 'Focus Mode' })).toBeTruthy()
   })
 
   it('does not call onClose on initial render', async () => {
@@ -137,6 +138,18 @@ describe('FocusModeView', () => {
     render(<MemoryRouter><FocusModeView onClose={vi.fn()} /></MemoryRouter>)
     await flushEffects()
     expect(screen.getByText('Focus Mode')).toBeDefined()
+  })
+
+  it('loads again at midnight so "due today" moves on (AUDIT-025)', async () => {
+    const { safeInvoke } = await import('../../../src/renderer/utils/safeInvoke')
+    const { pulseEvents } = await import('../../../src/renderer/events')
+    render(<MemoryRouter><FocusModeView onClose={vi.fn()} /></MemoryRouter>)
+    await flushEffects()
+    const loads = () => vi.mocked(safeInvoke).mock.calls.filter(c => c[0] === 'dashboard:get-deadlines').length
+    expect(loads()).toBe(1)
+    await act(async () => { pulseEvents.emit('day:changed', { date: '2099-01-01' }) })
+    await flushEffects()
+    expect(loads()).toBe(2)
   })
 
   it('says it could not load, instead of an empty "all clear", when loading fails', async () => {

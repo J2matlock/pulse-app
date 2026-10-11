@@ -4,8 +4,8 @@
  *
  * Must run on a Mac (dmg creation, code signing and notarization need
  * macOS tools). Uses a staging directory with production dependencies only,
- * like build-linux.js; electron-builder rebuilds the native database module
- * for each architecture.
+ * like build-linux.js. The native database module ships prebuilt for both
+ * Mac architectures (Node-API), so nothing is rebuilt.
  *
  * Signing and notarization are optional and driven by environment variables:
  *   CSC_NAME or CSC_LINK (+ CSC_KEY_PASSWORD)   Developer ID Application certificate
@@ -17,6 +17,7 @@
 const { execSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
+const { writeStagingPackage, STAGING_INSTALL_CMD, assertStagedDepsMatchLock } = require('./staging-deps')
 
 const ROOT = path.resolve(__dirname, '..')
 const STAGING = path.join(ROOT, '.build-staging-mac')
@@ -50,12 +51,9 @@ fs.cpSync(path.join(ROOT, 'out'), path.join(STAGING, 'out'), { recursive: true }
 fs.cpSync(path.join(ROOT, 'build'), path.join(STAGING, 'build'), { recursive: true })
 fs.copyFileSync(path.join(ROOT, 'scripts', 'afterPack.js'), path.join(STAGING, 'scripts', 'afterPack.js'))
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
-fs.writeFileSync(path.join(STAGING, 'package.json'), JSON.stringify({
-  name: pkg.name, version: pkg.version, description: pkg.description, author: pkg.author,
-  main: pkg.main, homepage: pkg.homepage, dependencies: pkg.dependencies,
-  build: { ...pkg.build, npmRebuild: true },
-}, null, 2))
-run('npm install --omit=dev --ignore-scripts --legacy-peer-deps', { cwd: STAGING })
+writeStagingPackage(ROOT, STAGING, pkg, { npmRebuild: false })
+run(STAGING_INSTALL_CMD, { cwd: STAGING })
+assertStagedDepsMatchLock(ROOT, STAGING)
 
 console.log('\n=== Step 3: electron-builder --mac ===')
 const electronVersion = require('electron/package.json').version
@@ -65,7 +63,7 @@ const flags = [
   canSign ? '' : '-c.mac.identity=null',
   canNotarize ? '-c.mac.notarize=true' : '',
 ].filter(Boolean).join(' ')
-// One architecture at a time, so each gets its own native module build
+// One architecture at a time, so each gets its own dmg and zip
 for (const arch of ['arm64', 'x64']) {
   run(`npx electron-builder --mac --${arch} ${flags}`)
 }

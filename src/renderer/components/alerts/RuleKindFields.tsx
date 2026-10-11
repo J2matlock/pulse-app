@@ -359,7 +359,7 @@ export function previewRule(d: RuleDraft, base: Omit<ParsedAlertRule, 'kind' | '
 export function previewText(rule: ParsedAlertRule, row: GridRow, columns: Column[], columnId: number | undefined): string {
   const name = getClientName(row, columns)
   const own = columnId !== undefined ? (row[`col_${columnId}`] ?? null) : null
-  const res = evaluateRuleForRow(rule, own, row as unknown as Record<string, unknown>, columnId)
+  const res = evaluateRuleForRow(rule, own, row, columnId)
   if (res.state === 'paused') return `For ${name}: ${res.detail || 'paused'}`
   if (res.state === 'done') return `For ${name}: done${res.detail ? ` (${res.detail})` : ''}`
   if (!res.due) return `For ${name}: nothing due${res.detail ? ` (${res.detail})` : ''}`
@@ -375,7 +375,7 @@ export function RulePreview({ rule, rows, columns, columnId }: {
   const firstWithData = useMemo(() => {
     if ('error' in rule) return rows[0]?.row_id ?? null
     const own = (r: GridRow) => columnId !== undefined ? (r[`col_${columnId}`] ?? null) : null
-    const hit = rows.slice(0, 200).find(r => evaluateRuleForRow(rule, own(r), r as unknown as Record<string, unknown>, columnId).due !== null)
+    const hit = rows.slice(0, 200).find(r => evaluateRuleForRow(rule, own(r), r, columnId).due !== null)
     return (hit ?? rows[0])?.row_id ?? null
   }, [rows, columnId, rule])
   const [picked, setPicked] = useState<number | null>(null)

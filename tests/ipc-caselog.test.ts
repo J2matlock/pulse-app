@@ -386,7 +386,7 @@ describe('CASE_LOG_RESTORE', () => {
     }
     const r = await invoke(IPC.CASE_LOG_RESTORE, entry) as any
     expect(r.ok).toBe(false)
-    expect(r.error).toContain('already exists')
+    expect(r.error).toMatch(/is already there\./)
   })
 
   it('fails for invalid entry format', async () => {
@@ -462,7 +462,7 @@ describe('SCRAP_NOTE_UPDATE', () => {
   it('fails for content over 500k', async () => {
     const r = await invoke(IPC.SCRAP_NOTE_UPDATE, rowId, 'x'.repeat(500_001)) as any
     expect(r.ok).toBe(false)
-    expect(r.error).toContain('too large')
+    expect(r.error).toBe('Scratch notes can be up to 500,000 characters.')
   })
 })
 
@@ -483,6 +483,9 @@ describe('Case note records integrity', () => {
     const r = await invoke(IPC.CASE_LOG_DELETE, e.data.id) as any
     expect(r.ok).toBe(false)
     expect(r.error).toMatch(/Void it instead/)
+    // Uses the activity word, and no longer says "in the record" (AUDIT-155)
+    expect(r.error).toMatch(/^(Notes|Case notes) older than \d+ minutes can't be deleted/)
+    expect(r.error).not.toMatch(/record/)
     expect(testDb.db.prepare('SELECT COUNT(*) AS n FROM case_log WHERE id = ?').get(e.data.id)).toEqual({ n: 1 })
   })
 })
@@ -513,6 +516,15 @@ describe('notes dated by when they happened', () => {
     expect(localDay(n.created_at)).toBe(localDateString())
     expect(r.data.updated_dates).toEqual([expect.objectContaining({ column_id: lastVisit, new_value: day(-3) })])
     expect(cellValue()).toBe(day(-3))
+  })
+
+  it("doesn't keep the note when the date it moves can't be saved, so the two never disagree (AUDIT-105)", async () => {
+    testDb.db.exec("CREATE TRIGGER fail_cells BEFORE INSERT ON cells BEGIN SELECT RAISE(ABORT, 'disk trouble'); END")
+    const before = (testDb.db.prepare('SELECT COUNT(*) AS n FROM case_log WHERE row_id = ?').get(rowId) as { n: number }).n
+    const r = await invoke(IPC.CASE_LOG_CREATE, rowId, 'Home visit', 'visit', null)
+    expect(r.ok).toBe(false)
+    expect((testDb.db.prepare('SELECT COUNT(*) AS n FROM case_log WHERE row_id = ?').get(rowId) as { n: number }).n).toBe(before)
+    expect(cellValue()).toBe(null)
   })
 
   it('refuses a day in the future or a made-up date', async () => {

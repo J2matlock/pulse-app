@@ -1,8 +1,6 @@
 /**
- * SQLCipher-specific test suite — tests encryption behaviors that are skipped
- * in backup.test.ts due to the test environment potentially lacking cipher support.
- *
- * Gracefully skips all tests if the cipher module is unavailable.
+ * SQLCipher-specific test suite. The cipher build always ships with Pulse, so these
+ * run unconditionally: a broken or missing cipher module must fail, not skip.
  */
 import { describe, it, expect, afterAll } from 'vitest'
 import { mkdtempSync, rmSync, readFileSync } from 'fs'
@@ -10,21 +8,6 @@ import { join } from 'path'
 import { tmpdir } from 'os'
 import BetterSqlite3 from 'better-sqlite3-multiple-ciphers'
 import type { Database } from 'better-sqlite3'
-
-// Check if we have a working cipher module by attempting a basic operation
-let hasCipher = false
-try {
-  const tmpPath = join(mkdtempSync(join(tmpdir(), 'pulse-cipher-check-')), 'check.db')
-  const db = new BetterSqlite3(tmpPath) as Database
-  db.pragma(`cipher='sqlcipher'`)
-  db.pragma(`key='test'`)
-  db.exec('CREATE TABLE t (id INTEGER)')
-  db.close()
-  rmSync(tmpPath, { force: true })
-  hasCipher = true
-} catch { /* cipher not available */ }
-
-const describeIfCipher = hasCipher ? describe : describe.skip
 
 const KEY_A = 'test-cipher-key-alpha-0123456789'
 const KEY_B = 'test-cipher-key-bravo-9876543210'
@@ -56,7 +39,7 @@ afterAll(() => {
   }
 })
 
-describeIfCipher('SQLCipher encryption', () => {
+describe('SQLCipher encryption', () => {
   it('should open encrypted database with correct key', () => {
     const dir = makeTempDir()
     const dbPath = join(dir, 'correct-key.db')

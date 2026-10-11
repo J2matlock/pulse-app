@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
-import React from 'react'
+import { screen, fireEvent } from '@testing-library/react'
+import React, { act } from 'react'
 
 // Mock window.api
 const mockInvoke = vi.fn().mockResolvedValue({ ok: true, data: [] })
@@ -43,6 +43,7 @@ import { useGridStore } from '../../../../src/renderer/stores/gridStore'
 import { FilterBar, FilterControls } from '../../../../src/renderer/components/grid/FilterBar'
 import type { Column } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
+import { renderSettled } from '../../renderSettled'
 
 function makeColumn(id: number, name: string, type = 'text'): Column {
   return {
@@ -71,47 +72,47 @@ describe('FilterBar', () => {
     })
   })
 
-  it('returns null when no active filters', () => {
-    const { container } = render(<FilterBar />)
+  it('returns null when no active filters', async () => {
+    const { container } = await renderSettled(<FilterBar />)
     expect(container.innerHTML).toBe('')
   })
 
-  it('renders filter chips when filters are active', () => {
+  it('renders filter chips when filters are active', async () => {
     useGridStore.setState({
       activeFilters: [
         { columnId: 1, operator: 'contains', value: 'John' },
       ],
     })
-    render(<FilterBar />)
+    await renderSettled(<FilterBar />)
     expect(screen.getByText('Name')).toBeTruthy()
     expect(screen.getByText('contains')).toBeTruthy()
     expect(screen.getByText('John')).toBeTruthy()
   })
 
-  it('names a filter on a hidden column by the column, not "Col 57" (bug sweep S3)', () => {
+  it('names a filter on a hidden column by the column, not "Col 57" (bug sweep S3)', async () => {
     useGridStore.setState({
       hiddenColumns: [makeColumn(57, 'Stage', 'status')],
       activeFilters: [{ columnId: 57, operator: 'equals', value: 'Active' }],
     })
-    render(<FilterBar />)
+    await renderSettled(<FilterBar />)
     expect(screen.getByText('Stage')).toBeTruthy()
     expect(screen.queryByText('Col 57')).toBeNull()
-    useGridStore.setState({ hiddenColumns: [] })
+    act(() => { useGridStore.setState({ hiddenColumns: [] }) })
   })
 
-  it('shows operator label and value in chip', () => {
+  it('shows operator label and value in chip', async () => {
     useGridStore.setState({
       activeFilters: [
         { columnId: 2, operator: 'gt', value: '18' },
       ],
     })
-    render(<FilterBar />)
+    await renderSettled(<FilterBar />)
     expect(screen.getByText('Age')).toBeTruthy()
     expect(screen.getByText('greater than')).toBeTruthy()
     expect(screen.getByText('18')).toBeTruthy()
   })
 
-  it('renders Clear all button and calls clearFilters', () => {
+  it('renders Clear all button and calls clearFilters', async () => {
     const clearFilters = vi.fn()
     useGridStore.setState({
       activeFilters: [
@@ -119,35 +120,35 @@ describe('FilterBar', () => {
       ],
       clearFilters,
     })
-    render(<FilterBar />)
+    await renderSettled(<FilterBar />)
     const clearBtn = screen.getByText('Clear all')
     expect(clearBtn).toBeTruthy()
     fireEvent.click(clearBtn)
     expect(clearFilters).toHaveBeenCalledOnce()
   })
 
-  it('renders remove button per chip with correct aria-label', () => {
+  it('renders remove button per chip with correct aria-label', async () => {
     useGridStore.setState({
       activeFilters: [
         { columnId: 1, operator: 'contains', value: 'A' },
         { columnId: 2, operator: 'gt', value: '5' },
       ],
     })
-    render(<FilterBar />)
+    await renderSettled(<FilterBar />)
     const removeBtn1 = screen.getByLabelText('Remove filter: Name contains A')
     const removeBtn2 = screen.getByLabelText('Remove filter: Age greater than 5')
     expect(removeBtn1).toBeTruthy()
     expect(removeBtn2).toBeTruthy()
   })
 
-  it('shows a date in a chip the way cells show it, not as 2026-10-10 (G-38)', () => {
+  it('shows a date in a chip the way cells show it, not as 2026-10-10 (G-38)', async () => {
     useGridStore.setState({ activeFilters: [{ columnId: 2, operator: 'lt', value: '2026-10-10' }] })
-    render(<FilterBar />)
+    await renderSettled(<FilterBar />)
     expect(screen.getByText('10/10/2026')).toBeTruthy()
     expect(screen.queryByText('2026-10-10')).toBeNull()
   })
 
-  it('shows the Match all / any toggle when 2+ filters active', () => {
+  it('shows the Match all / any toggle when 2+ filters active', async () => {
     useGridStore.setState({
       activeFilters: [
         { columnId: 1, operator: 'contains', value: 'A' },
@@ -155,28 +156,28 @@ describe('FilterBar', () => {
       ],
       filterMode: 'and',
     })
-    render(<FilterBar />)
+    await renderSettled(<FilterBar />)
     expect(screen.getByText('Match all')).toBeTruthy()
   })
 
-  it('does not show the Match all / any toggle with single filter', () => {
+  it('does not show the Match all / any toggle with single filter', async () => {
     useGridStore.setState({
       activeFilters: [
         { columnId: 1, operator: 'contains', value: 'A' },
       ],
     })
-    render(<FilterBar />)
+    await renderSettled(<FilterBar />)
     expect(screen.queryByText('Match all')).toBeNull()
     expect(screen.queryByText('Match any')).toBeNull()
   })
 
-  it('does not show value for is_empty operator', () => {
+  it('does not show value for is_empty operator', async () => {
     useGridStore.setState({
       activeFilters: [
         { columnId: 1, operator: 'is_empty', value: '' },
       ],
     })
-    render(<FilterBar />)
+    await renderSettled(<FilterBar />)
     expect(screen.getByText('Name')).toBeTruthy()
     expect(screen.getByText('is empty')).toBeTruthy()
     // No value span should be rendered
@@ -192,24 +193,37 @@ describe('FilterControls (G-12, G-30)', () => {
     useGridStore.setState({ activeFilters: [], filterMode: 'and', savedFilters: [], activeGridId: 1, hiddenColumns: [], showStarredOnly: false })
   })
 
-  it('labels the star toggle "Starred"', () => {
+  it('labels the star toggle "Starred"', async () => {
     useGridStore.setState({ columns: [makeColumn(1, 'Name')] })
-    render(<FilterControls />)
+    await renderSettled(<FilterControls />)
     expect(screen.getByRole('button', { name: /Starred/ })).toBeTruthy()
   })
 
-  it('offers a one-click Overdue filter when the list has deadlines', () => {
+  it('offers a one-click Overdue filter when the list has deadlines', async () => {
     useGridStore.setState({ columns: [makeColumn(1, 'Name'), { ...makeColumn(2, 'Review', 'date'), config: JSON.stringify({ alert_rule_id: 4 }) }] })
-    render(<FilterControls />)
+    await renderSettled(<FilterControls />)
     fireEvent.click(screen.getByRole('button', { name: 'Overdue' }))
     expect(useGridStore.getState().activeFilters).toEqual([{ columnId: -2, operator: 'due_status', value: 'overdue' }])
     fireEvent.click(screen.getByRole('button', { name: 'Overdue' }))
     expect(useGridStore.getState().activeFilters).toEqual([])
   })
 
-  it('has no Overdue button without deadlines', () => {
+  it('the Add filter panel takes focus, closes on Escape and gives focus back (AUDIT-044)', async () => {
     useGridStore.setState({ columns: [makeColumn(1, 'Name')] })
-    render(<FilterControls />)
+    await renderSettled(<FilterControls />)
+    const btn = screen.getByRole('button', { name: /^Filter/ })
+    btn.focus()
+    fireEvent.click(btn)
+    const panel = await screen.findByRole('dialog', { name: 'Add filter condition' })
+    expect(panel.contains(document.activeElement)).toBe(true)
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'Add filter condition' })).toBeNull()
+    expect(document.activeElement).toBe(btn)
+  })
+
+  it('has no Overdue button without deadlines', async () => {
+    useGridStore.setState({ columns: [makeColumn(1, 'Name')] })
+    await renderSettled(<FilterControls />)
     expect(screen.queryByRole('button', { name: 'Overdue' })).toBeNull()
   })
 })

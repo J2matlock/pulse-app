@@ -8,11 +8,6 @@ import { pulseEvents } from '../events'
 
 let current = localDateString()
 
-/** Today, as the watcher last saw it */
-export function currentDay(): string {
-  return current
-}
-
 /** Announce a new day if the date has moved on since the last check. True when it had. */
 export function checkDayChanged(now = new Date()): boolean {
   const today = localDateString(now)

@@ -16,6 +16,7 @@ import { wordsFromListName } from '../../../shared/listWords'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { DateRepeatPicker, suggestRepeat, type DateAnswer } from './DateRepeatPicker'
+import { friendlyError } from '../../utils/friendlyError'
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6
 
@@ -178,7 +179,7 @@ export function GuidedBlankStart({ onBack, onFinished, resume, onProgress }: Pro
         setBusy(true)
         try {
           const res = await safeInvoke(IPC.ONBOARDING_DATE_RULES, gridId, list)
-          if (!res.ok) { setError(res.error); return }
+          if (!res.ok) { setError(friendlyError(res.error, "We couldn't save those dates. Please try again.")); return }
         } finally { setBusy(false) }
       }
     }
@@ -193,11 +194,11 @@ export function GuidedBlankStart({ onBack, onFinished, resume, onProgress }: Pro
       const term = { one: one.slice(0, 40), many: many.slice(0, 40), article: guessArticle(one) }
       // The list keeps its own words too, so a later list with other words doesn't change it
       const listRes = await safeInvoke(IPC.GRID_SETTINGS_UPDATE, gridId, { record_kind: kind, vocab: { record: term } })
-      if (!listRes.ok) { setError(listRes.error); return }
+      if (!listRes.ok) { setError(friendlyError(listRes.error, "We couldn't save that. Please try again.")); return }
       await updateWorkspace({ vocab: { record: term }, features: answers })
       await onFinished()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "We couldn't save that. Please try again.")
+      setError(friendlyError(err instanceof Error ? err.message : null, "We couldn't save that. Please try again."))
     } finally { setBusy(false) }
   }
 

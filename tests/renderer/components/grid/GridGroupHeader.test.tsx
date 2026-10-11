@@ -45,6 +45,24 @@ import { setWords } from '../../vocabFixture'
 beforeEach(() => { setWords() })
 
 describe('GroupHeaderItem', () => {
+  it('is a grid row with one cell across it, and its toggle says the group and whether it is open (AUDIT-042)', () => {
+    const { rerender } = render(
+      <GroupHeaderItem value="Active" count={5} groupKey="active" isCollapsed={false} height={44}
+        ariaRowIndex={4} colCount={7} onToggle={vi.fn()} onContextMenu={vi.fn()} />
+    )
+    const row = screen.getByRole('row')
+    expect(row.getAttribute('aria-rowindex')).toBe('4')
+    const cell = screen.getByRole('gridcell')
+    expect(cell.getAttribute('aria-colspan')).toBe('7')
+    const toggle = screen.getByRole('button', { name: 'Active group, 5 clients' })
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    rerender(
+      <GroupHeaderItem value="Active" count={5} groupKey="active" isCollapsed height={44}
+        ariaRowIndex={4} colCount={7} onToggle={vi.fn()} onContextMenu={vi.fn()} />
+    )
+    expect(screen.getByRole('button', { name: 'Active group, 5 clients' }).getAttribute('aria-expanded')).toBe('false')
+  })
+
   it('renders group value and count', () => {
     render(
       <GroupHeaderItem

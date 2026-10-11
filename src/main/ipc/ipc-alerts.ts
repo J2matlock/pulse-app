@@ -107,7 +107,7 @@ export function registerAlertHandlers(): void {
     const db = getDb()
     const rule = db.prepare('SELECT * FROM alert_rules WHERE id = ?').get(id) as AlertRule | undefined
     if (!rule) return fail('Alert rule not found')
-    if (rule.is_system) return fail('Cannot delete a built-in alert rule')
+    if (rule.is_system) return fail("Built-in deadline rules can't be deleted.")
     // Unlink every column in the same step: a column left pointing at a missing
     // rule would stop being a deadline in the grid but not everywhere else
     const columnIds = db.transaction(() => {

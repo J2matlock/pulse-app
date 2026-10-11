@@ -1,12 +1,15 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { LayoutList, Settings2, Check, GripVertical, Pencil } from 'lucide-react'
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
-import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable'
+import { dndAccessibility } from '../../utils/dndAnnouncements'
 import { CSS } from '@dnd-kit/utilities'
 import { evaluateRuleForRow } from '../../utils/deadlineCalc'
 import { IPC } from '../../../shared/ipc-channels'
 import { isNotTypedColumnType, type Column, type GridRow, type ParsedAlertRule } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
+import toast from 'react-hot-toast'
+import { friendlyError } from '../../utils/friendlyError'
 import type { DeadlineState } from '../../../shared/deadlineEngine'
 import { CellDisplay } from '../grid/CellDisplay'
 import { CellEditor } from '../grid/CellEditor'
@@ -41,7 +44,7 @@ function deadlineBadge(col: Column, value: string | null, row: GridRow, alertRul
   const rule = ruleId ? alertRules.find(r => r.id === ruleId) : undefined
   if (!rule) return null
   try {
-    const res = evaluateRuleForRow(rule, value, row as unknown as Record<string, unknown>, col.id)
+    const res = evaluateRuleForRow(rule, value, row, col.id)
     if (res.state === 'none') return null
     const badge = STATE_BADGE[res.state]
     return badge ? { ...badge, label: res.extended ? 'Extended' : badge.label } : null
@@ -93,19 +96,21 @@ function SortableCard({ col, value, row, allColumns, alertRules, series, onSave 
       style={style}
       className={`flex flex-col px-4 py-3 group/card relative ${isDragging ? 'bg-blue-50 dark:bg-blue-900/20 rounded-lg shadow-sm' : ''}`}
     >
-      {/* Drag handle — subtle, visible on hover */}
-      <button
-        {...attributes}
-        {...listeners}
-        className="absolute right-1 top-1 p-1 rounded-sm text-slate-300 dark:text-slate-500
-                   opacity-0 group-hover/card:opacity-100 hover:text-slate-500 dark:hover:text-slate-400
-                   cursor-grab active:cursor-grabbing transition-opacity touch-none"
-        tabIndex={-1}
-        aria-label="Drag to reorder"
-      >
-        <GripVertical className="w-3.5 h-3.5" />
-      </button>
       <dt className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1 truncate pr-6">
+        {/* Drag handle — subtle, visible on hover. Inside the <dt> because a
+            <dl> group may only hold <dt> and <dd> (axe definition-list) */}
+        <button
+          {...attributes}
+          {...listeners}
+          className="absolute right-1 top-1 p-1 rounded-sm text-slate-300 dark:text-slate-500
+                     opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100 hover:text-slate-500 dark:hover:text-slate-400
+                     focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
+                     cursor-grab active:cursor-grabbing transition-opacity touch-none"
+          aria-label={`Reorder ${col.name}`}
+          title="Drag to reorder, or press Space and use the arrow keys"
+        >
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
         {col.name}
       </dt>
       <dd className="min-h-[24px] flex items-center gap-2">
@@ -158,9 +163,12 @@ export function GridDataSummary({ row, columns, alertRules, gridId, onCellSave }
 
   const allCols = columns
 
+  // Fields move from the keyboard too: Space on a handle, arrows, Space (AUDIT-049)
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
+  const dragA11y = useMemo(() => dndAccessibility(id => allCols.find(c => c.id === id)?.name), [allCols])
 
   // Load saved column selection and order
   useEffect(() => {
@@ -205,13 +213,16 @@ export function GridDataSummary({ row, columns, alertRules, gridId, onCellSave }
   })()
 
   async function toggleColumn(colId: number) {
+    const before = hiddenColumnIds
     const next = new Set(hiddenColumnIds)
     if (next.has(colId)) next.delete(colId)
     else next.add(colId)
     setHiddenColumnIds(next)
-    try {
-      await safeInvoke(IPC.SETTINGS_UPDATE, HIDDEN_KEY_PREFIX + gridId, JSON.stringify([...next]))
-    } catch { /* ignore */ }
+    const res = await safeInvoke(IPC.SETTINGS_UPDATE, HIDDEN_KEY_PREFIX + gridId, JSON.stringify([...next]))
+    if (!res.ok) {
+      setHiddenColumnIds(before)
+      toast.error(friendlyError(res.error, "We couldn't save which columns show here — try again"))
+    }
   }
 
   async function handleDragEnd(event: DragEndEvent) {
@@ -233,10 +244,13 @@ export function GridDataSummary({ row, columns, alertRules, gridId, onCellSave }
       if (!fullOrder.includes(col.id)) fullOrder.push(col.id)
     }
 
+    const before = columnOrder
     setColumnOrder(fullOrder)
-    try {
-      await safeInvoke(IPC.SETTINGS_UPDATE, ORDER_KEY_PREFIX + gridId, JSON.stringify(fullOrder))
-    } catch { /* ignore */ }
+    const res = await safeInvoke(IPC.SETTINGS_UPDATE, ORDER_KEY_PREFIX + gridId, JSON.stringify(fullOrder))
+    if (!res.ok) {
+      setColumnOrder(before)
+      toast.error(friendlyError(res.error, "We couldn't save the new column order — try again"))
+    }
   }
 
   // Number histories for the sparklines, one request per record; refreshed when a value changes
@@ -309,7 +323,7 @@ export function GridDataSummary({ row, columns, alertRules, gridId, onCellSave }
           No columns selected. Click the gear icon to choose which columns to show.
         </div>
       ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} accessibility={dragA11y}>
           <SortableContext items={displayCols.map(c => c.id)} strategy={rectSortingStrategy}>
             <dl className="grid grid-cols-2 gap-0 divide-y divide-slate-100 dark:divide-slate-700/50">
               {displayCols.map(col => (

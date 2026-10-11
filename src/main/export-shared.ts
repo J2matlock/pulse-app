@@ -2,8 +2,9 @@
  * export-shared.ts — Shared helpers, types, and jsPDF setup used by all export modules.
  */
 
-import { writeFileSync, renameSync, unlinkSync, openSync, fsyncSync, closeSync } from 'fs'
+import { writeFileSync, renameSync, unlinkSync, openSync, fsyncSync, closeSync, readFileSync, existsSync } from 'fs'
 import { writeFile, rename, unlink } from 'fs/promises'
+import { join } from 'path'
 
 import type { Column, GridRow, Grid } from '../shared/types'
 import { getDb, buildGridQuery } from './database'
@@ -14,7 +15,10 @@ import { word } from './vocab'
 import { hasDisplayFormat } from './display-names'
 import { cellText, deadlineText, type DateFormat } from '../shared/cellText'
 import { ageInYears, localDateString } from '../shared/dates'
+import { htmlToText } from '../shared/htmlText'
+import { joinRecordName } from '../shared/recordName'
 import { loadDeadlines, type DeadlineItem } from './deadlines'
+import { sanitizeCsvFormula } from '../shared/csvGuard'
 
 // jsPDF is a CJS module; use require() to avoid ESM/CJS interop issues in Electron main.
 const { jsPDF } = require('jspdf') as typeof import('jspdf')
@@ -24,6 +28,81 @@ applyAutoTablePlugin(jsPDF)
 
 // ── Re-export jsPDF so submodules don't need to repeat the CJS require dance ──
 export { jsPDF }
+
+// ── Names outside Windows-1252 (AUDIT-009) ──
+// jsPDF's built-in Helvetica only knows Windows-1252: "Łukasz", "Иван" or "Nguyễn"
+// came out as spaced-out garbage. Text with any other character is drawn and
+// measured with Liberation Sans (SIL OFL 1.1, build/fonts), which has Helvetica's
+// widths, so layout doesn't change. Plain text keeps Helvetica, so most PDFs stay
+// small and embed no font. CJK and Arabic aren't in Liberation Sans.
+
+export const UNICODE_FONT = 'LiberationSans'
+const UNICODE_FONT_FILES = { normal: 'LiberationSans-Regular.ttf', bold: 'LiberationSans-Bold.ttf', italic: 'LiberationSans-Italic.ttf' } as const
+type UnicodeStyle = keyof typeof UNICODE_FONT_FILES
+
+/** Windows-1252 characters above U+00FF (the rest of it is U+0000–U+007F and U+00A0–U+00FF) */
+const WIN_ANSI_EXTRA = new Set('€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ')
+
+function outsideWinAnsi(text: unknown): boolean {
+  if (Array.isArray(text)) return text.some(outsideWinAnsi)
+  if (typeof text !== 'string') return false
+  for (const ch of text) {
+    const c = ch.codePointAt(0) ?? 0
+    if (c > 0x7f && (c < 0xa0 || c > 0xff) && !WIN_ANSI_EXTRA.has(ch)) return true
+  }
+  return false
+}
+
+/** The font files, read once: from resources/fonts when packaged, build/fonts in development and tests */
+let unicodeFontData: Record<UnicodeStyle, string> | null | undefined
+function unicodeFontFiles(): Record<UnicodeStyle, string> | null {
+  if (unicodeFontData !== undefined) return unicodeFontData
+  try {
+    const packaged = typeof process.resourcesPath === 'string' ? join(process.resourcesPath, 'fonts') : ''
+    const dir = packaged && existsSync(join(packaged, UNICODE_FONT_FILES.normal)) ? packaged : join(__dirname, '../../build/fonts')
+    const read = (file: string) => readFileSync(join(dir, file)).toString('base64')
+    unicodeFontData = { normal: read(UNICODE_FONT_FILES.normal), bold: read(UNICODE_FONT_FILES.bold), italic: read(UNICODE_FONT_FILES.italic) }
+  } catch (err) {
+    // Without the files, exports still work; only names outside Windows-1252 print badly
+    logNonFatal('export', 'load PDF Unicode font', err)
+    unicodeFontData = null
+  }
+  return unicodeFontData
+}
+
+type PdfDoc = InstanceType<typeof jsPDF>
+
+function addUnicodeFont(doc: PdfDoc): boolean {
+  if (doc.getFontList()[UNICODE_FONT]) return true
+  const files = unicodeFontFiles()
+  if (!files) return false
+  for (const style of Object.keys(UNICODE_FONT_FILES) as UnicodeStyle[]) {
+    doc.addFileToVFS(UNICODE_FONT_FILES[style], files[style])
+    doc.addFont(UNICODE_FONT_FILES[style], UNICODE_FONT, style)
+  }
+  return true
+}
+
+type TextMethod = (text: unknown, ...rest: unknown[]) => unknown
+
+/** Draw or measure text in the Unicode font when it has characters Helvetica can't show */
+function useUnicodeFontWhenNeeded(doc: PdfDoc): void {
+  const methods = doc as unknown as Record<string, TextMethod | undefined>
+  for (const name of ['text', 'splitTextToSize', 'getStringUnitWidth', 'getTextWidth']) {
+    const original = methods[name]
+    if (typeof original !== 'function') continue
+    methods[name] = function (text: unknown, ...rest: unknown[]) {
+      if (!outsideWinAnsi(text) || !addUnicodeFont(doc)) return original.call(doc, text, ...rest)
+      const prev = doc.getFont()
+      const style: UnicodeStyle = prev.fontStyle.includes('bold') ? 'bold' : prev.fontStyle.includes('italic') ? 'italic' : 'normal'
+      doc.setFont(UNICODE_FONT, style)
+      try { return original.call(doc, text, ...rest) } finally { doc.setFont(prev.fontName, prev.fontStyle) }
+    }
+  }
+}
+
+// Every document made anywhere in the app, including autoTable's cells, which draw through doc.text
+;(jsPDF.API as unknown as { events: Array<[string, (this: PdfDoc) => void]> }).events.push(['initialized', function (this: PdfDoc) { useUnicodeFontWhenNeeded(this) }])
 
 // ── Typed wrappers for jspdf-autotable (avoids `as any` at every call site) ──
 export type AutoTableDoc = InstanceType<typeof jsPDF>
@@ -108,19 +187,8 @@ export interface SupervisorReportOptions {
 // Helpers
 // ──────────────────────────────────────────────────────────────────────────────
 
-/** Strip HTML tags and decode common entities. */
-export function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCharCode(Number(dec)))
-}
+/** Rich text as plain text: one line per paragraph or list item (see htmlToText) */
+export const stripHtml = htmlToText
 
 /**
  * Atomic write: write to temp file, fsync, then rename.
@@ -167,29 +235,32 @@ export function formatDate(value: string | null, fmt: 'iso' | 'us' | 'eu'): stri
   return `${day}/${m}/${y}`
 }
 
-/**
- * Prevent CSV formula injection. Excel/LibreOffice treat cells starting with
- * =, +, -, @ as formulas. Prefix with a tab to neutralize without altering
- * the visible data in non-formula-executing contexts (import, copy-paste).
- */
-export function sanitizeCsvFormula(v: string): string {
-  // Check first character and also after any line endings (multi-line cell values)
-  if (/^[=+\-@\t\r]/.test(v)) return `\t${v}`
-  if (/\r?\n[=+\-@]/.test(v)) return `\t${v}`
-  return v
-}
+export { sanitizeCsvFormula, unguardCsvFormula } from '../shared/csvGuard'
 
 /** Columns whose text is a number or a date: a leading "-" there is a negative number, not a formula (X-21) */
 const NON_TEXT_TYPES = new Set(['number', 'currency', 'date', 'checkbox', 'auto_number', 'age_from_dob', 'calculated_days', 'file_count'])
 
+/** "-12.50", "$-1,234.00", "1e3": a number, so a leading "-" or "+" is a sign, not a formula */
+const NUMBER_TEXT = /^[-+]?\$?[-+]?(?:\d[\d,]*(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/
+
 /**
- * A cell as an export shows it: the same text as copying the cell (G-08).
- * Dates follow the date format setting unless one is given.
+ * A cell as a PDF or printout shows it: the same text as copying the cell (G-08),
+ * with nothing added. Dates follow the date format setting unless one is given.
+ */
+export function cellDisplayText(value: string | null, columnType: string, dateFormat: DateFormat = savedDateFormat()): string {
+  return cellText(columnType, value, { dateFormat })
+}
+
+/**
+ * A cell as a CSV export writes it: the display text, guarded against formula
+ * injection. A number or date column can still hold any text (an import keeps
+ * what it couldn't read, a type change keeps the old text), so only text that
+ * really is a number skips the guard (AUDIT-008).
  */
 export function formatCellValue(value: string | null, columnType: string, dateFormat: DateFormat = savedDateFormat()): string {
-  const text = cellText(columnType, value, { dateFormat })
+  const text = cellDisplayText(value, columnType, dateFormat)
   if (!text) return ''
-  if (NON_TEXT_TYPES.has(columnType) && (columnType !== 'number' || !isNaN(Number(text)))) return text
+  if (NON_TEXT_TYPES.has(columnType) && NUMBER_TEXT.test(text)) return text
   return sanitizeCsvFormula(text)
 }
 
@@ -341,13 +412,8 @@ export function getClientName(db: ReturnType<typeof getDb>, rowId: number, gridI
     LIMIT 1
   `).get(rowId, rowId, gid) as { first_name: string | null; last_name: string | null } | undefined
 
-  if (nameResult) {
-    const first = nameResult.first_name?.trim() || ''
-    const last = nameResult.last_name?.trim() || ''
-    if (first && last) return `${first} ${last}`
-    if (first) return first
-    if (last) return last
-  }
+  const joined = nameResult ? joinRecordName(nameResult.first_name, nameResult.last_name) : ''
+  if (joined) return joined
 
   // Fallback to display_name if no name column found
   const dn = row.display_name?.trim()

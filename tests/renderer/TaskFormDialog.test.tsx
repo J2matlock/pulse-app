@@ -64,6 +64,10 @@ describe('TaskFormDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add task' }))
     expect(onSave).not.toHaveBeenCalled()
     expect(screen.getByRole('alert').textContent).toMatch(/needs a due date/)
+    // …and the due date box points at the message (audit A06-14)
+    const due = screen.getByLabelText('Due date')
+    expect(due.getAttribute('aria-invalid')).toBe('true')
+    expect(due.getAttribute('aria-describedby')).toBe(screen.getByRole('alert').id)
   })
 })
 

@@ -41,7 +41,7 @@ export function CustomGroupEditor({ gridId, initialDef, onClose }: CustomGroupEd
   const acuityEnabled = acuityFlag && priorityOn
 
   const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
+  useFocusTrap(trapRef, true, { onEscape: onClose })
 
   const groupableColumns = useMemo(() => columns.filter(c => GROUPABLE_TYPES.has(c.column_type)), [columns])
 

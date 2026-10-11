@@ -10,6 +10,7 @@ import { localDateString } from '../../../shared/dates'
 import { noteUnencryptedExport } from '../../utils/exportNotice'
 import { useVocab } from '../../hooks/useVocab'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { friendlyError } from '../../utils/friendlyError'
 
 interface Props {
   gridId: number
@@ -63,7 +64,7 @@ const PRESETS: Array<{ key: NonNullable<PresetKey>; label: string }> = [
 export function SupervisorReportDialog({ gridId, columns, onClose }: Props): React.ReactElement {
   const { t } = useVocab(gridId)
   const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
+  useFocusTrap(trapRef, true, { onEscape: onClose })
   const today = localDateString()
   const firstOfMonth = today.slice(0, 8) + '01'
 
@@ -170,7 +171,7 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
       })
 
       if (!result.ok) {
-        setError(result.error || 'Export failed. Please try again.')
+        setError(friendlyError(result.error, 'Export failed. Please try again.'))
       } else {
         noteUnencryptedExport()
         onClose()

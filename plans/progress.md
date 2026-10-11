@@ -1701,3 +1701,26 @@ Left for later:
 - Report week buckets ignore the week-start setting.
 
 Build state: npm test 4355 pass / 4 skip; typecheck 0; eslint 0 errors; e2e 11/11; empty-Tasks group checked in the app.
+
+## 2026-10-11 (cont.) — Master audit, bug sweep & polish (unattended run, branch `polish/2026-10-11`)
+- 10-area audit → 192 findings (0 Critical, 19 High, 72 Medium, 101 Low), recorded in `AUDIT.md`.
+- 15 fix batches merged: 164 fixed, 3 partial, 2 deferred, 22 need a decision (see `POLISH-REPORT.md`).
+- Real bugs found while fixing: pre-v14 upgrade could fail at unlock (orphan rows before migration 014); restoring a damaged `.pulse-backup` could overwrite the live DB.
+- New migration 048 (schema 48). Tests 4355 (+4 skipped) → 4921 (0 skipped); typecheck/lint 0 errors; coverage 76.7% lines / 65.3% branches.
+- Not pushed, not merged; awaiting review. AUDIT.md / POLISH-REPORT.md contain security findings — keep them off the public main.
+
+## 2026-10-11 (cont.) — Approved audit decisions implemented (branch `polish/2026-10-11`)
+- User approved all 22 needs-decision items with the noted tweaks. Implemented: AUDIT-021, 026, 037, 055, 074, 087, 098, 107, 108 (incl. 30-day auto-purge), 109, 113, 114, 127, 139, 153, 164, 170; AUDIT-090 recorded in the CLAUDE.md decision log.
+- Planned, awaiting go-ahead: Electron 44 upgrade, Linux .deb, asar integrity (`plans/electron-upgrade-and-linux-packaging-plan.md`).
+- Gates: 439 files / 5028 tests passed, typecheck 0, lint 0 errors, build OK. Still not pushed.
+
+## 2026-10-11 (cont.) — Electron 44 upgrade, Linux .deb, asar integrity (branch `upgrade/electron-44`)
+- Electron 39.7.0 → **44.4.5** (AUDIT-089). @types/node 22 → 24.19.0. node-abi pinned to 4.35.0 under @electron/rebuild via `overrides` (the locked one didn't know Electron 44's ABI).
+- better-sqlite3-multiple-ciphers 12.6.2 → **13.0.3** (Node-API, prebuilt binaries for every platform bundled). 12.6.2 doesn't compile against Electron 44's V8; 12.x has no Windows prebuilds past Electron 42, and the Windows build is cross-compiled. Encrypted DBs from 12.6.2 open in 13.0.3 and the other way round. `scripts/get-win-native.js` removed; build scripts check the bundled binary instead of rebuilding or downloading; each platform ships only its own binaries.
+- Breaking changes handled: `openAsHidden`/`wasOpenedAsHidden` removed (Mac hidden start now uses `wasOpenedAtLogin`), `clipboard.writeText` is async (awaited), macOS minimum 12 → 13. Not changed: dialogs without `defaultPath` now open in Downloads.
+- Linux `.deb` next to the AppImage (AUDIT-019), with electron-builder's AppArmor profile; README Ubuntu 24.04+ section. Building it on Fedora needs `libxcrypt-compat` (build-linux.js checks).
+- Asar integrity fuse on for Windows and macOS only (AUDIT-094/186); a scratch Windows build embeds the matching hash.
+- Fixed two stale tests found on the way: vocabLeak Range stub (uncaught jsdom errors) and the e2e recovery-key skip button name.
+- Verified: npm test 439 files / 5034 tests (0 skipped), typecheck 0, eslint 0; e2e subset (setup, unlock, grid CRUD, backup/restore) 4/4 on Electron 44; packaged fused Linux build sets a password and opens the encrypted DB; .deb control file and AppArmor profile inspected.
+- Still to do by hand: Ubuntu 24.04 VM .deb install and launch; Windows and macOS launch with asar integrity. Not pushed.
+- Follow-up: the `.deb` target, its Fedora build check (libxcrypt-compat) and the README Ubuntu section were removed at the user's request (Fedora only). Linux stays AppImage-only; AUDIT-019 closed as won't-fix. Tests 439 files / 5034 passed.

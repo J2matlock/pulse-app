@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import {
   DndContext,
+  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -13,8 +14,10 @@ import {
 } from '@dnd-kit/core'
 import {
   SortableContext,
+  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
+import { dndAccessibility } from '../../utils/dndAnnouncements'
 import { IPC } from '../../../shared/ipc-channels'
 import type { ChecklistItem as ChecklistItemType, ChecklistTemplate, ChecklistPriority, ChecklistGroup } from '../../../shared/types'
 import { ChecklistItem, CompletedChecklistItem } from './ChecklistItem'
@@ -25,6 +28,7 @@ import { ChecklistAddDialog } from './ChecklistAddDialog'
 import { useUndoStore } from '../../stores/undoStore'
 import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { rlog } from '../../utils/rendererLogger'
+import { friendlyError } from '../../utils/friendlyError'
 import { pulseEvents } from '../../events'
 import { resolveGroupDrop, groupAwareCollision } from '../../views/tasks/groupDrag'
 import { useVocab } from '../../hooks/useVocab'
@@ -59,9 +63,19 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
   const [pendingTemplateId, setPendingTemplateId] = useState<number | null>(null)
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Items and groups move from the keyboard too: Space on a handle, arrows, Space (AUDIT-049)
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
+  const dragA11y = useMemo(() => dndAccessibility(id => {
+    const s = String(id)
+    if (s.startsWith('group-')) {
+      const g = groups.find(x => `group-${x.id}` === s)
+      return g ? `${g.name} group` : null
+    }
+    return items.find(i => i.id === id)?.title
+  }), [items, groups])
 
   // Expose focus callback to parent
   useEffect(() => {
@@ -191,7 +205,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       ? { ...i, is_completed: isCompleted ? 1 : 0, completed_at: now }
       : i
     ))
-    const res = await safeInvoke<{ sysLogId: number | null; repeat?: { previousDue: string | null; nextDue: string } | null }>(IPC.CHECKLIST_UPDATE_ITEM, id, {
+    const res = await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, {
       is_completed: isCompleted ? 1 : 0,
       completed_at: now,
     })
@@ -236,17 +250,21 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
   }, [items, clientName, rowId])
 
   const handleUpdate = useCallback(async (id: number, updates: Partial<ChecklistItemType>) => {
-    let prevItem: ChecklistItemType | undefined
-    setItems(prev => {
-      prevItem = prev.find(i => i.id === id)
-      return prev.map(i => i.id === id ? { ...i, ...updates } : i)
-    })
-    await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, updates)
-    if (prevItem) {
-      const prev = prevItem
-      const prevValues = Object.fromEntries(
-        (Object.keys(updates) as Array<keyof ChecklistItemType>).map(k => [k, prev[k]])
-      ) as Partial<ChecklistItemType>
+    const prevItem = items.find(i => i.id === id)
+    const prevValues = prevItem
+      ? Object.fromEntries(
+          (Object.keys(updates) as Array<keyof ChecklistItemType>).map(k => [k, prevItem[k]])
+        ) as Partial<ChecklistItemType>
+      : null
+    setItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i))
+    const res = await safeInvoke(IPC.CHECKLIST_UPDATE_ITEM, id, updates)
+    if (!res.ok) {
+      // Put the item back as it was, and push no undo for a change that didn't happen (audit A08-5)
+      if (prevValues) setItems(prev => prev.map(i => i.id === id ? { ...i, ...prevValues } : i))
+      toast.error(friendlyError(res.error, "We couldn't save your change to that item — try again"))
+      return
+    }
+    if (prevValues) {
       useUndoStore.getState().push({
         id: crypto.randomUUID(),
         description: 'Updated checklist item',
@@ -263,17 +281,18 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
         },
       })
     }
-  }, [rowId])
+  }, [items, rowId])
 
   const handleDelete = useCallback(async (id: number) => {
-    let deletedItem: ChecklistItemType | undefined
-    setItems(prev => {
-      deletedItem = prev.find(i => i.id === id)
-      return prev.filter(i => i.id !== id)
-    })
-    await safeInvoke(IPC.CHECKLIST_DELETE_ITEM, id)
-    if (deletedItem) {
-      const item = deletedItem
+    const item = items.find(i => i.id === id)
+    setItems(prev => prev.filter(i => i.id !== id))
+    const res = await safeInvoke(IPC.CHECKLIST_DELETE_ITEM, id)
+    if (!res.ok) {
+      if (item) setItems(prev => prev.some(i => i.id === id) ? prev : [...prev, item])
+      toast.error(friendlyError(res.error, "We couldn't delete that item — try again"))
+      return
+    }
+    if (item) {
       useUndoStore.getState().push({
         id: crypto.randomUUID(),
         description: 'Deleted checklist item',
@@ -290,7 +309,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
         },
       })
     }
-  }, [rowId])
+  }, [items, rowId])
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event
@@ -300,8 +319,13 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
 
     if (drop.kind === 'groups') {
       const byId = new Map(groups.map(g => [g.id, g]))
+      const before = groups
       setGroups(drop.order.map((id, i) => ({ ...byId.get(id)!, position: i })))
-      await safeInvoke(IPC.CHECKLIST_GROUP_REORDER, rowId, drop.order)
+      const res = await safeInvoke(IPC.CHECKLIST_GROUP_REORDER, rowId, drop.order)
+      if (!res.ok) {
+        setGroups(before)
+        toast.error(friendlyError(res.error, "We couldn't move that group — try again"))
+      }
       return
     }
 
@@ -323,7 +347,13 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
         return
       }
     }
-    await safeInvoke(IPC.CHECKLIST_REORDER, rowId, newOrder)
+    const reordered = await safeInvoke(IPC.CHECKLIST_REORDER, rowId, newOrder)
+    if (!reordered.ok) {
+      // Reload so the list shows the order that was actually saved
+      toast.error(friendlyError(reordered.error, "We couldn't save the new order — try again"))
+      pulseEvents.emit('checklist:changed', { rowId })
+      return
+    }
     useUndoStore.getState().push({
       id: crypto.randomUUID(),
       description: moved ? 'Moved a checklist item to another group' : 'Reordered checklist items',
@@ -345,7 +375,11 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
 
   const doResetCycle = useCallback(async () => {
     const completedSnapshot = items.filter(i => i.is_completed === 1)
-    await safeInvoke(IPC.CHECKLIST_RESET_CYCLE, rowId)
+    const res = await safeInvoke(IPC.CHECKLIST_RESET_CYCLE, rowId)
+    if (!res.ok) {
+      toast.error(friendlyError(res.error, "We couldn't reset the checklist — try again"))
+      return
+    }
     setItems(prev => prev.map(i => ({ ...i, is_completed: 0 as const, completed_at: null })))
     setCompletedExpanded(false)
     if (completedSnapshot.length > 0) {
@@ -375,19 +409,29 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
     if (toDelete.length === 0) return
     setItems(prev => prev.filter(i => i.is_completed !== 1))
     setCompletedExpanded(false)
-    await Promise.all(toDelete.map(i => safeInvoke(IPC.CHECKLIST_DELETE_ITEM, i.id)))
+    const results = await Promise.all(toDelete.map(i => safeInvoke(IPC.CHECKLIST_DELETE_ITEM, i.id)))
+    const failed = toDelete.filter((_, idx) => results[idx]?.ok !== true)
+    const cleared = toDelete.filter((_, idx) => results[idx]?.ok === true)
+    if (failed.length > 0) {
+      // The ones that weren't deleted come back
+      setItems(prev => [...prev, ...failed.filter(f => !prev.some(i => i.id === f.id))])
+      const firstError = results.find(r => !r.ok)
+      toast.error(friendlyError(firstError && !firstError.ok ? firstError.error : null,
+        cleared.length === 0 ? "We couldn't clear the completed items — try again" : `We couldn't clear ${failed.length} of the completed items — try again`))
+    }
+    if (cleared.length === 0) return
     useUndoStore.getState().pushWithToast({
       id: crypto.randomUUID(),
-      description: `Cleared ${toDelete.length} completed item${toDelete.length === 1 ? '' : 's'}`,
+      description: `Cleared ${cleared.length} completed item${cleared.length === 1 ? '' : 's'}`,
       timestamp: Date.now(),
       category: 'structural',
       icon: 'trash',
       undo: async () => {
-        await Promise.all(toDelete.map(i => mustInvoke(IPC.CHECKLIST_RESTORE_ITEM, i)))
+        await Promise.all(cleared.map(i => mustInvoke(IPC.CHECKLIST_RESTORE_ITEM, i)))
         pulseEvents.emit('checklist:changed', { rowId })
       },
       redo: async () => {
-        await Promise.all(toDelete.map(i => mustInvoke(IPC.CHECKLIST_DELETE_ITEM, i.id)))
+        await Promise.all(cleared.map(i => mustInvoke(IPC.CHECKLIST_DELETE_ITEM, i.id)))
         pulseEvents.emit('checklist:changed', { rowId })
       },
     })
@@ -426,7 +470,12 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
     const prevGroup = groups.find(g => g.id === groupId)
     const prevName = prevGroup?.name ?? ''
     setGroups(prev => prev.map(g => g.id === groupId ? { ...g, name } : g))
-    await safeInvoke(IPC.CHECKLIST_GROUP_UPDATE, groupId, { name })
+    const res = await safeInvoke(IPC.CHECKLIST_GROUP_UPDATE, groupId, { name })
+    if (!res.ok) {
+      setGroups(prev => prev.map(g => g.id === groupId ? { ...g, name: prevName } : g))
+      toast.error(friendlyError(res.error, "We couldn't rename that group — try again"))
+      return
+    }
     useUndoStore.getState().push({
       id: crypto.randomUUID(),
       description: `Renamed group to "${name}"`,
@@ -450,7 +499,14 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
     const affectedItems = items.filter(i => i.group_id === groupId)
     setGroups(prev => prev.filter(g => g.id !== groupId))
     setItems(prev => prev.map(i => i.group_id === groupId ? { ...i, group_id: null } : i))
-    await safeInvoke(IPC.CHECKLIST_GROUP_DELETE, groupId)
+    const res = await safeInvoke(IPC.CHECKLIST_GROUP_DELETE, groupId)
+    if (!res.ok) {
+      const affectedIds = new Set(affectedItems.map(i => i.id))
+      setGroups(prev => prev.some(g => g.id === groupId) ? prev : [...prev, deletedGroup])
+      setItems(prev => prev.map(i => affectedIds.has(i.id) ? { ...i, group_id: groupId } : i))
+      toast.error(friendlyError(res.error, "We couldn't delete that group — try again"))
+      return
+    }
     // Undo brings the group back under a new id; redo must delete that one (bug sweep S2)
     let currentId = groupId
     useUndoStore.getState().push({
@@ -484,14 +540,17 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       // Debounce-save to DB
       if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current)
       collapseTimerRef.current = setTimeout(() => {
-        void safeInvoke(IPC.CHECKLIST_GROUP_UPDATE, groupId, { is_collapsed: newState ? 1 : 0 })
+        // Only the open/closed look; the screen keeps it for this visit either way
+        void safeInvoke(IPC.CHECKLIST_GROUP_UPDATE, groupId, { is_collapsed: newState ? 1 : 0 }).then(res => {
+          if (!res.ok) rlog.warn('Checklist', 'Could not save group collapse state', res.error)
+        })
       }, 500)
       return next
     })
   }, [])
 
   const handleApplyTemplate = useCallback(async (templateId: number, groupId?: number | null, createdGroupName?: string) => {
-    const result = await safeInvoke<{ createdIds: number[] }>(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId, groupId ?? null)
+    const result = await safeInvoke(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId, groupId ?? null)
     if (result.ok) {
       // Redo makes new items (and a new group), so undo and redo track the current ids (bug sweep S2)
       let createdIds = result.data.createdIds
@@ -516,12 +575,14 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
               const group = await mustInvoke<ChecklistGroup>(IPC.CHECKLIST_GROUP_CREATE, rowId, createdGroupName)
               targetGroupId = group.data.id
             }
-            const again = await mustInvoke<{ createdIds: number[] }>(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId, targetGroupId)
+            const again = await mustInvoke(IPC.CHECKLIST_APPLY_TEMPLATE, rowId, templateId, targetGroupId)
             createdIds = again.data.createdIds
             pulseEvents.emit('checklist:changed', { rowId })
           },
         })
       }
+    } else {
+      toast.error(friendlyError(result.error, "We couldn't add the template's items — try again"))
     }
     setShowTemplateManager(false)
   }, [rowId])
@@ -564,7 +625,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
           </div>
         ) : !hasGroups ? (
           /* ── Flat mode (no groups) — identical to previous behavior ── */
-          <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd} accessibility={dragA11y}>
             <SortableContext items={activeItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
               {activeItems.map(item => (
                 <ChecklistItem
@@ -580,7 +641,7 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
           </DndContext>
         ) : (
           /* ── Grouped mode ── */
-          <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={groupAwareCollision} onDragEnd={handleDragEnd} accessibility={dragA11y}>
             {/* Ungrouped items first */}
             {(groupedActiveItems.get(null) ?? []).length > 0 && (
               <div className="mb-1">
@@ -834,8 +895,8 @@ export function Checklist({ rowId, clientName, focusAddRef }: Props) {
       <ConfirmDialog
         open={confirmClear}
         title="Clear completed items"
-        message={`Delete ${completedItems.length} completed item${completedItems.length === 1 ? '' : 's'} permanently? This can be undone.`}
-        confirmLabel="Clear all"
+        message={`Delete ${completedItems.length} completed item${completedItems.length === 1 ? '' : 's'}? You can undo this.`}
+        confirmLabel={`Delete ${completedItems.length} item${completedItems.length === 1 ? '' : 's'}`}
         destructive={true}
         onConfirm={() => { setConfirmClear(false); void doClearCompleted() }}
         onCancel={() => setConfirmClear(false)}
@@ -979,6 +1040,7 @@ export function TemplateManager({ onApply, onClose }: {
   async function handleDelete(id: number) {
     const result = await safeInvoke<boolean>(IPC.CL_TEMPLATE_DELETE, id)
     if (result.ok) setTemplates(prev => prev.filter(t => t.id !== id))
+    else toast.error(friendlyError(result.error, "We couldn't delete that template — try again"))
   }
 
   // Draft item helpers
@@ -1013,6 +1075,7 @@ export function TemplateManager({ onApply, onClose }: {
             {view !== 'list' && (
               <button
                 onClick={() => setView('list')}
+                aria-label="Back to templates"
                 className="hit-44 text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 mr-1
                            focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
               >
@@ -1025,6 +1088,7 @@ export function TemplateManager({ onApply, onClose }: {
           </div>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="hit-44 text-slate-500 hover:text-slate-600 dark:hover:text-slate-300
                        focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
           >
@@ -1164,9 +1228,10 @@ export function TemplateManager({ onApply, onClose }: {
                   onClick={() => setDraft(d => ({ ...d, isRecurring: !d.isRecurring }))}
                   className={`hit-44 relative inline-flex h-6 w-11 items-center rounded-full transition-colors
                              focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-                             ${draft.isRecurring ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+                             ${draft.isRecurring ? 'bg-blue-500' : 'bg-slate-500 dark:bg-slate-500'}`}
                   role="switch"
                   aria-checked={draft.isRecurring}
+                  aria-label="Items repeat"
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform
                                    ${draft.isRecurring ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -1230,6 +1295,7 @@ export function TemplateManager({ onApply, onClose }: {
                         </select>
                         <button
                           onClick={() => removeDraftItem(item.key)}
+                          aria-label="Remove item"
                           className="hit-44 p-1.5 text-slate-500 hover:text-red-500 rounded-sm
                                      focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400"
                         >
@@ -1299,7 +1365,7 @@ export function TemplateManager({ onApply, onClose }: {
         open={!!deleteTarget}
         title="Delete template"
         message={`Delete the template "${deleteTarget?.name}"? This cannot be undone.`}
-        confirmLabel="Delete"
+        confirmLabel="Delete template"
         destructive
         onConfirm={() => { if (deleteTarget) { void handleDelete(deleteTarget.id); setDeleteTarget(null) } }}
         onCancel={() => setDeleteTarget(null)}

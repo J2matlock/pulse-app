@@ -193,7 +193,7 @@ describe('ImportWizard', () => {
       fireEvent.click(screen.getByRole('button', { name: /Next/ }))
       fireEvent.click(await screen.findByRole('button', { name: /^Import/ }))
       fireEvent.click(await screen.findByRole('button', { name: 'Undo this import' }))
-      expect(await screen.findByText(/in Trash, where they can be restored/)).toBeTruthy()
+      expect(await screen.findByText(/in the Trash, where they can be restored/)).toBeTruthy()
       expect(mockInvoke).toHaveBeenCalledWith('import:undo', 1, [41, 42])
     })
 
@@ -233,9 +233,54 @@ describe('ImportWizard', () => {
       fireEvent.click(screen.getByRole('button', { name: /Next/ }))
       fireEvent.click(await screen.findByRole('button', { name: /^Import/ }))
       fireEvent.click(await screen.findByRole('button', { name: 'Undo this import' }))
-      await screen.findByText(/in Trash, where they can be restored/)
+      await screen.findByText(/in the Trash, where they can be restored/)
       fireEvent.click(screen.getByRole('button', { name: 'Done' }))
       expect(onImported).toHaveBeenCalledWith(expect.objectContaining({ undone: true }))
+    })
+
+    describe('hidden spreadsheet rows (AUDIT-127)', () => {
+      function withHidden(extra: Record<string, unknown>) {
+        const base = mockInvoke.getMockImplementation()!
+        mockInvoke.mockImplementation((channel: string, ...args: unknown[]) =>
+          channel === 'import:file-preview' ? Promise.resolve({ ok: true, data: { ...preview, ...extra } }) : base(channel, ...args))
+      }
+      async function openPreview() {
+        render(<ImportWizard open={true} gridId={1} onClose={onClose} onImported={onImported} />)
+        fireEvent.click(screen.getByLabelText('Click to browse for a file, or drop a file here'))
+        await screen.findByRole('button', { name: /Next/ })
+      }
+      async function runImport() {
+        fireEvent.click(screen.getByRole('button', { name: /Next/ }))
+        await screen.findByText(/Map each column/)
+        fireEvent.click(screen.getByRole('button', { name: /Next/ }))
+        fireEvent.click(await screen.findByRole('button', { name: /^Import/ }))
+        await screen.findByText(/3 .* imported/)
+        const call = mockInvoke.mock.calls.find(c => c[0] === 'import:file')
+        return call?.[1] as { skipHiddenRows?: boolean }
+      }
+
+      it('counts hidden rows and columns, and imports them unless left out', async () => {
+        withHidden({ hiddenRowCount: 3, hiddenColumns: ['Old code'] })
+        await openPreview()
+        expect(screen.getByText(/This spreadsheet has 3 hidden rows/)).toBeTruthy()
+        expect(screen.getByText(/Hidden column in the spreadsheet: Old code/)).toBeTruthy()
+        const box = screen.getByLabelText('Leave out 3 hidden rows') as HTMLInputElement
+        expect(box.checked).toBe(false)
+        expect((await runImport()).skipHiddenRows).toBe(false)
+      })
+
+      it('sends the choice to leave them out', async () => {
+        withHidden({ hiddenRowCount: 1, hiddenColumns: [] })
+        await openPreview()
+        fireEvent.click(screen.getByLabelText('Leave out 1 hidden row'))
+        expect((await runImport()).skipHiddenRows).toBe(true)
+      })
+
+      it('says nothing when nothing is hidden', async () => {
+        withHidden({ hiddenRowCount: 0, hiddenColumns: [] })
+        await openPreview()
+        expect(screen.queryByText(/hidden/i)).toBeNull()
+      })
     })
 
     it('lists who was skipped as already here', async () => {

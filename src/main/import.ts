@@ -5,13 +5,16 @@
  * Uses exceljs for Excel parsing (replaces xlsx/SheetJS which has unpatched CVEs).
  */
 
-import { statSync, createReadStream } from 'fs'
+import { statSync } from 'fs'
+import { readFile } from 'fs/promises'
+import { TextDecoder } from 'util'
 import Papa from 'papaparse'
 import { parseDate, ymdFromParts, hasTwoDigitYear, looksLikeBirthColumn } from '../shared/parseDate'
 import { localDateString } from '../shared/dates'
-import { VALID_COLUMN_TYPES } from '../shared/types'
+import { VALID_COLUMN_TYPES, canImportInto } from '../shared/types'
 import type { ColumnType } from '../shared/types'
 import ExcelJS from 'exceljs'
+import { unguardCsvFormula } from '../shared/csvGuard'
 
 import { getDb } from './database'
 import { logger } from './logger'
@@ -56,6 +59,12 @@ export interface ImportPreview {
   rawRowCount: number
   /** First ~20 raw rows for preview display */
   rawPreviewRows?: string[][]
+  /** Things about the file itself worth checking (its text format, rows past the limit) */
+  warnings?: string[]
+  /** Data rows hidden in the spreadsheet (Excel only). They import unless skipHiddenRows is set (AUDIT-127) */
+  hiddenRowCount?: number
+  /** Headers of columns hidden in the spreadsheet (Excel only) */
+  hiddenColumns?: string[]
 }
 
 export interface ColumnMapping {
@@ -88,6 +97,8 @@ export interface ImportOptions {
   flipLastFirst?: boolean
   /** Link columns (W04): add a record to the other list for names that match no one */
   createMissingLinks?: boolean
+  /** Leave out rows hidden in the spreadsheet (AUDIT-127) */
+  skipHiddenRows?: boolean
 }
 
 export interface ImportResult {
@@ -139,6 +150,12 @@ function looksLikeDate(s: string, allowSerial = false): boolean {
   return parseDate(v) !== null
 }
 
+/** Values that read as a ticked checkbox; anything else in CHECKBOX_FALSE is unticked */
+const CHECKBOX_TRUE = new Set(['yes', 'y', 'true', '1', 'x', '✓', '✔', '☑', '✅', 'done', 'checked', 'complete', 'completed', 'on'])
+const CHECKBOX_FALSE = new Set(['no', 'n', 'false', '0', 'off', 'unchecked', 'not done', 'incomplete', '✗', '✘', '☐'])
+/** Values that make a column look like a checkbox (words like "done" are too common in text columns) */
+const CHECKBOX_DETECT = new Set(['yes', 'no', 'y', 'n', 'true', 'false', '1', '0', 'x', '✓', '✔'])
+
 function detectColumnType(samples: string[]): DetectedColumn['detectedType'] {
   if (samples.length === 0) return 'text'
 
@@ -156,16 +173,25 @@ function detectColumnType(samples: string[]): DetectedColumn['detectedType'] {
   // Date: check before number so "2026-01-15" isn't caught as number
   if (nonEmpty.every(s => looksLikeDate(s))) return 'date'
 
-  // Currency: starts with $ or ends with common amount format
-  const currencyRe = /^\$?[\d,]+(\.\d{2})?$/
-  if (nonEmpty.every(s => currencyRe.test(s.trim().replace('$', '')))) return 'currency'
+  // Checkbox: yes/no, y/n, true/false, x. A column of only 1s and 0s counts when it has both,
+  // so a column of counts that happen to be 1 stays a number.
+  const lower = nonEmpty.map(s => s.toLowerCase().trim())
+  if (lower.every(v => CHECKBOX_DETECT.has(v))) {
+    const onlyDigits = lower.every(v => v === '1' || v === '0')
+    if (!onlyDigits || (lower.includes('1') && lower.includes('0'))) return 'checkbox'
+  }
+
+  // A leading zero (zip 02134, ID 0042) would be lost as a number
+  if (nonEmpty.some(s => /^0\d+$/.test(s.trim()))) return 'text'
+
+  // Money needs a currency sign somewhere, or every value written with exactly two decimals.
+  // Plain whole numbers (household size, zip codes, IDs) are not money.
+  const amountRe = /^-?\$?-?[\d,]+(\.\d{2})?$/
+  if (nonEmpty.every(s => amountRe.test(s.trim()))
+    && (nonEmpty.some(s => s.includes('$')) || nonEmpty.every(s => /\.\d{2}$/.test(s.trim())))) return 'currency'
 
   // Number
-  if (nonEmpty.every(s => !isNaN(parseFloat(s.trim())) && s.trim() !== '')) return 'number'
-
-  // Checkbox: yes/no, true/false, 1/0
-  const checkVals = new Set(['yes', 'no', 'true', 'false', '1', '0', 'x', ''])
-  if (nonEmpty.every(s => checkVals.has(s.toLowerCase().trim()))) return 'checkbox'
+  if (nonEmpty.every(s => !isNaN(Number(s.trim().replace(/,/g, ''))) && s.trim() !== '')) return 'number'
 
   // Heuristic: if column name suggests a date AND most values parse as dates, treat as date
   // (handled at call site via header name check)
@@ -313,7 +339,7 @@ export function normalizeDate(value: string, order: 'mdy' | 'dmy' = 'mdy'): stri
  * Day-first or month-first for a whole column: any value with a first number
  * over 12 means day-first (e.g. 25/03/2026). US order otherwise.
  */
-export function detectDateOrder(values: string[]): 'mdy' | 'dmy' {
+export function detectDateOrder(values: string[], fallback: 'mdy' | 'dmy' = 'mdy'): 'mdy' | 'dmy' {
   let dayFirst = 0, monthFirst = 0
   for (const v of values) {
     const m = v.trim().match(/^(\d{1,2})[/.-](\d{1,2})[/.-]\d{2,4}/)
@@ -321,7 +347,21 @@ export function detectDateOrder(values: string[]): 'mdy' | 'dmy' {
     if (Number(m[1]) > 12) dayFirst++
     else if (Number(m[2]) > 12) monthFirst++
   }
+  if (dayFirst === monthFirst) return fallback
   return dayFirst > monthFirst ? 'dmy' : 'mdy'
+}
+
+/** Column types that store a calendar date (a deadline column stores the date last done) */
+function holdsDate(type: string): boolean {
+  return type === 'date' || type === 'deadline'
+}
+
+/** Settings → Date format decides dates like 03/04/2026 that a column doesn't settle itself */
+function preferredDateOrder(): 'mdy' | 'dmy' {
+  try {
+    const v = (getDb().prepare("SELECT value FROM settings WHERE key = 'date_format'").get() as { value: string } | undefined)?.value
+    return v === 'eu' ? 'dmy' : 'mdy'
+  } catch { return 'mdy' }
 }
 
 const LAST_FIRST_RE = /^([A-Za-z][A-Za-z'’ .-]*),\s*([A-Za-z][A-Za-z'’ .-]*)$/
@@ -345,7 +385,7 @@ function looksLastFirst(samples: string[]): boolean {
  *   "Program" merged down ten rows applies to all ten clients;
  * - blank headers become "Column N" and repeated ones get a number.
  */
-export function buildTable(rawRows: string[][], headerIdx: number, mergedRanges?: MergedCellInfo[]): { headers: string[]; allRows: string[][] } {
+export function buildTable(rawRows: string[][], headerIdx: number, mergedRanges?: MergedCellInfo[], hiddenRawRows?: ReadonlySet<number>): { headers: string[]; allRows: string[][]; hiddenRows: boolean[] } {
   const rows = rawRows.map(r => [...r])
   for (const m of mergedRanges ?? []) {
     if (m.row <= headerIdx) continue
@@ -379,14 +419,43 @@ export function buildTable(rawRows: string[][], headerIdx: number, mergedRanges?
   // Trailing columns with no header and no data are just sheet width
   let keep = headers.length
   while (keep > 0 && !(headerRow[keep - 1] ?? '').trim() && !groupFor(keep - 1) && rows.slice(headerIdx + 1).every(r => !(r[keep - 1] ?? '').trim())) keep--
-  const allRows = rows.slice(headerIdx + 1).filter(row => row.some(c => c.trim() !== ''))
-  return { headers: headers.slice(0, keep), allRows }
+  const kept = rows.map((row, i) => ({ row, i })).slice(headerIdx + 1).filter(({ row }) => row.some(c => c.trim() !== ''))
+  return {
+    headers: headers.slice(0, keep),
+    allRows: kept.map(k => k.row),
+    // Parallel to allRows: which rows the spreadsheet hides
+    hiddenRows: kept.map(k => hiddenRawRows?.has(k.i) ?? false),
+  }
 }
 
 /** Normalize a checkbox value to 'true' or 'false' (matching the app's internal format) */
 function normalizeCheckbox(value: string): string {
+  return CHECKBOX_TRUE.has(value.toLowerCase().trim()) ? 'true' : 'false'
+}
+
+/** A checkbox value that is neither clearly ticked nor clearly unticked */
+function unclearCheckbox(value: string): boolean {
   const v = value.toLowerCase().trim()
-  return ['yes', 'true', '1', 'x'].includes(v) ? 'true' : 'false'
+  return v !== '' && !CHECKBOX_TRUE.has(v) && !CHECKBOX_FALSE.has(v)
+}
+
+/**
+ * A money amount as a plain number: currency signs and spaces dropped,
+ * accounting negatives "(50.00)" made negative, and a European "1.234,56"
+ * read with a decimal comma. Anything else is left as typed.
+ */
+function normalizeCurrency(value: string): string {
+  let v = value.replace(/[$€£¥\s]/g, '')
+  let negative = false
+  const paren = /^\((.*)\)$/.exec(v)
+  if (paren) { negative = true; v = paren[1]! }
+  if (/^-?\d{1,3}(\.\d{3})*,\d{1,2}$/.test(v) || (/^-?\d+,\d{1,2}$/.test(v) && !v.includes('.'))) {
+    v = v.replace(/\./g, '').replace(',', '.')
+  } else {
+    v = v.replace(/,/g, '')
+  }
+  if (negative && !v.startsWith('-')) v = `-${v}`
+  return v
 }
 
 /** Normalize a cell value based on detected type */
@@ -396,9 +465,10 @@ function normalizeValue(value: string, type: string, cleanData: boolean, dateOrd
   switch (type) {
     case 'phone': return cleanData ? normalizePhone(v) : v
     // Date columns always store YYYY-MM-DD; other text would sort and alert wrongly
-    case 'date': return normalizeDate(v, dateOrder)
+    case 'date':
+    case 'deadline': return normalizeDate(v, dateOrder)
     case 'checkbox': return normalizeCheckbox(v)
-    case 'currency': return v.replace(/[$,]/g, '')
+    case 'currency': return normalizeCurrency(v)
     default: return v
   }
 }
@@ -415,10 +485,94 @@ const MAX_CELL_VALUE_LENGTH = 10_000
 
 /** Maximum number of data rows to import (excludes header) */
 const MAX_IMPORT_ROWS = 50_000
+/** Raw rows read from a file: the data rows plus room for titles above the headers */
+const MAX_RAW_ROWS = MAX_IMPORT_ROWS + 20
+
+function rowCapWarning(): string {
+  return `This file has more than ${MAX_IMPORT_ROWS.toLocaleString('en-US')} rows. Pulse brings in up to ${MAX_IMPORT_ROWS.toLocaleString('en-US')} at a time, so rows after row ${MAX_RAW_ROWS.toLocaleString('en-US')} weren't read. Split the file and import the rest separately.`
+}
+
+/**
+ * A CSV file's bytes as text. A byte order mark settles it (UTF-8 or UTF-16);
+ * otherwise bytes that are valid UTF-8 are UTF-8, and anything else is
+ * Windows-1252, which is what Excel's "CSV (Comma delimited)" writes.
+ */
+export function decodeCsvBytes(buf: Uint8Array): { text: string; encoding: 'utf-8' | 'utf-16le' | 'utf-16be' | 'windows-1252' } {
+  if (buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) {
+    return { text: new TextDecoder('utf-8', { ignoreBOM: true }).decode(buf.subarray(3)), encoding: 'utf-8' }
+  }
+  if (buf[0] === 0xff && buf[1] === 0xfe) return { text: new TextDecoder('utf-16le', { ignoreBOM: true }).decode(buf.subarray(2)), encoding: 'utf-16le' }
+  if (buf[0] === 0xfe && buf[1] === 0xff) return { text: new TextDecoder('utf-16be', { ignoreBOM: true }).decode(buf.subarray(2)), encoding: 'utf-16be' }
+  try {
+    return { text: new TextDecoder('utf-8', { fatal: true }).decode(buf), encoding: 'utf-8' }
+  } catch {
+    return { text: decodeWindows1252(buf), encoding: 'windows-1252' }
+  }
+}
+
+/** Windows-1252 bytes 0x80–0x9F (curly quotes, dashes, €…); 0 = unused byte */
+const CP1252_HIGH = [
+  0x20ac, 0, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021, 0x02c6, 0x2030, 0x0160, 0x2039, 0x0152, 0, 0x017d, 0,
+  0, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014, 0x02dc, 0x2122, 0x0161, 0x203a, 0x0153, 0, 0x017e, 0x0178,
+]
+
+/**
+ * Decoded by hand: some Node builds treat TextDecoder('windows-1252') as
+ * Latin-1, which turns Excel's curly quotes into invisible control characters.
+ */
+function decodeWindows1252(buf: Uint8Array): string {
+  let out = ''
+  for (let i = 0; i < buf.length; i += 8192) {
+    const codes = Array.from(buf.subarray(i, i + 8192), b => (b >= 0x80 && b <= 0x9f ? CP1252_HIGH[b - 0x80] || b : b))
+    out += String.fromCharCode(...codes)
+  }
+  return out
+}
+
+/** Thrown with a message written for the person importing */
+export class ImportFileError extends Error {}
+
+/**
+ * Parse CSV text into raw rows (empty lines kept, so row indices stay stable
+ * for header detection). A quote that isn't closed properly would swallow the
+ * rest of the file into one cell, so it stops with the line to fix instead.
+ */
+function parseCsvText(text: string): { rows: string[][]; truncated: boolean } {
+  const rows: string[][] = []
+  let truncated = false
+  let rowStart = 0
+  let badQuoteAt: number | null = null
+  Papa.parse<string[]>(text, {
+    skipEmptyLines: false,
+    header: false,
+    step: (result, parser) => {
+      if (result.errors.some(e => e.type === 'Quotes')) {
+        badQuoteAt = rowStart
+        parser.abort()
+        return
+      }
+      if (rows.length >= MAX_RAW_ROWS) {
+        if (result.data.some(c => c.trim() !== '')) {
+          truncated = true
+          parser.abort()
+        }
+        return
+      }
+      // Undo the export's formula guard ('=1+1 back to =1+1) so Pulse files round-trip (AUDIT-037)
+      rows.push(result.data.map(unguardCsvFormula))
+      rowStart = result.meta.cursor
+    },
+  })
+  if (badQuoteAt !== null) {
+    const line = text.slice(0, badQuoteAt).split('\n').length
+    throw new ImportFileError(`Line ${line} of the file has a quote mark (") that isn't closed properly, so Pulse can't tell where that line ends. Open the file, fix the quote marks on that line (or save it again from Excel), then try again.`)
+  }
+  return { rows, truncated }
+}
 
 // Cache parsed file data between preview and execute to avoid re-parsing
 /** `sheet` is the sheet the rows came from, so going back and choosing another sheet re-reads it */
-let _parsedCache: { filePath: string; mtime: number; sheet: string; rawRows: string[][]; sheets: string[]; mergedRanges?: MergedCellInfo[] } | null = null
+let _parsedCache: { filePath: string; mtime: number; sheet: string; rawRows: string[][]; sheets: string[]; mergedRanges?: MergedCellInfo[]; warnings: string[]; hiddenRawRows: Set<number>; hiddenCols: number[] } | null = null
 let _parsedCacheTimer: ReturnType<typeof setTimeout> | null = null
 let _importInProgress = false // prevents concurrent executeImport calls
 const IMPORT_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
@@ -433,29 +587,60 @@ function excelDateToYmd(d: Date): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
 }
 
+/** Cells an Excel read couldn't turn into a value, for the preview's warnings */
+interface ExcelReadNotes { errors: number; noResult: number }
+
+/** "9:30 AM" or "14:05", following the cell's format */
+function excelTime(d: Date, numFmt: string): string {
+  const h = d.getUTCHours(), m = String(d.getUTCMinutes()).padStart(2, '0')
+  if (/AM\/PM|A\/P/i.test(numFmt)) return `${h % 12 || 12}:${m} ${h < 12 ? 'AM' : 'PM'}`
+  return `${String(h).padStart(2, '0')}:${m}`
+}
+
+/** A number as the sheet shows it where that matters: zip codes with leading zeros, percents */
+function excelNumber(n: number, numFmt: string): string {
+  const fmt = numFmt.replace(/"[^"]*"|\[[^\]]*\]|\\./g, '').split(';')[0] ?? ''
+  if (/^0+$/.test(fmt) && Number.isInteger(n) && n >= 0) return String(n).padStart(fmt.length, '0')
+  if (/%$/.test(fmt)) {
+    const decimals = (/\.(0+)%$/.exec(fmt)?.[1] ?? '').length
+    return `${Number((n * 100).toFixed(decimals))}%`
+  }
+  return String(n)
+}
+
 /** Convert an ExcelJS cell value to a plain string */
-function excelCellToString(cell: ExcelJS.Cell): string {
-  const v = cell.value
+function excelValueToString(v: ExcelJS.CellValue | undefined, numFmt: string, notes: ExcelReadNotes): string {
   if (v === null || v === undefined) return ''
   if (typeof v === 'string') return v
-  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
-  if (v instanceof Date) return excelDateToYmd(v)
+  if (typeof v === 'number') return excelNumber(v, numFmt)
+  if (typeof v === 'boolean') return String(v)
+  if (v instanceof Date) {
+    if (isNaN(v.getTime())) return ''
+    // A time with no date sits on Excel's day zero
+    if (v.getUTCFullYear() === 1899 && v.getUTCMonth() === 11 && v.getUTCDate() >= 30) return excelTime(v, numFmt)
+    return excelDateToYmd(v)
+  }
+  if (typeof v !== 'object') return ''
+  if ('error' in v) { notes.errors++; return '' }
   // ExcelJS rich text: { richText: [{text: '...'}] }
-  if (typeof v === 'object' && 'richText' in v && Array.isArray(v.richText)) {
-    return v.richText.map((r: { text: string }) => r.text).join('')
+  if ('richText' in v && Array.isArray(v.richText)) return v.richText.map(r => r.text).join('')
+  // Formulas: the value Excel saved. =A2+90, =EDATE(...) and =TODAY() give a Date result
+  if ('formula' in v || 'sharedFormula' in v || 'result' in v) {
+    const result = (v as { result?: ExcelJS.CellValue }).result
+    if (result === undefined || result === null) { notes.noResult++; return '' }
+    return excelValueToString(result, numFmt, notes)
   }
-  // ExcelJS formula result
-  if (typeof v === 'object' && 'result' in v) {
-    // =A2+90, =EDATE(...) and =TODAY() formatted as a date give a Date result
-    const result = (v as { result: unknown }).result
-    if (result instanceof Date) return excelDateToYmd(result)
-    return String(result ?? '')
-  }
-  // ExcelJS hyperlink
-  if (typeof v === 'object' && 'hyperlink' in v && 'text' in v) {
-    return String((v as { text: unknown }).text ?? '')
-  }
-  return String(v)
+  // Hyperlinks: the text shown, which may itself be rich text
+  if ('hyperlink' in v && 'text' in v) return excelValueToString((v as { text: ExcelJS.CellValue }).text, numFmt, notes)
+  return ''
+}
+
+function excelReadWarnings(notes: ExcelReadNotes): string[] {
+  const out: string[] = []
+  const e = notes.errors, f = notes.noResult
+  if (e > 0) out.push(`${e} cell${e === 1 ? '' : 's'} showed a spreadsheet error (like #N/A) and came in blank.`)
+  if (f > 0) out.push(`${f} formula${f === 1 ? '' : 's'} had no saved value and came in blank. Open the file in Excel, save it, then import it again.`)
+  return out
 }
 
 interface ParseResult {
@@ -466,6 +651,11 @@ interface ParseResult {
   detectedHeaderRow: number
   headerDetectionConfidence: HeaderDetectionResult['confidence']
   mergedRanges?: MergedCellInfo[]
+  warnings: string[]
+  /** Parallel to allRows: hidden in the spreadsheet */
+  hiddenRows: boolean[]
+  /** 0-based indexes of hidden columns */
+  hiddenCols: number[]
 }
 
 async function getCachedOrParse(filePath: string, sheetName?: string, headerRowIndex?: number): Promise<ParseResult> {
@@ -481,9 +671,10 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
     const detection = clampedIdx != null
       ? { headerRowIndex: clampedIdx, confidence: 'high' as const, reason: 'user override' }
       : detectHeaderRow(rawRows, mergedRanges)
-    const { headers, allRows } = buildTable(rawRows, detection.headerRowIndex, mergedRanges)
+    const { headers, allRows, hiddenRows } = buildTable(rawRows, detection.headerRowIndex, mergedRanges, _parsedCache.hiddenRawRows)
     return {
-      headers, allRows, sheets: _parsedCache.sheets, rawRows, mergedRanges,
+      headers, allRows, hiddenRows, hiddenCols: _parsedCache.hiddenCols.filter(c => c < headers.length),
+      sheets: _parsedCache.sheets, rawRows, mergedRanges, warnings: _parsedCache.warnings,
       detectedHeaderRow: detection.headerRowIndex, headerDetectionConfidence: detection.confidence,
     }
   }
@@ -493,22 +684,20 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
   let sheets: string[] = []
   let parsedSheet = ''
   let mergedRanges: MergedCellInfo[] | undefined
+  const parseWarnings: string[] = []
+  const hiddenRawRows = new Set<number>()
+  const hiddenCols: number[] = []
 
   if (ext === 'csv') {
-    // Stream-parse CSV — don't skip empty lines so row indices are stable for detection
-    rawRows = await new Promise((resolve, reject) => {
-      const rows: string[][] = []
-      Papa.parse(createReadStream(filePath), {
-        skipEmptyLines: false,
-        header: false,
-        step: (result: { data: string[] }, parser: { abort: () => void }) => {
-          rows.push(result.data)
-          if (rows.length > MAX_IMPORT_ROWS + 20) parser.abort()
-        },
-        complete: () => resolve(rows),
-        error: (err: Error) => reject(err),
-      })
-    })
+    // The whole file is decoded before parsing: decoding read-stream chunks one by one
+    // broke a character split across two chunks, and Excel's "CSV" isn't UTF-8
+    const decoded = decodeCsvBytes(await readFile(filePath))
+    if (decoded.encoding === 'windows-1252') {
+      parseWarnings.push('This file wasn\'t saved in the usual text format, so Pulse converted it. Check that accented letters (like é or ñ) look right.')
+    }
+    const parsed = parseCsvText(decoded.text)
+    rawRows = parsed.rows
+    if (parsed.truncated) parseWarnings.push(rowCapWarning())
     sheets = ['Sheet1']
     parsedSheet = 'Sheet1'
   } else {
@@ -527,15 +716,21 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
     if (ws && ws.rowCount > 0) {
       mergedRanges = extractMergedRanges(ws)
       const colCount = ws.columnCount
-      const maxRow = Math.min(ws.rowCount, MAX_IMPORT_ROWS + 20)
+      const maxRow = Math.min(ws.rowCount, MAX_RAW_ROWS)
+      if (ws.rowCount > MAX_RAW_ROWS) parseWarnings.push(rowCapWarning())
+      const notes: ExcelReadNotes = { errors: 0, noResult: 0 }
+      for (let c = 1; c <= colCount; c++) if (ws.getColumn(c).hidden) hiddenCols.push(c - 1)
       for (let r = 1; r <= maxRow; r++) {
         const row = ws.getRow(r)
+        if (row.hidden) hiddenRawRows.add(r - 1)
         const rowData: string[] = []
         for (let c = 1; c <= colCount; c++) {
-          rowData.push(excelCellToString(row.getCell(c)))
+          const cell = row.getCell(c)
+          rowData.push(unguardCsvFormula(excelValueToString(cell.value, cell.numFmt ?? '', notes)))
         }
         rawRows.push(rowData)
       }
+      parseWarnings.push(...excelReadWarnings(notes))
     }
   }
 
@@ -545,18 +740,19 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
     ? { headerRowIndex: clampedIdx, confidence: 'high' as const, reason: 'user override' }
     : detectHeaderRow(rawRows, mergedRanges)
 
-  const { headers, allRows } = buildTable(rawRows, detection.headerRowIndex, mergedRanges)
+  const { headers, allRows, hiddenRows } = buildTable(rawRows, detection.headerRowIndex, mergedRanges, hiddenRawRows)
 
   // Only cache if row count is within the size limit to avoid unbounded memory use
   if (rawRows.length <= MAX_CACHE_ROWS) {
-    _parsedCache = { filePath, mtime, sheet: parsedSheet, rawRows, sheets, mergedRanges }
+    _parsedCache = { filePath, mtime, sheet: parsedSheet, rawRows, sheets, mergedRanges, warnings: parseWarnings, hiddenRawRows, hiddenCols }
     resetImportCacheTTL()
   } else {
     clearImportCache()
   }
 
   return {
-    headers, allRows, sheets, rawRows, mergedRanges,
+    headers, allRows, hiddenRows, hiddenCols: hiddenCols.filter(c => c < headers.length),
+    sheets, rawRows, mergedRanges, warnings: parseWarnings,
     detectedHeaderRow: detection.headerRowIndex, headerDetectionConfidence: detection.confidence,
   }
 }
@@ -611,6 +807,10 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
   const sheets = cached.sheets
   const rawRows = cached.rawRows
   if (sheetName) sheetIndex = Math.max(0, sheets.indexOf(sheetName))
+  const hiddenInfo = {
+    hiddenRowCount: cached.hiddenRows.filter(Boolean).length,
+    hiddenColumns: cached.hiddenCols.map(c => headers[c] ?? `Column ${c + 1}`),
+  }
 
   if (dataRows.length === 0) return {
     sheets, activeSheet: sheetIndex, headers, rows: [], detectedColumns: [],
@@ -618,6 +818,8 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
     headerDetectionConfidence: cached.headerDetectionConfidence,
     rawRowCount: rawRows.length,
     rawPreviewRows: rawRows.slice(0, Math.min(20, rawRows.length)),
+    warnings: cached.warnings,
+    ...hiddenInfo,
   }
 
   const previewRows = dataRows.slice(0, 20)
@@ -648,6 +850,11 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
       }
     }
 
+    // Zip codes and ID numbers are labels, not quantities
+    if (type === 'number' && /\b(zip|postal|id|ssn|mrn|medicaid)\b|#/i.test(name) && samples.every(v => /^\d+$/.test(v))) {
+      type = 'text'
+    }
+
     const nameSamples = dataRows.slice(0, 50).map(row => String(row[i] || '').trim()).filter(Boolean)
     return {
       index: i,
@@ -668,6 +875,8 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
     headerDetectionConfidence: cached.headerDetectionConfidence,
     rawRowCount: rawRows.length,
     rawPreviewRows: rawRows.slice(0, Math.min(20, rawRows.length)),
+    warnings: cached.warnings,
+    ...hiddenInfo,
   }
 }
 
@@ -677,7 +886,8 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
 
 export function autoMatchColumns(gridId: number, headers: string[]): ColumnMapping[] {
   const db = getDb()
-  const existingCols = db.prepare('SELECT * FROM columns WHERE grid_id = ? ORDER BY position').all(gridId) as Column[]
+  const existingCols = (db.prepare('SELECT * FROM columns WHERE grid_id = ? ORDER BY position').all(gridId) as Column[])
+    .filter(c => canImportInto(c.column_type))
   const usedColIds = new Set<number>()
 
   const result = headers.map((header, i) => {
@@ -737,14 +947,12 @@ export function autoMatchColumns(gridId: number, headers: string[]): ColumnMappi
 
 const IMPORT_CHUNK_SIZE = 50
 
-function yieldToEventLoop(): Promise<void> {
-  return new Promise(resolve => setImmediate(resolve))
-}
-
 export async function executeImport(options: ImportOptions, preview: ImportPreview, onProgress?: (imported: number, total: number) => void): Promise<ImportResult> {
   const { gridId, filePath, sheetName, columnMappings, duplicateStrategy, duplicateColumnId, cleanData } = options
-  const db = getDb()
   const warnings: string[] = []
+  /** The file row being saved, to name it if saving fails */
+  let currentRow: number | null = null
+  let began = false
 
   // Prevent concurrent imports — the cache and DB state are not safe for parallel access
   if (_importInProgress) throw new Error('An import is already in progress')
@@ -754,8 +962,17 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
   logger.info('import', 'Starting import', { format: ext, rowCount: preview.rows.length })
   try {
     const cached = await getCachedOrParse(filePath, sheetName, options.headerRowIndex)
+    warnings.push(...cached.warnings)
+    // Fetched after reading the file: Pulse may have locked meanwhile
+    const db = getDb()
+    // One transaction for the whole import (columns, rows, names, numbers): a failure
+    // anywhere rolls all of it back. Nested db.transaction() calls become savepoints.
+    db.exec('BEGIN')
+    began = true
   const headers = cached.headers
-  const allRows = cached.allRows
+  const allRows = options.skipHiddenRows ? cached.allRows.filter((_, i) => !cached.hiddenRows[i]) : cached.allRows
+  const leftOutHidden = cached.allRows.length - allRows.length
+  if (leftOutHidden > 0) warnings.push(`Left out ${leftOutHidden} row${leftOutHidden === 1 ? '' : 's'} hidden in the spreadsheet, as you chose.`)
 
   // Build column map: sourceIndex → {columnId, type}
   // Create new columns as needed
@@ -766,7 +983,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
   let nextPos = (maxPosRow.p ?? -1) + 1
 
   // --- Column creation + name column reassignment (small, fast — single transaction) ---
-  const setupColumns = db.transaction(() => {
+  const setupColumns = () => {
     for (const mapping of columnMappings) {
       if (mapping.action === 'skip') continue
       if (mapping.action === 'create') {
@@ -782,8 +999,9 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
         `).run(gridId, colName, colType, nextPos++)
         colMap.set(mapping.sourceIndex, { columnId: result.lastInsertRowid as number, type: colType })
       } else {
-        // Existing column
+        // Existing column. One Pulse works out itself can't take imported values.
         const col = db.prepare('SELECT column_type FROM columns WHERE id = ?').get(mapping.action as number) as { column_type: string } | undefined
+        if (col && !canImportInto(col.column_type)) continue
         colMap.set(mapping.sourceIndex, { columnId: mapping.action as number, type: col?.column_type || 'text' })
       }
     }
@@ -811,7 +1029,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
       }
     }
     return nameColIdInner
-  })
+  }
 
   const nameColId = setupColumns()
 
@@ -892,13 +1110,15 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
 
     // Day-first or month-first, decided per date column from all of its values
     const dateOrders = new Map<number, 'mdy' | 'dmy'>()
+    const fallbackOrder = preferredDateOrder()
     for (const [srcIdx, info] of colMap.entries()) {
-      if (info.type === 'date') dateOrders.set(srcIdx, detectDateOrder(allRows.map(r => String(r[srcIdx] ?? ''))))
+      if (holdsDate(info.type)) dateOrders.set(srcIdx, detectDateOrder(allRows.map(r => String(r[srcIdx] ?? '')), fallbackOrder))
     }
     const flipCols = new Set(options.flipLastFirst
       ? preview.detectedColumns.filter(c => c.lastFirstNames).map(c => c.index)
       : [])
     const unreadableDates = new Map<number, number>()
+    const unclearChecks = new Map<number, number>()
     const cellValue = (row: string[], srcIdx: number): string => {
       const raw = String(row[srcIdx] || '').trim()
       return flipCols.has(srcIdx) ? flipLastFirst(raw) : raw
@@ -968,99 +1188,66 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
       `INSERT OR REPLACE INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))`
     )
 
-    // Process rows in per-chunk transactions. Each chunk commits independently,
-    // releasing the write lock between chunks so other writes are not blocked
-    // during large imports. If a chunk fails, previously committed chunks persist
-    // (partial import is acceptable — the user sees how many rows were imported).
-    for (let chunkStart = 0; chunkStart < allRows.length; chunkStart += IMPORT_CHUNK_SIZE) {
-      const chunkEnd = Math.min(chunkStart + IMPORT_CHUNK_SIZE, allRows.length)
+    // Every row goes in inside the one transaction around the whole import, so an import
+    // that fails part-way leaves nothing behind. There's no await in here: a lock
+    // (sleep, screen lock) waits until the import is done instead of closing the
+    // database under it. Progress messages are still sent every 50 rows.
+    for (let i = 0; i < allRows.length; i++) {
+      currentRow = i
+      if (onProgress && i > 0 && i % IMPORT_CHUNK_SIZE === 0) onProgress(imported, allRows.length)
+      const importRow = allRows[i]!
+      if (importRow.every(c => String(c).trim() === '')) continue // skip blank rows
 
-      // Only rows from chunks that commit get numbers later
-      const chunkRowIds: number[] = []
-      // The counts and notes from a chunk that rolls back are taken back out too,
-      // so the results screen matches what's in the list
-      const before = {
-        imported, skipped, skippedNames: skippedNames.length, warnings: warnings.length,
-        unreadableDates: new Map(unreadableDates), birthAs1900s: new Map(birthAs1900s),
-        unmatched: new Map([...linkCols].map(([k, lc]) => [k, new Set(lc.unmatched)])),
-      }
-      const insertChunk = db.transaction(() => {
-        for (let i = chunkStart; i < chunkEnd; i++) {
-          const importRow = allRows[i]!
-          if (importRow.every(c => String(c).trim() === '')) continue // skip blank rows
-
-          // Duplicate detection
-          if (dupKeys && dupKeyOf) {
-            const key = dupKeyOf(importRow)
-            if (key !== null) {
-              if (dupKeys.has(key)) {
-                skippedNames.push(cellValue(importRow, dupLabelSrc ?? 0) || `Row ${i + 2}`)
-                skipped++
-                continue
-              }
-              dupKeys.add(key)
-            }
+      // Duplicate detection
+      if (dupKeys && dupKeyOf) {
+        const key = dupKeyOf(importRow)
+        if (key !== null) {
+          if (dupKeys.has(key)) {
+            skippedNames.push(cellValue(importRow, dupLabelSrc ?? 0) || `Row ${i + 2}`)
+            skipped++
+            continue
           }
-
-          // Create row
-          const rowResult = insertRow.run(gridId, nextRowPos++)
-          const rowId = rowResult.lastInsertRowid as number
-          chunkRowIds.push(rowId)
-
-          // Insert cell values
-          for (const [srcIdx, info] of colMap.entries()) {
-            const rawVal = cellValue(importRow, srcIdx)
-            if (!rawVal) continue
-            if (info.type === 'link') { importLinks(rowId, srcIdx, rawVal); continue }
-
-            // The destination column's type decides the format (an existing date
-            // column gets YYYY-MM-DD even if the samples looked like text)
-            const normalized = info.type === 'date'
-              ? importedDate(importRow, srcIdx, true)
-              : normalizeValue(rawVal, info.type, cleanData, dateOrders.get(srcIdx))
-            if (info.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
-              unreadableDates.set(srcIdx, (unreadableDates.get(srcIdx) ?? 0) + 1)
-            }
-
-            if (normalized) {
-              let cellValue = normalized
-              if (cellValue.length > MAX_CELL_VALUE_LENGTH) {
-                cellValue = cellValue.slice(0, MAX_CELL_VALUE_LENGTH)
-                warnings.push(`Row ${i + 2}, column ${srcIdx + 1}: value truncated to ${MAX_CELL_VALUE_LENGTH} characters`)
-              }
-              insertCell.run(rowId, info.columnId, cellValue)
-            }
-          }
-
-          imported++
+          dupKeys.add(key)
         }
-      })
-
-      try {
-        insertChunk()
-        newRowIds.push(...chunkRowIds)
-      } catch (chunkErr) {
-        imported = before.imported
-        skipped = before.skipped
-        skippedNames.length = before.skippedNames
-        warnings.length = before.warnings
-        unreadableDates.clear(); for (const [k, n] of before.unreadableDates) unreadableDates.set(k, n)
-        birthAs1900s.clear(); for (const [k, n] of before.birthAs1900s) birthAs1900s.set(k, n)
-        for (const [k, lc] of linkCols) lc.unmatched = before.unmatched.get(k) ?? new Set()
-        // Chunk failed — log the error. Previously committed chunks are preserved.
-        // This is acceptable: the user sees the imported count and can re-attempt.
-        logger.error('import', `Chunk failed at rows ${chunkStart + 2}–${chunkEnd + 1}`, {
-          error: chunkErr instanceof Error ? chunkErr.message : String(chunkErr)
-        })
-        // The SQLite text is in the log; the person sees where it stopped and what to do
-        warnings.push(`The import stopped at row ${chunkStart + 2} because something in that part of the file couldn't be saved. Everything before it came in. Check that row, then import the rest.`)
-        break
       }
 
-      // Report progress and yield to event loop between chunks
-      if (onProgress) onProgress(imported, allRows.length)
-      if (chunkEnd < allRows.length) await yieldToEventLoop()
+      // Create row
+      const rowResult = insertRow.run(gridId, nextRowPos++)
+      const rowId = rowResult.lastInsertRowid as number
+      newRowIds.push(rowId)
+
+      // Insert cell values
+      for (const [srcIdx, info] of colMap.entries()) {
+        const rawVal = cellValue(importRow, srcIdx)
+        if (!rawVal) continue
+        if (info.type === 'link') { importLinks(rowId, srcIdx, rawVal); continue }
+
+        // The destination column's type decides the format (an existing date
+        // column gets YYYY-MM-DD even if the samples looked like text)
+        const normalized = holdsDate(info.type)
+          ? importedDate(importRow, srcIdx, true)
+          : normalizeValue(rawVal, info.type, cleanData, dateOrders.get(srcIdx))
+        if (holdsDate(info.type) && !/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+          unreadableDates.set(srcIdx, (unreadableDates.get(srcIdx) ?? 0) + 1)
+        }
+        if (info.type === 'checkbox' && unclearCheckbox(rawVal)) {
+          unclearChecks.set(srcIdx, (unclearChecks.get(srcIdx) ?? 0) + 1)
+        }
+
+        if (normalized) {
+          let cellValue = normalized
+          if (cellValue.length > MAX_CELL_VALUE_LENGTH) {
+            cellValue = cellValue.slice(0, MAX_CELL_VALUE_LENGTH)
+            warnings.push(`Row ${i + 2}, column ${srcIdx + 1}: value truncated to ${MAX_CELL_VALUE_LENGTH} characters`)
+          }
+          insertCell.run(rowId, info.columnId, cellValue)
+        }
+      }
+
+      imported++
     }
+    currentRow = null
+    if (onProgress) onProgress(imported, allRows.length)
 
   // Backfill display_name for all rows in this grid — the SQLite trigger fires on cell
   // INSERT/UPDATE, but if is_name_column was reassigned during import setup, rows inserted
@@ -1097,6 +1284,8 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
     assignAutoNumbers(gridId, newRowIds)
   })()
   if (hasDisplayFormat(gridId)) db.transaction(() => refreshDisplayNames(gridId))()
+  db.exec('COMMIT')
+  began = false
 
   for (const [srcIdx, n] of birthAs1900s) {
     warnings.push(`${n} date${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" had a two-digit year and ${n === 1 ? 'was' : 'were'} read as 19xx. Check ${n === 1 ? 'it' : 'them'}.`)
@@ -1105,6 +1294,9 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
     warnings.push(`${n} value${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" didn't look like ${n === 1 ? 'a date' : 'dates'} and ${n === 1 ? 'was' : 'were'} kept as typed. Check ${n === 1 ? 'it' : 'them'} in the list.`)
   }
 
+  for (const [srcIdx, n] of unclearChecks) {
+    warnings.push(`${n} value${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" ${n === 1 ? 'wasn\'t' : 'weren\'t'} clearly yes or no and ${n === 1 ? 'was' : 'were'} left unticked. Check ${n === 1 ? 'it' : 'them'} in the list.`)
+  }
   for (const [srcIdx, lc] of linkCols) {
     if (lc.unmatched.size === 0) continue
     const names = [...lc.unmatched]
@@ -1117,7 +1309,19 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
   logger.info('import', 'Import complete', { rowsImported: imported, skipped, warningCount: warnings.length, durationMs: Date.now() - importStart })
   return { imported, skipped, warnings, skippedNames, newRowIds }
   } catch (err) {
-    logger.error('import', 'Import failed', { error: err instanceof Error ? err.message : String(err) })
+    logger.error('import', 'Import failed', { error: err instanceof Error ? err.message : String(err), row: currentRow === null ? undefined : currentRow + 2 })
+    if (began) {
+      try {
+        const db = getDb()
+        if (db.inTransaction) db.exec('ROLLBACK')
+      } catch (rollbackErr) {
+        logger.warn('import', 'Rollback after failed import', { error: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr) })
+      }
+    }
+    // The SQLite text is in the log; the person sees which row to check
+    if (currentRow !== null) {
+      throw new ImportFileError(`Nothing was imported, because row ${currentRow + 2} couldn't be saved. Check that row in the file, then try again.`)
+    }
     throw err
   } finally {
     _importInProgress = false

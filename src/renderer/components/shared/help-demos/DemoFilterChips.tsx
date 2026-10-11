@@ -67,7 +67,7 @@ export function DemoFilterChips() {
           style={{ animation: 'fcRowFade 7s ease 0.3s infinite' }}
         >
           <span className="text-slate-700 dark:text-slate-300 font-medium">Williams</span>
-          <span className="text-yellow-600 dark:text-yellow-400">Pending</span>
+          <span className="text-yellow-700 dark:text-yellow-400">Pending</span>
           <span className="text-slate-500">Legal</span>
         </div>
       </div>

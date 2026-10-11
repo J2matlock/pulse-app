@@ -3,6 +3,7 @@ import './app-identity'
 import { isOpenableExternal } from './external-links'
 import { app, shell, BrowserWindow, dialog, session, protocol, net, clipboard, powerMonitor, Menu, screen } from 'electron'
 import { buildMacMenuTemplate } from './app-menu'
+import { configureSpellchecker, spellcheckAllowed } from './spellcheck'
 import { windowStateToSave, restorableWindowState, type SavedWindowState } from './window-state'
 import { join, normalize, resolve, sep } from 'path'
 import { pathToFileURL } from 'url'
@@ -17,8 +18,9 @@ import { wipeOpenedFiles } from './attachment-files'
 import { extractPulseFileFromArgv, handleFileOpen } from './file-association'
 import { checkSafeStorageAvailability, getDbKey, lockApp } from './auth'
 import { PRODUCT_NAME, normalizeAutoLockMinutes } from '../shared/constants'
+import { startupFailureText } from '../shared/dbOpen'
 import { clearImportCache } from './import'
-import { logger } from './logger'
+import { logger, formatForwardedLogData } from './logger'
 import { IPC } from '../shared/ipc-channels'
 import { secureWrap, logNonFatal } from './ipc/ipc-utils'
 
@@ -220,7 +222,8 @@ function createWindow(): void {
       sandbox: true,           // ipcRenderer available in sandboxed preload since Electron 20+
       contextIsolation: true,  // renderer cannot access Node.js directly
       nodeIntegration: false,  // renderer is a plain web page
-      devTools: isDev           // disable DevTools in production builds
+      devTools: isDev,          // disable DevTools in production builds
+      spellcheck: spellcheckAllowed(process.platform)  // no dictionary downloads (see spellcheck.ts)
     }
   })
 
@@ -303,11 +306,11 @@ app.whenReady().then(async () => {
     await initDatabase()
     logger.info('app', 'Database opened')
   } catch (err) {
-    // DB init failure is fatal — user must see an error
-    dialog.showErrorBox(
-      'Startup Error',
-      `Failed to initialize database:\n${err instanceof Error ? err.message : String(err)}\n\nThe app will exit.`
-    )
+    // DB init failure is fatal — user must see an error. Plain words and a next
+    // step in the box; the raw error goes to the log only (AUDIT-059).
+    logger.error('app', 'Database initialization failed at startup', err)
+    const { title, message } = startupFailureText(PRODUCT_NAME)
+    dialog.showErrorBox(title, message)
     app.exit(1)
     return
   }
@@ -341,9 +344,8 @@ app.whenReady().then(async () => {
     if (typeof msg !== 'string' || msg.length > MAX_LOG_MSG_LEN) return
     const level = rawLevel as 'error' | 'warn' | 'info'
     const fn = logger[level]
-    const dataStr = payload.data ? JSON.stringify(payload.data) : ''
-    const safeData = dataStr.length > 4096 ? dataStr.slice(0, 4096) + '...[truncated]' : dataStr
-    if (fn) fn(`renderer:${component}`, msg, safeData || undefined)
+    // Scrub as an object first: once stringified, key-based redaction can't see it
+    if (fn) fn(`renderer:${component}`, msg, formatForwardedLogData(payload.data))
   })
 
   // Dev mode needs 'unsafe-inline' for script-src because Vite injects inline HMR preambles.
@@ -383,6 +385,9 @@ app.whenReady().then(async () => {
 
   // Also deny synchronous permission checks (clipboard-read, media, etc.)
   session.defaultSession.setPermissionCheckHandler(() => false)
+
+  // Keep the spellchecker from downloading dictionaries from Google (Windows/Linux)
+  configureSpellchecker(session.defaultSession, process.platform)
 
   // Also enforce CSP on http(s) responses (the dev server) — meta tag alone can be stripped in dev mode
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {

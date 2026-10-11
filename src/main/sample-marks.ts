@@ -5,6 +5,12 @@
  * Each sample row keeps a fingerprint of its cells as loaded, plus the highest
  * id in each table that can hang off a record at that moment. Anything newer on
  * the row (a note, a file, an appointment, a link…) was added by the user.
+ *
+ * Careful (AUDIT-109): migration 047 imports trackSampleRows, so it runs this
+ * live code against a v46/v47 database. Before changing anything here to read
+ * a table or column added after schema v47, first freeze a copy of the current
+ * logic for 047 (e.g. sample-marks-v47.ts) and point the migration at it.
+ * tests/migration-047.test.ts covers the upgrade.
  */
 import type { Database } from 'better-sqlite3'
 

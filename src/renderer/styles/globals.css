@@ -576,14 +576,30 @@
 
 /* ── High contrast class (matches prefers-contrast: more behavior) ────────── */
 .high-contrast {
-  --border: #94A3B8;
+  --border: #64748B;            /* slate-500: 4.7:1 on white (slate-400 was 2.6:1) */
   --border-grid: #64748B;
 }
 .dark.high-contrast {
   --border: #94A3B8;
   --border-grid: #CBD5E1;
 }
-.high-contrast * { border-color: inherit; }
+/* Darken only the pale neutral borders (audit A06-15). A universal
+   `* { border-color: inherit }` used to repaint every border in the text
+   color, wiping out red error, blue selected/focus and urgency borders.
+   Specificity is one class, placed after Tailwind's utilities, so it beats
+   the plain border-slate-200 utility but loses to focus:/hover:/aria-
+   variants and leaves colored borders (blue, red, amber…) alone. */
+@layer utilities {
+  :where(.high-contrast) :is(.border-slate-100, .border-slate-200, .border-slate-300,
+    .border-gray-100, .border-gray-200, .border-gray-300) {
+    border-color: var(--border);
+  }
+  :where(.dark.high-contrast) :is(.dark\:border-slate-600, .dark\:border-slate-700,
+    .dark\:border-slate-800, .dark\:border-gray-700) {
+    border-color: var(--border);
+  }
+  :where(.high-contrast) .input:not(:focus) { border-color: var(--border); }
+}
 .high-contrast button:focus-visible, .high-contrast a:focus-visible,
 .high-contrast input:focus-visible, .high-contrast select:focus-visible,
 .high-contrast textarea:focus-visible, .high-contrast [tabindex]:focus-visible {
@@ -597,6 +613,50 @@
 .high-contrast .grid-cell { border-width: 2px; }
 .high-contrast *:focus { outline: 4px solid #000 !important; }
 .dark.high-contrast *:focus { outline: 4px solid #fff !important; }
+
+/* ── Windows High Contrast / forced colors (audit A06-20) ───────────────────
+   Forced colors drop box-shadow, so ring-* focus indicators vanish and
+   switches lose the fill that shows their state. Use outlines and system
+   colors instead. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 3px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
+  /* Switches: an outlined track; on is filled with Highlight, the knob shows the side */
+  [role="switch"] {
+    forced-color-adjust: none;
+    background: Canvas !important;
+    border: 2px solid ButtonText !important;
+  }
+  [role="switch"][aria-checked="true"] {
+    background: Highlight !important;
+    border-color: Highlight !important;
+  }
+  [role="switch"] > span { background: ButtonText !important; }
+  [role="switch"][aria-checked="true"] > span { background: HighlightText !important; }
+  /* Custom checkboxes (a filled square when ticked): outlined box, filled with
+     Highlight when ticked, a grey fill when partly ticked */
+  [role="checkbox"] > :is(span, div):first-child {
+    forced-color-adjust: none;
+    background: Canvas !important;
+    border: 2px solid ButtonText !important;
+  }
+  [role="checkbox"][aria-checked="true"] > :is(span, div):first-child {
+    background: Highlight !important;
+    border-color: Highlight !important;
+  }
+  [role="checkbox"][aria-checked="mixed"] > :is(span, div):first-child { background: GrayText !important; }
+  /* Late and due-today rows keep a distinct left edge */
+  .border-l-red-400, .border-l-red-500, .border-l-amber-400, .border-l-orange-400 {
+    border-left-color: Highlight !important;
+  }
+  /* Selected and checked states drawn only with a fill get a visible edge */
+  [aria-selected="true"], [aria-pressed="true"], [aria-current="page"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
 
 /* ── Print styles ─────────────────────────────────────────────────────────── */
 @media print {

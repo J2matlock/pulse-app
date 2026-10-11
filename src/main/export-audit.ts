@@ -116,10 +116,11 @@ export function loadAuditTrail(scope: AuditScope): AuditClient[] {
   }
 
   return clients.map(c => {
+    const Note = word('activity', { cap: true }, c.grid_id)
     const events: AuditEvent[] = []
     if (within(c.created_at)) events.push({ at: c.created_at, what: `${word('record', { cap: true }, c.grid_id)} added`, details: c.grid_name })
     if (within(c.archived_at)) events.push({ at: c.archived_at!, what: `${word('record', { cap: true }, c.grid_id)} archived`, details: c.archived_reason || '' })
-    if (within(c.deleted_at)) events.push({ at: c.deleted_at!, what: 'Moved to trash', details: '' })
+    if (within(c.deleted_at)) events.push({ at: c.deleted_at!, what: 'Moved to the Trash', details: '' })
 
     for (const h of cellStmt.all(c.id, ...range) as Array<{ at: string; name: string; column_type: string; old_value: string | null; new_value: string | null }>) {
       events.push({ at: h.at, what: `${h.name} changed`, details: `From ${fmtValue(h.old_value, h.column_type)} to ${fmtValue(h.new_value, h.column_type)}` })
@@ -138,12 +139,12 @@ export function loadAuditTrail(scope: AuditScope): AuditClient[] {
         events.push({ at: n.created_at, what: noteEventLabel(n.log_type), details: backdated + text + followUp + voided })
       }
       if (within(n.voided_at)) {
-        events.push({ at: n.voided_at!, what: 'Note voided', details: `${n.voided_reason ? `Reason: ${n.voided_reason}\n` : ''}Note: ${text}` })
+        events.push({ at: n.voided_at!, what: `${Note} voided`, details: `${n.voided_reason ? `Reason: ${n.voided_reason}\n` : ''}${Note}: ${text}` })
       }
       for (const e of edits.filter(x => x.case_log_id === n.id)) {
         const before = localDay(e.occurred_at)
         const dated = before && before !== happened ? `\nDated before the edit: ${fmtDate(before)}` : ''
-        events.push({ at: e.replaced_at, what: 'Note edited', details: `Before the edit: ${stripHtml(e.content)}${dated}` })
+        events.push({ at: e.replaced_at, what: `${Note} edited`, details: `Before the edit: ${stripHtml(e.content)}${dated}` })
       }
     }
 
@@ -163,7 +164,7 @@ export function loadAuditTrail(scope: AuditScope): AuditClient[] {
   })
 }
 
-/** Draw each client's audit table starting at `y`. Returns the number of records drawn. */
+/** Draw each client's audit table starting at `y`. Returns the number of entries drawn. */
 export function drawAuditClients(doc: InstanceType<typeof jsPDF>, shown: AuditClient[], y: number, marginL: number): number {
   if (shown.length === 0) {
     doc.setFontSize(12)
@@ -178,7 +179,8 @@ export function drawAuditClients(doc: InstanceType<typeof jsPDF>, shown: AuditCl
     doc.text(c.clientName, marginL, y)
     doc.setFontSize(10)
     doc.setFont('helvetica', 'normal')
-    doc.text(`${c.gridName}  ·  ${c.events.length} record${c.events.length === 1 ? '' : 's'}`, marginL, y + 5)
+    // The count is of events, not records: "12 records" under a record's name reads as something else
+    doc.text(`${c.gridName}  ·  ${c.events.length} entr${c.events.length === 1 ? 'y' : 'ies'}`, marginL, y + 5)
     autoTable(doc, {
       startY: y + 8,
       head: [['When', 'What', 'Details']],
@@ -193,7 +195,11 @@ export function drawAuditClients(doc: InstanceType<typeof jsPDF>, shown: AuditCl
   return total
 }
 
-export const AUDIT_FOOTNOTE = `Times are local. Edited notes keep every earlier version, and undone notes are voided rather than erased. Notes deleted within ${CASE_NOTE_DELETE_WINDOW_MINUTES} minutes of being written (to fix a mistake) are not kept.`
+/** What the audit trail does and doesn't keep, in the workspace's word for notes */
+export function auditFootnote(gridId?: number | null): string {
+  const notes = word('activity', { many: true }, gridId), Notes = word('activity', { many: true, cap: true }, gridId)
+  return `Times are local. Edited ${notes} keep every earlier version, and undone ${notes} are voided rather than erased. ${Notes} deleted within ${CASE_NOTE_DELETE_WINDOW_MINUTES} minutes of being written (to fix a mistake) are not kept.`
+}
 
 function fmtWhen(ts: string): string {
   return parseDbTimestamp(ts).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
@@ -215,7 +221,7 @@ export async function exportAuditReport(scope: AuditScope, destPath: string, sco
   const generated = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
   doc.text(`${range}  ·  Generated ${generated}${workerName ? `  ·  ${workerName}` : ''}`, marginL, 25)
   doc.setFontSize(9)
-  const note = `${AUDIT_FOOTNOTE} Contains ${word('record')} information: keep secure.`
+  const note = `${auditFootnote(scope.gridId)} Contains ${word('record')} information: keep secure.`
   doc.text(doc.splitTextToSize(note, pageW - marginL * 2), marginL, 31)
 
   const total = drawAuditClients(doc, shown, 42, marginL)

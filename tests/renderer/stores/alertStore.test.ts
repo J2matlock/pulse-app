@@ -190,20 +190,21 @@ describe('alertStore', () => {
     expect(useAlertStore.getState().rules.map(r => r.id)).toEqual([4])
   })
 
-  it('alert rules have required fields (columnId, thresholds, etc.)', () => {
-    // Verify the structure of a parsed alert rule
-    const rule = makeAlertRule(1)
-    const thresholds: AlertThreshold[] = JSON.parse(rule.thresholds)
+  it('loadRules turns broken or empty thresholds into an empty list instead of failing', async () => {
+    mockInvoke.mockResolvedValue({ ok: true, data: [
+      makeAlertRule(1),
+      makeAlertRule(2, { thresholds: '{not json' }),
+      makeAlertRule(3, { thresholds: '' }),
+    ] })
 
-    expect(rule.name).toBeDefined()
-    expect(rule.id).toBeDefined()
-    expect(thresholds.length).toBeGreaterThan(0)
-    thresholds.forEach(t => {
-      expect(t).toHaveProperty('daysBefore')
-      expect(t).toHaveProperty('bgClass')
-      expect(t).toHaveProperty('label')
-      expect(typeof t.daysBefore).toBe('number')
-    })
+    await act(async () => { await useAlertStore.getState().loadRules() })
+
+    const rules = useAlertStore.getState().rules
+    expect(rules.map(r => r.id)).toEqual([1, 2, 3])
+    expect(rules[0]?.thresholds.map((t: AlertThreshold) => t.daysBefore)).toEqual([30, 14, 7, 3, 0])
+    expect(rules[1]?.thresholds).toEqual([])
+    expect(rules[2]?.thresholds).toEqual([])
+    expect(useAlertStore.getState().loadError).toBeNull()
   })
 
   it('getRuleById returns correct rule or undefined', () => {

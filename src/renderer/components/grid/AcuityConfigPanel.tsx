@@ -6,6 +6,7 @@ import { useGridStore } from '../../stores/gridStore'
 import { dropdownVariants } from '../../utils/animations'
 import type { AcuityLevel } from '../../../shared/types'
 import { useVocab } from '../../hooks/useVocab'
+import { useMenuKeys } from '../../hooks/useMenuKeys'
 
 const DEFAULT_LEVELS: Array<{ name: string; abbreviation: string; points: number; color: string }> = [
   { name: 'Low', abbreviation: 'L', points: 1, color: '#22c55e' },
@@ -33,6 +34,8 @@ export function AcuityConfigPanel({ onClose }: AcuityConfigPanelProps): React.Re
     deleteAcuityLevel: s.deleteAcuityLevel, reorderAcuityLevels: s.reorderAcuityLevels,
   })))
   const panelRef = useRef<HTMLDivElement>(null)
+  // Focus goes in, Escape closes, focus goes back (AUDIT-044)
+  const panelKeys = useMenuKeys(panelRef, true, onClose, { kind: 'panel' })
 
   // Close on click outside
   useEffect(() => {
@@ -85,15 +88,16 @@ export function AcuityConfigPanel({ onClose }: AcuityConfigPanelProps): React.Re
   }
 
   return (
-    <div ref={panelRef} className="absolute right-0 top-full mt-1 w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50 p-4">
+    <div ref={panelRef} onKeyDown={panelKeys} role="dialog" aria-label={t('priority', { many: true, cap: true })} className="absolute right-0 top-full mt-1 w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50 p-4">
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t('priority', { many: true, cap: true })}</span>
         <button
           onClick={handleToggle}
           className={`hit-44 relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-            ${acuityEnabled ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+            ${acuityEnabled ? 'bg-blue-500' : 'bg-slate-500 dark:bg-slate-500'}`}
           role="switch"
           aria-checked={acuityEnabled}
+          aria-label={t('priority', { many: true, cap: true })}
         >
           <span
             className={`inline-block h-4 w-4 rounded-full bg-white shadow-xs transition-transform
@@ -205,6 +209,7 @@ function LevelRow({ level, index, total, onUpdate, onDelete, onMoveUp, onMoveDow
             <>
               <div className="fixed inset-0 z-[60]" onClick={() => setShowColorPicker(false)} />
               <motion.div
+                onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setShowColorPicker(false) } }}
                 className="fixed bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-2 z-[60] grid grid-cols-4 gap-1.5"
                 style={{ top: pickerPos.top, left: pickerPos.left }}
                 variants={dropdownVariants}

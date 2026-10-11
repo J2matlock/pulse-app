@@ -2,7 +2,7 @@
  * IPC Row handler tests — tests ROW_* IPC handlers.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
-import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
+import { createTestDb, cleanupTestDb, seedGrid, setDbWords, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
 
 // ── Handler capture map ──────────────────────────────────────────────────────
@@ -237,6 +237,19 @@ describe('IPC Row — ROW_PURGE', () => {
     // Row should still exist
     const row = testDb.db.prepare('SELECT * FROM rows WHERE id = ?').get(rowIds[0])
     expect(row).toBeDefined()
+  })
+
+  it('takes its values out of deleted columns in the Trash (AUDIT-108)', async () => {
+    const { trashColumn } = await import('../src/main/list-trash')
+    const { rowIds, columnIds } = seedGrid(testDb.db, { rowCount: 2, columnCount: 2 })
+    const col = columnIds[1]!
+    testDb.db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, 'kept'), (?, ?, 'secret value')").run(rowIds[0], col, rowIds[1], col)
+    const deletedId = testDb.db.transaction(() => { const id = trashColumn(col); testDb.db.prepare('DELETE FROM columns WHERE id = ?').run(col); return id })()
+    await invoke(IPC.ROW_DELETE, rowIds[1])
+    expect((await invoke(IPC.ROW_PURGE, rowIds[1]) as any).ok).toBe(true)
+    const snap = (testDb.db.prepare('SELECT snapshot FROM deleted_columns WHERE id = ?').get(deletedId) as { snapshot: string }).snapshot
+    expect(snap).not.toContain('secret')
+    expect(snap).toContain('kept')
   })
 
   it('rejects invalid ID', async () => {
@@ -572,7 +585,7 @@ describe('IPC Row — ROW_BULK_ACTION', () => {
     const rows = testDb.db.prepare('SELECT id, is_active, deleted_at FROM rows ORDER BY id').all() as Array<{ id: number; is_active: number; deleted_at: string | null }>
     expect(rows.map(r => [r.is_active, r.deleted_at])).toEqual([[0, null], [1, null], [1, null]])
     // Only the two that were in the trash get a "restored" note
-    const logs = testDb.db.prepare("SELECT COUNT(*) AS n FROM case_log WHERE content LIKE '%restored from trash'").get() as { n: number }
+    const logs = testDb.db.prepare("SELECT COUNT(*) AS n FROM case_log WHERE content LIKE '%restored from the Trash'").get() as { n: number }
     expect(logs.n).toBe(2)
   })
 
@@ -585,13 +598,17 @@ describe('IPC Row — ROW_BULK_ACTION', () => {
   it('rejects empty array', async () => {
     const result = await invoke(IPC.ROW_BULK_ACTION, 'archive', []) as any
     expect(result.ok).toBe(false)
+    expect(result.error).toBe('Choose at least one record.')
   })
 
   it('rejects too many rows (>1000)', async () => {
     const bigArray = Array.from({ length: 1001 }, (_, i) => i + 1)
     const result = await invoke(IPC.ROW_BULK_ACTION, 'archive', bigArray) as any
     expect(result.ok).toBe(false)
-    expect(result.error).toMatch(/limited to/i)
+    // A plain sentence with the workspace word (AUDIT-156)
+    setDbWords(testDb.db)
+    const again = await invoke(IPC.ROW_BULK_ACTION, 'archive', bigArray) as any
+    expect(again.error).toBe('You can change up to 1,000 clients at once.')
   })
 
   it('rejects non-integer IDs', async () => {
@@ -732,6 +749,19 @@ describe('IPC Row — ROW_PURGE_ALL', () => {
     expect(result).toEqual({ ok: true, data: 2 })
     expect(testDb.db.prepare('SELECT id FROM rows').all()).toEqual([{ id: rowIds[2] }])
   })
+
+  it('takes the emptied records out of deleted columns in the Trash (AUDIT-108)', async () => {
+    const { trashColumn } = await import('../src/main/list-trash')
+    const { rowIds, columnIds } = seedGrid(testDb.db, { rowCount: 2, columnCount: 2 })
+    const col = columnIds[1]!
+    testDb.db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, 'kept'), (?, ?, 'secret value')").run(rowIds[0], col, rowIds[1], col)
+    const deletedId = testDb.db.transaction(() => { const id = trashColumn(col); testDb.db.prepare('DELETE FROM columns WHERE id = ?').run(col); return id })()
+    testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now') WHERE id = ?").run(rowIds[1])
+    expect(await invoke(IPC.ROW_PURGE_ALL)).toEqual({ ok: true, data: 1 })
+    const snap = (testDb.db.prepare('SELECT snapshot FROM deleted_columns WHERE id = ?').get(deletedId) as { snapshot: string }).snapshot
+    expect(snap).not.toContain('secret')
+    expect(snap).toContain('kept')
+  })
 })
 
 describe('IPC Row — handler registration', () => {
@@ -748,5 +778,75 @@ describe('IPC Row — handler registration', () => {
     for (const ch of channels) {
       expect(handlers.has(ch), `Handler for ${ch} should be registered`).toBe(true)
     }
+  })
+})
+
+describe('IPC Row — state guards on archive, delete and restore (AUDIT-101)', () => {
+  const state = (id: number) => testDb.db.prepare('SELECT is_active, deleted_at IS NOT NULL AS trashed, archived_at IS NOT NULL AS archived FROM rows WHERE id = ?').get(id)
+  const systemLogs = (id: number) => (testDb.db.prepare("SELECT COUNT(*) AS n FROM case_log WHERE row_id = ? AND log_type = 'system'").get(id) as { n: number }).n
+
+  it('unarchiving a record that is in the Trash leaves it in the Trash', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    const id = rowIds[0]!
+    await invoke(IPC.ROW_ARCHIVE, id, 'Done')
+    await invoke(IPC.ROW_DELETE, id)
+    const logs = systemLogs(id)
+    const res = await invoke(IPC.ROW_UNARCHIVE, id) as { ok: boolean }
+    expect(res.ok).toBe(false)
+    expect(state(id)).toEqual({ is_active: 0, trashed: 1, archived: 1 })
+    expect(systemLogs(id)).toBe(logs)
+  })
+
+  it('archiving a record that is in the Trash fails and changes nothing', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    const id = rowIds[0]!
+    await invoke(IPC.ROW_DELETE, id)
+    const res = await invoke(IPC.ROW_ARCHIVE, id, 'Done') as { ok: boolean }
+    expect(res.ok).toBe(false)
+    expect(state(id)).toEqual({ is_active: 0, trashed: 1, archived: 0 })
+  })
+
+  it("deleting a record already in the Trash keeps its 30-day clock and doesn't log again", async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    const id = rowIds[0]!
+    await invoke(IPC.ROW_DELETE, id)
+    testDb.db.prepare("UPDATE rows SET deleted_at = '2026-01-01 00:00:00' WHERE id = ?").run(id)
+    const res = await invoke(IPC.ROW_DELETE, id) as { ok: boolean }
+    expect(res.ok).toBe(true)
+    expect(testDb.db.prepare('SELECT deleted_at FROM rows WHERE id = ?').get(id)).toEqual({ deleted_at: '2026-01-01 00:00:00' })
+    expect(systemLogs(id)).toBe(1)
+  })
+
+  it('restoring a record removed for good says it is no longer available', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    const id = rowIds[0]!
+    await invoke(IPC.ROW_DELETE, id)
+    await invoke(IPC.ROW_PURGE, id)
+    const res = await invoke(IPC.ROW_RESTORE_DELETED, id) as { ok: boolean; error?: string }
+    expect(res.ok).toBe(false)
+    expect(res.error).toMatch(/no longer available/)
+  })
+
+  it('restoring a record that is not in the Trash is a no-op', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    const id = rowIds[0]!
+    const res = await invoke(IPC.ROW_RESTORE_DELETED, id) as { ok: boolean }
+    expect(res.ok).toBe(true)
+    expect(systemLogs(id)).toBe(0)
+  })
+
+  it('bulk archive, unarchive and delete skip records in the Trash', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 2, columnCount: 1 })
+    const [live, trashed] = rowIds as [number, number]
+    await invoke(IPC.ROW_BULK_ACTION, 'delete', [trashed])
+    testDb.db.prepare("UPDATE rows SET deleted_at = '2026-01-01 00:00:00' WHERE id = ?").run(trashed)
+    await invoke(IPC.ROW_BULK_ACTION, 'archive', [live, trashed])
+    expect(state(trashed)).toEqual({ is_active: 0, trashed: 1, archived: 0 })
+    await invoke(IPC.ROW_BULK_ACTION, 'unarchive', [live, trashed])
+    expect(state(trashed)).toEqual({ is_active: 0, trashed: 1, archived: 0 })
+    expect(state(live)).toEqual({ is_active: 1, trashed: 0, archived: 0 })
+    await invoke(IPC.ROW_BULK_ACTION, 'delete', [trashed])
+    expect(testDb.db.prepare('SELECT deleted_at FROM rows WHERE id = ?').get(trashed)).toEqual({ deleted_at: '2026-01-01 00:00:00' })
+    expect(systemLogs(trashed)).toBe(1)
   })
 })

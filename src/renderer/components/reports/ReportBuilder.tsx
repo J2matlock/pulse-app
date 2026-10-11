@@ -178,7 +178,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
     const timer = setTimeout(() => {
       void safeInvoke<ReportResult>(IPC.REPORT_RUN, gridId, config).then(r => {
         if (!alive) return
-        if (r.ok) { setResult(r.data); setError(null) } else { setError(r.error) }
+        if (r.ok) { setResult(r.data); setError(null) } else { setError(friendlyError(r.error, "This report couldn't be shown. Please try again.")) }
       })
     }, 300)
     return () => { alive = false; clearTimeout(timer) }
@@ -247,6 +247,7 @@ export function ReportBuilder({ initial, onSaved, onDeleted, onDirtyChange }: {
     const report = savedNow ? await save(false) : initial
     if (!report) return
     const ids = await setReportPinned(report.id, !pinned)
+    if (!ids) { if (savedNow) onSaved(report); return }
     setPinned(ids.includes(report.id))
     toast.success(ids.includes(report.id) ? 'Pinned to the dashboard' : 'Removed from the dashboard')
     // Tell the page about the save only now, so the reopened report sees it pinned

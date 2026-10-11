@@ -2,7 +2,7 @@
  * export-pdf.ts — PDF export: letter, grid, profile, batch, contact, directory.
  */
 
-import type { Column, Grid, ContactFilterParams } from '../shared/types'
+import type { ContactFilterParams } from '../shared/types'
 import { PRODUCT_NAME } from '../shared/constants'
 import { getDb } from './database'
 import { logger } from './logger'
@@ -15,7 +15,7 @@ import {
   atomicWriteFileAsync,
   stripHtml,
   formatDate,
-  formatCellValue,
+  cellDisplayText,
   loadGridData,
   pickColumns,
   pickRows,
@@ -95,7 +95,7 @@ export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
 
   const head = [selectedColumns.map(c => c.name)]
   const body = filteredRows.map(row =>
-    selectedColumns.map(col => formatCellValue(row[`col_${col.id}`] as string | null, col.column_type))
+    selectedColumns.map(col => cellDisplayText(row[`col_${col.id}`] as string | null, col.column_type))
   )
 
   // Compute column widths: Name gets more space
@@ -170,12 +170,13 @@ export function renderProfileToDoc(
   const db = getDb()
   const clientName = getClientName(db, rowId, gridId)
   const v = vocabFor(gridId)
-  const grid = db.prepare('SELECT * FROM grids WHERE id = ?').get(gridId) as Grid
-  const columns = db.prepare('SELECT * FROM columns WHERE grid_id = ? AND is_visible = 1 ORDER BY position').all(gridId) as Column[]
-  const nameColId = (db.prepare('SELECT id FROM columns WHERE grid_id = ? AND is_name_column = 1 LIMIT 1').get(gridId) as { id: number } | undefined)?.id
-
-  const cells = db.prepare('SELECT column_id, value FROM cells WHERE row_id = ?').all(rowId) as Array<{ column_id: number; value: string | null }>
-  const cellMap = new Map(cells.map(c => [c.column_id, c.value]))
+  // What the table shows: deadlines as "Due …", Age and Days-until worked out, linked
+  // records by name, file counts (AUDIT-036). Archived records print too.
+  const { grid, columns, rows } = loadGridData(gridId, { includeArchived: true })
+  const nameColId = columns.find(c => c.is_name_column)?.id
+  const shownRow = rows.filter(r => r.row_id === rowId)
+  showDeadlinesAsText(gridId, columns, shownRow)
+  const valueOf = (colId: number): string | null => (shownRow[0]?.[`col_${colId}` as const] as string | null | undefined) ?? null
 
   const pageW = doc.internal.pageSize.width
   const pageH = doc.internal.pageSize.height
@@ -260,12 +261,32 @@ export function renderProfileToDoc(
     y += 2
   }
 
+  /**
+   * An open checklist item: a drawn box, then the title, wrapped. "☐" isn't in
+   * the PDF's built-in font and garbled the whole line (AUDIT-035).
+   */
+  function addChecklistItem(text: string, indent: number): void {
+    if (y > pageH - 15) { doc.addPage(); y = 18 }
+    const x = marginL + indent
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setDrawColor(0, 0, 0)
+    doc.setLineWidth(0.3)
+    doc.rect(x, y - 2.6, 2.6, 2.6)
+    const lines = doc.splitTextToSize(text, contentW - indent - 5) as string[]
+    lines.forEach((line, i) => {
+      if (i > 0) { y += 5; if (y > pageH - 15) { doc.addPage(); y = 18 } }
+      doc.text(line, x + 5, y)
+    })
+    y += 5
+  }
+
   // ── Grid Data ──
   if (includeSections.gridData) {
     addSection(`${term(v, 'record', { cap: true })} information`)
     for (const col of columns) {
       if (col.id === nameColId) continue
-      const val = formatCellValue(cellMap.get(col.id) ?? null, col.column_type)
+      const val = cellDisplayText(valueOf(col.id), col.column_type)
       addKeyValue(col.name, val)
     }
     y += 4
@@ -315,12 +336,8 @@ export function renderProfileToDoc(
 
       // Render ungrouped items first
       for (const item of ungrouped) {
-        if (y > pageH - 15) { doc.addPage(); y = 18 }
-        doc.setFontSize(9)
-        doc.setFont('helvetica', 'normal')
         const dueStr = item.due_date ? `  (due ${formatDate(item.due_date, 'us')})` : ''
-        doc.text(`\u2610  ${item.title}${dueStr}`, marginL, y)
-        y += 5
+        addChecklistItem(`${item.title}${dueStr}`, 0)
       }
 
       // Render grouped items by group
@@ -336,10 +353,8 @@ export function renderProfileToDoc(
         doc.setFont('helvetica', 'normal')
         // Group items (indented)
         for (const item of groupItems) {
-          if (y > pageH - 15) { doc.addPage(); y = 18 }
           const dueStr = item.due_date ? `  (due ${formatDate(item.due_date, 'us')})` : ''
-          doc.text(`\u2610  ${item.title}${dueStr}`, marginL + 4, y)
-          y += 5
+          addChecklistItem(`${item.title}${dueStr}`, 4)
         }
       }
       y += 4
@@ -423,11 +438,11 @@ export function renderProfileToDoc(
     logger.error('export', 'PDF linked providers section failed', { error: err instanceof Error ? err.message : String(err) })
   }
 
-  // ── Scrap Notes ──
+  // ── Scratch notes ──
   if (includeSections.scratchPad) {
     const noteContent = (db.prepare('SELECT content FROM scrap_notes WHERE row_id = ?').get(rowId) as { content: string } | undefined)?.content
     if (noteContent) {
-      addSection('Scrap notes')
+      addSection('Scratch notes')
       addBodyText(noteContent)
       y += 4
     }
@@ -474,7 +489,7 @@ export async function exportContactPdf(providerId: number, destPath: string): Pr
   const db = getDb()
 
   const provider = getProvider(providerId)
-  if (!provider) throw new Error('Provider not found')
+  if (!provider) throw new Error(`That ${word('contact')} no longer exists.`)
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageW = doc.internal.pageSize.width

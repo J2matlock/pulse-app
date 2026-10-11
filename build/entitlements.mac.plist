@@ -2,13 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
   <dict>
-    <!-- Required for Electron's V8 JIT -->
+    <!-- Required for Electron's V8 JIT. This alone is enough for V8 (it is the
+         only cs.* entitlement in @electron/osx-sign's default main, renderer
+         and GPU entitlements); allow-unsigned-executable-memory was dropped. -->
     <key>com.apple.security.cs.allow-jit</key>
     <true/>
-    <!-- Required for Electron's renderer sandbox -->
-    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-    <true/>
-    <!-- Required for native modules (better-sqlite3-multiple-ciphers) -->
+    <!-- Lets the app load better_sqlite3.node when it isn't signed by the same
+         Team ID, which is the case for the ad hoc (unsigned) builds that
+         build-mac.js makes without a certificate. -->
     <key>com.apple.security.cs.disable-library-validation</key>
     <true/>
   </dict>

@@ -1,6 +1,9 @@
 import { DemoWrapper } from './DemoWrapper'
+import { useVocab } from '../../../hooks/useVocab'
 
 export function DemoRightClick() {
+  // Matches the real right-click menu
+  const { t } = useVocab(null)
   return (
     <DemoWrapper>
       <style>{`
@@ -49,7 +52,7 @@ export function DemoRightClick() {
           className="absolute left-[52%] top-[62%] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-[160px]"
           style={{ animation: 'rcMenuIn 7s ease infinite', transformOrigin: 'top left', fontSize: 13 }}
         >
-          {['Archive', 'Duplicate Row', 'Color Label', 'Move to...'].map(item => (
+          {['Archive', `Duplicate ${t('record')}`, 'Color rules…', 'Move to…'].map(item => (
             <div key={item} className="px-3 py-1.5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
               {item}
             </div>

@@ -28,18 +28,32 @@ export const DUE_STATUSES: Array<{ value: string; label: string }> = [
   { value: 'paused', label: 'Paused' },
 ]
 
+/**
+ * Each column's rule id, read from its config once rather than for every
+ * record and every filter (AUDIT-135). A changed column is a new object; the
+ * stored config is checked too in case one is changed in place.
+ */
+const ruleIdCache = new WeakMap<Column, { config: string | null | undefined; id: number | undefined }>()
+
+function ruleIdOf(col: Column): number | undefined {
+  const hit = ruleIdCache.get(col)
+  if (hit && hit.config === col.config) return hit.id
+  let id: number | undefined
+  try { id = (JSON.parse(col.config || '{}') as { alert_rule_id?: number }).alert_rule_id } catch { id = undefined }
+  ruleIdCache.set(col, { config: col.config, id })
+  return id
+}
+
 /** The deadline rule on a column, if it has one */
 export function ruleOfColumn(col: Column | undefined, rules: Map<number, ParsedAlertRule> | undefined): ParsedAlertRule | undefined {
   if (!col || !rules || !takesDeadlineRule(col.column_type)) return undefined
-  try {
-    const id = (JSON.parse(col.config || '{}') as { alert_rule_id?: number }).alert_rule_id
-    return id !== undefined ? rules.get(id) : undefined
-  } catch { return undefined }
+  const id = ruleIdOf(col)
+  return id !== undefined ? rules.get(id) : undefined
 }
 
 /** Whether a deadline is in a "due status" bucket, worked out by the engine like its color (G-12) */
 function dueStatusIs(row: GridRow, col: Column, rule: ParsedAlertRule, status: string): boolean {
-  const res = evaluateRuleForRow(rule, (row[`col_${col.id}` as keyof GridRow] as string | null) ?? null, row as unknown as Record<string, unknown>, col.id)
+  const res = evaluateRuleForRow(rule, (row[`col_${col.id}` as keyof GridRow] as string | null) ?? null, row, col.id)
   if (status === 'done') return res.state === 'done'
   if (status === 'paused') return res.state === 'paused'
   if (res.state === 'done' || res.state === 'paused' || res.daysUntil === null) return false

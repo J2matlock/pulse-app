@@ -1,8 +1,10 @@
-import React from 'react'
+import React, { useId } from 'react'
 import { Moon, Sun, Monitor } from 'lucide-react'
 import type { Theme } from '../../../shared/types'
 import { useVocab } from '../../hooks/useVocab'
 import { modHelp } from '../../utils/keys'
+import { useSettingsStore } from '../../stores/settingsStore'
+import { UI_SCALE_MIN, UI_SCALE_MAX } from '../../utils/uiScale'
 
 interface AppearanceSectionProps {
   theme: Theme
@@ -30,6 +32,36 @@ interface AppearanceSectionProps {
   saveSetting: (key: string, value: string) => Promise<void>
 }
 
+/**
+ * An on/off switch named by the visible label next to it (audit A06-13). The
+ * off state is an outlined track with a grey knob so it reads at 3:1 against
+ * the card, not a near-white blob (A06-30).
+ */
+function SettingSwitch({ checked, onChange, labelId, descriptionId }: {
+  checked: boolean
+  onChange: (v: boolean) => void
+  labelId: string
+  descriptionId: string
+}): React.ReactElement {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-labelledby={labelId}
+      aria-describedby={descriptionId}
+      onClick={() => onChange(!checked)}
+      className={`switch-track hit-44 relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 transition-colors focus:outline-none focus:ring-3 focus:ring-slate-500 focus:ring-offset-3 ${checked
+        ? 'bg-slate-700 border-slate-700 dark:bg-slate-300 dark:border-slate-300'
+        : 'bg-white border-slate-500 dark:bg-transparent dark:border-slate-400'}`}
+    >
+      <span className={`switch-knob inline-block h-4 w-4 rounded-full transition-transform ${checked
+        ? 'translate-x-[22px] bg-white dark:bg-slate-900'
+        : 'translate-x-0.5 bg-slate-500 dark:bg-slate-400'}`} />
+    </button>
+  )
+}
+
 export function AppearanceSection({
   theme, handleThemeChange,
   uiScale, setUiScale,
@@ -45,6 +77,7 @@ export function AppearanceSection({
   saveSetting,
 }: AppearanceSectionProps): React.ReactElement {
   const { t } = useVocab(null)
+  const ids = useId()
   return (
     <>
       <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Appearance</h2>
@@ -84,12 +117,12 @@ export function AppearanceSection({
             {' '}
             <input
               type="number"
-              min={50}
-              max={150}
+              min={UI_SCALE_MIN}
+              max={UI_SCALE_MAX}
               step={5}
               value={uiScale}
               onChange={e => {
-                const v = Math.min(150, Math.max(50, Math.round(Number(e.target.value) / 5) * 5))
+                const v = Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, Math.round(Number(e.target.value) / 5) * 5))
                 if (Number.isFinite(v)) setUiScale(v)
               }}
               className="inline-block w-16 text-base font-normal text-slate-500 dark:text-slate-400 bg-transparent border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5 text-center focus:outline-none focus:ring-3 focus:ring-blue-500"
@@ -110,21 +143,22 @@ export function AppearanceSection({
         <input
           id="settings-ui-scale"
           type="range"
-          min={50}
-          max={150}
+          min={UI_SCALE_MIN}
+          max={UI_SCALE_MAX}
           step={5}
           value={uiScale}
           onChange={e => setUiScale(Number(e.target.value))}
           className="w-full accent-slate-700 dark:accent-slate-300"
           style={{ minHeight: 44 }}
         />
-        <div className="flex justify-between text-sm text-slate-500 dark:text-slate-400">
-          <span>50%</span>
-          <span>100%</span>
-          <span>150%</span>
+        {/* 100% sits a third of the way along, not in the middle */}
+        <div className="relative flex justify-between text-sm text-slate-500 dark:text-slate-400">
+          <span>{UI_SCALE_MIN}%</span>
+          <span className="absolute -translate-x-1/2" style={{ left: `${((100 - UI_SCALE_MIN) / (UI_SCALE_MAX - UI_SCALE_MIN)) * 100}%` }}>100%</span>
+          <span>{UI_SCALE_MAX}%</span>
         </div>
         {uiScale < 100 && (
-          <p className="text-sm text-amber-600 dark:text-amber-400">Smaller sizes may reduce readability</p>
+          <p className="text-sm text-amber-700 dark:text-amber-400">Smaller sizes may reduce readability</p>
         )}
         <p className="text-sm text-slate-500 dark:text-slate-400">{modHelp('Ctrl+= / Ctrl+- to zoom, Ctrl+0 to reset')}</p>
       </div>
@@ -163,17 +197,10 @@ export function AppearanceSection({
         {/* Row Striping */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <span className="text-base text-slate-700 dark:text-slate-300">Row Striping</span>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Alternate row colors for easier reading</p>
+            <span id={`${ids}-striping`} className="text-base text-slate-700 dark:text-slate-300">Row Striping</span>
+            <p id={`${ids}-striping-desc`} className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Alternate row colors for easier reading</p>
           </div>
-          <button
-            role="switch"
-            aria-checked={rowStriping}
-            onClick={() => setRowStriping(!rowStriping)}
-            className={`hit-44 relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-3 focus:ring-slate-500 focus:ring-offset-3 ${rowStriping ? 'bg-slate-700 dark:bg-slate-300' : 'bg-slate-200 dark:bg-slate-600'}`}
-          >
-            <span className={`inline-block h-4 w-4 rounded-full bg-white dark:bg-slate-900 transition-transform ${rowStriping ? 'translate-x-6' : 'translate-x-1'}`} />
-          </button>
+          <SettingSwitch checked={rowStriping} onChange={setRowStriping} labelId={`${ids}-striping`} descriptionId={`${ids}-striping-desc`} />
         </div>
 
         {/* Grid Lines */}
@@ -236,13 +263,18 @@ export function AppearanceSection({
         {/* Date Format */}
         <div className="space-y-1">
           <label htmlFor="settings-date-format" className="block text-base text-slate-700 dark:text-slate-300">Date Format</label>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">How dates are written in CSV and PDF exports</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">How dates are written in CSV and PDF exports, and how a pasted date like 06/10/2026 is read</p>
           <select
             id="settings-date-format"
             className="input"
             style={{ minHeight: 44, fontSize: 15 }}
             value={dateFormat}
-            onChange={e => { setDateFormatState(e.target.value); void saveSetting('date_format', e.target.value) }}
+            onChange={e => {
+              setDateFormatState(e.target.value)
+              void saveSetting('date_format', e.target.value)
+              const v = e.target.value
+              if (v === 'us' || v === 'iso' || v === 'eu') useSettingsStore.setState({ dateFormat: v })
+            }}
           >
             <option value="us">MM/DD/YYYY (US)</option>
             <option value="iso">YYYY-MM-DD (ISO)</option>
@@ -310,33 +342,19 @@ export function AppearanceSection({
         {/* Reduced Motion */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-base text-slate-700 dark:text-slate-300">Reduced Motion</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Disable animations and transitions</p>
+            <p id={`${ids}-motion`} className="text-base text-slate-700 dark:text-slate-300">Reduced Motion</p>
+            <p id={`${ids}-motion-desc`} className="text-sm text-slate-500 dark:text-slate-400">Disable animations and transitions</p>
           </div>
-          <button
-            role="switch"
-            aria-checked={reducedMotion}
-            onClick={() => setReducedMotion(!reducedMotion)}
-            className={`hit-44 relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-3 focus:ring-slate-500 focus:ring-offset-3 ${reducedMotion ? 'bg-slate-700 dark:bg-slate-300' : 'bg-slate-200 dark:bg-slate-600'}`}
-          >
-            <span className={`inline-block h-4 w-4 rounded-full bg-white dark:bg-slate-900 transition-transform ${reducedMotion ? 'translate-x-6' : 'translate-x-1'}`} />
-          </button>
+          <SettingSwitch checked={reducedMotion} onChange={setReducedMotion} labelId={`${ids}-motion`} descriptionId={`${ids}-motion-desc`} />
         </div>
 
         {/* High Contrast */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-base text-slate-700 dark:text-slate-300">High Contrast</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Increase border and text contrast</p>
+            <p id={`${ids}-contrast`} className="text-base text-slate-700 dark:text-slate-300">High Contrast</p>
+            <p id={`${ids}-contrast-desc`} className="text-sm text-slate-500 dark:text-slate-400">Increase border and text contrast</p>
           </div>
-          <button
-            role="switch"
-            aria-checked={highContrast}
-            onClick={() => setHighContrast(!highContrast)}
-            className={`hit-44 relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-3 focus:ring-slate-500 focus:ring-offset-3 ${highContrast ? 'bg-slate-700 dark:bg-slate-300' : 'bg-slate-200 dark:bg-slate-600'}`}
-          >
-            <span className={`inline-block h-4 w-4 rounded-full bg-white dark:bg-slate-900 transition-transform ${highContrast ? 'translate-x-6' : 'translate-x-1'}`} />
-          </button>
+          <SettingSwitch checked={highContrast} onChange={setHighContrast} labelId={`${ids}-contrast`} descriptionId={`${ids}-contrast-desc`} />
         </div>
       </div>
     </>

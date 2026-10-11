@@ -5,12 +5,15 @@
 
 import { app, BrowserWindow, shell, dialog, clipboard } from 'electron'
 import { existsSync, unlinkSync, readdirSync, rmSync } from 'fs'
-import { join } from 'path'
+import { join, dirname } from 'path'
 import Store from 'electron-store'
 import { IPC } from '../../shared/ipc-channels'
-import { secureWrap, logNonFatal, ok, fail } from './ipc-utils'
+import { logger } from '../logger'
+import { secureWrap, logNonFatal, ok, fail, rememberUserChosenPaths } from './ipc-utils'
 import { resolveDatabasePath, closeDatabase, getDb, getPortableDataDir, getMigrationFailure, clearMigrationFailureFlag } from '../database'
 import { verifyAndUnlock, lockApp } from '../auth'
+import { stopScheduledBackup } from '../index'
+import { isLicenseDoc, licenseFilePath } from '../license-files'
 
 /** Returns true if `remote` is a higher semver than `current` (X.Y.Z format). */
 function isNewerVersion(remote: string, current: string): boolean {
@@ -24,11 +27,40 @@ function isNewerVersion(remote: string, current: string): boolean {
   return rPat > cPat
 }
 
+/** The automatic update check is on unless switched off; unreadable means off */
+function automaticUpdateCheckAllowed(): boolean {
+  try {
+    const row = getDb().prepare("SELECT value FROM settings WHERE key = 'auto_update_check'").get() as { value: string } | undefined
+    return row?.value !== 'false'
+  } catch (err) {
+    logNonFatal('ipc-app', 'read auto_update_check', err)
+    return false
+  }
+}
+
+/**
+ * Whether first-run setup is finished, read the way ONBOARDING_CHECK reads it: the
+ * app_meta flag, or (an install from before the flag) any list existing. Setup asks
+ * about the automatic update check, so nothing is checked until it's answered (AUDIT-087).
+ */
+function setupFinished(): boolean {
+  try {
+    const db = getDb()
+    const meta = db.prepare("SELECT value FROM app_meta WHERE key = 'onboarding_complete'").get() as { value: string } | undefined
+    if (meta) return meta.value === '1'
+    return !!db.prepare('SELECT 1 FROM grids WHERE is_active = 1 LIMIT 1').get()
+  } catch (err) {
+    logNonFatal('ipc-app', 'read onboarding_complete', err)
+    return false
+  }
+}
+
 export function registerAppHandlers(): void {
   // ── Clipboard ───────────────────────────────────────────────────────────
-  secureWrap(IPC.CLIPBOARD_WRITE, 'ipc-app', (_e, text: string) => {
-    if (typeof text !== 'string' || text.length > 1_000_000) return fail('Clipboard content too large')
-    clipboard.writeText(text)
+  secureWrap(IPC.CLIPBOARD_WRITE, 'ipc-app', async (_e, text: string) => {
+    if (typeof text !== 'string' || text.length > 1_000_000) return fail("That's too much text to copy at once.")
+    // Electron 44 made clipboard writes async; await so a failure reaches secureWrap's catch
+    await clipboard.writeText(text)
     return ok(true)
   })
 
@@ -56,6 +88,19 @@ export function registerAppHandlers(): void {
     return fail('Only http/https URLs are allowed')
   })
 
+  // The license texts ship inside the app, so they open offline (the GPL link needs a browser and a connection)
+  secureWrap(IPC.APP_OPEN_LICENSE, 'ipc-app', async (_e, which: unknown) => {
+    if (!isLicenseDoc(which)) return fail('Unknown license file')
+    const file = licenseFilePath(which, app.isPackaged, process.resourcesPath, app.getAppPath())
+    if (!existsSync(file)) return fail("We couldn't find the license file in this copy of Pulse.")
+    const error = await shell.openPath(file)
+    if (error) {
+      logNonFatal('ipc-app', 'APP_OPEN_LICENSE openPath', error)
+      return fail("We couldn't open the license file. Your computer may not have an app for text files.")
+    }
+    return ok(true)
+  })
+
   secureWrap(IPC.APP_SHOW_FILE_DIALOG, 'ipc-app', async (_e, options: Electron.OpenDialogOptions) => {
     // Sanitize: only allow safe dialog properties from the renderer
     const safeProps: Electron.OpenDialogOptions['properties'] =
@@ -74,6 +119,8 @@ export function registerAppHandlers(): void {
       defaultPath: typeof options.defaultPath === 'string' ? options.defaultPath : undefined,
     }
     const result = await dialog.showOpenDialog(safeOptions)
+    // The person picked these, so later handlers may use them wherever they are
+    if (!result.canceled) rememberUserChosenPaths(result.filePaths)
     return ok(result)
   })
 
@@ -90,17 +137,23 @@ export function registerAppHandlers(): void {
         : undefined,
     }
     const result = await dialog.showSaveDialog(safeOptions)
+    // A save choice also vouches for its folder: handlers may add an extension (.pulse-backup)
+    if (!result.canceled && result.filePath) rememberUserChosenPaths([dirname(result.filePath)])
     return ok(result)
   })
 
   secureWrap(IPC.APP_FACTORY_RESET, 'ipc-app', async (_e, password: string) => {
     // Verify password before allowing destructive action
-    if (!password || typeof password !== 'string') return fail('Password required')
+    if (!password || typeof password !== 'string') return fail('Enter your password to confirm.')
     try {
       await verifyAndUnlock(password)
     } catch (err) {
       logNonFatal('ipc-app', 'APP_FACTORY_RESET password verify', err)
-      return fail('Password verification failed')
+      // What matters most at this moment is that nothing was erased
+      const msg = err instanceof Error ? err.message : ''
+      if (msg.startsWith('Too many failed attempts')) return fail(`${msg} Nothing was erased.`)
+      if (msg === 'Incorrect password') return fail("That password didn't work. Nothing was erased.")
+      return fail("Pulse couldn't check your password, so nothing was erased.")
     }
     // Zero the in-memory DB key immediately, then close the DB connection
     lockApp()
@@ -138,14 +191,29 @@ export function registerAppHandlers(): void {
     return ok(true)
   })
 
-  secureWrap(IPC.APP_CHECK_FOR_UPDATES, 'ipc-app', async () => {
+  // { manual: true } is the "Check for updates" button, which always runs. Any
+  // other call is automatic and obeys Settings → About, read here in main so no
+  // caller can skip it; if the setting can't be read, the automatic check stays off.
+  secureWrap(IPC.APP_CHECK_FOR_UPDATES, 'ipc-app', async (_e, opts?: { manual?: boolean }) => {
     // End-to-end runs (NODE_ENV=test outside vitest) stay offline, so no update banner shifts their screens
     if (process.env.NODE_ENV === 'test' && !process.env.VITEST) return ok({ available: false })
+    const manual = !!opts && typeof opts === 'object' && opts.manual === true
+    if (!manual && !automaticUpdateCheckAllowed()) return ok({ available: false })
+    // Not before setup has asked about it; the caller may try again once setup is done
+    if (!manual && !setupFinished()) return ok({ available: false, setupPending: true })
     const UPDATE_CHECK_URL = 'https://raw.githubusercontent.com/J2matlock/pulse-releases/main/latest.json'
     const UPDATE_ALLOWED_URL_PREFIX = 'https://github.com/J2matlock/pulse-releases/'
-    const res = await fetch(UPDATE_CHECK_URL, { signal: AbortSignal.timeout(8000) })
-    if (!res.ok) return ok({ available: false })
-    const data = await res.json() as { version?: string; downloadUrl?: string; downloads?: Partial<Record<'win' | 'mac' | 'linux', string>>; releaseNotes?: string }
+    let data: { version?: string; downloadUrl?: string; downloads?: Partial<Record<'win' | 'mac' | 'linux', string>>; releaseNotes?: string }
+    try {
+      const res = await fetch(UPDATE_CHECK_URL, { signal: AbortSignal.timeout(8000) })
+      if (!res.ok) return ok({ available: false })
+      data = await res.json() as typeof data
+    } catch (err) {
+      // Offline, timed out or a proxy in the way: normal for an offline app, not an error
+      logger.info('ipc-app', 'Update check could not reach the release page', { error: err instanceof Error ? err.message : String(err) })
+      return ok({ available: false })
+    }
+    if (!data || typeof data !== 'object') return ok({ available: false })
     if (!data.version) return ok({ available: false })
     // Per-platform links when the release lists them (older files have only downloadUrl)
     const platformKey = process.platform === 'darwin' ? 'mac' : process.platform === 'win32' ? 'win' : 'linux'
@@ -184,8 +252,12 @@ export function registerAppHandlers(): void {
     // Reload the renderer instead of full process restart.
     // Full app.relaunch() + app.exit(0) can fail in dev mode because
     // the relaunched Electron process loses the Vite dev server URL.
-    // Clear auth state so the reloaded renderer starts at the lock screen
+    // Lock properly, as AUTH_LOCK does, so the reloaded renderer starts at the
+    // lock screen with the database closed: left open, every data handler would
+    // still answer, and the next unlock would orphan this connection.
+    stopScheduledBackup()
     lockApp()
+    closeDatabase()
     const wins = BrowserWindow.getAllWindows()
     if (wins.length > 0) {
       wins[0]!.webContents.reloadIgnoringCache()

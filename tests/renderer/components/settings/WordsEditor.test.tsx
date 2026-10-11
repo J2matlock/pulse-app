@@ -45,6 +45,12 @@ describe('WordsEditor', () => {
     expect(toastSuccess).toHaveBeenCalled()
   })
 
+  it('describes requirements as calls or visits, not "contacts" (AUDIT-164)', () => {
+    render(<WordsEditor />)
+    expect(screen.getByText('How many calls or visits each one needs in a period')).toBeTruthy()
+    expect(screen.queryByText(/How many contacts/)).toBeNull()
+  })
+
   it('blocks empty words and words with < > { }', () => {
     render(<WordsEditor />)
     fireEvent.change(screen.getByLabelText('Notes: one'), { target: { value: '  ' } })

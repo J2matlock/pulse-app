@@ -68,7 +68,7 @@ vi.mock('../src/main/database', async () => {
 })
 
 vi.mock('../src/main/auth', () => ({ isPasswordSetup: () => true, setupPassword: async () => 'abc', verifyAndUnlock: async () => 'abc', verifyAndUnlockRecovery: async () => 'abc', changePassword: async () => {}, resetPasswordAfterRecovery: async () => {}, generateRecoveryKey: async () => 'AAAA-BBBB-CCCC-DDDD-EEEE-FFFF', revokeRecoveryKey: () => {}, lockApp: () => {}, getPasswordHint: () => '', hasRecoveryKey: () => false, getDbKey: () => 'abc', setStoredDbPath: () => {}, getStoredDbPath: () => '/tmp/test.db', getAutoLockMinutes: () => 30 }))
-vi.mock('../src/main/backup', () => ({ setDatabaseBridge: () => {}, runAutoBackup: async () => {}, listAutoBackups: () => [], listAutoBackupsRich: () => [], runManualBackup: () => ({ destPath: '/tmp/b.pulse-backup', sizeBytes: 0 }), restoreFromDb: async () => {}, restoreFromPulseBackup: async () => {}, getBackupInfo: () => ({}), listScheduledBackups: () => [], getBackupDir: () => '/tmp', verifyBackup: async () => ({ valid: true }), getScheduledConfig: () => null, setScheduledConfig: () => {}, checkAndRunScheduled: async () => {}, runPreMigrationBackup: () => {} }))
+vi.mock('../src/main/backup', () => ({ setDatabaseBridge: () => {}, runAutoBackup: async () => {}, listAutoBackups: () => [], listAutoBackupsRich: () => [], runManualBackup: () => ({ destPath: '/tmp/b.pulse-backup', sizeBytes: 0 }), restoreFromDb: async () => {}, restoreFromPulseBackup: async () => {}, getBackupInfo: () => ({}), getBackupDir: () => '/tmp', verifyBackup: async () => ({ valid: true }), getScheduledConfig: () => null, setScheduledConfig: () => {}, checkAndRunScheduled: async () => {}, runPreMigrationBackup: () => {} }))
 vi.mock('../src/main/export', () => ({ exportCsv: async () => '', exportPdfGrid: async () => '', exportPdfProfile: async () => '', exportSupervisorReport: async () => '' }))
 vi.mock('../src/main/import', () => ({ parseImportFile: async () => ({ headers: [], rows: [], totalRows: 0 }), autoMatchColumns: () => [], executeImport: async () => ({ imported: 0, skipped: 0 }) }))
 vi.mock('../src/main/templates', () => ({ getSetupTemplates: () => [], createSetupTemplate: () => 1, deleteSetupTemplate: () => {}, exportGridAsPulse: () => ({}), writePulseFile: async () => '', parsePulseFile: async () => ({}), applyPulseToNewGrid: () => 1, applyPulseToExistingGrid: () => {}, seedChecklistTemplates: () => {}, getLetterTemplates: () => [], createLetterTemplate: () => 1, updateLetterTemplate: () => {}, deleteLetterTemplate: () => {}, generateLetter: () => '' }))
@@ -202,13 +202,13 @@ describe('Caseload Tasks — Completion', () => {
     expect(task.due_date).toBe('2030-02-15')
   })
 
-  it('a late repeating task comes back due this cycle, not still overdue (audit S-12)', async () => {
+  it('a late repeating task comes back due after today, not still overdue or due today (audit S-12, AUDIT-113)', async () => {
     const today = localDateString()
     const weekly = { type: 'weekly' as const, interval: 1 }
     const created = await invoke(IPC.TASK_CREATE, { title: 'Timesheet', due_date: addRepeats(today, weekly, -3), recurrence_rule: JSON.stringify(weekly) }) as { ok: true; data: { id: number } }
     await invoke(IPC.TASK_COMPLETE, created.data.id)
     const task = testDb.db.prepare('SELECT is_completed, due_date FROM caseload_tasks WHERE id = ?').get(created.data.id) as { is_completed: number; due_date: string }
-    expect(task).toEqual({ is_completed: 0, due_date: today })
+    expect(task).toEqual({ is_completed: 0, due_date: addRepeats(today, weekly) })
   })
 
   it('a repeating task always has a due date: it starts today, and clearing it is refused (audit S-12)', async () => {
@@ -230,6 +230,20 @@ describe('Caseload Tasks — Completion', () => {
     await invoke(IPC.TASK_COMPLETE, created.data.id)
     const task = testDb.db.prepare('SELECT is_completed, due_date FROM caseload_tasks WHERE id = ?').get(created.data.id) as { is_completed: number; due_date: string }
     expect(task).toEqual({ is_completed: 0, due_date: '2030-12-30' })
+  })
+
+  it('a due date changed by hand drops the old day of the month, so the new date sets the pattern (AUDIT-114)', async () => {
+    const rule = (id: number) => (testDb.db.prepare('SELECT recurrence_rule FROM caseload_tasks WHERE id = ?').get(id) as { recurrence_rule: string }).recurrence_rule
+    const created = await invoke(IPC.TASK_CREATE, { title: 'Monthly', due_date: '2037-01-31', recurrence_rule: JSON.stringify({ type: 'monthly', interval: 1, day: 31, end_date: '2040-01-01' }) }) as { ok: true; data: { id: number } }
+    const id = created.data.id
+    // Other edits, and saving the same date, leave the day alone
+    await invoke(IPC.TASK_UPDATE, id, { title: 'Monthly report', due_date: '2037-01-31' })
+    expect(JSON.parse(rule(id))).toEqual({ type: 'monthly', interval: 1, day: 31, end_date: '2040-01-01' })
+    // Moved to Feb 28 by hand, with the form sending the rule it kept: "the 28th from now on"
+    await invoke(IPC.TASK_UPDATE, id, { due_date: '2037-02-28', recurrence_rule: JSON.stringify({ type: 'monthly', interval: 1, day: 31, end_date: '2040-01-01' }) })
+    expect(JSON.parse(rule(id))).toEqual({ type: 'monthly', interval: 1, end_date: '2040-01-01' })
+    await invoke(IPC.TASK_COMPLETE, id)
+    expect((testDb.db.prepare('SELECT due_date FROM caseload_tasks WHERE id = ?').get(id) as { due_date: string }).due_date).toBe('2037-03-28')
   })
 
   it('a second click on a task that already moved on is ignored (audit L-27)', async () => {
@@ -330,9 +344,12 @@ describe('Caseload Tasks — Validation Error Paths', () => {
 describe('Caseload Tasks — Yearly Recurrence', () => {
   it('complete recurring yearly task advances due_date by 1 year', async () => {
     const recurrence = JSON.stringify({ type: 'yearly', interval: 1 })
+    // Due next year, so the next one is a year later whatever day the suite runs
+    // (a past due date catches up to after today instead) (AUDIT-184)
+    const year = new Date().getFullYear()
     const created = await invoke(IPC.TASK_CREATE, {
       title: 'Annual review',
-      due_date: '2026-03-15',
+      due_date: `${year + 1}-03-15`,
       recurrence_rule: recurrence,
     }) as { ok: true; data: { id: number } }
 
@@ -340,7 +357,7 @@ describe('Caseload Tasks — Yearly Recurrence', () => {
 
     const task = testDb.db.prepare('SELECT is_completed, due_date FROM caseload_tasks WHERE id = ?').get(created.data.id) as { is_completed: number; due_date: string }
     expect(task.is_completed).toBe(0) // Reset for next cycle
-    expect(task.due_date).toBe('2027-03-15') // +1 year
+    expect(task.due_date).toBe(`${year + 2}-03-15`) // +1 year
   })
 
   it('leap year Feb 29 yearly recurrence handles correctly', async () => {

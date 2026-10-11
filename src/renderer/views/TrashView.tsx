@@ -26,6 +26,7 @@ export default function TrashView() {
   const [rows, setRows] = useState<DeletedRow[]>([])
   const [loading, setLoading] = useState(true)
   const [purgeTarget, setPurgeTarget] = useState<number | null>(null)
+  const purgeName = rows.find(r => r.id === purgeTarget)?.client_name?.trim() ?? ''
   const [showEmptyConfirm, setShowEmptyConfirm] = useState(false)
   // Deleted lists wait here too, for 30 days (D1)
   const [lists, setLists] = useState<DeletedList[]>([])
@@ -152,7 +153,7 @@ export default function TrashView() {
             className="px-4 py-2 text-base font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
             style={{ minHeight: 44 }}
           >
-            Empty Trash
+            Empty the Trash
           </button>
         )}
       </div>
@@ -187,7 +188,7 @@ export default function TrashView() {
       {rows.length === 0 ? (lists.length > 0 || files > 0 ? null :
         <EmptyState
           icon={<Trash2 className="w-12 h-12" />}
-          title="Trash is empty"
+          title="The Trash is empty"
           description={`Deleted ${t('record', { many: true })} and ${t('list', { many: true })} will appear here for 30 days before being removed for good.`}
         />
       ) : (
@@ -247,7 +248,7 @@ export default function TrashView() {
                           onClick={() => setPurgeTarget(row.id)}
                           className="hit-44 inline-flex items-center gap-1.5 px-3 py-1.5 text-base font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                           style={{ minHeight: 36 }}
-                          title="Delete permanently"
+                          title="Delete forever"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           Delete
@@ -267,9 +268,9 @@ export default function TrashView() {
       {/* Purge single row confirmation */}
       <ConfirmDialog
         open={purgeTarget != null}
-        title="Delete permanently?"
-        message={`This will permanently remove the ${t('record')} and all related data. This cannot be undone.`}
-        confirmLabel="Delete Permanently"
+        title={purgeName ? `Delete "${purgeName}" forever?` : `Delete this ${t('record')} forever?`}
+        message={`${purgeName || `This ${t('record')}`} and everything on it (${t('activity', { many: true })}, files, history) will be removed for good. This can't be undone.`}
+        confirmLabel="Delete forever"
         destructive
         onConfirm={async () => {
           if (purgeTarget != null) await purgeRow(purgeTarget)
@@ -295,7 +296,7 @@ export default function TrashView() {
         variant="typed"
         requiredPhrase={purgeListTarget?.name ?? ''}
         title={`Delete "${purgeListTarget?.name}" forever?`}
-        message={`The ${t('list')} and its ${purgeListTarget?.records ?? 0} ${t('record', { count: purgeListTarget?.records ?? 0 })}, with their notes and files, are removed for good. This can't be undone.`}
+        message={`The ${t('list')} and its ${purgeListTarget?.records ?? 0} ${t('record', { count: purgeListTarget?.records ?? 0 })}, with their ${t('activity', { many: true })} and files, are removed for good. This can't be undone.`}
         confirmLabel="Delete forever"
         onConfirm={async () => {
           if (purgeListTarget) await purgeList(purgeListTarget.id)
@@ -304,16 +305,16 @@ export default function TrashView() {
         onCancel={() => setPurgeListTarget(null)}
       />
 
-      {/* Empty trash confirmation — typed variant */}
+      {/* Empty the Trash confirmation — typed variant */}
       <ConfirmDialog
         open={showEmptyConfirm}
-        title="Empty trash?"
+        title="Empty the Trash?"
         message={`This removes ${[
           rows.length ? `${rows.length} ${t('record', { count: rows.length })}` : '',
           lists.length ? `${lists.length} ${t('list', { count: lists.length })} with their ${t('record', { many: true })}` : '',
           files ? `${files} file${files === 1 ? '' : 's'}` : '',
         ].filter(Boolean).join(' and ')} for good, with everything on them. Type EMPTY to confirm.`}
-        confirmLabel="Empty Trash"
+        confirmLabel="Empty the Trash"
         variant="typed"
         requiredPhrase="EMPTY"
         onConfirm={async () => {

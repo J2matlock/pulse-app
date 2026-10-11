@@ -4,6 +4,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
 import { createTestDb, cleanupTestDb, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
+import { DatabaseOpenError } from '../src/main/database'
 
 // ── Handler capture ──────────────────────────────────────────────────────────
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
@@ -52,13 +53,14 @@ vi.mock('electron-store', () => {
 
 let testDb: TestDb
 let dbClosed = false
+const mockOpenDatabase = vi.fn((): void => {})
 
 vi.mock('../src/main/database', async () => {
   const actual = await vi.importActual<typeof import('../src/main/database')>('../src/main/database')
   return {
     ...actual,
     getDb: () => { if (dbClosed) throw new Error('Database is not open'); return testDb.db },
-    openDatabase: () => {},
+    openDatabase: () => mockOpenDatabase(),
     closeDatabase: () => {},
     resolveDatabasePath: () => '/tmp/test.db',
     checkCloudSyncPath: () => null,
@@ -247,6 +249,13 @@ describe('AUTH_VERIFY_PASSWORD', () => {
     const r = await invoke(IPC.AUTH_VERIFY_PASSWORD, 'p'.repeat(1025)) as any
     expect(r.ok).toBe(false)
   })
+
+  it("passes its own code when the computer's password vault isn't ready, and opens nothing (AUDIT-021)", async () => {
+    mockVerifyAndUnlock.mockRejectedValueOnce(new Error('KEYRING_UNAVAILABLE'))
+    const r = await invoke(IPC.AUTH_VERIFY_PASSWORD, 'correct-password') as any
+    expect(r).toEqual({ ok: false, error: 'KEYRING_UNAVAILABLE' })
+    expect(mockOpenDatabase).not.toHaveBeenCalled()
+  })
 })
 
 describe('AUTH_VERIFY_RECOVERY_KEY', () => {
@@ -274,6 +283,13 @@ describe('AUTH_VERIFY_RECOVERY_KEY', () => {
   it('rejects key over 512 chars', async () => {
     const r = await invoke(IPC.AUTH_VERIFY_RECOVERY_KEY, 'k'.repeat(513)) as any
     expect(r.ok).toBe(false)
+  })
+
+  it("passes its own code when the computer's password vault isn't ready (AUDIT-021)", async () => {
+    mockVerifyAndUnlockRecovery.mockRejectedValueOnce(new Error('KEYRING_UNAVAILABLE'))
+    const r = await invoke(IPC.AUTH_VERIFY_RECOVERY_KEY, 'VALID-KEY') as any
+    expect(r).toEqual({ ok: false, error: 'KEYRING_UNAVAILABLE' })
+    expect(mockOpenDatabase).not.toHaveBeenCalled()
   })
 })
 
@@ -420,3 +436,53 @@ describe('AUTH_RESTORE_FROM_BACKUP', () => {
   })
 })
 
+
+describe('right password, but the data could not be opened (AUDIT-003)', () => {
+  afterEach(async () => {
+    mockOpenDatabase.mockReset()
+    mockIsPasswordSetup.mockReturnValue(true)
+    mockCredentialsUnreadable.mockReturnValue(false)
+    // A good unlock clears the "may restore" state for the next test
+    await invoke(IPC.AUTH_VERIFY_PASSWORD, 'correct-password')
+  })
+
+  it.each([
+    ['newer', new DatabaseOpenError('newer', 'This database was created by a newer version of Pulse')],
+    ['migration', new DatabaseOpenError('migration', 'Migration to version 48 failed: no such column: x')],
+    ['unreadable', new DatabaseOpenError('unreadable', 'Incorrect password or database is corrupt')],
+    ['unreadable', Object.assign(new Error('unable to open database file'), { code: 'SQLITE_CANTOPEN' })],
+  ])('returns DB_OPEN_FAILED:%s instead of a misleading message, and locks again', async (kind, err) => {
+    mockOpenDatabase.mockImplementationOnce(() => { throw err })
+    const r = await invoke(IPC.AUTH_VERIFY_PASSWORD, 'correct-password')
+    expect(r).toEqual({ ok: false, error: `DB_OPEN_FAILED:${kind}` })
+    expect(mockLockApp).toHaveBeenCalled()
+  })
+
+  it('does the same after a recovery-key unlock', async () => {
+    mockOpenDatabase.mockImplementationOnce(() => { throw new DatabaseOpenError('migration', 'Migration to version 48 failed') })
+    const r = await invoke(IPC.AUTH_VERIFY_RECOVERY_KEY, 'VALID-KEY')
+    expect(r).toEqual({ ok: false, error: 'DB_OPEN_FAILED:migration' })
+    expect(mockLockApp).toHaveBeenCalled()
+  })
+
+  it('lets the person restore a backup, but only until the next good unlock', async () => {
+    mockOpenDatabase.mockImplementationOnce(() => { throw new DatabaseOpenError('unreadable', 'Database may be corrupted') })
+    await invoke(IPC.AUTH_VERIFY_PASSWORD, 'correct-password')
+
+    const restored = await invoke(IPC.AUTH_RESTORE_FROM_BACKUP, '/tmp/pulse-test-auth/x.pulse-backup', 'old-pass', 'new-password-123', '')
+    expect(restored.ok).toBe(true)
+    expect(mockRestoreOnNewInstall).toHaveBeenCalledTimes(1)
+
+    // A restore that worked ends it
+    const again = await invoke(IPC.AUTH_RESTORE_FROM_BACKUP, '/tmp/pulse-test-auth/x.pulse-backup', 'old-pass', 'new-password-123', '')
+    expect(again.ok).toBe(false)
+    expect(again.error).toMatch(/already set up/)
+  })
+
+  it('a wrong password never opens the restore path', async () => {
+    await invoke(IPC.AUTH_VERIFY_PASSWORD, 'wrong-password')
+    const r = await invoke(IPC.AUTH_RESTORE_FROM_BACKUP, '/tmp/pulse-test-auth/x.pulse-backup', 'old-pass', 'new-password-123', '')
+    expect(r.ok).toBe(false)
+    expect(mockRestoreOnNewInstall).not.toHaveBeenCalled()
+  })
+})

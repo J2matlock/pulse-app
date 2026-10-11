@@ -14,6 +14,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { UnknownPlaceholders } from '../../components/shared/UnknownPlaceholders'
 import { useGridStore } from '../../stores/gridStore'
 import { rememberedList, rememberList } from './templateList'
+import { friendlyError } from '../../utils/friendlyError'
 
 const SHOWN = 50
 
@@ -96,7 +97,7 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
         IPC.LETTER_TEMPLATE_GENERATE, template.id, rowId, Number(selectedGridId)
       )
       if (!res.ok) {
-        setError(res.error ?? `Could not generate the letter. Please check the ${t('record')} and try again.`)
+        setError(friendlyError(res.error, `Could not generate the letter. Please check the ${t('record')} and try again.`))
       } else {
         setResult(res.data.text)
         setUnknown(res.data.unknown)
@@ -144,7 +145,7 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
           {error && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+            <div role="alert" className="flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
               <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
               <p className="text-base text-red-700 dark:text-red-300">{error}</p>
             </div>

@@ -57,6 +57,27 @@ describe('SecuritySection — change password', () => {
     expect(await screen.findByText('Your current password is incorrect.')).toBeTruthy()
   })
 
+  it('ties a wrong current password and a mismatch to their boxes (audit A06-14)', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'auth:change-password') return Promise.resolve({ ok: false, error: 'Incorrect password' })
+      return Promise.resolve({ ok: true, data: true })
+    })
+    render(<SecuritySection saveSetting={vi.fn().mockResolvedValue(undefined)} />)
+    fireEvent.click(screen.getByText('Change…'))
+    fillForm('wrong', 'a much stronger passphrase 42!')
+    fireEvent.click(screen.getByRole('button', { name: 'Save new password' }))
+    const alert = await screen.findByRole('alert')
+    const current = screen.getByLabelText('Current password')
+    expect(current.getAttribute('aria-invalid')).toBe('true')
+    expect(current.getAttribute('aria-describedby')).toBe(alert.id)
+    expect(screen.getByLabelText('New password').getAttribute('aria-invalid')).toBeNull()
+    fireEvent.change(screen.getByLabelText('Confirm new password'), { target: { value: 'something else' } })
+    const confirm = screen.getByLabelText('Confirm new password')
+    expect(confirm.getAttribute('aria-invalid')).toBe('true')
+    const described = (confirm.getAttribute('aria-describedby') ?? '').split(' ').map(id => document.getElementById(id)?.textContent)
+    expect(described).toContain('Passwords do not match')
+  })
+
   it('keeps Save disabled while the two new passwords differ', () => {
     render(<SecuritySection saveSetting={vi.fn().mockResolvedValue(undefined)} />)
     fireEvent.click(screen.getByText('Change…'))

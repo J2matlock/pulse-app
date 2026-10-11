@@ -1,6 +1,8 @@
+import { useVocab } from '../../../hooks/useVocab'
 import { DemoWrapper } from './DemoWrapper'
 
 export function DemoSnippetExpand() {
+  const { t } = useVocab(null)
   return (
     <DemoWrapper>
       <style>{`
@@ -41,7 +43,7 @@ export function DemoSnippetExpand() {
         </div>
       </div>
       <div className="mt-2 text-sm text-slate-500 dark:text-slate-400 text-center">
-        Type <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded-sm">/hw</code> → expands to full note
+        Type <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded-sm">/hw</code> → expands to the full {t('activity')}
       </div>
     </DemoWrapper>
   )

@@ -22,6 +22,8 @@ import { localDateString } from '../../shared/dates'
 import { safeFileName } from '../../shared/fileName'
 import { normalizeHexColor } from '../../shared/color'
 import { word } from '../vocab'
+import { atomicWriteFileAsync } from '../export-shared'
+import { vcardFieldKey } from '../contacts-vcard'
 
 const BAD_COLOR = 'Choose a color from the swatches, or type one like #3b82f6.'
 
@@ -141,7 +143,7 @@ export function registerContactHandlers(): void {
       if (link) {
         notifyRowId = link.row_id
         const providerName = db.prepare('SELECT name FROM providers WHERE id = ?').pluck().get(link.provider_id) as string | undefined
-        const providerLabel = providerName ?? `Provider #${link.provider_id}`
+        const providerLabel = providerName ?? `${word('contact', { cap: true })} #${link.provider_id}`
         const logResult = db.prepare(`
           INSERT INTO case_log (row_id, content, log_type, created_at, updated_at)
           VALUES (?, ?, 'system', datetime('now'), datetime('now'))
@@ -245,7 +247,7 @@ export function registerContactHandlers(): void {
     const guard = enforceWritable(); if (guard) return guard
     if (!Array.isArray(providers)) return fail('Expected an array of providers')
     // Matches parseVCard's cap, so every contact the preview shows can be imported in one go.
-    if (providers.length > 1000) return fail(`Import limited to 1,000 ${word('contact', { many: true })} at a time`)
+    if (providers.length > 1000) return fail(`You can import up to 1,000 ${word('contact', { many: true })} at a time.`)
     const db = getDb()
     let count = 0
     const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -291,7 +293,7 @@ export function registerContactHandlers(): void {
           try {
             const fields = getCustomFields(provider.category_id)
             for (const [name, val] of Object.entries(vcardCustomFields)) {
-              const match = fields.find(f => f.field_name.toLowerCase() === name)
+              const match = fields.find(f => vcardFieldKey(f.field_name) === name)
               if (match) saveCustomValue(provider.id, match.id, val)
             }
           } catch (err) { logNonFatal('ipc-contacts', 'custom field restore during vCard import', err) }
@@ -304,7 +306,7 @@ export function registerContactHandlers(): void {
   secureWrap(IPC.CONTACTS_EXPORT_VCF, 'ipc-contacts', async (_e, providerIds: number[] | null) => {
     if (providerIds !== null) {
       if (!Array.isArray(providerIds)) return fail('Expected an array of provider IDs')
-      if (providerIds.length > 5000) return fail('Export limited to 5000 contacts at a time')
+      if (providerIds.length > 5000) return fail(`You can export up to 5,000 ${word('contact', { many: true })} at a time.`)
       if (!providerIds.every(id => validId(id))) return fail('Invalid provider ID in list')
     }
     // Export all loads full rows: the list query (getProviders) has only a few
@@ -318,7 +320,7 @@ export function registerContactHandlers(): void {
     const prefetchedValues = getBatchCustomValues(providers.map(p => p.id))
     const vcards = providers.map(p => emitVCard(p, prefetchedFields, prefetchedValues)).join('\r\n')
     const { canceled, filePath } = await dialog.showSaveDialog({
-      title: 'Export Contacts',
+      title: `Export ${word('contact', { many: true, cap: true })}`,
       defaultPath: providerIds && providerIds.length === 1 && providers[0]
         ? `${safeFileName(providers[0].name)}.vcf`
         : `pulse-contacts-${localDateString()}.vcf`,
@@ -326,14 +328,8 @@ export function registerContactHandlers(): void {
     })
     if (canceled || !filePath) return ok(null)
     assertSafePath(filePath)
-    // Atomic write: temp file + fsync + rename
-    const { writeFile, rename } = await import('fs/promises')
-    const { open: fsOpen } = await import('fs/promises')
-    const tmpPath = filePath + '.tmp'
-    await writeFile(tmpPath, vcards, 'utf-8')
-    const fh = await fsOpen(tmpPath, 'r+')
-    try { await fh.sync() } finally { await fh.close() }
-    await rename(tmpPath, filePath)
+    // Atomic write (temp file + fsync + rename); the temp file is removed if it fails
+    await atomicWriteFileAsync(filePath, vcards, 'utf-8')
     return ok(filePath)
   })
 }

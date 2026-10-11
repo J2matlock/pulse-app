@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -12,6 +12,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { dndAccessibility } from '../../utils/dndAnnouncements'
 import { User, EyeOff } from 'lucide-react'
 import type { Header } from '@tanstack/react-table'
 import type { GridRow, Column } from '../../../shared/types'
@@ -25,13 +26,15 @@ import { useVocab } from '../../hooks/useVocab'
 interface SortableColHeaderProps {
   header: Header<GridRow, unknown>
   col: Column
+  /** This column's place, counting the leading columns (AUDIT-012) */
+  colIndex?: number
   onAutoFit: (colId: number) => void
   rowHeight: number
   frozenLeft: number | undefined
   isLastFrozen: boolean
 }
 
-export const SortableColHeader = React.memo(function SortableColHeader({ header, col, onAutoFit, rowHeight, frozenLeft, isLastFrozen }: SortableColHeaderProps): React.ReactElement {
+export const SortableColHeader = React.memo(function SortableColHeader({ header, col, colIndex, onAutoFit, rowHeight, frozenLeft, isLastFrozen }: SortableColHeaderProps): React.ReactElement {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `col_${col.id}`
   })
@@ -42,6 +45,7 @@ export const SortableColHeader = React.memo(function SortableColHeader({ header,
     <div
       ref={setNodeRef}
       role="columnheader"
+      aria-colindex={colIndex}
       aria-sort={header.column.getIsSorted() === 'asc' ? 'ascending' : header.column.getIsSorted() === 'desc' ? 'descending' : 'none'}
       className={`relative flex-shrink-0 border-r border-slate-300 dark:border-slate-600
                   bg-slate-50 dark:bg-slate-800 select-none`}
@@ -88,7 +92,8 @@ export interface GridHeaderRowProps {
   acuitySortDir: 'asc' | 'desc' | null
   setAcuitySortDir: React.Dispatch<React.SetStateAction<'asc' | 'desc' | null>>
   selectedRowIds: Set<number>
-  filteredRows: GridRow[]
+  /** The records on screen, leaving out those inside collapsed groups: select-all picks these (AUDIT-139) */
+  selectableRowIds: number[]
   setSelectedRowIds: React.Dispatch<React.SetStateAction<Set<number>>>
   colSensors: SensorDescriptor<SensorOptions>[]
   onColumnDragEnd: (event: DragEndEvent) => void
@@ -110,7 +115,7 @@ export function GridHeaderRow({
   acuitySortDir,
   setAcuitySortDir,
   selectedRowIds,
-  filteredRows,
+  selectableRowIds,
   setSelectedRowIds,
   colSensors,
   onColumnDragEnd,
@@ -122,17 +127,25 @@ export function GridHeaderRow({
   onHideTags,
 }: GridHeaderRowProps): React.ReactElement {
   const { t } = useVocab()
+  // Screen readers pair each cell with the header in the same place (AUDIT-012)
+  const leadingColCount = 2 + (acuityEnabled ? 1 : 0) + (showTags ? 1 : 0)
+  // A dragged column is read out by name, not its id (AUDIT-049)
+  const dragA11y = useMemo(() => dndAccessibility(id => columns.find(c => `col_${c.id}` === id)?.name), [columns])
+  // Every record on screen is ticked (records hidden in a collapsed group don't count)
+  const allSelected = selectableRowIds.length > 0 && selectableRowIds.every(id => selectedRowIds.has(id))
   return (
     <DndContext
       sensors={colSensors}
       collisionDetection={closestCenter}
       onDragEnd={onColumnDragEnd}
+      accessibility={dragA11y}
     >
-      <div className="bg-slate-50 dark:bg-slate-800 border-b-2 border-slate-300 dark:border-slate-600">
-        <div className="flex" role="row">
+      <div role="rowgroup" className="bg-slate-50 dark:bg-slate-800 border-b-2 border-slate-300 dark:border-slate-600">
+        <div className="flex" role="row" aria-rowindex={1}>
           {/* Select-all checkbox in header */}
           <div
             role="columnheader"
+            aria-colindex={1}
             className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
             style={{
               width: HANDLE_WIDTH, height: rowHeight,
@@ -141,30 +154,30 @@ export function GridHeaderRow({
           >
             <button
               onClick={() => {
-                if (selectedRowIds.size === filteredRows.length && filteredRows.length > 0) {
+                if (allSelected) {
                   setSelectedRowIds(new Set())
                 } else {
-                  setSelectedRowIds(new Set(filteredRows.map(r => r.row_id)))
+                  setSelectedRowIds(new Set(selectableRowIds))
                 }
               }}
               className={`w-5 h-5 flex items-center justify-center focus-visible:ring-3 focus-visible:ring-blue-500 focus-visible:ring-offset-1 rounded-sm
-                ${filteredRows.length === 0 ? 'opacity-0 pointer-events-none' : 'opacity-60 hover:opacity-100'}
+                ${selectableRowIds.length === 0 ? 'opacity-0 pointer-events-none' : 'opacity-60 hover:opacity-100'}
                 ${selectedRowIds.size > 0 ? 'opacity-100!' : ''}
                 transition-opacity`}
               tabIndex={-1}
               role="checkbox"
               aria-checked={
-                selectedRowIds.size === filteredRows.length && filteredRows.length > 0
+                allSelected
                   ? 'true'
                   : selectedRowIds.size > 0
                     ? 'mixed'
                     : 'false'
               }
-              aria-label={selectedRowIds.size === filteredRows.length && filteredRows.length > 0 ? `Deselect all ${t('record', { many: true })}` : `Select all ${t('record', { many: true })}`}
-              title={selectedRowIds.size === filteredRows.length ? 'Deselect all' : 'Select all'}
+              aria-label={allSelected ? `Deselect all ${t('record', { many: true })}` : `Select all ${t('record', { many: true })}`}
+              title={allSelected ? 'Deselect all' : 'Select all'}
             >
               <div className={`w-4 h-4 rounded-sm border-2 flex items-center justify-center transition-colors
-                ${selectedRowIds.size === filteredRows.length && filteredRows.length > 0
+                ${allSelected
                   ? 'bg-blue-500 border-blue-500'
                   : selectedRowIds.size > 0
                     ? 'bg-blue-200 border-blue-400'
@@ -172,7 +185,7 @@ export function GridHeaderRow({
               }>
                 {selectedRowIds.size > 0 && (
                   <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12">
-                    {selectedRowIds.size === filteredRows.length
+                    {allSelected
                       ? <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       : <path d="M3 6h6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
                     }
@@ -184,6 +197,7 @@ export function GridHeaderRow({
           {/* Profile column header */}
           <div
             role="columnheader"
+            aria-colindex={2}
             className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
             style={{
               width: PROFILE_BTN_WIDTH, height: rowHeight,
@@ -197,6 +211,7 @@ export function GridHeaderRow({
           {acuityEnabled && (
             <div
               role="columnheader"
+              aria-colindex={3}
               aria-sort={acuitySortDir === 'asc' ? 'ascending' : acuitySortDir === 'desc' ? 'descending' : 'none'}
               className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center text-sm font-semibold select-none cursor-pointer
                          hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors bg-slate-50 dark:bg-slate-800"
@@ -219,7 +234,7 @@ export function GridHeaderRow({
             </div>
           )}
           {showTags && (
-            <div role="columnheader" className="flex-shrink-0 flex items-center gap-1 px-2 border-r border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-base font-semibold text-slate-700 dark:text-slate-200"
+            <div role="columnheader" aria-colindex={3 + (acuityEnabled ? 1 : 0)} className="flex-shrink-0 flex items-center gap-1 px-2 border-r border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-base font-semibold text-slate-700 dark:text-slate-200"
               style={{ width: TAGS_COL_WIDTH, height: rowHeight, ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0), zIndex: 12 } : {}) }}>
               <span className="flex-1 truncate" title={`Tags from each ${t('record')}'s page`}>Tags</span>
               {onHideTags && (
@@ -239,6 +254,7 @@ export function GridHeaderRow({
                   key={header.id}
                   header={header}
                   col={col}
+                  colIndex={leadingColCount + i + 1}
                   onAutoFit={autoFitColumn}
                   rowHeight={rowHeight}
                   frozenLeft={frozenLeftOffsets.get(col.id)}

@@ -1,11 +1,46 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotionConfig } from 'motion/react'
 import type { AcuityLevel } from '../../../shared/types'
 import { dropdownVariants } from '../../utils/animations'
 import { useVocab } from '../../hooks/useVocab'
+import { useMenuKeys } from '../../hooks/useMenuKeys'
 
 const BADGE_WIDTH = 36
+
+function luminance(hex: string): number {
+  const ch = (i: number) => {
+    const v = parseInt(hex.slice(i, i + 2), 16) / 255
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+  }
+  return 0.2126 * ch(1) + 0.7152 * ch(3) + 0.0722 * ch(5)
+}
+
+/** Dark or white text, whichever reads better on this color by the WCAG contrast ratio (AUDIT-045) */
+export function badgeTextColor(hex: string): string {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return '#1e293b'
+  const bg = luminance(hex)
+  const onWhite = 1.05 / (bg + 0.05)
+  const onDark = (bg + 0.05) / (luminance('#1e293b') + 0.05)
+  return onDark >= onWhite ? '#1e293b' : '#ffffff'
+}
+
+/** From a priority badge, the arrows move like the rest of the list (AUDIT-045) */
+function handleBadgeNavKey(e: React.KeyboardEvent<HTMLButtonElement>): void {
+  const row = e.currentTarget.closest('[role="row"]')
+  if (!row) return
+  if (e.key === 'ArrowRight') {
+    const cell = row.querySelector<HTMLElement>('[role="gridcell"][data-col-id]')
+    if (cell) { e.preventDefault(); cell.focus() }
+  } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    let sib = e.key === 'ArrowDown' ? row.nextElementSibling : row.previousElementSibling
+    while (sib && !sib.querySelector('[data-acuity-badge]')) {
+      sib = e.key === 'ArrowDown' ? sib.nextElementSibling : sib.previousElementSibling
+    }
+    const badge = sib?.querySelector<HTMLElement>('[data-acuity-badge]')
+    if (badge) { e.preventDefault(); badge.focus(); badge.scrollIntoView({ block: 'nearest' }) }
+  }
+}
 
 interface AcuityBadgeProps {
   levels: AcuityLevel[]
@@ -18,9 +53,13 @@ export { BADGE_WIDTH }
 
 export function AcuityBadge({ levels, currentLevelId, onSetLevel, bulkCount }: AcuityBadgeProps): React.ReactElement {
   const { t } = useVocab()
+  // Settings → Reduce motion or the computer's setting, via AppMotionConfig
+  const reduceMotion = useReducedMotionConfig() ?? false
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   const dropRef = useRef<HTMLDivElement>(null)
+  // The pick list takes focus, moves with the arrows, closes on Escape and gives focus back
+  const onMenuKeyDown = useMenuKeys(dropRef, open, useCallback(() => setOpen(false), []))
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
 
   const updatePos = useCallback(() => {
@@ -51,15 +90,6 @@ export function AcuityBadge({ levels, currentLevelId, onSetLevel, bulkCount }: A
 
   const currentLevel = levels.find(l => l.id === currentLevelId)
 
-  // Determine text color for contrast against background
-  function contrastText(hex: string): string {
-    const r = parseInt(hex.slice(1, 3), 16)
-    const g = parseInt(hex.slice(3, 5), 16)
-    const b = parseInt(hex.slice(5, 7), 16)
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-    return luminance > 0.55 ? '#1e293b' : '#ffffff'
-  }
-
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation()
     setOpen(v => !v)
@@ -72,44 +102,46 @@ export function AcuityBadge({ levels, currentLevelId, onSetLevel, bulkCount }: A
           {bulkCount > 9 ? '9+' : bulkCount}
         </span>
       )}
-      {currentLevel ? (
-        <button
-          ref={btnRef}
-          onClick={handleToggle}
-          className="hit-44 rounded-full px-1.5 py-0.5 text-base font-semibold leading-none cursor-pointer select-none
-                     focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
-                     hover:opacity-80 transition-opacity"
-          style={{
-            backgroundColor: currentLevel.color,
-            color: contrastText(currentLevel.color),
-            minWidth: 20,
-            textAlign: 'center',
-          }}
-          title={`${currentLevel.name} (${currentLevel.points} pts) — click to change`}
-        >
-          {currentLevel.abbreviation}
-        </button>
-      ) : (
-        <motion.button
-          ref={btnRef}
-          onClick={handleToggle}
-          className="w-6 h-6 rounded-full border-2 border-dashed border-blue-400 dark:border-blue-500
-                     flex items-center justify-center
-                     text-blue-400 dark:text-blue-400 text-sm font-bold leading-none
-                     cursor-pointer
-                     focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-          animate={{ opacity: [0.5, 1, 0.5], scale: [0.92, 1.1, 0.92] }}
-          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-          whileHover={{ opacity: 1, scale: 1.15 }}
-          title={`Assign ${t('priority')}`}
-        >+</motion.button>
-      )}
+      {/* One button either way, so focus can come back to it after a pick. It isn't its own
+          Tab stop: Left arrow from the first cell reaches it, and Enter or Space opens it */}
+      <button
+        ref={btnRef}
+        type="button"
+        tabIndex={-1}
+        data-acuity-badge
+        onClick={handleToggle}
+        onKeyDown={handleBadgeNavKey}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={currentLevel ? `${t('priority', { cap: true })}: ${currentLevel.name}` : `Set ${t('priority')}`}
+        className={currentLevel
+          ? `hit-44 rounded-full px-1.5 py-0.5 text-base font-semibold leading-none cursor-pointer select-none
+             focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
+             hover:opacity-80 transition-opacity`
+          : `hit-44 w-6 h-6 rounded-full border-2 border-dashed border-blue-400 dark:border-blue-500
+             flex items-center justify-center
+             text-blue-500 dark:text-blue-400 text-sm font-bold leading-none
+             cursor-pointer ${reduceMotion ? '' : 'motion-safe:animate-pulse hover:animate-none'}
+             focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500`}
+        style={currentLevel ? {
+          backgroundColor: currentLevel.color,
+          color: badgeTextColor(currentLevel.color),
+          minWidth: 20,
+          textAlign: 'center',
+        } : undefined}
+        title={currentLevel ? `${currentLevel.name} (${currentLevel.points} pts) — click to change` : `Assign ${t('priority')}`}
+      >
+        {currentLevel ? currentLevel.abbreviation : '+'}
+      </button>
 
       {createPortal(
         <AnimatePresence>
           {open && (
             <div
               ref={dropRef}
+              role="menu"
+              aria-label={t('priority', { cap: true })}
+              onKeyDown={onMenuKeyDown}
               style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}
             >
               <motion.div
@@ -120,6 +152,9 @@ export function AcuityBadge({ levels, currentLevelId, onSetLevel, bulkCount }: A
                 {levels.map(level => (
                   <button
                     key={level.id}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={level.id === currentLevelId}
                     onClick={e => { e.stopPropagation(); onSetLevel(level.id); setOpen(false) }}
                     className={`flex items-center gap-2.5 w-full px-3 text-left text-base hover:bg-slate-50 dark:hover:bg-slate-700
                       ${level.id === currentLevelId ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
@@ -135,8 +170,10 @@ export function AcuityBadge({ levels, currentLevelId, onSetLevel, bulkCount }: A
                 ))}
                 {currentLevelId != null && (
                   <>
-                    <div className="my-1 border-t border-slate-100 dark:border-slate-700" />
+                    <div role="separator" className="my-1 border-t border-slate-100 dark:border-slate-700" />
                     <button
+                      type="button"
+                      role="menuitem"
                       onClick={e => { e.stopPropagation(); onSetLevel(null); setOpen(false) }}
                       className="flex items-center gap-2.5 w-full px-3 text-left text-base text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
                       style={{ minHeight: 44 }}

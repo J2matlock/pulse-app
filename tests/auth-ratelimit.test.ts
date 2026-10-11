@@ -122,11 +122,7 @@ describe('Auth Rate Limiting', () => {
       await expect(verifyAndUnlock(WRONG_PASSWORD)).rejects.toThrow('Incorrect password')
     }
 
-    try {
-      await verifyAndUnlock(TEST_PASSWORD)
-    } catch (err) {
-      expect((err as Error).message).toMatch(/Too many failed attempts.*Try again in \d+ second/)
-    }
+    await expect(verifyAndUnlock(TEST_PASSWORD)).rejects.toThrow(/Too many failed attempts.*Try again in \d+ second/)
   })
 
   it('lockout escalates with more failures (10 attempts → 60s)', async () => {

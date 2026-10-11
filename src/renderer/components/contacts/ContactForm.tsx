@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useId } from 'react'
+import { FieldError, fieldErrorProps } from '../shared/FieldError'
 import toast from 'react-hot-toast'
 import { Save, X as XIcon, Plus, XCircle } from 'lucide-react'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
@@ -19,7 +20,7 @@ interface ContactFormProps {
 
 const AVAILABILITY_OPTIONS: { value: AvailabilityStatus; label: string; colorClass: string }[] = [
   { value: 'accepting', label: 'Accepting new {record:many}', colorClass: 'text-green-600 dark:text-green-400' },
-  { value: 'waitlist', label: 'Waitlist', colorClass: 'text-amber-600 dark:text-amber-400' },
+  { value: 'waitlist', label: 'Waitlist', colorClass: 'text-amber-700 dark:text-amber-400' },
   { value: 'full', label: 'Not Accepting', colorClass: 'text-red-600 dark:text-red-400' },
   { value: 'unknown', label: 'Unknown', colorClass: 'text-slate-500 dark:text-slate-400' },
 ]
@@ -61,6 +62,7 @@ function buildInitialState(provider?: Provider | null) {
 type FormState = ReturnType<typeof buildInitialState>
 
 export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
+  const dialogTitleId = useId()
   const { t, f } = useVocab(null)
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, true)
@@ -170,9 +172,11 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
         savedId = created.id
       }
       // Save custom field values
+      let fieldFailures = 0
       if (savedId && Object.keys(customValues).length > 0) {
         for (const [fieldId, value] of Object.entries(customValues)) {
-          await safeInvoke(IPC.CONTACTS_SAVE_CUSTOM_VALUE, savedId, Number(fieldId), value || null)
+          const res = await safeInvoke(IPC.CONTACTS_SAVE_CUSTOM_VALUE, savedId, Number(fieldId), value || null)
+          if (!res.ok) fieldFailures++
         }
       }
       // Sync tags — add new tags, remove deleted ones (tags are plain strings)
@@ -193,7 +197,9 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
           }
         }
       }
-      if (tagFailures > 0) toast.error(`The ${t('contact')} was saved, but some tag changes didn't save — please try again`)
+      if (tagFailures > 0 && fieldFailures > 0) toast.error(`The ${t('contact')} was saved, but some tag and field changes didn't save — please try again`)
+      else if (tagFailures > 0) toast.error(`The ${t('contact')} was saved, but some tag changes didn't save — please try again`)
+      else if (fieldFailures > 0) toast.error(`The ${t('contact')} was saved, but some field changes didn't save — please try again`)
       // Tags and custom fields were saved after the store re-read the contact, so read it again.
       const store = useContactsStore.getState()
       if (savedId && store.selectedProviderId === savedId) await store.selectProvider(savedId)
@@ -233,10 +239,10 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
   }, [tagInput, form.tags, setField])
 
   return (
-    <div ref={trapRef} className="flex h-full flex-col bg-white dark:bg-slate-900" role="dialog" aria-modal="true">
+    <div ref={trapRef} className="flex h-full flex-col bg-white dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby={dialogTitleId}>
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 px-4 py-3">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-white" style={{ fontSize: 18 }}>
+        <h2 id={dialogTitleId} className="text-lg font-semibold text-slate-900 dark:text-white" style={{ fontSize: 18 }}>
           {isEditing ? 'Edit' : 'Add'} {t('contact', { cap: true })}
         </h2>
         <div className="flex items-center gap-2">
@@ -268,7 +274,7 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
           <div>
             <label htmlFor="contact-name" className={labelClasses} style={{ fontSize: 15 }}>Name <span className="text-red-600 dark:text-red-400">*</span></label>
             <input id="contact-name" type="text" value={form.name} onChange={e => setField('name', e.target.value)}
-              placeholder={`${t('contact', { cap: true })} or organization name`} className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} autoFocus title={`${t('contact', { cap: true })} or organization name`} />
+              aria-required="true" placeholder={`${t('contact', { cap: true })} or organization name`} className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} autoFocus title={`${t('contact', { cap: true })} or organization name`} />
           </div>
           <div>
             <label htmlFor="contact-org" className={labelClasses} style={{ fontSize: 15 }}>Organization</label>
@@ -278,7 +284,7 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
           <div>
             <label htmlFor="contact-title" className={labelClasses} style={{ fontSize: 15 }}>Title / Role</label>
             <input id="contact-title" type="text" value={form.title} onChange={e => setField('title', e.target.value)}
-              placeholder="e.g. Case Manager, Therapist" className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} />
+              placeholder="e.g. Manager, Coordinator" className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} />
           </div>
           <div>
             <label htmlFor="contact-category" className={labelClasses} style={{ fontSize: 15 }}>Category</label>
@@ -327,21 +333,21 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
             <div key={field}>
               <label htmlFor={`contact-phone-${i}`} className={labelClasses} style={{ fontSize: 15 }}>{label}</label>
               <input id={`contact-phone-${i}`} type="tel" value={form[field]} onChange={e => setField(field, e.target.value)}
-                className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} />
-              {validationErrors[field] && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{validationErrors[field]}</p>}
+                className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} {...fieldErrorProps(`contact-phone-${i}`, validationErrors[field])} />
+              <FieldError fieldId={`contact-phone-${i}`} error={validationErrors[field]} />
             </div>
           ))}
           <div>
             <label htmlFor="contact-email" className={labelClasses} style={{ fontSize: 15 }}>Email</label>
             <input id="contact-email" type="email" value={form.email} onChange={e => setField('email', e.target.value)}
-              className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} />
-            {validationErrors.email && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{validationErrors.email}</p>}
+              className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} {...fieldErrorProps('contact-email', validationErrors.email)} />
+            <FieldError fieldId="contact-email" error={validationErrors.email} />
           </div>
           <div>
             <label htmlFor="contact-website" className={labelClasses} style={{ fontSize: 15 }}>Website</label>
             <input id="contact-website" type="url" value={form.website} onChange={e => setField('website', e.target.value)}
-              className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} />
-            {validationErrors.website && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{validationErrors.website}</p>}
+              className={inputClasses} style={{ fontSize: 15, minHeight: 44 }} {...fieldErrorProps('contact-website', validationErrors.website)} />
+            <FieldError fieldId="contact-website" error={validationErrors.website} />
           </div>
           <div>
             <label htmlFor="contact-address" className={labelClasses} style={{ fontSize: 15 }}>Address</label>
@@ -446,7 +452,7 @@ export function ContactForm({ provider, onClose, onSaved }: ContactFormProps) {
         open={showDiscardConfirm}
         title="Unsaved changes"
         message="You have unsaved changes. Discard them?"
-        confirmLabel="Discard"
+        confirmLabel="Discard changes"
         destructive
         onConfirm={() => { setShowDiscardConfirm(false); onClose() }}
         onCancel={() => setShowDiscardConfirm(false)}

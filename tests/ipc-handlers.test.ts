@@ -143,7 +143,6 @@ vi.mock('../src/main/backup', () => ({
   restoreFromDb: async () => {},
   restoreFromPulseBackup: async () => {},
   getBackupInfo: () => ({ size: 0, created: '' }),
-  listScheduledBackups: () => [],
   getBackupDir: () => '/tmp/backups',
   verifyBackup: async () => ({ valid: true }),
   getScheduledConfig: () => null,
@@ -712,7 +711,7 @@ describe('Read-only enforcement — enforceWritable()', () => {
   let colId: number
 
   beforeAll(() => {
-    // Simulate expired trial — all writes should be blocked
+    // Simulate a read-only gate — all writes should be blocked
     registerReadOnlyChecker(() => true)
   })
 

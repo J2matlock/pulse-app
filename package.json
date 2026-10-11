@@ -50,7 +50,7 @@
     "@tiptap/react": "3.31.4",
     "@tiptap/starter-kit": "3.31.4",
     "bcryptjs": "3.0.3",
-    "better-sqlite3-multiple-ciphers": "12.6.2",
+    "better-sqlite3-multiple-ciphers": "13.0.3",
     "cmdk": "1.1.1",
     "date-fns": "4.1.0",
     "dompurify": "3.4.16",
@@ -81,7 +81,7 @@
     "@types/bcryptjs": "3.0.0",
     "@types/better-sqlite3": "7.6.13",
     "@types/dompurify": "3.2.0",
-    "@types/node": "22.13.5",
+    "@types/node": "24.19.0",
     "@types/papaparse": "5.5.2",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
@@ -90,7 +90,9 @@
     "@typescript-eslint/eslint-plugin": "8.56.1",
     "@typescript-eslint/parser": "8.56.1",
     "@vitejs/plugin-react": "4.3.4",
-    "electron": "39.7.0",
+    "@vitest/coverage-v8": "4.0.18",
+    "axe-core": "4.13.0",
+    "electron": "44.4.5",
     "electron-builder": "26.8.1",
     "electron-vite": "3.1.0",
     "eslint": "10.0.2",
@@ -114,7 +116,9 @@
     ],
     "files": [
       "out/**/*",
-      "!out/**/*.map"
+      "!out/**/*.map",
+      "!**/node_modules/**/*.map",
+      "!**/node_modules/better-sqlite3-multiple-ciphers/{deps,src}${/*}"
     ],
     "fileAssociations": [
       {
@@ -128,6 +132,18 @@
       {
         "from": "build/icon-256.png",
         "to": "icon.png"
+      },
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "THIRD_PARTY_LICENSES.txt",
+        "to": "THIRD_PARTY_LICENSES.txt"
+      },
+      {
+        "from": "build/fonts",
+        "to": "fonts"
       }
     ],
     "linux": {
@@ -140,6 +156,9 @@
       "icon": "build/icon.png",
       "mimeTypes": [
         "application/x-pulse-template"
+      ],
+      "files": [
+        "!**/node_modules/better-sqlite3-multiple-ciphers/prebuilds/{win32,darwin,linuxmusl}-*.node"
       ]
     },
     "win": {
@@ -153,6 +172,9 @@
             "x64"
           ]
         }
+      ],
+      "files": [
+        "!**/node_modules/better-sqlite3-multiple-ciphers/prebuilds/{linux,linuxmusl,darwin}-*.node"
       ]
     },
     "mac": {
@@ -175,15 +197,23 @@
       "artifactName": "BaringaSoftPulse-${version}-${arch}.${ext}",
       "icon": "build/icon-512.png",
       "category": "public.app-category.productivity",
-      "minimumSystemVersion": "12.0",
+      "minimumSystemVersion": "13.0",
       "darkModeSupport": true,
       "entitlementsInherit": "build/entitlements.mac.plist",
       "entitlements": "build/entitlements.mac.plist",
       "hardenedRuntime": true,
-      "gatekeeperAssess": false
+      "gatekeeperAssess": false,
+      "files": [
+        "!**/node_modules/better-sqlite3-multiple-ciphers/prebuilds/{linux,linuxmusl,win32}-*.node"
+      ]
     },
     "dmg": {
       "title": "Pulse ${version}"
+    }
+  },
+  "overrides": {
+    "@electron/rebuild": {
+      "node-abi": "4.35.0"
     }
   }
 }

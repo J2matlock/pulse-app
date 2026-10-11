@@ -10,6 +10,7 @@ function deps(columns: Column[]): KeyboardNavDeps & { updateCell: ReturnType<typ
     editingCellRef: { current: null },
     rowsRef: { current: [{ row_id: 7 } as GridRow] },
     filteredRowsRef: { current: [{ row_id: 7 } as GridRow] },
+    visualRowIdsRef: { current: [7] },
     selectedRowIdsRef: { current: new Set<number>() },
     columns,
     columnMap: new Map(columns.map(c => [c.id, c])),
@@ -24,6 +25,33 @@ function deps(columns: Column[]): KeyboardNavDeps & { updateCell: ReturnType<typ
 const key = (k: string, mods: Partial<KeyboardEvent> = {}) => ({ key: k, preventDefault: vi.fn(), ctrlKey: false, metaKey: false, shiftKey: false, ...mods }) as unknown as React.KeyboardEvent
 
 describe('grid keys', () => {
+  it('Shift+Space and Ctrl+Space tick or untick the record; Space alone ticks a checkbox cell (AUDIT-057)', () => {
+    const d = deps([col(1, 'checkbox')])
+    let selected = new Set<number>()
+    ;(d.setSelectedRowIds as ReturnType<typeof vi.fn>).mockImplementation((u: (s: Set<number>) => Set<number>) => { selected = u(selected) })
+    const shift = key(' ', { shiftKey: true })
+    handleCellKeyDown(shift, 7, 1, d)
+    expect(shift.preventDefault).toHaveBeenCalled()
+    expect([...selected]).toEqual([7])
+    handleCellKeyDown(key(' ', { ctrlKey: true }), 7, 1, d)
+    expect([...selected]).toEqual([])
+    expect(d.updateCell).not.toHaveBeenCalled()
+    handleCellKeyDown(key(' '), 7, 1, d)
+    expect(d.updateCell).toHaveBeenCalledWith(7, 1, 'true')
+    expect([...selected]).toEqual([])
+  })
+
+  it('Ctrl+A selects only the records on screen, not those inside collapsed groups (AUDIT-139)', () => {
+    const d = deps([col(1, 'text')])
+    // 8 and 9 pass the filter but sit in a collapsed group, so they aren't in visualRowIds
+    d.filteredRowsRef = { current: [7, 8, 9].map(row_id => ({ row_id }) as GridRow) }
+    d.visualRowIdsRef = { current: [7] }
+    const ev = key('a', { ctrlKey: true })
+    handleCellKeyDown(ev, 7, 1, d)
+    expect(ev.preventDefault).toHaveBeenCalled()
+    expect(d.setSelectedRowIds).toHaveBeenCalledWith(new Set([7]))
+  })
+
   it('Ctrl+Enter and Shift+Enter open the record; Enter edits', () => {
     const d = deps([col(1, 'text')])
     handleCellKeyDown(key('Enter', { ctrlKey: true }), 7, 1, d)
@@ -32,6 +60,15 @@ describe('grid keys', () => {
     expect(d.setEditingCell).not.toHaveBeenCalled()
     handleCellKeyDown(key('Enter'), 7, 1, d)
     expect(d.setEditingCell).toHaveBeenCalledWith({ rowId: 7, columnId: 1 })
+  })
+
+  it('Enter in the cell being edited is left to the editor (AUDIT-040)', () => {
+    const d = deps([col(1, 'notes')])
+    d.editingCellRef = { current: { rowId: 7, columnId: 1 } }
+    const ev = key('Enter')
+    handleCellKeyDown(ev, 7, 1, d)
+    expect(ev.preventDefault).not.toHaveBeenCalled()
+    expect(d.setEditingCell).not.toHaveBeenCalled()
   })
 
   it('Tab moves to the next cell, but leaves the list at the last cell (G-32)', () => {

@@ -2,8 +2,7 @@ import type { Column, GridRow } from '../../shared/types'
 import { wordNow } from './vocab'
 import { useGridStore } from '../stores/gridStore'
 import { renderDisplayFormat } from '../../shared/displayFormat'
-
-const LAST_NAME_PATTERNS = /^(last|last\s*name|lastname|surname|family\s*name|lname)$/i
+import { findLastNameColumn, joinRecordName } from '../../shared/recordName'
 
 /** The name from the list's display format ("{Year} {Make} {Model}"), or '' when it has none. */
 function formattedName(row: GridRow, columns: Column[]): string {
@@ -27,9 +26,10 @@ function formattedName(row: GridRow, columns: Column[]): string {
  * when it has one, combining the name column with
  * a detected "last name" column when present.
  *
- * Detection logic:
+ * The rule (shared/recordName.ts) is the one main and the database use, so
+ * the name on screen matches PDFs and exports:
  * 1. Find the column with is_name_column = 1 (the "first/full name" column)
- * 2. Look for another column whose name matches common last-name patterns
+ * 2. Look for a visible column named like a last name ("Last name", "Surname"…)
  * 3. If both have values, concatenate: "First Last"
  * 4. If only one has a value, return that
  */
@@ -44,19 +44,12 @@ export function getClientName(
   const nameCol = columns.find(c => c.is_name_column === 1)
   if (!nameCol) return fallback
 
-  const firstName = (row[`col_${nameCol.id}` as keyof GridRow] as string | null)?.trim() || ''
-
-  const lastNameCol = columns.find(c =>
-    c.id !== nameCol.id && LAST_NAME_PATTERNS.test(c.name.trim())
+  const lastNameCol = findLastNameColumn(columns, nameCol.id)
+  const name = joinRecordName(
+    row[`col_${nameCol.id}` as const],
+    lastNameCol ? row[`col_${lastNameCol.id}` as const] : null,
   )
-  const lastName = lastNameCol
-    ? ((row[`col_${lastNameCol.id}` as keyof GridRow] as string | null)?.trim() || '')
-    : ''
-
-  if (firstName && lastName) return `${firstName} ${lastName}`
-  if (firstName) return firstName
-  if (lastName) return lastName
-  return fallback
+  return name || fallback
 }
 
 /**
@@ -66,8 +59,6 @@ export function getClientName(
 export function findNameColumnIds(columns: Column[]): { nameColId: number | null; lastNameColId: number | null } {
   const nameCol = columns.find(c => c.is_name_column === 1)
   if (!nameCol) return { nameColId: null, lastNameColId: null }
-  const lastNameCol = columns.find(c =>
-    c.id !== nameCol.id && LAST_NAME_PATTERNS.test(c.name.trim())
-  )
+  const lastNameCol = findLastNameColumn(columns, nameCol.id)
   return { nameColId: nameCol.id, lastNameColId: lastNameCol?.id ?? null }
 }

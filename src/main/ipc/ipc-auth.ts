@@ -6,7 +6,9 @@ import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
 import { secureWrap, ok, fail, withCorrelation, assertSafePath } from './ipc-utils'
 import { checkNewPassword } from '../../shared/passwordPolicy'
-import { openDatabase, closeDatabase, resolveDatabasePath, checkCloudSyncPath, getDb } from '../database'
+import { openDatabase, closeDatabase, resolveDatabasePath, checkCloudSyncPath, getDb, DatabaseOpenError } from '../database'
+import { dbOpenFailedCode } from '../../shared/dbOpen'
+import { KEYRING_UNAVAILABLE } from '../../shared/authErrors'
 import { moveAsideExistingDatabase, restoreBackupOnNewInstall, runAutoBackupOnLock } from '../backup'
 import { describeRestoreError } from '../restore-errors'
 import { stopScheduledBackup, startScheduledBackup } from '../index'
@@ -30,6 +32,27 @@ import {
 
 function databaseIsOpen(): boolean {
   try { getDb(); return true } catch { return false }
+}
+
+// Set when the password (or recovery key) was right but the data couldn't be
+// opened. Until the next good unlock, the lock screen may offer "Restore from a
+// backup" (AUDIT-003): the person has just proved they own this data.
+let openFailedAfterUnlock = false
+
+/** Open the database after a successful unlock; on failure, lock again and say why */
+function openAfterUnlock(): ReturnType<typeof fail> | null {
+  try {
+    openDatabase()
+    openFailedAfterUnlock = false
+    return null
+  } catch (err) {
+    const kind = err instanceof DatabaseOpenError ? err.kind : 'unreadable'
+    logger.error('ipc-auth', `Password accepted but the database could not be opened (${kind})`, err)
+    // Nothing is open, so don't keep the key in memory either
+    lockApp()
+    openFailedAfterUnlock = true
+    return fail(dbOpenFailedCode(kind))
+  }
 }
 
 export function registerAuthHandlers(): void {
@@ -74,7 +97,8 @@ export function registerAuthHandlers(): void {
     try {
       if (typeof password !== 'string' || password.length === 0 || password.length > 1024) return fail('Invalid password')
       const { failedAttempts } = await verifyAndUnlock(password)
-      openDatabase()
+      const openFailure = openAfterUnlock()
+      if (openFailure) return openFailure
       startScheduledBackup()
       // Recurring appointments are made six months ahead (W07 §3)
       try { ensureMaterialized() } catch (err) { logger.warn('ipc-auth', 'appointment series not extended', err) }
@@ -86,6 +110,8 @@ export function registerAuthHandlers(): void {
         logger.warn('auth', 'Authentication failed — invalid credentials')
         return fail(msg)
       }
+      // Not a wrong password: the OS password vault isn't ready (AUDIT-021)
+      if (msg === KEYRING_UNAVAILABLE) return fail(KEYRING_UNAVAILABLE)
       throw err // let wrapHandler log unexpected errors
     }
   })
@@ -94,7 +120,8 @@ export function registerAuthHandlers(): void {
     try {
       if (typeof recoveryKey !== 'string' || recoveryKey.length === 0 || recoveryKey.length > 512) return fail('Invalid recovery key')
       await verifyAndUnlockRecovery(recoveryKey)
-      openDatabase()
+      const openFailure = openAfterUnlock()
+      if (openFailure) return openFailure
       startScheduledBackup()
       return ok(true)
     } catch (err) {
@@ -103,6 +130,7 @@ export function registerAuthHandlers(): void {
         logger.warn('auth', 'Authentication failed — invalid recovery key')
         return fail(msg)
       }
+      if (msg === KEYRING_UNAVAILABLE) return fail(KEYRING_UNAVAILABLE)
       throw err // let wrapHandler log unexpected errors
     }
   })
@@ -113,9 +141,10 @@ export function registerAuthHandlers(): void {
 
   secureWrap(IPC.AUTH_RESTORE_FROM_BACKUP, 'ipc-auth', async (_e, backupPath: string, secret: string, newPassword: string, hint: string) => {
     return withCorrelation('auth-restore-from-backup', async (corrId) => {
-      // Only when there are no usable credentials — otherwise this would let anyone
-      // at a locked screen replace the user's data and password.
-      if (isPasswordSetup() && !areCredentialsUnreadable()) {
+      // Only when there are no usable credentials, or the right password was just
+      // typed but the data wouldn't open. Otherwise this would let anyone at a
+      // locked screen replace the user's data and password.
+      if (isPasswordSetup() && !areCredentialsUnreadable() && !openFailedAfterUnlock) {
         return fail('Pulse is already set up on this computer. Unlock it, then use Settings → Backup to restore.')
       }
       if (typeof backupPath !== 'string' || backupPath.length === 0 || backupPath.length > 4096) return fail('Choose a backup file')
@@ -133,6 +162,7 @@ export function registerAuthHandlers(): void {
         return fail(describeRestoreError(err))
       }
       openDatabase()
+      openFailedAfterUnlock = false
       startScheduledBackup()
       logger.info('ipc-auth', `[${corrId}] restored from backup on new install`)
       return ok({ cloudWarning: checkCloudSyncPath(resolveDatabasePath()) })

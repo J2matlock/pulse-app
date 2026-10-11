@@ -151,7 +151,7 @@ describe('10B — Column type change triggers confirmation dialog', () => {
 // Already covered in tests/wrap-handler.test.ts — this verifies end-to-end.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { wrapHandler, logNonFatal, assertSafePath } from '../../src/main/ipc/ipc-utils'
+import { wrapHandler, logNonFatal, assertSafePath, PATH_REFUSED_MESSAGE } from '../../src/main/ipc/ipc-utils'
 
 describe('10G — humanizeError in wrapHandler flow', () => {
   beforeEach(() => { vi.clearAllMocks() })
@@ -169,7 +169,7 @@ describe('10G — humanizeError in wrapHandler flow', () => {
       throw new Error('SQLITE_BUSY: database is locked')
     })
     const result = await handler()
-    expect(result).toEqual({ ok: false, error: 'The database is temporarily busy — please try again' })
+    expect(result).toEqual({ ok: false, error: 'Pulse is busy for a moment. Please try again.' })
   })
 })
 
@@ -181,11 +181,11 @@ describe('10G — humanizeError in wrapHandler flow', () => {
 
 describe('10H — assertSafePath null byte rejection', () => {
   it('rejects paths containing null bytes', () => {
-    expect(() => assertSafePath('/tmp/file\0evil')).toThrow('null bytes')
+    expect(() => assertSafePath('/tmp/file\0evil')).toThrow(expect.objectContaining({ reason: 'null byte', message: PATH_REFUSED_MESSAGE }))
   })
 
   it('rejects empty paths as relative', () => {
-    expect(() => assertSafePath('')).toThrow('Relative paths not allowed')
+    expect(() => assertSafePath('')).toThrow(expect.objectContaining({ reason: 'empty', message: PATH_REFUSED_MESSAGE }))
   })
 })
 
@@ -235,7 +235,9 @@ describe('10J — Renderer handles ok:false gracefully', () => {
 
     mockInvoke.mockRejectedValueOnce(new Error('Network error'))
 
-    // Should not throw — error is caught internally
-    await useGridStore.getState().updateColumn(1, { name: 'New Name' })
+    // Should not throw — error is caught internally, reported as failure, and the name is unchanged
+    const saved = await useGridStore.getState().updateColumn(1, { name: 'New Name' })
+    expect(saved).toBe(false)
+    expect(useGridStore.getState().columns[0]?.name).toBe('Name')
   })
 })

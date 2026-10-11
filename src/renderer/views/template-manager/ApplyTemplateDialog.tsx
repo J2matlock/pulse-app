@@ -7,6 +7,7 @@ import { reloadAfterApply } from '../../utils/reloadAfterApply'
 import type { SetupTemplate } from './types'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
+import { friendlyError } from '../../utils/friendlyError'
 
 type ApplyMode = 'new' | 'existing'
 
@@ -51,7 +52,7 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
       )
 
       if (!res.ok) {
-        setError(res.error ?? 'Could not apply the template. Please try again.')
+        setError(friendlyError(res.error, 'Could not apply the template. Please try again.'))
         return
       }
       // Its deadline rules and, in an existing list, its new columns show straight away
@@ -76,6 +77,7 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
           </h2>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="hit-44 p-1.5 rounded-sm text-slate-500 hover:text-slate-600 dark:hover:text-slate-200
                        focus:outline-hidden focus:ring-3 focus:ring-blue-500 min-w-[44px] flex items-center justify-center"
           >
@@ -132,7 +134,7 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
           )}
 
           {error && (
-            <div className="text-base text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-3">
+            <div role="alert" className="text-base text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-4 py-3">
               {error}
             </div>
           )}

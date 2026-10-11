@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
+import { createTestDb, cleanupTestDb, seedGrid, setDbWords, type TestDb } from './helpers'
 import { localDateFromToday, localDateString } from '../src/shared/dates'
 
 let testDb: TestDb
@@ -39,6 +39,24 @@ afterEach(() => cleanupTestDb(testDb))
 
 const today = localDateString()
 
+function seedComputed(db: TestDb['db']) {
+  const g = seedGrid(db, { rowCount: 1, columnTypes: ['text', 'date', 'date', 'age_from_dob', 'calculated_days'] })
+  const [name, dob, next, age, days] = g.columnIds as [number, number, number, number, number]
+  const rename = db.prepare('UPDATE columns SET name = ?, config = ? WHERE id = ?')
+  rename.run('Name', '{}', name)
+  rename.run('Birth date', '{}', dob)
+  rename.run('Next visit', '{}', next)
+  rename.run('Age', JSON.stringify({ source_column_id: dob }), age)
+  rename.run('Days to visit', JSON.stringify({ source_column_id: next }), days)
+  db.prepare('UPDATE columns SET is_name_column = 1 WHERE id = ?').run(name)
+  const insert = db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')
+  const [rowId = 0] = g.rowIds
+  insert.run(rowId, name, 'Test Person')
+  insert.run(rowId, dob, `${new Date().getFullYear() - 10}-01-01`)
+  insert.run(rowId, next, localDateFromToday(5))
+  return { gridId: g.gridId, rowId }
+}
+
 async function summaryCsv(): Promise<string> {
   const destPath = join(testDb.tmpDir, 'summary.csv')
   await exportSupervisorReport({
@@ -62,7 +80,8 @@ describe('summary report', () => {
       expect(csv).toContain('Oct 1, 2026 – Oct 31, 2026')
       expect(csv).not.toContain('Sep 30')
     } finally {
-      process.env.TZ = originalTz
+      if (originalTz === undefined) delete process.env.TZ
+      else process.env.TZ = originalTz
     }
   })
 
@@ -104,10 +123,131 @@ describe('summary report', () => {
   })
 })
 
+describe('summary report CSV header', () => {
+  it('has a byte-order mark, uses the workspace words and guards typed text (AUDIT-034, AUDIT-065, AUDIT-122)', async () => {
+    setDbWords(testDb.db)
+    testDb.db.prepare("UPDATE grids SET name = '=HYPERLINK(\"http://x\")' WHERE id = ?").run(grid.gridId)
+    const destPath = join(testDb.tmpDir, 'header.csv')
+    await exportSupervisorReport({
+      gridId: grid.gridId, columnIds: [], dateRange: { start: localDateFromToday(-30), end: today },
+      includeActivityLog: false, includeSystemActivity: false, includeTaskSummary: false, format: 'csv', destPath,
+      workerName: '@Test Person', workerTitle: '+Lead', workerOrg: '-Org',
+    })
+    const csv = readFileSync(destPath, 'utf8')
+    expect(csv.startsWith('\uFEFF')).toBe(true)
+    const lines = csv.slice(1).split('\r\n')
+    expect(lines).toContain('Caseload,"\'=HYPERLINK(""http://x"")"')
+    expect(lines).toContain('Case manager,\'@Test Person')
+    expect(lines).toContain('Title,\'+Lead')
+    expect(lines).toContain('Organization,\'-Org')
+    expect(csv).not.toMatch(/^Grid,/m)
+    expect(csv).not.toMatch(/^Worker,/m)
+  })
+})
+
+describe('summary report confidentiality line (AUDIT-153)', () => {
+  async function both(): Promise<string[]> {
+    const outs: string[] = []
+    for (const format of ['csv', 'pdf'] as const) {
+      const destPath = join(testDb.tmpDir, `banner.${format}`)
+      await exportSupervisorReport({
+        gridId: grid.gridId, columnIds: [], dateRange: { start: localDateFromToday(-30), end: today },
+        includeActivityLog: false, includeSystemActivity: false, includeTaskSummary: false, format, destPath,
+      })
+      outs.push(readFileSync(destPath).toString('latin1'))
+    }
+    return outs
+  }
+
+  it('says protected health information only for human-services words', async () => {
+    setDbWords(testDb.db)
+    for (const out of await both()) expect(out).toContain('PROTECTED HEALTH INFORMATION')
+  })
+
+  it("uses the workspace's record word otherwise", async () => {
+    setDbWords(testDb.db, { record: { one: 'vehicle', many: 'vehicles', article: 'a' } })
+    for (const out of await both()) {
+      expect(out).not.toContain('PROTECTED HEALTH')
+      expect(out).toContain('CONTAINS VEHICLE INFORMATION')
+    }
+  })
+
+  it('follows the list\'s own words over the workspace\'s', async () => {
+    setDbWords(testDb.db)
+    testDb.db.prepare('UPDATE grids SET vocab = ? WHERE id = ?')
+      .run(JSON.stringify({ record: { one: 'property', many: 'properties', article: 'a' } }), grid.gridId)
+    for (const out of await both()) {
+      expect(out).not.toContain('PROTECTED HEALTH')
+      expect(out).toContain('CONTAINS PROPERTY INFORMATION')
+    }
+  })
+})
+
+describe('summary report roster', () => {
+  it('shows Age and Days-until as the table does, CSV and PDF (AUDIT-036)', async () => {
+    const { gridId } = seedComputed(testDb.db)
+    for (const format of ['csv', 'pdf'] as const) {
+      const destPath = join(testDb.tmpDir, `roster.${format}`)
+      await exportSupervisorReport({
+        gridId, columnIds: [], dateRange: { start: localDateFromToday(-30), end: today },
+        includeActivityLog: false, includeSystemActivity: false, includeTaskSummary: false, format, destPath,
+      })
+      const out = readFileSync(destPath).toString(format === 'csv' ? 'utf8' : 'latin1')
+      if (format === 'csv') expect(out).toContain(',10 yrs,5 days')
+      else { expect(out).toContain('(10 yrs)'); expect(out).toContain('(5 days)') }
+    }
+  })
+
+  it('leaves records in the Trash off the roster', async () => {
+    const [a, b] = grid.rowIds as [number, number]
+    const insert = testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')
+    insert.run(a, grid.columnIds[0], 'Kept Person')
+    insert.run(b, grid.columnIds[0], 'Trashed Person')
+    testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now') WHERE id = ?").run(b)
+    const [, roster = ''] = (await summaryCsv()).split(' Roster')
+    expect(roster).toContain('Kept Person')
+    expect(roster).not.toContain('Trashed Person')
+  })
+})
+
+describe('summary report system activity', () => {
+  it('leaves out records in the Trash, CSV and PDF (AUDIT-102)', async () => {
+    const [a, b] = grid.rowIds as [number, number]
+    testDb.db.prepare("UPDATE rows SET display_name = 'Kept Person' WHERE id = ?").run(a)
+    testDb.db.prepare("UPDATE rows SET display_name = 'Trashed Person' WHERE id = ?").run(b)
+    const sys = testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type) VALUES (?, ?, 'system')")
+    sys.run(a, 'Stage changed on kept')
+    sys.run(b, 'Moved to the Trash')
+    testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now'), is_active = 0 WHERE id = ?").run(b)
+    for (const format of ['csv', 'pdf'] as const) {
+      const destPath = join(testDb.tmpDir, `sys.${format}`)
+      await exportSupervisorReport({
+        gridId: grid.gridId, columnIds: [], dateRange: { start: localDateFromToday(-30), end: today },
+        includeActivityLog: false, includeSystemActivity: true, includeTaskSummary: false, format, destPath,
+      })
+      const out = readFileSync(destPath).toString('latin1')
+      expect(out).toContain('Stage changed on kept')
+      expect(out).not.toContain('Moved to the Trash')
+    }
+  })
+})
+
 describe('notes CSV', () => {
+  it("heads the columns with the workspace's words (AUDIT-154)", async () => {
+    setDbWords(testDb.db)
+    const destPath = join(testDb.tmpDir, 'notes-head.csv')
+    await exportNotesCsv(destPath, 'iso')
+    expect(readFileSync(destPath, 'utf8').slice(1).split('\r\n')[0]).toBe('Date,Caseload,Client,Kind,Case note,Follow-up')
+  })
+
   it('dates a backdated note by when it happened, not when it was typed', async () => {
-    testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type, occurred_at, created_at) VALUES (?, 'Backdated visit', 'note', '2026-09-30 15:00:00', '2026-10-02 15:00:00')")
-      .run(grid.rowIds[0])
+    // SQLite stores UTC; build the timestamps from local noon so the expected
+    // local calendar day holds in every time zone (Auckland is UTC+13)
+    const sqliteUtc = (d: Date) => d.toISOString().replace('T', ' ').slice(0, 19)
+    const occurred = sqliteUtc(new Date(2026, 8, 30, 12, 0, 0))
+    const created = sqliteUtc(new Date(2026, 9, 2, 12, 0, 0))
+    testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type, occurred_at, created_at) VALUES (?, 'Backdated visit', 'note', ?, ?)")
+      .run(grid.rowIds[0], occurred, created)
     const destPath = join(testDb.tmpDir, 'notes.csv')
     await exportNotesCsv(destPath, 'iso')
     const line = readFileSync(destPath, 'utf8').split('\n').find(l => l.includes('Backdated visit'))!

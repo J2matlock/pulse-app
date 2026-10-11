@@ -8,6 +8,7 @@ import { safeInvoke } from '../../../utils/safeInvoke'
 import { ReportTable } from '../../../components/reports/ReportTable'
 import { ReportChart } from '../../../components/reports/ReportChart'
 import { useDeadlinesVersion } from '../useDashboardRefresh'
+import { friendlyError } from '../../../utils/friendlyError'
 
 export function SavedReportCard({ id, onUnpin }: { id: number; onUnpin: (id: number) => void }): React.ReactElement | null {
   const navigate = useNavigate()
@@ -19,7 +20,7 @@ export function SavedReportCard({ id, onUnpin }: { id: number; onUnpin: (id: num
     let alive = true
     void safeInvoke<{ report: SavedReport; result: ReportResult; explanation?: string }>(IPC.REPORT_RUN_SAVED, id).then(r => {
       if (!alive) return
-      if (r.ok) { setData(r.data); setError(null) } else setError(r.error)
+      if (r.ok) { setData(r.data); setError(null) } else setError(friendlyError(r.error, "This report couldn't be shown. Please try again."))
     })
     return () => { alive = false }
   }, [id, version])

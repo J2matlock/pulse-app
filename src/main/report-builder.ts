@@ -145,7 +145,7 @@ export function validateReportConfig(gridId: number, input: unknown): { config: 
   config.columns?.forEach(c => need(c, 'column'))
   if (config.dateRange) {
     need(config.dateRange.field, 'date range field')
-    if (byId.get(config.dateRange.field)!.kind !== 'date') throw new ReportError('The date range needs a date field.')
+    if (byId.get(config.dateRange.field)!.kind !== 'date') throw new ReportError('The date range needs a date column.')
   }
   for (const v of config.values) {
     if (v.fn === 'count') continue

@@ -322,7 +322,7 @@ describe('export', () => {
     const lines = csv.slice(1).split('\r\n')
     expect(lines[0]).toBe('Make,How many,Total Cost')
     expect(lines).toContain('Honda,2,2000.5')
-    expect(lines.some(l => l.startsWith('"\t=HYPERLINK'))).toBe(true)
+    expect(lines.some(l => l.startsWith('"\'=HYPERLINK'))).toBe(true)
     expect(lines[lines.length - 1]).toBe('Total,4,4000.5')
     const pdf = buildReportPdf('Jobs by make', 'Vehicles', r)
     expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-')
@@ -331,6 +331,20 @@ describe('export', () => {
     const text = buildReportPdf(long, 'Vehicles', r).toString('latin1')
     expect(text).not.toContain(`(${long}) Tj`)
     expect(text).toContain('(Total Estimate by Stage')
+  })
+
+  it('writes report CSV dates in the date format setting (AUDIT-128)', async () => {
+    const { reportToCsv } = await import('../src/main/export-report')
+    const [first = 0] = rows
+    cell(first, dueCol, '2026-10-06')
+    const r = runReport(gridId, { source: 'records', columns: [`col:${nameCol}`, `col:${dueCol}`] }, NOW)
+    const us = reportToCsv(r, 'us').slice(1).split('\r\n')
+    expect(us.some(l => l.endsWith(',10/06/2026'))).toBe(true)
+    t.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('date_format', 'eu')").run()
+    expect(reportToCsv(r).slice(1).split('\r\n').some(l => l.endsWith(',06/10/2026'))).toBe(true)
+    // Month groups aren't full dates and stay as they are
+    const byMonth = runReport(gridId, { source: 'records', groupBy: [{ field: `col:${dueCol}`, bucket: 'month' }], values: [{ fn: 'count' }] }, NOW)
+    expect(reportToCsv(byMonth, 'us')).toContain('2026-10')
   })
 
   it('deleting a report takes it off the dashboard', () => {

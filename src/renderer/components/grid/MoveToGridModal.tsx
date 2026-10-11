@@ -76,12 +76,13 @@ interface Props {
 export function MoveToGridModal({ rowId, sourceGridId, sourceColumns, onDone, onCancel }: Props): React.ReactElement {
   const { t } = useVocab(sourceGridId)
   const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
   const [grids, setGrids] = useState<Grid[]>([])
   const [targetGridId, setTargetGridId] = useState<number | null>(null)
   const [targetColumns, setTargetColumns] = useState<Column[]>([])
   const [mode, setMode] = useState<'move' | 'copy'>('move')
   const [busy, setBusy] = useState(false)
+  // Escape cancels like the Cancel button, which waits while a move is under way
+  useFocusTrap(trapRef, true, { onEscape: () => { if (!busy) onCancel() } })
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -260,11 +261,11 @@ interface BulkProps {
 export function BulkMoveToGridModal({ rowIds, sourceGridId, sourceColumns, onDone, onCancel }: BulkProps): React.ReactElement {
   const { t } = useVocab(sourceGridId)
   const bulkTrapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(bulkTrapRef, true)
   const [grids, setGrids] = useState<Grid[]>([])
   const [targetGridId, setTargetGridId] = useState<number | null>(null)
   const [mode, setMode] = useState<'move' | 'copy'>('move')
   const [busy, setBusy] = useState(false)
+  useFocusTrap(bulkTrapRef, true, { onEscape: () => { if (!busy) onCancel() } })
   const [error, setError] = useState<string | null>(null)
   const [targetColumns, setTargetColumns] = useState<Column[]>([])
 

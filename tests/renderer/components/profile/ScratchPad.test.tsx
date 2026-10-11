@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import React from 'react'
 
 const mockInvoke = vi.fn()
@@ -40,6 +40,7 @@ vi.mock('@tiptap/react', () => ({
     view: { dom: { closest: () => null, parentElement: null } },
     state: { selection: { from: 0 }, doc: { textBetween: () => '' } },
   }),
+  useEditorState: ({ editor, selector }: { editor: unknown; selector: (c: { editor: unknown }) => unknown }) => selector({ editor }),
   EditorContent: ({ editor }: { editor: unknown }) =>
     React.createElement('div', { 'data-testid': 'tiptap-editor' }, 'Editor content area'),
 }))
@@ -61,6 +62,7 @@ vi.mock('../../../../src/renderer/utils/snippetExpander', () => ({
 
 import { ScratchPad } from '../../../../src/renderer/components/profile/ScratchPad'
 import { setWords } from '../../vocabFixture'
+import { renderSettled } from '../../renderSettled'
 
 beforeEach(() => { setWords() })
 
@@ -75,18 +77,18 @@ describe('ScratchPad', () => {
     })
   })
 
-  it('renders the Scratch notes header', () => {
-    render(<ScratchPad rowId={1} />)
+  it('renders the Scratch notes header', async () => {
+    await renderSettled(<ScratchPad rowId={1} />)
     expect(screen.getByText('Scratch notes')).toBeTruthy()
   })
 
-  it('renders the tiptap editor area', () => {
-    render(<ScratchPad rowId={1} />)
+  it('renders the tiptap editor area', async () => {
+    await renderSettled(<ScratchPad rowId={1} />)
     expect(screen.getByTestId('tiptap-editor')).toBeTruthy()
   })
 
-  it('renders formatting toolbar buttons', () => {
-    render(<ScratchPad rowId={1} />)
+  it('renders formatting toolbar buttons', async () => {
+    await renderSettled(<ScratchPad rowId={1} />)
     expect(screen.getByTitle('Bold (Ctrl+B)')).toBeTruthy()
     expect(screen.getByTitle('Italic (Ctrl+I)')).toBeTruthy()
     expect(screen.getByTitle('Underline (Ctrl+U)')).toBeTruthy()
@@ -94,18 +96,18 @@ describe('ScratchPad', () => {
     expect(screen.getByTitle('Numbered list (Ctrl+Shift+7)')).toBeTruthy()
   })
 
-  it('shows snippet hint text', () => {
-    render(<ScratchPad rowId={1} />)
+  it('shows snippet hint text', async () => {
+    await renderSettled(<ScratchPad rowId={1} />)
     expect(screen.getByText('Type / for snippets')).toBeTruthy()
   })
 
-  it('loads content from IPC on mount for rowId', () => {
-    render(<ScratchPad rowId={42} />)
+  it('loads content from IPC on mount for rowId', async () => {
+    await renderSettled(<ScratchPad rowId={42} />)
     expect(mockInvoke).toHaveBeenCalledWith('scrap-note:get', 42)
   })
 
-  it('loads content from IPC on mount for globalScope', () => {
-    render(<ScratchPad globalScope="dashboard" />)
+  it('loads content from IPC on mount for globalScope', async () => {
+    await renderSettled(<ScratchPad globalScope="dashboard" />)
     expect(mockInvoke).toHaveBeenCalledWith('global-note:get', 'dashboard')
   })
 })

@@ -15,6 +15,7 @@ import { MoveComputerWizard } from './MoveComputerWizard'
 import { RestoreFromBackupForm } from '../shared/RestoreFromBackupForm'
 import { useVocab } from '../../hooks/useVocab'
 import { useBackupStatusStore } from '../../stores/backupStatusStore'
+import { friendlyError } from '../../utils/friendlyError'
 
 interface BackupPreviewData {
   gridCount: number
@@ -131,7 +132,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
         toast.success('Backup saved.')
         await refreshOffsite()
       } else {
-        toast.error(res.error || 'The backup couldn\'t be saved. Try again, or choose a different folder.')
+        toast.error(friendlyError(res.error, 'The backup couldn\'t be saved. Try again, or choose a different folder.'))
       }
     } finally {
       setRunningBackup(false)
@@ -175,7 +176,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
         setRestoreResult({ safetyPath: res.data.safetyPath })
       } else {
         // Main says why in plain words ("This file is damaged…"); your data is unchanged either way
-        toast.error(res.error || 'Restore failed. Please try a different backup.')
+        toast.error(friendlyError(res.error, 'Restore failed. Please try a different backup.'))
       }
     } catch {
       toast.error('Restore failed. Please try again.')
@@ -314,7 +315,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
       {/* Warning: last auto-backup failed */}
       {backupInfo?.lastAutoBackupFailed && (
         <div className="flex items-start gap-3 rounded-lg border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 px-4 py-3">
-          <span className="text-amber-600 dark:text-amber-400 text-lg mt-0.5">&#9888;</span>
+          <span className="text-amber-700 dark:text-amber-400 text-lg mt-0.5">&#9888;</span>
           <div className="min-w-0">
             <p className="text-base font-medium text-amber-800 dark:text-amber-200">
               Your last auto-backup didn't complete
@@ -445,7 +446,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
                 </button>
               </div>
               {validationError && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                <p role="alert" className="text-sm text-red-600 dark:text-red-400 mt-1">
                   {validationError}
                 </p>
               )}
@@ -533,7 +534,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
           title="Restore from backup?"
           message={`This will replace all your current data with the backup from "${restoreTarget.label}". Your current data will be saved as a safety backup first. This cannot be undone without the safety backup.\n\nType RESTORE to confirm.`}
           requiredPhrase="RESTORE"
-          confirmLabel="Restore"
+          confirmLabel="Replace my data with this backup"
           destructive
           onConfirm={() => { setBackupPreview(null); void executeRestore() }}
           onCancel={() => { setBackupPreview(null); setRestoreTarget(null) }}
