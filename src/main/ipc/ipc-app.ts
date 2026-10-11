@@ -100,12 +100,16 @@ export function registerAppHandlers(): void {
 
   secureWrap(IPC.APP_FACTORY_RESET, 'ipc-app', async (_e, password: string) => {
     // Verify password before allowing destructive action
-    if (!password || typeof password !== 'string') return fail('Password required')
+    if (!password || typeof password !== 'string') return fail('Enter your password to confirm.')
     try {
       await verifyAndUnlock(password)
     } catch (err) {
       logNonFatal('ipc-app', 'APP_FACTORY_RESET password verify', err)
-      return fail('Password verification failed')
+      // What matters most at this moment is that nothing was erased
+      const msg = err instanceof Error ? err.message : ''
+      if (msg.startsWith('Too many failed attempts')) return fail(`${msg} Nothing was erased.`)
+      if (msg === 'Incorrect password') return fail("That password didn't work. Nothing was erased.")
+      return fail("Pulse couldn't check your password, so nothing was erased.")
     }
     // Zero the in-memory DB key immediately, then close the DB connection
     lockApp()

@@ -97,6 +97,7 @@ vi.mock('../src/main/auth', () => ({
   setupPassword: async () => 'key',
   verifyAndUnlock: async (pw: string) => {
     if (pw === 'wrong') throw new Error('Incorrect password')
+    if (pw === 'locked-out') throw new Error('Too many failed attempts. Try again in 30 seconds.')
     return 'key'
   },
   verifyAndUnlockRecovery: async () => 'key',
@@ -299,10 +300,16 @@ describe('APP_FACTORY_RESET', () => {
     expect(r.ok).toBe(false)
   })
 
-  it('rejects wrong password', async () => {
+  it('rejects wrong password and says nothing was erased (AUDIT-064)', async () => {
     const r = await invoke(IPC.APP_FACTORY_RESET, 'wrong') as any
     expect(r.ok).toBe(false)
-    expect(r.error).toMatch(/failed/)
+    expect(r.error).toBe("That password didn't work. Nothing was erased.")
+  })
+
+  it('passes a lockout message through, still saying nothing was erased (AUDIT-064)', async () => {
+    const r = await invoke(IPC.APP_FACTORY_RESET, 'locked-out') as any
+    expect(r.ok).toBe(false)
+    expect(r.error).toBe('Too many failed attempts. Try again in 30 seconds. Nothing was erased.')
   })
 
   it('succeeds with correct password', async () => {
