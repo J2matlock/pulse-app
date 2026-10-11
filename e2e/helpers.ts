@@ -103,7 +103,7 @@ export async function setupPassword(window: Page, password: string): Promise<voi
   await skipRecovery.click();
 
   // Confirm the skip dialog (exact match to avoid hitting the "skip recovery key" button)
-  const skipConfirm = window.getByRole('button', { name: 'Skip', exact: true });
+  const skipConfirm = window.getByRole('button', { name: 'Skip without a recovery key', exact: true });
   await skipConfirm.waitFor({ timeout: 5000 });
   await skipConfirm.click();
 
