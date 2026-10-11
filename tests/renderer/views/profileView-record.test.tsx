@@ -270,8 +270,24 @@ describe('Acting on a record from its own page (3.6)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Archive…' }))
     fireEvent.change(screen.getByLabelText('Reason (optional)'), { target: { value: 'Moved away' } })
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Archive' })) })
-    expect(archiveRow).toHaveBeenCalledWith(1, 'Moved away')
+    expect(archiveRow).toHaveBeenCalledWith(1, 'Moved away', { cancelAppointments: false })
     expect(screen.getByLabelText('note for 2')).toBeTruthy()
+  })
+
+  it('offers to cancel upcoming appointments when archiving, like the list does', async () => {
+    const archiveRow = vi.fn(async () => {})
+    setGrid({ archiveRow })
+    invokeMock.fn = async (channel: string) => channel === 'appointments:upcoming-count'
+      ? { ok: true, data: 2 }
+      : { ok: true, data: [] }
+    renderAt('/profile/1')
+    await flush()
+    fireEvent.click(screen.getByRole('button', { name: 'Archive…' }))
+    await flush()
+    const box = screen.getByRole('checkbox', { name: /Also cancel its 2 upcoming/ }) as HTMLInputElement
+    expect(box.checked).toBe(true)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Archive' })) })
+    expect(archiveRow).toHaveBeenCalledWith(1, undefined, { cancelAppointments: true })
   })
 
   it('moves to the Trash after asking, then goes back to the list when it was the only one', async () => {

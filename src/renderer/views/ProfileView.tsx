@@ -26,6 +26,7 @@ import { ProfileExportDialog, type ProfileSections } from '../components/profile
 import { RecordLetterDialog } from '../components/profile/RecordLetterDialog'
 import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { MoveToGridModal } from '../components/grid/MoveToGridModal'
+import { CancelAppointmentsCheckbox, useUpcomingAppointments } from '../components/grid/GridDialogs'
 import type { MoreMenuItem } from '../components/profile/ProfileMoreMenu'
 import type { GridRow, SaveDialogResult } from '../../shared/types'
 import type { RowLocation } from '../../shared/ipc-contract'
@@ -90,6 +91,8 @@ export default function ProfileView(): React.ReactElement {
   // "More ▾" actions (3.6)
   const [askArchive, setAskArchive] = useState(false)
   const [archiveReason, setArchiveReason] = useState('')
+  // Archiving here offers to cancel upcoming appointments, like the list's Archive (1.13)
+  const [cancelAppts, setCancelAppts] = useState(true)
   const [askTrash, setAskTrash] = useState(false)
   const [showMove, setShowMove] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)
@@ -151,6 +154,7 @@ export default function ProfileView(): React.ReactElement {
   const hasLinkTypes = useLinkStore(s => s.types.some(lt => lt.from_grid_id === activeGridId || lt.to_grid_id === activeGridId))
   useEffect(() => { if (linksOn && !linkTypesLoaded) void useLinkStore.getState().load() }, [linksOn, linkTypesLoaded])
 
+  const upcomingAppts = useUpcomingAppointments(askArchive && rowId != null ? [rowId] : null)
   const activeGrid = grids.find(g => g.id === activeGridId)
   const nameCol = columns.find(c => c.is_name_column === 1)
 
@@ -292,8 +296,9 @@ export default function ProfileView(): React.ReactElement {
   async function confirmArchive() {
     setAskArchive(false)
     if (rowId == null) return
-    await archiveRow(rowId, archiveReason.trim() || undefined)
+    await archiveRow(rowId, archiveReason.trim() || undefined, { cancelAppointments: upcomingAppts > 0 && cancelAppts })
     setArchiveReason('')
+    setCancelAppts(true)
     leaveRecord()
   }
 
@@ -600,11 +605,12 @@ export default function ProfileView(): React.ReactElement {
         confirmLabel="Archive"
         destructive={false}
         onConfirm={() => void confirmArchive()}
-        onCancel={() => { setAskArchive(false); setArchiveReason('') }}
+        onCancel={() => { setAskArchive(false); setArchiveReason(''); setCancelAppts(true) }}
       >
         <label htmlFor="archive-reason" className="block text-base font-medium text-slate-700 dark:text-slate-200 mb-1">Reason (optional)</label>
         <input id="archive-reason" className="input w-full" value={archiveReason} maxLength={1000}
           onChange={e => setArchiveReason(e.target.value)} placeholder="e.g. Discharged, Moved away, Job finished" />
+        <div className="mt-3"><CancelAppointmentsCheckbox count={upcomingAppts} checked={cancelAppts} onChange={setCancelAppts} /></div>
       </ConfirmDialog>
 
       <ConfirmDialog
