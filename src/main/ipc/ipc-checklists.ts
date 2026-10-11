@@ -11,7 +11,7 @@ import { getDb } from '../database'
 import type { ChecklistItem, ChecklistTemplate, ChecklistGroup } from '../../shared/types'
 import { seedChecklistTemplates } from '../templates'
 import { applyChecklistTemplate, ChecklistApplyError } from '../checklist-apply'
-import { parseRepeatRule, nextRepeatDate } from '../../shared/recurrence'
+import { parseRepeatRule, nextRepeatDate, withAnchorDay } from '../../shared/recurrence'
 import { localDateString } from '../../shared/dates'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
@@ -91,11 +91,12 @@ export function registerChecklistHandlers(): void {
           const logResult = db.prepare(`INSERT INTO case_log (row_id, content, log_type, created_at, updated_at) VALUES (?, ?, 'system', datetime('now'), datetime('now'))`).run(before.row_id, `Completed checklist item: ${before.title}`)
           sysLogId = logResult.lastInsertRowid as number
           rowIdForNotify = before.row_id
-          const rule = parseRepeatRule('recurrence_rule' in updates ? updates.recurrence_rule : before.recurrence_rule)
+          const ruleJson = 'recurrence_rule' in updates ? updates.recurrence_rule : before.recurrence_rule
+          const rule = parseRepeatRule(ruleJson)
           const due = 'due_date' in updates ? updates.due_date : before.due_date
           const next = rule ? nextRepeatDate(due, rule, localDateString()) : null
           if (next) {
-            db.prepare('UPDATE checklist_items SET is_completed = 0, completed_at = NULL, completed_by = NULL, due_date = ? WHERE id = ?').run(next, id)
+            db.prepare('UPDATE checklist_items SET is_completed = 0, completed_at = NULL, completed_by = NULL, due_date = ?, recurrence_rule = ? WHERE id = ?').run(next, withAnchorDay(ruleJson, due), id)
             repeat = { previousDue: due ?? null, nextDue: next }
           }
         } else if (wasComplete && !nowComplete) {

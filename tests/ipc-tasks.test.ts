@@ -314,6 +314,16 @@ describe('IPC Tasks', () => {
       expect(row.due_date).toBe('2030-03-12')
     })
 
+    it('a monthly task due on the 31st comes back on the 31st after February (bug sweep S2)', async () => {
+      const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
+      const t = insertTask(gridId, 'Monthly', { due_date: '2030-01-31', recurrence_rule: '{"type":"monthly","interval":1}' })
+      const id = t.lastInsertRowid as number
+      await invoke(IPC.TASK_COMPLETE, id)
+      expect((testDb.db.prepare('SELECT due_date FROM caseload_tasks WHERE id = ?').get(id) as any).due_date).toBe('2030-02-28')
+      await invoke(IPC.TASK_COMPLETE, id)
+      expect((testDb.db.prepare('SELECT due_date FROM caseload_tasks WHERE id = ?').get(id) as any).due_date).toBe('2030-03-31')
+    })
+
     it('marks complete when recurrence end_date is reached', async () => {
       const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
       const t = insertTask(gridId, 'Ending', { due_date: '2026-03-01', recurrence_rule: '{"type":"weekly","interval":1,"end_date":"2026-03-05"}' })

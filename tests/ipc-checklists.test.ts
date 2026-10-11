@@ -200,6 +200,13 @@ describe('CHECKLIST_UPDATE_ITEM', () => {
     expect((testDb.db.prepare('SELECT due_date FROM checklist_items WHERE id = ?').get(item.data.id) as any).due_date).toBe(today)
   })
 
+  it('a monthly item due on the 31st comes back on the 31st after February (bug sweep S2)', async () => {
+    const item = await createItem('Monthly visit', { due_date: '2099-01-31', recurrence_rule: JSON.stringify({ type: 'monthly', interval: 1 }) })
+    const tick = () => invoke(IPC.CHECKLIST_UPDATE_ITEM, item.data.id, { is_completed: 1, completed_at: new Date().toISOString() }) as any
+    expect((await tick()).data.repeat.nextDue).toBe('2099-02-28')
+    expect((await tick()).data.repeat.nextDue).toBe('2099-03-31')
+  })
+
   it('a late repeating item comes back due this cycle, not still overdue; one without a date counts from today', async () => {
     const today = localDateString()
     const weekly = { type: 'weekly', interval: 1 } as const

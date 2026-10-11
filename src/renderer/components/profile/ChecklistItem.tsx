@@ -46,8 +46,11 @@ function ChecklistEditDialog({ item, onSave, onClose }: {
 
   function handleSave() {
     if (!title.trim()) return
+    // Keeps what the dialog doesn't show (an end date, the day of the month a repeat falls on)
+    let kept: Record<string, unknown> = {}
+    try { kept = item.recurrence_rule ? JSON.parse(item.recurrence_rule) as Record<string, unknown> : {} } catch { /* none */ }
     const recurrenceRule = recurType
-      ? JSON.stringify({ type: recurType, interval: recurInterval })
+      ? JSON.stringify({ ...kept, type: recurType, interval: recurInterval })
       : null
     onSave({
       title: title.trim(),

@@ -9,7 +9,7 @@ import { getDb, cachedStmt } from '../database'
 import type { CaseloadTask, TaskGroup, Snippet } from '../../shared/types'
 import { localDateString } from '../../shared/dates'
 import { usesHumanServicesWords } from '../vocab'
-import { parseRepeatRule, nextRepeatDate } from '../../shared/recurrence'
+import { parseRepeatRule, nextRepeatDate, withAnchorDay } from '../../shared/recurrence'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_TASKS = 500
@@ -139,9 +139,9 @@ export function registerTaskHandlers(): void {
       if (next) {
         db.prepare(`
           UPDATE caseload_tasks SET is_completed = 0, completed_at = NULL,
-            snoozed_until = NULL, due_date = ?, updated_at = datetime('now')
+            snoozed_until = NULL, due_date = ?, recurrence_rule = ?, updated_at = datetime('now')
           WHERE id = ?
-        `).run(next, id)
+        `).run(next, withAnchorDay(task.recurrence_rule, task.due_date), id)
       } else {
         // Doesn't repeat, or the repeats have ended
         db.prepare(`

@@ -5,6 +5,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { CaseloadTask, TaskPriority } from '../../../shared/types'
 import { localDateString } from '../../../shared/dates'
+import { parseRepeatRule } from '../../../shared/recurrence'
 import { dueDateBadge, isOverdue, isDueToday, isSnoozed } from '../../views/tasks/taskHelpers'
 import { snoozeDay } from '../../views/tasks/SnoozeDialog'
 
@@ -278,8 +279,10 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
                   { label: 'Weekly', rule: JSON.stringify({ type: 'weekly', interval: 1 }) },
                   { label: 'Monthly', rule: JSON.stringify({ type: 'monthly', interval: 1 }) },
                 ] as Array<{ label: string; rule: string | null }>).map(opt => {
+                  // Compared by meaning: a monthly rule also carries the day it falls on
+                  const cur = parseRepeatRule(task.recurrence_rule)
                   const isActive = hasRecurrence
-                    ? (opt.rule != null && task.recurrence_rule === opt.rule)
+                    ? (opt.rule != null && cur != null && !cur.end_date && cur.interval === 1 && cur.type === parseRepeatRule(opt.rule)?.type)
                     : opt.rule === null
                   return (
                     <button
