@@ -36,6 +36,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   const recs = term(v, 'record', { many: true })
   const RecCap = term(v, 'record', { cap: true }), RecsCap = term(v, 'record', { many: true, cap: true })
   const ListCap = term(v, 'list', { cap: true })
+  const WorkerCap = term(v, 'worker', { cap: true })
   const acts = term(v, 'activity', { many: true }), ActsCap = term(v, 'activity', { many: true, cap: true })
   const Pri = term(v, 'priority', { cap: true }), PriMany = term(v, 'priority', { many: true, cap: true })
   const { gridId, dateRange, columnIds, includeActivityLog, includeSystemActivity, includeTaskSummary, format, destPath, workerName, workerTitle, workerOrg } = options
@@ -180,15 +181,15 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       ['CONFIDENTIAL — PROTECTED HEALTH INFORMATION'],
       [],
       ['Summary report', ''],
-      ['Grid', grid.name],
-      ['Worker', workerName || ''],
-      ['Title', workerTitle || ''],
-      ['Organization', workerOrg || ''],
+      [ListCap, sanitizeCsvFormula(grid.name)],
+      [WorkerCap, sanitizeCsvFormula(workerName || '')],
+      ['Title', sanitizeCsvFormula(workerTitle || '')],
+      ['Organization', sanitizeCsvFormula(workerOrg || '')],
       ['Period', dateRangeLabel],
       ['Generated', `${new Date().toLocaleDateString()} — ${PRODUCT_NAME}`],
       [],
       ['Executive Summary'],
-      [executiveSummary],
+      [sanitizeCsvFormula(executiveSummary)],
       [],
       ['Summary'],
       [`Total Active ${RecsCap}`, String(totalActive)],
@@ -199,7 +200,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
 
     if (overdueCount > 0) csvSections.push(['Overdue Deadlines', `${overdueCount} ${term(v, 'record', { count: overdueCount })}`])
     if (approachingCount > 0) csvSections.push(['Approaching (next 7 days)', `${approachingCount} ${term(v, 'record', { count: approachingCount })}`])
-    if (acuityEnabled && acuityLabel) csvSections.push([`${PriMany} breakdown`, acuityLabel])
+    if (acuityEnabled && acuityLabel) csvSections.push([`${PriMany} breakdown`, sanitizeCsvFormula(acuityLabel)])
 
     if (archivedClientNames.length > 0) {
       csvSections.push([], [`${RecsCap} Archived`], [`${RecCap} Name`, 'Date Archived', 'Reason'])
@@ -236,7 +237,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       const completedTasks = completedTasksInPeriod(db, gridId, dateRange.start, dateRange.end)
       csvSections.push([], ['Task Summary'], ['Task', 'Priority', 'Category', 'Due Date', 'Completed'])
       for (const t of completedTasks) {
-        csvSections.push([sanitizeCsvFormula(t.title), t.priority, sanitizeCsvFormula(t.category ?? ''), t.due_date ?? '', localDateString(parseDbTimestamp(t.completed_at))])
+        csvSections.push([sanitizeCsvFormula(t.title), sanitizeCsvFormula(t.priority), sanitizeCsvFormula(t.category ?? ''), t.due_date ?? '', localDateString(parseDbTimestamp(t.completed_at))])
       }
       if (completedTasks.length === 0) csvSections.push(['No tasks completed in this period.'])
     }
@@ -252,7 +253,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       const activityNames = batchGetClientNames(db, logRows.map(e => e.row_id), gridId)
       csvSections.push([], [`Activity Log (${ActsCap})`], ['Date', 'Type', `${RecCap}`, 'Notes'])
       for (const e of logRows) {
-        csvSections.push([localDateString(parseDbTimestamp(e.created_at)), activityLabel(e.log_type), sanitizeCsvFormula(activityNames.get(e.row_id) || `${RecCap} #${e.row_id}`), sanitizeCsvFormula(stripHtml(e.content))])
+        csvSections.push([localDateString(parseDbTimestamp(e.created_at)), sanitizeCsvFormula(activityLabel(e.log_type)), sanitizeCsvFormula(activityNames.get(e.row_id) || `${RecCap} #${e.row_id}`), sanitizeCsvFormula(stripHtml(e.content))])
       }
       if (logRows.length === 0) csvSections.push([`No ${acts} in this period.`])
     }
@@ -274,7 +275,8 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
     }
 
     const csv = Papa.unparse(csvSections)
-    await atomicWriteFileAsync(destPath, csv, 'utf-8')
+    // A byte-order mark, so Excel reads accented names and the dashes as UTF-8 (X-21)
+    await atomicWriteFileAsync(destPath, '\uFEFF' + csv, 'utf-8')
     return
   }
 
@@ -304,7 +306,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   doc.text(grid.name, marginL, 25)
   let hY = 32
   if (workerName) {
-    doc.text(`Worker: ${workerName}`, marginL, hY)
+    doc.text(`${WorkerCap}: ${workerName}`, marginL, hY)
     hY += 7
   }
   if (workerSubline) {

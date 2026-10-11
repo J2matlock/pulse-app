@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
+import { createTestDb, cleanupTestDb, seedGrid, setDbWords, type TestDb } from './helpers'
 import { localDateFromToday, localDateString } from '../src/shared/dates'
 
 let testDb: TestDb
@@ -101,6 +101,28 @@ describe('summary report', () => {
     expect(csv).not.toContain('<p>')
     expect(csv).not.toContain('Struck out by mistake')
     expect(csv).not.toContain('On a trashed record')
+  })
+})
+
+describe('summary report CSV header', () => {
+  it('has a byte-order mark, uses the workspace words and guards typed text (AUDIT-034, AUDIT-065, AUDIT-122)', async () => {
+    setDbWords(testDb.db)
+    testDb.db.prepare("UPDATE grids SET name = '=HYPERLINK(\"http://x\")' WHERE id = ?").run(grid.gridId)
+    const destPath = join(testDb.tmpDir, 'header.csv')
+    await exportSupervisorReport({
+      gridId: grid.gridId, columnIds: [], dateRange: { start: localDateFromToday(-30), end: today },
+      includeActivityLog: false, includeSystemActivity: false, includeTaskSummary: false, format: 'csv', destPath,
+      workerName: '@Test Person', workerTitle: '+Lead', workerOrg: '-Org',
+    })
+    const csv = readFileSync(destPath, 'utf8')
+    expect(csv.startsWith('\uFEFF')).toBe(true)
+    const lines = csv.slice(1).split('\r\n')
+    expect(lines).toContain('Caseload,"\t=HYPERLINK(""http://x"")"')
+    expect(lines).toContain('Case manager,\t@Test Person')
+    expect(lines).toContain('Title,\t+Lead')
+    expect(lines).toContain('Organization,\t-Org')
+    expect(csv).not.toMatch(/^Grid,/m)
+    expect(csv).not.toMatch(/^Worker,/m)
   })
 })
 
