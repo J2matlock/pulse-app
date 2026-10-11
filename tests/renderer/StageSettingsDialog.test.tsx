@@ -38,4 +38,14 @@ describe('stage settings', () => {
       hideDoneAfterDays: 14,
     })
   })
+
+  it('turns off hiding finished cards with a checkbox, not a 0 (S-26)', async () => {
+    render(<StageSettingsDialog column={column} onClose={vi.fn()} />)
+    const box = screen.getByLabelText('Hide finished clients on the board') as HTMLInputElement
+    expect(box.checked).toBe(true)
+    fireEvent.click(box)
+    expect((screen.getByLabelText('Days') as HTMLInputElement).disabled).toBe(true)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Use as the stage' })) })
+    expect(invoke).toHaveBeenCalledWith(IPC.STAGE_CONFIG_SAVE, 5, expect.objectContaining({ hideDoneAfterDays: 0 }))
+  })
 })

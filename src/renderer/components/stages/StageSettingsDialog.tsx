@@ -37,7 +37,9 @@ export function StageSettingsDialog({ column, onClose }: { column: Column; onClo
   const dateColumns = useMemo(() => [...columns, ...hiddenColumns].filter(c => c.grid_id === column.grid_id && c.column_type === 'date'), [columns, hiddenColumns, column.grid_id])
   const existing = stageConfigOf(column)
   const [options, setOptions] = useState<StageOption[]>(() => initialStageOptions(column))
-  const [hideDays, setHideDays] = useState(String(existing?.hideDoneAfterDays ?? DEFAULT_HIDE_DONE_DAYS))
+  // A checkbox and a number of days; unticked means never hide (0), instead of a 0 nobody understands (S-26)
+  const [hideOn, setHideOn] = useState((existing?.hideDoneAfterDays ?? DEFAULT_HIDE_DONE_DAYS) > 0)
+  const [hideDays, setHideDays] = useState(String((existing?.hideDoneAfterDays || 0) > 0 ? existing!.hideDoneAfterDays : DEFAULT_HIDE_DONE_DAYS))
   const [open, setOpen] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -73,7 +75,7 @@ export function StageSettingsDialog({ column, onClose }: { column: Column; onClo
     } finally { setSaving(false) }
   }
 
-  const days = Math.max(0, Math.min(3650, parseInt(hideDays, 10) || 0))
+  const days = hideOn ? Math.max(1, Math.min(3650, parseInt(hideDays, 10) || DEFAULT_HIDE_DONE_DAYS)) : 0
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
@@ -161,8 +163,9 @@ export function StageSettingsDialog({ column, onClose }: { column: Column; onClo
         )}
 
         <label className="flex flex-wrap items-center gap-2 text-base text-slate-700 dark:text-slate-200">
-          On the board, hide done {t('record', { many: true })} after
-          <input type="number" min={0} max={3650} className="input w-24" value={hideDays} onChange={e => setHideDays(e.target.value)} />
+          <input type="checkbox" className="w-5 h-5" checked={hideOn} onChange={e => setHideOn(e.target.checked)} aria-label={`Hide finished ${t('record', { many: true })} on the board`} />
+          Hide finished {t('record', { many: true })} on the board after
+          <input type="number" min={1} max={3650} className="input w-24" value={hideDays} disabled={!hideOn} aria-label="Days" onChange={e => setHideDays(e.target.value)} />
           days
         </label>
 

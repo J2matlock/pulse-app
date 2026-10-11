@@ -295,8 +295,8 @@ export function GridToolbar(): React.ReactElement {
       {/* Saved views */}
       <SavedViewsDropdown />
 
-      {/* Group rows */}
-      <GroupingBar />
+      {/* Group rows: the table only; the board groups by stage (G-33) */}
+      {viewMode !== 'board' && <GroupingBar />}
 
       {/* View: table or board, archived, priority */}
       <div className="relative" data-tour="archived-toggle">
