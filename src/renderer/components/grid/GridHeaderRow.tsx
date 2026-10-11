@@ -92,7 +92,8 @@ export interface GridHeaderRowProps {
   acuitySortDir: 'asc' | 'desc' | null
   setAcuitySortDir: React.Dispatch<React.SetStateAction<'asc' | 'desc' | null>>
   selectedRowIds: Set<number>
-  filteredRows: GridRow[]
+  /** The records on screen, leaving out those inside collapsed groups: select-all picks these (AUDIT-139) */
+  selectableRowIds: number[]
   setSelectedRowIds: React.Dispatch<React.SetStateAction<Set<number>>>
   colSensors: SensorDescriptor<SensorOptions>[]
   onColumnDragEnd: (event: DragEndEvent) => void
@@ -114,7 +115,7 @@ export function GridHeaderRow({
   acuitySortDir,
   setAcuitySortDir,
   selectedRowIds,
-  filteredRows,
+  selectableRowIds,
   setSelectedRowIds,
   colSensors,
   onColumnDragEnd,
@@ -130,6 +131,8 @@ export function GridHeaderRow({
   const leadingColCount = 2 + (acuityEnabled ? 1 : 0) + (showTags ? 1 : 0)
   // A dragged column is read out by name, not its id (AUDIT-049)
   const dragA11y = useMemo(() => dndAccessibility(id => columns.find(c => `col_${c.id}` === id)?.name), [columns])
+  // Every record on screen is ticked (records hidden in a collapsed group don't count)
+  const allSelected = selectableRowIds.length > 0 && selectableRowIds.every(id => selectedRowIds.has(id))
   return (
     <DndContext
       sensors={colSensors}
@@ -151,30 +154,30 @@ export function GridHeaderRow({
           >
             <button
               onClick={() => {
-                if (selectedRowIds.size === filteredRows.length && filteredRows.length > 0) {
+                if (allSelected) {
                   setSelectedRowIds(new Set())
                 } else {
-                  setSelectedRowIds(new Set(filteredRows.map(r => r.row_id)))
+                  setSelectedRowIds(new Set(selectableRowIds))
                 }
               }}
               className={`w-5 h-5 flex items-center justify-center focus-visible:ring-3 focus-visible:ring-blue-500 focus-visible:ring-offset-1 rounded-sm
-                ${filteredRows.length === 0 ? 'opacity-0 pointer-events-none' : 'opacity-60 hover:opacity-100'}
+                ${selectableRowIds.length === 0 ? 'opacity-0 pointer-events-none' : 'opacity-60 hover:opacity-100'}
                 ${selectedRowIds.size > 0 ? 'opacity-100!' : ''}
                 transition-opacity`}
               tabIndex={-1}
               role="checkbox"
               aria-checked={
-                selectedRowIds.size === filteredRows.length && filteredRows.length > 0
+                allSelected
                   ? 'true'
                   : selectedRowIds.size > 0
                     ? 'mixed'
                     : 'false'
               }
-              aria-label={selectedRowIds.size === filteredRows.length && filteredRows.length > 0 ? `Deselect all ${t('record', { many: true })}` : `Select all ${t('record', { many: true })}`}
-              title={selectedRowIds.size === filteredRows.length ? 'Deselect all' : 'Select all'}
+              aria-label={allSelected ? `Deselect all ${t('record', { many: true })}` : `Select all ${t('record', { many: true })}`}
+              title={allSelected ? 'Deselect all' : 'Select all'}
             >
               <div className={`w-4 h-4 rounded-sm border-2 flex items-center justify-center transition-colors
-                ${selectedRowIds.size === filteredRows.length && filteredRows.length > 0
+                ${allSelected
                   ? 'bg-blue-500 border-blue-500'
                   : selectedRowIds.size > 0
                     ? 'bg-blue-200 border-blue-400'
@@ -182,7 +185,7 @@ export function GridHeaderRow({
               }>
                 {selectedRowIds.size > 0 && (
                   <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12">
-                    {selectedRowIds.size === filteredRows.length
+                    {allSelected
                       ? <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       : <path d="M3 6h6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
                     }

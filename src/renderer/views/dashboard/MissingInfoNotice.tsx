@@ -13,7 +13,8 @@ export function MissingInfoNotice(): React.ReactElement | null {
   const [open, setOpen] = useState(false)
   const load = useCallback(async () => {
     const res = await safeInvoke<MissingInfoGrid[]>(IPC.MISSING_INFO_GET)
-    if (res.ok) setCount(res.data.reduce((n, g) => n + g.clients.length, 0))
+    // Only required values here: dates Pulse can't read are listed in the report, not counted on the dashboard (AUDIT-026)
+    if (res.ok) setCount(res.data.reduce((n, g) => n + g.clients.filter(c => c.missing.length > 0).length, 0))
   }, [])
   const close = useCallback(() => { setOpen(false); void load() }, [load])
   useEffect(() => { void load() }, [load])

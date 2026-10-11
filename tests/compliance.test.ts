@@ -61,6 +61,12 @@ describe('compliance summary', () => {
     ])
   })
 
+  it('lists a ruled date Pulse can\'t read under Missing information (AUDIT-026)', () => {
+    testDb.db.prepare('UPDATE cells SET value = ? WHERE row_id = ? AND column_id = ?').run('TBD', rows[0], dateCol)
+    const [g] = getComplianceSummary('2026-03').grids
+    expect(g!.missingInfo).toEqual({ clients: 1, exceptions: [{ clientName: 'Ana', missing: ['Last Visit: not a date'] }] })
+  })
+
   it('runs the real rule for each kind as of month end (D-03)', () => {
     const db = testDb.db
     const addCol = (name: string, type: string, ruleId: number | bigint, pos: number) =>

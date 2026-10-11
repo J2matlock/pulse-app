@@ -16,6 +16,7 @@ function setup(type: string) {
     editingCellRef: { current: { rowId: 7, columnId: 1 } },
     rowsRef: { current: [{ row_id: 7 } as GridRow] },
     filteredRowsRef: { current: [{ row_id: 7 } as GridRow] },
+    visualRowIdsRef: { current: [7] },
     selectedRowIdsRef: { current: new Set<number>() },
     columns: [column],
     columnMap: new Map([[1, column]]),

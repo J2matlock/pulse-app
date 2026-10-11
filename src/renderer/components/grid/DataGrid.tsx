@@ -546,8 +546,9 @@ export function DataGrid(): React.ReactElement {
   const tableRows = table.getRowModel().rows
   const headerGroups = table.getHeaderGroups()
 
-  // The rows on screen, in screen order (after the search too): select-all, Ctrl+A,
-  // export, Find & Replace and the counts act on these (G-05, G-24)
+  // The rows the filter and search leave, in screen order: export, Find & Replace and
+  // the counts act on these (G-05, G-24). Select-all and Ctrl+A use visualRowIds, which
+  // also leaves out rows inside collapsed groups (AUDIT-139)
   const visibleRows = useMemo(() => tableRows.map(r => r.original), [tableRows])
   filteredRowsRef.current = visibleRows
 
@@ -664,7 +665,7 @@ export function DataGrid(): React.ReactElement {
 
   // Keyboard navigation
   const keyNavDeps = useMemo<KeyboardNavDeps>(() => ({
-    editingCellRef, rowsRef, filteredRowsRef, selectedRowIdsRef,
+    editingCellRef, rowsRef, filteredRowsRef, visualRowIdsRef, selectedRowIdsRef,
     columns, columnMap, updateCell, navigateCell,
     setEditingCell, setSelectedRowIds, openRecord: handleNavigateToProfile,
   }), [columns, columnMap, updateCell, navigateCell, setEditingCell, handleNavigateToProfile])
@@ -870,7 +871,7 @@ export function DataGrid(): React.ReactElement {
             acuitySortDir={acuitySortDir}
             setAcuitySortDir={setAcuitySortDir}
             selectedRowIds={selectedRowIds}
-            filteredRows={visibleRows}
+            selectableRowIds={visualRowIds}
             setSelectedRowIds={setSelectedRowIds}
             showTags={showTagsColumn}
             onHideTags={() => setShowTagsColumn(false)}

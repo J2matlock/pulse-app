@@ -117,10 +117,10 @@ export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | n
             onClick={onCancel}
           />
 
-          {/* Panel */}
+          {/* Panel: scrolls in a short window (200% zoom leaves ~380px) rather than losing its buttons (AUDIT-055) */}
           <motion.div
             ref={panelRef}
-            className="relative w-full max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-6 mx-4"
+            className="relative w-full max-w-md max-h-[calc(100vh-2rem)] overflow-y-auto bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-6 mx-4"
             variants={modalPanelVariants}
             initial="hidden"
             animate="visible"

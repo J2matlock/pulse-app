@@ -8,7 +8,7 @@ import { useFocusTrap } from '../../hooks/useFocusTrap'
 import type { MissingInfoGrid } from '../../../shared/types'
 import { useVocab } from '../../hooks/useVocab'
 
-/** Clients missing any required field, for one caseload or all of them. */
+/** Clients missing any required field, or with a date Pulse can't read in a column with a deadline rule, for one caseload or all of them. */
 export function MissingInfoDialog({ gridId, onClose }: { gridId?: number; onClose: () => void }): React.ReactElement {
   const { t } = useVocab(gridId ?? null)
   const trapRef = useRef<HTMLDivElement>(null)
@@ -55,7 +55,7 @@ export function MissingInfoDialog({ gridId, onClose }: { gridId?: number; onClos
           {data?.map(g => (
             <section key={g.gridId} aria-labelledby={`missing-${g.gridId}`}>
               <h3 id={`missing-${g.gridId}`} className="text-lg font-semibold text-slate-800 dark:text-slate-100">{g.gridName}</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-300 mb-1">Required: {g.requiredColumns.join(', ')}</p>
+              {g.requiredColumns.length > 0 && <p className="text-sm text-slate-600 dark:text-slate-300 mb-1">Required: {g.requiredColumns.join(', ')}</p>}
               {g.clients.length === 0
                 ? <p className="text-base text-green-700 dark:text-green-300 font-medium">Every {t('record')} has all required information.</p>
                 : (
@@ -65,7 +65,11 @@ export function MissingInfoDialog({ gridId, onClose }: { gridId?: number; onClos
                         <button type="button" onClick={() => { onClose(); navigate(`/profile/${c.rowId}?gridId=${g.gridId}`) }}
                           className="hit-44 w-full flex flex-wrap items-baseline gap-x-3 px-2 py-2 text-left rounded-sm hover:bg-slate-50 dark:hover:bg-slate-700/50">
                           <span className="text-base font-medium text-slate-800 dark:text-slate-100">{c.clientName}</span>
-                          <span className="text-sm text-amber-800 dark:text-amber-300">missing {c.missing.join(', ')}</span>
+                          {c.missing.length > 0 && <span className="text-sm text-amber-800 dark:text-amber-300">missing {c.missing.join(', ')}</span>}
+                          {/* A date Pulse can't read hides its deadline everywhere (AUDIT-026) */}
+                          {(c.notADate ?? []).map(name => (
+                            <span key={name} className="text-sm text-red-800 dark:text-red-300">{name}: not a date</span>
+                          ))}
                         </button>
                       </li>
                     ))}

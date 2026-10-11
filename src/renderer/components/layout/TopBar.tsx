@@ -310,7 +310,8 @@ export function TopBar(): React.ReactElement {
                     role="menu"
                     aria-label={`Recent ${tw('record', { many: true })}`}
                     className="absolute right-0 top-full mt-1 w-64 bg-white dark:bg-slate-800
-                                border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50 py-1"
+                                border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-50 py-1
+                                max-h-[calc(100vh-5rem)] overflow-y-auto"
                     variants={dropdownVariants}
                     initial="hidden"
                     animate="visible"

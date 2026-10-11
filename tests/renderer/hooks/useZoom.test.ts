@@ -66,12 +66,20 @@ describe('useZoom', () => {
     expect(setUiScale).toHaveBeenCalledWith(100)
   })
 
-  it('does not exceed max zoom of 150', () => {
+  it('zooms past 150% up to 200% (WCAG 1.4.4, AUDIT-055)', () => {
     mockState.uiScale = 150
 
     render()
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '=', ctrlKey: true, bubbles: true }))
-    expect(setUiScale).toHaveBeenCalledWith(150) // clamped at max
+    expect(setUiScale).toHaveBeenCalledWith(155)
+  })
+
+  it('does not exceed max zoom of 200', () => {
+    mockState.uiScale = 200
+
+    render()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '=', ctrlKey: true, bubbles: true }))
+    expect(setUiScale).toHaveBeenCalledWith(200) // clamped at max
   })
 
   it('does not go below min zoom of 80', () => {
