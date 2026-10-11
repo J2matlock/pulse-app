@@ -69,6 +69,12 @@ StatusExtractFiles=Unpacking files... %1
 
 ; ── Files to pack ────────────────────────────────────────────────────────────
 
+[InstallDelete]
+; Clear out the old version's app files so nothing removed since then lingers.
+; {app} is the hidden .pulse-app folder; PulseData (next to PULSE.exe) is untouched.
+Type: filesandordirs; Name: "{app}\resources"
+Type: filesandordirs; Name: "{app}\locales"
+
 [Files]
 Source: "{#SourcePath}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
@@ -159,17 +165,39 @@ begin
   Exec(ExePath, Args, LauncherDir, SW_SHOW, ewNoWait, ResultCode);
 end;
 
-// ── Kill running instance before extraction ──────────────────────────────
+// ── Close running instance before extraction ─────────────────────────────
 
-procedure KillRunningInstance;
+function IsPulseRunning: Boolean;
 var
   ResultCode: Integer;
 begin
-  // Silently kill any running Pulse process so DLLs are unlocked.
-  // /F = force, /IM = image name, /T = kill child processes.
-  // Exit code is ignored — it's fine if the process isn't running.
-  Exec('taskkill.exe', '/F /IM "Pulse by BaringaSoft.exe" /T',
+  // find exits 0 only when tasklist lists the process
+  Result := Exec(ExpandConstant('{cmd}'),
+       '/C tasklist /NH /FI "IMAGENAME eq Pulse by BaringaSoft.exe" | find /I "Pulse by BaringaSoft.exe" >NUL',
+       '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
+end;
+
+procedure CloseRunningInstance;
+var
+  ResultCode, Waited: Integer;
+begin
+  if not IsPulseRunning then
+    Exit;
+  // Ask first: taskkill without /F sends the window a normal close, so Pulse
+  // saves edits still being typed and makes its quit backup.
+  Exec('taskkill.exe', '/IM "Pulse by BaringaSoft.exe"',
        '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Waited := 0;
+  while IsPulseRunning and (Waited < 20000) do
+  begin
+    Sleep(500);
+    Waited := Waited + 500;
+  end;
+  // Still running after 20 seconds (stuck, or kept open in the background):
+  // force it so the files can be replaced. /T = child processes too.
+  if IsPulseRunning then
+    Exec('taskkill.exe', '/F /IM "Pulse by BaringaSoft.exe" /T',
+         '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   // Brief pause to let Windows release file locks
   Sleep(500);
 end;
@@ -186,8 +214,8 @@ begin
   end
   else
   begin
-    // Version update — kill running instance before extraction
-    KillRunningInstance;
+    // Version update — close the running instance before extraction
+    CloseRunningInstance;
     Result := True;
   end;
 end;

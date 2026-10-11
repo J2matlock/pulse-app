@@ -23,6 +23,7 @@ import type { FeatureMap } from './features'
 import type { ActivityType } from './activityTypes'
 import type { MeasureDef, MeasureKind } from './measures'
 import type { RecordKind } from './types'
+import type { LicenseDoc } from './constants'
 
 /** Search and filter for a record's notes (CASE_LOG_GET / CASE_LOG_COUNT) */
 export interface CaseLogQuery { query?: string; oldestFirst?: boolean; logType?: string }
@@ -391,6 +392,7 @@ export interface IPCContract {
   // ── App Utilities ───────────────────────────────────────────────────────
   'app:get-info':           { args: [];                                   return: AppInfo }
   'app:open-external':      { args: [url: string];                        return: true }
+  'app:open-license':       { args: [which: LicenseDoc];                  return: true }
   'app:show-file-dialog':   { args: [options: Record<string, unknown>];   return: OpenDialogResult }
   'app:show-save-dialog':   { args: [options: Record<string, unknown>];   return: SaveDialogResult }
   'app:factory-reset':      { args: [password: string];                   return: true }

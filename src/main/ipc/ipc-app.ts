@@ -12,7 +12,11 @@ import { logger } from '../logger'
 import { secureWrap, logNonFatal, ok, fail, rememberUserChosenPaths } from './ipc-utils'
 import { resolveDatabasePath, closeDatabase, getDb, getPortableDataDir, getMigrationFailure, clearMigrationFailureFlag } from '../database'
 import { verifyAndUnlock, lockApp } from '../auth'
+<<<<<<< HEAD
 import { stopScheduledBackup } from '../index'
+=======
+import { isLicenseDoc, licenseFilePath } from '../license-files'
+>>>>>>> fix/b9-packaging
 
 /** Returns true if `remote` is a higher semver than `current` (X.Y.Z format). */
 function isNewerVersion(remote: string, current: string): boolean {
@@ -67,6 +71,19 @@ export function registerAppHandlers(): void {
       }
     } catch (err) { logNonFatal('ipc-app', 'APP_OPEN_EXTERNAL URL parse', err) }
     return fail('Only http/https URLs are allowed')
+  })
+
+  // The license texts ship inside the app, so they open offline (the GPL link needs a browser and a connection)
+  secureWrap(IPC.APP_OPEN_LICENSE, 'ipc-app', async (_e, which: unknown) => {
+    if (!isLicenseDoc(which)) return fail('Unknown license file')
+    const file = licenseFilePath(which, app.isPackaged, process.resourcesPath, app.getAppPath())
+    if (!existsSync(file)) return fail("We couldn't find the license file in this copy of Pulse.")
+    const error = await shell.openPath(file)
+    if (error) {
+      logNonFatal('ipc-app', 'APP_OPEN_LICENSE openPath', error)
+      return fail("We couldn't open the license file. Your computer may not have an app for text files.")
+    }
+    return ok(true)
   })
 
   secureWrap(IPC.APP_SHOW_FILE_DIALOG, 'ipc-app', async (_e, options: Electron.OpenDialogOptions) => {

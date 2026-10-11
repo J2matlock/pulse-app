@@ -362,6 +362,7 @@ export const IPC = {
   // App utilities
   APP_GET_INFO: 'app:get-info',
   APP_OPEN_EXTERNAL: 'app:open-external',
+  APP_OPEN_LICENSE: 'app:open-license',
   APP_SHOW_FILE_DIALOG: 'app:show-file-dialog',
   APP_SHOW_SAVE_DIALOG: 'app:show-save-dialog',
   APP_FACTORY_RESET: 'app:factory-reset',

@@ -116,7 +116,9 @@
     ],
     "files": [
       "out/**/*",
-      "!out/**/*.map"
+      "!out/**/*.map",
+      "!**/node_modules/**/*.map",
+      "!**/node_modules/better-sqlite3-multiple-ciphers/{deps,src}${/*}"
     ],
     "fileAssociations": [
       {
@@ -130,6 +132,14 @@
       {
         "from": "build/icon-256.png",
         "to": "icon.png"
+      },
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "THIRD_PARTY_LICENSES.txt",
+        "to": "THIRD_PARTY_LICENSES.txt"
       }
     ],
     "linux": {

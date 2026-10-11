@@ -8,7 +8,9 @@
 export const PRODUCT_NAME = 'Pulse by BaringaSoft'
 /** Public source code (Pulse is free software under the GNU GPL v3) */
 export const SOURCE_CODE_URL = 'https://github.com/J2matlock/pulse-app'
-export const LICENSE_URL = 'https://www.gnu.org/licenses/gpl-3.0.html'
+
+/** License texts bundled with the app (package.json build.extraResources), readable offline. */
+export type LicenseDoc = 'license' | 'third-party'
 
 /**
  * The name Electron uses for the data folder (~/.config/<name> on Linux,
