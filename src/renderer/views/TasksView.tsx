@@ -231,6 +231,8 @@ export default function TasksView(): React.ReactElement {
     if (res.ok) {
       const created = res.data
       setTaskGroups(prev => [...prev, created])
+      // Redo makes the group again under a new id; undo must delete that one
+      let groupId = created.id
       useUndoStore.getState().push({
         id: crypto.randomUUID(),
         description: 'Added task group',
@@ -238,11 +240,12 @@ export default function TasksView(): React.ReactElement {
         category: 'structural',
         icon: 'folder-plus',
         undo: async () => {
-          await mustInvoke(IPC.TASK_GROUP_DELETE, created.id)
+          await mustInvoke(IPC.TASK_GROUP_DELETE, groupId)
           await loadTaskGroups()
         },
         redo: async () => {
-          await mustInvoke(IPC.TASK_GROUP_CREATE, created.name)
+          const again = await mustInvoke<TaskGroupType>(IPC.TASK_GROUP_CREATE, created.name)
+          groupId = again.data.id
           await loadTaskGroups()
         },
       })
@@ -278,6 +281,7 @@ export default function TasksView(): React.ReactElement {
     setTaskGroups(prev => prev.filter(g => g.id !== groupId))
     setConfirmDeleteGroup(null)
     void loadTasks() // Reload to reflect ungrouped tasks
+    let currentId = groupId
     if (deletedGroup) {
       useUndoStore.getState().push({
         id: crypto.randomUUID(),
@@ -286,17 +290,17 @@ export default function TasksView(): React.ReactElement {
         category: 'structural',
         icon: 'trash',
         undo: async () => {
+          // The group comes back under a new id; redo must delete that one
           const res = await mustInvoke<TaskGroupType>(IPC.TASK_GROUP_CREATE, deletedGroup.name)
-          if (res.ok) {
-            for (const t of affectedTasks) {
-              await mustInvoke(IPC.TASK_MOVE_TO_GROUP, t.id, res.data.id)
-            }
+          currentId = res.data.id
+          for (const t of affectedTasks) {
+            await mustInvoke(IPC.TASK_MOVE_TO_GROUP, t.id, currentId)
           }
           await loadTaskGroups()
           await loadTasks()
         },
         redo: async () => {
-          await mustInvoke(IPC.TASK_GROUP_DELETE, groupId)
+          await mustInvoke(IPC.TASK_GROUP_DELETE, currentId)
           await loadTaskGroups()
           await loadTasks()
         },
@@ -395,10 +399,13 @@ export default function TasksView(): React.ReactElement {
     await reorderTasks(newOrder.map(i => i.id))
   }, [reorderTasks, taskGroups])
 
-  const applyTaskTemplate = useCallback(async (templateId: number, groupId: number | null, createdGroupId?: number | null) => {
+  /** createdGroupName: the template went into a group made just for it, which undo removes and redo makes again */
+  const applyTaskTemplate = useCallback(async (templateId: number, groupId: number | null, createdGroupName?: string) => {
     const result = await safeInvoke<{ createdIds: number[] }>(IPC.TASK_APPLY_TEMPLATE, templateId, groupId)
     if (result.ok) {
-      const { createdIds } = result.data
+      // Redo creates new tasks (and a new group), so undo and redo track the current ids
+      let createdIds = result.data.createdIds
+      let targetGroupId = groupId
       await loadTasks()
       if (createdIds.length > 0) {
         useUndoStore.getState().push({
@@ -409,13 +416,19 @@ export default function TasksView(): React.ReactElement {
           icon: 'clipboard-list',
           undo: async () => {
             for (const id of createdIds) await mustInvoke(IPC.TASK_DELETE, id)
-            if (createdGroupId) await mustInvoke(IPC.TASK_GROUP_DELETE, createdGroupId)
+            if (createdGroupName !== undefined && targetGroupId != null) await mustInvoke(IPC.TASK_GROUP_DELETE, targetGroupId)
             await loadTasks()
             await loadTaskGroups()
           },
           redo: async () => {
-            await mustInvoke(IPC.TASK_APPLY_TEMPLATE, templateId, groupId)
+            if (createdGroupName !== undefined) {
+              const group = await mustInvoke<TaskGroupType>(IPC.TASK_GROUP_CREATE, createdGroupName)
+              targetGroupId = group.data.id
+            }
+            const again = await mustInvoke<{ createdIds: number[] }>(IPC.TASK_APPLY_TEMPLATE, templateId, targetGroupId)
+            createdIds = again.data.createdIds
             await loadTasks()
+            await loadTaskGroups()
           },
         })
       }
@@ -850,7 +863,7 @@ export default function TasksView(): React.ReactElement {
                 setTaskGroups(prev => [...prev, res.data])
                 const tid = pendingTemplateId
                 setPendingTemplateId(null)
-                void applyTaskTemplate(tid, res.data.id, res.data.id)
+                void applyTaskTemplate(tid, res.data.id, res.data.name)
               }
             }}
             onCancel={() => setPendingTemplateId(null)}
