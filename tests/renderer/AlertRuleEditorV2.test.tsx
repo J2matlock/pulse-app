@@ -35,6 +35,7 @@ describe('the rule editor', () => {
   it('builds a "from another date" rule with a live preview and saves it', async () => {
     const onClose = vi.fn()
     render(<AlertRuleEditor columnId={3} onClose={onClose} />)
+    expect(screen.getByRole('dialog', { name: 'New deadline rule' })).toBeTruthy()
     fireEvent.change(screen.getByLabelText('Rule name'), { target: { value: 'Plan due' } })
     fireEvent.click(screen.getByRole('radio', { name: /From another date/ }))
     expect(screen.getByTestId('rule-preview').textContent).toBe('Choose the date this deadline is worked out from.')
