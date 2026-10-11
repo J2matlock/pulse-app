@@ -7,10 +7,11 @@ const h = vi.hoisted(() => ({
   closeHooks: [] as Array<() => void>,
   tooltip: '' as string,
   loginCalls: [] as unknown[],
+  openedAtLogin: false,
 }))
 
 vi.mock('electron', () => ({
-  app: { isPackaged: false, quit: () => {}, setLoginItemSettings: (o: unknown) => { h.loginCalls.push(o) }, getLoginItemSettings: () => ({ wasOpenedAsHidden: false }) },
+  app: { isPackaged: false, quit: () => {}, setLoginItemSettings: (o: unknown) => { h.loginCalls.push(o) }, getLoginItemSettings: () => ({ wasOpenedAtLogin: h.openedAtLogin }) },
   Menu: { buildFromTemplate: (t: unknown) => t },
   Tray: class { on() {} setToolTip(s: string) { h.tooltip = s } setContextMenu() {} destroy() {} },
   nativeImage: { createFromPath: () => ({ resize: () => ({}) }) },
@@ -27,7 +28,7 @@ import { loginItemOptions, startedHidden, HIDDEN_FLAG } from '../src/main/login-
 
 const win = () => ({ hide: () => { h.order.push('hide') } }) as unknown as import('electron').BrowserWindow
 
-beforeEach(() => { h.prefs = {}; h.order = []; h.loginCalls = []; h.tooltip = '' })
+beforeEach(() => { h.prefs = {}; h.order = []; h.loginCalls = []; h.tooltip = ''; h.openedAtLogin = false })
 
 describe('the tray tooltip', () => {
   it('shows counts only, and just the name when unlocked', () => {
@@ -69,9 +70,9 @@ describe('open when I sign in', () => {
 
   it('starts hidden only in background mode', () => {
     set('win32')
-    expect(loginItemOptions(true, true)).toEqual({ openAtLogin: true, openAsHidden: true, args: [HIDDEN_FLAG] })
-    expect(loginItemOptions(true, false)).toEqual({ openAtLogin: true, openAsHidden: false })
-    expect(loginItemOptions(false, true)).toEqual({ openAtLogin: false, openAsHidden: false })
+    expect(loginItemOptions(true, true)).toEqual({ openAtLogin: true, args: [HIDDEN_FLAG] })
+    expect(loginItemOptions(true, false)).toEqual({ openAtLogin: true })
+    expect(loginItemOptions(false, true)).toEqual({ openAtLogin: false })
     set(platform)
   })
 
@@ -88,5 +89,16 @@ describe('open when I sign in', () => {
     expect(startedHidden([])).toBe(false)
     h.prefs.openAtLogin = false
     expect(startedHidden([HIDDEN_FLAG])).toBe(false)
+  })
+
+  it('on a Mac, a start by the sign-in item counts as hidden (macOS 13+ has no hidden login items)', () => {
+    set('darwin')
+    h.prefs.trayMode = true; h.prefs.openAtLogin = true
+    expect(startedHidden([])).toBe(false)
+    h.openedAtLogin = true
+    expect(startedHidden([])).toBe(true)
+    h.prefs.trayMode = false
+    expect(startedHidden([])).toBe(false)
+    set(platform)
   })
 })

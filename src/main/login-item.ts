@@ -25,9 +25,13 @@ export function wantsOpenAtLogin(): boolean {
   try { return prefs().get('openAtLogin', false) === true } catch { return false }
 }
 
-/** The system entry for the current choices; portable copies point at the real exe, not the temp unpack */
+/**
+ * The system entry for the current choices; portable copies point at the real exe, not the temp unpack.
+ * macOS 13+ has no "open hidden" login item (Electron 44 removed openAsHidden), so on a Mac
+ * startedHidden() checks wasOpenedAtLogin instead.
+ */
 export function loginItemOptions(openAtLogin: boolean, tray: boolean): Electron.Settings {
-  const opts: Electron.Settings = { openAtLogin, openAsHidden: tray && openAtLogin }
+  const opts: Electron.Settings = { openAtLogin }
   if (process.platform === 'win32') {
     if (process.env.PORTABLE_EXECUTABLE_FILE) opts.path = process.env.PORTABLE_EXECUTABLE_FILE
     if (tray && openAtLogin) opts.args = [HIDDEN_FLAG]
@@ -52,5 +56,5 @@ export function setOpenAtLogin(on: boolean): void {
 export function startedHidden(argv: string[] = process.argv): boolean {
   if (!isTrayMode() || !wantsOpenAtLogin()) return false
   if (argv.includes(HIDDEN_FLAG)) return true
-  try { return process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAsHidden } catch { return false }
+  try { return process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin } catch { return false }
 }

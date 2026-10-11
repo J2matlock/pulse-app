@@ -57,9 +57,10 @@ function setupFinished(): boolean {
 
 export function registerAppHandlers(): void {
   // ── Clipboard ───────────────────────────────────────────────────────────
-  secureWrap(IPC.CLIPBOARD_WRITE, 'ipc-app', (_e, text: string) => {
+  secureWrap(IPC.CLIPBOARD_WRITE, 'ipc-app', async (_e, text: string) => {
     if (typeof text !== 'string' || text.length > 1_000_000) return fail("That's too much text to copy at once.")
-    clipboard.writeText(text)
+    // Electron 44 made clipboard writes async; await so a failure reaches secureWrap's catch
+    await clipboard.writeText(text)
     return ok(true)
   })
 
