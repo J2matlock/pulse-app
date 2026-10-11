@@ -153,6 +153,46 @@ describe('LockScreenView', () => {
     expect(await screen.findByText(/Choose a .pulse-backup file/)).toBeTruthy()
   })
 
+  describe("the computer's password vault isn't available yet (AUDIT-021)", () => {
+    beforeEach(() => {
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'auth:verify-password') return Promise.resolve({ ok: false, error: 'KEYRING_UNAVAILABLE' })
+        if (channel === 'auth:verify-recovery-key') return Promise.resolve({ ok: false, error: 'KEYRING_UNAVAILABLE' })
+        if (channel === 'auth:get-hint') return Promise.resolve({ ok: true, data: '' })
+        if (channel === 'auth:has-recovery-key') return Promise.resolve({ ok: true, data: true })
+        if (channel === 'auth:lockout-remaining') return Promise.resolve({ ok: true, data: 0 })
+        return Promise.resolve({ ok: false })
+      })
+    })
+
+    it('says what to do in plain words, keeps the password, and offers no restore', async () => {
+      render(<LockScreenView />)
+      const input = screen.getByPlaceholderText('Password') as HTMLInputElement
+      fireEvent.change(input, { target: { value: 'Right-Password-1' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Unlock' }))
+
+      const alert = await screen.findByRole('alert')
+      expect(alert.textContent).toMatch(/password vault isn't available yet/)
+      expect(alert.textContent).toMatch(/wait a moment and try again/)
+      expect(alert.textContent).not.toMatch(/didn't work|KEYRING/)
+      expect(input.value).toBe('Right-Password-1')
+      expect(screen.queryByRole('button', { name: 'Restore from a backup' })).toBeNull()
+      expect(screen.getByRole('button', { name: 'Unlock' }).hasAttribute('disabled')).toBe(false)
+    })
+
+    it('says the same after a recovery key, instead of "didn\'t match"', async () => {
+      render(<LockScreenView />)
+      await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('auth:has-recovery-key'))
+      fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }))
+      const key = screen.getByLabelText('Recovery key')
+      fireEvent.change(key, { target: { value: 'ABCD1234EFGH5678IJKL9012MNOP' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Unlock with recovery key' }))
+      const alert = await screen.findByRole('alert')
+      expect(alert.textContent).toMatch(/password vault isn't available yet/)
+      expect(alert.textContent).not.toMatch(/didn't match/)
+    })
+  })
+
   it('shows "Unlocking..." text during submission', async () => {
     // Make the verify call hang so we can observe loading state
     let resolveVerify: (v: unknown) => void

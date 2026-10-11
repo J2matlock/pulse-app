@@ -285,6 +285,46 @@ describe('Portable key envelope (restore on a new computer)', () => {
   })
 })
 
+describe('In-memory key copies are wiped when replaced (AUDIT-098)', () => {
+  const PWD = 'MyStr0ngP@ssword!'
+  const zeroed = (b: Buffer) => b.every(x => x === 0)
+
+  it('zeroes the old key Buffer on every replacement and on lock, and keeps working with the new one', async () => {
+    await setupPassword(PWD, '', '/tmp/x.db')
+    const keyHex = getDbKey().toString('hex')
+    const env = getKeyEnvelope()
+    expect(env).not.toBeNull()
+    if (!env) return
+
+    // Change password unlocks again while already unlocked
+    const first = getDbKey()
+    await changePassword(PWD, 'Changed-Pass-123', '')
+    expect(zeroed(first)).toBe(true)
+    const second = getDbKey()
+    expect(second).not.toBe(first)
+    expect(second.toString('hex')).toBe(keyHex)
+
+    // Factory reset re-checks the password the same way
+    await verifyAndUnlock('Changed-Pass-123')
+    expect(zeroed(second)).toBe(true)
+    const third = getDbKey()
+    expect(third.toString('hex')).toBe(keyHex)
+
+    // Restoring another backup while unlocked swaps in that key
+    const recovered = await unwrapKeyEnvelope(env, PWD)
+    await adoptRestoredDbKey(recovered, env, 'Restored-Pass-123', '', '/tmp/x.db')
+    expect(zeroed(third)).toBe(true)
+    const fourth = getDbKey()
+    expect(fourth.toString('hex')).toBe(keyHex)
+    // The caller's own copy isn't the live one, so it isn't wiped behind their back
+    expect(recovered.toString('hex')).toBe(keyHex)
+
+    lockApp()
+    expect(zeroed(fourth)).toBe(true)
+    expect(() => getDbKey()).toThrow('Database is locked')
+  })
+})
+
 describe('Failed-attempt notice', () => {
   it('reports wrong attempts since the last unlock, then resets', async () => {
     const PWD = 'MyStr0ngP@ssword!'

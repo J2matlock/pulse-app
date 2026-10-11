@@ -5,9 +5,10 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
 import { RestoreFromBackupForm } from '../components/shared/RestoreFromBackupForm'
-import { usePlatform, cloudFolderAdvice } from '../utils/platformText'
+import { usePlatform, cloudFolderAdvice, type Platform } from '../utils/platformText'
 import { PRODUCT_NAME } from '../../shared/constants'
 import { parseDbOpenFailure, type DbOpenFailureKind } from '../../shared/dbOpen'
+import { KEYRING_UNAVAILABLE } from '../../shared/authErrors'
 
 type LockView = 'password' | 'recovery-key' | 'no-recovery' | 'restore' | 'open-failed'
 
@@ -15,6 +16,17 @@ type LockView = 'password' | 'recovery-key' | 'no-recovery' | 'restore' | 'open-
 function formatRecoveryKey(raw: string): string {
   const clean = raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 28)
   return clean.replace(/(.{4})(?=.)/g, '$1-')
+}
+
+/**
+ * The OS password vault isn't ready, so the saved sign-in data can't be read yet
+ * (AUDIT-021). Not a wrong password: nothing is erased and it doesn't count toward
+ * a lockout, so there's no restore offer either.
+ */
+function keyringUnavailableText(platform: Platform | null): string {
+  const base = `Your computer's password vault isn't available yet, so ${PRODUCT_NAME} can't open your data. ` +
+    'If you just signed in, wait a moment and try again.'
+  return platform === 'win32' || platform === 'darwin' ? base : `${base} On Linux, make sure your keyring is unlocked.`
 }
 
 export function LockScreenView(): React.ReactElement {
@@ -114,6 +126,10 @@ export function LockScreenView(): React.ReactElement {
       } else if (openKind) {
         setPassword('')
         showOpenFailure(openKind, 'password')
+      } else if (result.error === KEYRING_UNAVAILABLE) {
+        // The password may well be right: keep it so "try again" is one click
+        setError(keyringUnavailableText(platform))
+        inputRef.current?.focus()
       } else {
         // Lockout and unreadable-credential messages are already written for users
         setError(result.error === 'Incorrect password' ? "That password didn't work. Check Caps Lock and try again." : result.error)
@@ -143,6 +159,8 @@ export function LockScreenView(): React.ReactElement {
       } else if (openKind) {
         setRecoveryKey('')
         showOpenFailure(openKind, 'recovery key')
+      } else if (!result.ok && result.error === KEYRING_UNAVAILABLE) {
+        setKeyError(keyringUnavailableText(platform))
       } else {
         // Keep what was typed: one typo shouldn't mean retyping 28 characters
         setKeyError("That key didn't match. Check each group of 4.")
