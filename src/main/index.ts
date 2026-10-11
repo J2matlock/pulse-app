@@ -1,8 +1,9 @@
 // Must stay the first import: pins the data folder and key-store name before anything reads them
 import './app-identity'
 import { isOpenableExternal } from './external-links'
-import { app, shell, BrowserWindow, dialog, session, protocol, net, clipboard, powerMonitor, Menu } from 'electron'
+import { app, shell, BrowserWindow, dialog, session, protocol, net, clipboard, powerMonitor, Menu, screen } from 'electron'
 import { buildMacMenuTemplate } from './app-menu'
+import { windowStateToSave, restorableWindowState, type SavedWindowState } from './window-state'
 import { join, normalize, resolve, sep } from 'path'
 import { pathToFileURL } from 'url'
 import { initDatabase, closeDatabase, getDb } from './database'
@@ -181,14 +182,20 @@ if (!gotTheLock) {
 
 // ── Window state persistence ─────────────────────────────────────────────────
 
-function getWindowState() {
-  return prefs().get('windowState', { width: 1280, height: 800, maximized: false })
+function getWindowState(): SavedWindowState {
+  const saved = prefs().get('windowState', { width: 1280, height: 800, maximized: false }) as SavedWindowState
+  try {
+    return restorableWindowState(saved, screen.getAllDisplays().map(d => d.workArea))
+  } catch (err) {
+    logNonFatal('app', 'check saved window position', err)
+    return { width: saved.width, height: saved.height, maximized: saved.maximized }
+  }
 }
 
 function saveWindowState(win: BrowserWindow) {
   if (win.isDestroyed()) return
-  const { width, height, x, y } = win.getBounds()
-  prefs().set('windowState', { width, height, x, y, maximized: win.isMaximized() })
+  // Normal bounds, so a maximized window's "un-maximized" size isn't the whole screen
+  prefs().set('windowState', windowStateToSave(win.getNormalBounds(), win.isMaximized()))
 }
 
 function createWindow(): void {
