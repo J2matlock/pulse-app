@@ -9,10 +9,11 @@ const invoke = vi.fn(async () => ({ ok: true, data: [] }))
 Object.defineProperty(window, 'api', { value: { invoke, on: () => () => {} }, writable: true, configurable: true })
 
 import { CellDisplay } from '../../src/renderer/components/grid/CellDisplay'
+import { chipsThatFit } from '../../src/renderer/components/grid/LinkCell'
 import { useLinkStore } from '../../src/renderer/stores/linkStore'
 import type { Column } from '../../src/shared/types'
 
-const column = { id: 42, grid_id: 2, name: 'Vehicles', column_type: 'link', config: '{}' } as Column
+const column = { id: 42, grid_id: 2, name: 'Vehicles', column_type: 'link', config: '{}', width: 400 } as Column
 const cfg = { link_type_id: 7, direction: 'backward' }
 const v = (...items: string[]) => items.join('\u001f')
 
@@ -30,6 +31,14 @@ describe('link cells', () => {
     expect(screen.getAllByRole('button').map(b => b.textContent)).toEqual(['Civic', 'F-150', 'Prius'])
     expect(screen.getByText('+2')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'F-150' }).className).toMatch(/italic/)
+  })
+
+  it('in a narrow column, show the chips that fit rather than squeezing each to "Re…" (V1)', () => {
+    const jobs = v('1\u001eRemove dead oak', '2\u001eTrim hedges', '3\u001eTreat ash trees', '4\u001eStump grinding')
+    render(<MemoryRouter><CellDisplay column={{ ...column, width: 200 }} value={jobs} parsedConfig={cfg} /></MemoryRouter>)
+    expect(screen.getAllByRole('button').map(b => b.textContent)).toEqual(['Remove dead oak'])
+    expect(screen.getByText('+3')).toBeTruthy()
+    expect(chipsThatFit([{ name: 'Ann' }, { name: 'Bo' }, { name: 'Cy' }], 400)).toHaveLength(3)
   })
 
   it('open the linked record in its own list on Ctrl+click; a plain click only selects the cell (G-31)', () => {
