@@ -26,7 +26,7 @@ How it's protected
 - Backups are encrypted too and can be restored on a replacement computer with the password or recovery key.
 - Files attached to {record:many} are stored inside the encrypted database and backed up with it; only documents and pictures are accepted, checked by content. A file opened for viewing is copied to a private folder that is emptied when Pulse locks or closes.
 - If "keep running in the background" is on, closing the window locks Pulse (the database closes and the key is wiped) and it waits in the system tray. Reminders then use only counts and appointment times kept in memory, never names, and never written to disk.
-- Changes are kept: field history, every version of edited {activity:many}, and notes older than 15 minutes can only be voided (kept, hidden), not deleted.
+- Changes are kept: the history of every change, every version of edited {activity:many}, and {activity:many} older than 15 minutes can only be voided (kept, hidden), not deleted.
 
 What it connects to (HTTPS, no {record} data)
 - Only an update check when Pulse opens (reads a version number; can be turned off). Nothing else.

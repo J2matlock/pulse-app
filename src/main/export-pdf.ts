@@ -438,11 +438,11 @@ export function renderProfileToDoc(
     logger.error('export', 'PDF linked providers section failed', { error: err instanceof Error ? err.message : String(err) })
   }
 
-  // ── Scrap Notes ──
+  // ── Scratch notes ──
   if (includeSections.scratchPad) {
     const noteContent = (db.prepare('SELECT content FROM scrap_notes WHERE row_id = ?').get(rowId) as { content: string } | undefined)?.content
     if (noteContent) {
-      addSection('Scrap notes')
+      addSection('Scratch notes')
       addBodyText(noteContent)
       y += 4
     }

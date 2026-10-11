@@ -346,7 +346,7 @@ export function registerCaseLogHandlers(): void {
   secureWrap(IPC.SCRAP_NOTE_UPDATE, 'ipc-caselog', (_e, rowId: number, content: string) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(rowId)) return fail('Invalid ID')
-    if (typeof content !== 'string' || content.length > 500_000) return fail('Scrap note too large (max 500,000 characters)')
+    if (typeof content !== 'string' || content.length > 500_000) return fail('Scratch notes can be up to 500,000 characters.')
     getDb().prepare(`
       INSERT INTO scrap_notes (row_id, content, updated_at)
       VALUES (?, ?, datetime('now'))

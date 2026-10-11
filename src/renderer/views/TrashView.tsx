@@ -295,7 +295,7 @@ export default function TrashView() {
         variant="typed"
         requiredPhrase={purgeListTarget?.name ?? ''}
         title={`Delete "${purgeListTarget?.name}" forever?`}
-        message={`The ${t('list')} and its ${purgeListTarget?.records ?? 0} ${t('record', { count: purgeListTarget?.records ?? 0 })}, with their notes and files, are removed for good. This can't be undone.`}
+        message={`The ${t('list')} and its ${purgeListTarget?.records ?? 0} ${t('record', { count: purgeListTarget?.records ?? 0 })}, with their ${t('activity', { many: true })} and files, are removed for good. This can't be undone.`}
         confirmLabel="Delete forever"
         onConfirm={async () => {
           if (purgeListTarget) await purgeList(purgeListTarget.id)

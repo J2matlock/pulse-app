@@ -54,6 +54,7 @@ const PLAIN = new Set<string>([
   "A Files column can't be changed to another type, or made from one. Add a new column instead.",
   'A repeating task needs a due date. Turn off Repeat to remove the date.',
   'Abbreviation is required',
+  'Scratch notes can be up to 500,000 characters.',
   "You can export up to 5,000 ${word('contact', { many: true })} at a time.",
   "You can import up to 1,000 ${word('contact', { many: true })} at a time.",
   'An item can only move to a group on the same checklist.',

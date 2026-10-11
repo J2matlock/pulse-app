@@ -63,7 +63,7 @@ export function saveStageConfig(columnId: number, input: unknown): number[] {
         throw new StageError(`The date to fill in for "${o.value}" must be a date column of this list.`)
       }
       if (e.activityTypeKey !== undefined && !db.prepare('SELECT 1 FROM activity_types WHERE key = ?').get(e.activityTypeKey)) {
-        throw new StageError(`The kind of note for "${o.value}" no longer exists.`)
+        throw new StageError(`The kind of ${word('activity', {}, col.grid_id)} for "${o.value}" no longer exists.`)
       }
     }
 

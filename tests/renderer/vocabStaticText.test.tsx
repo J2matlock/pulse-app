@@ -35,6 +35,13 @@ describe('static text uses word tokens', () => {
     expect(offenders).toEqual([])
   })
 
+  it('names notes with the activity word (AUDIT-155)', () => {
+    // "note" alone is the generic activity word; a workspace may call them "case notes" or "visits"
+    // Scratch notes are their own feature, not the activity word
+    const offenders = texts.filter(t => /\bnotes?\b/i.test(t.replace(/\{[^{}]*\}/g, '').replace(/\bscratch notes?\b/gi, '')))
+    expect(offenders).toEqual([])
+  })
+
   it('every token is a known word', () => {
     // {{date}}-style letter variables are not word tokens
     const filled = texts.map(t => fillVocab(t, resolveVocab()).replace(/\{\{[^{}]+\}\}/g, ''))

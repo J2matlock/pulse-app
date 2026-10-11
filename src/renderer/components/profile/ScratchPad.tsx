@@ -85,7 +85,7 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
         style: 'font-size: 15px;',
         spellcheck: 'false',
         // The editor is a textbox; give it a name and say it takes several lines
-        'aria-label': 'Scratch pad',
+        'aria-label': 'Scratch notes',
         'aria-multiline': 'true',
       },
       transformPastedHTML(html: string) {
@@ -172,7 +172,7 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
     if (!dirtyRef.current || !editorRef.current) return
     dirtyRef.current = false
     void persistPad(globalScopeRef.current, rowIdRef.current, sanitizeHtml(editorRef.current.getHTML())).then(res => {
-      if (!res.ok) toast.error('We couldn\'t save your last scratch pad changes. Please check them and try again.')
+      if (!res.ok) toast.error('We couldn\'t save your last changes to the scratch notes. Please check them and try again.')
     })
   }, [])
   useEffect(() => pulseEvents.on('app:locking', flushNow), [flushNow])

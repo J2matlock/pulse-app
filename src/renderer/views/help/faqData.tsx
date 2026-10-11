@@ -64,7 +64,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'gs-workspace-words',
     question: 'Can I change the words Pulse uses?',
-    answer: 'Yes. Go to Settings > Workspace and look under Words. Type what you call the things you track (for example "customer" and "customers"), your lists, your notes and the rest, then click "Save words." Your words show everywhere at once: the sidebar, buttons, the dashboard, and the PDFs you print. "Use general words" fills in plain defaults you can start from.',
+    answer: 'Yes. Go to Settings > Workspace and look under Words. Type what you call the things you track (for example "customer" and "customers"), your lists, your {activity:many} and the rest, then click "Save words." Your words show everywhere at once: the sidebar, buttons, the dashboard, and the PDFs you print. "Use general words" fills in plain defaults you can start from.',
     category: 'getting-started',
   },
   {
@@ -260,14 +260,14 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'profile-open',
     question: 'How do I open {a record}\'s profile?',
-    answer: 'Click the small profile icon at the left edge of any {record} in the {list}. The profile page will open showing all the details, notes, {activityLog}, deadlines, and more. Use the back arrow or breadcrumb to return to the {list}.',
+    answer: 'Click the small profile icon at the left edge of any {record} in the {list}. The profile page will open showing all the details, scratch notes, {activityLog}, deadlines, and more. Use the back arrow or breadcrumb to return to the {list}.',
     category: 'client-profiles',
     tourStepIds: ['open-profile'],
   },
   {
     id: 'profile-scratch-pad',
-    question: 'What is the scratch pad for?',
-    answer: 'The scratch pad is a free-form notes area attached to each {record}. Use it for quick reminders, observations, meeting prep, or anything you want to remember. It supports rich text \u2014 bold, italics, bullet lists, and more.',
+    question: 'What are scratch notes for?',
+    answer: 'Scratch notes are a free-form space attached to each {record}. Use it for quick reminders, observations, meeting prep, or anything you want to remember. It supports rich text \u2014 bold, italics, bullet lists, and more.',
     category: 'client-profiles',
     tourStepIds: ['scratch-pad'],
   },
@@ -300,7 +300,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'profile-activity',
     question: 'How do I see {a record}\'s full activity history?',
-    answer: 'Open the {record}\'s page \u2014 below the note box, deadlines and details, the {activityLog} lists everything in date order. Set "Show" to "{Activity:many} and changes" to include what the app recorded (edits, status changes and more), pick one kind to see only that, and tick "Show voided {activity:many}" to see voided ones as well.',
+    answer: 'Open the {record}\'s page \u2014 below the {activity} box, deadlines and details, the {activityLog} lists everything in date order. Set "Show" to "{Activity:many} and changes" to include what the app recorded (edits, status changes and more), pick one kind to see only that, and tick "Show voided {activity:many}" to see voided ones as well.',
     category: 'client-profiles',
     demo: <DemoActivityTimeline />,
   },
@@ -426,7 +426,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'ie-export-profile',
     question: 'How do I export a single {record}\'s profile?',
-    answer: 'Open the profile and click the "Export PDF" button in the profile header. This generates a comprehensive PDF with all the data, deadlines, {activityLog} entries, and notes \u2014 perfect for transferring cases or audit preparation.',
+    answer: 'Open the profile and click the "Export PDF" button in the profile header. This generates a comprehensive PDF with all the data, deadlines, {activityLog} entries, and scratch notes \u2014 useful for a handover or an audit.',
     category: 'import-export',
   },
   {
@@ -438,7 +438,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'ie-supervisor-report',
     question: 'How do I make a summary report to share?',
-    answer: 'Click "Reports" in the toolbar and choose "Summary report…". Choose which columns and counts to include, add an optional header and notes, and save it as a PDF. To build and keep your own reports instead, use Reports in the sidebar.',
+    answer: 'Click "Reports" in the toolbar and choose "Summary report…". Choose which columns and counts to include, add your name and title if you like, and save it as a PDF. To build and keep your own reports instead, use Reports in the sidebar.',
     category: 'import-export',
     tourStepIds: ['export-btn'],
   },
@@ -447,7 +447,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'st-snippets',
     question: 'What are snippets and how do I use them?',
-    answer: 'Snippets are text shortcuts that expand into longer phrases. For example, typing "/hw" could expand into "Reported stable housing with no concerns." Create snippets in the Snippets view (sidebar). They work in the scratch pad and {activityLog} \u2014 just type the trigger and press Tab to expand it.',
+    answer: 'Snippets are text shortcuts that expand into longer phrases. For example, typing "/hw" could expand into "Reported stable housing with no concerns." Create snippets in the Snippets view (sidebar). They work in scratch notes and the {activityLog} \u2014 just type the trigger and press Tab to expand it.',
     category: 'snippets-templates',
     demo: <DemoSnippetExpand />,
   },

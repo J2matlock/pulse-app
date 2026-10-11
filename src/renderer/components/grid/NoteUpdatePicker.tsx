@@ -36,7 +36,7 @@ export function NoteUpdatePicker({ value, onChange }: {
       {open && (
         <fieldset className="px-3 pb-2">
           <legend className="text-sm text-slate-600 dark:text-slate-300 pb-1">
-            When I log one of these, set this date to the day of the note:
+            When I log one of these, set this date to the day of the {t('activity')}:
           </legend>
           {options.map(o => (
             <label key={o.value} className="flex items-center gap-2 min-h-[44px] px-1 text-base text-slate-700 dark:text-slate-300 cursor-pointer">
