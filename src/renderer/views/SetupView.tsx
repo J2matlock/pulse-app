@@ -25,6 +25,7 @@ import { ImportWizard } from '../components/grid/ImportWizard'
 import { ApplyStarterDialog } from '../components/starters/ApplyStarterDialog'
 import { DateRepeatPicker, suggestRepeat, type DateAnswer } from './setup/DateRepeatPicker'
 import { GuidedBlankStart } from './setup/GuidedBlankStart'
+import { UpdateCheckChoice } from './setup/UpdateCheckChoice'
 import { friendlyError } from '../utils/friendlyError'
 
 type Step = 'welcome' | 'profile' | 'start' | 'sheet-name' | 'sheet-import' | 'sheet-rows' | 'sheet-dates' | 'blank' | 'done'
@@ -405,6 +406,9 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
                   </ul>
                 </div>
               )}
+              <div className="mb-6 rounded-lg border border-slate-200 dark:border-slate-600 px-4 py-3 max-w-md mx-auto">
+                <UpdateCheckChoice />
+              </div>
               <p className="text-lg text-slate-600 dark:text-slate-300 mb-6 max-w-sm mx-auto">Would you like a quick tour of the main features?</p>
               <button type="button" className="btn-primary inline-flex items-center gap-2 px-8" onClick={onStartTour}>
                 Show me around <ArrowRight className="w-5 h-5" aria-hidden="true" />

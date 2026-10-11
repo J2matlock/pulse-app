@@ -178,6 +178,55 @@ describe('SetupView', () => {
     example.warnings = []
   })
 
+  describe('asks about the automatic update check on the last screen (AUDIT-087)', () => {
+    const label = /Check for new versions when Pulse opens/
+    const paths: Array<[string, () => Promise<void>]> = [
+      ['example', async () => {
+        fireEvent.click(await screen.findByRole('button', { name: /Start from an example/ }))
+        fireEvent.click(screen.getByRole('button', { name: 'apply example' }))
+      }],
+      ['spreadsheet', async () => {
+        fireEvent.click(await screen.findByRole('button', { name: /Bring in a spreadsheet/ }))
+        fireEvent.change(screen.getByLabelText('List name'), { target: { value: 'Fleet' } })
+        fireEvent.click(screen.getByRole('button', { name: /Choose file/ }))
+        fireEvent.click(await screen.findByRole('button', { name: 'finish import' }))
+        fireEvent.click(await screen.findByRole('radio', { name: 'Vehicles' }))
+        fireEvent.click(screen.getByRole('button', { name: /Continue/ }))
+        await screen.findByText('Which of these dates repeat?')
+        fireEvent.click(screen.getByRole('button', { name: /Finish/ }))
+      }],
+      ['blank', async () => {
+        fireEvent.click(await screen.findByRole('button', { name: /Start blank/ }))
+        for (let i = 0; i < 3; i++) fireEvent.click(screen.getByRole('button', { name: /Continue/ }))
+        fireEvent.click(screen.getByRole('button', { name: 'Just the name column' }))
+        await screen.findByText('A few quick questions')
+        fireEvent.click(screen.getByRole('button', { name: /Finish/ }))
+      }],
+    ]
+
+    it.each(paths)('%s: on by default, says what it sends, and saves a change to the Settings → About setting', async (_path, walk) => {
+      toStart()
+      await walk()
+      await screen.findByText('Your workspace is ready')
+      const box = screen.getByRole('checkbox', { name: label }) as HTMLInputElement
+      expect(box.checked).toBe(true)
+      expect(screen.getByText(/reads a version number from GitHub and sends nothing about you or your data/)).toBeTruthy()
+      fireEvent.click(box)
+      await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.SETTINGS_UPDATE, 'auto_update_check', 'false'))
+      expect(box.checked).toBe(false)
+    })
+
+    it('shows the setting as saved when it was already switched off', async () => {
+      const base = mockInvoke.getMockImplementation()!
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) =>
+        channel === IPC.SETTINGS_GET && args[0] === 'auto_update_check' ? Promise.resolve({ ok: true, data: 'false' }) : base(channel, ...args))
+      toStart()
+      await paths[0]![1]()
+      await screen.findByText('Your workspace is ready')
+      await waitFor(() => expect((screen.getByRole('checkbox', { name: label }) as HTMLInputElement).checked).toBe(false))
+    })
+  })
+
   it('example: finishes setup once the example is added', async () => {
     toStart()
     fireEvent.click(await screen.findByRole('button', { name: /Start from an example/ }))

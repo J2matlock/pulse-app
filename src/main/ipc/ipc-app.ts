@@ -38,6 +38,23 @@ function automaticUpdateCheckAllowed(): boolean {
   }
 }
 
+/**
+ * Whether first-run setup is finished, read the way ONBOARDING_CHECK reads it: the
+ * app_meta flag, or (an install from before the flag) any list existing. Setup asks
+ * about the automatic update check, so nothing is checked until it's answered (AUDIT-087).
+ */
+function setupFinished(): boolean {
+  try {
+    const db = getDb()
+    const meta = db.prepare("SELECT value FROM app_meta WHERE key = 'onboarding_complete'").get() as { value: string } | undefined
+    if (meta) return meta.value === '1'
+    return !!db.prepare('SELECT 1 FROM grids WHERE is_active = 1 LIMIT 1').get()
+  } catch (err) {
+    logNonFatal('ipc-app', 'read onboarding_complete', err)
+    return false
+  }
+}
+
 export function registerAppHandlers(): void {
   // ── Clipboard ───────────────────────────────────────────────────────────
   secureWrap(IPC.CLIPBOARD_WRITE, 'ipc-app', (_e, text: string) => {
@@ -181,6 +198,8 @@ export function registerAppHandlers(): void {
     if (process.env.NODE_ENV === 'test' && !process.env.VITEST) return ok({ available: false })
     const manual = !!opts && typeof opts === 'object' && opts.manual === true
     if (!manual && !automaticUpdateCheckAllowed()) return ok({ available: false })
+    // Not before setup has asked about it; the caller may try again once setup is done
+    if (!manual && !setupFinished()) return ok({ available: false, setupPending: true })
     const UPDATE_CHECK_URL = 'https://raw.githubusercontent.com/J2matlock/pulse-releases/main/latest.json'
     const UPDATE_ALLOWED_URL_PREFIX = 'https://github.com/J2matlock/pulse-releases/'
     let data: { version?: string; downloadUrl?: string; downloads?: Partial<Record<'win' | 'mac' | 'linux', string>>; releaseNotes?: string }
