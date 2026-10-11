@@ -30,7 +30,7 @@ import { useAlertStore } from '../../stores/alertStore'
 import { useProfileStore } from '../../stores/profileStore'
 import type { GridRow, SortConfig, CellFormatRule } from '../../../shared/types'
 import { matchFilter } from '../../utils/filterMatch'
-import { deadlineCompare, numberCompare, dateCompare, textCompare, keyCompare, daysUntilSource } from './gridSort'
+import { deadlineCompare, numberCompare, dateCompare, textCompare, keyCompare, daysUntilSource, memoKey } from './gridSort'
 import { rowMatchesSearch } from '../../utils/searchMatch'
 import { CellConditionalFormatPanel } from './CellConditionalFormatPanel'
 import { CellHistoryPopover } from '../shared/CellHistoryPopover'
@@ -449,7 +449,7 @@ export function DataGrid(): React.ReactElement {
       const byDate = dateCompare(col.id, desc)
       const srcId = compCfg?.source_column_id
       // The same days the cell shows: to when it's due when the date has a rule (R4)
-      const byDaysUntil = keyCompare(r => srcId ? daysUntilSource(srcId, r, alertRules) : null, desc)
+      const byDaysUntil = keyCompare(memoKey(r => srcId ? daysUntilSource(srcId, r, alertRules) : null), desc)
       // Ages sort by date of birth (an earlier date is older)
       const byAge = keyCompare(r => srcId ? (r[`col_${srcId}` as keyof GridRow] as string | null) || null : null, desc)
       // Link columns (W04) sort by the linked names, not the stored ids
