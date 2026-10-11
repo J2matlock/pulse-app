@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 
 const mockInvoke = vi.fn()
 
@@ -256,5 +256,55 @@ describe('LockScreenView', () => {
       fireEvent.submit(key.closest('form')!)
       expect((await screen.findByRole('heading', { name: /couldn't open your data/ })).textContent).toMatch(/Your recovery key is right/)
     })
+  })
+
+  it('announces a lockout once, not every second, and says when it is over (AUDIT-144)', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'auth:verify-password') return Promise.resolve({ ok: false, error: 'Too many failed attempts. Try again in 3 seconds.' })
+      if (channel === 'auth:lockout-remaining') return Promise.resolve({ ok: true, data: 3 })
+      if (channel === 'auth:get-hint') return Promise.resolve({ ok: true, data: '' })
+      if (channel === 'auth:has-recovery-key') return Promise.resolve({ ok: true, data: false })
+      return Promise.resolve({ ok: false })
+    })
+    // Fake timers before the countdown starts, so its ticks can be stepped through
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      render(<LockScreenView />)
+      const alert = await screen.findByRole('alert')
+      expect(alert.textContent).toBe('Too many tries. You can try again in 3 seconds.')
+      // Each tick schedules the next, so step one second at a time
+      const tick = () => act(() => { vi.advanceTimersByTime(1000) })
+      await act(async () => { await Promise.resolve() })
+
+      tick()
+      // The visible countdown moves on; the announced text doesn't
+      expect(screen.getByText(/try again in 2 seconds/)).toBeTruthy()
+      expect(screen.getByText(/try again in 2 seconds/).getAttribute('aria-hidden')).toBe('true')
+      expect(screen.getByRole('alert').textContent).toBe('Too many tries. You can try again in 3 seconds.')
+      tick()
+      tick()
+      expect(screen.getByRole('status').textContent).toBe('You can try again now.')
+      expect(screen.queryByRole('alert')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('warns about a synced data folder with the same advice as restore, long enough to read (AUDIT-161)', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'auth:verify-password') return Promise.resolve({ ok: true, data: { cloudWarning: 'Dropbox' } })
+      if (channel === 'auth:get-hint') return Promise.resolve({ ok: true, data: '' })
+      if (channel === 'auth:has-recovery-key') return Promise.resolve({ ok: true, data: false })
+      return Promise.resolve({ ok: false })
+    })
+    render(<LockScreenView />)
+    const input = screen.getByPlaceholderText('Password')
+    fireEvent.change(input, { target: { value: 'right-password' } })
+    fireEvent.submit(input.closest('form')!)
+    await waitFor(() => expect(mockSetLocked).toHaveBeenCalledWith(false))
+    const [text, opts] = vi.mocked(toast).mock.calls[0] as [string, { duration: number }]
+    expect(text).toMatch(/data folder is inside Dropbox/)
+    expect(text).not.toMatch(/Warning:|corrupt|databases/)
+    expect(opts.duration).toBeGreaterThanOrEqual(15000)
   })
 })
