@@ -112,6 +112,16 @@ describe('profile PDF', () => {
     expect(pdf).toContain('(5 days)')
   })
 
+  it('prints open checklist items with a drawn box, not a garbled line (AUDIT-035)', async () => {
+    const { gridId, rowId } = seedRecord()
+    testDb.db.prepare("INSERT INTO checklist_items (row_id, title, position) VALUES (?, 'Call landlord', 0)").run(rowId)
+    const dest = join(testDb.tmpDir, 'checklist.pdf')
+    await exportPdfProfile({ rowId, gridId, destPath: dest, includeSections: ALL })
+    const pdf = text(dest)
+    expect(pdf).toContain('(Call landlord)')
+    expect(pdf).not.toContain('C\u0000a\u0000l\u0000l')
+  })
+
   it('describes overdue, step and extended deadlines', () => {
     expect(deadlineSummary({ due: '2026-10-01', state: 'overdue', daysUntil: -3, estimated: false })).toBe('Next due Oct 1, 2026  ·  OVERDUE by 3 days')
     expect(deadlineSummary({ due: '2026-10-20', state: 'ok', daysUntil: 1, estimated: true, label: 'Step 2', extended: { from: '2026-10-10', reason: 'Client in hospital' } }))

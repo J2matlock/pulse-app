@@ -261,6 +261,26 @@ export function renderProfileToDoc(
     y += 2
   }
 
+  /**
+   * An open checklist item: a drawn box, then the title, wrapped. "☐" isn't in
+   * the PDF's built-in font and garbled the whole line (AUDIT-035).
+   */
+  function addChecklistItem(text: string, indent: number): void {
+    if (y > pageH - 15) { doc.addPage(); y = 18 }
+    const x = marginL + indent
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setDrawColor(0, 0, 0)
+    doc.setLineWidth(0.3)
+    doc.rect(x, y - 2.6, 2.6, 2.6)
+    const lines = doc.splitTextToSize(text, contentW - indent - 5) as string[]
+    lines.forEach((line, i) => {
+      if (i > 0) { y += 5; if (y > pageH - 15) { doc.addPage(); y = 18 } }
+      doc.text(line, x + 5, y)
+    })
+    y += 5
+  }
+
   // ── Grid Data ──
   if (includeSections.gridData) {
     addSection(`${term(v, 'record', { cap: true })} information`)
@@ -316,12 +336,8 @@ export function renderProfileToDoc(
 
       // Render ungrouped items first
       for (const item of ungrouped) {
-        if (y > pageH - 15) { doc.addPage(); y = 18 }
-        doc.setFontSize(9)
-        doc.setFont('helvetica', 'normal')
         const dueStr = item.due_date ? `  (due ${formatDate(item.due_date, 'us')})` : ''
-        doc.text(`\u2610  ${item.title}${dueStr}`, marginL, y)
-        y += 5
+        addChecklistItem(`${item.title}${dueStr}`, 0)
       }
 
       // Render grouped items by group
@@ -337,10 +353,8 @@ export function renderProfileToDoc(
         doc.setFont('helvetica', 'normal')
         // Group items (indented)
         for (const item of groupItems) {
-          if (y > pageH - 15) { doc.addPage(); y = 18 }
           const dueStr = item.due_date ? `  (due ${formatDate(item.due_date, 'us')})` : ''
-          doc.text(`\u2610  ${item.title}${dueStr}`, marginL + 4, y)
-          y += 5
+          addChecklistItem(`${item.title}${dueStr}`, 4)
         }
       }
       y += 4
