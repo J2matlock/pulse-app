@@ -32,6 +32,33 @@ describe('the form builder', () => {
     expect(screen.getByText(/1 questions · 2 removed because their column was deleted/)).toBeTruthy()
   })
 
+  it('a question the column marks required shows ticked, and unticking it saves "not required"', async () => {
+    forms = [{ id: 11, grid_id: 3, name: 'Short', intro: null, fields: [{ kind: 'column', columnId: 1 }], log_activity_type: null, position: 0, created_at: '', updated_at: '' }]
+    render(<FormsDialog gridId={3} gridName="Clients" onClose={vi.fn()} />)
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    fireEvent.click(screen.getByRole('button', { name: /Edit/ }))
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    const box = screen.getByRole('checkbox', { name: 'Required' }) as HTMLInputElement
+    expect(box.checked).toBe(true)
+    fireEvent.click(box)
+    expect(box.checked).toBe(false)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Save form' })) })
+    const saved = invoke.mock.calls.find(c => c[0] === 'forms:save')![1] as { fields: unknown[] }
+    expect(saved.fields).toEqual([{ kind: 'column', columnId: 1, required: false }])
+  })
+
+  it('a click outside does not throw away a form being built', async () => {
+    forms = []
+    const onClose = vi.fn()
+    const { container } = render(<FormsDialog gridId={3} gridName="Clients" onClose={onClose} />)
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    fireEvent.click(screen.getByRole('button', { name: /New form/ }))
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    fireEvent.click(container.firstChild as HTMLElement)
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Form name')).toBeTruthy()
+  })
+
   it('builds a form and saves it', async () => {
     forms = []
     render(<FormsDialog gridId={3} gridName="Clients" onClose={vi.fn()} />)

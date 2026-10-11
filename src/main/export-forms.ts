@@ -8,6 +8,7 @@ import { getDb } from './database'
 import { jsPDF } from './export-shared'
 import { getForm } from './forms'
 import { formatDue } from '../shared/deadlineEngine'
+import { tagText } from '../shared/tagValue'
 
 export class FormPrintError extends Error {}
 
@@ -44,6 +45,7 @@ export function buildFormPdf(formId: number, rowId: number | null): { pdf: Insta
       const v = cells.get(c.id) ?? ''
       if ((c.column_type === 'date' || c.column_type === 'deadline') && /^\d{4}-\d{2}-\d{2}/.test(v)) return formatDue(v.slice(0, 10))
       if (c.column_type === 'checkbox') return v === 'true' || v === '1' ? 'Yes' : ''
+      if (c.column_type === 'tag') return tagText(v)
       return v
     }
   }
@@ -62,21 +64,29 @@ export function buildFormPdf(formId: number, rowId: number | null): { pdf: Insta
     y += 2
   }
 
+  /** One writing line, with one line of text on it (callers wrap longer text first) */
   const writeLine = (x: number, w: number, text: string) => {
     doc.setDrawColor(120); doc.setLineWidth(0.3)
     doc.line(x, y + 1.5, x + w, y + 1.5)
-    if (text) { doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.text(doc.splitTextToSize(text, w)[0] as string, x + 1, y) }
+    if (text) { doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.text(text, x + 1, y) }
+  }
+  const wrap = (text: string, w: number): string[] => {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11)
+    return text ? doc.splitTextToSize(text, w - 2) as string[] : []
   }
   const box = (x: number, checked: boolean) => {
     doc.setDrawColor(60); doc.setLineWidth(0.4); doc.rect(x, y - 3.5, 4, 4)
     if (checked) { doc.line(x + 0.8, y - 1.5, x + 1.8, y - 0.2); doc.line(x + 1.8, y - 0.2, x + 3.4, y - 3) }
   }
 
-  // Half-width fields sit side by side in pairs
+  // Half-width fields sit side by side in pairs. halfBottom is where the left
+  // one ended, so whatever comes next starts below the taller of the pair.
   let halfOpen = false
+  let halfBottom = 0
+  const closeHalfRow = () => { if (halfOpen) { y = Math.max(y, halfBottom) + 9; halfOpen = false } }
   for (const f of form.fields) {
     if (f.kind === 'section') {
-      if (halfOpen) { y += 12; halfOpen = false }
+      closeHalfRow()
       need(14); y += 3
       doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.text(f.title, margin, y)
       doc.setDrawColor(150); doc.setLineWidth(0.5); doc.line(margin, y + 1.5, margin + width, y + 1.5); y += 7
@@ -84,7 +94,7 @@ export function buildFormPdf(formId: number, rowId: number | null): { pdf: Insta
       continue
     }
     if (f.kind === 'note') {
-      if (halfOpen) { y += 12; halfOpen = false }
+      closeHalfRow()
       need(26)
       doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text(`${f.label}${f.required ? ' *' : ''}`, margin, y); y += 7
       for (let i = 0; i < 3; i++) { writeLine(margin, width, ''); y += 7 }
@@ -93,9 +103,14 @@ export function buildFormPdf(formId: number, rowId: number | null): { pdf: Insta
     }
     const c = cols.get(f.columnId)
     if (!c) continue
-    const labelText = `${f.label || c.name}${f.required ? ' *' : ''}`
+    // Unset follows the column's own "required"; the builder stores false to turn it off
+    let byColumn = false
+    try { byColumn = (JSON.parse(c.config || '{}') as { required?: boolean }).required === true } catch { /* unreadable settings */ }
+    const labelText = `${f.label || c.name}${(f.required ?? byColumn) ? ' *' : ''}`
     const v = value(c)
     const half = f.width === 'half' && !['dropdown', 'status', 'notes', 'address'].includes(c.column_type)
+    // A full-width field after a lone half one starts on its own row, not on top of it
+    if (halfOpen && !half) closeHalfRow()
     const x = half && halfOpen ? margin + width / 2 + 4 : margin
     const w = half ? width / 2 - 4 : width
     if (!(half && halfOpen)) need(c.column_type === 'notes' || c.column_type === 'address' ? 30 : 14)
@@ -115,13 +130,19 @@ export function buildFormPdf(formId: number, rowId: number | null): { pdf: Insta
     } else if ((c.column_type === 'date' || c.column_type === 'deadline') && !v) {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.text('____ / ____ / ________', x, y)
     } else if (c.column_type === 'notes' || c.column_type === 'address') {
-      const lines = v ? doc.splitTextToSize(v, w) as string[] : []
-      for (let i = 0; i < Math.max(3, lines.length); i++) { writeLine(x, w, lines[i] ?? ''); y += 7 }
+      const lines = wrap(v, w)
+      for (let i = 0; i < Math.max(3, lines.length); i++) { if (i > 0) need(7); writeLine(x, w, lines[i] ?? ''); y += 7 }
       y -= 7
     } else {
-      writeLine(x, w, v)
+      // Every line of a long answer, each on its own writing line, so nothing is cut off
+      const lines = wrap(v, w)
+      for (let i = 0; i < Math.max(1, lines.length); i++) {
+        if (i > 0) { y += 7; need(7) }
+        writeLine(x, w, lines[i] ?? '')
+      }
     }
-    if (half && !halfOpen) { halfOpen = true; y = yLabel; continue }
+    if (half && !halfOpen) { halfOpen = true; halfBottom = y; y = yLabel; continue }
+    if (halfOpen) y = Math.max(y, halfBottom)
     halfOpen = false
     y += 9
   }

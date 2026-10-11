@@ -107,7 +107,11 @@ export function FormBuilder({ gridId, form, onSaved, onCancel }: { gridId: numbe
                   <input className="input w-full" aria-label={`Help for ${title}`} placeholder="Help text (optional)" value={f.help ?? ''} onChange={e => patch(i, { help: e.target.value || undefined })} />
                   <div className="flex flex-wrap items-center gap-4">
                     <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-200 cursor-pointer" style={{ minHeight: 44 }}>
-                      <input type="checkbox" className="w-5 h-5" checked={!!f.required} onChange={e => patch(i, { required: e.target.checked || undefined })} />
+                      {/* A column the list marks required counts as required unless unticked here,
+                          so unticking stores an explicit false (undefined would fall back to the column) */}
+                      <input type="checkbox" className="w-5 h-5"
+                        checked={f.kind === 'column' ? (f.required ?? (c ? requiredByColumn(c) : false)) : !!f.required}
+                        onChange={e => patch(i, { required: f.kind === 'column' ? e.target.checked : e.target.checked || undefined })} />
                       Required
                     </label>
                     {f.kind === 'column' && (
