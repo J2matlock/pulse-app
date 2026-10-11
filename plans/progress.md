@@ -1638,3 +1638,66 @@ Build state: npm test 4163 pass / 4 skip; typecheck 0; eslint 0 errors (26 exhau
 ## 2026-10-11 (cont.) — Pulse 2.3.0 released
 - Version 2.3.0 (audit + polish pass), What's New entry, tagged v2.3.0 in pulse-app
 - `pulse-releases` v2.3.0: `PULSE.exe`, `BaringaSoftPulse-2.3.0.AppImage`, `SHA256SUMS.txt`, marked latest; `latest.json` announces 2.3.0
+
+## 2026-10-11 (cont.) — Bug sweep
+
+Started from a user report: on an empty Tasks page, a new group didn't show until a task existed. Fixed: groups count as content, and adding a group switches to My order.
+
+Then a broad sweep:
+- 7 read-only reviewers by behaviour, covering empty states, tasks, grid data, main integrity, dates, contacts/letters/forms and app shell. About 119 findings, in `plans/bugsweep-2026-10/S1–S7.md`.
+- 5 builder tracks by file ownership (`TRACKS.md`), all merged.
+
+What changed:
+- **Tasks & recurrence:**
+  - Monthly and yearly repeats keep the 31st and Feb 29 (the day is saved in the rule JSON, no migration).
+  - Record-page checklist group undo/redo is fixed.
+  - Dragging tasks into another group works.
+  - Clear date can be clicked.
+  - Tasks of trashed lists are hidden.
+  - The badge skips snoozed tasks.
+  - The summary report counts each completion of a repeating task.
+- **Grid:**
+  - Undo/redo of a new record or column keeps the same id (via the Trash).
+  - Swapped choice renames keep records apart.
+  - Move/copy works with duplicate column names.
+  - Filters read amounts.
+  - Age and Days-until work in filters, highlights and copy.
+  - Blanks sort last on Z-A.
+  - Multi-line paste works.
+  - A hidden or deleted "Last name" column is handled.
+  - The column-type cache resets on restore.
+- **Import/export/backup:**
+  - Excel dates are read on the right day.
+  - Two-digit years use a sliding window, with birth columns kept in the past.
+  - Zip/ID columns aren't taken for dates.
+  - Restoring a newer-version backup is refused up front.
+  - Export everything includes archived records.
+  - Age and Days-until show in CSV/PDF.
+  - Template and starter Age/Days-until column references survive.
+- **Contacts, letters, forms:**
+  - vCard round trips keep every field, category, custom field and accented name.
+  - Contact undo restores everything.
+  - Deleted built-in categories and snippets stay deleted.
+  - Placeholders read the right columns.
+  - Form print layout and Required are fixed.
+  - The Templates page sees new lists.
+  - The first contact requirement can be added.
+- **App shell:**
+  - Enter on Cancel no longer confirms.
+  - No false backup failure when quitting while locked.
+  - Pending edits are flushed before lock or quit (`APP_FLUSH_PENDING`/`APP_FLUSH_DONE`).
+  - Shortcuts are off while locked.
+  - Focus mode overlays and Escape handling are fixed.
+  - Error-boundary recovery.
+  - The window opens on screen.
+  - A `day:changed` midnight event moves the dashboard, badge and grid colors on.
+  - Several empty-state messages corrected.
+
+Left for later:
+- Unicode font in PDFs: non-Latin text still prints garbled.
+- Showing each repeating-task completion in the Tasks page's Completed list and progress bar (a product decision).
+- Grid paste in DD/MM order.
+- Add column then Undo still leaves a Trash entry.
+- Report week buckets ignore the week-start setting.
+
+Build state: npm test 4355 pass / 4 skip; typecheck 0; eslint 0 errors; e2e 11/11; empty-Tasks group checked in the app.
