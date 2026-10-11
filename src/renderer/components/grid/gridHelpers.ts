@@ -1,6 +1,6 @@
 import type { Column, GridRow } from '../../../shared/types'
 import { isNotTypedColumnType } from '../../../shared/types'
-import { parseDate } from '../../../shared/parseDate'
+import { parseDate, looksLikeBirthColumn } from '../../../shared/parseDate'
 import { columnOptionLabels } from '../../../shared/stages'
 import { cellText } from '../../../shared/cellText'
 import { computedColumnText, isComputedColumnType } from '../../utils/computedColumns'
@@ -29,7 +29,8 @@ export function validateForColumnType(value: string, column: Column): string | n
   switch (column.column_type) {
     case 'date':
       // Stored as YYYY-MM-DD, read the way Import reads dates; "March 3" (no year) is refused (G-14)
-      return parseDate(trimmed)
+      // A birth-date column reads "3/15/40" as 1940, never next decade
+      return parseDate(trimmed, 'mdy', { birth: looksLikeBirthColumn(column.name) })
     case 'number':
     case 'currency': {
       // Strip currency symbols for currency type

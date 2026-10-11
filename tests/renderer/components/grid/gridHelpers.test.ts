@@ -12,6 +12,14 @@ describe('checkPaste', () => {
     expect(checkPaste('March 3', col('date'))).toEqual({ error: expect.stringMatching(/isn't a full date/) })
   })
 
+  it('a two-digit year pasted into a birth-date column is never in the future', () => {
+    const nextYear = String((new Date().getFullYear() + 1) % 100).padStart(2, '0')
+    const pasted = checkPaste(`3/15/${nextYear}`, col('date', '{}', 'Date of birth'))
+    expect('value' in pasted && Number(pasted.value.slice(0, 4))).toBeLessThanOrEqual(new Date().getFullYear())
+    const review = checkPaste(`3/15/${nextYear}`, col('date', '{}', 'Review date'))
+    expect('value' in review && Number(review.value.slice(0, 4))).toBe(new Date().getFullYear() + 1)
+  })
+
   it('only takes a status choice that exists, matched by label', () => {
     const status = col('status', JSON.stringify({ options: [{ label: 'Booked', color: '#000' }] }), 'Stage')
     expect(checkPaste('booked', status)).toEqual({ value: 'Booked' })

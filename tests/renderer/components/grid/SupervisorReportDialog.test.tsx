@@ -33,7 +33,7 @@ vi.mock('../../../../src/renderer/utils/safeInvoke', () => ({
   safeInvoke: vi.fn().mockResolvedValue({ ok: true, data: {} }),
 }))
 
-import { SupervisorReportDialog } from '../../../../src/renderer/components/grid/SupervisorReportDialog'
+import { SupervisorReportDialog, getPresetRange } from '../../../../src/renderer/components/grid/SupervisorReportDialog'
 import type { Column } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
 
@@ -79,5 +79,15 @@ describe('SupervisorReportDialog', () => {
   it('renders Export Report button', () => {
     render(<SupervisorReportDialog gridId={1} columns={[makeColumn(1, 'Name')]} onClose={vi.fn()} />)
     expect(screen.getByText('Export Report')).toBeTruthy()
+  })
+})
+
+describe('"This Week" follows Settings, Week starts on (bug sweep S5)', () => {
+  it('runs Sunday to Saturday, or Monday to Sunday', () => {
+    const wed = new Date(2026, 9, 14)
+    expect(getPresetRange('this-week', 'sunday', wed)).toEqual({ start: '2026-10-11', end: '2026-10-17' })
+    expect(getPresetRange('this-week', 'monday', wed)).toEqual({ start: '2026-10-12', end: '2026-10-18' })
+    const sun = new Date(2026, 9, 11)
+    expect(getPresetRange('this-week', 'monday', sun)).toEqual({ start: '2026-10-05', end: '2026-10-11' })
   })
 })
