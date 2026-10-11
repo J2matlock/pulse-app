@@ -129,7 +129,7 @@ export function handleCellKeyDown(
           const header = visibleCols.map(c => c.name).join('\t')
           const bodyLines = currentFilteredRows
             .filter(r => currentSelectedRowIds.has(r.row_id))
-            .map(r => visibleCols.map(c => formatCellForClipboard(c, r[`col_${c.id}` as keyof GridRow] as string | null)).join('\t'))
+            .map(r => visibleCols.map(c => formatCellForClipboard(c, r[`col_${c.id}` as keyof GridRow] as string | null, r)).join('\t'))
           void window.api.copyToClipboard([header, ...bodyLines].join('\n'))
         } else {
           // Single-cell copy
@@ -137,7 +137,7 @@ export function handleCellKeyDown(
           const col = columns.find(c => c.id === columnId)
           if (row && col) {
             const cellVal = row[`col_${columnId}` as keyof GridRow] as string | null
-            const plainText = formatCellForClipboard(col, cellVal)
+            const plainText = formatCellForClipboard(col, cellVal, row)
             if (e.shiftKey) {
               const labeled = `${col.name}: ${plainText}`
               void window.api.copyToClipboard(labeled)

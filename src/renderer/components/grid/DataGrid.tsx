@@ -124,6 +124,9 @@ export function DataGrid(): React.ReactElement {
 
   // The built-in Tags column (G-37)
   const showTagsColumn = useGridStore(s => s.showTagsColumn)
+  // Filters, grouping and move/copy reach columns a saved view hides too
+  const hiddenColumns = useGridStore(s => s.hiddenColumns)
+  const allColumns = useMemo(() => [...columns, ...hiddenColumns], [columns, hiddenColumns])
   const setShowTagsColumn = useGridStore(s => s.setShowTagsColumn)
   const alertRules = useAlertStore(s => s.rules)
   const alertRuleMap = useMemo(() => new Map(alertRules.map(r => [r.id, r])), [alertRules])
@@ -227,12 +230,12 @@ export function DataGrid(): React.ReactElement {
     }
     if (activeFilters.length > 0) {
       const matcher = filterMode === 'or'
-        ? (row: GridRow) => activeFilters.some(f => matchFilter(row, f, columns, rowTagsMap, alertRuleMap))
-        : (row: GridRow) => activeFilters.every(f => matchFilter(row, f, columns, rowTagsMap, alertRuleMap))
+        ? (row: GridRow) => activeFilters.some(f => matchFilter(row, f, allColumns, rowTagsMap, alertRuleMap))
+        : (row: GridRow) => activeFilters.every(f => matchFilter(row, f, allColumns, rowTagsMap, alertRuleMap))
       result = result.filter(row => matcher(row) || pinned(row))
     }
     return result
-  }, [rows, activeFilters, filterMode, columns, rowTagsMap, showStarredOnly, pinnedRowId, alertRuleMap])
+  }, [rows, activeFilters, filterMode, allColumns, rowTagsMap, showStarredOnly, pinnedRowId, alertRuleMap])
 
   // Changing what's filtered lets the pinned record go (not the first render: the grid may mount after an add)
   const filterMounted = useRef(false)
@@ -556,7 +559,7 @@ export function DataGrid(): React.ReactElement {
     activeCustomGroup,
     collapseAll: handleCollapseAll, expandAll: handleExpandAll, toggleGroup: handleToggleGroup,
   } = useGridGrouping({
-    tableRows, columns, acuityLevels, customGroups, activeCustomGroupId,
+    tableRows, columns: allColumns, acuityLevels, customGroups, activeCustomGroupId,
     // Grouping by priority stops while the priority feature is off
     groupByColumnId: groupByColumnId === ACUITY_GROUP_KEY && !acuityEnabled ? null : groupByColumnId,
   })
@@ -667,8 +670,8 @@ export function DataGrid(): React.ReactElement {
     const newRow = s.rows.find(r => r.row_id === lastAddedRowId)
     const hiddenByFilter = !!newRow && ((s.showStarredOnly && newRow.is_starred !== 1) || !!s.searchQuery
       || (s.activeFilters.length > 0 && !(s.filterMode === 'or'
-        ? s.activeFilters.some(f => matchFilter(newRow, f, columns, rowTagsMap, alertRuleMap))
-        : s.activeFilters.every(f => matchFilter(newRow, f, columns, rowTagsMap, alertRuleMap)))))
+        ? s.activeFilters.some(f => matchFilter(newRow, f, allColumns, rowTagsMap, alertRuleMap))
+        : s.activeFilters.every(f => matchFilter(newRow, f, allColumns, rowTagsMap, alertRuleMap)))))
     if (hiddenByFilter) {
       toast(tt => (
         <span className="flex items-center gap-3 text-base">
@@ -993,7 +996,7 @@ export function DataGrid(): React.ReactElement {
       <MoveToGridDialog
         moveToGridTarget={moveToGridTarget}
         activeGridId={activeGridId}
-        columns={columns}
+        columns={allColumns}
         setMoveToGridTarget={setMoveToGridTarget}
       />
 
@@ -1038,7 +1041,7 @@ export function DataGrid(): React.ReactElement {
         open={bulkMoveTarget}
         selectedRowIds={selectedRowIds}
         activeGridId={activeGridId}
-        columns={columns}
+        columns={allColumns}
         setSelectedRowIds={setSelectedRowIds}
         setBulkMoveTarget={setBulkMoveTarget}
       />

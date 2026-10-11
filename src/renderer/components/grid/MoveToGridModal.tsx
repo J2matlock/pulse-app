@@ -92,8 +92,9 @@ export function MoveToGridModal({ rowId, sourceGridId, sourceColumns, onDone, on
 
   useEffect(() => {
     if (targetGridId === null) { setTargetColumns([]); return }
-    void invoke<{ columns: Column[] }>(IPC.GRID_GET, targetGridId, false)
-      .then(r => setTargetColumns(r.columns))
+    // Hidden columns there still take the values
+    void invoke<{ columns: Column[]; hiddenColumns?: Column[] }>(IPC.GRID_GET, targetGridId, false)
+      .then(r => setTargetColumns([...r.columns, ...(r.hiddenColumns ?? [])]))
       .catch(() => {})
   }, [targetGridId])
 
@@ -275,8 +276,9 @@ export function BulkMoveToGridModal({ rowIds, sourceGridId, sourceColumns, onDon
 
   useEffect(() => {
     if (targetGridId === null) { setTargetColumns([]); return }
-    void invoke<{ columns: Column[] }>(IPC.GRID_GET, targetGridId, false)
-      .then(r => setTargetColumns(r.columns))
+    // Hidden columns there still take the values
+    void invoke<{ columns: Column[]; hiddenColumns?: Column[] }>(IPC.GRID_GET, targetGridId, false)
+      .then(r => setTargetColumns([...r.columns, ...(r.hiddenColumns ?? [])]))
       .catch(() => {})
   }, [targetGridId])
 

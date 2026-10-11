@@ -7,6 +7,7 @@ import { isNotTypedColumnType, takesDeadlineRule } from '../../../shared/types'
 import { getMatchingThreshold, evaluateRuleForRow, formatResultTooltip, deadlineChipText } from '../../utils/deadlineCalc'
 import { resolveAlertColor } from '../../utils/alertColors'
 import { evalCellFormat } from './CellConditionalFormatPanel'
+import { withComputedValues } from '../../utils/computedColumns'
 import { CellEditor, type NavDirection } from './CellEditor'
 import { GridLinkEditor } from '../links/LinkPicker'
 import { CellDisplay } from './CellDisplay'
@@ -82,6 +83,7 @@ export const SortableRow = React.memo(function SortableRow({
   columns,
   columnMap,
   alertRuleMap,
+  deadlineContext,
   cellFormats,
   parsedColumnConfigs,
   hasAnyHighlightRules,
@@ -119,15 +121,17 @@ export const SortableRow = React.memo(function SortableRow({
 
   // Pre-compute row-level formatting (cell rules + column rules with highlightRow=true).
   const rowOriginal = row.original as GridRow
+  // Highlight rules on Age and Days-until compare the number the cell shows (bug sweep S5)
+  const evalRow = useMemo(() => withComputedValues(rowOriginal, columns, alertRuleMap), [rowOriginal, columns, alertRuleMap, deadlineContext]) // eslint-disable-line react-hooks/exhaustive-deps -- deadlineContext: done flags and counts change what Days-until shows
   const rowFormatStyle = useMemo<React.CSSProperties>(() => {
     const style: React.CSSProperties = {}
     if (!hasAnyHighlightRules || highlightColumnIds.size === 0) return style
     for (const colId of highlightColumnIds) {
       try {
-        const selfVal = rowOriginal[`col_${colId}`] ?? null
+        const selfVal = evalRow[`col_${colId}`] ?? null
         const cellFmtRules = (cellFormats.get(`${rowId}_${colId}`) ?? []).filter(r => r.highlightRow)
         if (cellFmtRules.length > 0) {
-          const cellMatch = evalCellFormat(cellFmtRules, selfVal, rowOriginal, rowMap)
+          const cellMatch = evalCellFormat(cellFmtRules, selfVal, evalRow, rowMap)
           if (cellMatch && (cellMatch.bgColor || cellMatch.borderColor)) {
             if (cellMatch.bgColor) style.backgroundColor = cellMatch.bgColor
             if (cellMatch.textColor) style.color = cellMatch.textColor
@@ -139,7 +143,7 @@ export const SortableRow = React.memo(function SortableRow({
         if (colFmtRaw.length > 0) {
           const colHighlightRules = colFmtRaw.filter((r: CellFormatRule) => r.highlightRow)
           if (colHighlightRules.length > 0) {
-            const colMatch = evalCellFormat(colHighlightRules, selfVal, rowOriginal, rowMap)
+            const colMatch = evalCellFormat(colHighlightRules, selfVal, evalRow, rowMap)
             if (colMatch && (colMatch.bgColor || colMatch.borderColor)) {
               if (colMatch.bgColor) style.backgroundColor = colMatch.bgColor
               if (colMatch.textColor) style.color = colMatch.textColor
@@ -151,7 +155,7 @@ export const SortableRow = React.memo(function SortableRow({
       } catch { /* malformed rule — skip */ }
     }
     return style
-  }, [hasAnyHighlightRules, highlightColumnIds, cellFormats, parsedColumnConfigs, rowOriginal, rowMap, rowId])
+  }, [hasAnyHighlightRules, highlightColumnIds, cellFormats, parsedColumnConfigs, evalRow, rowMap, rowId])
 
   const isArchived = row.original.is_active === 0
 
@@ -340,12 +344,13 @@ export const SortableRow = React.memo(function SortableRow({
           Object.assign(cellStyle, alertBgStyle)
         } else {
           const cellFmtRules = cellFormats.get(`${rowId}_${colId}`) ?? []
-          let fmtMatch = evalCellFormat(cellFmtRules, value, rowOriginal, rowMap)
+          const fmtValue = (evalRow[`col_${colId}`] as string | null | undefined) ?? null
+          let fmtMatch = evalCellFormat(cellFmtRules, fmtValue, evalRow, rowMap)
 
           if (!fmtMatch) {
             const colFmtRules = parsedColumnConfigs.get(col.id)?.conditionalFormat ?? []
             if (colFmtRules.length > 0) {
-              fmtMatch = evalCellFormat(colFmtRules, value, rowOriginal, rowMap)
+              fmtMatch = evalCellFormat(colFmtRules, fmtValue, evalRow, rowMap)
             }
           }
 

@@ -5,6 +5,8 @@ import toast from 'react-hot-toast'
 import { friendlyError } from '../../utils/friendlyError'
 import type { GridRow, Column, CellFormatRule } from '../../../shared/types'
 import { evalCellFormat } from './CellConditionalFormatPanel'
+import { withComputedValues } from '../../utils/computedColumns'
+import { useAlertStore } from '../../stores/alertStore'
 import { formatCellForClipboard, checkPaste } from './gridHelpers'
 import { isNotTypedColumnType } from '../../../shared/types'
 import { contextMenuVariants } from '../../utils/animations'
@@ -95,7 +97,8 @@ export function GridContextMenu({
   // Find row-highlight rules from ANY column affecting this row
   const rowHighlightSources: Array<{ colId: number; colName: string; rules: CellFormatRule[]; matchedRule: CellFormatRule; isColumnLevel: boolean }> = []
   if (cmRow) {
-    const rowOriginal = cmRow
+    // Age and Days-until compare the number the cell shows
+    const rowOriginal = withComputedValues(cmRow, columns, useAlertStore.getState().rules)
     for (const col of columns) {
       if (col.id !== contextMenu.colId) {
         const otherCellRules = cellFormats.get(`${contextMenu.rowId}_${col.id}`) ?? []
@@ -112,8 +115,8 @@ export function GridContextMenu({
       const colFmt = parsedColumnConfigs.get(col.id)?.conditionalFormat ?? []
       const colHighlight = colFmt.filter(r => r.highlightRow)
       if (colHighlight.length > 0) {
-        const selfVal = cmRow[`col_${col.id}`] ?? null
-        const matched = evalCellFormat(colHighlight, selfVal, cmRow, rowMap)
+        const selfVal = rowOriginal[`col_${col.id}`] ?? null
+        const matched = evalCellFormat(colHighlight, selfVal, rowOriginal, rowMap)
         if (matched) {
           rowHighlightSources.push({ colId: col.id, colName: col.name, rules: colFmt, matchedRule: matched, isColumnLevel: true })
         }
@@ -156,7 +159,7 @@ export function GridContextMenu({
               className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={() => {
                 if (cmCol && cmCellVal !== undefined) {
-                  const text = formatCellForClipboard(cmCol, cmCellVal)
+                  const text = formatCellForClipboard(cmCol, cmCellVal, cmRow)
                   void window.api.copyToClipboard(text)
                 }
                 onClose()
@@ -188,7 +191,8 @@ export function GridContextMenu({
             <button
               className="hit-44 flex items-center gap-2 w-full text-left px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               onClick={() => {
-                void updateCell(contextMenu.rowId, contextMenu.colId, '')
+                // Blank as Delete leaves it, so it sorts with the other empty cells
+                void updateCell(contextMenu.rowId, contextMenu.colId, null)
                 onClose()
               }}
             >

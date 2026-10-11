@@ -1,13 +1,21 @@
-import type { Column } from '../../../shared/types'
+import type { Column, GridRow } from '../../../shared/types'
 import { isNotTypedColumnType } from '../../../shared/types'
 import { parseDate } from '../../../shared/parseDate'
 import { columnOptionLabels } from '../../../shared/stages'
 import { cellText } from '../../../shared/cellText'
+import { computedColumnText, isComputedColumnType } from '../../utils/computedColumns'
+import { useGridStore } from '../../stores/gridStore'
+import { useAlertStore } from '../../stores/alertStore'
 
 // ── Clipboard format helper ────────────────────────────────────────────────────
 
 /** What a copied cell holds: the same text as exports (G-08); link cells copy names, not stored ids and separators */
-export function formatCellForClipboard(column: Column, value: string | null): string {
+export function formatCellForClipboard(column: Column, value: string | null, row?: GridRow): string {
+  // Age and Days-until store nothing; copy what the cell shows (bug sweep S5)
+  if (row && isComputedColumnType(column.column_type)) {
+    const { columns, hiddenColumns } = useGridStore.getState()
+    return computedColumnText(column, row, [...columns, ...hiddenColumns], useAlertStore.getState().rules)
+  }
   return cellText(column.column_type, value)
 }
 
