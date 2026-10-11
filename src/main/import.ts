@@ -5,7 +5,9 @@
  * Uses exceljs for Excel parsing (replaces xlsx/SheetJS which has unpatched CVEs).
  */
 
-import { statSync, createReadStream } from 'fs'
+import { statSync } from 'fs'
+import { readFile } from 'fs/promises'
+import { TextDecoder } from 'util'
 import Papa from 'papaparse'
 import { parseDate, ymdFromParts, hasTwoDigitYear, looksLikeBirthColumn } from '../shared/parseDate'
 import { localDateString } from '../shared/dates'
@@ -56,6 +58,8 @@ export interface ImportPreview {
   rawRowCount: number
   /** First ~20 raw rows for preview display */
   rawPreviewRows?: string[][]
+  /** Things about the file itself worth checking (its text format, rows past the limit) */
+  warnings?: string[]
 }
 
 export interface ColumnMapping {
@@ -415,10 +419,93 @@ const MAX_CELL_VALUE_LENGTH = 10_000
 
 /** Maximum number of data rows to import (excludes header) */
 const MAX_IMPORT_ROWS = 50_000
+/** Raw rows read from a file: the data rows plus room for titles above the headers */
+const MAX_RAW_ROWS = MAX_IMPORT_ROWS + 20
+
+function rowCapWarning(): string {
+  return `This file has more than ${MAX_IMPORT_ROWS.toLocaleString('en-US')} rows. Pulse brings in up to ${MAX_IMPORT_ROWS.toLocaleString('en-US')} at a time, so rows after row ${MAX_RAW_ROWS.toLocaleString('en-US')} weren't read. Split the file and import the rest separately.`
+}
+
+/**
+ * A CSV file's bytes as text. A byte order mark settles it (UTF-8 or UTF-16);
+ * otherwise bytes that are valid UTF-8 are UTF-8, and anything else is
+ * Windows-1252, which is what Excel's "CSV (Comma delimited)" writes.
+ */
+export function decodeCsvBytes(buf: Uint8Array): { text: string; encoding: 'utf-8' | 'utf-16le' | 'utf-16be' | 'windows-1252' } {
+  if (buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) {
+    return { text: new TextDecoder('utf-8', { ignoreBOM: true }).decode(buf.subarray(3)), encoding: 'utf-8' }
+  }
+  if (buf[0] === 0xff && buf[1] === 0xfe) return { text: new TextDecoder('utf-16le', { ignoreBOM: true }).decode(buf.subarray(2)), encoding: 'utf-16le' }
+  if (buf[0] === 0xfe && buf[1] === 0xff) return { text: new TextDecoder('utf-16be', { ignoreBOM: true }).decode(buf.subarray(2)), encoding: 'utf-16be' }
+  try {
+    return { text: new TextDecoder('utf-8', { fatal: true }).decode(buf), encoding: 'utf-8' }
+  } catch {
+    return { text: decodeWindows1252(buf), encoding: 'windows-1252' }
+  }
+}
+
+/** Windows-1252 bytes 0x80–0x9F (curly quotes, dashes, €…); 0 = unused byte */
+const CP1252_HIGH = [
+  0x20ac, 0, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021, 0x02c6, 0x2030, 0x0160, 0x2039, 0x0152, 0, 0x017d, 0,
+  0, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014, 0x02dc, 0x2122, 0x0161, 0x203a, 0x0153, 0, 0x017e, 0x0178,
+]
+
+/**
+ * Decoded by hand: some Node builds treat TextDecoder('windows-1252') as
+ * Latin-1, which turns Excel's curly quotes into invisible control characters.
+ */
+function decodeWindows1252(buf: Uint8Array): string {
+  let out = ''
+  for (let i = 0; i < buf.length; i += 8192) {
+    const codes = Array.from(buf.subarray(i, i + 8192), b => (b >= 0x80 && b <= 0x9f ? CP1252_HIGH[b - 0x80] || b : b))
+    out += String.fromCharCode(...codes)
+  }
+  return out
+}
+
+/** Thrown with a message written for the person importing */
+export class ImportFileError extends Error {}
+
+/**
+ * Parse CSV text into raw rows (empty lines kept, so row indices stay stable
+ * for header detection). A quote that isn't closed properly would swallow the
+ * rest of the file into one cell, so it stops with the line to fix instead.
+ */
+function parseCsvText(text: string): { rows: string[][]; truncated: boolean } {
+  const rows: string[][] = []
+  let truncated = false
+  let rowStart = 0
+  let badQuoteAt: number | null = null
+  Papa.parse<string[]>(text, {
+    skipEmptyLines: false,
+    header: false,
+    step: (result, parser) => {
+      if (result.errors.some(e => e.type === 'Quotes')) {
+        badQuoteAt = rowStart
+        parser.abort()
+        return
+      }
+      if (rows.length >= MAX_RAW_ROWS) {
+        if (result.data.some(c => c.trim() !== '')) {
+          truncated = true
+          parser.abort()
+        }
+        return
+      }
+      rows.push(result.data)
+      rowStart = result.meta.cursor
+    },
+  })
+  if (badQuoteAt !== null) {
+    const line = text.slice(0, badQuoteAt).split('\n').length
+    throw new ImportFileError(`Line ${line} of the file has a quote mark (") that isn't closed properly, so Pulse can't tell where that line ends. Open the file, fix the quote marks on that line (or save it again from Excel), then try again.`)
+  }
+  return { rows, truncated }
+}
 
 // Cache parsed file data between preview and execute to avoid re-parsing
 /** `sheet` is the sheet the rows came from, so going back and choosing another sheet re-reads it */
-let _parsedCache: { filePath: string; mtime: number; sheet: string; rawRows: string[][]; sheets: string[]; mergedRanges?: MergedCellInfo[] } | null = null
+let _parsedCache: { filePath: string; mtime: number; sheet: string; rawRows: string[][]; sheets: string[]; mergedRanges?: MergedCellInfo[]; warnings: string[] } | null = null
 let _parsedCacheTimer: ReturnType<typeof setTimeout> | null = null
 let _importInProgress = false // prevents concurrent executeImport calls
 const IMPORT_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
@@ -466,6 +553,7 @@ interface ParseResult {
   detectedHeaderRow: number
   headerDetectionConfidence: HeaderDetectionResult['confidence']
   mergedRanges?: MergedCellInfo[]
+  warnings: string[]
 }
 
 async function getCachedOrParse(filePath: string, sheetName?: string, headerRowIndex?: number): Promise<ParseResult> {
@@ -483,7 +571,7 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
       : detectHeaderRow(rawRows, mergedRanges)
     const { headers, allRows } = buildTable(rawRows, detection.headerRowIndex, mergedRanges)
     return {
-      headers, allRows, sheets: _parsedCache.sheets, rawRows, mergedRanges,
+      headers, allRows, sheets: _parsedCache.sheets, rawRows, mergedRanges, warnings: _parsedCache.warnings,
       detectedHeaderRow: detection.headerRowIndex, headerDetectionConfidence: detection.confidence,
     }
   }
@@ -493,22 +581,18 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
   let sheets: string[] = []
   let parsedSheet = ''
   let mergedRanges: MergedCellInfo[] | undefined
+  const parseWarnings: string[] = []
 
   if (ext === 'csv') {
-    // Stream-parse CSV — don't skip empty lines so row indices are stable for detection
-    rawRows = await new Promise((resolve, reject) => {
-      const rows: string[][] = []
-      Papa.parse(createReadStream(filePath), {
-        skipEmptyLines: false,
-        header: false,
-        step: (result: { data: string[] }, parser: { abort: () => void }) => {
-          rows.push(result.data)
-          if (rows.length > MAX_IMPORT_ROWS + 20) parser.abort()
-        },
-        complete: () => resolve(rows),
-        error: (err: Error) => reject(err),
-      })
-    })
+    // The whole file is decoded before parsing: decoding read-stream chunks one by one
+    // broke a character split across two chunks, and Excel's "CSV" isn't UTF-8
+    const decoded = decodeCsvBytes(await readFile(filePath))
+    if (decoded.encoding === 'windows-1252') {
+      parseWarnings.push('This file wasn\'t saved in the usual text format, so Pulse converted it. Check that accented letters (like é or ñ) look right.')
+    }
+    const parsed = parseCsvText(decoded.text)
+    rawRows = parsed.rows
+    if (parsed.truncated) parseWarnings.push(rowCapWarning())
     sheets = ['Sheet1']
     parsedSheet = 'Sheet1'
   } else {
@@ -527,7 +611,8 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
     if (ws && ws.rowCount > 0) {
       mergedRanges = extractMergedRanges(ws)
       const colCount = ws.columnCount
-      const maxRow = Math.min(ws.rowCount, MAX_IMPORT_ROWS + 20)
+      const maxRow = Math.min(ws.rowCount, MAX_RAW_ROWS)
+      if (ws.rowCount > MAX_RAW_ROWS) parseWarnings.push(rowCapWarning())
       for (let r = 1; r <= maxRow; r++) {
         const row = ws.getRow(r)
         const rowData: string[] = []
@@ -549,14 +634,14 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
 
   // Only cache if row count is within the size limit to avoid unbounded memory use
   if (rawRows.length <= MAX_CACHE_ROWS) {
-    _parsedCache = { filePath, mtime, sheet: parsedSheet, rawRows, sheets, mergedRanges }
+    _parsedCache = { filePath, mtime, sheet: parsedSheet, rawRows, sheets, mergedRanges, warnings: parseWarnings }
     resetImportCacheTTL()
   } else {
     clearImportCache()
   }
 
   return {
-    headers, allRows, sheets, rawRows, mergedRanges,
+    headers, allRows, sheets, rawRows, mergedRanges, warnings: parseWarnings,
     detectedHeaderRow: detection.headerRowIndex, headerDetectionConfidence: detection.confidence,
   }
 }
@@ -618,6 +703,7 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
     headerDetectionConfidence: cached.headerDetectionConfidence,
     rawRowCount: rawRows.length,
     rawPreviewRows: rawRows.slice(0, Math.min(20, rawRows.length)),
+    warnings: cached.warnings,
   }
 
   const previewRows = dataRows.slice(0, 20)
@@ -668,6 +754,7 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
     headerDetectionConfidence: cached.headerDetectionConfidence,
     rawRowCount: rawRows.length,
     rawPreviewRows: rawRows.slice(0, Math.min(20, rawRows.length)),
+    warnings: cached.warnings,
   }
 }
 
@@ -754,6 +841,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
   logger.info('import', 'Starting import', { format: ext, rowCount: preview.rows.length })
   try {
     const cached = await getCachedOrParse(filePath, sheetName, options.headerRowIndex)
+    warnings.push(...cached.warnings)
   const headers = cached.headers
   const allRows = cached.allRows
 

@@ -42,6 +42,7 @@ interface ImportPreview {
   headerDetectionConfidence: 'high' | 'medium' | 'low'
   rawRowCount: number
   rawPreviewRows?: string[][]
+  warnings?: string[]
 }
 
 interface ColumnMapping {
@@ -563,6 +564,12 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
           {/* Step 3: Preview */}
           {step === 3 && preview && (
             <div className="px-6 py-4 space-y-3">
+              {(preview.warnings ?? []).map((w, i) => (
+                <div key={i} role="status" className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-base text-amber-900 dark:text-amber-200">{w}</p>
+                </div>
+              ))}
               {/* Header Row Selector — hide for clipboard paste */}
               {filePath && (
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700">
