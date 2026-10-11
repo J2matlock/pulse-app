@@ -37,8 +37,12 @@ export function AlertsSection(): React.ReactElement {
 
   return (
     <>
-      <DailySummaryToggle />
-      {showReminders && <RemindersSection />}
+      {showReminders ? <RemindersSection summary={<DailySummaryToggle />} /> : (
+        <section className="space-y-3 pb-4 border-b border-slate-200 dark:border-slate-700" aria-labelledby="reminders-heading">
+          <h2 id="reminders-heading" className="text-xl font-semibold text-slate-800 dark:text-slate-100">Reminders</h2>
+          <DailySummaryToggle />
+        </section>
+      )}
       {showReminders && <BackgroundSection />}
       {showRequirements && <ContactRequirementsSettings />}
       <DaysOffSection />
@@ -136,11 +140,11 @@ function DailySummaryToggle(): React.ReactElement {
     if (!res.ok) setEnabled(!next)
   }
   return (
-    <label className="flex items-start gap-3 cursor-pointer select-none pb-4 border-b border-slate-200 dark:border-slate-700" style={{ minHeight: 44 }}>
+    <label className="flex items-start gap-3 cursor-pointer select-none" style={{ minHeight: 44 }}>
       <input type="checkbox" checked={enabled} onChange={e => void toggle(e.target.checked)}
         className="mt-1 w-5 h-5 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-3 focus:ring-blue-500 flex-shrink-0" />
       <span>
-        <span className="block text-base font-medium text-slate-800 dark:text-slate-100">Daily summary</span>
+        <span className="block text-base font-medium text-slate-800 dark:text-slate-100">Summary when I first unlock Pulse</span>
         <span className="block text-sm text-slate-600 dark:text-slate-300">The first time you unlock Pulse each day, show what's overdue, due today, and due this week.</span>
       </span>
     </label>

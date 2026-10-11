@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react'
+import { usePlatform, cloudFolderAdvice } from '../utils/platformText'
 import { Lock, Eye, EyeOff, Shield, KeyRound } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -21,6 +22,9 @@ export function PasswordSetupView(): React.ReactElement {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [step, setStep] = useState<SetupStep>('password')
+  // Shown as a card on the next screen, not a passing toast (audit F-36)
+  const [cloudWarning, setCloudWarning] = useState<string | null>(null)
+  const platform = usePlatform()
   const [generatedKey, setGeneratedKey] = useState('')
   const [showSkipConfirm, setShowSkipConfirm] = useState(false)
   // What's still missing, said on submit instead of a silently greyed-out button (audit F-25)
@@ -59,12 +63,7 @@ export function PasswordSetupView(): React.ReactElement {
         return
       }
 
-      if (result.data.cloudWarning) {
-        toast(
-          `Warning: Your data folder is inside ${result.data.cloudWarning}. Cloud sync can corrupt encrypted databases. Consider moving it to a local folder.`,
-          { duration: 10000, icon: '\u26A0\uFE0F' }
-        )
-      }
+      if (result.data.cloudWarning) setCloudWarning(result.data.cloudWarning)
 
       // Move to recovery key prompt instead of immediately unlocking
       setStep('recovery-prompt')
@@ -113,6 +112,13 @@ export function PasswordSetupView(): React.ReactElement {
               <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">{PRODUCT_NAME}</h1>
             </div>
           </div>
+
+          {cloudWarning && (
+            <div role="alert" className="mb-4 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 p-4">
+              <p className="text-base font-semibold text-amber-900 dark:text-amber-200 mb-1">Your data is in a synced folder</p>
+              <p className="text-base text-amber-800 dark:text-amber-300 leading-relaxed">{cloudFolderAdvice(cloudWarning, platform)}</p>
+            </div>
+          )}
 
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 border border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-3 mb-4">

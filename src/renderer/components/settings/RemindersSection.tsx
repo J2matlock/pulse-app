@@ -14,7 +14,8 @@ import { friendlyError } from '../../utils/friendlyError'
 
 const LEADS = [0, 5, 10, 15, 30, 60]
 
-export function RemindersSection(): React.ReactElement {
+/** `summary` is the in-app summary toggle, shown first so both kinds of reminder sit together (audit D-38) */
+export function RemindersSection({ summary }: { summary?: React.ReactNode } = {}): React.ReactElement {
   const [settings, setSettings] = useState<ReminderSettings | null>(null)
   const apptsOn = useFeature('appointments')
   const { t } = useVocab(null)
@@ -39,11 +40,12 @@ export function RemindersSection(): React.ReactElement {
       <h2 id="reminders-heading" className="text-xl font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
         <BellRing className="w-5 h-5" aria-hidden="true" />Reminders
       </h2>
+      {summary}
       <label className="flex items-start gap-3 cursor-pointer select-none" style={{ minHeight: 44 }}>
         <input type="checkbox" className="mt-1 w-5 h-5 flex-shrink-0" disabled={!settings} checked={!!settings?.dailyEnabled}
           onChange={e => void save({ dailyEnabled: e.target.checked })} />
         <span>
-          <span className="block text-base font-medium text-slate-800 dark:text-slate-100">Desktop reminder each morning</span>
+          <span className="block text-base font-medium text-slate-800 dark:text-slate-100">Desktop notification at a set time</span>
           <span className="block text-sm text-slate-600 dark:text-slate-300">
             A notification like "3 due today, 1 overdue" while Pulse is open and unlocked. It never shows names.
           </span>

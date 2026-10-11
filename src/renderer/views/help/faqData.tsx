@@ -565,7 +565,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'dl-reminders',
     question: 'Can Pulse remind me each morning?',
-    answer: 'Yes. In Settings > Deadlines & reminders > Reminders, turn on "Desktop reminder each morning" and choose a time. While Pulse is open and unlocked, you get a notification like "3 due today, 1 overdue". It never shows names. Clicking it opens the dashboard. If nothing appears, click "Send a test reminder" and check that notifications are allowed for Pulse in your computer\'s settings.',
+    answer: 'Yes. In Settings > Deadlines & reminders > Reminders, turn on "Desktop notification at a set time" and choose a time. While Pulse is open and unlocked, you get a notification like "3 due today, 1 overdue". It never shows names. Clicking it opens the dashboard. If nothing appears, click "Send a test reminder" and check that notifications are allowed for Pulse in your computer\'s settings.',
     category: 'dashboard-deadlines',
     feature: 'notifications',
   },

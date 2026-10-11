@@ -2,6 +2,7 @@ import React from 'react'
 import { X, Download } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
+import { usePlatform, updateText } from '../../utils/platformText'
 
 interface Props {
   version: string
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function UpdateBanner({ version, downloadUrl, onDismiss }: Props): React.ReactElement {
+  const platform = usePlatform()
   function openDownload() {
     const url = downloadUrl || 'https://github.com/J2matlock/pulse-releases/releases/latest'
     void safeInvoke(IPC.APP_OPEN_EXTERNAL, url)
@@ -23,7 +25,7 @@ export function UpdateBanner({ version, downloadUrl, onDismiss }: Props): React.
     >
       <Download className="w-4 h-4 flex-shrink-0" />
       <span className="flex-1">
-        Version {version} is available — download, replace your current PULSE.exe, and launch it. Your data is safe.
+        Version {version} is available. {updateText(platform).banner}
       </span>
       <button
         onClick={openDownload}
@@ -31,7 +33,7 @@ export function UpdateBanner({ version, downloadUrl, onDismiss }: Props): React.
                    hover:bg-blue-50 focus-visible:outline-hidden focus-visible:ring-3
                    focus-visible:ring-white focus-visible:ring-offset-3 focus-visible:ring-offset-blue-600
                    transition-colors whitespace-nowrap"
-        style={{ minHeight: 32 }}
+        style={{ minHeight: 44 }}
       >
         Download update
       </button>

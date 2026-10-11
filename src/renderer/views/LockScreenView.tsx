@@ -147,7 +147,7 @@ export function LockScreenView(): React.ReactElement {
                 This computer can't unlock this data folder
               </h2>
               <p className="text-base text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
-                Pulse's sign-in data is protected by the computer and Windows account it was created on, so it can't be read here.
+                Pulse's sign-in data is protected by the computer and the computer account it was created on, so it can't be read here.
                 Your data is safe. To open it on this computer, restore a .pulse-backup file using your password or recovery key.
               </p>
               <button type="button" className="btn-primary w-full" onClick={() => setView('restore')}>

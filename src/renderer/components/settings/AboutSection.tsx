@@ -5,6 +5,7 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import { PRODUCT_NAME, SOURCE_CODE_URL, LICENSE_URL } from '../../../shared/constants'
 import { useVocab } from '../../hooks/useVocab'
 import { pulseEvents } from '../../events'
+import { usePlatform, updateText } from '../../utils/platformText'
 
 /** Some IT teams want no automatic connections at all; the manual button still works. */
 function AutoUpdateCheckToggle(): React.ReactElement {
@@ -37,6 +38,7 @@ function AutoUpdateCheckToggle(): React.ReactElement {
 }
 
 function CheckForUpdatesButton(): React.ReactElement {
+  const howTo = updateText(usePlatform())
   const [checking, setChecking] = useState(false)
   const [result, setResult] = useState<{ available: boolean; version?: string; downloadUrl?: string } | null>(null)
 
@@ -91,16 +93,11 @@ function CheckForUpdatesButton(): React.ReactElement {
       <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg space-y-3">
         <p className="text-base font-semibold text-slate-700 dark:text-slate-200">How to update Pulse</p>
         <ol className="list-decimal list-inside space-y-2 text-sm text-slate-600 dark:text-slate-400">
-          <li>Click <strong>Download update</strong> above (or check for updates first) — this downloads the new PULSE.exe to your Downloads folder.</li>
-          <li>Close Pulse.</li>
-          <li>Copy the new PULSE.exe and replace the one you currently use.</li>
-          <li>Launch the new PULSE.exe — it will briefly set itself up, then open as normal. If Windows says &quot;Windows protected your PC&quot;, click <strong>More info</strong>, then <strong>Run anyway</strong>.</li>
+          {howTo.steps.map(step => <li key={step}>{step}</li>)}
         </ol>
         <div className="flex items-start gap-2 pt-1">
           <Shield className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Your data is stored separately in the <strong>PulseData</strong> folder and is never affected by updates. Backups are still recommended before updating.
-          </p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{howTo.dataNote}</p>
         </div>
       </div>
     </div>

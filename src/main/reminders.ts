@@ -294,7 +294,7 @@ export function resetSentAppointments(): void { sentAppts.clear(); locked = null
 
 /** A sample notification so people can check their system shows them. */
 export function sendTestReminder(): boolean {
-  return show('Reminders are working. This is what the daily summary looks like.', '/settings')
+  return show('Reminders are working. Your desktop notification will look like this.', '/settings')
 }
 
 let timer: ReturnType<typeof setInterval> | null = null
