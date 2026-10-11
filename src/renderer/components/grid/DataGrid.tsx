@@ -222,6 +222,9 @@ export function DataGrid(): React.ReactElement {
 
   // Apply starred pre-filter + column filters + acuity sort before passing to TanStack
   const filteredRows = useMemo(() => {
+    // A due-status or Days-until filter reads counts, readings and done flags that
+    // arrive after the rows (AUDIT-011): filter again when they land
+    void deadlineContext
     let result = rows
     // A record just added stays in view until the filter changes (G-28)
     const pinned = (row: GridRow) => row.row_id === pinnedRowId
@@ -235,7 +238,7 @@ export function DataGrid(): React.ReactElement {
       result = result.filter(row => matcher(row) || pinned(row))
     }
     return result
-  }, [rows, activeFilters, filterMode, allColumns, rowTagsMap, showStarredOnly, pinnedRowId, alertRuleMap])
+  }, [rows, activeFilters, filterMode, allColumns, rowTagsMap, showStarredOnly, pinnedRowId, alertRuleMap, deadlineContext])
 
   // Changing what's filtered lets the pinned record go (not the first render: the grid may mount after an add)
   const filterMounted = useRef(false)

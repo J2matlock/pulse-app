@@ -717,6 +717,34 @@ describe('DataGrid', () => {
       })
       expect(names()).toEqual(['Bob', 'Cy', 'Ann'])
     })
+
+    it('filters again by due status when the counts arrive after the records (AUDIT-011)', async () => {
+      const { matchFilter } = await import('../../../../src/renderer/utils/filterMatch')
+      // "Overdue" here means the count says fewer than 10 days left
+      vi.mocked(matchFilter).mockImplementation(row => {
+        const n = useGridStore.getState().deadlineContext?.quota?.[`${row.row_id}:2`]
+        return n != null && n < 10
+      })
+      try {
+        const cols = [makeColumn(1, 'Name', 'text'), makeColumn(2, 'Visits', 'date', { config: '{"alert_rule_id":9}' })]
+        setupStores({
+          columns: cols,
+          rows: [makeRow(1, { col_1: 'Ann' }), makeRow(2, { col_1: 'Bob' }), makeRow(3, { col_1: 'Cy' })],
+          activeFilters: [{ columnId: 2, operator: 'due_status', value: 'overdue' }],
+          deadlineContext: null,
+        })
+        renderDataGrid()
+        await flushEffects()
+        const names = () => screen.queryAllByRole('row').map(r => (r.textContent ?? '').match(/Ann|Bob|Cy/)?.[0]).filter(Boolean)
+        expect(names()).toEqual([])
+        await act(async () => {
+          useGridStore.setState({ deadlineContext: { meter: {}, quota: { '1:2': 30, '2:2': 5, '3:2': 2 }, progress: {}, extensions: {} } } as never)
+        })
+        expect(names()).toEqual(['Bob', 'Cy'])
+      } finally {
+        vi.mocked(matchFilter).mockImplementation(() => true)
+      }
+    })
   })
 
   // ── Grid structure ──────────────────────────────────────────────────────
