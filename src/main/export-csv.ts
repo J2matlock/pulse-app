@@ -61,21 +61,22 @@ export async function exportCsv(options: CsvExportOptions): Promise<void> {
 }
 
 /**
- * Every note of every list in one file (X-21), for Export All: when it was
- * written, the list, the record, the kind of note, the text and any follow-up.
+ * Every note of every list in one file (X-21), for Export All: when it
+ * happened, the list, the record, the kind of note, the text and any follow-up.
  */
 export async function exportNotesCsv(destPath: string, dateFormat: 'iso' | 'us' | 'eu' = savedDateFormat()): Promise<number> {
   const notes = getDb().prepare(`
-    SELECT cl.created_at, g.name AS list, r.display_name AS record, COALESCE(at.label, cl.log_type) AS kind, cl.content, cl.follow_up_date
+    SELECT COALESCE(cl.occurred_at, cl.created_at) AS occurred_at, g.name AS list, r.display_name AS record, COALESCE(at.label, cl.log_type) AS kind, cl.content, cl.follow_up_date
     FROM case_log cl
     JOIN rows r ON r.id = cl.row_id AND r.deleted_at IS NULL
     JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
     LEFT JOIN activity_types at ON at.key = cl.log_type
     WHERE cl.voided_at IS NULL
-    ORDER BY g.position, g.id, r.display_name, cl.created_at
-  `).all() as Array<{ created_at: string; list: string; record: string | null; kind: string | null; content: string; follow_up_date: string | null }>
+    ORDER BY g.position, g.id, r.display_name, COALESCE(cl.occurred_at, cl.created_at)
+  `).all() as Array<{ occurred_at: string; list: string; record: string | null; kind: string | null; content: string; follow_up_date: string | null }>
   const data = notes.map(n => {
-    const at = parseDbTimestamp(n.created_at)
+    // The day it happened (a note can be backdated), as the PDFs and summary report show it
+    const at = parseDbTimestamp(n.occurred_at)
     return [
       formatCellValue(localDateString(at), 'date', dateFormat), sanitizeCsvFormula(n.list), sanitizeCsvFormula(n.record ?? ''),
       sanitizeCsvFormula(n.kind ?? ''), sanitizeCsvFormula(stripHtml(n.content)), formatCellValue(n.follow_up_date, 'date', dateFormat),
