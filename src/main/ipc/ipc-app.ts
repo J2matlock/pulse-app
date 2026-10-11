@@ -41,7 +41,7 @@ function automaticUpdateCheckAllowed(): boolean {
 export function registerAppHandlers(): void {
   // ── Clipboard ───────────────────────────────────────────────────────────
   secureWrap(IPC.CLIPBOARD_WRITE, 'ipc-app', (_e, text: string) => {
-    if (typeof text !== 'string' || text.length > 1_000_000) return fail('Clipboard content too large')
+    if (typeof text !== 'string' || text.length > 1_000_000) return fail("That's too much text to copy at once.")
     clipboard.writeText(text)
     return ok(true)
   })

@@ -162,7 +162,7 @@ describe('CLIPBOARD_WRITE', () => {
   it('rejects text over 1MB', async () => {
     const r = await invoke(IPC.CLIPBOARD_WRITE, 'x'.repeat(1_000_001)) as any
     expect(r.ok).toBe(false)
-    expect(r.error).toMatch(/too large/)
+    expect(r.error).toBe("That's too much text to copy at once.")
   })
 })
 

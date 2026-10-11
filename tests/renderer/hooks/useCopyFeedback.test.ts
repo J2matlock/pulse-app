@@ -83,14 +83,14 @@ describe('useCopyFeedback (simple)', () => {
   })
 
   it('does not say copied, and says why, when main refused the copy', async () => {
-    mockCopyToClipboard.mockResolvedValueOnce({ ok: false, error: 'Clipboard content too large' })
+    mockCopyToClipboard.mockResolvedValueOnce({ ok: false, error: "That's too much text to copy at once." })
     const { result } = renderHook(() => useCopyFeedback())
 
     await act(async () => {
       await result.current.copyToClipboard('x'.repeat(10))
     })
     expect(result.current.copied).toBe(false)
-    expect(toastError).toHaveBeenCalledWith('Clipboard content too large')
+    expect(toastError).toHaveBeenCalledWith("That's too much text to copy at once.")
   })
 
   it('clears timeout on unmount', async () => {

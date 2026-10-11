@@ -54,6 +54,7 @@ const PLAIN = new Set<string>([
   "A Files column can't be changed to another type, or made from one. Add a new column instead.",
   'A repeating task needs a due date. Turn off Repeat to remove the date.',
   'Abbreviation is required',
+  "That's too much text to copy at once.",
   "Give the ${word('list')} a name.",
   "Choose at least one ${word('record')}.",
   "You can change up to ${MAX_BULK_ROW_ACTION.toLocaleString('en-US')} ${word('record', { many: true })} at once.",

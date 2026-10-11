@@ -462,7 +462,7 @@ describe('SCRAP_NOTE_UPDATE', () => {
   it('fails for content over 500k', async () => {
     const r = await invoke(IPC.SCRAP_NOTE_UPDATE, rowId, 'x'.repeat(500_001)) as any
     expect(r.ok).toBe(false)
-    expect(r.error).toContain('too large')
+    expect(r.error).toBe('Scratch notes can be up to 500,000 characters.')
   })
 })
 
