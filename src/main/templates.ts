@@ -551,7 +551,7 @@ export function applyPulseToNewGrid(pulse: PulseFile): number {
           default_value, description, config, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
       `).run(
-        gridId, col.name, colType, startingWidth(colType, col.config, col.width), col.position,
+        gridId, col.name, colType, startingWidth(colType, col.config, col.width, { name: col.name, isName: col.is_name_column === 1 }), col.position,
         col.is_name_column ?? 0, col.is_identifier ?? 0, col.is_required && canBeRequired(colType) ? 1 : 0,
         col.default_value ?? null, col.description ?? null, linkColumnConfig(db, config, ruleIds, later)
       )
@@ -585,7 +585,7 @@ export function applyPulseToExistingGrid(pulse: PulseFile, gridId: number): void
           INSERT INTO columns (grid_id, name, column_type, width, position, is_name_column, is_identifier, is_required,
             default_value, description, config, created_at)
           VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, datetime('now'))
-        `).run(gridId, col.name, colType, startingWidth(colType, col.config, col.width), nextPos++, col.is_required && canBeRequired(colType) ? 1 : 0, col.default_value ?? null, col.description ?? null,
+        `).run(gridId, col.name, colType, startingWidth(colType, col.config, col.width, { name: col.name }), nextPos++, col.is_required && canBeRequired(colType) ? 1 : 0, col.default_value ?? null, col.description ?? null,
           linkColumnConfig(db, colType === 'auto_number' ? freshAutoNumberConfig(col.config) : col.config || '{}', ruleIds, later))
       }
     }

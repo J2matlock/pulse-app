@@ -212,13 +212,12 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
 
   return (
     <div ref={rootRef} className="flex items-center h-full px-1 gap-0.5 relative group" onContextMenu={handleContextMenu}>
-      {/* Drag handle — always visible at low opacity, full on hover */}
+      {/* Drag handle: shown on hover only, so the column's name gets the room the rest of the time */}
       {dragHandleProps && (
         <button
           {...dragHandleProps}
-          className="hit-44 flex-shrink-0 p-0.5 rounded-sm text-slate-300 dark:text-slate-500 hover:text-slate-500 dark:hover:text-slate-400
-                     opacity-40 group-hover:opacity-100 cursor-grab active:cursor-grabbing touch-none
-                     transition-opacity"
+          className="hit-44 hidden group-hover:inline-flex flex-shrink-0 p-0.5 rounded-sm text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300
+                     cursor-grab active:cursor-grabbing touch-none"
           tabIndex={-1}
           aria-label="Drag to reorder column"
           onPointerDown={e => { dragHandleProps.onPointerDown?.(e); e.stopPropagation() }}
@@ -277,7 +276,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
         </span>
       )}
 
-      {/* Sort indicator — always visible */}
+      {/* Sort indicator */}
       {currentSort ? (
         <div className="flex items-center flex-shrink-0">
           {currentSort.direction === 'asc'
@@ -288,7 +287,10 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
           )}
         </div>
       ) : (
-        <ChevronsUpDown className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 flex-shrink-0 opacity-30 group-hover:opacity-100 transition-opacity" />
+        // Unsorted: the hint shows on hover only, leaving the name its room
+        <span className="hidden group-hover:inline-flex flex-shrink-0" data-testid="sort-hint">
+          <ChevronsUpDown className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+        </span>
       )}
 
       {/* Column menu */}

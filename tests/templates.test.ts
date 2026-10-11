@@ -777,7 +777,7 @@ describe('applyPulseToNewGrid', () => {
     expect(columns).toHaveLength(3)
     expect(columns[0].name).toBe('Name')
     expect(columns[0].column_type).toBe('text')
-    expect(columns[0].width).toBe(180)
+    expect(columns[0].width).toBe(200) // the name column opens at least 200px wide
     expect(columns[1].name).toBe('Phone')
     expect(columns[1].column_type).toBe('phone')
     expect(columns[2].name).toBe('Status')

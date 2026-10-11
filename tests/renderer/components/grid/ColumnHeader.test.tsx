@@ -127,6 +127,12 @@ describe('ColumnHeader', () => {
     expect(screen.getByText('Due Date')).toBeTruthy()
   })
 
+  it('shows the drag handle and the unsorted hint only on hover, so the name has room (V1)', () => {
+    render(<ColumnHeader column={makeColumn(1, 'Species', 'text')} dragHandleProps={{}} />)
+    expect(screen.getByLabelText('Drag to reorder column').className).toMatch(/(^|\s)hidden(\s|$)/)
+    expect(screen.getByTestId('sort-hint').getAttribute('class')).toMatch(/(^|\s)hidden(\s|$)/)
+  })
+
   it('click on column name triggers sort', () => {
     vi.useFakeTimers()
     const setSortConfig = vi.fn()

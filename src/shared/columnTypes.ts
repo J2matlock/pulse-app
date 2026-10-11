@@ -37,13 +37,34 @@ export const CHANGEABLE_TYPES = new Set<string>(['text', 'notes', 'number', 'cur
 // the narrow widths starters and setup templates were written with cut those words to "i…"
 const RULE_DATE_MIN_WIDTH = 250
 
-/** The width a column from a starter or setup template opens at */
-export function startingWidth(type: string, config: string | undefined, width: number | undefined): number {
-  const w = width ?? 160
-  if (type === 'deadline') return Math.max(w, RULE_DATE_MIN_WIDTH)
-  if (type !== 'date' || !config) return w
-  try {
-    const cfg = JSON.parse(config) as Record<string, unknown>
-    return cfg.alert_rule_name != null || cfg.alert_rule_id != null ? Math.max(w, RULE_DATE_MIN_WIDTH) : w
-  } catch { return w }
+// The name column also shows the sample mark and, on hover, "Open"
+const NAME_MIN_WIDTH = 200
+// Room for the header's own controls (the menu, the sort arrows, padding), and the clock a rule adds
+const HEADER_CONTROLS_WIDTH = 64
+const HEADER_RULE_BADGE_WIDTH = 22
+// About how wide one character of a 15px semibold header is
+const HEADER_CHAR_WIDTH = 9
+const HEADER_MAX_WIDTH = 300
+
+/**
+ * The width a column from a starter or setup template opens at. Wide enough
+ * for its header to be read in full (up to a point), and for a name or
+ * deadline to show its words.
+ */
+export function startingWidth(type: string, config: string | undefined, width: number | undefined, opts: { name?: string; isName?: boolean } = {}): number {
+  let w = width ?? 160
+  let hasRule = type === 'deadline'
+  if (type === 'date' && config) {
+    try {
+      const cfg = JSON.parse(config) as Record<string, unknown>
+      hasRule = cfg.alert_rule_name != null || cfg.alert_rule_id != null
+    } catch { /* a bad config just opens at its width */ }
+  }
+  if (hasRule) w = Math.max(w, RULE_DATE_MIN_WIDTH)
+  if (opts.isName) w = Math.max(w, NAME_MIN_WIDTH)
+  if (opts.name) {
+    const header = HEADER_CONTROLS_WIDTH + (hasRule ? HEADER_RULE_BADGE_WIDTH : 0) + Math.ceil(opts.name.trim().length * HEADER_CHAR_WIDTH)
+    w = Math.max(w, Math.min(header, HEADER_MAX_WIDTH))
+  }
+  return w
 }
