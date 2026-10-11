@@ -6,6 +6,7 @@
 import type { Column, GridRow, ParsedAlertRule } from '../../shared/types'
 import { takesDeadlineRule } from '../../shared/types'
 import { computeDaysUntil, evaluateRuleForRow, formatCalculatedDays } from './deadlineCalc'
+import { ageInYears } from '../../shared/dates'
 
 type Rules = Map<number, ParsedAlertRule> | readonly ParsedAlertRule[] | undefined
 
@@ -17,15 +18,7 @@ function configOf(col: Column | undefined): Record<string, unknown> {
   try { return JSON.parse(col?.config || '{}') as Record<string, unknown> } catch { return {} }
 }
 
-/** Whole years from a date of birth to today, or null when it can't be read or is in the future */
-export function ageInYears(dobValue: string, today: Date = new Date()): number | null {
-  const dob = new Date(dobValue.includes('T') ? dobValue : `${dobValue}T00:00:00`)
-  if (isNaN(dob.getTime())) return null
-  let age = today.getFullYear() - dob.getFullYear()
-  const m = today.getMonth() - dob.getMonth()
-  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--
-  return age < 0 ? null : age
-}
+export { ageInYears } from '../../shared/dates'
 
 function ruleFor(source: Column | undefined, rules: Rules): ParsedAlertRule | undefined {
   if (!source || !rules || !takesDeadlineRule(source.column_type)) return undefined
