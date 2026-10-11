@@ -131,7 +131,7 @@ export function SavedViewsDropdown() {
               {/* View list */}
               {savedViews.length === 0 ? (
                 <div
-                  className="text-gray-400 dark:text-gray-500"
+                  className="text-gray-500 dark:text-gray-400"
                   style={{ padding: '16px 12px', fontSize: 15, textAlign: 'center' }}
                 >
                   No saved views yet
@@ -155,7 +155,7 @@ export function SavedViewsDropdown() {
                         {view.name}
                       </span>
                       <button
-                        className="text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400"
+                        className="text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400"
                         style={{
                           minWidth: 44,
                           minHeight: 44,
@@ -232,7 +232,7 @@ export function SavedViewsDropdown() {
                       Save
                     </button>
                     <button
-                      className="hit-44 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      className="hit-44 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       style={{
                         width: 28,
                         height: 28,
