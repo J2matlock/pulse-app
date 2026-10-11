@@ -578,6 +578,18 @@ export function registerExportHandlers(): void {
     return ok(true)
   })
 
+  // A template from the library (Templates page → Export): write what's stored.
+  // SETUP_TEMPLATE_EXPORT takes a list id, so this used to fail with "Invalid grid ID".
+  secureWrap(IPC.SETUP_TEMPLATE_EXPORT_SAVED, 'ipc-export', (_e, templateId: number, destPath: string) => {
+    if (!validId(templateId)) return fail('Invalid template')
+    if (typeof destPath !== 'string' || destPath.length === 0) return fail('Choose where to save it')
+    assertSafePath(destPath)
+    const row = getDb().prepare('SELECT template_data FROM setup_templates WHERE id = ?').get(templateId) as { template_data: string } | undefined
+    if (!row) return fail("That template doesn't exist any more.")
+    writePulseFile(validatePulseJson(row.template_data), destPath)
+    return ok(true)
+  })
+
   secureWrap(IPC.SETUP_TEMPLATE_IMPORT, 'ipc-export', async (_e, filePath: string) => {
     assertSafePath(filePath)
     const { pulse, preview } = await parsePulseFile(filePath)

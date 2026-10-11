@@ -1,5 +1,5 @@
 /**
- * Settings → Alerts → "Running in the background": keep Pulse in the tray so
+ * Settings → Deadlines & reminders → "Running in the background": keep Pulse in the tray so
  * reminders still come after the window is closed, and open it at sign-in (W11 §3–4).
  */
 import React, { useEffect, useState } from 'react'

@@ -120,9 +120,9 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
           value={autoLockMinutes}
           onChange={e => void handleAutoLockChange(Number(e.target.value))}
         >
-          <option value={5}>5 minutes (recommended)</option>
-          <option value={15}>15 minutes</option>
-          <option value={30}>30 minutes (default)</option>
+          <option value={5}>5 minutes</option>
+          <option value={15}>15 minutes (recommended)</option>
+          <option value={30}>30 minutes</option>
           <option value={60}>1 hour</option>
           <option value={120}>2 hours</option>
         </select>

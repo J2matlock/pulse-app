@@ -388,6 +388,7 @@ export interface IPCContract {
   'setup-template:get-all': { args: [];                                                                                  return: unknown[] }
   'setup-template:import':  { args: [filePath: string];                                                                  return: { pulse: unknown; preview: unknown } }
   'setup-template:export':  { args: [gridId: number, destPath: string];                                                  return: true }
+  'setup-template:export-saved': { args: [templateId: number, destPath: string];                                       return: true }
   'setup-template:apply':   { args: [pulseJson: string, mode: 'new' | 'existing', gridId?: number, saveToLibrary?: boolean]; return: number }
   'setup-template:create':  { args: [name: string, description: string | null, pulseJson: string];                       return: number }
   'setup-template:delete':  { args: [id: number];                                                                        return: true }

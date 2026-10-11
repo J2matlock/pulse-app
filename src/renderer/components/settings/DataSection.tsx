@@ -10,6 +10,7 @@ import { useGridStore } from '../../stores/gridStore'
 import { removeSampleData } from '../shared/SampleDataBanner'
 import { useVocab } from '../../hooks/useVocab'
 import { FilesStorageSection } from './FilesStorageSection'
+import { ImportWizard } from '../grid/ImportWizard'
 import { useFeature } from '../../hooks/useFeature'
 import { localDateString } from '../../../shared/dates'
 
@@ -62,6 +63,13 @@ export function DataSection(): React.ReactElement {
   const [platform, setPlatform] = useState<string>('')
   const [exportingAllCsv, setExportingAllCsv] = useState(false)
   const [backingUp, setBackingUp] = useState(false)
+  const grids = useGridStore(s => s.grids)
+  const activeGridId = useGridStore(s => s.activeGridId)
+  const [importGridId, setImportGridId] = useState<number | null>(null)
+  const [importing, setImporting] = useState(false)
+  useEffect(() => {
+    if (importGridId == null && grids.length > 0) setImportGridId(grids.some(g => g.id === activeGridId) ? activeGridId : grids[0]!.id)
+  }, [grids, activeGridId, importGridId])
 
   async function backUpFirst() {
     setBackingUp(true)
@@ -134,10 +142,31 @@ export function DataSection(): React.ReactElement {
         <div>
           <p className="text-base font-medium text-slate-700 dark:text-slate-300">Import &amp; export data</p>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Use the <strong>Import</strong> button in the grid toolbar to import from Excel or CSV, and the <strong>Export</strong> button to export a single grid as CSV or PDF, or export all grids at once below.
+            Bring a spreadsheet into a {t('list')} here, or with <strong>Import</strong> above the {t('list')}. To save one {t('list')} as CSV or PDF, use <strong>Export</strong> there; to save every {t('list')} at once, use the button below.
           </p>
           {filesOn && <p className="text-sm text-slate-500 dark:text-slate-400">Files attached to {t('record', { many: true })} aren't included in CSV exports; open or save them from each profile.</p>}
         </div>
+        {grids.length > 0 && (
+          <div className="flex flex-wrap items-end gap-2">
+            <div>
+              <label htmlFor="settings-import-list" className="block text-base text-slate-700 dark:text-slate-300 mb-1">Import into</label>
+              <select id="settings-import-list" className="input" style={{ minHeight: 44, fontSize: 15 }}
+                value={importGridId ?? ''} onChange={e => setImportGridId(Number(e.target.value))}>
+                {grids.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+            </div>
+            <button type="button" className="btn-secondary" style={{ minHeight: 44 }} disabled={importGridId == null} onClick={() => setImporting(true)}>
+              Import a spreadsheet…
+            </button>
+          </div>
+        )}
+        {importing && importGridId != null && (
+          <ImportWizard open gridId={importGridId} onClose={() => setImporting(false)}
+            onImported={() => {
+              void useGridStore.getState().loadGridList()
+              if (useGridStore.getState().activeGridId === importGridId) void useGridStore.getState().loadGrid(importGridId)
+            }} />
+        )}
         <button
           onClick={async () => {
             const dialogRes = await safeInvoke<OpenDialogResult>(IPC.APP_SHOW_FILE_DIALOG, {
@@ -173,7 +202,7 @@ export function DataSection(): React.ReactElement {
           style={{ minHeight: 44 }}
         >
           <Download className="w-4 h-4" />
-          {exportingAllCsv ? 'Exporting…' : 'Export All as CSV'}
+          {exportingAllCsv ? 'Exporting…' : 'Export everything as CSV…'}
         </button>
       </div>
 

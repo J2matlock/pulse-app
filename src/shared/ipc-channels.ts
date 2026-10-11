@@ -117,6 +117,7 @@ export const IPC = {
   SETUP_TEMPLATE_GET_ALL: 'setup-template:get-all',
   SETUP_TEMPLATE_IMPORT: 'setup-template:import',
   SETUP_TEMPLATE_EXPORT: 'setup-template:export',
+  SETUP_TEMPLATE_EXPORT_SAVED: 'setup-template:export-saved',
   SETUP_TEMPLATE_APPLY: 'setup-template:apply',
   SETUP_TEMPLATE_CREATE: 'setup-template:create',
   SETUP_TEMPLATE_DELETE: 'setup-template:delete',

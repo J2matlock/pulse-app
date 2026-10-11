@@ -8,9 +8,13 @@ Object.defineProperty(window, 'api', { value: { invoke: mockInvoke, platform: 'l
 
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }))
 vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMock)
+vi.mock('../../../../src/renderer/components/grid/ImportWizard', () => ({
+  ImportWizard: ({ gridId }: { gridId: number }) => <div>Import wizard for list {gridId}</div>,
+}))
 
 import { DataSection } from '../../../../src/renderer/components/settings/DataSection'
 import { setWords } from '../../vocabFixture'
+import { useGridStore } from '../../../../src/renderer/stores/gridStore'
 
 describe('DataSection — reset everything', () => {
   beforeEach(() => {
@@ -38,5 +42,15 @@ describe('DataSection — reset everything', () => {
     render(<DataSection />)
     fireEvent.click(screen.getByRole('button', { name: 'Back up first…' }))
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('backup:manual-create', '/usb/before-reset.pulse-backup'))
+  })
+
+  it('offers "Import a spreadsheet…" into a chosen list (audit X-22)', () => {
+    useGridStore.setState({ grids: [{ id: 3, name: 'Intake' }, { id: 4, name: 'Closed' }] as never, activeGridId: 4 })
+    render(<DataSection />)
+    expect((screen.getByLabelText('Import into') as HTMLSelectElement).value).toBe('4')
+    fireEvent.change(screen.getByLabelText('Import into'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Import a spreadsheet…' }))
+    expect(screen.getByText('Import wizard for list 3')).toBeTruthy()
+    expect(screen.queryByText(/grid/)).toBeNull()
   })
 })

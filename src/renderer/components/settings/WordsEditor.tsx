@@ -5,6 +5,9 @@ import {
   type Term, type Vocab, type VocabKey,
 } from '../../../shared/vocab'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
+import { useGridStore } from '../../stores/gridStore'
+import { ListSettingsDialog } from '../grid/ListSettingsDialog'
+import { useVocab } from '../../hooks/useVocab'
 
 /** The words people can change, in the order they matter. (Appointments and stages arrive with their features.) */
 const ROWS: Array<{ key: VocabKey; label: string; hint: string }> = [
@@ -53,6 +56,14 @@ export function WordsEditor(): React.ReactElement {
   const update = useWorkspaceStore(s => s.update)
   const [draft, setDraft] = useState<Vocab>(() => resolveVocab(saved))
   const [saving, setSaving] = useState(false)
+  const { t } = useVocab(null)
+  const gridVocab = useWorkspaceStore(s => s.gridVocab)
+  const grids = useGridStore(s => s.grids)
+  const [editingList, setEditingList] = useState<number | null>(null)
+  // Lists with their own words keep them, whatever is saved here
+  const ownWords = grids
+    .filter(g => gridVocab[g.id] && Object.keys(gridVocab[g.id]!).length > 0)
+    .map(g => ({ id: g.id, name: g.name, word: gridVocab[g.id]!.record?.one }))
 
   // Words changed elsewhere (an example applied, another window): start from them
   useEffect(() => { setDraft(resolveVocab(saved)) }, [saved])
@@ -92,7 +103,7 @@ export function WordsEditor(): React.ReactElement {
     setSaving(true)
     try {
       await update({ vocab: toStored(trimmed(draft)) })
-      toast.success('Words saved. They now appear everywhere.')
+      toast.success(ownWords.length > 0 ? `Words saved. ${t('list', { many: true, cap: true })} with their own words keep them.` : 'Words saved. They now appear everywhere.')
     } catch (err) {
       toast.error(err instanceof Error && err.message !== 'READ_ONLY' ? err.message : "We couldn't save the words. Please try again.")
     } finally {
@@ -113,6 +124,25 @@ export function WordsEditor(): React.ReactElement {
         <span className="sr-only">Preview: </span>
         Add {term(v, 'record', { article: true })} · 3 {term(v, 'record', { many: true })} due this week · {term(v, 'record', { cap: true })} {term(v, 'activity', { many: true })} · New {term(v, 'list')}
       </div>
+
+      {ownWords.length > 0 && (
+        <div className="rounded-lg border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 space-y-1">
+          <p className="text-base text-slate-800 dark:text-slate-100">
+            These are the default words. {t('list', { many: true, cap: true })} with their own words keep them:
+          </p>
+          <ul className="space-y-1">
+            {ownWords.map(l => (
+              <li key={l.id} className="flex items-center gap-2 text-base text-slate-800 dark:text-slate-100">
+                <span>{l.name}{l.word ? ` (${l.word})` : ''}</span>
+                <button type="button" className="hit-44 text-base text-blue-700 dark:text-blue-300 underline" onClick={() => setEditingList(l.id)}>
+                  Edit its words
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {editingList !== null && <ListSettingsDialog gridId={editingList} onClose={() => setEditingList(null)} />}
 
       <div className="overflow-x-auto">
         <table className="w-full text-base">

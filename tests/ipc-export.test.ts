@@ -549,6 +549,22 @@ describe('SETUP_TEMPLATE_EXPORT', () => {
   })
 })
 
+describe('SETUP_TEMPLATE_EXPORT_SAVED (audit X-27)', () => {
+  const dest = join(tmpdir(), 'pulse-test-export', 'temp', 'mine.pulse')
+
+  it('exports a template from the library by its id', async () => {
+    const id = testDb.db.prepare(`INSERT INTO setup_templates (name, description, template_data, is_system, created_at) VALUES ('Mine', NULL, '{"name":"Mine","columns":[]}', 0, datetime('now'))`).run().lastInsertRowid as number
+    const result = await invoke(IPC.SETUP_TEMPLATE_EXPORT_SAVED, id, dest) as { ok: boolean }
+    expect(result.ok).toBe(true)
+  })
+
+  it('says so when the template is gone', async () => {
+    const result = await invoke(IPC.SETUP_TEMPLATE_EXPORT_SAVED, 999999, dest) as { ok: false; error: string }
+    expect(result.ok).toBe(false)
+    expect(result.error).toMatch(/doesn't exist/)
+  })
+})
+
 describe('SETUP_TEMPLATE_APPLY', () => {
   it('applies to new grid', async () => {
     const pulse = JSON.stringify({ name: 'Test', columns: [], description: null })

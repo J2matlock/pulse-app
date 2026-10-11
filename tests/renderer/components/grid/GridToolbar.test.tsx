@@ -107,7 +107,7 @@ vi.mock('../../../../src/renderer/components/shared/ColumnSelectDialog', () => (
 import { useGridStore } from '../../../../src/renderer/stores/gridStore'
 import { GridToolbar } from '../../../../src/renderer/components/grid/GridToolbar'
 import type { Column } from '../../../../src/shared/types'
-import { setWords } from '../../vocabFixture'
+import { setWords, setFeatures, EXISTING_FEATURES } from '../../vocabFixture'
 
 function makeColumn(id: number, name: string, type = 'text'): Column {
   return {
@@ -165,6 +165,17 @@ describe('GridToolbar', () => {
   it('renders Export button', () => {
     render(<GridToolbar />)
     expect(screen.getByText('Export')).toBeTruthy()
+  })
+
+  it('offers the requirements summary only while requirements are on (audit X-31)', () => {
+    const { unmount } = render(<GridToolbar />)
+    fireEvent.click(screen.getByText('Export'))
+    expect(screen.queryByText(/requirements summary…/i)).toBeTruthy()
+    unmount()
+    setFeatures({ ...EXISTING_FEATURES, requirements: false })
+    render(<GridToolbar />)
+    fireEvent.click(screen.getByText('Export'))
+    expect(screen.queryByText(/requirements summary…/i)).toBeNull()
   })
 
   it('renders Import button', () => {
