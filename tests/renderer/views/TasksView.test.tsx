@@ -127,7 +127,11 @@ vi.mock('../../../src/renderer/views/tasks/TaskGroup', () => ({
   ),
 }))
 vi.mock('../../../src/renderer/views/tasks/UrgentChecklistSection', () => ({
-  UrgentChecklistSection: () => <div data-testid="urgent-section" />,
+  UrgentChecklistSection: ({ items, onToggle }: { items: Array<{ id: number; title: string }>; onToggle: (i: unknown) => void }) => (
+    <div data-testid="urgent-section">
+      {items.map(i => <button key={i.id} onClick={() => onToggle(i)}>{`Tick ${i.title}`}</button>)}
+    </div>
+  ),
 }))
 vi.mock('../../../src/renderer/components/tasks/TaskItem', () => ({
   TaskItem: ({ task }: { task: { title: string } }) => (
@@ -207,6 +211,26 @@ describe('TasksView — interactions', () => {
     } finally { data.loadTasks = usual }
   })
 
+  it('a repeating urgent checklist item ticked off comes back at its next date (bug sweep S2)', async () => {
+    const { setWords, EXISTING_FEATURES } = await import('../vocabFixture')
+    const item = { id: 1, row_id: 2, title: 'Sign consent', client_name: 'Ann', is_completed: 0, due_date: '2026-10-01', recurrence_rule: '{"type":"monthly","interval":1}' }
+    let urgentLoads = 0
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'checklist:get-urgent') { urgentLoads++; return Promise.resolve({ ok: true, data: [urgentLoads === 1 ? item : { ...item, due_date: '2026-11-01' }] }) }
+      if (channel === 'checklist:update-item') return Promise.resolve({ ok: true, data: { sysLogId: null, repeat: { previousDue: '2026-10-01', nextDue: '2026-11-01' } } })
+      return Promise.resolve({ ok: true, data: [] })
+    })
+    setWords(undefined, {}, { ...EXISTING_FEATURES, checklists: true })
+    try {
+      render(<MemoryRouter><TasksView /></MemoryRouter>)
+      await flushEffects()
+      await act(async () => { fireEvent.click(screen.getByText('Tick Sign consent')) })
+      await flushEffects()
+      expect(screen.getByText('Tick Sign consent')).toBeDefined()
+      expect(screen.getByText(/1 urgent/)).toBeDefined()
+    } finally { setWords() }
+  })
+
   it('counts urgent checklist items only while Checklists is on', async () => {
     const { setWords, EXISTING_FEATURES } = await import('../vocabFixture')
     mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'checklist:get-urgent'
@@ -237,6 +261,52 @@ describe('TasksView — interactions', () => {
       await flushEffects()
       expect(screen.getByLabelText('Collapse New Group')).toBeDefined()
       expect(screen.queryByText('No tasks yet')).toBeNull()
+    } finally { Object.assign(data, usual) }
+  })
+
+  it('a group still called "New Group" opens for typing only when just added, not on every visit (bug sweep S2)', async () => {
+    const data = taskStoreData()
+    const usual = { sortMode: data.sortMode }
+    data.sortMode = 'manual'
+    const old = { id: 4, name: 'New Group', position: 0, is_collapsed: 0, created_at: '2026-10-11' }
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(
+      channel === 'task:group-get-all' ? { ok: true, data: [old] }
+      : channel === 'task:group-create' ? { ok: true, data: { ...old, id: 5, position: 1 } }
+      : { ok: true, data: [] }))
+    try {
+      render(<MemoryRouter><TasksView /></MemoryRouter>)
+      await flushEffects()
+      expect(screen.queryByDisplayValue('New Group')).toBeNull()
+      await act(async () => { fireEvent.click(screen.getByTitle('Add a group to organize tasks')) })
+      // Only the one just made opens
+      expect(screen.getAllByDisplayValue('New Group')).toHaveLength(1)
+      expect(screen.getAllByTitle('Click to rename')).toHaveLength(1)
+    } finally { Object.assign(data, usual) }
+  })
+
+  it('a group rename that fails says so, keeps the old name and adds no undo step (bug sweep S2)', async () => {
+    const toast = (await import('react-hot-toast')).default
+    const undo = (await import('../../../src/renderer/stores/undoStore')).useUndoStore.getState()
+    const data = taskStoreData()
+    const usual = { sortMode: data.sortMode }
+    data.sortMode = 'manual'
+    const group = { id: 4, name: 'Calls', position: 0, is_collapsed: 0, created_at: '2026-10-11' }
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(
+      channel === 'task:group-get-all' ? { ok: true, data: [group] }
+      : channel === 'task:group-update' || channel === 'task:group-delete' ? { ok: false, error: 'disk full' }
+      : { ok: true, data: [] }))
+    vi.mocked(undo.push).mockClear()
+    vi.mocked(toast.error).mockClear()
+    try {
+      render(<MemoryRouter><TasksView /></MemoryRouter>)
+      await flushEffects()
+      fireEvent.click(screen.getByTitle('Click to rename'))
+      const input = screen.getByDisplayValue('Calls')
+      fireEvent.change(input, { target: { value: 'Phone calls' } })
+      await act(async () => { fireEvent.keyDown(input, { key: 'Enter' }) })
+      expect(toast.error).toHaveBeenCalledWith("We couldn't rename the group — try again")
+      expect(screen.getByText('Calls')).toBeDefined()
+      expect(undo.push).not.toHaveBeenCalled()
     } finally { Object.assign(data, usual) }
   })
 

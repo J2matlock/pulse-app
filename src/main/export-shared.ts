@@ -62,6 +62,8 @@ export interface CsvExportOptions {
   dateFormat?: 'iso' | 'us' | 'eu'
   /** With no columns named, include hidden ones too (Export All) */
   includeHidden?: boolean
+  /** Archived records too, with a Status column saying which (Export All) */
+  includeArchived?: boolean
 }
 
 export interface PdfProfileOptions {
@@ -227,8 +229,11 @@ export function pickColumns(columns: Column[], columnIds: number[], includeHidde
   return columnIds.length > 0 ? columns.filter(c => columnIds.includes(c.id)) : columns.filter(c => includeHidden || c.is_visible !== 0)
 }
 
-/** Load grid data needed for exports (includeHidden: hidden columns too, so they can be chosen) */
-export function loadGridData(gridId: number, opts: { includeHidden?: boolean } = {}): {
+/**
+ * Load grid data needed for exports (includeHidden: hidden columns too, so they
+ * can be chosen; includeArchived: archived records too, never ones in the Trash)
+ */
+export function loadGridData(gridId: number, opts: { includeHidden?: boolean; includeArchived?: boolean } = {}): {
   grid: Grid
   columns: Column[]
   rows: GridRow[]
@@ -241,7 +246,7 @@ export function loadGridData(gridId: number, opts: { includeHidden?: boolean } =
   if (columns.length === 0) return { grid, columns, rows: [] }
 
   const links = linkColumnSpecs(columns)
-  const rows = db.prepare(buildGridQuery(columns.map(c => c.id), false, links, fileCountColumnIds(columns))).all(gridId) as GridRow[]
+  const rows = db.prepare(buildGridQuery(columns.map(c => c.id), opts.includeArchived ?? false, links, fileCountColumnIds(columns))).all(gridId) as GridRow[]
   // Exports show linked records by name
   for (const l of links) {
     const key = `col_${l.columnId}` as const

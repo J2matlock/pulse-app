@@ -14,6 +14,7 @@ vi.mock('react-hot-toast', () => ({ default: { error: vi.fn() } }))
 // Mock crypto.randomUUID
 vi.stubGlobal('crypto', { randomUUID: () => 'test-uuid-' + Math.random().toString(36).slice(2) })
 
+import toast from 'react-hot-toast'
 import { useTaskStore } from '../../../src/renderer/stores/taskStore'
 import { useUndoStore } from '../../../src/renderer/stores/undoStore'
 import type { CaseloadTask } from '../../../src/shared/types'
@@ -208,6 +209,41 @@ describe('taskStore', () => {
       mockInvoke.mockClear()
       await useUndoStore.getState().undo()
       expect(mockInvoke.mock.calls.filter(c => c[0] === 'task:restore')).toHaveLength(2)
+    })
+  })
+
+  describe('saves main turns down (bug sweep S2)', () => {
+    const newTask = {
+      grid_id: null, group_id: null, title: 'x'.repeat(600), description: null, priority: 'normal' as const, category: null,
+      due_date: null, recurrence_rule: null, is_completed: 0, completed_at: null, snoozed_until: null, position: 0,
+    }
+
+    it('a failed add, update, delete or snooze says so in plain words', async () => {
+      vi.mocked(toast.error).mockClear()
+      mockInvoke.mockResolvedValue({ ok: false, error: 'Invalid task title' })
+      expect(await useTaskStore.getState().createTask(newTask as never)).toBeNull()
+      expect(toast.error).toHaveBeenLastCalledWith('That task title is too long. Keep it under 500 characters.')
+
+      useTaskStore.setState({ tasks: [makeTask(1)] })
+      mockInvoke.mockResolvedValue({ ok: false, error: 'SQLITE_BUSY' })
+      await useTaskStore.getState().updateTask(1, { priority: 'high' })
+      expect(toast.error).toHaveBeenLastCalledWith("We couldn't save your change to the task — try again")
+      await useTaskStore.getState().deleteTask(1)
+      expect(toast.error).toHaveBeenLastCalledWith("We couldn't delete the task — try again")
+      await useTaskStore.getState().snoozeTask(1, '2030-01-01')
+      expect(toast.error).toHaveBeenLastCalledWith("We couldn't snooze the task — try again")
+
+      mockInvoke.mockResolvedValue({ ok: false, error: 'A repeating task needs a due date. Turn off Repeat to remove the date.' })
+      await useTaskStore.getState().updateTask(1, { due_date: null })
+      expect(toast.error).toHaveBeenLastCalledWith('A repeating task needs a due date. Turn off Repeat to remove the date.')
+    })
+
+    it('undoing a tick on a snoozed repeating task puts the snooze back', async () => {
+      useTaskStore.setState({ tasks: [makeTask(3, { due_date: '2030-01-01', recurrence_rule: '{"type":"weekly","interval":1}', snoozed_until: '2029-12-30' })] })
+      mockInvoke.mockImplementation(async (channel: string) => channel === 'task:get-all' ? { ok: true, data: [] } : { ok: true, data: true })
+      await useTaskStore.getState().completeTask(3)
+      await useUndoStore.getState().undo()
+      expect(mockInvoke).toHaveBeenCalledWith('task:uncomplete', 3, { is_completed: 0, completed_at: null, due_date: '2030-01-01', snoozed_until: '2029-12-30' })
     })
   })
 

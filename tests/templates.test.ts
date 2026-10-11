@@ -605,6 +605,44 @@ describe('exportGridAsPulse', () => {
     expect(pulse.created).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 
+  it('Age and Days-until columns read the new list\'s own columns after a round trip (S4)', () => {
+    const { gridId, columnIds } = seedGrid(testDb.db, { name: 'People', columnCount: 4, columnTypes: ['text', 'date', 'age_from_dob', 'calculated_days'] })
+    const [, dob, age, days] = columnIds as [number, number, number, number]
+    testDb.db.prepare("UPDATE columns SET name = 'Date of birth' WHERE id = ?").run(dob)
+    testDb.db.prepare('UPDATE columns SET config = ? WHERE id = ?').run(JSON.stringify({ source_column_id: dob }), age)
+    testDb.db.prepare('UPDATE columns SET config = ? WHERE id = ?').run(JSON.stringify({ source_column_id: dob, label: 'days' }), days)
+
+    const pulse = templates.exportGridAsPulse(gridId)
+    const ageCfg = JSON.parse(pulse.columns[2]!.config!)
+    expect(ageCfg).toEqual({ source_column_name: 'Date of birth' })
+
+    const newGrid = templates.applyPulseToNewGrid(pulse)
+    const cols = testDb.db.prepare('SELECT id, name, column_type, config FROM columns WHERE grid_id = ? ORDER BY position').all(newGrid) as Array<{ id: number; name: string; column_type: string; config: string }>
+    const newDob = cols.find(c => c.name === 'Date of birth')!.id
+    expect(newDob).not.toBe(dob)
+    expect(JSON.parse(cols.find(c => c.column_type === 'age_from_dob')!.config)).toEqual({ source_column_id: newDob })
+    expect(JSON.parse(cols.find(c => c.column_type === 'calculated_days')!.config)).toEqual({ source_column_id: newDob, label: 'days' })
+  })
+
+  it('drops a source column id an older file brought from another database (S4)', () => {
+    const other = seedGrid(testDb.db, { name: 'Elsewhere', columnCount: 1, columnTypes: ['date'] })
+    const pulse = {
+      pulse_template: '1.0', type: 'setup', name: 'Old file', created: '2026-01-01', alert_rules: [], checklists: [],
+      columns: [
+        { name: 'Name', column_type: 'text', position: 0, is_name_column: 1 },
+        { name: 'DOB', column_type: 'date', position: 1 },
+        { name: 'Age', column_type: 'age_from_dob', position: 2, config: JSON.stringify({ source_column_id: other.columnIds[0] }) },
+        { name: 'Days left', column_type: 'calculated_days', position: 3, config: JSON.stringify({ source_column_id: other.columnIds[0] }) },
+      ],
+    } as unknown as Parameters<typeof templates.applyPulseToNewGrid>[0]
+    const newGrid = templates.applyPulseToNewGrid(pulse)
+    const cfgOf = (name: string) => JSON.parse((testDb.db.prepare('SELECT config FROM columns WHERE grid_id = ? AND name = ?').get(newGrid, name) as { config: string }).config)
+    const dobId = (testDb.db.prepare("SELECT id FROM columns WHERE grid_id = ? AND name = 'DOB'").get(newGrid) as { id: number }).id
+    // Age finds the list's birth-date column; Days-until has nothing to go on
+    expect(cfgOf('Age')).toEqual({ source_column_id: dobId })
+    expect(cfgOf('Days left')).toEqual({})
+  })
+
   it('exports only non-system alert rules', () => {
     const { gridId, columnIds } = seedGrid(testDb.db, { columnTypes: ['text', 'date', 'date'] })
     // System rule

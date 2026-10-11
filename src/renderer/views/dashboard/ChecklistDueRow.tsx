@@ -47,11 +47,19 @@ export function ChecklistDueRow({
   async function handleComplete() {
     setCompleting(true)
     try {
+      // A repeating item stays open with its next due date, so it's shown at that
+      // date instead of dropping off until the next visit (bug sweep S2)
+      const repeat = { nextDue: null as string | null }
+      const showAt = (due: string) => { onComplete(item.id); onRestore?.({ ...item, due_date: due }) }
       const done = await tickChecklistItem(item, {
-        onUndo: () => onRestore?.(item),
-        onRedo: () => onComplete(item.id),
+        onUndo: () => { if (repeat.nextDue && item.due_date) showAt(item.due_date); else onRestore?.(item) },
+        onRedo: () => { if (repeat.nextDue) showAt(repeat.nextDue); else onComplete(item.id) },
+        onRepeat: next => { repeat.nextDue = next },
       })
-      if (done) onComplete(item.id)
+      if (done) {
+        if (repeat.nextDue) showAt(repeat.nextDue)
+        else onComplete(item.id)
+      }
     } catch { /* ignore */ } finally {
       setCompleting(false)
     }

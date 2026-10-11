@@ -220,6 +220,18 @@ describe('TasksView — data smoke tests (5 tasks, 2 overdue)', () => {
     )
   })
 
+  it('a failed add puts the text back in the box instead of losing it (bug sweep S2)', async () => {
+    const storeData = (globalThis as Record<string, unknown>).__taskStoreData as Record<string, ReturnType<typeof vi.fn>>
+    storeData.createTask!.mockResolvedValueOnce(null)
+    render(<MemoryRouter><TasksView /></MemoryRouter>)
+    await flushEffects()
+    const input = screen.getByPlaceholderText('+ Add task... (press Enter)') as HTMLInputElement
+    expect(input.maxLength).toBe(500)
+    fireEvent.change(input, { target: { value: 'Call Dr. Rivera' } })
+    await act(async () => { fireEvent.keyDown(input, { key: 'Enter' }) })
+    expect(input.value).toBe('Call Dr. Rivera')
+  })
+
   it('shows progress bar with completion info', async () => {
     render(<MemoryRouter><TasksView /></MemoryRouter>)
     await flushEffects()

@@ -60,7 +60,7 @@ vi.mock('../src/main/database', async () => {
   return {
     ...actual,
     getDb: () => testDb.db,
-    openDatabase: () => { backupMock.opened++ },
+    openDatabase: () => { backupMock.opened++; if (backupMock.openError) { const e = backupMock.openError; backupMock.openError = null; throw e } },
     closeDatabase: () => {},
     resolveDatabasePath: () => '/tmp/test.db',
     cachedStmt: (key: string, sql: string) => testDb.db.prepare(sql),
@@ -92,11 +92,12 @@ vi.mock('../src/main/backup', () => ({
   runScheduledBackupNow: async () => ({ ran: true, destPath: '/old/dest/pulse-scheduled-x.pulse-backup', lastRunISO: '2026-10-10T09:00:00.000Z' }),
   restoreOtherPulseBackup: (opts: unknown) => backupMock.restoreOther!(opts),
   getBackupMadeInfo: async () => ({ madeAt: '2026-10-09T08:00:00.000Z', appVersion: '2.2.0' }),
+  withBackupDbFile: async (p: string, fn: (f: string) => unknown) => fn(p),
   getBackupHealth: () => ({ lastOffsiteISO: null, trackingSinceISO: '2020-01-01T00:00:00.000Z', scheduled: { enabled: false, intervalHours: 24, lastRunISO: null, lastError: null, overdue: false } }),
   describeBackupError: () => 'The backup couldn\'t be saved.',
   runPreMigrationBackup: () => {},
 }))
-const backupMock = vi.hoisted(() => ({ lastSet: null as unknown, restoreOther: null as null | ((opts: unknown) => Promise<unknown>), restoreError: null as Error | null, opened: 0 }))
+const backupMock = vi.hoisted(() => ({ lastSet: null as unknown, restoreOther: null as null | ((opts: unknown) => Promise<unknown>), restoreError: null as Error | null, openError: null as Error | null, opened: 0 }))
 
 vi.mock('../src/main/export', () => ({
   exportCsv: vi.fn(async () => '/tmp/export.csv'),
@@ -318,6 +319,14 @@ describe('BACKUP_RESTORE_OTHER', () => {
     expect(result.error).toMatch(/doesn't match this backup/)
   })
 
+  it('says so in plain words when the restored data then fails to open (S4)', async () => {
+    backupMock.restoreOther = vi.fn(async () => ({ safetyPath: '/b/pulse-pre-restore-x.pulse-backup', schemaVersion: 43 }))
+    backupMock.openError = new Error('SQLITE_CORRUPT: database disk image is malformed')
+    const result = await invoke(IPC.BACKUP_RESTORE_OTHER, path, 'right', 'A-Strong-New-Pass-42', '') as { ok: false; error: string }
+    expect(result.ok).toBe(false)
+    expect(result.error).toMatch(/restored, but Pulse couldn't open it/)
+  })
+
   it('returns the safety copy path', async () => {
     backupMock.restoreOther = vi.fn(async () => ({ safetyPath: '/b/pulse-pre-restore-x.pulse-backup', schemaVersion: 43 }))
     const result = await invoke(IPC.BACKUP_RESTORE_OTHER, path, 'right', 'A-Strong-New-Pass-42', '') as { ok: true; data: { safetyPath: string } }
@@ -355,6 +364,22 @@ describe('BACKUP_PREVIEW', () => {
   it('fails for non-existent file', async () => {
     const result = await invoke(IPC.BACKUP_PREVIEW, '/tmp/nonexistent-backup.db') as { ok: false }
     expect(result.ok).toBe(false)
+  })
+
+  it("doesn't count records of lists in the Trash (S4)", async () => {
+    const dir = join(tmpdir(), 'pulse-test-export', 'documents', `preview-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    mkdirSync(dir, { recursive: true })
+    const file = join(dir, 'backup.db')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Sqlite = require('better-sqlite3-multiple-ciphers')
+    const db = new Sqlite(file)
+    db.exec(`CREATE TABLE app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO app_meta VALUES ('schema_version', '47');
+             CREATE TABLE grids (id INTEGER PRIMARY KEY, is_active INTEGER); INSERT INTO grids VALUES (1, 1), (2, 0);
+             CREATE TABLE rows (id INTEGER PRIMARY KEY, grid_id INTEGER, is_active INTEGER, deleted_at TEXT);
+             INSERT INTO rows VALUES (1, 1, 1, NULL), (2, 1, 1, NULL), (3, 1, 0, NULL), (4, 2, 1, NULL), (5, 2, 1, NULL);`)
+    db.close()
+    const result = await invoke(IPC.BACKUP_PREVIEW, file) as { ok: true; data: { gridCount: number; rowCount: number } }
+    expect(result).toMatchObject({ ok: true, data: { gridCount: 1, rowCount: 2, schemaVersion: 47 } })
   })
 })
 
@@ -461,6 +486,8 @@ describe('EXPORT_ALL_CSV', () => {
     const calls = vi.mocked(exportCsv).mock.calls.slice(-2).map(c => c[0] as { destPath: string; includeHidden?: boolean })
     expect(calls.map(c => c.destPath)).toEqual([join(dir, 'Clients.csv'), join(dir, 'Clients (2).csv')])
     expect(calls.every(c => c.includeHidden)).toBe(true)
+    // Archived records come out too (S4)
+    expect(calls.every(c => (c as { includeArchived?: boolean }).includeArchived)).toBe(true)
     expect(readdirSync(dir)).toEqual(['notes.csv'])
     const notes = readFileSync(join(dir, 'notes.csv'), 'utf-8')
     expect(notes).toContain('José Núñez')

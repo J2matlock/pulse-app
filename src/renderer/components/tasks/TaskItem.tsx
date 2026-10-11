@@ -5,6 +5,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { CaseloadTask, TaskPriority } from '../../../shared/types'
 import { localDateString } from '../../../shared/dates'
+import { parseRepeatRule } from '../../../shared/recurrence'
 import { dueDateBadge, isOverdue, isDueToday, isSnoozed } from '../../views/tasks/taskHelpers'
 import { snoozeDay } from '../../views/tasks/SnoozeDialog'
 
@@ -36,6 +37,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
 
   const titleRef = useRef<HTMLInputElement>(null)
   const dateRef = useRef<HTMLInputElement>(null)
+  const clearDateRef = useRef<HTMLButtonElement>(null)
   const priorityMenuRef = useRef<HTMLDivElement>(null)
   const recurrenceMenuRef = useRef<HTMLDivElement>(null)
   const prevCompletedRef = useRef(task.is_completed)
@@ -86,7 +88,8 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
   function saveDate() {
     // A repeating task keeps a due date: an emptied box puts the old one back
     if (!dateDraft && task.recurrence_rule) setDateDraft(task.due_date ?? '')
-    else onUpdate({ due_date: dateDraft || null })
+    // Opened and closed without a change: nothing to save or undo (bug sweep S2)
+    else if (dateDraft !== (task.due_date ?? '')) onUpdate({ due_date: dateDraft || null })
     setEditingDate(false)
   }
 
@@ -158,6 +161,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
             ref={titleRef}
             type="text"
             value={titleDraft}
+            maxLength={500}
             onChange={e => setTitleDraft(e.target.value)}
             onKeyDown={e => {
               if (e.key === 'Enter') saveTitle()
@@ -194,14 +198,23 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
                 type="date"
                 value={dateDraft}
                 onChange={e => setDateDraft(e.target.value)}
-                onBlur={saveDate}
+                // Moving to the Clear button keeps the editor open, so its click lands (bug sweep S2)
+                onBlur={e => { if (e.relatedTarget !== clearDateRef.current) saveDate() }}
                 onKeyDown={e => { if (e.key === 'Escape') { setDateDraft(task.due_date ?? ''); setEditingDate(false) } }}
                 className="text-base border border-slate-200 dark:border-slate-600 rounded-sm px-1.5 py-0.5
                            bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300
                            focus:outline-hidden focus:ring-3 focus:ring-blue-400"
               />
               {task.due_date && !hasRecurrence && (
-                <button onClick={clearDate} className="hit-44 text-slate-500 dark:text-slate-400 hover:text-red-500" title="Clear date">
+                <button
+                  ref={clearDateRef}
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={clearDate}
+                  onBlur={e => { if (e.relatedTarget !== dateRef.current) saveDate() }}
+                  className="hit-44 text-slate-500 dark:text-slate-400 hover:text-red-500"
+                  title="Clear date"
+                  aria-label="Clear date"
+                >
                   <X className="w-3 h-3" />
                 </button>
               )}
@@ -278,8 +291,10 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
                   { label: 'Weekly', rule: JSON.stringify({ type: 'weekly', interval: 1 }) },
                   { label: 'Monthly', rule: JSON.stringify({ type: 'monthly', interval: 1 }) },
                 ] as Array<{ label: string; rule: string | null }>).map(opt => {
+                  // Compared by meaning: a monthly rule also carries the day it falls on
+                  const cur = parseRepeatRule(task.recurrence_rule)
                   const isActive = hasRecurrence
-                    ? (opt.rule != null && task.recurrence_rule === opt.rule)
+                    ? (opt.rule != null && cur != null && !cur.end_date && cur.interval === 1 && cur.type === parseRepeatRule(opt.rule)?.type)
                     : opt.rule === null
                   return (
                     <button

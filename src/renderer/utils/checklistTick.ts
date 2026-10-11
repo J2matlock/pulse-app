@@ -4,6 +4,7 @@
  * - a repeating item that main moved on to its next due date goes back to the old one
  * - undo and redo are silent, so main neither writes a "Reopened" note nor repeats again
  * - the "Completed" note is voided on undo and restored on redo
+ * - `onRepeat` hears the next due date of a repeating item, which stays open
  */
 import toast from 'react-hot-toast'
 import { IPC } from '../../shared/ipc-channels'
@@ -19,7 +20,7 @@ interface TickResult {
 
 export async function tickChecklistItem(
   item: { id: number; title: string; client_name?: string | null; row_id?: number | null },
-  hooks: { onUndo?: () => void; onRedo?: () => void } = {},
+  hooks: { onUndo?: () => void; onRedo?: () => void; onRepeat?: (nextDue: string) => void } = {},
 ): Promise<boolean> {
   const completedAt = new Date().toISOString()
   const res = await safeInvoke<TickResult>(IPC.CHECKLIST_UPDATE_ITEM, item.id, { is_completed: 1, completed_at: completedAt })
@@ -58,5 +59,7 @@ export async function tickChecklistItem(
       changed()
     },
   })
+  // A repeating item is still open, due again on its next date (bug sweep S2)
+  if (repeat) hooks.onRepeat?.(repeat.nextDue)
   return true
 }

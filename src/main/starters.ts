@@ -33,7 +33,7 @@ import { normalizeDisplayFormat } from '../shared/displayFormat'
 import { createAppointment } from './appointments'
 import { addDays, addMinutes } from '../shared/appointments'
 import { canBeRequired } from '../shared/requiredFields'
-import { exportGridAsPulse, validatePulseJson, type PulseFile } from './templates'
+import { exportGridAsPulse, linkSourceColumns, validatePulseJson, type PulseFile } from './templates'
 import { STANDARD_RULES, ruleForInterval } from './builtin-templates'
 import { ensureRule, linkColumnRules, refersToColumns, resolveRuleFields } from './rule-columns'
 import { addLink, listLinkTypes, setupLink } from './links'
@@ -421,6 +421,7 @@ export function applyStarter(src: StarterSource, opts: ApplyOptions): ApplyResul
           c.default_value ?? null, c.description ?? null, config)
       }
       if (later.size) result.warnings.push(...linkColumnRules(db, gridId, name, l.alertRules ?? [], result.renamed))
+      linkSourceColumns(db, gridId)
       if (l.stage) result.warnings.push(...applyPortableStage(db, gridId, name, l.stage.column, l.stage))
       if (l.forms?.length) result.warnings.push(...applyPortableForms(db, gridId, name, l.forms))
       // Requirements count note types by key; ones this workspace doesn't have are dropped

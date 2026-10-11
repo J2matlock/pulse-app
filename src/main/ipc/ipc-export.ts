@@ -195,7 +195,12 @@ export function registerExportHandlers(): void {
         try { openDatabase() } catch (openErr) { logger.error('ipc-export', `[${corrId}] could not reopen the database after a failed restore`, openErr) }
         return fail(describeRestoreError(err))
       }
-      openDatabase()
+      try {
+        openDatabase()
+      } catch (openErr) {
+        logger.error('ipc-export', `[${corrId}] restored another Pulse's backup but could not open it`, openErr)
+        return fail('The backup was restored, but Pulse couldn\'t open it. Close Pulse, open it again and sign in with your new password.')
+      }
       logger.info('ipc-export', `[${corrId}] restored another Pulse's backup, safety copy at ${result.safetyPath}`)
       return ok({ safetyPath: result.safetyPath })
     })
@@ -314,7 +319,8 @@ export function registerExportHandlers(): void {
         db.pragma("cipher_kdf_algorithm=PBKDF2_HMAC_SHA512")
 
         const gridCount = (db.prepare("SELECT COUNT(*) as n FROM grids WHERE is_active = 1").get() as { n: number }).n
-        const rowCount = (db.prepare("SELECT COUNT(*) as n FROM rows WHERE is_active = 1 AND deleted_at IS NULL").get() as { n: number }).n
+        // Records of lists in the Trash keep is_active = 1, so count only active lists (as BACKUP_GET_INFO does)
+        const rowCount = (db.prepare("SELECT COUNT(*) as n FROM rows r JOIN grids g ON g.id = r.grid_id AND g.is_active = 1 WHERE r.is_active = 1 AND r.deleted_at IS NULL").get() as { n: number }).n
         // app_meta.schema_version is the app's migration level (PRAGMA schema_version is SQLite's internal cookie)
         const versionRow = db.prepare("SELECT value FROM app_meta WHERE key = 'schema_version'").get() as { value: string } | undefined
         const schemaVersion = versionRow ? parseInt(versionRow.value, 10) : 0
@@ -352,13 +358,14 @@ export function registerExportHandlers(): void {
         for (let n = 2; used.has(safeName.toLowerCase()); n++) safeName = `${base} (${n})`
         used.add(safeName.toLowerCase())
         const csvPath = join(destFolder, `${safeName}.csv`)
-        // Everything comes out: hidden columns too, dates as the setting says
+        // Everything comes out: hidden columns and archived records too, dates as the setting says
         await exportCsv({
           gridId: grid.id,
           columnIds: [],
           activeRowIds: [],
           destPath: csvPath,
           includeHidden: true,
+          includeArchived: true,
         })
         exported++
       } catch (err) {
