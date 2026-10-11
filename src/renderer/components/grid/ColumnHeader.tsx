@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { useMenuKeys } from '../../hooks/useMenuKeys'
 import { createPortal } from 'react-dom'
 import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2, Edit2, EyeOff, GripVertical, Bell, BellOff, Plus, Pencil, Activity, List, Palette, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Pin, PinOff, Asterisk, Link2, Columns3, Clock, IdCard, Settings2, Shapes } from 'lucide-react'
@@ -203,6 +203,20 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
     setShowAlertPicker(true)
   }), [column.id])
 
+  // The menu is taller than the room below a header near the bottom of the window, so the
+  // last items ("Delete column") ended up behind a scrollbar. Move it up until it all fits.
+  useLayoutEffect(() => {
+    const el = menuRef.current
+    if (!showMenu || !el) return
+    const room = window.innerHeight - 16
+    const height = el.scrollHeight + 2
+    const top = el.getBoundingClientRect().top
+    if (top + height <= window.innerHeight - 8 && top >= 8) return
+    el.style.bottom = 'auto'
+    el.style.top = `${Math.max(8, window.innerHeight - 8 - height)}px`
+    el.style.maxHeight = `${room}px`
+  })
+
   function handleContextMenu(e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
@@ -316,12 +330,12 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
               <div
                 ref={menuRef}
                 onKeyDown={onMenuKeyDown}
-                className="fixed w-52 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-[9999] overflow-y-auto"
+                className="fixed w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-[9999] overflow-y-auto"
                 style={{
                   ...((() => {
                     const rawY = menuPos?.y ?? 0
                     const rawX = menuPos?.x ?? 0
-                    const menuW = 220 // w-52 ≈ 208px + border/shadow
+                    const menuW = 270 // w-64 ≈ 256px + border/shadow
                     const menuH = 400 // estimated max height
                     const clampedX = Math.min(rawX, window.innerWidth - menuW)
                     if (rawY + menuH > window.innerHeight - 8) {
@@ -431,9 +445,9 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                     onClick={() => setShowAlertPicker(v => !v)}
                   >
                     <Bell className="w-4 h-4 text-blue-500" />
-                    <span className="flex-1 text-left">Deadline rule</span>
+                    <span className="flex-1 text-left whitespace-nowrap">Deadline rule</span>
                     {currentAlertRule && (
-                      <span className="text-sm text-blue-600 dark:text-blue-400 truncate max-w-20">{currentAlertRule.name}</span>
+                      <span className="text-sm text-blue-600 dark:text-blue-400 truncate max-w-28" title={currentAlertRule.name}>{currentAlertRule.name}</span>
                     )}
                   </button>
 
