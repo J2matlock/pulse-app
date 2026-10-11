@@ -17,6 +17,18 @@ interface ReleaseEntry {
 
 const RELEASES: ReleaseEntry[] = [
   {
+    version: '2.4.0',
+    date: '2026-10-11',
+    items: [
+      'Safer data: backups work in folders with apostrophes or accents, USB drives and network folders can be used, and a damaged backup is refused before it replaces anything',
+      'Imports keep accented names from Excel and Windows files, read typed dates in deadline columns, and never stop halfway',
+      'PDFs print Polish, Turkish, Cyrillic and Greek names, and spreadsheets you export are protected against formula tricks in every column',
+      'Easier to use by keyboard and screen reader: the list, menus, dialogs and reordering all work without a mouse, with clearer contrast and Windows High Contrast support',
+      'Dates Pulse can\'t read are marked "Not a date", late repeating items move past today when ticked off, and zoom goes up to 200%',
+      'Faster sorting on big lists, plain-language messages throughout, and an up-to-date Electron with the latest security fixes',
+    ],
+  },
+  {
     version: '2.3.0',
     date: '2026-10-11',
     items: [
