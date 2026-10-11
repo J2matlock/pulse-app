@@ -283,6 +283,7 @@ When implementation deviates from the spec, document it here:
 | 2026-10-09 | No code signing | The Azure Trusted Signing subscription lapsed and Pulse isn't sold anymore. `scripts/sign-exe.js` and the signing steps in `build-win.js` were removed; releases ship a `SHA256SUMS.txt` instead. |
 | 2026-10-08 | Free and open source under GPL-3.0; licensing removed | No trial, no license key, no record limit. `enforceWritable()` stays as a generic read-only gate (error code `READ_ONLY`), with nothing registering a checker. Audit and security-finding reports in `plans/` stay local (git-ignored) and aren't in the public repo. |
 | 2026-10-01 | Built-in snippets, letter templates and list templates are seeded only under the human-services words | They're written for social work; a workspace with other words (e.g. a car shop) would see "Met with client at residence". Found by the W01 leak test. |
+| 2026-10-11 | Accept `buffers@0.1.1` (no license) as a transitive production dependency | Pulled in by exceljs → unzipper 0.10 → binary. It declares no license and its upstream repo (substack/node-buffers) is gone, so there's nothing to check against. It's tiny, unmaintained-but-stable code on the import path only; overriding it with a fork costs more upkeep than the risk is worth. Revisit if exceljs drops unzipper 0.10 or a licensed fork appears (AUDIT-090). |
 
 Communication Style
 
