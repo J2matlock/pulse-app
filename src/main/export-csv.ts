@@ -30,7 +30,7 @@ function manualContactsByRow(rowIds: number[]): Map<number, string> {
 export async function exportCsv(options: CsvExportOptions): Promise<void> {
   const { gridId, columnIds, activeRowIds, destPath } = options
   const dateFormat = options.dateFormat ?? savedDateFormat()
-  const { columns, rows } = loadGridData(gridId, { includeHidden: true })
+  const { columns, rows } = loadGridData(gridId, { includeHidden: true, includeArchived: options.includeArchived })
   logger.info('export', 'CSV export started', { rowCount: rows.length })
 
   const selectedColumns = pickColumns(columns, columnIds, options.includeHidden)
@@ -48,6 +48,12 @@ export async function exportCsv(options: CsvExportOptions): Promise<void> {
   if (extra.size > 0) {
     headers.push('Other contact info')
     filteredRows.forEach((row, i) => { data[i]!.push(sanitizeCsvFormula(extra.get(row.row_id as number) ?? '')) })
+  }
+
+  // With archived records in, a last column says which ones they are
+  if (filteredRows.some(r => r.is_active === 0)) {
+    headers.push('Archived')
+    filteredRows.forEach((row, i) => { data[i]!.push(row.is_active === 0 ? 'Yes' : '') })
   }
 
   const csv = Papa.unparse({ fields: headers, data })

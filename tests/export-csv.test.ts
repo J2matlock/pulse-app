@@ -64,6 +64,27 @@ describe('exportCsv', () => {
     expect((parsed.data[2] as Record<string, string>)['Name']).toBe('Charlie')
   })
 
+  it('can include archived records, marked as archived, but never ones in the Trash (S4)', async () => {
+    const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 3, columnCount: 1 })
+    testDb.db.prepare("UPDATE columns SET name = 'Name' WHERE id = ?").run(columnIds[0])
+    const insert = testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')
+    insert.run(rowIds[0], columnIds[0], 'Alice')
+    insert.run(rowIds[1], columnIds[0], 'Bob')
+    insert.run(rowIds[2], columnIds[0], 'Charlie')
+    testDb.db.prepare('UPDATE rows SET is_active = 0 WHERE id = ?').run(rowIds[1])
+    testDb.db.prepare("UPDATE rows SET is_active = 0, deleted_at = datetime('now') WHERE id = ?").run(rowIds[2])
+
+    const destPath = join(testDb.tmpDir, 'all.csv')
+    await exportCsv({ gridId, columnIds: [], activeRowIds: [], destPath, dateFormat: 'iso', includeHidden: true, includeArchived: true })
+    const parsed = Papa.parse(readFileSync(destPath, 'utf-8').replace(/^﻿/, ''), { header: true, skipEmptyLines: true })
+    expect(parsed.data).toEqual([{ Name: 'Alice', Archived: '' }, { Name: 'Bob', Archived: 'Yes' }])
+
+    // The ordinary export is unchanged: active records only, no extra column
+    await exportCsv({ gridId, columnIds: [], activeRowIds: [], destPath, dateFormat: 'iso' })
+    const plain = Papa.parse(readFileSync(destPath, 'utf-8').replace(/^﻿/, ''), { header: true, skipEmptyLines: true })
+    expect(plain.data).toEqual([{ Name: 'Alice' }])
+  })
+
   it('filters to selected columns only', async () => {
     const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 3 })
     testDb.db.prepare('UPDATE columns SET name = ? WHERE id = ?').run('Name', columnIds[0])

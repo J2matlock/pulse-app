@@ -5,6 +5,7 @@
  * and written months ("Feb 19, 2026", "19 Feb 2026", "19-Feb-26").
  */
 import { MS_PER_DAY } from './constants'
+import { localDateString } from './dates'
 
 const MONTHS: Record<string, number> = {
   jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
@@ -16,13 +17,37 @@ function monthFromName(name: string): number | undefined {
 }
 
 /**
- * Two-digit years: up to this year means this century, otherwise last. A
- * spreadsheet's "3/15/30" is far more often a 1930 birthday than a date four
- * years away. Birth-date columns get a further check in executeImport.
+ * Two-digit years use a sliding window, as spreadsheets do: up to 20 years
+ * ahead of this year is this century's, anything later is the last century's.
+ * In 2026, "1/15/27" is 2027 (next year's review date) and "3/15/50" is 1950.
+ * Birthdays pass `birth` to parseDate: a two-digit year that would put the
+ * date in the future goes back a century ("3/15/40" is 1940, not 2040).
  */
+const TWO_DIGIT_YEARS_AHEAD = 20
+
 function fullYear(y: number): number {
   if (y >= 100) return y
-  return y <= new Date().getFullYear() % 100 ? 2000 + y : 1900 + y
+  const now = new Date().getFullYear()
+  let full = Math.floor(now / 100) * 100 + y
+  if (full > now + TWO_DIGIT_YEARS_AHEAD) full -= 100
+  else if (full <= now + TWO_DIGIT_YEARS_AHEAD - 100) full += 100
+  return full
+}
+
+/** A column for birthdays, by its name ("DOB", "Date of birth", "Born") */
+export function looksLikeBirthColumn(name: string): boolean {
+  return /\b(dob|d\.o\.b\.?|birth\w*|born)\b/i.test(name)
+}
+
+/** The value ends in a two-digit year ("3/15/30", "15-Mar-30"), not a 4-digit year or an Excel serial */
+export function hasTwoDigitYear(value: string): boolean {
+  const v = value.trim()
+  return !v.includes(':') && !/^\d{4}[-/.]/.test(v) && /(^|[^\d])\d{2}$/.test(v) && !/^\d+$/.test(v)
+}
+
+export interface ParseDateOptions {
+  /** A birthday: a two-digit year never puts it in the future (it goes back a century) */
+  birth?: boolean
 }
 
 /** Validated YYYY-MM-DD from calendar parts (rejects 02/30 etc.), or null. */
@@ -33,7 +58,13 @@ export function ymdFromParts(y: number, m: number, d: number): string | null {
 }
 
 /** YYYY-MM-DD, or null when the value isn't a recognizable date. */
-export function parseDate(value: string, order: 'mdy' | 'dmy' = 'mdy'): string | null {
+export function parseDate(value: string, order: 'mdy' | 'dmy' = 'mdy', options: ParseDateOptions = {}): string | null {
+  const ymd = parseDateRaw(value, order)
+  if (!ymd || !options.birth || !hasTwoDigitYear(value) || ymd <= localDateString()) return ymd
+  return ymdFromParts(Number(ymd.slice(0, 4)) - 100, Number(ymd.slice(5, 7)), Number(ymd.slice(8, 10))) ?? ymd
+}
+
+function parseDateRaw(value: string, order: 'mdy' | 'dmy'): string | null {
   const v = value.trim()
   // Excel serial date (5-digit number). Computed entirely in UTC so no local
   // offset can shift the calendar day.
