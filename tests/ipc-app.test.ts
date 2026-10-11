@@ -363,6 +363,51 @@ describe('APP_CHECK_FOR_UPDATES', () => {
   })
 })
 
+describe('APP_CHECK_FOR_UPDATES honours the setting in main (AUDIT-188) and stays quiet offline (AUDIT-099)', () => {
+  const latest = () => new Response(JSON.stringify({ version: '9.9.9' }), { status: 200 })
+
+  it('an automatic check does nothing when the setting is off; the button still checks', async () => {
+    testDb.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('auto_update_check', 'false')").run()
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => latest())
+    try {
+      expect(await invoke(IPC.APP_CHECK_FOR_UPDATES)).toEqual({ ok: true, data: { available: false } })
+      expect(fetchSpy).not.toHaveBeenCalled()
+      const manual = await invoke(IPC.APP_CHECK_FOR_UPDATES, { manual: true }) as any
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      expect(manual.data).toMatchObject({ available: true, version: '9.9.9' })
+    } finally { fetchSpy.mockRestore() }
+  })
+
+  it('an automatic check runs when the setting is on or unset', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => latest())
+    try {
+      expect((await invoke(IPC.APP_CHECK_FOR_UPDATES) as any).data.available).toBe(true)
+      testDb.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('auto_update_check', 'true')").run()
+      expect((await invoke(IPC.APP_CHECK_FOR_UPDATES) as any).data.available).toBe(true)
+      expect(fetchSpy).toHaveBeenCalledTimes(2)
+    } finally { fetchSpy.mockRestore() }
+  })
+
+  it('fails closed: an automatic check does nothing when the setting cannot be read', async () => {
+    testDb.db.close()
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => latest())
+    try {
+      expect(await invoke(IPC.APP_CHECK_FOR_UPDATES)).toEqual({ ok: true, data: { available: false } })
+      expect(fetchSpy).not.toHaveBeenCalled()
+    } finally { fetchSpy.mockRestore() }
+  })
+
+  it('offline: answers "no update" without logging an error', async () => {
+    const { logger } = await import('../src/main/logger')
+    const errorSpy = vi.spyOn(logger, 'error')
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('fetch failed'))
+    try {
+      expect(await invoke(IPC.APP_CHECK_FOR_UPDATES, { manual: true })).toEqual({ ok: true, data: { available: false } })
+      expect(errorSpy).not.toHaveBeenCalled()
+    } finally { fetchSpy.mockRestore(); errorSpy.mockRestore() }
+  })
+})
+
 describe('APP_MIGRATION_STATUS', () => {
   it('returns null when no migration failure', async () => {
     const r = await invoke(IPC.APP_MIGRATION_STATUS) as any

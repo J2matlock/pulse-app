@@ -45,7 +45,8 @@ function CheckForUpdatesButton(): React.ReactElement {
   async function check() {
     setChecking(true)
     setResult(null)
-    const res = await safeInvoke(IPC.APP_CHECK_FOR_UPDATES)
+    // manual: the button works even when the automatic check is switched off
+    const res = await safeInvoke(IPC.APP_CHECK_FOR_UPDATES, { manual: true })
     if (res.ok) setResult(res.data)
     else setResult({ available: false })
     setChecking(false)

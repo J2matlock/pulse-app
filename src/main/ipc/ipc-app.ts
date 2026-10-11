@@ -8,6 +8,7 @@ import { existsSync, unlinkSync, readdirSync, rmSync } from 'fs'
 import { join, dirname } from 'path'
 import Store from 'electron-store'
 import { IPC } from '../../shared/ipc-channels'
+import { logger } from '../logger'
 import { secureWrap, logNonFatal, ok, fail, rememberUserChosenPaths } from './ipc-utils'
 import { resolveDatabasePath, closeDatabase, getDb, getPortableDataDir, getMigrationFailure, clearMigrationFailureFlag } from '../database'
 import { verifyAndUnlock, lockApp } from '../auth'
@@ -23,6 +24,17 @@ function isNewerVersion(remote: string, current: string): boolean {
   if (rMaj !== cMaj) return rMaj > cMaj
   if (rMin !== cMin) return rMin > cMin
   return rPat > cPat
+}
+
+/** The automatic update check is on unless switched off; unreadable means off */
+function automaticUpdateCheckAllowed(): boolean {
+  try {
+    const row = getDb().prepare("SELECT value FROM settings WHERE key = 'auto_update_check'").get() as { value: string } | undefined
+    return row?.value !== 'false'
+  } catch (err) {
+    logNonFatal('ipc-app', 'read auto_update_check', err)
+    return false
+  }
 }
 
 export function registerAppHandlers(): void {
@@ -147,14 +159,27 @@ export function registerAppHandlers(): void {
     return ok(true)
   })
 
-  secureWrap(IPC.APP_CHECK_FOR_UPDATES, 'ipc-app', async () => {
+  // { manual: true } is the "Check for updates" button, which always runs. Any
+  // other call is automatic and obeys Settings → About, read here in main so no
+  // caller can skip it; if the setting can't be read, the automatic check stays off.
+  secureWrap(IPC.APP_CHECK_FOR_UPDATES, 'ipc-app', async (_e, opts?: { manual?: boolean }) => {
     // End-to-end runs (NODE_ENV=test outside vitest) stay offline, so no update banner shifts their screens
     if (process.env.NODE_ENV === 'test' && !process.env.VITEST) return ok({ available: false })
+    const manual = !!opts && typeof opts === 'object' && opts.manual === true
+    if (!manual && !automaticUpdateCheckAllowed()) return ok({ available: false })
     const UPDATE_CHECK_URL = 'https://raw.githubusercontent.com/J2matlock/pulse-releases/main/latest.json'
     const UPDATE_ALLOWED_URL_PREFIX = 'https://github.com/J2matlock/pulse-releases/'
-    const res = await fetch(UPDATE_CHECK_URL, { signal: AbortSignal.timeout(8000) })
-    if (!res.ok) return ok({ available: false })
-    const data = await res.json() as { version?: string; downloadUrl?: string; downloads?: Partial<Record<'win' | 'mac' | 'linux', string>>; releaseNotes?: string }
+    let data: { version?: string; downloadUrl?: string; downloads?: Partial<Record<'win' | 'mac' | 'linux', string>>; releaseNotes?: string }
+    try {
+      const res = await fetch(UPDATE_CHECK_URL, { signal: AbortSignal.timeout(8000) })
+      if (!res.ok) return ok({ available: false })
+      data = await res.json() as typeof data
+    } catch (err) {
+      // Offline, timed out or a proxy in the way: normal for an offline app, not an error
+      logger.info('ipc-app', 'Update check could not reach the release page', { error: err instanceof Error ? err.message : String(err) })
+      return ok({ available: false })
+    }
+    if (!data || typeof data !== 'object') return ok({ available: false })
     if (!data.version) return ok({ available: false })
     // Per-platform links when the release lists them (older files have only downloadUrl)
     const platformKey = process.platform === 'darwin' ? 'mac' : process.platform === 'win32' ? 'win' : 'linux'
