@@ -351,13 +351,14 @@ export function registerExportHandlers(): void {
         for (let n = 2; used.has(safeName.toLowerCase()); n++) safeName = `${base} (${n})`
         used.add(safeName.toLowerCase())
         const csvPath = join(destFolder, `${safeName}.csv`)
-        // Everything comes out: hidden columns too, dates as the setting says
+        // Everything comes out: hidden columns and archived records too, dates as the setting says
         await exportCsv({
           gridId: grid.id,
           columnIds: [],
           activeRowIds: [],
           destPath: csvPath,
           includeHidden: true,
+          includeArchived: true,
         })
         exported++
       } catch (err) {

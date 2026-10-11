@@ -461,6 +461,8 @@ describe('EXPORT_ALL_CSV', () => {
     const calls = vi.mocked(exportCsv).mock.calls.slice(-2).map(c => c[0] as { destPath: string; includeHidden?: boolean })
     expect(calls.map(c => c.destPath)).toEqual([join(dir, 'Clients.csv'), join(dir, 'Clients (2).csv')])
     expect(calls.every(c => c.includeHidden)).toBe(true)
+    // Archived records come out too (S4)
+    expect(calls.every(c => (c as { includeArchived?: boolean }).includeArchived)).toBe(true)
     expect(readdirSync(dir)).toEqual(['notes.csv'])
     const notes = readFileSync(join(dir, 'notes.csv'), 'utf-8')
     expect(notes).toContain('José Núñez')
