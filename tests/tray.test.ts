@@ -17,7 +17,7 @@ vi.mock('electron', () => ({
 }))
 vi.mock('../src/main/prefs', () => ({ prefs: () => ({ get: (k: string, d: unknown) => (k in h.prefs ? h.prefs[k] : d), set: (k: string, v: unknown) => { h.prefs[k] = v } }) }))
 vi.mock('../src/main/database', () => ({ registerCloseHook: (fn: () => void) => { h.closeHooks.push(fn) } }))
-vi.mock('../src/main/backup', () => ({ runAutoBackup: async () => { h.order.push('backup') }, recordAutoBackupFailure: () => {} }))
+vi.mock('../src/main/backup', () => ({ runAutoBackup: async () => { h.order.push('backup') }, recordAutoBackupFailure: () => {}, describeBackupError: () => 'The backup couldn\'t be saved.' }))
 vi.mock('../src/main/reminders', () => ({ snapshotForLock: () => null, setLockedSnapshot: () => {} }))
 vi.mock('../src/main/logger', () => ({ logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } }))
 vi.mock('../src/main/ipc/ipc-utils', () => ({ logNonFatal: () => {} }))

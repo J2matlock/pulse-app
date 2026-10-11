@@ -41,10 +41,21 @@ import { word } from '../vocab'
 import { placeholderFields } from '../placeholders'
 import { buildBatchPdf, buildLabelsPdf, previewBatch, DocumentError, MAX_BATCH, type DocTarget } from '../export-documents'
 import { atomicWriteFileAsync } from '../export-shared'
+import { describeRestoreError } from '../restore-errors'
 
 /** Row and column choices for an export: whole positive ids, and not absurdly many */
 function validIdList(v: unknown): v is number[] {
   return Array.isArray(v) && v.length <= 100_000 && v.every(id => Number.isInteger(id) && id > 0)
+}
+
+/**
+ * A restore that failed before the backup replaced anything: the restore put the
+ * current data back but left the database closed, so reopen it and carry on.
+ */
+function failedBeforeReplace(corrId: string, err: unknown) {
+  logger.warn('ipc-export', `[${corrId}] restore failed: ${err instanceof Error ? err.message : String(err)}`)
+  try { openDatabase() } catch (openErr) { logger.error('ipc-export', `[${corrId}] could not reopen the database after a failed restore`, openErr) }
+  return fail(describeRestoreError(err))
 }
 
 export function registerExportHandlers(): void {
@@ -108,7 +119,12 @@ export function registerExportHandlers(): void {
     return withCorrelation('backup-restore-auto', async (corrId) => {
       assertSafePath(backupDbPath)
       logger.info('ipc-export', `[${corrId}] restoring from auto backup: ${backupDbPath}`)
-      const safetyPath = await restoreFromDb(backupDbPath)
+      let safetyPath: string
+      try {
+        safetyPath = await restoreFromDb(backupDbPath)
+      } catch (err) {
+        return failedBeforeReplace(corrId, err)
+      }
       // openDatabase() will run migrations on the restored (possibly older) DB.
       // Migrations are designed to be idempotent (IF NOT EXISTS / column-exists checks),
       // so upgrading a restored older DB to the current schema is safe.
@@ -141,9 +157,12 @@ export function registerExportHandlers(): void {
       assertSafePath(backupPath)
       logger.info('ipc-export', `[${corrId}] restoring from file: ${backupPath}`)
       const isPulseBak = backupPath.endsWith('.pulse-backup')
-      const safetyPath = isPulseBak
-        ? await restoreFromPulseBackup(backupPath)
-        : await restoreFromDb(backupPath)
+      let safetyPath: string
+      try {
+        safetyPath = isPulseBak ? await restoreFromPulseBackup(backupPath) : await restoreFromDb(backupPath)
+      } catch (err) {
+        return failedBeforeReplace(corrId, err)
+      }
       // openDatabase() will run migrations on the restored (possibly older) DB.
       // Migrations are designed to be idempotent (IF NOT EXISTS / column-exists checks),
       // so upgrading a restored older DB to the current schema is safe.
@@ -187,10 +206,7 @@ export function registerExportHandlers(): void {
         logger.warn('ipc-export', `[${corrId}] restore of another Pulse's backup failed: ${msg}`)
         // Nothing was replaced; carry on with the current data
         try { openDatabase() } catch (openErr) { logger.error('ipc-export', `[${corrId}] could not reopen the database after a failed restore`, openErr) }
-        if (msg === 'Incorrect password or recovery key') {
-          return fail("That password or recovery key doesn't match this backup. Use the password you had when the backup was made.")
-        }
-        return fail(msg)
+        return fail(describeRestoreError(err))
       }
       openDatabase()
       logger.info('ipc-export', `[${corrId}] restored another Pulse's backup, safety copy at ${result.safetyPath}`)
