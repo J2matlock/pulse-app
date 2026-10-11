@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { FolderOpen, Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { usePlatform, cloudFolderAdvice } from '../../utils/platformText'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { PasswordStrength } from './PasswordStrength'
@@ -33,9 +34,13 @@ export function RestoreFromBackupForm({ onCancel, onRestored, mode = 'new-instal
   const [showSecrets, setShowSecrets] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // What's still missing, said on submit instead of a silently greyed-out button (as in password setup, F-25)
+  const [missing, setMissing] = useState<string | null>(null)
+  // Restored into a synced folder: the advice card waits for Continue (F-36)
+  const [cloudWarning, setCloudWarning] = useState<string | null>(null)
+  const platform = usePlatform()
 
   const passwordsMatch = password === confirm
-  const isValid = backupPath !== '' && secret !== '' && checkNewPassword(password).ok && passwordsMatch
 
   async function chooseFile() {
     const res = await safeInvoke(IPC.APP_SHOW_FILE_DIALOG, {
@@ -46,27 +51,50 @@ export function RestoreFromBackupForm({ onCancel, onRestored, mode = 'new-instal
     if (res.ok && !res.data.canceled && res.data.filePaths[0]) {
       setBackupPath(res.data.filePaths[0])
       setError(null)
+      setMissing(null)
     }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!isValid || isSubmitting) return
+    if (isSubmitting) return
+    // Read what's actually in the boxes: a password manager or autofill can fill
+    // them without the change events that keep the state up to date
+    const form = e.currentTarget as HTMLFormElement
+    const boxValue = (id: string, fallback: string) => (form.querySelector<HTMLInputElement>(`#${id}`)?.value ?? fallback)
+    const secretNow = boxValue('restore-secret', secret)
+    const pwNow = boxValue('restore-new-password', password)
+    const confirmNow = boxValue('restore-confirm', confirm)
+    if (secretNow !== secret) setSecret(secretNow)
+    if (pwNow !== password) setPassword(pwNow)
+    if (confirmNow !== confirm) setConfirm(confirmNow)
+    const pw = checkNewPassword(pwNow)
+    const gap = backupPath === '' ? 'Choose the backup file first (step 1).'
+      : secretNow === '' ? 'Type the password or recovery key this backup was made with (step 2).'
+      : !pw.ok ? (pw.message ?? 'Choose a longer password.')
+      : pwNow !== confirmNow ? "The two new passwords don't match. Type the same password in both boxes."
+      : null
+    setMissing(gap)
+    if (gap) return
     setIsSubmitting(true)
     setError(null)
     try {
       let info: { safetyPath?: string } = {}
       if (mode === 'replace') {
-        const res = await safeInvoke(IPC.BACKUP_RESTORE_OTHER, backupPath, secret, password, hint)
+        const res = await safeInvoke(IPC.BACKUP_RESTORE_OTHER, backupPath, secretNow, pwNow, hint)
         if (!res.ok) { setError(res.error); return }
         info = { safetyPath: res.data.safetyPath }
       } else {
-        const res = await safeInvoke(IPC.AUTH_RESTORE_FROM_BACKUP, backupPath, secret, password, hint)
+        const res = await safeInvoke(IPC.AUTH_RESTORE_FROM_BACKUP, backupPath, secretNow, pwNow, hint)
         if (!res.ok) { setError(res.error); return }
-        if (res.data.cloudWarning) {
-          toast(`Warning: Your data folder is inside ${res.data.cloudWarning}. Cloud sync can corrupt encrypted databases.`, { duration: 10000, icon: '⚠️' })
-        }
         toast.success('Your backup has been restored.')
+        if (res.data.cloudWarning) {
+          setSecret('')
+          setPassword('')
+          setConfirm('')
+          setCloudWarning(res.data.cloudWarning)
+          return
+        }
       }
       setSecret('')
       setPassword('')
@@ -80,6 +108,18 @@ export function RestoreFromBackupForm({ onCancel, onRestored, mode = 'new-instal
   }
 
   const fileName = backupPath.split(/[\\/]/).pop()
+
+  if (cloudWarning) {
+    return (
+      <div className="space-y-5">
+        <div role="alert" className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 p-4">
+          <p className="text-base font-semibold text-amber-900 dark:text-amber-200 mb-1">Your backup is restored, into a synced folder</p>
+          <p className="text-base text-amber-800 dark:text-amber-300 leading-relaxed">{cloudFolderAdvice(cloudWarning, platform)}</p>
+        </div>
+        <button type="button" className="btn-primary w-full" style={{ minHeight: 44 }} onClick={() => onRestored({})}>Continue</button>
+      </div>
+    )
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -141,6 +181,7 @@ export function RestoreFromBackupForm({ onCancel, onRestored, mode = 'new-instal
           className="input mt-3"
           value={confirm}
           onChange={e => setConfirm(e.target.value)}
+          id="restore-confirm"
           placeholder="Re-enter password"
           aria-label="Confirm password"
           autoComplete="new-password"
@@ -157,6 +198,8 @@ export function RestoreFromBackupForm({ onCancel, onRestored, mode = 'new-instal
         />
       </div>
 
+      {missing && <p role="alert" className="text-base text-red-700 dark:text-red-300">{missing}</p>}
+
       {error && (
         <div role="alert" className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg p-3 text-base text-red-800 dark:text-red-300">
           {error}
@@ -165,7 +208,7 @@ export function RestoreFromBackupForm({ onCancel, onRestored, mode = 'new-instal
 
       <div className="flex gap-3">
         <button type="button" className="btn-secondary flex-1" onClick={onCancel} disabled={isSubmitting}>Cancel</button>
-        <button type="submit" className="btn-primary flex-1" disabled={!isValid || isSubmitting}>
+        <button type="submit" className="btn-primary flex-1" disabled={isSubmitting}>
           {isSubmitting ? 'Restoring…' : 'Restore backup'}
         </button>
       </div>
