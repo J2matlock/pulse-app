@@ -43,10 +43,11 @@ let mockUndoStack: Array<{ description: string }> = []
 let mockRedoStack: Array<{ description: string }> = []
 let mockGridName = 'Test Grid'
 let mockRows: Array<Record<string, unknown>> = []
+let mockSearch = ''
 
 vi.mock('../../../../src/renderer/stores/gridStore', () => ({
   useGridStore: (selector: Function) => selector({
-    searchQuery: '',
+    searchQuery: mockSearch,
     grids: [{ id: 1, name: mockGridName }],
     activeGridId: 1,
     rows: mockRows,
@@ -91,6 +92,7 @@ describe('TopBar', () => {
     mockRedoStack = []
     mockGridName = 'Test Grid'
     mockRows = []
+    mockSearch = ''
   })
 
   it('renders grid name on grid view', () => {
@@ -138,6 +140,17 @@ describe('TopBar', () => {
     renderTopBar()
     const undoBtn = screen.getByLabelText(/Undo: Edit cell/)
     expect(undoBtn.hasAttribute('disabled')).toBe(false)
+  })
+
+  it('shows a search cleared somewhere else, so the next key doesn\'t bring it back (R7)', () => {
+    mockSearch = 'smith'
+    const { rerender } = renderTopBar('/grid')
+    const box = screen.getByPlaceholderText(/Search clients/) as HTMLInputElement
+    expect(box.value).toBe('smith')
+    // "Show all" on the "your filter would hide it" toast clears the search in the store
+    mockSearch = ''
+    rerender(<MemoryRouter initialEntries={['/grid']}><TopBar /></MemoryRouter>)
+    expect(box.value).toBe('')
   })
 
   it('renders search input on grid view', () => {

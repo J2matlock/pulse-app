@@ -87,13 +87,19 @@ export function TopBar(): React.ReactElement {
 
   // Each list keeps its own search (G-03): show that list's when another one opens
   useEffect(() => { setInputValue(searchQuery) }, [activeGridId]) // eslint-disable-line react-hooks/exhaustive-deps -- only on a list switch; typing updates the box itself
+  // The search changed somewhere else ("Show all" after adding, clearing filters): show it here too,
+  // or the next keystroke brings the old search back (R7)
+  const sentSearch = useRef(searchQuery)
+  useEffect(() => {
+    if (searchQuery !== sentSearch.current) { sentSearch.current = searchQuery; setInputValue(searchQuery) }
+  }, [searchQuery])
   // Remember each page, so a record's Back can say where it goes (audit 3.18)
   useEffect(() => { notePage(location.pathname) }, [location.pathname])
 
   // Debounce search: 150ms after last keystroke
   useEffect(() => {
     const id = setTimeout(() => {
-      if (inputValue !== searchQuery) setSearchQuery(inputValue)
+      if (inputValue !== searchQuery) { sentSearch.current = inputValue; setSearchQuery(inputValue) }
     }, DEBOUNCE_SEARCH)
     return () => clearTimeout(id)
   }, [inputValue]) // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce pattern: setSearchQuery is stable, only re-run on inputValue change
