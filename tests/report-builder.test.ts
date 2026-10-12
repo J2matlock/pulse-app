@@ -116,6 +116,16 @@ describe('records', () => {
     expect(r.columns[0]).toMatchObject({ kind: 'date', bucket: 'month' })
   })
 
+  it('starts week groups on the day chosen in Settings (A21a-10)', () => {
+    cell(rows[0]!, dueCol, '2026-10-11') // a Sunday
+    cell(rows[1]!, dueCol, '2026-10-12') // the Monday after
+    const weeks = () => runReport(gridId, { source: 'records', groupBy: [{ field: `col:${dueCol}`, bucket: 'week' }] }, NOW)
+      .rows.map(x => x.g0).filter(g => g !== '(blank)' && g !== null).sort()
+    expect(weeks()).toEqual(['2026-10-11'])
+    t.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('week_start', 'monday')").run()
+    expect(weeks()).toEqual(['2026-10-05', '2026-10-12'])
+  })
+
   it('leaves out archived records unless asked', () => {
     t.db.prepare('UPDATE rows SET is_active = 0 WHERE id = ?').run(rows[0])
     expect(runReport(gridId, { source: 'records' }, NOW).rows).toEqual([{ v0: 3 }])
@@ -222,6 +232,9 @@ describe('limits', () => {
 describe('helpers', () => {
   it('buckets dates and works out preset ranges', () => {
     expect(bucketDate('2026-10-15', 'week')).toBe('2026-10-11')
+    expect(bucketDate('2026-10-11', 'week', 'monday')).toBe('2026-10-05')
+    expect(bucketDate('2026-10-12', 'week', 'monday')).toBe('2026-10-12')
+    expect(bucketDate('2026-11-01', 'week', 'monday')).toBe('2026-10-26')
     expect(bucketDate('2026-10-15', 'quarter')).toBe('2026 Q4')
     expect(bucketDate('2026-10-15', 'year')).toBe('2026')
     expect(presetRange('last_month', NOW)).toEqual({ from: '2026-09-01', to: '2026-09-30' })

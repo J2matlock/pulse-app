@@ -179,6 +179,8 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
   const byId = new Map(fields.map(f => [f.id, f]))
   const today = localDateString(now)
   let truncated: string | null = null
+  // Week groups start on the day chosen in Settings, like the calendar and the dashboard
+  const weekStart = (db.prepare("SELECT value FROM settings WHERE key = 'week_start'").get() as { value: string } | undefined)?.value === 'monday' ? 'monday' : 'sunday'
 
   // ── Records: the list's one grid query ──
   const cols = gridColumns(gridId)
@@ -332,7 +334,7 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
       const keys = config.groupBy.map(g => {
         const v = get(item, g.field)
         if (v === null || v === '') return null
-        return g.bucket && typeof v === 'string' ? bucketDate(v, g.bucket) : v
+        return g.bucket && typeof v === 'string' ? bucketDate(v, g.bucket, weekStart) : v
       })
       const k = JSON.stringify(keys)
       let grp = groups.get(k)

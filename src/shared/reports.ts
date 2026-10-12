@@ -115,8 +115,8 @@ export function valueLabel(v: ReportConfig['values'][number], fields: ReportFiel
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
-/** A date's group label for a bucket; weeks start on Sunday */
-export function bucketDate(ymdValue: string, bucket: DateBucket = 'day'): string {
+/** A date's group label for a bucket; weeks start on the day chosen in Settings (Sunday by default, A21a-10) */
+export function bucketDate(ymdValue: string, bucket: DateBucket = 'day', weekStart: 'sunday' | 'monday' = 'sunday'): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ymdValue)
   if (!m) return ymdValue
   const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])]
@@ -126,7 +126,7 @@ export function bucketDate(ymdValue: string, bucket: DateBucket = 'day'): string
     case 'month': return `${y}-${pad(mo)}`
     case 'week': {
       const dt = new Date(y, mo - 1, d)
-      dt.setDate(dt.getDate() - dt.getDay())
+      dt.setDate(dt.getDate() - (weekStart === 'monday' ? (dt.getDay() + 6) % 7 : dt.getDay()))
       return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`
     }
     default: return `${y}-${pad(mo)}-${pad(d)}`
