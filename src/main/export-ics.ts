@@ -15,6 +15,7 @@ import { loadDeadlines } from './deadlines'
 import { isPersonKind } from '../shared/types'
 import { OPEN_RECORD_SQL } from '../shared/appointments'
 import { removedAppointments } from './appointments'
+import { LIVE_GRID, LIVE_ROW } from '../shared/liveRecords'
 
 export interface IcsOptions {
   /** Full client names instead of initials (and caseload task titles) */
@@ -98,15 +99,15 @@ export function loadIcsItems(opts: IcsOptions = {}): IcsItem[] {
   const followUps = db.prepare(`
     SELECT cl.id, r.display_name AS name, g.record_kind AS kind, cl.follow_up_date AS due
     FROM case_log cl
-    JOIN rows r ON r.id = cl.row_id AND r.is_active = 1 AND r.deleted_at IS NULL
-    JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
+    JOIN rows r ON r.id = cl.row_id AND ${LIVE_ROW}
+    JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
     WHERE cl.follow_up_date BETWEEN ? AND ? AND cl.follow_up_completed = 0 AND cl.voided_at IS NULL
   `).all(from, to) as Array<{ id: number; name: string | null; kind: string | null; due: string }>
 
   const tasks = db.prepare(`
     SELECT ct.id, ct.title, ct.due_date AS due FROM caseload_tasks ct
     LEFT JOIN grids g ON g.id = ct.grid_id
-    WHERE ct.is_completed = 0 AND ct.due_date BETWEEN ? AND ? AND (ct.grid_id IS NULL OR g.is_active = 1)
+    WHERE ct.is_completed = 0 AND ct.due_date BETWEEN ? AND ? AND (ct.grid_id IS NULL OR ${LIVE_GRID})
   `).all(from, to) as Array<{ id: number; title: string; due: string }>
 
   // Appointments (W07 §7): titles are free text that may name people, so without full names only "Appointment with J.S."

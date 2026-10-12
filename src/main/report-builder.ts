@@ -25,6 +25,7 @@ import {
   REPORT_LIMITS, bucketDate, isFilterActive, matchReportFilter, presetRange, reportConfigSchema, toNumber, valueKey, valueLabel,
   type ReportCell, type ReportColumn, type ReportConfig, type ReportField, type ReportFieldKind, type ReportResult, type ReportSource, type SavedReport,
 } from '../shared/reports'
+import { LIVE_GRID, liveGrid } from '../shared/liveRecords'
 
 /** A problem the person can fix; the message is shown as is. */
 export class ReportError extends Error {}
@@ -186,7 +187,7 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
   const started = Date.now()
   const tick = () => { if (Date.now() - started > REPORT_LIMITS.timeoutMs) throw new ReportError('This report is taking too long. Add a filter or a shorter date range.') }
   const db = getDb()
-  if (!db.prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 1').get(gridId)) throw new ReportError(`That ${word('list')} is no longer available.`)
+  if (!db.prepare(`SELECT 1 FROM grids WHERE id = ? AND ${liveGrid('')}`).get(gridId)) throw new ReportError(`That ${word('list')} is no longer available.`)
   const { config, fields } = validateReportConfig(gridId, input)
   const byId = new Map(fields.map(f => [f.id, f]))
   const today = localDateString(now)
@@ -430,14 +431,14 @@ function parseSaved(r: { id: number; name: string; grid_id: number; config: stri
 
 export function listReports(gridId?: number): SavedReport[] {
   const rows = getDb().prepare(`SELECT r.id, r.name, r.grid_id, r.config, r.created_at, r.updated_at FROM report_definitions r JOIN grids g ON g.id = r.grid_id
-    WHERE g.is_active = 1 ${gridId ? 'AND r.grid_id = ?' : ''} ORDER BY r.name COLLATE NOCASE`).all(...(gridId ? [gridId] : [])) as Array<Parameters<typeof parseSaved>[0]>
+    WHERE ${LIVE_GRID} ${gridId ? 'AND r.grid_id = ?' : ''} ORDER BY r.name COLLATE NOCASE`).all(...(gridId ? [gridId] : [])) as Array<Parameters<typeof parseSaved>[0]>
   return rows.map(parseSaved).filter((r): r is SavedReport => r !== null)
 }
 
 /** A saved report, while its list is open (not in the Trash), like listReports */
 export function getReport(id: number): SavedReport | undefined {
   const r = getDb().prepare(`SELECT r.id, r.name, r.grid_id, r.config, r.created_at, r.updated_at FROM report_definitions r
-    JOIN grids g ON g.id = r.grid_id AND g.is_active = 1 WHERE r.id = ?`).get(id) as Parameters<typeof parseSaved>[0] | undefined
+    JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID} WHERE r.id = ?`).get(id) as Parameters<typeof parseSaved>[0] | undefined
   return r ? parseSaved(r) ?? undefined : undefined
 }
 
@@ -446,7 +447,7 @@ export function saveReport(input: { id?: number; name: unknown; gridId: number; 
   if (!name) throw new ReportError('Give the report a name.')
   if (name.length > 100) throw new ReportError('Keep the name under 100 characters.')
   const db = getDb()
-  if (!db.prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 1').get(input.gridId)) throw new ReportError(`That ${word('list')} is no longer available.`)
+  if (!db.prepare(`SELECT 1 FROM grids WHERE id = ? AND ${liveGrid('')}`).get(input.gridId)) throw new ReportError(`That ${word('list')} is no longer available.`)
   const { config } = validateReportConfig(input.gridId, input.config)
   const json = JSON.stringify(config)
   if (input.id !== undefined) {

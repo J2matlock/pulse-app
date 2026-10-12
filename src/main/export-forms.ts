@@ -10,6 +10,7 @@ import { getForm } from './forms'
 import { word } from './vocab'
 import { formatDue } from '../shared/deadlineEngine'
 import { tagText } from '../shared/tagValue'
+import { notTrashedRow } from '../shared/liveRecords'
 
 export class FormPrintError extends Error {}
 
@@ -31,13 +32,13 @@ export function buildFormPdf(formId: number, rowId: number | null): { pdf: Insta
   const cols = new Map((db.prepare('SELECT id, name, column_type, config FROM columns WHERE grid_id = ?').all(form.grid_id) as Col[]).map(c => [c.id, c]))
   let value: (c: Col) => string = () => ''
   if (rowId !== null) {
-    if (!db.prepare('SELECT 1 FROM rows WHERE id = ? AND grid_id = ? AND deleted_at IS NULL').get(rowId, form.grid_id)) throw new FormPrintError(`That ${word('record', {}, form.grid_id)} is no longer available.`)
+    if (!db.prepare(`SELECT 1 FROM rows WHERE id = ? AND grid_id = ? AND ${notTrashedRow('')}`).get(rowId, form.grid_id)) throw new FormPrintError(`That ${word('record', {}, form.grid_id)} is no longer available.`)
     const cells = new Map((db.prepare('SELECT column_id, value FROM cells WHERE row_id = ?').all(rowId) as Array<{ column_id: number; value: string | null }>).map(c => [c.column_id, c.value ?? '']))
     const links = (c: Col) => {
       try {
         const cfg = JSON.parse(c.config || '{}') as { link_type_id?: number; direction?: string }
         const [mine, other] = cfg.direction === 'backward' ? ['to_row_id', 'from_row_id'] : ['from_row_id', 'to_row_id']
-        return (db.prepare(`SELECT GROUP_CONCAT(t.display_name, ', ') AS names FROM record_links l JOIN rows t ON t.id = l.${other} WHERE l.link_type_id = ? AND l.${mine} = ? AND t.deleted_at IS NULL`)
+        return (db.prepare(`SELECT GROUP_CONCAT(t.display_name, ', ') AS names FROM record_links l JOIN rows t ON t.id = l.${other} WHERE l.link_type_id = ? AND l.${mine} = ? AND ${notTrashedRow('t')}`)
           .get(cfg.link_type_id ?? 0, rowId) as { names: string | null }).names ?? ''
       } catch { return '' }
     }

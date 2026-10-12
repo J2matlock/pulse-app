@@ -34,6 +34,7 @@ import { loadDeadlines } from './deadlines'
 import { PRODUCT_NAME } from '../shared/constants'
 import { vocabFor } from './vocab'
 import { HUMAN_SERVICES_VOCAB, term } from '../shared/vocab'
+import { ARCHIVED_ROW, LIVE_ROW, NOT_TRASHED_ROW, archivedRow, liveRow, notTrashedRow } from '../shared/liveRecords'
 
 export async function exportSupervisorReport(options: SupervisorReportOptions): Promise<void> {
   // Report words follow the list's vocabulary ("Total Active Clients" / "Total Active Vehicles")
@@ -64,17 +65,17 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   }))
 
   // Compute stats
-  const totalActive = (db.prepare('SELECT COUNT(*) as n FROM rows WHERE grid_id = ? AND is_active = 1').get(gridId) as { n: number }).n
+  const totalActive = (db.prepare(`SELECT COUNT(*) as n FROM rows WHERE grid_id = ? AND ${liveRow('')}`).get(gridId) as { n: number }).n
   // Added in the period, archived since or not, so "N new, M archived" adds up and an
   // old period's figure doesn't shrink as records are archived later (F-018)
   const newAdded = (db.prepare(`
-    SELECT COUNT(*) as n FROM rows WHERE grid_id = ? AND deleted_at IS NULL
+    SELECT COUNT(*) as n FROM rows WHERE grid_id = ? AND ${notTrashedRow('')}
     AND date(created_at, 'localtime') >= ? AND date(created_at, 'localtime') <= ?
   `).get(gridId, dateRange.start, dateRange.end) as { n: number }).n
 
   const archivedClients = (db.prepare(`
     SELECT COUNT(*) as n FROM rows
-    WHERE grid_id = ? AND is_active = 0 AND archived_at IS NOT NULL AND deleted_at IS NULL
+    WHERE grid_id = ? AND ${archivedRow('')}
     AND date(archived_at, 'localtime') >= ? AND date(archived_at, 'localtime') <= ?
   `).get(gridId, dateRange.start, dateRange.end) as { n: number }).n
 
@@ -91,7 +92,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
                date(r.archived_at, 'localtime') AS archived_date,
                COALESCE(r.archived_reason, '') AS reason
         FROM rows r
-        WHERE r.grid_id = ? AND r.is_active = 0 AND r.archived_at IS NOT NULL AND r.deleted_at IS NULL
+        WHERE r.grid_id = ? AND ${ARCHIVED_ROW}
           AND date(r.archived_at, 'localtime') >= ? AND date(r.archived_at, 'localtime') <= ?
         ORDER BY r.archived_at DESC
       `).all(gridId, dateRange.start, dateRange.end) as Array<{ client_name: string; archived_date: string; reason: string }>
@@ -115,7 +116,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
         SELECT r.display_name AS client_name,
                date(r.created_at, 'localtime') AS added_date
         FROM rows r
-        WHERE r.grid_id = ? AND r.deleted_at IS NULL
+        WHERE r.grid_id = ? AND ${NOT_TRASHED_ROW}
           AND date(r.created_at, 'localtime') >= ? AND date(r.created_at, 'localtime') <= ?
         ORDER BY r.created_at DESC
       `).all(gridId, dateRange.start, dateRange.end) as Array<{ client_name: string; added_date: string }>
@@ -130,7 +131,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
     acuityBreakdown = db.prepare(`
       SELECT al.name, al.points, al.color, COUNT(r.id) as cnt
       FROM acuity_levels al
-      LEFT JOIN rows r ON r.acuity_level_id = al.id AND r.is_active = 1 AND r.grid_id = ?
+      LEFT JOIN rows r ON r.acuity_level_id = al.id AND ${LIVE_ROW} AND r.grid_id = ?
       WHERE al.grid_id = ?
       GROUP BY al.id ORDER BY al.position
     `).all(gridId, gridId) as AcuityRow[]
@@ -143,7 +144,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   const legacy = (db.prepare(`
     SELECT r.id AS row_id, c.value, CAST(json_extract(col.config, '$.interval_days') AS INTEGER) AS days
     FROM cells c
-    JOIN rows r ON r.id = c.row_id AND r.is_active = 1 AND r.grid_id = ?
+    JOIN rows r ON r.id = c.row_id AND ${LIVE_ROW} AND r.grid_id = ?
     JOIN columns col ON col.id = c.column_id AND col.column_type = 'date'
     WHERE c.value IS NOT NULL AND c.value != ''
       AND json_extract(col.config, '$.alert_rule_id') IS NULL AND json_extract(col.config, '$.interval_days') IS NOT NULL
@@ -663,7 +664,7 @@ type ActivityRow = { content: string; log_type: string; created_at: string; row_
 /** Notes in the period, latest first (dated by when they happened), capped, with the full count */
 function activityInPeriod(db: ReturnType<typeof getDb>, gridId: number, start: string, end: string): { rows: ActivityRow[]; total: number } {
   const where = `FROM case_log cl JOIN rows r ON r.id = cl.row_id
-    WHERE r.grid_id = ? AND cl.log_type != 'system' AND cl.voided_at IS NULL AND r.deleted_at IS NULL
+    WHERE r.grid_id = ? AND cl.log_type != 'system' AND cl.voided_at IS NULL AND ${NOT_TRASHED_ROW}
       AND date(cl.occurred_at, 'localtime') >= ? AND date(cl.occurred_at, 'localtime') <= ?`
   const rows = db.prepare(`SELECT cl.content, cl.log_type, cl.occurred_at AS created_at, r.id as row_id ${where}
     ORDER BY cl.occurred_at DESC LIMIT ${ACTIVITY_CAP}`).all(gridId, start, end) as ActivityRow[]
@@ -674,7 +675,7 @@ function activityInPeriod(db: ReturnType<typeof getDb>, gridId: number, start: s
 /** Entries Pulse wrote itself in the period, latest first, capped, with the full count */
 function systemActivityInPeriod(db: ReturnType<typeof getDb>, gridId: number, start: string, end: string): { rows: Array<{ content: string; created_at: string; row_id: number }>; total: number } {
   const where = `FROM case_log cl JOIN rows r ON r.id = cl.row_id
-    WHERE r.grid_id = ? AND cl.log_type = 'system' AND r.deleted_at IS NULL
+    WHERE r.grid_id = ? AND cl.log_type = 'system' AND ${NOT_TRASHED_ROW}
       AND date(cl.created_at, 'localtime') >= ? AND date(cl.created_at, 'localtime') <= ?`
   const rows = db.prepare(`SELECT cl.content, cl.created_at, r.id as row_id ${where}
     ORDER BY cl.created_at DESC LIMIT ${SYSTEM_CAP}`).all(gridId, start, end) as Array<{ content: string; created_at: string; row_id: number }>

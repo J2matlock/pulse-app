@@ -17,6 +17,7 @@ import {
   type PersistentScheduledConfig
 } from '../backup'
 import { getDbKey, lockApp } from '../auth'
+import { LIVE_GRID, LIVE_ROW, NOT_TRASHED_ROW, liveGrid } from '../../shared/liveRecords'
 const BetterSqlite3 = require('better-sqlite3-multiple-ciphers') as typeof import('better-sqlite3')
 import { exportCsv, exportPdfGrid, exportPdfProfile, exportLetterPdf, exportSupervisorReport, exportContactPdf, exportDirectoryPdf, type CsvExportOptions, type PdfGridOptions, type PdfProfileOptions, type SupervisorReportOptions } from '../export'
 import { parseImportFile, autoMatchColumns, executeImport, type ImportOptions } from '../import'
@@ -66,7 +67,7 @@ function failedBeforeReplace(corrId: string, err: unknown) {
  */
 function refuseUnavailableRecord(rowId: number, gridId: number): ReturnType<typeof fail> | null {
   const live = getDb().prepare(`SELECT 1 FROM rows r JOIN grids g ON g.id = r.grid_id
-    WHERE r.id = ? AND r.grid_id = ? AND r.deleted_at IS NULL AND g.deleted_at IS NULL`).get(rowId, gridId)
+    WHERE r.id = ? AND r.grid_id = ? AND ${NOT_TRASHED_ROW} AND ${LIVE_GRID}`).get(rowId, gridId)
   return live ? null : fail(`We couldn't find that ${word('record', {}, gridId)}. It may have been moved to the Trash.`)
 }
 
@@ -130,7 +131,7 @@ export function registerExportHandlers(): void {
     let totalClients = 0
     try {
       // Records in deleted lists aren't active (X-11)
-      const row = getDb().prepare('SELECT COUNT(*) as cnt FROM rows r JOIN grids g ON g.id = r.grid_id AND g.is_active = 1 WHERE r.is_active = 1 AND r.deleted_at IS NULL').get() as { cnt: number }
+      const row = getDb().prepare(`SELECT COUNT(*) as cnt FROM rows r JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID} WHERE ${LIVE_ROW}`).get() as { cnt: number }
       totalClients = row.cnt
     } catch (err) { logNonFatal('ipc-export', 'count active clients', err) }
     return ok({
@@ -355,9 +356,9 @@ export function registerExportHandlers(): void {
         db.pragma("cipher_hmac_algorithm=HMAC_SHA512")
         db.pragma("cipher_kdf_algorithm=PBKDF2_HMAC_SHA512")
 
-        const gridCount = (db.prepare("SELECT COUNT(*) as n FROM grids WHERE is_active = 1").get() as { n: number }).n
+        const gridCount = (db.prepare(`SELECT COUNT(*) as n FROM grids WHERE ${liveGrid('')}`).get() as { n: number }).n
         // Records of lists in the Trash keep is_active = 1, so count only active lists (as BACKUP_GET_INFO does)
-        const rowCount = (db.prepare("SELECT COUNT(*) as n FROM rows r JOIN grids g ON g.id = r.grid_id AND g.is_active = 1 WHERE r.is_active = 1 AND r.deleted_at IS NULL").get() as { n: number }).n
+        const rowCount = (db.prepare(`SELECT COUNT(*) as n FROM rows r JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID} WHERE ${LIVE_ROW}`).get() as { n: number }).n
         // app_meta.schema_version is the app's migration level (PRAGMA schema_version is SQLite's internal cookie)
         const versionRow = db.prepare("SELECT value FROM app_meta WHERE key = 'schema_version'").get() as { value: string } | undefined
         const schemaVersion = versionRow ? parseInt(versionRow.value, 10) : 0
@@ -380,7 +381,7 @@ export function registerExportHandlers(): void {
     }
 
     const db = getDb()
-    const grids = db.prepare('SELECT id, name FROM grids WHERE is_active = 1 ORDER BY position, id').all() as Array<{ id: number; name: string }>
+    const grids = db.prepare(`SELECT id, name FROM grids WHERE ${liveGrid('')} ORDER BY position, id`).all() as Array<{ id: number; name: string }>
 
     let exported = 0
     const errors: string[] = []

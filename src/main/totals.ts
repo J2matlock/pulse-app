@@ -10,6 +10,7 @@ import { parseExtraMeasures, type MeasureDef } from '../shared/measures'
 import { word } from './vocab'
 import { activityLabel } from './activity-types'
 import { listMeasures } from './measures'
+import { LIVE_GRID, NOT_TRASHED_ROW } from '../shared/liveRecords'
 
 function setting(key: string): string | null {
   return (getDb().prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined)?.value ?? null
@@ -43,8 +44,8 @@ export const TOTALS_SQL = `
            COALESCE(NULLIF(r.display_name, ''), ?) AS client_name, g.name AS grid_name,
            cl.log_type, cl.minutes, cl.miles, cl.extra_measures, cl.content
     FROM case_log cl
-    CROSS JOIN rows r ON r.id = cl.row_id AND r.deleted_at IS NULL
-    JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
+    CROSS JOIN rows r ON r.id = cl.row_id AND ${NOT_TRASHED_ROW}
+    JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
     WHERE cl.voided_at IS NULL AND (cl.minutes IS NOT NULL OR cl.miles IS NOT NULL OR cl.extra_measures IS NOT NULL)
       AND cl.occurred_at >= ? AND cl.occurred_at < ?
       AND strftime('%Y-%m', cl.occurred_at, 'localtime') = ?
