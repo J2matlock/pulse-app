@@ -20,7 +20,7 @@ export function DemoPasswordChange() {
       <div className="space-y-2 mb-3">
         {fields.map((f, i) => (
           <div key={f} className="flex items-center gap-3">
-            <span className="text-xs text-slate-500 dark:text-slate-400 w-28 shrink-0">{f}</span>
+            <span className="text-sm text-slate-500 dark:text-slate-400 w-36 shrink-0">{f}</span>
             <div className="flex-1 h-8 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-sm px-2 flex items-center overflow-hidden">
               <div
                 className="text-slate-700 dark:text-slate-300 tracking-widest overflow-hidden whitespace-nowrap"

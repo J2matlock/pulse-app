@@ -43,4 +43,30 @@ describe('text sizes', () => {
     }
     expect(offenders).toEqual([])
   })
+
+  it('no screen sets an inline font size under 15px (Q-104)', () => {
+    const offenders: string[] = []
+    for (const file of sourceFiles(RENDERER)) {
+      if (file.endsWith('ProfilePrintLayout.tsx')) continue
+      const src = readFileSync(file, 'utf8')
+      // Pixel sizes only: a number, '14px', or CSS font-size: 14px (rem/em sizes scale with the root)
+      for (const m of src.matchAll(/fontSize:\s*'?(\d+(?:\.\d+)?)([a-z%]*)|font-size:\s*(\d+(?:\.\d+)?)px/g)) {
+        if (m[2] && m[2] !== 'px') continue
+        const px = Number(m[1] ?? m[3])
+        if (px < 15) offenders.push(`${file.replace(RENDERER, '')}:${src.slice(0, m.index).split('\n').length} ${m[0]}`)
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it('help demos use text-xs only for keyboard keys and counts (Q-104)', () => {
+    const offenders: string[] = []
+    const demos = join(RENDERER, 'components/shared/help-demos')
+    for (const file of sourceFiles(demos)) {
+      readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
+        if (/\btext-xs\b/.test(line) && !/<kbd\b|\.count\}/.test(line)) offenders.push(`${file.replace(RENDERER, '')}:${i + 1}`)
+      })
+    }
+    expect(offenders).toEqual([])
+  })
 })

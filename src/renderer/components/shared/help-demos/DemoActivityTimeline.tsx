@@ -33,7 +33,7 @@ export function DemoActivityTimeline() {
           <div
             key={i}
             className="flex items-start gap-2 relative"
-            style={{ animation: `atSlideIn 9s ease ${i * 0.7}s infinite`, fontSize: 13 }}
+            style={{ animation: `atSlideIn 9s ease ${i * 0.7}s infinite`, fontSize: 15 }}
           >
             {/* Dot on timeline */}
             <div className="absolute -left-[17px] top-1.5 w-2 h-2 rounded-full bg-blue-500 border-2 border-white dark:border-slate-800" />
@@ -42,7 +42,7 @@ export function DemoActivityTimeline() {
                 <span>{e.icon}</span>
                 <span className="text-slate-700 dark:text-slate-300">{e.text}</span>
               </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{e.time}</div>
+              <div className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{e.time}</div>
             </div>
           </div>
         ))}

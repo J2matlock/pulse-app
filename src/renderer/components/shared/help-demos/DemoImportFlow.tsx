@@ -38,7 +38,7 @@ export function DemoImportFlow() {
               <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-xl">
                 {s.icon}
               </div>
-              <span className="text-xs text-slate-500 dark:text-slate-400">{s.label}</span>
+              <span className="text-sm text-slate-500 dark:text-slate-400">{s.label}</span>
             </div>
             {i < steps.length - 1 && (
               <div

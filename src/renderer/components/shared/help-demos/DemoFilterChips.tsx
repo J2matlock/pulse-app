@@ -24,20 +24,20 @@ export function DemoFilterChips() {
       {/* Chips */}
       <div className="flex gap-2 mb-3">
         <div
-          className="px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-xs font-medium text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700"
+          className="px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/40 text-sm font-medium text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700"
           style={{ animation: 'fcChipIn 7s ease 0s infinite' }}
         >
           Status = Active
         </div>
         <div
-          className="px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-900/40 text-xs font-medium text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700"
+          className="px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-900/40 text-sm font-medium text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700"
           style={{ animation: 'fcChipIn 7s ease 0.8s infinite' }}
         >
           Program = Housing
         </div>
       </div>
       {/* Rows */}
-      <div className="space-y-1" style={{ fontSize: 13 }}>
+      <div className="space-y-1" style={{ fontSize: 15 }}>
         <div
           className="flex gap-4 bg-white dark:bg-slate-800 rounded-sm px-3 py-2 border border-slate-200 dark:border-slate-700"
           style={{ animation: 'fcRowStay 7s ease infinite' }}

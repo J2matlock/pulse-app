@@ -16,7 +16,7 @@ export function DemoGrouping() {
         }
       `}</style>
       <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Group by column value</div>
-      <div className="space-y-0.5" style={{ fontSize: 13 }}>
+      <div className="space-y-0.5" style={{ fontSize: 15 }}>
         {/* Group 1 header */}
         <div
           className="font-semibold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-sm px-3 overflow-hidden"

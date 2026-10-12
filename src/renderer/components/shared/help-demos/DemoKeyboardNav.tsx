@@ -22,9 +22,9 @@ export function DemoKeyboardNav() {
       `}</style>
       <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Keyboard navigation</div>
       <div className="relative">
-        <div className="grid grid-cols-3 gap-px bg-slate-300 dark:bg-slate-600 rounded-lg overflow-hidden" style={{ fontSize: 12 }}>
+        <div className="grid grid-cols-3 gap-px bg-slate-300 dark:bg-slate-600 rounded-lg overflow-hidden" style={{ fontSize: 15 }}>
           {['Name', 'Status', 'Due'].map(h => (
-            <div key={h} className="bg-slate-200 dark:bg-slate-700 px-2 py-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{h}</div>
+            <div key={h} className="bg-slate-200 dark:bg-slate-700 px-2 py-1 text-sm font-semibold text-slate-500 dark:text-slate-400">{h}</div>
           ))}
           {['Johnson', 'Active', '03/15', 'Smith', 'Pending', '04/01'].map((v, i) => (
             <div key={i} className="bg-white dark:bg-slate-800 px-2 py-1.5 text-slate-700 dark:text-slate-300">{v}</div>
