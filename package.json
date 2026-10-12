@@ -60,7 +60,7 @@
     "jspdf-autotable": "5.0.8",
     "lucide-react": "0.575.0",
     "motion": "12.34.3",
-    "papaparse": "5.5.3",
+    "papaparse": "5.7.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-hot-toast": "2.6.0",
