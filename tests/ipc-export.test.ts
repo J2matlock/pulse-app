@@ -486,6 +486,21 @@ describe('EXPORT_PDF_CONTACT', () => {
     expect(result.ok).toBe(true)
     expect(result.data).toBeNull()
   })
+
+  it('saves to a network folder picked in its own dialog, and the choice vouches only for that folder (F-033)', async () => {
+    const electron = await import('electron')
+    const { clearUserChosenPaths, assertSafePath } = await import('../src/main/ipc/ipc-utils')
+    clearUserChosenPaths()
+    const share = '/run/user/1000/gvfs/smb-share:server=nas,share=team/out.pdf'
+    expect(() => assertSafePath(share)).toThrow()
+    const spy = vi.spyOn(electron.dialog, 'showSaveDialog').mockResolvedValueOnce({ canceled: false, filePath: share })
+    const result = await invoke(IPC.EXPORT_PDF_CONTACT, 1) as { ok: boolean; data: string }
+    expect(result).toEqual({ ok: true, data: share })
+    // A path no dialog returned is still refused
+    expect(() => assertSafePath('/run/user/1000/gvfs/other-share/x.pdf')).toThrow()
+    spy.mockRestore()
+    clearUserChosenPaths()
+  })
 })
 
 describe('EXPORT_PDF_DIRECTORY', () => {

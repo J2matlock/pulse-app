@@ -4,14 +4,13 @@
  * TOTALS_* (time, mileage and your own numbers from notes)
  */
 import { IPC } from '../../shared/ipc-channels'
-import { secureWrap, ok, fail, validId, enforceWritable, assertSafePath } from './ipc-utils'
+import { secureWrap, ok, fail, validId, enforceWritable, assertSafePath, pickSavePath } from './ipc-utils'
 import { getRequirements, saveRequirements, validateRequirements, getRequirementStatus } from '../contact-requirements'
 import { getMissingInfo, exportMissingInfoCsv } from '../missing-info'
 import { getComplianceSummary, exportComplianceSummary, monthAsOf } from '../compliance'
 import { getTotals, exportTotalsCsv } from '../totals'
 import { getDb } from '../database'
 import { localDateString } from '../../shared/dates'
-import { dialog } from 'electron'
 import { word } from '../vocab'
 
 export function registerComplianceHandlers(): void {
@@ -46,12 +45,12 @@ export function registerComplianceHandlers(): void {
 
   secureWrap(IPC.MISSING_INFO_EXPORT_CSV, 'ipc-compliance', async (_e, gridId?: number) => {
     if (gridId != null && !validId(gridId)) return fail('Invalid ID')
-    const { canceled, filePath } = await dialog.showSaveDialog({
+    const filePath = await pickSavePath({
       title: 'Save Missing Information List',
       defaultPath: `missing-information-${localDateString()}.csv`,
       filters: [{ name: 'CSV', extensions: ['csv'] }],
     })
-    if (canceled || !filePath) return ok(null)
+    if (!filePath) return ok(null)
     assertSafePath(filePath)
     const count = await exportMissingInfoCsv(filePath, gridId ?? undefined)
     return ok({ filePath, count })
@@ -68,12 +67,12 @@ export function registerComplianceHandlers(): void {
   secureWrap(IPC.EXPORT_COMPLIANCE_SUMMARY, 'ipc-compliance', async (_e, month: string, gridId?: number) => {
     if (!validMonth(month)) return fail('Invalid month')
     if (gridId != null && !validId(gridId)) return fail('Invalid ID')
-    const { canceled, filePath } = await dialog.showSaveDialog({
+    const filePath = await pickSavePath({
       title: `Save ${word('requirement', { many: true })} summary`,
       defaultPath: `requirements-summary-${month}.pdf`,
       filters: [{ name: 'PDF', extensions: ['pdf'] }],
     })
-    if (canceled || !filePath) return ok(null)
+    if (!filePath) return ok(null)
     assertSafePath(filePath)
     const nameRow = getDb().prepare("SELECT value FROM settings WHERE key = 'profile_name'").get() as { value: string } | undefined
     await exportComplianceSummary(month, gridId ?? undefined, filePath, nameRow?.value || undefined)
@@ -89,12 +88,12 @@ export function registerComplianceHandlers(): void {
   secureWrap(IPC.TOTALS_EXPORT_CSV, 'ipc-compliance', async (_e, month: string, gridId?: number) => {
     if (!validMonth(month)) return fail('Invalid month')
     if (gridId != null && !validId(gridId)) return fail('Invalid ID')
-    const { canceled, filePath } = await dialog.showSaveDialog({
+    const filePath = await pickSavePath({
       title: 'Save Totals',
       defaultPath: `totals-${month}.csv`,
       filters: [{ name: 'CSV', extensions: ['csv'] }],
     })
-    if (canceled || !filePath) return ok(null)
+    if (!filePath) return ok(null)
     assertSafePath(filePath)
     const count = await exportTotalsCsv(month, gridId ?? undefined, filePath)
     return ok({ filePath, count })

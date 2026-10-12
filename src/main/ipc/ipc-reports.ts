@@ -1,13 +1,12 @@
 /**
  * ipc-reports.ts — saved reports and the report builder (generalization W10 §6).
  */
-import { dialog } from 'electron'
 import { IPC } from '../../shared/ipc-channels'
 import { localDateString } from '../../shared/dates'
 import { getDb } from '../database'
 import { writeReport } from '../export-report'
 import { REPORT_SOURCES, describeReport, explainReport, type ReportSource } from '../../shared/reports'
-import { secureWrap, ok, fail, enforceWritable, validId, assertSafePath } from './ipc-utils'
+import { secureWrap, ok, fail, enforceWritable, validId, assertSafePath, pickSavePath } from './ipc-utils'
 import { ReportError, reportFields, runReport, listReports, getReport, saveReport, deleteReport, validateReportConfig, sourceWord, sourceWordOne } from '../report-builder'
 
 function action<T>(fn: () => T) {
@@ -63,12 +62,12 @@ export function registerReportHandlers(): void {
     if (!res.ok) return res
     const grid = getDb().prepare('SELECT name FROM grids WHERE id = ?').get(gridId) as { name: string } | undefined
     const safe = title.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() || 'report'
-    const { canceled, filePath } = await dialog.showSaveDialog({
+    const filePath = await pickSavePath({
       title: format === 'csv' ? 'Save Report as CSV' : 'Save Report as PDF',
       defaultPath: `${safe}-${localDateString()}.${format}`,
       filters: format === 'csv' ? [{ name: 'CSV', extensions: ['csv'] }] : [{ name: 'PDF', extensions: ['pdf'] }],
     })
-    if (canceled || !filePath) return ok(null)
+    if (!filePath) return ok(null)
     assertSafePath(filePath)
     const { config: valid, fields } = validateReportConfig(gridId, config)
     await writeReport(filePath, format, title, describeReport(valid, fields, grid?.name ?? '', sourceWord(valid.source, gridId)), res.data)

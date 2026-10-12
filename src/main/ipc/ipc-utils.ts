@@ -5,7 +5,7 @@
 import { randomUUID } from 'node:crypto'
 import path from 'path'
 import { realpathSync, existsSync } from 'fs'
-import { ipcMain, app, BrowserWindow } from 'electron'
+import { ipcMain, app, BrowserWindow, dialog } from 'electron'
 import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
 import { getPortableDataDir } from '../data-dir'
@@ -283,6 +283,27 @@ export function rememberUserChosenPaths(paths: readonly (string | undefined | nu
     userChosenPaths.push(resolved)
     if (userChosenPaths.length > MAX_USER_CHOSEN) userChosenPaths.shift()
   }
+}
+
+/**
+ * A save dialog shown by main itself, remembered like the renderer's (APP_SHOW_SAVE_DIALOG):
+ * the folder the person chose passes assertSafePath wherever it is, so a network share
+ * mounted somewhere unusual isn't refused right after they picked it (F-033).
+ * Null when cancelled.
+ */
+export async function pickSavePath(options: Electron.SaveDialogOptions): Promise<string | null> {
+  const { canceled, filePath } = await dialog.showSaveDialog(options)
+  if (canceled || !filePath) return null
+  rememberUserChosenPaths([path.dirname(filePath)])
+  return filePath
+}
+
+/** An open dialog shown by main itself, remembered like APP_SHOW_FILE_DIALOG (F-033). Empty when cancelled. */
+export async function pickOpenPaths(options: Electron.OpenDialogOptions): Promise<string[]> {
+  const { canceled, filePaths } = await dialog.showOpenDialog(options)
+  if (canceled || filePaths.length === 0) return []
+  rememberUserChosenPaths(filePaths)
+  return filePaths
 }
 
 /** Test seam: forget every remembered dialog choice. */

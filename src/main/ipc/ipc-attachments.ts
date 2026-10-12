@@ -7,7 +7,7 @@ import { BrowserWindow, dialog } from 'electron'
 import { IPC } from '../../shared/ipc-channels'
 import { formatBytes } from '../../shared/attachments'
 import { parseDbTimestamp } from '../../shared/dates'
-import { secureWrap, ok, fail, enforceWritable, validId, assertSafePath, notifyCaseLogChanged } from './ipc-utils'
+import { secureWrap, ok, fail, enforceWritable, validId, assertSafePath, notifyCaseLogChanged, pickSavePath, pickOpenPaths } from './ipc-utils'
 import {
   AttachmentError, addAttachments, listAttachments, describeAttachment, deleteAttachment, restoreAttachment, attachmentUsage, purgeDeletedAttachments, getAttachment,
   trashedAttachments, purgeAttachment,
@@ -63,8 +63,8 @@ export function registerAttachmentHandlers(): void {
     const guard = enforceWritable(); if (guard) return guard
     const o = cleanOpts(opts)
     if (!validId(rowId) || !o) return fail('Invalid request')
-    const { canceled, filePaths } = await dialog.showOpenDialog({ title: 'Add files', properties: ['openFile', 'multiSelections'] })
-    if (canceled || filePaths.length === 0) return ok<AddResult>({ added: [], duplicates: [] })
+    const filePaths = await pickOpenPaths({ title: 'Add files', properties: ['openFile', 'multiSelections'] })
+    if (filePaths.length === 0) return ok<AddResult>({ added: [], duplicates: [] })
     for (const p of filePaths) assertSafePath(p)
     const res = await addWithQuestion(rowId, filePaths, o)
     if (res.ok && res.data.added.length) announce(rowId)
@@ -131,8 +131,8 @@ export function registerAttachmentHandlers(): void {
     if (!validId(id)) return fail('Invalid ID')
     const a = getAttachment(id)
     if (!a) return fail('That file is no longer available.')
-    const { canceled, filePath } = await dialog.showSaveDialog({ title: 'Save a copy', defaultPath: a.file_name })
-    if (canceled || !filePath) return ok(null)
+    const filePath = await pickSavePath({ title: 'Save a copy', defaultPath: a.file_name })
+    if (!filePath) return ok(null)
     assertSafePath(filePath)
     try { await saveAttachmentCopy(id, filePath); return ok(filePath) } catch (err) { if (err instanceof AttachmentError) return fail(err.message); throw err }
   })

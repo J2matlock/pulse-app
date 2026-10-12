@@ -2,11 +2,10 @@
  * ipc-contacts.ts — CONTACTS_* IPC handlers
  */
 
-import { dialog } from 'electron'
 import { readFile } from 'fs/promises'
 import { statSync } from 'fs'
 import { IPC } from '../../shared/ipc-channels'
-import { secureWrap, logNonFatal, ok, fail, assertSafePath, validId, notifyCaseLogChanged, enforceWritable } from './ipc-utils'
+import { secureWrap, logNonFatal, ok, fail, assertSafePath, validId, notifyCaseLogChanged, enforceWritable, pickSavePath } from './ipc-utils'
 import { getDb } from '../database'
 import {
   getCategories, createCategory, updateCategory, deleteCategory,
@@ -319,14 +318,14 @@ export function registerContactHandlers(): void {
     const prefetchedFields = getAllCustomFieldsByCategory()
     const prefetchedValues = getBatchCustomValues(providers.map(p => p.id))
     const vcards = providers.map(p => emitVCard(p, prefetchedFields, prefetchedValues)).join('\r\n')
-    const { canceled, filePath } = await dialog.showSaveDialog({
+    const filePath = await pickSavePath({
       title: `Export ${word('contact', { many: true, cap: true })}`,
       defaultPath: providerIds && providerIds.length === 1 && providers[0]
         ? `${safeFileName(providers[0].name)}.vcf`
         : `pulse-contacts-${localDateString()}.vcf`,
       filters: [{ name: 'vCard', extensions: ['vcf'] }]
     })
-    if (canceled || !filePath) return ok(null)
+    if (!filePath) return ok(null)
     assertSafePath(filePath)
     // Atomic write (temp file + fsync + rename); the temp file is removed if it fails
     await atomicWriteFileAsync(filePath, vcards, 'utf-8')

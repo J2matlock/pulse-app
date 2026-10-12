@@ -2,10 +2,10 @@
  * ipc-export.ts — EXPORT_*, BACKUP_*, IMPORT_*, SETUP_TEMPLATE_*, LETTER_TEMPLATE_* IPC handlers
  */
 
-import { dialog, BrowserWindow } from 'electron'
+import { BrowserWindow } from 'electron'
 import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
-import { secureWrap, ok, fail, assertSafePath, validId, enforceWritable, logNonFatal, withCorrelation } from './ipc-utils'
+import { secureWrap, ok, fail, assertSafePath, validId, enforceWritable, logNonFatal, withCorrelation, pickSavePath } from './ipc-utils'
 import { openDatabase, getDb, resolveDatabasePath, closeDatabase, setEncryptionKey, latestSchemaVersion, DatabaseOpenError } from '../database'
 import { dbOpenFailedCode } from '../../shared/dbOpen'
 import { getProvider } from '../contacts'
@@ -455,24 +455,24 @@ export function registerExportHandlers(): void {
     if (!validId(providerId)) return fail('Invalid ID')
     const provider = getProvider(providerId)
     const defaultName = provider ? safeFileName(provider.name) : 'contact'
-    const { canceled, filePath } = await dialog.showSaveDialog({
+    const filePath = await pickSavePath({
       title: `Export ${word('contact', { cap: true })} as PDF`,
       defaultPath: `${defaultName}-profile.pdf`,
       filters: [{ name: 'PDF', extensions: ['pdf'] }]
     })
-    if (canceled || !filePath) return ok(null)
+    if (!filePath) return ok(null)
     assertSafePath(filePath)
     await exportContactPdf(providerId, filePath)
     return ok(filePath)
   })
 
   secureWrap(IPC.EXPORT_PDF_DIRECTORY, 'ipc-export', async (_e, filterParams: Record<string, unknown>) => {
-    const { canceled, filePath } = await dialog.showSaveDialog({
+    const filePath = await pickSavePath({
       title: `Export ${word('contact', { cap: true })} directory as PDF`,
       defaultPath: 'contact-directory.pdf',
       filters: [{ name: 'PDF', extensions: ['pdf'] }]
     })
-    if (canceled || !filePath) return ok(null)
+    if (!filePath) return ok(null)
     assertSafePath(filePath)
     await exportDirectoryPdf(filterParams, filePath)
     return ok(filePath)
@@ -480,12 +480,12 @@ export function registerExportHandlers(): void {
 
   secureWrap(IPC.EXPORT_WEEKLY_PLANNER, 'ipc-export', async (_e, weekStart: string) => {
     if (typeof weekStart !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) return fail('Invalid week')
-    const { canceled, filePath } = await dialog.showSaveDialog({
+    const filePath = await pickSavePath({
       title: 'Save Weekly Planner',
       defaultPath: `weekly-planner-${weekStart}.pdf`,
       filters: [{ name: 'PDF', extensions: ['pdf'] }]
     })
-    if (canceled || !filePath) return ok(null)
+    if (!filePath) return ok(null)
     assertSafePath(filePath)
     const nameRow = getDb().prepare("SELECT value FROM settings WHERE key = 'profile_name'").get() as { value: string } | undefined
     await exportWeeklyPlanner(weekStart, filePath, nameRow?.value || undefined)
@@ -505,12 +505,12 @@ export function registerExportHandlers(): void {
         : `All ${word('list', { many: true })}`
     if (!label) return fail(`We couldn't find that ${word('record')} or ${word('list')}.`)
     // The file name stays generic: client names don't belong in file names
-    const { canceled, filePath } = await dialog.showSaveDialog({
+    const filePath = await pickSavePath({
       title: 'Save Audit Trail',
       defaultPath: `audit-trail-${localDateString()}.pdf`,
       filters: [{ name: 'PDF', extensions: ['pdf'] }]
     })
-    if (canceled || !filePath) return ok(null)
+    if (!filePath) return ok(null)
     assertSafePath(filePath)
     const nameRow = db.prepare("SELECT value FROM settings WHERE key = 'profile_name'").get() as { value: string } | undefined
     const summary = await exportAuditReport({ rowId: scope.rowId, gridId: scope.gridId, from: scope.from, to: scope.to }, filePath, label, nameRow?.value || undefined)
@@ -523,12 +523,12 @@ export function registerExportHandlers(): void {
     if (!text(opts.receiving, 500) || !text(opts.summary, 20_000)) return fail('That text is too long')
     const unavailable = refuseUnavailableRecord(opts.rowId, opts.gridId)
     if (unavailable) return unavailable
-    const { canceled, filePath } = await dialog.showSaveDialog({
+    const filePath = await pickSavePath({
       title: 'Save Handoff Packet',
       defaultPath: `handoff-packet-${localDateString()}.pdf`,
       filters: [{ name: 'PDF', extensions: ['pdf'] }]
     })
-    if (canceled || !filePath) return ok(null)
+    if (!filePath) return ok(null)
     assertSafePath(filePath)
     await exportHandoffPacket({ rowId: opts.rowId, gridId: opts.gridId, receiving: opts.receiving, summary: opts.summary, includePictures: opts.includePictures === true, includeScratchPad: opts.includeScratchPad === true }, filePath)
     return ok(filePath)
@@ -536,12 +536,12 @@ export function registerExportHandlers(): void {
 
   secureWrap(IPC.EXPORT_ICS, 'ipc-export', async (_e, opts?: { fullNames?: boolean }) => {
     const fullNames = opts?.fullNames === true
-    const { canceled, filePath } = await dialog.showSaveDialog({
+    const filePath = await pickSavePath({
       title: 'Save Calendar File',
       defaultPath: `pulse-calendar-${localDateString()}.ics`,
       filters: [{ name: 'Calendar', extensions: ['ics'] }]
     })
-    if (canceled || !filePath) return ok(null)
+    if (!filePath) return ok(null)
     assertSafePath(filePath)
     const count = await exportIcs(filePath, { fullNames })
     return ok({ filePath, count })
@@ -550,12 +550,12 @@ export function registerExportHandlers(): void {
   secureWrap(IPC.LETTER_TEMPLATE_EXPORT_PDF, 'ipc-export', async (_e, opts: { text: string }) => {
     if (typeof opts?.text !== 'string') return fail('Text must be a string')
     if (opts.text.length > 500_000) return fail('Text too large (max 500,000 characters)')
-    const { canceled, filePath } = await dialog.showSaveDialog({
+    const filePath = await pickSavePath({
       title: 'Export Letter as PDF',
       defaultPath: `letter-${localDateString()}.pdf`,
       filters: [{ name: 'PDF', extensions: ['pdf'] }]
     })
-    if (canceled || !filePath) return ok(null)
+    if (!filePath) return ok(null)
     assertSafePath(filePath)
     await exportLetterPdf(opts.text, filePath)
     return ok(filePath)
@@ -718,10 +718,10 @@ export function registerExportHandlers(): void {
     if (!validId(templateId) || !t || (page !== 'letter' && page !== 'postcard')) return fail('Invalid request')
     let built: ReturnType<typeof buildBatchPdf>
     try { built = buildBatchPdf(templateId, t, page) } catch (err) { if (err instanceof DocumentError) return fail(err.message); throw err }
-    const { canceled, filePath } = await dialog.showSaveDialog({
+    const filePath = await pickSavePath({
       title: 'Save documents', defaultPath: `${page === 'postcard' ? 'postcards' : 'documents'}-${localDateString()}.pdf`, filters: [{ name: 'PDF', extensions: ['pdf'] }],
     })
-    if (canceled || !filePath) return ok(null)
+    if (!filePath) return ok(null)
     assertSafePath(filePath)
     await atomicWriteFileAsync(filePath, Buffer.from(built.pdf.output('arraybuffer')))
     return ok({ filePath, count: built.count, unknown: built.unknown })
@@ -738,10 +738,10 @@ export function registerExportHandlers(): void {
     if (!t || !validId(addressColumnId) || (layout !== 'avery-5160' && layout !== 'avery-5163')) return fail('Invalid request')
     let built: ReturnType<typeof buildLabelsPdf>
     try { built = buildLabelsPdf(t, addressColumnId, layout) } catch (err) { if (err instanceof DocumentError) return fail(err.message); throw err }
-    const { canceled, filePath } = await dialog.showSaveDialog({
+    const filePath = await pickSavePath({
       title: 'Save address labels', defaultPath: `labels-${localDateString()}.pdf`, filters: [{ name: 'PDF', extensions: ['pdf'] }],
     })
-    if (canceled || !filePath) return ok(null)
+    if (!filePath) return ok(null)
     assertSafePath(filePath)
     await atomicWriteFileAsync(filePath, Buffer.from(built.pdf.output('arraybuffer')))
     return ok({ filePath, count: built.count, skipped: built.skipped })

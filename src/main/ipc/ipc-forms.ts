@@ -3,8 +3,7 @@
  */
 import { IPC } from '../../shared/ipc-channels'
 import type { FormChange } from '../../shared/forms'
-import { dialog } from 'electron'
-import { secureWrap, ok, fail, enforceWritable, validId, notifyCaseLogChanged, assertSafePath } from './ipc-utils'
+import { secureWrap, ok, fail, enforceWritable, validId, notifyCaseLogChanged, assertSafePath, pickSavePath } from './ipc-utils'
 import { buildFormPdf, FormPrintError } from '../export-forms'
 import { atomicWriteFileAsync } from '../export-shared'
 import { localDateString } from '../../shared/dates'
@@ -76,11 +75,11 @@ export function registerFormHandlers(): void {
     let built: ReturnType<typeof buildFormPdf>
     try { built = buildFormPdf(formId, rowId as number | null) } catch (err) { if (err instanceof FormPrintError) return fail(err.message); throw err }
     const safe = built.name.replace(/[^\w -]+/g, '').trim() || 'form'
-    const { canceled, filePath } = await dialog.showSaveDialog({
+    const filePath = await pickSavePath({
       title: rowId === null ? 'Save blank form' : 'Save filled form',
       defaultPath: `${safe}${rowId === null ? ' (blank)' : ''}-${localDateString()}.pdf`, filters: [{ name: 'PDF', extensions: ['pdf'] }],
     })
-    if (canceled || !filePath) return ok(null)
+    if (!filePath) return ok(null)
     assertSafePath(filePath)
     await atomicWriteFileAsync(filePath, Buffer.from(built.pdf.output('arraybuffer')))
     return ok(filePath)
