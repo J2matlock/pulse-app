@@ -46,6 +46,16 @@ function writeCache(s: WorkspaceState): void {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(s)) } catch { /* storage unavailable */ }
 }
 
+/**
+ * True when the words in use changed between two loaded states (workspace or any
+ * list's own words), not just features, measures or holidays. A first load (cached
+ * words replaced on unlock) doesn't count.
+ */
+export function wordsChanged(next: Pick<WorkspaceStore, 'vocab' | 'gridVocab' | 'isLoaded'>, prev: Pick<WorkspaceStore, 'vocab' | 'gridVocab' | 'isLoaded'>): boolean {
+  if (!prev.isLoaded) return false
+  return JSON.stringify(next.vocab) !== JSON.stringify(prev.vocab) || JSON.stringify(next.gridVocab) !== JSON.stringify(prev.gridVocab)
+}
+
 export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
   ...readCache(),
   isLoaded: false,

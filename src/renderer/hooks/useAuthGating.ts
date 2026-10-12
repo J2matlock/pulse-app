@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useAlertStore } from '../stores/alertStore'
-import { useWorkspaceStore } from '../stores/workspaceStore'
+import { useWorkspaceStore, wordsChanged } from '../stores/workspaceStore'
+import { useUndoStore } from '../stores/undoStore'
 import { useLinkStore } from '../stores/linkStore'
 import { useActivityTypeStore } from '../stores/activityTypeStore'
 import { useGridStore } from '../stores/gridStore'
@@ -105,6 +106,11 @@ export function useAuthGating(): UseAuthGatingReturn {
 
   // Words or features changed elsewhere (another window, applying a starter)
   useEffect(() => window.api.on(IPC.WORKSPACE_CHANGED, () => { void useWorkspaceStore.getState().load() }), [])
+  // Undo steps are labelled in the words of the moment ("Deleted client"); once the words change,
+  // the history would read in the old ones, so it starts afresh (Q-089, D-031)
+  useEffect(() => useWorkspaceStore.subscribe((next, prev) => {
+    if (wordsChanged(next, prev)) useUndoStore.getState().clear()
+  }), [])
   useEffect(() => window.api.on(IPC.ACTIVITY_TYPES_CHANGED, () => { void useActivityTypeStore.getState().load() }), [])
 
   // Derive the auth state

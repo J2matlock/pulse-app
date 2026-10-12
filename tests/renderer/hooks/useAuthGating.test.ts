@@ -36,8 +36,14 @@ vi.mock('../../../src/renderer/stores/alertStore', () => ({
 }))
 
 const mockLoadWorkspace = vi.fn().mockResolvedValue(undefined)
-vi.mock('../../../src/renderer/stores/workspaceStore', () => ({
-  useWorkspaceStore: { getState: () => ({ load: mockLoadWorkspace }) },
+type WordsState = { vocab: object; gridVocab: object; isLoaded: boolean }
+let workspaceListener: ((next: WordsState, prev: WordsState) => void) | null = null
+vi.mock('../../../src/renderer/stores/workspaceStore', async () => ({
+  useWorkspaceStore: {
+    getState: () => ({ load: mockLoadWorkspace }),
+    subscribe: (l: (next: WordsState, prev: WordsState) => void) => { workspaceListener = l; return () => { workspaceListener = null } },
+  },
+  wordsChanged: (await vi.importActual<typeof import('../../../src/renderer/stores/workspaceStore')>('../../../src/renderer/stores/workspaceStore')).wordsChanged,
 }))
 
 const mockLoadLinks = vi.fn().mockResolvedValue(undefined)
@@ -114,6 +120,21 @@ describe('useAuthGating', () => {
     await act(async () => {})
     expect(mockLoadWorkspace).toHaveBeenCalled()
     expect(mockOn).toHaveBeenCalledWith(IPC.WORKSPACE_CHANGED, expect.any(Function))
+  })
+
+  it('starts the undo history afresh when the words change, not for other workspace changes (Q-089)', async () => {
+    const { useUndoStore } = await import('../../../src/renderer/stores/undoStore')
+    renderHook(() => useAuthGating())
+    await act(async () => {})
+    const step = { id: 's1', description: 'Deleted client', timestamp: 0, category: 'silent' as const, icon: 'trash' as const, undo: async () => {}, redo: async () => {} }
+    useUndoStore.setState({ undoStack: [step], redoStack: [] })
+    const before: WordsState = { vocab: { record: { one: 'client', many: 'clients' } }, gridVocab: {}, isLoaded: true }
+    workspaceListener!({ ...before, gridVocab: {} }, before)
+    expect(useUndoStore.getState().undoStack).toHaveLength(1)
+    workspaceListener!({ ...before, vocab: {} }, { ...before, isLoaded: false })
+    expect(useUndoStore.getState().undoStack).toHaveLength(1)
+    workspaceListener!({ ...before, vocab: { record: { one: 'vehicle', many: 'vehicles' } } }, before)
+    expect(useUndoStore.getState().undoStack).toHaveLength(0)
   })
 
   it('setShowOnboarding updates state', async () => {
