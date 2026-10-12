@@ -4,7 +4,9 @@
     "scripts/afterPack.js",
     "scripts/starters/validate-starter.ts",
     "scripts/website-copy/*.mjs",
-    "src/main/ipc/ipc-contract-check.ts"
+    "src/main/ipc/ipc-contract-check.ts",
+    "vitest.perf.config.ts",
+    "tests/perf/*.perf.{ts,tsx}"
   ],
   "ignoreBinaries": [
     "reg"
