@@ -114,9 +114,9 @@ export async function exportTotalsCsv(month: string, gridId: number | undefined,
   const r = getTotals(month, gridId)
   const money = (miles: number | null) => r.mileageRate && miles ? (miles * r.mileageRate).toFixed(2) : ''
   const fields = [
-    'Date', word('record', { cap: true }), word('list', { cap: true }), 'Note type',
+    'Date', word('record', { cap: true }), word('list', { cap: true }), `${word('activity', { cap: true })} type`,
     'Minutes', `Units (${r.unitMinutes} min)`, 'Miles', ...(r.mileageRate ? ['Mileage amount'] : []),
-    ...r.measures.map(measureHeading), 'Note',
+    ...r.measures.map(measureHeading), word('activity', { cap: true }),
   ]
   const data = r.entries.map(e => [
     e.date, e.clientName, e.gridName, activityLabel(e.logType), e.minutes ?? '', e.minutes ? unitsFor(e.minutes, r.unitMinutes) : '', e.miles ?? '',

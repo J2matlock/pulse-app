@@ -36,6 +36,29 @@ import { exportWeeklyPlanner } from '../src/main/export-planner'
 import { exportAuditReport } from '../src/main/export-audit'
 import { exportCsv } from '../src/main/export-csv'
 import { exportIcs } from '../src/main/export-ics'
+import { exportNotesCsv } from '../src/main/export-csv'
+import { exportTotalsCsv } from '../src/main/totals'
+import { exportMissingInfoCsv } from '../src/main/missing-info'
+import { exportComplianceSummary } from '../src/main/compliance'
+import { buildLabelsPdf } from '../src/main/export-documents'
+import { runReport } from '../src/main/report-builder'
+import { reportToCsv, buildReportPdf } from '../src/main/export-report'
+
+/** The text runs of a PDF, or the lines of a CSV */
+function parts(path: string): string[] {
+  const text = readFileSync(path, 'latin1')
+  const runs = text.match(/\((?:\\.|[^\\)])*\)/g)
+  return runs && runs.length > 1 ? runs : text.split(/\r?\n/)
+}
+
+/**
+ * The app's default words where the workspace's own belong (A28-01..04): under
+ * NONSENSE_VOCAB, a heading or label saying "note", "notes", "activity log" or
+ * "contacts" came from Pulse, not from the seeded data (which never says them).
+ */
+const DEFAULT_WORDS = /\b(notes?|activity logs?|contacts)\b/i
+/** Fixed labels that aren't the activity or contact word (a free-text column on the planner, the scratch pad) */
+const NOT_VOCAB = /^\((Notes|Scratch notes|Notes for the next tinker)\)$/
 
 function leaks(path: string): string[] {
   const text = readFileSync(path, 'latin1')
@@ -119,6 +142,47 @@ describe('exports use the workspace words', () => {
   it('calendar export', async () => {
     await exportIcs(dest('cal.ics'))
     expect(leaks(dest('cal.ics'))).toEqual([])
+  })
+
+  it('the other exports: notes and totals CSV, missing information, compliance summary, labels, saved reports', async () => {
+    const month = localDateFromToday(0).slice(0, 7)
+    await exportNotesCsv(dest('notes.csv'))
+    await exportTotalsCsv(month, undefined, dest('totals.csv'))
+    await exportMissingInfoCsv(dest('missing.csv'))
+    await exportComplianceSummary(month, undefined, dest('compliance.pdf'))
+    writeFileSync(dest('labels.pdf'), Buffer.from(buildLabelsPdf({ gridId }, columnIds[0]!, 'avery-5160').pdf.output('arraybuffer')))
+    for (const source of ['records', 'activities', 'appointments', 'deadlines'] as const) {
+      const r = runReport(gridId, { source, filters: [], groupBy: [], values: [] })
+      writeFileSync(dest(`report-${source}.csv`), reportToCsv(r))
+      writeFileSync(dest(`report-${source}.pdf`), buildReportPdf('Report', 'All', r))
+    }
+    const files = ['notes.csv', 'totals.csv', 'missing.csv', 'compliance.pdf', 'labels.pdf',
+      ...['records', 'activities', 'appointments', 'deadlines'].flatMap(s => [`report-${s}.csv`, `report-${s}.pdf`])]
+    expect(files.flatMap(n => leaks(dest(n)).map(hit => `${n}: ${hit}`))).toEqual([])
+  })
+
+  it("headings and labels use the workspace's words, not the defaults (A28-01..04)", async () => {
+    const month = localDateFromToday(0).slice(0, 7)
+    const sup = {
+      gridId, columnIds, dateRange: { start: localDateFromToday(-30), end: localDateFromToday(0) },
+      includeActivityLog: true, includeSystemActivity: true, includeTaskSummary: true, workerName: 'Jo', workerTitle: 'Lead', workerOrg: 'Shop',
+    }
+    await exportSupervisorReport({ ...sup, format: 'pdf', destPath: dest('sup.pdf') })
+    await exportSupervisorReport({ ...sup, format: 'csv', destPath: dest('sup.csv') })
+    await exportHandoffPacket({ rowId: rowIds[0]!, gridId, receiving: 'Sam', summary: 'Waiting on parts.' }, dest('handoff.pdf'))
+    await exportAuditReport({ gridId }, dest('audit.pdf'), 'Shelf A', 'Jo')
+    await exportTotalsCsv(month, undefined, dest('totals.csv'))
+    await exportPdfProfile({ rowId: rowIds[0]!, gridId, destPath: dest('profile.pdf'), includeSections: allSections })
+    await exportWeeklyPlanner(localDateFromToday(0), dest('week.pdf'), 'Jo')
+
+    const files = ['sup.pdf', 'sup.csv', 'handoff.pdf', 'audit.pdf', 'totals.csv', 'profile.pdf', 'week.pdf']
+    const hits = files.flatMap(n => parts(dest(n)).filter(p => DEFAULT_WORDS.test(p) && !NOT_VOCAB.test(p)).map(p => `${n}: ${p}`))
+    expect(hits).toEqual([])
+    // and the workspace's words are where the defaults were
+    expect(parts(dest('totals.csv'))[0]).toContain('Jot type')
+    expect(readFileSync(dest('sup.pdf'), 'latin1')).toContain('(Jot pile')
+    expect(readFileSync(dest('audit.pdf'), 'latin1')).toMatch(/\(Phone jot\)/)
+    expect(readFileSync(dest('handoff.pdf'), 'latin1')).toMatch(/jots, gizmos/)
   })
 
   it('the check itself catches the old words', () => {

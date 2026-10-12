@@ -244,7 +244,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
         ORDER BY cl.occurred_at DESC LIMIT 200
       `).all(gridId, dateRange.start, dateRange.end) as Array<{ content: string; log_type: string; created_at: string; row_id: number }>
       const activityNames = batchGetClientNames(db, logRows.map(e => e.row_id), gridId)
-      csvSections.push([], [`Activity Log (${ActsCap})`], ['Date', 'Type', `${RecCap}`, 'Notes'])
+      csvSections.push([], [`${term(v, 'activityLog', { cap: true })} (${ActsCap})`], ['Date', 'Type', `${RecCap}`, term(v, 'activity', { cap: true })])
       for (const e of logRows) {
         csvSections.push([localDateString(parseDbTimestamp(e.created_at)), sanitizeCsvFormula(activityLabel(e.log_type)), sanitizeCsvFormula(activityNames.get(e.row_id) || `${RecCap} #${e.row_id}`), sanitizeCsvFormula(stripHtml(e.content))])
       }
@@ -546,7 +546,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
     `).all(gridId, dateRange.start, dateRange.end) as Array<{ content: string; log_type: string; created_at: string; row_id: number }>
 
     if (y > pageH - footerBarH - 40) { doc.addPage(); y = 18 }
-    sectionTitle(`Activity Log \u2014 ${ActsCap} This Period`)
+    sectionTitle(`${term(v, 'activityLog', { cap: true })} \u2014 ${ActsCap} This Period`)
     if (logRows.length === 0) {
       doc.setFontSize(9)
       doc.setFont('helvetica', 'italic')
@@ -557,7 +557,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
     } else {
       const pdfActivityNames = batchGetClientNames(db, logRows.map(e => e.row_id), gridId)
       autoTable(doc, {
-        head: [['Date', 'Type', `${RecCap}`, 'Notes']],
+        head: [['Date', 'Type', `${RecCap}`, term(v, 'activity', { cap: true })]],
         body: logRows.map(e => [
           parseDbTimestamp(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
           activityLabel(e.log_type),

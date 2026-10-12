@@ -37,14 +37,21 @@ export interface AuditClient {
 }
 
 const SYSTEM_NOTE_LABEL: Record<string, string> = {
-  system: 'Recorded by Pulse', manual: 'Note', import: 'Imported', followup: 'Follow-up',
+  system: 'Recorded by Pulse', import: 'Imported', followup: 'Follow-up',
 }
 
-/** "Phone note", "Session note"; a type already called "… note" isn't doubled. */
-function noteEventLabel(key: string): string {
+/**
+ * "Phone note", "Session note", or with other workspace words "Phone jot"
+ * (A28-02). Words ending in "note" ("note", "case note") keep the short
+ * "… note"; a type already called "… note" / "… jot" isn't doubled.
+ */
+function noteEventLabel(key: string, gridId: number): string {
   if (SYSTEM_NOTE_LABEL[key]) return SYSTEM_NOTE_LABEL[key]
+  const act = word('activity', {}, gridId)
+  const suffix = /\bnote$/i.test(act) ? 'note' : act
+  if (key === 'manual') return suffix.charAt(0).toUpperCase() + suffix.slice(1)
   const label = activityLabel(key)
-  return /\bnote$/i.test(label) ? label : `${label} note`
+  return label.toLowerCase().endsWith(suffix.toLowerCase()) ? label : `${label} ${suffix}`
 }
 
 function fmtDate(ymd: string | null): string {
@@ -136,7 +143,7 @@ export function loadAuditTrail(scope: AuditScope): AuditClient[] {
         const backdated = happened && happened !== localDay(n.created_at) ? `Happened ${fmtDate(happened)}\n` : ''
         const followUp = n.follow_up_date ? `\nFollow-up: ${fmtDate(n.follow_up_date)}` : ''
         const voided = n.voided_at ? '\n(Later voided; see below)' : ''
-        events.push({ at: n.created_at, what: noteEventLabel(n.log_type), details: backdated + text + followUp + voided })
+        events.push({ at: n.created_at, what: noteEventLabel(n.log_type, c.grid_id), details: backdated + text + followUp + voided })
       }
       if (within(n.voided_at)) {
         events.push({ at: n.voided_at!, what: `${Note} voided`, details: `${n.voided_reason ? `Reason: ${n.voided_reason}\n` : ''}${Note}: ${text}` })

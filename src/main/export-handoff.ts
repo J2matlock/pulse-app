@@ -134,7 +134,7 @@ export async function exportHandoffPacket(opts: HandoffOptions, destPath: string
   doc.setFontSize(10)
   const hasFiles = listAttachments(opts.rowId).length > 0
   const files = hasFiles ? `  3. the files on this ${term(v, 'record')}${opts.includePictures ? ' (pictures as pages)' : ''}` : ''
-  doc.text(doc.splitTextToSize(`Contents: 1. this cover page  2. the ${term(v, 'record')} profile (details, deadlines, checklist, notes, contacts)${files}  ${hasFiles ? 4 : 3}. the complete audit trail.`, width), marginL, y)
+  doc.text(doc.splitTextToSize(`Contents: 1. this cover page  2. the ${term(v, 'record')} profile (details, deadlines, checklist, ${term(v, 'activity', { many: true })}, ${term(v, 'contact', { many: true })})${files}  ${hasFiles ? 4 : 3}. the complete audit trail.`, width), marginL, y)
 
   // ── Profile ──
   doc.addPage()
