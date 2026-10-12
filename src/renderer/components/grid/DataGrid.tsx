@@ -40,6 +40,7 @@ import { ROW_HEIGHTS, HANDLE_WIDTH, PROFILE_BTN_WIDTH, GROUP_HEADER_HEIGHT, TAGS
 import { useGridSelection } from '../../hooks/useGridSelection'
 import { useGridColumnSizing } from '../../hooks/useGridColumnSizing'
 import { useGridAnnouncer } from '../../hooks/useGridAnnouncer'
+import { useGridRowActions } from '../../hooks/useGridRowActions'
 import { useGridRuleInfo } from '../../hooks/useGridRuleInfo'
 import { buildTableColumns } from './gridTableColumns'
 import { useGridContextMenu } from '../../hooks/useGridContextMenu'
@@ -166,10 +167,6 @@ export function DataGrid(): React.ReactElement {
   rowsRef.current = rows
   const filteredRowsRef = useRef<GridRow[]>([])
   const [cellFormatTarget, setCellFormatTarget] = useState<{ rowId: number; colId: number } | null>(null)
-  const [archiveTarget, setArchiveTarget] = useState<number | null>(null)
-  const [archiveReason, setArchiveReason] = useState('')
-  const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
-  const [moveToGridTarget, setMoveToGridTarget] = useState<number | null>(null)
   const [bulkDeleteTarget, setBulkDeleteTarget] = useState(false)
   const [bulkMoveTarget, setBulkMoveTarget] = useState(false)
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
@@ -246,35 +243,11 @@ export function DataGrid(): React.ReactElement {
 
   const { parsedColumnConfigs, hasAnyHighlightRules, hasCrossRowRules, highlightColumnIds } = useGridRuleInfo(columns, cellFormats)
 
-  const handleDeleteRow = useCallback((rowId: number) => {
-    setContextMenu(null)
-    setDeleteTarget(rowId)
-  }, [])
-
-  const handleToggleStar = useCallback(async (rowId: number) => {
-    const row = useGridStore.getState().rows.find(r => r.row_id === rowId)
-    if (!row) return
-    await updateRow(rowId, { is_starred: row.is_starred ? 0 : 1 })
-  }, [updateRow])
-
-  const handleToggleStarProp = useCallback((rowId: number) => { void handleToggleStar(rowId) }, [handleToggleStar])
-
-  const handleDuplicateRow = useCallback(async (rowId: number) => {
-    setContextMenu(null)
-    await duplicateRow(rowId)
-  }, [duplicateRow])
-
-  const handleArchiveConfirm = useCallback(async (opts: { cancelAppointments: boolean }) => {
-    if (archiveTarget == null) return
-    await archiveRow(archiveTarget, archiveReason.trim() || undefined, opts)
-    setArchiveTarget(null)
-    setArchiveReason('')
-  }, [archiveTarget, archiveReason, archiveRow])
-
-  const handleUnarchiveRow = useCallback(async (rowId: number) => {
-    setContextMenu(null)
-    await unarchiveRow(rowId)
-  }, [unarchiveRow])
+  const {
+    archiveTarget, setArchiveTarget, archiveReason, setArchiveReason,
+    deleteTarget, setDeleteTarget, moveToGridTarget, setMoveToGridTarget,
+    handleDeleteRow, handleToggleStar, handleToggleStarProp, handleDuplicateRow, handleArchiveConfirm, handleUnarchiveRow,
+  } = useGridRowActions({ setContextMenu, archiveRow, unarchiveRow, duplicateRow, updateRow })
 
   // Sensors: 5px distance threshold so single clicks still work (column reorder only)
   const colSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
