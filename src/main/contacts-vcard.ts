@@ -3,6 +3,7 @@
  */
 
 import { logger } from './logger'
+import { foldLine } from './fold-line'
 import { getCustomFields, getCustomValues } from './contacts'
 import type { Provider, ProviderCustomField } from '../shared/types'
 
@@ -338,5 +339,6 @@ export function emitVCard(
   }
 
   lines.push('END:VCARD')
-  return lines.join('\r\n')
+  // RFC 6350 §3.2: lines over 75 octets are folded; Pulse's own import unfolds them
+  return lines.map(foldLine).join('\r\n')
 }

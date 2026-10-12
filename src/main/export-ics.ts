@@ -9,6 +9,7 @@
 
 import { getDb } from './database'
 import { atomicWriteFileAsync } from './export-shared'
+import { foldLine } from './fold-line'
 import { localDateFromToday } from '../shared/dates'
 import { featureOn, word } from './vocab'
 import { loadDeadlines } from './deadlines'
@@ -49,22 +50,6 @@ export function initials(name: string): string {
 /** RFC 5545 text escaping. */
 function esc(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n')
-}
-
-/** Fold lines longer than 75 octets (RFC 5545 §3.1). */
-function fold(line: string): string {
-  const bytes = Buffer.from(line, 'utf8')
-  if (bytes.length <= 75) return line
-  const parts: string[] = []
-  let start = 0
-  while (start < bytes.length) {
-    let end = Math.min(start + (start === 0 ? 75 : 74), bytes.length)
-    // Don't split a multi-byte character
-    while (end < bytes.length && (bytes[end]! & 0xc0) === 0x80) end--
-    parts.push(bytes.subarray(start, end).toString('utf8'))
-    start = end
-  }
-  return parts.join('\r\n ')
 }
 
 function ymdCompact(ymd: string): string { return ymd.replace(/-/g, '') }
@@ -190,7 +175,7 @@ export function buildIcs(items: IcsItem[], now = new Date()): string {
     )
   }
   lines.push('END:VCALENDAR')
-  return lines.map(fold).join('\r\n') + '\r\n'
+  return lines.map(foldLine).join('\r\n') + '\r\n'
 }
 
 export async function exportIcs(destPath: string, opts: IcsOptions = {}): Promise<number> {

@@ -75,3 +75,22 @@ describe('vCards other apps write (Q-042)', () => {
   })
 })
 
+describe('long lines (P-004)', () => {
+  it('folds every line at 75 octets and reads back the same', () => {
+    const notes = 'Intake is Monday to Thursday. Bring proof of address — café receipts don\'t count. '.repeat(6).trim()
+    const vcf = emitVCard({ id: 1, name: 'Folding Clinic', notes, address: '1234 A Very Long Street Name Indeed, Suite 500, Springfield, Illinois 62701' } as Provider)
+    for (const line of vcf.split('\r\n')) expect(Buffer.byteLength(line, 'utf8')).toBeLessThanOrEqual(75)
+    const [p] = parseVCard(vcf)
+    expect(p?.notes).toBe(notes)
+    expect(p?.address).toContain('Springfield, Illinois 62701')
+  })
+
+  it('reads back escaped line breaks, commas and accented letters wherever a fold lands', () => {
+    for (let pad = 0; pad < 8; pad++) {
+      const notes = `${'x'.repeat(pad)}Line one, with a comma;\nLine two — é è ü\n`.repeat(5).trim()
+      const vcf = emitVCard({ id: 1, name: 'Fold Edge', notes } as Provider)
+      for (const line of vcf.split('\r\n')) expect(Buffer.byteLength(line, 'utf8')).toBeLessThanOrEqual(75)
+      expect(parseVCard(vcf)[0]?.notes).toBe(notes)
+    }
+  })
+})
