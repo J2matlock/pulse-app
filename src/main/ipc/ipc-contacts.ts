@@ -23,6 +23,7 @@ import { normalizeHexColor } from '../../shared/color'
 import { word } from '../vocab'
 import { atomicWriteFileAsync } from '../export-shared'
 import { vcardFieldKey } from '../contacts-vcard'
+import { decodeCsvBytes } from '../import'
 
 const BAD_COLOR = 'Choose a color from the swatches, or type one like #3b82f6.'
 
@@ -216,7 +217,8 @@ export function registerContactHandlers(): void {
     assertSafePath(filePath)
     const stat = statSync(filePath)
     if (stat.size > 10 * 1024 * 1024) return fail('vCard file too large (max 10 MB)')
-    const content = await readFile(filePath, 'utf-8')
+    // Outlook and older phones write vCard 2.1 in Windows-1252 or UTF-16; read them like a CSV (Q-079)
+    const content = decodeCsvBytes(await readFile(filePath)).text
     const parsed = parseVCard(content)
 
     // Resolve CATEGORIES field to category_id (case-insensitive, first matching category wins).

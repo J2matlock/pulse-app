@@ -331,6 +331,13 @@ describe('wiring of purge / undo / import channels other tests only reach throug
       expect(JSON.stringify(res.data)).toContain('Test Person')
       expect(snapshot()).toEqual(before)
       expect((await call(IPC.CONTACTS_IMPORT_VCF, 'relative.vcf')).ok).toBe(false)
+      // Windows-1252 (Outlook's vCard 2.1) and UTF-16 with a byte order mark read as text, not mojibake (Q-079)
+      const ansi = join(dir, 'ansi.vcf')
+      writeFileSync(ansi, Buffer.from('BEGIN:VCARD\r\nVERSION:2.1\r\nFN:Jos\xe9 N\xfa\xf1ez \x96 Clinic\r\nEND:VCARD\r\n', 'latin1'))
+      expect(JSON.stringify((await call(IPC.CONTACTS_IMPORT_VCF, ansi)).data)).toContain('José Núñez – Clinic')
+      const wide = join(dir, 'wide.vcf')
+      writeFileSync(wide, Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Zoë Ångström\r\nEND:VCARD\r\n', 'utf16le')]))
+      expect(JSON.stringify((await call(IPC.CONTACTS_IMPORT_VCF, wide)).data)).toContain('Zoë Ångström')
       expect((await call(IPC.CONTACTS_IMPORT_VCF, '/etc/passwd')).ok).toBe(false)
     } finally {
       rmSync(dir, { recursive: true, force: true })
