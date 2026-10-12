@@ -1,21 +1,24 @@
 /**
  * ipc-reminders.ts — desktop reminder settings and a test notification (W11 §2).
  */
+import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
-import { secureWrap, ok, fail, enforceWritable } from './ipc-utils'
+import { ok, fail } from './ipc-utils'
+import { handlersFor } from './ipc-define'
 import { getReminderSettings, setReminderSettings, reminderPatchSchema, sendTestReminder } from '../reminders'
 
-export function registerReminderHandlers(): void {
-  secureWrap(IPC.REMINDERS_GET, 'ipc-reminders', () => ok(getReminderSettings()))
+const define = handlersFor('ipc-reminders')
 
-  secureWrap(IPC.REMINDERS_SET, 'ipc-reminders', (_e, patch: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
+export function registerReminderHandlers(): void {
+  define(IPC.REMINDERS_GET, [], () => ok(getReminderSettings()))
+
+  define(IPC.REMINDERS_SET, [z.unknown()], (patch) => {
     const p = reminderPatchSchema.safeParse(patch)
     if (!p.success) return fail('That reminder setting isn\'t valid.')
     return ok(setReminderSettings(p.data))
-  })
+  }, { write: true })
 
-  secureWrap(IPC.REMINDERS_TEST, 'ipc-reminders', () => {
+  define(IPC.REMINDERS_TEST, [], () => {
     return sendTestReminder() ? ok(true) : fail('This computer isn\'t showing notifications from Pulse. Check that notifications are allowed for Pulse in your system settings.')
   })
 }
