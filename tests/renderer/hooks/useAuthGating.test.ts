@@ -36,7 +36,7 @@ vi.mock('../../../src/renderer/stores/alertStore', () => ({
 }))
 
 const mockLoadWorkspace = vi.fn().mockResolvedValue(undefined)
-type WordsState = { vocab: object; gridVocab: object; isLoaded: boolean }
+type WordsState = { vocab: object; gridVocab: Record<number, object>; isLoaded: boolean }
 let workspaceListener: ((next: WordsState, prev: WordsState) => void) | null = null
 vi.mock('../../../src/renderer/stores/workspaceStore', async () => ({
   useWorkspaceStore: {
@@ -134,6 +134,23 @@ describe('useAuthGating', () => {
     workspaceListener!({ ...before, vocab: {} }, { ...before, isLoaded: false })
     expect(useUndoStore.getState().undoStack).toHaveLength(1)
     workspaceListener!({ ...before, vocab: { record: { one: 'vehicle', many: 'vehicles' } } }, before)
+    expect(useUndoStore.getState().undoStack).toHaveLength(0)
+  })
+
+  it('a new list with its own words keeps the undo history; changing a list\'s words starts it afresh (R3-02)', async () => {
+    const { useUndoStore } = await import('../../../src/renderer/stores/undoStore')
+    renderHook(() => useAuthGating())
+    await act(async () => {})
+    const step = { id: 's1', description: 'Deleted client', timestamp: 0, category: 'silent' as const, icon: 'trash' as const, undo: async () => {}, redo: async () => {} }
+    useUndoStore.setState({ undoStack: [step], redoStack: [] })
+    const before: WordsState = { vocab: { record: { one: 'client', many: 'clients' } }, gridVocab: { 1: { record: { one: 'family', many: 'families' } } }, isLoaded: true }
+    const added = { ...before, gridVocab: { ...before.gridVocab, 2: { record: { one: 'vehicle', many: 'vehicles' } } } }
+    workspaceListener!(added, before)
+    expect(useUndoStore.getState().undoStack).toHaveLength(1)
+    workspaceListener!({ ...added, gridVocab: { ...added.gridVocab, 1: { record: { one: 'household', many: 'households' } } } }, added)
+    expect(useUndoStore.getState().undoStack).toHaveLength(0)
+    useUndoStore.setState({ undoStack: [step], redoStack: [] })
+    workspaceListener!({ ...added, gridVocab: { 2: added.gridVocab[2] } }, added)
     expect(useUndoStore.getState().undoStack).toHaveLength(0)
   })
 
