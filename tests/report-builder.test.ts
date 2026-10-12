@@ -178,6 +178,19 @@ describe('appointments and deadlines', () => {
     expect(r.matched).toBe(2)
   })
 
+  it('a used-up quota due later is 0 days overdue, not negative (F-022)', () => {
+    t.db.prepare("INSERT OR IGNORE INTO activity_types (key, label, position) VALUES ('session', 'Session', 50)").run()
+    const start = Number(t.db.prepare("INSERT INTO columns (grid_id, name, column_type, position) VALUES (?, 'Start', 'date', 10)").run(gridId).lastInsertRowid)
+    const end = Number(t.db.prepare("INSERT INTO columns (grid_id, name, column_type, position) VALUES (?, 'End', 'date', 11)").run(gridId).lastInsertRowid)
+    const rule = Number(t.db.prepare("INSERT INTO alert_rules (name, thresholds, kind, rule_config) VALUES ('Authorization', '[]', 'quota', ?)")
+      .run(JSON.stringify({ kind: 'quota', activityTypes: ['session'], startColumnId: start, endColumnId: end, limit: 1, warnRemaining: 0, warnDaysBeforeEnd: 0 })).lastInsertRowid)
+    t.db.prepare("UPDATE columns SET column_type = 'deadline', config = ? WHERE id = ?").run(JSON.stringify({ alert_rule_id: rule }), dueCol)
+    cell(rows[0]!, start, '2026-09-01'); cell(rows[0]!, end, '2026-10-20') // ends in 5 days
+    note(rows[0]!, '2026-09-10 10:00:00', 'session')
+    const r = runReport(gridId, { source: 'deadlines', columns: ['dl:state', 'dl:overdue'], filters: [{ field: 'dl:state', operator: 'equals', value: 'Overdue' }] }, NOW)
+    expect(r.rows).toEqual([{ 'dl:state': 'Overdue', 'dl:overdue': 0 }])
+  })
+
   it('offers a date column whose rule was chosen in the app (by id) as a Deadline, and not one whose rule was removed', () => {
     const rule = Number(t.db.prepare("INSERT INTO alert_rules (name, thresholds, interval_days) VALUES ('Yearly', '[]', 365)").run().lastInsertRowid)
     t.db.prepare('UPDATE columns SET config = ? WHERE id = ?').run(JSON.stringify({ alert_rule_id: rule }), dueCol)
@@ -331,6 +344,17 @@ describe('export', () => {
     const text = buildReportPdf(long, 'Vehicles', r).toString('latin1')
     expect(text).not.toContain(`(${long}) Tj`)
     expect(text).toContain('(Total Estimate by Stage')
+  })
+
+  it('says in the CSV when lines were left out, as the screen and the PDF do (F-023)', async () => {
+    const { reportToCsv } = await import('../src/main/export-report')
+    const r = runReport(gridId, { source: 'records', groupBy: [{ field: `col:${makeCol}` }], values: [{ fn: 'count' }] }, NOW)
+    expect(reportToCsv(r)).not.toContain('Showing the first')
+    const cut = { ...r, truncated: 'Showing the first 2,000 lines. Add a filter or group the report to see everything.' }
+    const lines = reportToCsv(cut).slice(1).split('\r\n')
+    expect(lines[lines.length - 1]).toBe('"Showing the first 2,000 lines. Add a filter or group the report to see everything.",')
+    // A notice starting like a formula is guarded like every other cell
+    expect(reportToCsv({ ...r, truncated: '=1+1' }).slice(1).split('\r\n').at(-1)).toBe("'=1+1,")
   })
 
   it('writes report CSV dates in the date format setting (AUDIT-128)', async () => {

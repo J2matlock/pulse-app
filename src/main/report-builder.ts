@@ -222,6 +222,16 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
     }
   }
 
+  // ── Filters and date range ──
+  let range: { from?: string; to?: string } | null = null
+  if (config.dateRange) range = config.dateRange.preset ? presetRange(config.dateRange.preset, now) : { from: config.dateRange.from, to: config.dateRange.to }
+  // Notes and appointments are capped: a date range on their own date narrows the query itself,
+  // and past the cap the latest are kept, so "this month" isn't lost behind years of old ones (F-021)
+  const sqlRange = (field: string, expr: string): { where: string; params: Array<string | null> } => {
+    if (!range || config.dateRange?.field !== field) return { where: '', params: [] }
+    return { where: ` AND (? IS NULL OR ${expr} >= ?) AND (? IS NULL OR ${expr} <= ?)`, params: [range.from ?? null, range.from ?? null, range.to ?? null, range.to ?? null] }
+  }
+
   // ── Source items ──
   const cap = REPORT_LIMITS.sourceRows
   const rowIds = gridRows.map(r => r.row_id)
@@ -233,10 +243,13 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
   } else if (config.source === 'activities') {
     const types = listActivityTypes(true)
     const measures = listMeasures()
+    const r = sqlRange('act:date', "date(cl.occurred_at, 'localtime')")
     const notes = db.prepare(inRows(`SELECT cl.row_id, date(cl.occurred_at, 'localtime') AS d, cl.log_type, cl.minutes, cl.miles, cl.extra_measures
-      FROM case_log cl JOIN rs ON rs.id = cl.row_id WHERE cl.voided_at IS NULL AND cl.log_type != 'system' ORDER BY cl.occurred_at, cl.id LIMIT ?`))
-      .all(JSON.stringify(rowIds), cap + 1) as Array<{ row_id: number; d: string; log_type: string; minutes: number | null; miles: number | null; extra_measures: string | null }>
-    if (notes.length > cap) { notes.pop(); truncated = `Only the first ${cap.toLocaleString('en-US')} were counted.` }
+      FROM case_log cl JOIN rs ON rs.id = cl.row_id WHERE cl.voided_at IS NULL AND cl.log_type != 'system'${r.where} ORDER BY cl.occurred_at DESC, cl.id DESC LIMIT ?`))
+      .all(JSON.stringify(rowIds), ...r.params, cap + 1) as Array<{ row_id: number; d: string; log_type: string; minutes: number | null; miles: number | null; extra_measures: string | null }>
+    if (notes.length > cap) { notes.pop(); truncated = `Only the latest ${cap.toLocaleString('en-US')} were counted.` }
+    // Back to oldest first, the order the report lists them in
+    notes.reverse()
     items = notes.map(n => {
       let extra: Record<string, unknown> = {}
       try { extra = n.extra_measures ? JSON.parse(n.extra_measures) as Record<string, unknown> : {} } catch { /* unreadable numbers count as none */ }
@@ -246,10 +259,12 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
     })
   } else if (config.source === 'appointments') {
     const types = listActivityTypes(true)
+    const r = sqlRange('appt:date', 'substr(a.start_at, 1, 10)')
     const appts = db.prepare(inRows(`SELECT a.row_id, a.title, a.start_at, a.end_at, a.all_day, a.status, a.activity_type_key
-      FROM appointments a JOIN rs ON rs.id = a.row_id ORDER BY a.start_at LIMIT ?`))
-      .all(JSON.stringify(rowIds), cap + 1) as Array<{ row_id: number; title: string; start_at: string; end_at: string | null; all_day: number; status: string; activity_type_key: string | null }>
-    if (appts.length > cap) { appts.pop(); truncated = `Only the first ${cap.toLocaleString('en-US')} were counted.` }
+      FROM appointments a JOIN rs ON rs.id = a.row_id WHERE 1 = 1${r.where} ORDER BY a.start_at DESC, a.id DESC LIMIT ?`))
+      .all(JSON.stringify(rowIds), ...r.params, cap + 1) as Array<{ row_id: number; title: string; start_at: string; end_at: string | null; all_day: number; status: string; activity_type_key: string | null }>
+    if (appts.length > cap) { appts.pop(); truncated = `Only the latest ${cap.toLocaleString('en-US')} were counted.` }
+    appts.reverse()
     items = appts.map(a => {
       const minutes = !a.all_day && a.end_at && a.start_at.length >= 16 && a.end_at.length >= 16
         ? Math.round((new Date(a.end_at).getTime() - new Date(a.start_at).getTime()) / 60000) : null
@@ -263,16 +278,14 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
     if (deadlines.length > cap) { deadlines.length = cap; truncated = `Only the first ${cap.toLocaleString('en-US')} were counted.` }
     items = deadlines.map(d => ({ rowId: d.row_id, own: {
       'dl:rule': d.column_name, 'dl:state': DEADLINE_STATE_LABELS[d.state] ?? d.state, 'dl:due': d.due,
-      'dl:overdue': d.state === 'overdue' && d.daysUntil !== null ? -d.daysUntil : 0,
+      // A used-up quota is overdue with its end still ahead: 0 days late, not negative (F-022)
+      'dl:overdue': d.state === 'overdue' && d.daysUntil !== null ? Math.max(0, -d.daysUntil) : 0,
     } }))
   }
   tick()
 
   const get = (item: Item, field: string): ReportCell => field in item.own ? item.own[field] ?? null : recordValue(item.rowId, field)
 
-  // ── Filters and date range ──
-  let range: { from?: string; to?: string } | null = null
-  if (config.dateRange) range = config.dateRange.preset ? presetRange(config.dateRange.preset, now) : { from: config.dateRange.from, to: config.dateRange.to }
   // A filter still waiting for its value doesn't narrow anything yet
   const activeFilters = config.filters.filter(isFilterActive)
   const matched = items.filter((item, i) => {

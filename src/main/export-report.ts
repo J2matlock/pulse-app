@@ -21,6 +21,8 @@ export function reportToCsv(result: ReportResult, dateFormat: DateFormat = saved
   const data: Array<Array<string | number>> = result.rows.map(r => result.columns.map(c => csvCell(r[c.key] ?? null, c, dateFormat)))
   const hasTotals = result.columns.some(c => c.key in result.totals) && result.rows.length > 1
   if (hasTotals) data.push(result.columns.map((c, i) => c.key in result.totals ? csvCell(result.totals[c.key] ?? null, c, dateFormat) : i === 0 ? 'Total' : ''))
+  // The screen and the PDF say when lines were left out; so does the CSV, or its Total reads as the sum of what's shown (F-023)
+  if (result.truncated) data.push(result.columns.map((_c, i) => i === 0 ? sanitizeCsvFormula(result.truncated!) : ''))
   return '﻿' + Papa.unparse({ fields: result.columns.map(c => sanitizeCsvFormula(c.label)), data })
 }
 
