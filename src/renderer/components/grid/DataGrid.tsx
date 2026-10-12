@@ -7,7 +7,6 @@ import {
   getSortedRowModel,
   createColumnHelper,
   type SortingState,
-  type ColumnSizingState,
   type Row,
 } from '@tanstack/react-table'
 import {
@@ -22,7 +21,6 @@ import {
 import { AnimatePresence } from 'motion/react'
 import { useNavigate } from 'react-router-dom'
 import { IPC } from '../../../shared/ipc-channels'
-import { safeInvoke } from '../../utils/safeInvoke'
 import { useShallow } from 'zustand/react/shallow'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useGridStore } from '../../stores/gridStore'
@@ -37,14 +35,14 @@ import { CellHistoryPopover } from '../shared/CellHistoryPopover'
 import { getClientName } from '../../utils/clientName'
 import { BADGE_WIDTH as ACUITY_BADGE_WIDTH } from './AcuityBadge'
 import { linkValueText } from '../../../shared/links'
-import { CellDisplay, cellFitText } from './CellDisplay'
+import { CellDisplay } from './CellDisplay'
 import { SortableRow } from './SortableRow'
 import { GridContextMenu } from './GridContextMenu'
 import { BulkActionBar } from './BulkActionBar'
 import { handleCellKeyDown as handleCellKeyDownImpl, type KeyboardNavDeps } from './gridKeyboardNav'
-import { ROW_HEIGHTS, HANDLE_WIDTH, PROFILE_BTN_WIDTH, CHAR_WIDTH_HEADER, CHAR_WIDTH_CELL, HEADER_PADDING, CELL_PADDING, MIN_COL_WIDTH, DEFAULT_COL_WIDTH, MAX_AUTO_FIT_WIDTH, GROUP_HEADER_HEIGHT, TAGS_COL_WIDTH } from './gridConstants'
-import { rlog } from '../../utils/rendererLogger'
+import { ROW_HEIGHTS, HANDLE_WIDTH, PROFILE_BTN_WIDTH, GROUP_HEADER_HEIGHT, TAGS_COL_WIDTH } from './gridConstants'
 import { useGridSelection } from '../../hooks/useGridSelection'
+import { useGridColumnSizing } from '../../hooks/useGridColumnSizing'
 import { useGridContextMenu } from '../../hooks/useGridContextMenu'
 import { useGridGrouping } from '../../hooks/useGridGrouping'
 import { useGridVirtualizer } from '../../hooks/useGridVirtualizer'
@@ -67,11 +65,6 @@ import { ACUITY_GROUP_KEY, isNotTypedColumnType, takesDeadlineRule } from '../..
 const columnHelper = createColumnHelper<GridRow>()
 
 // ── Main DataGrid ─────────────────────────────────────────────────────────────
-
-
-function ruleIdFromConfig(config: string | null | undefined): number | undefined {
-  try { return (JSON.parse(config || '{}') as { alert_rule_id?: number }).alert_rule_id } catch { return undefined }
-}
 
 export function DataGrid(): React.ReactElement {
   const { t } = useVocab()
@@ -176,7 +169,6 @@ export function DataGrid(): React.ReactElement {
   const rowsRef = useRef(rows)
   rowsRef.current = rows
   const filteredRowsRef = useRef<GridRow[]>([])
-  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({})
   const [cellFormatTarget, setCellFormatTarget] = useState<{ rowId: number; colId: number } | null>(null)
   const [archiveTarget, setArchiveTarget] = useState<number | null>(null)
   const [archiveReason, setArchiveReason] = useState('')
@@ -187,8 +179,6 @@ export function DataGrid(): React.ReactElement {
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
   const [cellHistoryTarget, setCellHistoryTarget] = useState<{ rowId: number; colId: number; colName: string; x: number; y: number } | null>(null)
   const [groupContextMenu, setGroupContextMenu] = useState<{ x: number; y: number } | null>(null)
-  const columnSizingRef = useRef<ColumnSizingState>({})
-  const resizeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Back from a record's page: scroll to where this list was, once the records are
   // on screen, then forget it. Another list's position is dropped (AUDIT-129)
@@ -203,22 +193,9 @@ export function DataGrid(): React.ReactElement {
     useProfileStore.getState().clearSavedScroll()
   }, [savedScroll, activeGridId, listReady])
 
-  // Width changes waiting for the debounce, worked out against the list they were made in
-  const pendingWidthsRef = useRef<{ columnId: number; width: number }[] | null>(null)
-  const flushColumnWidths = useCallback(() => {
-    if (resizeTimeoutRef.current) { clearTimeout(resizeTimeoutRef.current); resizeTimeoutRef.current = null }
-    const updates = pendingWidthsRef.current
-    pendingWidthsRef.current = null
-    if (!updates || updates.length === 0) return
-    // The new widths stay for this visit either way; only reopening would lose them
-    void safeInvoke(IPC.COLUMN_BATCH_UPDATE_WIDTHS, updates).then(res => {
-      if (!res.ok) rlog.error('DataGrid', 'Failed to batch update column widths', res.error)
-    })
-  }, [])
-
-  // Leaving the list (or switching to another) within the debounce saves the widths now
-  // instead of dropping them (Q-088)
-  useEffect(() => () => flushColumnWidths(), [activeGridId, flushColumnWidths])
+  const { columnSizing, handleColumnSizingChange, autoFitColumn, columnWidthVars, frozenLeftOffsets } = useGridColumnSizing({
+    activeGridId, columns, acuityEnabled, showTagsColumn, frozenColumnCount, updateColumn,
+  })
 
   // Hint banner — dismissible via localStorage
   const [hintDismissed, setHintDismissed] = useState(() =>
@@ -322,12 +299,6 @@ export function DataGrid(): React.ReactElement {
     return ids
   }, [cellFormats, parsedColumnConfigs])
 
-  // Reset column sizing when switching grids (selection reset handled by useGridSelection)
-  useEffect(() => {
-    setColumnSizing({})
-    columnSizingRef.current = {}
-  }, [activeGridId])
-
   const handleDeleteRow = useCallback((rowId: number) => {
     setContextMenu(null)
     setDeleteTarget(rowId)
@@ -360,68 +331,6 @@ export function DataGrid(): React.ReactElement {
 
   // Sensors: 5px distance threshold so single clicks still work (column reorder only)
   const colSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
-
-  // Handle column sizing changes — debounce persistence to DB
-  const handleColumnSizingChange = useCallback((updater: unknown) => {
-    setColumnSizing(prev => {
-      const next = typeof updater === 'function'
-        ? (updater as (old: ColumnSizingState) => ColumnSizingState)(prev)
-        : updater as ColumnSizingState
-      columnSizingRef.current = next
-
-      // Debounce persist — batch all width changes in a single IPC call. The changes are
-      // worked out now, against this list's columns, so a flush after a switch saves them
-      // to the right columns (Q-088)
-      const widthUpdates: { columnId: number; width: number }[] = []
-      for (const col of useGridStore.getState().columns) {
-        const newWidth = next[`col_${col.id}`]
-        if (newWidth !== undefined && Math.round(newWidth) !== col.width) {
-          widthUpdates.push({ columnId: col.id, width: Math.round(newWidth) })
-        }
-      }
-      pendingWidthsRef.current = widthUpdates
-      if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current)
-      resizeTimeoutRef.current = setTimeout(flushColumnWidths, 500)
-
-      return next
-    })
-  }, [flushColumnWidths])
-
-  // Auto-fit a column to its content width
-  const autoFitColumn = useCallback((colId: number) => {
-    const col = useGridStore.getState().columns.find(c => c.id === colId)
-    if (!col) return
-    const storeRows = useGridStore.getState().rows
-    const sample = storeRows.length > 500 ? storeRows.slice(0, 500) : storeRows
-    const headerWidth = col.name.length * CHAR_WIDTH_HEADER + HEADER_PADDING
-    // Measure what the cell shows, not what it stores: a date's deadline words, a link's names
-    const ruleId = takesDeadlineRule(col.column_type) ? ruleIdFromConfig(col.config) : undefined
-    const rule = ruleId !== undefined ? useAlertStore.getState().rules.find(r => r.id === ruleId) : undefined
-    const maxContentWidth = sample.reduce((max, row) => {
-      const val = cellFitText(col, (row[`col_${colId}` as keyof GridRow] as string | null) ?? null, row, rule)
-      return Math.max(max, val.length * CHAR_WIDTH_CELL + CELL_PADDING)
-    }, MIN_COL_WIDTH)
-    const newWidth = Math.min(Math.max(headerWidth, maxContentWidth, DEFAULT_COL_WIDTH), MAX_AUTO_FIT_WIDTH)
-    setColumnSizing(prev => {
-      const next = { ...prev, [`col_${colId}`]: newWidth }
-      columnSizingRef.current = next
-      return next
-    })
-    updateColumn(colId, { width: newWidth })
-  }, [updateColumn])
-
-  // Wider, Narrower and Fit from a column's menu, so widths change without a mouse (AUDIT-150)
-  useEffect(() => pulseEvents.on('column:resize', ({ columnId, change }) => {
-    if (change === 'fit') { autoFitColumn(columnId); return }
-    const col = useGridStore.getState().columns.find(c => c.id === columnId)
-    if (!col) return
-    const key = `col_${columnId}`
-    handleColumnSizingChange((prev: ColumnSizingState) => {
-      const cur = prev[key] ?? col.width
-      const next = Math.min(800, Math.max(MIN_COL_WIDTH, cur + (change === 'wider' ? 40 : -40)))
-      return { ...prev, [key]: next }
-    })
-  }), [autoFitColumn, handleColumnSizingChange])
 
   // Links changed somewhere (W04): refresh just the link columns
   useEffect(() => window.api.on(IPC.RECORD_LINKS_CHANGED, () => { void useGridStore.getState().refreshLinkValues() }), [])
@@ -629,32 +538,6 @@ export function DataGrid(): React.ReactElement {
 
   const totalWidth = HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0) + (showTagsColumn ? TAGS_COL_WIDTH : 0) + table.getTotalSize()
   const columnIds = useMemo(() => columns.map(c => `col_${c.id}`), [columns])
-
-  // CSS custom properties for column widths
-  const columnWidthVars = useMemo(() => {
-    const vars: Record<string, string> = {}
-    for (const col of columns) {
-      const w = columnSizing[`col_${col.id}`] ?? col.width
-      vars[`--cw-${col.id}`] = `${Math.max(w, 60)}px`
-    }
-    return vars
-  }, [columns, columnSizing])
-
-  // Frozen column left offsets for CSS sticky positioning
-  // Offsets include the leading fixed-width columns (handle, profile, acuity)
-  const frozenLeftOffsets = useMemo(() => {
-    const offsets = new Map<number, number>()
-    if (frozenColumnCount <= 0) return offsets
-    const leadingWidth = HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0) + (showTagsColumn ? TAGS_COL_WIDTH : 0)
-    let cumLeft = leadingWidth
-    for (let i = 0; i < Math.min(frozenColumnCount, columns.length); i++) {
-      const col = columns[i]!
-      const w = columnSizing[`col_${col.id}`] ?? col.width
-      offsets.set(col.id, cumLeft)
-      cumLeft += Math.max(w, 60)
-    }
-    return offsets
-  }, [frozenColumnCount, columns, columnSizing, acuityEnabled, showTagsColumn])
 
   // Column drag-end: reorder columns
   const handleColumnDragEnd = useCallback((event: DragEndEvent) => {
