@@ -20,7 +20,19 @@ const h = vi.hoisted(() => ({
   // The live list database.ts runs; tests add a failing migration to it
   list: [] as Migration[],
   real: [] as Migration[],
+  // Make the next database constructor throw (a locked or unreadable file)
+  throwOnOpen: false,
 }))
+
+// The real driver, except that a test can make opening throw
+vi.mock('better-sqlite3-multiple-ciphers', async () => {
+  const actual = await vi.importActual<{ default: new (path: string) => unknown }>('better-sqlite3-multiple-ciphers')
+  function Opened(path: string): unknown {
+    if (h.throwOnOpen) throw new Error('unable to open database file')
+    return new actual.default(path)
+  }
+  return { default: Opened }
+})
 
 vi.mock('electron', () => ({
   app: { isPackaged: false, getPath: () => tmpdir(), getVersion: () => '9.9.9', on: () => {} },
@@ -146,6 +158,7 @@ beforeEach(() => {
   h.stores.clear()
   h.storedPath = ''
   h.list.splice(0, h.list.length, ...h.real)
+  h.throwOnOpen = false
 })
 
 afterEach(() => {
@@ -328,6 +341,23 @@ describe('openDatabase refusing or failing safely', () => {
     expect(openFailureKind()).toBe('unreadable')
     expect(() => getDb()).toThrow()
     expect(sha(dbPath)).toBe(before)
+  })
+
+  it('puts the process umask back when opening throws (A22-10)', () => {
+    if (process.platform === 'win32') return
+    const before = process.umask()
+    h.throwOnOpen = true
+    expect(openFailureKind()).toBe('unreadable')
+    expect(process.umask()).toBe(before)
+  })
+
+  it('a schema version that is not a whole number is unreadable, not "nothing to migrate" (A22-11)', () => {
+    makeDbAt(latestSchemaVersion(), db => {
+      db.prepare("UPDATE app_meta SET value = 'x' WHERE key = 'schema_version'").run()
+      db.pragma('wal_checkpoint(TRUNCATE)')
+    })
+    expect(openFailureKind()).toBe('unreadable')
+    expect(() => getDb()).toThrow()
   })
 
   it('opening again closes the connection that was still open (AUDIT-020)', () => {

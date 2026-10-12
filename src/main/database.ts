@@ -127,7 +127,17 @@ function openEncryptedDatabase(dbPath: string): BetterSqlite3DB {
   // IMPORTANT: This code path must remain synchronous — umask is process-global,
   // so any async work between set/restore would affect unrelated file operations.
   const prevUmask = process.platform !== 'win32' ? process.umask(0o077) : null
+  // Put the umask back however this ends: a throw from the constructor or any
+  // pragma would otherwise leave the whole process creating owner-only files (A22-10)
+  try {
+    return openWithKey(dbPath, rawDbKey)
+  } finally {
+    if (prevUmask !== null) process.umask(prevUmask)
+  }
+}
 
+/** The body of openEncryptedDatabase, run while the owner-only umask is in force. */
+function openWithKey(dbPath: string, rawDbKey: string): BetterSqlite3DB {
   const isNewFile = !existsSync(dbPath)
   const database = new BetterSqlite3(dbPath) as BetterSqlite3DB
   // Restrict DB file to owner read/write only on Unix — the file contains encrypted
@@ -145,7 +155,6 @@ function openEncryptedDatabase(dbPath: string): BetterSqlite3DB {
     setEncryptionKey(database, rawDbKey)
   } catch (err) {
     database.close()
-    if (prevUmask !== null) process.umask(prevUmask)
     throw err instanceof Error && err.message === 'Invalid database key format'
       ? err
       : new Error('Failed to set database encryption key')
@@ -168,7 +177,6 @@ function openEncryptedDatabase(dbPath: string): BetterSqlite3DB {
       try { unlinkSync(dbPath + '-wal') } catch (err) { logNonFatal('database', 'cleanup WAL file', err) }
       try { unlinkSync(dbPath + '-shm') } catch (err) { logNonFatal('database', 'cleanup SHM file', err) }
     }
-    if (prevUmask !== null) process.umask(prevUmask)
     const walPath = dbPath + '-wal'
     const shmPath = dbPath + '-shm'
     if (existsSync(walPath) || existsSync(shmPath)) {
@@ -183,9 +191,6 @@ function openEncryptedDatabase(dbPath: string): BetterSqlite3DB {
   database.pragma('synchronous = NORMAL')
   database.pragma('cache_size = -32000')  // 32MB page cache for large caseloads
   database.pragma('busy_timeout = 5000')   // retry for 5s before SQLITE_BUSY
-
-  // Restore previous umask now that DB and WAL/SHM files are created
-  if (prevUmask !== null) process.umask(prevUmask)
 
   return database
 }
@@ -456,7 +461,14 @@ function getSchemaVersion(): number {
   const row = database
     .prepare("SELECT value FROM app_meta WHERE key = 'schema_version'")
     .get() as { value: string } | undefined
-  return row ? parseInt(row.value, 10) : 0
+  if (!row) return 0
+  // parseInt('x') is NaN, and every comparison with NaN is false: no migration
+  // would run and the newer-version check would pass (A22-11)
+  const version = Number(row.value)
+  if (!Number.isInteger(version) || version < 0) {
+    throw new DatabaseOpenError('unreadable', `Unreadable schema version in app_meta: ${JSON.stringify(row.value).slice(0, 40)}`)
+  }
+  return version
 }
 
 // ── Grid query helpers ────────────────────────────────────────────────────────
