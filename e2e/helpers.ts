@@ -30,8 +30,10 @@ export async function launchApp(options?: {
   fixtureDir?: string;
   /** Extra environment variables. */
   env?: Record<string, string>;
+  /** Reuse this data folder (a relaunch) instead of a fresh temp one. */
+  dataDir?: string;
 }): Promise<AppContext> {
-  const dataDir = mkdtempSync(join(tmpdir(), 'pulse-e2e-'));
+  const dataDir = options?.dataDir ?? mkdtempSync(join(tmpdir(), 'pulse-e2e-'));
 
   if (options?.fixtureDir && existsSync(options.fixtureDir)) {
     cpSync(options.fixtureDir, dataDir, { recursive: true });
