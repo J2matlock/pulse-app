@@ -4,7 +4,7 @@ import { Pencil, X } from 'lucide-react'
 import { backdropVariants, modalPanelVariants } from '../../utils/animations'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import type { Column, GridRow } from '../../../shared/types'
-import { READ_ONLY_COLUMN_TYPES } from '../../../shared/types'
+import { isNotTypedColumnType } from '../../../shared/types'
 import { columnOptionLabels } from '../../../shared/stages'
 import { useGridStore } from '../../stores/gridStore'
 import { useUndoStore, batchUndoItem, type UndoItem } from '../../stores/undoStore'
@@ -12,7 +12,6 @@ import { getClientName } from '../../utils/clientName'
 import { useVocab } from '../../hooks/useVocab'
 
 /** Column types that cannot be bulk-edited (computed columns) */
-const NON_EDITABLE_TYPES = new Set([...READ_ONLY_COLUMN_TYPES, 'deadline', 'link', 'file_count'])
 
 export interface BulkEditDialogProps {
   open: boolean
@@ -35,7 +34,7 @@ export function BulkEditDialog({
   const previousFocusRef = useRef<Element | null>(null)
   useFocusTrap(panelRef, open)
 
-  const editableColumns = columns.filter(c => c.is_visible && !NON_EDITABLE_TYPES.has(c.column_type))
+  const editableColumns = columns.filter(c => c.is_visible && !isNotTypedColumnType(c.column_type))
   const [selectedColumnId, setSelectedColumnId] = useState<number | null>(null)
   const [value, setValue] = useState<string | null>('')
   const [applying, setApplying] = useState(false)

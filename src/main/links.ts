@@ -14,6 +14,7 @@ import { assignAutoNumbers } from './auto-number'
 import { hasDisplayFormat, refreshDisplayNames } from './display-names'
 import { holdsOne, CARDINALITIES, linkColumnSpecs, linkSelectSql, type LinkChange, type LinkDirection, type LinkRef, type LinkType, type LinkTypeInput, type LinkedRecord, type RowLinks } from '../shared/links'
 import { NOT_TRASHED_ROW, liveGrid, notTrashedRow } from '../shared/liveRecords'
+import { columnTypesSql } from '../shared/columnTraits'
 
 export class LinkError extends Error {}
 
@@ -227,7 +228,7 @@ export function getLinksForRow(rowId: number): RowLinks[] {
   }
   // The other list's first two visible columns people fill in, shown under each linked record
   const keyCols = db.prepare(`SELECT id, name, column_type FROM columns WHERE grid_id = ? AND is_visible = 1 AND is_name_column = 0
-    AND column_type NOT IN ('link', 'deadline', 'age_from_dob', 'calculated_days', 'notes', 'checkbox') ORDER BY position LIMIT 2`)
+    AND column_type NOT IN (${columnTypesSql(t => !t.linkDetail)}) ORDER BY position LIMIT 2`)
   const cellOf = db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?')
   const withDetails = (records: LinkedRecord[], gridId: number): LinkedRecord[] => {
     const cols = keyCols.all(gridId) as Array<{ id: number; name: string; column_type: string }>

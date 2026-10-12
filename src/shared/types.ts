@@ -1,49 +1,27 @@
 import type { RuleKind } from './deadlineEngine'
 import type { Period, PeriodRange } from './periods'
+import { COLUMN_TYPES, columnTraits, columnTypesWhere, type ColumnType } from './columnTraits'
 // Shared types between main process and renderer
 
-export type ColumnType =
-  | 'text'
-  | 'date'
-  | 'number'
-  | 'checkbox'
-  | 'dropdown'
-  | 'phone'
-  | 'email'
-  | 'tag'
-  | 'currency'
-  | 'url'
-  | 'notes'
-  | 'status'
-  | 'address'
-  | 'age_from_dob'
-  | 'calculated_days'
-  | 'auto_number'
-  | 'deadline'
-  | 'link'
-  | 'file_count'
+export type { ColumnType } from './columnTraits'
 
 /** Sentinel column ID used for row-tag filters (not a real column) */
 export const ROW_TAG_COLUMN_ID = -1
 /** A filter on every deadline column at once (the toolbar's "Overdue" chip) */
 export const ANY_DEADLINE_COLUMN_ID = -2
 
-export const VALID_COLUMN_TYPES = new Set<ColumnType>([
-  'text', 'date', 'number', 'checkbox', 'dropdown',
-  'phone', 'email', 'tag', 'currency', 'url',
-  'notes', 'status', 'address', 'age_from_dob', 'calculated_days', 'auto_number', 'deadline', 'link', 'file_count',
-])
+export const VALID_COLUMN_TYPES = new Set<ColumnType>(COLUMN_TYPES)
 
-/** Column types whose values Pulse fills in; people can't type into them. */
 /** Column types that can name a list's records ("Use as name") */
 export function canNameRecords(columnType: string): boolean {
-  return !['checkbox', 'age_from_dob', 'calculated_days', 'deadline', 'link', 'file_count', 'notes'].includes(columnType)
+  return columnTraits(columnType).canName
 }
 
-export const READ_ONLY_COLUMN_TYPES = new Set<string>(['age_from_dob', 'calculated_days', 'auto_number'])
+/** Column types whose values Pulse fills in; people can't type into them. */
+export const READ_ONLY_COLUMN_TYPES = new Set<string>(columnTypesWhere(t => t.readOnly))
 
 export function isReadOnlyColumnType(type: string): boolean {
-  return READ_ONLY_COLUMN_TYPES.has(type)
+  return columnTraits(type).readOnly
 }
 
 /**
@@ -52,7 +30,7 @@ export function isReadOnlyColumnType(type: string): boolean {
  * a deadline done writes, so unlike read-only types they still accept writes.
  */
 export function isNotTypedColumnType(type: string): boolean {
-  return READ_ONLY_COLUMN_TYPES.has(type) || type === 'deadline' || type === 'link' || type === 'file_count'
+  return !columnTraits(type).typed
 }
 
 /**
@@ -61,17 +39,17 @@ export function isNotTypedColumnType(type: string): boolean {
  * imported numbers are kept and numbering carries on after the highest.
  */
 export function canImportInto(type: string): boolean {
-  return type !== 'age_from_dob' && type !== 'calculated_days' && type !== 'file_count'
+  return columnTraits(type).importable
 }
 
 /** Link columns (W04) and file counts (W09) are worked out from other tables; they have no cells of their own. */
 export function storesNoCells(type: string): boolean {
-  return type === 'link' || type === 'file_count'
+  return !columnTraits(type).storesCells
 }
 
 /** Column types a deadline rule can be attached to */
 export function takesDeadlineRule(type: string): boolean {
-  return type === 'date' || type === 'deadline'
+  return columnTraits(type).takesRule
 }
 
 export type RowHeight = 'compact' | 'comfortable' | 'spacious'

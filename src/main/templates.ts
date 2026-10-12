@@ -9,6 +9,7 @@
  */
 
 import { startingWidth } from '../shared/columnTypes'
+import { columnTypesWhere } from '../shared/columnTraits'
 import fs from 'fs'
 import { z } from 'zod'
 import { getDb } from './database'
@@ -172,11 +173,7 @@ const PulseFileSchema = z.object({
 }).strict()
 
 // Known column types that this version supports
-const KNOWN_COLUMN_TYPES = new Set([
-  'text', 'date', 'number', 'checkbox', 'dropdown',
-  'phone', 'email', 'tag', 'currency', 'url', 'notes', 'status', 'address',
-  'age_from_dob', 'calculated_days', 'auto_number', 'deadline', 'file_count'
-])
+const KNOWN_COLUMN_TYPES = new Set<string>(columnTypesWhere(t => t.inTemplates))
 
 /**
  * Validate a JSON string as a PulseFile. Used by IPC handlers that receive

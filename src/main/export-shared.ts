@@ -16,6 +16,7 @@ import { hasDisplayFormat } from './display-names'
 import { cellText, deadlineText, type DateFormat } from '../shared/cellText'
 import { ageInYears, localDateString } from '../shared/dates'
 import { daysBetween } from '../shared/ymd'
+import { columnTypesWhere } from '../shared/columnTraits'
 import { htmlToText } from '../shared/htmlText'
 import { joinRecordName } from '../shared/recordName'
 import { loadDeadlines, type DeadlineItem } from './deadlines'
@@ -244,7 +245,7 @@ export function formatDate(value: string | null, fmt: 'iso' | 'us' | 'eu'): stri
 export { sanitizeCsvFormula, unguardCsvFormula } from '../shared/csvGuard'
 
 /** Columns whose text is a number or a date: a leading "-" there is a negative number, not a formula (X-21) */
-const NON_TEXT_TYPES = new Set(['number', 'currency', 'date', 'checkbox', 'auto_number', 'age_from_dob', 'calculated_days', 'file_count'])
+const NON_TEXT_TYPES = new Set<string>(columnTypesWhere(t => t.numericText))
 
 /** "-12.50", "$-1,234.00", "1e3": a number, so a leading "-" or "+" is a sign, not a formula */
 const NUMBER_TEXT = /^[-+]?\$?[-+]?(?:\d[\d,]*(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/

@@ -3,6 +3,7 @@
  * main and the window.
  */
 import { z } from 'zod'
+import { columnTypesWhere } from './columnTraits'
 
 export const MAX_FORM_FIELDS = 80
 
@@ -54,7 +55,7 @@ export interface Form {
 }
 
 /** Column types a form can't fill (Pulse fills them, or they show a rule) */
-export const NOT_FILLABLE = new Set(['auto_number', 'age_from_dob', 'calculated_days', 'deadline', 'file_count'])
+export const NOT_FILLABLE = new Set<string>(columnTypesWhere(t => !t.formFillable))
 
 /** What a form submit changed, so one undo step can put it back */
 export interface FormChange {

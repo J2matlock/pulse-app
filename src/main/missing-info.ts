@@ -11,6 +11,10 @@ import Papa from 'papaparse'
 import { atomicWriteFileAsync, sanitizeCsvFormula } from './export-shared'
 import { word } from './vocab'
 import { LIVE_GRID, LIVE_ROW, liveGrid } from '../shared/liveRecords'
+import { columnTypesSql } from '../shared/columnTraits'
+
+/** Column types that can't be marked required (canBeRequired), for SQL */
+const NOT_REQUIRABLE = columnTypesSql(t => !t.requirable)
 
 export function getMissingInfo(gridId?: number): MissingInfoGrid[] {
   const db = getDb()
@@ -23,7 +27,7 @@ export function getMissingInfo(gridId?: number): MissingInfoGrid[] {
     JOIN rows r ON r.grid_id = g.id AND ${LIVE_ROW}
     LEFT JOIN cells c ON c.row_id = r.id AND c.column_id = col.id
     WHERE json_extract(col.config, '$.required') = 1
-      AND col.column_type NOT IN ('checkbox', 'age_from_dob', 'calculated_days', 'auto_number', 'deadline', 'link', 'file_count')
+      AND col.column_type NOT IN (${NOT_REQUIRABLE})
       AND (c.value IS NULL OR trim(c.value) = '')
       AND (? IS NULL OR g.id = ?)
     ORDER BY g.position, g.name COLLATE NOCASE, client_name COLLATE NOCASE, col.position
@@ -32,7 +36,7 @@ export function getMissingInfo(gridId?: number): MissingInfoGrid[] {
   const required = db.prepare(`
     SELECT col.grid_id, g.name AS grid_name, col.name FROM columns col
     JOIN grids g ON g.id = col.grid_id AND ${LIVE_GRID}
-    WHERE json_extract(col.config, '$.required') = 1 AND col.column_type NOT IN ('checkbox', 'age_from_dob', 'calculated_days', 'auto_number', 'deadline', 'link', 'file_count')
+    WHERE json_extract(col.config, '$.required') = 1 AND col.column_type NOT IN (${NOT_REQUIRABLE})
       AND (? IS NULL OR col.grid_id = ?)
     ORDER BY g.position, g.name COLLATE NOCASE, col.position
   `).all(gridId ?? null, gridId ?? null) as Array<{ grid_id: number; grid_name: string; name: string }>
