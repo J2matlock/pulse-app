@@ -157,8 +157,7 @@ function mainMessages(): string[] {
       // defineHandler argument schemas answer with their own messages (src/main/ipc/ipc-define.ts)
       for (const pattern of [
         /\b(?:idArg|textArg|z\.(?:string|number|boolean|int))\(\s*(['"`])((?:\\.|(?!\1).)*)\1/g,
-        /\.(?:min|max|refine)\([^'"`\n]*?,\s*(['"`])((?:\\.|(?!\1).)*)\1\s*\)/g,
-        /\bschemaArg\([^'"`\n]*?,\s*(['"`])((?:\\.|(?!\1).)*)\1\s*\)/g,
+        /(?:\.(?:min|max|refine)|\bschemaArg|\bz\.custom(?:<.*?>)?)\([^\n]*?,\s*(['"`])((?:\\.|(?!\1).)*)\1\s*\)/g,
         /\bfunction \w+Arg\(\s*\w+\s*=\s*(['"`])((?:\\.|(?!\1).)*)\1/g,
       ]) {
         for (const m of src.matchAll(pattern)) out.add(m[2])
