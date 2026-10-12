@@ -81,6 +81,18 @@ export interface MarkDoneResult {
   finishedFor: string | null
   sysLogId: number
   checklistItemIds: number[]
+  /** A repeating date: when it's next due, as the lists show it (days off and all) */
+  nextDue?: string | null
+}
+
+/**
+ * When a deadline is due now, worked out by the engine the way the grid and
+ * dashboard do it (days off, holidays, conditions): a bare `addInterval` put a
+ * business-day rule's "next due" on a Sunday the grid showed as Friday (F-025).
+ */
+function nextDueNow(rowId: number, columnId: number, fallback: () => string): string {
+  const item = loadDeadlines({ rowIds: [rowId], includeDone: true, includePaused: true }).find(d => d.column_id === columnId)
+  return item?.due ?? fallback()
 }
 
 /**
@@ -99,13 +111,12 @@ export function markDone(rowId: number, columnId: number, choice: DoneChoice, ch
   const today = doneDay(doneOn)
   const current = cellValue(rowId, columnId)
   return db.transaction((): MarkDoneResult => {
-    let previous = current, newValue = current, finishedFor: string | null = null, content: string
+    let previous = current, newValue = current, finishedFor: string | null = null, nextDue: string | null = null, content: string
     if (choice.kind === 'repeat') {
       previous = setCellWithHistory(rowId, columnId, today)
       newValue = today
-      content = rule.kind === 'interval'
-        ? `${name} done ${formatDue(today)}; next due ${formatDue(dateToYmd(addInterval(ymdToDate(today), rule.interval)))}`
-        : `${name} done ${formatDue(today)}`
+      if (rule.kind === 'interval') nextDue = nextDueNow(rowId, columnId, () => dateToYmd(addInterval(ymdToDate(today), rule.interval)))
+      content = nextDue ? `${name} done ${formatDue(today)}; next due ${formatDue(nextDue)}` : `${name} done ${formatDue(today)}`
     } else if (choice.kind === 'renewed') {
       const next = toYmd(choice.newDate)
       if (!next || next !== choice.newDate) throw new DeadlineActionError('Choose the new date.')
@@ -124,7 +135,7 @@ export function markDone(rowId: number, columnId: number, choice: DoneChoice, ch
       .run(rowId, content, `deadline_done:${columnId}`).lastInsertRowid)
     const checklistItemIds = checklistTemplateId && db.prepare('SELECT 1 FROM checklist_templates WHERE id = ?').get(checklistTemplateId)
       ? applyChecklistTemplate(rowId, checklistTemplateId) : []
-    return { previous, newValue, finishedFor, sysLogId, checklistItemIds }
+    return { previous, newValue, finishedFor, sysLogId, checklistItemIds, nextDue }
   })()
 }
 

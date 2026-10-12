@@ -34,7 +34,9 @@ export interface DeadlineToComplete {
 }
 
 /** What main did for a plain Done (L-25), for undo */
-interface MarkDoneSnap { previous: string | null; newValue: string | null; finishedFor: string | null; sysLogId: number; checklistItemIds: number[] }
+interface MarkDoneSnap { previous: string | null; newValue: string | null; finishedFor: string | null; sysLogId: number; checklistItemIds: number[]
+  /** When main says it's next due (days off and holidays applied) */
+  nextDue?: string | null }
 
 /** A date with no repeat: Done asks whether it was renewed or finished */
 export function isOneOffDeadline(item: Pick<DeadlineToComplete, 'ruleKind' | 'interval'>): boolean {
@@ -150,6 +152,7 @@ export async function completeDeadlines(
   const first = done[0]!
   const nextDue = first.oneOff?.kind === 'renewed' ? `; now due ${formatDate(first.oneOff.newDate)}`
     : first.oneOff?.kind === 'finished' ? ' (finished)'
+    : first.snap?.nextDue ? `; next due ${formatDate(first.snap.nextDue)}`
     : first.newValue && first.interval && hasRepeat(first.interval) && (!first.ruleKind || first.ruleKind === 'interval') ? `; next due ${formatDate(nextDueFrom(first.newValue, first.interval))}` : ''
   useUndoStore.getState().pushWithToast({
     id: crypto.randomUUID(),

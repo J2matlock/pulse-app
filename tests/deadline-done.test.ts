@@ -72,6 +72,30 @@ describe('marking done in main', () => {
     expect((t.db.prepare('SELECT COUNT(*) AS n FROM checklist_items').get() as { n: number }).n).toBe(0)
   })
 
+  it('says when a business-day rule is next due as the lists do: off the weekend and holidays (F-025)', () => {
+    const daysAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return localDateString(d) }
+    const plus = (ymd: string, n: number) => { const [y, m, d] = ymd.split('-').map(Number) as [number, number, number]; return localDateString(new Date(y, m - 1, d + n)) }
+    const weekly = Number(t.db.prepare("INSERT INTO alert_rules (name, thresholds, interval_days, business_days) VALUES ('Weekly', '[]', 7, 1)").run().lastInsertRowid)
+    t.db.prepare('UPDATE columns SET config = ? WHERE id = ?').run(JSON.stringify({ alert_rule_id: weekly }), yearly)
+    const check = (doneOn: string, expected: string) => {
+      const res = markDone(rowId, yearly, { kind: 'repeat' }, null, doneOn)
+      const listed = loadDeadlines({ gridId }).find(d => d.column_id === yearly)!.due
+      expect(listed).toBe(expected)
+      expect(res.nextDue).toBe(expected)
+      const [y, m, d] = expected.split('-').map(Number) as [number, number, number]
+      expect(note(res.sysLogId)).toContain(`next due ${new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`)
+    }
+    // Done on the latest Saturday: a week on is a Saturday, moved back to the Friday
+    let back = 0
+    while (new Date(new Date().setDate(new Date().getDate() - back)).getDay() !== 6) back++
+    const saturday = daysAgo(back)
+    check(saturday, plus(saturday, 6))
+    // Done on a Wednesday, a week on is a holiday: the Tuesday before
+    const wednesday = plus(saturday, -3)
+    t.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('workspace_holidays', ?)").run(JSON.stringify([plus(wednesday, 7)]))
+    check(wednesday, plus(wednesday, 6))
+  })
+
   it('asks the right question for each kind of date', () => {
     expect(() => markDone(rowId, oneOff, { kind: 'repeat' })).toThrow(/renewed or finished/)
     expect(() => markDone(rowId, yearly, { kind: 'finished' })).toThrow(/repeats/)

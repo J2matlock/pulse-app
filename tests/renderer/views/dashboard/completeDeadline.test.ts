@@ -45,6 +45,12 @@ describe('completeDeadlines', () => {
     expect(mockInvoke).toHaveBeenCalledWith('deadlines:mark-done-undo', 4, 9, expect.objectContaining({ checklistItemIds: [7, 8] }))
   })
 
+  it('says "next due" with the date main worked out (days off applied), not a bare interval (F-025)', async () => {
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'deadlines:mark-done' ? snap({ newValue: '2026-10-31', nextDue: '2027-10-29' }) : { ok: true, data: true }))
+    await completeDeadlines([{ ...item(6), doneOn: '2026-10-31' }])
+    expect(pushWithToast.mock.calls[0]![0].description).toContain('next due Oct 29, 2027')
+  })
+
   it('needs Renewed or Finished for a date that does not repeat (Decision E1)', async () => {
     mockInvoke.mockImplementation(() => Promise.resolve(snap({ newValue: '2025-09-01', finishedFor: '2025-09-01' })))
     const plain = { ...item(5), interval: { days: 0, months: 0, endOfMonth: false } }
