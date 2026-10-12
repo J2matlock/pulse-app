@@ -8,7 +8,7 @@ import { getDb } from './database'
 import { word } from './vocab'
 import { setCellWithHistory } from './cell-write'
 import { keepSamplesUntouched } from './sample-marks'
-import { parseDate } from '../shared/parseDate'
+import { parseDate, looksLikeBirthColumn, detectDateOrder, type ParseDateOptions } from '../shared/parseDate'
 import { CHANGEABLE_TYPES } from '../shared/columnTypes'
 import { cellText } from '../shared/cellText'
 import { canNameRecords } from '../shared/types'
@@ -25,7 +25,7 @@ const STATUS_COLORS = ['#22c55e', '#3b82f6', '#eab308', '#f97316', '#ef4444', '#
  * the old type's stored form is read as the text it shows first, so tags
  * become "urgent, new" (not ["urgent","new"]) and a checkbox "Yes" or "No".
  */
-export function convertValue(value: string, to: string, from?: string, dateOrder: 'mdy' | 'dmy' = 'mdy'): string | null {
+export function convertValue(value: string, to: string, from?: string, dateOrder: 'mdy' | 'dmy' = 'mdy', dateOptions: ParseDateOptions = {}): string | null {
   const shown = from && from !== to && STORED_FORM_TYPES.has(from) ? cellText(from, value) : value
   const v = shown.trim()
   if (!v) return ''
@@ -35,7 +35,7 @@ export function convertValue(value: string, to: string, from?: string, dateOrder
       const n = Number(v.replace(/[$,\s]/g, ''))
       return isNaN(n) ? null : String(n)
     }
-    case 'date': return parseDate(v, dateOrder)
+    case 'date': return parseDate(v, dateOrder, dateOptions)
     case 'checkbox': {
       const l = v.toLowerCase()
       if (['true', 'yes', 'y', '1', 'x', '✓'].includes(l)) return 'true'
@@ -59,6 +59,16 @@ function savedDateOrder(): 'mdy' | 'dmy' {
   return v === 'eu' ? 'dmy' : 'mdy'
 }
 
+/**
+ * How a column's values are read as dates, as Import reads them (F-027): the
+ * order from the whole column (one 25/03/2026 makes 04/05/2026 day first),
+ * Settings deciding only what the column doesn't, and a birthday column's
+ * two-digit years never in the future ("DOB" 3/15/40 is 1940).
+ */
+function dateReading(col: Col, values: string[]): { order: 'mdy' | 'dmy'; options: ParseDateOptions } {
+  return { order: detectDateOrder(values, savedDateOrder()), options: { birth: looksLikeBirthColumn(col.name) } }
+}
+
 interface Col { id: number; grid_id: number; name: string; column_type: string; config: string | null; is_name_column: number }
 
 function load(columnId: number, to: string): { col: Col; cells: Array<{ row_id: number; value: string; live: number }> } {
@@ -80,8 +90,8 @@ export interface TypePreview { total: number; clean: number; examples: string[] 
 export function previewTypeChange(columnId: number, to: string): TypePreview {
   const { col, cells: all } = load(columnId, to)
   const cells = all.filter(c => c.live === 1)
-  const order = savedDateOrder()
-  const bad = cells.filter(c => convertValue(c.value, to, col.column_type, order) === null)
+  const { order, options } = dateReading(col, cells.map(c => c.value))
+  const bad = cells.filter(c => convertValue(c.value, to, col.column_type, order, options) === null)
   return { total: cells.length, clean: cells.length - bad.length, examples: [...new Set(bad.map(c => c.value))].slice(0, 5) }
 }
 
@@ -91,13 +101,13 @@ export function changeColumnType(columnId: number, to: string): TypeChangeSnapsh
   const db = getDb()
   const { col, cells } = load(columnId, to)
   if (col.column_type === to) return { previousType: to, previousConfig: col.config, changed: [] }
-  const order = savedDateOrder()
+  const { order, options } = dateReading(col, cells.filter(c => c.live === 1).map(c => c.value))
   // Converted values aren't edits to the list's sample entries
   return db.transaction((): TypeChangeSnapshot => keepSamplesUntouched(db, col.grid_id, () => {
     const changed: TypeChangeSnapshot['changed'] = []
     const after: string[] = []
     for (const c of cells) {
-      const v = convertValue(c.value, to, col.column_type, order)
+      const v = convertValue(c.value, to, col.column_type, order, options)
       if (v !== null && v !== c.value) { setCellWithHistory(c.row_id, columnId, v); changed.push({ rowId: c.row_id, old: c.value }) }
       if (c.live === 1) after.push(v ?? c.value)
     }

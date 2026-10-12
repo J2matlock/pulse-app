@@ -40,6 +40,23 @@ describe('changing a column type', () => {
     expect([0, 1, 2].map(i => cell(g.rowIds[i]!, g.columnIds[1]!))).toEqual(['2026-06-10', 'soon', '2026-02-19'])
   })
 
+  it('reads a birthday column\'s two-digit years in the past, as Import does (F-027)', () => {
+    const c = g.columnIds[1]!
+    t.db.prepare("UPDATE columns SET name = 'DOB' WHERE id = ?").run(c)
+    t.db.prepare('UPDATE cells SET value = ? WHERE row_id = ? AND column_id = ?').run('3/15/40', g.rowIds[0], c)
+    changeColumnType(c, 'date')
+    expect(cell(g.rowIds[0]!, c)).toBe('1940-03-15')
+  })
+
+  it('works out day or month first from the whole column, as Import does (F-027)', () => {
+    const c = g.columnIds[1]!
+    const put = t.db.prepare('UPDATE cells SET value = ? WHERE row_id = ? AND column_id = ?')
+    put.run('25/03/2026', g.rowIds[0], c); put.run('04/05/2026', g.rowIds[1], c)
+    expect(previewTypeChange(c, 'date')).toEqual({ total: 3, clean: 3, examples: [] })
+    changeColumnType(c, 'date')
+    expect([0, 1].map(i => cell(g.rowIds[i]!, c))).toEqual(['2026-03-25', '2026-05-04'])
+  })
+
   it('turns the values into the choices of a status column', () => {
     changeColumnType(g.columnIds[1]!, 'status')
     expect((JSON.parse(col(g.columnIds[1]!).config).options as Array<{ label: string }>).map(o => o.label)).toEqual(['10/6/2026', 'soon', 'Feb 19, 2026'])

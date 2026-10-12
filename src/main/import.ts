@@ -9,7 +9,7 @@ import { statSync } from 'fs'
 import { readFile } from 'fs/promises'
 import { TextDecoder } from 'util'
 import Papa from 'papaparse'
-import { parseDate, ymdFromParts, hasTwoDigitYear, looksLikeBirthColumn } from '../shared/parseDate'
+import { parseDate, ymdFromParts, hasTwoDigitYear, looksLikeBirthColumn, analyzeDateOrder, type DateOrderAnalysis } from '../shared/parseDate'
 import { localDateString } from '../shared/dates'
 import { VALID_COLUMN_TYPES, canImportInto } from '../shared/types'
 import type { ColumnType } from '../shared/types'
@@ -335,43 +335,8 @@ export function normalizeDate(value: string, order: 'mdy' | 'dmy' = 'mdy'): stri
 }
 
 
-/**
- * Day-first or month-first for a whole column: any value with a first number
- * over 12 means day-first (e.g. 25/03/2026). US order otherwise.
- */
-export function detectDateOrder(values: string[], fallback: 'mdy' | 'dmy' = 'mdy'): 'mdy' | 'dmy' {
-  return analyzeDateOrder(values, fallback).order
-}
-
-export interface DateOrderAnalysis {
-  order: 'mdy' | 'dmy'
-  /** Values only day-first can read (25/03/2026), and only month-first (03/25/2026) */
-  dayFirst: number
-  monthFirst: number
-  /** Values either order reads, differently (03/04/2026) */
-  ambiguous: number
-  /** An example of each, for the warning */
-  examples: { dayFirst?: string; monthFirst?: string; ambiguous?: string }
-  /** Whether the column's own values chose the order, or Settings did */
-  settledBy: 'data' | 'fallback'
-}
-
-/** detectDateOrder with what it saw, so the import can say when the order was a guess (F-026) */
-export function analyzeDateOrder(values: string[], fallback: 'mdy' | 'dmy' = 'mdy'): DateOrderAnalysis {
-  let dayFirst = 0, monthFirst = 0, ambiguous = 0
-  const examples: DateOrderAnalysis['examples'] = {}
-  for (const v of values) {
-    const m = v.trim().match(/^(\d{1,2})[/.-](\d{1,2})[/.-]\d{2,4}/)
-    if (!m) continue
-    const a = Number(m[1]), b = Number(m[2])
-    if (a > 12) { dayFirst++; examples.dayFirst ??= v.trim() }
-    else if (b > 12) { monthFirst++; examples.monthFirst ??= v.trim() }
-    else if (a !== b && a > 0 && b > 0) { ambiguous++; examples.ambiguous ??= v.trim() }
-  }
-  const settledBy = dayFirst === monthFirst ? 'fallback' : 'data'
-  const order = settledBy === 'fallback' ? fallback : dayFirst > monthFirst ? 'dmy' : 'mdy'
-  return { order, dayFirst, monthFirst, ambiguous, examples, settledBy }
-}
+// Day-first or month-first for a whole column: shared with changing a column's type (F-027)
+export { detectDateOrder, analyzeDateOrder, type DateOrderAnalysis } from '../shared/parseDate'
 
 /** What to tell the person when a column's date order was a guess or a vote (F-026); null when it was clear */
 export function dateOrderWarning(column: string, a: DateOrderAnalysis): string | null {
