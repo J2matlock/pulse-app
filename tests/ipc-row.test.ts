@@ -764,6 +764,37 @@ describe('IPC Row — ROW_PURGE_ALL', () => {
   })
 })
 
+describe('IPC Row — deleting for good leaves nothing behind (Q-030)', () => {
+  const series = (rowId: number) => testDb.db.prepare("INSERT INTO appointment_series (rule, template, materialized_until) VALUES ('{}', json_object('row_id', ?, 'title', 'Secret visit'), '2099-01-01')").run(rowId)
+  const seriesRows = () => (testDb.db.prepare('SELECT template FROM appointment_series').all() as Array<{ template: string }>).map(r => JSON.parse(r.template).row_id)
+
+  it('Delete forever removes the record\'s repeating-appointment series and keeps the others', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 2, columnCount: 1 })
+    series(rowIds[0]!); series(rowIds[1]!)
+    await invoke(IPC.ROW_DELETE, rowIds[0])
+    expect(await invoke(IPC.ROW_PURGE, rowIds[0])).toEqual({ ok: true, data: true })
+    expect(seriesRows()).toEqual([rowIds[1]])
+  })
+
+  it('Delete forever on a record that is not in the Trash touches nothing', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    series(rowIds[0]!)
+    await invoke(IPC.ROW_PURGE, rowIds[0])
+    expect(seriesRows()).toEqual([rowIds[0]])
+  })
+
+  it('Empty the Trash removes the series and link history only gone records could show', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 3, columnCount: 1 })
+    series(rowIds[0]!); series(rowIds[2]!)
+    const hist = testDb.db.prepare("INSERT INTO record_link_history (link_type_id, from_row_id, to_row_id, action) VALUES (1, ?, ?, 'add')")
+    hist.run(rowIds[0], rowIds[1]); hist.run(rowIds[0], rowIds[2])
+    testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now') WHERE id IN (?, ?)").run(rowIds[0], rowIds[1])
+    expect(await invoke(IPC.ROW_PURGE_ALL)).toEqual({ ok: true, data: 2 })
+    expect(seriesRows()).toEqual([rowIds[2]])
+    expect(testDb.db.prepare('SELECT from_row_id, to_row_id FROM record_link_history').all()).toEqual([{ from_row_id: rowIds[0], to_row_id: rowIds[2] }])
+  })
+})
+
 describe('IPC Row — Trash past the 500 shown (Q-029)', () => {
   it('counts every record in the Trash, and Empty the Trash removes that many', async () => {
     const { rowIds } = seedGrid(testDb.db, { rowCount: 501, columnCount: 1 })

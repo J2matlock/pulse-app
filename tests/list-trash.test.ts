@@ -107,6 +107,21 @@ describe('a deleted list', () => {
     expect(purgeList(g.gridId)).toBe(true)
     expect(count('SELECT COUNT(*) AS n FROM rows WHERE grid_id = ?', g.gridId)).toBe(0)
   })
+
+  it('removed for good, takes its records\' series and its pinned reports off the dashboard (Q-030)', () => {
+    const g = seedGrid(t.db, { rowCount: 1, columnCount: 1 })
+    const other = seedGrid(t.db, { rowCount: 1, columnCount: 1 })
+    const series = t.db.prepare("INSERT INTO appointment_series (rule, template, materialized_until) VALUES ('{}', json_object('row_id', ?, 'title', 'Secret'), '2099-01-01')")
+    series.run(g.rowIds[0]); series.run(other.rowIds[0])
+    const report = (gridId: number) => Number(t.db.prepare("INSERT INTO report_definitions (name, grid_id, config) VALUES ('R', ?, '{}')").run(gridId).lastInsertRowid)
+    const gone = report(g.gridId)
+    const kept = report(other.gridId)
+    t.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('dashboard_reports', ?)").run(JSON.stringify([gone, kept]))
+    trashList(g.gridId)
+    expect(purgeList(g.gridId)).toBe(true)
+    expect(count('SELECT COUNT(*) AS n FROM appointment_series')).toBe(1)
+    expect(JSON.parse((t.db.prepare("SELECT value FROM settings WHERE key = 'dashboard_reports'").get() as { value: string }).value)).toEqual([kept])
+  })
 })
 
 describe('a record removed for good (AUDIT-108)', () => {

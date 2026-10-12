@@ -11,6 +11,7 @@ import { word } from '../vocab'
 import { refreshDisplayNames } from '../display-names'
 import { assignAutoNumbers } from '../auto-number'
 import { forgetPurgedRows } from '../list-trash'
+import { purgeRecordLeftovers, pruneAfterPurge } from '../purge-hooks'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_ROWS = 5000
@@ -372,8 +373,11 @@ export function registerRowHandlers(): void {
     const db = getDb()
     db.transaction(() => {
       // Its values go from the Trash's copies of deleted columns and lists too (AUDIT-108)
-      if (cachedStmt('row_in_trash', 'SELECT 1 FROM rows WHERE id = ? AND deleted_at IS NOT NULL').get(rowId)) forgetPurgedRows([rowId])
+      if (!cachedStmt('row_in_trash', 'SELECT 1 FROM rows WHERE id = ? AND deleted_at IS NOT NULL').get(rowId)) return
+      forgetPurgedRows([rowId])
+      purgeRecordLeftovers(db, [rowId])
       cachedStmt('row_purge', 'DELETE FROM rows WHERE id = ? AND deleted_at IS NOT NULL').run(rowId)
+      pruneAfterPurge(db, [rowId])
     })()
     return ok(true)
   })
@@ -381,12 +385,16 @@ export function registerRowHandlers(): void {
   // Empty Trash: every record in the Trash, for good, in one transaction (X-38)
   secureWrap(IPC.ROW_PURGE_ALL, 'ipc-row', () => {
     const guard = enforceWritable(); if (guard) return guard
-    const info = getDb().transaction(() => {
-      forgetPurgedRows((getDb().prepare(`SELECT id FROM rows WHERE deleted_at IS NOT NULL
-        OR grid_id IN (SELECT id FROM grids WHERE is_active = 0 AND deleted_at IS NOT NULL)`).all() as Array<{ id: number }>).map(r => r.id))
-      const r = getDb().prepare('DELETE FROM rows WHERE deleted_at IS NOT NULL').run()
+    const db = getDb()
+    const info = db.transaction(() => {
+      const ids = (db.prepare(`SELECT id FROM rows WHERE deleted_at IS NOT NULL
+        OR grid_id IN (SELECT id FROM grids WHERE is_active = 0 AND deleted_at IS NOT NULL)`).all() as Array<{ id: number }>).map(r => r.id)
+      forgetPurgedRows(ids)
+      purgeRecordLeftovers(db, ids)
+      const r = db.prepare('DELETE FROM rows WHERE deleted_at IS NOT NULL').run()
       // Lists in the Trash go too, with their records (D1)
-      getDb().prepare('DELETE FROM grids WHERE is_active = 0 AND deleted_at IS NOT NULL').run()
+      db.prepare('DELETE FROM grids WHERE is_active = 0 AND deleted_at IS NOT NULL').run()
+      pruneAfterPurge(db, ids)
       return r
     })()
     return ok(info.changes)

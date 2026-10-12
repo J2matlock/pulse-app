@@ -14,7 +14,7 @@
  * A record deleted forever is taken out of these copies at once (AUDIT-108).
  */
 import { getDb } from './database'
-import { rowsPurgedHooks } from './purge-hooks'
+import { rowsPurgedHooks, purgeRecordLeftovers, pruneAfterPurge } from './purge-hooks'
 import { deleteLinksForGrid } from './links'
 import { hasDisplayFormat, isLastNameColumnName, refreshDisplayNames } from './display-names'
 import { keepSamplesUntouched } from './sample-marks'
@@ -335,8 +335,12 @@ export function purgeList(gridId: number): boolean {
   const db = getDb()
   return db.transaction(() => {
     if (!db.prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 0 AND deleted_at IS NOT NULL').get(gridId)) return false
-    forgetPurgedRows((db.prepare('SELECT id FROM rows WHERE grid_id = ?').all(gridId) as Array<{ id: number }>).map(r => r.id))
-    return db.prepare('DELETE FROM grids WHERE id = ? AND is_active = 0 AND deleted_at IS NOT NULL').run(gridId).changes > 0
+    const ids = (db.prepare('SELECT id FROM rows WHERE grid_id = ?').all(gridId) as Array<{ id: number }>).map(r => r.id)
+    forgetPurgedRows(ids)
+    purgeRecordLeftovers(db, ids)
+    const gone = db.prepare('DELETE FROM grids WHERE id = ? AND is_active = 0 AND deleted_at IS NOT NULL').run(gridId).changes > 0
+    pruneAfterPurge(db, ids)
+    return gone
   })()
 }
 

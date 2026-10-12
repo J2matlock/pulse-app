@@ -69,7 +69,7 @@ vi.mock('../src/main/migration-list', async () => {
 })
 
 import { openDatabase, closeDatabase, getDb, getMigrationFailure, latestSchemaVersion, DatabaseOpenError } from '../src/main/database'
-import { trashColumn, type ColumnSnapshot } from '../src/main/list-trash'
+import { trashColumn, trashList, type ColumnSnapshot } from '../src/main/list-trash'
 
 let dir: string
 let dbPath: string
@@ -366,6 +366,48 @@ describe('the 30-day Trash purge on open', () => {
       const snap = JSON.parse((db.prepare('SELECT snapshot FROM deleted_columns').get() as { snapshot: string }).snapshot) as ColumnSnapshot
       const cells = snap.tables.find(t => t.table === 'cells')?.rows ?? []
       expect(cells.map(c => c.row_id)).toEqual(rowIds.slice(1))
+      expectHealthy(db)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('takes what the foreign keys miss, in one transaction, like Delete forever (Q-030)', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      openDatabase()
+      let db = getDb()
+      const a = seedList(db)
+      const b = seedList(db)
+      const live = seedList(db)
+      const series = (rowId: number) => db.prepare("INSERT INTO appointment_series (rule, template, materialized_until) VALUES ('{}', json_object('row_id', ?, 'title', 'Secret visit', 'notes', 'private'), '2099-01-01')").run(rowId)
+      series(a.rowIds[0]!)
+      series(live.rowIds[0]!)
+      // B is linked to A; B goes to the Trash first, so its copy of the links names A's records
+      const typeId = Number(db.prepare("INSERT INTO link_types (from_grid_id, to_grid_id, label_forward, label_backward) VALUES (?, ?, 'Goes to', 'Has')").run(a.gridId, b.gridId).lastInsertRowid)
+      db.prepare('INSERT INTO record_links (link_type_id, from_row_id, to_row_id) VALUES (?, ?, ?)').run(typeId, a.rowIds[0], b.rowIds[0])
+      const hist = db.prepare("INSERT INTO record_link_history (link_type_id, from_row_id, to_row_id, action) VALUES (?, ?, ?, 'add')")
+      hist.run(typeId, a.rowIds[0], a.rowIds[1]) // both ends go: nothing can show it
+      hist.run(typeId, a.rowIds[0], b.rowIds[0]) // B's record stays: its audit trail keeps it
+      const reportA = Number(db.prepare("INSERT INTO report_definitions (name, grid_id, config) VALUES ('On A', ?, '{}')").run(a.gridId).lastInsertRowid)
+      const reportLive = Number(db.prepare("INSERT INTO report_definitions (name, grid_id, config) VALUES ('On live', ?, '{}')").run(live.gridId).lastInsertRowid)
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('dashboard_reports', ?)").run(JSON.stringify([reportA, reportLive]))
+      trashList(b.gridId)
+      trashList(a.gridId)
+      expect(JSON.parse((db.prepare('SELECT deleted_snapshot FROM grids WHERE id = ?').get(b.gridId) as { deleted_snapshot: string }).deleted_snapshot).recordLinks).toHaveLength(1)
+      db.prepare("UPDATE grids SET deleted_at = datetime('now', '-40 days') WHERE id = ?").run(a.gridId)
+      closeDatabase()
+
+      openDatabase()
+      vi.runOnlyPendingTimers()
+      db = getDb()
+      expect(db.prepare('SELECT 1 FROM grids WHERE id = ?').get(a.gridId)).toBeUndefined()
+      const templates = (db.prepare('SELECT template FROM appointment_series').all() as Array<{ template: string }>).map(r => JSON.parse(r.template).row_id)
+      expect(templates).toEqual([live.rowIds[0]])
+      const bSnap = JSON.parse((db.prepare('SELECT deleted_snapshot FROM grids WHERE id = ?').get(b.gridId) as { deleted_snapshot: string }).deleted_snapshot)
+      expect(bSnap.recordLinks).toEqual([])
+      expect(db.prepare('SELECT DISTINCT from_row_id, to_row_id FROM record_link_history').all()).toEqual([{ from_row_id: a.rowIds[0], to_row_id: b.rowIds[0] }])
+      expect(JSON.parse((db.prepare("SELECT value FROM settings WHERE key = 'dashboard_reports'").get() as { value: string }).value)).toEqual([reportLive])
       expectHealthy(db)
     } finally {
       vi.useRealTimers()

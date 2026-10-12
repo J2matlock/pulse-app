@@ -19,7 +19,7 @@ import { detectCloudSyncService } from '../shared/cloudSync'
 import type { DbOpenFailureKind } from '../shared/dbOpen'
 import { runPreMigrationBackup, setDatabaseBridge } from './backup'
 import { MIGRATIONS, applyMigration } from './migration-list'
-import { rowsPurgedHooks } from './purge-hooks'
+import { rowsPurgedHooks, purgeRecordLeftovers, pruneAfterPurge } from './purge-hooks'
 import { linkColumnSpecs, linkSelectSql, linkSpecKey, type LinkColumnSpec } from '../shared/links'
 import { fileCountColumnIds } from '../shared/attachments'
 
@@ -238,28 +238,23 @@ function purgeExpiredTrash(): void {
       const files = db.prepare(`DELETE FROM attachments WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-' || ? || ' days')`).run(TRASH_PURGE_DAYS).changes
       if (files) logger.info('database', `Purged ${files} files from the trash`)
     } catch (err) { logNonFatal('database', 'attachment purge', err) }
-    // Lists and columns in the Trash (audit 5.2): removed with everything on them
-    try {
-      const lists = db.prepare(`DELETE FROM grids WHERE is_active = 0 AND deleted_at IS NOT NULL AND deleted_at < datetime('now', '-' || ? || ' days')`).run(TRASH_PURGE_DAYS).changes
-      const cols = db.prepare(`DELETE FROM deleted_columns WHERE deleted_at < datetime('now', '-' || ? || ' days')`).run(TRASH_PURGE_DAYS).changes
-      if (lists || cols) logger.info('database', `Purged ${lists} lists and ${cols} columns from the trash`)
-    } catch (err) { logNonFatal('database', 'list and column purge', err) }
-    // 1. Find rows being purged
-    const expiredRows = db.prepare(
-      `SELECT id FROM rows WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-' || ? || ' days')`
-    ).all(TRASH_PURGE_DAYS) as Array<{ id: number }>
-    if (expiredRows.length === 0) return
-    // 2. Delete the rows
-    const deleteStmt = db.prepare('DELETE FROM rows WHERE id = ?')
-    const runDelete = db.transaction(() => {
-      const ids = expiredRows.map(r => r.id)
+    // Lists, columns and records in the Trash (audit 5.2), in one transaction, with
+    // what the foreign keys don't reach, like Delete forever and Empty the Trash (Q-030)
+    const age = `datetime('now', '-' || ? || ' days')`
+    const purged = db.transaction(() => {
+      const d = db!
+      const ids = (d.prepare(`SELECT id FROM rows WHERE (deleted_at IS NOT NULL AND deleted_at < ${age})
+        OR grid_id IN (SELECT id FROM grids WHERE is_active = 0 AND deleted_at IS NOT NULL AND deleted_at < ${age})`).all(TRASH_PURGE_DAYS, TRASH_PURGE_DAYS) as Array<{ id: number }>).map(r => r.id)
       for (const hook of rowsPurgedHooks) hook(ids)
-      for (const row of expiredRows) {
-        deleteStmt.run(row.id)
-      }
-    })
-    runDelete()
-    logger.info('database', `Purged ${expiredRows.length} expired trash rows`)
+      purgeRecordLeftovers(d, ids)
+      const lists = d.prepare(`DELETE FROM grids WHERE is_active = 0 AND deleted_at IS NOT NULL AND deleted_at < ${age}`).run(TRASH_PURGE_DAYS).changes
+      const cols = d.prepare(`DELETE FROM deleted_columns WHERE deleted_at < ${age}`).run(TRASH_PURGE_DAYS).changes
+      const rows = d.prepare(`DELETE FROM rows WHERE deleted_at IS NOT NULL AND deleted_at < ${age}`).run(TRASH_PURGE_DAYS).changes
+      pruneAfterPurge(d, ids)
+      return { lists, cols, rows }
+    })()
+    if (purged.lists || purged.cols) logger.info('database', `Purged ${purged.lists} lists and ${purged.cols} columns from the trash`)
+    if (purged.rows) logger.info('database', `Purged ${purged.rows} expired trash rows`)
   } catch (err) {
     logger.info('database', 'Trash purge skipped', err)
   }
