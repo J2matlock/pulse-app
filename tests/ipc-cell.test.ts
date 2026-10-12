@@ -277,6 +277,22 @@ describe('CELL_HISTORY_COMPACT', () => {
     expect(typeof r.data).toBe('number')
   })
 
+  it('keeps N calendar months at a month end, not 3 days fewer (Q-032)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date(2026, 4, 31, 12, 0, 0)) // May 31, local noon
+      testDb.db.prepare(`INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, 'v', datetime('now'))`).run(rowId, columnId)
+      const cellId = (testDb.db.prepare('SELECT id FROM cells WHERE row_id = ? AND column_id = ?').get(rowId, columnId) as { id: number }).id
+      const add = testDb.db.prepare(`INSERT INTO cell_history (cell_id, row_id, column_id, old_value, new_value, changed_at) VALUES (?, ?, ?, 'a', 'b', ?)`)
+      add.run(cellId, rowId, columnId, '2026-03-01 12:00:00') // inside "the last 3 months" (Feb 28 on)
+      add.run(cellId, rowId, columnId, '2026-02-20 12:00:00') // older
+      expect(await invoke(IPC.CELL_HISTORY_COMPACT, 3)).toEqual({ ok: true, data: 1 })
+      expect(testDb.db.prepare('SELECT changed_at FROM cell_history WHERE column_id = ?').all(columnId)).toEqual([{ changed_at: '2026-03-01 12:00:00' }])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('fails for non-integer retention', async () => {
     const r = await invoke(IPC.CELL_HISTORY_COMPACT, 1.5) as any
     expect(r.ok).toBe(false)

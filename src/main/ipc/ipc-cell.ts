@@ -76,8 +76,12 @@ export function registerCellHandlers(): void {
       return fail('retentionMonths must be an integer >= 1. To delete all history, use a dedicated purge operation.')
     }
     // Pre-compute cutoff date in JS to avoid SQL string concatenation
-    const cutoff = new Date()
-    cutoff.setMonth(cutoff.getMonth() - retentionMonths)
+    // Same day N months back, clamped to that month's length: setMonth on May 31
+    // gave "Feb 31" = Mar 3 and deleted three extra days (Q-032)
+    const now = new Date()
+    const back = new Date(now.getFullYear(), now.getMonth() - retentionMonths, 1)
+    const day = Math.min(now.getDate(), new Date(back.getFullYear(), back.getMonth() + 1, 0).getDate())
+    const cutoff = new Date(back.getFullYear(), back.getMonth(), day, now.getHours(), now.getMinutes(), now.getSeconds())
     const cutoffIso = cutoff.toISOString().replace('T', ' ').slice(0, 19)
     const info = getDb().prepare(
       'DELETE FROM cell_history WHERE changed_at < ?'
