@@ -564,6 +564,23 @@ describe('IPC Tasks', () => {
       expect((await invoke(IPC.TASK_UNCOMPLETE, id, { is_completed: 0, completed_at: null, due_date: null, snoozed_until: 'soon' }) as any).ok).toBe(false)
     })
 
+    it('undoing the later of two completions in the same instant removes that one (Q-086)', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      try {
+        vi.setSystemTime(new Date(2030, 2, 1, 10, 0, 0))
+        const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
+        const id = insertTask(gridId, 'Weekly', { due_date: '2030-03-01', recurrence_rule: '{"type":"weekly","interval":1}' }).lastInsertRowid as number
+        await invoke(IPC.TASK_COMPLETE, id)
+        await invoke(IPC.TASK_COMPLETE, id)
+        const history = () => testDb.db.prepare('SELECT cycle_number FROM caseload_task_history WHERE task_id = ? ORDER BY id').all(id)
+        expect(history()).toEqual([{ cycle_number: 1 }, { cycle_number: 2 }])
+        await invoke(IPC.TASK_UNCOMPLETE, id, { is_completed: 0, completed_at: null, due_date: '2030-03-08' })
+        expect(history()).toEqual([{ cycle_number: 1 }])
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('removes latest history entry', async () => {
       const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
       const t = insertTask(gridId, 'Task')

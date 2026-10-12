@@ -243,10 +243,11 @@ export function registerTaskHandlers(): void {
     if (snooze != null && (typeof snooze !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(snooze))) return fail('Invalid snoozed_until date format')
     const db = getDb()
     db.transaction(() => {
-      // Remove the most recent history entry created by the completion
+      // Remove the most recent history entry created by the completion. Undo runs newest first, and two
+      // completions can share a time stamp, so the later-written row breaks the tie (Q-086)
       db.prepare(`
         DELETE FROM caseload_task_history WHERE id = (
-          SELECT id FROM caseload_task_history WHERE task_id = ? ORDER BY completed_at DESC LIMIT 1
+          SELECT id FROM caseload_task_history WHERE task_id = ? ORDER BY completed_at DESC, id DESC LIMIT 1
         )
       `).run(id)
       db.prepare(`
