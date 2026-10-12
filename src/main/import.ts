@@ -15,6 +15,7 @@ import { VALID_COLUMN_TYPES, canImportInto } from '../shared/types'
 import type { ColumnType } from '../shared/types'
 import ExcelJS from 'exceljs'
 import { unguardCsvFormula } from '../shared/csvGuard'
+import { zipUncompressedSize } from './zip-size'
 
 import { getDb } from './database'
 import { logger } from './logger'
@@ -493,6 +494,8 @@ const MAX_CELL_VALUE_LENGTH = 10_000
 const MAX_IMPORT_ROWS = 50_000
 /** Raw rows read from a file: the data rows plus room for titles above the headers */
 const MAX_RAW_ROWS = MAX_IMPORT_ROWS + 20
+/** An .xlsx is a zip; more than this unpacked is refused before reading (Q-043) */
+const MAX_XLSX_UNPACKED_BYTES = 500 * 1024 * 1024
 
 function rowCapWarning(): string {
   return `This file has more than ${MAX_IMPORT_ROWS.toLocaleString('en-US')} rows. Pulse brings in up to ${MAX_IMPORT_ROWS.toLocaleString('en-US')} at a time, so rows after row ${MAX_RAW_ROWS.toLocaleString('en-US')} weren't read. Split the file and import the rest separately.`
@@ -713,6 +716,12 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
     const fileSize = statSync(filePath).size
     if (fileSize > 50 * 1024 * 1024) {
       throw new Error(`Excel file is too large (${Math.round(fileSize / 1024 / 1024)} MB). Maximum size is 50 MB.`)
+    }
+    // exceljs unpacks the whole workbook into memory: the 50 MB above is the packed
+    // size, so a small file that unpacks to gigabytes would crash Pulse (Q-043)
+    const unpacked = await zipUncompressedSize(filePath)
+    if (unpacked !== null && unpacked > MAX_XLSX_UNPACKED_BYTES) {
+      throw new ImportFileError('This Excel file is too big to import: it unpacks to more than 500 MB. Save just the sheet you need as a CSV file (or split it into smaller files), then import that.')
     }
     const wb = new ExcelJS.Workbook()
     await wb.xlsx.readFile(filePath)

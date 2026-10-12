@@ -42,6 +42,7 @@ vi.mock('../src/main/database', () => ({
 import { parseImportFile, autoMatchColumns, executeImport, clearImportCache, normalizeDate } from '../src/main/import'
 import type { ImportOptions, ImportPreview, ColumnMapping } from '../src/main/import'
 import { parseDate } from '../src/shared/parseDate'
+import { fakeZip } from './zipFixture'
 
 let tmpDir: string
 
@@ -774,6 +775,14 @@ describe('executeImport', () => {
       const r = await importTwice(2)
       expect(r.first).toBe(2)
       expect(r.second).toMatchObject({ imported: 0, skipped: 2 })
+    })
+  })
+
+  describe('a workbook that unpacks too big (Q-043)', () => {
+    it('is refused before Excel reading starts, with a plain message', async () => {
+      const filePath = join(tmpDir, 'bomb.xlsx')
+      writeFileSync(filePath, fakeZip(3_000_000_000))
+      await expect(parseImportFile(filePath)).rejects.toThrow(/too big to import/)
     })
   })
 
