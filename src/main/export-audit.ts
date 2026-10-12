@@ -12,7 +12,7 @@ import { getDb } from './database'
 import { activityLabel } from './activity-types'
 import { isSystemActivityType, type SystemActivityType } from '../shared/activityTypes'
 import { jsPDF, autoTable, lastTableY, atomicWriteFileAsync, stripHtml } from './export-shared'
-import { parseDbTimestamp } from '../shared/dates'
+import { parseDbTimestamp, shortDate } from '../shared/dates'
 import { CASE_NOTE_DELETE_WINDOW_MINUTES } from '../shared/constants'
 import { word } from './vocab'
 
@@ -63,7 +63,7 @@ function fmtDate(ymd: string | null): string {
   if (!ymd) return 'blank'
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd)
   if (!m) return ymd
-  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return shortDate(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])))
 }
 
 function fmtValue(v: string | null, type: string): string {

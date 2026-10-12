@@ -2,6 +2,7 @@ import React from 'react'
 import { CheckCircle2 } from 'lucide-react'
 import type { FocusTask } from './types'
 import { classifyDeadline, daysAwayLabel, type DueTier } from '../../../shared/deadlineTiles'
+import { shortYmd } from '../../../shared/dates'
 
 // Focus Mode is always dark
 const FOCUS_TIER_TEXT: Record<DueTier, string> = {
@@ -23,7 +24,7 @@ export const TaskFocusItem = React.memo(function TaskFocusItem({ task, celebrati
     task.priority === 'normal' ? 'bg-blue-400' : 'bg-slate-500'
 
   const dueDateFormatted = task.due_date
-    ? (() => { const [y = NaN, m = NaN, d = NaN] = task.due_date!.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) })()
+    ? shortYmd(task.due_date!)
     : null
 
   // 9999 stands for "no due date"

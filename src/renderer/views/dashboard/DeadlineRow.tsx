@@ -15,6 +15,7 @@ import { ExtendDeadlineDialog } from './ExtendDeadlineDialog'
 import { extendDeadline, removeExtension } from './extendDeadline'
 import { ymdToDate, isUsedUp } from '../../../shared/deadlineEngine'
 import { useVocab } from '../../hooks/useVocab'
+import { shortDate } from '../../../shared/dates'
 
 export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, onToggleSelect }: {
   deadline: ExtendedDeadlineInfo
@@ -56,18 +57,18 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
   const storedDateFormatted = (() => {
     try {
       const d = new Date(dateValue.includes('T') ? dateValue : `${dateValue}T00:00:00`)
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      return shortDate(d)
     } catch { return dateValue }
   })()
 
   const deadlineFormatted = (() => {
-    if (deadline.due) return ymdToDate(deadline.due).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    if (deadline.due) return shortDate(ymdToDate(deadline.due))
     if (!recurring) return storedDateFormatted
     try {
       // Calendar-day math (setDate) — adding raw milliseconds drifts across DST changes
       const eff = computeEffectiveDeadline(dateValue, ruleInterval)
       if (!eff) return storedDateFormatted
-      return eff.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      return shortDate(eff)
     } catch { return storedDateFormatted }
   })()
 

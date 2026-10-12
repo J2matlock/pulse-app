@@ -11,7 +11,7 @@ import { isValidLogType } from '../activity-types'
 import { cleanExtraMeasures } from '../measures'
 import { parseExtraMeasures } from '../../shared/measures'
 import { applyNoteDateUpdates, revertNoteDates, checkOccurredOn, occurredTimestamp, localDayOf } from '../note-date-updates'
-import { localDateString } from '../../shared/dates'
+import { localDateString, ymdLocalDate } from '../../shared/dates'
 import { CASE_NOTE_DELETE_WINDOW_MINUTES } from '../../shared/constants'
 import { word } from '../vocab'
 
@@ -226,7 +226,7 @@ export function registerCaseLogHandlers(): void {
       if (entry) {
         rowId = entry.row_id
         const dateStr = entry.follow_up_date
-          ? (() => { const [y = NaN, m = NaN, d = NaN] = entry.follow_up_date.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString() })()
+          ? ymdLocalDate(entry.follow_up_date).toLocaleDateString()
           : ''
         const snippet = entry.content.length > 60 ? entry.content.slice(0, 60).trimEnd() + '…' : entry.content
         const content = `Follow-up completed${dateStr ? ` (due ${dateStr})` : ''}: "${snippet}"`

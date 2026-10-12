@@ -14,7 +14,7 @@ import { getMissingInfo, missingInfoText } from './missing-info'
 import { contactsComplete, contactsMissing } from '../shared/contactRequirements'
 import { evaluate, engineRuleFrom, referencedColumns, meterHistoryColumn, extensionAnchor, buildRecordContext, matchExtension, applyExtension, type QuotaConfig, type StoredExtension } from '../shared/deadlineEngine'
 import { loadWorkCalendar, meterHistories, quotaCounts, progressEntries, finishedDates, previousValues } from './deadlines'
-import { localDateString } from '../shared/dates'
+import { localDateString, shortDate } from '../shared/dates'
 import { vocabFor, word, featureOn } from './vocab'
 import { term } from '../shared/vocab'
 import { LIVE_ROW, liveGrid } from '../shared/liveRecords'
@@ -167,7 +167,7 @@ export function getComplianceSummary(month: string, gridId?: number): Compliance
 const pct = (n: number, d: number) => d === 0 ? '—' : `${Math.round((n / d) * 100)}%`
 
 function fmtDay(ymd: string): string {
-  return parseYmd(ymd)!.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return shortDate(parseYmd(ymd)!)
 }
 
 export async function exportComplianceSummary(month: string, gridId: number | undefined, destPath: string, workerName?: string): Promise<void> {

@@ -13,7 +13,7 @@ import { renderProfileToDoc } from './export-pdf'
 import { loadAuditTrail, drawAuditClients, auditFootnote } from './export-audit'
 import { listAttachments, attachmentBytes } from './attachments'
 import { formatBytes } from '../shared/attachments'
-import { parseDbTimestamp } from '../shared/dates'
+import { parseDbTimestamp, shortDate } from '../shared/dates'
 import { vocabFor } from './vocab'
 import { term } from '../shared/vocab'
 
@@ -53,7 +53,7 @@ export function drawFiles(doc: InstanceType<typeof jsPDF>, rowId: number, opts: 
     doc.text(doc.splitTextToSize(f.file_name, width) as string[], marginL, y)
     y += 5
     doc.setFont('helvetica', 'normal')
-    const added = parseDbTimestamp(f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    const added = shortDate(parseDbTimestamp(f.created_at))
     const meta = doc.splitTextToSize([formatBytes(f.size_bytes), `added ${added}`, f.description].filter(Boolean).join('  ·  '), width) as string[]
     doc.text(meta, marginL, y)
     y += meta.length * 5 + 3

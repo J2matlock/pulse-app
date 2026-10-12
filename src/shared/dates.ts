@@ -21,6 +21,28 @@ export function localDateFromToday(days: number): string {
   return localDateString(d)
 }
 
+const SHORT_DATE: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' }
+
+/** "Oct 14, 2026": the fixed US-English short date the app's labels use */
+export function shortDate(d: Date): string {
+  return d.toLocaleDateString('en-US', SHORT_DATE)
+}
+
+/**
+ * A 'YYYY-MM-DD' calendar date as a local Date (never shifted by UTC); a value
+ * that isn't one gives an Invalid Date. (ymdToDate in ymd.ts is the deadline
+ * engine's reader, which also keeps years below 100.)
+ */
+export function ymdLocalDate(ymd: string): Date {
+  const [y = NaN, m = NaN, d = NaN] = ymd.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
+/** A 'YYYY-MM-DD' calendar date as "Oct 14, 2026" */
+export function shortYmd(ymd: string): string {
+  return shortDate(ymdLocalDate(ymd))
+}
+
 /**
  * Parse a SQLite `datetime('now')` timestamp ("YYYY-MM-DD HH:MM:SS", stored in UTC
  * with no zone suffix) into a Date. `new Date()` alone would read it as local time

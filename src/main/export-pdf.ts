@@ -25,7 +25,7 @@ import {
   lineHeight,
 } from './export-shared'
 import type { PdfProfileOptions, PdfGridOptions } from './export-shared'
-import { parseDbTimestamp } from '../shared/dates'
+import { parseDbTimestamp, shortDate } from '../shared/dates'
 import { vocabFor, word } from './vocab'
 import { term } from '../shared/vocab'
 import { activityLabel } from './activity-types'
@@ -378,7 +378,7 @@ export function renderProfileToDoc(
       for (const entry of entries) {
         if (y > pageH - 20) { doc.addPage(); y = 18 }
         const dt = parseDbTimestamp(entry.created_at)
-        const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+        const dateStr = shortDate(dt) +
           ' ' + dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
         doc.setFontSize(9)
         doc.setFont('helvetica', 'bold')
@@ -610,7 +610,7 @@ export async function exportContactPdf(providerId: number, destPath: string): Pr
     sectionTitle('Recent Interactions')
     for (const ix of interactions) {
       if (y > pageH - 20) { doc.addPage(); y = 18 }
-      const dateStr = parseDbTimestamp(ix.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      const dateStr = shortDate(parseDbTimestamp(ix.created_at))
       doc.setFontSize(9)
       doc.setFont('helvetica', 'bold')
       doc.text(`${dateStr}  [${ix.contact_type.toUpperCase()}]`, marginL, y)

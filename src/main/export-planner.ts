@@ -14,6 +14,7 @@ import { formatTime } from '../shared/calendar'
 import { OPEN_RECORD_SQL } from '../shared/appointments'
 import { addDays } from '../shared/ymd'
 import { LIVE_GRID, LIVE_ROW } from '../shared/liveRecords'
+import { shortDate } from '../shared/dates'
 
 interface PlannerRow { due: string; client: string; what: string; kind: string }
 
@@ -78,7 +79,7 @@ export async function exportWeeklyPlanner(weekStart: string, destPath: string, w
   doc.text(`Week of ${fmtDay(weekStart)} – ${fmtDay(end)}`, marginL, 18)
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
-  doc.text(`${workerName ? workerName + '  ·  ' : ''}Printed ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}  ·  Contains ${word('record')} information — keep secure`, marginL, 25)
+  doc.text(`${workerName ? workerName + '  ·  ' : ''}Printed ${shortDate(new Date())}  ·  Contains ${word('record')} information — keep secure`, marginL, 25)
 
   const body = (list: PlannerRow[]) => list.map(r => ['', fmtDay(r.due), r.client || '—', r.what, r.kind, ''])
   // Standard PDF fonts have no check-mark glyph, so the tick column is a plain box

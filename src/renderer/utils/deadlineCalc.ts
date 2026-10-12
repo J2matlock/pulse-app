@@ -10,7 +10,7 @@ import { toRuleInterval, type RuleInterval } from '../../shared/ruleInterval'
 import { evaluate, isUsedUp, engineRuleFrom, meterHistoryColumn, referencedColumns, buildRecordContext, extensionAnchor, matchExtension, applyExtension, ymdToDate, type DeadlineResult } from '../../shared/deadlineEngine'
 import { useGridStore } from '../stores/gridStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
-import { localDateString } from '../../shared/dates'
+import { localDateString, shortDate } from '../../shared/dates'
 
 /** A rule's interval, or (older callers) a bare number of days. */
 export type IntervalInput = RuleInterval | number | null | undefined
@@ -84,7 +84,7 @@ export function evaluateRuleForRow(rule: ParsedAlertRule, columnValue: string | 
 /** "Deadline: Mar 3, 2026 · 2 days overdue" for any rule's result. */
 export function formatResultTooltip(res: DeadlineResult): string {
   if (!res.due || res.daysUntil === null) return ''
-  const formatted = ymdToDate(res.due).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const formatted = shortDate(ymdToDate(res.due))
   // Late now, whatever the end date: say so, like the chip ("All 12 used"), not "Due today"
   if (isUsedUp(res)) return `${res.label ?? 'All used'} · ends ${formatted}`
   const d = res.daysUntil
@@ -118,7 +118,7 @@ export function deadlineChipText(res: DeadlineResult, storedValue: string | null
 export function formatDeadlineTooltip(dateValue: string, interval: IntervalInput, daysUntil: number): string {
   const deadline = computeEffectiveDeadline(dateValue, interval)
   if (!deadline) return ''
-  const formatted = deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const formatted = shortDate(deadline)
   if (daysUntil < 0) {
     const n = Math.abs(daysUntil)
     return `Deadline: ${formatted} · ${n} day${n === 1 ? '' : 's'} overdue`

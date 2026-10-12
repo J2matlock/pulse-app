@@ -5,10 +5,10 @@
 import React, { useEffect, useState } from 'react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { StageDurations } from '../../../shared/stages'
-import { parseDbTimestamp } from '../../../shared/dates'
+import { parseDbTimestamp, shortDate } from '../../../shared/dates'
 import { safeInvoke } from '../../utils/safeInvoke'
 
-const day = (ts: string) => parseDbTimestamp(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+const day = (ts: string) => shortDate(parseDbTimestamp(ts))
 const days = (n: number, approx: boolean) => `${approx ? 'about ' : ''}${n} day${n === 1 ? '' : 's'}`
 
 export function StageHistory({ gridId, columnId, columnName, rowId, value }: {

@@ -12,6 +12,7 @@ import { word } from '../vocab'
 import { columnAffectsDisplayName, refreshDisplayNames } from '../display-names'
 import { numberSeries } from '../number-history'
 import { rematerializeForRecord } from '../appointments'
+import { shortYmd } from '../../shared/dates'
 
 // Column metadata cache for CELL_UPDATE log_changes checks.
 // Keyed by column_id → { name, column_type, config (parsed) }.
@@ -159,12 +160,8 @@ export function registerCellHandlers(): void {
         if (col && col.config.log_changes) {
           let content: string
           if (col.column_type === 'date' || col.column_type === 'deadline') {
-            const fmt = (d: string) => {
-              const [y = NaN, m = NaN, day = NaN] = d.split('-').map(Number)
-              return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-            }
-            const from = oldValue ? fmt(oldValue) : 'blank'
-            const to = value ? fmt(value) : 'cleared'
+            const from = oldValue ? shortYmd(oldValue) : 'blank'
+            const to = value ? shortYmd(value) : 'cleared'
             // Clearing a date is not finishing it (G-16): only Mark done says "completed"
             content = value ? `${col.name} changed from ${from} to ${to}` : `${col.name} cleared (was ${from})`
           } else if (col.column_type === 'checkbox') {

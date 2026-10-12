@@ -15,6 +15,7 @@ import { word } from './vocab'
 import { hasDisplayFormat } from './display-names'
 import { cellText, deadlineText, type DateFormat } from '../shared/cellText'
 import { ageInYears, localDateString } from '../shared/dates'
+import { daysBetween } from '../shared/ymd'
 import { htmlToText } from '../shared/htmlText'
 import { joinRecordName } from '../shared/recordName'
 import { loadDeadlines, type DeadlineItem } from './deadlines'
@@ -288,10 +289,7 @@ export function daysUntilText(n: number): string {
 function wholeDaysFromToday(value: string): number | null {
   const ymd = value.slice(0, 10)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null
-  const [y, m, d] = ymd.split('-').map(Number) as [number, number, number]
-  const [ty, tm, td] = localDateString().split('-').map(Number) as [number, number, number]
-  // Calendar days in UTC, so a clock change in between doesn't lose or add an hour's day
-  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(ty, tm - 1, td)) / 86_400_000)
+  return daysBetween(localDateString(), ymd)
 }
 
 /**

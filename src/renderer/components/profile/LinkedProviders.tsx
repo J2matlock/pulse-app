@@ -10,7 +10,7 @@ import { useUndoStore, type SideEffect } from '../../stores/undoStore'
 import { pulseEvents } from '../../events'
 import { useVocab } from '../../hooks/useVocab'
 import { useCopyFeedback } from '../../hooks/useCopyFeedback'
-import { parseDbTimestamp } from '../../../shared/dates'
+import { parseDbTimestamp, shortDate } from '../../../shared/dates'
 import { availabilityLabel } from '../../../shared/availability'
 
 interface Props {
@@ -381,7 +381,7 @@ export function LinkedProviders({ rowId, gridId, onCount }: Props) {
                   {link.provider_availability_status && link.provider_availability_status !== 'unknown' && (
                     <p>Status: {availabilityLabel(link.provider_availability_status)}</p>
                   )}
-                  <p>Linked {parseDbTimestamp(link.linked_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                  <p>Linked {shortDate(parseDbTimestamp(link.linked_at))}</p>
                   <button
                     type="button"
                     onClick={() => handleViewContacts(link.provider_id)}

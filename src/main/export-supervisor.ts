@@ -25,7 +25,7 @@ import {
   lineHeight,
 } from './export-shared'
 import type { SupervisorReportOptions } from './export-shared'
-import { parseDbTimestamp } from '../shared/dates'
+import { parseDbTimestamp, shortDate } from '../shared/dates'
 import { toRuleInterval } from '../shared/ruleInterval'
 import { localDateString } from '../shared/dates'
 import { toYmd, ymdToDate } from '../shared/ymd'
@@ -166,7 +166,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   // The period's ends are calendar days; new Date('2026-10-01') would be UTC midnight, a day early in the US
   const periodDate = (s: string) => {
     const ymd = toYmd(s)
-    return (ymd ? ymdToDate(ymd) : parseDbTimestamp(s)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    return shortDate(ymd ? ymdToDate(ymd) : parseDbTimestamp(s))
   }
   const dateRangeLabel = `${periodDate(dateRange.start)} \u2013 ${periodDate(dateRange.end)}`
   // Deadlines are as they stand today, whatever the period; say so (F-017)
@@ -685,7 +685,7 @@ function systemActivityInPeriod(db: ReturnType<typeof getDb>, gridId: number, st
 
 /** A day in the PDF tables, with its year: a report can span the new year */
 function pdfDay(d: Date): string {
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return shortDate(d)
 }
 
 /** Cut long text for a table cell, and show that it was cut */

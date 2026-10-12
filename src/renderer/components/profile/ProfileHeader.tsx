@@ -14,6 +14,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
 import { ProfileMoreMenu, type MoreMenuItem } from './ProfileMoreMenu'
 import { SamplePill } from '../shared/SampleDataBanner'
+import { shortDate } from '../../../shared/dates'
 
 const CONTACT_TYPES = ['phone', 'email', 'address'] as const
 type ContactType = typeof CONTACT_TYPES[number]
@@ -315,7 +316,7 @@ export function ProfileHeader({
     if (col.column_type === 'date') {
       const d = new Date(raw.includes('T') ? raw : `${raw}T00:00:00`)
       if (isNaN(d.getTime())) return raw
-      const formatted = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      const formatted = shortDate(d)
       const isDob = /dob|birth|born/i.test(col.name)
       return isDob && showAge ? `${formatted} (${computeAge(raw)})` : formatted
     }

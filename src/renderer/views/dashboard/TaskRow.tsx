@@ -3,6 +3,7 @@ import type { CaseloadTask } from '../../../shared/types'
 import { useTaskStore } from '../../stores/taskStore'
 import { classifyDeadline, daysAwayLabel } from '../../../shared/deadlineTiles'
 import { TIER_TEXT, TIER_BAR } from '../../utils/dueTiers'
+import { shortYmd } from '../../../shared/dates'
 
 export function TaskRow({
   task,
@@ -23,7 +24,7 @@ export function TaskRow({
   const barColor = tier === 'future' ? 'bg-purple-300' : TIER_BAR[tier]
 
   const dueDateFormatted = task.due_date
-    ? (() => { const [y = NaN, m = NaN, d = NaN] = task.due_date!.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) })()
+    ? shortYmd(task.due_date!)
     : '—'
 
   const priorityDot =

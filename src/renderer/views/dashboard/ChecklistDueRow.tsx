@@ -4,6 +4,7 @@ import type { ChecklistDueItem } from '../../../shared/types'
 import { tickChecklistItem } from '../../utils/checklistTick'
 import { classifyDeadline, daysAwayLabel } from '../../../shared/deadlineTiles'
 import { TIER_TEXT, TIER_BAR } from '../../utils/dueTiers'
+import { shortYmd } from '../../../shared/dates'
 
 export function ChecklistDueRow({
   item,
@@ -24,10 +25,7 @@ export function ChecklistDueRow({
   const urgencyColor = TIER_TEXT[tier]
   const barColor = tier === 'future' ? 'bg-teal-300' : TIER_BAR[tier]
 
-  const dueDateFormatted = (() => {
-    const [y = NaN, m = NaN, d = NaN] = item.due_date!.split('-').map(Number)
-    return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  })()
+  const dueDateFormatted = shortYmd(item.due_date!)
 
   const priorityDot =
     item.priority === 'high' || item.priority === 'urgent' ? '🔴' :

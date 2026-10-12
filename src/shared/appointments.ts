@@ -6,6 +6,7 @@
 import { z } from 'zod'
 import { dateToYmd, addDays as addYmdDays } from './ymd'
 import { LIVE_GRID, LIVE_ROW, NOT_TRASHED_ROW } from './liveRecords'
+import { shortDate, ymdLocalDate } from './dates'
 
 export const APPT_STATUSES = ['scheduled', 'done', 'cancelled', 'no_show'] as const
 export type ApptStatus = typeof APPT_STATUSES[number]
@@ -112,8 +113,7 @@ const pad = (n: number) => String(n).padStart(2, '0')
 export const ymd = dateToYmd
 
 export function parseYmd(s: string): Date {
-  const [y, m, d] = s.slice(0, 10).split('-').map(Number) as [number, number, number]
-  return new Date(y, m - 1, d)
+  return ymdLocalDate(s.slice(0, 10))
 }
 
 /** The same day N months on, or that month's last day when it's shorter (Jan 31 + 1 = Feb 28, A21b-07) */
@@ -216,7 +216,7 @@ export function describeRule(rule: SeriesRule): string {
   let s = rule.interval === 1 ? `Every ${unit}` : `Every ${rule.interval} ${unit}s`
   if (rule.freq === 'weekly' && rule.byDay?.length) s += ` on ${[...rule.byDay].sort().map(d => DAYS[d]).join(', ')}`
   if (rule.count) s += ` · ${rule.count} ${rule.count === 1 ? 'time' : 'times'}`
-  else if (rule.until) s += ` · until ${parseYmd(rule.until).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+  else if (rule.until) s += ` · until ${shortDate(parseYmd(rule.until))}`
   else if (rule.untilColumnId) s += ' · until a date in a column'
   return s
 }

@@ -26,7 +26,7 @@ import { NoteFiles } from './NoteFiles'
 import type { Attachment } from '../../../shared/attachments'
 import { getNoteDraft, setNoteDraft } from '../../utils/noteDrafts'
 import type { NoteDateUpdate, NoteDateRevert } from '../../../shared/types'
-import { localDateString, parseDbTimestamp } from '../../../shared/dates'
+import { localDateString, parseDbTimestamp, ymdLocalDate } from '../../../shared/dates'
 import { friendlyError } from '../../utils/friendlyError'
 
 /** Show dates the main process changed (notes that update deadline columns) without a reload. */
@@ -50,8 +50,7 @@ function byHappened(a: CaseLogEntryType, b: CaseLogEntryType): number {
 
 /** "Oct 31" for a YYYY-MM-DD day */
 function shortDay(day: string): string {
-  const [y = NaN, m = NaN, d = NaN] = day.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return ymdLocalDate(day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 /** "Last Visit to Oct 31" for the toast after dates follow a note */

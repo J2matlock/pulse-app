@@ -7,6 +7,7 @@ import type { FollowUpRow } from './types'
 import { wordNow } from '../../utils/vocab'
 import { classifyDeadline, daysAwayLabel } from '../../../shared/deadlineTiles'
 import { TIER_TEXT, TIER_BAR } from '../../utils/dueTiers'
+import { shortDate } from '../../../shared/dates'
 
 export function FollowUpDashRow({ followUp, daysUntil, onComplete, onReloadFollowUps }: {
   followUp: FollowUpRow
@@ -24,8 +25,7 @@ export function FollowUpDashRow({ followUp, daysUntil, onComplete, onReloadFollo
   const urgencyColor = TIER_TEXT[near]
   const barColor = TIER_BAR[near]
 
-  const dateFormatted = new Date(followUp.follow_up_date + 'T00:00:00')
-    .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const dateFormatted = shortDate(new Date(followUp.follow_up_date + 'T00:00:00'))
 
   async function handleComplete() {
     setCompleting(true)

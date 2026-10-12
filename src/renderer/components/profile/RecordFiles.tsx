@@ -8,12 +8,12 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { FileText, ImageIcon, Paperclip, Pencil, Trash2, ExternalLink, Download, Check, X } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import { formatBytes, isImage, PREVIEW_MAX_BYTES, type Attachment } from '../../../shared/attachments'
-import { parseDbTimestamp } from '../../../shared/dates'
+import { parseDbTimestamp, shortDate } from '../../../shared/dates'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { addDroppedFiles, addFilesWithDialog, deleteAttachment, openAttachment, saveAttachmentCopy } from '../../utils/attachmentActions'
 import { useVocab } from '../../hooks/useVocab'
 
-const day = (ts: string) => parseDbTimestamp(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+const day = (ts: string) => shortDate(parseDbTimestamp(ts))
 
 function Thumb({ a }: { a: Attachment }): React.ReactElement {
   const [url, setUrl] = useState<string | null>(null)

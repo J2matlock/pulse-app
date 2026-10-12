@@ -1,6 +1,7 @@
 import React from 'react'
 import { CheckCircle2 } from 'lucide-react'
 import type { FocusFollowUp } from './types'
+import { ymdLocalDate } from '../../../shared/dates'
 
 export const FollowUpFocusItem = React.memo(function FollowUpFocusItem({ followUp, celebrating, onComplete, onNavigate }: {
   followUp: FocusFollowUp
@@ -8,7 +9,7 @@ export const FollowUpFocusItem = React.memo(function FollowUpFocusItem({ followU
   onComplete: () => void
   onNavigate: () => void
 }): React.ReactElement {
-  const dueDateStr = (() => { const [y = NaN, m = NaN, d = NaN] = followUp.followUpDate.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) })()
+  const dueDateStr = ymdLocalDate(followUp.followUpDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
   const daysLabel = followUp.daysUntil < 0
     ? `${Math.abs(followUp.daysUntil)} day${Math.abs(followUp.daysUntil) === 1 ? '' : 's'} overdue`
     : followUp.daysUntil === 0

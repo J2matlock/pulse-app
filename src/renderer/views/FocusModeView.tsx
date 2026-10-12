@@ -31,6 +31,7 @@ import { MeterReadingDialog } from './dashboard/MeterReadingDialog'
 import { useVocab } from '../hooks/useVocab'
 import { wordNow } from '../utils/vocab'
 import { useFeature } from '../hooks/useFeature'
+import { shortYmd } from '../../shared/dates'
 
 interface Props {
   onClose: () => void
@@ -467,7 +468,7 @@ export default function FocusModeView({ onClose }: Props): React.ReactElement {
                   onToggle={() => setChecklistDueExpanded(v => !v)}
                 >
                   {visibleChecklistDue.map(ci => {
-                    const dueDateFormatted = (() => { const [y = NaN, m = NaN, d = NaN] = ci.due_date!.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) })()
+                    const dueDateFormatted = shortYmd(ci.due_date!)
                     const urgencyLabel = ci.daysUntil < 0 ? `${Math.abs(ci.daysUntil)}d overdue` : ci.daysUntil === 0 ? 'Due today' : `${ci.daysUntil}d`
                     const urgencyColor = ci.daysUntil < 0 ? 'text-red-400' : ci.daysUntil === 0 ? 'text-red-400' : ci.daysUntil <= 7 ? 'text-orange-400' : 'text-slate-500'
                     return (
