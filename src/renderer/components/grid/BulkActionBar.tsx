@@ -225,7 +225,7 @@ export function BulkActionBar({
       {createPortal(<ConfirmDialog
         open={archiveAsk !== null}
         title={`Archive ${archiveAsk?.ids.length ?? 0} ${t('record', { count: archiveAsk?.ids.length ?? 0 })}?`}
-        message={`They'll be hidden from the list. Unarchiving brings everything back.`}
+        message={`They'll be hidden from the ${t('list')}. Unarchiving brings everything back.`}
         confirmLabel="Archive"
         destructive={false}
         onConfirm={() => {
