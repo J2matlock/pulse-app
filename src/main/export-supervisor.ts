@@ -21,6 +21,7 @@ import {
   loadGridData,
   pickColumns,
   showDeadlinesAsText,
+  savedDateFormat,
 } from './export-shared'
 import type { SupervisorReportOptions } from './export-shared'
 import { parseDbTimestamp } from '../shared/dates'
@@ -187,6 +188,9 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
 
   if (format === 'csv') {
     // ── CSV report ──
+    // Every date column follows Settings → Date format, like the roster beside it (Q-076)
+    const dateFormat = savedDateFormat()
+    const csvDate = (ymd: string | null | undefined) => formatCellValue(ymd ? ymd.slice(0, 10) : null, 'date', dateFormat)
     const csvSections: unknown[][] = [
       [confidentialBanner],
       [],
@@ -215,21 +219,21 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
     if (archivedClientNames.length > 0) {
       csvSections.push([], [`${RecsCap} Archived`], [`${RecCap} Name`, 'Date Archived', 'Reason'])
       for (const a of archivedClientNames) {
-        csvSections.push([sanitizeCsvFormula(a.client_name), a.archived_date, sanitizeCsvFormula(a.reason)])
+        csvSections.push([sanitizeCsvFormula(a.client_name), csvDate(a.archived_date), sanitizeCsvFormula(a.reason)])
       }
     }
 
     if (deletedClientNames.length > 0) {
       csvSections.push([], [`${RecsCap} Removed From ${ListCap} (Still in the Trash)`], [`${RecCap} Name`, 'Date Removed'])
       for (const d of deletedClientNames) {
-        csvSections.push([sanitizeCsvFormula(d.client_name), d.deleted_date])
+        csvSections.push([sanitizeCsvFormula(d.client_name), csvDate(d.deleted_date)])
       }
     }
 
     if (newClientNames.length > 0) {
       csvSections.push([], [`New ${RecsCap} Added`], [`${RecCap} Name`, 'Date Added'])
       for (const n of newClientNames) {
-        csvSections.push([sanitizeCsvFormula(n.client_name), n.added_date])
+        csvSections.push([sanitizeCsvFormula(n.client_name), csvDate(n.added_date)])
       }
     }
 
@@ -244,7 +248,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       const completedTasks = completedTasksInPeriod(db, gridId, dateRange.start, dateRange.end)
       csvSections.push([], ['Task Summary'], ['Task', 'Priority', 'Category', 'Due Date', 'Completed'])
       for (const t of completedTasks) {
-        csvSections.push([sanitizeCsvFormula(t.title), sanitizeCsvFormula(t.priority), sanitizeCsvFormula(t.category ?? ''), t.due_date ?? '', localDateString(parseDbTimestamp(t.completed_at))])
+        csvSections.push([sanitizeCsvFormula(t.title), sanitizeCsvFormula(t.priority), sanitizeCsvFormula(t.category ?? ''), csvDate(t.due_date), csvDate(localDateString(parseDbTimestamp(t.completed_at)))])
       }
       if (completedTasks.length === 0) csvSections.push(['No tasks completed in this period.'])
     }
@@ -254,7 +258,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       const activityNames = batchGetClientNames(db, logRows.map(e => e.row_id), gridId)
       csvSections.push([], [`${term(v, 'activityLog', { cap: true })} (${ActsCap})`], ['Date', 'Type', `${RecCap}`, term(v, 'activity', { cap: true })])
       for (const e of logRows) {
-        csvSections.push([localDateString(parseDbTimestamp(e.created_at)), sanitizeCsvFormula(activityLabel(e.log_type)), sanitizeCsvFormula(activityNames.get(e.row_id) || `${RecCap} #${e.row_id}`), sanitizeCsvFormula(stripHtml(e.content))])
+        csvSections.push([csvDate(localDateString(parseDbTimestamp(e.created_at))), sanitizeCsvFormula(activityLabel(e.log_type)), sanitizeCsvFormula(activityNames.get(e.row_id) || `${RecCap} #${e.row_id}`), sanitizeCsvFormula(stripHtml(e.content))])
       }
       if (logRows.length === 0) csvSections.push([`No ${acts} in this period.`])
       if (logTotal > logRows.length) csvSections.push([`Showing the latest ${logRows.length} of ${logTotal} ${acts}.`])
@@ -265,7 +269,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       const sysNames = batchGetClientNames(db, sysRows.map(e => e.row_id), gridId)
       csvSections.push([], ['System Activity (Auto-Logged)'], ['Date', `${RecCap}`, 'Activity'])
       for (const e of sysRows) {
-        csvSections.push([localDateString(parseDbTimestamp(e.created_at)), sanitizeCsvFormula(sysNames.get(e.row_id) || `${RecCap} #${e.row_id}`), sanitizeCsvFormula(e.content)])
+        csvSections.push([csvDate(localDateString(parseDbTimestamp(e.created_at))), sanitizeCsvFormula(sysNames.get(e.row_id) || `${RecCap} #${e.row_id}`), sanitizeCsvFormula(e.content)])
       }
       if (sysRows.length === 0) csvSections.push(['No system activity in this period.'])
       if (sysTotal > sysRows.length) csvSections.push([`Showing the latest ${sysRows.length} of ${sysTotal} system entries.`])

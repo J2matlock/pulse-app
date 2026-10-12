@@ -104,6 +104,19 @@ describe('summary report', () => {
     }
   })
 
+  it('writes every date column in the format chosen in Settings (Q-076)', async () => {
+    testDb.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('date_format', 'us')").run()
+    testDb.db.prepare("INSERT INTO caseload_tasks (grid_id, title, is_completed, completed_at, due_date, position) VALUES (?, 'Dated task', 1, ?, '2026-03-05', 0)")
+      .run(grid.gridId, new Date().toISOString())
+    testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type) VALUES (?, 'Dated note', 'note')").run(grid.rowIds[0])
+    const [y, m, d] = today.split('-')
+    const us = `${m}/${d}/${y}`
+    const lines = (await summaryCsv()).split('\r\n')
+    expect(lines.find(l => l.startsWith('Dated task'))).toBe(`Dated task,normal,,03/05/2026,${us}`)
+    expect(lines.find(l => l.includes('Dated note'))!.startsWith(`${us},`)).toBe(true)
+    expect(lines.filter(l => l.includes(today))).toEqual([])
+  })
+
   it('counts a task finished today, when the period ends today', async () => {
     testDb.db.prepare("INSERT INTO caseload_tasks (grid_id, title, is_completed, completed_at, position) VALUES (?, 'Finished this afternoon', 1, ?, 0)")
       .run(grid.gridId, new Date().toISOString())

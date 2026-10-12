@@ -4,7 +4,7 @@
  */
 import Papa from 'papaparse'
 import { getDb } from './database'
-import { atomicWriteFileAsync, sanitizeCsvFormula, stripHtml } from './export-shared'
+import { atomicWriteFileAsync, formatCellValue, sanitizeCsvFormula, savedDateFormat, stripHtml } from './export-shared'
 import { DEFAULT_UNIT_MINUTES, unitsFor, type TotalsReport, type TotalsRow } from '../shared/timeMileage'
 import { parseExtraMeasures, type MeasureDef } from '../shared/measures'
 import { word } from './vocab'
@@ -118,8 +118,10 @@ export async function exportTotalsCsv(month: string, gridId: number | undefined,
     'Minutes', `Units (${r.unitMinutes} min)`, 'Miles', ...(r.mileageRate ? ['Mileage amount'] : []),
     ...r.measures.map(measureHeading), word('activity', { cap: true }),
   ]
+  // The day follows Settings → Date format, like every other export (Q-076)
+  const dateFormat = savedDateFormat()
   const data = r.entries.map(e => [
-    e.date, e.clientName, e.gridName, activityLabel(e.logType), e.minutes ?? '', e.minutes ? unitsFor(e.minutes, r.unitMinutes) : '', e.miles ?? '',
+    formatCellValue(e.date, 'date', dateFormat), e.clientName, e.gridName, activityLabel(e.logType), e.minutes ?? '', e.minutes ? unitsFor(e.minutes, r.unitMinutes) : '', e.miles ?? '',
     ...(r.mileageRate ? [money(e.miles)] : []), ...r.measures.map(d => e.extra[d.key] ?? ''), e.excerpt,
   ].map(v => typeof v === 'string' ? sanitizeCsvFormula(v) : v))
   data.push([
