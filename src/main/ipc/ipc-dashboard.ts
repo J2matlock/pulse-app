@@ -4,7 +4,8 @@
 
 import { IPC } from '../../shared/ipc-channels'
 import { QUERY_LIMITS } from '../../shared/query-limits'
-import { secureWrap, ok } from './ipc-utils'
+import { ok } from './ipc-utils'
+import { handlersFor } from './ipc-define'
 import { cachedStmt } from '../database'
 import { loadDeadlines, deadlineCounts } from '../deadlines'
 import { stripHtml } from '../export-shared'
@@ -136,8 +137,10 @@ function queryBriefing(): Briefing {
 
 // --- IPC handler registration ---
 
+const define = handlersFor('ipc-dashboard')
+
 export function registerDashboardHandlers(): void {
-  secureWrap(IPC.DASHBOARD_GET_ALL, 'ipc-dashboard', () => {
+  define(IPC.DASHBOARD_GET_ALL, [], () => {
     const { deadlines, tiles } = queryDeadlinesWithTiles()
     const stats = { ...queryStats(), deadlineTiles: tiles }
     const followUps = queryFollowups()
@@ -145,12 +148,12 @@ export function registerDashboardHandlers(): void {
     return ok({ stats, deadlines, followUps, archived })
   })
 
-  secureWrap(IPC.DASHBOARD_GET_DEADLINES, 'ipc-dashboard', () => {
+  define(IPC.DASHBOARD_GET_DEADLINES, [], () => {
     return ok(queryDeadlines())
   })
 
   // Latest notes across active lists, Pulse's own entries left out (W10 §4)
-  secureWrap(IPC.DASHBOARD_RECENT_ACTIVITY, 'ipc-dashboard', () => {
+  define(IPC.DASHBOARD_RECENT_ACTIVITY, [], () => {
     const rows = cachedStmt('dash_recent_activity', `
       SELECT cl.id, cl.row_id, r.grid_id, g.name AS grid_name, COALESCE(NULLIF(r.display_name, ''), '(unnamed)') AS name,
              cl.log_type, cl.content, cl.created_at
@@ -163,11 +166,11 @@ export function registerDashboardHandlers(): void {
     }))
   })
 
-  secureWrap(IPC.DASHBOARD_GET_FOLLOWUPS, 'ipc-dashboard', () => {
+  define(IPC.DASHBOARD_GET_FOLLOWUPS, [], () => {
     return ok(queryFollowups())
   })
 
-  secureWrap(IPC.DASHBOARD_GET_BRIEFING, 'ipc-dashboard', () => {
+  define(IPC.DASHBOARD_GET_BRIEFING, [], () => {
     return ok(queryBriefing())
   })
 }
