@@ -47,7 +47,7 @@ export function initials(name: string): string {
 
 /** RFC 5545 text escaping. */
 function esc(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n')
+  return s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n')
 }
 
 /** Fold lines longer than 75 octets (RFC 5545 §3.1). */
