@@ -15,6 +15,7 @@ import { resolveDatabasePath, closeDatabase, getDb, getPortableDataDir, getMigra
 import { verifyAndUnlock, lockApp } from '../auth'
 import { stopScheduledBackup } from '../index'
 import { isLicenseDoc, licenseFilePath } from '../license-files'
+import { isAppLink } from '../external-links'
 
 /** Returns true if `remote` is a higher semver than `current` (X.Y.Z format). */
 function isNewerVersion(remote: string, current: string): boolean {
@@ -78,15 +79,12 @@ export function registerAppHandlers(): void {
   })
 
   secureWrap(IPC.APP_OPEN_EXTERNAL, 'ipc-app', (_e, url: string) => {
-    // Only allow http/https URLs — parse to prevent bypass via userinfo (e.g. http://evil@legit.com)
-    try {
-      const parsed = new URL(url)
-      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-        shell.openExternal(parsed.href)
-        return ok(true)
-      }
-    } catch (err) { logNonFatal('ipc-app', 'APP_OPEN_EXTERNAL URL parse', err) }
-    return fail('Only http/https URLs are allowed')
+    // Pulse's own https pages only (F-035): parsed, so userinfo tricks (https://github.com@evil) don't pass
+    if (typeof url === 'string' && isAppLink(url)) {
+      void Promise.resolve(shell.openExternal(new URL(url).href)).catch(err => logNonFatal('ipc-app', 'APP_OPEN_EXTERNAL', err))
+      return ok(true)
+    }
+    return fail("That link can't be opened from here. Pulse only opens its own https pages.")
   })
 
   // The license texts ship inside the app, so they open offline (the GPL link needs a browser and a connection)

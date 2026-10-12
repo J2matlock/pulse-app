@@ -46,6 +46,7 @@ describe('friendlyError', () => {
  */
 const PLAIN = new Set<string>([
   'READ_ONLY', // friendlyError turns it into its own sentence
+  "That link can't be opened from here. Pulse only opens its own https pages.", // F-035
   '${msg} Nothing was erased.',
   "${n} new file${n === 1 ? ' was' : 's were'} added, but the ones already attached weren't added again. ${again.error}",
   "${word('activity', { cap: true })} can't be empty. To remove one, use Void.",

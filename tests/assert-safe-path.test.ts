@@ -197,6 +197,22 @@ describe('assertSafePath', () => {
     expect(refusalReason('/home/testuser/.ssh/id_ed25519')).toBe('credential folder')
   })
 
+  it.each([
+    '/home/testuser/.git-credentials', '/home/testuser/.netrc', '/home/testuser/.config/gh/hosts.yml', '/home/testuser/.config/gcloud/credentials.db',
+    '/home/testuser/.kube/config', '/home/testuser/.docker/config.json', '/home/testuser/.password-store/bank.gpg',
+    '/home/testuser/.local/share/keyrings/login.keyring', '/home/testuser/.mozilla/firefox/x.default/logins.json',
+    '/home/testuser/.config/google-chrome/Default/Login Data', '/home/testuser/Library/Keychains/login.keychain-db',
+  ])('refuses credential and browser-profile files like %s, even when picked in a dialog (F-035)', (p) => {
+    rememberUserChosenPaths(['/home/testuser'])
+    expect(refusalReason(p)).toBe('credential folder')
+  })
+
+  it('still allows Pulse\'s own data folder and other dot-folders in home (F-035)', () => {
+    expect(refusalReason('/home/testuser/.config/Pulse/backups/x.db')).toBeNull()
+    expect(refusalReason('/home/testuser/.local/share/x/out.pdf')).toBeNull()
+    expect(refusalReason('/home/testuser/.docker/notes.pdf')).toBeNull()
+  })
+
   it('ignores relative and null-byte entries when remembering dialog choices', () => {
     rememberUserChosenPaths(['relative/dir', '/srv/x\0y', undefined, null, ''])
     expect(refusalReason('/srv/x')).toBe('outside allowed folders')
@@ -230,6 +246,12 @@ describe('assertSafePath', () => {
       '\\\\fileserver\\casework\\pulse.pulse-backup',
     ])('allows %s', (p) => {
       expect(refusalReason(p)).toBeNull()
+    })
+
+    it('refuses the Windows credential store and browser profiles (F-035)', () => {
+      expect(refusalReason('C:\\Users\\testuser\\AppData\\Roaming\\Microsoft\\Credentials\\ABC')).toBe('credential folder')
+      expect(refusalReason('C:\\Users\\testuser\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Login Data')).toBe('credential folder')
+      expect(refusalReason('C:\\Users\\testuser\\AppData\\Roaming\\Pulse\\backups\\x.db')).toBeNull()
     })
 
     it.each([

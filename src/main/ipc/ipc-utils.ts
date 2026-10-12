@@ -349,8 +349,18 @@ function withRealPath(dir: string): string[] {
   } catch { return [dir] }
 }
 
-// Credential folders in a home directory: never read or written through Pulse
-const HOME_SECRET_DIRS = ['.ssh', '.gnupg', '.aws']
+// Credential and browser-profile folders and files in a home directory: never read or written
+// through Pulse, even if picked in a dialog. A compromised window could otherwise read them (F-035).
+const HOME_SECRET_DIRS = [
+  '.ssh', '.gnupg', '.aws',
+  '.git-credentials', '.netrc', '.config/gh', '.config/gcloud', '.azure', '.kube', '.docker/config.json',
+  '.password-store', '.local/share/keyrings', '.pki', '.mozilla', '.thunderbird',
+  '.config/google-chrome', '.config/chromium', '.config/BraveSoftware', '.config/microsoft-edge',
+  'Library/Keychains', 'Library/Cookies', 'Library/Application Support/Google/Chrome',
+  'Library/Application Support/Firefox', 'Library/Application Support/Microsoft Edge', 'Library/Safari',
+  'AppData/Roaming/Microsoft/Credentials', 'AppData/Local/Microsoft/Credentials', 'AppData/Roaming/Microsoft/Protect',
+  'AppData/Roaming/Mozilla', 'AppData/Local/Google/Chrome', 'AppData/Local/Microsoft/Edge',
+]
 // Pulse's own wrapped-key store (and its backup copy); overwriting it would lock the person out
 const CREDENTIAL_FILE_RE = /^pulse-secure.*\.json$/i
 

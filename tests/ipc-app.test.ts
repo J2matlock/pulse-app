@@ -177,15 +177,23 @@ describe('APP_GET_INFO', () => {
 })
 
 describe('APP_OPEN_EXTERNAL', () => {
-  it('opens http URLs', async () => {
-    const r = await invoke(IPC.APP_OPEN_EXTERNAL, 'http://example.com') as any
-    expect(r.ok).toBe(true)
-    expect(mockShellOpenExternal).toHaveBeenCalled()
+  it('opens Pulse\'s own https pages: source, releases, terms and privacy (F-035)', async () => {
+    for (const url of ['https://github.com/J2matlock/pulse-app', 'https://github.com/J2matlock/pulse-releases/releases/latest', 'https://www.baringasoft.com/terms.html', 'https://www.baringasoft.com/privacy.html']) {
+      mockShellOpenExternal.mockClear()
+      const r = await invoke(IPC.APP_OPEN_EXTERNAL, url) as any
+      expect(r.ok).toBe(true)
+      expect(mockShellOpenExternal).toHaveBeenCalledWith(url)
+    }
   })
 
-  it('opens https URLs', async () => {
-    const r = await invoke(IPC.APP_OPEN_EXTERNAL, 'https://example.com') as any
-    expect(r.ok).toBe(true)
+  it('refuses any other site, plain http, and lookalikes, so a compromised window can\'t send data out (F-035)', async () => {
+    mockShellOpenExternal.mockClear()
+    for (const url of ['https://evil.example/', 'https://example.com', 'http://github.com/J2matlock/pulse-app', 'https://github.com/someone-else/x',
+      'https://github.com@evil.example/J2matlock/', 'https://www.baringasoft.com.evil.example/', 'https://www.baringasoft.com:8443/x', `https://evil.example/?d=${'x'.repeat(100)}`]) {
+      const r = await invoke(IPC.APP_OPEN_EXTERNAL, url) as any
+      expect(r.ok).toBe(false)
+    }
+    expect(mockShellOpenExternal).not.toHaveBeenCalled()
   })
 
   it('rejects file:// URLs', async () => {
