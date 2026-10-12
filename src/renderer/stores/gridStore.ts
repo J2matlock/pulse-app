@@ -356,6 +356,7 @@ export const useGridStore = create<GridState>((set, get) => ({
         columns: s.activeGridId === gridId ? [] : s.columns,
         rows: s.activeGridId === gridId ? [] : s.rows,
       }))
+      pulseEvents.emit('records:trashed', {})
       // In the Trash, so Undo brings it back (D1)
       useUndoStore.getState().pushWithToast({
         id: crypto.randomUUID(),
@@ -462,6 +463,7 @@ export const useGridStore = create<GridState>((set, get) => ({
         if (key.startsWith(`${rowId}:`)) _coalesceIndex.delete(key)
       }
       set(s => ({ rows: s.rows.filter(r => r.row_id !== rowId) }))
+      pulseEvents.emit('records:trashed', { rowIds: [rowId] })
 
       const gridId = get().activeGridId
       useUndoStore.getState().pushWithToast({

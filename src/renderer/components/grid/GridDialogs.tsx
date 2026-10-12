@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 import { friendlyError } from '../../utils/friendlyError'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
+import { pulseEvents } from '../../events'
 
 // ── Archive dialog ───────────────────────────────────────────────────────────
 
@@ -203,6 +204,7 @@ export function BulkDeleteDialog({
         const ids = Array.from(selectedRowIds)
         const result = await safeInvoke(IPC.ROW_BULK_ACTION, 'delete', ids)
         if (!result.ok) { toast.error(friendlyError(result.error)); return }
+        pulseEvents.emit('records:trashed', { rowIds: ids })
         setSelectedRowIds(new Set())
         setBulkDeleteTarget(false)
         const reload = async () => { const g = useGridStore.getState().activeGridId; if (g) await useGridStore.getState().loadGrid(g) }

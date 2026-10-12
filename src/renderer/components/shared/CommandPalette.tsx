@@ -79,6 +79,8 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
   useEffect(() => {
     if (open) {
       previousFocusRef.current = document.activeElement
+      // Recent leaves out records that went to the Trash meanwhile (Q-048)
+      void useProfileStore.getState().pruneRecentProfiles()
     } else {
       if (previousFocusRef.current instanceof HTMLElement) {
         previousFocusRef.current.focus()

@@ -286,7 +286,11 @@ export function TopBar(): React.ReactElement {
           <div className="relative" ref={recentMenuRef}>
             <Tooltip content={`Recently viewed ${tw('record', { many: true })}`} placement="bottom">
               <button
-                onClick={() => setShowRecent(v => !v)}
+                onClick={() => {
+                  // Records trashed elsewhere (another list, the Trash page) leave the menu (Q-048)
+                  if (!showRecent) void useProfileStore.getState().pruneRecentProfiles()
+                  setShowRecent(v => !v)
+                }}
                 className="hit-44 flex items-center gap-1 px-2 py-1.5 rounded-md text-slate-500
                            hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200
                            hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors

@@ -11,6 +11,8 @@ type PulseEvents = {
   'sample-data:changed': undefined
   /** Records were archived or reactivated (Undo and Redo included), so what's due changed */
   'records:archive-changed': undefined
+  /** Records went to the Trash; without ids (a whole list), every recent record is checked */
+  'records:trashed': { rowIds?: number[] }
   'contact-req:changed': undefined
   'note-tracking:changed': undefined
   /** Open a form to fill in (W08): a new record, or this one */

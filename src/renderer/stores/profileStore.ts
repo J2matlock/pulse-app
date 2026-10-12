@@ -78,3 +78,9 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
 
 // Removing the sample data deletes records that may be in Recent
 pulseEvents.on('sample-data:changed', () => { void useProfileStore.getState().pruneRecentProfiles() })
+// A record in the Trash leaves Recent straight away (Q-048)
+pulseEvents.on('records:trashed', ({ rowIds }) => {
+  const store = useProfileStore.getState()
+  if (rowIds) for (const id of rowIds) store.removeRecentProfile(id)
+  else void store.pruneRecentProfiles()
+})
