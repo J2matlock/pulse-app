@@ -11,6 +11,16 @@ describe('cellText', () => {
     expect(cellText('text', null)).toBe('')
   })
 
+  it('writes money as US dollars with two decimals, whatever the stored number looks like', () => {
+    const cases: Array<[string, string]> = [
+      ['-5', '$-5.00'], ['0', '$0.00'], ['-0', '$-0.00'], ['0.005', '$0.01'], ['1.005', '$1.01'], ['2.675', '$2.68'],
+      ['1234567.891', '$1,234,567.89'], ['12abc', '$12.00'], ['1e21', '$1,000,000,000,000,000,000,000.00'],
+      ['Infinity', '$∞'], ['-Infinity', '$-∞'], ['.5', '$0.50'], ['999999999999.999', '$1,000,000,000,000.00'],
+      ['abc', 'abc'], ['', ''],
+    ]
+    for (const [stored, shown] of cases) expect(cellText('currency', stored), stored).toBe(shown)
+  })
+
   it('copies linked names without the hidden separators', () => {
     const stored = '12\u001eJane Doe\u001f13\u001eSam Lee'
     expect(cellText('link', stored)).toBe('Jane Doe, Sam Lee')
