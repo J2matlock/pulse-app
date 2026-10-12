@@ -6,6 +6,35 @@ export function isLateDeadline(d: { daysUntil: number; state?: DeadlineState }):
   return d.daysUntil < 0 || isUsedUp({ state: d.state, daysUntil: d.daysUntil })
 }
 
+/**
+ * The fixed "how soon" tiers (D-028) the dashboard rows, the deadline tiles
+ * and Focus Mode use: late, today, the next 7 days, the next 30 days, later.
+ * They are separate from a rule's own color thresholds, which color the grid
+ * cell and the dashboard row background.
+ */
+export type DueTier = 'overdue' | 'today' | 'this-week' | 'this-month' | 'future'
+
+export function classifyDeadline(daysUntil: number): DueTier {
+  if (daysUntil < 0) return 'overdue'
+  if (daysUntil === 0) return 'today'
+  if (daysUntil <= DAYS_THIS_WEEK) return 'this-week'
+  if (daysUntil <= DAYS_THIS_MONTH) return 'this-month'
+  return 'future'
+}
+
+/** "3 days overdue" (the sign of `days` is ignored) */
+export function daysOverdueLabel(days: number): string {
+  const n = Math.abs(days)
+  return `${n} day${n === 1 ? '' : 's'} overdue`
+}
+
+/** "3 days overdue", "Due today", "5 days" */
+export function daysAwayLabel(daysUntil: number): string {
+  if (daysUntil < 0) return daysOverdueLabel(daysUntil)
+  if (daysUntil === 0) return 'Due today'
+  return `${daysUntil} day${daysUntil === 1 ? '' : 's'}`
+}
+
 export interface DeadlineTileCounts { overdue: number; dueThisWeek: number; dueThisMonth: number }
 
 /**

@@ -1,7 +1,9 @@
 import React, { useState } from 'react'
 import { CheckCircle2, ChevronDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { classifyDeadline, computeEffectiveDeadline, formatDeadlineTooltip } from '../../utils/deadlineCalc'
+import { computeEffectiveDeadline, formatDeadlineTooltip } from '../../utils/deadlineCalc'
+import { classifyDeadline, daysAwayLabel, daysOverdueLabel } from '../../../shared/deadlineTiles'
+import { TIER_TEXT } from '../../utils/dueTiers'
 import { resolveAlertColor } from '../../utils/alertColors'
 import { completeDeadlines, startsNextCycle, isOneOffDeadline } from './completeDeadline'
 import { OneOffDoneDialog, type OneOffChoice } from './OneOffDoneDialog'
@@ -39,17 +41,13 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
   const usedUp = isUsedUp({ state: deadline.state, daysUntil })
   const bucket = usedUp ? 'overdue' : classifyDeadline(daysUntil)
 
+  // A used-up quota is late whatever its end date: its label, or "N days overdue"
   const urgencyLabel =
-    usedUp && deadline.label ? deadline.label :
-    bucket === 'overdue'    ? `${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? '' : 's'} overdue` :
-    bucket === 'today'      ? 'Due today' :
-    `${daysUntil} day${daysUntil === 1 ? '' : 's'}`
+    usedUp ? deadline.label || daysOverdueLabel(daysUntil) :
+    daysAwayLabel(daysUntil)
 
-  const urgencyColor =
-    bucket === 'overdue'   ? 'text-red-600 dark:text-red-400 font-semibold' :
-    bucket === 'today'     ? 'text-red-600 dark:text-red-400 font-semibold' :
-    bucket === 'this-week' ? 'text-orange-700 dark:text-orange-400' :
-    'text-yellow-700 dark:text-yellow-400'
+  // Deadlines further out than a month keep the this-month text color
+  const urgencyColor = TIER_TEXT[bucket === 'future' ? 'this-month' : bucket]
 
   const { className: alertBgClass, style: alertBgStyle } = threshold
     ? resolveAlertColor(threshold.bgClass)

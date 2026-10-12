@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import type { CaseloadTask } from '../../../shared/types'
 import { useTaskStore } from '../../stores/taskStore'
+import { classifyDeadline, daysAwayLabel } from '../../../shared/deadlineTiles'
+import { TIER_TEXT, TIER_BAR } from '../../utils/dueTiers'
 
 export function TaskRow({
   task,
@@ -15,23 +17,10 @@ export function TaskRow({
 }): React.ReactElement {
   const [completing, setCompleting] = useState(false)
 
-  const urgencyLabel =
-    daysUntil < 0   ? `${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? '' : 's'} overdue` :
-    daysUntil === 0 ? 'Due today' :
-    `${daysUntil} day${daysUntil === 1 ? '' : 's'}`
-
-  const urgencyColor =
-    daysUntil < 0    ? 'text-red-600 dark:text-red-400 font-semibold' :
-    daysUntil === 0  ? 'text-red-600 dark:text-red-400 font-semibold' :
-    daysUntil <= 7   ? 'text-orange-700 dark:text-orange-400' :
-    daysUntil <= 30  ? 'text-yellow-700 dark:text-yellow-400' :
-    'text-slate-500 dark:text-slate-400'
-
-  const barColor =
-    daysUntil < 0    ? 'bg-red-500' :
-    daysUntil === 0  ? 'bg-red-400' :
-    daysUntil <= 7   ? 'bg-orange-400' :
-    daysUntil <= 30  ? 'bg-yellow-400' : 'bg-purple-300'
+  const tier = classifyDeadline(daysUntil)
+  const urgencyLabel = daysAwayLabel(daysUntil)
+  const urgencyColor = TIER_TEXT[tier]
+  const barColor = tier === 'future' ? 'bg-purple-300' : TIER_BAR[tier]
 
   const dueDateFormatted = task.due_date
     ? (() => { const [y = NaN, m = NaN, d = NaN] = task.due_date!.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) })()

@@ -194,13 +194,5 @@ export function computeAge(dobValue: string): string {
   return `${age} yrs`
 }
 
-/**
- * Groups deadlines by urgency bucket for display purposes.
- */
-export function classifyDeadline(daysUntil: number): 'overdue' | 'today' | 'this-week' | 'this-month' | 'future' {
-  if (daysUntil < 0) return 'overdue'
-  if (daysUntil === 0) return 'today'
-  if (daysUntil <= 7) return 'this-week'
-  if (daysUntil <= 30) return 'this-month'
-  return 'future'
-}
+// The how-soon tiers moved to src/shared/deadlineTiles.ts
+export { classifyDeadline } from '../../shared/deadlineTiles'
