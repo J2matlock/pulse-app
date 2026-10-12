@@ -384,7 +384,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
     [`Total Active ${RecsCap}`, String(totalActive)],
     [`New ${RecsCap} This Period`, String(newAdded)],
     [`${RecsCap} Archived This Period`, String(archivedClients)],
-    [`${RecsCap} Deleted This Period`, String(deletedClients)],
+    [`${RecsCap} Deleted This Period (Still in the Trash)`, String(deletedClients)],
   ]
   if (overdueCount > 0) stats.push(['Overdue Deadlines', `${recordsWord(overdueCount)} (${asOf})`])
   if (approachingCount > 0) stats.push(['Approaching (next 7 days)', `${recordsWord(approachingCount)} (${asOf})`])
@@ -392,10 +392,12 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   for (const [label, val] of stats) {
     doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
-    doc.text(label, marginL, y)
+    // A long label (long record words, "(Still in the Trash)") wraps rather than running into its value
+    const labelLines = doc.splitTextToSize(label, 76) as string[]
+    doc.text(labelLines, marginL, y)
     doc.setFont('helvetica', 'normal')
     doc.text(val, marginL + 80, y)
-    y += 7
+    y += 7 + (labelLines.length - 1) * 4.5
   }
 
   // Acuity breakdown — vertically stacked per level

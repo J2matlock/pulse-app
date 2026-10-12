@@ -111,6 +111,14 @@ describe('Summary report new and deleted records (F-018, F-010)', () => {
     expect(added).toContain('Arch Ived')
     expect(csv).toContain('Clients Removed From Caseload (Still in the Trash)')
   })
+
+  it('the PDF stat card says the deleted figure is what is still in the Trash, like its summary and the CSV (R1-03)', async () => {
+    const g = seedGrid(testDb.db, { rowCount: 2 })
+    testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now') WHERE id = ?").run(g.rowIds[0])
+    const pdf = await report(g.gridId, 'pdf', { start: localDateFromToday(-7) })
+    expect(pdf).toContain('(Clients Deleted This Period \\(Still in the Trash\\))')
+    expect(pdf).not.toContain('(Clients Deleted This Period)')
+  })
 })
 
 /** Where jsPDF put the run that starts with `start`: "x y Td (start…) Tj" (y counts up from the bottom, in points) */
