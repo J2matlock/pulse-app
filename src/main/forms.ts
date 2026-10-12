@@ -15,6 +15,7 @@ import { applyNoteDateUpdates, revertNoteDates, localDayOf } from './note-date-u
 import { formInputSchema, NOT_FILLABLE, type Form, type FormChange, type FormField, type FormInput } from '../shared/forms'
 import { linkColumnSpecs } from '../shared/links'
 import { tagList, tagValueFromText } from '../shared/tagValue'
+import { liveGrid, notTrashedRow } from '../shared/liveRecords'
 
 export class FormError extends Error {}
 
@@ -48,7 +49,7 @@ export function saveForm(input: FormInput): Form {
   if (!p.success) throw new FormError(p.error.issues[0]?.message ?? 'Some of the form settings are missing or not allowed.')
   const v = p.data
   const db = getDb()
-  if (!db.prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 1').get(v.grid_id)) throw new FormError(`That ${word('list')} no longer exists.`)
+  if (!db.prepare(`SELECT 1 FROM grids WHERE id = ? AND ${liveGrid('')}`).get(v.grid_id)) throw new FormError(`That ${word('list')} no longer exists.`)
   const cols = columnsOf(v.grid_id)
   const seen = new Set<number>()
   for (const f of v.fields) {
@@ -127,7 +128,7 @@ export function submitForm(formId: number, rowId: number | null, values: FormVal
   const form = getForm(formId)
   if (!form) throw new FormError('That form no longer exists.')
   const cols = columnsOf(form.grid_id)
-  if (rowId !== null && !db.prepare('SELECT 1 FROM rows WHERE id = ? AND grid_id = ? AND deleted_at IS NULL').get(rowId, form.grid_id)) throw new FormError(`That ${word('record', {}, form.grid_id)} is no longer available.`)
+  if (rowId !== null && !db.prepare(`SELECT 1 FROM rows WHERE id = ? AND grid_id = ? AND ${notTrashedRow('')}`).get(rowId, form.grid_id)) throw new FormError(`That ${word('record', {}, form.grid_id)} is no longer available.`)
 
   const missing: string[] = []
   const cellValues = new Map<number, string | null>()

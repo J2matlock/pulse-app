@@ -12,6 +12,7 @@ import { parseDate, looksLikeBirthColumn, detectDateOrder, type ParseDateOptions
 import { CHANGEABLE_TYPES } from '../shared/columnTypes'
 import { cellText } from '../shared/cellText'
 import { canNameRecords } from '../shared/types'
+import { NOT_TRASHED_ROW } from '../shared/liveRecords'
 
 export class ColumnTypeError extends Error {}
 
@@ -79,7 +80,7 @@ function load(columnId: number, to: string): { col: Col; cells: Array<{ row_id: 
   if (!CHANGEABLE_TYPES.has(col.column_type)) throw new ColumnTypeError("This kind of column can't be changed to another type.")
   if (!CHANGEABLE_TYPES.has(to)) throw new ColumnTypeError("A column can't be changed to that type. Add a new column instead.")
   // Records in the Trash are converted too (so a restore still fits), but not counted or offered as choices
-  const cells = db.prepare(`SELECT c.row_id, c.value, (r.deleted_at IS NULL) AS live FROM cells c JOIN rows r ON r.id = c.row_id
+  const cells = db.prepare(`SELECT c.row_id, c.value, (${NOT_TRASHED_ROW}) AS live FROM cells c JOIN rows r ON r.id = c.row_id
     WHERE c.column_id = ? AND c.value IS NOT NULL AND TRIM(c.value) != '' ORDER BY r.position, r.id`).all(columnId) as Array<{ row_id: number; value: string; live: number }>
   return { col, cells }
 }

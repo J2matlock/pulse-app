@@ -10,6 +10,7 @@ import { getDb } from './database'
 import { setCellWithHistory } from './cell-write'
 import { keepSamplesUntouched } from './sample-marks'
 import { columnAffectsDisplayName, refreshDisplayNames } from './display-names'
+import { NOT_TRASHED_ROW } from '../shared/liveRecords'
 
 export class OptionsError extends Error {}
 
@@ -27,7 +28,7 @@ export interface OptionsChange {
 /** How many records (not in the trash) hold each value of this column */
 export function optionUsage(columnId: number): Record<string, number> {
   const rows = getDb().prepare(`SELECT c.value, COUNT(*) AS n FROM cells c JOIN rows r ON r.id = c.row_id
-    WHERE c.column_id = ? AND r.deleted_at IS NULL AND c.value IS NOT NULL AND c.value != '' GROUP BY c.value`).all(columnId) as Array<{ value: string; n: number }>
+    WHERE c.column_id = ? AND ${NOT_TRASHED_ROW} AND c.value IS NOT NULL AND c.value != '' GROUP BY c.value`).all(columnId) as Array<{ value: string; n: number }>
   return Object.fromEntries(rows.map(r => [r.value, r.n]))
 }
 
@@ -77,7 +78,7 @@ export function saveColumnOptions(columnId: number, change: OptionsChange): { up
       // Records in the Trash are relabelled too, so they still hold a choice when restored.
       // Every set is read before anything is written: with a swap (High ↔ Low) or a
       // chain (A → B, B → C), renaming one at a time would merge them.
-      const users = db.prepare(`SELECT c.row_id, r.deleted_at IS NULL AS live FROM cells c JOIN rows r ON r.id = c.row_id WHERE c.column_id = ? AND c.value = ?`)
+      const users = db.prepare(`SELECT c.row_id, ${NOT_TRASHED_ROW} AS live FROM cells c JOIN rows r ON r.id = c.row_id WHERE c.column_id = ? AND c.value = ?`)
       const plan = renames.map(([from, to]) => ({ to, rows: users.all(col.id, from) as Array<{ row_id: number; live: number }> }))
       const touched: number[] = []
       for (const { to, rows } of plan) {

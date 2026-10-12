@@ -15,6 +15,7 @@ import type {
   ContactFilterParams,
 } from '../shared/types'
 import type { Statement } from 'better-sqlite3'
+import { LIVE_GRID, LIVE_ROW } from '../shared/liveRecords'
 
 // ASCII unit separator: tags may legitimately contain commas ("Housing, Rental")
 const TAG_SEPARATOR = '\x1f'
@@ -369,9 +370,9 @@ export function getClientLinks(
         g.name AS grid_name,
         r.display_name AS client_name
       FROM provider_client_links pcl
-      JOIN rows r ON r.id = pcl.row_id AND r.is_active = 1 AND r.deleted_at IS NULL
+      JOIN rows r ON r.id = pcl.row_id AND ${LIVE_ROW}
       -- The record's own list, and only while it isn't in the Trash
-      JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
+      JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
       WHERE pcl.provider_id = ?
       ORDER BY pcl.linked_at DESC
     `).all(params.providerId) as ProviderClientLink[]

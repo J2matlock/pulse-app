@@ -40,6 +40,7 @@ import { addLink, listLinkTypes, setupLink } from './links'
 import { applyPortableStage } from './stage-portable'
 import { applyPortableForms, portableForms } from './form-portable'
 import type { PortableStage } from '../shared/stages'
+import { liveGrid } from '../shared/liveRecords'
 
 export type { StarterSource, ApplyOptions, ApplyResult, StarterPreview } from '../shared/starters/schema'
 
@@ -148,7 +149,7 @@ const toKey = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 export function exportWorkspaceStarter(): Starter {
   const db = getDb()
   const sampleGridId = getSampleGridId()
-  const grids = (db.prepare('SELECT id, name, description, record_kind, vocab, display_format FROM grids WHERE is_active = 1 ORDER BY position, id').all() as
+  const grids = (db.prepare(`SELECT id, name, description, record_kind, vocab, display_format FROM grids WHERE ${liveGrid('')} ORDER BY position, id`).all() as
     Array<{ id: number; name: string; description: string | null; record_kind: string | null; vocab: string | null; display_format: string | null }>)
     .filter(g => g.id !== sampleGridId)
   if (grids.length === 0) throw new StarterError(`There's nothing to share yet: add ${word('list', { article: true })} first.`)
@@ -266,7 +267,7 @@ type Db = ReturnType<typeof getDb>
 
 /** "Name", or "Name 2", "Name 3"… — the first not used by an active list */
 function freeGridName(db: Db, name: string, taken: Set<string>): string {
-  const exists = db.prepare('SELECT 1 FROM grids WHERE is_active = 1 AND name = ? COLLATE NOCASE')
+  const exists = db.prepare(`SELECT 1 FROM grids WHERE ${liveGrid('')} AND name = ? COLLATE NOCASE`)
   for (let n = 1; ; n++) {
     const candidate = n === 1 ? name : `${name} ${n}`
     if (!exists.get(candidate) && !taken.has(candidate.toLowerCase())) return candidate

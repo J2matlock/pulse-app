@@ -11,6 +11,7 @@ import type { GridDeadlineContext } from '../shared/ipc-contract'
 import { workCalendarSetting } from './vocab'
 import { localDateString } from '../shared/dates'
 import { daysBetween } from '../shared/ymd'
+import { LIVE_GRID, LIVE_ROW, NOT_TRASHED_ROW } from '../shared/liveRecords'
 
 /** One deadline: the same fields the dashboard always had, plus the engine's result */
 export interface DeadlineItem extends DeadlineResult {
@@ -83,7 +84,7 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
   const today = q.today ?? localDateString()
   const cal = loadWorkCalendar()
   const rowFilter = q.rowIds?.length ? `AND r.id IN (${q.rowIds.map(() => '?').join(',')})` : ''
-  const activeOnly = q.includeArchived ? '' : 'AND r.is_active = 1'
+  const rowState = q.includeArchived ? NOT_TRASHED_ROW : LIVE_ROW
   // Plain interval rules need only the filled-in cell: one query for all of them
   const rows = getDb().prepare(`
     SELECT r.id AS row_id, r.grid_id, g.name AS grid_name, col.id AS column_id, col.name AS column_name,
@@ -91,8 +92,8 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
            ar.interval_days, ar.interval_months, ar.end_of_month, ar.thresholds AS alert_thresholds,
            ar.kind, ar.rule_config, ar.rule_condition, ar.business_days, dd.done_for AS finished_for
     FROM cells c
-    JOIN rows r   ON r.id = c.row_id ${activeOnly} AND r.deleted_at IS NULL
-    JOIN grids g  ON g.id = r.grid_id AND g.is_active = 1
+    JOIN rows r   ON r.id = c.row_id AND ${rowState}
+    JOIN grids g  ON g.id = r.grid_id AND ${LIVE_GRID}
     JOIN columns col ON col.id = c.column_id AND col.column_type IN ('date', 'deadline')
       AND json_extract(col.config, '$.alert_rule_id') IS NOT NULL
     JOIN alert_rules ar ON ar.id = CAST(json_extract(col.config, '$.alert_rule_id') AS INTEGER)
@@ -143,7 +144,7 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
            ar.id AS rule_id, ar.interval_days, ar.interval_months, ar.end_of_month, ar.thresholds AS alert_thresholds,
            ar.kind, ar.rule_config, ar.rule_condition, ar.business_days
     FROM columns col
-    JOIN grids g ON g.id = col.grid_id AND g.is_active = 1
+    JOIN grids g ON g.id = col.grid_id AND ${LIVE_GRID}
     JOIN alert_rules ar ON ar.id = CAST(json_extract(col.config, '$.alert_rule_id') AS INTEGER)
     WHERE col.column_type IN ('date', 'deadline') AND json_extract(col.config, '$.alert_rule_id') IS NOT NULL
       AND (COALESCE(ar.kind, 'interval') != 'interval' OR ar.rule_condition IS NOT NULL)
@@ -156,7 +157,7 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
       SELECT r.id AS row_id, r.display_name AS client_name, g.record_kind,
              (SELECT value FROM cells WHERE row_id = r.id AND column_id = ?) AS own ${refSelect}
       FROM rows r JOIN grids g ON g.id = r.grid_id
-      WHERE r.grid_id = ? ${activeOnly} AND r.deleted_at IS NULL ${rowFilter}
+      WHERE r.grid_id = ? AND ${rowState} ${rowFilter}
     `).all(rc.column_id, rc.grid_id, ...(q.rowIds ?? [])) as Array<Record<string, unknown> & { row_id: number; client_name: string | null; record_kind: string | null; own: string | null }>
     const parsed = engineRuleFrom({ ...rc, id: rc.rule_id })
     const history = meterHistories(meterHistoryColumn(parsed))

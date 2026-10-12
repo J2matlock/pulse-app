@@ -9,6 +9,7 @@
 import { getDb, cachedStmt } from './database'
 import { parseAutoNumberConfig, formatAutoNumber, autoNumberValue, DEFAULT_AUTO_NUMBER } from '../shared/autoNumber'
 import { columnAffectsDisplayName, refreshDisplayNames } from './display-names'
+import { NOT_TRASHED_ROW } from '../shared/liveRecords'
 
 interface AutoColumn { id: number; config: string | null }
 
@@ -74,7 +75,7 @@ export function numberExistingRows(columnId: number): number {
   const rows = db.prepare(`
     SELECT r.id FROM rows r
     LEFT JOIN cells c ON c.row_id = r.id AND c.column_id = ?
-    WHERE r.grid_id = ? AND r.deleted_at IS NULL AND (c.value IS NULL OR TRIM(c.value) = '')
+    WHERE r.grid_id = ? AND ${NOT_TRASHED_ROW} AND (c.value IS NULL OR TRIM(c.value) = '')
     ORDER BY r.position, r.id
   `).all(columnId, col.grid_id) as Array<{ id: number }>
   db.transaction(() => assignAutoNumbers(col.grid_id, rows.map(r => r.id)))()

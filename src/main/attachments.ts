@@ -11,6 +11,7 @@ import { getDb } from './database'
 import { scheduleReclaimFreePages } from './purge-hooks'
 import { word } from './vocab'
 import { ALLOWED_TYPES_TEXT, DEFAULT_LIMIT_MB, LIMIT_MB_RANGE, MAX_FILE_BYTES, formatBytes, type Attachment, type AttachmentUsage } from '../shared/attachments'
+import { notTrashedRow } from '../shared/liveRecords'
 
 export class AttachmentError extends Error {}
 
@@ -137,7 +138,7 @@ export interface AddResult {
  */
 export function addAttachments(rowId: number, paths: string[], opts: { caseLogId?: number; description?: string; allowDuplicates?: boolean } = {}): AddResult {
   const db = getDb()
-  if (!db.prepare('SELECT 1 FROM rows WHERE id = ? AND deleted_at IS NULL').get(rowId)) throw new AttachmentError(`That ${word('record')} is no longer available.`)
+  if (!db.prepare(`SELECT 1 FROM rows WHERE id = ? AND ${notTrashedRow('')}`).get(rowId)) throw new AttachmentError(`That ${word('record')} is no longer available.`)
   if (opts.caseLogId !== undefined && !db.prepare('SELECT 1 FROM case_log WHERE id = ? AND row_id = ?').get(opts.caseLogId, rowId)) throw new AttachmentError(`That ${word('activity', {}, (db.prepare('SELECT grid_id FROM rows WHERE id = ?').get(rowId) as { grid_id: number }).grid_id)} is no longer available.`)
   if (paths.length === 0) return { added: [], duplicates: [] }
   if (paths.length > 50) throw new AttachmentError('Add up to 50 files at a time.')

@@ -11,6 +11,7 @@ import { localDateString } from '../shared/dates'
 import { ymdToDate } from '../shared/ymd'
 import { userTypeKeys } from './activity-types'
 import { word } from './vocab'
+import { LIVE_ROW, liveGrid } from '../shared/liveRecords'
 
 export const MAX_REQUIREMENTS = 10
 
@@ -87,7 +88,7 @@ export function getRequirementStatus(ref: string = localDateString(), gridId?: n
 
   const clientsStmt = db.prepare(`
     SELECT r.id AS row_id, COALESCE(NULLIF(r.display_name, ''), ?) AS client_name
-    FROM rows r WHERE r.grid_id = ? AND r.is_active = 1 AND r.deleted_at IS NULL
+    FROM rows r WHERE r.grid_id = ? AND ${LIVE_ROW}
     ORDER BY client_name COLLATE NOCASE
   `)
   // Counted by the day it happened (occurred_at, stored in UTC); periods are the user's local calendar days
@@ -98,7 +99,7 @@ export function getRequirementStatus(ref: string = localDateString(), gridId?: n
       AND date(cl.occurred_at, 'localtime') BETWEEN ? AND ?
     GROUP BY cl.row_id, cl.log_type
   `)
-  const gridName = db.prepare('SELECT name FROM grids WHERE id = ? AND is_active = 1')
+  const gridName = db.prepare(`SELECT name FROM grids WHERE id = ? AND ${liveGrid('')}`)
 
   const result: ContactStatusGrid[] = []
   for (const [gid, gridReqs] of byGrid) {

@@ -22,6 +22,7 @@ import {
   MATERIALIZE_MONTHS, MAX_HORIZON_MONTHS, DATE_RE, OPEN_RECORD_SQL,
   type Appointment, type ApptInput, type ApptPatch, type EditScope, type SeriesRule, type SeriesTemplate, type ApptStatus,
 } from '../shared/appointments'
+import { LIVE_GRID, NOT_TRASHED_ROW, notTrashedRow } from '../shared/liveRecords'
 
 export class ApptError extends Error {}
 
@@ -43,7 +44,7 @@ export interface ApptSnapshot {
 export interface ApptChange { snapshot: ApptSnapshot; ids: number[] }
 
 const SELECT = `
-  SELECT a.*, CASE WHEN r.deleted_at IS NULL AND g.is_active = 1 THEN COALESCE(NULLIF(r.display_name, ''), '(unnamed)') END AS record_name,
+  SELECT a.*, CASE WHEN ${NOT_TRASHED_ROW} AND ${LIVE_GRID} THEN COALESCE(NULLIF(r.display_name, ''), '(unnamed)') END AS record_name,
          r.grid_id, g.name AS grid_name, ser.rule AS series_rule
   FROM appointments a LEFT JOIN rows r ON r.id = a.row_id LEFT JOIN grids g ON g.id = r.grid_id
   LEFT JOIN appointment_series ser ON ser.id = a.series_id`
@@ -174,7 +175,7 @@ export function removedAppointments(today = localDateString()): RemovedAppointme
 
 function checkRecord(rowId: number | null | undefined): number | null {
   if (rowId == null) return null
-  if (!getDb().prepare('SELECT 1 FROM rows WHERE id = ? AND deleted_at IS NULL').get(rowId)) throw new ApptError(`That ${word('record')} is no longer available.`)
+  if (!getDb().prepare(`SELECT 1 FROM rows WHERE id = ? AND ${notTrashedRow('')}`).get(rowId)) throw new ApptError(`That ${word('record')} is no longer available.`)
   return rowId
 }
 
@@ -509,7 +510,7 @@ export function setAppointmentStatus(id: number, status: ApptStatus, opts: Statu
       change.revertedDates = revertNoteDates(a.case_log_id)
     }
     let noteId: number | null = null
-    if (a.row_id !== null && !db.prepare('SELECT 1 FROM rows WHERE id = ? AND deleted_at IS NULL').get(a.row_id)) throw new ApptError(`That ${word('record')} is no longer available.`)
+    if (a.row_id !== null && !db.prepare(`SELECT 1 FROM rows WHERE id = ? AND ${notTrashedRow('')}`).get(a.row_id)) throw new ApptError(`That ${word('record')} is no longer available.`)
     if (a.row_id !== null && status !== 'scheduled') {
       const userTypes = userTypeKeys(false)
       const type = status === 'done' ? noteTypeFor(a) : userTypes.has(status) ? status : null

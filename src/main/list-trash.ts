@@ -19,6 +19,7 @@ import { deleteLinksForGrid } from './links'
 import { hasDisplayFormat, isLastNameColumnName, refreshDisplayNames } from './display-names'
 import { keepSamplesUntouched } from './sample-marks'
 import { word } from './vocab'
+import { NOT_TRASHED_ROW } from '../shared/liveRecords'
 
 export class TrashError extends Error {}
 
@@ -296,7 +297,7 @@ export function trashList(gridId: number): void {
 export interface DeletedList { id: number; name: string; deleted_at: string; records: number }
 
 export function listDeletedLists(): DeletedList[] {
-  return getDb().prepare(`SELECT g.id, g.name, g.deleted_at, (SELECT COUNT(*) FROM rows r WHERE r.grid_id = g.id AND r.deleted_at IS NULL) AS records
+  return getDb().prepare(`SELECT g.id, g.name, g.deleted_at, (SELECT COUNT(*) FROM rows r WHERE r.grid_id = g.id AND ${NOT_TRASHED_ROW}) AS records
     FROM grids g WHERE g.is_active = 0 AND g.deleted_at IS NOT NULL ORDER BY g.deleted_at DESC, g.id DESC`).all() as DeletedList[]
 }
 

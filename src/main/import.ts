@@ -24,6 +24,7 @@ import { hasDisplayFormat, refreshDisplayNames } from './display-names'
 import { assignAutoNumbers, bumpAutoNumbersPastValues } from './auto-number'
 import { addLink, createLinkedRecord, getLinkType, otherGridOf } from './links'
 import { holdsOne, linkColumnSpecs, type LinkDirection } from '../shared/links'
+import { LIVE_ROW, notTrashedRow } from '../shared/liveRecords'
 
 /** Type guard: checks if a string is a valid ColumnType. */
 function isValidColumnType(s: string): s is ColumnType {
@@ -1111,7 +1112,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
       const existingCells = (columnId: number) => db.prepare(`
         SELECT r.id, c.value FROM rows r
         JOIN cells c ON c.row_id = r.id AND c.column_id = ?
-        WHERE r.grid_id = ? AND r.is_active = 1 AND r.deleted_at IS NULL
+        WHERE r.grid_id = ? AND ${LIVE_ROW}
       `).all(columnId, gridId) as Array<{ id: number; value: string }>
       const norm = (v: string) => v.toLowerCase().trim()
 
@@ -1208,7 +1209,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
       if (!cfg || !type) continue
       const otherGridId = otherGridOf(type, cfg.direction)
       const byName = new Map<string, number>()
-      for (const r of db.prepare("SELECT id, display_name FROM rows WHERE grid_id = ? AND deleted_at IS NULL AND COALESCE(display_name, '') != '' ORDER BY is_active DESC, id").all(otherGridId) as Array<{ id: number; display_name: string }>) {
+      for (const r of db.prepare(`SELECT id, display_name FROM rows WHERE grid_id = ? AND ${notTrashedRow('')} AND COALESCE(display_name, '') != '' ORDER BY is_active DESC, id`).all(otherGridId) as Array<{ id: number; display_name: string }>) {
         const k = r.display_name.trim().toLowerCase()
         if (!byName.has(k)) byName.set(k, r.id)
       }

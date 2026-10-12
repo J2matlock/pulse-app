@@ -11,6 +11,7 @@ import { columnAffectsDisplayName, refreshDisplayNames } from './display-names'
 import { canBeStage, columnOptionLabels, stageConfigOf, stageConfigSchema, type StageConfig, type StageDurations, type StageMoveResult, type StageSummary } from '../shared/stages'
 import { parseDbTimestamp } from '../shared/dates'
 import { localDateString } from '../shared/dates'
+import { LIVE_GRID, LIVE_ROW, NOT_TRASHED_ROW } from '../shared/liveRecords'
 
 export class StageError extends Error {}
 
@@ -97,7 +98,7 @@ export function saveStageConfig(columnId: number, input: unknown): number[] {
  */
 export function moveStage(rowId: number, columnId: number, value: string | null): StageMoveResult {
   const db = getDb()
-  const col = db.prepare('SELECT c.id, c.grid_id, c.name, c.column_type, c.config, r.grid_id AS row_grid FROM columns c JOIN rows r ON r.id = ? WHERE c.id = ? AND r.deleted_at IS NULL')
+  const col = db.prepare(`SELECT c.id, c.grid_id, c.name, c.column_type, c.config, r.grid_id AS row_grid FROM columns c JOIN rows r ON r.id = ? WHERE c.id = ? AND ${NOT_TRASHED_ROW}`)
     .get(rowId, columnId) as (ColumnRow & { row_grid: number }) | undefined
   if (!col || col.row_grid !== col.grid_id) throw new StageError(`That ${word('record', {}, col?.grid_id)} or column no longer exists.`)
   const stage = stageConfigOf(col)
@@ -185,7 +186,7 @@ export function stageDurations(gridId: number, columnId: number, rowIds?: number
   const ids = rowIds?.length ? rowIds.slice(0, 5000) : null
   const rows = db.prepare(`
     SELECT r.id, r.created_at, c.value FROM rows r LEFT JOIN cells c ON c.row_id = r.id AND c.column_id = ?
-    WHERE r.grid_id = ? AND r.deleted_at IS NULL ${ids ? `AND r.id IN (${ids.map(() => '?').join(',')})` : ''}`)
+    WHERE r.grid_id = ? AND ${NOT_TRASHED_ROW} ${ids ? `AND r.id IN (${ids.map(() => '?').join(',')})` : ''}`)
     .all(columnId, gridId, ...(ids ?? [])) as Array<{ id: number; created_at: string; value: string | null }>
   const history = new Map<number, Array<{ old_value: string | null; new_value: string | null; changed_at: string }>>()
   const hist = db.prepare(`
@@ -228,13 +229,13 @@ export function stageDurations(gridId: number, columnId: number, rowIds?: number
 export function stageSummary(now = new Date()): StageSummary[] {
   const db = getDb()
   const cols = db.prepare(`SELECT c.id, c.grid_id, c.name, c.column_type, c.config, g.name AS grid_name FROM columns c JOIN grids g ON g.id = c.grid_id
-    WHERE g.is_active = 1 AND c.column_type IN ('status', 'dropdown') ORDER BY g.position, g.id`).all() as Array<ColumnRow & { grid_name: string }>
+    WHERE ${LIVE_GRID} AND c.column_type IN ('status', 'dropdown') ORDER BY g.position, g.id`).all() as Array<ColumnRow & { grid_name: string }>
   const out: StageSummary[] = []
   for (const col of cols) {
     const stage = stageConfigOf(col)
     if (!stage) continue
     const rows = db.prepare(`SELECT r.id, COALESCE(NULLIF(r.display_name, ''), '(unnamed)') AS name, c.value FROM rows r
-      LEFT JOIN cells c ON c.row_id = r.id AND c.column_id = ? WHERE r.grid_id = ? AND r.is_active = 1 AND r.deleted_at IS NULL`)
+      LEFT JOIN cells c ON c.row_id = r.id AND c.column_id = ? WHERE r.grid_id = ? AND ${LIVE_ROW}`)
       .all(col.id, col.grid_id) as Array<{ id: number; name: string; value: string | null }>
     const durations = stageDurations(col.grid_id, col.id, undefined, now)
     const counts = new Map<string, number>()

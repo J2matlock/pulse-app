@@ -13,6 +13,7 @@ import { localDateString } from '../shared/dates'
 import { word } from './vocab'
 import { trashList } from './list-trash'
 import { parseSampleMarks, sampleFingerprintMatches, sampleRowHasUserAdditions, trackSampleRows } from './sample-marks'
+import { LIVE_GRID, NOT_TRASHED_ROW, liveGrid } from '../shared/liveRecords'
 
 export const SAMPLE_GRID_NAME = 'Sample Caseload (not real clients)'
 const META_KEY = 'sample_data'
@@ -51,7 +52,7 @@ function readRecord(): SampleRecord | null {
 export function getSampleGridId(): number | null {
   const rec = readRecord()
   if (!rec) return null
-  const exists = getDb().prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 1').get(rec.gridId)
+  const exists = getDb().prepare(`SELECT 1 FROM grids WHERE id = ? AND ${liveGrid('')}`).get(rec.gridId)
   return exists ? rec.gridId : null
 }
 
@@ -69,7 +70,7 @@ const NOTES: Array<[string, string]> = [
 /** How many sample entries are still out (not in the Trash, on their own or with their list). */
 export function countSampleRows(): number {
   return (getDb().prepare(`SELECT COUNT(*) AS n FROM sample_rows s JOIN rows r ON r.id = s.row_id
-    JOIN grids g ON g.id = r.grid_id AND g.is_active = 1 WHERE r.deleted_at IS NULL`).get() as { n: number }).n
+    JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID} WHERE ${NOT_TRASHED_ROW}`).get() as { n: number }).n
 }
 
 export interface SampleRemovalPlan {
@@ -85,8 +86,8 @@ export interface SampleRemovalPlan {
 export function planSampleRemoval(): SampleRemovalPlan {
   const db = getDb()
   const rows = db.prepare(`SELECT s.row_id, s.grid_id AS loaded_in, s.fingerprint, s.marks, s.asked, r.grid_id
-    FROM sample_rows s JOIN rows r ON r.id = s.row_id JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
-    WHERE r.deleted_at IS NULL ORDER BY s.row_id`)
+    FROM sample_rows s JOIN rows r ON r.id = s.row_id JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
+    WHERE ${NOT_TRASHED_ROW} ORDER BY s.row_id`)
     .all() as Array<{ row_id: number; loaded_in: number; fingerprint: string; marks: string; asked: number; grid_id: number }>
   const remove: number[] = []
   const keep: number[] = []
@@ -97,7 +98,7 @@ export function planSampleRemoval(): SampleRemovalPlan {
     ;(touched ? keep : remove).push(r.row_id)
   }
   const gridId = getSampleGridId()
-  const ownInSampleList = gridId === null ? 0 : (db.prepare(`SELECT COUNT(*) AS n FROM rows r WHERE r.grid_id = ? AND r.deleted_at IS NULL
+  const ownInSampleList = gridId === null ? 0 : (db.prepare(`SELECT COUNT(*) AS n FROM rows r WHERE r.grid_id = ? AND ${NOT_TRASHED_ROW}
     AND NOT EXISTS (SELECT 1 FROM sample_rows s WHERE s.row_id = r.id)`).get(gridId) as { n: number }).n
   return { remove, keep, ownInSampleList }
 }
@@ -145,7 +146,7 @@ function sampleListIsAllSamples(removing: number[]): number | null {
   if (!rec || gridId === null) return null
   const db = getDb()
   const theirs = (db.prepare(`SELECT COUNT(*) AS n FROM rows r WHERE r.grid_id = ? AND r.id NOT IN (SELECT value FROM json_each(?))
-    AND (r.deleted_at IS NULL OR NOT EXISTS (SELECT 1 FROM sample_rows s WHERE s.row_id = r.id))`).get(gridId, JSON.stringify(removing)) as { n: number }).n
+    AND (${NOT_TRASHED_ROW} OR NOT EXISTS (SELECT 1 FROM sample_rows s WHERE s.row_id = r.id))`).get(gridId, JSON.stringify(removing)) as { n: number }).n
   const ownTasks = (db.prepare('SELECT COUNT(*) AS n FROM caseload_tasks WHERE grid_id = ? AND (id NOT IN (SELECT value FROM json_each(?)) OR updated_at != created_at)')
     .get(gridId, JSON.stringify(rec.taskIds)) as { n: number }).n
   return theirs === 0 && ownTasks === 0 ? gridId : null
@@ -173,14 +174,14 @@ function removeSampleCaseload(wholeList: boolean): string | null {
   }
   // Sample contacts go unless the user edited them, linked them to someone or logged a call
   const delProvider = db.prepare(`DELETE FROM providers WHERE id = ? AND updated_at = created_at
-    AND NOT EXISTS (SELECT 1 FROM provider_client_links l JOIN rows r ON r.id = l.row_id JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
-      WHERE l.provider_id = providers.id AND r.deleted_at IS NULL)
+    AND NOT EXISTS (SELECT 1 FROM provider_client_links l JOIN rows r ON r.id = l.row_id JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
+      WHERE l.provider_id = providers.id AND ${NOT_TRASHED_ROW})
     AND NOT EXISTS (SELECT 1 FROM provider_interactions i WHERE i.provider_id = providers.id)`)
   for (const id of rec.providerIds) delProvider.run(id)
   // Only delete sample rules no column of an open list still uses. Columns of the sample list in the
   // Trash let go of them first, as when a rule is deleted, so none is left pointing at a missing rule.
   const ruleCols = `SELECT c.id FROM columns c JOIN grids g ON g.id = c.grid_id WHERE CAST(json_extract(c.config, '$.alert_rule_id') AS INTEGER) = ?`
-  const inUse = db.prepare(`${ruleCols} AND g.is_active = 1 LIMIT 1`)
+  const inUse = db.prepare(`${ruleCols} AND ${LIVE_GRID} LIMIT 1`)
   const unlink = db.prepare(`UPDATE columns SET config = json_remove(config, '$.alert_rule_id', '$.alert_rule_name') WHERE id IN (${ruleCols})`)
   const delRule = db.prepare('DELETE FROM alert_rules WHERE id = ?')
   for (const id of rec.alertRuleIds) if (!inUse.get(id)) { unlink.run(id); delRule.run(id) }
