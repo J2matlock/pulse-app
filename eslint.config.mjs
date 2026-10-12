@@ -2,7 +2,7 @@ import tseslint from '@typescript-eslint/eslint-plugin'
 import tsparser from '@typescript-eslint/parser'
 import security from 'eslint-plugin-security'
 import reactHooks from 'eslint-plugin-react-hooks'
-import { vocabRuleOptions, vocabNotYetConverted } from './eslint/vocab-rule.mjs'
+import { vocabRuleOptions, vocabNotYetConverted, vocabRendererTsRuleOptions, vocabMainRuleOptions } from './eslint/vocab-rule.mjs'
 
 const undoInvokeRule = {
   selector: "Property[key.name=/^(undo|redo)$/] CallExpression[callee.name='safeInvoke']",
@@ -68,7 +68,14 @@ export default [
   },
   {
     files: ['src/renderer/**/*.ts'],
-    rules: { 'no-restricted-syntax': ['error', rawErrorToast, undoInvokeRule] },
+    rules: { 'no-restricted-syntax': ['error', ...vocabRendererTsRuleOptions, rawErrorToast, undoInvokeRule] },
+  },
+  {
+    // Main-process messages, PDF text and table heads use word()/vocabFor() (A28-05).
+    // Migrations write the words existing installs keep, so they may name them.
+    files: ['src/main/**/*.ts'],
+    ignores: ['src/main/migrations/**'],
+    rules: { 'no-restricted-syntax': ['error', ...vocabMainRuleOptions] },
   },
   {
     ignores: ['out/**', 'dist/**', 'node_modules/**', '*.config.*', 'eslint/**'],

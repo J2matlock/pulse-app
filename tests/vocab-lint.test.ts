@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest'
 import { Linter } from 'eslint'
 import tsparser from '@typescript-eslint/parser'
 // @ts-expect-error -- plain .mjs config module without types
-import { vocabRuleOptions, vocabNotYetConverted } from '../eslint/vocab-rule.mjs'
+import { vocabRuleOptions, vocabNotYetConverted, vocabMainRuleOptions, vocabRendererTsRuleOptions } from '../eslint/vocab-rule.mjs'
 
 const linter = new Linter({ configType: 'flat' })
 const lint = (code: string) => linter.verify(code, [{
@@ -14,6 +14,13 @@ const lint = (code: string) => linter.verify(code, [{
   languageOptions: { parser: tsparser, parserOptions: { ecmaFeatures: { jsx: true } } },
   rules: { 'no-restricted-syntax': ['error', ...vocabRuleOptions] },
 }], 'x.tsx')
+const lintTs = (code: string, options: unknown[]) => linter.verify(code, [{
+  files: ['**/*.ts'],
+  languageOptions: { parser: tsparser },
+  rules: { 'no-restricted-syntax': ['error', ...options] },
+}], 'x.ts')
+const lintMain = (code: string) => lintTs(code, vocabMainRuleOptions)
+const lintRendererTs = (code: string) => lintTs(code, vocabRendererTsRuleOptions)
 
 describe('vocabulary lint rule', () => {
   it('flags hard-coded words in JSX text and labels', () => {
@@ -52,5 +59,44 @@ describe('vocabulary lint rule', () => {
   it('tracks which folders are still waiting for the word rollout', () => {
     // Shrinks to [] as the rollout converts each folder (W01 §2.3)
     expect(Array.isArray(vocabNotYetConverted)).toBe(true)
+  })
+
+  // A28-05: more human-services words, more props, renderer .ts files and the main process
+  it('flags the other human-services words and the props that carry text', () => {
+    expect(lint('const a = <p>Linked providers</p>')).toHaveLength(1)
+    expect(lint('const a = <p>Acuity</p>')).toHaveLength(1)
+    expect(lint('const a = <p>For social workers and care coordinators</p>')).toHaveLength(1)
+    expect(lint('const a = <Dialog message="Archive this client?" />')).toHaveLength(1)
+    expect(lint('const a = <Dialog confirmLabel="Remove provider" />')).toHaveLength(1)
+    expect(lint('const a = <Empty emptyText={`No contact requirements yet`} />')).toHaveLength(1)
+    expect(lint('const a = <Tip content="Each case manager sees this" />')).toHaveLength(1)
+    // the About page's authorship line is a fact, and "Record minutes" is a verb
+    expect(lint('const a = <p>Built by a care coordinator, for anyone</p>')).toHaveLength(0)
+    expect(lint('const a = <Offer message={`Record minutes on ${t("activity")}?`} />')).toHaveLength(0)
+  })
+
+  it('flags words in renderer .ts toasts and setError', () => {
+    expect(lintRendererTs('toast.error("Could not save the client")')).toHaveLength(1)
+    expect(lintRendererTs('setError(`Choose a caseload first`)')).toHaveLength(1)
+    expect(lintRendererTs('setError("Pick the record to open")')).toHaveLength(1)
+    expect(lintRendererTs("setError(`Choose ${t('list', { article: true })} first`)")).toHaveLength(0)
+  })
+
+  it('flags human-services words in main-process messages, PDF text and table heads', () => {
+    expect(lintMain("return fail('That client no longer exists.')")).toHaveLength(1)
+    expect(lintMain('throw new StageError(`The caseload ${n} is gone`)')).toHaveLength(1)
+    expect(lintMain("doc.text('Case notes', 10, 20)")).toHaveLength(1)
+    expect(lintMain("sectionTitle('Linked providers')")).toHaveLength(1)
+    expect(lintMain("const t = { head: [['Client', 'Due']] }")).toHaveLength(1)
+    expect(lintMain("const t = { title: 'Acuity summary' }")).toHaveLength(1)
+  })
+
+  it('leaves developer messages and vocabulary calls in the main process alone', () => {
+    expect(lintMain("return fail('Invalid provider ID')")).toHaveLength(0)
+    expect(lintMain("return fail('Expected an array of providers')")).toHaveLength(0)
+    expect(lintMain("throw new Error('Too many provider IDs requested')")).toHaveLength(0)
+    expect(lintMain("throw new Error('provider row missing')")).toHaveLength(0)
+    expect(lintMain("return fail(`That ${word('record')} no longer exists.`)")).toHaveLength(0)
+    expect(lintMain("doc.text(`${word('record', { cap: true })} profile`, 10, 20)")).toHaveLength(0)
   })
 })
