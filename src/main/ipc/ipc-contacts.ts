@@ -4,8 +4,10 @@
 
 import { readFile } from 'fs/promises'
 import { statSync } from 'fs'
+import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
-import { secureWrap, logNonFatal, ok, fail, assertSafePath, validId, notifyCaseLogChanged, enforceWritable, pickSavePath } from './ipc-utils'
+import { logNonFatal, ok, fail, assertSafePath, validId, notifyCaseLogChanged, pickSavePath } from './ipc-utils'
+import { handlersFor, idArg, textArg } from './ipc-define'
 import { getDb } from '../database'
 import {
   getCategories, createCategory, updateCategory, deleteCategory,
@@ -27,22 +29,27 @@ import { decodeCsvBytes } from '../import'
 
 const BAD_COLOR = 'Choose a color from the swatches, or type one like #3b82f6.'
 
+const define = handlersFor('ipc-contacts')
+
 export function registerContactHandlers(): void {
-  secureWrap(IPC.CONTACTS_GET_CATEGORIES, 'ipc-contacts', () => {
+  define(IPC.CONTACTS_GET_CATEGORIES, [], () => {
     return ok(getCategories())
   })
 
-  secureWrap(IPC.CONTACTS_CREATE_CATEGORY, 'ipc-contacts', (_e, name: string, color: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (typeof name !== 'string' || name.trim().length === 0 || name.length > 200) return fail('Invalid category name (max 200 chars)')
+  // The color is normalized in the body (BAD_COLOR answers anything it can't read)
+  define(IPC.CONTACTS_CREATE_CATEGORY, [
+    textArg('Invalid category name (max 200 chars)', { max: 200, notBlank: true }), z.unknown(),
+  ], (name, color) => {
     const hex = normalizeHexColor(color)
     if (!hex) return fail(BAD_COLOR)
     return ok(createCategory(name, hex))
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_UPDATE_CATEGORY, 'ipc-contacts', (_e, id: number, data: { name?: string; color?: string; position?: number }) => {
-    const guard = enforceWritable(); if (guard) return guard; if (!validId(id)) return fail('Invalid ID')
-    if (!data || typeof data !== 'object') return fail('Invalid data')
+  // Fields are checked in the body, in order, as before
+  define(IPC.CONTACTS_UPDATE_CATEGORY, [
+    idArg(),
+    z.custom<{ name?: string; color?: string; position?: number }>(v => !!v && typeof v === 'object', 'Invalid data'),
+  ], (id, data) => {
     if (typeof data.name === 'string' && (data.name.trim().length === 0 || data.name.length > 200)) return fail('Invalid name')
     let color: string | undefined
     if (data.color !== undefined) {
@@ -52,13 +59,13 @@ export function registerContactHandlers(): void {
     }
     if (data.position !== undefined && (typeof data.position !== 'number' || data.position < 0 || data.position > 10000)) return fail('Invalid position')
     updateCategory(id, { name: data.name, color, position: data.position }); return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_DELETE_CATEGORY, 'ipc-contacts', (_e, id: number) => {
-    const guard = enforceWritable(); if (guard) return guard; if (!validId(id)) return fail('Invalid ID'); deleteCategory(id); return ok(true)
-  })
+  define(IPC.CONTACTS_DELETE_CATEGORY, [idArg()], (id) => {
+    deleteCategory(id); return ok(true)
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_GET_ALL, 'ipc-contacts', (_e, params: ContactFilterParams) => {
+  define(IPC.CONTACTS_GET_ALL, [z.custom<ContactFilterParams | null | undefined>()], (params) => {
     const safe = params || {}
     if (safe.categoryId !== undefined && safe.categoryId !== null && !validId(safe.categoryId)) return fail('Invalid category ID')
     if (safe.search !== undefined && typeof safe.search === 'string' && safe.search.length > 500) {
@@ -67,52 +74,44 @@ export function registerContactHandlers(): void {
     return ok(getProviders(safe))
   })
 
-  secureWrap(IPC.CONTACTS_GET_ONE, 'ipc-contacts', (_e, id: number) => {
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.CONTACTS_GET_ONE, [idArg()], (id) => {
     const provider = getProvider(id)
     if (!provider) return fail(`That ${word('contact')} no longer exists.`)
     return ok(provider)
   })
 
-  secureWrap(IPC.CONTACTS_CREATE, 'ipc-contacts', (_e, data: Partial<Provider>) => {
-    const guard = enforceWritable(); if (guard) return guard
+  // Messages built from the workspace words stay in the bodies
+  define(IPC.CONTACTS_CREATE, [z.custom<Partial<Provider>>()], (data) => {
     if (!data || typeof data !== 'object') return fail(`Those ${word('contact')} details couldn't be saved.`)
     if (typeof data.name !== 'string' || data.name.trim().length === 0 || data.name.length > 500) return fail(`${word('contact', { cap: true })} name is required (max 500 characters).`)
     return ok(createProvider(data))
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_UPDATE, 'ipc-contacts', (_e, id: number, data: Partial<Provider>) => {
-    const guard = enforceWritable(); if (guard) return guard; if (!validId(id)) return fail('Invalid ID')
+  define(IPC.CONTACTS_UPDATE, [idArg(), z.custom<Partial<Provider>>()], (id, data) => {
     if (!data || typeof data !== 'object') return fail(`Those ${word('contact')} details couldn't be saved.`)
     updateProvider(id, data); return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_DELETE, 'ipc-contacts', (_e, id: number) => {
-    const guard = enforceWritable(); if (guard) return guard; if (!validId(id)) return fail('Invalid ID'); deleteProvider(id); return ok(true)
-  })
+  define(IPC.CONTACTS_DELETE, [idArg()], (id) => {
+    deleteProvider(id); return ok(true)
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_ADD_TAG, 'ipc-contacts', (_e, providerId: number, tag: string) => {
-    const guard = enforceWritable(); if (guard) return guard; if (!validId(providerId)) return fail('Invalid ID')
-    if (typeof tag !== 'string' || tag.trim().length === 0 || tag.length > 200) return fail('Tag is required (max 200 chars)')
+  define(IPC.CONTACTS_ADD_TAG, [idArg(), textArg('Tag is required (max 200 chars)', { max: 200, notBlank: true })], (providerId, tag) => {
     addTag(providerId, tag); return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_REMOVE_TAG, 'ipc-contacts', (_e, providerId: number, tag: string) => {
-    const guard = enforceWritable(); if (guard) return guard; if (!validId(providerId)) return fail('Invalid ID')
-    if (typeof tag !== 'string' || tag.trim().length === 0 || tag.length > 200) return fail('Invalid tag')
+  define(IPC.CONTACTS_REMOVE_TAG, [idArg(), textArg('Invalid tag', { max: 200, notBlank: true })], (providerId, tag) => {
     removeTag(providerId, tag); return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_GET_CLIENT_LINKS, 'ipc-contacts', (_e, params: { providerId?: number; rowId?: number }) => {
+  define(IPC.CONTACTS_GET_CLIENT_LINKS, [z.custom<{ providerId?: number; rowId?: number } | null | undefined>()], (params) => {
     const safe = params || {}
     if (safe.providerId !== undefined && !validId(safe.providerId)) return fail('Invalid provider ID')
     if (safe.rowId !== undefined && !validId(safe.rowId)) return fail('Invalid row ID')
     return ok(getClientLinks(safe))
   })
 
-  secureWrap(IPC.CONTACTS_LINK_CLIENT, 'ipc-contacts', (_e, providerId: number, rowId: number, gridId: number, notes?: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(providerId) || !validId(rowId) || !validId(gridId)) return fail('Invalid ID')
+  define(IPC.CONTACTS_LINK_CLIENT, [idArg(), idArg(), idArg(), z.custom<string | undefined>()], (providerId, rowId, gridId, notes) => {
     const db = getDb()
     const result = db.transaction(() => {
       const link = linkClient(providerId, rowId, gridId, notes)
@@ -128,11 +127,9 @@ export function registerContactHandlers(): void {
     })()
     notifyCaseLogChanged(rowId)
     return ok(result)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_UNLINK_CLIENT, 'ipc-contacts', (_e, linkId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(linkId)) return fail('Invalid ID')
+  define(IPC.CONTACTS_UNLINK_CLIENT, [idArg()], (linkId) => {
     const db = getDb()
     let notifyRowId: number | null = null
     const result = db.transaction(() => {
@@ -154,66 +151,60 @@ export function registerContactHandlers(): void {
     })()
     if (notifyRowId !== null) notifyCaseLogChanged(notifyRowId)
     return ok(result)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_GET_INTERACTIONS, 'ipc-contacts', (_e, providerId: number) => {
-    if (!validId(providerId)) return fail('Invalid ID'); return ok(getInteractions(providerId))
-  })
+  define(IPC.CONTACTS_GET_INTERACTIONS, [idArg()], (providerId) => ok(getInteractions(providerId)))
 
   const VALID_INTERACTION_TYPES = new Set<string>(PROVIDER_CONTACT_TYPES)
 
-  secureWrap(IPC.CONTACTS_ADD_INTERACTION, 'ipc-contacts', (_e, providerId: number, contactType: string, content: string, createdAt?: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(providerId)) return fail('Invalid ID')
-    if (typeof contactType !== 'string' || !VALID_INTERACTION_TYPES.has(contactType)) return fail('Invalid interaction type')
-    if (typeof content !== 'string' || content.length > 100_000) return fail('Content too long (100,000 character limit)')
-    if (createdAt !== undefined && (typeof createdAt !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(createdAt))) return fail('Invalid date format')
+  define(IPC.CONTACTS_ADD_INTERACTION, [
+    idArg(),
+    z.enum(PROVIDER_CONTACT_TYPES, 'Invalid interaction type'),
+    textArg('Content too long (100,000 character limit)', { max: 100_000 }),
+    z.string('Invalid date format').regex(/^\d{4}-\d{2}-\d{2}/, 'Invalid date format').optional(),
+  ], (providerId, contactType, content, createdAt) => {
     return ok(addInteraction(providerId, contactType, content, createdAt))
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_UPDATE_INTERACTION, 'ipc-contacts', (_e, id: number, data: { content?: string; contact_type?: string }) => {
-    const guard = enforceWritable(); if (guard) return guard; if (!validId(id)) return fail('Invalid ID')
+  // A missing data object still throws in the body (generic message), as before
+  define(IPC.CONTACTS_UPDATE_INTERACTION, [idArg(), z.custom<{ content?: string; contact_type?: string }>()], (id, data) => {
     if (data.content !== undefined && (typeof data.content !== 'string' || data.content.length > 100_000)) return fail('Content too long')
     if (data.contact_type !== undefined && !VALID_INTERACTION_TYPES.has(data.contact_type)) return fail('Invalid interaction type')
     updateInteraction(id, data); return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_DELETE_INTERACTION, 'ipc-contacts', (_e, id: number) => {
-    const guard = enforceWritable(); if (guard) return guard; if (!validId(id)) return fail('Invalid ID'); deleteInteraction(id); return ok(true)
-  })
+  define(IPC.CONTACTS_DELETE_INTERACTION, [idArg()], (id) => {
+    deleteInteraction(id); return ok(true)
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_MARK_AVAILABILITY_CHECKED, 'ipc-contacts', (_e, providerId: number) => {
-    const guard = enforceWritable(); if (guard) return guard; if (!validId(providerId)) return fail('Invalid ID'); markAvailabilityChecked(providerId); return ok(true)
-  })
+  define(IPC.CONTACTS_MARK_AVAILABILITY_CHECKED, [idArg()], (providerId) => {
+    markAvailabilityChecked(providerId); return ok(true)
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_GET_CUSTOM_FIELDS, 'ipc-contacts', (_e, categoryId: number) => {
-    if (!validId(categoryId)) return fail('Invalid ID'); return ok(getCustomFields(categoryId))
-  })
+  define(IPC.CONTACTS_GET_CUSTOM_FIELDS, [idArg()], (categoryId) => ok(getCustomFields(categoryId)))
 
-  secureWrap(IPC.CONTACTS_CREATE_CUSTOM_FIELD, 'ipc-contacts', (_e, categoryId: number, fieldName: string, fieldType: string) => {
-    const guard = enforceWritable(); if (guard) return guard; if (!validId(categoryId)) return fail('Invalid ID')
-    if (typeof fieldName !== 'string' || fieldName.trim().length === 0 || fieldName.length > 200) return fail('Field name required (max 200 chars)')
-    const VALID_FIELD_TYPES = new Set(['text', 'phone', 'email', 'url', 'number'])
-    if (!VALID_FIELD_TYPES.has(fieldType)) return fail('Invalid field type')
+  define(IPC.CONTACTS_CREATE_CUSTOM_FIELD, [
+    idArg(),
+    textArg('Field name required (max 200 chars)', { max: 200, notBlank: true }),
+    z.enum(['text', 'phone', 'email', 'url', 'number'], 'Invalid field type'),
+  ], (categoryId, fieldName, fieldType) => {
     return ok(createCustomField(categoryId, fieldName, fieldType))
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_DELETE_CUSTOM_FIELD, 'ipc-contacts', (_e, fieldId: number) => {
-    const guard = enforceWritable(); if (guard) return guard; if (!validId(fieldId)) return fail('Invalid ID'); deleteCustomField(fieldId); return ok(true)
-  })
+  define(IPC.CONTACTS_DELETE_CUSTOM_FIELD, [idArg()], (fieldId) => {
+    deleteCustomField(fieldId); return ok(true)
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_GET_CUSTOM_VALUES, 'ipc-contacts', (_e, providerId: number) => {
-    if (!validId(providerId)) return fail('Invalid ID'); return ok(getCustomValues(providerId))
-  })
+  define(IPC.CONTACTS_GET_CUSTOM_VALUES, [idArg()], (providerId) => ok(getCustomValues(providerId)))
 
-  secureWrap(IPC.CONTACTS_SAVE_CUSTOM_VALUE, 'ipc-contacts', (_e, providerId: number, customFieldId: number, value: string | null) => {
-    const guard = enforceWritable(); if (guard) return guard; if (!validId(providerId) || !validId(customFieldId)) return fail('Invalid ID')
-    if (value !== null && (typeof value !== 'string' || value.length > 10_000)) return fail('Value too long (max 10,000 chars)')
+  define(IPC.CONTACTS_SAVE_CUSTOM_VALUE, [
+    idArg(), idArg(), z.string('Value too long (max 10,000 chars)').max(10_000, 'Value too long (max 10,000 chars)').nullable(),
+  ], (providerId, customFieldId, value) => {
     saveCustomValue(providerId, customFieldId, value); return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_IMPORT_VCF, 'ipc-contacts', async (_e, filePath: string) => {
-    const guard = enforceWritable(); if (guard) return guard
+  // assertSafePath checks the path (and throws) in the body, as before
+  define(IPC.CONTACTS_IMPORT_VCF, [z.custom<string>()], async (filePath) => {
     assertSafePath(filePath)
     const stat = statSync(filePath)
     if (stat.size > 10 * 1024 * 1024) return fail('vCard file too large (max 10 MB)')
@@ -242,11 +233,10 @@ export function registerContactHandlers(): void {
     }
 
     return ok(parsed)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_CONFIRM_IMPORT_VCF, 'ipc-contacts', (_e, providers: Array<Partial<Provider>>) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!Array.isArray(providers)) return fail('Expected an array of providers')
+  // Each entry is checked (and trimmed) in the body; the cap's message uses the workspace words
+  define(IPC.CONTACTS_CONFIRM_IMPORT_VCF, [z.array(z.custom<Partial<Provider>>(), 'Expected an array of providers')], (providers) => {
     // Matches parseVCard's cap, so every contact the preview shows can be imported in one go.
     if (providers.length > 1000) return fail(`You can import up to 1,000 ${word('contact', { many: true })} at a time.`)
     const db = getDb()
@@ -302,11 +292,13 @@ export function registerContactHandlers(): void {
       }
     })()
     return ok(count)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CONTACTS_EXPORT_VCF, 'ipc-contacts', async (_e, providerIds: number[] | null) => {
+  // The cap's message uses the workspace words, so it and the id check after it stay in the body
+  define(IPC.CONTACTS_EXPORT_VCF, [
+    z.array(z.custom<number>(), 'Expected an array of provider IDs').nullable(),
+  ], async (providerIds) => {
     if (providerIds !== null) {
-      if (!Array.isArray(providerIds)) return fail('Expected an array of provider IDs')
       if (providerIds.length > 5000) return fail(`You can export up to 5,000 ${word('contact', { many: true })} at a time.`)
       if (!providerIds.every(id => validId(id))) return fail('Invalid provider ID in list')
     }
