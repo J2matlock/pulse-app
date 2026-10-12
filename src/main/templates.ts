@@ -17,7 +17,7 @@ import { usesHumanServicesWords } from './vocab'
 import { freshAutoNumberConfig } from './auto-number'
 import { buildSafeSetClause, logNonFatal, assertSafePath } from './ipc/ipc-utils'
 import type { Column, ChecklistTemplate, AlertRule } from '../shared/types'
-import type { RuleKind } from '../shared/deadlineEngine'
+import { RULE_KINDS, type RuleKind } from '../shared/deadlineEngine'
 import { linkColumnRules, portableRuleFields, refersToColumns, resolveRuleFields } from './rule-columns'
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -145,7 +145,7 @@ const PulseAlertRuleSchema = z.object({
   interval_days: z.number().int().min(0).max(3650).nullable().optional(),
   interval_months: z.number().int().min(0).max(120).nullable().optional(),
   end_of_month: z.number().int().min(0).max(1).nullable().optional(),
-  kind: z.enum(['interval', 'relative', 'calendar', 'meter', 'quota', 'sequence']).optional(),
+  kind: z.enum(RULE_KINDS).optional(),
   rule_config: jsonString(MAX_JSON_FIELD_LEN).nullable().optional(),
   rule_condition: jsonString(2_000).nullable().optional(),
   business_days: z.union([z.literal(0), z.literal(1)]).optional(),

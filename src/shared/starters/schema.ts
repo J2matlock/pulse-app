@@ -11,6 +11,7 @@
  * Pulse can apply them.
  */
 import { z } from 'zod'
+import { RULE_KINDS } from '../deadlineEngine'
 import { vocabSchema, type VocabKey } from '../vocab'
 import { featureMapSchema, type FeatureKey } from '../features'
 import { ACTIVITY_COLORS } from '../activityTypes'
@@ -54,7 +55,7 @@ const alertRuleSchema = z.object({
   interval_months: z.number().int().min(0).max(120).nullable().optional(),
   end_of_month: z.number().int().min(0).max(1).nullable().optional(),
   /** W05 kinds; settings name columns as { "column": "Referral date" } */
-  kind: z.enum(['interval', 'relative', 'calendar', 'meter', 'quota', 'sequence']).optional(),
+  kind: z.enum(RULE_KINDS).optional(),
   rule_config: z.string().max(10_000).nullable().optional(),
   rule_condition: z.string().max(2_000).nullable().optional(),
   business_days: z.number().int().min(0).max(2).optional(),

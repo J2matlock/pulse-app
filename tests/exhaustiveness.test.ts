@@ -12,6 +12,9 @@ import { readFileSync, readdirSync, statSync } from 'fs'
 import path from 'path'
 import { assertNever, unhandledCase } from '../src/shared/assertNever'
 import { IPC_READ_ONLY } from '../src/shared/constants'
+import { RULE_KINDS, RULE_CONFIG_SCHEMAS, engineRuleFrom, evaluate, type RuleKind } from '../src/shared/deadlineEngine'
+import { ruleSummary } from '../src/shared/ruleSummary'
+import { EMPTY_DRAFT, draftToConfig } from '../src/renderer/components/alerts/ruleDraft'
 
 const SRC = path.resolve(__dirname, '../src')
 
@@ -44,5 +47,25 @@ describe('IPC_READ_ONLY', () => {
       .filter((f) => /['"`]READ_ONLY['"`]/.test(readFileSync(f, 'utf8')))
       .map((f) => path.relative(SRC, f))
     expect(offenders).toEqual([])
+  })
+})
+
+describe('deadline rule kinds', () => {
+  it('every kind has a settings entry (null only for interval)', () => {
+    expect(Object.keys(RULE_CONFIG_SCHEMAS).sort()).toEqual([...RULE_KINDS].sort())
+    for (const kind of RULE_KINDS) expect(RULE_CONFIG_SCHEMAS[kind] === null, kind).toBe(kind === 'interval')
+  })
+
+  it('a kind this version does not know, read from the database, works out as an interval', () => {
+    const stored = { id: 1, kind: 'fortnight', interval_days: 14, rule_config: '{"every":2}' }
+    const rule = engineRuleFrom(stored)
+    expect(rule.kind).toBe('interval')
+    expect(rule.config).toBeNull()
+    expect(ruleSummary(stored)).toBe(ruleSummary({ id: 1, kind: 'interval', interval_days: 14 }))
+    expect(evaluate(rule, { today: '2026-01-10', columnDate: '2026-01-01' }).due).toBe('2026-01-15')
+  })
+
+  it('the rule editor keeps no settings for an unknown kind instead of throwing', () => {
+    expect(draftToConfig({ ...EMPTY_DRAFT, kind: 'fortnight' as RuleKind })).toEqual({ ok: true, value: null })
   })
 })

@@ -5,21 +5,24 @@
 import React, { useId, useMemo, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import type { Column, GridRow, ParsedAlertRule } from '../../../shared/types'
-import type { RuleKind } from '../../../shared/deadlineEngine'
+import { RULE_KINDS, type RuleKind } from '../../../shared/deadlineEngine'
 import { evaluateRuleForRow } from '../../utils/deadlineCalc'
 import { getClientName } from '../../utils/clientName'
 import { useActivityTypes } from '../../hooks/useActivityTypes'
 import { useVocab } from '../../hooks/useVocab'
 import { draftToConfig, draftToCondition, type RuleDraft, type Anchor, type OffsetUnit } from './ruleDraft'
 
-export const KIND_CARDS: Array<{ kind: RuleKind; title: string; example: string }> = [
-  { kind: 'interval', title: 'After the date in this column', example: 'Every 30 days, 6 months, 1 year' },
-  { kind: 'relative', title: 'From another date', example: '45 days after Referral date · 60 days before Lease end' },
-  { kind: 'calendar', title: 'On fixed dates', example: 'Every Mar 31 · quarterly on the 15th' },
-  { kind: 'meter', title: 'By usage', example: 'Every 5,000 miles or 6 months' },
-  { kind: 'quota', title: 'A limited number of visits', example: '12 sessions until the authorization ends' },
-  { kind: 'sequence', title: 'A series of steps', example: '30-day, 90-day, then annual' },
-]
+const KIND_CARD_TEXT = {
+  interval: { title: 'After the date in this column', example: 'Every 30 days, 6 months, 1 year' },
+  relative: { title: 'From another date', example: '45 days after Referral date · 60 days before Lease end' },
+  calendar: { title: 'On fixed dates', example: 'Every Mar 31 · quarterly on the 15th' },
+  meter: { title: 'By usage', example: 'Every 5,000 miles or 6 months' },
+  quota: { title: 'A limited number of visits', example: '12 sessions until the authorization ends' },
+  sequence: { title: 'A series of steps', example: '30-day, 90-day, then annual' },
+} satisfies Record<RuleKind, { title: string; example: string }>
+
+/** One card per rule kind, in RULE_KINDS order */
+export const KIND_CARDS: Array<{ kind: RuleKind; title: string; example: string }> = RULE_KINDS.map(kind => ({ kind, ...KIND_CARD_TEXT[kind] }))
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const UNIT_LABELS: Record<OffsetUnit, string> = { days: 'days', months: 'months', businessDays: 'working days' }

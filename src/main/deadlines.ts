@@ -5,7 +5,7 @@
  * through here, so they all agree.
  */
 import { getDb } from './database'
-import { evaluate, isUsedUp, meterInfo, type MeterInfo, engineRuleFrom, meterHistoryColumn, referencedColumns, extensionAnchor, matchExtension, applyExtension, type StoredExtension, type QuotaConfig, type DeadlineResult, type EngineRule, type RecordContext, type RuleKind, buildRecordContext } from '../shared/deadlineEngine'
+import { evaluate, isUsedUp, meterInfo, type MeterInfo, engineRuleFrom, meterHistoryColumn, referencedColumns, extensionAnchor, matchExtension, applyExtension, type StoredExtension, type QuotaConfig, type DeadlineResult, type EngineRule, type RecordContext, type RuleKind, buildRecordContext, RULE_KINDS } from '../shared/deadlineEngine'
 import type { WorkCalendar } from '../shared/businessDays'
 import type { GridDeadlineContext } from '../shared/ipc-contract'
 import { workCalendarSetting } from './vocab'
@@ -291,6 +291,16 @@ export function finishedDates(columnId: number): Map<number, string[]> {
   return out
 }
 
+/**
+ * Whether a kind's deadlines read per-record data loaded below (meter
+ * readings, quota counts, step progress, previous values). Every kind is
+ * listed, so a new one has to say whether it needs a loader.
+ */
+const LOADS_GRID_CONTEXT = {
+  interval: false, relative: false, calendar: true, meter: true, quota: true, sequence: true,
+} satisfies Record<RuleKind, boolean>
+const CONTEXT_KINDS = RULE_KINDS.filter(k => LOADS_GRID_CONTEXT[k])
+
 export function loadGridDeadlineContext(gridId: number): GridDeadlineContext {
   const ctx: GridDeadlineContext = { meter: {}, quota: {}, progress: {}, extensions: {}, previous: {}, finished: {} }
   for (const r of getDb().prepare('SELECT dd.row_id, dd.column_id, dd.done_for FROM deadline_done dd JOIN rows r ON r.id = dd.row_id WHERE r.grid_id = ?').all(gridId) as Array<{ row_id: number; column_id: number; done_for: string }>) {
@@ -301,8 +311,8 @@ export function loadGridDeadlineContext(gridId: number): GridDeadlineContext {
   const ruleRows = getDb().prepare(`
     SELECT col.id AS column_id, ar.id, ar.kind, ar.rule_config, ar.rule_condition, ar.business_days, ar.interval_days, ar.interval_months, ar.end_of_month
     FROM columns col JOIN alert_rules ar ON ar.id = CAST(json_extract(col.config, '$.alert_rule_id') AS INTEGER)
-    WHERE col.grid_id = ? AND ar.kind IN ('meter', 'quota', 'sequence', 'calendar')
-  `).all(gridId) as Array<Parameters<typeof engineRuleFrom>[0] & { column_id: number }>
+    WHERE col.grid_id = ? AND ar.kind IN (${CONTEXT_KINDS.map(() => '?').join(', ')})
+  `).all(gridId, ...CONTEXT_KINDS) as Array<Parameters<typeof engineRuleFrom>[0] & { column_id: number }>
   for (const r of ruleRows) {
     const rule = engineRuleFrom(r)
     const col = meterHistoryColumn(rule)
