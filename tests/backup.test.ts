@@ -10,7 +10,7 @@
  * VACUUM INTO for .pulse-backup files) run for real.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { copyFileSync, existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync, statSync } from 'fs'
+import { copyFileSync, existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync, statSync, utimesSync, symlinkSync } from 'fs'
 import { join, basename, dirname } from 'path'
 import { createHash } from 'crypto'
 import type { Database } from 'better-sqlite3'
@@ -104,6 +104,7 @@ import {
   setScheduledConfig,
   getBackupInfo,
   recordAutoBackupSuccess,
+  cleanCrashLeftovers,
   type DatabaseBridge,
 } from '../src/main/backup'
 
@@ -807,5 +808,37 @@ describe('Auto-backup tiered retention', () => {
       files.push(`pulse-auto-${ymd}-080000.db`, `pulse-auto-${ymd}-170000.db`)
     }
     expect(selectAutoBackupsToKeep(files).size).toBeLessThanOrEqual(16)
+  })
+})
+
+describe('crash leftovers in Pulse\'s own folders (A24-12)', () => {
+  it('removes extracted and half-copied databases over an hour old, and nothing newer or unrelated', () => {
+    const now = Date.now()
+    const old = (now - 2 * 60 * 60 * 1000) / 1000
+    const age = (p: string) => { utimesSync(p, old, old); return p }
+    const file = (dir: string, name: string, aged = true) => { const p = join(dir, name); writeFileSync(p, 'x'); return aged ? age(p) : p }
+    const folder = (dir: string, name: string, aged = true) => {
+      const p = join(dir, name); mkdirSync(p); writeFileSync(join(p, 'pulse.db'), 'secret'); return aged ? age(p) : p
+    }
+    const gone = [
+      folder(backupDir, 'preview-tmp-1700000000000'), folder(backupDir, 'verify-tmp-1700000000001'),
+      folder(backupDir, 'restore-tmp-1700000000002'), folder(t.tmpDir, 'restore-tmp-1700000000003'),
+      file(t.tmpDir, 'pulse.db.tmp'), file(backupDir, 'pulse-pre-restore-20260101-100000.db.tmp'),
+      file(backupDir, 'pulse-snapshot-1700000000000.db'), file(backupDir, 'pulse-manual.pulse-backup.tmp'),
+    ]
+    const kept = [
+      folder(backupDir, 'restore-tmp-1800000000000', false), file(t.tmpDir, 'other.db.tmp', false),
+      file(backupDir, 'pulse-auto-20260101-100000.db'), file(backupDir, 'pulse-pre-restore-20260101-100000.db'),
+      file(backupDir, 'notes.tmp'), file(t.tmpDir, 'restore-tmp-1700000000009'), folder(t.tmpDir, 'pulse-files'),
+    ]
+    // A link named like a leftover is not followed or removed
+    const outside = folder(t.tmpDir, 'outside')
+    symlinkSync(outside, join(backupDir, 'verify-tmp-1700000000005'))
+
+    expect(cleanCrashLeftovers(now)).toBe(gone.length)
+    for (const p of gone) expect(existsSync(p)).toBe(false)
+    for (const p of kept) expect(existsSync(p)).toBe(true)
+    expect(existsSync(join(outside, 'pulse.db'))).toBe(true)
+    expect(cleanCrashLeftovers(now)).toBe(0)
   })
 })

@@ -10,7 +10,7 @@
  * stay as raw .db copies for speed.
  */
 
-import { copyFileSync, mkdirSync, readdirSync, unlinkSync, existsSync, statSync, rmSync, chmodSync, renameSync, openSync, closeSync, fsyncSync, createReadStream, createWriteStream } from 'fs'
+import { copyFileSync, mkdirSync, readdirSync, unlinkSync, existsSync, statSync, lstatSync, rmSync, chmodSync, renameSync, openSync, closeSync, fsyncSync, createReadStream, createWriteStream } from 'fs'
 import { join, dirname, basename, resolve, sep } from 'path'
 import { createHash } from 'crypto'
 import { pipeline } from 'stream/promises'
@@ -388,6 +388,44 @@ export function getBackupDir(): string {
     return join(dbPath, '..', 'backups')
   }
   return join(app.getPath('userData'), 'backups')
+}
+
+const CRASH_LEFTOVER_AGE_MS = 60 * 60 * 1000
+const CRASH_LEFTOVER_DIR = /^(preview|verify|restore)-tmp-\d+$/
+const CRASH_LEFTOVER_FILE = /^(pulse-snapshot-\d+\.db|.+\.db\.tmp|.+\.pulse-backup\.tmp)$/
+
+/**
+ * Remove what a crash or power cut in the middle of a backup, restore or backup
+ * check left in Pulse's own folders (the data folder and its backups folder):
+ * the extracted-database folders (`preview-tmp-*`, `verify-tmp-*`,
+ * `restore-tmp-*`), half-copied files (`*.db.tmp`, `*.pulse-backup.tmp`) and
+ * snapshot copies (A24-12). Only things over an hour old go, so nothing still
+ * being written is touched; the person's own backup folder is left alone.
+ * Returns how many were removed.
+ */
+export function cleanCrashLeftovers(now = Date.now()): number {
+  const dirs = new Set<string>()
+  try { dirs.add(resolve(getPortableDataDir())) } catch (err) { logNonFatal('backup', 'find the data folder for leftovers', err) }
+  try { dirs.add(resolve(getBackupDir())) } catch (err) { logNonFatal('backup', 'find the backups folder for leftovers', err) }
+  let removed = 0
+  for (const dir of dirs) {
+    let names: string[]
+    try { names = readdirSync(dir) } catch { continue }
+    for (const name of names) {
+      const isDir = CRASH_LEFTOVER_DIR.test(name)
+      if (!isDir && !CRASH_LEFTOVER_FILE.test(name)) continue
+      const p = join(dir, name)
+      try {
+        const st = lstatSync(p)
+        if (isDir ? !st.isDirectory() : !st.isFile()) continue
+        if (now - st.mtimeMs < CRASH_LEFTOVER_AGE_MS) continue
+        rmSync(p, { recursive: isDir, force: true })
+        removed++
+      } catch (err) { logNonFatal('backup', 'remove a crash leftover', err) }
+    }
+  }
+  if (removed) logger.info('backup', `Removed ${removed} item(s) left by an interrupted backup or restore`)
+  return removed
 }
 
 function nowTimestamp(): string {

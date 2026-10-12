@@ -9,7 +9,7 @@ import { join, normalize, resolve, sep } from 'path'
 import { pathToFileURL } from 'url'
 import { initDatabase, closeDatabase, getDb } from './database'
 import { registerIpcHandlers } from './ipc-handlers'
-import { runAutoBackup, checkAndRunScheduled, recordAutoBackupFailure, runAutoBackupOnLock, describeBackupError } from './backup'
+import { runAutoBackup, checkAndRunScheduled, recordAutoBackupFailure, runAutoBackupOnLock, describeBackupError, cleanCrashLeftovers } from './backup'
 import { startReminders, stopReminders } from './reminders'
 import { initTray, isTrayMode, closeToTray, refreshTray } from './tray'
 import { prefs } from './prefs'
@@ -431,6 +431,8 @@ app.whenReady().then(async () => {
 
   // Copies of files opened last time (W09 §5) go before anything else opens
   try { wipeOpenedFiles() } catch (err) { logNonFatal('app', 'wipe opened files', err) }
+  // Extracted or half-copied databases from a backup or restore cut short (A24-12)
+  try { cleanCrashLeftovers() } catch (err) { logNonFatal('app', 'clean backup leftovers', err) }
 
   // Scheduled backup timer (check every 15 minutes)
   startScheduledBackup()
