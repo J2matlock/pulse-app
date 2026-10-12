@@ -5,6 +5,7 @@ import { backdropVariants, modalPanelVariants } from '../../utils/animations'
 import toast from 'react-hot-toast'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
+import { friendlyError } from '../../utils/friendlyError'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { PasswordStrength } from './PasswordStrength'
 import { FieldError, fieldErrorProps } from './FieldError'
@@ -43,7 +44,7 @@ export function ResetPasswordAfterRecoveryDialog({ open, onComplete }: ResetPass
         toast.success('Password updated successfully.')
         onComplete()
       } else {
-        setError(result.error || 'Password reset failed. Please try again.')
+        setError(friendlyError(result.error, 'Password reset failed. Please try again.'))
       }
     } catch {
       setError('Password reset failed. Please try again.')

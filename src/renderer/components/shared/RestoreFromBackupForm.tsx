@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { usePlatform, cloudFolderAdvice } from '../../utils/platformText'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
+import { friendlyError } from '../../utils/friendlyError'
 import { PasswordStrength } from './PasswordStrength'
 import { checkNewPassword } from '../../../shared/passwordPolicy'
 import { parseDbOpenFailure, dbOpenFailureText } from '../../../shared/dbOpen'
@@ -12,7 +13,7 @@ import { PRODUCT_NAME } from '../../../shared/constants'
 /** Main's words as they are, except an open-failure code, which becomes a sentence (F-031) */
 function restoreErrorText(error: string): string {
   const kind = parseDbOpenFailure(error)
-  return kind ? `The backup was restored, but it couldn't be opened. ${dbOpenFailureText(kind, PRODUCT_NAME)}` : error
+  return kind ? `The backup was restored, but it couldn't be opened. ${dbOpenFailureText(kind, PRODUCT_NAME)}` : friendlyError(error, "The backup couldn't be restored. Please try again, or choose a different backup.")
 }
 
 interface RestoreFromBackupFormProps {

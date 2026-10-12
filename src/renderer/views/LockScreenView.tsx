@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { useSettingsStore } from '../stores/settingsStore'
 import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
+import { friendlyError } from '../utils/friendlyError'
 import { RestoreFromBackupForm } from '../components/shared/RestoreFromBackupForm'
 import { usePlatform, cloudFolderAdvice, type Platform } from '../utils/platformText'
 import { PRODUCT_NAME } from '../../shared/constants'
@@ -132,7 +133,7 @@ export function LockScreenView(): React.ReactElement {
         inputRef.current?.focus()
       } else {
         // Lockout and unreadable-credential messages are already written for users
-        setError(result.error === 'Incorrect password' ? "That password didn't work. Check Caps Lock and try again." : result.error)
+        setError(result.error === 'Incorrect password' ? "That password didn't work. Check Caps Lock and try again." : friendlyError(result.error, "Pulse couldn't unlock just now. Please try again."))
         setPassword('')
         await checkLockout()
         inputRef.current?.focus()

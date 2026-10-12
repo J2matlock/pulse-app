@@ -294,29 +294,32 @@ export function registerExportHandlers(): void {
 
   // ── Backup Validate Destination (Finding 2.12) ────────────────────────────
   secureWrap(IPC.BACKUP_VALIDATE_DESTINATION, 'ipc-export', async (_e, destPath: string) => {
-    if (typeof destPath !== 'string' || destPath.length === 0) return ok({ valid: false, error: 'No path provided' })
+    // Shown as they are under the folder picker, so each is a sentence a person can act on (Q-054)
+    if (typeof destPath !== 'string' || destPath.length === 0) return ok({ valid: false, error: 'Choose a folder for your backups.' })
     try {
       assertSafePath(destPath)
     } catch {
-      return ok({ valid: false, error: 'Invalid path' })
+      return ok({ valid: false, error: "Pulse can't use that folder. Choose a different one." })
     }
-    if (!existsSync(destPath)) return ok({ valid: false, error: 'Folder does not exist' })
+    if (!existsSync(destPath)) return ok({ valid: false, error: "That folder doesn't exist any more. Choose a different one." })
 
     const tmpFile = join(destPath, `.pulse-write-test-${Date.now()}.tmp`)
     // 2 second timeout for the write operation
     const writePromise = writeFile(tmpFile, 'pulse-write-test', 'utf-8')
       .then(() => unlink(tmpFile))
       .then(() => ({ valid: true as const }))
-      .catch(() => ({ valid: false as const, error: 'Permission denied' }))
+      .catch(() => ({ valid: false as const, error: "Pulse isn't allowed to save files in that folder. Choose a different one." }))
 
+    let timer: ReturnType<typeof setTimeout> | undefined
     const timeoutPromise = new Promise<{ valid: false; error: string }>((resolve) => {
-      setTimeout(() => resolve({ valid: false, error: 'Write timed out' }), 2000)
+      timer = setTimeout(() => resolve({ valid: false, error: "That folder took too long to answer. If it's on a USB drive or network folder, check that it's connected, or choose a different one." }), 2000)
     })
 
     try {
       const result = await Promise.race([writePromise, timeoutPromise])
       return ok(result)
     } finally {
+      clearTimeout(timer)
       // Clean up temp file if timeout won and writePromise left it behind
       unlink(tmpFile).catch(() => {})
     }
@@ -410,7 +413,9 @@ export function registerExportHandlers(): void {
 
     let notes = 0
     try { notes = await exportNotesCsv(join(destFolder, 'notes.csv')) } catch (err) {
-      errors.push(`Notes: ${err instanceof Error ? err.message : 'Export failed'}`)
+      // As for a list above: the raw error goes to the log, a sentence to the results (Q-054)
+      logger.error('ipc-export', 'Export All notes failed', { error: err instanceof Error ? err.message : String(err) })
+      errors.push(`${word('activity', { many: true, cap: true })}: we couldn't save this file. Try a different folder.`)
     }
 
     return ok({ exported, errors, notes })

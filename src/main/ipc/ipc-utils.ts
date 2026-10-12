@@ -101,7 +101,8 @@ const ERROR_MAP: Array<[RegExp, string]> = [
   [/SQLITE_CONSTRAINT.*NOT NULL/, MSG.missing],
   [/SQLITE_CONSTRAINT.*FOREIGN KEY/, MSG.inUse],
   [/VACUUM INTO.*failed/, MSG.backupDiskFull],
-  [/SQLITE_BUSY|database is locked/, MSG.busy],
+  // "Database is locked" is also auth.ts's own word for "Pulse is locked right now"
+  [/SQLITE_BUSY|database is locked/i, MSG.busy],
   [/SQLITE_READONLY|attempt to write a readonly database/, MSG.readOnly],
   [/SQLITE_FULL|database or disk is full/, MSG.diskFull],
   [/SQLITE_CORRUPT|SQLITE_NOTADB|database disk image is malformed|file is not a database/, MSG.damaged],
@@ -160,6 +161,11 @@ const CODE_PREFIX_MAP: Array<[string, string]> = [
 ]
 
 const GENERIC = "Something went wrong and the change wasn't saved. Please try again."
+/** humanizeError's answer when it can't say anything more specific */
+export const GENERIC_ERROR_MESSAGE = GENERIC
+
+/** A Unix or Windows absolute path inside a message: "/home/…/", "C:\\…" */
+const ABSOLUTE_PATH = /(^|[\s'"(:])(\/[^\s/'"]+\/[^\s'"]*|[A-Za-z]:\\)/
 
 /**
  * Map raw errors to sentences a person can act on (audit 2.15 / L-20).
@@ -187,6 +193,12 @@ export function humanizeError(err: unknown): string {
     || (err as Error | undefined)?.name === 'SqliteError'
     || /constraint failed|no such (table|column)|syntax error|SQL logic error/i.test(raw)
     || err instanceof TypeError || err instanceof RangeError || err instanceof ReferenceError
+    // JSON.parse, exceljs and unzipper text ("Unexpected token x in JSON at position 3")
+    || err instanceof SyntaxError
+    // "Path traversal detected: /a is outside /b". ("Invalid …" stays: tests pin it, and friendlyError filters it on screen)
+    || /Path traversal/.test(raw)
+    // A full path on screen is noise, and the person's folder names don't belong in a toast (Q-054)
+    || ABSOLUTE_PATH.test(raw)
   return technical ? GENERIC : raw
 }
 

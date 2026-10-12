@@ -2,11 +2,12 @@
  * ipc-checklists.ts — CHECKLIST_*, CL_TEMPLATE_* IPC handlers
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
+import { atomicWriteFileSync } from '../export-shared'
 import { extname } from 'node:path'
 import { IPC } from '../../shared/ipc-channels'
 import { QUERY_LIMITS } from '../../shared/query-limits'
-import { secureWrap, ok, fail, buildSafeSetClause, validId, notifyCaseLogChanged, enforceWritable, assertSafePath, humanizeError, PATH_REFUSED_MESSAGE } from './ipc-utils'
+import { secureWrap, ok, fail, buildSafeSetClause, validId, notifyCaseLogChanged, enforceWritable, assertSafePath, humanizeError, GENERIC_ERROR_MESSAGE, PATH_REFUSED_MESSAGE } from './ipc-utils'
 import { getDb } from '../database'
 import type { ChecklistItem, ChecklistTemplate, ChecklistGroup } from '../../shared/types'
 import { seedChecklistTemplates } from '../templates'
@@ -386,12 +387,13 @@ export function registerChecklistHandlers(): void {
     }
 
     try {
-      writeFileSync(filePath, JSON.stringify(exportData, null, 2), 'utf-8')
+      // Atomic, so a failed write never leaves half a template file behind (Q-054)
+      atomicWriteFileSync(filePath, JSON.stringify(exportData, null, 2), 'utf-8')
     } catch (err) {
       // File-system codes (EACCES, EBUSY, ENOSPC…) get their own sentence; any other raw Node text stays out of the UI
       const raw = err instanceof Error ? err.message : String(err)
       const friendly = humanizeError(err)
-      return fail(friendly === raw ? "Pulse couldn't save the file there. Choose a different folder." : friendly)
+      return fail(friendly === raw || friendly === GENERIC_ERROR_MESSAGE ? "Pulse couldn't save the file there. Choose a different folder." : friendly)
     }
     return ok(true)
   })

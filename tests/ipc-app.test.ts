@@ -77,6 +77,7 @@ vi.mock('electron-store', () => {
 })
 
 let testDb: TestDb
+const migration = vi.hoisted(() => ({ failure: null as null | { version: number; error: string; timestamp: string } }))
 
 vi.mock('../src/main/database', async () => {
   const actual = await vi.importActual<typeof import('../src/main/database')>('../src/main/database')
@@ -88,7 +89,7 @@ vi.mock('../src/main/database', async () => {
     resolveDatabasePath: () => '/tmp/test.db',
     checkCloudSyncPath: () => null,
     getPortableDataDir: () => '/tmp/pulse-test-app',
-    getMigrationFailure: () => null,
+    getMigrationFailure: () => migration.failure,
     clearMigrationFailureFlag: () => {},
     cachedStmt: (_key: string, sql: string) => testDb.db.prepare(sql),
   }
@@ -495,6 +496,18 @@ describe('APP_MIGRATION_STATUS', () => {
     const r = await invoke(IPC.APP_MIGRATION_STATUS) as any
     expect(r.ok).toBe(true)
     expect(r.data).toBeNull()
+  })
+
+  it('a recorded failure comes back as a sentence, never the raw SQL error (Q-054)', async () => {
+    migration.failure = { version: 41, error: 'SqliteError: no such column: foo_bar', timestamp: '2026-10-11T10:00:00Z' }
+    try {
+      const r = await invoke(IPC.APP_MIGRATION_STATUS) as { ok: true; data: { version: number; error: string } }
+      expect(r.data.version).toBe(41)
+      expect(r.data.error).not.toMatch(/Sqlite|no such column|foo_bar/)
+      expect(r.data.error).toMatch(/couldn't finish updating your data/)
+    } finally {
+      migration.failure = null
+    }
   })
 
   it('clears flag when clearFlag=true', async () => {

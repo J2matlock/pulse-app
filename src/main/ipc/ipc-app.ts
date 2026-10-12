@@ -247,7 +247,12 @@ export function registerAppHandlers(): void {
       clearMigrationFailureFlag()
       return ok(null)
     }
-    return ok(getMigrationFailure())
+    // The stored error is raw SQL text for the log; the screen gets a sentence (Q-054)
+    const failure = getMigrationFailure()
+    return ok(failure && {
+      ...failure,
+      error: `Pulse couldn't finish updating your data to the new version (step ${failure.version}). Your data was left as it was before the update. Restore the backup Pulse made just before it, in Settings → Backup.`,
+    })
   })
 
   secureWrap(IPC.APP_RELAUNCH, 'ipc-app', () => {

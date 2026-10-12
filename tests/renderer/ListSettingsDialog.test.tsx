@@ -104,6 +104,20 @@ describe('List settings', () => {
     expect(settingsCalls()).toEqual([{ vocab: { record: { one: 'truck', many: 'trucks', article: 'a' } } }])
   })
 
+  it('a save main refuses with developer text shows a plain sentence (Q-054)', async () => {
+    for (const error of ['Invalid ID', 'READ_ONLY']) {
+      invoke.mockImplementationOnce(async (channel: string) => channel === IPC.GRID_SETTINGS_UPDATE ? { ok: false, error } : { ok: true, data: full })
+      const { unmount } = render(<ListSettingsDialog gridId={3} onClose={() => {}} />)
+      await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+      invoke.mockImplementationOnce(async () => ({ ok: false, error }))
+      fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Trucks' } })
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Save' })) })
+      expect(screen.queryByText(error)).toBeNull()
+      expect(screen.getByText(/couldn't save these settings|Changes can't be saved right now/)).toBeTruthy()
+      unmount()
+    }
+  })
+
   it('closes without saving when nothing changed', async () => {
     const onClose = vi.fn()
     await open({ onClose })

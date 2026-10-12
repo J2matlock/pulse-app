@@ -293,6 +293,16 @@ describe('BACKUP_VALIDATE_DESTINATION', () => {
     expect(result.ok).toBe(true)
     expect(result.data.valid).toBe(false)
   })
+
+  it('every "can\'t use this folder" answer is a plain sentence the screen can show (Q-054)', async () => {
+    const { isTechnicalError } = await import('../src/renderer/utils/friendlyError')
+    for (const dir of ['', '/nonexistent/path/to/dir', '/etc']) {
+      const result = await invoke(IPC.BACKUP_VALIDATE_DESTINATION, dir) as { ok: true; data: { valid: boolean; error?: string } }
+      expect(result.data.valid).toBe(false)
+      expect(isTechnicalError(result.data.error ?? '')).toBe(false)
+      expect(result.data.error).toMatch(/\.$/)
+    }
+  })
 })
 
 describe('IMPORT_UNDO (audit X-19)', () => {

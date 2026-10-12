@@ -3,6 +3,7 @@ import { AlertTriangle } from 'lucide-react'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
+import { friendlyError } from '../../utils/friendlyError'
 import toast from 'react-hot-toast'
 import { RecoveryKeyDisplayModal } from '../shared/RecoveryKeyDisplayModal'
 import { SecurityCheckup } from './SecurityCheckup'
@@ -57,13 +58,13 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
     try {
       if (pendingKeyAction === 'generate') {
         const res = await safeInvoke(IPC.AUTH_GENERATE_RECOVERY_KEY, keyActionPassword)
-        if (!res.ok) { setKeyActionError(res.error === 'Incorrect password' ? 'That password is incorrect.' : res.error); return }
+        if (!res.ok) { setKeyActionError(res.error === 'Incorrect password' ? 'That password is incorrect.' : friendlyError(res.error, "That didn't work. Please try again.")); return }
         closeKeyAction()
         setGeneratedRecoveryKey(res.data)
         setShowRecoveryKeyModal(true)
       } else {
         const res = await safeInvoke(IPC.AUTH_REVOKE_RECOVERY_KEY, keyActionPassword)
-        if (!res.ok) { setKeyActionError(res.error === 'Incorrect password' ? 'That password is incorrect.' : res.error); return }
+        if (!res.ok) { setKeyActionError(res.error === 'Incorrect password' ? 'That password is incorrect.' : friendlyError(res.error, "That didn't work. Please try again.")); return }
         closeKeyAction()
         setHasRecovery(false)
         toast.success('Recovery key revoked.')
@@ -101,7 +102,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
       const res = await safeInvoke(IPC.AUTH_CHANGE_PASSWORD, pwForm.current, pwForm.next, pwForm.hint)
       if (!res.ok) {
         const wrong = res.error === 'Incorrect password'
-        setPwError({ text: wrong ? 'Your current password is incorrect.' : (res.error ?? 'Current password is incorrect.'), field: wrong ? 'current' : null })
+        setPwError({ text: wrong ? 'Your current password is incorrect.' : friendlyError(res.error, "Your password couldn't be changed. Please try again."), field: wrong ? 'current' : null })
         return
       }
       toast.success('Password changed successfully.')
