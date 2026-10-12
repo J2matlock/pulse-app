@@ -521,9 +521,13 @@ function pruneAutoBackups(dir: string): void {
 }
 
 export function pruneBackups(dir: string, prefix: string, suffix: string, keep: number): void {
+  // Oldest first by the YYYYMMDD-HHmmss stamp in the name, wherever it sits: in
+  // "pulse-pre-migration-v9-to-v10-<stamp>.db" the versions come first, and as
+  // text "v47" sorts before "v9" (A24-13). Names without a stamp go first.
+  const stamp = (f: string): string => /(\d{8}-\d{6})/.exec(f)?.[1] ?? ''
   const files = readdirSync(dir)
     .filter(f => f.startsWith(prefix) && f.endsWith(suffix))
-    .sort()  // lexicographic = chronological for YYYY-MM-DD prefix
+    .sort((a, b) => stamp(a).localeCompare(stamp(b)) || (a < b ? -1 : a > b ? 1 : 0))
 
   while (files.length > keep) {
     const oldest = files.shift()!

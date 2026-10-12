@@ -782,6 +782,24 @@ describe('pruneBackups', () => {
   })
 })
 
+describe('pruneBackups by time (A24-13)', () => {
+  it('pre-migration copies are pruned by their time stamp, not by the version text', () => {
+    const names = [
+      'pulse-pre-migration-v9-to-v10-20250101-100000.db',
+      'pulse-pre-migration-v10-to-v11-20250201-100000.db',
+      'pulse-pre-migration-v20-to-v21-20250301-100000.db',
+      'pulse-pre-migration-v30-to-v31-20250401-100000.db',
+      'pulse-pre-migration-v40-to-v41-20250501-100000.db',
+      'pulse-pre-migration-v46-to-v47-20250601-100000.db',
+      'pulse-pre-migration-v47-to-v48-20260101-100000.db',
+    ]
+    for (const n of names) writeFileSync(join(backupDir, n), 'x')
+    pruneBackups(backupDir, 'pulse-pre-migration-', '.db', 5)
+    const left = readdirSync(backupDir).filter(f => f.startsWith('pulse-pre-migration-')).sort()
+    expect(left).toEqual(names.slice(2).sort())
+  })
+})
+
 describe('Auto-backup tiered retention', () => {
   it('keeps backups from earlier days even after many quits in one day', () => {
     const files = [
