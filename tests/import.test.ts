@@ -777,6 +777,23 @@ describe('executeImport', () => {
     })
   })
 
+  describe('row numbers in messages match the file (Q-041)', () => {
+    it('counts title lines above the header and blank lines', async () => {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }, { name: 'Case ID' }, { name: 'Notes' }])
+      const long = 'x'.repeat(10_001)
+      // Lines 1–3 titles and a blank, header on line 4, the long value on line 7, a nameless duplicate on line 10
+      const csv = ['County report,,', 'Prepared by the office,,', ',,', 'Name,Case ID,Notes', 'Ana,A-1,ok', 'Ben,A-2,ok', `Cal,A-3,${long}`, ',,', 'Dee,A-4,ok', ',A-1,again'].join('\n') + '\n'
+      const filePath = writeImportCsv('rownums.csv', csv)
+      const preview = await parseImportFile(filePath, undefined, 3)
+      const result = await executeImport({
+        gridId, filePath, cleanData: true, headerRowIndex: 3, duplicateStrategy: 'by_column', duplicateColumnId: columnIds[1],
+        columnMappings: [0, 1, 2].map(i => ({ sourceIndex: i, action: columnIds[i]! })),
+      }, preview)
+      expect(result.warnings.join(' ')).toContain('Row 7, column 3: value truncated')
+      expect(result.skippedNames).toEqual(['Row 10'])
+    })
+  })
+
   describe('two-digit birth years (audit L-21)', () => {
     it('reads them as 19xx when they would otherwise be in the future, and says so', async () => {
       const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }, { name: 'DOB', type: 'date' }])

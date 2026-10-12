@@ -389,7 +389,7 @@ function looksLastFirst(samples: string[]): boolean {
  *   "Program" merged down ten rows applies to all ten clients;
  * - blank headers become "Column N" and repeated ones get a number.
  */
-export function buildTable(rawRows: string[][], headerIdx: number, mergedRanges?: MergedCellInfo[], hiddenRawRows?: ReadonlySet<number>): { headers: string[]; allRows: string[][]; hiddenRows: boolean[] } {
+export function buildTable(rawRows: string[][], headerIdx: number, mergedRanges?: MergedCellInfo[], hiddenRawRows?: ReadonlySet<number>): { headers: string[]; allRows: string[][]; hiddenRows: boolean[]; rowNumbers: number[] } {
   const rows = rawRows.map(r => [...r])
   for (const m of mergedRanges ?? []) {
     if (m.row <= headerIdx) continue
@@ -429,6 +429,8 @@ export function buildTable(rawRows: string[][], headerIdx: number, mergedRanges?
     allRows: kept.map(k => k.row),
     // Parallel to allRows: which rows the spreadsheet hides
     hiddenRows: kept.map(k => hiddenRawRows?.has(k.i) ?? false),
+    // Parallel to allRows: each row's line in the file, for messages (Q-041)
+    rowNumbers: kept.map(k => k.i + 1),
   }
 }
 
@@ -658,6 +660,8 @@ interface ParseResult {
   warnings: string[]
   /** Parallel to allRows: hidden in the spreadsheet */
   hiddenRows: boolean[]
+  /** Parallel to allRows: the row's line in the file (1-based) */
+  rowNumbers: number[]
   /** 0-based indexes of hidden columns */
   hiddenCols: number[]
 }
@@ -675,9 +679,9 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
     const detection = clampedIdx != null
       ? { headerRowIndex: clampedIdx, confidence: 'high' as const, reason: 'user override' }
       : detectHeaderRow(rawRows, mergedRanges)
-    const { headers, allRows, hiddenRows } = buildTable(rawRows, detection.headerRowIndex, mergedRanges, _parsedCache.hiddenRawRows)
+    const { headers, allRows, hiddenRows, rowNumbers } = buildTable(rawRows, detection.headerRowIndex, mergedRanges, _parsedCache.hiddenRawRows)
     return {
-      headers, allRows, hiddenRows, hiddenCols: _parsedCache.hiddenCols.filter(c => c < headers.length),
+      headers, allRows, hiddenRows, rowNumbers, hiddenCols: _parsedCache.hiddenCols.filter(c => c < headers.length),
       sheets: _parsedCache.sheets, rawRows, mergedRanges, warnings: _parsedCache.warnings,
       detectedHeaderRow: detection.headerRowIndex, headerDetectionConfidence: detection.confidence,
     }
@@ -744,7 +748,7 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
     ? { headerRowIndex: clampedIdx, confidence: 'high' as const, reason: 'user override' }
     : detectHeaderRow(rawRows, mergedRanges)
 
-  const { headers, allRows, hiddenRows } = buildTable(rawRows, detection.headerRowIndex, mergedRanges, hiddenRawRows)
+  const { headers, allRows, hiddenRows, rowNumbers } = buildTable(rawRows, detection.headerRowIndex, mergedRanges, hiddenRawRows)
 
   // Only cache if row count is within the size limit to avoid unbounded memory use
   if (rawRows.length <= MAX_CACHE_ROWS) {
@@ -755,7 +759,7 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
   }
 
   return {
-    headers, allRows, hiddenRows, hiddenCols: hiddenCols.filter(c => c < headers.length),
+    headers, allRows, hiddenRows, rowNumbers, hiddenCols: hiddenCols.filter(c => c < headers.length),
     sheets, rawRows, mergedRanges, warnings: parseWarnings,
     detectedHeaderRow: detection.headerRowIndex, headerDetectionConfidence: detection.confidence,
   }
@@ -954,7 +958,7 @@ const IMPORT_CHUNK_SIZE = 50
 export async function executeImport(options: ImportOptions, preview: ImportPreview, onProgress?: (imported: number, total: number) => void): Promise<ImportResult> {
   const { gridId, filePath, sheetName, columnMappings, duplicateStrategy, duplicateColumnId, cleanData } = options
   const warnings: string[] = []
-  /** The file row being saved, to name it if saving fails */
+  /** The file line being saved, to name it if saving fails */
   let currentRow: number | null = null
   let began = false
 
@@ -975,6 +979,9 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
     began = true
   const headers = cached.headers
   const allRows = options.skipHiddenRows ? cached.allRows.filter((_, i) => !cached.hiddenRows[i]) : cached.allRows
+  const rowNumbers = options.skipHiddenRows ? cached.rowNumbers.filter((_, i) => !cached.hiddenRows[i]) : cached.rowNumbers
+  /** The row's line in the file, as the person sees it in their spreadsheet */
+  const lineOf = (i: number): number => rowNumbers[i] ?? i + 2
   const leftOutHidden = cached.allRows.length - allRows.length
   if (leftOutHidden > 0) warnings.push(`Left out ${leftOutHidden} row${leftOutHidden === 1 ? '' : 's'} hidden in the spreadsheet, as you chose.`)
 
@@ -1210,7 +1217,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
     // (sleep, screen lock) waits until the import is done instead of closing the
     // database under it. Progress messages are still sent every 50 rows.
     for (let i = 0; i < allRows.length; i++) {
-      currentRow = i
+      currentRow = lineOf(i)
       if (onProgress && i > 0 && i % IMPORT_CHUNK_SIZE === 0) onProgress(imported, allRows.length)
       const importRow = allRows[i]!
       if (importRow.every(c => String(c).trim() === '')) continue // skip blank rows
@@ -1220,7 +1227,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
         const key = dupKeyOf(importRow)
         if (key !== null) {
           if (dupKeys.has(key)) {
-            skippedNames.push(cellValue(importRow, dupLabelSrc ?? 0) || `Row ${i + 2}`)
+            skippedNames.push(cellValue(importRow, dupLabelSrc ?? 0) || `Row ${lineOf(i)}`)
             skipped++
             continue
           }
@@ -1255,7 +1262,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
           let cellValue = normalized
           if (cellValue.length > MAX_CELL_VALUE_LENGTH) {
             cellValue = cellValue.slice(0, MAX_CELL_VALUE_LENGTH)
-            warnings.push(`Row ${i + 2}, column ${srcIdx + 1}: value truncated to ${MAX_CELL_VALUE_LENGTH} characters`)
+            warnings.push(`Row ${lineOf(i)}, column ${srcIdx + 1}: value truncated to ${MAX_CELL_VALUE_LENGTH} characters`)
           }
           insertCell.run(rowId, info.columnId, cellValue)
         }
@@ -1327,7 +1334,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
   logger.info('import', 'Import complete', { rowsImported: imported, skipped, warningCount: warnings.length, durationMs: Date.now() - importStart })
   return { imported, skipped, warnings, skippedNames, newRowIds }
   } catch (err) {
-    logger.error('import', 'Import failed', { error: err instanceof Error ? err.message : String(err), row: currentRow === null ? undefined : currentRow + 2 })
+    logger.error('import', 'Import failed', { error: err instanceof Error ? err.message : String(err), row: currentRow === null ? undefined : currentRow })
     if (began) {
       try {
         const db = getDb()
@@ -1338,7 +1345,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
     }
     // The SQLite text is in the log; the person sees which row to check
     if (currentRow !== null) {
-      throw new ImportFileError(`Nothing was imported, because row ${currentRow + 2} couldn't be saved. Check that row in the file, then try again.`)
+      throw new ImportFileError(`Nothing was imported, because row ${currentRow} couldn't be saved. Check that row in the file, then try again.`)
     }
     throw err
   } finally {
