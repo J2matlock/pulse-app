@@ -42,7 +42,7 @@ import { placeholderFields } from '../placeholders'
 import { buildBatchPdf, buildLabelsPdf, previewBatch, DocumentError, MAX_BATCH, type DocTarget } from '../export-documents'
 import { atomicWriteFileAsync } from '../export-shared'
 import { describeRestoreError } from '../restore-errors'
-import { safeFileName } from '../../shared/fileName'
+import { fileWord, safeFileName } from '../../shared/fileName'
 
 /** Row and column choices for an export: whole positive ids, and not absurdly many */
 function validIdList(v: unknown): v is number[] {
@@ -459,7 +459,7 @@ export function registerExportHandlers(): void {
   secureWrap(IPC.EXPORT_PDF_CONTACT, 'ipc-export', async (_e, providerId: number) => {
     if (!validId(providerId)) return fail('Invalid ID')
     const provider = getProvider(providerId)
-    const defaultName = provider ? safeFileName(provider.name) : 'contact'
+    const defaultName = safeFileName(provider?.name ?? '', fileWord(word('contact'), 'contact'))
     const filePath = await pickSavePath({
       title: `Export ${word('contact', { cap: true })} as PDF`,
       defaultPath: `${defaultName}-profile.pdf`,
@@ -474,7 +474,7 @@ export function registerExportHandlers(): void {
   secureWrap(IPC.EXPORT_PDF_DIRECTORY, 'ipc-export', async (_e, filterParams: Record<string, unknown>) => {
     const filePath = await pickSavePath({
       title: `Export ${word('contact', { cap: true })} directory as PDF`,
-      defaultPath: 'contact-directory.pdf',
+      defaultPath: `${fileWord(word('contact'), 'contact')}-directory.pdf`,
       filters: [{ name: 'PDF', extensions: ['pdf'] }]
     })
     if (!filePath) return ok(null)

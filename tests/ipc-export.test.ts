@@ -3,7 +3,7 @@
  * Uses mocked external dependencies (backup, export, import, templates) to test validation and routing.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
-import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
+import { setDbWords, createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
 import { mkdtempSync, writeFileSync, mkdirSync, readdirSync, readFileSync } from 'fs'
 import { join } from 'path'
@@ -518,6 +518,35 @@ describe('EXPORT_PDF_DIRECTORY', () => {
     const result = await invoke(IPC.EXPORT_PDF_DIRECTORY, {}) as { ok: true; data: null }
     expect(result.ok).toBe(true)
     expect(result.data).toBeNull()
+  })
+})
+
+describe('save dialogs name files with the workspace words (A28-14)', () => {
+  beforeAll(async () => {
+    const { registerComplianceHandlers } = await import('../src/main/ipc/ipc-compliance')
+    registerComplianceHandlers()
+  })
+
+  async function dialogFor(channel: string, ...args: unknown[]): Promise<{ title?: string; defaultPath?: string }> {
+    const electron = await import('electron')
+    const spy = vi.spyOn(electron.dialog, 'showSaveDialog').mockResolvedValueOnce({ canceled: true, filePath: '' })
+    await invoke(channel, ...args)
+    const opts = spy.mock.calls.at(-1)!.at(-1) as { title?: string; defaultPath?: string }
+    spy.mockRestore()
+    return { title: opts.title, defaultPath: opts.defaultPath?.split(/[\\/]/).pop() }
+  }
+
+  it('under the human-services words', async () => {
+    setDbWords(testDb.db)
+    expect(await dialogFor(IPC.EXPORT_PDF_DIRECTORY, {})).toEqual({ title: 'Export Provider directory as PDF', defaultPath: 'provider-directory.pdf' })
+    expect(await dialogFor(IPC.EXPORT_PDF_CONTACT, 2)).toEqual({ title: 'Export Provider as PDF', defaultPath: 'provider-profile.pdf' })
+    expect(await dialogFor(IPC.EXPORT_PDF_CONTACT, 1)).toEqual({ title: 'Export Provider as PDF', defaultPath: 'Dr. Smith-profile.pdf' })
+    expect(await dialogFor(IPC.EXPORT_COMPLIANCE_SUMMARY, '2026-10')).toEqual({ title: 'Save Contact requirements summary', defaultPath: 'contact-requirements-summary-2026-10.pdf' })
+  })
+
+  it('under the generic words', async () => {
+    expect(await dialogFor(IPC.EXPORT_PDF_DIRECTORY, {})).toEqual({ title: 'Export Contact directory as PDF', defaultPath: 'contact-directory.pdf' })
+    expect(await dialogFor(IPC.EXPORT_COMPLIANCE_SUMMARY, '2026-10')).toEqual({ title: 'Save Requirements summary', defaultPath: 'requirements-summary-2026-10.pdf' })
   })
 })
 

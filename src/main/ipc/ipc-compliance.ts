@@ -11,6 +11,7 @@ import { getComplianceSummary, exportComplianceSummary, monthAsOf } from '../com
 import { getTotals, exportTotalsCsv } from '../totals'
 import { getDb } from '../database'
 import { localDateString } from '../../shared/dates'
+import { fileWord } from '../../shared/fileName'
 import { word } from '../vocab'
 
 export function registerComplianceHandlers(): void {
@@ -68,8 +69,8 @@ export function registerComplianceHandlers(): void {
     if (!validMonth(month)) return fail('Invalid month')
     if (gridId != null && !validId(gridId)) return fail('Invalid ID')
     const filePath = await pickSavePath({
-      title: `Save ${word('requirement', { many: true })} summary`,
-      defaultPath: `requirements-summary-${month}.pdf`,
+      title: `Save ${word('requirement', { many: true, cap: true })} summary`,
+      defaultPath: `${fileWord(word('requirement', { many: true }), 'requirements')}-summary-${month}.pdf`,
       filters: [{ name: 'PDF', extensions: ['pdf'] }],
     })
     if (!filePath) return ok(null)

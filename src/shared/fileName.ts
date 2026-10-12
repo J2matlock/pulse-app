@@ -12,3 +12,12 @@ export function safeFileName(name: string, fallback = 'contact'): string {
     .replace(/[. ]+$/, '')
   return cleaned || fallback
 }
+
+/**
+ * A workspace word as part of a default file name: "contact requirements" →
+ * "contact-requirements", so a save dialog says "provider-directory.pdf" where
+ * the workspace calls its contacts providers.
+ */
+export function fileWord(word: string, fallback: string): string {
+  return safeFileName(word, fallback).replace(/ /g, '-')
+}
