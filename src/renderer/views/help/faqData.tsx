@@ -228,7 +228,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-acuity-what',
     question: 'What is {priority} scoring?',
-    answer: '{Priority} scoring lets you assign a complexity or intensity level to each {record} \u2014 for example Low, Medium, or High. Each level has a point value, and the total points for your {list} are shown in the toolbar and status bar. This is how most social work agencies do {list} balancing: supervisors define tiers with point values, workers assign {record:many}, and the total tells you at a glance how heavy your {list} is.',
+    answer: '{Priority} scoring lets you assign a complexity or intensity level to each {record} \u2014 for example Low, Medium, or High. Each level has a point value, and the total points for your {list} are shown in the toolbar and status bar. Many teams balance their {list:many} this way: supervisors define tiers with point values, workers assign {record:many}, and the total tells you at a glance how heavy your {list} is.',
     category: 'caseload-grid',
   },
   {
