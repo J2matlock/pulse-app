@@ -346,21 +346,26 @@ export function copyForwardLinks(fromRowId: number, toRowId: number): number {
 
 interface Misfit { typeId: number; fromRowId: number; toRowId: number; label: string; name: string }
 
-/** Links that can't stay when a record moves to another list */
-function misfits(rowId: number, targetGridId: number): Misfit[] {
+/**
+ * Links that can't stay when a record moves to another list. `liveOnly` leaves out
+ * links to records in the Trash (or in a list in the Trash), for the warning (Q-084);
+ * the move itself still removes those too.
+ */
+function misfits(rowId: number, targetGridId: number, liveOnly = false): Misfit[] {
+  const live = liveOnly ? 'AND o.deleted_at IS NULL AND EXISTS (SELECT 1 FROM grids og WHERE og.id = o.grid_id AND og.is_active = 1)' : ''
   return getDb().prepare(`
     SELECT l.link_type_id AS typeId, l.from_row_id AS fromRowId, l.to_row_id AS toRowId,
       CASE WHEN l.from_row_id = ? THEN lt.label_forward ELSE lt.label_backward END AS label,
       COALESCE(NULLIF(o.display_name, ''), '(unnamed)') AS name
     FROM record_links l JOIN link_types lt ON lt.id = l.link_type_id
     JOIN rows o ON o.id = CASE WHEN l.from_row_id = ? THEN l.to_row_id ELSE l.from_row_id END
-    WHERE (l.from_row_id = ? AND lt.from_grid_id != ?) OR (l.to_row_id = ? AND lt.to_grid_id != ?)
+    WHERE ((l.from_row_id = ? AND lt.from_grid_id != ?) OR (l.to_row_id = ? AND lt.to_grid_id != ?)) ${live}
     ORDER BY label, name`).all(rowId, rowId, rowId, targetGridId, rowId, targetGridId) as Misfit[]
 }
 
 /** "Owner: Jane Smith" for each link a move would remove, to warn first */
 export function linksThatWontFit(rowId: number, targetGridId: number): string[] {
-  return misfits(rowId, targetGridId).map(m => `${m.label}: ${m.name}`)
+  return misfits(rowId, targetGridId, true).map(m => `${m.label}: ${m.name}`)
 }
 
 /** Remove the links that don't fit the record's new list (call before moving it). */

@@ -69,9 +69,12 @@ export function registerOnboardingHandlers(): void {
       show: setting('onboarding_completed_at') !== null && setting('onboarding_getting_started_dismissed') !== '1',
       record: any(`SELECT 1 FROM rows r JOIN grids g ON g.id = r.grid_id AND g.is_active = 1 WHERE r.deleted_at IS NULL AND ${real}`),
       reminder: any(`SELECT 1 FROM cells c JOIN columns col ON col.id = c.column_id JOIN rows r ON r.id = c.row_id
+        JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
         WHERE r.deleted_at IS NULL AND ${real} AND COALESCE(c.value, '') != ''
         AND (col.column_type = 'deadline' OR (json_valid(col.config) AND json_extract(col.config, '$.alert_rule_id') IS NOT NULL))`),
-      note: any(`SELECT 1 FROM case_log cl JOIN rows r ON r.id = cl.row_id WHERE cl.log_type != 'system' AND ${real}`),
+      // Not a note on a record in the Trash or in a list in the Trash (Q-084)
+      note: any(`SELECT 1 FROM case_log cl JOIN rows r ON r.id = cl.row_id JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
+        WHERE cl.log_type != 'system' AND r.deleted_at IS NULL AND ${real}`),
       recoverySnoozedUntil: setting('onboarding_recovery_snooze_until'),
     })
   })

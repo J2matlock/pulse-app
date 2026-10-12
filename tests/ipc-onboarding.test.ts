@@ -210,6 +210,22 @@ describe('IPC Onboarding — ONBOARDING_SETUP_GRID', () => {
     expect((await gs()).show).toBe(false)
   })
 
+  it('getting started: a note or reminder on a record in the Trash, or in a list in the Trash, doesn\'t tick its step (Q-084)', async () => {
+    const gs = async () => ((await invoke(IPC.ONBOARDING_GETTING_STARTED)) as any).data
+    await invoke(IPC.ONBOARDING_COMPLETE)
+    const trashed = seedGrid(testDb.db, { rowCount: 1, columnTypes: ['deadline'] })
+    const inTrashedList = seedGrid(testDb.db, { rowCount: 1, columnTypes: ['deadline'] })
+    for (const g of [trashed, inTrashedList]) {
+      testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type) VALUES (?, 'Called', 'phone')").run(g.rowIds[0])
+      testDb.db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, '2030-01-01')").run(g.rowIds[0], g.columnIds[0])
+    }
+    testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now'), is_active = 0 WHERE id = ?").run(trashed.rowIds[0])
+    testDb.db.prepare('UPDATE grids SET is_active = 0 WHERE id = ?').run(inTrashedList.gridId)
+    expect(await gs()).toMatchObject({ record: false, reminder: false, note: false })
+    testDb.db.prepare('UPDATE grids SET is_active = 1 WHERE id = ?').run(inTrashedList.gridId)
+    expect(await gs()).toMatchObject({ record: true, reminder: true, note: true })
+  })
+
   it('drops saved progress whose list was deleted', async () => {
     const { gridId } = seedGrid(testDb.db, { rowCount: 0 })
     await invoke(IPC.ONBOARDING_SAVE_PROGRESS, { step: 'sheet-rows', gridId, listName: 'X' })
