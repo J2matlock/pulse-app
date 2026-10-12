@@ -54,6 +54,8 @@ export interface DeadlineQuery {
   includePaused?: boolean
   /** Also list calendar rules not shown yet because of their lead time, at the date they're next due (calendar files) */
   includeUpcoming?: boolean
+  /** Archived records too (exports that print them; never records or lists in the Trash) (F-020) */
+  includeArchived?: boolean
 }
 
 type RuleFields = { kind: string | null; rule_config: string | null; rule_condition: string | null; business_days: number | null }
@@ -81,6 +83,7 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
   const today = q.today ?? localDateString()
   const cal = loadWorkCalendar()
   const rowFilter = q.rowIds?.length ? `AND r.id IN (${q.rowIds.map(() => '?').join(',')})` : ''
+  const activeOnly = q.includeArchived ? '' : 'AND r.is_active = 1'
   // Plain interval rules need only the filled-in cell: one query for all of them
   const rows = getDb().prepare(`
     SELECT r.id AS row_id, r.grid_id, g.name AS grid_name, col.id AS column_id, col.name AS column_name,
@@ -88,7 +91,7 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
            ar.interval_days, ar.interval_months, ar.end_of_month, ar.thresholds AS alert_thresholds,
            ar.kind, ar.rule_config, ar.rule_condition, ar.business_days, dd.done_for AS finished_for
     FROM cells c
-    JOIN rows r   ON r.id = c.row_id AND r.is_active = 1 AND r.deleted_at IS NULL
+    JOIN rows r   ON r.id = c.row_id ${activeOnly} AND r.deleted_at IS NULL
     JOIN grids g  ON g.id = r.grid_id AND g.is_active = 1
     JOIN columns col ON col.id = c.column_id AND col.column_type IN ('date', 'deadline')
       AND json_extract(col.config, '$.alert_rule_id') IS NOT NULL
@@ -153,7 +156,7 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
       SELECT r.id AS row_id, r.display_name AS client_name, g.record_kind,
              (SELECT value FROM cells WHERE row_id = r.id AND column_id = ?) AS own ${refSelect}
       FROM rows r JOIN grids g ON g.id = r.grid_id
-      WHERE r.grid_id = ? AND r.is_active = 1 AND r.deleted_at IS NULL ${rowFilter}
+      WHERE r.grid_id = ? ${activeOnly} AND r.deleted_at IS NULL ${rowFilter}
     `).all(rc.column_id, rc.grid_id, ...(q.rowIds ?? [])) as Array<Record<string, unknown> & { row_id: number; client_name: string | null; record_kind: string | null; own: string | null }>
     const parsed = engineRuleFrom({ ...rc, id: rc.rule_id })
     const history = meterHistories(meterHistoryColumn(parsed))

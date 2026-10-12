@@ -308,7 +308,7 @@ function showComputedAsText(gridId: number, columns: Column[], rows: GridRow[]):
     const ruled = typeof configOf(srcConfig).alert_rule_id === 'number'
     if (ruled && !due) {
       due = new Map()
-      for (const d of loadDeadlines({ gridId, includeDone: true, includePaused: true })) due.set(`${d.row_id}:${d.column_id}`, d)
+      for (const d of loadDeadlines({ gridId, includeDone: true, includePaused: true, includeArchived: rows.some(r => r.is_active === 0) })) due.set(`${d.row_id}:${d.column_id}`, d)
     }
     for (const row of rows) {
       const value = (row[`col_${src}` as const] as string | null | undefined) || null
@@ -335,7 +335,8 @@ export function showDeadlinesAsText(gridId: number, columns: Column[], rows: Gri
   const deadlineCols = columns.filter(c => c.column_type === 'deadline')
   if (!deadlineCols.length || !rows.length) return
   const results = new Map<string, DeadlineItem>()
-  for (const d of loadDeadlines({ gridId, includeDone: true, includePaused: true })) results.set(`${d.row_id}:${d.column_id}`, d)
+  // An export that prints archived records shows their deadlines as the table does, not blank (F-020)
+  for (const d of loadDeadlines({ gridId, includeDone: true, includePaused: true, includeArchived: rows.some(r => r.is_active === 0) })) results.set(`${d.row_id}:${d.column_id}`, d)
   for (const row of rows) {
     for (const c of deadlineCols) {
       const key = `col_${c.id}` as const

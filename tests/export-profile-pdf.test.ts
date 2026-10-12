@@ -80,6 +80,16 @@ describe('profile PDF', () => {
     expect(pdf).not.toContain('OVERDUE')
   })
 
+  it("prints an archived record's deadlines too (F-020)", async () => {
+    const { gridId, rowId } = seedRecord()
+    testDb.db.prepare("UPDATE rows SET is_active = 0, archived_at = datetime('now') WHERE id = ?").run(rowId)
+    const dest = join(testDb.tmpDir, 'p.pdf')
+    await exportPdfProfile({ rowId, gridId, destPath: dest, includeSections: ALL })
+    const pdf = text(dest)
+    expect(pdf).toContain('Due in 10 days')
+    expect(pdf).toContain('Due today')
+  })
+
   it('leaves system entries out of recent notes and prints extra contact info', async () => {
     const { gridId, rowId } = seedRecord()
     const dest = join(testDb.tmpDir, 'p.pdf')

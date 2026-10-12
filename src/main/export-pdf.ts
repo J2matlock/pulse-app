@@ -294,7 +294,8 @@ export function renderProfileToDoc(
 
   // ── Deadlines: the same engine as the dashboard, so the PDF never disagrees with the app ──
   if (includeSections.deadlines) {
-    const items = loadDeadlines({ gridId, rowIds: [rowId] })
+    // An archived record's page prints its deadlines too (F-020)
+    const items = loadDeadlines({ gridId, rowIds: [rowId], includeArchived: true })
     if (items.length > 0) {
       addSection('Deadlines')
       for (const d of items) addKeyValue(d.column_name, deadlineSummary(d))
