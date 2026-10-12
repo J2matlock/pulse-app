@@ -346,8 +346,11 @@ export interface DashboardStats {
   followUpsPending: number
   /** Active records per open list (lists with none are left out) */
   activeByList?: Array<{ grid_id: number; n: number }>
-  // overdue / dueThisWeek / dueThisMonth are derived on the frontend from deadlines
-  // (they require interval_days math that can't easily run in SQL)
+  /**
+   * The deadline tiles over every deadline, not just the capped list sent with them.
+   * The dashboard counts its own list unless that list came back at the cap (F-024).
+   */
+  deadlineTiles?: { overdue: number; dueThisWeek: number; dueThisMonth: number }
 }
 
 // ── Checklist ─────────────────────────────────────────────────────────────────

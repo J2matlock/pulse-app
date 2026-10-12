@@ -10,6 +10,7 @@ import { loadDeadlines, deadlineCounts } from '../deadlines'
 import { stripHtml } from '../export-shared'
 import type { RecentActivityItem } from '../../shared/ipc-contract'
 import type { DashboardStats } from '../../shared/types'
+import { countDeadlineTiles } from '../../shared/deadlineTiles'
 import { appointmentsToday, appointmentsNeedingOutcome } from '../appointments'
 
 // --- Shared query functions (each query defined exactly once) ---
@@ -42,6 +43,16 @@ function queryStats(): DashboardStats {
 /** The soonest deadlines for the dashboard, worked out by the shared engine */
 function queryDeadlines(): unknown[] {
   return loadDeadlines({ limit: QUERY_LIMITS.DASHBOARD_PRIORITY })
+}
+
+/**
+ * The capped list plus the tile counts over all of them: past the cap the tiles
+ * would otherwise count only what was sent (F-024). One engine pass for both.
+ */
+function queryDeadlinesWithTiles(): { deadlines: unknown[]; tiles: NonNullable<DashboardStats['deadlineTiles']> } {
+  const all = loadDeadlines()
+  const tiles = countDeadlineTiles(all.filter((d): d is typeof d & { daysUntil: number } => d.daysUntil !== null))
+  return { deadlines: all.slice(0, QUERY_LIMITS.DASHBOARD_PRIORITY), tiles }
 }
 
 function queryFollowups(): unknown[] {
@@ -126,8 +137,8 @@ function queryBriefing(): Briefing {
 
 export function registerDashboardHandlers(): void {
   secureWrap(IPC.DASHBOARD_GET_ALL, 'ipc-dashboard', () => {
-    const stats = queryStats()
-    const deadlines = queryDeadlines()
+    const { deadlines, tiles } = queryDeadlinesWithTiles()
+    const stats = { ...queryStats(), deadlineTiles: tiles }
     const followUps = queryFollowups()
     const archived = queryArchived()
     return ok({ stats, deadlines, followUps, archived })
