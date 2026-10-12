@@ -10,7 +10,7 @@
  * VACUUM INTO for .pulse-backup files) run for real.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { copyFileSync, existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync, statSync, utimesSync, symlinkSync } from 'fs'
+import { copyFileSync, existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync, statSync, utimesSync, symlinkSync, chmodSync } from 'fs'
 import { join, basename, dirname } from 'path'
 import { createHash } from 'crypto'
 import type { Database } from 'better-sqlite3'
@@ -105,6 +105,7 @@ import {
   getBackupInfo,
   recordAutoBackupSuccess,
   cleanCrashLeftovers,
+  cleanBackupLeftovers,
   type DatabaseBridge,
 } from '../src/main/backup'
 
@@ -858,5 +859,53 @@ describe('crash leftovers in Pulse\'s own folders (A24-12)', () => {
     for (const p of kept) expect(existsSync(p)).toBe(true)
     expect(existsSync(join(outside, 'pulse.db'))).toBe(true)
     expect(cleanCrashLeftovers(now)).toBe(0)
+  })
+})
+
+describe('backup leftovers in the destination (P-006)', () => {
+  const old = (Date.now() - 2 * 60 * 60 * 1000) / 1000
+  const file = (dir: string, name: string, aged: boolean) => { const p = join(dir, name); writeFileSync(p, 'x'); if (aged) utimesSync(p, old, old); return p }
+
+  it('removes snapshot copies and half-written archives over an hour old, and nothing else', () => {
+    const dest = join(t.tmpDir, 'usb')
+    mkdirSync(dest)
+    const gone = [file(dest, 'pulse-snapshot-1700000000000.db', true), file(dest, 'pulse-scheduled-2026.pulse-backup.tmp', true)]
+    const kept = [file(dest, 'pulse-snapshot-1800000000000.db', false), file(dest, 'pulse-scheduled-2027.pulse-backup.tmp', false),
+      file(dest, 'pulse-scheduled-2026.pulse-backup', true), file(dest, 'my-snapshot.db', true), file(dest, 'notes.tmp', true),
+      file(dest, 'pulse.db.tmp', true)]
+    mkdirSync(join(dest, 'restore-tmp-1700000000000'))
+    expect(cleanBackupLeftovers(dest)).toBe(2)
+    for (const p of gone) expect(existsSync(p)).toBe(false)
+    for (const p of kept) expect(existsSync(p)).toBe(true)
+    expect(existsSync(join(dest, 'restore-tmp-1700000000000'))).toBe(true)
+    expect(cleanBackupLeftovers(join(t.tmpDir, 'missing'))).toBe(0)
+  })
+
+  it('a scheduled run clears old leftovers in the destination and in Pulse\'s folder, and writes no snapshot there', async () => {
+    seedGrid(t.db, { rowCount: 2, columnCount: 1 })
+    const dest = join(t.tmpDir, 'usb-scheduled')
+    mkdirSync(dest)
+    const leftovers = [file(dest, 'pulse-snapshot-1700000000000.db', true), file(dest, 'pulse-scheduled-old.pulse-backup.tmp', true),
+      file(backupDir, 'pulse-snapshot-1700000000001.db', true)]
+    setScheduledConfig({ enabled: true, intervalHours: 24, destinationDir: dest, lastRunISO: null })
+    await checkAndRunScheduled()
+    for (const p of leftovers) expect(existsSync(p)).toBe(false)
+    expect(readdirSync(dest)).toEqual([expect.stringMatching(/^pulse-scheduled-\d{8}-\d{6}\.pulse-backup$/)])
+    expect(readdirSync(backupDir).filter(f => f.startsWith('pulse-snapshot-'))).toEqual([])
+  })
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('takes the snapshot in Pulse\'s own backup folder, not the destination', async () => {
+    const dest = join(t.tmpDir, 'usb-readonly-own')
+    mkdirSync(dest)
+    // Pulse's folder can't be written: the backup fails although the destination is fine
+    chmodSync(backupDir, 0o500)
+    try {
+      setScheduledConfig({ enabled: true, intervalHours: 24, destinationDir: dest, lastRunISO: null })
+      await checkAndRunScheduled()
+      expect(getScheduledConfig().lastError).toBeTruthy()
+      expect(readdirSync(dest)).toEqual([])
+    } finally {
+      chmodSync(backupDir, 0o700)
+    }
   })
 })

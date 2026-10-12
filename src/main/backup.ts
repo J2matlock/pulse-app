@@ -332,8 +332,11 @@ async function createPulseBackup(dbPath: string, destPath: string, backupType: s
   if (!envelope) logger.warn('backup', 'Key envelope unavailable — backup will only restore on this computer')
 
   // Create an atomic snapshot via VACUUM INTO so the zip contains a
-  // consistent point-in-time copy (no interleaved writes possible)
-  const snapshotDir = dirname(finalPath)
+  // consistent point-in-time copy (no interleaved writes possible). It goes in
+  // Pulse's own backup folder, not the person's destination, so a crash never
+  // leaves a full copy of the data in a USB or network folder (P-006)
+  const snapshotDir = getBackupDir()
+  mkdirSync(snapshotDir, { recursive: true, mode: 0o700 })
   const tmpDbPath = createAtomicDbSnapshot(dbPath, snapshotDir)
 
   try {
@@ -396,37 +399,58 @@ const CRASH_LEFTOVER_AGE_MS = 60 * 60 * 1000
 const CRASH_LEFTOVER_DIR = /^(preview|verify|restore)-tmp-\d+$/
 const CRASH_LEFTOVER_FILE = /^(pulse-snapshot-\d+\.db|.+\.db\.tmp|.+\.pulse-backup\.tmp)$/
 
+/** Remove the leftovers in one folder that match, over an hour old; returns how many went */
+function removeLeftovers(dir: string, fileRe: RegExp, dirRe: RegExp | null, now: number): number {
+  let names: string[]
+  try { names = readdirSync(dir) } catch { return 0 }
+  let removed = 0
+  for (const name of names) {
+    const isDir = !!dirRe?.test(name)
+    if (!isDir && !fileRe.test(name)) continue
+    const p = join(dir, name)
+    try {
+      const st = lstatSync(p)
+      if (isDir ? !st.isDirectory() : !st.isFile()) continue
+      if (now - st.mtimeMs < CRASH_LEFTOVER_AGE_MS) continue
+      rmSync(p, { recursive: isDir, force: true })
+      removed++
+    } catch (err) { logNonFatal('backup', 'remove a crash leftover', err) }
+  }
+  return removed
+}
+
 /**
  * Remove what a crash or power cut in the middle of a backup, restore or backup
  * check left in Pulse's own folders (the data folder and its backups folder):
  * the extracted-database folders (`preview-tmp-*`, `verify-tmp-*`,
  * `restore-tmp-*`), half-copied files (`*.db.tmp`, `*.pulse-backup.tmp`) and
  * snapshot copies (A24-12). Only things over an hour old go, so nothing still
- * being written is touched; the person's own backup folder is left alone.
- * Returns how many were removed.
+ * being written is touched; the person's own backup folder is left alone
+ * (`cleanBackupLeftovers` handles that). Returns how many were removed.
  */
 export function cleanCrashLeftovers(now = Date.now()): number {
   const dirs = new Set<string>()
   try { dirs.add(resolve(getPortableDataDir())) } catch (err) { logNonFatal('backup', 'find the data folder for leftovers', err) }
   try { dirs.add(resolve(getBackupDir())) } catch (err) { logNonFatal('backup', 'find the backups folder for leftovers', err) }
   let removed = 0
-  for (const dir of dirs) {
-    let names: string[]
-    try { names = readdirSync(dir) } catch { continue }
-    for (const name of names) {
-      const isDir = CRASH_LEFTOVER_DIR.test(name)
-      if (!isDir && !CRASH_LEFTOVER_FILE.test(name)) continue
-      const p = join(dir, name)
-      try {
-        const st = lstatSync(p)
-        if (isDir ? !st.isDirectory() : !st.isFile()) continue
-        if (now - st.mtimeMs < CRASH_LEFTOVER_AGE_MS) continue
-        rmSync(p, { recursive: isDir, force: true })
-        removed++
-      } catch (err) { logNonFatal('backup', 'remove a crash leftover', err) }
-    }
-  }
+  for (const dir of dirs) removed += removeLeftovers(dir, CRASH_LEFTOVER_FILE, CRASH_LEFTOVER_DIR, now)
   if (removed) logger.info('backup', `Removed ${removed} item(s) left by an interrupted backup or restore`)
+  return removed
+}
+
+/** Only names a .pulse-backup run itself writes */
+const BACKUP_LEFTOVER_FILE = /^(pulse-snapshot-\d+\.db|.+\.pulse-backup\.tmp)$/
+
+/**
+ * Remove what an interrupted .pulse-backup run left in a backup destination
+ * (P-006): snapshot copies (`pulse-snapshot-<digits>.db`, written there by
+ * older versions) and half-written archives (`*.pulse-backup.tmp`) more than
+ * an hour old. Nothing else in the person's folder is touched, nor anything
+ * newer (a backup still being written). Returns how many were removed.
+ */
+export function cleanBackupLeftovers(dir: string, now = Date.now()): number {
+  const removed = removeLeftovers(dir, BACKUP_LEFTOVER_FILE, null, now)
+  if (removed) logger.info('backup', `Removed ${removed} file(s) left by an interrupted backup`)
   return removed
 }
 
@@ -808,6 +832,9 @@ async function performScheduledBackup(config: PersistentScheduledConfig): Promis
   if (!dbPath || !existsSync(dbPath)) throw new Error('Database file not found')
   const destDir = config.destinationDir || getBackupDir()
   mkdirSync(destDir, { recursive: true, mode: 0o700 })
+  // Leftovers from an earlier run cut short, here and in Pulse's own folder (P-006)
+  cleanBackupLeftovers(destDir)
+  if (resolve(destDir) !== resolve(getBackupDir())) cleanBackupLeftovers(getBackupDir())
   const destPath = join(destDir, `pulse-scheduled-${nowTimestamp()}.pulse-backup`)
   await createPulseBackup(dbPath, destPath, 'scheduled')
   pruneBackups(destDir, 'pulse-scheduled-', '.pulse-backup', MAX_SCHEDULED_BACKUPS)
