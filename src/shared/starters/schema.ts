@@ -16,7 +16,7 @@ import { vocabSchema, type VocabKey } from '../vocab'
 import { featureMapSchema, type FeatureKey } from '../features'
 import { ACTIVITY_COLORS } from '../activityTypes'
 import { MAX_ACTIVE_MEASURES, measureDefSchema } from '../measures'
-import { PERIOD_MAX } from '../periods'
+import { PERIOD_MAX, PERIODS } from '../periods'
 import { DISPLAY_FORMAT_MAX } from '../displayFormat'
 import { portableStageSchema } from '../stages'
 
@@ -74,7 +74,7 @@ const requirementSchema = z.object({
   note_types: z.array(z.string().max(40)).min(1).max(10),
   /** How many per period (the name is kept from the monthly-only format) */
   per_month: z.number().int().min(1).max(365),
-  period: z.enum(['week', 'month', 'quarter', 'year']).optional(),
+  period: z.enum(PERIODS).optional(),
 }).strict().refine(r => r.per_month <= PERIOD_MAX[r.period ?? 'month'], { message: 'Too many per period' })
 
 /** A note type to add (W03 §5); matched to the workspace's types by key */

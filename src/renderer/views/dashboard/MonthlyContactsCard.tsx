@@ -8,14 +8,20 @@ import { contactsComplete, contactsMissing } from '../../../shared/contactRequir
 import { ContactRequirementsDialog } from '../../components/contact-req/ContactRequirementsDialog'
 import type { ContactStatusGrid } from '../../../shared/types'
 import { PERIODS, daysLeft, periodRange, type PeriodRange } from '../../../shared/periods'
+import { unhandledCase } from '../../../shared/assertNever'
 import { useVocab, useVocabByList } from '../../hooks/useVocab'
 
 /** What to call a period in "3 days left in …": the week, October, Q4, 2026 */
 function periodName(r: PeriodRange): string {
-  if (r.period === 'week') return 'the week'
-  if (r.period === 'month') return r.label.split(' ')[0]!
-  if (r.period === 'quarter') return r.label.split(' ')[0]!
-  return r.label
+  switch (r.period) {
+    case 'week': return 'the week'
+    case 'month': return r.label.split(' ')[0]!
+    case 'quarter': return r.label.split(' ')[0]!
+    case 'year': return r.label
+    default:
+      unhandledCase(r.period)
+      return r.label
+  }
 }
 
 /** Dashboard card: who still needs their required contacts this week, month, quarter or year. Hidden until set up. */

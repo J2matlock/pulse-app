@@ -14,6 +14,7 @@ import { assertNever, unhandledCase } from '../src/shared/assertNever'
 import { IPC_READ_ONLY } from '../src/shared/constants'
 import { RULE_KINDS, RULE_CONFIG_SCHEMAS, engineRuleFrom, evaluate, type RuleKind } from '../src/shared/deadlineEngine'
 import { ruleSummary } from '../src/shared/ruleSummary'
+import { PERIODS, PERIOD_MAX, periodRange, type Period } from '../src/shared/periods'
 import { EMPTY_DRAFT, draftToConfig } from '../src/renderer/components/alerts/ruleDraft'
 
 const SRC = path.resolve(__dirname, '../src')
@@ -67,5 +68,23 @@ describe('deadline rule kinds', () => {
 
   it('the rule editor keeps no settings for an unknown kind instead of throwing', () => {
     expect(draftToConfig({ ...EMPTY_DRAFT, kind: 'fortnight' as RuleKind })).toEqual({ ok: true, value: null })
+  })
+})
+
+describe('periods', () => {
+  it('every period has its own range around the day asked for, and a limit', () => {
+    const ref = new Date(2028, 1, 29)
+    for (const p of PERIODS) {
+      const r = periodRange(p, ref)
+      expect(r.period, p).toBe(p)
+      expect(r.start <= '2028-02-29' && r.end >= '2028-02-29', p).toBe(true)
+    }
+    expect(new Set(PERIODS.map(p => periodRange(p, ref).key)).size).toBe(PERIODS.length)
+    expect(Object.keys(PERIOD_MAX).sort()).toEqual([...PERIODS].sort())
+  })
+
+  it('an unknown period counts by month instead of a whole year', () => {
+    const r = periodRange('fortnight' as Period, new Date(2026, 9, 12))
+    expect(r).toEqual(periodRange('month', new Date(2026, 9, 12)))
   })
 })
