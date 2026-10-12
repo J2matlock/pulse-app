@@ -88,6 +88,7 @@ interface Seeded {
   condId: number | null
   recordLinkId: number | null
   appointmentId: number | null
+  seriesId: number | null
   attachmentId: number | null
 }
 
@@ -124,11 +125,15 @@ function seed(db: Database): Seeded {
     const typeId = insert(db, 'link_types', { from_grid_id: gridId, to_grid_id: gridId, label_forward: 'Refers', label_backward: 'Referred by' })
     if (typeId !== null) recordLinkId = insert(db, 'record_links', { link_type_id: typeId, from_row_id: rowA, to_row_id: rowB })
     const appointmentId = insert(db, 'appointments', { row_id: rowA, title: 'Ladder visit', start_at: '2026-03-08T09:30' })
+    // A live record's repeating series survives the orphan-series sweep (050)
+    const seriesId = insert(db, 'appointment_series', {
+      rule: '{"freq":"weekly","interval":1}', template: JSON.stringify({ row_id: rowA, title: 'Ladder series' }), materialized_until: '2026-03-08',
+    })
     const attachmentId = insert(db, 'attachments', {
       row_id: rowB, file_name: 'ladder.pdf', mime_type: 'application/pdf', size_bytes: ATTACHMENT_BYTES.length, sha256: 'ab'.repeat(32),
     })
     if (attachmentId !== null) insert(db, 'attachment_blobs', { attachment_id: attachmentId, data: ATTACHMENT_BYTES })
-    return { version, gridId, nameCol, dueCol, rowA, rowB, ruleId, noteId, stepId, taskId, tagId, viewId, providerId, linkId, condId, recordLinkId, appointmentId, attachmentId }
+    return { version, gridId, nameCol, dueCol, rowA, rowB, ruleId, noteId, stepId, taskId, tagId, viewId, providerId, linkId, condId, recordLinkId, appointmentId, seriesId, attachmentId }
   })()
 }
 
@@ -180,6 +185,9 @@ function expectSeedKept(db: Database, s: Seeded): void {
   if (s.appointmentId !== null) {
     expect(get(db, 'SELECT row_id, title, start_at, status FROM appointments WHERE id = ?', s.appointmentId))
       .toEqual({ row_id: s.rowA, title: 'Ladder visit', start_at: '2026-03-08T09:30', status: 'scheduled' })
+  }
+  if (s.seriesId !== null) {
+    expect(get(db, "SELECT json_extract(template, '$.row_id') AS row_id FROM appointment_series WHERE id = ?", s.seriesId)).toEqual({ row_id: s.rowA })
   }
   if (s.attachmentId !== null) {
     expect(get(db, 'SELECT row_id, file_name, size_bytes FROM attachments WHERE id = ?', s.attachmentId))

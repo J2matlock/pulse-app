@@ -5,7 +5,7 @@ description: Add a SQLite schema migration to Pulse correctly — numbered file,
 
 # New migration — Pulse
 
-Current latest: check the last entry of `MIGRATIONS` in `src/main/migration-list.ts`. It was 049 as of 2026-10-12.
+Current latest: check the last entry of `MIGRATIONS` in `src/main/migration-list.ts`. It was 050 as of 2026-10-12.
 
 1. Create `src/main/migrations/NNN_short_name.ts` (zero-padded, next number):
    ```ts

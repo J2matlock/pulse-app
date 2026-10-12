@@ -56,6 +56,7 @@ import { up as migration046 } from './migrations/046_deadline_done'
 import { up as migration047 } from './migrations/047_sample_rows'
 import { up as migration048 } from './migrations/048_appointment_note_index'
 import { up as migration049 } from './migrations/049_fk_child_indexes'
+import { up as migration050 } from './migrations/050_orphan_series_sweep'
 
 export interface Migration {
   version: number
@@ -164,4 +165,5 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 47, up: migration047 },
   { version: 48, up: migration048 },
   { version: 49, up: migration049 },
+  { version: 50, up: migration050 },
 ]
