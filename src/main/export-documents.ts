@@ -31,7 +31,9 @@ export function batchRowIds(t: DocTarget): number[] {
     const due = loadDeadlines({ gridId: t.gridId, from: t.deadline.from, to: t.deadline.to }).filter(d => d.column_id === t.deadline!.columnId).map(d => d.row_id)
     ids = ids ? ids.filter(id => due.includes(id)) : due
   }
+  // Nothing from a list in the Trash, even when its records are named (Q-082)
   const rows = db.prepare(`SELECT id FROM rows WHERE grid_id = ? AND deleted_at IS NULL ${ids ? '' : 'AND is_active = 1'}
+    AND EXISTS (SELECT 1 FROM grids g WHERE g.id = rows.grid_id AND g.is_active = 1)
     ORDER BY COALESCE(NULLIF(display_name, ''), '~') COLLATE NOCASE, id`).all(t.gridId) as Array<{ id: number }>
   const wanted = ids ? new Set(ids) : null
   const out = rows.map(r => r.id).filter(id => !wanted || wanted.has(id))
