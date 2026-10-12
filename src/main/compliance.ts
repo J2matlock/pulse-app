@@ -81,10 +81,11 @@ export function getComplianceSummary(month: string, gridId?: number): Compliance
   const extStmt = db.prepare(`SELECT e.id, e.row_id, e.column_id, e.step, e.new_due, e.reason, e.anchor_value FROM deadline_extensions e JOIN rows r ON r.id = e.row_id
     WHERE r.grid_id = ? AND e.created_at <= ? AND (e.revoked_at IS NULL OR e.revoked_at > ?) ORDER BY e.id DESC`)
 
-  // Extensions given this month (still in effect or not), for "3 extended"
+  // Extensions given this month (still in effect or not), for "3 extended": on the same
+  // records as the rest of the card, so not ones in the Trash or archived (A16-03)
   const extendedStmt = db.prepare(`
     SELECT COUNT(*) AS n FROM deadline_extensions e JOIN rows r ON r.id = e.row_id
-    WHERE r.grid_id = ? AND strftime('%Y-%m', e.created_at, 'localtime') = ?
+    WHERE r.grid_id = ? AND r.is_active = 1 AND r.deleted_at IS NULL AND strftime('%Y-%m', e.created_at, 'localtime') = ?
   `)
 
   const result: ComplianceGrid[] = grids.map(g => {

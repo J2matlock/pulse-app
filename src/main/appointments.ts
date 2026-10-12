@@ -40,7 +40,7 @@ export interface ApptSnapshot {
 export interface ApptChange { snapshot: ApptSnapshot; ids: number[] }
 
 const SELECT = `
-  SELECT a.*, CASE WHEN r.deleted_at IS NULL THEN COALESCE(NULLIF(r.display_name, ''), '(unnamed)') END AS record_name,
+  SELECT a.*, CASE WHEN r.deleted_at IS NULL AND g.is_active = 1 THEN COALESCE(NULLIF(r.display_name, ''), '(unnamed)') END AS record_name,
          r.grid_id, g.name AS grid_name, ser.rule AS series_rule
   FROM appointments a LEFT JOIN rows r ON r.id = a.row_id LEFT JOIN grids g ON g.id = r.grid_id
   LEFT JOIN appointment_series ser ON ser.id = a.series_id`

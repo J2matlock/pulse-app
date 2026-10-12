@@ -61,15 +61,16 @@ function savedDateOrder(): 'mdy' | 'dmy' {
 
 interface Col { id: number; grid_id: number; name: string; column_type: string; config: string | null; is_name_column: number }
 
-function load(columnId: number, to: string): { col: Col; cells: Array<{ row_id: number; value: string }> } {
+function load(columnId: number, to: string): { col: Col; cells: Array<{ row_id: number; value: string; live: number }> } {
   const db = getDb()
   const col = db.prepare('SELECT id, grid_id, name, column_type, config, is_name_column FROM columns WHERE id = ?').get(columnId) as Col | undefined
   if (!col) throw new ColumnTypeError('That column no longer exists.')
   if (col.is_name_column === 1 && !canNameRecords(to)) throw new ColumnTypeError(`This column names the ${word('record', { many: true }, col.grid_id)}, so it can't become that type. Choose another name column first.`)
   if (!CHANGEABLE_TYPES.has(col.column_type)) throw new ColumnTypeError("This kind of column can't be changed to another type.")
   if (!CHANGEABLE_TYPES.has(to)) throw new ColumnTypeError("A column can't be changed to that type. Add a new column instead.")
-  const cells = db.prepare(`SELECT c.row_id, c.value FROM cells c JOIN rows r ON r.id = c.row_id
-    WHERE c.column_id = ? AND c.value IS NOT NULL AND TRIM(c.value) != '' ORDER BY r.position, r.id`).all(columnId) as Array<{ row_id: number; value: string }>
+  // Records in the Trash are converted too (so a restore still fits), but not counted or offered as choices
+  const cells = db.prepare(`SELECT c.row_id, c.value, (r.deleted_at IS NULL) AS live FROM cells c JOIN rows r ON r.id = c.row_id
+    WHERE c.column_id = ? AND c.value IS NOT NULL AND TRIM(c.value) != '' ORDER BY r.position, r.id`).all(columnId) as Array<{ row_id: number; value: string; live: number }>
   return { col, cells }
 }
 
@@ -77,7 +78,8 @@ export interface TypePreview { total: number; clean: number; examples: string[] 
 
 /** How many filled-in values fit the new type, and a few that don't */
 export function previewTypeChange(columnId: number, to: string): TypePreview {
-  const { col, cells } = load(columnId, to)
+  const { col, cells: all } = load(columnId, to)
+  const cells = all.filter(c => c.live === 1)
   const order = savedDateOrder()
   const bad = cells.filter(c => convertValue(c.value, to, col.column_type, order) === null)
   return { total: cells.length, clean: cells.length - bad.length, examples: [...new Set(bad.map(c => c.value))].slice(0, 5) }
@@ -97,7 +99,7 @@ export function changeColumnType(columnId: number, to: string): TypeChangeSnapsh
     for (const c of cells) {
       const v = convertValue(c.value, to, col.column_type, order)
       if (v !== null && v !== c.value) { setCellWithHistory(c.row_id, columnId, v); changed.push({ rowId: c.row_id, old: c.value }) }
-      after.push(v ?? c.value)
+      if (c.live === 1) after.push(v ?? c.value)
     }
     let cfg: Record<string, unknown> = {}
     try { cfg = JSON.parse(col.config || '{}') as Record<string, unknown> } catch { cfg = {} }
