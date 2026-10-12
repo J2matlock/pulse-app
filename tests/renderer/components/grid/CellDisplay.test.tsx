@@ -9,7 +9,7 @@ vi.mock('../../../../src/renderer/utils/deadlineCalc', () => ({
   formatCalculatedDays: () => ({ text: '5 days', colorClass: 'text-green-600', icon: null }),
 }))
 
-import { CellDisplay } from '../../../../src/renderer/components/grid/CellDisplay'
+import { CellDisplay, formatDate } from '../../../../src/renderer/components/grid/CellDisplay'
 import type { Column } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
 
@@ -105,5 +105,26 @@ describe('CellDisplay', () => {
   it('renders currency formatted', () => {
     render(<CellDisplay column={makeColumn('currency')} value="1234.50" />)
     expect(screen.getByText('$1,234.50')).toBeTruthy()
+  })
+
+  it('writes money as US dollars, whatever the stored number looks like', () => {
+    const cases: Array<[string, string]> = [
+      ['-5', '-$5.00'], ['0', '$0.00'], ['-0', '-$0.00'], ['0.005', '$0.01'], ['2.675', '$2.68'], ['1234567.891', '$1,234,567.89'],
+      ['12abc', '$12.00'], ['1e21', '$1,000,000,000,000,000,000,000.00'], ['.5', '$0.50'],
+    ]
+    for (const [stored, shown] of cases) {
+      const { container, unmount } = render(<CellDisplay column={makeColumn('currency')} value={stored} />)
+      expect(container.textContent, stored).toBe(shown)
+      unmount()
+    }
+  })
+
+  it('writes dates as MM/DD/YYYY, rolling over impossible days and keeping what is not a date', () => {
+    const cases: Array<[string, string]> = [
+      ['2026-03-05', '03/05/2026'], ['2026-12-31T23:30:00', '12/31/2026'], ['0099-01-02', '01/02/99'], ['2026-02-30', '03/02/2026'], ['abc', 'abc'],
+    ]
+    for (const [stored, shown] of cases) expect(formatDate(stored), stored).toBe(shown)
+    const { container } = render(<CellDisplay column={makeColumn('date')} value="2026-03-05" />)
+    expect(container.textContent).toBe('03/05/2026')
   })
 })
