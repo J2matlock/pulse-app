@@ -43,6 +43,8 @@ import { exportComplianceSummary } from '../src/main/compliance'
 import { buildLabelsPdf } from '../src/main/export-documents'
 import { runReport } from '../src/main/report-builder'
 import { reportToCsv, buildReportPdf } from '../src/main/export-report'
+import { saveForm } from '../src/main/forms'
+import { buildFormPdf } from '../src/main/export-forms'
 
 /** The text runs of a PDF, or the lines of a CSV */
 function parts(path: string): string[] {
@@ -52,13 +54,17 @@ function parts(path: string): string[] {
 }
 
 /**
- * The app's default words where the workspace's own belong (A28-01..04): under
- * NONSENSE_VOCAB, a heading or label saying "note", "notes", "activity log" or
- * "contacts" came from Pulse, not from the seeded data (which never says them).
+ * The app's default words where the workspace's own belong (A28-01..04, A28-07):
+ * under NONSENSE_VOCAB, a heading or label saying "note", "list", "record",
+ * "activity log" or "contact(s)" came from Pulse, not from the seeded data
+ * (which never says them).
  */
-const DEFAULT_WORDS = /\b(notes?|activity logs?|contacts)\b/i
-/** Fixed labels that aren't the activity or contact word (a free-text column on the planner, the scratch pad) */
-const NOT_VOCAB = /^\((Notes|Scratch notes|Notes for the next tinker)\)$/
+const DEFAULT_WORDS = /\b(notes?|lists?|records?|activity logs?|contacts?)\b/i
+/**
+ * Fixed labels that aren't the activity or contact word (a free-text column on
+ * the planner, the scratch pad, a gizmo's phone and email)
+ */
+const NOT_VOCAB = /^\((Notes|Scratch notes|Notes for the next tinker|Contact Information)\)$/
 
 function leaks(path: string): string[] {
   const text = readFileSync(path, 'latin1')
@@ -161,21 +167,52 @@ describe('exports use the workspace words', () => {
     expect(files.flatMap(n => leaks(dest(n)).map(hit => `${n}: ${hit}`))).toEqual([])
   })
 
-  it("headings and labels use the workspace's words, not the defaults (A28-01..04)", async () => {
+  /** Every export this file covers, written under NONSENSE_VOCAB */
+  async function writeEveryExport(): Promise<string[]> {
     const month = localDateFromToday(0).slice(0, 7)
     const sup = {
       gridId, columnIds, dateRange: { start: localDateFromToday(-30), end: localDateFromToday(0) },
       includeActivityLog: true, includeSystemActivity: true, includeTaskSummary: true, workerName: 'Jo', workerTitle: 'Lead', workerOrg: 'Shop',
     }
+    await exportPdfGrid({ gridId, columnIds, activeRowIds: rowIds, destPath: dest('grid.pdf') })
+    await exportPdfProfile({ rowId: rowIds[0]!, gridId, destPath: dest('profile.pdf'), includeSections: allSections })
     await exportSupervisorReport({ ...sup, format: 'pdf', destPath: dest('sup.pdf') })
     await exportSupervisorReport({ ...sup, format: 'csv', destPath: dest('sup.csv') })
     await exportHandoffPacket({ rowId: rowIds[0]!, gridId, receiving: 'Sam', summary: 'Waiting on parts.' }, dest('handoff.pdf'))
-    await exportAuditReport({ gridId }, dest('audit.pdf'), 'Shelf A', 'Jo')
-    await exportTotalsCsv(month, undefined, dest('totals.csv'))
-    await exportPdfProfile({ rowId: rowIds[0]!, gridId, destPath: dest('profile.pdf'), includeSections: allSections })
     await exportWeeklyPlanner(localDateFromToday(0), dest('week.pdf'), 'Jo')
+    await exportAuditReport({ gridId }, dest('audit.pdf'), 'Shelf A', 'Jo')
+    await exportContactPdf(providerId, dest('contact.pdf'))
+    await exportDirectoryPdf({}, dest('directory.pdf'))
+    await exportCsv({ gridId, columnIds, activeRowIds: rowIds, destPath: dest('list.csv'), dateFormat: 'us' })
+    await exportNotesCsv(dest('notes.csv'))
+    await exportTotalsCsv(month, undefined, dest('totals.csv'))
+    await exportMissingInfoCsv(dest('missing.csv'))
+    await exportComplianceSummary(month, undefined, dest('compliance.pdf'))
+    writeFileSync(dest('labels.pdf'), Buffer.from(buildLabelsPdf({ gridId }, columnIds[0]!, 'avery-5160').pdf.output('arraybuffer')))
+    for (const source of ['records', 'activities', 'appointments', 'deadlines'] as const) {
+      const r = runReport(gridId, { source, filters: [], groupBy: [], values: [] })
+      writeFileSync(dest(`report-${source}.csv`), reportToCsv(r))
+      writeFileSync(dest(`report-${source}.pdf`), buildReportPdf('Report', 'All', r))
+    }
+    const form = saveForm({
+      grid_id: gridId, name: 'Intake', intro: 'Welcome', log_activity_type: 'visit',
+      fields: [{ kind: 'section', title: 'About' }, { kind: 'column', columnId: columnIds[0]!, required: true }, { kind: 'note', label: 'Anything else?' }],
+    })
+    writeFileSync(dest('form.pdf'), Buffer.from(buildFormPdf(form.id, null).pdf.output('arraybuffer')))
+    writeFileSync(dest('form-filled.pdf'), Buffer.from(buildFormPdf(form.id, rowIds[0]!).pdf.output('arraybuffer')))
+    return ['grid.pdf', 'profile.pdf', 'sup.pdf', 'sup.csv', 'handoff.pdf', 'week.pdf', 'audit.pdf', 'contact.pdf', 'directory.pdf',
+      'list.csv', 'notes.csv', 'totals.csv', 'missing.csv', 'compliance.pdf', 'labels.pdf',
+      ...['records', 'activities', 'appointments', 'deadlines'].flatMap(s => [`report-${s}.csv`, `report-${s}.pdf`]),
+      'form.pdf', 'form-filled.pdf']
+  }
 
-    const files = ['sup.pdf', 'sup.csv', 'handoff.pdf', 'audit.pdf', 'totals.csv', 'profile.pdf', 'week.pdf']
+  it('forms PDF', async () => {
+    const files = await writeEveryExport()
+    expect(files.filter(n => n.startsWith('form')).flatMap(n => leaks(dest(n)).map(hit => `${n}: ${hit}`))).toEqual([])
+  })
+
+  it("headings and labels use the workspace's words, not the defaults (A28-01..04, A28-07)", async () => {
+    const files = await writeEveryExport()
     const hits = files.flatMap(n => parts(dest(n)).filter(p => DEFAULT_WORDS.test(p) && !NOT_VOCAB.test(p)).map(p => `${n}: ${p}`))
     expect(hits).toEqual([])
     // and the workspace's words are where the defaults were
@@ -189,5 +226,6 @@ describe('exports use the workspace words', () => {
     const p = dest('probe.pdf')
     writeFileSync(p, '(Client profile) Tj (other) Tj')
     expect(leaks(p)).toEqual(['(Client profile)'])
+    expect(['(Record name)', '(Lists)', '(New note)', '(Contact)'].filter(t => DEFAULT_WORDS.test(t) && !NOT_VOCAB.test(t))).toHaveLength(4)
   })
 })
