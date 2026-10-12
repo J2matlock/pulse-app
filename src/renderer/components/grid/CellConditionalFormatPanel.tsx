@@ -12,6 +12,7 @@ import { useGridStore } from '../../stores/gridStore'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import type { CellFormatRule, CellFormatSourceType, CellFormatOperator, GridRow } from '../../../shared/types'
 import { useVocab } from '../../hooks/useVocab'
+import { unhandledCase } from '../../../shared/assertNever'
 
 // ── Operator sets ─────────────────────────────────────────────────────────────
 
@@ -640,6 +641,9 @@ export function evalCellFormat(
       case 'after':                 match = value > rule.value; break
       case 'on_date':               match = value.startsWith(rule.value); break
       case 'date_between':          match = rule.value2 !== undefined && value >= rule.value && value <= rule.value2; break
+      // An operator added without a case fails typecheck; a stored one this
+      // version doesn't know never matches, as before
+      default:                      unhandledCase(rule.operator)
     }
     if (match) return rule
   }

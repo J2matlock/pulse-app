@@ -10,6 +10,7 @@ import { linkValueText, parseLinkValue } from '../../shared/links'
 import { localDateString } from '../../shared/dates'
 import { autoNumberValue } from '../../shared/autoNumber'
 import { computedColumnNumber, isComputedColumnType } from './computedColumns'
+import { unhandledCase } from '../../shared/assertNever'
 
 /** A typed amount as a number: "$1,200.50" is 1200.5, the way paste reads it; NaN when it isn't one */
 function amount(text: string): number {
@@ -87,7 +88,15 @@ export function matchFilter(
       case 'is_not_empty': return tagNames.length > 0
       case 'contains':     return tagStr.includes(v)
       case 'not_contains': return !tagStr.includes(v)
-      default:             return true
+      // The tag filter offers only the four above; others leave it off
+      case 'equals': case 'not_equals': case 'starts_with': case 'ends_with':
+      case 'gt': case 'lt': case 'before': case 'after': case 'links_to':
+        return true
+      default:
+        // An operator added without a case fails typecheck; one from a saved
+        // view this version doesn't know leaves the filter off
+        unhandledCase(filter.operator)
+        return true
     }
   }
 
@@ -149,6 +158,12 @@ export function matchFilter(
       const filterDate = new Date(v).getTime()
       return !isNaN(cellDate) && !isNaN(filterDate) && cellDate > filterDate
     }
-    default:       return true
+    // "Links to" on a column that is no longer a link column leaves the filter off
+    case 'links_to':      return true
+    default:
+      // An operator added without a case fails typecheck; one from a saved
+      // view this version doesn't know leaves the filter off, as before
+      unhandledCase(filter.operator)
+      return true
   }
 }
