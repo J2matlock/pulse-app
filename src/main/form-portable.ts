@@ -2,7 +2,7 @@
  * Forms in starters and shared workspaces (W08 §6): fields name columns, and
  * are matched to the list's columns when applied.
  */
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import type { StarterForm } from '../shared/starters/schema'
 import { NOT_FILLABLE, type FormField } from '../shared/forms'
 import { listForms, saveForm, FormError } from './forms'

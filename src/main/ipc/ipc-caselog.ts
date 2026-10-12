@@ -2,8 +2,10 @@
  * ipc-caselog.ts — CASE_LOG_*, SCRAP_NOTE_* IPC handlers
  */
 
+import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
-import { secureWrap, ok, fail, validId, notifyCaseLogChanged, enforceWritable, logNonFatal } from './ipc-utils'
+import { ok, fail, notifyCaseLogChanged, logNonFatal } from './ipc-utils'
+import { handlersFor, idArg, textArg } from './ipc-define'
 import { getDb, cachedStmt } from '../database'
 import type { CaseLogEntry, NoteDateUpdate, NoteDateRevert } from '../../shared/types'
 import type { CaseLogQuery } from '../../shared/ipc-contract'
@@ -11,7 +13,7 @@ import { isValidLogType } from '../activity-types'
 import { cleanExtraMeasures } from '../measures'
 import { parseExtraMeasures } from '../../shared/measures'
 import { applyNoteDateUpdates, revertNoteDates, checkOccurredOn, occurredTimestamp, localDayOf } from '../note-date-updates'
-import { localDateString } from '../../shared/dates'
+import { localDateString, ymdLocalDate } from '../../shared/dates'
 import { CASE_NOTE_DELETE_WINDOW_MINUTES } from '../../shared/constants'
 import { word } from '../vocab'
 
@@ -49,11 +51,20 @@ const CASE_LOG_COLS = `id, row_id, content, log_type, created_at, updated_at, oc
   is_pinned, follow_up_date, follow_up_completed, original_content,
   edited_at, voided_at, voided_reason, source_action_id, minutes, miles, extra_measures`
 
+/** A note put back by undo, as CASE_LOG_DELETE's caller saved it */
+interface RestoredNote {
+  id: number; row_id: number; content: string; log_type: string; is_pinned: number; follow_up_date: string | null
+  follow_up_completed: number; voided_at: string | null; voided_reason: string | null; created_at: string
+  occurred_at?: string | null; minutes?: number | null; miles?: number | null; extra_measures?: string | null
+}
+
+const define = handlersFor('ipc-caselog')
+
 export function registerCaseLogHandlers(): void {
-  secureWrap(IPC.CASE_LOG_GET, 'ipc-caselog', (_e, rowId: number, includeSystem?: boolean, includeVoided?: boolean, limit?: number, offset?: number, opts?: CaseLogQuery) => {
-    if (!validId(rowId)) return fail('Invalid ID')
-    const safeLimit = Math.min(Math.max(limit ?? 200, 1), 1000)
-    const safeOffset = Math.max(offset ?? 0, 0)
+  define(IPC.CASE_LOG_GET, [idArg(), z.custom<boolean | undefined>(), z.custom<boolean | undefined>(), z.custom<number | undefined>(), z.custom<number | undefined>(), z.custom<CaseLogQuery | undefined>()], (rowId, includeSystem, includeVoided, limit, offset, opts) => {
+    // Whole numbers only: NaN or 1.5 would reach LIMIT/OFFSET (Q-056)
+    const safeLimit = Number.isInteger(limit) ? Math.min(Math.max(limit as number, 1), 1000) : 200
+    const safeOffset = Number.isInteger(offset) ? Math.max(offset as number, 0) : 0
     const f = caseLogFilter(rowId, includeSystem, includeVoided, opts)
     // Pinned first, then by the day it happened (then when it was written); searching and
     // "oldest first" happen here so they cover every note, not just the loaded page (1.31)
@@ -65,17 +76,17 @@ export function registerCaseLogHandlers(): void {
     return ok(entries)
   })
 
-  secureWrap(IPC.CASE_LOG_COUNT, 'ipc-caselog', (_e, rowId: number, includeSystem?: boolean, includeVoided?: boolean, opts?: CaseLogQuery) => {
-    if (!validId(rowId)) return fail('Invalid ID')
+  define(IPC.CASE_LOG_COUNT, [idArg(), z.custom<boolean | undefined>(), z.custom<boolean | undefined>(), z.custom<CaseLogQuery | undefined>()], (rowId, includeSystem, includeVoided, opts) => {
     const f = caseLogFilter(rowId, includeSystem, includeVoided, opts)
     const r = cachedStmt(`case_log_count_${f.key}`, `SELECT COUNT(*) AS n FROM case_log WHERE ${f.where}`).get(...f.params) as { n: number }
     return ok(r.n)
   })
 
   // occurredOn: the day it happened when that isn't today (a visit written up the next morning)
-  secureWrap(IPC.CASE_LOG_CREATE, 'ipc-caselog', (_e, rowId: number, content: string, logType: string, followUpDate: string | null, measures?: NoteMeasures, occurredOn?: string | null) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId)) return fail('Invalid ID')
+  // The type's and content's messages use the workspace words, so they and the checks after them stay in the body
+  define(IPC.CASE_LOG_CREATE, [
+    idArg(), z.custom<string>(), z.custom<string>(), z.custom<string | null>(), z.custom<NoteMeasures | undefined>(), z.custom<string | null | undefined>(),
+  ], (rowId, content, logType, followUpDate, measures, occurredOn) => {
     // New notes take an active type; archived ones only come back through restore (undo)
     if (!isValidLogType(logType)) return fail(`That kind of ${word('activity')} isn't available any more. Pick another and try again.`)
     if (typeof content !== 'string' || content.length > 100_000) return fail(`That ${word('activity')} is too long (max 100,000 characters).`)
@@ -102,11 +113,9 @@ export function registerCaseLogHandlers(): void {
     })()
     notifyCaseLogChanged(rowId)
     return ok({ ...entry, updated_dates })
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CASE_LOG_UPDATE, 'ipc-caselog', (_e, id: number, content: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.CASE_LOG_UPDATE, [idArg(), z.custom<string>()], (id, content) => {
     if (typeof content !== 'string' || content.length > 100_000) return fail(`That ${word('activity')} is too long (max 100,000 characters).`)
     // Emptying a note isn't a way to remove it: it would leave a blank entry in the record (R-13)
     if (!content.trim()) return fail(`${word('activity', { cap: true })} can't be empty. To remove one, use Void.`)
@@ -130,11 +139,9 @@ export function registerCaseLogHandlers(): void {
     const entry = cachedStmt('case_log_row_id', 'SELECT row_id FROM case_log WHERE id = ?').get(id) as { row_id: number } | undefined
     if (entry) notifyCaseLogChanged(entry.row_id)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CASE_LOG_DELETE, 'ipc-caselog', (_e, id: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.CASE_LOG_DELETE, [idArg()], (id) => {
     const db = getDb()
     // Records integrity: only a note written in the last few minutes (a typo, the
     // wrong client) can be deleted outright. Older notes are voided instead, which
@@ -152,18 +159,15 @@ export function registerCaseLogHandlers(): void {
     })()
     notifyCaseLogChanged(recent.row_id)
     return ok({ reverted_dates })
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CASE_LOG_GET_EDITS, 'ipc-caselog', (_e, id: number) => {
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.CASE_LOG_GET_EDITS, [idArg()], (id) => {
     const edits = cachedStmt('case_log_edits_get', 'SELECT content, occurred_at, replaced_at FROM case_log_edits WHERE case_log_id = ? ORDER BY replaced_at ASC, id ASC')
       .all(id) as Array<{ content: string; occurred_at: string | null; replaced_at: string }>
     return ok(edits)
   })
 
-  secureWrap(IPC.CASE_LOG_TOGGLE_PIN, 'ipc-caselog', (_e, id: number, pinned: boolean) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.CASE_LOG_TOGGLE_PIN, [idArg(), z.custom<boolean>()], (id, pinned) => {
     const db = getDb()
     const rowId = db.transaction(() => {
       const entry = cachedStmt('case_log_row_id', 'SELECT row_id FROM case_log WHERE id = ?').get(id) as { row_id: number } | undefined
@@ -172,12 +176,9 @@ export function registerCaseLogHandlers(): void {
     })()
     if (rowId) notifyCaseLogChanged(rowId)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CASE_LOG_VOID, 'ipc-caselog', (_e, id: number, reason: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
-    if (typeof reason !== 'string' || reason.length > 1000) return fail('Invalid void reason')
+  define(IPC.CASE_LOG_VOID, [idArg(), textArg('Invalid void reason', { max: 1000 })], (id, reason) => {
     const db = getDb()
     // A voided note no longer counts, so the dates it moved go back (L-05)
     const { rowId, reverted_dates } = db.transaction(() => {
@@ -187,11 +188,9 @@ export function registerCaseLogHandlers(): void {
     })()
     if (rowId) notifyCaseLogChanged(rowId)
     return ok({ reverted_dates })
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CASE_LOG_UNVOID, 'ipc-caselog', (_e, id: number, opts?: { logRestore?: boolean }) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.CASE_LOG_UNVOID, [idArg(), z.custom<{ logRestore?: boolean } | undefined>()], (id, opts) => {
     const db = getDb()
     // Counting again, it moves its dates again
     const { rowId, updated_dates } = db.transaction(() => {
@@ -208,11 +207,9 @@ export function registerCaseLogHandlers(): void {
     })()
     if (rowId) notifyCaseLogChanged(rowId)
     return ok({ updated_dates })
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CASE_LOG_COMPLETE_FOLLOWUP, 'ipc-caselog', (_e, id: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.CASE_LOG_COMPLETE_FOLLOWUP, [idArg()], (id) => {
     const db = getDb()
     let sysLogId: number | null = null
     let rowId: number | null = null
@@ -225,7 +222,7 @@ export function registerCaseLogHandlers(): void {
       if (entry) {
         rowId = entry.row_id
         const dateStr = entry.follow_up_date
-          ? (() => { const [y = NaN, m = NaN, d = NaN] = entry.follow_up_date.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString() })()
+          ? ymdLocalDate(entry.follow_up_date).toLocaleDateString()
           : ''
         const snippet = entry.content.length > 60 ? entry.content.slice(0, 60).trimEnd() + '…' : entry.content
         const content = `Follow-up completed${dateStr ? ` (due ${dateStr})` : ''}: "${snippet}"`
@@ -239,20 +236,18 @@ export function registerCaseLogHandlers(): void {
     completeFollowUp()
     if (rowId) notifyCaseLogChanged(rowId)
     return ok({ sysLogId })
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CASE_LOG_UNCOMPLETE_FOLLOWUP, 'ipc-caselog', (_e, id: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.CASE_LOG_UNCOMPLETE_FOLLOWUP, [idArg()], (id) => {
     const db = getDb()
     const entry = cachedStmt('case_log_row_id', 'SELECT row_id FROM case_log WHERE id = ?').get(id) as { row_id: number } | undefined
     db.prepare(`UPDATE case_log SET follow_up_completed = 0, updated_at = datetime('now') WHERE id = ?`).run(id)
     if (entry) notifyCaseLogChanged(entry.row_id)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CASE_LOG_RESTORE, 'ipc-caselog', (_e, entry: { id: number; row_id: number; content: string; log_type: string; is_pinned: number; follow_up_date: string | null; follow_up_completed: number; voided_at: string | null; voided_reason: string | null; created_at: string; occurred_at?: string | null; minutes?: number | null; miles?: number | null; extra_measures?: string | null }) => {
-    const guard = enforceWritable(); if (guard) return guard
+  // The entry is checked in the body, field by field, as before
+  define(IPC.CASE_LOG_RESTORE, [z.custom<RestoredNote>()], (entry) => {
     if (!entry || typeof entry.id !== 'number' || typeof entry.row_id !== 'number') return fail('Invalid entry format')
     if (typeof entry.content !== 'string' || entry.content.length > 100_000) return fail('Content missing or too large')
     if (!isValidLogType(entry.log_type, { allowArchived: true })) return fail(`Invalid log type: ${entry.log_type}`)
@@ -287,12 +282,10 @@ export function registerCaseLogHandlers(): void {
     }
     notifyCaseLogChanged(entry.row_id)
     return ok({ updated_dates })
-  })
+  }, { write: true })
 
   // Time and mileage can be corrected after the fact (the note text has its own edit history)
-  secureWrap(IPC.CASE_LOG_SET_MEASURES, 'ipc-caselog', (_e, id: number, measures: NoteMeasures) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.CASE_LOG_SET_MEASURES, [idArg(), z.custom<NoteMeasures>()], (id, measures) => {
     const m = validMeasures(measures)
     if (typeof m === 'string') return fail(m)
     const row = getDb().prepare('SELECT row_id FROM case_log WHERE id = ?').get(id) as { row_id: number } | undefined
@@ -305,12 +298,10 @@ export function registerCaseLogHandlers(): void {
     else getDb().prepare('UPDATE case_log SET minutes = ?, miles = ?, extra_measures = ? WHERE id = ?').run(m.minutes, m.miles, extra, id)
     notifyCaseLogChanged(row.row_id)
     return ok(true)
-  })
+  }, { write: true })
 
   // The day a note happened can be corrected; the day it had before is kept in its edit history
-  secureWrap(IPC.CASE_LOG_SET_OCCURRED, 'ipc-caselog', (_e, id: number, occurredOn: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.CASE_LOG_SET_OCCURRED, [idArg(), z.custom<string>()], (id, occurredOn) => {
     const day = checkOccurredOn(occurredOn)
     if (day === null || typeof day === 'object') return fail(day?.error ?? 'Choose the day it happened.')
     const db = getDb()
@@ -338,24 +329,20 @@ export function registerCaseLogHandlers(): void {
     }
     notifyCaseLogChanged(note.row_id)
     return ok({ occurred_at, updated_dates, reverted_dates })
-  })
+  }, { write: true })
 
   // ── Scrap Notes ─────────────────────────────────────────────────────────────
-  secureWrap(IPC.SCRAP_NOTE_GET, 'ipc-caselog', (_e, rowId: number) => {
-    if (!validId(rowId)) return fail('Invalid ID')
+  define(IPC.SCRAP_NOTE_GET, [idArg()], (rowId) => {
     const note = getDb().prepare('SELECT * FROM scrap_notes WHERE row_id = ?').get(rowId)
     return ok(note ?? null)
   })
 
-  secureWrap(IPC.SCRAP_NOTE_UPDATE, 'ipc-caselog', (_e, rowId: number, content: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId)) return fail('Invalid ID')
-    if (typeof content !== 'string' || content.length > 500_000) return fail('Scratch notes can be up to 500,000 characters.')
+  define(IPC.SCRAP_NOTE_UPDATE, [idArg(), textArg('Scratch notes can be up to 500,000 characters.', { max: 500_000 })], (rowId, content) => {
     getDb().prepare(`
       INSERT INTO scrap_notes (row_id, content, updated_at)
       VALUES (?, ?, datetime('now'))
       ON CONFLICT(row_id) DO UPDATE SET content = excluded.content, updated_at = excluded.updated_at
     `).run(rowId, content)
     return ok(true)
-  })
+  }, { write: true })
 }

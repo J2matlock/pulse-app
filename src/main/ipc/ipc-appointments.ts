@@ -2,9 +2,11 @@
  * ipc-appointments.ts — appointments and series (generalization W07 §5).
  */
 import { BrowserWindow } from 'electron'
+import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
-import { APPT_STATUSES, DATE_RE, type ApptStatus, type EditScope } from '../../shared/appointments'
-import { secureWrap, ok, fail, enforceWritable, validId, notifyCaseLogChanged } from './ipc-utils'
+import { APPT_STATUSES, DATE_RE, type ApptStatus } from '../../shared/appointments'
+import { ok, fail, validId, notifyCaseLogChanged } from './ipc-utils'
+import { handlersFor, idArg, idListArg } from './ipc-define'
 import {
   ApptError, listAppointments, recordAppointments, createAppointment, updateAppointment, deleteAppointment, restoreAppointments, setAppointmentStatus,
   countUpcomingForRecords, cancelUpcomingForRecords, endSeriesOn,
@@ -23,7 +25,12 @@ export function announceAppointments(): void {
   BrowserWindow.getAllWindows().forEach(w => { if (!w.isDestroyed()) w.webContents.send(IPC.APPOINTMENTS_CHANGED) })
 }
 
-const scopeOf = (v: unknown): EditScope | null => (v === undefined ? 'one' : v === 'one' || v === 'following' || v === 'all' ? v : null)
+const define = handlersFor('ipc-appointments')
+
+const BAD = 'Invalid request'
+/** Which appointments of a series an edit covers; just this one when left out */
+const scopeArg = () => z.enum(['one', 'following', 'all'], BAD).default('one')
+const dateArg = (message: string) => z.string(message).regex(DATE_RE, message)
 
 function validSnapshot(v: unknown): v is ApptSnapshot {
   if (!v || typeof v !== 'object') return false
@@ -35,10 +42,10 @@ function validSnapshot(v: unknown): v is ApptSnapshot {
 }
 
 const MAX_RECORDS = 1000
-const validRowIds = (v: unknown): v is number[] => Array.isArray(v) && v.length > 0 && v.length <= MAX_RECORDS && v.every(validId)
+const rowIdsArg = () => idListArg(BAD, BAD, { min: 1, max: MAX_RECORDS })
 
 export function registerAppointmentHandlers(): void {
-  secureWrap(IPC.APPT_LIST, 'ipc-appointments', (_e, range: unknown, filter?: unknown) => {
+  define(IPC.APPT_LIST, [z.unknown(), z.unknown()], (range, filter) => {
     const r = (range && typeof range === 'object' ? range : {}) as Record<string, unknown>
     if (typeof r.from !== 'string' || typeof r.to !== 'string' || !DATE_RE.test(r.from) || !DATE_RE.test(r.to)) return fail('Invalid dates')
     const f = (filter && typeof filter === 'object' ? filter : {}) as Record<string, unknown>
@@ -51,59 +58,48 @@ export function registerAppointmentHandlers(): void {
     }))
   })
 
-  secureWrap(IPC.APPT_FOR_RECORD, 'ipc-appointments', (_e, rowId: unknown) => {
-    if (!validId(rowId)) return fail('Invalid ID')
-    return ok(recordAppointments(rowId))
-  })
+  define(IPC.APPT_FOR_RECORD, [idArg()], (rowId) => ok(recordAppointments(rowId)))
 
-  secureWrap(IPC.APPT_CREATE, 'ipc-appointments', (_e, input: unknown, rule?: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
+  define(IPC.APPT_CREATE, [z.unknown(), z.unknown()], (input, rule) => {
     const res = action(() => createAppointment(input as never, (rule ?? null) as never))
     if (res.ok) announceAppointments()
     return res
-  })
+  }, { write: true })
 
-  secureWrap(IPC.APPT_UPDATE, 'ipc-appointments', (_e, id: unknown, patch: unknown, scope?: unknown, rule?: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    const sc = scopeOf(scope)
-    if (!validId(id) || !sc || !patch || typeof patch !== 'object') return fail('Invalid request')
-    if (rule != null && typeof rule !== 'object') return fail('Invalid request')
-    const res = action(() => updateAppointment(id, patch as never, sc, (rule ?? null) as never))
+  // Every check here answers the same message, so their order doesn't show
+  define(IPC.APPT_UPDATE, [
+    idArg(BAD),
+    z.custom<object>(v => !!v && typeof v === 'object', BAD),
+    scopeArg(),
+    z.custom<object | null | undefined>(v => v == null || typeof v === 'object', BAD),
+  ], (id, patch, scope, rule) => {
+    const res = action(() => updateAppointment(id, patch as never, scope, (rule ?? null) as never))
     if (res.ok) announceAppointments()
     return res
-  })
+  }, { write: true })
 
-  secureWrap(IPC.APPT_END_SERIES, 'ipc-appointments', (_e, id: unknown, lastDate: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id) || typeof lastDate !== 'string' || !DATE_RE.test(lastDate)) return fail('Invalid request')
+  define(IPC.APPT_END_SERIES, [idArg(BAD), dateArg(BAD)], (id, lastDate) => {
     const res = action(() => endSeriesOn(id, lastDate))
     if (res.ok) announceAppointments()
     return res
-  })
+  }, { write: true })
 
-  secureWrap(IPC.APPT_DELETE, 'ipc-appointments', (_e, id: unknown, scope?: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    const sc = scopeOf(scope)
-    if (!validId(id) || !sc) return fail('Invalid request')
-    const res = action(() => deleteAppointment(id, sc))
+  define(IPC.APPT_DELETE, [idArg(BAD), scopeArg()], (id, scope) => {
+    const res = action(() => deleteAppointment(id, scope))
     if (res.ok) announceAppointments()
     return res
-  })
+  }, { write: true })
 
-  secureWrap(IPC.APPT_RESTORE, 'ipc-appointments', (_e, snapshot: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validSnapshot(snapshot)) return fail('Invalid request')
+  define(IPC.APPT_RESTORE, [z.custom<ApptSnapshot>(validSnapshot, BAD)], (snapshot) => {
     const res = action(() => restoreAppointments(snapshot))
     if (res.ok) announceAppointments()
     return res
-  })
+  }, { write: true })
 
-  secureWrap(IPC.APPT_SET_STATUS, 'ipc-appointments', (_e, id: unknown, status: unknown, opts?: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id) || !APPT_STATUSES.includes(status as ApptStatus)) return fail('Invalid request')
+  define(IPC.APPT_SET_STATUS, [idArg(BAD), z.enum(APPT_STATUSES, BAD), z.unknown()], (id, status, opts) => {
     const o = (opts && typeof opts === 'object' ? opts : {}) as Record<string, unknown>
     if (o.noteContent != null && typeof o.noteContent !== 'string') return fail('Invalid note')
-    const res = action(() => setAppointmentStatus(id, status as ApptStatus, {
+    const res = action(() => setAppointmentStatus(id, status, {
       ...(typeof o.noteContent === 'string' ? { noteContent: o.noteContent } : {}),
       ...(typeof o.minutes === 'number' ? { minutes: o.minutes } : {}),
       ...(typeof o.miles === 'number' ? { miles: o.miles } : {}),
@@ -114,24 +110,20 @@ export function registerAppointmentHandlers(): void {
       if (res.data.rowId !== null && (res.data.caseLogId !== null || res.data.voidedNoteId !== null)) notifyCaseLogChanged(res.data.rowId)
     }
     return res
-  })
+  }, { write: true })
 
-  secureWrap(IPC.APPT_UPCOMING_COUNT, 'ipc-appointments', (_e, rowIds: unknown) => {
-    if (!validRowIds(rowIds)) return fail('Invalid request')
-    return ok(countUpcomingForRecords(rowIds))
-  })
+  define(IPC.APPT_UPCOMING_COUNT, [rowIdsArg()], (rowIds) => ok(countUpcomingForRecords(rowIds)))
 
   /** Archiving: end the records' series and remove their upcoming appointments (audit 1.13) */
-  secureWrap(IPC.APPT_CANCEL_UPCOMING, 'ipc-appointments', (_e, rowIds: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validRowIds(rowIds)) return fail('Invalid request')
+  define(IPC.APPT_CANCEL_UPCOMING, [rowIdsArg()], (rowIds) => {
     const res = action(() => cancelUpcomingForRecords(rowIds))
     if (res.ok) announceAppointments()
     return res
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CALENDAR_ITEMS, 'ipc-appointments', (_e, from: unknown, to: unknown, gridId?: unknown) => {
-    if (typeof from !== 'string' || typeof to !== 'string' || !DATE_RE.test(from) || !DATE_RE.test(to) || to < from) return fail('Invalid dates')
+  // to < from answers 'Invalid dates' before the list is checked, so the list stays in the body
+  define(IPC.CALENDAR_ITEMS, [dateArg('Invalid dates'), dateArg('Invalid dates'), z.unknown()], (from, to, gridId) => {
+    if (to < from) return fail('Invalid dates')
     if (gridId != null && !validId(gridId)) return fail('Invalid ID')
     return ok(calendarItems(from, to, gridId == null ? undefined : gridId))
   })

@@ -54,6 +54,8 @@ vi.mock('../../../src/renderer/components/shared/ConfirmDialog', () => ({
 // ── Import (after mocks) ─────────────────────────────────────────────────────
 
 import { PasswordSetupView } from '../../../src/renderer/views/PasswordSetupView'
+import { safeInvoke } from '../../../src/renderer/utils/safeInvoke'
+import { IPC } from '../../../src/shared/ipc-channels'
 
 async function flushEffects() {
   await act(async () => { await new Promise(r => setTimeout(r, 0)) })
@@ -112,5 +114,30 @@ describe('PasswordSetupView', () => {
     render(<MemoryRouter><PasswordSetupView /></MemoryRouter>)
     await flushEffects()
     expect(wholeStoreReads.n).toBe(0)
+  })
+
+  it('the recovery-key step sends the password just set, so it works after the setup grace runs out (R1-01)', async () => {
+    const invoke = vi.mocked(safeInvoke)
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === IPC.AUTH_SETUP_PASSWORD) return { ok: true, data: {} }
+      if (channel === IPC.AUTH_GENERATE_RECOVERY_KEY) return { ok: true, data: 'ABCD-EFGH' }
+      return { ok: false, error: 'test-mock' }
+    })
+    try {
+      render(<MemoryRouter><PasswordSetupView /></MemoryRouter>)
+      await flushEffects()
+      const [pw, confirm] = screen.getAllByPlaceholderText(/./).filter(el => (el as HTMLInputElement).type === 'password') as HTMLInputElement[]
+      fireEvent.change(pw!, { target: { value: 'a long enough passphrase' } })
+      fireEvent.change(confirm!, { target: { value: 'a long enough passphrase' } })
+      fireEvent.click(screen.getByRole('checkbox'))
+      fireEvent.click(screen.getByRole('button', { name: 'Create password & continue' }))
+      await flushEffects()
+      fireEvent.click(await screen.findByRole('button', { name: 'Generate Recovery Key' }))
+      await flushEffects()
+      expect(invoke).toHaveBeenCalledWith(IPC.AUTH_GENERATE_RECOVERY_KEY, 'a long enough passphrase')
+    } finally {
+      invoke.mockReset()
+      invoke.mockResolvedValue({ ok: false, error: 'test-mock' })
+    }
   })
 })

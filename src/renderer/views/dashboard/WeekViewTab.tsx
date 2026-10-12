@@ -126,49 +126,53 @@ export function WeekViewTab({
                     if (item.kind === 'task') {
                       const t = item.data
                       return (
-                        <div key={`task-${t.id}`}
-                          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-700/40 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600/40"
+                        // Buttons, so the keyboard can open them too (Q-053)
+                        <button key={`task-${t.id}`}
+                          type="button"
+                          className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-700/40 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600/40 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
                           onClick={() => navigate('/tasks')}
                         >
-                          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-purple-400" />
-                          <div className="flex-1 min-w-0">
+                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-purple-400" />
+                          <span className="flex-1 min-w-0">
                             <span className="font-medium text-slate-800 dark:text-slate-100">{t.title}</span>
                             <span className="text-sm bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded-sm ml-2">task</span>
-                          </div>
+                          </span>
                           {t.category && <span className="text-sm text-slate-500 dark:text-slate-400 flex-shrink-0">{t.category}</span>}
-                        </div>
+                        </button>
                       )
                     }
                     if (item.kind === 'checklist') {
                       const ci = item.data
                       return (
-                        <div key={`cl-${ci.id}`}
-                          className="flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-700/40 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600/40"
+                        <button key={`cl-${ci.id}`}
+                          type="button"
+                          className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-700/40 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600/40 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
                           onClick={() => navigate(`/profile/${ci.row_id}?gridId=${ci.grid_id}`)}
                         >
-                          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-teal-400" />
-                          <div className="flex-1 min-w-0">
+                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-teal-400" />
+                          <span className="flex-1 min-w-0">
                             <span className="font-medium text-slate-800 dark:text-slate-100">{ci.title}</span>
                             <span className="text-sm bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 px-1.5 py-0.5 rounded-sm ml-2">checklist</span>
-                          </div>
+                          </span>
                           <span className="text-sm text-slate-500 dark:text-slate-400 flex-shrink-0">{ci.client_name} &middot; {ci.grid_name}</span>
-                        </div>
+                        </button>
                       )
                     }
                     // followup
                     const f = item.data
                     return (
-                      <div key={`fu-${f.id}`}
-                        className="flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-700/40 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600/40"
+                      <button key={`fu-${f.id}`}
+                        type="button"
+                        className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-700/40 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600/40 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
                         onClick={() => navigate(`/profile/${f.row_id}?gridId=${f.grid_id}`)}
                       >
-                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-amber-400" />
-                        <div className="flex-1 min-w-0">
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-amber-400" />
+                        <span className="flex-1 min-w-0">
                           <span className="font-medium text-slate-800 dark:text-slate-100">{f.client_name}</span>
                           <span className="text-sm bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-sm ml-2">follow-up</span>
-                        </div>
+                        </span>
                         <span className="text-sm text-slate-500 dark:text-slate-400 flex-shrink-0">{f.grid_name}</span>
-                      </div>
+                      </button>
                     )
                   })}
                 </div>

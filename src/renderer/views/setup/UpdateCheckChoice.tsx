@@ -3,21 +3,25 @@
  * launch connects anywhere before they've seen the choice (AUDIT-087). Same
  * setting as Settings → About; on unless switched off.
  */
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 
 export function UpdateCheckChoice(): React.ReactElement {
   const [enabled, setEnabled] = useState(true)
+  // Set once the person changes it: the saved value read on opening mustn't
+  // overwrite a choice made before it arrived (F-039)
+  const changed = useRef(false)
   useEffect(() => {
     let live = true
     void safeInvoke(IPC.SETTINGS_GET, 'auto_update_check').then(res => {
-      if (live && res.ok) setEnabled(res.data !== 'false')
+      if (live && res.ok && !changed.current) setEnabled(res.data !== 'false')
     }).catch(() => { /* keep the default */ })
     return () => { live = false }
   }, [])
 
   async function toggle(next: boolean) {
+    changed.current = true
     setEnabled(next)
     try {
       const res = await safeInvoke(IPC.SETTINGS_UPDATE, 'auto_update_check', next ? 'true' : 'false')

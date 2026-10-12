@@ -68,4 +68,11 @@ describe('list kinds', () => {
     expect(screen.getByLabelText('Closed')).toBeTruthy()
     expect(screen.queryByLabelText('Discharged')).toBeNull()
   })
+
+  it("titles a thing's packet with the word's own capitals (A28-13)", () => {
+    asKind('thing')
+    setWords(undefined, { 1: { record: { one: 'e-bike', many: 'e-bikes', article: 'an', oneCap: 'E-Bike' } } })
+    render(<MemoryRouter><HandoffDialog rowId={7} gridId={1} clientName="EB-12" onClose={() => {}} /></MemoryRouter>)
+    expect(screen.getByRole('heading', { name: 'E-Bike packet: EB-12' })).toBeTruthy()
+  })
 })

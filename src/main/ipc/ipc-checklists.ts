@@ -2,17 +2,21 @@
  * ipc-checklists.ts — CHECKLIST_*, CL_TEMPLATE_* IPC handlers
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
+import { atomicWriteFileSync } from '../export-shared'
 import { extname } from 'node:path'
+import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
 import { QUERY_LIMITS } from '../../shared/query-limits'
-import { secureWrap, ok, fail, buildSafeSetClause, validId, notifyCaseLogChanged, enforceWritable, assertSafePath, humanizeError, PATH_REFUSED_MESSAGE } from './ipc-utils'
+import { ok, fail, buildSafeSetClause, notifyCaseLogChanged, assertSafePath, humanizeError, GENERIC_ERROR_MESSAGE, PATH_REFUSED_MESSAGE } from './ipc-utils'
+import { handlersFor, idArg, idListArg, textArg } from './ipc-define'
 import { getDb } from '../database'
 import type { ChecklistItem, ChecklistTemplate, ChecklistGroup } from '../../shared/types'
 import { seedChecklistTemplates } from '../templates'
 import { applyChecklistTemplate, ChecklistApplyError } from '../checklist-apply'
 import { parseRepeatRule, nextRepeatDate, withAnchorDay, withoutAnchorDay } from '../../shared/recurrence'
 import { localDateString } from '../../shared/dates'
+import { LIVE_GRID, LIVE_ROW } from '../../shared/liveRecords'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_CHECKLIST = 500
@@ -25,20 +29,28 @@ function safePath(filePath: string): boolean {
   try { assertSafePath(filePath); return true } catch { return false }
 }
 
+/** A deleted checklist item put back by undo */
+interface RestoredItem {
+  id: number; row_id: number; title: string; description: string | null; is_completed: number; due_date: string | null
+  completed_at: string | null; completed_by: string | null; position: number; category: string | null; priority: string
+  is_archived: number; created_at: string; template_source_id: number | null; recurrence_rule: string | null; group_id: number | null
+}
+
+const define = handlersFor('ipc-checklists')
+
 export function registerChecklistHandlers(): void {
   // ── Checklists ─────────────────────────────────────────────────────────────
-  secureWrap(IPC.CHECKLIST_GET, 'ipc-checklists', (_e, rowId: number) => {
-    if (!validId(rowId)) return fail('Invalid ID')
+  define(IPC.CHECKLIST_GET, [idArg()], (rowId) => {
     const items = getDb()
       .prepare('SELECT * FROM checklist_items WHERE row_id = ? AND is_archived = 0 ORDER BY position, id')
       .all(rowId) as ChecklistItem[]
     return ok(items)
   })
 
-  secureWrap(IPC.CHECKLIST_CREATE_ITEM, 'ipc-checklists', (_e, rowId: number, title: string, extra?: Partial<ChecklistItem>) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId)) return fail('Invalid ID')
-    if (typeof title !== 'string' || title.trim().length === 0 || title.length > 1000) return fail('Title is required (max 1000 chars)')
+  // extra's fields are checked in the body, as before
+  define(IPC.CHECKLIST_CREATE_ITEM, [
+    idArg(), textArg('Title is required (max 1000 chars)', { max: 1000, notBlank: true }), z.custom<Partial<ChecklistItem> | undefined>(),
+  ], (rowId, title, extra) => {
     if (extra?.description !== undefined && typeof extra.description !== 'string') return fail('Invalid description')
     if (extra?.priority !== undefined && !['low', 'normal', 'high', 'urgent'].includes(extra.priority)) return fail('Invalid priority')
     const db = getDb()
@@ -49,17 +61,16 @@ export function registerChecklistHandlers(): void {
     `).run(rowId, title, extra?.description ?? null, extra?.due_date ?? null, extra?.category ?? null, extra?.priority ?? 'normal', maxPos + 1, extra?.group_id ?? null, extra?.recurrence_rule ?? null)
     const item = db.prepare('SELECT * FROM checklist_items WHERE id = ?').get(result.lastInsertRowid) as ChecklistItem
     return ok(item)
-  })
+  }, { write: true })
 
   /**
    * `silent` (undo and redo) puts an item back as it was: no "Completed" or
    * "Reopened" entry in the activity log and no repeat, since undo voids or
    * restores the original entry instead (audit S-23).
    */
-  secureWrap(IPC.CHECKLIST_UPDATE_ITEM, 'ipc-checklists', (_e, id: number, updates: Partial<ChecklistItem>, opts?: { silent?: boolean }) => {
+  // The update's fields are checked in the body, in order, as before
+  define(IPC.CHECKLIST_UPDATE_ITEM, [idArg(), z.custom<Partial<ChecklistItem>>(), z.custom<{ silent?: boolean } | undefined>()], (id, updates, opts) => {
     const silent = !!opts && typeof opts === 'object' && opts.silent === true
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
     // Validate field values when present
     if (updates.title !== undefined && (typeof updates.title !== 'string' || updates.title.length === 0 || updates.title.length > 500)) return fail('Invalid title (max 500 chars)')
     if (updates.description !== undefined && updates.description !== null && (typeof updates.description !== 'string' || updates.description.length > 5000)) return fail('Invalid description (max 5000 chars)')
@@ -121,20 +132,16 @@ export function registerChecklistHandlers(): void {
     if (rowIdForNotify !== null) notifyCaseLogChanged(rowIdForNotify)
 
     return ok({ sysLogId, repeat })
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CHECKLIST_DELETE_ITEM, 'ipc-checklists', (_e, id: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.CHECKLIST_DELETE_ITEM, [idArg()], (id) => {
     getDb().prepare('DELETE FROM checklist_items WHERE id = ?').run(id)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CHECKLIST_REORDER, 'ipc-checklists', (_e, rowId: number, orderedIds: number[]) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId)) return fail('Invalid ID')
-    if (!Array.isArray(orderedIds) || orderedIds.length > MAX_REORDER_CHECKLIST) return fail('Invalid reorder payload')
-    if (!orderedIds.every(id => Number.isInteger(id) && id > 0)) return fail('Invalid IDs in reorder payload')
+  define(IPC.CHECKLIST_REORDER, [
+    idArg(), idListArg('Invalid reorder payload', 'Invalid IDs in reorder payload', { max: MAX_REORDER_CHECKLIST }),
+  ], (rowId, orderedIds) => {
     const db = getDb()
     const stmt = db.prepare('UPDATE checklist_items SET position = ? WHERE id = ? AND row_id = ?')
     const reorder = db.transaction(() => {
@@ -144,17 +151,17 @@ export function registerChecklistHandlers(): void {
     })
     reorder()
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CHECKLIST_GET_URGENT, 'ipc-checklists', () => {
+  define(IPC.CHECKLIST_GET_URGENT, [], () => {
     const items = getDb().prepare(`
       SELECT ci.*,
              g.id AS grid_id,
              g.name AS grid_name,
              r.display_name AS client_name
       FROM checklist_items ci
-      JOIN rows r ON r.id = ci.row_id AND r.is_active = 1 AND r.deleted_at IS NULL
-      JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
+      JOIN rows r ON r.id = ci.row_id AND ${LIVE_ROW}
+      JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
       WHERE ci.priority = 'urgent'
         AND ci.is_completed = 0
         AND ci.is_archived = 0
@@ -167,15 +174,15 @@ export function registerChecklistHandlers(): void {
     return ok(items)
   })
 
-  secureWrap(IPC.CHECKLIST_GET_DUE, 'ipc-checklists', () => {
+  define(IPC.CHECKLIST_GET_DUE, [], () => {
     const items = getDb().prepare(`
       SELECT ci.*,
              g.id AS grid_id,
              g.name AS grid_name,
              r.display_name AS client_name
       FROM checklist_items ci
-      JOIN rows r ON r.id = ci.row_id AND r.is_active = 1 AND r.deleted_at IS NULL
-      JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
+      JOIN rows r ON r.id = ci.row_id AND ${LIVE_ROW}
+      JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
       WHERE ci.due_date IS NOT NULL
         AND ci.is_completed = 0
         AND ci.is_archived = 0
@@ -185,19 +192,17 @@ export function registerChecklistHandlers(): void {
     return ok(items)
   })
 
-  secureWrap(IPC.CHECKLIST_RESET_CYCLE, 'ipc-checklists', (_e, rowId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId)) return fail('Invalid ID')
+  define(IPC.CHECKLIST_RESET_CYCLE, [idArg()], (rowId) => {
     getDb().prepare(`
       UPDATE checklist_items
       SET is_completed = 0, completed_at = NULL, completed_by = NULL
       WHERE row_id = ? AND is_completed = 1 AND is_archived = 0
     `).run(rowId)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CHECKLIST_RESTORE_ITEM, 'ipc-checklists', (_e, item: { id: number; row_id: number; title: string; description: string | null; is_completed: number; due_date: string | null; completed_at: string | null; completed_by: string | null; position: number; category: string | null; priority: string; is_archived: number; created_at: string; template_source_id: number | null; recurrence_rule: string | null; group_id: number | null }) => {
-    const guard = enforceWritable(); if (guard) return guard
+  // The item is checked in the body, field by field, as before
+  define(IPC.CHECKLIST_RESTORE_ITEM, [z.custom<RestoredItem>()], (item) => {
     if (!item || typeof item.id !== 'number' || typeof item.row_id !== 'number') return fail('Invalid item format')
     if (!item.title || typeof item.title !== 'string' || item.title.length > 1000) return fail('Title missing or too long')
     if (item.created_at) {
@@ -220,33 +225,26 @@ export function registerChecklistHandlers(): void {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(item.id, item.row_id, item.title, item.description ?? null, item.is_completed, item.due_date ?? null, item.completed_at ?? null, item.completed_by ?? null, item.position, item.category ?? null, item.priority, item.is_archived, item.created_at, item.template_source_id ?? null, item.recurrence_rule ?? null, groupId)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CHECKLIST_APPLY_TEMPLATE, 'ipc-checklists', (_e, rowId: number, templateId: number, groupId?: number | null) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId) || !validId(templateId)) return fail('Invalid ID')
-    if (groupId !== undefined && groupId !== null && !validId(groupId)) return fail('Invalid group ID')
+  define(IPC.CHECKLIST_APPLY_TEMPLATE, [idArg(), idArg(), idArg('Invalid group ID').nullish()], (rowId, templateId, groupId) => {
     try {
       return ok({ createdIds: applyChecklistTemplate(rowId, templateId, groupId ?? null) })
     } catch (err) {
       if (err instanceof ChecklistApplyError) return fail(err.message)
       throw err
     }
-  })
+  }, { write: true })
 
   // ── Checklist Groups ──────────────────────────────────────────────────────
-  secureWrap(IPC.CHECKLIST_GROUP_GET_ALL, 'ipc-checklists', (_e, rowId: number) => {
-    if (!validId(rowId)) return fail('Invalid ID')
+  define(IPC.CHECKLIST_GROUP_GET_ALL, [idArg()], (rowId) => {
     const groups = getDb()
       .prepare('SELECT * FROM checklist_groups WHERE row_id = ? ORDER BY position, id')
       .all(rowId) as ChecklistGroup[]
     return ok(groups)
   })
 
-  secureWrap(IPC.CHECKLIST_GROUP_CREATE, 'ipc-checklists', (_e, rowId: number, name: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId)) return fail('Invalid ID')
-    if (typeof name !== 'string' || name.trim().length === 0 || name.length > 200) return fail('Group name is required (max 200 chars)')
+  define(IPC.CHECKLIST_GROUP_CREATE, [idArg(), textArg('Group name is required (max 200 chars)', { max: 200, notBlank: true })], (rowId, name) => {
     const db = getDb()
     const maxPos = (db.prepare('SELECT MAX(position) as p FROM checklist_groups WHERE row_id = ?').get(rowId) as { p: number | null }).p ?? -1
     const result = db.prepare(`
@@ -255,22 +253,18 @@ export function registerChecklistHandlers(): void {
     `).run(rowId, name.trim(), maxPos + 1)
     const group = db.prepare('SELECT * FROM checklist_groups WHERE id = ?').get(result.lastInsertRowid) as ChecklistGroup
     return ok(group)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CHECKLIST_GROUP_UPDATE, 'ipc-checklists', (_e, groupId: number, updates: Partial<ChecklistGroup>) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(groupId)) return fail('Invalid ID')
+  define(IPC.CHECKLIST_GROUP_UPDATE, [idArg(), z.custom<Partial<ChecklistGroup>>()], (groupId, updates) => {
     if (updates.name !== undefined && (typeof updates.name !== 'string' || updates.name.trim().length === 0 || updates.name.length > 200)) return fail('Invalid group name (max 200 chars)')
     const allowed = ['name', 'position', 'is_collapsed'] as const
     const result = buildSafeSetClause(updates as Record<string, unknown>, allowed)
     if (!result) return fail('No valid fields to update')
     getDb().prepare(`UPDATE checklist_groups SET ${result.setClause} WHERE id = ?`).run(...result.values, groupId)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CHECKLIST_GROUP_DELETE, 'ipc-checklists', (_e, groupId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(groupId)) return fail('Invalid ID')
+  define(IPC.CHECKLIST_GROUP_DELETE, [idArg()], (groupId) => {
     const db = getDb()
     const deleteGroup = db.transaction(() => {
       db.prepare('UPDATE checklist_items SET group_id = NULL WHERE group_id = ?').run(groupId)
@@ -278,13 +272,11 @@ export function registerChecklistHandlers(): void {
     })
     deleteGroup()
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CHECKLIST_GROUP_REORDER, 'ipc-checklists', (_e, rowId: number, orderedGroupIds: number[]) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId)) return fail('Invalid ID')
-    if (!Array.isArray(orderedGroupIds) || orderedGroupIds.length > 100) return fail('Invalid reorder payload')
-    if (!orderedGroupIds.every(id => Number.isInteger(id) && id > 0)) return fail('Invalid IDs in reorder payload')
+  define(IPC.CHECKLIST_GROUP_REORDER, [
+    idArg(), idListArg('Invalid reorder payload', 'Invalid IDs in reorder payload', { max: 100 }),
+  ], (rowId, orderedGroupIds) => {
     const db = getDb()
     const stmt = db.prepare('UPDATE checklist_groups SET position = ? WHERE id = ? AND row_id = ?')
     const reorder = db.transaction(() => {
@@ -294,12 +286,9 @@ export function registerChecklistHandlers(): void {
     })
     reorder()
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CHECKLIST_MOVE_ITEM_TO_GROUP, 'ipc-checklists', (_e, itemId: number, groupId: number | null) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(itemId)) return fail('Invalid item ID')
-    if (groupId !== null && !validId(groupId)) return fail('Invalid group ID')
+  define(IPC.CHECKLIST_MOVE_ITEM_TO_GROUP, [idArg('Invalid item ID'), idArg('Invalid group ID').nullable()], (itemId, groupId) => {
     const db = getDb()
     if (groupId !== null) {
       // Validate group exists and get its row_id
@@ -312,18 +301,18 @@ export function registerChecklistHandlers(): void {
     }
     db.prepare('UPDATE checklist_items SET group_id = ? WHERE id = ?').run(groupId, itemId)
     return ok(true)
-  })
+  }, { write: true })
 
   // ── Checklist Templates ────────────────────────────────────────────────────
-  secureWrap(IPC.CL_TEMPLATE_GET_ALL, 'ipc-checklists', () => {
+  define(IPC.CL_TEMPLATE_GET_ALL, [], () => {
     // Seed pre-built system templates on first load
     seedChecklistTemplates()
     const templates = getDb().prepare('SELECT * FROM checklist_templates ORDER BY is_system DESC, name ASC').all() as ChecklistTemplate[]
     return ok(templates)
   })
 
-  secureWrap(IPC.CL_TEMPLATE_CREATE, 'ipc-checklists', (_e, template: Omit<ChecklistTemplate, 'id' | 'created_at'>) => {
-    const guard = enforceWritable(); if (guard) return guard
+  // The template's fields are checked in the body, in order, as before
+  define(IPC.CL_TEMPLATE_CREATE, [z.custom<Omit<ChecklistTemplate, 'id' | 'created_at'>>()], (template) => {
     if (typeof template.name !== 'string' || !template.name.trim() || template.name.length > 200) return fail('Invalid template name')
     if (typeof template.items !== 'string' || template.items.length > 100_000) return fail('Template items too large')
     try { const parsed = JSON.parse(template.items); if (!Array.isArray(parsed)) return fail('Template items must be a JSON array') } catch { return fail('Invalid template items JSON') }
@@ -334,11 +323,9 @@ export function registerChecklistHandlers(): void {
     `).run(template.name, template.description ?? null, template.items, template.is_recurring, template.recurrence_days ?? null)
     const created = db.prepare('SELECT * FROM checklist_templates WHERE id = ?').get(result.lastInsertRowid) as ChecklistTemplate
     return ok(created)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CL_TEMPLATE_UPDATE, 'ipc-checklists', (_e, id: number, updates: Partial<ChecklistTemplate>) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.CL_TEMPLATE_UPDATE, [idArg(), z.custom<Partial<ChecklistTemplate>>()], (id, updates) => {
     if (updates.items !== undefined) {
       if (typeof updates.items !== 'string' || updates.items.length > 100_000) return fail('Template items too large (max 100,000 chars)')
       try { const parsed = JSON.parse(updates.items); if (!Array.isArray(parsed)) return fail('Template items must be a JSON array') } catch { return fail('Invalid template items JSON') }
@@ -351,19 +338,15 @@ export function registerChecklistHandlers(): void {
     db.prepare(`UPDATE checklist_templates SET ${result.setClause} WHERE id = ?`).run(...result.values, id)
     const updated = db.prepare('SELECT * FROM checklist_templates WHERE id = ?').get(id) as ChecklistTemplate
     return ok(updated)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CL_TEMPLATE_DELETE, 'ipc-checklists', (_e, id: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.CL_TEMPLATE_DELETE, [idArg()], (id) => {
     getDb().prepare('DELETE FROM checklist_templates WHERE id = ?').run(id)
     return ok(true)
-  })
+  }, { write: true })
 
   // ── Checklist Template Export/Import ─────────────────────────────────────
-  secureWrap(IPC.CL_TEMPLATE_EXPORT, 'ipc-checklists', (_e, id: number, filePath: string) => {
-    if (!validId(id)) return fail('Invalid ID')
-    if (typeof filePath !== 'string' || !filePath) return fail('Invalid file path')
+  define(IPC.CL_TEMPLATE_EXPORT, [idArg(), textArg('Invalid file path', { min: 1 })], (id, filePath) => {
     if (extname(filePath).toLowerCase() !== '.pulse-checklist') return fail('Save it as a Pulse checklist file (the name ends in .pulse-checklist).')
     if (!safePath(filePath)) return fail(UNSAFE_PATH)
 
@@ -386,22 +369,23 @@ export function registerChecklistHandlers(): void {
     }
 
     try {
-      writeFileSync(filePath, JSON.stringify(exportData, null, 2), 'utf-8')
+      // Atomic, so a failed write never leaves half a template file behind (Q-054)
+      atomicWriteFileSync(filePath, JSON.stringify(exportData, null, 2), 'utf-8')
     } catch (err) {
       // File-system codes (EACCES, EBUSY, ENOSPC…) get their own sentence; any other raw Node text stays out of the UI
       const raw = err instanceof Error ? err.message : String(err)
       const friendly = humanizeError(err)
-      return fail(friendly === raw ? "Pulse couldn't save the file there. Choose a different folder." : friendly)
+      return fail(friendly === raw || friendly === GENERIC_ERROR_MESSAGE ? "Pulse couldn't save the file there. Choose a different folder." : friendly)
     }
     return ok(true)
   })
 
-  secureWrap(IPC.CL_TEMPLATE_IMPORT, 'ipc-checklists', (_e, filePath: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (typeof filePath !== 'string' || !filePath) return fail('Invalid file path')
+  define(IPC.CL_TEMPLATE_IMPORT, [textArg('Invalid file path', { min: 1 })], (filePath) => {
     if (extname(filePath).toLowerCase() !== '.pulse-checklist') return fail('Choose a Pulse checklist file (the name ends in .pulse-checklist).')
     if (!safePath(filePath)) return fail(UNSAFE_PATH)
 
+    // Size first: a huge file named .pulse-checklist isn't read into memory to find out (Q-056)
+    try { if (statSync(filePath).size > 2_000_000) return fail('That file is too large to be a Pulse checklist.') } catch { return fail("Pulse couldn't open that file. It may have been moved or deleted.") }
     let raw: string
     try { raw = readFileSync(filePath, 'utf-8') } catch { return fail("Pulse couldn't open that file. It may have been moved or deleted.") }
     if (raw.length > 500_000) return fail('That file is too large to be a Pulse checklist.')
@@ -451,5 +435,5 @@ export function registerChecklistHandlers(): void {
     )
     const created = db.prepare('SELECT * FROM checklist_templates WHERE id = ?').get(result.lastInsertRowid) as ChecklistTemplate
     return ok(created)
-  })
+  }, { write: true })
 }

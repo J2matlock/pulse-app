@@ -182,7 +182,7 @@ test('starter tour', async () => {
       return full.rows[0]?.row_id ?? null
     })
     // A newer published release shows an update banner; it isn't part of the starter
-    await app.getByRole('button', { name: 'Dismiss update notification' }).click({ timeout: 3000 }).catch(() => {})
+    await app.getByRole('button', { name: 'Remind me later' }).click({ timeout: 3000 }).catch(() => {})
     await go(app, '#/grid')
     await snap(app, '01-list')
     await go(app, '#/dashboard')

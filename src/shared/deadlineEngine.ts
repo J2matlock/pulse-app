@@ -9,14 +9,18 @@
  * Dates are local calendar dates as 'YYYY-MM-DD' strings throughout.
  */
 import { z } from 'zod'
+import { textLength } from './textLength'
 import { addInterval, describeInterval, hasInterval, toRuleInterval, type RuleInterval } from './ruleInterval'
 import { addBusinessDays, rollBackToBusinessDay, rollForwardToBusinessDay, DEFAULT_WEEKEND, type WorkCalendar } from './businessDays'
 import { toYmd, ymdToDate, dateToYmd, daysBetween, addDays } from './ymd'
 import { parseNumberCell } from './numbers'
+import { unhandledCase } from './assertNever'
 
 export { toYmd, ymdToDate, dateToYmd, daysBetween }
 
-export type RuleKind = 'interval' | 'relative' | 'calendar' | 'meter' | 'quota' | 'sequence'
+/** Every rule kind, in the order the rule editor shows them. The union is derived from it. */
+export const RULE_KINDS = ['interval', 'relative', 'calendar', 'meter', 'quota', 'sequence'] as const
+export type RuleKind = typeof RULE_KINDS[number]
 
 /** "Only while Status is Active" — a rule can hide or pause when this is false */
 export interface Condition {
@@ -120,7 +124,7 @@ export const meterConfigSchema = z.object({
   lastServiceReadingColumnId: z.number().int().positive(),
   /** Due again after this much use */
   every: z.number().positive().max(1e9),
-  unit: z.string().trim().min(1).max(20),
+  unit: z.string().trim().check(textLength({ min: 1, max: 20 })),
   /** "…or 6 months, whichever is first", counted from the rule's own date (the last service) */
   timeFallback: offsetSchema.omit({ businessDays: true }).optional(),
   /** Usage per day to assume until there are enough readings */
@@ -149,7 +153,7 @@ export const sequenceConfigSchema = z.object({
   /** The date the steps count from, or 'self' for the rule's own column */
   anchorColumnId: z.union([z.number().int().positive(), z.literal('self')]),
   steps: z.array(z.object({
-    label: z.string().trim().min(1).max(80),
+    label: z.string().trim().check(textLength({ min: 1, max: 80 })),
     offset: offsetSchema,
   }).strict()).min(1).max(20),
   /** After the last step, repeat this often (annual reviews forever) */
@@ -160,12 +164,13 @@ export type SequenceConfig = z.infer<typeof sequenceConfigSchema>
 export const conditionSchema = z.object({
   columnId: z.number().int().positive(),
   op: z.enum(['is', 'is_not', 'empty', 'not_empty']),
-  values: z.array(z.string().max(200)).max(50).optional(),
+  values: z.array(z.string().check(textLength({ max: 200 }))).max(50).optional(),
   whenFalse: z.enum(['hide', 'pause']),
 }).strict()
 
-/** Settings schema per kind; kinds without settings (interval) have none */
-export const RULE_CONFIG_SCHEMAS: Partial<Record<RuleKind, z.ZodTypeAny>> = {
+/** Settings schema per kind; null for kinds without settings (interval). Every kind must be listed. */
+export const RULE_CONFIG_SCHEMAS: Record<RuleKind, z.ZodTypeAny | null> = {
+  interval: null,
   relative: relativeConfigSchema,
   calendar: calendarConfigSchema,
   meter: meterConfigSchema,
@@ -182,8 +187,6 @@ export function parseRuleConfig(kind: RuleKind, raw: unknown): { ok: true; confi
   const r = schema.safeParse(data)
   return r.success ? { ok: true, config: r.data } : { ok: false, error: 'Some of the deadline settings are missing or not allowed.' }
 }
-
-export const RULE_KINDS: readonly RuleKind[] = ['interval', 'relative', 'calendar', 'meter', 'quota', 'sequence']
 
 function parseJson(raw: string | null | undefined): unknown {
   if (!raw) return null
@@ -550,8 +553,12 @@ function evaluateKind(rule: EngineRule, ctx: RecordContext): DeadlineResult {
     case 'meter': return rule.config ? evaluateMeter(rule, ctx) : evaluateInterval(rule, ctx)
     case 'quota': return rule.config ? evaluateQuota(rule, ctx) : evaluateInterval(rule, ctx)
     case 'sequence': return rule.config ? evaluateSequence(rule, ctx) : evaluateInterval(rule, ctx)
-    // Kinds still to come behave like plain intervals until their commit lands
-    default: return evaluateInterval(rule, ctx)
+    default:
+      // A kind added to RuleKind without a case here fails typecheck.
+      // engineRuleFrom() maps unknown stored kinds to 'interval', so this
+      // fallback is only for safety.
+      unhandledCase(rule.kind)
+      return evaluateInterval(rule, ctx)
   }
 }
 

@@ -8,7 +8,10 @@ import { createHash } from 'crypto'
 import { readFileSync, statSync } from 'fs'
 import { basename } from 'path'
 import { getDb } from './database'
+import { scheduleReclaimFreePages } from './purge-hooks'
+import { word } from './vocab'
 import { ALLOWED_TYPES_TEXT, DEFAULT_LIMIT_MB, LIMIT_MB_RANGE, MAX_FILE_BYTES, formatBytes, type Attachment, type AttachmentUsage } from '../shared/attachments'
+import { notTrashedRow } from '../shared/liveRecords'
 
 export class AttachmentError extends Error {}
 
@@ -53,18 +56,36 @@ export function sniffType(b: Buffer, fileName: string): string | null {
 /** A safe display name: the last part of the path, no control characters, at most 200 characters */
 const EXTENSION = /\.[A-Za-z0-9]{1,8}$/
 
+/** Endings of the kinds of file Pulse keeps (see sniffType): a rename may switch between these */
+const KEPT_EXTENSIONS = new Set(['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif', 'rtf', 'txt', 'csv', 'docx', 'xlsx', 'pptx', 'odt', 'ods'])
+
 /**
  * Renaming "scan.pdf" to "Intake scan" keeps ".pdf": without it "Save a copy"
- * writes a file the computer can't open with a double-click.
+ * writes a file the computer can't open with a double-click. A new ending that
+ * isn't one of those kinds ("notes.txt" renamed "run.bat") gets the old one added
+ * after it ("run.bat.txt"), so plain text can't be saved as a script (Q-057, D-021).
  */
 export function keepExtension(newName: string, oldName: string): string {
   const ext = EXTENSION.exec(oldName)?.[0]
-  if (!ext || EXTENSION.test(newName)) return newName
+  const newExt = EXTENSION.exec(newName)?.[0]
+  if (!ext) return newName
+  if (newExt && KEPT_EXTENSIONS.has(newExt.slice(1).toLowerCase())) return newName
   return cleanFileName(newName + ext)
 }
 
+/** Windows device names, which can't be file names there, with or without an ending */
+const RESERVED_NAME = /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])(\.|$)/i
+
 export function cleanFileName(path: string): string {
-  const name = basename(path).replace(/[\u0000-\u001f\u007f<>:"/\\|?*]+/g, '_').trim() || 'file'
+  let name = basename(path)
+    .replace(/[\u0000-\u001f\u007f<>:"/\\|?*]+/g, '_')
+    // Zero-width and direction marks can disguise an ending ("txt.exe" shown as "exe.txt")
+    .replace(/[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, '')
+    .trim()
+    // Windows drops trailing dots and spaces, so "report.pdf." would save as something else
+    .replace(/[. ]+$/, '')
+  if (!name || /^\.+$/.test(name)) name = 'file'
+  if (RESERVED_NAME.test(name)) name = `_${name}`
   if (name.length <= 200) return name
   const dot = name.lastIndexOf('.')
   const ext = dot > 0 && name.length - dot <= 10 ? name.slice(dot) : ''
@@ -117,8 +138,8 @@ export interface AddResult {
  */
 export function addAttachments(rowId: number, paths: string[], opts: { caseLogId?: number; description?: string; allowDuplicates?: boolean } = {}): AddResult {
   const db = getDb()
-  if (!db.prepare('SELECT 1 FROM rows WHERE id = ? AND deleted_at IS NULL').get(rowId)) throw new AttachmentError('That record is no longer available.')
-  if (opts.caseLogId !== undefined && !db.prepare('SELECT 1 FROM case_log WHERE id = ? AND row_id = ?').get(opts.caseLogId, rowId)) throw new AttachmentError('That note is no longer available.')
+  if (!db.prepare(`SELECT 1 FROM rows WHERE id = ? AND ${notTrashedRow('')}`).get(rowId)) throw new AttachmentError(`That ${word('record')} is no longer available.`)
+  if (opts.caseLogId !== undefined && !db.prepare('SELECT 1 FROM case_log WHERE id = ? AND row_id = ?').get(opts.caseLogId, rowId)) throw new AttachmentError(`That ${word('activity', {}, (db.prepare('SELECT grid_id FROM rows WHERE id = ?').get(rowId) as { grid_id: number }).grid_id)} is no longer available.`)
   if (paths.length === 0) return { added: [], duplicates: [] }
   if (paths.length > 50) throw new AttachmentError('Add up to 50 files at a time.')
   const files = paths.map(path => {
@@ -197,7 +218,10 @@ export function restoreAttachment(id: number): void {
 
 /** Remove files that have been in the trash this long (0 = all of them now) */
 export function purgeDeletedAttachments(olderThanDays = 30): number {
-  return getDb().prepare("DELETE FROM attachments WHERE deleted_at IS NOT NULL AND deleted_at <= datetime('now', ?)").run(`-${Math.max(0, olderThanDays)} days`).changes
+  const db = getDb()
+  const n = db.prepare("DELETE FROM attachments WHERE deleted_at IS NOT NULL AND deleted_at <= datetime('now', ?)").run(`-${Math.max(0, olderThanDays)} days`).changes
+  if (n) scheduleReclaimFreePages(db)
+  return n
 }
 
 /** Files in the trash, newest first, with the record they belong to */
@@ -209,5 +233,7 @@ export function trashedAttachments(): Array<Attachment & { record_name: string |
 
 /** Remove one file from the trash for good */
 export function purgeAttachment(id: number): void {
-  if (getDb().prepare('DELETE FROM attachments WHERE id = ? AND deleted_at IS NOT NULL').run(id).changes === 0) throw new AttachmentError("That file isn't in the Trash.")
+  const db = getDb()
+  if (db.prepare('DELETE FROM attachments WHERE id = ? AND deleted_at IS NOT NULL').run(id).changes === 0) throw new AttachmentError("That file isn't in the Trash.")
+  scheduleReclaimFreePages(db)
 }

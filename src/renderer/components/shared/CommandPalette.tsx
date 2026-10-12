@@ -15,39 +15,17 @@ import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
 import { useProfileStore } from '../../stores/profileStore'
 import { useSettingsStore } from '../../stores/settingsStore'
-import { IPC } from '../../../shared/ipc-channels'
-import { safeInvoke } from '../../utils/safeInvoke'
 import { getClientName } from '../../utils/clientName'
 import { useVocab } from '../../hooks/useVocab'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { isOn, type FeatureKey } from '../../../shared/features'
 import { useFormStore } from '../../stores/formStore'
 import { pulseEvents } from '../../events'
+import { fuzzyMatch, useCrossListSearch, useMatchedRecords } from '../../hooks/useCommandSearch'
 import type { Form } from '../../../shared/forms'
 
 const NO_FORMS: Form[] = []
 
-/** Fuzzy match: walk query chars through text. Returns score > 0 for match, 0 for no match. */
-function fuzzyMatch(query: string, text: string): number {
-  const q = query.toLowerCase()
-  const t = text.toLowerCase()
-  let qi = 0
-  let score = 0
-  let consecutive = 0
-  if (q.length === 0) return 1
-
-  for (let ti = 0; ti < t.length && qi < q.length; ti++) {
-    if (t[ti] === q[qi]) {
-      score += 1 + consecutive * 2
-      if (qi === 0 && ti === 0) score += 5 // prefix bonus
-      consecutive++
-      qi++
-    } else {
-      consecutive = 0
-    }
-  }
-  return qi === q.length ? score : 0
-}
 
 interface CommandPaletteProps {
   open: boolean
@@ -70,8 +48,6 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
   const recentProfiles = useProfileStore(s => s.recentProfiles)
   const lock = useSettingsStore(s => s.lock)
   const [query, setQuery] = useState('')
-  const [crossGridResults, setCrossGridResults] = useState<Array<{ rowId: number; gridId: number; gridName: string; clientName: string }>>([])
-  const crossGridDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const previousFocusRef = useRef<Element | null>(null)
 
@@ -79,6 +55,8 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
   useEffect(() => {
     if (open) {
       previousFocusRef.current = document.activeElement
+      // Recent leaves out records that went to the Trash meanwhile (Q-048)
+      void useProfileStore.getState().pruneRecentProfiles()
     } else {
       if (previousFocusRef.current instanceof HTMLElement) {
         previousFocusRef.current.focus()
@@ -89,21 +67,11 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
 
   // Reset query when closed
   useEffect(() => {
-    if (!open) { setQuery(''); setCrossGridResults([]) }
+    if (!open) setQuery('')
   }, [open])
+  // Other lists' records, by name, a moment after typing stops
+  const crossGridResults = useCrossListSearch(open, query)
 
-  // Cross-grid search: debounced IPC call
-  useEffect(() => {
-    if (crossGridDebounceRef.current) clearTimeout(crossGridDebounceRef.current)
-    if (query.trim().length < 2) { setCrossGridResults([]); return }
-    crossGridDebounceRef.current = setTimeout(async () => {
-      try {
-        const res = await safeInvoke<Array<{ rowId: number; gridId: number; gridName: string; clientName: string }>>(IPC.SEARCH_CLIENTS_CROSS_GRID, query.trim())
-        if (res.ok) setCrossGridResults(res.data)
-      } catch { /* ignore */ }
-    }, 200)
-    return () => { if (crossGridDebounceRef.current) clearTimeout(crossGridDebounceRef.current) }
-  }, [query])
 
   const dialogRef = useRef<HTMLDivElement>(null)
 
@@ -135,17 +103,7 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
   const activeGrid = grids.find(g => g.id === activeGridId)
 
   // Filter clients by name (full name: first + last)
-  const matchedClients = useMemo(() => query.trim().length > 0
-    ? rows
-        .map(row => {
-          const name = getClientName(row, columns, '')
-          return { row, score: name ? fuzzyMatch(query, name) : 0 }
-        })
-        .filter(r => r.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 8)
-        .map(r => r.row)
-    : [], [query, rows, columns])
+  const matchedClients = useMatchedRecords(query, rows, columns)
 
   function runAndClose(fn: () => void) {
     fn()

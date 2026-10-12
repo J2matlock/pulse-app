@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { RefreshCw, Download, Shield, Code2 } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
@@ -13,12 +13,15 @@ import { usePlatform, updateText } from '../../utils/platformText'
 function AutoUpdateCheckToggle(): React.ReactElement {
   const { t } = useVocab(null)
   const [enabled, setEnabled] = useState(true)
+  // A choice made before the saved value arrives wins over it (F-039)
+  const changed = useRef(false)
   useEffect(() => {
     void safeInvoke(IPC.SETTINGS_GET, 'auto_update_check').then(res => {
-      if (res.ok) setEnabled(res.data !== 'false')
+      if (res.ok && !changed.current) setEnabled(res.data !== 'false')
     })
   }, [])
   async function toggle(next: boolean) {
+    changed.current = true
     setEnabled(next)
     const res = await safeInvoke(IPC.SETTINGS_UPDATE, 'auto_update_check', next ? 'true' : 'false')
     if (!res.ok) setEnabled(!next)
@@ -42,16 +45,31 @@ function AutoUpdateCheckToggle(): React.ReactElement {
 function CheckForUpdatesButton(): React.ReactElement {
   const howTo = updateText(usePlatform())
   const [checking, setChecking] = useState(false)
-  const [result, setResult] = useState<{ available: boolean; version?: string; downloadUrl?: string } | null>(null)
+  const [result, setResult] = useState<{ available: boolean; version?: string; downloadUrl?: string; unreachable?: boolean } | null>(null)
+  // The version skipped on the update banner (S-4); the button still reports it
+  const [skipped, setSkipped] = useState<string | null>(null)
 
   async function check() {
     setChecking(true)
     setResult(null)
     // manual: the button works even when the automatic check is switched off
     const res = await safeInvoke(IPC.APP_CHECK_FOR_UPDATES, { manual: true })
-    if (res.ok) setResult(res.data)
-    else setResult({ available: false })
+    if (res.ok) {
+      setResult(res.data)
+      const skip = res.data.available ? await safeInvoke(IPC.APP_UPDATE_SKIPPED_GET) : null
+      setSkipped(skip?.ok ? skip.data : null)
+    }
+    // Not knowing isn't the same as being up to date (F-036)
+    else setResult({ available: false, unreachable: true })
     setChecking(false)
+  }
+
+  async function stopSkipping() {
+    const res = await safeInvoke(IPC.APP_UPDATE_SKIP, null)
+    if (res.ok) {
+      setSkipped(null)
+      toast.success('The update notice will show for this version again.')
+    } else toast.error(friendlyError(res.error))
   }
 
   function openDownload() {
@@ -72,8 +90,11 @@ function CheckForUpdatesButton(): React.ReactElement {
           <RefreshCw className={`w-4 h-4 ${checking ? 'animate-spin' : ''}`} />
           {checking ? 'Checking…' : 'Check for updates'}
         </button>
-        {result && !result.available && (
+        {result && !result.available && !result.unreachable && (
           <p className="text-sm text-green-600 dark:text-green-400 self-center">You have the latest version.</p>
+        )}
+        {result?.unreachable && (
+          <p role="status" className="text-base text-slate-700 dark:text-slate-300 self-center">{PRODUCT_NAME} couldn&rsquo;t reach the update page. Check your internet connection and try again.</p>
         )}
       </div>
       {result?.available && result.version && (
@@ -89,6 +110,18 @@ function CheckForUpdatesButton(): React.ReactElement {
             <Download className="w-4 h-4" />
             Download update
           </button>
+          {skipped === result.version && (
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-base text-slate-700 dark:text-slate-300">You chose to skip this version, so the update notice doesn&rsquo;t show it.</p>
+              <button
+                onClick={() => void stopSkipping()}
+                className="btn-secondary"
+                style={{ minHeight: 44 }}
+              >
+                Stop skipping this version
+              </button>
+            </div>
+          )}
         </div>
       )}
 

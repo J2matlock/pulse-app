@@ -16,17 +16,24 @@ import { fileCountColumnIds } from '../shared/attachments'
 import { stageColumnOf, columnOptionLabels } from '../shared/stages'
 import { labelFor } from '../shared/activityTypes'
 import { localDateString } from '../shared/dates'
+import { minutesBetween } from '../shared/appointments'
 import type { Column, GridRow } from '../shared/types'
+import type { ApptStatus } from '../shared/appointments'
+import type { DeadlineState } from '../shared/deadlineEngine'
+import { unhandledCase } from '../shared/assertNever'
 import {
   REPORT_LIMITS, bucketDate, isFilterActive, matchReportFilter, presetRange, reportConfigSchema, toNumber, valueKey, valueLabel,
   type ReportCell, type ReportColumn, type ReportConfig, type ReportField, type ReportFieldKind, type ReportResult, type ReportSource, type SavedReport,
 } from '../shared/reports'
+import { LIVE_GRID, liveGrid } from '../shared/liveRecords'
 
 /** A problem the person can fix; the message is shown as is. */
 export class ReportError extends Error {}
 
-const APPT_STATUS_LABELS: Record<string, string> = { scheduled: 'Scheduled', done: 'Done', cancelled: 'Cancelled', no_show: 'No-show' }
-const DEADLINE_STATE_LABELS: Record<string, string> = { none: 'Nothing due', ok: 'On track', soon: 'Coming up', due: 'Due', overdue: 'Overdue', paused: 'Paused', done: 'Done' }
+const APPT_STATUS_LABELS = { scheduled: 'Scheduled', done: 'Done', cancelled: 'Cancelled', no_show: 'No-show' } satisfies Record<ApptStatus, string>
+const DEADLINE_STATE_LABELS = { none: 'Nothing due', ok: 'On track', soon: 'Coming up', due: 'Due', overdue: 'Overdue', paused: 'Paused', done: 'Done' } satisfies Record<DeadlineState, string>
+/** A stored value's label; one this version doesn't know shows as stored */
+const labelOf = (labels: Record<string, string | undefined>, key: string): string => labels[key] ?? key
 /** Most urgent first, so a report grouped by state reads top-down */
 const DEADLINE_STATE_ORDER = ['Overdue', 'Due', 'Coming up', 'On track', 'Paused', 'Done', 'Nothing due']
 
@@ -115,7 +122,10 @@ export function sourceWord(source: ReportSource, gridId: number): string {
     case 'records': return word('record', { many: true, cap: true }, gridId)
     case 'activities': return word('activity', { many: true, cap: true }, gridId)
     case 'appointments': return word('appointment', { many: true, cap: true }, gridId)
-    default: return 'Deadlines'
+    case 'deadlines': return 'Deadlines'
+    default:
+      unhandledCase(source)
+      return 'Deadlines'
   }
 }
 
@@ -125,7 +135,10 @@ export function sourceWordOne(source: ReportSource, gridId: number): string {
     case 'records': return word('record', { cap: true }, gridId)
     case 'activities': return word('activity', { cap: true }, gridId)
     case 'appointments': return word('appointment', { cap: true }, gridId)
-    default: return 'Deadline'
+    case 'deadlines': return 'Deadline'
+    default:
+      unhandledCase(source)
+      return 'Deadline'
   }
 }
 
@@ -138,7 +151,7 @@ export function validateReportConfig(gridId: number, input: unknown): { config: 
   const byId = new Map(fields.map(f => [f.id, f]))
   const need = (id: string | undefined, what: string) => {
     if (id === undefined) return
-    if (!byId.has(id)) throw new ReportError(`The ${what} in this report is no longer on the list. Choose another.`)
+    if (!byId.has(id)) throw new ReportError(`The ${what} in this report is no longer on the ${word('list', {}, gridId)}. Choose another.`)
   }
   config.filters.forEach(f => need(f.field, 'filter field'))
   config.groupBy.forEach(g => need(g.field, 'grouping'))
@@ -174,11 +187,13 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
   const started = Date.now()
   const tick = () => { if (Date.now() - started > REPORT_LIMITS.timeoutMs) throw new ReportError('This report is taking too long. Add a filter or a shorter date range.') }
   const db = getDb()
-  if (!db.prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 1').get(gridId)) throw new ReportError('That list is no longer available.')
+  if (!db.prepare(`SELECT 1 FROM grids WHERE id = ? AND ${liveGrid('')}`).get(gridId)) throw new ReportError(`That ${word('list')} is no longer available.`)
   const { config, fields } = validateReportConfig(gridId, input)
   const byId = new Map(fields.map(f => [f.id, f]))
   const today = localDateString(now)
   let truncated: string | null = null
+  // Week groups start on the day chosen in Settings, like the calendar and the dashboard
+  const weekStart = (db.prepare("SELECT value FROM settings WHERE key = 'week_start'").get() as { value: string } | undefined)?.value === 'monday' ? 'monday' : 'sunday'
 
   // ── Records: the list's one grid query ──
   const cols = gridColumns(gridId)
@@ -222,6 +237,16 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
     }
   }
 
+  // ── Filters and date range ──
+  let range: { from?: string; to?: string } | null = null
+  if (config.dateRange) range = config.dateRange.preset ? presetRange(config.dateRange.preset, now) : { from: config.dateRange.from, to: config.dateRange.to }
+  // Notes and appointments are capped: a date range on their own date narrows the query itself,
+  // and past the cap the latest are kept, so "this month" isn't lost behind years of old ones (F-021)
+  const sqlRange = (field: string, expr: string): { where: string; params: Array<string | null> } => {
+    if (!range || config.dateRange?.field !== field) return { where: '', params: [] }
+    return { where: ` AND (? IS NULL OR ${expr} >= ?) AND (? IS NULL OR ${expr} <= ?)`, params: [range.from ?? null, range.from ?? null, range.to ?? null, range.to ?? null] }
+  }
+
   // ── Source items ──
   const cap = REPORT_LIMITS.sourceRows
   const rowIds = gridRows.map(r => r.row_id)
@@ -233,10 +258,13 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
   } else if (config.source === 'activities') {
     const types = listActivityTypes(true)
     const measures = listMeasures()
+    const r = sqlRange('act:date', "date(cl.occurred_at, 'localtime')")
     const notes = db.prepare(inRows(`SELECT cl.row_id, date(cl.occurred_at, 'localtime') AS d, cl.log_type, cl.minutes, cl.miles, cl.extra_measures
-      FROM case_log cl JOIN rs ON rs.id = cl.row_id WHERE cl.voided_at IS NULL AND cl.log_type != 'system' ORDER BY cl.occurred_at, cl.id LIMIT ?`))
-      .all(JSON.stringify(rowIds), cap + 1) as Array<{ row_id: number; d: string; log_type: string; minutes: number | null; miles: number | null; extra_measures: string | null }>
-    if (notes.length > cap) { notes.pop(); truncated = `Only the first ${cap.toLocaleString('en-US')} were counted.` }
+      FROM case_log cl JOIN rs ON rs.id = cl.row_id WHERE cl.voided_at IS NULL AND cl.log_type != 'system'${r.where} ORDER BY cl.occurred_at DESC, cl.id DESC LIMIT ?`))
+      .all(JSON.stringify(rowIds), ...r.params, cap + 1) as Array<{ row_id: number; d: string; log_type: string; minutes: number | null; miles: number | null; extra_measures: string | null }>
+    if (notes.length > cap) { notes.pop(); truncated = `Only the latest ${cap.toLocaleString('en-US')} were counted.` }
+    // Back to oldest first, the order the report lists them in
+    notes.reverse()
     items = notes.map(n => {
       let extra: Record<string, unknown> = {}
       try { extra = n.extra_measures ? JSON.parse(n.extra_measures) as Record<string, unknown> : {} } catch { /* unreadable numbers count as none */ }
@@ -246,33 +274,38 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
     })
   } else if (config.source === 'appointments') {
     const types = listActivityTypes(true)
+    const r = sqlRange('appt:date', 'substr(a.start_at, 1, 10)')
     const appts = db.prepare(inRows(`SELECT a.row_id, a.title, a.start_at, a.end_at, a.all_day, a.status, a.activity_type_key
-      FROM appointments a JOIN rs ON rs.id = a.row_id ORDER BY a.start_at LIMIT ?`))
-      .all(JSON.stringify(rowIds), cap + 1) as Array<{ row_id: number; title: string; start_at: string; end_at: string | null; all_day: number; status: string; activity_type_key: string | null }>
-    if (appts.length > cap) { appts.pop(); truncated = `Only the first ${cap.toLocaleString('en-US')} were counted.` }
+      FROM appointments a JOIN rs ON rs.id = a.row_id WHERE 1 = 1${r.where} ORDER BY a.start_at DESC, a.id DESC LIMIT ?`))
+      .all(JSON.stringify(rowIds), ...r.params, cap + 1) as Array<{ row_id: number; title: string; start_at: string; end_at: string | null; all_day: number; status: string; activity_type_key: string | null }>
+    if (appts.length > cap) { appts.pop(); truncated = `Only the latest ${cap.toLocaleString('en-US')} were counted.` }
+    appts.reverse()
     items = appts.map(a => {
+      // Clock minutes between the two times, as the calendar shows them: elapsed time
+      // would be 60 off on a daylight-saving night (A21a-11)
       const minutes = !a.all_day && a.end_at && a.start_at.length >= 16 && a.end_at.length >= 16
-        ? Math.round((new Date(a.end_at).getTime() - new Date(a.start_at).getTime()) / 60000) : null
+        ? minutesBetween(a.start_at, a.end_at) : null
       return { rowId: a.row_id, own: {
-        'appt:date': a.start_at.slice(0, 10), 'appt:title': a.title, 'appt:status': APPT_STATUS_LABELS[a.status] ?? a.status,
+        'appt:date': a.start_at.slice(0, 10), 'appt:title': a.title, 'appt:status': labelOf(APPT_STATUS_LABELS, a.status),
         'appt:type': a.activity_type_key ? labelFor(types, a.activity_type_key) : null, 'appt:minutes': minutes,
       } }
     })
-  } else {
+  } else if (config.source === 'deadlines') {
     const deadlines = loadDeadlines({ gridId, today, includeDone: true, includePaused: true }).filter(d => recordById.has(d.row_id))
     if (deadlines.length > cap) { deadlines.length = cap; truncated = `Only the first ${cap.toLocaleString('en-US')} were counted.` }
     items = deadlines.map(d => ({ rowId: d.row_id, own: {
-      'dl:rule': d.column_name, 'dl:state': DEADLINE_STATE_LABELS[d.state] ?? d.state, 'dl:due': d.due,
-      'dl:overdue': d.state === 'overdue' && d.daysUntil !== null ? -d.daysUntil : 0,
+      'dl:rule': d.column_name, 'dl:state': labelOf(DEADLINE_STATE_LABELS, d.state), 'dl:due': d.due,
+      // A used-up quota is overdue with its end still ahead: 0 days late, not negative (F-022)
+      'dl:overdue': d.state === 'overdue' && d.daysUntil !== null ? Math.max(0, -d.daysUntil) : 0,
     } }))
+  } else {
+    // A source added without a branch fails typecheck; validateReportConfig() refuses unknown ones
+    unhandledCase(config.source)
   }
   tick()
 
   const get = (item: Item, field: string): ReportCell => field in item.own ? item.own[field] ?? null : recordValue(item.rowId, field)
 
-  // ── Filters and date range ──
-  let range: { from?: string; to?: string } | null = null
-  if (config.dateRange) range = config.dateRange.preset ? presetRange(config.dateRange.preset, now) : { from: config.dateRange.from, to: config.dateRange.to }
   // A filter still waiting for its value doesn't narrow anything yet
   const activeFilters = config.filters.filter(isFilterActive)
   const matched = items.filter((item, i) => {
@@ -319,7 +352,7 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
       const keys = config.groupBy.map(g => {
         const v = get(item, g.field)
         if (v === null || v === '') return null
-        return g.bucket && typeof v === 'string' ? bucketDate(v, g.bucket) : v
+        return g.bucket && typeof v === 'string' ? bucketDate(v, g.bucket, weekStart) : v
       })
       const k = JSON.stringify(keys)
       let grp = groups.get(k)
@@ -398,14 +431,14 @@ function parseSaved(r: { id: number; name: string; grid_id: number; config: stri
 
 export function listReports(gridId?: number): SavedReport[] {
   const rows = getDb().prepare(`SELECT r.id, r.name, r.grid_id, r.config, r.created_at, r.updated_at FROM report_definitions r JOIN grids g ON g.id = r.grid_id
-    WHERE g.is_active = 1 ${gridId ? 'AND r.grid_id = ?' : ''} ORDER BY r.name COLLATE NOCASE`).all(...(gridId ? [gridId] : [])) as Array<Parameters<typeof parseSaved>[0]>
+    WHERE ${LIVE_GRID} ${gridId ? 'AND r.grid_id = ?' : ''} ORDER BY r.name COLLATE NOCASE`).all(...(gridId ? [gridId] : [])) as Array<Parameters<typeof parseSaved>[0]>
   return rows.map(parseSaved).filter((r): r is SavedReport => r !== null)
 }
 
 /** A saved report, while its list is open (not in the Trash), like listReports */
 export function getReport(id: number): SavedReport | undefined {
   const r = getDb().prepare(`SELECT r.id, r.name, r.grid_id, r.config, r.created_at, r.updated_at FROM report_definitions r
-    JOIN grids g ON g.id = r.grid_id AND g.is_active = 1 WHERE r.id = ?`).get(id) as Parameters<typeof parseSaved>[0] | undefined
+    JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID} WHERE r.id = ?`).get(id) as Parameters<typeof parseSaved>[0] | undefined
   return r ? parseSaved(r) ?? undefined : undefined
 }
 
@@ -414,7 +447,7 @@ export function saveReport(input: { id?: number; name: unknown; gridId: number; 
   if (!name) throw new ReportError('Give the report a name.')
   if (name.length > 100) throw new ReportError('Keep the name under 100 characters.')
   const db = getDb()
-  if (!db.prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 1').get(input.gridId)) throw new ReportError('That list is no longer available.')
+  if (!db.prepare(`SELECT 1 FROM grids WHERE id = ? AND ${liveGrid('')}`).get(input.gridId)) throw new ReportError(`That ${word('list')} is no longer available.`)
   const { config } = validateReportConfig(input.gridId, input.config)
   const json = JSON.stringify(config)
   if (input.id !== undefined) {

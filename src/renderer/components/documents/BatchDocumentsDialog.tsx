@@ -85,9 +85,12 @@ export function BatchDocumentsDialog({ gridId: initialGridId, rowIds, initialMod
   // The selected records belong to the list the dialog opened on
   const selectedHere = gridId === initialGridId && !!rowIds?.length
 
+  // The template asked for when the dialog opened; templates load once
+  const openedWithTemplateRef = useRef(initialTemplateId)
   useEffect(() => {
+    const wanted = openedWithTemplateRef.current
     void safeInvoke<Array<{ id: number; name: string }>>(IPC.LETTER_TEMPLATE_GET_ALL).then(r => {
-      if (r.ok) { setTemplates(r.data); setTemplateId(r.data.some(x => x.id === initialTemplateId) ? initialTemplateId! : r.data[0]?.id ?? null) }
+      if (r.ok) { setTemplates(r.data); setTemplateId(r.data.some(x => x.id === wanted) ? wanted! : r.data[0]?.id ?? null) }
     })
   }, [])
 

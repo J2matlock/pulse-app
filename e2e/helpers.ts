@@ -30,8 +30,10 @@ export async function launchApp(options?: {
   fixtureDir?: string;
   /** Extra environment variables. */
   env?: Record<string, string>;
+  /** Reuse this data folder (a relaunch) instead of a fresh temp one. */
+  dataDir?: string;
 }): Promise<AppContext> {
-  const dataDir = mkdtempSync(join(tmpdir(), 'pulse-e2e-'));
+  const dataDir = options?.dataDir ?? mkdtempSync(join(tmpdir(), 'pulse-e2e-'));
 
   if (options?.fixtureDir && existsSync(options.fixtureDir)) {
     cpSync(options.fixtureDir, dataDir, { recursive: true });
@@ -125,27 +127,6 @@ export async function unlockApp(window: Page, password: string): Promise<void> {
 
   // Wait for the main app UI to appear
   await window.waitForSelector('nav, [class*="sidebar"]', { timeout: 15000 });
-}
-
-/**
- * Set up a fresh app: launch, create password, and get past any onboarding.
- * Returns the app context with the main UI visible.
- */
-export async function launchAndSetup(password: string): Promise<AppContext> {
-  const ctx = await launchApp();
-  await setupPassword(ctx.window, password);
-
-  // After password setup, the app may show lock screen or go straight to main UI
-  try {
-    const lockInput = await ctx.window.waitForSelector('input[type="password"]', { timeout: 3000 });
-    if (lockInput) {
-      await unlockApp(ctx.window, password);
-    }
-  } catch {
-    // No lock screen — app went directly to main UI or onboarding
-  }
-
-  return ctx;
 }
 
 /**

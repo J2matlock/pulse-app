@@ -2,6 +2,9 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ChecklistDueItem } from '../../../shared/types'
 import { tickChecklistItem } from '../../utils/checklistTick'
+import { classifyDeadline, daysAwayLabel } from '../../../shared/deadlineTiles'
+import { TIER_TEXT, TIER_BAR } from '../../utils/dueTiers'
+import { shortYmd } from '../../../shared/dates'
 
 export function ChecklistDueRow({
   item,
@@ -17,28 +20,12 @@ export function ChecklistDueRow({
   const [completing, setCompleting] = useState(false)
   const navigate = useNavigate()
 
-  const urgencyLabel =
-    daysUntil < 0   ? `${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? '' : 's'} overdue` :
-    daysUntil === 0 ? 'Due today' :
-    `${daysUntil} day${daysUntil === 1 ? '' : 's'}`
+  const tier = classifyDeadline(daysUntil)
+  const urgencyLabel = daysAwayLabel(daysUntil)
+  const urgencyColor = TIER_TEXT[tier]
+  const barColor = tier === 'future' ? 'bg-teal-300' : TIER_BAR[tier]
 
-  const urgencyColor =
-    daysUntil < 0    ? 'text-red-600 dark:text-red-400 font-semibold' :
-    daysUntil === 0  ? 'text-red-600 dark:text-red-400 font-semibold' :
-    daysUntil <= 7   ? 'text-orange-700 dark:text-orange-400' :
-    daysUntil <= 30  ? 'text-yellow-700 dark:text-yellow-400' :
-    'text-slate-500 dark:text-slate-400'
-
-  const barColor =
-    daysUntil < 0    ? 'bg-red-500' :
-    daysUntil === 0  ? 'bg-red-400' :
-    daysUntil <= 7   ? 'bg-orange-400' :
-    daysUntil <= 30  ? 'bg-yellow-400' : 'bg-teal-300'
-
-  const dueDateFormatted = (() => {
-    const [y = NaN, m = NaN, d = NaN] = item.due_date!.split('-').map(Number)
-    return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  })()
+  const dueDateFormatted = shortYmd(item.due_date!)
 
   const priorityDot =
     item.priority === 'high' || item.priority === 'urgent' ? '🔴' :

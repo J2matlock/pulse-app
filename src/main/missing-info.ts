@@ -10,6 +10,11 @@ import { isNotADate } from '../shared/ymd'
 import Papa from 'papaparse'
 import { atomicWriteFileAsync, sanitizeCsvFormula } from './export-shared'
 import { word } from './vocab'
+import { LIVE_GRID, LIVE_ROW, liveGrid } from '../shared/liveRecords'
+import { columnTypesSql } from '../shared/columnTraits'
+
+/** Column types that can't be marked required (canBeRequired), for SQL */
+const NOT_REQUIRABLE = columnTypesSql(t => !t.requirable)
 
 export function getMissingInfo(gridId?: number): MissingInfoGrid[] {
   const db = getDb()
@@ -18,11 +23,11 @@ export function getMissingInfo(gridId?: number): MissingInfoGrid[] {
            COALESCE(NULLIF(r.display_name, ''), ?) AS client_name,
            col.name AS column_name, col.position
     FROM columns col
-    JOIN grids g ON g.id = col.grid_id AND g.is_active = 1
-    JOIN rows r ON r.grid_id = g.id AND r.is_active = 1 AND r.deleted_at IS NULL
+    JOIN grids g ON g.id = col.grid_id AND ${LIVE_GRID}
+    JOIN rows r ON r.grid_id = g.id AND ${LIVE_ROW}
     LEFT JOIN cells c ON c.row_id = r.id AND c.column_id = col.id
     WHERE json_extract(col.config, '$.required') = 1
-      AND col.column_type NOT IN ('checkbox', 'age_from_dob', 'calculated_days', 'auto_number', 'deadline', 'link', 'file_count')
+      AND col.column_type NOT IN (${NOT_REQUIRABLE})
       AND (c.value IS NULL OR trim(c.value) = '')
       AND (? IS NULL OR g.id = ?)
     ORDER BY g.position, g.name COLLATE NOCASE, client_name COLLATE NOCASE, col.position
@@ -30,8 +35,8 @@ export function getMissingInfo(gridId?: number): MissingInfoGrid[] {
 
   const required = db.prepare(`
     SELECT col.grid_id, g.name AS grid_name, col.name FROM columns col
-    JOIN grids g ON g.id = col.grid_id AND g.is_active = 1
-    WHERE json_extract(col.config, '$.required') = 1 AND col.column_type NOT IN ('checkbox', 'age_from_dob', 'calculated_days', 'auto_number', 'deadline', 'link', 'file_count')
+    JOIN grids g ON g.id = col.grid_id AND ${LIVE_GRID}
+    WHERE json_extract(col.config, '$.required') = 1 AND col.column_type NOT IN (${NOT_REQUIRABLE})
       AND (? IS NULL OR col.grid_id = ?)
     ORDER BY g.position, g.name COLLATE NOCASE, col.position
   `).all(gridId ?? null, gridId ?? null) as Array<{ grid_id: number; grid_name: string; name: string }>
@@ -42,8 +47,8 @@ export function getMissingInfo(gridId?: number): MissingInfoGrid[] {
            COALESCE(NULLIF(r.display_name, ''), ?) AS client_name,
            col.name AS column_name, c.value
     FROM cells c
-    JOIN rows r ON r.id = c.row_id AND r.is_active = 1 AND r.deleted_at IS NULL
-    JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
+    JOIN rows r ON r.id = c.row_id AND ${LIVE_ROW}
+    JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
     JOIN columns col ON col.id = c.column_id AND col.column_type IN ('date', 'deadline')
     JOIN alert_rules ar ON ar.id = CAST(json_extract(col.config, '$.alert_rule_id') AS INTEGER)
     WHERE c.value IS NOT NULL AND trim(c.value) != ''
@@ -55,7 +60,7 @@ export function getMissingInfo(gridId?: number): MissingInfoGrid[] {
   // Map keeps caseload order; every caseload with required columns, or with a date
   // Pulse can't read, is listed
   const listed = new Set([...required.map(r => r.grid_id), ...unreadable.map(r => r.grid_id)])
-  const allGrids = db.prepare(`SELECT id, name FROM grids WHERE is_active = 1 ORDER BY position, name COLLATE NOCASE`).all() as Array<{ id: number; name: string }>
+  const allGrids = db.prepare(`SELECT id, name FROM grids WHERE ${liveGrid('')} ORDER BY position, name COLLATE NOCASE`).all() as Array<{ id: number; name: string }>
   const grids = new Map<number, MissingInfoGrid>()
   for (const g of allGrids) {
     if (listed.has(g.id)) grids.set(g.id, { gridId: g.id, gridName: g.name, requiredColumns: [], clients: [] })

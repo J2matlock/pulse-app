@@ -22,6 +22,10 @@ import { TrashFiles } from '../../src/renderer/components/shared/TrashFiles'
 import { CellDisplay } from '../../src/renderer/components/grid/CellDisplay'
 import type { Column } from '../../src/shared/types'
 import { setWords } from './vocabFixture'
+import { useUndoStore } from '../../src/renderer/stores/undoStore'
+import type { UndoItem } from '../../src/renderer/stores/undoStore'
+
+const removeStep = (): UndoItem => ({ id: 'f1', description: 'Removed a file', timestamp: Date.now(), category: 'structural', icon: 'trash', undo: vi.fn(), redo: vi.fn() })
 
 const tick = () => act(async () => { await new Promise(r => setTimeout(r, 0)) })
 beforeEach(() => { setWords(); invoke.mockClear(); toast.error.mockClear(); toast.success.mockClear(); trash = trashed })
@@ -48,6 +52,13 @@ describe('files storage settings', () => {
     expect(invoke).toHaveBeenCalledWith('attachments:purge')
     expect(toast.success).toHaveBeenCalledWith('Removed 3 files from the Trash')
   })
+
+  it('emptying the files trash forgets undo steps that would bring a file back (Q-045)', async () => {
+    useUndoStore.setState({ undoStack: [removeStep()], redoStack: [] })
+    render(<FilesStorageSection />)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Remove files in the Trash now/ })) })
+    expect(useUndoStore.getState().undoStack).toHaveLength(0)
+  })
 })
 
 describe('trash files', () => {
@@ -61,6 +72,15 @@ describe('trash files', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Delete$/ }))
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Delete forever/ })) })
     expect(invoke).toHaveBeenCalledWith('attachments:purge', 7)
+  })
+
+  it('deleting a file for good forgets undo steps that would bring it back (Q-045)', async () => {
+    render(<TrashFiles />)
+    await tick()
+    useUndoStore.setState({ undoStack: [removeStep()], redoStack: [] })
+    fireEvent.click(screen.getByRole('button', { name: /^Delete$/ }))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Delete forever/ })) })
+    expect(useUndoStore.getState().undoStack).toHaveLength(0)
   })
 
   it('shows nothing when no files are in the trash', async () => {

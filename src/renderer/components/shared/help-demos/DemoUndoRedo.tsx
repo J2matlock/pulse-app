@@ -42,7 +42,7 @@ export function DemoUndoRedo() {
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path d="M5 10l4-4M5 10l4 4M5 10h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          <span className="text-xs font-medium">Undo</span>
+          <span className="text-sm font-medium">Undo</span>
         </div>
       </div>
       <div className="text-sm text-slate-500 dark:text-slate-400 text-center">{modHelp('Cell value reverts instantly with Ctrl+Z')}</div>

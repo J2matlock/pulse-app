@@ -94,6 +94,19 @@ describe('totals report', () => {
     expect(readFileSync(dest, 'utf8')).toContain(',Home visit,')
   })
 
+  it('writes the day in the format chosen in Settings (Q-076)', async () => {
+    const dest = join(testDb.tmpDir, 'tm-dates.csv')
+    testDb.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('date_format', 'us')").run()
+    await exportTotalsCsv('2026-03', undefined, dest)
+    expect(readFileSync(dest, 'utf8')).toMatch(/\n03\/02\/2026,/)
+    testDb.db.prepare("UPDATE settings SET value = 'eu' WHERE key = 'date_format'").run()
+    await exportTotalsCsv('2026-03', undefined, dest)
+    expect(readFileSync(dest, 'utf8')).toMatch(/\n02\/03\/2026,/)
+    testDb.db.prepare("UPDATE settings SET value = 'iso' WHERE key = 'date_format'").run()
+    await exportTotalsCsv('2026-03', undefined, dest)
+    expect(readFileSync(dest, 'utf8')).toMatch(/\n2026-03-02,/)
+  })
+
   it('exports a CSV with amounts and a total row', async () => {
     const dest = join(testDb.tmpDir, 'tm.csv')
     expect(await exportTotalsCsv('2026-03', undefined, dest)).toBe(3)

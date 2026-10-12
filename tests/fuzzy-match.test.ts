@@ -1,30 +1,10 @@
 /**
  * Fuzzy Match Scoring Tests — pure function, no deps.
- * Tests the same fuzzyMatch logic used in CommandPalette.
+ * The command palette's fuzzyMatch (it used to test a copy of it).
  */
 import { describe, it, expect } from 'vitest'
 
-/** Fuzzy match: walk query chars through text. Returns score > 0 for match, 0 for no match. */
-function fuzzyMatch(query: string, text: string): number {
-  const q = query.toLowerCase()
-  const t = text.toLowerCase()
-  let qi = 0
-  let score = 0
-  let consecutive = 0
-  if (q.length === 0) return 1
-
-  for (let ti = 0; ti < t.length && qi < q.length; ti++) {
-    if (t[ti] === q[qi]) {
-      score += 1 + consecutive * 2
-      if (qi === 0 && ti === 0) score += 5 // prefix bonus
-      consecutive++
-      qi++
-    } else {
-      consecutive = 0
-    }
-  }
-  return qi === q.length ? score : 0
-}
+import { fuzzyMatch } from '../src/renderer/hooks/useCommandSearch'
 
 describe('fuzzyMatch', () => {
   it('empty query returns 1 (matches everything)', () => {

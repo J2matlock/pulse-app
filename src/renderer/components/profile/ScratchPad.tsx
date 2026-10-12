@@ -7,6 +7,7 @@ import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, StickyNote
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { expandVariables, detectTrigger, matchSnippets } from '../../utils/snippetExpander'
+import { useSettingsStore } from '../../stores/settingsStore'
 import type { IPCResult, Snippet } from '../../../shared/types'
 import { pulseEvents } from '../../events'
 import { rlog } from '../../utils/rendererLogger'
@@ -42,6 +43,12 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
   const snippetsOn = useFeature('snippets')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(false)
+  // The saved notes couldn't be read: the pad stays read-only, and nothing is saved over them (Q-047)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const loadFailedRef = useRef(false)
+  // True only once the saved notes are in the editor; until then nothing is saved (R4-01)
+  const loadedRef = useRef(false)
+  const loadSeqRef = useRef(0)
   const [internalSnippets, setInternalSnippets] = useState<Snippet[]>([])
   // With snippets switched off the "/" menu finds nothing to offer
   const snippets = snippetsOn ? (externalSnippets ?? internalSnippets) : NO_SNIPPETS
@@ -58,6 +65,8 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
   const snippetMenuRef = useRef(snippetMenu)
   const selectedIndexRef = useRef(selectedIndex)
   const clientNameRef = useRef(clientName)
+  // {today} and {now} follow Settings → Date format and Clock (A21a-09)
+  const snippetFormats = { dateFormat: useSettingsStore(s => s.dateFormat), clockFormat: useSettingsStore(s => s.clockFormat) }
   const rowIdRef = useRef(rowId)
   const globalScopeRef = useRef(globalScope)
   useEffect(() => { snippetMenuRef.current = snippetMenu }, [snippetMenu])
@@ -79,9 +88,11 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
   const editor = useEditor({
     extensions: [StarterKit],
     content: '',
+    // Read-only until the saved notes are in, so nothing typed lands on an empty pad and is saved over them
+    editable: false,
     editorProps: {
       attributes: {
-        class: 'prose prose-sm dark:prose-invert max-w-none p-4 min-h-[140px] focus:outline-hidden text-slate-800 dark:text-slate-100',
+        class: 'scratch-editor max-w-none p-4 min-h-[140px] focus:outline-hidden text-slate-800 dark:text-slate-100',
         style: 'font-size: 15px;',
         spellcheck: 'false',
         // The editor is a textbox; give it a name and say it takes several lines
@@ -122,10 +133,12 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
         setSnippetMenuPos(null)
       }
 
+      if (loadFailedRef.current || !loadedRef.current) return
       dirtyRef.current = true
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
       saveTimerRef.current = setTimeout(async () => {
         saveTimerRef.current = null
+        if (loadFailedRef.current || !loadedRef.current) return
         setSaving(true)
         // Anything typed while this save is on its way marks the pad dirty again
         dirtyRef.current = false
@@ -141,26 +154,38 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
     },
   })
 
-  useEffect(() => {
+  const loadPad = useCallback(() => {
     if (!editor) return
-    if (globalScope) {
-      safeInvoke<{ content: string }>(IPC.GLOBAL_NOTE_GET, globalScope).then(res => {
-        if (res.ok && res.data?.content) {
-          editor.commands.setContent(sanitizeHtml(res.data.content), { emitUpdate: false })
-        } else {
-          editor.commands.setContent('', { emitUpdate: false })
-        }
-      })
-    } else if (rowId != null) {
-      safeInvoke<{ content: string }>(IPC.SCRAP_NOTE_GET, rowId).then(res => {
-        if (res.ok && res.data?.content) {
-          editor.commands.setContent(sanitizeHtml(res.data.content), { emitUpdate: false })
-        } else {
-          editor.commands.setContent('', { emitUpdate: false })
-        }
-      })
-    }
+    const request = globalScope
+      ? safeInvoke<{ content: string } | null>(IPC.GLOBAL_NOTE_GET, globalScope)
+      : rowId != null ? safeInvoke<{ content: string } | null>(IPC.SCRAP_NOTE_GET, rowId) : null
+    if (!request) return
+    // Only the newest load lands (Prev/Next, Try again)
+    const seq = ++loadSeqRef.current
+    loadedRef.current = false
+    // No 'update' event: tiptap emits one by default, which would count as an edit and
+    // save the still-empty pad (R4-01)
+    editor.setEditable(false, false)
+    void request.then(res => {
+      if (seq !== loadSeqRef.current) return
+      if (!res.ok) {
+        // An empty pad here would be saved over the real notes as soon as anyone typed (Q-047)
+        rlog.warn('ScratchPad', 'Load failed', res.error)
+        loadFailedRef.current = true
+        if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null }
+        dirtyRef.current = false
+        setLoadFailed(true)
+        editor.commands.setContent('', { emitUpdate: false })
+        return
+      }
+      loadFailedRef.current = false
+      setLoadFailed(false)
+      editor.commands.setContent(res.data?.content ? sanitizeHtml(res.data.content) : '', { emitUpdate: false })
+      loadedRef.current = true
+      editor.setEditable(true, false)
+    })
   }, [rowId, globalScope, editor])
+  useEffect(() => { loadPad() }, [loadPad])
 
   // Keep editorRef in sync
   useEffect(() => { editorRef.current = editor }, [editor])
@@ -197,7 +222,7 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
   // while the database is still open (1.2).
   const flushNow = useCallback(() => {
     if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null }
-    if (!dirtyRef.current || !editorRef.current) return
+    if (!dirtyRef.current || !editorRef.current || loadFailedRef.current || !loadedRef.current) return
     dirtyRef.current = false
     void persistPad(globalScopeRef.current, rowIdRef.current, sanitizeHtml(editorRef.current.getHTML())).then(res => {
       if (!res.ok) toast.error('We couldn\'t save your last changes to the scratch notes. Please check them and try again.')
@@ -213,7 +238,7 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
     const textBefore = state.doc.textBetween(Math.max(0, from - 50), from, '\n', '\0')
     const match = detectTrigger(textBefore)
     if (!match) return
-    const expanded = expandVariables(snippet.expansion, clientNameRef.current)
+    const expanded = expandVariables(snippet.expansion, clientNameRef.current, snippetFormats)
     // Insert as plain text to prevent XSS via snippet content containing HTML
     editor.chain().focus().deleteRange({ from: from - match.trigger.length, to: from }).insertContent({ type: 'text', text: expanded }).run()
     setSnippetMenu(null)
@@ -276,6 +301,12 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
         {saving && <span className="text-sm text-slate-500 dark:text-slate-400 italic">Saving…</span>}
         {saveError && !saving && <span role="alert" className="text-base text-red-700 dark:text-red-400">We couldn't save this — keep typing to try again</span>}
       </div>
+      {loadFailed && (
+        <div role="alert" className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 text-base text-red-800 dark:text-red-300">
+          <span className="flex-1">We couldn't load the scratch notes, so they can't be edited right now. What was saved is still there.</span>
+          <button type="button" className="btn-secondary" onClick={loadPad}>Try again</button>
+        </div>
+      )}
 
       <div role="toolbar" aria-label="Text formatting" className="flex flex-wrap items-center gap-0.5 px-2 py-1 border-b border-slate-100 dark:border-slate-700/50">
         {toolbarBtn(active?.bold ?? false, () => editor?.chain().focus().toggleBold().run(), <Bold className="w-4 h-4" />, modHelp('Bold (Ctrl+B)'))}
@@ -291,7 +322,8 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
       <div
         data-scratchpad-wrap
         ref={editorWrapperRef}
-        className="relative overflow-auto"
+        // The editor itself draws no outline, so the box around it shows keyboard focus
+        className="relative overflow-auto focus-within:ring-3 focus-within:ring-inset focus-within:ring-blue-500"
         style={{ minHeight: 140, maxHeight: 600 }}
         onKeyDownCapture={handleKeyDownCapture}
       >

@@ -9,11 +9,13 @@ import { setCellWithHistory } from './cell-write'
 import { assignAutoNumbers } from './auto-number'
 import { columnAffectsDisplayName, hasDisplayFormat, refreshDisplayNames } from './display-names'
 import { addLink, removeLink } from './links'
+import { word } from './vocab'
 import { isValidLogType, userTypeKeys } from './activity-types'
 import { applyNoteDateUpdates, revertNoteDates, localDayOf } from './note-date-updates'
 import { formInputSchema, NOT_FILLABLE, type Form, type FormChange, type FormField, type FormInput } from '../shared/forms'
 import { linkColumnSpecs } from '../shared/links'
 import { tagList, tagValueFromText } from '../shared/tagValue'
+import { liveGrid, notTrashedRow } from '../shared/liveRecords'
 
 export class FormError extends Error {}
 
@@ -47,7 +49,7 @@ export function saveForm(input: FormInput): Form {
   if (!p.success) throw new FormError(p.error.issues[0]?.message ?? 'Some of the form settings are missing or not allowed.')
   const v = p.data
   const db = getDb()
-  if (!db.prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 1').get(v.grid_id)) throw new FormError('That list no longer exists.')
+  if (!db.prepare(`SELECT 1 FROM grids WHERE id = ? AND ${liveGrid('')}`).get(v.grid_id)) throw new FormError(`That ${word('list')} no longer exists.`)
   const cols = columnsOf(v.grid_id)
   const seen = new Set<number>()
   for (const f of v.fields) {
@@ -59,7 +61,7 @@ export function saveForm(input: FormInput): Form {
     seen.add(f.columnId)
   }
   if (!v.fields.some(f => f.kind !== 'section')) throw new FormError('Add at least one question.')
-  if (v.log_activity_type && !userTypeKeys(false).has(v.log_activity_type)) throw new FormError('That kind of note no longer exists.')
+  if (v.log_activity_type && !userTypeKeys(false).has(v.log_activity_type)) throw new FormError(`That kind of ${word('activity', {}, v.grid_id)} no longer exists.`)
   return db.transaction(() => {
     if (v.id !== undefined) {
       const changed = db.prepare("UPDATE forms SET name = ?, intro = ?, fields = ?, log_activity_type = ?, updated_at = datetime('now') WHERE id = ? AND grid_id = ?")
@@ -126,7 +128,7 @@ export function submitForm(formId: number, rowId: number | null, values: FormVal
   const form = getForm(formId)
   if (!form) throw new FormError('That form no longer exists.')
   const cols = columnsOf(form.grid_id)
-  if (rowId !== null && !db.prepare('SELECT 1 FROM rows WHERE id = ? AND grid_id = ? AND deleted_at IS NULL').get(rowId, form.grid_id)) throw new FormError('That record is no longer available.')
+  if (rowId !== null && !db.prepare(`SELECT 1 FROM rows WHERE id = ? AND grid_id = ? AND ${notTrashedRow('')}`).get(rowId, form.grid_id)) throw new FormError(`That ${word('record', {}, form.grid_id)} is no longer available.`)
 
   const missing: string[] = []
   const cellValues = new Map<number, string | null>()

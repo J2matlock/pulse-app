@@ -59,10 +59,11 @@ vi.mock('../../../../src/renderer/stores/gridStore', () => ({
   }),
 }))
 
+const mockPrune = vi.hoisted(() => vi.fn())
 vi.mock('../../../../src/renderer/stores/profileStore', () => ({
-  useProfileStore: (selector: Function) => selector({
+  useProfileStore: Object.assign((selector: Function) => selector({
     recentProfiles: mockRecent,
-  }),
+  }), { getState: () => ({ pruneRecentProfiles: mockPrune }) }),
 }))
 
 vi.mock('../../../../src/renderer/stores/undoStore', () => ({
@@ -172,6 +173,8 @@ describe('TopBar', () => {
     trigger.focus()
     fireEvent.click(trigger)
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    // Records moved to the Trash meanwhile leave the menu (Q-048)
+    expect(mockPrune).toHaveBeenCalledTimes(1)
     const items = screen.getAllByRole('menuitem')
     expect(document.activeElement).toBe(items[0])
     fireEvent.keyDown(items[0] as HTMLElement, { key: 'ArrowDown' })

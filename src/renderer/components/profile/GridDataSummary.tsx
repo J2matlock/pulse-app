@@ -6,7 +6,7 @@ import { dndAccessibility } from '../../utils/dndAnnouncements'
 import { CSS } from '@dnd-kit/utilities'
 import { evaluateRuleForRow } from '../../utils/deadlineCalc'
 import { IPC } from '../../../shared/ipc-channels'
-import { isNotTypedColumnType, type Column, type GridRow, type ParsedAlertRule } from '../../../shared/types'
+import { isNotTypedColumnType, type Column, type ColumnType, type GridRow, type ParsedAlertRule } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
 import toast from 'react-hot-toast'
 import { friendlyError } from '../../utils/friendlyError'
@@ -29,7 +29,8 @@ function getColumnConfig(col: Column) {
 }
 
 /** The badge next to a rule-backed date, from the same deadline engine as the Deadlines panel (R-22) */
-const STATE_BADGE: Partial<Record<DeadlineState, { bg: string; text: string; label: string }>> = {
+const STATE_BADGE: Record<DeadlineState, { bg: string; text: string; label: string } | null> = {
+  none: null,
   ok: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-800 dark:text-green-200', label: 'On track' },
   soon: { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-800 dark:text-orange-200', label: 'Due soon' },
   due: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-800 dark:text-red-200', label: 'Due today' },
@@ -52,7 +53,7 @@ function deadlineBadge(col: Column, value: string | null, row: GridRow, alertRul
 }
 
 /** Plain names for column types, as in the add-column menu (R-22) */
-const TYPE_LABEL: Record<string, string> = {
+const TYPE_LABEL: Record<ColumnType, string> = {
   text: 'Text', number: 'Number', date: 'Date', checkbox: 'Checkbox', dropdown: 'Dropdown', phone: 'Phone',
   email: 'Email', url: 'Web link', currency: 'Money', address: 'Address', status: 'Status', tag: 'Tags', notes: 'Notes',
   auto_number: 'Auto number', deadline: 'Deadline', age_from_dob: 'Age', calculated_days: 'Days count', link: 'Linked',
@@ -102,7 +103,7 @@ function SortableCard({ col, value, row, allColumns, alertRules, series, onSave 
         <button
           {...attributes}
           {...listeners}
-          className="absolute right-1 top-1 p-1 rounded-sm text-slate-300 dark:text-slate-500
+          className="hit-44 absolute right-1 top-1 p-1 rounded-sm text-slate-300 dark:text-slate-500
                      opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100 hover:text-slate-500 dark:hover:text-slate-400
                      focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
                      cursor-grab active:cursor-grabbing transition-opacity touch-none"

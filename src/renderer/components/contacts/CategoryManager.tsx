@@ -259,14 +259,14 @@ export function CategoryManager({ open, onClose }: { open: boolean; onClose: () 
                     <span className="flex-1 text-slate-900 dark:text-white" style={{ fontSize: 15 }}>{cat.name}</span>
                     <button
                       onClick={() => startEdit(cat.id, cat.name, cat.color)}
-                      className="p-1.5 rounded-sm opacity-0 group-hover:opacity-100 hover:bg-slate-200 dark:hover:bg-slate-600 transition-opacity focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:opacity-100"
+                      className="hit-44 p-1.5 rounded-sm opacity-0 group-hover:opacity-100 hover:bg-slate-200 dark:hover:bg-slate-600 transition-opacity focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:opacity-100"
                       title="Edit"
                     >
                       <Pencil size={14} className="text-slate-500" />
                     </button>
                     <button
                       onClick={() => { setDeletingId(cat.id); setEditingId(null) }}
-                      className="p-1.5 rounded-sm opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/30 transition-opacity focus:outline-hidden focus:ring-3 focus:ring-red-500 focus:opacity-100"
+                      className="hit-44 p-1.5 rounded-sm opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-900/30 transition-opacity focus:outline-hidden focus:ring-3 focus:ring-red-500 focus:opacity-100"
                       title="Delete"
                     >
                       <Trash2 size={14} className="text-red-600 dark:text-red-400" />

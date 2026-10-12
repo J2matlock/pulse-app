@@ -16,7 +16,8 @@ export const ClientFocusItem = React.memo(function ClientFocusItem({ item, celeb
     ? 'bg-orange-400'
     : 'bg-yellow-400'
 
-  const daysLabel = item.daysUntil < 0
+  const daysLabel = item.usedUpLabel ? item.usedUpLabel
+    : item.daysUntil < 0
     ? `${Math.abs(item.daysUntil)} day${Math.abs(item.daysUntil) === 1 ? '' : 's'} overdue`
     : item.daysUntil === 0
     ? 'Due today'

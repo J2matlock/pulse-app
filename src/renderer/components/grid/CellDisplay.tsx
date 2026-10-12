@@ -138,7 +138,7 @@ export const CellDisplay = React.memo(function CellDisplay({ column, value, row,
       if (!Number.isFinite(num)) return <span className="truncate">{value}</span>
       return (
         <span className="tabular-nums">
-          {num.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+          {USD.format(num)}
         </span>
       )
     }
@@ -191,12 +191,17 @@ export const CellDisplay = React.memo(function CellDisplay({ column, value, row,
   }
 })
 
+// One formatter each, made once: toLocale*String with options builds a new one on every call,
+// and the grid formats every money and date cell it draws
+const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
+const CELL_DATE = new Intl.DateTimeFormat('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
+
 /** A date the way list cells show it (also used by the filter chips) */
 export function formatDate(value: string): string {
   try {
     const d = new Date(value.includes('T') ? value : `${value}T00:00:00`)
     if (isNaN(d.getTime())) return value
-    return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
+    return CELL_DATE.format(d)
   } catch {
     return value
   }

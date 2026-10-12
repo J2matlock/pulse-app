@@ -1,5 +1,6 @@
 import React, { Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import { useFeature } from '../../hooks/useFeature'
 import { FormFillHost } from '../forms/FormFillHost'
 import { Sidebar } from './Sidebar'
@@ -70,6 +71,9 @@ async function checkForUpdateOnce(): Promise<UpdateInfo | null> {
       return null
     }
     if (res.ok && res.data.available && res.data.version) {
+      // A version skipped on the banner stays quiet; a newer one shows again (S-4)
+      const skipped = await safeInvoke(IPC.APP_UPDATE_SKIPPED_GET)
+      if (skipped.ok && skipped.data === res.data.version) return null
       return { version: res.data.version, downloadUrl: res.data.downloadUrl }
     }
   } catch {
@@ -135,7 +139,7 @@ export function MainLayout({ children }: Props): React.ReactElement {
     handleChange(mql)
     mql.addEventListener('change', handleChange)
     return () => mql.removeEventListener('change', handleChange)
-  }, [])
+  }, [setSidebarCollapsed])
 
   // Check for updates once per launch, silently — unless turned off in Settings → About
   useEffect(() => {
@@ -150,9 +154,21 @@ export function MainLayout({ children }: Props): React.ReactElement {
     return () => { live = false }
   }, [])
 
+  // "Remind me later": hidden for the rest of this session
   function dismissBanner() {
     if (update) sessionStorage.setItem('pulse-update-dismissed', update.version)
     setBannerDismissed(true)
+  }
+
+  // "Skip this version": hidden for good, until a newer version comes out (S-4).
+  // The session dismiss covers a lock and unlock, which reuses this launch's check.
+  async function skipVersion() {
+    if (!update) return
+    const res = await safeInvoke(IPC.APP_UPDATE_SKIP, update.version)
+    if (!res.ok) {
+      toast.error("We couldn't save that. The update notice will show again next time.")
+    }
+    dismissBanner()
   }
 
   const showBanner = update !== null && !bannerDismissed
@@ -184,6 +200,7 @@ export function MainLayout({ children }: Props): React.ReactElement {
             version={update?.version ?? ''}
             downloadUrl={update?.downloadUrl}
             onDismiss={dismissBanner}
+            onSkip={() => void skipVersion()}
           />
         )}
         <SampleDataBanner />

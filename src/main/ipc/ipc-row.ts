@@ -3,14 +3,18 @@
  */
 
 import { copyForwardLinks, dropLinksThatWontFit } from '../links'
+import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
 import type { RowLocation } from '../../shared/ipc-contract'
-import { secureWrap, logNonFatal, ok, fail, buildSafeSetClause, validId, notifyCaseLogChanged, enforceWritable } from './ipc-utils'
+import { logNonFatal, ok, fail, buildSafeSetClause, notifyCaseLogChanged } from './ipc-utils'
+import { handlersFor, idArg, idListArg } from './ipc-define'
 import { getDb, getRow, cachedStmt } from '../database'
 import { word } from '../vocab'
 import { refreshDisplayNames } from '../display-names'
 import { assignAutoNumbers } from '../auto-number'
 import { forgetPurgedRows } from '../list-trash'
+import { purgeRecordLeftovers, pruneAfterPurge } from '../purge-hooks'
+import { LIVE_GRID, LIVE_ROW } from '../../shared/liveRecords'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_ROWS = 5000
@@ -227,9 +231,11 @@ function parseManualContacts(raw: string | null): Array<{ type: string; label: s
   } catch { return [] }
 }
 
+const define = handlersFor('ipc-row')
+
 export function registerRowHandlers(): void {
-  secureWrap(IPC.ROW_BULK_ACTION, 'ipc-row', (_e, action: 'archive' | 'unarchive' | 'delete' | 'restore', rowIds: number[]) => {
-    const guard = enforceWritable(); if (guard) return guard
+  // The action's message names it and the list's use the workspace words, so they stay in the body
+  define(IPC.ROW_BULK_ACTION, [z.custom<'archive' | 'unarchive' | 'delete' | 'restore'>(), z.custom<number[]>()], (action, rowIds) => {
     if (!ALLOWED_BULK_ACTIONS.has(action)) return fail(`Invalid bulk action: ${action}`)
     if (!Array.isArray(rowIds) || rowIds.length === 0) return fail(`Choose at least one ${word('record')}.`)
     if (rowIds.length > MAX_BULK_ROW_ACTION) return fail(`You can change up to ${MAX_BULK_ROW_ACTION.toLocaleString('en-US')} ${word('record', { many: true })} at once.`)
@@ -276,17 +282,15 @@ export function registerRowHandlers(): void {
     // (avoids O(n) IPC messages for bulk actions — renderer reloads anyway)
     notifyCaseLogChanged(0)
     return ok(rowIds.length)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ROW_GET, 'ipc-row', (_e, gridId: number, rowId: number) => {
-    if (!validId(gridId) || !validId(rowId)) return fail('Invalid ID')
+  define(IPC.ROW_GET, [idArg(), idArg()], (gridId, rowId) => {
     const row = getRow(gridId, rowId)
     if (!row) return fail('Row not found')
     return ok(row)
   })
 
-  secureWrap(IPC.ROW_LOCATE, 'ipc-row', (_e, rowId: number) => {
-    if (!validId(rowId)) return fail('Invalid ID')
+  define(IPC.ROW_LOCATE, [idArg()], (rowId) => {
     const r = cachedStmt('row_locate', `
       SELECT r.grid_id, r.is_active, r.deleted_at, r.archived_at, r.archived_reason, g.is_active AS grid_active
       FROM rows r JOIN grids g ON g.id = r.grid_id WHERE r.id = ?
@@ -298,9 +302,7 @@ export function registerRowHandlers(): void {
     return ok({ gridId: r.grid_id, status, archivedReason: status === 'archived' ? r.archived_reason : null })
   })
 
-  secureWrap(IPC.ROW_CREATE, 'ipc-row', (_e, gridId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(gridId)) return fail('Invalid ID')
+  define(IPC.ROW_CREATE, [idArg()], (gridId) => {
     const db = getDb()
     const newRowId = db.transaction(() => {
       const maxPos = (cachedStmt('row_max_pos', 'SELECT MAX(position) as p FROM rows WHERE grid_id = ?').get(gridId) as { p: number | null }).p ?? -1
@@ -310,13 +312,11 @@ export function registerRowHandlers(): void {
       return result.lastInsertRowid
     })()
     return ok(newRowId)
-  })
+  }, { write: true })
 
   // ROW_SNAPSHOT_GET + ROW_RESTORE: removed — undo uses ROW_RESTORE_DELETED / ROW_HARD_DELETE
 
-  secureWrap(IPC.ROW_DELETE, 'ipc-row', (_e, rowId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId)) return fail('Invalid ID')
+  define(IPC.ROW_DELETE, [idArg()], (rowId) => {
     const db = getDb()
     const moved = db.transaction(() => {
       // Soft-delete: move to trash instead of hard delete. Already there: leave its 30 days alone.
@@ -328,11 +328,9 @@ export function registerRowHandlers(): void {
     if (!moved) return rowState(rowId) === 'missing' ? rowGone() : ok(true)
     notifyCaseLogChanged(rowId)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ROW_HARD_DELETE, 'ipc-row', (_e, rowId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId)) return fail('Invalid ID')
+  define(IPC.ROW_HARD_DELETE, [idArg()], (rowId) => {
     // True hard delete — restricted to recently-created rows (within 60 seconds) (the link picker's undo of a record it just made)
     const db = getDb()
     const result = db.transaction(() => {
@@ -346,11 +344,9 @@ export function registerRowHandlers(): void {
       return ok(true)
     })()
     return result
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ROW_RESTORE_DELETED, 'ipc-row', (_e, rowId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId)) return fail('Invalid ID')
+  define(IPC.ROW_RESTORE_DELETED, [idArg()], (rowId) => {
     const db = getDb()
     const restored = db.transaction(() => {
       // An archived record comes back archived (audit L-12)
@@ -362,37 +358,41 @@ export function registerRowHandlers(): void {
     if (!restored) return rowState(rowId) === 'missing' ? rowGone() : ok(true)
     notifyCaseLogChanged(rowId)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ROW_PURGE, 'ipc-row', (_e, rowId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId)) return fail('Invalid ID')
+  define(IPC.ROW_PURGE, [idArg()], (rowId) => {
     // Permanent hard delete — only allowed for soft-deleted rows
     // Wrapped in transaction so FK cascades are atomic
     const db = getDb()
     db.transaction(() => {
       // Its values go from the Trash's copies of deleted columns and lists too (AUDIT-108)
-      if (cachedStmt('row_in_trash', 'SELECT 1 FROM rows WHERE id = ? AND deleted_at IS NOT NULL').get(rowId)) forgetPurgedRows([rowId])
+      if (!cachedStmt('row_in_trash', 'SELECT 1 FROM rows WHERE id = ? AND deleted_at IS NOT NULL').get(rowId)) return
+      forgetPurgedRows([rowId])
+      purgeRecordLeftovers(db, [rowId])
       cachedStmt('row_purge', 'DELETE FROM rows WHERE id = ? AND deleted_at IS NOT NULL').run(rowId)
+      pruneAfterPurge(db, [rowId])
     })()
     return ok(true)
-  })
+  }, { write: true })
 
   // Empty Trash: every record in the Trash, for good, in one transaction (X-38)
-  secureWrap(IPC.ROW_PURGE_ALL, 'ipc-row', () => {
-    const guard = enforceWritable(); if (guard) return guard
-    const info = getDb().transaction(() => {
-      forgetPurgedRows((getDb().prepare(`SELECT id FROM rows WHERE deleted_at IS NOT NULL
-        OR grid_id IN (SELECT id FROM grids WHERE is_active = 0 AND deleted_at IS NOT NULL)`).all() as Array<{ id: number }>).map(r => r.id))
-      const r = getDb().prepare('DELETE FROM rows WHERE deleted_at IS NOT NULL').run()
+  define(IPC.ROW_PURGE_ALL, [], () => {
+    const db = getDb()
+    const info = db.transaction(() => {
+      const ids = (db.prepare(`SELECT id FROM rows WHERE deleted_at IS NOT NULL
+        OR grid_id IN (SELECT id FROM grids WHERE is_active = 0 AND deleted_at IS NOT NULL)`).all() as Array<{ id: number }>).map(r => r.id)
+      forgetPurgedRows(ids)
+      purgeRecordLeftovers(db, ids)
+      const r = db.prepare('DELETE FROM rows WHERE deleted_at IS NOT NULL').run()
       // Lists in the Trash go too, with their records (D1)
-      getDb().prepare('DELETE FROM grids WHERE is_active = 0 AND deleted_at IS NOT NULL').run()
+      db.prepare('DELETE FROM grids WHERE is_active = 0 AND deleted_at IS NOT NULL').run()
+      pruneAfterPurge(db, ids)
       return r
     })()
     return ok(info.changes)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ROW_GET_DELETED, 'ipc-row', () => {
+  define(IPC.ROW_GET_DELETED, [], () => {
     const rows = cachedStmt('row_get_deleted_v2', `
       SELECT r.id, r.grid_id, r.deleted_at, g.name AS grid_name,
              r.display_name AS client_name, g.is_active AS grid_is_active
@@ -403,10 +403,16 @@ export function registerRowHandlers(): void {
     return ok(rows)
   })
 
-  secureWrap(IPC.ROW_ARCHIVE, 'ipc-row', (_e, rowId: number, reason?: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId)) return fail('Invalid ID')
-    if (typeof reason === 'string' && reason.length > 1000) return fail('Reason too long')
+  // The list above stops at 500; Empty the Trash removes them all, so the
+  // Trash says how many there really are (Q-029)
+  define(IPC.ROW_COUNT_DELETED, [], () => {
+    const r = cachedStmt('row_count_deleted', 'SELECT COUNT(*) AS n FROM rows WHERE deleted_at IS NOT NULL').get() as { n: number }
+    return ok(r.n)
+  })
+
+  define(IPC.ROW_ARCHIVE, [
+    idArg(), z.custom<string | undefined>(v => typeof v !== 'string' || v.length <= 1000, 'Reason too long'),
+  ], (rowId, reason) => {
     const db = getDb()
     const archived = db.transaction(() => {
       if (cachedStmt('row_archive_v2', `
@@ -420,11 +426,9 @@ export function registerRowHandlers(): void {
     if (!archived) return rowGone()
     notifyCaseLogChanged(rowId)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ROW_UNARCHIVE, 'ipc-row', (_e, rowId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId)) return fail('Invalid ID')
+  define(IPC.ROW_UNARCHIVE, [idArg()], (rowId) => {
     const db = getDb()
     const unarchived = db.transaction(() => {
       // A record in the Trash stays there; unarchiving it would show it in search and the dashboard
@@ -438,11 +442,9 @@ export function registerRowHandlers(): void {
     if (!unarchived) return rowState(rowId) === 'kept' ? ok(true) : rowGone()
     notifyCaseLogChanged(rowId)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ROW_DUPLICATE, 'ipc-row', (_e, rowId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId)) return fail('Invalid ID')
+  define(IPC.ROW_DUPLICATE, [idArg()], (rowId) => {
     const db = getDb()
     const row = cachedStmt('row_select_by_id', 'SELECT * FROM rows WHERE id = ?').get(rowId) as { id: number; grid_id: number } | undefined
     if (!row) return fail('Row not found')
@@ -477,11 +479,9 @@ export function registerRowHandlers(): void {
     })()
 
     return ok(newRowId)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ROW_MOVE_TO_GRID, 'ipc-row', (_e, rowId: number, targetGridId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId) || !validId(targetGridId)) return fail('Invalid ID')
+  define(IPC.ROW_MOVE_TO_GRID, [idArg(), idArg()], (rowId, targetGridId) => {
     const db = getDb()
     const srcRow = cachedStmt('row_select_by_id', 'SELECT * FROM rows WHERE id = ?').get(rowId) as { id: number; grid_id: number } | undefined
     if (!srcRow) return fail('Row not found')
@@ -525,12 +525,10 @@ export function registerRowHandlers(): void {
 
     const keptRowId = run()
     return ok(keptRowId)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ROW_COPY_TO_GRID, 'ipc-row', (_e, rowId: number, targetGridId: number) => {
+  define(IPC.ROW_COPY_TO_GRID, [idArg(), idArg()], (rowId, targetGridId) => {
     // Same as move but always keeps source row
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId) || !validId(targetGridId)) return fail('Invalid ID')
     const db = getDb()
     const srcRow = cachedStmt('row_select_by_id', 'SELECT * FROM rows WHERE id = ?').get(rowId) as { id: number; grid_id: number } | undefined
     if (!srcRow) return fail('Row not found')
@@ -550,13 +548,13 @@ export function registerRowHandlers(): void {
     })
     const newRowId = run()
     return ok(newRowId)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ROW_REORDER, 'ipc-row', (_e, gridId: number, orderedIds: number[]) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(gridId)) return fail('Invalid ID')
-    if (!Array.isArray(orderedIds) || orderedIds.length > MAX_REORDER_ROWS) return fail('Invalid reorder payload')
-    if (!orderedIds.every(id => Number.isInteger(id) && id > 0)) return fail('Invalid IDs in reorder payload')
+  define(IPC.ROW_REORDER, [
+    idArg(), idListArg('Invalid reorder payload', 'Invalid IDs in reorder payload', { max: MAX_REORDER_ROWS }),
+  ], (gridId, orderedIds) => {
+    // Nothing to move (an empty CASE is a SQL syntax error)
+    if (orderedIds.length === 0) return ok(true)
     const db = getDb()
     const cases = orderedIds.map((id, idx) => `WHEN ${Number(id)} THEN ${idx}`).join(' ')
     const idList = orderedIds.map(Number).join(',')
@@ -565,22 +563,19 @@ export function registerRowHandlers(): void {
     })
     reorder()
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ROW_UPDATE, 'ipc-row', (_e, rowId: number, updates: Partial<{ is_starred: number }>) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId)) return fail('Invalid ID')
+  define(IPC.ROW_UPDATE, [idArg(), z.custom<Partial<{ is_starred: number }>>()], (rowId, updates) => {
     const db = getDb()
     const allowed = ['is_starred'] as const
     const result = buildSafeSetClause(updates as Record<string, unknown>, allowed, ["updated_at = datetime('now')"])
     if (!result) return fail('No valid fields to update')
     db.prepare(`UPDATE rows SET ${result.setClause} WHERE id = ?`).run(...result.values, rowId)
     return ok(true)
-  })
+  }, { write: true })
 
   // ── Manual Contacts ──────────────────────────────────────────────────────
-  secureWrap(IPC.ROW_GET_MANUAL_CONTACTS, 'ipc-row', (_e, rowId: number) => {
-    if (!validId(rowId)) return fail('Invalid ID')
+  define(IPC.ROW_GET_MANUAL_CONTACTS, [idArg()], (rowId) => {
     const row = cachedStmt('row_get_manual_contacts', 'SELECT manual_contacts FROM rows WHERE id = ?').get(rowId) as { manual_contacts: string | null } | undefined
     if (!row) return fail('Row not found')
     let contacts: unknown[] = []
@@ -596,11 +591,12 @@ export function registerRowHandlers(): void {
     return ok(contacts)
   })
 
-  secureWrap(IPC.ROW_SET_MANUAL_CONTACTS, 'ipc-row', (_e, rowId: number, contacts: Array<{ type: string; label: string; value: string }>) => {
+  // Each entry is checked in the body, as before
+  define(IPC.ROW_SET_MANUAL_CONTACTS, [
+    idArg(),
+    z.array(z.custom<{ type: string; label: string; value: string }>(), 'Invalid contacts: must be an array of at most 50 items').max(50, 'Invalid contacts: must be an array of at most 50 items'),
+  ], (rowId, contacts) => {
     let needsNotify = false
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId)) return fail('Invalid ID')
-    if (!Array.isArray(contacts) || contacts.length > 50) return fail('Invalid contacts: must be an array of at most 50 items')
     for (const c of contacts) {
       if (typeof c.type !== 'string' || typeof c.label !== 'string' || typeof c.value !== 'string') return fail('Invalid contact: each item must have type, label, and value strings')
       if (c.type.length > 50 || c.label.length > 100 || c.value.length > 500) return fail('Invalid contact: type/label/value exceed maximum lengths')
@@ -624,18 +620,20 @@ export function registerRowHandlers(): void {
     })()
     if (needsNotify) notifyCaseLogChanged(rowId)
     return ok(true)
-  })
+  }, { write: true })
 
   // ── Cross-grid client search ──────────────────────────────────────────────
-  secureWrap(IPC.SEARCH_CLIENTS_CROSS_GRID, 'ipc-row', (_e, search: string, offset?: number) => {
-    if (typeof search !== 'string' || search.length < 2) return ok([])
+  // A search that's too short or long answers an empty list, not a failure, so it stays in the body
+  define(IPC.SEARCH_CLIENTS_CROSS_GRID, [z.custom<string>(), z.custom<number | undefined>()], (search, offset) => {
+    // Nothing is called anything this long; a pasted page of text needn't scan every record (Q-056)
+    if (typeof search !== 'string' || search.length < 2 || search.length > 200) return ok([])
     const safeOffset = Math.max(0, Math.min(offset || 0, 10000))
     const rows = cachedStmt('row_search_cross_grid', `
       SELECT r.id as rowId, r.grid_id as gridId, g.name as gridName,
              r.display_name AS clientName
       FROM rows r
-      JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
-      WHERE r.is_active = 1
+      JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
+      WHERE ${LIVE_ROW}
         AND (r.display_name LIKE ? ESCAPE '\\'
           -- Phone numbers and emails added with "Add contact info" are found too (R-27)
           OR (r.manual_contacts IS NOT NULL AND EXISTS (

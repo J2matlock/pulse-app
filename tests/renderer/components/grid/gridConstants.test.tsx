@@ -24,7 +24,8 @@ describe('gridConstants', () => {
     expect(typeof HANDLE_WIDTH).toBe('number')
     expect(typeof PROFILE_BTN_WIDTH).toBe('number')
     expect(HANDLE_WIDTH).toBe(32)
-    expect(PROFILE_BTN_WIDTH).toBe(64)
+    // Two 28px buttons 16px apart: each gets a 44px click area that doesn't overlap the other (Q-103, D-034)
+    expect(PROFILE_BTN_WIDTH).toBe(88)
   })
 
   it('HANDLE_STYLE has width matching HANDLE_WIDTH', () => {

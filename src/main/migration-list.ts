@@ -5,7 +5,7 @@
  * test databases from it, so a migration can't be registered in one and not the
  * other. Only imports the migration files, so tests can load it without Electron.
  */
-import type { Database as BetterSqlite3DB } from 'better-sqlite3'
+import type { Database as BetterSqlite3DB } from 'better-sqlite3-multiple-ciphers'
 import { removeOrphansBefore014 } from './migration-fixups'
 import { up as migration001 } from './migrations/001_initial_schema'
 import { up as migration002 } from './migrations/002_cell_formats'
@@ -55,6 +55,8 @@ import { up as migration045 } from './migrations/045_list_trash'
 import { up as migration046 } from './migrations/046_deadline_done'
 import { up as migration047 } from './migrations/047_sample_rows'
 import { up as migration048 } from './migrations/048_appointment_note_index'
+import { up as migration049 } from './migrations/049_fk_child_indexes'
+import { up as migration050 } from './migrations/050_orphan_series_sweep'
 
 export interface Migration {
   version: number
@@ -162,4 +164,6 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 46, up: migration046 },
   { version: 47, up: migration047 },
   { version: 48, up: migration048 },
+  { version: 49, up: migration049 },
+  { version: 50, up: migration050 },
 ]

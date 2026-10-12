@@ -7,6 +7,7 @@
  */
 import { getDb } from './database'
 import { word } from './vocab'
+import { NOT_TRASHED_ROW } from '../shared/liveRecords'
 
 /** Keys that hold a column id but don't end in "columnId" */
 const EXTRA_REF_KEYS = new Set(['fromcolumnmonth'])
@@ -62,8 +63,9 @@ export function columnDependents(columnId: number): string[] {
     else if (jsonRefersToColumn(c.conditional_format, columnId)) out.push(`Format rules on column ${quote(c.name)}`)
   }
 
+  // Cells people can see: a record in the Trash isn't counted (Q-084)
   const formatted = (db.prepare(`SELECT cf.rules FROM cell_formats cf JOIN rows r ON r.id = cf.row_id
-    WHERE r.grid_id = ? AND cf.column_id != ?`).all(col.grid_id, columnId) as Array<{ rules: string }>)
+    WHERE r.grid_id = ? AND ${NOT_TRASHED_ROW} AND cf.column_id != ?`).all(col.grid_id, columnId) as Array<{ rules: string }>)
     .filter(f => jsonRefersToColumn(f.rules, columnId)).length
   if (formatted > 0) out.push(`Format rules on ${formatted} cell${formatted === 1 ? '' : 's'}`)
 

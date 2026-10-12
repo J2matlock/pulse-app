@@ -3,6 +3,7 @@
  * Add Column, Change type and their confirmations never show "auto_number".
  */
 import type { ColumnType } from './types'
+import { columnTypesWhere } from './columnTraits'
 
 export interface ColumnTypeInfo { type: ColumnType; label: string; description: string }
 
@@ -31,7 +32,7 @@ export function columnTypeLabel(type: string): string {
 }
 
 /** Types a column can be changed to and from: ones that store what people type */
-export const CHANGEABLE_TYPES = new Set<string>(['text', 'notes', 'number', 'currency', 'date', 'checkbox', 'dropdown', 'status', 'tag', 'phone', 'email', 'url', 'address'])
+export const CHANGEABLE_TYPES = new Set<string>(columnTypesWhere(t => t.changeable))
 
 // A date with a rule, and a deadline column, show words beside the date ("due Mar 4 · in 52 days"):
 // the narrow widths starters and setup templates were written with cut those words to "i…"

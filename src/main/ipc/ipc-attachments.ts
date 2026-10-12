@@ -4,16 +4,18 @@
  * dropped files' paths are checked like any other.
  */
 import { BrowserWindow, dialog } from 'electron'
+import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
 import { formatBytes } from '../../shared/attachments'
 import { parseDbTimestamp } from '../../shared/dates'
-import { secureWrap, ok, fail, enforceWritable, validId, assertSafePath, notifyCaseLogChanged } from './ipc-utils'
+import { ok, fail, validId, assertSafePath, notifyCaseLogChanged, pickSavePath, pickOpenPaths } from './ipc-utils'
 import {
   AttachmentError, addAttachments, listAttachments, describeAttachment, deleteAttachment, restoreAttachment, attachmentUsage, purgeDeletedAttachments, getAttachment,
-  trashedAttachments, purgeAttachment,
+  trashedAttachments, purgeAttachment, keepExtension, cleanFileName,
   type AddResult,
 } from '../attachments'
-import { openAttachment, saveAttachmentCopy, previewAttachment } from '../attachment-files'
+import { openAttachment, saveAttachmentCopy, previewAttachment, extensionForMime } from '../attachment-files'
+import { handlersFor, idArg } from './ipc-define'
 
 function action<T>(fn: () => T) {
   try { return ok(fn()) } catch (err) {
@@ -58,87 +60,83 @@ async function addWithQuestion(rowId: number, paths: string[], opts: AddOpts) {
   return ok<AddResult>({ added: [...first.data.added, ...again.data.added], duplicates: [] })
 }
 
+const define = handlersFor('ipc-attachments')
+
+const BAD = 'Invalid request'
+
 export function registerAttachmentHandlers(): void {
-  secureWrap(IPC.ATTACHMENT_ADD, 'ipc-attachments', async (_e, rowId: unknown, opts?: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
+  define(IPC.ATTACHMENT_ADD, [idArg(BAD), z.unknown()], async (rowId, opts) => {
     const o = cleanOpts(opts)
-    if (!validId(rowId) || !o) return fail('Invalid request')
-    const { canceled, filePaths } = await dialog.showOpenDialog({ title: 'Add files', properties: ['openFile', 'multiSelections'] })
-    if (canceled || filePaths.length === 0) return ok<AddResult>({ added: [], duplicates: [] })
+    if (!o) return fail(BAD)
+    const filePaths = await pickOpenPaths({ title: 'Add files', properties: ['openFile', 'multiSelections'] })
+    if (filePaths.length === 0) return ok<AddResult>({ added: [], duplicates: [] })
     for (const p of filePaths) assertSafePath(p)
     const res = await addWithQuestion(rowId, filePaths, o)
     if (res.ok && res.data.added.length) announce(rowId)
     return res
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ATTACHMENT_ADD_PATHS, 'ipc-attachments', async (_e, rowId: unknown, paths: unknown, opts?: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
+  // Every check answers the same message, so their order doesn't show
+  define(IPC.ATTACHMENT_ADD_PATHS, [
+    idArg(BAD), z.array(z.string(BAD), BAD).min(1, BAD).max(50, BAD), z.unknown(),
+  ], async (rowId, paths, opts) => {
     const o = cleanOpts(opts)
-    if (!validId(rowId) || !o || !Array.isArray(paths) || paths.length === 0 || paths.length > 50 || !paths.every(p => typeof p === 'string')) return fail('Invalid request')
-    for (const p of paths as string[]) assertSafePath(p)
-    const res = await addWithQuestion(rowId, paths as string[], o)
+    if (!o) return fail(BAD)
+    for (const p of paths) assertSafePath(p)
+    const res = await addWithQuestion(rowId, paths, o)
     if (res.ok && res.data.added.length) announce(rowId)
     return res
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ATTACHMENT_LIST, 'ipc-attachments', (_e, rowId: unknown, includeDeleted?: unknown) => {
-    if (!validId(rowId)) return fail('Invalid ID')
-    return ok(listAttachments(rowId, { includeDeleted: includeDeleted === true }))
-  })
+  define(IPC.ATTACHMENT_LIST, [idArg(), z.unknown()], (rowId, includeDeleted) =>
+    ok(listAttachments(rowId, { includeDeleted: includeDeleted === true })))
 
-  secureWrap(IPC.ATTACHMENT_DESCRIBE, 'ipc-attachments', (_e, id: unknown, patch: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
+  define(IPC.ATTACHMENT_DESCRIBE, [idArg(BAD), z.unknown()], (id, patch) => {
     const p = (patch && typeof patch === 'object' ? patch : {}) as Record<string, unknown>
-    if (!validId(id) || (p.fileName != null && (typeof p.fileName !== 'string' || !p.fileName.trim())) || (p.description != null && typeof p.description !== 'string')) return fail('Invalid request')
+    if ((p.fileName != null && (typeof p.fileName !== 'string' || !p.fileName.trim())) || (p.description != null && typeof p.description !== 'string')) return fail('Invalid request')
     const res = action(() => describeAttachment(id, { ...(typeof p.fileName === 'string' ? { fileName: p.fileName } : {}), ...(p.description !== undefined ? { description: (p.description as string | null) ?? null } : {}) }))
     if (res.ok) announce(res.data.row_id)
     return res
-  })
+  }, { write: true })
 
   for (const [channel, fn] of [[IPC.ATTACHMENT_DELETE, deleteAttachment], [IPC.ATTACHMENT_RESTORE, restoreAttachment]] as const) {
-    secureWrap(channel, 'ipc-attachments', (_e, id: unknown) => {
-      const guard = enforceWritable(); if (guard) return guard
-      if (!validId(id)) return fail('Invalid ID')
+    define(channel, [idArg()], (id) => {
       const rowId = getAttachment(id)?.row_id ?? null
       const res = action(() => fn(id))
       if (res.ok) announce(rowId)
       return res
-    })
+    }, { write: true })
   }
 
-  secureWrap(IPC.ATTACHMENT_USAGE, 'ipc-attachments', () => {
+  define(IPC.ATTACHMENT_USAGE, [], () => {
     const u = attachmentUsage()
     return ok({ ...u, text: `${formatBytes(u.bytes)} of ${formatBytes(u.limitBytes)}` })
   })
 
   // One file (by id), or everything in the trash
-  secureWrap(IPC.ATTACHMENT_PURGE, 'ipc-attachments', (_e, id?: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (id != null && !validId(id)) return fail('Invalid ID')
-    const res = id != null ? action(() => { purgeAttachment(id as number); return 1 }) : ok(purgeDeletedAttachments(0))
+  define(IPC.ATTACHMENT_PURGE, [idArg().nullish()], (id) => {
+    const res = id != null ? action(() => { purgeAttachment(id); return 1 }) : ok(purgeDeletedAttachments(0))
     if (res.ok) announce(null)
     return res
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ATTACHMENT_TRASH_LIST, 'ipc-attachments', () => ok(trashedAttachments()))
+  define(IPC.ATTACHMENT_TRASH_LIST, [], () => ok(trashedAttachments()))
 
-  secureWrap(IPC.ATTACHMENT_OPEN, 'ipc-attachments', async (_e, id: unknown) => {
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.ATTACHMENT_OPEN, [idArg()], async (id) => {
     try { await openAttachment(id); return ok(true) } catch (err) { if (err instanceof AttachmentError) return fail(err.message); throw err }
   })
 
-  secureWrap(IPC.ATTACHMENT_SAVE_AS, 'ipc-attachments', async (_e, id: unknown) => {
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.ATTACHMENT_SAVE_AS, [idArg()], async (id) => {
     const a = getAttachment(id)
     if (!a) return fail('That file is no longer available.')
-    const { canceled, filePath } = await dialog.showSaveDialog({ title: 'Save a copy', defaultPath: a.file_name })
-    if (canceled || !filePath) return ok(null)
+    // The suggested name ends as the bytes really are: a name saved before Q-057 may say "run.bat" for text
+    const ext = extensionForMime(a.mime_type)
+    const suggested = ext ? keepExtension(cleanFileName(a.file_name), `file.${ext}`) : cleanFileName(a.file_name)
+    const filePath = await pickSavePath({ title: 'Save a copy', defaultPath: suggested })
+    if (!filePath) return ok(null)
     assertSafePath(filePath)
     try { await saveAttachmentCopy(id, filePath); return ok(filePath) } catch (err) { if (err instanceof AttachmentError) return fail(err.message); throw err }
   })
 
-  secureWrap(IPC.ATTACHMENT_PREVIEW, 'ipc-attachments', (_e, id: unknown) => {
-    if (!validId(id)) return fail('Invalid ID')
-    return ok(previewAttachment(id))
-  })
+  define(IPC.ATTACHMENT_PREVIEW, [idArg()], (id) => ok(previewAttachment(id)))
 }

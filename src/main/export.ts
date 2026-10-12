@@ -12,19 +12,6 @@ export type {
   SupervisorReportOptions,
 } from './export-shared'
 
-// Re-export shared helpers that other modules may use directly
-export {
-  atomicWriteFileSync,
-  atomicWriteFileAsync,
-  stripHtml,
-  formatDate,
-  sanitizeCsvFormula,
-  formatCellValue,
-  loadGridData,
-  getClientName,
-  batchGetClientNames,
-} from './export-shared'
-
 // Re-export CSV
 export { exportCsv } from './export-csv'
 

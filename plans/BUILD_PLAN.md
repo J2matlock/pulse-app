@@ -554,7 +554,7 @@
 - [x] Alerts configuration section — Settings → Alerts tab (rule list, edit/delete/create)
 - [x] Snippets management section — Settings → Snippets tab (compact list + link to /snippets)
 - [x] Shortcuts reference section — Settings → Shortcuts tab (inline keyboard reference)
-- [~] License section — deferred (5.19)
+- [~] License section — not needed (licensing removed 2026-10-08; Pulse is free, GPL-3.0)
 
 ### 5.16 — Dashboard Remaining Tabs
 - [x] `MonthView` tab — full month, grouped by week (inline in DashboardView)
@@ -583,6 +583,7 @@
 - [x] Delete grid: typed "DELETE [GRID NAME]" confirmation
 
 ### 5.19 — Licensing (Free Tier + Pro)
+> Obsolete: licensing was removed on 2026-10-08 (Pulse is free and open source, GPL-3.0). The items below won't be built.
 - [ ] Free tier: 15-client limit, all features unlocked
 - [ ] Client count check against license state
 - [ ] Gentle banner at 12+ clients
@@ -606,7 +607,7 @@
 ### 5.21 — Accessibility Audit
 - [x] ARIA roles: role="grid", role="row", role="gridcell" — already implemented in DataGrid
 - [x] 4.5:1 contrast minimum (WCAG AA) — verified: slate-800/100 text on light/dark backgrounds
-- [x] Thick 2px focus rings on all interactive elements — ring-2 in globals.css + DataGrid
+- [x] Thick 3px focus rings on all interactive elements — global `:focus-visible` 3px outline in globals.css
 - [x] Never rely on color alone — pair with icons/text/shapes — alert shape indicators added to date cells
 - [x] Test at 100%, 125%, 150% zoom — layout uses flex/overflow, no fixed pixel breakage
 - [x] Respect `prefers-reduced-motion` — global reduced-motion rules in globals.css
@@ -632,8 +633,8 @@
 - [x] Undo/redo: cell edits, row delete/archive/create, column rename (Ctrl+Z/Y with toast)
 - [x] Focus Mode provides simplified daily workflow (Ctrl+Shift+F, sidebar icon)
 - [x] Settings page covers core configuration (Appearance, Security, Backup, Data, About)
-- [~] Licensing enforces free tier and activates Pro — deferred (LemonSqueezy integration)
-- [~] Accessibility meets WCAG AA — deferred (manual audit)
+- [~] Licensing enforces free tier and activates Pro — N/A (licensing removed 2026-10-08)
+- [~] Accessibility meets WCAG AA — automated checks in `tests/renderer/a11y/` (22 files, 9 with axe-core); manual audit still deferred
 - [~] App is production-ready for distribution — pending final QA
 
 ---
@@ -922,7 +923,7 @@ src/
 | Phase 3 — Profiles & Workflow | ~Complete | ~48 | ~55 |
 | Phase 4 — Templates & Data | Complete | ~40 | ~45 |
 | Phase 5 — Polish & Launch | ~Complete | ~70 | ~80 |
-| Phase 6 — Garden | **Deferred** | 0 | ~95 |
+| Phase 6 — Garden | **Removed** | 0 | ~95 |
 | Phase 7 — Contacts / Provider Directory | ~Complete | ~55 | ~70 |
 | **Total** | | **~303** | **~440** |
 

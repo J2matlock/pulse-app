@@ -51,3 +51,46 @@ describe('vCard round trip', () => {
     expect(parseVCard(vcf)[0]!.name).toBe('Test, Person')
   })
 })
+
+describe('vCards other apps write (Q-042)', () => {
+  it('keeps a contact with a large embedded photo', () => {
+    const photo = 'A'.repeat(200 * 1024)
+    const vcf = ['BEGIN:VCARD', 'VERSION:3.0', 'FN:Photo Person', `PHOTO;ENCODING=b;TYPE=JPEG:${photo}`, 'TEL;TYPE=WORK:555-0100', 'END:VCARD'].join('\r\n')
+    const [p] = parseVCard(vcf)
+    expect(p?.name).toBe('Photo Person')
+    expect(p?.phone_main).toBe('555-0100')
+    expect(JSON.stringify(p)).not.toContain('AAAA')
+  })
+
+  it('names a card with no FN from N (given then family)', () => {
+    const vcf = ['BEGIN:VCARD', 'VERSION:2.1', 'N:Rivera;Maria;;Dr.;', 'EMAIL:m@example.org', 'END:VCARD'].join('\r\n')
+    const [p] = parseVCard(vcf)
+    expect(p?.name).toBe('Maria Rivera')
+    expect(p?.email).toBe('m@example.org')
+  })
+
+  it('still prefers FN when both are there, and still drops a card with no name at all', () => {
+    expect(parseVCard('BEGIN:VCARD\nN:Rivera;Maria\nFN:Dr. Maria Rivera\nEND:VCARD')[0]?.name).toBe('Dr. Maria Rivera')
+    expect(parseVCard('BEGIN:VCARD\nEMAIL:x@example.org\nEND:VCARD')).toEqual([])
+  })
+})
+
+describe('long lines (P-004)', () => {
+  it('folds every line at 75 octets and reads back the same', () => {
+    const notes = 'Intake is Monday to Thursday. Bring proof of address — café receipts don\'t count. '.repeat(6).trim()
+    const vcf = emitVCard({ id: 1, name: 'Folding Clinic', notes, address: '1234 A Very Long Street Name Indeed, Suite 500, Springfield, Illinois 62701' } as Provider)
+    for (const line of vcf.split('\r\n')) expect(Buffer.byteLength(line, 'utf8')).toBeLessThanOrEqual(75)
+    const [p] = parseVCard(vcf)
+    expect(p?.notes).toBe(notes)
+    expect(p?.address).toContain('Springfield, Illinois 62701')
+  })
+
+  it('reads back escaped line breaks, commas and accented letters wherever a fold lands', () => {
+    for (let pad = 0; pad < 8; pad++) {
+      const notes = `${'x'.repeat(pad)}Line one, with a comma;\nLine two — é è ü\n`.repeat(5).trim()
+      const vcf = emitVCard({ id: 1, name: 'Fold Edge', notes } as Provider)
+      for (const line of vcf.split('\r\n')) expect(Buffer.byteLength(line, 'utf8')).toBeLessThanOrEqual(75)
+      expect(parseVCard(vcf)[0]?.notes).toBe(notes)
+    }
+  })
+})

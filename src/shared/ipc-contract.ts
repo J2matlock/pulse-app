@@ -37,7 +37,7 @@ import type { Attachment, AttachmentUsage } from './attachments'
 import type { ReportSource, ReportField, ReportConfig, ReportResult, SavedReport } from './reports'
 import type { TotalsReport } from './timeMileage'
 import type { StarterSummary, StarterRef, StarterPreview, ApplyOptions, ApplyResult } from './starters/schema'
-import type { IPC, IPCChannel } from './ipc-channels'
+import type { IPCChannel, EVENT_CHANNELS } from './ipc-channels'
 
 /** Search and filter for a record's notes (CASE_LOG_GET / CASE_LOG_COUNT) */
 export interface CaseLogQuery { query?: string; oldestFirst?: boolean; logType?: string }
@@ -269,6 +269,7 @@ export interface IPCContract {
   'row:purge-all':           { args: [];                                                                                   return: number }
   'row:purge':               { args: [rowId: number];                                                                      return: true }
   'row:get-deleted':         { args: [];                                                                                   return: DeletedRow[] }
+  'row:count-deleted':       { args: [];                                                                                   return: number }
   'row:get':                 { args: [gridId: number, rowId: number];                                                      return: GridRow }
   'row:move-to-grid':        { args: [rowId: number, targetGridId: number];                                                return: number }
   'row:copy-to-grid':        { args: [rowId: number, targetGridId: number];                                                return: number | bigint }
@@ -276,7 +277,7 @@ export interface IPCContract {
   'row:set-manual-contacts': { args: [rowId: number, contacts: ManualContact[]];                                           return: true }
 
   // ── Cell ────────────────────────────────────────────────────────────────
-  'cell:update':              { args: [rowId: number, columnId: number, value: string | null, opts?: { doneNote?: string }]; return: { sysLogId: number | null } }
+  'cell:update':              { args: [rowId: number, columnId: number, value: string | null, opts?: { doneNote?: string; silent?: boolean }]; return: { sysLogId: number | null; previous: string | null } }
   'cell:get-history':         { args: [rowId: number, columnId: number];                      return: CellHistoryEntry[] }
   'cell-format:set':          { args: [rowId: number, columnId: number, rules: string];       return: true }
   'cell-format:batch-set':    { args: [entries: Array<{ rowId: number; columnId: number; rules: string }>]; return: true }
@@ -378,15 +379,14 @@ export interface IPCContract {
   // ── Auth & Security ─────────────────────────────────────────────────────
   'auth:setup-password':                { args: [password: string, hint: string];                                return: { cloudWarning: string | null } }
   'auth:verify-password':               { args: [password: string];                                              return: { cloudWarning: string | null; failedAttempts?: number } }
-  'auth:change-password':               { args: [oldPassword: string, newPassword: string, newHint: string];     return: true }
+  'auth:change-password':               { args: [oldPassword: string, newPassword: string, newHint: string, opts?: { reencrypt?: boolean }]; return: true }
   'auth:lock':                          { args: [];                                                              return: true }
-  'auth:force-lock':                    { args: [];                                                              return: void }
-  'auth:activity-ping':                 { args: [];                                                              return: void }
+  'auth:activity-ping':                 { args: [];                                                              return: null }
   'auth:get-hint':                      { args: [];                                                              return: string | null }
   'auth:is-setup':                      { args: [];                                                              return: boolean }
   'auth:generate-recovery-key':         { args: [currentPassword?: string];                                      return: string }
   'auth:verify-recovery-key':           { args: [recoveryKey: string];                                           return: true }
-  'auth:revoke-recovery-key':           { args: [currentPassword?: string];                                      return: true }
+  'auth:revoke-recovery-key':           { args: [currentPassword?: string, opts?: { reencrypt?: boolean }];      return: true }
   'auth:has-recovery-key':              { args: [];                                                              return: boolean }
   'auth:lockout-remaining':             { args: [];                                                              return: number }
   'auth:reset-password-after-recovery': { args: [newPassword: string, newHint: string];                          return: true }
@@ -438,7 +438,11 @@ export interface IPCContract {
   'app:show-file-dialog':   { args: [options: Record<string, unknown>];   return: OpenDialogResult }
   'app:show-save-dialog':   { args: [options: Record<string, unknown>];   return: SaveDialogResult }
   'app:factory-reset':      { args: [password: string];                   return: true }
-  'app:check-for-updates':  { args: [opts?: { manual?: boolean }];        return: { available: boolean; version?: string; downloadUrl?: string; releaseNotes?: string; reason?: string } }
+  'app:check-for-updates':  { args: [opts?: { manual?: boolean }];        return: { available: boolean; version?: string; downloadUrl?: string; releaseNotes?: string; reason?: string; unreachable?: boolean } }
+  /** The version the person chose to skip on the update banner, or null */
+  'app:update-skipped-get': { args: [];                                   return: string | null }
+  /** Skip a version on the update banner; null stops skipping. Returns what is now skipped. */
+  'app:update-skip':        { args: [version: string | null];             return: string | null }
   'app:integrity-check':    { args: [];                                   return: boolean }
 
   // ── Backup ──────────────────────────────────────────────────────────────
@@ -672,11 +676,11 @@ export interface IPCContract {
   'background:set':   { args: [patch: Partial<Pick<BackgroundSettings, 'trayMode' | 'openAtLogin'>>]; return: BackgroundSettings }
 
   // ── App lifecycle ───────────────────────────────────────────────────────
-  'app:relaunch':          { args: [];                                                         return: void }
+  'app:relaunch':          { args: [];                                                         return: null }
   /** true: forget the failure once it has been shown */
   'app:migration-status':  { args: [clearFlag?: boolean];                                      return: { version: number; error: string; timestamp: string } | null }
-  'app:flush-done':        { args: [];                                                         return: void }
-  'log:forward':           { args: [payload: { level: 'error' | 'warn' | 'info'; component: string; msg: string; data?: unknown }]; return: void }
+  'app:flush-done':        { args: [];                                                         return: null }
+  'log:forward':           { args: [payload: { level: 'error' | 'warn' | 'info'; component: string; msg: string; data?: unknown }]; return: null }
   'cell-history:series':   { args: [rowId: number, columnIds: number[]];                       return: Record<number, Array<{ at: string; value: number }>> }
 }
 
@@ -684,10 +688,7 @@ export interface IPCContract {
 export type ContractChannel = keyof IPCContract
 
 /** Channels main sends to the renderer (window.api.on); nothing invokes them */
-export type EventChannel =
-  | typeof IPC.MENU_COMMAND | typeof IPC.CASE_LOG_CHANGED | typeof IPC.IMPORT_PROGRESS | typeof IPC.WORKSPACE_CHANGED
-  | typeof IPC.ACTIVITY_TYPES_CHANGED | typeof IPC.RECORD_LINKS_CHANGED | typeof IPC.APPOINTMENTS_CHANGED
-  | typeof IPC.ATTACHMENTS_CHANGED | typeof IPC.REMINDER_OPEN | typeof IPC.FILE_ASSOC_PENDING_ARRIVED | typeof IPC.APP_FLUSH_PENDING
+export type EventChannel = typeof EVENT_CHANNELS[number]
 
 /** Channels the renderer can invoke */
 export type InvokeChannel = Exclude<IPCChannel, EventChannel>
@@ -698,6 +699,7 @@ export type InvokeChannel = Exclude<IPCChannel, EventChannel>
  * to compile here and names the channel (audit A08-4).
  */
 type MustBeEmpty<T extends never> = T
+/** @public compile-time check only; nothing imports it */
 export type ContractCoverage = [
   MustBeEmpty<Exclude<InvokeChannel, ContractChannel>>,
   MustBeEmpty<Exclude<ContractChannel, InvokeChannel>>,

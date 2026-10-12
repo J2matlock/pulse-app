@@ -14,7 +14,7 @@ import { getClientName } from '../../utils/clientName'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { IPC } from '../../../shared/ipc-channels'
 import { extendDeadline, removeExtension } from '../../views/dashboard/extendDeadline'
-import { localDateString } from '../../../shared/dates'
+import { localDateString, shortDate } from '../../../shared/dates'
 import { useToday } from '../../hooks/useToday'
 import { hasInterval, toRuleInterval } from '../../../shared/ruleInterval'
 
@@ -57,7 +57,7 @@ function cardBg(bgClass: string): React.CSSProperties {
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr.includes('T') ? dateStr : `${dateStr}T00:00:00`)
   if (isNaN(d.getTime())) return dateStr
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return shortDate(d)
 }
 
 function formatUrgency(daysUntil: number): string {
@@ -420,7 +420,7 @@ export function DeadlinePanel({
                     {daysUntil !== null && !result && (
                       <div className={`mt-0.5 font-medium ${urgencyClass}`} style={{ fontSize: 15 }}>
                         {nextDue
-                          ? `Next due ${nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · ${formatUrgency(daysUntil).replace(/^Due /, '')}`
+                          ? `Next due ${shortDate(nextDue)} · ${formatUrgency(daysUntil).replace(/^Due /, '')}`
                           : formatUrgency(daysUntil)}
                       </div>
                     )}

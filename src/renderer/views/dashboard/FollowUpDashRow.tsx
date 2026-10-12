@@ -5,6 +5,9 @@ import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { useUndoStore } from '../../stores/undoStore'
 import type { FollowUpRow } from './types'
 import { wordNow } from '../../utils/vocab'
+import { classifyDeadline, daysAwayLabel } from '../../../shared/deadlineTiles'
+import { TIER_TEXT, TIER_BAR } from '../../utils/dueTiers'
+import { shortDate } from '../../../shared/dates'
 
 export function FollowUpDashRow({ followUp, daysUntil, onComplete, onReloadFollowUps }: {
   followUp: FollowUpRow
@@ -15,24 +18,14 @@ export function FollowUpDashRow({ followUp, daysUntil, onComplete, onReloadFollo
   const navigate = useNavigate()
   const [completing, setCompleting] = useState(false)
 
-  const urgencyLabel =
-    daysUntil < 0   ? `${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? '' : 's'} overdue` :
-    daysUntil === 0 ? 'Due today' :
-    `${daysUntil} day${daysUntil === 1 ? '' : 's'}`
+  // Follow-ups further out than a month keep the this-month color
+  const tier = classifyDeadline(daysUntil)
+  const near = tier === 'future' ? 'this-month' : tier
+  const urgencyLabel = daysAwayLabel(daysUntil)
+  const urgencyColor = TIER_TEXT[near]
+  const barColor = TIER_BAR[near]
 
-  const urgencyColor =
-    daysUntil < 0   ? 'text-red-600 dark:text-red-400 font-semibold' :
-    daysUntil === 0 ? 'text-red-600 dark:text-red-400 font-semibold' :
-    daysUntil <= 7  ? 'text-orange-700 dark:text-orange-400' :
-    'text-yellow-700 dark:text-yellow-400'
-
-  const barColor =
-    daysUntil < 0   ? 'bg-red-500' :
-    daysUntil === 0 ? 'bg-red-400' :
-    daysUntil <= 7  ? 'bg-orange-400' : 'bg-yellow-400'
-
-  const dateFormatted = new Date(followUp.follow_up_date + 'T00:00:00')
-    .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const dateFormatted = shortDate(new Date(followUp.follow_up_date + 'T00:00:00'))
 
   async function handleComplete() {
     setCompleting(true)

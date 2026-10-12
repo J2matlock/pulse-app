@@ -2,8 +2,10 @@
  * ipc-grid.ts — GRID_*, COLUMN_*, SORT_* IPC handlers
  */
 
+import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
-import { secureWrap, ok, fail, buildSafeSetClause, validId, enforceWritable, logNonFatal } from './ipc-utils'
+import { ok, fail, buildSafeSetClause, validId, logNonFatal } from './ipc-utils'
+import { handlersFor, idArg, idListArg, textArg } from './ipc-define'
 import { getDb, buildGridQuery, cachedStmt, invalidateGridStmtCache } from '../database'
 import { linkColumnSpecs, linkSpecKey } from '../../shared/links'
 import { fileCountColumnIds } from '../../shared/attachments'
@@ -17,7 +19,9 @@ import { invalidateColumnCache } from './ipc-cell'
 import { afterColumnRenamed, hasDisplayFormat, isLastNameColumnName, refreshDisplayNames } from '../display-names'
 import { numberExistingRows } from '../auto-number'
 import { keepSamplesUntouched } from '../sample-marks'
+import { word } from '../vocab'
 import { DEFAULT_AUTO_NUMBER } from '../../shared/autoNumber'
+import { liveGrid } from '../../shared/liveRecords'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_GRIDS = 500
@@ -69,34 +73,34 @@ function resolveGridColumns(gridId: number, showArchived: boolean): {
   return { columns, hiddenColumns, rows, acuityLevels }
 }
 
+const define = handlersFor('ipc-grid')
+
 export function registerGridHandlers(): void {
   // ── Grids ─────────────────────────────────────────────────────────────────
-  secureWrap(IPC.GRID_GET_ALL, 'ipc-grid', () => {
+  define(IPC.GRID_GET_ALL, [], () => {
     const grids = cachedStmt('grid_get_all_v2', `
       SELECT id, name, description, created_at, updated_at, sort_config,
              filter_config, column_order, frozen_columns, row_height,
              show_gridlines, show_row_numbers, show_alternating_rows,
              position, is_active, acuity_enabled, record_kind, display_format
-      FROM grids WHERE is_active = 1 ORDER BY position, id
+      FROM grids WHERE ${liveGrid('')} ORDER BY position, id
     `).all() as Grid[]
     return ok(grids)
   })
 
-  secureWrap(IPC.GRID_GET, 'ipc-grid', (_e, gridId: number, showArchived = false) => {
-    if (!validId(gridId)) return fail('Invalid ID')
+  define(IPC.GRID_GET, [idArg(), z.custom<boolean | undefined>()], (gridId, showArchived = false) => {
     const grid = cachedStmt('grid_by_id', 'SELECT * FROM grids WHERE id = ?').get(gridId) as Grid | undefined
-    if (!grid) return fail('That list no longer exists. It may have been deleted.')
+    if (!grid) return fail(`That ${word('list')} no longer exists. It may have been deleted.`)
 
     const { columns, hiddenColumns, rows, acuityLevels } = resolveGridColumns(gridId, showArchived)
 
     return ok({ grid, columns, hiddenColumns, rows, acuityLevels })
   })
 
-  secureWrap(IPC.GRID_GET_FULL, 'ipc-grid', (_e, gridId: number, showArchived = false) => {
-    if (!validId(gridId)) return fail('Invalid ID')
+  define(IPC.GRID_GET_FULL, [idArg(), z.custom<boolean | undefined>()], (gridId, showArchived = false) => {
     const db = getDb()
     const grid = cachedStmt('grid_by_id', 'SELECT * FROM grids WHERE id = ?').get(gridId) as import('../../shared/types').Grid | undefined
-    if (!grid) return fail('That list no longer exists. It may have been deleted.')
+    if (!grid) return fail(`That ${word('list')} no longer exists. It may have been deleted.`)
 
     const { columns, hiddenColumns, rows, acuityLevels } = resolveGridColumns(gridId, showArchived)
 
@@ -138,9 +142,7 @@ export function registerGridHandlers(): void {
     return ok({ grid, columns, hiddenColumns, rows, acuityLevels, cellFormats, rowTagsMap, savedViews, customGroups, sampleRows })
   })
 
-  secureWrap(IPC.GRID_CREATE, 'ipc-grid', (_e, name: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (typeof name !== 'string' || name.trim().length === 0 || name.length > 200) return fail('Invalid grid name')
+  define(IPC.GRID_CREATE, [textArg('Invalid grid name', { max: 200, notBlank: true })], (name) => {
     const db = getDb()
     const doCreate = db.transaction(() => {
       const result = db.prepare(`
@@ -159,11 +161,9 @@ export function registerGridHandlers(): void {
       return gridId
     })
     return ok(doCreate())
-  })
+  }, { write: true })
 
-  secureWrap(IPC.GRID_UPDATE, 'ipc-grid', (_e, gridId: number, updates: Partial<Grid>) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(gridId)) return fail('Invalid ID')
+  define(IPC.GRID_UPDATE, [idArg(), z.custom<Partial<Grid>>()], (gridId, updates) => {
     const stringFields = ['sort_config', 'filter_config', 'column_order', 'name', 'description'] as const
     for (const field of stringFields) {
       const val = (updates as Record<string, unknown>)[field]
@@ -177,21 +177,18 @@ export function registerGridHandlers(): void {
     getDb().prepare(`UPDATE grids SET ${result.setClause} WHERE id = ?`)
       .run(...result.values, gridId)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.GRID_DELETE, 'ipc-grid', (_e, gridId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(gridId)) return fail('Invalid ID')
+  define(IPC.GRID_DELETE, [idArg()], (gridId) => {
     // To the Trash for 30 days with its records; its links are kept as a copy for a restore (D1)
     try { trashList(gridId) } catch (err) { if (err instanceof TrashError) return fail(err.message); throw err }
     invalidateGridStmtCache()
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.GRID_REORDER, 'ipc-grid', (_e, orderedIds: number[]) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!Array.isArray(orderedIds) || orderedIds.length > MAX_REORDER_GRIDS) return fail('Invalid reorder payload')
-    if (!orderedIds.every(id => Number.isInteger(id) && id > 0)) return fail('Invalid IDs in reorder payload')
+  define(IPC.GRID_REORDER, [
+    idListArg('Invalid reorder payload', 'Invalid IDs in reorder payload', { max: MAX_REORDER_GRIDS }),
+  ], (orderedIds) => {
     const db = getDb()
     const update = db.prepare("UPDATE grids SET position = ? WHERE id = ?")
     const run = db.transaction(() => {
@@ -199,15 +196,13 @@ export function registerGridHandlers(): void {
     })
     run()
     return ok(true)
-  })
+  }, { write: true })
 
   // ── Columns ───────────────────────────────────────────────────────────────
-  secureWrap(IPC.COLUMN_CREATE, 'ipc-grid', (_e, gridId: number, name: string, columnType: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(gridId)) return fail('Invalid ID')
-    if (typeof name !== 'string' || name.trim().length === 0 || name.length > 200) return fail('Invalid column name')
+  // The type's message names the type it got, so that check stays in the body
+  define(IPC.COLUMN_CREATE, [idArg(), textArg('Invalid column name', { max: 200, notBlank: true }), z.custom<string>()], (gridId, name, columnType) => {
     if (!VALID_COLUMN_TYPES.has(columnType as never)) return fail(`Invalid column type: ${columnType}`)
-    if (columnType === 'link') return fail('Use "Link to another list" to add a link column.')
+    if (columnType === 'link') return fail(`Use "Link to another ${word('list', {}, gridId)}" to add a link column.`)
     const db = getDb()
     const createColumn = db.transaction(() => {
       const maxPos = (db.prepare('SELECT MAX(position) as p FROM columns WHERE grid_id = ?').get(gridId) as { p: number | null }).p ?? -1
@@ -220,11 +215,9 @@ export function registerGridHandlers(): void {
     const lastId = createColumn()
     invalidateGridStmtCache()
     return ok(lastId)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.COLUMN_UPDATE, 'ipc-grid', (_e, columnId: number, updates: Partial<Column>) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(columnId)) return fail('Invalid ID')
+  define(IPC.COLUMN_UPDATE, [idArg(), z.custom<Partial<Column>>()], (columnId, updates) => {
     if ((updates as Record<string, unknown>)['config'] !== undefined) {
       const cfg = (updates as Record<string, unknown>)['config']
       if (typeof cfg === 'string' && cfg.length > 100_000) return fail('Config too large')
@@ -262,11 +255,12 @@ export function registerGridHandlers(): void {
     })()
     invalidateColumnCache(columnId)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.COLUMN_BATCH_UPDATE_VISIBILITY, 'ipc-grid', (_e, updates: { columnId: number; isVisible: 0 | 1 }[]) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!Array.isArray(updates) || updates.length === 0 || updates.length > 500) return fail('Invalid visibility payload')
+  // Each entry is checked in the body, as before
+  define(IPC.COLUMN_BATCH_UPDATE_VISIBILITY, [
+    z.array(z.custom<{ columnId: number; isVisible: 0 | 1 }>(), 'Invalid visibility payload').min(1, 'Invalid visibility payload').max(500, 'Invalid visibility payload'),
+  ], (updates) => {
     if (!updates.every(u => Number.isInteger(u.columnId) && u.columnId > 0 && (u.isVisible === 0 || u.isVisible === 1))) {
       return fail('Invalid visibility entry — each must have integer columnId and isVisible 0|1')
     }
@@ -285,11 +279,12 @@ export function registerGridHandlers(): void {
     })
     run()
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.COLUMN_BATCH_UPDATE_WIDTHS, 'ipc-grid', (_e, updates: { columnId: number; width: number }[]) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!Array.isArray(updates) || updates.length === 0 || updates.length > 500) return fail('Invalid width update payload')
+  // Each entry is checked in the body, as before
+  define(IPC.COLUMN_BATCH_UPDATE_WIDTHS, [
+    z.array(z.custom<{ columnId: number; width: number }>(), 'Invalid width update payload').min(1, 'Invalid width update payload').max(500, 'Invalid width update payload'),
+  ], (updates) => {
     if (!updates.every(u => Number.isInteger(u.columnId) && u.columnId > 0 && typeof u.width === 'number' && u.width > 0)) {
       return fail('Invalid width entry — each must have integer columnId and positive width')
     }
@@ -305,11 +300,9 @@ export function registerGridHandlers(): void {
     })
     run()
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.COLUMN_DELETE, 'ipc-grid', (_e, columnId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(columnId)) return fail('Invalid ID')
+  define(IPC.COLUMN_DELETE, [idArg()], (columnId) => {
     const db = getDb()
     const col = db.prepare('SELECT id, grid_id, name, is_name_column FROM columns WHERE id = ?').get(columnId) as
       { id: number; grid_id: number; name: string; is_name_column: number } | undefined
@@ -341,60 +334,48 @@ export function registerGridHandlers(): void {
     invalidateGridStmtCache()
     invalidateColumnCache(columnId)
     return ok({ deletedId })
-  })
+  }, { write: true })
 
   // The Trash for columns and lists (audit 5.2, D1)
-  secureWrap(IPC.COLUMN_DELETED_LIST, 'ipc-grid', (_e, gridId: number) => {
-    if (!validId(gridId)) return fail('Invalid ID')
+  define(IPC.COLUMN_DELETED_LIST, [idArg()], (gridId) => {
     return ok(listDeletedColumns(gridId))
   })
 
-  secureWrap(IPC.COLUMN_RESTORE, 'ipc-grid', (_e, deletedId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(deletedId)) return fail('Invalid ID')
+  define(IPC.COLUMN_RESTORE, [idArg()], (deletedId) => {
     try {
       const res = restoreColumn(deletedId)
       invalidateGridStmtCache()
       invalidateColumnCache(res.columnId)
       return ok(res)
     } catch (err) { if (err instanceof TrashError) return fail(err.message); throw err }
-  })
+  }, { write: true })
 
-  secureWrap(IPC.COLUMN_PURGE, 'ipc-grid', (_e, deletedId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(deletedId)) return fail('Invalid ID')
+  define(IPC.COLUMN_PURGE, [idArg()], (deletedId) => {
     purgeDeletedColumn(deletedId)
     return ok(true as const)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.GRID_DELETED_LIST, 'ipc-grid', () => ok(listDeletedLists()))
+  define(IPC.GRID_DELETED_LIST, [], () => ok(listDeletedLists()))
 
-  secureWrap(IPC.GRID_RESTORE, 'ipc-grid', (_e, gridId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(gridId)) return fail('Invalid ID')
+  define(IPC.GRID_RESTORE, [idArg()], (gridId) => {
     try { restoreList(gridId) } catch (err) { if (err instanceof TrashError) return fail(err.message); throw err }
     invalidateGridStmtCache()
     return ok(true as const)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.GRID_PURGE, 'ipc-grid', (_e, gridId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(gridId)) return fail('Invalid ID')
-    if (!purgeList(gridId)) return fail("That list isn't in the Trash.")
+  define(IPC.GRID_PURGE, [idArg()], (gridId) => {
+    if (!purgeList(gridId)) return fail(`That ${word('list')} isn't in the Trash.`)
     invalidateGridStmtCache()
     return ok(true as const)
-  })
+  }, { write: true })
 
   // Everything that points at this column, for the delete dialog (audit 1.8)
-  secureWrap(IPC.COLUMN_DEPENDENTS, 'ipc-grid', (_e, columnId: number) => {
-    if (!validId(columnId)) return fail('Invalid ID')
+  define(IPC.COLUMN_DEPENDENTS, [idArg()], (columnId) => {
     return ok(columnDependents(columnId))
   })
 
   // "Use as name": this column names the list's records everywhere
-  secureWrap(IPC.COLUMN_SET_NAME, 'ipc-grid', (_e, columnId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(columnId)) return fail('Invalid ID')
+  define(IPC.COLUMN_SET_NAME, [idArg()], (columnId) => {
     const db = getDb()
     const col = db.prepare('SELECT id, grid_id, column_type FROM columns WHERE id = ?').get(columnId) as { id: number; grid_id: number; column_type: string } | undefined
     if (!col) return fail('Column not found')
@@ -406,28 +387,25 @@ export function registerGridHandlers(): void {
     })()
     invalidateGridStmtCache()
     return ok({ previousId: prev?.id ?? null })
-  })
+  }, { write: true })
 
   // Change a column's type (G-19): how many values fit, then convert them; undo puts everything back
-  secureWrap(IPC.COLUMN_TYPE_PREVIEW, 'ipc-grid', (_e, columnId: number, to: string) => {
-    if (!validId(columnId) || typeof to !== 'string') return fail('Invalid ID')
+  define(IPC.COLUMN_TYPE_PREVIEW, [idArg(), z.string('Invalid ID')], (columnId, to) => {
     try { return ok(previewTypeChange(columnId, to)) } catch (err) { if (err instanceof ColumnTypeError) return fail(err.message); throw err }
   })
 
-  secureWrap(IPC.COLUMN_CHANGE_TYPE, 'ipc-grid', (_e, columnId: number, to: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(columnId) || typeof to !== 'string') return fail('Invalid ID')
+  define(IPC.COLUMN_CHANGE_TYPE, [idArg(), z.string('Invalid ID')], (columnId, to) => {
     try {
       const snap = changeColumnType(columnId, to)
       invalidateColumnCache(columnId)
       invalidateGridStmtCache()
       return ok(snap)
     } catch (err) { if (err instanceof ColumnTypeError) return fail(err.message); throw err }
-  })
+  }, { write: true })
 
-  secureWrap(IPC.COLUMN_CHANGE_TYPE_UNDO, 'ipc-grid', (_e, columnId: number, snap: TypeChangeSnapshot) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(columnId) || !snap || typeof snap.previousType !== 'string' || !Array.isArray(snap.changed) || snap.changed.length > 100_000) return fail('Invalid ID')
+  // The snapshot is checked in the body (every failure answers 'Invalid ID'), as before
+  define(IPC.COLUMN_CHANGE_TYPE_UNDO, [idArg(), z.custom<TypeChangeSnapshot>()], (columnId, snap) => {
+    if (!snap || typeof snap.previousType !== 'string' || !Array.isArray(snap.changed) || snap.changed.length > 100_000) return fail('Invalid ID')
     if (!snap.changed.every(c => validId(c.rowId) && typeof c.old === 'string')) return fail('Invalid ID')
     if (snap.previousConfig !== null && typeof snap.previousConfig !== 'string') return fail('Invalid ID')
     try {
@@ -436,18 +414,17 @@ export function registerGridHandlers(): void {
       invalidateGridStmtCache()
       return ok(true as const)
     } catch (err) { if (err instanceof ColumnTypeError) return fail(err.message); throw err }
-  })
+  }, { write: true })
 
   // How many records use each choice, for the options editor (G-36)
-  secureWrap(IPC.COLUMN_OPTION_USAGE, 'ipc-grid', (_e, columnId: number) => {
-    if (!validId(columnId)) return fail('Invalid ID')
+  define(IPC.COLUMN_OPTION_USAGE, [idArg()], (columnId) => {
     return ok(optionUsage(columnId))
   })
 
   // Save a status or dropdown column's choices; renamed ones can carry their records along (G-02, G-36)
-  secureWrap(IPC.COLUMN_SET_OPTIONS, 'ipc-grid', (_e, columnId: number, change: { options: string[]; renames?: Record<string, string>; updateRecords?: boolean }) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(columnId)) return fail('Invalid ID')
+  define(IPC.COLUMN_SET_OPTIONS, [
+    idArg(), z.custom<{ options: string[]; renames?: Record<string, string>; updateRecords?: boolean }>(),
+  ], (columnId, change) => {
     if (!change || !Array.isArray(change.options)) return fail('Choose the options first.')
     if (change.renames !== undefined && (typeof change.renames !== 'object' || change.renames === null)) return fail('Invalid rename list')
     try {
@@ -458,22 +435,18 @@ export function registerGridHandlers(): void {
       if (err instanceof OptionsError) return fail(err.message)
       throw err
     }
-  })
+  }, { write: true })
 
   // After adding an auto-number column: give the records already in the list a number
-  secureWrap(IPC.COLUMN_NUMBER_EXISTING, 'ipc-grid', (_e, columnId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(columnId)) return fail('Invalid ID')
+  define(IPC.COLUMN_NUMBER_EXISTING, [idArg()], (columnId) => {
     const isAuto = getDb().prepare("SELECT 1 FROM columns WHERE id = ? AND column_type = 'auto_number'").get(columnId)
     if (!isAuto) return fail("That column doesn't number automatically.")
     return ok({ numbered: numberExistingRows(columnId) })
-  })
+  }, { write: true })
 
-  secureWrap(IPC.COLUMN_REORDER, 'ipc-grid', (_e, gridId: number, orderedIds: number[]) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(gridId)) return fail('Invalid ID')
-    if (!Array.isArray(orderedIds) || orderedIds.length > MAX_REORDER_COLUMNS) return fail('Invalid reorder payload')
-    if (!orderedIds.every(id => Number.isInteger(id) && id > 0)) return fail('Invalid IDs in reorder payload')
+  define(IPC.COLUMN_REORDER, [
+    idArg(), idListArg('Invalid reorder payload', 'Invalid IDs in reorder payload', { max: MAX_REORDER_COLUMNS }),
+  ], (gridId, orderedIds) => {
     const db = getDb()
     // The table sends only the columns it shows. Columns left out (hidden ones) keep
     // their slots, and the sent ones fill the other slots in the new order, so every
@@ -491,16 +464,11 @@ export function registerGridHandlers(): void {
     })
     reorder()
     return ok(true)
-  })
+  }, { write: true })
 
   // ── Sort & Filter ─────────────────────────────────────────────────────────
-  secureWrap(IPC.SORT_UPDATE, 'ipc-grid', (_e, gridId: number, sortConfig: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(gridId)) return fail('Invalid ID')
-    // Validate sortConfig: must be an array or null
-    if (sortConfig !== null && !Array.isArray(sortConfig)) {
-      return fail('Sort config must be an array or null')
-    }
+  // Each sort entry is checked in the body, as before
+  define(IPC.SORT_UPDATE, [idArg(), z.array(z.unknown(), 'Sort config must be an array or null').nullable()], (gridId, sortConfig) => {
     if (Array.isArray(sortConfig)) {
       for (const item of sortConfig) {
         if (typeof item !== 'object' || item === null) return fail('Invalid sort config')
@@ -512,6 +480,6 @@ export function registerGridHandlers(): void {
     getDb().prepare("UPDATE grids SET sort_config = ? WHERE id = ?")
       .run(JSON.stringify(sortConfig ?? []), gridId)
     return ok(true)
-  })
+  }, { write: true })
 
 }

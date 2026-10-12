@@ -13,6 +13,7 @@ import { formatDue } from '../shared/deadlineEngine'
 import { formatTime } from '../shared/calendar'
 import { featureOn, word } from './vocab'
 import { tagText } from '../shared/tagValue'
+import { notTrashedRow } from '../shared/liveRecords'
 
 interface Col { id: number; grid_id: number; name: string; column_type: string; is_name_column: number; config: string | null }
 
@@ -138,7 +139,7 @@ export function resolvePlaceholders(content: string, rowId: number, gridId: numb
   // "(unnamed)" is the list's stand-in; a document leaves it blank
   const display = row?.display_name && row.display_name !== '(unnamed)' ? row.display_name : ''
   const name = display || (nameCol ? cells.get(nameCol.id) ?? '' : '')
-  const profile = Object.fromEntries((db.prepare("SELECT key, value FROM settings WHERE key LIKE 'profile_%'").all() as Array<{ key: string; value: string }>).map(r => [r.key, r.value]))
+  const profile = Object.fromEntries((db.prepare("SELECT key, value FROM settings WHERE substr(key, 1, 8) = 'profile_'").all() as Array<{ key: string; value: string }>).map(r => [r.key, r.value]))
 
   // The fixed placeholders, new names and old ones
   const fixed: Record<string, string> = {
@@ -220,8 +221,8 @@ export function resolvePlaceholders(content: string, rowId: number, gridId: numb
         if (!field) continue
         const otherGrid = side === 'forward' ? lt.to_grid_id : lt.from_grid_id
         const target = (side === 'forward'
-          ? db.prepare('SELECT l.to_row_id AS id FROM record_links l JOIN rows t ON t.id = l.to_row_id WHERE l.link_type_id = ? AND l.from_row_id = ? AND t.deleted_at IS NULL').get(lt.id, rowId)
-          : db.prepare('SELECT l.from_row_id AS id FROM record_links l JOIN rows t ON t.id = l.from_row_id WHERE l.link_type_id = ? AND l.to_row_id = ? AND t.deleted_at IS NULL').get(lt.id, rowId)) as { id: number } | undefined
+          ? db.prepare(`SELECT l.to_row_id AS id FROM record_links l JOIN rows t ON t.id = l.to_row_id WHERE l.link_type_id = ? AND l.from_row_id = ? AND ${notTrashedRow('t')}`).get(lt.id, rowId)
+          : db.prepare(`SELECT l.from_row_id AS id FROM record_links l JOIN rows t ON t.id = l.from_row_id WHERE l.link_type_id = ? AND l.to_row_id = ? AND ${notTrashedRow('t')}`).get(lt.id, rowId)) as { id: number } | undefined
         if (field === 'name') return target ? (db.prepare('SELECT display_name FROM rows WHERE id = ?').get(target.id) as { display_name: string | null }).display_name ?? '' : ''
         const col = db.prepare('SELECT id, grid_id, name, column_type, is_name_column, config FROM columns WHERE grid_id = ? AND LOWER(TRIM(name)) = ?').get(otherGrid, field) as Col | undefined
         if (!col) return undefined

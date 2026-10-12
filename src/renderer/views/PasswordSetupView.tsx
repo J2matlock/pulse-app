@@ -12,6 +12,7 @@ import { PasswordStrength } from '../components/shared/PasswordStrength'
 import { FieldError, fieldErrorProps } from '../components/shared/FieldError'
 import { checkNewPassword } from '../../shared/passwordPolicy'
 import { PRODUCT_NAME } from '../../shared/constants'
+import { parseDbOpenFailure, dbOpenFailureText } from '../../shared/dbOpen'
 
 type SetupStep = 'password' | 'recovery-prompt' | 'recovery-display' | 'restore'
 
@@ -31,6 +32,9 @@ export function PasswordSetupView(): React.ReactElement {
   // What's still missing, said on submit instead of a silently greyed-out button (audit F-25)
   const [missing, setMissing] = useState<string | null>(null)
   const termsRef = useRef<HTMLInputElement>(null)
+  // The password just saved. The recovery-key step confirms with it, so it still works
+  // after main's 10-minute no-password setup window has closed (R1-01)
+  const savedPasswordRef = useRef<string | null>(null)
 
   // Just the two actions: a settings change elsewhere needn't redraw this screen (AUDIT-137)
   const setPasswordSetup = useSettingsStore(s => s.setPasswordSetup)
@@ -73,12 +77,22 @@ export function PasswordSetupView(): React.ReactElement {
       const result = await safeInvoke(IPC.AUTH_SETUP_PASSWORD, pwNow, hint)
 
       if (!result.ok) {
-        toast.error('Password setup failed. Please try again.')
+        const openKind = parseDbOpenFailure(result.error)
+        if (openKind) {
+          // The password is set but the new data wouldn't open: the lock screen takes it from
+          // here (sign in again; it says what's wrong and offers a restore) (F-031)
+          toast.error(dbOpenFailureText(openKind, PRODUCT_NAME), { duration: 12000 })
+          setPasswordSetup(true)
+          setLocked(true)
+        } else {
+          toast.error('Password setup failed. Please try again.')
+        }
         setIsSubmitting(false)
         return
       }
 
       if (result.data.cloudWarning) setCloudWarning(result.data.cloudWarning)
+      savedPasswordRef.current = pwNow
 
       // Move to recovery key prompt instead of immediately unlocking
       setStep('recovery-prompt')
@@ -91,8 +105,9 @@ export function PasswordSetupView(): React.ReactElement {
 
   async function handleGenerateRecoveryKey() {
     try {
-      const result = await safeInvoke(IPC.AUTH_GENERATE_RECOVERY_KEY)
+      const result = await safeInvoke(IPC.AUTH_GENERATE_RECOVERY_KEY, savedPasswordRef.current ?? undefined)
       if (result.ok) {
+        savedPasswordRef.current = null
         setGeneratedKey(result.data)
         setStep('recovery-display')
       } else {

@@ -5,10 +5,11 @@
 import { randomUUID } from 'node:crypto'
 import path from 'path'
 import { realpathSync, existsSync } from 'fs'
-import { ipcMain, app, BrowserWindow } from 'electron'
+import { ipcMain, app, BrowserWindow, dialog } from 'electron'
 import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
 import { getPortableDataDir } from '../data-dir'
+import { IPC_READ_ONLY, PASSING_ERRORS } from '../../shared/constants'
 
 // Helper to wrap handler results
 export function ok<T>(data: T) { return { ok: true as const, data } }
@@ -35,7 +36,7 @@ export function registerReadOnlyChecker(fn: (() => boolean) | null): void {
 }
 
 export function enforceWritable(): { ok: false; error: string } | null {
-  if (_readOnlyChecker && _readOnlyChecker()) return fail('READ_ONLY')
+  if (_readOnlyChecker && _readOnlyChecker()) return fail(IPC_READ_ONLY)
   return null
 }
 
@@ -54,8 +55,9 @@ export function secureHandle(
     }
     // The top frame must be our own bundle (or the dev server). will-navigate
     // already blocks leaving the app; this is the second lock on that door.
+    // An empty URL (a frame that hasn't loaded a page) isn't Pulse either (Q-058, D-022)
     const url = event.senderFrame.url
-    if (typeof url === 'string' && url !== '' && !isTrustedSenderUrl(url)) {
+    if (typeof url === 'string' && !isTrustedSenderUrl(url)) {
       logger.warn('ipc', 'Rejected IPC from untrusted origin', { channel, origin: safeOrigin(url) })
       return fail('Unauthorized IPC sender')
     }
@@ -81,15 +83,15 @@ const MSG = {
   duplicate: "There's already one with that name. Choose a different name.",
   missing: "Something that's needed is missing. Fill it in and try again.",
   inUse: "This is still used somewhere else in Pulse, so it can't be removed yet.",
-  busy: 'Pulse is busy for a moment. Please try again.',
-  readOnly: "Pulse can't save changes because its data file can't be written to. Close Pulse and open it again. If your data is on a USB drive, check that it's connected and not locked.",
-  unreachable: "Pulse can't reach its data folder. If it's on a USB drive or network folder, reconnect it and restart Pulse.",
+  busy: PASSING_ERRORS.busy,
+  readOnly: PASSING_ERRORS.readOnly,
+  unreachable: PASSING_ERRORS.unreachable,
   damaged: 'Your data file looks damaged. Restore your most recent backup (Settings → Backup).',
-  diskFull: 'The disk is full. Free up some space, then try again.',
+  diskFull: PASSING_ERRORS.diskFull,
   notFound: "Pulse couldn't find that file. It may have been moved, renamed or deleted.",
   noPermission: "Pulse isn't allowed to use that file or folder. Choose a different one.",
   readOnlyDrive: "That drive can't be written to. Choose a different folder.",
-  noMemory: 'Your computer ran out of memory. Close some other programs and try again.',
+  noMemory: PASSING_ERRORS.noMemory,
   backupDiskFull: "The backup couldn't be saved. The drive may be full or disconnected.",
 } as const
 
@@ -101,7 +103,8 @@ const ERROR_MAP: Array<[RegExp, string]> = [
   [/SQLITE_CONSTRAINT.*NOT NULL/, MSG.missing],
   [/SQLITE_CONSTRAINT.*FOREIGN KEY/, MSG.inUse],
   [/VACUUM INTO.*failed/, MSG.backupDiskFull],
-  [/SQLITE_BUSY|database is locked/, MSG.busy],
+  // "Database is locked" is also auth.ts's own word for "Pulse is locked right now"
+  [/SQLITE_BUSY|database is locked/i, MSG.busy],
   [/SQLITE_READONLY|attempt to write a readonly database/, MSG.readOnly],
   [/SQLITE_FULL|database or disk is full/, MSG.diskFull],
   [/SQLITE_CORRUPT|SQLITE_NOTADB|database disk image is malformed|file is not a database/, MSG.damaged],
@@ -159,7 +162,12 @@ const CODE_PREFIX_MAP: Array<[string, string]> = [
   ['SQLITE_CORRUPT', MSG.damaged],
 ]
 
-const GENERIC = "Something went wrong and the change wasn't saved. Please try again."
+const GENERIC = PASSING_ERRORS.generic
+/** humanizeError's answer when it can't say anything more specific */
+export const GENERIC_ERROR_MESSAGE = GENERIC
+
+/** A Unix or Windows absolute path inside a message: "/home/…/", "C:\\…" */
+const ABSOLUTE_PATH = /(^|[\s'"(:])(\/[^\s/'"]+\/[^\s'"]*|[A-Za-z]:\\)/
 
 /**
  * Map raw errors to sentences a person can act on (audit 2.15 / L-20).
@@ -187,6 +195,12 @@ export function humanizeError(err: unknown): string {
     || (err as Error | undefined)?.name === 'SqliteError'
     || /constraint failed|no such (table|column)|syntax error|SQL logic error/i.test(raw)
     || err instanceof TypeError || err instanceof RangeError || err instanceof ReferenceError
+    // JSON.parse, exceljs and unzipper text ("Unexpected token x in JSON at position 3")
+    || err instanceof SyntaxError
+    // "Path traversal detected: /a is outside /b". ("Invalid …" stays: tests pin it, and friendlyError filters it on screen)
+    || /Path traversal/.test(raw)
+    // A full path on screen is noise, and the person's folder names don't belong in a toast (Q-054)
+    || ABSOLUTE_PATH.test(raw)
   return technical ? GENERIC : raw
 }
 
@@ -285,6 +299,27 @@ export function rememberUserChosenPaths(paths: readonly (string | undefined | nu
   }
 }
 
+/**
+ * A save dialog shown by main itself, remembered like the renderer's (APP_SHOW_SAVE_DIALOG):
+ * the folder the person chose passes assertSafePath wherever it is, so a network share
+ * mounted somewhere unusual isn't refused right after they picked it (F-033).
+ * Null when cancelled.
+ */
+export async function pickSavePath(options: Electron.SaveDialogOptions): Promise<string | null> {
+  const { canceled, filePath } = await dialog.showSaveDialog(options)
+  if (canceled || !filePath) return null
+  rememberUserChosenPaths([path.dirname(filePath)])
+  return filePath
+}
+
+/** An open dialog shown by main itself, remembered like APP_SHOW_FILE_DIALOG (F-033). Empty when cancelled. */
+export async function pickOpenPaths(options: Electron.OpenDialogOptions): Promise<string[]> {
+  const { canceled, filePaths } = await dialog.showOpenDialog(options)
+  if (canceled || filePaths.length === 0) return []
+  rememberUserChosenPaths(filePaths)
+  return filePaths
+}
+
 /** Test seam: forget every remembered dialog choice. */
 export function clearUserChosenPaths(): void { userChosenPaths.length = 0 }
 
@@ -310,12 +345,17 @@ function safeAppPath(name: Parameters<typeof app.getPath>[0]): string | null {
   } catch { return null }
 }
 
-/** Is `child` the folder `dir` or inside it? Case-insensitive on Windows. */
-function isWithin(child: string, dir: string): boolean {
+/**
+ * Is `child` the folder `dir` or inside it? Case-insensitive on Windows, and with
+ * `denyCheck` on macOS too: its default volume ignores case, so ~/library/keychains
+ * is ~/Library/Keychains and must not slip past a refusal (R2-01). Allow checks stay
+ * case-sensitive there, so a different casing never widens what's allowed.
+ */
+function isWithin(child: string, dir: string, denyCheck = false): boolean {
   const P = pathApi()
-  const win = process.platform === 'win32'
-  const c = win ? child.toLowerCase() : child
-  let d = win ? dir.toLowerCase() : dir
+  const fold = process.platform === 'win32' || (denyCheck && process.platform === 'darwin')
+  const c = fold ? child.toLowerCase() : child
+  let d = fold ? dir.toLowerCase() : dir
   if (d.length > 1 && d.endsWith(P.sep)) d = d.slice(0, -1)
   return c === d || c.startsWith(d + P.sep)
 }
@@ -328,8 +368,18 @@ function withRealPath(dir: string): string[] {
   } catch { return [dir] }
 }
 
-// Credential folders in a home directory: never read or written through Pulse
-const HOME_SECRET_DIRS = ['.ssh', '.gnupg', '.aws']
+// Credential and browser-profile folders and files in a home directory: never read or written
+// through Pulse, even if picked in a dialog. A compromised window could otherwise read them (F-035).
+const HOME_SECRET_DIRS = [
+  '.ssh', '.gnupg', '.aws',
+  '.git-credentials', '.netrc', '.config/gh', '.config/gcloud', '.azure', '.kube', '.docker/config.json',
+  '.password-store', '.local/share/keyrings', '.pki', '.mozilla', '.thunderbird',
+  '.config/google-chrome', '.config/chromium', '.config/BraveSoftware', '.config/microsoft-edge',
+  'Library/Keychains', 'Library/Cookies', 'Library/Application Support/Google/Chrome',
+  'Library/Application Support/Firefox', 'Library/Application Support/Microsoft Edge', 'Library/Safari',
+  'AppData/Roaming/Microsoft/Credentials', 'AppData/Local/Microsoft/Credentials', 'AppData/Roaming/Microsoft/Protect',
+  'AppData/Roaming/Mozilla', 'AppData/Local/Google/Chrome', 'AppData/Local/Microsoft/Edge',
+]
 // Pulse's own wrapped-key store (and its backup copy); overwriting it would lock the person out
 const CREDENTIAL_FILE_RE = /^pulse-secure.*\.json$/i
 
@@ -375,7 +425,7 @@ export function assertSafePath(p: string): void {
   if (CREDENTIAL_FILE_RE.test(P.basename(resolved))) refusePath('credential file')
   if (home) {
     for (const h of withRealPath(home)) {
-      if (HOME_SECRET_DIRS.some(d => isWithin(resolved, P.join(h, d)))) refusePath('credential folder')
+      if (HOME_SECRET_DIRS.some(d => isWithin(resolved, P.join(h, d), true))) refusePath('credential folder')
     }
   }
 
@@ -392,7 +442,7 @@ export function assertSafePath(p: string): void {
     if (top !== undefined && WIN_SYSTEM_DIRS.includes(top)) refusePath('system folder')
     // Another person's profile on this computer
     if (top === 'users' && (rest?.split('\\').length ?? 0) > 1) refusePath('another user profile')
-  } else if (POSIX_SYSTEM_DIRS.some(d => isWithin(resolved, d))) {
+  } else if (POSIX_SYSTEM_DIRS.some(d => isWithin(resolved, d, true))) {
     refusePath('system folder')
   }
 

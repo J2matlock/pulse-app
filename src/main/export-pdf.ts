@@ -22,9 +22,11 @@ import {
   showDeadlinesAsText,
   getClientName,
   batchGetClientNames,
+  lineHeight,
+  savedDateFormat,
 } from './export-shared'
 import type { PdfProfileOptions, PdfGridOptions } from './export-shared'
-import { parseDbTimestamp } from '../shared/dates'
+import { parseDbTimestamp, shortDate } from '../shared/dates'
 import { vocabFor, word } from './vocab'
 import { term } from '../shared/vocab'
 import { activityLabel } from './activity-types'
@@ -86,16 +88,21 @@ export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
   const exportTitle = title || grid.name
   doc.setFontSize(16)
   doc.setFont('helvetica', 'bold')
-  doc.text(exportTitle, 14, 18)
+  // A long title wraps, and the line under it and the table move down by the extra lines (Q-077)
+  const titleLines = doc.splitTextToSize(exportTitle, doc.internal.pageSize.width - 28) as string[]
+  const titleExtra = (titleLines.length - 1) * lineHeight(doc)
+  doc.text(titleLines, 14, 18)
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(100)
-  doc.text(`Exported ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}  ·  ${filteredRows.length} ${term(v, 'record', { count: filteredRows.length })}`, 14, 24)
+  doc.text(`Exported ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}  ·  ${filteredRows.length} ${term(v, 'record', { count: filteredRows.length })}`, 14, 24 + titleExtra)
   doc.setTextColor(0)
 
   const head = [selectedColumns.map(c => c.name)]
+  // Read the date format once, not once per cell
+  const dateFormat = savedDateFormat()
   const body = filteredRows.map(row =>
-    selectedColumns.map(col => cellDisplayText(row[`col_${col.id}`] as string | null, col.column_type))
+    selectedColumns.map(col => cellDisplayText(row[`col_${col.id}`] as string | null, col.column_type, dateFormat))
   )
 
   // Compute column widths: Name gets more space
@@ -115,7 +122,7 @@ export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
   autoTable(doc, {
     head,
     body,
-    startY: 28,
+    startY: 28 + titleExtra,
     styles: { fontSize: gridFontSize, cellPadding: 2 },
     headStyles: { fillColor: [71, 85, 105], textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [248, 250, 252] },
@@ -294,7 +301,8 @@ export function renderProfileToDoc(
 
   // ── Deadlines: the same engine as the dashboard, so the PDF never disagrees with the app ──
   if (includeSections.deadlines) {
-    const items = loadDeadlines({ gridId, rowIds: [rowId] })
+    // An archived record's page prints its deadlines too (F-020)
+    const items = loadDeadlines({ gridId, rowIds: [rowId], includeArchived: true })
     if (items.length > 0) {
       addSection('Deadlines')
       for (const d of items) addKeyValue(d.column_name, deadlineSummary(d))
@@ -373,7 +381,7 @@ export function renderProfileToDoc(
       for (const entry of entries) {
         if (y > pageH - 20) { doc.addPage(); y = 18 }
         const dt = parseDbTimestamp(entry.created_at)
-        const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+        const dateStr = shortDate(dt) +
           ' ' + dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
         doc.setFontSize(9)
         doc.setFont('helvetica', 'bold')
@@ -605,7 +613,7 @@ export async function exportContactPdf(providerId: number, destPath: string): Pr
     sectionTitle('Recent Interactions')
     for (const ix of interactions) {
       if (y > pageH - 20) { doc.addPage(); y = 18 }
-      const dateStr = parseDbTimestamp(ix.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      const dateStr = shortDate(parseDbTimestamp(ix.created_at))
       doc.setFontSize(9)
       doc.setFont('helvetica', 'bold')
       doc.text(`${dateStr}  [${ix.contact_type.toUpperCase()}]`, marginL, y)
@@ -683,7 +691,7 @@ export async function exportContactPdf(providerId: number, destPath: string): Pr
 // ──────────────────────────────────────────────────────────────────────────────
 
 export async function exportDirectoryPdf(filterParams: Record<string, unknown>, destPath: string): Promise<void> {
-  const providers = getProviders(filterParams as ContactFilterParams)
+  const providers = getProviders(filterParams as ContactFilterParams, { all: true })
   const categories = getCategories()
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })

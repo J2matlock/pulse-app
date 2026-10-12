@@ -27,7 +27,7 @@ export function DemoMultipleCaseloads() {
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 max-w-[200px]">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{t('list', { many: true, cap: true })}</span>
+          <span className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{t('list', { many: true, cap: true })}</span>
           <div
             className="w-5 h-5 rounded-sm flex items-center justify-center text-blue-600 dark:text-blue-400 cursor-pointer"
             style={{ animation: 'mcPlusClick 8s ease infinite', fontSize: 16 }}

@@ -2,7 +2,7 @@
  * Migration 028: Checklist groups — groupable sections within a client's checklist.
  */
 
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 
 export function up(db: Database): void {
   db.exec(`

@@ -6,7 +6,7 @@
  * Mock fs for file I/O (parsePulseFile, writePulseFile) and electron for path checks.
  */
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'vitest'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createTestDb, cleanupTestDb, seedGrid, setDbWords, type TestDb } from './helpers'
 import { GENERIC_VOCAB } from '../src/shared/vocab'
 
@@ -787,6 +787,22 @@ describe('writePulseFile', () => {
     // We verify it throws (either path-check error or require-resolution error).
     const pulse = makeValidPulse()
     expect(() => templates.writePulseFile(pulse, '/etc/evil.pulse')).toThrow()
+  })
+
+  it('writes to a drive outside the home folder (a USB or second drive), and says plainly when the name is wrong (F-034)', async () => {
+    const { mkdtempSync, readFileSync, rmSync } = await import('fs')
+    const { join } = await import('path')
+    const dir = mkdtempSync('/tmp/pulse-usb-')
+    try {
+      const dest = join(dir, 'intake.pulse')
+      templates.writePulseFile(makeValidPulse(), dest)
+      expect(JSON.parse(readFileSync(dest, 'utf-8')).name).toBe('Test Template')
+      let message = ''
+      try { templates.writePulseFile(makeValidPulse(), join(dir, 'Jane Doe intake.json')) } catch (err) { message = (err as Error).message }
+      expect(message).toMatch(/\.pulse extension/)
+      expect(message).not.toContain(dir)
+      expect(message).not.toContain('Jane Doe')
+    } finally { rmSync(dir, { recursive: true, force: true }) }
   })
 
   it('validates the extension check happens before the path check', () => {

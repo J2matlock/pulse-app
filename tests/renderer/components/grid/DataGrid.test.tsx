@@ -679,6 +679,14 @@ describe('DataGrid', () => {
       expect(useGridStore.getState().sortedRowIds).toEqual([3])
     })
 
+    it('searches when the first record has every cell empty', async () => {
+      // @tanstack/react-table 8 only searched columns whose first-record value was text or a number
+      setupStores({ rows: [makeRow(1, { col_1: null, col_2: null, col_3: null, col_4: null }), ...makeTestRows(5).slice(1)], searchQuery: 'Client 3' })
+      renderDataGrid()
+      await flushEffects()
+      expect(useGridStore.getState().sortedRowIds).toEqual([3])
+    })
+
     it('keeps a record just added on screen, and says when the filter would hide it (G-28)', async () => {
       const toast = (await import('react-hot-toast')).default as unknown as ReturnType<typeof vi.fn>
       toast.mockClear()
@@ -771,6 +779,30 @@ describe('DataGrid', () => {
   // ── Column Operations ───────────────────────────────────────────────────
 
   describe('Column Operations', () => {
+    it('saves a width change at once when the list is left within the half-second wait (Q-088)', async () => {
+      const { safeInvoke } = await import('../../../../src/renderer/utils/safeInvoke')
+      const { IPC } = await import('../../../../src/shared/ipc-channels')
+      const widthCalls = () => vi.mocked(safeInvoke).mock.calls.filter(c => c[0] === IPC.COLUMN_BATCH_UPDATE_WIDTHS)
+      const { unmount } = renderDataGrid()
+      await flushEffects()
+      act(() => { pulseEvents.emit('column:resize', { columnId: 2, change: 'wider' }) })
+      expect(widthCalls()).toHaveLength(0)
+      unmount()
+      expect(widthCalls()).toEqual([[IPC.COLUMN_BATCH_UPDATE_WIDTHS, [{ columnId: 2, width: 190 }]]])
+    })
+
+    it('saves a pending width change to the list it was made in when switching lists (Q-088)', async () => {
+      const { safeInvoke } = await import('../../../../src/renderer/utils/safeInvoke')
+      const { IPC } = await import('../../../../src/shared/ipc-channels')
+      const widthCalls = () => vi.mocked(safeInvoke).mock.calls.filter(c => c[0] === IPC.COLUMN_BATCH_UPDATE_WIDTHS)
+      renderDataGrid()
+      await flushEffects()
+      act(() => { pulseEvents.emit('column:resize', { columnId: 3, change: 'narrower' }) })
+      act(() => { useGridStore.setState({ activeGridId: 2, columns: [] }) })
+      await flushEffects()
+      expect(widthCalls()).toEqual([[IPC.COLUMN_BATCH_UPDATE_WIDTHS, [{ columnId: 3, width: 110 }]]])
+    })
+
     it('renders column headers with correct count', async () => {
       renderDataGrid()
       await flushEffects()

@@ -2,7 +2,7 @@
  * IPC Checklist Handler Tests — tests all CHECKLIST_*, CL_TEMPLATE_* handlers.
  */
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'vitest'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
 import { localDateString } from '../src/shared/dates'
@@ -609,6 +609,10 @@ describe('checklist template files (polish R6)', () => {
       expect(await importError(write('b.pulse-checklist', JSON.stringify({ pulse_type: 'other', version: 1 })))).toBe("This file isn't a Pulse checklist, or it's damaged.")
       expect(await importError(write('c.pulse-checklist', JSON.stringify({ pulse_type: 'checklist-template', version: 2 })))).toMatch(/newer version of Pulse/)
       expect(await importError(write('d.json', '{}'))).toMatch(/Choose a Pulse checklist file/)
+    })
+
+    it('a very large file is refused by its size (Q-056)', async () => {
+      expect(await importError(write('huge.pulse-checklist', 'x'.repeat(3_000_000)))).toBe('That file is too large to be a Pulse checklist.')
     })
 
     it('never shows raw file-system text when saving fails', async () => {

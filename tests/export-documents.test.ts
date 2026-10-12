@@ -36,6 +36,14 @@ describe('who a batch covers', () => {
   })
 })
 
+describe('a list in the Trash (Q-082)', () => {
+  it('covers no one, even when its records are named', () => {
+    t.db.prepare('UPDATE grids SET is_active = 0 WHERE id = ?').run(g.gridId)
+    expect(batchRowIds({ gridId: g.gridId })).toEqual([])
+    expect(batchRowIds({ gridId: g.gridId, rowIds: g.rowIds.slice(0, 2) })).toEqual([])
+  })
+})
+
 describe('batch documents', () => {
   it('one page per record as letters, two per sheet as postcards, with unknown placeholders listed once', () => {
     const letters = buildBatchPdf(template, { gridId: g.gridId }, 'letter')

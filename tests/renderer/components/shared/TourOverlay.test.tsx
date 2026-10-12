@@ -28,7 +28,8 @@ describe('tour steps', () => {
     const root = join(__dirname, '../../../../src/renderer')
     const attrs = new Set<string>()
     for (const file of sourceFiles(root)) {
-      if (file.endsWith('TourOverlay.tsx')) continue
+      // The steps' own selectors don't count as targets
+      if (file.endsWith('TourOverlay.tsx') || file.endsWith('tourSteps.tsx')) continue
       const src = readFileSync(file, 'utf8')
       for (const m of src.matchAll(/data-tour(?:="|': ')([a-z-]+)/g)) attrs.add(m[1]!)
     }

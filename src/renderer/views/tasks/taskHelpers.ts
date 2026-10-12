@@ -1,8 +1,8 @@
-import type { CaseloadTask } from '../../../shared/types'
-import { MS_PER_DAY } from '../../../shared/constants'
+import type { CaseloadTask, TaskPriority } from '../../../shared/types'
+import { MS_PER_DAY, DAYS_THIS_WEEK } from '../../../shared/constants'
 import { localDateString } from '../../../shared/dates'
 
-export const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 }
+export const PRIORITY_ORDER: Record<TaskPriority, number> = { urgent: 0, high: 1, normal: 2, low: 3 }
 
 export function isOverdue(task: CaseloadTask, today: string = localDateString()): boolean {
   if (!task.due_date || task.is_completed) return false
@@ -52,7 +52,7 @@ function dueDateDisplay(dateStr: string): Omit<DueDateDisplay, 'className'> {
   if (diffDays < 0) return { text: `Overdue · ${date}`, date, urgency: 'overdue' }
   if (diffDays === 0) return { text: 'Due today', date, urgency: 'today' }
   if (diffDays === 1) return { text: `Tomorrow · ${date}`, date, urgency: 'soon' }
-  if (diffDays <= 7) return { text: `In ${diffDays} days · ${date}`, date, urgency: 'soon' }
+  if (diffDays <= DAYS_THIS_WEEK) return { text: `In ${diffDays} days · ${date}`, date, urgency: 'soon' }
   return { text: date, date, urgency: 'later' }
 }
 

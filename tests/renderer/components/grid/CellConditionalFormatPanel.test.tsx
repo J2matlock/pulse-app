@@ -90,6 +90,11 @@ describe('CellConditionalFormatPanel', () => {
     setupStore()
   })
 
+  it('is a modal dialog named by its title (Q-101)', () => {
+    render(<CellConditionalFormatPanel columnId={1} onClose={vi.fn()} mode="column" />)
+    expect(screen.getByRole('dialog', { name: 'Auto-Highlight Column' }).getAttribute('aria-modal')).toBe('true')
+  })
+
   it('renders cell mode title', () => {
     render(<CellConditionalFormatPanel rowId={1} columnId={1} onClose={vi.fn()} />)
     expect(screen.getByText('Auto-Highlight Cell')).toBeTruthy()

@@ -55,7 +55,7 @@ describe('validation', () => {
   it('refuses settings that aren’t valid or name fields the list doesn’t have', () => {
     expect(() => validateReportConfig(gridId, { source: 'everything' })).toThrow(ReportError)
     expect(() => validateReportConfig(gridId, { source: 'records', filters: [{ field: "col:1; DROP TABLE rows", operator: 'equals', value: 'x' }] })).toThrow(/aren't valid/)
-    expect(() => validateReportConfig(gridId, { source: 'records', groupBy: [{ field: 'col:99999' }] })).toThrow(/no longer on the list/)
+    expect(() => validateReportConfig(gridId, { source: 'records', groupBy: [{ field: 'col:99999' }] })).toThrow(/no longer on the caseload\. /)
     expect(() => validateReportConfig(gridId, { source: 'records', values: [{ fn: 'sum', field: `col:${makeCol}` }] })).toThrow(/isn't a number/)
     expect(() => validateReportConfig(gridId, { source: 'records', groupBy: [{ field: `col:${makeCol}`, bucket: 'month' }] })).toThrow(/Only dates/)
     expect(() => validateReportConfig(gridId, { source: 'records', dateRange: { field: `col:${makeCol}`, preset: 'this_month' } })).toThrow(/needs a date/)
@@ -116,6 +116,16 @@ describe('records', () => {
     expect(r.columns[0]).toMatchObject({ kind: 'date', bucket: 'month' })
   })
 
+  it('starts week groups on the day chosen in Settings (A21a-10)', () => {
+    cell(rows[0]!, dueCol, '2026-10-11') // a Sunday
+    cell(rows[1]!, dueCol, '2026-10-12') // the Monday after
+    const weeks = () => runReport(gridId, { source: 'records', groupBy: [{ field: `col:${dueCol}`, bucket: 'week' }] }, NOW)
+      .rows.map(x => x.g0).filter(g => g !== '(blank)' && g !== null).sort()
+    expect(weeks()).toEqual(['2026-10-11'])
+    t.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('week_start', 'monday')").run()
+    expect(weeks()).toEqual(['2026-10-05', '2026-10-12'])
+  })
+
   it('leaves out archived records unless asked', () => {
     t.db.prepare('UPDATE rows SET is_active = 0 WHERE id = ?').run(rows[0])
     expect(runReport(gridId, { source: 'records' }, NOW).rows).toEqual([{ v0: 3 }])
@@ -168,6 +178,16 @@ describe('appointments and deadlines', () => {
     expect(r.rows).toEqual([{ g0: 'Scheduled', v0: 1, v1: null }, { g0: 'Done', v0: 2, v1: 120 }])
   })
 
+  it('counts an appointment\'s length in clock minutes, also on a daylight-saving night (A21a-11)', () => {
+    const ins = t.db.prepare('INSERT INTO appointments (row_id, title, start_at, end_at, status) VALUES (?, ?, ?, ?, ?)')
+    ins.run(rows[0], 'Night shift (US clocks go back)', '2026-11-01T00:30', '2026-11-01T02:30', 'done')
+    ins.run(rows[1], 'Night shift (US clocks go forward)', '2026-03-08T01:00', '2026-03-08T04:00', 'done')
+    const r = runReport(gridId, { source: 'appointments', groupBy: [{ field: 'appt:title' }], values: [{ fn: 'sum', field: 'appt:minutes' }] }, NOW)
+    expect(Object.fromEntries(r.rows.map(x => [x.g0, x.v0]))).toEqual({
+      'Night shift (US clocks go back)': 120, 'Night shift (US clocks go forward)': 180,
+    })
+  })
+
   it('reports deadlines through the deadline engine', () => {
     const rule = Number(t.db.prepare("INSERT INTO alert_rules (name, thresholds, interval_days) VALUES ('Yearly', '[]', 365)").run().lastInsertRowid)
     t.db.prepare('UPDATE columns SET config = ? WHERE id = ?').run(JSON.stringify({ alert_rule_id: rule }), dueCol)
@@ -176,6 +196,19 @@ describe('appointments and deadlines', () => {
     const r = runReport(gridId, { source: 'deadlines', groupBy: [{ field: 'dl:state' }], values: [{ fn: 'count' }, { fn: 'max', field: 'dl:overdue' }] }, NOW)
     expect(r.rows.find(x => x.g0 === 'Overdue')).toEqual({ g0: 'Overdue', v0: 1, v1: 44 })
     expect(r.matched).toBe(2)
+  })
+
+  it('a used-up quota due later is 0 days overdue, not negative (F-022)', () => {
+    t.db.prepare("INSERT OR IGNORE INTO activity_types (key, label, position) VALUES ('session', 'Session', 50)").run()
+    const start = Number(t.db.prepare("INSERT INTO columns (grid_id, name, column_type, position) VALUES (?, 'Start', 'date', 10)").run(gridId).lastInsertRowid)
+    const end = Number(t.db.prepare("INSERT INTO columns (grid_id, name, column_type, position) VALUES (?, 'End', 'date', 11)").run(gridId).lastInsertRowid)
+    const rule = Number(t.db.prepare("INSERT INTO alert_rules (name, thresholds, kind, rule_config) VALUES ('Authorization', '[]', 'quota', ?)")
+      .run(JSON.stringify({ kind: 'quota', activityTypes: ['session'], startColumnId: start, endColumnId: end, limit: 1, warnRemaining: 0, warnDaysBeforeEnd: 0 })).lastInsertRowid)
+    t.db.prepare("UPDATE columns SET column_type = 'deadline', config = ? WHERE id = ?").run(JSON.stringify({ alert_rule_id: rule }), dueCol)
+    cell(rows[0]!, start, '2026-09-01'); cell(rows[0]!, end, '2026-10-20') // ends in 5 days
+    note(rows[0]!, '2026-09-10 10:00:00', 'session')
+    const r = runReport(gridId, { source: 'deadlines', columns: ['dl:state', 'dl:overdue'], filters: [{ field: 'dl:state', operator: 'equals', value: 'Overdue' }] }, NOW)
+    expect(r.rows).toEqual([{ 'dl:state': 'Overdue', 'dl:overdue': 0 }])
   })
 
   it('offers a date column whose rule was chosen in the app (by id) as a Deadline, and not one whose rule was removed', () => {
@@ -209,6 +242,9 @@ describe('limits', () => {
 describe('helpers', () => {
   it('buckets dates and works out preset ranges', () => {
     expect(bucketDate('2026-10-15', 'week')).toBe('2026-10-11')
+    expect(bucketDate('2026-10-11', 'week', 'monday')).toBe('2026-10-05')
+    expect(bucketDate('2026-10-12', 'week', 'monday')).toBe('2026-10-12')
+    expect(bucketDate('2026-11-01', 'week', 'monday')).toBe('2026-10-26')
     expect(bucketDate('2026-10-15', 'quarter')).toBe('2026 Q4')
     expect(bucketDate('2026-10-15', 'year')).toBe('2026')
     expect(presetRange('last_month', NOW)).toEqual({ from: '2026-09-01', to: '2026-09-30' })
@@ -331,6 +367,17 @@ describe('export', () => {
     const text = buildReportPdf(long, 'Vehicles', r).toString('latin1')
     expect(text).not.toContain(`(${long}) Tj`)
     expect(text).toContain('(Total Estimate by Stage')
+  })
+
+  it('says in the CSV when lines were left out, as the screen and the PDF do (F-023)', async () => {
+    const { reportToCsv } = await import('../src/main/export-report')
+    const r = runReport(gridId, { source: 'records', groupBy: [{ field: `col:${makeCol}` }], values: [{ fn: 'count' }] }, NOW)
+    expect(reportToCsv(r)).not.toContain('Showing the first')
+    const cut = { ...r, truncated: 'Showing the first 2,000 lines. Add a filter or group the report to see everything.' }
+    const lines = reportToCsv(cut).slice(1).split('\r\n')
+    expect(lines[lines.length - 1]).toBe('"Showing the first 2,000 lines. Add a filter or group the report to see everything.",')
+    // A notice starting like a formula is guarded like every other cell
+    expect(reportToCsv({ ...r, truncated: '=1+1' }).slice(1).split('\r\n').at(-1)).toBe("'=1+1,")
   })
 
   it('writes report CSV dates in the date format setting (AUDIT-128)', async () => {

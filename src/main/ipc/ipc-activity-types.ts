@@ -3,8 +3,10 @@
  * (generalization W03 §2.5).
  */
 import { BrowserWindow } from 'electron'
+import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
-import { secureWrap, ok, fail, enforceWritable, validId } from './ipc-utils'
+import { ok, fail, validId } from './ipc-utils'
+import { handlersFor, idArg } from './ipc-define'
 import {
   ActivityTypeError, listActivityTypes, saveActivityType, setActivityTypeArchived,
   deleteActivityType, reorderActivityTypes,
@@ -28,33 +30,27 @@ function change<T>(fn: () => T) {
   }
 }
 
+const define = handlersFor('ipc-activity-types')
+
+/** Any object: saveActivityType checks each field itself */
+const typeInput = z.custom<Record<string, unknown>>(v => !!v && typeof v === 'object', 'Invalid type')
+
 export function registerActivityTypeHandlers(): void {
-  secureWrap(IPC.ACTIVITY_TYPE_GET_ALL, 'ipc-activity-types', (_e, includeArchived?: unknown) =>
+  define(IPC.ACTIVITY_TYPE_GET_ALL, [z.unknown()], (includeArchived) =>
     ok(listActivityTypes(includeArchived === true)))
 
-  secureWrap(IPC.ACTIVITY_TYPE_SAVE, 'ipc-activity-types', (_e, input: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!input || typeof input !== 'object') return fail('Invalid type')
-    const { id, label, icon, color } = input as Record<string, unknown>
+  define(IPC.ACTIVITY_TYPE_SAVE, [typeInput], (input) => {
+    const { id, label, icon, color } = input
     if (id !== undefined && !validId(id)) return fail('Invalid ID')
-    return change(() => saveActivityType({ id: id as number | undefined, label, icon, color }))
-  })
+    return change(() => saveActivityType({ id, label, icon, color }))
+  }, { write: true })
 
-  secureWrap(IPC.ACTIVITY_TYPE_ARCHIVE, 'ipc-activity-types', (_e, id: unknown, archived: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id) || typeof archived !== 'boolean') return fail('Invalid ID')
-    return change(() => { setActivityTypeArchived(id, archived); return true as const })
-  })
+  define(IPC.ACTIVITY_TYPE_ARCHIVE, [idArg(), z.boolean('Invalid ID')], (id, archived) =>
+    change(() => { setActivityTypeArchived(id, archived); return true as const }), { write: true })
 
-  secureWrap(IPC.ACTIVITY_TYPE_DELETE, 'ipc-activity-types', (_e, id: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
-    return change(() => { deleteActivityType(id); return true as const })
-  })
+  define(IPC.ACTIVITY_TYPE_DELETE, [idArg()], (id) =>
+    change(() => { deleteActivityType(id); return true as const }), { write: true })
 
-  secureWrap(IPC.ACTIVITY_TYPE_REORDER, 'ipc-activity-types', (_e, ids: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!Array.isArray(ids) || ids.length > 200 || !ids.every(validId)) return fail('Invalid order')
-    return change(() => { reorderActivityTypes(ids as number[]); return true as const })
-  })
+  define(IPC.ACTIVITY_TYPE_REORDER, [z.array(idArg('Invalid order'), 'Invalid order').max(200, 'Invalid order')], (ids) =>
+    change(() => { reorderActivityTypes(ids); return true as const }), { write: true })
 }

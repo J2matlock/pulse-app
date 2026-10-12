@@ -4,12 +4,16 @@
  * Variables supported: {today}, {today+N}, {today-N}, {client_name}, {now}
  */
 
+import { formatDateAs, type DateFormat } from '../../shared/cellText'
+import { localDateString } from '../../shared/dates'
+
 function padTwo(n: number): string {
   return String(n).padStart(2, '0')
 }
 
-function formatDate(d: Date): string {
-  return `${padTwo(d.getMonth() + 1)}/${padTwo(d.getDate())}/${d.getFullYear()}`
+/** In Settings → Date format, like dates everywhere else (A21a-09) */
+function formatDate(d: Date, fmt: DateFormat): string {
+  return formatDateAs(localDateString(d), fmt)
 }
 
 function formatTime(d: Date, clockFormat: '12h' | '24h' = '12h'): string {
@@ -33,14 +37,17 @@ function addDays(d: Date, n: number): Date {
 /**
  * Expand date-aware variables in a snippet expansion string.
  * {client_name} requires clientName param; if not provided, left as-is.
+ * Dates follow `dateFormat` and {now} follows `clockFormat` (Settings), US and 12-hour by default.
  */
-export function expandVariables(text: string, clientName?: string, clockFormat?: '12h' | '24h'): string {
+export function expandVariables(text: string, clientName?: string, opts: { dateFormat?: DateFormat; clockFormat?: '12h' | '24h' } = {}): string {
   const now = new Date()
+  const dateFormat = opts.dateFormat ?? 'us'
+  const clockFormat = opts.clockFormat
 
   return text
-    .replace(/\{today\+(\d+)\}/g, (_match, n) => formatDate(addDays(now, Math.max(-MAX_DATE_OFFSET_DAYS, Math.min(MAX_DATE_OFFSET_DAYS, parseInt(n, 10))))))
-    .replace(/\{today-(\d+)\}/g, (_match, n) => formatDate(addDays(now, -Math.max(-MAX_DATE_OFFSET_DAYS, Math.min(MAX_DATE_OFFSET_DAYS, parseInt(n, 10))))))
-    .replace(/\{today\}/g, formatDate(now))
+    .replace(/\{today\+(\d+)\}/g, (_match, n) => formatDate(addDays(now, Math.max(-MAX_DATE_OFFSET_DAYS, Math.min(MAX_DATE_OFFSET_DAYS, parseInt(n, 10)))), dateFormat))
+    .replace(/\{today-(\d+)\}/g, (_match, n) => formatDate(addDays(now, -Math.max(-MAX_DATE_OFFSET_DAYS, Math.min(MAX_DATE_OFFSET_DAYS, parseInt(n, 10)))), dateFormat))
+    .replace(/\{today\}/g, formatDate(now, dateFormat))
     .replace(/\{now\}/g, formatTime(now, clockFormat))
     .replace(/\{client_name\}/g, clientName ?? '{client_name}')
 }

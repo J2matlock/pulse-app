@@ -221,6 +221,19 @@ describe('FilterControls (G-12, G-30)', () => {
     expect(document.activeElement).toBe(btn)
   })
 
+  it('a Files column and an auto-number column offer number conditions, not text ones (Q-049)', async () => {
+    useGridStore.setState({ columns: [makeColumn(1, 'Name'), makeColumn(2, 'Files', 'file_count'), makeColumn(3, 'Job no.', 'auto_number')] })
+    await renderSettled(<FilterControls />)
+    fireEvent.click(screen.getByRole('button', { name: /^Filter/ }))
+    await screen.findByRole('dialog', { name: 'Add filter condition' })
+    const conditions = () => [...(screen.getByLabelText('Condition') as HTMLSelectElement).options].map(o => o.value)
+    fireEvent.change(screen.getByLabelText('Column'), { target: { value: '2' } })
+    expect(conditions()).toEqual(['gt', 'lt', 'equals', 'not_equals'])
+    fireEvent.change(screen.getByLabelText('Column'), { target: { value: '3' } })
+    expect(conditions()).toEqual(expect.arrayContaining(['gt', 'lt', 'contains']))
+    expect(conditions()).not.toContain('starts_with')
+  })
+
   it('has no Overdue button without deadlines', async () => {
     useGridStore.setState({ columns: [makeColumn(1, 'Name')] })
     await renderSettled(<FilterControls />)

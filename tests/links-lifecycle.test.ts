@@ -48,6 +48,18 @@ describe('duplicating a record', () => {
 })
 
 describe('moving a record to another list', () => {
+  it('leaves records in the Trash out of the warning, and still removes their links (Q-084)', () => {
+    const o = owner()
+    addLink(o.id, vehicles.rowIds[0]!, customers.rowIds[0]!)
+    addLink(o.id, vehicles.rowIds[1]!, customers.rowIds[0]!)
+    t.db.prepare("UPDATE rows SET deleted_at = datetime('now'), is_active = 0 WHERE id = ?").run(vehicles.rowIds[1])
+    expect(linksThatWontFit(customers.rowIds[0]!, jobs.gridId)).toEqual(['Vehicles: 2017 Civic'])
+    t.db.prepare('UPDATE grids SET is_active = 0 WHERE id = ?').run(vehicles.gridId)
+    expect(linksThatWontFit(customers.rowIds[0]!, jobs.gridId)).toEqual([])
+    expect(dropLinksThatWontFit(customers.rowIds[0]!, jobs.gridId)).toBe(2)
+    expect(countLinks(o.id)).toBe(0)
+  })
+
   it('warns about and removes links that do not apply there', () => {
     const o = owner()
     addLink(o.id, vehicles.rowIds[0]!, customers.rowIds[0]!)

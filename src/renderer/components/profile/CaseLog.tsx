@@ -15,6 +15,7 @@ import { NoteFormatsDialog } from './NoteFormatsDialog'
 import { useNoteTracking } from '../../hooks/useNoteTracking'
 import { CaseLogEntry } from './CaseLogEntry'
 import { expandVariables, detectTrigger, matchSnippets } from '../../utils/snippetExpander'
+import { useSettingsStore } from '../../stores/settingsStore'
 import { useUndoStore } from '../../stores/undoStore'
 import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { isMod, modHelp } from '../../utils/keys'
@@ -25,7 +26,7 @@ import { NoteFiles } from './NoteFiles'
 import type { Attachment } from '../../../shared/attachments'
 import { getNoteDraft, setNoteDraft } from '../../utils/noteDrafts'
 import type { NoteDateUpdate, NoteDateRevert } from '../../../shared/types'
-import { localDateString, parseDbTimestamp } from '../../../shared/dates'
+import { localDateString, parseDbTimestamp, ymdLocalDate } from '../../../shared/dates'
 import { friendlyError } from '../../utils/friendlyError'
 
 /** Show dates the main process changed (notes that update deadline columns) without a reload. */
@@ -49,8 +50,7 @@ function byHappened(a: CaseLogEntryType, b: CaseLogEntryType): number {
 
 /** "Oct 31" for a YYYY-MM-DD day */
 function shortDay(day: string): string {
-  const [y = NaN, m = NaN, d = NaN] = day.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return ymdLocalDate(day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 /** "Last Visit to Oct 31" for the toast after dates follow a note */
@@ -103,6 +103,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
   const [offer, setOffer] = useState<'timeTracking' | 'mileage' | null>(null)
   const snippetsOn = useFeature('snippets')
   const { t } = useVocab()
+  // {today} and {now} follow Settings → Date format and Clock (A21a-09)
+  const snippetFormats = { dateFormat: useSettingsStore(s => s.dateFormat), clockFormat: useSettingsStore(s => s.clockFormat) }
   const [entries, setEntries] = useState<CaseLogEntryType[]>([])
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -335,7 +337,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     const match = detectTrigger(before)
     if (!match) return
 
-    const expanded = expandVariables(snippet.expansion, clientName)
+    const expanded = expandVariables(snippet.expansion, clientName, snippetFormats)
     const newVal = before.slice(0, -match.trigger.length) + expanded + after
     setNewContent(newVal)
     setSnippetMenu(null)

@@ -3,7 +3,7 @@
  * Uses mocked external dependencies (backup, export, import, templates) to test validation and routing.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
-import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
+import { setDbWords, createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
 import { mkdtempSync, writeFileSync, mkdirSync, readdirSync, readFileSync } from 'fs'
 import { join } from 'path'
@@ -74,6 +74,7 @@ vi.mock('../src/main/auth', () => ({
   isPasswordSetup: () => true,
   getDbKey: () => Buffer.from('a'.repeat(64), 'hex'),
   getAutoLockMinutes: () => 30,
+  lockApp: vi.fn(),
 }))
 
 vi.mock('../src/main/backup', () => ({
@@ -144,7 +145,7 @@ vi.mock('../src/main/file-association', () => ({
   isPulseFileTypeRegistered: () => false,
 }))
 
-const fakeEvent = { senderFrame: { parent: null } }
+const fakeEvent = { senderFrame: { parent: null }, sender: { send: vi.fn() } }
 
 async function invoke(channel: string, ...args: unknown[]): Promise<unknown> {
   const handler = handlers.get(channel)
@@ -292,6 +293,16 @@ describe('BACKUP_VALIDATE_DESTINATION', () => {
     expect(result.ok).toBe(true)
     expect(result.data.valid).toBe(false)
   })
+
+  it('every "can\'t use this folder" answer is a plain sentence the screen can show (Q-054)', async () => {
+    const { isTechnicalError } = await import('../src/renderer/utils/friendlyError')
+    for (const dir of ['', '/nonexistent/path/to/dir', '/etc']) {
+      const result = await invoke(IPC.BACKUP_VALIDATE_DESTINATION, dir) as { ok: true; data: { valid: boolean; error?: string } }
+      expect(result.data.valid).toBe(false)
+      expect(isTechnicalError(result.data.error ?? '')).toBe(false)
+      expect(result.data.error).toMatch(/\.$/)
+    }
+  })
 })
 
 describe('IMPORT_UNDO (audit X-19)', () => {
@@ -328,12 +339,19 @@ describe('BACKUP_RESTORE_OTHER', () => {
     expect(result.error).toMatch(/doesn't match this backup/)
   })
 
-  it('says so in plain words when the restored data then fails to open (S4)', async () => {
+  it('says which of the three open failures it was when the restored data then fails to open, keeps no key and locks (S4, F-031)', async () => {
+    const { lockApp } = await import('../src/main/auth')
+    const { DatabaseOpenError } = await import('../src/main/database')
+    vi.mocked(lockApp).mockClear(); fakeEvent.sender.send.mockClear()
     backupMock.restoreOther = vi.fn(async () => ({ safetyPath: '/b/pulse-pre-restore-x.pulse-backup', schemaVersion: 43 }))
     backupMock.openError = new Error('SQLITE_CORRUPT: database disk image is malformed')
     const result = await invoke(IPC.BACKUP_RESTORE_OTHER, path, 'right', 'A-Strong-New-Pass-42', '') as { ok: false; error: string }
-    expect(result.ok).toBe(false)
-    expect(result.error).toMatch(/restored, but Pulse couldn't open it/)
+    // The form turns the code into plain words (tests/renderer/RestoreFromBackupForm.test.tsx)
+    expect(result).toEqual({ ok: false, error: 'DB_OPEN_FAILED:unreadable' })
+    expect(lockApp).toHaveBeenCalled()
+    expect(fakeEvent.sender.send).toHaveBeenCalledWith(IPC.AUTH_FORCE_LOCK)
+    backupMock.openError = new DatabaseOpenError('migration', 'Migration to version 48 failed')
+    expect(await invoke(IPC.BACKUP_RESTORE_OTHER, path, 'right', 'A-Strong-New-Pass-42', '')).toEqual({ ok: false, error: 'DB_OPEN_FAILED:migration' })
   })
 
   it('returns the safety copy path', async () => {
@@ -478,6 +496,21 @@ describe('EXPORT_PDF_CONTACT', () => {
     expect(result.ok).toBe(true)
     expect(result.data).toBeNull()
   })
+
+  it('saves to a network folder picked in its own dialog, and the choice vouches only for that folder (F-033)', async () => {
+    const electron = await import('electron')
+    const { clearUserChosenPaths, assertSafePath } = await import('../src/main/ipc/ipc-utils')
+    clearUserChosenPaths()
+    const share = '/run/user/1000/gvfs/smb-share:server=nas,share=team/out.pdf'
+    expect(() => assertSafePath(share)).toThrow()
+    const spy = vi.spyOn(electron.dialog, 'showSaveDialog').mockResolvedValueOnce({ canceled: false, filePath: share })
+    const result = await invoke(IPC.EXPORT_PDF_CONTACT, 1) as { ok: boolean; data: string }
+    expect(result).toEqual({ ok: true, data: share })
+    // A path no dialog returned is still refused
+    expect(() => assertSafePath('/run/user/1000/gvfs/other-share/x.pdf')).toThrow()
+    spy.mockRestore()
+    clearUserChosenPaths()
+  })
 })
 
 describe('EXPORT_PDF_DIRECTORY', () => {
@@ -485,6 +518,35 @@ describe('EXPORT_PDF_DIRECTORY', () => {
     const result = await invoke(IPC.EXPORT_PDF_DIRECTORY, {}) as { ok: true; data: null }
     expect(result.ok).toBe(true)
     expect(result.data).toBeNull()
+  })
+})
+
+describe('save dialogs name files with the workspace words (A28-14)', () => {
+  beforeAll(async () => {
+    const { registerComplianceHandlers } = await import('../src/main/ipc/ipc-compliance')
+    registerComplianceHandlers()
+  })
+
+  async function dialogFor(channel: string, ...args: unknown[]): Promise<{ title?: string; defaultPath?: string }> {
+    const electron = await import('electron')
+    const spy = vi.spyOn(electron.dialog, 'showSaveDialog').mockResolvedValueOnce({ canceled: true, filePath: '' })
+    await invoke(channel, ...args)
+    const opts = spy.mock.calls.at(-1)!.at(-1) as { title?: string; defaultPath?: string }
+    spy.mockRestore()
+    return { title: opts.title, defaultPath: opts.defaultPath?.split(/[\\/]/).pop() }
+  }
+
+  it('under the human-services words', async () => {
+    setDbWords(testDb.db)
+    expect(await dialogFor(IPC.EXPORT_PDF_DIRECTORY, {})).toEqual({ title: 'Export Provider directory as PDF', defaultPath: 'provider-directory.pdf' })
+    expect(await dialogFor(IPC.EXPORT_PDF_CONTACT, 2)).toEqual({ title: 'Export Provider as PDF', defaultPath: 'provider-profile.pdf' })
+    expect(await dialogFor(IPC.EXPORT_PDF_CONTACT, 1)).toEqual({ title: 'Export Provider as PDF', defaultPath: 'Dr. Smith-profile.pdf' })
+    expect(await dialogFor(IPC.EXPORT_COMPLIANCE_SUMMARY, '2026-10')).toEqual({ title: 'Save Contact requirements summary', defaultPath: 'contact-requirements-summary-2026-10.pdf' })
+  })
+
+  it('under the generic words', async () => {
+    expect(await dialogFor(IPC.EXPORT_PDF_DIRECTORY, {})).toEqual({ title: 'Export Contact directory as PDF', defaultPath: 'contact-directory.pdf' })
+    expect(await dialogFor(IPC.EXPORT_COMPLIANCE_SUMMARY, '2026-10')).toEqual({ title: 'Save Requirements summary', defaultPath: 'requirements-summary-2026-10.pdf' })
   })
 })
 
@@ -532,6 +594,8 @@ describe('EXPORT_ALL_CSV', () => {
     expect(calls.every(c => c.includeHidden)).toBe(true)
     // Archived records come out too (S4)
     expect(calls.every(c => (c as { includeArchived?: boolean }).includeArchived)).toBe(true)
+    // Deadline columns carry their stored date too, so Import can bring them back (P-002)
+    expect(calls.every(c => (c as { storedDeadlineDates?: boolean }).storedDeadlineDates)).toBe(true)
     expect(readdirSync(dir)).toEqual(['notes.csv'])
     const notes = readFileSync(join(dir, 'notes.csv'), 'utf-8')
     expect(notes).toContain('José Núñez')
@@ -587,6 +651,14 @@ describe('IMPORT_FILE', () => {
   it('rejects invalid grid ID', async () => {
     const result = await invoke(IPC.IMPORT_FILE, { gridId: 0, filePath: '/tmp/import.csv', columnMappings: [] }) as { ok: false }
     expect(result.ok).toBe(false)
+  })
+
+  it('checks every option at the edge (Q-056)', async () => {
+    const base = { gridId: 1, filePath: '/tmp/import.csv', columnMappings: [] }
+    for (const bad of [null, 'x', { ...base, duplicateStrategy: 'everything' }, { ...base, duplicateColumnId: -1 },
+      { ...base, headerRowIndex: 1.5 }, { ...base, headerRowIndex: 100 }, { ...base, cleanData: 'yes' }, { ...base, skipHiddenRows: 1 }]) {
+      expect(await invoke(IPC.IMPORT_FILE, bad)).toEqual({ ok: false, error: 'Invalid import options' })
+    }
   })
 
   it('rejects > 200 column mappings', async () => {
@@ -729,7 +801,9 @@ describe('LETTER_TEMPLATE_GENERATE', () => {
   })
 
   it('returns generated letter text on valid IDs', async () => {
-    const result = await invoke(IPC.LETTER_TEMPLATE_GENERATE, 1, 1, 1) as { ok: true; data: string }
+    // A record that exists and isn't in the Trash (letters for any other are refused, A16-06)
+    const { gridId, rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    const result = await invoke(IPC.LETTER_TEMPLATE_GENERATE, 1, rowIds[0], gridId) as { ok: true; data: string }
     expect(result.ok).toBe(true)
     expect(typeof result.data).toBe('string')
   })

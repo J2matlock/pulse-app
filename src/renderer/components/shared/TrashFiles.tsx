@@ -9,6 +9,7 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import { useVocab } from '../../hooks/useVocab'
 import { ConfirmDialog } from './ConfirmDialog'
 import { friendlyError } from '../../utils/friendlyError'
+import { useUndoStore } from '../../stores/undoStore'
 
 type TrashedFile = Attachment & { record_name: string | null }
 
@@ -63,7 +64,8 @@ export function TrashFiles({ reloadKey = 0, onCountChange }: Props = {}): React.
         onConfirm={async () => {
           if (purge) {
             const r = await safeInvoke(IPC.ATTACHMENT_PURGE, purge.id)
-            if (r.ok) void load(); else toast.error(friendlyError(r.error))
+            // An undo step bringing the file back would fail from now on, and block older steps (Q-045)
+            if (r.ok) { useUndoStore.getState().clear(); void load() } else toast.error(friendlyError(r.error))
           }
           setPurge(null)
         }}

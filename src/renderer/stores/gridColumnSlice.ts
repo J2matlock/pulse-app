@@ -16,6 +16,8 @@ export interface PendingColumnTypeChange {
 }
 
 export interface ColumnSliceState {
+  columns: Column[]
+  hiddenColumns: Column[]
   /** numberExisting: for an auto-number column, also number the records already in the list */
   /** Returns the new column's id, or null if it couldn't be added */
   addColumn: (name: string, columnType: string, config?: string, opts?: { numberExisting?: boolean }) => Promise<number | null>
@@ -48,6 +50,8 @@ type Set = (partial: Partial<GridState> | ((s: GridState) => Partial<GridState>)
 type Get = () => GridState
 
 export const createColumnSlice = (set: Set, get: Get) => ({
+  columns: [] as Column[],
+  hiddenColumns: [] as Column[],
   pendingColumnTypeChange: null as PendingColumnTypeChange | null,
 
   confirmColumnTypeChange: async () => {

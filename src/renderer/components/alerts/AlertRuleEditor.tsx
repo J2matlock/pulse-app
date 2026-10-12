@@ -61,8 +61,9 @@ const COLOR_ROWS: Array<{ label: string; colors: Array<{ hex: string; name: stri
 
 // Special animated options (CSS class, not hex)
 const PULSE_OPTIONS = [
-  { value: 'alert-pulse',      label: 'Pulsing red',      hex: '#ef4444' },
-  { value: 'alert-pulse-dark', label: 'Dark pulsing red', hex: '#dc2626' },
+  // hex matches each class's own colour in globals.css, so the swatch previews it
+  { value: 'alert-pulse',      label: 'Pulsing red',      hex: '#dc2626' },
+  { value: 'alert-pulse-dark', label: 'Dark pulsing red', hex: '#b91c1c' },
 ]
 
 // Preset intervals — covers the most common social-work/care cycles.
@@ -149,13 +150,15 @@ function ColorPicker({
               key={p.value}
               type="button"
               title={p.label}
+              aria-label={p.label}
+              aria-pressed={value === p.value}
               disabled={disabled}
               onClick={() => onChange(p.value)}
               className={`hit-44 w-8 h-8 rounded-lg border-2 transition-all focus:outline-hidden focus-visible:ring-3 focus-visible:ring-offset-1 focus-visible:ring-blue-500 disabled:cursor-not-allowed ${
                 value === p.value
                   ? 'border-slate-800 dark:border-white scale-110 shadow-lg'
                   : 'border-transparent hover:scale-110 hover:border-slate-400 hover:shadow-md'
-              } alert-pulse`}
+              } ${p.value}`}
               style={{ backgroundColor: p.hex }}
             />
           ))}

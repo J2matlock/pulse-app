@@ -4,10 +4,13 @@
  * with no zone: 'YYYY-MM-DDTHH:MM', or 'YYYY-MM-DD' when all-day.
  */
 import { z } from 'zod'
+import { textLength } from './textLength'
 import { dateToYmd, addDays as addYmdDays } from './ymd'
+import { LIVE_GRID, LIVE_ROW, NOT_TRASHED_ROW } from './liveRecords'
+import { shortDate, ymdLocalDate } from './dates'
 
-export type ApptStatus = 'scheduled' | 'done' | 'cancelled' | 'no_show'
-export const APPT_STATUSES: readonly ApptStatus[] = ['scheduled', 'done', 'cancelled', 'no_show']
+export const APPT_STATUSES = ['scheduled', 'done', 'cancelled', 'no_show'] as const
+export type ApptStatus = typeof APPT_STATUSES[number]
 export type EditScope = 'one' | 'following' | 'all'
 
 export interface Appointment {
@@ -35,20 +38,21 @@ export interface Appointment {
 }
 
 /**
- * Scheduled appointments of an archived record, or of a record in a list
- * that's gone, aren't upcoming work any more; what already happened
- * (done, no-show, cancelled) still shows. Needs `r` (rows) and `g` (grids).
+ * Scheduled appointments of an archived record aren't upcoming work any
+ * more; what already happened (done, no-show, cancelled) still shows.
+ * Nothing shows for a record in the Trash or a record of a list in the
+ * Trash (A16-04). Needs `r` (rows) and `g` (grids).
  */
-export const OPEN_RECORD_SQL = "(a.row_id IS NULL OR (r.deleted_at IS NULL AND (a.status != 'scheduled' OR (r.is_active = 1 AND g.is_active = 1))))"
+export const OPEN_RECORD_SQL = `(a.row_id IS NULL OR (${NOT_TRASHED_ROW} AND ${LIVE_GRID} AND (a.status != 'scheduled' OR ${LIVE_ROW})))`
 
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 export const TIME_RE = /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/
 
-const optionalText = (max: number) => z.string().trim().max(max).nullable().optional().transform(v => (v ? v : null))
+const optionalText = (max: number) => z.string().trim().check(textLength({ max })).nullable().optional().transform(v => (v ? v : null))
 
 export const apptInputSchema = z.object({
   row_id: z.number().int().positive().nullable().optional(),
-  title: z.string().trim().min(1).max(200),
+  title: z.string().trim().check(textLength({ min: 1, max: 200 })),
   start_at: z.string(),
   end_at: z.string().nullable().optional(),
   all_day: z.boolean().optional(),
@@ -66,7 +70,7 @@ export type ApptInput = z.input<typeof apptInputSchema>
 
 export const apptPatchSchema = z.object({
   row_id: z.number().int().positive().nullable().optional(),
-  title: z.string().trim().min(1).max(200).optional(),
+  title: z.string().trim().check(textLength({ min: 1, max: 200 })).optional(),
   start_at: z.string().optional(),
   end_at: z.string().nullable().optional(),
   all_day: z.boolean().optional(),
@@ -95,6 +99,11 @@ export const seriesRuleSchema = z.object({
   count: z.number().int().min(1).max(500).optional(),
   /** Stop on the date in this column of the record ("until the authorization ends") */
   untilColumnId: z.number().int().positive().optional(),
+  /**
+   * Monthly: the day of the month it falls on, when that isn't the first date's day
+   * (a "This and following" edit of a Jan 31 series made on Feb 28 keeps the 31st).
+   */
+  monthDay: z.number().int().min(1).max(31).optional(),
 }).strict()
 export type SeriesRule = z.infer<typeof seriesRuleSchema>
 
@@ -110,13 +119,14 @@ const pad = (n: number) => String(n).padStart(2, '0')
 export const ymd = dateToYmd
 
 export function parseYmd(s: string): Date {
-  const [y, m, d] = s.slice(0, 10).split('-').map(Number) as [number, number, number]
-  return new Date(y, m - 1, d)
+  return ymdLocalDate(s.slice(0, 10))
 }
 
+/** The same day N months on, or that month's last day when it's shorter (Jan 31 + 1 = Feb 28, A21b-07) */
 export function addMonths(date: string, months: number): string {
   const d = parseYmd(date)
-  return ymd(new Date(d.getFullYear(), d.getMonth() + months, d.getDate()))
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + months + 1, 0).getDate()
+  return ymd(new Date(d.getFullYear(), d.getMonth() + months, Math.min(d.getDate(), lastDay)))
 }
 
 export function addDays(date: string, days: number): string {
@@ -185,7 +195,7 @@ export function seriesDates(rule: SeriesRule, firstStart: string, through: strin
     for (let i = 0; out.length < max; i++) {
       const target = new Date(f.getFullYear(), f.getMonth() + i * rule.interval, 1)
       const last = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate()
-      const d = ymd(new Date(target.getFullYear(), target.getMonth(), Math.min(f.getDate(), last)))
+      const d = ymd(new Date(target.getFullYear(), target.getMonth(), Math.min(rule.monthDay ?? f.getDate(), last)))
       if (d > end) break
       out.push(d)
     }
@@ -212,7 +222,7 @@ export function describeRule(rule: SeriesRule): string {
   let s = rule.interval === 1 ? `Every ${unit}` : `Every ${rule.interval} ${unit}s`
   if (rule.freq === 'weekly' && rule.byDay?.length) s += ` on ${[...rule.byDay].sort().map(d => DAYS[d]).join(', ')}`
   if (rule.count) s += ` · ${rule.count} ${rule.count === 1 ? 'time' : 'times'}`
-  else if (rule.until) s += ` · until ${parseYmd(rule.until).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+  else if (rule.until) s += ` · until ${shortDate(parseYmd(rule.until))}`
   else if (rule.untilColumnId) s += ' · until a date in a column'
   return s
 }

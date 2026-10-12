@@ -95,7 +95,7 @@ vi.mock('../../../../src/renderer/components/shared/ConfirmDialog', () => ({
 }))
 
 import { GridHeaderRow, type GridHeaderRowProps } from '../../../../src/renderer/components/grid/GridHeaderRow'
-import type { GridRow, Column } from '../../../../src/shared/types'
+import type { Column } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
 
 function makeColumn(id: number, name: string): Column {
@@ -117,7 +117,7 @@ function makeHeader(col: Column) {
       getIsResizing: () => false,
     },
     getResizeHandler: () => vi.fn(),
-  } as unknown as import('@tanstack/react-table').Header<GridRow, unknown>
+  } as unknown as import('../../../../src/renderer/components/grid/gridTable').GridTableHeader
 }
 
 function makeProps(overrides: Partial<GridHeaderRowProps> = {}): GridHeaderRowProps {

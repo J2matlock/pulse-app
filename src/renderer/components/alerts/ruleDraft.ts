@@ -8,6 +8,7 @@ import {
   type RuleKind, type Condition, type RelativeConfig, type CalendarConfig, type MeterConfig, type QuotaConfig, type SequenceConfig,
 } from '../../../shared/deadlineEngine'
 import { wordNow } from '../../utils/vocab'
+import { unhandledCase } from '../../../shared/assertNever'
 
 export type OffsetUnit = 'days' | 'months' | 'businessDays'
 export type Anchor = number | 'self' | null
@@ -193,6 +194,11 @@ export function draftToConfig(d: RuleDraft): Built<object | null> {
       }
       break
     }
+    default:
+      // A kind added to RuleKind without a case fails typecheck. A kind this
+      // version doesn't know (a rule from a newer backup) keeps no settings,
+      // as before; saving it is refused by the main process.
+      unhandledCase(d.kind)
   }
   const checked = parseRuleConfig(d.kind, raw)
   return checked.ok ? { ok: true, value: checked.config as object | null } : { ok: false, error: checked.error }

@@ -74,11 +74,11 @@ function makeRow(id: number): GridRow {
 function makeTanstackRow(original: GridRow) {
   return {
     original,
-    getVisibleCells: () => [{
+    getAllCells: () => [{
       id: 'col_1',
       column: { id: 'col_1' },
     }],
-  } as unknown as import('@tanstack/react-table').Row<GridRow>
+  } as unknown as import('../../../../src/renderer/components/grid/gridTable').GridTableRow
 }
 
 function makeProps(overrides: Partial<SortableRowProps> = {}): SortableRowProps {
@@ -134,6 +134,16 @@ describe('SortableRow', () => {
   it('renders without crashing', () => {
     const { container } = render(<SortableRow {...makeProps()} />)
     expect(container.querySelector('[role="row"]')).toBeTruthy()
+  })
+
+  it('the row and the open/star column use the grid border colour, like the data cells (Q-106)', () => {
+    const { container } = render(<SortableRow {...makeProps()} />)
+    const row = container.querySelector('[role="row"]')!
+    const profileCell = container.querySelector('[aria-colindex="2"]')!
+    for (const el of [row, profileCell]) {
+      expect(el.className).toContain('border-[var(--border-grid)]')
+      expect(el.className).not.toMatch(/border-slate-200|dark:border-slate-700/)
+    }
   })
 
   it('renders select row button', () => {
@@ -241,7 +251,7 @@ describe('SortableRow', () => {
       const name = makeColumn(1, 'Name')
       const review = { ...makeColumn(2, 'Annual review', 'date'), config: JSON.stringify(withRule ? { alert_rule_id: 5 } : {}) }
       const row = { ...makeRow(1), col_2: value } as unknown as GridRow
-      const tanRow = { original: row, getVisibleCells: () => [{ id: 'col_1', column: { id: 'col_1' } }, { id: 'col_2', column: { id: 'col_2' } }] } as unknown as import('@tanstack/react-table').Row<GridRow>
+      const tanRow = { original: row, getAllCells: () => [{ id: 'col_1', column: { id: 'col_1' } }, { id: 'col_2', column: { id: 'col_2' } }] } as unknown as import('../../../../src/renderer/components/grid/gridTable').GridTableRow
       return makeProps({
         row: tanRow,
         columns: [name, review],

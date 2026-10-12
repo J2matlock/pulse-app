@@ -6,6 +6,7 @@
  * See plans/generalization/W01-workspace.md §2.
  */
 import { z } from 'zod'
+import { textLength } from './textLength'
 
 export type VocabKey =
   | 'record' | 'list' | 'activity' | 'activityLog' | 'contactDirectory' | 'contact'
@@ -57,7 +58,7 @@ export const HUMAN_SERVICES_VOCAB: Vocab = {
 
 export const VOCAB_WORD_MAX = 40
 
-const wordSchema = z.string().trim().min(1).max(VOCAB_WORD_MAX).regex(/^[^<>{}]+$/, 'Words cannot contain < > { }')
+const wordSchema = z.string().trim().check(textLength({ min: 1, max: VOCAB_WORD_MAX })).regex(/^[^<>{}]+$/, 'Words cannot contain < > { }')
 const termSchema = z.object({
   one: wordSchema,
   many: wordSchema,

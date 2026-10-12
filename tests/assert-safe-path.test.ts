@@ -197,6 +197,22 @@ describe('assertSafePath', () => {
     expect(refusalReason('/home/testuser/.ssh/id_ed25519')).toBe('credential folder')
   })
 
+  it.each([
+    '/home/testuser/.git-credentials', '/home/testuser/.netrc', '/home/testuser/.config/gh/hosts.yml', '/home/testuser/.config/gcloud/credentials.db',
+    '/home/testuser/.kube/config', '/home/testuser/.docker/config.json', '/home/testuser/.password-store/bank.gpg',
+    '/home/testuser/.local/share/keyrings/login.keyring', '/home/testuser/.mozilla/firefox/x.default/logins.json',
+    '/home/testuser/.config/google-chrome/Default/Login Data', '/home/testuser/Library/Keychains/login.keychain-db',
+  ])('refuses credential and browser-profile files like %s, even when picked in a dialog (F-035)', (p) => {
+    rememberUserChosenPaths(['/home/testuser'])
+    expect(refusalReason(p)).toBe('credential folder')
+  })
+
+  it('still allows Pulse\'s own data folder and other dot-folders in home (F-035)', () => {
+    expect(refusalReason('/home/testuser/.config/Pulse/backups/x.db')).toBeNull()
+    expect(refusalReason('/home/testuser/.local/share/x/out.pdf')).toBeNull()
+    expect(refusalReason('/home/testuser/.docker/notes.pdf')).toBeNull()
+  })
+
   it('ignores relative and null-byte entries when remembering dialog choices', () => {
     rememberUserChosenPaths(['relative/dir', '/srv/x\0y', undefined, null, ''])
     expect(refusalReason('/srv/x')).toBe('outside allowed folders')
@@ -232,6 +248,12 @@ describe('assertSafePath', () => {
       expect(refusalReason(p)).toBeNull()
     })
 
+    it('refuses the Windows credential store and browser profiles (F-035)', () => {
+      expect(refusalReason('C:\\Users\\testuser\\AppData\\Roaming\\Microsoft\\Credentials\\ABC')).toBe('credential folder')
+      expect(refusalReason('C:\\Users\\testuser\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Login Data')).toBe('credential folder')
+      expect(refusalReason('C:\\Users\\testuser\\AppData\\Roaming\\Pulse\\backups\\x.db')).toBeNull()
+    })
+
     it.each([
       ['C:\\Windows\\System32\\drivers\\etc\\hosts', 'system folder'],
       ['C:\\Program Files\\Pulse\\app.asar', 'system folder'],
@@ -241,6 +263,45 @@ describe('assertSafePath', () => {
       ['\\\\.\\PhysicalDrive0', 'windows device path'],
     ])('refuses %s', (p, reason) => {
       expect(refusalReason(p)).toBe(reason)
+    })
+  })
+
+  // ── macOS: the default volume ignores case, so ~/library/keychains is ~/Library/Keychains (R2-01)
+
+  describe('on macOS', () => {
+    const realPlatform = process.platform
+    beforeEach(() => {
+      Object.defineProperty(process, 'platform', { value: 'darwin' })
+      mockGetPath.mockImplementation((name: string) => {
+        switch (name) {
+          case 'userData': return '/Users/testuser/Library/Application Support/Pulse'
+          case 'home': return '/Users/testuser'
+          case 'documents': return '/Users/testuser/Documents'
+          case 'desktop': return '/Users/testuser/Desktop'
+          case 'downloads': return '/Users/testuser/Downloads'
+          case 'temp': return '/private/var/folders/xy/T'
+          default: return '/Users/testuser'
+        }
+      })
+    })
+    afterEach(() => { Object.defineProperty(process, 'platform', { value: realPlatform }) })
+
+    it.each([
+      '/Users/testuser/library/keychains/login.keychain-db',
+      '/Users/testuser/LIBRARY/Cookies/Cookies.binarycookies',
+      '/Users/testuser/Library/application support/google/chrome/Default/Login Data',
+      '/Users/testuser/.SSH/id_ed25519',
+      '/users/TESTUSER/Library/Keychains/login.keychain-db',
+    ])('refuses %s whatever its letter case', (p) => {
+      rememberUserChosenPaths(['/Users/testuser'])
+      expect(refusalReason(p)).toBe('credential folder')
+    })
+
+    it('refuses system folders whatever their letter case, and still allows the person\'s own files', () => {
+      expect(refusalReason('/ETC/hosts')).toBe('system folder')
+      expect(refusalReason('/system/Library/x')).toBe('system folder')
+      expect(refusalReason('/Users/testuser/Documents/export.csv')).toBeNull()
+      expect(refusalReason('/Users/testuser/Library/Application Support/Pulse/backups/x.db')).toBeNull()
     })
   })
 })

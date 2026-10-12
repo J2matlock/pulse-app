@@ -2,7 +2,7 @@
  * IPC Case Log Handler Tests — tests all CASE_LOG_* and SCRAP_NOTE_* handlers.
  */
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'vitest'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
 import { localDateString } from '../src/shared/dates'
@@ -88,6 +88,15 @@ afterEach(() => { cleanupTestDb(testDb) })
 async function createEntry(content = 'Test note', logType = 'note', followUp: string | null = null) {
   return await invoke(IPC.CASE_LOG_CREATE, rowId, content, logType, followUp) as any
 }
+
+describe('CASE_LOG_GET paging values (Q-056)', () => {
+  it('a limit or offset that is not a whole number falls back to the defaults', async () => {
+    for (const [limit, offset] of [[NaN, NaN], [1.5, 2.5], ['10', '0'], [Infinity, -Infinity]]) {
+      const r = await invoke(IPC.CASE_LOG_GET, rowId, false, false, limit, offset) as any
+      expect(r.ok).toBe(true)
+    }
+  })
+})
 
 describe('CASE_LOG_GET', () => {
   it('returns empty array for row with no entries', async () => {

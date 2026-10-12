@@ -1,6 +1,17 @@
 import React from 'react'
 import { CheckCircle2 } from 'lucide-react'
 import type { FocusTask } from './types'
+import { classifyDeadline, daysAwayLabel, type DueTier } from '../../../shared/deadlineTiles'
+import { shortYmd } from '../../../shared/dates'
+
+// Focus Mode is always dark
+const FOCUS_TIER_TEXT: Record<DueTier, string> = {
+  overdue: 'text-red-400',
+  today: 'text-red-400',
+  'this-week': 'text-orange-400',
+  'this-month': 'text-yellow-400',
+  future: 'text-slate-500',
+}
 
 export const TaskFocusItem = React.memo(function TaskFocusItem({ task, celebrating, onComplete }: {
   task: FocusTask
@@ -13,21 +24,12 @@ export const TaskFocusItem = React.memo(function TaskFocusItem({ task, celebrati
     task.priority === 'normal' ? 'bg-blue-400' : 'bg-slate-500'
 
   const dueDateFormatted = task.due_date
-    ? (() => { const [y = NaN, m = NaN, d = NaN] = task.due_date!.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) })()
+    ? shortYmd(task.due_date!)
     : null
 
-  const urgencyLabel =
-    task.daysUntil < 0   ? `${Math.abs(task.daysUntil)} day${Math.abs(task.daysUntil) === 1 ? '' : 's'} overdue` :
-    task.daysUntil === 0 ? 'Due today' :
-    task.daysUntil === 9999 ? null :
-    `${task.daysUntil} day${task.daysUntil === 1 ? '' : 's'}`
-
-  const urgencyColor =
-    task.daysUntil < 0    ? 'text-red-400' :
-    task.daysUntil === 0  ? 'text-red-400' :
-    task.daysUntil <= 7   ? 'text-orange-400' :
-    task.daysUntil <= 30  ? 'text-yellow-400' :
-    'text-slate-500'
+  // 9999 stands for "no due date"
+  const urgencyLabel = task.daysUntil === 9999 ? null : daysAwayLabel(task.daysUntil)
+  const urgencyColor = FOCUS_TIER_TEXT[classifyDeadline(task.daysUntil)]
 
   return (
     <div

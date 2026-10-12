@@ -21,17 +21,20 @@ import {
   loadGridData,
   pickColumns,
   showDeadlinesAsText,
+  savedDateFormat,
+  lineHeight,
 } from './export-shared'
 import type { SupervisorReportOptions } from './export-shared'
-import { parseDbTimestamp } from '../shared/dates'
+import { parseDbTimestamp, shortDate } from '../shared/dates'
 import { toRuleInterval } from '../shared/ruleInterval'
 import { localDateString } from '../shared/dates'
 import { toYmd, ymdToDate } from '../shared/ymd'
-import { evaluate } from '../shared/deadlineEngine'
+import { evaluate, isUsedUp } from '../shared/deadlineEngine'
 import { loadDeadlines } from './deadlines'
 import { PRODUCT_NAME } from '../shared/constants'
 import { vocabFor } from './vocab'
 import { HUMAN_SERVICES_VOCAB, term } from '../shared/vocab'
+import { ARCHIVED_ROW, LIVE_ROW, NOT_TRASHED_ROW, archivedRow, liveRow, notTrashedRow } from '../shared/liveRecords'
 
 export async function exportSupervisorReport(options: SupervisorReportOptions): Promise<void> {
   // Report words follow the list's vocabulary ("Total Active Clients" / "Total Active Vehicles")
@@ -52,24 +55,29 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   const grid = db.prepare('SELECT * FROM grids WHERE id = ?').get(gridId) as Grid & { acuity_enabled?: number }
   // The roster shows what the table shows: deadlines as "Due …", Age and Days-until worked out,
   // linked records by name and file counts, from the same loader as the other exports (AUDIT-036)
-  const { columns: allColumns, rows } = loadGridData(gridId)
+  // Hidden columns too: the dialog offers them, and nothing chosen still means the visible ones (Q-034)
+  const { columns: allColumns, rows } = loadGridData(gridId, { includeHidden: true })
   const selectedColumns = pickColumns(allColumns, columnIds)
   showDeadlinesAsText(gridId, selectedColumns, rows)
+  // Read the date format once, not once per cell
+  const rosterDateFormat = savedDateFormat()
   const rosterText = (format: 'csv' | 'pdf') => rows.map(r => selectedColumns.map(col => {
     const value = (r[`col_${col.id}` as const] as string | null | undefined) ?? null
-    return format === 'csv' ? formatCellValue(value, col.column_type) : cellDisplayText(value, col.column_type)
+    return format === 'csv' ? formatCellValue(value, col.column_type, rosterDateFormat) : cellDisplayText(value, col.column_type, rosterDateFormat)
   }))
 
   // Compute stats
-  const totalActive = (db.prepare('SELECT COUNT(*) as n FROM rows WHERE grid_id = ? AND is_active = 1').get(gridId) as { n: number }).n
+  const totalActive = (db.prepare(`SELECT COUNT(*) as n FROM rows WHERE grid_id = ? AND ${liveRow('')}`).get(gridId) as { n: number }).n
+  // Added in the period, archived since or not, so "N new, M archived" adds up and an
+  // old period's figure doesn't shrink as records are archived later (F-018)
   const newAdded = (db.prepare(`
-    SELECT COUNT(*) as n FROM rows WHERE grid_id = ? AND is_active = 1
+    SELECT COUNT(*) as n FROM rows WHERE grid_id = ? AND ${notTrashedRow('')}
     AND date(created_at, 'localtime') >= ? AND date(created_at, 'localtime') <= ?
   `).get(gridId, dateRange.start, dateRange.end) as { n: number }).n
 
   const archivedClients = (db.prepare(`
     SELECT COUNT(*) as n FROM rows
-    WHERE grid_id = ? AND is_active = 0 AND archived_at IS NOT NULL AND deleted_at IS NULL
+    WHERE grid_id = ? AND ${archivedRow('')}
     AND date(archived_at, 'localtime') >= ? AND date(archived_at, 'localtime') <= ?
   `).get(gridId, dateRange.start, dateRange.end) as { n: number }).n
 
@@ -86,7 +94,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
                date(r.archived_at, 'localtime') AS archived_date,
                COALESCE(r.archived_reason, '') AS reason
         FROM rows r
-        WHERE r.grid_id = ? AND r.is_active = 0 AND r.archived_at IS NOT NULL AND r.deleted_at IS NULL
+        WHERE r.grid_id = ? AND ${ARCHIVED_ROW}
           AND date(r.archived_at, 'localtime') >= ? AND date(r.archived_at, 'localtime') <= ?
         ORDER BY r.archived_at DESC
       `).all(gridId, dateRange.start, dateRange.end) as Array<{ client_name: string; archived_date: string; reason: string }>
@@ -110,7 +118,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
         SELECT r.display_name AS client_name,
                date(r.created_at, 'localtime') AS added_date
         FROM rows r
-        WHERE r.grid_id = ? AND r.is_active = 1
+        WHERE r.grid_id = ? AND ${NOT_TRASHED_ROW}
           AND date(r.created_at, 'localtime') >= ? AND date(r.created_at, 'localtime') <= ?
         ORDER BY r.created_at DESC
       `).all(gridId, dateRange.start, dateRange.end) as Array<{ client_name: string; added_date: string }>
@@ -125,7 +133,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
     acuityBreakdown = db.prepare(`
       SELECT al.name, al.points, al.color, COUNT(r.id) as cnt
       FROM acuity_levels al
-      LEFT JOIN rows r ON r.acuity_level_id = al.id AND r.is_active = 1 AND r.grid_id = ?
+      LEFT JOIN rows r ON r.acuity_level_id = al.id AND ${LIVE_ROW} AND r.grid_id = ?
       WHERE al.grid_id = ?
       GROUP BY al.id ORDER BY al.position
     `).all(gridId, gridId) as AcuityRow[]
@@ -133,35 +141,46 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   }
 
   // Overdue / at-risk deadline snapshot, worked out by the shared engine like the dashboard.
-  // Old-style columns that keep `interval_days` in their own config (no rule) count too.
+  // Old-style columns that keep `interval_days` in their own config (no rule) count too (D-011).
   const todayYmd = localDateString()
   const legacy = (db.prepare(`
-    SELECT c.value, CAST(json_extract(col.config, '$.interval_days') AS INTEGER) AS days
+    SELECT r.id AS row_id, c.value, CAST(json_extract(col.config, '$.interval_days') AS INTEGER) AS days
     FROM cells c
-    JOIN rows r ON r.id = c.row_id AND r.is_active = 1 AND r.grid_id = ?
+    JOIN rows r ON r.id = c.row_id AND ${LIVE_ROW} AND r.grid_id = ?
     JOIN columns col ON col.id = c.column_id AND col.column_type = 'date'
     WHERE c.value IS NOT NULL AND c.value != ''
       AND json_extract(col.config, '$.alert_rule_id') IS NULL AND json_extract(col.config, '$.interval_days') IS NOT NULL
-  `).all(gridId) as Array<{ value: string; days: number | null }>).map(l => evaluate(
+  `).all(gridId) as Array<{ row_id: number; value: string; days: number | null }>).map(l => ({ row_id: l.row_id, ...evaluate(
     { id: 0, kind: 'interval', interval: toRuleInterval(l.days ?? 0), config: null, condition: null, businessDays: false },
     { today: todayYmd, columnDate: l.value },
-  ).daysUntil)
-  const daysUntil = [...loadDeadlines({ gridId, today: todayYmd }).map(d => d.daysUntil), ...legacy].filter((n): n is number => n !== null)
-  const overdueCount = daysUntil.filter(n => n < 0).length
-  const approachingCount = daysUntil.filter(n => n >= 0 && n <= 7).length
+  ) }))
+  // The sentence says "N records", so count records, not deadlines; a used-up quota is
+  // overdue, as on the dashboard and in the briefing (deadlineCounts) (F-017)
+  const overdueRows = new Set<number>(), approachingRows = new Set<number>()
+  for (const d of [...loadDeadlines({ gridId, today: todayYmd }), ...legacy]) {
+    if (d.daysUntil === null) continue
+    if (d.daysUntil < 0 || isUsedUp(d)) overdueRows.add(d.row_id)
+    else if (d.daysUntil <= 7) approachingRows.add(d.row_id)
+  }
+  const overdueCount = overdueRows.size
+  const approachingCount = approachingRows.size
 
   // The period's ends are calendar days; new Date('2026-10-01') would be UTC midnight, a day early in the US
   const periodDate = (s: string) => {
     const ymd = toYmd(s)
-    return (ymd ? ymdToDate(ymd) : parseDbTimestamp(s)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    return shortDate(ymd ? ymdToDate(ymd) : parseDbTimestamp(s))
   }
   const dateRangeLabel = `${periodDate(dateRange.start)} \u2013 ${periodDate(dateRange.end)}`
+  // Deadlines are as they stand today, whatever the period; say so (F-017)
+  const asOf = `as of ${periodDate(todayYmd)}`
+  const recordsWord = (n: number) => `${n} ${term(v, 'record', { count: n })}`
 
   // Build executive summary paragraph
   const summaryParts: string[] = []
-  summaryParts.push(`During ${dateRangeLabel}, ${workerName || `the ${term(v, 'worker')}`} managed ${totalActive} active ${recs} (${newAdded} new, ${archivedClients} archived, ${deletedClients} deleted).`)
-  if (overdueCount > 0) summaryParts.push(`${overdueCount} ${term(v, 'record', { count: overdueCount })} have overdue deadlines.`)
-  if (approachingCount > 0) summaryParts.push(`${approachingCount} approaching within 7 days.`)
+  // The deleted figure counts what is still in the Trash, so it can drop after Empty Trash or a restore (D-012)
+  summaryParts.push(`During ${dateRangeLabel}, ${workerName || `the ${term(v, 'worker')}`} managed ${totalActive} active ${recs} (${newAdded} new, ${archivedClients} archived, ${deletedClients} deleted and still in the Trash).`)
+  if (overdueCount > 0) summaryParts.push(`${asOf.charAt(0).toUpperCase()}${asOf.slice(1)}, ${recordsWord(overdueCount)} ${overdueCount === 1 ? 'has' : 'have'} overdue deadlines.`)
+  if (approachingCount > 0) summaryParts.push(`${approachingCount} ${approachingCount === 1 ? 'has' : 'have'} deadlines within 7 days.`)
   if (acuityEnabled && acuityBreakdown.length > 0) {
     const parts = acuityBreakdown.filter(a => a.cnt > 0).map(a => `${a.cnt} ${a.name} (${a.cnt * a.points} pts)`)
     if (parts.length > 0) summaryParts.push(`${Pri}: ${parts.join(', ')} — Total: ${acuityTotal} pts.`)
@@ -173,6 +192,9 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
 
   if (format === 'csv') {
     // ── CSV report ──
+    // Every date column follows Settings → Date format, like the roster beside it (Q-076)
+    const dateFormat = savedDateFormat()
+    const csvDate = (ymd: string | null | undefined) => formatCellValue(ymd ? ymd.slice(0, 10) : null, 'date', dateFormat)
     const csvSections: unknown[][] = [
       [confidentialBanner],
       [],
@@ -191,31 +213,31 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       [`Total Active ${RecsCap}`, String(totalActive)],
       [`New ${RecsCap} (Period)`, String(newAdded)],
       [`${RecsCap} Archived (Period)`, String(archivedClients)],
-      [`${RecsCap} Deleted (Period)`, String(deletedClients)],
+      [`${RecsCap} Deleted (Period, Still in the Trash)`, String(deletedClients)],
     ]
 
-    if (overdueCount > 0) csvSections.push(['Overdue Deadlines', `${overdueCount} ${term(v, 'record', { count: overdueCount })}`])
-    if (approachingCount > 0) csvSections.push(['Approaching (next 7 days)', `${approachingCount} ${term(v, 'record', { count: approachingCount })}`])
+    if (overdueCount > 0) csvSections.push(['Overdue Deadlines', `${recordsWord(overdueCount)} (${asOf})`])
+    if (approachingCount > 0) csvSections.push(['Approaching (next 7 days)', `${recordsWord(approachingCount)} (${asOf})`])
     if (acuityEnabled && acuityLabel) csvSections.push([`${PriMany} breakdown`, sanitizeCsvFormula(acuityLabel)])
 
     if (archivedClientNames.length > 0) {
       csvSections.push([], [`${RecsCap} Archived`], [`${RecCap} Name`, 'Date Archived', 'Reason'])
       for (const a of archivedClientNames) {
-        csvSections.push([sanitizeCsvFormula(a.client_name), a.archived_date, sanitizeCsvFormula(a.reason)])
+        csvSections.push([sanitizeCsvFormula(a.client_name), csvDate(a.archived_date), sanitizeCsvFormula(a.reason)])
       }
     }
 
     if (deletedClientNames.length > 0) {
-      csvSections.push([], [`${RecsCap} Removed From ${ListCap}`], [`${RecCap} Name`, 'Date Removed'])
+      csvSections.push([], [`${RecsCap} Removed From ${ListCap} (Still in the Trash)`], [`${RecCap} Name`, 'Date Removed'])
       for (const d of deletedClientNames) {
-        csvSections.push([sanitizeCsvFormula(d.client_name), d.deleted_date])
+        csvSections.push([sanitizeCsvFormula(d.client_name), csvDate(d.deleted_date)])
       }
     }
 
     if (newClientNames.length > 0) {
       csvSections.push([], [`New ${RecsCap} Added`], [`${RecCap} Name`, 'Date Added'])
       for (const n of newClientNames) {
-        csvSections.push([sanitizeCsvFormula(n.client_name), n.added_date])
+        csvSections.push([sanitizeCsvFormula(n.client_name), csvDate(n.added_date)])
       }
     }
 
@@ -230,41 +252,31 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       const completedTasks = completedTasksInPeriod(db, gridId, dateRange.start, dateRange.end)
       csvSections.push([], ['Task Summary'], ['Task', 'Priority', 'Category', 'Due Date', 'Completed'])
       for (const t of completedTasks) {
-        csvSections.push([sanitizeCsvFormula(t.title), sanitizeCsvFormula(t.priority), sanitizeCsvFormula(t.category ?? ''), t.due_date ?? '', localDateString(parseDbTimestamp(t.completed_at))])
+        csvSections.push([sanitizeCsvFormula(t.title), sanitizeCsvFormula(t.priority), sanitizeCsvFormula(t.category ?? ''), csvDate(t.due_date), csvDate(localDateString(parseDbTimestamp(t.completed_at)))])
       }
       if (completedTasks.length === 0) csvSections.push(['No tasks completed in this period.'])
     }
 
     if (includeActivityLog) {
-      const logRows = db.prepare(`
-        SELECT cl.content, cl.log_type, cl.occurred_at AS created_at, r.id as row_id
-        FROM case_log cl JOIN rows r ON r.id = cl.row_id
-        WHERE r.grid_id = ? AND cl.log_type != 'system' AND cl.voided_at IS NULL AND r.deleted_at IS NULL
-          AND date(cl.occurred_at, 'localtime') >= ? AND date(cl.occurred_at, 'localtime') <= ?
-        ORDER BY cl.occurred_at DESC LIMIT 200
-      `).all(gridId, dateRange.start, dateRange.end) as Array<{ content: string; log_type: string; created_at: string; row_id: number }>
+      const { rows: logRows, total: logTotal } = activityInPeriod(db, gridId, dateRange.start, dateRange.end)
       const activityNames = batchGetClientNames(db, logRows.map(e => e.row_id), gridId)
-      csvSections.push([], [`Activity Log (${ActsCap})`], ['Date', 'Type', `${RecCap}`, 'Notes'])
+      csvSections.push([], [`${term(v, 'activityLog', { cap: true })} (${ActsCap})`], ['Date', 'Type', `${RecCap}`, term(v, 'activity', { cap: true })])
       for (const e of logRows) {
-        csvSections.push([localDateString(parseDbTimestamp(e.created_at)), sanitizeCsvFormula(activityLabel(e.log_type)), sanitizeCsvFormula(activityNames.get(e.row_id) || `${RecCap} #${e.row_id}`), sanitizeCsvFormula(stripHtml(e.content))])
+        csvSections.push([csvDate(localDateString(parseDbTimestamp(e.created_at))), sanitizeCsvFormula(activityLabel(e.log_type)), sanitizeCsvFormula(activityNames.get(e.row_id) || `${RecCap} #${e.row_id}`), sanitizeCsvFormula(stripHtml(e.content))])
       }
       if (logRows.length === 0) csvSections.push([`No ${acts} in this period.`])
+      if (logTotal > logRows.length) csvSections.push([`Showing the latest ${logRows.length} of ${logTotal} ${acts}.`])
     }
 
     if (includeSystemActivity) {
-      const sysRows = db.prepare(`
-        SELECT cl.content, cl.created_at, r.id as row_id
-        FROM case_log cl JOIN rows r ON r.id = cl.row_id
-        WHERE r.grid_id = ? AND cl.log_type = 'system' AND r.deleted_at IS NULL
-          AND date(cl.created_at, 'localtime') >= ? AND date(cl.created_at, 'localtime') <= ?
-        ORDER BY cl.created_at DESC LIMIT 500
-      `).all(gridId, dateRange.start, dateRange.end) as Array<{ content: string; created_at: string; row_id: number }>
+      const { rows: sysRows, total: sysTotal } = systemActivityInPeriod(db, gridId, dateRange.start, dateRange.end)
       const sysNames = batchGetClientNames(db, sysRows.map(e => e.row_id), gridId)
       csvSections.push([], ['System Activity (Auto-Logged)'], ['Date', `${RecCap}`, 'Activity'])
       for (const e of sysRows) {
-        csvSections.push([localDateString(parseDbTimestamp(e.created_at)), sanitizeCsvFormula(sysNames.get(e.row_id) || `${RecCap} #${e.row_id}`), sanitizeCsvFormula(e.content)])
+        csvSections.push([csvDate(localDateString(parseDbTimestamp(e.created_at))), sanitizeCsvFormula(sysNames.get(e.row_id) || `${RecCap} #${e.row_id}`), sanitizeCsvFormula(e.content)])
       }
       if (sysRows.length === 0) csvSections.push(['No system activity in this period.'])
+      if (sysTotal > sysRows.length) csvSections.push([`Showing the latest ${sysRows.length} of ${sysTotal} system entries.`])
     }
 
     const csv = Papa.unparse(csvSections)
@@ -338,6 +350,8 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   doc.setFont('helvetica', 'normal')
   y += summaryBoxH + 6
 
+  const wrap = (text: string, width: number) => doc.splitTextToSize(text, width) as string[]
+
   function sectionTitle(title: string): void {
     const curPageH = doc.internal.pageSize.height
     const curPageW = doc.internal.pageSize.width
@@ -353,24 +367,37 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
     y += 8
   }
 
+  // A capped list says so above its table (F-019)
+  function cutNotice(text: string): void {
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'italic')
+    doc.setTextColor(120)
+    doc.text(text, marginL, y)
+    doc.setTextColor(0)
+    doc.setFont('helvetica', 'normal')
+    y += 6
+  }
+
   // Summary cards
   sectionTitle(`${ListCap} Summary`)
   const stats: Array<[string, string]> = [
     [`Total Active ${RecsCap}`, String(totalActive)],
     [`New ${RecsCap} This Period`, String(newAdded)],
     [`${RecsCap} Archived This Period`, String(archivedClients)],
-    [`${RecsCap} Deleted This Period`, String(deletedClients)],
+    [`${RecsCap} Deleted This Period (Still in the Trash)`, String(deletedClients)],
   ]
-  if (overdueCount > 0) stats.push(['Overdue Deadlines', `${overdueCount} ${term(v, 'record', { count: overdueCount })}`])
-  if (approachingCount > 0) stats.push(['Approaching (next 7 days)', `${approachingCount} ${term(v, 'record', { count: approachingCount })}`])
+  if (overdueCount > 0) stats.push(['Overdue Deadlines', `${recordsWord(overdueCount)} (${asOf})`])
+  if (approachingCount > 0) stats.push(['Approaching (next 7 days)', `${recordsWord(approachingCount)} (${asOf})`])
 
   for (const [label, val] of stats) {
     doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
-    doc.text(label, marginL, y)
+    // A long label (long record words, "(Still in the Trash)") wraps rather than running into its value
+    const labelLines = doc.splitTextToSize(label, 76) as string[]
+    doc.text(labelLines, marginL, y)
     doc.setFont('helvetica', 'normal')
     doc.text(val, marginL + 80, y)
-    y += 7
+    y += 7 + (labelLines.length - 1) * 4.5
   }
 
   // Acuity breakdown — vertically stacked per level
@@ -402,32 +429,38 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
     sectionTitle(`${RecsCap} Archived`)
     doc.setFontSize(9)
     for (const a of archivedClientNames) {
-      if (y > pageH - footerBarH - 10) { doc.addPage(); y = 18 }
+      // Long names and reasons wrap in their own column instead of running over the date or off the page (Q-077)
+      const nameLines = wrap(a.client_name, 64)
+      const reasonLines = a.reason ? wrap(a.reason, marginR - (marginL + 100)) : []
+      const extra = (Math.max(nameLines.length, reasonLines.length) - 1) * lineHeight(doc)
+      if (y + extra > pageH - footerBarH - 10) { doc.addPage(); y = 18 }
       doc.setFont('helvetica', 'normal')
-      doc.text(a.client_name, marginL + 4, y)
+      doc.text(nameLines, marginL + 4, y)
       doc.setTextColor(100)
       doc.text(a.archived_date, marginL + 70, y)
-      if (a.reason) {
-        doc.text(a.reason, marginL + 100, y)
+      if (reasonLines.length > 0) {
+        doc.text(reasonLines, marginL + 100, y)
       }
       doc.setTextColor(0)
-      y += 5.5
+      y += 5.5 + extra
     }
   }
 
   // Clients Removed From Caseload
   if (deletedClientNames.length > 0) {
     y += 4
-    sectionTitle(`${RecsCap} Removed From ${ListCap}`)
+    sectionTitle(`${RecsCap} Removed From ${ListCap} (Still in the Trash)`)
     doc.setFontSize(9)
     for (const d of deletedClientNames) {
-      if (y > pageH - footerBarH - 10) { doc.addPage(); y = 18 }
+      const nameLines = wrap(d.client_name, 84)
+      const extra = (nameLines.length - 1) * lineHeight(doc)
+      if (y + extra > pageH - footerBarH - 10) { doc.addPage(); y = 18 }
       doc.setFont('helvetica', 'normal')
-      doc.text(d.client_name, marginL + 4, y)
+      doc.text(nameLines, marginL + 4, y)
       doc.setTextColor(100)
       doc.text(d.deleted_date, marginL + 90, y)
       doc.setTextColor(0)
-      y += 5.5
+      y += 5.5 + extra
     }
   }
 
@@ -437,13 +470,15 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
     sectionTitle(`New ${RecsCap} Added`)
     doc.setFontSize(9)
     for (const n of newClientNames) {
-      if (y > pageH - footerBarH - 10) { doc.addPage(); y = 18 }
+      const nameLines = wrap(n.client_name, 84)
+      const extra = (nameLines.length - 1) * lineHeight(doc)
+      if (y + extra > pageH - footerBarH - 10) { doc.addPage(); y = 18 }
       doc.setFont('helvetica', 'normal')
-      doc.text(n.client_name, marginL + 4, y)
+      doc.text(nameLines, marginL + 4, y)
       doc.setTextColor(100)
       doc.text(n.added_date, marginL + 90, y)
       doc.setTextColor(0)
-      y += 5.5
+      y += 5.5 + extra
     }
   }
 
@@ -516,17 +551,18 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       autoTable(doc, {
         head: [['Completed', 'Task', 'Priority', 'Category', 'Due Date']],
         body: completedTasks.map(t => [
-          parseDbTimestamp(t.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          pdfDay(parseDbTimestamp(t.completed_at)),
           t.title,
           t.priority,
           t.category ?? '\u2014',
-          t.due_date ? (() => { const [y = NaN, m = NaN, d = NaN] = t.due_date!.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) })() : '\u2014',
+          t.due_date ? pdfDay(ymdToDate(t.due_date.slice(0, 10))) : '\u2014',
         ]),
         startY: y,
         styles: { fontSize: 8, cellPadding: 2 },
         headStyles: { fillColor: [71, 85, 105], textColor: 255 },
         alternateRowStyles: { fillColor: [248, 250, 252] },
-        columnStyles: { 1: { cellWidth: 'auto' } },
+        // Wide enough for a date with its year on one line
+        columnStyles: { 0: { cellWidth: 24 }, 1: { cellWidth: 'auto' }, 4: { cellWidth: 24 } },
         margin: { left: marginL, right: 16, bottom: footerBarH + 4 }
       })
       y = lastTableY(doc) + 8
@@ -535,18 +571,10 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
 
   // Activity Log — case notes (optional)
   if (includeActivityLog) {
-    const logRows = db.prepare(`
-      SELECT cl.content, cl.log_type, cl.occurred_at AS created_at, r.id as row_id
-      FROM case_log cl
-      JOIN rows r ON r.id = cl.row_id
-      WHERE r.grid_id = ? AND cl.log_type != 'system' AND cl.voided_at IS NULL AND r.deleted_at IS NULL
-        AND date(cl.occurred_at, 'localtime') >= ? AND date(cl.occurred_at, 'localtime') <= ?
-      ORDER BY cl.occurred_at DESC
-      LIMIT 200
-    `).all(gridId, dateRange.start, dateRange.end) as Array<{ content: string; log_type: string; created_at: string; row_id: number }>
+    const { rows: logRows, total: logTotal } = activityInPeriod(db, gridId, dateRange.start, dateRange.end)
 
     if (y > pageH - footerBarH - 40) { doc.addPage(); y = 18 }
-    sectionTitle(`Activity Log \u2014 ${ActsCap} This Period`)
+    sectionTitle(`${term(v, 'activityLog', { cap: true })} \u2014 ${ActsCap} This Period`)
     if (logRows.length === 0) {
       doc.setFontSize(9)
       doc.setFont('helvetica', 'italic')
@@ -555,19 +583,20 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       doc.setTextColor(0)
       y += 8
     } else {
+      if (logTotal > logRows.length) cutNotice(`Showing the latest ${logRows.length} of ${logTotal} ${acts}.`)
       const pdfActivityNames = batchGetClientNames(db, logRows.map(e => e.row_id), gridId)
       autoTable(doc, {
-        head: [['Date', 'Type', `${RecCap}`, 'Notes']],
+        head: [['Date', 'Type', `${RecCap}`, term(v, 'activity', { cap: true })]],
         body: logRows.map(e => [
-          parseDbTimestamp(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          pdfDay(parseDbTimestamp(e.created_at)),
           activityLabel(e.log_type),
           pdfActivityNames.get(e.row_id) || `${RecCap} #${e.row_id}`,
-          stripHtml(e.content).slice(0, 120)
+          shorten(stripHtml(e.content), 120),
         ]),
         startY: y,
         styles: { fontSize: 7, cellPadding: 1.5 },
         headStyles: { fillColor: [71, 85, 105], textColor: 255 },
-        columnStyles: { 3: { cellWidth: 'auto' } },
+        columnStyles: { 0: { cellWidth: 20 }, 3: { cellWidth: 'auto' } },
         margin: { left: marginL, right: 16, bottom: footerBarH + 4 }
       })
       y = lastTableY(doc) + 8
@@ -576,15 +605,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
 
   // System Activity — auto-logged events (optional)
   if (includeSystemActivity) {
-    const sysRows = db.prepare(`
-      SELECT cl.content, cl.created_at, r.id as row_id
-      FROM case_log cl
-      JOIN rows r ON r.id = cl.row_id
-      WHERE r.grid_id = ? AND cl.log_type = 'system' AND r.deleted_at IS NULL
-        AND date(cl.created_at, 'localtime') >= ? AND date(cl.created_at, 'localtime') <= ?
-      ORDER BY cl.created_at DESC
-      LIMIT 500
-    `).all(gridId, dateRange.start, dateRange.end) as Array<{ content: string; created_at: string; row_id: number }>
+    const { rows: sysRows, total: sysTotal } = systemActivityInPeriod(db, gridId, dateRange.start, dateRange.end)
 
     if (y > pageH - footerBarH - 40) { doc.addPage(); y = 18 }
     sectionTitle('System Activity \u2014 Auto-Logged Events This Period')
@@ -596,11 +617,12 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       doc.setTextColor(0)
       y += 8
     } else {
+      if (sysTotal > sysRows.length) cutNotice(`Showing the latest ${sysRows.length} of ${sysTotal} system entries.`)
       const pdfSysNames = batchGetClientNames(db, sysRows.map(e => e.row_id), gridId)
       autoTable(doc, {
         head: [['Date', `${RecCap}`, 'Activity']],
         body: sysRows.map(e => [
-          parseDbTimestamp(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          pdfDay(parseDbTimestamp(e.created_at)),
           pdfSysNames.get(e.row_id) || `${RecCap} #${e.row_id}`,
           e.content,
         ]),
@@ -608,7 +630,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
         styles: { fontSize: 7, cellPadding: 1.5 },
         headStyles: { fillColor: [100, 116, 139], textColor: 255 },
         alternateRowStyles: { fillColor: [248, 250, 252] },
-        columnStyles: { 2: { cellWidth: 'auto' } },
+        columnStyles: { 0: { cellWidth: 20 }, 2: { cellWidth: 'auto' } },
         margin: { left: marginL, right: 16, bottom: footerBarH + 4 }
       })
       y = lastTableY(doc) + 8
@@ -635,6 +657,44 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
 
   await new Promise(resolve => setImmediate(resolve))
   await atomicWriteFileAsync(destPath, Buffer.from(doc.output('arraybuffer')))
+}
+
+/** The most notes and system entries the report lists; the rest are counted (F-019) */
+const ACTIVITY_CAP = 200
+const SYSTEM_CAP = 500
+
+type ActivityRow = { content: string; log_type: string; created_at: string; row_id: number }
+
+/** Notes in the period, latest first (dated by when they happened), capped, with the full count */
+function activityInPeriod(db: ReturnType<typeof getDb>, gridId: number, start: string, end: string): { rows: ActivityRow[]; total: number } {
+  const where = `FROM case_log cl JOIN rows r ON r.id = cl.row_id
+    WHERE r.grid_id = ? AND cl.log_type != 'system' AND cl.voided_at IS NULL AND ${NOT_TRASHED_ROW}
+      AND date(cl.occurred_at, 'localtime') >= ? AND date(cl.occurred_at, 'localtime') <= ?`
+  const rows = db.prepare(`SELECT cl.content, cl.log_type, cl.occurred_at AS created_at, r.id as row_id ${where}
+    ORDER BY cl.occurred_at DESC LIMIT ${ACTIVITY_CAP}`).all(gridId, start, end) as ActivityRow[]
+  const total = rows.length < ACTIVITY_CAP ? rows.length : (db.prepare(`SELECT COUNT(*) AS n ${where}`).get(gridId, start, end) as { n: number }).n
+  return { rows, total }
+}
+
+/** Entries Pulse wrote itself in the period, latest first, capped, with the full count */
+function systemActivityInPeriod(db: ReturnType<typeof getDb>, gridId: number, start: string, end: string): { rows: Array<{ content: string; created_at: string; row_id: number }>; total: number } {
+  const where = `FROM case_log cl JOIN rows r ON r.id = cl.row_id
+    WHERE r.grid_id = ? AND cl.log_type = 'system' AND ${NOT_TRASHED_ROW}
+      AND date(cl.created_at, 'localtime') >= ? AND date(cl.created_at, 'localtime') <= ?`
+  const rows = db.prepare(`SELECT cl.content, cl.created_at, r.id as row_id ${where}
+    ORDER BY cl.created_at DESC LIMIT ${SYSTEM_CAP}`).all(gridId, start, end) as Array<{ content: string; created_at: string; row_id: number }>
+  const total = rows.length < SYSTEM_CAP ? rows.length : (db.prepare(`SELECT COUNT(*) AS n ${where}`).get(gridId, start, end) as { n: number }).n
+  return { rows, total }
+}
+
+/** A day in the PDF tables, with its year: a report can span the new year */
+function pdfDay(d: Date): string {
+  return shortDate(d)
+}
+
+/** Cut long text for a table cell, and show that it was cut */
+function shorten(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 3).trimEnd()}...` : text
 }
 
 /**

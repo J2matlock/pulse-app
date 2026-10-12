@@ -6,11 +6,12 @@
  */
 
 import BetterSqlite3 from 'better-sqlite3-multiple-ciphers'
-import type { Database as BetterSqlite3DB } from 'better-sqlite3'
+import type { Database as BetterSqlite3DB } from 'better-sqlite3-multiple-ciphers'
 import { logger } from './logger'
 import { join } from 'path'
 import { mkdirSync, chmodSync, existsSync, unlinkSync } from 'fs'
 import Store from 'electron-store'
+import { ensurePrivateDir, privateStoreOptions, tightenStore } from './private-files'
 import { getDbKey, setStoredDbPath, isPasswordSetup } from './auth'
 import { clearContactsStmtCache } from './contacts'
 import { logNonFatal } from './ipc/ipc-utils'
@@ -18,9 +19,10 @@ import { detectCloudSyncService } from '../shared/cloudSync'
 import type { DbOpenFailureKind } from '../shared/dbOpen'
 import { runPreMigrationBackup, setDatabaseBridge } from './backup'
 import { MIGRATIONS, applyMigration } from './migration-list'
-import { rowsPurgedHooks } from './purge-hooks'
+import { rowsPurgedHooks, purgeRecordLeftovers, pruneAfterPurge, scheduleReclaimFreePages } from './purge-hooks'
 import { linkColumnSpecs, linkSelectSql, linkSpecKey, type LinkColumnSpec } from '../shared/links'
 import { fileCountColumnIds } from '../shared/attachments'
+import { LIVE_ROW, NOT_TRASHED_ROW } from '../shared/liveRecords'
 
 /**
  * Validate and set the SQLCipher encryption key on a database connection.
@@ -31,18 +33,64 @@ export function setEncryptionKey(database: BetterSqlite3DB, hexKey: string): voi
   database.pragma(`key='${hexKey}'`)
 }
 
+/**
+ * Re-encrypt an open database with a new key (P-001), so an old password, a
+ * revoked recovery key or an old backup's key envelope no longer opens it.
+ * SQLite3 Multiple Ciphers documents rekey as unsupported in WAL mode, so the
+ * WAL is folded in and the journal goes to DELETE first: the rekey is then one
+ * rollback-journal transaction (a crash part way leaves a hot journal that the
+ * old key rolls back), and WAL comes back on afterwards.
+ */
+export function rekeyDatabase(newHexKey: string, database: BetterSqlite3DB = getDb()): void {
+  if (!/^[0-9a-f]{64}$/.test(newHexKey)) throw new Error('Invalid database key format')
+  database.pragma('wal_checkpoint(TRUNCATE)')
+  database.pragma('journal_mode = DELETE')
+  try {
+    // Validated hex above, as in setEncryptionKey: pragma() takes no parameters
+    database.pragma(`rekey='${newHexKey}'`)
+  } finally {
+    database.pragma('journal_mode = WAL')
+  }
+}
+
+/**
+ * Whether `hexKey` opens the database file, on a connection of its own that is
+ * closed again. Opening with the right key also rolls back a hot journal left
+ * by a rekey that was cut short; a wrong key leaves the file as it was.
+ */
+export function databaseOpensWithKey(hexKey: string, dbPath: string = resolveDatabasePath()): boolean {
+  if (!existsSync(dbPath)) return false
+  try {
+    withOwnerOnlyUmask(() => openWithKey(dbPath, hexKey)).close()
+    return true
+  } catch (err) {
+    logNonFatal('database', 'probe database key', err)
+    return false
+  }
+}
+
+/** Re-encrypt the database file from one key to another on a connection of its own (rekey rollback, P-001). */
+export function rekeyDatabaseFile(fromHexKey: string, toHexKey: string, dbPath: string = resolveDatabasePath()): void {
+  const database = withOwnerOnlyUmask(() => openWithKey(dbPath, fromHexKey))
+  try {
+    rekeyDatabase(toHexKey, database)
+  } finally {
+    database.close()
+  }
+}
+
 let db: BetterSqlite3DB | null = null
 let cleanupTimer: ReturnType<typeof setTimeout> | null = null
 
 // ── Prepared statement cache ─────────────────────────────────────────────────
 // Avoids re-compiling SQL on every call. Invalidated when the DB connection changes.
-const stmtCache = new Map<string, import('better-sqlite3').Statement>()
+const stmtCache = new Map<string, import('better-sqlite3-multiple-ciphers').Statement>()
 const STMT_CACHE_MAX = 128
 const CELL_HISTORY_MAX_PER_CELL = 50
 const TRASH_PURGE_DAYS = 30
 const DEFERRED_CLEANUP_DELAY_MS = 15_000
 
-export function cachedStmt(key: string, sql: string): import('better-sqlite3').Statement {
+export function cachedStmt(key: string, sql: string): import('better-sqlite3-multiple-ciphers').Statement {
   const existing = stmtCache.get(key)
   if (existing) {
     // Collision assertion: same key must always map to same SQL
@@ -104,7 +152,7 @@ import { getPortableDataDir } from './data-dir'
  */
 export function resolveDatabasePath(): string {
   const dataDir = getPortableDataDir()
-  mkdirSync(dataDir, { recursive: true })
+  ensurePrivateDir(dataDir)
   return join(dataDir, 'pulse.db')
 }
 
@@ -120,13 +168,28 @@ export function checkCloudSyncPath(dbPath: string): string | null {
 function openEncryptedDatabase(dbPath: string): BetterSqlite3DB {
   const keyBuf = getDbKey()  // throws if locked
   const rawDbKey = keyBuf.toString('hex')
+  return withOwnerOnlyUmask(() => openWithKey(dbPath, rawDbKey))
+}
 
-  // Set restrictive umask before creating any files (DB, WAL, SHM).
-  // This ensures all files created by SQLite inherit owner-only permissions.
-  // IMPORTANT: This code path must remain synchronous — umask is process-global,
-  // so any async work between set/restore would affect unrelated file operations.
+/**
+ * Run `fn` with an owner-only umask, so every file SQLite creates (DB, WAL, SHM,
+ * journal) gets owner-only permissions.
+ * IMPORTANT: `fn` must be synchronous — umask is process-global, so any async
+ * work between set/restore would affect unrelated file operations.
+ */
+function withOwnerOnlyUmask<T>(fn: () => T): T {
   const prevUmask = process.platform !== 'win32' ? process.umask(0o077) : null
+  // Put the umask back however this ends: a throw from the constructor or any
+  // pragma would otherwise leave the whole process creating owner-only files (A22-10)
+  try {
+    return fn()
+  } finally {
+    if (prevUmask !== null) process.umask(prevUmask)
+  }
+}
 
+/** The body of openEncryptedDatabase, run while the owner-only umask is in force. */
+function openWithKey(dbPath: string, rawDbKey: string): BetterSqlite3DB {
   const isNewFile = !existsSync(dbPath)
   const database = new BetterSqlite3(dbPath) as BetterSqlite3DB
   // Restrict DB file to owner read/write only on Unix — the file contains encrypted
@@ -144,7 +207,6 @@ function openEncryptedDatabase(dbPath: string): BetterSqlite3DB {
     setEncryptionKey(database, rawDbKey)
   } catch (err) {
     database.close()
-    if (prevUmask !== null) process.umask(prevUmask)
     throw err instanceof Error && err.message === 'Invalid database key format'
       ? err
       : new Error('Failed to set database encryption key')
@@ -167,7 +229,6 @@ function openEncryptedDatabase(dbPath: string): BetterSqlite3DB {
       try { unlinkSync(dbPath + '-wal') } catch (err) { logNonFatal('database', 'cleanup WAL file', err) }
       try { unlinkSync(dbPath + '-shm') } catch (err) { logNonFatal('database', 'cleanup SHM file', err) }
     }
-    if (prevUmask !== null) process.umask(prevUmask)
     const walPath = dbPath + '-wal'
     const shmPath = dbPath + '-shm'
     if (existsSync(walPath) || existsSync(shmPath)) {
@@ -178,13 +239,14 @@ function openEncryptedDatabase(dbPath: string): BetterSqlite3DB {
   }
 
   database.pragma('foreign_keys = ON')
+  // Deleted content is overwritten with zeros, freed pages included (A22-12).
+  // The bundled driver already defaults to ON; stated here so a driver update
+  // can't quietly turn it off. Freed pages go back via scheduleReclaimFreePages.
+  database.pragma('secure_delete = ON')
   database.pragma('journal_mode = WAL')
   database.pragma('synchronous = NORMAL')
   database.pragma('cache_size = -32000')  // 32MB page cache for large caseloads
   database.pragma('busy_timeout = 5000')   // retry for 5s before SQLITE_BUSY
-
-  // Restore previous umask now that DB and WAL/SHM files are created
-  if (prevUmask !== null) process.umask(prevUmask)
 
   return database
 }
@@ -235,30 +297,25 @@ function purgeExpiredTrash(): void {
     // Files in the trash go after the same time as records (W09 §3)
     try {
       const files = db.prepare(`DELETE FROM attachments WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-' || ? || ' days')`).run(TRASH_PURGE_DAYS).changes
-      if (files) logger.info('database', `Purged ${files} files from the trash`)
+      if (files) { logger.info('database', `Purged ${files} files from the trash`); scheduleReclaimFreePages(db) }
     } catch (err) { logNonFatal('database', 'attachment purge', err) }
-    // Lists and columns in the Trash (audit 5.2): removed with everything on them
-    try {
-      const lists = db.prepare(`DELETE FROM grids WHERE is_active = 0 AND deleted_at IS NOT NULL AND deleted_at < datetime('now', '-' || ? || ' days')`).run(TRASH_PURGE_DAYS).changes
-      const cols = db.prepare(`DELETE FROM deleted_columns WHERE deleted_at < datetime('now', '-' || ? || ' days')`).run(TRASH_PURGE_DAYS).changes
-      if (lists || cols) logger.info('database', `Purged ${lists} lists and ${cols} columns from the trash`)
-    } catch (err) { logNonFatal('database', 'list and column purge', err) }
-    // 1. Find rows being purged
-    const expiredRows = db.prepare(
-      `SELECT id FROM rows WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-' || ? || ' days')`
-    ).all(TRASH_PURGE_DAYS) as Array<{ id: number }>
-    if (expiredRows.length === 0) return
-    // 2. Delete the rows
-    const deleteStmt = db.prepare('DELETE FROM rows WHERE id = ?')
-    const runDelete = db.transaction(() => {
-      const ids = expiredRows.map(r => r.id)
+    // Lists, columns and records in the Trash (audit 5.2), in one transaction, with
+    // what the foreign keys don't reach, like Delete forever and Empty the Trash (Q-030)
+    const age = `datetime('now', '-' || ? || ' days')`
+    const purged = db.transaction(() => {
+      const d = db!
+      const ids = (d.prepare(`SELECT id FROM rows WHERE (deleted_at IS NOT NULL AND deleted_at < ${age})
+        OR grid_id IN (SELECT id FROM grids WHERE is_active = 0 AND deleted_at IS NOT NULL AND deleted_at < ${age})`).all(TRASH_PURGE_DAYS, TRASH_PURGE_DAYS) as Array<{ id: number }>).map(r => r.id)
       for (const hook of rowsPurgedHooks) hook(ids)
-      for (const row of expiredRows) {
-        deleteStmt.run(row.id)
-      }
-    })
-    runDelete()
-    logger.info('database', `Purged ${expiredRows.length} expired trash rows`)
+      purgeRecordLeftovers(d, ids)
+      const lists = d.prepare(`DELETE FROM grids WHERE is_active = 0 AND deleted_at IS NOT NULL AND deleted_at < ${age}`).run(TRASH_PURGE_DAYS).changes
+      const cols = d.prepare(`DELETE FROM deleted_columns WHERE deleted_at < ${age}`).run(TRASH_PURGE_DAYS).changes
+      const rows = d.prepare(`DELETE FROM rows WHERE deleted_at IS NOT NULL AND deleted_at < ${age}`).run(TRASH_PURGE_DAYS).changes
+      pruneAfterPurge(d, ids)
+      return { lists, cols, rows }
+    })()
+    if (purged.lists || purged.cols) logger.info('database', `Purged ${purged.lists} lists and ${purged.cols} columns from the trash`)
+    if (purged.rows) logger.info('database', `Purged ${purged.rows} expired trash rows`)
   } catch (err) {
     logger.info('database', 'Trash purge skipped', err)
   }
@@ -365,10 +422,7 @@ let _migrationStatusStore: Store<MigrationStatusStore> | null = null
 
 function getMigrationStatusStore(): Store<MigrationStatusStore> {
   if (!_migrationStatusStore) {
-    _migrationStatusStore = new Store<MigrationStatusStore>({
-      name: 'pulse-migration-status',
-      cwd: getPortableDataDir()
-    })
+    _migrationStatusStore = tightenStore(new Store<MigrationStatusStore>(privateStoreOptions('pulse-migration-status', getPortableDataDir())))
   }
   return _migrationStatusStore
 }
@@ -463,7 +517,14 @@ function getSchemaVersion(): number {
   const row = database
     .prepare("SELECT value FROM app_meta WHERE key = 'schema_version'")
     .get() as { value: string } | undefined
-  return row ? parseInt(row.value, 10) : 0
+  if (!row) return 0
+  // parseInt('x') is NaN, and every comparison with NaN is false: no migration
+  // would run and the newer-version check would pass (A22-11)
+  const version = Number(row.value)
+  if (!Number.isInteger(version) || version < 0) {
+    throw new DatabaseOpenError('unreadable', `Unreadable schema version in app_meta: ${JSON.stringify(row.value).slice(0, 40)}`)
+  }
+  return version
 }
 
 // ── Grid query helpers ────────────────────────────────────────────────────────
@@ -510,8 +571,8 @@ export function buildGridQuery(columnIds: number[], includeArchived = false, lin
   const { select: cases } = columnSelects(columnIds, links, fileCounts)
 
   const activeFilter = includeArchived
-    ? 'AND r.deleted_at IS NULL'
-    : 'AND r.is_active = 1 AND r.deleted_at IS NULL'
+    ? `AND ${NOT_TRASHED_ROW}`
+    : `AND ${LIVE_ROW}`
 
   return `
     SELECT
@@ -544,7 +605,7 @@ ${ROW_BASE_COLUMNS},
       ${cases}
     FROM rows r
     LEFT JOIN cells c ON c.row_id = r.id
-    WHERE r.grid_id = ? AND r.id = ? AND r.deleted_at IS NULL
+    WHERE r.grid_id = ? AND r.id = ? AND ${NOT_TRASHED_ROW}
     GROUP BY r.id
   `
   // Cache keyed by grid + column IDs (different grids with same column count have different queries)

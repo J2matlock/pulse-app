@@ -43,9 +43,9 @@ describe('shortcut list', () => {
   // Tooltips and help used to hard-code "Ctrl+", so a Mac showed two answers (R7)
   it('screen text names shortcuts through modHelp, not a bare "Ctrl+"', () => {
     const root = join(__dirname, '../src/renderer')
-    // Text these files hold is shown through modHelp where it's rendered (HelpView, TourOverlay);
+    // Text these files hold is shown through modHelp where it's rendered (HelpView, TourOverlay's steps);
     // What's New lists past releases as they were written.
-    const shownElsewhere = new Set(['views/help/faqData.tsx', 'components/shared/TourOverlay.tsx', 'components/shared/WhatsNewModal.tsx'])
+    const shownElsewhere = new Set(['views/help/faqData.tsx', 'components/shared/tourSteps.tsx', 'components/shared/WhatsNewModal.tsx'])
     const bare: string[] = []
     const walk = (dir: string): void => {
       for (const ent of readdirSync(dir, { withFileTypes: true })) {

@@ -14,7 +14,7 @@ interface Props {
   onClose: () => void
 }
 
-export type { ShortcutRow, ShortcutSection } from '../../../shared/shortcuts'
+export type { ShortcutSection } from '../../../shared/shortcuts'
 /** The one shortcut list (src/shared/shortcuts.ts) */
 export const SECTIONS: ShortcutSection[] = SHORTCUT_SECTIONS
 

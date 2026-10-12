@@ -48,9 +48,7 @@ export const createAcuitySlice = (set: Set, get: Get) => ({
     const prevRow = get().rows.find(r => r.row_id === rowId)
     const prevLevelId = prevRow?.acuity_level_id ?? null
     // Optimistic update
-    set(s => ({
-      rows: s.rows.map(r => r.row_id === rowId ? { ...r, acuity_level_id: levelId } : r)
-    }))
+    get().mapRows(r => r.row_id === rowId ? { ...r, acuity_level_id: levelId } : r)
     try {
       await invoke(IPC.ACUITY_SET_ROW_LEVEL, rowId, levelId)
       if (prevLevelId !== levelId) {
@@ -66,9 +64,7 @@ export const createAcuitySlice = (set: Set, get: Get) => ({
       }
     } catch (err) {
       // Rollback
-      set(s => ({
-        rows: s.rows.map(r => r.row_id === rowId ? { ...r, acuity_level_id: prevLevelId } : r)
-      }))
+      get().mapRows(r => r.row_id === rowId ? { ...r, acuity_level_id: prevLevelId } : r)
       rlog.error('GridAcuitySlice', 'Failed to set acuity level', err)
       rethrowIfUndoing(err)
       toast.error(`Could not update ${wordNow('priority')} — please try again`)
@@ -109,9 +105,7 @@ export const createAcuitySlice = (set: Set, get: Get) => ({
     try {
       await invoke(IPC.ACUITY_DELETE_LEVEL, levelId)
       // Clear assignments locally for rows that had this level
-      set(s => ({
-        rows: s.rows.map(r => r.acuity_level_id === levelId ? { ...r, acuity_level_id: null } : r)
-      }))
+      get().mapRows(r => r.acuity_level_id === levelId ? { ...r, acuity_level_id: null } : r)
     } catch (err) {
       set({ acuityLevels: prev })
       rlog.error('GridAcuitySlice', 'Failed to delete acuity level', err)
@@ -156,9 +150,7 @@ export const createAcuitySlice = (set: Set, get: Get) => ({
     }
 
     // Optimistic update all rows
-    set(s => ({
-      rows: s.rows.map(r => rowIds.includes(r.row_id) ? { ...r, acuity_level_id: levelId } : r)
-    }))
+    get().mapRows(r => rowIds.includes(r.row_id) ? { ...r, acuity_level_id: levelId } : r)
 
     try {
       await invoke(IPC.ACUITY_BULK_SET_LEVEL, rowIds, levelId)
@@ -180,14 +172,12 @@ export const createAcuitySlice = (set: Set, get: Get) => ({
       })
     } catch (err) {
       // Rollback
-      set(s => ({
-        rows: s.rows.map(r => {
-          if (prevLevels.has(r.row_id)) {
-            return { ...r, acuity_level_id: prevLevels.get(r.row_id) ?? null }
-          }
-          return r
-        })
-      }))
+      get().mapRows(r => {
+        if (prevLevels.has(r.row_id)) {
+          return { ...r, acuity_level_id: prevLevels.get(r.row_id) ?? null }
+        }
+        return r
+      })
       rlog.error('GridAcuitySlice', 'Bulk acuity set failed', err)
       rethrowIfUndoing(err)
       toast.error(`Could not update ${wordNow('priority')} — please try again`)

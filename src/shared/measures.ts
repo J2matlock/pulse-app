@@ -7,6 +7,7 @@
  * is made once from its first label and never changes.
  */
 import { z } from 'zod'
+import { textLength } from './textLength'
 
 export type MeasureKind = 'number' | 'currency' | 'hours'
 
@@ -30,8 +31,8 @@ const LIMITS: Record<MeasureKind, number> = { number: 1e7, currency: 1e7, hours:
 
 export const measureDefSchema = z.object({
   key: z.string().regex(/^[a-z0-9_]{1,30}$/),
-  label: z.string().trim().min(1).max(MEASURE_LABEL_MAX),
-  unit: z.string().trim().max(MEASURE_UNIT_MAX).optional(),
+  label: z.string().trim().check(textLength({ min: 1, max: MEASURE_LABEL_MAX })),
+  unit: z.string().trim().check(textLength({ max: MEASURE_UNIT_MAX })).optional(),
   kind: z.enum(['number', 'currency', 'hours']),
   decimals: z.union([z.literal(0), z.literal(1), z.literal(2)]),
   archived: z.boolean().optional(),

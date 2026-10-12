@@ -10,12 +10,13 @@ import toast from 'react-hot-toast'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { LoadingOverlay } from '../shared/LoadingSpinner'
-import { localDateString, parseDbTimestamp } from '../../../shared/dates'
+import { parseDbTimestamp } from '../../../shared/dates'
 import { MoveComputerWizard } from './MoveComputerWizard'
 import { RestoreFromBackupForm } from '../shared/RestoreFromBackupForm'
 import { useVocab } from '../../hooks/useVocab'
 import { useBackupStatusStore } from '../../stores/backupStatusStore'
 import { friendlyError } from '../../utils/friendlyError'
+import { saveBackupArchive } from '../../utils/saveBackupArchive'
 
 interface BackupPreviewData {
   gridCount: number
@@ -121,17 +122,11 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
   async function handleManualBackup() {
     setRunningBackup(true)
     try {
-      const saveRes = await safeInvoke(IPC.APP_SHOW_SAVE_DIALOG, {
-        title: 'Save Backup Archive',
-        defaultPath: `pulse-backup-${localDateString()}.pulse-backup`,
-        filters: [{ name: 'Pulse Backup', extensions: ['pulse-backup'] }]
-      })
-      if (!saveRes.ok || saveRes.data.canceled || !saveRes.data.filePath) return
-      const res = await safeInvoke(IPC.BACKUP_MANUAL_CREATE, saveRes.data.filePath)
-      if (res.ok) {
+      const res = await saveBackupArchive()
+      if (res.status === 'saved') {
         toast.success('Backup saved.')
         await refreshOffsite()
-      } else {
+      } else if (res.status === 'failed') {
         toast.error(friendlyError(res.error, 'The backup couldn\'t be saved. Try again, or choose a different folder.'))
       }
     } finally {

@@ -19,7 +19,7 @@ vi.mock('electron', () => ({
 vi.mock('electron-store', () => ({ default: class { get() { return undefined } set() {} has() { return false } delete() {} } }))
 vi.mock('../src/main/database', () => ({ getDb: () => testDb.db, cachedStmt: (_key: string, sql: string) => testDb.db.prepare(sql) }))
 
-import { parseImportFile, executeImport, clearImportCache, normalizeDate, detectDateOrder, flipLastFirst, buildTable } from '../src/main/import'
+import { parseImportFile, executeImport, clearImportCache, normalizeDate, detectDateOrder, analyzeDateOrder, flipLastFirst, buildTable } from '../src/main/import'
 
 let dir: string
 beforeEach(() => { testDb = createTestDb(); dir = mkdtempSync(join(tmpdir(), 'pulse-smart-import-')); clearImportCache() })
@@ -81,6 +81,13 @@ describe('grouped headers and merged cells', () => {
     expect(allRows[1]![3]).toBe('Waiver')
   })
 
+  it('renames repeated headers without colliding with a header already in the file (Q-080)', () => {
+    expect(buildTable([['Name', 'Name', 'Name 2'], ['a', 'b', 'c']], 0).headers).toEqual(['Name', 'Name 2', 'Name 2 2'])
+    expect(buildTable([['Name 2', 'Name', 'name'], ['a', 'b', 'c']], 0).headers).toEqual(['Name 2', 'Name', 'name 3'])
+    expect(buildTable([['Name', 'Name', 'Name'], ['a', 'b', 'c']], 0).headers).toEqual(['Name', 'Name 2', 'Name 3'])
+    expect(buildTable([['', 'Column 1'], ['a', 'b']], 0).headers).toEqual(['Column 1', 'Column 1 2'])
+  })
+
   it('handles a real Excel sheet with a title row, grouped header and vertical merge', async () => {
     const wb = new ExcelJS.Workbook()
     const ws = wb.addWorksheet('Caseload')
@@ -127,5 +134,53 @@ describe('grouped headers and merged cells', () => {
       columnMappings: [{ sourceIndex: 0, action: 'create' }, { sourceIndex: 1, action: 'create', newType: 'date' }],
     }, preview)
     expect(result.warnings.some(w => w.startsWith('2 values in "Next Review"'))).toBe(true)
+  })
+})
+
+describe('date order that the file doesn\'t settle (F-026)', () => {
+  async function importDates(csv: string, dateFormat?: string) {
+    if (dateFormat) testDb.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('date_format', ?)").run(dateFormat)
+    const file = join(dir, 'order.csv')
+    writeFileSync(file, csv)
+    const preview = await parseImportFile(file)
+    const grid = Number(testDb.db.prepare("INSERT INTO grids (name, created_at, updated_at) VALUES ('G', datetime('now'), datetime('now'))").run().lastInsertRowid)
+    const result = await executeImport({
+      gridId: grid, filePath: file, cleanData: true, duplicateStrategy: 'none',
+      columnMappings: [{ sourceIndex: 0, action: 'create' }, { sourceIndex: 1, action: 'create', newType: 'date' }],
+    }, preview)
+    const values = (testDb.db.prepare("SELECT c.value FROM cells c JOIN columns col ON col.id = c.column_id WHERE col.name = 'Review' ORDER BY c.row_id").all() as Array<{ value: string }>).map(r => r.value)
+    return { warnings: result.warnings, values }
+  }
+
+  it('says what it assumed when every date could be read either way', async () => {
+    const r = await importDates('Name,Review\nAna,03/04/2026\nBen,05/06/2026\n')
+    expect(r.values).toEqual(['2026-03-04', '2026-05-06'])
+    expect(r.warnings).toContain('2 dates in "Review" (like 03/04/2026) could be read either way and were read month first, as Settings → Appearance → Date Format says. If your dates are written day first, change Date Format and import again.')
+  })
+
+  it('reads them day first under Date Format DD/MM/YYYY, and says so', async () => {
+    const r = await importDates('Name,Review\nAna,03/04/2026\nBen,05/06/2026\n', 'eu')
+    expect(r.values).toEqual(['2026-04-03', '2026-06-05'])
+    expect(r.warnings.some(w => w.includes('were read day first') && w.includes('written month first'))).toBe(true)
+  })
+
+  it('says when a column mixes both orders, and how the either-way dates were read', async () => {
+    const r = await importDates('Name,Review\nAna,25/03/2026\nBen,26/03/2026\nCy,03/27/2026\nDee,04/05/2026\n')
+    expect(r.values).toEqual(['2026-03-25', '2026-03-26', '2026-03-27', '2026-05-04'])
+    expect(r.warnings).toContain('"Review" has dates written both day first (like 25/03/2026) and month first (like 03/27/2026). 1 date that could be read either way (like 04/05/2026) was read day first. Check it in the list.')
+  })
+
+  it('says nothing when the file settles it', async () => {
+    const r = await importDates('Name,Review\nAna,25/03/2026\nBen,04/05/2026\nCy,2026-01-02\n')
+    expect(r.values).toEqual(['2026-03-25', '2026-05-04', '2026-01-02'])
+    expect(r.warnings.filter(w => w.includes('Review'))).toEqual([])
+  })
+
+  it('reports what it saw', () => {
+    expect(analyzeDateOrder(['25/03/2026', '03/27/2026', '04/05/2026', '06/06/2026', 'x'], 'mdy')).toEqual({
+      order: 'mdy', dayFirst: 1, monthFirst: 1, ambiguous: 1, settledBy: 'fallback',
+      examples: { dayFirst: '25/03/2026', monthFirst: '03/27/2026', ambiguous: '04/05/2026' },
+    })
+    expect(analyzeDateOrder(['25/03/2026', '04/05/2026']).settledBy).toBe('data')
   })
 })

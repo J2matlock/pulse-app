@@ -31,7 +31,7 @@ let logDirEnsured = false
 
 // Logs live inside the Pulse data folder (with everything else Pulse writes), so
 // they move with a portable install and are removed by "Reset everything".
-// They never contain client data; see sanitize() below.
+// They never contain client data; see sanitize() and scrubPaths() below.
 // Owner-only, like the database, credentials and backups: the logs can hold
 // file and folder names (backup paths), so other accounts mustn't read them.
 const LOG_DIR_MODE = 0o700
@@ -92,9 +92,35 @@ function shouldLog(level: LogLevel): boolean {
   return LEVEL_ORDER[level] >= LEVEL_ORDER[MIN_LEVEL]
 }
 
+// Code files in stack traces keep their names (index.js:12:3): they're Pulse's own, and needed to debug
+const CODE_FILE = /^[\w.-]+\.(?:[cm]?js|tsx?|node)(?::\d+)*$/
+
+/** A path with its last part (the file, often named after a person) replaced: the folder stays for debugging */
+function scrubPath(path: string): string {
+  const m = /^(.*[\\/])([^\\/]+)$/.exec(path)
+  if (!m || CODE_FILE.test(m[2]!.trim())) return path
+  return `${m[1]}<file>`
+}
+
+/**
+ * File and folder names in messages and errors ("open '/home/u/Jane Doe.pdf'"),
+ * Error text from fs and SQLite, and renderer messages all reach the log file:
+ * the last part of every absolute path is replaced (F-030). Quoted paths are
+ * taken whole; an unquoted one runs to a quote, bracket, comma or the line's end.
+ */
+function scrubPaths(value: string): string {
+  return value
+    .replace(/(['"`])((?:[A-Za-z]:)?[\\/][^'"`\n]*)\1/g, (_m, q: string, p: string) => `${q}${scrubPath(p)}${q}`)
+    .replace(/(^|[\s(=])((?:[A-Za-z]:[\\/]|\/)[^'"`\n,;()<>]*)/g, (_m, pre: string, p: string) => {
+      // file:// and other URLs are left alone (their slash follows a colon, not a space)
+      const end = /\s+$/.exec(p)?.[0] ?? ''
+      return `${pre}${scrubPath(p.slice(0, p.length - end.length))}${end}`
+    })
+}
+
 function sanitizeString(value: string): string {
-  return value.replace(/[0-9a-f]{64}/gi, '[REDACTED_KEY]')
-    .replace(/password['":\s]*['"][^'"]+['"]/gi, 'password: [REDACTED]')
+  return scrubPaths(value.replace(/[0-9a-f]{64}/gi, '[REDACTED_KEY]')
+    .replace(/password['":\s]*['"][^'"]+['"]/gi, 'password: [REDACTED]'))
 }
 
 function sanitize(data: unknown, depth = 0, maxDepth = 5): unknown {
@@ -102,7 +128,7 @@ function sanitize(data: unknown, depth = 0, maxDepth = 5): unknown {
   if (depth > maxDepth) return '[MAX_DEPTH]'
 
   if (data instanceof Error) {
-    return { message: data.message, stack: data.stack }
+    return { message: sanitizeString(data.message), stack: data.stack === undefined ? undefined : sanitizeString(data.stack) }
   }
   if (typeof data === 'string') {
     return sanitizeString(data)
@@ -156,7 +182,7 @@ function log(level: LogLevel, component: string, message: string, data?: unknown
     session: SESSION_ID,
     ...(correlationId ? { corrId: correlationId } : {}),
     component,
-    msg: message,
+    msg: sanitizeString(message),
     ...(data !== undefined ? { data: sanitize(data) } : {})
   }
 
@@ -170,9 +196,9 @@ function log(level: LogLevel, component: string, message: string, data?: unknown
   } else {
     const prefix = `[${level.toUpperCase()}] [${component}]`
     const sanitizedData = data !== undefined ? sanitize(data) : ''
-    if (level === 'error') console.error(prefix, message, sanitizedData)
-    else if (level === 'warn') console.warn(prefix, message, sanitizedData)
-    else console.log(prefix, message, sanitizedData)
+    if (level === 'error') console.error(prefix, entry.msg, sanitizedData)
+    else if (level === 'warn') console.warn(prefix, entry.msg, sanitizedData)
+    else console.log(prefix, entry.msg, sanitizedData)
   }
 }
 

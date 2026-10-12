@@ -4,12 +4,14 @@
  */
 import { BrowserWindow } from 'electron'
 import { z } from 'zod'
+import { textLength } from '../../shared/textLength'
 import { IPC } from '../../shared/ipc-channels'
 import { vocabSchema } from '../../shared/vocab'
 import { featureMapSchema } from '../../shared/features'
-import { secureWrap, ok, fail, enforceWritable, validId } from './ipc-utils'
+import { ok, fail } from './ipc-utils'
+import { handlersFor, idArg } from './ipc-define'
 import { getDb } from '../database'
-import { getWorkspaceState, workspaceFeatures } from '../vocab'
+import { getWorkspaceState, word, workspaceFeatures } from '../vocab'
 import { refreshDisplayNames } from '../display-names'
 import { DISPLAY_FORMAT_MAX, normalizeDisplayFormat } from '../../shared/displayFormat'
 import { MAX_HOLIDAYS } from '../../shared/businessDays'
@@ -27,24 +29,24 @@ export function notifyWorkspaceChanged(): void {
 }
 
 const gridSettingsSchema = z.object({
-  name: z.string().trim().min(1).max(200).optional(),
+  name: z.string().trim().check(textLength({ min: 1, max: 200 })).optional(),
   record_kind: z.enum(['person', 'thing', 'job']).optional(),
   /** null clears the list's own words (it then uses the workspace's) */
   vocab: vocabSchema.nullable().optional(),
   /** How each record's name is shown, e.g. "{Year} {Make} {Model}"; null or "" goes back to the name column */
-  display_format: z.string().max(DISPLAY_FORMAT_MAX).nullable().optional(),
+  display_format: z.string().check(textLength({ max: DISPLAY_FORMAT_MAX })).nullable().optional(),
   /** Priority levels on this list */
   acuity_enabled: z.boolean().optional(),
 }).strict()
 
+const define = handlersFor('ipc-workspace')
+
 export function registerWorkspaceHandlers(): void {
-  secureWrap(IPC.GRID_SETTINGS_UPDATE, 'ipc-workspace', (_e, gridId: unknown, patch: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(gridId)) return fail('Invalid ID')
+  define(IPC.GRID_SETTINGS_UPDATE, [idArg(), z.unknown()], (gridId, patch) => {
     const parsed = gridSettingsSchema.safeParse(patch)
-    if (!parsed.success) return fail("Those list settings couldn't be saved.")
+    if (!parsed.success) return fail(`Those ${word('list', {}, gridId)} settings couldn't be saved.`)
     const db = getDb()
-    if (!db.prepare('SELECT 1 FROM grids WHERE id = ?').get(gridId)) return fail("That list doesn't exist any more.")
+    if (!db.prepare('SELECT 1 FROM grids WHERE id = ?').get(gridId)) return fail(`That ${word('list')} doesn't exist any more.`)
     const { name, record_kind, vocab, display_format, acuity_enabled } = parsed.data
     db.transaction(() => {
       if (name !== undefined) db.prepare("UPDATE grids SET name = ?, updated_at = datetime('now') WHERE id = ?").run(name, gridId)
@@ -58,14 +60,15 @@ export function registerWorkspaceHandlers(): void {
     })()
     notifyWorkspaceChanged()
     return ok(getWorkspaceState())
-  })
+  }, { write: true })
 
-  secureWrap(IPC.WORKSPACE_GET, 'ipc-workspace', () => ok(getWorkspaceState()))
+  define(IPC.WORKSPACE_GET, [], () => ok(getWorkspaceState()))
 
   // Days off for business-day deadlines: replaces the list (and the weekend, when given)
-  secureWrap(IPC.HOLIDAYS_SET, 'ipc-workspace', (_e, holidays: unknown, weekend: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!Array.isArray(holidays) || holidays.length > MAX_HOLIDAYS) return fail(`Up to ${MAX_HOLIDAYS} days off can be saved.`)
+  define(IPC.HOLIDAYS_SET, [
+    z.array(z.unknown(), `Up to ${MAX_HOLIDAYS} days off can be saved.`).max(MAX_HOLIDAYS, `Up to ${MAX_HOLIDAYS} days off can be saved.`),
+    z.unknown(),
+  ], (holidays, weekend) => {
     const days = [...new Set(holidays.filter((d): d is string => typeof d === 'string' && toYmd(d) === d))].sort()
     if (days.length !== new Set(holidays).size) return fail('Some of those dates could not be read.')
     if (weekend !== undefined && (!Array.isArray(weekend) || weekend.length > 6 || !weekend.every(n => Number.isInteger(n) && n >= 0 && n <= 6))) {
@@ -78,10 +81,9 @@ export function registerWorkspaceHandlers(): void {
     })()
     notifyWorkspaceChanged()
     return ok(getWorkspaceState())
-  })
+  }, { write: true })
 
-  secureWrap(IPC.WORKSPACE_UPDATE, 'ipc-workspace', (_e, patch: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
+  define(IPC.WORKSPACE_UPDATE, [z.unknown()], (patch) => {
     const parsed = patchSchema.safeParse(patch)
     if (!parsed.success) {
       // The pattern check carries a readable message; everything else gets a general one
@@ -97,5 +99,5 @@ export function registerWorkspaceHandlers(): void {
     })()
     notifyWorkspaceChanged()
     return ok(getWorkspaceState())
-  })
+  }, { write: true })
 }

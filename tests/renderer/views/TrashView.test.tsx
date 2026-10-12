@@ -28,10 +28,11 @@ vi.mock('../../../src/shared/constants', async () => ({
 }))
 
 vi.mock('../../../src/renderer/components/shared/ConfirmDialog', () => ({
-  ConfirmDialog: ({ open, onConfirm, title }: { open: boolean; onConfirm: () => void; title: string }) => (
+  ConfirmDialog: ({ open, onConfirm, title, message }: { open: boolean; onConfirm: () => void; title: string; message?: string }) => (
     open ? (
       <div data-testid="confirm-dialog">
         <span>{title}</span>
+        <span data-testid="confirm-message">{message}</span>
         <button data-testid="confirm-btn" onClick={onConfirm}>Confirm</button>
       </div>
     ) : null
@@ -234,5 +235,27 @@ describe('TrashView — deleted lists (5.2, G-35)', () => {
     expect(screen.getByText('Restore the caseload first')).toBeDefined()
     fireEvent.click(screen.getByTestId('confirm-btn'))
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('grid:restore', 7))
+  })
+})
+
+describe('TrashView — more records than the 500 shown (Q-029)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('says how many are really in the Trash, and the Empty confirm counts them all', async () => {
+    mockTrash(sampleDeletedRows, [], (channel) => channel === 'row:count-deleted' ? { ok: true, data: 650 } : { ok: true, data: true })
+    render(<MemoryRouter><TrashView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.getByText(/Showing the 3 most recent of 650 clients/)).toBeDefined()
+    fireEvent.click(screen.getByText('Empty the Trash'))
+    expect(screen.getByTestId('confirm-message').textContent).toContain('This removes 650 clients')
+  })
+
+  it('shows no note when everything in the Trash is listed', async () => {
+    mockTrash(sampleDeletedRows, [], (channel) => channel === 'row:count-deleted' ? { ok: true, data: 3 } : { ok: true, data: true })
+    render(<MemoryRouter><TrashView /></MemoryRouter>)
+    await flushEffects()
+    expect(screen.queryByText(/most recent of/)).toBeNull()
+    fireEvent.click(screen.getByText('Empty the Trash'))
+    expect(screen.getByTestId('confirm-message').textContent).toContain('This removes 3 clients')
   })
 })

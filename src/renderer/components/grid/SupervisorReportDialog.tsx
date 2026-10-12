@@ -227,7 +227,7 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
                 style={{ minHeight: 40, fontSize: 15 }}
                 value={workerTitle}
                 onChange={e => setWorkerTitle(e.target.value)}
-                placeholder="Title (e.g. Care Coordinator)"
+                placeholder="Title (e.g. Team Lead)"
               />
               <input
                 type="text"
@@ -304,7 +304,7 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
                 >
                   <input
                     type="checkbox"
-                    className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500"
+                    className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
                     checked={selectedColumnIds.has(col.id)}
                     onChange={() => toggleColumn(col.id)}
                   />
@@ -325,7 +325,7 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
             >
               <input
                 type="checkbox"
-                className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500"
+                className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
                 checked={includeActivityLog}
                 onChange={e => setIncludeActivityLog(e.target.checked)}
               />
@@ -344,7 +344,7 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
             >
               <input
                 type="checkbox"
-                className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500"
+                className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
                 checked={includeSystemActivity}
                 onChange={e => setIncludeSystemActivity(e.target.checked)}
               />
@@ -363,7 +363,7 @@ export function SupervisorReportDialog({ gridId, columns, onClose }: Props): Rea
             >
               <input
                 type="checkbox"
-                className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500"
+                className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
                 checked={includeTaskSummary}
                 onChange={e => setIncludeTaskSummary(e.target.checked)}
               />

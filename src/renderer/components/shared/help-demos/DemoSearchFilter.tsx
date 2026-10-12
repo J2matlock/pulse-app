@@ -35,7 +35,7 @@ export function DemoSearchFilter() {
         <span className="w-0.5 h-4 bg-blue-500 animate-pulse" />
       </div>
       {/* Results */}
-      <div className="space-y-1" style={{ fontSize: 13 }}>
+      <div className="space-y-1" style={{ fontSize: 15 }}>
         <div
           className="flex gap-4 rounded-sm px-3 py-2 border border-slate-200 dark:border-slate-700"
           style={{ animation: 'sfMatch 7s ease infinite' }}

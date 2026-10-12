@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import type { Row } from '@tanstack/react-table'
-import type { GridRow, Column, AcuityLevel, CustomGroupDef } from '../../shared/types'
+import type { GridTableRow } from '../components/grid/gridTable'
+import type { Column, AcuityLevel, CustomGroupDef } from '../../shared/types'
 import { ACUITY_GROUP_KEY } from '../../shared/types'
 import { linkValueText } from '../../shared/links'
 import { columnOptionLabels } from '../../shared/stages'
@@ -21,7 +21,7 @@ export type DisplayItem =
   | { kind: 'row'; tableRowIndex: number }
 
 export interface UseGridGroupingParams {
-  tableRows: Row<GridRow>[]
+  tableRows: GridTableRow[]
   columns: Column[]
   groupByColumnId: number | string | null
   acuityLevels: AcuityLevel[]
@@ -184,7 +184,7 @@ export function useGridGrouping({
       }
     }
     return items
-  }, [tableRows, groupByColumnId, collapsedGroups, columns, acuityLevels, customGroups, activeCustomGroupId])
+  }, [tableRows, groupByColumnId, collapsedGroups, columns, acuityLevels, activeCustomGroup])
 
   // Row IDs in visual order
   const visualRowIds = useMemo(() => {

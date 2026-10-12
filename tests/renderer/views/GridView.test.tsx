@@ -167,6 +167,16 @@ describe('GridView', () => {
     expect(refreshRowsMock).toHaveBeenCalledTimes(1)
   })
 
+  it('after an unlock, loads the same list again in full, since its records were dropped at lock (A24-11)', async () => {
+    const loadGrid = vi.fn()
+    gridStoreOverride = { grids: [{ id: 3, name: 'Main' }], activeGridId: 3, loadedGridId: null, loadGrid, columns: [] }
+    refreshRowsMock.mockClear()
+    render(<MemoryRouter><GridView /></MemoryRouter>)
+    await flushEffects()
+    expect(loadGrid).toHaveBeenCalledWith(3)
+    expect(refreshRowsMock).not.toHaveBeenCalled()
+  })
+
   it('reads the records again at midnight, so deadline colors move on (bug sweep S5)', async () => {
     const { pulseEvents } = await import('../../../src/renderer/events')
     render(<MemoryRouter><GridView /></MemoryRouter>)

@@ -151,6 +151,22 @@ describe('humanizeError', () => {
 
   // ── App-level errors pass through unchanged ─────────────────────────────
 
+  it('JSON and parser errors, path checks and full paths become the plain sentence (Q-054)', () => {
+    const generic = humanizeError(new TypeError('x'))
+    expect(humanizeError(new SyntaxError('Unexpected token x in JSON at position 3'))).toBe(generic)
+    expect(humanizeError(new Error('Path traversal detected: /a/b is outside /c/d'))).toBe(generic)
+    expect(humanizeError(new Error("Can't read /home/jane/Documents/clients.xlsx"))).toBe(generic)
+    expect(humanizeError(new Error('Could not open C:\\Users\\jane\\list.csv'))).toBe(generic)
+    // A web address or a date isn't a path
+    expect(humanizeError(new Error('See https://github.com/J2matlock/pulse-app for help.'))).toBe('See https://github.com/J2matlock/pulse-app for help.')
+    expect(humanizeError(new Error('Use a date like 12/31/2026.'))).toBe('Use a date like 12/31/2026.')
+  })
+
+  it('"Database is locked" (Pulse locked right now) gets the busy sentence (Q-054)', () => {
+    expect(humanizeError(new Error('Database is locked'))).toBe(humanizeError(new Error('database is locked')))
+    expect(humanizeError(new Error('Database is locked'))).toMatch(/busy/)
+  })
+
   it('app-level error passes through', () => {
     const err = new Error('Task not found')
     expect(humanizeError(err)).toBe('Task not found')

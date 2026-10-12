@@ -9,7 +9,7 @@ import { createHash } from 'crypto'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import BetterSqlite3 from 'better-sqlite3-multiple-ciphers'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import type { Migration } from '../src/main/migration-list'
 
 const KEY_HEX = 'a1'.repeat(32)
@@ -20,7 +20,19 @@ const h = vi.hoisted(() => ({
   // The live list database.ts runs; tests add a failing migration to it
   list: [] as Migration[],
   real: [] as Migration[],
+  // Make the next database constructor throw (a locked or unreadable file)
+  throwOnOpen: false,
 }))
+
+// The real driver, except that a test can make opening throw
+vi.mock('better-sqlite3-multiple-ciphers', async () => {
+  const actual = await vi.importActual<{ default: new (path: string) => unknown }>('better-sqlite3-multiple-ciphers')
+  function Opened(path: string): unknown {
+    if (h.throwOnOpen) throw new Error('unable to open database file')
+    return new actual.default(path)
+  }
+  return { default: Opened }
+})
 
 vi.mock('electron', () => ({
   app: { isPackaged: false, getPath: () => tmpdir(), getVersion: () => '9.9.9', on: () => {} },
@@ -69,7 +81,8 @@ vi.mock('../src/main/migration-list', async () => {
 })
 
 import { openDatabase, closeDatabase, getDb, getMigrationFailure, latestSchemaVersion, DatabaseOpenError } from '../src/main/database'
-import { trashColumn, type ColumnSnapshot } from '../src/main/list-trash'
+import { trashColumn, trashList, type ColumnSnapshot } from '../src/main/list-trash'
+import { purgeAttachment } from '../src/main/attachments'
 
 let dir: string
 let dbPath: string
@@ -146,6 +159,7 @@ beforeEach(() => {
   h.stores.clear()
   h.storedPath = ''
   h.list.splice(0, h.list.length, ...h.real)
+  h.throwOnOpen = false
 })
 
 afterEach(() => {
@@ -330,6 +344,45 @@ describe('openDatabase refusing or failing safely', () => {
     expect(sha(dbPath)).toBe(before)
   })
 
+  it('puts the process umask back when opening throws (A22-10)', () => {
+    if (process.platform === 'win32') return
+    const before = process.umask()
+    h.throwOnOpen = true
+    expect(openFailureKind()).toBe('unreadable')
+    expect(process.umask()).toBe(before)
+  })
+
+  it('a schema version that is not a whole number is unreadable, not "nothing to migrate" (A22-11)', () => {
+    makeDbAt(latestSchemaVersion(), db => {
+      db.prepare("UPDATE app_meta SET value = 'x' WHERE key = 'schema_version'").run()
+      db.pragma('wal_checkpoint(TRUNCATE)')
+    })
+    expect(openFailureKind()).toBe('unreadable')
+    expect(() => getDb()).toThrow()
+  })
+
+  it('zeroes deleted content and gives the freed pages back after a file is deleted for good (A22-12)', () => {
+    openDatabase()
+    const db = getDb()
+    expect(db.pragma('secure_delete', { simple: true })).toBe(1) // ON: freed pages are zeroed too
+    const { rowIds } = seedList(db)
+    const id = Number(db.prepare("INSERT INTO attachments (row_id, file_name, mime_type, size_bytes, sha256, deleted_at) VALUES (?, 'scan.pdf', 'application/pdf', ?, 'x', datetime('now'))")
+      .run(rowIds[0], 4_000_000).lastInsertRowid)
+    db.prepare('INSERT INTO attachment_blobs (attachment_id, data) VALUES (?, ?)').run(id, Buffer.alloc(4_000_000, 0x5a))
+    const pagesBefore = Number(db.pragma('page_count', { simple: true }))
+
+    vi.useFakeTimers()
+    try {
+      purgeAttachment(id)
+      expect(Number(db.pragma('freelist_count', { simple: true }))).toBeGreaterThan(900)
+      vi.runAllTimers()
+    } finally {
+      vi.useRealTimers()
+    }
+    expect(Number(db.pragma('freelist_count', { simple: true }))).toBe(0)
+    expect(Number(db.pragma('page_count', { simple: true }))).toBeLessThan(pagesBefore - 900)
+  })
+
   it('opening again closes the connection that was still open (AUDIT-020)', () => {
     openDatabase()
     const first = getDb()
@@ -366,6 +419,48 @@ describe('the 30-day Trash purge on open', () => {
       const snap = JSON.parse((db.prepare('SELECT snapshot FROM deleted_columns').get() as { snapshot: string }).snapshot) as ColumnSnapshot
       const cells = snap.tables.find(t => t.table === 'cells')?.rows ?? []
       expect(cells.map(c => c.row_id)).toEqual(rowIds.slice(1))
+      expectHealthy(db)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('takes what the foreign keys miss, in one transaction, like Delete forever (Q-030)', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      openDatabase()
+      let db = getDb()
+      const a = seedList(db)
+      const b = seedList(db)
+      const live = seedList(db)
+      const series = (rowId: number) => db.prepare("INSERT INTO appointment_series (rule, template, materialized_until) VALUES ('{}', json_object('row_id', ?, 'title', 'Secret visit', 'notes', 'private'), '2099-01-01')").run(rowId)
+      series(a.rowIds[0]!)
+      series(live.rowIds[0]!)
+      // B is linked to A; B goes to the Trash first, so its copy of the links names A's records
+      const typeId = Number(db.prepare("INSERT INTO link_types (from_grid_id, to_grid_id, label_forward, label_backward) VALUES (?, ?, 'Goes to', 'Has')").run(a.gridId, b.gridId).lastInsertRowid)
+      db.prepare('INSERT INTO record_links (link_type_id, from_row_id, to_row_id) VALUES (?, ?, ?)').run(typeId, a.rowIds[0], b.rowIds[0])
+      const hist = db.prepare("INSERT INTO record_link_history (link_type_id, from_row_id, to_row_id, action) VALUES (?, ?, ?, 'add')")
+      hist.run(typeId, a.rowIds[0], a.rowIds[1]) // both ends go: nothing can show it
+      hist.run(typeId, a.rowIds[0], b.rowIds[0]) // B's record stays: its audit trail keeps it
+      const reportA = Number(db.prepare("INSERT INTO report_definitions (name, grid_id, config) VALUES ('On A', ?, '{}')").run(a.gridId).lastInsertRowid)
+      const reportLive = Number(db.prepare("INSERT INTO report_definitions (name, grid_id, config) VALUES ('On live', ?, '{}')").run(live.gridId).lastInsertRowid)
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('dashboard_reports', ?)").run(JSON.stringify([reportA, reportLive]))
+      trashList(b.gridId)
+      trashList(a.gridId)
+      expect(JSON.parse((db.prepare('SELECT deleted_snapshot FROM grids WHERE id = ?').get(b.gridId) as { deleted_snapshot: string }).deleted_snapshot).recordLinks).toHaveLength(1)
+      db.prepare("UPDATE grids SET deleted_at = datetime('now', '-40 days') WHERE id = ?").run(a.gridId)
+      closeDatabase()
+
+      openDatabase()
+      vi.runOnlyPendingTimers()
+      db = getDb()
+      expect(db.prepare('SELECT 1 FROM grids WHERE id = ?').get(a.gridId)).toBeUndefined()
+      const templates = (db.prepare('SELECT template FROM appointment_series').all() as Array<{ template: string }>).map(r => JSON.parse(r.template).row_id)
+      expect(templates).toEqual([live.rowIds[0]])
+      const bSnap = JSON.parse((db.prepare('SELECT deleted_snapshot FROM grids WHERE id = ?').get(b.gridId) as { deleted_snapshot: string }).deleted_snapshot)
+      expect(bSnap.recordLinks).toEqual([])
+      expect(db.prepare('SELECT DISTINCT from_row_id, to_row_id FROM record_link_history').all()).toEqual([{ from_row_id: a.rowIds[0], to_row_id: b.rowIds[0] }])
+      expect(JSON.parse((db.prepare("SELECT value FROM settings WHERE key = 'dashboard_reports'").get() as { value: string }).value)).toEqual([reportLive])
       expectHealthy(db)
     } finally {
       vi.useRealTimers()

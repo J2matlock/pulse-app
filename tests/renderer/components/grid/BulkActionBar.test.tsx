@@ -39,6 +39,7 @@ import { BulkActionBar } from '../../../../src/renderer/components/grid/BulkActi
 import type { BulkActionBarProps } from '../../../../src/renderer/components/grid/BulkActionBar'
 import type { GridRow, Column } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
+import { safeInvoke } from '../../../../src/renderer/utils/safeInvoke'
 
 function makeRow(id: number, isActive = 1): GridRow {
   return {
@@ -113,6 +114,14 @@ describe('BulkActionBar', () => {
     render(<BulkActionBar {...makeProps()} />)
     expect(screen.getByText('Archive')).toBeTruthy()
     expect(screen.queryByText('Unarchive')).toBeNull()
+  })
+
+  it('the archive question names the list with the workspace word (A28-12)', async () => {
+    // The question shows only when an archived record has upcoming appointments
+    vi.mocked(safeInvoke).mockResolvedValueOnce({ ok: true, data: 2 })
+    render(<BulkActionBar {...makeProps()} />)
+    fireEvent.click(screen.getByText('Archive'))
+    expect(await screen.findByText(/hidden from the caseload\. Unarchiving/)).toBeTruthy()
   })
 
   it('shows Unarchive button when all selected rows are archived', () => {

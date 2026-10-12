@@ -30,7 +30,7 @@ export function DemoContactCategories() {
           <div
             key={c.name}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-            style={{ animation: `ccPop 8s ease ${i * 0.4}s infinite`, fontSize: 12 }}
+            style={{ animation: `ccPop 8s ease ${i * 0.4}s infinite`, fontSize: 15 }}
           >
             <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.color }} />
             <span className="text-slate-700 dark:text-slate-300 font-medium">{c.name}</span>
@@ -40,7 +40,7 @@ export function DemoContactCategories() {
         {/* New custom category appearing */}
         <div
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 overflow-hidden"
-          style={{ animation: 'ccCustom 8s ease infinite', fontSize: 12 }}
+          style={{ animation: 'ccCustom 8s ease infinite', fontSize: 15 }}
         >
           <span className="text-green-600 dark:text-green-400">+</span>
           <span className="text-green-700 dark:text-green-300 font-medium whitespace-nowrap">Custom Category</span>

@@ -32,9 +32,9 @@ export function DemoCellEdit() {
         }
       `}</style>
       <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Inline cell editing</div>
-      <div className="grid grid-cols-3 gap-px bg-slate-300 dark:bg-slate-600 rounded-lg overflow-hidden" style={{ fontSize: 13 }}>
+      <div className="grid grid-cols-3 gap-px bg-slate-300 dark:bg-slate-600 rounded-lg overflow-hidden" style={{ fontSize: 15 }}>
         {['Name', 'Status', 'Due Date'].map(h => (
-          <div key={h} className="bg-slate-200 dark:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">{h}</div>
+          <div key={h} className="bg-slate-200 dark:bg-slate-700 px-3 py-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400">{h}</div>
         ))}
         <div className="bg-white dark:bg-slate-800 px-3 py-2 text-slate-700 dark:text-slate-300">Johnson</div>
         <div

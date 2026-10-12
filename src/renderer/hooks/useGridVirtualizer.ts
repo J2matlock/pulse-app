@@ -1,7 +1,9 @@
 import { useCallback, useMemo } from 'react'
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual'
 
-const DEFAULT_OVERSCAN = 20
+// Rows drawn past each edge of the visible area: about half a screen at 44 px a row,
+// enough for a fast scroll not to show blank rows, without mounting a second screenful
+const DEFAULT_OVERSCAN = 10
 
 interface UseGridVirtualizerOptions {
   /** Ref to the scrollable parent container */

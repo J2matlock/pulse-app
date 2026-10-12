@@ -7,6 +7,7 @@ import { app, BrowserWindow, shell, dialog, clipboard } from 'electron'
 import { existsSync, unlinkSync, readdirSync, rmSync } from 'fs'
 import { join, dirname } from 'path'
 import Store from 'electron-store'
+import { privateStoreOptions } from '../private-files'
 import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
 import { secureWrap, logNonFatal, ok, fail, rememberUserChosenPaths } from './ipc-utils'
@@ -14,6 +15,9 @@ import { resolveDatabasePath, closeDatabase, getDb, getPortableDataDir, getMigra
 import { verifyAndUnlock, lockApp } from '../auth'
 import { stopScheduledBackup } from '../index'
 import { isLicenseDoc, licenseFilePath } from '../license-files'
+import { isAppLink } from '../external-links'
+import { liveGrid } from '../../shared/liveRecords'
+import { getSkippedUpdateVersion, setSkippedUpdateVersion, isValidVersion } from '../prefs'
 
 /** Returns true if `remote` is a higher semver than `current` (X.Y.Z format). */
 function isNewerVersion(remote: string, current: string): boolean {
@@ -48,7 +52,7 @@ function setupFinished(): boolean {
     const db = getDb()
     const meta = db.prepare("SELECT value FROM app_meta WHERE key = 'onboarding_complete'").get() as { value: string } | undefined
     if (meta) return meta.value === '1'
-    return !!db.prepare('SELECT 1 FROM grids WHERE is_active = 1 LIMIT 1').get()
+    return !!db.prepare(`SELECT 1 FROM grids WHERE ${liveGrid('')} LIMIT 1`).get()
   } catch (err) {
     logNonFatal('ipc-app', 'read onboarding_complete', err)
     return false
@@ -77,15 +81,12 @@ export function registerAppHandlers(): void {
   })
 
   secureWrap(IPC.APP_OPEN_EXTERNAL, 'ipc-app', (_e, url: string) => {
-    // Only allow http/https URLs — parse to prevent bypass via userinfo (e.g. http://evil@legit.com)
-    try {
-      const parsed = new URL(url)
-      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-        shell.openExternal(parsed.href)
-        return ok(true)
-      }
-    } catch (err) { logNonFatal('ipc-app', 'APP_OPEN_EXTERNAL URL parse', err) }
-    return fail('Only http/https URLs are allowed')
+    // Pulse's own https pages only (F-035): parsed, so userinfo tricks (https://github.com@evil) don't pass
+    if (typeof url === 'string' && isAppLink(url)) {
+      void Promise.resolve(shell.openExternal(new URL(url).href)).catch(err => logNonFatal('ipc-app', 'APP_OPEN_EXTERNAL', err))
+      return ok(true)
+    }
+    return fail("That link can't be opened from here. Pulse only opens its own https pages.")
   })
 
   // The license texts ship inside the app, so they open offline (the GPL link needs a browser and a connection)
@@ -101,10 +102,12 @@ export function registerAppHandlers(): void {
     return ok(true)
   })
 
-  secureWrap(IPC.APP_SHOW_FILE_DIALOG, 'ipc-app', async (_e, options: Electron.OpenDialogOptions) => {
+  secureWrap(IPC.APP_SHOW_FILE_DIALOG, 'ipc-app', async (_e, rawOptions: Electron.OpenDialogOptions) => {
+    // No options (null) is a plain dialog, not a TypeError (Q-056)
+    const options: Electron.OpenDialogOptions = rawOptions && typeof rawOptions === 'object' ? rawOptions : {}
     // Sanitize: only allow safe dialog properties from the renderer
     const safeProps: Electron.OpenDialogOptions['properties'] =
-      (options.properties ?? []).filter(p =>
+      (Array.isArray(options.properties) ? options.properties : []).filter(p =>
         ['openFile', 'openDirectory', 'multiSelections'].includes(p)
       ) as Electron.OpenDialogOptions['properties']
     const safeOptions: Electron.OpenDialogOptions = {
@@ -124,7 +127,8 @@ export function registerAppHandlers(): void {
     return ok(result)
   })
 
-  secureWrap(IPC.APP_SHOW_SAVE_DIALOG, 'ipc-app', async (_e, options: Electron.SaveDialogOptions) => {
+  secureWrap(IPC.APP_SHOW_SAVE_DIALOG, 'ipc-app', async (_e, rawOptions: Electron.SaveDialogOptions) => {
+    const options: Electron.SaveDialogOptions = rawOptions && typeof rawOptions === 'object' ? rawOptions : {}
     // Sanitize: only allow safe dialog properties from the renderer
     const safeOptions: Electron.SaveDialogOptions = {
       title: typeof options.title === 'string' ? options.title.slice(0, 200) : undefined,
@@ -169,7 +173,7 @@ export function registerAppHandlers(): void {
     const dataDir = getPortableDataDir()
     // pulse-license is left over from versions that had a paid license
     for (const storeName of ['pulse-secure', 'pulse-prefs', 'pulse-backup-config', 'pulse-backup-status', 'pulse-license']) {
-      try { new Store({ name: storeName, cwd: dataDir }).clear() } catch (err) { logNonFatal('ipc-app', `APP_FACTORY_RESET clear store ${storeName}`, err) }
+      try { new Store(privateStoreOptions(storeName, dataDir)).clear() } catch (err) { logNonFatal('ipc-app', `APP_FACTORY_RESET clear store ${storeName}`, err) }
     }
     // "Permanently deletes all data" must include every local copy that, together
     // with the old password, could reopen it: the credential backup copy, any
@@ -204,17 +208,20 @@ export function registerAppHandlers(): void {
     const UPDATE_CHECK_URL = 'https://raw.githubusercontent.com/J2matlock/pulse-releases/main/latest.json'
     const UPDATE_ALLOWED_URL_PREFIX = 'https://github.com/J2matlock/pulse-releases/'
     let data: { version?: string; downloadUrl?: string; downloads?: Partial<Record<'win' | 'mac' | 'linux', string>>; releaseNotes?: string }
+    // Couldn't find out: the button says so instead of "You have the latest version" (F-036);
+    // the automatic check stays silent, as before
+    const unknown = () => ok(manual ? { available: false, unreachable: true } : { available: false })
     try {
       const res = await fetch(UPDATE_CHECK_URL, { signal: AbortSignal.timeout(8000) })
-      if (!res.ok) return ok({ available: false })
+      if (!res.ok) return unknown()
       data = await res.json() as typeof data
     } catch (err) {
       // Offline, timed out or a proxy in the way: normal for an offline app, not an error
       logger.info('ipc-app', 'Update check could not reach the release page', { error: err instanceof Error ? err.message : String(err) })
-      return ok({ available: false })
+      return unknown()
     }
-    if (!data || typeof data !== 'object') return ok({ available: false })
-    if (!data.version) return ok({ available: false })
+    if (!data || typeof data !== 'object') return unknown()
+    if (!data.version) return unknown()
     // Per-platform links when the release lists them (older files have only downloadUrl)
     const platformKey = process.platform === 'darwin' ? 'mac' : process.platform === 'win32' ? 'win' : 'linux'
     const platformUrl = data.downloads && typeof data.downloads === 'object' ? data.downloads[platformKey] : undefined
@@ -235,6 +242,16 @@ export function registerAppHandlers(): void {
     return ok({ available, version: data.version, downloadUrl: safeDownloadUrl, releaseNotes: data.releaseNotes })
   })
 
+  // "Skip this version" on the update banner (S-4). Kept in the preferences file,
+  // not the database, and not gated by enforceWritable: it's not record data.
+  secureWrap(IPC.APP_UPDATE_SKIPPED_GET, 'ipc-app', () => ok(getSkippedUpdateVersion()))
+
+  secureWrap(IPC.APP_UPDATE_SKIP, 'ipc-app', (_e, version: unknown) => {
+    if (version !== null && !isValidVersion(version)) return fail('That isn\'t a version number Pulse knows.')
+    setSkippedUpdateVersion(version)
+    return ok(getSkippedUpdateVersion())
+  })
+
   secureWrap(IPC.APP_INTEGRITY_CHECK, 'ipc-app', () => {
     const result = getDb().prepare('PRAGMA integrity_check').get() as { integrity_check: string }
     return ok(result.integrity_check === 'ok')
@@ -245,7 +262,12 @@ export function registerAppHandlers(): void {
       clearMigrationFailureFlag()
       return ok(null)
     }
-    return ok(getMigrationFailure())
+    // The stored error is raw SQL text for the log; the screen gets a sentence (Q-054)
+    const failure = getMigrationFailure()
+    return ok(failure && {
+      ...failure,
+      error: `Pulse couldn't finish updating your data to the new version (step ${failure.version}). Your data was left as it was before the update. Restore the backup Pulse made just before it, in Settings → Backup.`,
+    })
   })
 
   secureWrap(IPC.APP_RELAUNCH, 'ipc-app', () => {
@@ -265,5 +287,6 @@ export function registerAppHandlers(): void {
       app.relaunch()
       app.exit(0)
     }
+    return ok(null)
   })
 }

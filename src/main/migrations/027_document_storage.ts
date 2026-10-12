@@ -5,7 +5,7 @@
  * Legacy refs default to storage_mode='reference'.
  */
 
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 
 export function up(db: Database): void {
   // Guard: only add columns if they don't already exist (ALTER TABLE ADD COLUMN has no IF NOT EXISTS in SQLite)

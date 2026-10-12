@@ -2,6 +2,7 @@ import React from 'react'
 import { CheckCircle2 } from 'lucide-react'
 import type { UrgentChecklistItem } from './types'
 import { useVocabByList } from '../../hooks/useVocab'
+import { ymdLocalDate } from '../../../shared/dates'
 
 export const ChecklistFocusItem = React.memo(function ChecklistFocusItem({ item, celebrating, onComplete, onNavigate }: {
   item: UrgentChecklistItem
@@ -11,7 +12,7 @@ export const ChecklistFocusItem = React.memo(function ChecklistFocusItem({ item,
 }): React.ReactElement {
   const tFor = useVocabByList()
   const dueDateLabel = item.due_date
-    ? (() => { const [y = NaN, m = NaN, d = NaN] = item.due_date!.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) })()
+    ? ymdLocalDate(item.due_date!).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
     : null
 
   return (

@@ -1,11 +1,11 @@
 ---
 name: new-migration
-description: Add a SQLite schema migration to Pulse correctly — numbered file, idempotent DDL, schema_version bump, registration in database.ts and the test helper, and upgrade tests.
+description: Add a SQLite schema migration to Pulse correctly — numbered file, idempotent DDL, schema_version bump, registration in migration-list.ts and the test helper, and upgrade tests.
 ---
 
 # New migration — Pulse
 
-Current latest: check the last entry of `MIGRATIONS` in `src/main/migration-list.ts`. It was 048 as of 2026-10.
+Current latest: check the last entry of `MIGRATIONS` in `src/main/migration-list.ts`. It was 050 as of 2026-10-12.
 
 1. Create `src/main/migrations/NNN_short_name.ts` (zero-padded, next number):
    ```ts

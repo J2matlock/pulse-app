@@ -236,7 +236,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
           ) : (
             <button
               onClick={() => { setDateDraft(''); setEditingDate(true) }}
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base
+              className="hit-44 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base
                          text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100
                          hover:bg-slate-200 dark:hover:bg-slate-600 transition-opacity"
             >
@@ -249,7 +249,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
           <div className="relative" ref={priorityMenuRef}>
             <button
               onClick={() => setShowPriorityMenu(prev => !prev)}
-              className={`px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity
+              className={`hit-44 px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity
                          ${priorityCfg.badge}
                          ${priority === 'normal' ? 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100' : ''}`}
             >
@@ -278,7 +278,7 @@ export function TaskItem({ task, isDragDisabled, onToggle, onUpdate, onDelete, o
           <div className="relative" ref={recurrenceMenuRef}>
             <button
               onClick={() => setShowRecurrenceMenu(prev => !prev)}
-              className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity
+              className={`hit-44 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity
                          ${hasRecurrence
                            ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
                            : 'text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-slate-200 dark:hover:bg-slate-600'}`}

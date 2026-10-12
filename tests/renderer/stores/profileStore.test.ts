@@ -139,6 +139,22 @@ describe('pruning Recent', () => {
     expect(useProfileStore.getState().recentProfiles).toEqual([])
   })
 
+  it('a record moved to the Trash from the list leaves Recent at once (Q-048)', async () => {
+    invoke.mockResolvedValue({ ok: true, data: true })
+    useGridStore.setState({ activeGridId: 1, rows: [{ row_id: 2 }] as never, columns: [] })
+    await useGridStore.getState().deleteRow(2)
+    expect(useProfileStore.getState().recentProfiles.map(p => p.rowId)).toEqual([1, 3, 4])
+  })
+
+  it('records trashed by the handful leave at once; a list moved to the Trash checks them all (Q-048)', async () => {
+    pulseEvents.emit('records:trashed', { rowIds: [1, 3] })
+    expect(useProfileStore.getState().recentProfiles.map(p => p.rowId)).toEqual([2, 4])
+    invoke.mockImplementation(async (_channel: string, rowId: number) => ({ ok: true, data: { gridId: 1, status: rowId === 2 ? 'list-deleted' : 'active', archivedReason: null } }))
+    pulseEvents.emit('records:trashed', {})
+    await new Promise(r => setTimeout(r, 0))
+    expect(useProfileStore.getState().recentProfiles.map(p => p.rowId)).toEqual([4])
+  })
+
   it('removeRecentProfile drops one record', () => {
     useProfileStore.getState().removeRecentProfile(2)
     expect(useProfileStore.getState().recentProfiles.map(p => p.rowId)).toEqual([1, 3, 4])

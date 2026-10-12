@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useId, useRef, useState } from 'react'
 import { X, ChevronDown } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Grid } from '../../../shared/types'
@@ -25,6 +25,7 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
   const [applying, setApplying] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const trapRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
 
   useFocusTrap(trapRef, true)
 
@@ -39,7 +40,7 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
   async function handleApply() {
     setError(null)
     if (applyMode === 'existing' && !selectedGridId) {
-      setError(`Choose a ${t('list')} first.`)
+      setError(`Choose ${t('list', { article: true })} first.`)
       return
     }
     setApplying(true)
@@ -70,9 +71,9 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div ref={trapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md">
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md">
         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1">
+          <h2 id={titleId} className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1">
             Apply "{template.name}"
           </h2>
           <button
@@ -107,7 +108,7 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
                 onChange={() => setApplyMode('existing')}
                 className="w-4 h-4 text-blue-600 focus:ring-3 focus:ring-blue-500"
               />
-              <span className="text-base text-slate-700 dark:text-slate-300">Add to a {t('list')} I already have</span>
+              <span className="text-base text-slate-700 dark:text-slate-300">Add to {t('list', { article: true })} I already have</span>
             </label>
           </div>
 

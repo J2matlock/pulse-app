@@ -70,6 +70,7 @@ import {
   unwrapKeyEnvelope,
   adoptRestoredDbKey,
   isValidKeyEnvelope,
+  SETUP_GRACE_MS,
 } from '../src/main/auth'
 import * as nodeCrypto from 'crypto'
 import bcrypt from 'bcryptjs'
@@ -225,6 +226,34 @@ describe('Recovery-key changes require the current password', () => {
     await expect(revokeRecoveryKey()).rejects.toThrow('Enter your current password')
     await revokeRecoveryKey(PWD)
     expect(hasRecoveryKey()).toBe(false)
+  })
+
+  it('the setup grace covers only the setup step, not the rest of the session (A24-10)', async () => {
+    const start = Date.now()
+    const now = vi.spyOn(Date, 'now').mockReturnValue(start)
+    try {
+      await setupPassword(PWD, '', '/tmp/x.db')
+      now.mockReturnValue(start + SETUP_GRACE_MS - 1000)
+      await expect(generateRecoveryKey()).resolves.toMatch(/^[A-Z0-9]{4}-/)
+      now.mockReturnValue(start + SETUP_GRACE_MS + 1000)
+      await expect(generateRecoveryKey()).rejects.toThrow('Enter your current password')
+      await expect(revokeRecoveryKey()).rejects.toThrow('Enter your current password')
+      expect(hasRecoveryKey()).toBe(true)
+      await expect(generateRecoveryKey(PWD)).resolves.toMatch(/^[A-Z0-9]{4}-/)
+    } finally {
+      now.mockRestore()
+    }
+  })
+
+  it('the recovery grace ends once the new password is set (A24-10)', async () => {
+    await setupPassword(PWD, '', '/tmp/x.db')
+    const rk = await generateRecoveryKey()
+    lockApp()
+    await verifyAndUnlockRecovery(rk)
+    await resetPasswordAfterRecovery('Another-Pass-1', '')
+    await expect(revokeRecoveryKey()).rejects.toThrow('Enter your current password')
+    await expect(resetPasswordAfterRecovery('Third-Pass-123', '')).rejects.toThrow('recovery key')
+    await expect(generateRecoveryKey('Another-Pass-1')).resolves.toMatch(/^[A-Z0-9]{4}-/)
   })
 
   it('only allows password reset after a recovery-key unlock', async () => {

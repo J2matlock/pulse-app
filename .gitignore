@@ -69,3 +69,7 @@ plans/audit-2026-10/screens/
 # Agent worktrees
 .claude/worktrees/
 plans/polish-2026-10/screens/
+
+# Sweep working files (security findings; kept local, see CLAUDE.md Decision Log)
+sweep/
+pulse-sweep-plan.md

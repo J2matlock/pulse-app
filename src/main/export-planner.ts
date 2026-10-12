@@ -13,6 +13,8 @@ import { featureOn, word } from './vocab'
 import { formatTime } from '../shared/calendar'
 import { OPEN_RECORD_SQL } from '../shared/appointments'
 import { addDays } from '../shared/ymd'
+import { LIVE_GRID, LIVE_ROW } from '../shared/liveRecords'
+import { shortDate } from '../shared/dates'
 
 interface PlannerRow { due: string; client: string; what: string; kind: string }
 
@@ -31,20 +33,20 @@ export function loadPlannerRows(start: string, end: string): { week: PlannerRow[
     SELECT * FROM (
       SELECT cl.follow_up_date AS due, r.display_name AS client, cl.content AS what, 'Follow-up' AS kind
       FROM case_log cl
-      JOIN rows r  ON r.id = cl.row_id AND r.is_active = 1 AND r.deleted_at IS NULL
-      JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
+      JOIN rows r  ON r.id = cl.row_id AND ${LIVE_ROW}
+      JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
       WHERE cl.follow_up_date IS NOT NULL AND cl.follow_up_completed = 0 AND cl.voided_at IS NULL
       UNION ALL
       SELECT ci.due_date, r.display_name, ci.title, 'Checklist'
       FROM checklist_items ci
-      JOIN rows r  ON r.id = ci.row_id AND r.is_active = 1 AND r.deleted_at IS NULL
-      JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
+      JOIN rows r  ON r.id = ci.row_id AND ${LIVE_ROW}
+      JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
       WHERE ci.is_completed = 0 AND COALESCE(ci.is_archived, 0) = 0 AND ci.due_date IS NOT NULL
       UNION ALL
       SELECT ct.due_date, '', ct.title, 'Task'
       FROM caseload_tasks ct
       LEFT JOIN grids g ON g.id = ct.grid_id
-      WHERE ct.is_completed = 0 AND ct.due_date IS NOT NULL AND (ct.grid_id IS NULL OR g.is_active = 1)
+      WHERE ct.is_completed = 0 AND ct.due_date IS NOT NULL AND (ct.grid_id IS NULL OR ${LIVE_GRID})
     )
     WHERE due IS NOT NULL AND due <= ?
   `).all(end) as PlannerRow[]
@@ -77,7 +79,7 @@ export async function exportWeeklyPlanner(weekStart: string, destPath: string, w
   doc.text(`Week of ${fmtDay(weekStart)} – ${fmtDay(end)}`, marginL, 18)
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
-  doc.text(`${workerName ? workerName + '  ·  ' : ''}Printed ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}  ·  Contains ${word('record')} information — keep secure`, marginL, 25)
+  doc.text(`${workerName ? workerName + '  ·  ' : ''}Printed ${shortDate(new Date())}  ·  Contains ${word('record')} information — keep secure`, marginL, 25)
 
   const body = (list: PlannerRow[]) => list.map(r => ['', fmtDay(r.due), r.client || '—', r.what, r.kind, ''])
   // Standard PDF fonts have no check-mark glyph, so the tick column is a plain box

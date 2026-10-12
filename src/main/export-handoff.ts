@@ -8,12 +8,12 @@
  */
 
 import { getDb } from './database'
-import { jsPDF, atomicWriteFileAsync, getClientName } from './export-shared'
+import { jsPDF, atomicWriteFileAsync, getClientName, lineHeight } from './export-shared'
 import { renderProfileToDoc } from './export-pdf'
 import { loadAuditTrail, drawAuditClients, auditFootnote } from './export-audit'
 import { listAttachments, attachmentBytes } from './attachments'
 import { formatBytes } from '../shared/attachments'
-import { parseDbTimestamp } from '../shared/dates'
+import { parseDbTimestamp, shortDate } from '../shared/dates'
 import { vocabFor } from './vocab'
 import { term } from '../shared/vocab'
 
@@ -53,7 +53,7 @@ export function drawFiles(doc: InstanceType<typeof jsPDF>, rowId: number, opts: 
     doc.text(doc.splitTextToSize(f.file_name, width) as string[], marginL, y)
     y += 5
     doc.setFont('helvetica', 'normal')
-    const added = parseDbTimestamp(f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    const added = shortDate(parseDbTimestamp(f.created_at))
     const meta = doc.splitTextToSize([formatBytes(f.size_bytes), `added ${added}`, f.description].filter(Boolean).join('  ·  '), width) as string[]
     doc.text(meta, marginL, y)
     y += meta.length * 5 + 3
@@ -104,14 +104,17 @@ export async function exportHandoffPacket(opts: HandoffOptions, destPath: string
   doc.setFont('helvetica', 'bold')
   doc.text(`${term(v, 'record', { cap: true })} handoff packet`, marginL, 28)
   doc.setFontSize(16)
-  doc.text(clientName, marginL, 40)
+  // A long name or "To" wraps, and what follows moves down by the extra lines (Q-077)
+  const nameLines = doc.splitTextToSize(clientName, width) as string[]
+  doc.text(nameLines, marginL, 40)
+  let y = 52 + (nameLines.length - 1) * lineHeight(doc)
   doc.setFontSize(11)
   doc.setFont('helvetica', 'normal')
-  let y = 52
   const line = (label: string, value: string) => {
+    const lines = doc.splitTextToSize(value, width - 40) as string[]
     doc.setFont('helvetica', 'bold'); doc.text(`${label}:`, marginL, y)
-    doc.setFont('helvetica', 'normal'); doc.text(doc.splitTextToSize(value, width - 40), marginL + 40, y)
-    y += 8
+    doc.setFont('helvetica', 'normal'); doc.text(lines, marginL + 40, y)
+    y += 8 + (lines.length - 1) * lineHeight(doc)
   }
   line('Date', today)
   if (grid) line(term(v, 'list', { cap: true }), grid.name)
@@ -134,7 +137,7 @@ export async function exportHandoffPacket(opts: HandoffOptions, destPath: string
   doc.setFontSize(10)
   const hasFiles = listAttachments(opts.rowId).length > 0
   const files = hasFiles ? `  3. the files on this ${term(v, 'record')}${opts.includePictures ? ' (pictures as pages)' : ''}` : ''
-  doc.text(doc.splitTextToSize(`Contents: 1. this cover page  2. the ${term(v, 'record')} profile (details, deadlines, checklist, notes, contacts)${files}  ${hasFiles ? 4 : 3}. the complete audit trail.`, width), marginL, y)
+  doc.text(doc.splitTextToSize(`Contents: 1. this cover page  2. the ${term(v, 'record')} profile (details, deadlines, checklist, ${term(v, 'activity', { many: true })}, ${term(v, 'contact', { many: true })})${files}  ${hasFiles ? 4 : 3}. the complete audit trail.`, width), marginL, y)
 
   // ── Profile ──
   doc.addPage()

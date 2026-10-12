@@ -188,6 +188,35 @@ describe('series', () => {
     expect(rule.count).toBe(7)
   })
 
+  it('"this and following" on a clamped month-end keeps the series\' day (P-003)', () => {
+    expect(followingRule({ freq: 'monthly', interval: 1 }, '2026-01-31', '2026-02-28', '2026-02-28')).toEqual({ freq: 'monthly', interval: 1, monthDay: 31 })
+    expect(seriesDates({ freq: 'monthly', interval: 1, monthDay: 31 }, '2026-02-28', '2026-05-31')).toEqual(['2026-02-28', '2026-03-31', '2026-04-30', '2026-05-31'])
+    // A real move to another day counts from the new day
+    expect(followingRule({ freq: 'monthly', interval: 1, monthDay: 31 }, '2026-02-28', '2026-04-30', '2026-04-15')).toEqual({ freq: 'monthly', interval: 1 })
+    // Not clamped: nothing to keep
+    expect(followingRule({ freq: 'monthly', interval: 1 }, '2026-01-15', '2026-02-15', '2026-02-15')).toEqual({ freq: 'monthly', interval: 1 })
+  })
+
+  it('"this and following" and a new end on a clamped month-end keep the 31st for the rest (P-003)', () => {
+    const d = new Date(); d.setHours(12, 0, 0, 0)
+    while (d.getDate() !== 31) d.setDate(d.getDate() + 1)
+    const first = localDateString(d)
+    const lastOfMonth = (ymd: string) => { const [y, m] = ymd.split('-').map(Number) as [number, number]; return new Date(y, m, 0).getDate() }
+    const onAnchor = (ymd: string) => Number(ymd.slice(8)) === Math.min(31, lastOfMonth(ymd))
+    createAppointment({ row_id: g.rowIds[0]!, title: 'Review', start_at: `${first}T10:00` }, { freq: 'monthly', interval: 1 })
+    const clamped = () => all().find(a => a.status === 'scheduled' && Number(a.series_date!.slice(8)) < 31 && a.series_date! > first)!
+    const one = clamped()
+    updateAppointment(one.id, { location: 'Office' }, 'following')
+    ensureMaterialized(inDays(500))
+    expect(all().every(a => onAnchor(a.start_at.slice(0, 10)))).toBe(true)
+    // A changed pattern (now 6 times) set on a clamped one keeps the day as well
+    const two = all().find(a => a.series_date! > one.series_date! && Number(a.series_date!.slice(8)) < 31)!
+    updateAppointment(two.id, {}, 'one', { freq: 'monthly', interval: 1, count: 6 })
+    const later = all().filter(a => a.start_at.slice(0, 10) >= two.series_date!)
+    expect(later).toHaveLength(6)
+    expect(later.every(a => onAnchor(a.start_at.slice(0, 10)))).toBe(true)
+  })
+
   it('"this and following" moved to another weekday keeps the moved one and shifts the days', () => {
     expect(followingRule({ freq: 'weekly', interval: 1, byDay: [2, 4] }, '2026-10-06', '2026-10-13', '2026-10-14')).toEqual({ freq: 'weekly', interval: 1, byDay: [3, 5] })
     expect(followingRule({ freq: 'weekly', interval: 1, byDay: [5, 6] }, '2026-10-02', '2026-10-09', '2026-10-11')).toEqual({ freq: 'weekly', interval: 1, byDay: [0, 1] })
@@ -222,6 +251,17 @@ describe('series', () => {
     expect(all().filter(a => a.title === 'Session')).toHaveLength(4)
     restoreAppointments(end.snapshot)
     expect(all().filter(a => a.title === 'Session')).toHaveLength(before.length)
+  })
+
+  it('addMonths stays in the target month, using its last day when shorter (A21b-07)', () => {
+    expect(addMonths('2026-01-31', 1)).toBe('2026-02-28')
+    expect(addMonths('2028-01-31', 1)).toBe('2028-02-29')
+    expect(addMonths('2028-02-29', 12)).toBe('2029-02-28')
+    expect(addMonths('2026-03-31', -1)).toBe('2026-02-28')
+    expect(addMonths('2026-08-31', 6)).toBe('2027-02-28')
+    expect(addMonths('2026-10-15', 1)).toBe('2026-11-15')
+    expect(addMonths('2026-12-31', 2)).toBe('2027-02-28')
+    expect(addMonths('2026-10-01', -10)).toBe('2025-12-01')
   })
 
   it('keep going past two years: the horizon moves with today', () => {

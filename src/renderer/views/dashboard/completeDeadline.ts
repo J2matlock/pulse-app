@@ -3,7 +3,7 @@ import { safeInvoke, storeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { useUndoStore } from '../../stores/undoStore'
 import { useGridStore } from '../../stores/gridStore'
 import type { SideEffect } from '../../stores/undoStore'
-import { localDateString } from '../../../shared/dates'
+import { localDateString, shortDate, ymdLocalDate } from '../../../shared/dates'
 import { addInterval, type RuleInterval } from '../../../shared/ruleInterval'
 import type { RuleKind } from '../../../shared/deadlineEngine'
 import toast from 'react-hot-toast'
@@ -34,7 +34,9 @@ export interface DeadlineToComplete {
 }
 
 /** What main did for a plain Done (L-25), for undo */
-interface MarkDoneSnap { previous: string | null; newValue: string | null; finishedFor: string | null; sysLogId: number; checklistItemIds: number[] }
+interface MarkDoneSnap { previous: string | null; newValue: string | null; finishedFor: string | null; sysLogId: number; checklistItemIds: number[]
+  /** When main says it's next due (days off and holidays applied) */
+  nextDue?: string | null }
 
 /** A date with no repeat: Done asks whether it was renewed or finished */
 export function isOneOffDeadline(item: Pick<DeadlineToComplete, 'ruleKind' | 'interval'>): boolean {
@@ -85,13 +87,12 @@ const hasRepeat = (iv: RuleInterval) => iv.days > 0 || iv.months > 0
 
 /** The next due date counted from the day it was done */
 function nextDueFrom(day: string, iv: RuleInterval): Date {
-  const [y = NaN, m = NaN, d = NaN] = day.split('-').map(Number)
-  return addInterval(new Date(y, m - 1, d), iv)
+  return addInterval(ymdLocalDate(day), iv)
 }
 
 function formatDate(d: string | Date): string {
   const date = typeof d === 'string' ? new Date(d.includes('T') ? d : `${d}T00:00:00`) : d
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return shortDate(date)
 }
 
 async function addChecklist(rowId: number, templateId: number | null | undefined): Promise<number[]> {
@@ -150,6 +151,7 @@ export async function completeDeadlines(
   const first = done[0]!
   const nextDue = first.oneOff?.kind === 'renewed' ? `; now due ${formatDate(first.oneOff.newDate)}`
     : first.oneOff?.kind === 'finished' ? ' (finished)'
+    : first.snap?.nextDue ? `; next due ${formatDate(first.snap.nextDue)}`
     : first.newValue && first.interval && hasRepeat(first.interval) && (!first.ruleKind || first.ruleKind === 'interval') ? `; next due ${formatDate(nextDueFrom(first.newValue, first.interval))}` : ''
   useUndoStore.getState().pushWithToast({
     id: crypto.randomUUID(),

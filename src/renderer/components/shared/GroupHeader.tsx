@@ -171,7 +171,7 @@ export function ChecklistGroupHeader({
           </button>
           <button
             onClick={startEditing}
-            className={`p-0.5 text-slate-500 hover:text-slate-600 dark:hover:text-slate-300
+            className={`hit-44 p-0.5 text-slate-500 hover:text-slate-600 dark:hover:text-slate-300
                        transition-opacity flex-shrink-0
                        ${hovering ? 'opacity-100' : 'opacity-0'}`}
             title="Rename group"
@@ -198,7 +198,7 @@ export function ChecklistGroupHeader({
       {/* Delete button (visible on hover) */}
       <button
         onClick={onDelete}
-        className="p-1 rounded-sm text-slate-500 opacity-0 group-hover/header:opacity-100
+        className="hit-44 p-1 rounded-sm text-slate-500 opacity-0 group-hover/header:opacity-100
                    hover:text-red-500 dark:hover:text-red-400 transition-all
                    focus:outline-hidden focus-visible:ring-3 focus-visible:ring-red-400
                    focus-visible:opacity-100 flex-shrink-0"

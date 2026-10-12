@@ -12,7 +12,7 @@
  * logic for 047 (e.g. sample-marks-v47.ts) and point the migration at it.
  * tests/migration-047.test.ts covers the upgrade.
  */
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 
 /** Cells (non-empty, by column) plus the row's own fields a person can change */
 const FINGERPRINT_SQL = `SELECT

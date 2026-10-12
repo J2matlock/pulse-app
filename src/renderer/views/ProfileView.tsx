@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { canGoBack, previousPage } from '../utils/navHistory'
 import { pageTitle } from '../components/layout/TopBar'
@@ -69,7 +69,7 @@ export default function ProfileView(): React.ReactElement {
       toast.error(`That ${t('record')} link isn't valid — going back to the ${t('list')}.`)
       navigate('/')
     }
-  }, [rowIdStr, rowId, navigate])
+  }, [rowIdStr, rowId, navigate, t])
   const [searchParams] = useSearchParams()
 
   const checklistFocusRef = useRef<(() => void) | null>(null)
@@ -201,6 +201,10 @@ export default function ProfileView(): React.ReactElement {
   const goneStatus = lookup?.rowId === rowId && !rowInList && lookup.status !== 'active' && lookup.status !== 'archived' ? lookup.status : null
   useEffect(() => { if (rowId != null && goneStatus) removeRecentProfile?.(rowId) }, [rowId, goneStatus, removeRecentProfile])
   const archivedRow = lookup?.rowId === rowId && !rowInList ? lookup.archivedRow : undefined
+  // An archived record's page shows its own copy of the record: keep it current after a save, Undo included (F-016)
+  useEffect(() => pulseEvents.on('cell:saved', ({ rowId: savedId, columnId, value }) => {
+    setLookup(l => l?.rowId === savedId && l.archivedRow ? { ...l, archivedRow: { ...l.archivedRow, [`col_${columnId}`]: value } } : l)
+  }), [])
   const row = rowInList ?? archivedRow
   const isArchived = !!row && row.is_active === 0
   const [unarchiving, setUnarchiving] = useState(false)
@@ -223,8 +227,9 @@ export default function ProfileView(): React.ReactElement {
   }, [row, nameCol, columns])
   const clientName = knownName ?? `Unknown ${t('record')}`
 
-  // Track as recently visited
-  useEffect(() => {
+  // Track as recently visited: once per record, and again when its name loads,
+  // not every time the list of lists reloads
+  const recordVisit = useEffectEvent(() => {
     if (rowId == null || !activeGrid || knownName == null) return
     addRecentProfile({
       rowId,
@@ -233,7 +238,8 @@ export default function ProfileView(): React.ReactElement {
       gridName: activeGrid.name,
       visitedAt: new Date().toISOString(),
     })
-  }, [rowId, knownName]) // Re-run when the name loads
+  })
+  useEffect(() => { recordVisit() }, [rowId, knownName])
 
   // Prev / Next based on sortedRowIds
   const currentIndex = rowId != null ? sortedRowIds.indexOf(rowId) : -1
@@ -377,7 +383,7 @@ export default function ProfileView(): React.ReactElement {
     const message = status === 'trash'
       ? `This ${t('record')} is in the Trash. You can bring it back from there.`
       : status === 'list-deleted'
-        ? `This ${t('record')} was on a ${t('list')} that has been deleted.`
+        ? `This ${t('record')} was on ${t('list', { article: true })} that has been deleted.`
         : `We couldn't find this ${t('record')}. It may have been deleted.`
     return (
       <div className="flex flex-col items-center justify-center gap-3 h-full text-base text-slate-600 dark:text-slate-300 px-6 text-center">

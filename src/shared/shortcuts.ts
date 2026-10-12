@@ -40,7 +40,7 @@ export const SHORTCUT_SECTIONS: ShortcutSection[] = [
     ],
   },
   {
-    title: 'In a {list}',
+    title: 'In {a list}',
     shortcuts: [
       { keys: ['Mod', 'F'], description: 'Search the {list}', handledIn: 'components/layout/TopBar.tsx' },
       { keys: ['Mod', 'N'], description: 'Add {a record}', handledIn: 'hooks/useGlobalKeyboard.ts' },

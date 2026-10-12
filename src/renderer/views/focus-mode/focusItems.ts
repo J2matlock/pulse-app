@@ -1,6 +1,6 @@
 import type { AlertThreshold } from '../../../shared/types'
 import { toRuleInterval } from '../../../shared/ruleInterval'
-import { ymdToDate } from '../../../shared/deadlineEngine'
+import { ymdToDate, isUsedUp } from '../../../shared/deadlineEngine'
 import { getMatchingThreshold } from '../../utils/deadlineCalc'
 import { wordNow } from '../../utils/vocab'
 import type { RawDeadlineRow, FocusItem } from './types'
@@ -17,11 +17,13 @@ export function focusDeadlineItems(rows: RawDeadlineRow[]): FocusItem[] {
       if (!r.due || r.daysUntil === null || r.daysUntil === undefined) return []
       let thresholds: AlertThreshold[] = []
       try { thresholds = r.alert_thresholds ? JSON.parse(r.alert_thresholds) as AlertThreshold[] : [] } catch { /* ignore malformed */ }
-      return [{ r, due: r.due, daysUntil: r.daysUntil, thresholds }]
+      // A used-up quota is late even though its date hasn't come (A21a-06)
+      const usedUp = isUsedUp({ state: r.state, daysUntil: r.daysUntil })
+      return [{ r, due: r.due, daysUntil: r.daysUntil, thresholds, usedUp }]
     })
-    .filter(x => x.daysUntil <= 0 || (x.thresholds.length > 0 && getMatchingThreshold(x.daysUntil, x.thresholds) !== undefined))
+    .filter(x => x.usedUp || x.daysUntil <= 0 || (x.thresholds.length > 0 && getMatchingThreshold(x.daysUntil, x.thresholds) !== undefined))
     .slice(0, 20)
-    .map(({ r, due, daysUntil }) => {
+    .map(({ r, due, daysUntil, usedUp }) => {
       let checklistTemplateId: number | null = null
       try { checklistTemplateId = (JSON.parse(r.column_config || '{}') as { done_checklist_id?: number }).done_checklist_id ?? null } catch { /* none */ }
       return {
@@ -30,10 +32,11 @@ export function focusDeadlineItems(rows: RawDeadlineRow[]): FocusItem[] {
         gridId: r.grid_id,
         columnId: r.column_id,
         clientName: r.client_name ?? `Unknown ${wordNow('record', {}, r.grid_id)}`,
-        label: r.label ? `${r.column_name}: ${r.label}` : r.column_name,
+        label: r.label && !usedUp ? `${r.column_name}: ${r.label}` : r.column_name,
         columnName: r.column_name,
         subLabel: r.grid_name,
-        urgency: daysUntil < 0 ? 'overdue' as const : daysUntil === 0 ? 'today' as const : 'upcoming' as const,
+        urgency: usedUp || daysUntil < 0 ? 'overdue' as const : daysUntil === 0 ? 'today' as const : 'upcoming' as const,
+        ...(usedUp ? { usedUpLabel: r.label || 'Used up' } : {}),
         type: 'client' as const,
         daysUntil,
         dueDateStr: ymdToDate(due).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),

@@ -5,8 +5,7 @@
  * calling the same database functions the IPC handlers use. Uses a real SQLCipher
  * temp database with all migrations applied.
  *
- * Run: npx vitest run src/tests/stress-test.ts
- *   or: npx vitest src/tests/stress-test.ts
+ * Run: npm test -- tests/stress-test.test.ts
  *
  * This is a vitest test file (not a standalone ts-node script) because the project
  * uses vitest for all testing and the module mocking is essential for bypassing
@@ -14,39 +13,28 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
-import { writeFileSync, mkdtempSync, rmSync } from 'fs'
+import { writeFileSync, rmSync } from 'fs'
 import { join } from 'path'
-import { tmpdir } from 'os'
 import BetterSqlite3 from 'better-sqlite3-multiple-ciphers'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 
-// ── Migrations (import before mocks so we can run them on the test DB) ────────
-import { up as migration001 } from '../src/main/migrations/001_initial_schema'
-import { up as migration002 } from '../src/main/migrations/002_cell_formats'
-import { up as migration003 } from '../src/main/migrations/003_alert_interval'
-import { up as migration004 } from '../src/main/migrations/004_cond_format_rules'
-import { up as migration005 } from '../src/main/migrations/005_grid_position'
-import { up as migration006 } from '../src/main/migrations/006_contacts'
-import { up as migration007 } from '../src/main/migrations/007_task_position'
-import { up as migration008 } from '../src/main/migrations/008_manual_contacts'
-import { up as migration009 } from '../src/main/migrations/009_case_log_edit_history'
-import { up as migration010 } from '../src/main/migrations/010_case_log_void'
-import { up as migration011 } from '../src/main/migrations/011_acuity'
-import { up as migration012 } from '../src/main/migrations/012_soft_delete'
-import { up as migration013 } from '../src/main/migrations/013_perf_indexes'
-import { up as migration014 } from '../src/main/migrations/014_fk_constraints'
-import { up as migration015 } from '../src/main/migrations/015_perf_compound_indexes'
-import { up as migration016 } from '../src/main/migrations/016_perf_phase2'
-import { up as migration017 } from '../src/main/migrations/017_perf_phase3'
+// ── Migrations: the app's own list, so the schema is the one the code expects ──
+import { MIGRATIONS, applyMigration } from '../src/main/migration-list'
 
 // ── Mock Electron before anything else loads ──────────────────────────────────
 
-let tmpTestDir = '/tmp/pulse-stress-test'
+// This run's own folder (globalSetup points TMPDIR at it). Hoisted: the mocks below use it
+const tmpTestDir = await vi.hoisted(async () => {
+  const { mkdtempSync } = await import('fs')
+  const { tmpdir } = await import('os')
+  const { join } = await import('path')
+  return mkdtempSync(join(tmpdir(), 'pulse-stress-'))
+})
 
 vi.mock('electron', () => ({
   app: {
     isPackaged: false,
-    getPath: () => '/tmp/pulse-stress-test',
+    getPath: () => tmpTestDir,
     getVersion: () => '1.0.0-test',
     commandLine: { appendSwitch: () => {} },
   },
@@ -86,32 +74,16 @@ function createStressTestDb(): Database {
   database.pragma('synchronous = NORMAL')
   database.pragma('cache_size = -16000') // 16MB cache
 
-  // Bootstrap app_meta and run all migrations
+  // Bootstrap app_meta and run all migrations, the way the app does
   database.exec(`CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`)
-  migration001(database)
-  migration002(database)
-  migration003(database)
-  migration004(database)
-  migration005(database)
-  migration006(database)
-  migration007(database)
-  migration008(database)
-  migration009(database)
-  migration010(database)
-  migration011(database)
-  migration012(database)
-  migration013(database)
-  migration014(database)
-  migration015(database)
-  migration016(database)
-  migration017(database)
+  for (const m of MIGRATIONS) applyMigration(database, m)
 
   return database
 }
 
 // Mock the database module so all imports that call getDb() use our test DB
-vi.mock('../main/database', async () => {
-  const actual = await vi.importActual<typeof import('../main/database')>('../main/database')
+vi.mock('../src/main/database', async () => {
+  const actual = await vi.importActual<typeof import('../src/main/database')>('../src/main/database')
   return {
     ...actual,
     getDb: () => db,
@@ -123,7 +95,7 @@ vi.mock('../main/database', async () => {
 })
 
 // Mock backup module to prevent real backup operations
-vi.mock('../main/backup', () => ({
+vi.mock('../src/main/backup', () => ({
   runAutoBackup: vi.fn(),
   listAutoBackups: vi.fn().mockReturnValue([]),
   listAutoBackupsRich: vi.fn().mockReturnValue([]),
@@ -141,7 +113,7 @@ vi.mock('../main/backup', () => ({
 }))
 
 // Mock auth module
-vi.mock('../main/auth', () => ({
+vi.mock('../src/main/auth', () => ({
   isPasswordSetup: vi.fn().mockReturnValue(true),
   setupPassword: vi.fn(),
   verifyAndUnlock: vi.fn(),
@@ -158,8 +130,8 @@ vi.mock('../main/auth', () => ({
 }))
 
 // Now import the modules that depend on the mocked database
-import { buildGridQuery, upsertCell } from '../src/main/database'
-import { parseImportFile } from '../src/main/import'
+import { buildGridQuery } from '../src/main/database'
+import { parseImportFile, autoMatchColumns } from '../src/main/import'
 
 // ── Utility functions ──────────────────────────────────────────────────────────
 
@@ -685,6 +657,9 @@ describe('Stress Test Suite', () => {
       const preview = await parseImportFile(csvPath)
       expect(preview.headers).toHaveLength(6)
       expect(preview.rows.length).toBeGreaterThanOrEqual(20) // preview returns max 20
+
+      // Column matching reads the list through getDb(), so this also proves the database mock applies
+      expect(autoMatchColumns(gridId, preview.headers)).toEqual(allColumnIds.map((id, i) => ({ sourceIndex: i, action: id })))
 
       // Simulate the import: insert rows and cells manually (matching executeImport logic)
       const insertRow = db.prepare(`

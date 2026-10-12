@@ -24,6 +24,7 @@ import { formatTime } from '../shared/calendar'
 import { isPersonKind } from '../shared/types'
 import { IPC } from '../shared/ipc-channels'
 import type { ReminderSettings } from '../shared/ipc-contract'
+import { NOT_TRASHED_ROW } from '../shared/liveRecords'
 
 export const DEFAULT_REMINDERS: ReminderSettings = { dailyEnabled: false, dailyTime: '08:30', apptLeadMinutes: 0, showNames: false }
 
@@ -140,7 +141,7 @@ function upcomingAppointments(now: Date): ApptForReminder[] {
   const today = localDateString(now)
   return getDb().prepare(`
     SELECT a.id, a.start_at, a.all_day,
-           CASE WHEN r.deleted_at IS NULL THEN NULLIF(r.display_name, '') END AS record_name, g.record_kind
+           CASE WHEN ${NOT_TRASHED_ROW} THEN NULLIF(r.display_name, '') END AS record_name, g.record_kind
     FROM appointments a LEFT JOIN rows r ON r.id = a.row_id LEFT JOIN grids g ON g.id = r.grid_id
     WHERE a.status = 'scheduled' AND a.all_day = 0 AND a.start_at >= ? AND a.start_at <= ?
       AND ${OPEN_RECORD_SQL}

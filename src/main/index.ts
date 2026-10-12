@@ -9,7 +9,7 @@ import { join, normalize, resolve, sep } from 'path'
 import { pathToFileURL } from 'url'
 import { initDatabase, closeDatabase, getDb } from './database'
 import { registerIpcHandlers } from './ipc-handlers'
-import { runAutoBackup, checkAndRunScheduled, recordAutoBackupFailure, runAutoBackupOnLock, describeBackupError } from './backup'
+import { runAutoBackup, checkAndRunScheduled, recordAutoBackupFailure, runAutoBackupOnLock, describeBackupError, cleanCrashLeftovers } from './backup'
 import { startReminders, stopReminders } from './reminders'
 import { initTray, isTrayMode, closeToTray, refreshTray } from './tray'
 import { prefs } from './prefs'
@@ -22,7 +22,8 @@ import { startupFailureText } from '../shared/dbOpen'
 import { clearImportCache } from './import'
 import { logger, formatForwardedLogData } from './logger'
 import { IPC } from '../shared/ipc-channels'
-import { secureWrap, logNonFatal } from './ipc/ipc-utils'
+import { secureWrap, logNonFatal, ok, fail } from './ipc/ipc-utils'
+import { hardenWebContents, SECURE_WEB_PREFERENCES } from './web-contents-guard'
 
 process.on('unhandledRejection', (reason) => {
   logger.error('process', 'Unhandled rejection', { reason: reason instanceof Error ? { message: reason.message, stack: reason.stack } : String(reason) })
@@ -165,7 +166,10 @@ export function stopAutoLockTimer(): void {
 const gotTheLock = app.requestSingleInstanceLock()
 
 if (!gotTheLock) {
-  app.quit()
+  // Not app.quit(): that's asynchronous, so whenReady still fired and this
+  // second process opened the database, wiped the running copy's opened files
+  // and started its own backups and reminders
+  app.exit(0)
 } else {
   app.on('second-instance', (_event, argv) => {
     const pulsePath = extractPulseFileFromArgv(argv)
@@ -181,6 +185,10 @@ if (!gotTheLock) {
     }
   })
 }
+
+// Every page Pulse creates gets the same floor: no pop-ups, no <webview>, no leaving Pulse (Q-058).
+// It runs as each one is made, before createWindow adds the main window's own handlers.
+app.on('web-contents-created', (_event, contents) => hardenWebContents(contents))
 
 // ── Window state persistence ─────────────────────────────────────────────────
 
@@ -219,9 +227,9 @@ function createWindow(): void {
     backgroundColor: '#F8FAFC',  // light mode bg, prevents white flash
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: true,           // ipcRenderer available in sandboxed preload since Electron 20+
-      contextIsolation: true,  // renderer cannot access Node.js directly
-      nodeIntegration: false,  // renderer is a plain web page
+      // sandbox, contextIsolation, nodeIntegration off, webSecurity, no insecure content, no <webview>:
+      // stated, not left to Electron's defaults (Q-058)
+      ...SECURE_WEB_PREFERENCES,
       devTools: isDev,          // disable DevTools in production builds
       spellcheck: spellcheckAllowed(process.platform)  // no dictionary downloads (see spellcheck.ts)
     }
@@ -301,6 +309,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
+  if (!gotTheLock) return // a second launch: the running copy handles it (see above)
   logger.info('app', 'Starting', { version: app.getVersion() })
   try {
     await initDatabase()
@@ -319,11 +328,14 @@ app.whenReady().then(async () => {
   registerIpcHandlers()
 
   // Main-process auto-lock: renderer sends activity pings to reset the timer
+  // Every handler answers { ok, … }, so safeInvoke never sees undefined (Q-055)
   secureWrap(IPC.AUTH_ACTIVITY_PING, 'app', () => {
     resetAutoLockTimer()
+    return ok(null)
   })
   secureWrap(IPC.APP_FLUSH_DONE, 'app', () => {
     for (const done of flushWaiters.slice()) done()
+    return ok(null)
   })
   resetAutoLockTimer()
 
@@ -337,15 +349,16 @@ app.whenReady().then(async () => {
   const ALLOWED_LOG_LEVELS = new Set(['info', 'warn', 'error'])
   const MAX_LOG_MSG_LEN = 2000
   secureWrap(IPC.LOG_FORWARD, 'app', (_event, payload: { level: string; component: string; msg: string; data?: unknown }) => {
-    if (!payload || typeof payload !== 'object') return
+    if (!payload || typeof payload !== 'object') return fail('Invalid log entry')
     const { level: rawLevel, component, msg } = payload
-    if (typeof rawLevel !== 'string' || !ALLOWED_LOG_LEVELS.has(rawLevel)) return
-    if (typeof component !== 'string' || component.length > 200) return
-    if (typeof msg !== 'string' || msg.length > MAX_LOG_MSG_LEN) return
+    if (typeof rawLevel !== 'string' || !ALLOWED_LOG_LEVELS.has(rawLevel)) return fail('Invalid log entry')
+    if (typeof component !== 'string' || component.length > 200) return fail('Invalid log entry')
+    if (typeof msg !== 'string' || msg.length > MAX_LOG_MSG_LEN) return fail('Invalid log entry')
     const level = rawLevel as 'error' | 'warn' | 'info'
     const fn = logger[level]
     // Scrub as an object first: once stringified, key-based redaction can't see it
     if (fn) fn(`renderer:${component}`, msg, formatForwardedLogData(payload.data))
+    return ok(null)
   })
 
   // Dev mode needs 'unsafe-inline' for script-src because Vite injects inline HMR preambles.
@@ -418,6 +431,8 @@ app.whenReady().then(async () => {
 
   // Copies of files opened last time (W09 §5) go before anything else opens
   try { wipeOpenedFiles() } catch (err) { logNonFatal('app', 'wipe opened files', err) }
+  // Extracted or half-copied databases from a backup or restore cut short (A24-12)
+  try { cleanCrashLeftovers() } catch (err) { logNonFatal('app', 'clean backup leftovers', err) }
 
   // Scheduled backup timer (check every 15 minutes)
   startScheduledBackup()

@@ -11,7 +11,9 @@
  * src/main through this filter: each must either be on its list of plain
  * messages or be replaced here.
  */
-export const DEFAULT_ERROR = "Something went wrong and the change wasn't saved. Please try again."
+import { IPC_READ_ONLY, PASSING_ERRORS } from '../../shared/constants'
+
+export const DEFAULT_ERROR: string = PASSING_ERRORS.generic
 
 const TECHNICAL: RegExp[] = [
   /\binvalid\b/i,                              // "Invalid ID", "Entry rules invalid"
@@ -43,6 +45,6 @@ export function isTechnicalError(message: string): boolean {
 
 export function friendlyError(message: string | null | undefined, fallback: string = DEFAULT_ERROR): string {
   if (!message) return fallback
-  if (message === 'READ_ONLY') return "Changes can't be saved right now. Please try again in a moment."
+  if (message === IPC_READ_ONLY) return "Changes can't be saved right now. Please try again in a moment."
   return isTechnicalError(message) ? fallback : message
 }

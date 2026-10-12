@@ -257,13 +257,16 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50 dark:border-slate-700 dark:bg-slate-900/50">
                   <th scope="col" className="px-3 py-2" style={{ minHeight: 44 }}>
-                    <input
-                      type="checkbox"
-                      checked={parsedRows.every(r => r.selected)}
-                      onChange={toggleAll}
-                      className="h-4 w-4 rounded-sm border-gray-300 text-blue-600 focus:ring-blue-500"
-                      aria-label={`Select all ${t('contact', { many: true })} for import`}
-                    />
+                    {/* The label makes the whole 44px square around the box clickable */}
+                    <label className="-my-2 flex items-center justify-center min-h-[44px] min-w-[44px] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={parsedRows.every(r => r.selected)}
+                        onChange={toggleAll}
+                        className="h-5 w-5 rounded-sm border-gray-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
+                        aria-label={`Select all ${t('contact', { many: true })} for import`}
+                      />
+                    </label>
                   </th>
                   <th scope="col" className="px-3 py-2 font-medium text-gray-700 dark:text-gray-300">Name</th>
                   <th scope="col" className="px-3 py-2 font-medium text-gray-700 dark:text-gray-300">Organization</th>
@@ -280,13 +283,15 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
                     style={{ minHeight: 44 }}
                   >
                     <td className="px-3 py-2">
-                      <input
-                        type="checkbox"
-                        checked={row.selected}
-                        onChange={() => toggleRow(i)}
-                        className="h-4 w-4 rounded-sm border-gray-300 text-blue-600 focus:ring-blue-500"
-                        aria-label={`Select ${row.data.name ?? t('contact')}`}
-                      />
+                      <label className="-my-2 flex items-center justify-center min-h-[44px] min-w-[44px] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={row.selected}
+                          onChange={() => toggleRow(i)}
+                          className="h-5 w-5 rounded-sm border-gray-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
+                          aria-label={`Select ${row.data.name ?? t('contact')}`}
+                        />
+                      </label>
                     </td>
                     <td className="px-3 py-2 text-gray-900 dark:text-gray-100">
                       {row.data.name || '(No name)'}

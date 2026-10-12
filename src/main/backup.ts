@@ -10,7 +10,7 @@
  * stay as raw .db copies for speed.
  */
 
-import { copyFileSync, mkdirSync, readdirSync, unlinkSync, existsSync, statSync, rmSync, chmodSync, renameSync, openSync, closeSync, fsyncSync, createReadStream, createWriteStream } from 'fs'
+import { copyFileSync, mkdirSync, readdirSync, unlinkSync, existsSync, statSync, lstatSync, rmSync, chmodSync, renameSync, openSync, closeSync, fsyncSync, createReadStream, createWriteStream } from 'fs'
 import { join, dirname, basename, resolve, sep } from 'path'
 import { createHash } from 'crypto'
 import { pipeline } from 'stream/promises'
@@ -20,11 +20,12 @@ import { app } from 'electron'
 import { logger } from './logger'
 import { logNonFatal } from './ipc/ipc-utils'
 import Store from 'electron-store'
+import { ensurePrivateDir, privateStoreOptions, tightenStore } from './private-files'
 import { getStoredDbPath, getDbKey, getKeyEnvelope, isValidKeyEnvelope, unwrapKeyEnvelope, adoptRestoredDbKey } from './auth'
 import { MS_PER_DAY } from '../shared/constants'
 import { LIMIT_MB_RANGE, formatBytes } from '../shared/attachments'
 import { getPortableDataDir, setEncryptionKey, resolveDatabasePath, latestSchemaVersion } from './database'
-const BetterSqlite3 = require('better-sqlite3-multiple-ciphers') as typeof import('better-sqlite3')
+const BetterSqlite3 = require('better-sqlite3-multiple-ciphers') as typeof import('better-sqlite3-multiple-ciphers')
 
 // ── Bridge to database.ts (avoids circular require that breaks in bundled builds) ──
 // database.ts calls setDatabaseBridge() at startup to provide its functions.
@@ -186,6 +187,10 @@ function readEncryptedDbInfo(dbFile: string, hexKey: string): { schemaVersion: n
     db.pragma("cipher_hmac_algorithm=HMAC_SHA512")
     db.pragma("cipher_kdf_algorithm=PBKDF2_HMAC_SHA512")
     const tableCount = (db.prepare("SELECT count(*) as n FROM sqlite_master WHERE type='table'").get() as { n: number }).n
+    // The first pages can decrypt while later ones are cut off or damaged; read every page
+    // before calling it usable, or a restore would put a broken database in place (A24-04)
+    const check = db.pragma('quick_check', { simple: true })
+    if (check !== 'ok') throw Object.assign(new Error('The backup database is malformed'), { code: 'SQLITE_CORRUPT' })
     // app_meta.schema_version is the app's migration level; PRAGMA schema_version is SQLite's schema cookie
     const row = db.prepare("SELECT value FROM app_meta WHERE key = 'schema_version'").get() as { value: string } | undefined
     return { schemaVersion: row ? parseInt(row.value, 10) : 0, tableCount }
@@ -203,6 +208,31 @@ function checkpointWal(): void {
     const database = _getDb?.()
     if (database) database.pragma('wal_checkpoint(TRUNCATE)')
   } catch (err) { logger.warn('backup', 'WAL checkpoint failed (DB may not be open)', err) }
+}
+
+/**
+ * Before a restore: move every commit out of the WAL into the main file, and
+ * refuse the restore if that didn't finish (A24-08). The safety copy is taken
+ * from the main file and the WAL is deleted afterwards, so an incomplete
+ * checkpoint (a reader still open, a busy lock) would lose the latest changes.
+ * With the database closed there is nothing to checkpoint through, so this
+ * does nothing, as before.
+ */
+function flushWalBeforeRestore(): void {
+  let database: DatabaseBridge | null = null
+  try { database = _getDb?.() ?? null } catch { database = null }
+  if (!database) return
+  let complete = false
+  try {
+    const rows = database.pragma('wal_checkpoint(TRUNCATE)')
+    const row = (Array.isArray(rows) ? rows[0] : rows) as { busy?: unknown; log?: unknown; checkpointed?: unknown } | undefined
+    complete = !!row && row.busy === 0 && row.log === row.checkpointed
+  } catch (err) {
+    logger.warn('backup', 'WAL checkpoint before restore failed', err)
+  }
+  if (!complete) {
+    throw Object.assign(new Error('Could not save the latest changes into the database file before the restore'), { code: 'WAL_BUSY' })
+  }
 }
 
 /**
@@ -293,9 +323,20 @@ async function createPulseBackup(dbPath: string, destPath: string, backupType: s
   const finalPath = destPath.endsWith('.pulse-backup') ? destPath : destPath + '.pulse-backup'
   mkdirSync(dirname(finalPath), { recursive: true, mode: 0o700 })
 
+  // Password/recovery-wrapped DB key so this backup can be opened on another
+  // computer (see KeyEnvelope in auth.ts). Without it, the backup only works
+  // on the machine that made it. Read in the same synchronous stretch as the
+  // snapshot: a re-encrypt (P-001) finishing during the awaits below would
+  // otherwise pair the old-key snapshot with the new key's envelope.
+  const envelope = getKeyEnvelope()
+  if (!envelope) logger.warn('backup', 'Key envelope unavailable — backup will only restore on this computer')
+
   // Create an atomic snapshot via VACUUM INTO so the zip contains a
-  // consistent point-in-time copy (no interleaved writes possible)
-  const snapshotDir = dirname(finalPath)
+  // consistent point-in-time copy (no interleaved writes possible). It goes in
+  // Pulse's own backup folder, not the person's destination, so a crash never
+  // leaves a full copy of the data in a USB or network folder (P-006)
+  const snapshotDir = getBackupDir()
+  mkdirSync(snapshotDir, { recursive: true, mode: 0o700 })
   const tmpDbPath = createAtomicDbSnapshot(dbPath, snapshotDir)
 
   try {
@@ -312,12 +353,6 @@ async function createPulseBackup(dbPath: string, destPath: string, backupType: s
 
     const storedDocsDir = join(getPortableDataDir(), 'pulse-files', 'documents')
     const hasStoredDocs = existsSync(storedDocsDir) && readdirSync(storedDocsDir).length > 0
-
-    // Password/recovery-wrapped DB key so this backup can be opened on another
-    // computer (see KeyEnvelope in auth.ts). Without it, the backup only works
-    // on the machine that made it.
-    const envelope = getKeyEnvelope()
-    if (!envelope) logger.warn('backup', 'Key envelope unavailable — backup will only restore on this computer')
 
     const meta = {
       created: new Date().toISOString(),
@@ -358,6 +393,65 @@ export function getBackupDir(): string {
     return join(dbPath, '..', 'backups')
   }
   return join(app.getPath('userData'), 'backups')
+}
+
+const CRASH_LEFTOVER_AGE_MS = 60 * 60 * 1000
+const CRASH_LEFTOVER_DIR = /^(preview|verify|restore)-tmp-\d+$/
+const CRASH_LEFTOVER_FILE = /^(pulse-snapshot-\d+\.db|.+\.db\.tmp|.+\.pulse-backup\.tmp)$/
+
+/** Remove the leftovers in one folder that match, over an hour old; returns how many went */
+function removeLeftovers(dir: string, fileRe: RegExp, dirRe: RegExp | null, now: number): number {
+  let names: string[]
+  try { names = readdirSync(dir) } catch { return 0 }
+  let removed = 0
+  for (const name of names) {
+    const isDir = !!dirRe?.test(name)
+    if (!isDir && !fileRe.test(name)) continue
+    const p = join(dir, name)
+    try {
+      const st = lstatSync(p)
+      if (isDir ? !st.isDirectory() : !st.isFile()) continue
+      if (now - st.mtimeMs < CRASH_LEFTOVER_AGE_MS) continue
+      rmSync(p, { recursive: isDir, force: true })
+      removed++
+    } catch (err) { logNonFatal('backup', 'remove a crash leftover', err) }
+  }
+  return removed
+}
+
+/**
+ * Remove what a crash or power cut in the middle of a backup, restore or backup
+ * check left in Pulse's own folders (the data folder and its backups folder):
+ * the extracted-database folders (`preview-tmp-*`, `verify-tmp-*`,
+ * `restore-tmp-*`), half-copied files (`*.db.tmp`, `*.pulse-backup.tmp`) and
+ * snapshot copies (A24-12). Only things over an hour old go, so nothing still
+ * being written is touched; the person's own backup folder is left alone
+ * (`cleanBackupLeftovers` handles that). Returns how many were removed.
+ */
+export function cleanCrashLeftovers(now = Date.now()): number {
+  const dirs = new Set<string>()
+  try { dirs.add(resolve(getPortableDataDir())) } catch (err) { logNonFatal('backup', 'find the data folder for leftovers', err) }
+  try { dirs.add(resolve(getBackupDir())) } catch (err) { logNonFatal('backup', 'find the backups folder for leftovers', err) }
+  let removed = 0
+  for (const dir of dirs) removed += removeLeftovers(dir, CRASH_LEFTOVER_FILE, CRASH_LEFTOVER_DIR, now)
+  if (removed) logger.info('backup', `Removed ${removed} item(s) left by an interrupted backup or restore`)
+  return removed
+}
+
+/** Only names a .pulse-backup run itself writes */
+const BACKUP_LEFTOVER_FILE = /^(pulse-snapshot-\d+\.db|.+\.pulse-backup\.tmp)$/
+
+/**
+ * Remove what an interrupted .pulse-backup run left in a backup destination
+ * (P-006): snapshot copies (`pulse-snapshot-<digits>.db`, written there by
+ * older versions) and half-written archives (`*.pulse-backup.tmp`) more than
+ * an hour old. Nothing else in the person's folder is touched, nor anything
+ * newer (a backup still being written). Returns how many were removed.
+ */
+export function cleanBackupLeftovers(dir: string, now = Date.now()): number {
+  const removed = removeLeftovers(dir, BACKUP_LEFTOVER_FILE, null, now)
+  if (removed) logger.info('backup', `Removed ${removed} file(s) left by an interrupted backup`)
+  return removed
 }
 
 function nowTimestamp(): string {
@@ -453,9 +547,13 @@ function pruneAutoBackups(dir: string): void {
 }
 
 export function pruneBackups(dir: string, prefix: string, suffix: string, keep: number): void {
+  // Oldest first by the YYYYMMDD-HHmmss stamp in the name, wherever it sits: in
+  // "pulse-pre-migration-v9-to-v10-<stamp>.db" the versions come first, and as
+  // text "v47" sorts before "v9" (A24-13). Names without a stamp go first.
+  const stamp = (f: string): string => /(\d{8}-\d{6})/.exec(f)?.[1] ?? ''
   const files = readdirSync(dir)
     .filter(f => f.startsWith(prefix) && f.endsWith(suffix))
-    .sort()  // lexicographic = chronological for YYYY-MM-DD prefix
+    .sort((a, b) => stamp(a).localeCompare(stamp(b)) || (a < b ? -1 : a > b ? 1 : 0))
 
   while (files.length > keep) {
     const oldest = files.shift()!
@@ -605,8 +703,10 @@ export async function verifyBackup(backupPath: string): Promise<VerifyResult> {
   } catch (err) {
     // This install's key doesn't open it. With a key envelope inside, it was made
     // by another Pulse (another computer, or before a reinstall) and can still be
-    // restored with that Pulse's password or recovery key.
-    return { valid: false, error: err instanceof Error ? err.message : 'Could not open backup database', otherPulse: hasEnvelope }
+    // restored with that Pulse's password or recovery key. A file that opens but
+    // is damaged isn't another Pulse's.
+    const damaged = (err as { code?: unknown } | null)?.code === 'SQLITE_CORRUPT'
+    return { valid: false, error: err instanceof Error ? err.message : 'Could not open backup database', otherPulse: hasEnvelope && !damaged }
   } finally {
     if (tmpDir) {
       try { rmSync(tmpDir, { recursive: true, force: true }) } catch (err) {
@@ -661,7 +761,7 @@ let _configStore: Store<ScheduledConfigStore> | null = null
 function getConfigStore(): Store<ScheduledConfigStore> {
   if (!_configStore) {
     const cwd = getPortableDataDir()
-    _configStore = new Store<ScheduledConfigStore>({ name: 'pulse-backup-config', cwd })
+    _configStore = tightenStore(new Store<ScheduledConfigStore>(privateStoreOptions('pulse-backup-config', cwd)))
   }
   return _configStore
 }
@@ -732,6 +832,9 @@ async function performScheduledBackup(config: PersistentScheduledConfig): Promis
   if (!dbPath || !existsSync(dbPath)) throw new Error('Database file not found')
   const destDir = config.destinationDir || getBackupDir()
   mkdirSync(destDir, { recursive: true, mode: 0o700 })
+  // Leftovers from an earlier run cut short, here and in Pulse's own folder (P-006)
+  cleanBackupLeftovers(destDir)
+  if (resolve(destDir) !== resolve(getBackupDir())) cleanBackupLeftovers(getBackupDir())
   const destPath = join(destDir, `pulse-scheduled-${nowTimestamp()}.pulse-backup`)
   await createPulseBackup(dbPath, destPath, 'scheduled')
   pruneBackups(destDir, 'pulse-scheduled-', '.pulse-backup', MAX_SCHEDULED_BACKUPS)
@@ -866,8 +969,8 @@ export async function restoreFromDb(backupDbPath: string): Promise<string> {
   if (!dbPath) throw new Error('No active database path found')
   if (!existsSync(backupDbPath)) throw new Error('Backup file not found')
 
-  // Checkpoint WAL so the safety copy captures all recent changes
-  checkpointWal()
+  // Checkpoint WAL so the safety copy captures all recent changes; stop if it can't
+  flushWalBeforeRestore()
 
   // Safety backup before restore
   const safetyDir = getBackupDir()
@@ -915,8 +1018,8 @@ export async function restoreFromPulseBackup(backupZipPath: string): Promise<str
   const dbPath = getStoredDbPath()
   if (!dbPath) throw new Error('No active database path found')
 
-  // Checkpoint WAL so the safety copy captures all recent changes
-  checkpointWal()
+  // Checkpoint WAL so the safety copy captures all recent changes; stop if it can't
+  flushWalBeforeRestore()
 
   // Safety backup before touching anything
   const safetyDir = getBackupDir()
@@ -1014,7 +1117,7 @@ let _statusStore: Store<BackupStatusStore> | null = null
 function getStatusStore(): Store<BackupStatusStore> {
   if (!_statusStore) {
     const cwd = getPortableDataDir()
-    _statusStore = new Store<BackupStatusStore>({ name: 'pulse-backup-status', cwd })
+    _statusStore = tightenStore(new Store<BackupStatusStore>(privateStoreOptions('pulse-backup-status', cwd)))
   }
   return _statusStore
 }
@@ -1157,7 +1260,7 @@ export async function restoreBackupOnNewInstall(opts: {
   if (statSync(backupPath).size > maxBackupBytes()) throw new Error(tooBigToRestore())
 
   const dataDir = getPortableDataDir()
-  mkdirSync(dataDir, { recursive: true })
+  ensurePrivateDir(dataDir)
   const tmpDir = join(dataDir, `restore-tmp-${Date.now()}`)
   mkdirSync(tmpDir, { recursive: true, mode: 0o700 })
 

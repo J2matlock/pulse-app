@@ -3,7 +3,7 @@
  * small workspace whose own data never says "client", "caseload", "case
  * note" and the like, so any of those words in the output came from Pulse.
  */
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { seedGrid, setDbWords, setDbFeatures } from './helpers'
 import { localDateFromToday } from '../src/shared/dates'
 import { featuresForExistingInstall } from '../src/shared/features'

@@ -3,6 +3,7 @@
  */
 
 import { logger } from './logger'
+import { foldLine } from './fold-line'
 import { getCustomFields, getCustomValues } from './contacts'
 import type { Provider, ProviderCustomField } from '../shared/types'
 
@@ -85,7 +86,8 @@ function escapeVCard(value: string): string {
 /**
  * Parse vCard 2.1/3.0 content into an array of partial Provider objects.
  * Handles line folding (continuation lines starting with space/tab) and
- * common property types: FN, ORG, TITLE, TEL, EMAIL, URL, ADR, NOTE.
+ * common property types: FN (or N), ORG, TITLE, TEL, EMAIL, URL, ADR, NOTE.
+ * PHOTO, LOGO, SOUND and KEY are skipped.
  */
 export function parseVCard(content: string, maxEntries = 1000): Array<Partial<Provider>> {
   const MAX_TOTAL_BYTES = 20 * 1024 * 1024 // 20MB cap to prevent memory amplification
@@ -105,6 +107,8 @@ export function parseVCard(content: string, maxEntries = 1000): Array<Partial<Pr
   const lines = unfolded.split('\n')
   let current: Partial<Provider> | null = null
   let currentEntrySize = 0
+  // N (Family;Given;…) names a card that has no FN (Q-042)
+  let structuredName = ''
   let totalBytes = 0
 
   for (let li = 0; li < lines.length; li++) {
@@ -119,10 +123,12 @@ export function parseVCard(content: string, maxEntries = 1000): Array<Partial<Pr
       if (results.length >= maxEntries) break
       current = {}
       currentEntrySize = 0
+      structuredName = ''
       continue
     }
 
     if (line.toUpperCase() === 'END:VCARD') {
+      if (current && !current.name && structuredName) current.name = structuredName
       if (current && current.name) {
         results.push(current)
       }
@@ -130,6 +136,10 @@ export function parseVCard(content: string, maxEntries = 1000): Array<Partial<Pr
       currentEntrySize = 0
       continue
     }
+
+    // Pictures, logos, sounds and keys aren't kept, and a phone's contact photo
+    // alone is often over the size limit below: skip them before counting (Q-042)
+    if (/^(?:[\w-]+\.)?(?:PHOTO|LOGO|SOUND|KEY)[;:]/i.test(line)) continue
 
     // Track per-entry size; skip entries exceeding 100 KB
     if (current) {
@@ -173,6 +183,12 @@ export function parseVCard(content: string, maxEntries = 1000): Array<Partial<Pr
       case 'FN':
         current.name = unescapeVCard(value)
         break
+
+      case 'N': {
+        const [family = '', given = ''] = splitComponents(value).map(p => unescapeVCard(p.trim()))
+        structuredName = [given, family].filter(Boolean).join(' ')
+        break
+      }
 
       case 'ORG':
         // ORG may have multiple components separated by ";"
@@ -323,5 +339,6 @@ export function emitVCard(
   }
 
   lines.push('END:VCARD')
-  return lines.join('\r\n')
+  // RFC 6350 §3.2: lines over 75 octets are folded; Pulse's own import unfolds them
+  return lines.map(foldLine).join('\r\n')
 }

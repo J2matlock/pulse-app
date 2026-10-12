@@ -1,15 +1,7 @@
 import toast from 'react-hot-toast'
 import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react'
-import {
-  useReactTable,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
-  createColumnHelper,
-  type SortingState,
-  type ColumnSizingState,
-  type Row,
-} from '@tanstack/react-table'
+import { useTable, type SortingState } from '@tanstack/react-table'
+import { gridFeatures, type GridTableRow } from './gridTable'
 import {
   PointerSensor,
   useSensor,
@@ -22,29 +14,29 @@ import {
 import { AnimatePresence } from 'motion/react'
 import { useNavigate } from 'react-router-dom'
 import { IPC } from '../../../shared/ipc-channels'
-import { safeInvoke } from '../../utils/safeInvoke'
 import { useShallow } from 'zustand/react/shallow'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useGridStore } from '../../stores/gridStore'
 import { useAlertStore } from '../../stores/alertStore'
 import { useProfileStore } from '../../stores/profileStore'
-import type { GridRow, SortConfig, CellFormatRule } from '../../../shared/types'
+import type { GridRow, SortConfig } from '../../../shared/types'
 import { matchFilter } from '../../utils/filterMatch'
-import { deadlineCompare, numberCompare, dateCompare, textCompare, keyCompare, daysUntilSource, memoKey } from './gridSort'
 import { rowMatchesSearch } from '../../utils/searchMatch'
 import { CellConditionalFormatPanel } from './CellConditionalFormatPanel'
 import { CellHistoryPopover } from '../shared/CellHistoryPopover'
 import { getClientName } from '../../utils/clientName'
 import { BADGE_WIDTH as ACUITY_BADGE_WIDTH } from './AcuityBadge'
-import { linkValueText } from '../../../shared/links'
-import { CellDisplay, cellFitText } from './CellDisplay'
 import { SortableRow } from './SortableRow'
 import { GridContextMenu } from './GridContextMenu'
 import { BulkActionBar } from './BulkActionBar'
 import { handleCellKeyDown as handleCellKeyDownImpl, type KeyboardNavDeps } from './gridKeyboardNav'
-import { ROW_HEIGHTS, HANDLE_WIDTH, PROFILE_BTN_WIDTH, CHAR_WIDTH_HEADER, CHAR_WIDTH_CELL, HEADER_PADDING, CELL_PADDING, MIN_COL_WIDTH, DEFAULT_COL_WIDTH, MAX_AUTO_FIT_WIDTH, GROUP_HEADER_HEIGHT, TAGS_COL_WIDTH } from './gridConstants'
-import { rlog } from '../../utils/rendererLogger'
+import { ROW_HEIGHTS, HANDLE_WIDTH, PROFILE_BTN_WIDTH, GROUP_HEADER_HEIGHT, TAGS_COL_WIDTH } from './gridConstants'
 import { useGridSelection } from '../../hooks/useGridSelection'
+import { useGridColumnSizing } from '../../hooks/useGridColumnSizing'
+import { useGridAnnouncer } from '../../hooks/useGridAnnouncer'
+import { useGridRowActions } from '../../hooks/useGridRowActions'
+import { useGridRuleInfo } from '../../hooks/useGridRuleInfo'
+import { buildTableColumns } from './gridTableColumns'
 import { useGridContextMenu } from '../../hooks/useGridContextMenu'
 import { useGridGrouping } from '../../hooks/useGridGrouping'
 import { useGridVirtualizer } from '../../hooks/useGridVirtualizer'
@@ -57,21 +49,13 @@ import { GroupHeaderItem, CollapseExpandBar, GroupContextMenuOverlay } from './G
 import { ArchiveDialog, DeleteRowDialog, MoveToGridDialog, BulkDeleteDialog, BulkMoveDialog } from './GridDialogs'
 import { BulkEditDialog } from './BulkEditDialog'
 import { GridLoadingSkeleton, GridEmptyColumns } from './GridLoadingState'
+import { GridHintBanner, GridLoadError, GridEmptyRecords } from './GridNotices'
 import { useVocab } from '../../hooks/useVocab'
 import { pulseEvents } from '../../events'
-import { IS_MAC } from '../../utils/keys'
 import { useFeature } from '../../hooks/useFeature'
-import { ACUITY_GROUP_KEY, isNotTypedColumnType, takesDeadlineRule } from '../../../shared/types'
-
-// Stateless column helper — no dependency on props/state, safe at module level
-const columnHelper = createColumnHelper<GridRow>()
+import { ACUITY_GROUP_KEY, isNotTypedColumnType } from '../../../shared/types'
 
 // ── Main DataGrid ─────────────────────────────────────────────────────────────
-
-
-function ruleIdFromConfig(config: string | null | undefined): number | undefined {
-  try { return (JSON.parse(config || '{}') as { alert_rule_id?: number }).alert_rule_id } catch { return undefined }
-}
 
 export function DataGrid(): React.ReactElement {
   const { t } = useVocab()
@@ -176,19 +160,12 @@ export function DataGrid(): React.ReactElement {
   const rowsRef = useRef(rows)
   rowsRef.current = rows
   const filteredRowsRef = useRef<GridRow[]>([])
-  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({})
   const [cellFormatTarget, setCellFormatTarget] = useState<{ rowId: number; colId: number } | null>(null)
-  const [archiveTarget, setArchiveTarget] = useState<number | null>(null)
-  const [archiveReason, setArchiveReason] = useState('')
-  const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
-  const [moveToGridTarget, setMoveToGridTarget] = useState<number | null>(null)
   const [bulkDeleteTarget, setBulkDeleteTarget] = useState(false)
   const [bulkMoveTarget, setBulkMoveTarget] = useState(false)
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
   const [cellHistoryTarget, setCellHistoryTarget] = useState<{ rowId: number; colId: number; colName: string; x: number; y: number } | null>(null)
   const [groupContextMenu, setGroupContextMenu] = useState<{ x: number; y: number } | null>(null)
-  const columnSizingRef = useRef<ColumnSizingState>({})
-  const resizeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Back from a record's page: scroll to where this list was, once the records are
   // on screen, then forget it. Another list's position is dropped (AUDIT-129)
@@ -203,12 +180,9 @@ export function DataGrid(): React.ReactElement {
     useProfileStore.getState().clearSavedScroll()
   }, [savedScroll, activeGridId, listReady])
 
-  // Clean up resizeTimeoutRef on unmount to prevent stale callbacks
-  useEffect(() => {
-    return () => {
-      if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current)
-    }
-  }, [])
+  const { columnSizing, handleColumnSizingChange, autoFitColumn, columnWidthVars, frozenLeftOffsets } = useGridColumnSizing({
+    activeGridId, columns, acuityEnabled, showTagsColumn, frozenColumnCount, updateColumn,
+  })
 
   // Hint banner — dismissible via localStorage
   const [hintDismissed, setHintDismissed] = useState(() =>
@@ -261,254 +235,40 @@ export function DataGrid(): React.ReactElement {
   // Alias for conditional format evaluation (same map, same type — no cast needed).
   const rowMap = rowById
 
-  // Pre-parse column configs and conditional formats once per columns change
-  const parsedColumnConfigs = useMemo(() => {
-    const map = new Map<number, { config: Record<string, unknown>; conditionalFormat: CellFormatRule[] }>()
-    for (const col of columns) {
-      let config: Record<string, unknown> = {}
-      let conditionalFormat: CellFormatRule[] = []
-      try { config = col.config ? JSON.parse(col.config) : {} } catch { /* malformed */ }
-      try { conditionalFormat = col.conditional_format ? JSON.parse(col.conditional_format) : [] } catch { /* malformed */ }
-      if (!Array.isArray(conditionalFormat)) conditionalFormat = []
-      map.set(col.id, { config, conditionalFormat })
-    }
-    return map
-  }, [columns])
+  const { parsedColumnConfigs, hasAnyHighlightRules, hasCrossRowRules, highlightColumnIds } = useGridRuleInfo(columns, cellFormats)
 
-  // Pre-compute once: do any columns have highlight rules?
-  const hasAnyHighlightRules = useMemo(() => {
-    if (cellFormats.size > 0) return true
-    for (const pc of parsedColumnConfigs.values()) {
-      if (pc.conditionalFormat.some(r => r.highlightRow)) return true
-    }
-    return false
-  }, [cellFormats, parsedColumnConfigs])
-
-  // Does any rule color a cell from another record's cell? Then any record's change can redraw others (AUDIT-038)
-  const hasCrossRowRules = useMemo(() => {
-    const cross = (rules: CellFormatRule[]) => rules.some(r => r.sourceType === 'specific_cell')
-    for (const rules of cellFormats.values()) if (cross(rules)) return true
-    for (const pc of parsedColumnConfigs.values()) if (cross(pc.conditionalFormat)) return true
-    return false
-  }, [cellFormats, parsedColumnConfigs])
-
-  // Pre-compute the set of column IDs that have highlightRow format rules.
-  // SortableRow iterates only these columns instead of all columns.
-  const highlightColumnIds = useMemo(() => {
-    const ids = new Set<number>()
-    // Columns with column-level highlight rules
-    for (const [colId, pc] of parsedColumnConfigs.entries()) {
-      if (pc.conditionalFormat.some(r => r.highlightRow)) {
-        ids.add(colId)
-      }
-    }
-    // Columns referenced by cell-level highlight rules
-    for (const [key, rules] of cellFormats.entries()) {
-      if (rules.some(r => r.highlightRow)) {
-        const colId = parseInt(key.split('_')[1] ?? '', 10)
-        if (!isNaN(colId)) ids.add(colId)
-      }
-    }
-    return ids
-  }, [cellFormats, parsedColumnConfigs])
-
-  // Reset column sizing when switching grids (selection reset handled by useGridSelection)
-  useEffect(() => {
-    setColumnSizing({})
-    columnSizingRef.current = {}
-  }, [activeGridId])
-
-  const handleDeleteRow = useCallback((rowId: number) => {
-    setContextMenu(null)
-    setDeleteTarget(rowId)
-  }, [])
-
-  const handleToggleStar = useCallback(async (rowId: number) => {
-    const row = useGridStore.getState().rows.find(r => r.row_id === rowId)
-    if (!row) return
-    await updateRow(rowId, { is_starred: row.is_starred ? 0 : 1 })
-  }, [updateRow])
-
-  const handleToggleStarProp = useCallback((rowId: number) => { void handleToggleStar(rowId) }, [handleToggleStar])
-
-  const handleDuplicateRow = useCallback(async (rowId: number) => {
-    setContextMenu(null)
-    await duplicateRow(rowId)
-  }, [duplicateRow])
-
-  const handleArchiveConfirm = useCallback(async (opts: { cancelAppointments: boolean }) => {
-    if (archiveTarget == null) return
-    await archiveRow(archiveTarget, archiveReason.trim() || undefined, opts)
-    setArchiveTarget(null)
-    setArchiveReason('')
-  }, [archiveTarget, archiveReason, archiveRow])
-
-  const handleUnarchiveRow = useCallback(async (rowId: number) => {
-    setContextMenu(null)
-    await unarchiveRow(rowId)
-  }, [unarchiveRow])
+  const {
+    archiveTarget, setArchiveTarget, archiveReason, setArchiveReason,
+    deleteTarget, setDeleteTarget, moveToGridTarget, setMoveToGridTarget,
+    handleDeleteRow, handleToggleStar, handleToggleStarProp, handleDuplicateRow, handleArchiveConfirm, handleUnarchiveRow,
+  } = useGridRowActions({ setContextMenu, archiveRow, unarchiveRow, duplicateRow, updateRow })
 
   // Sensors: 5px distance threshold so single clicks still work (column reorder only)
   const colSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
-
-  // Handle column sizing changes — debounce persistence to DB
-  const handleColumnSizingChange = useCallback((updater: unknown) => {
-    setColumnSizing(prev => {
-      const next = typeof updater === 'function'
-        ? (updater as (old: ColumnSizingState) => ColumnSizingState)(prev)
-        : updater as ColumnSizingState
-      columnSizingRef.current = next
-
-      // Debounce persist — batch all width changes in a single IPC call
-      if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current)
-      resizeTimeoutRef.current = setTimeout(async () => {
-        const currentCols = useGridStore.getState().columns
-        const widthUpdates: { columnId: number; width: number }[] = []
-        for (const col of currentCols) {
-          const newWidth = columnSizingRef.current[`col_${col.id}`]
-          if (newWidth !== undefined && Math.round(newWidth) !== col.width) {
-            widthUpdates.push({ columnId: col.id, width: Math.round(newWidth) })
-          }
-        }
-        if (widthUpdates.length > 0) {
-          // The new widths stay for this visit either way; only reopening would lose them
-          const res = await safeInvoke(IPC.COLUMN_BATCH_UPDATE_WIDTHS, widthUpdates)
-          if (!res.ok) rlog.error('DataGrid', 'Failed to batch update column widths', res.error)
-        }
-      }, 500)
-
-      return next
-    })
-  }, [])
-
-  // Auto-fit a column to its content width
-  const autoFitColumn = useCallback((colId: number) => {
-    const col = useGridStore.getState().columns.find(c => c.id === colId)
-    if (!col) return
-    const storeRows = useGridStore.getState().rows
-    const sample = storeRows.length > 500 ? storeRows.slice(0, 500) : storeRows
-    const headerWidth = col.name.length * CHAR_WIDTH_HEADER + HEADER_PADDING
-    // Measure what the cell shows, not what it stores: a date's deadline words, a link's names
-    const ruleId = takesDeadlineRule(col.column_type) ? ruleIdFromConfig(col.config) : undefined
-    const rule = ruleId !== undefined ? useAlertStore.getState().rules.find(r => r.id === ruleId) : undefined
-    const maxContentWidth = sample.reduce((max, row) => {
-      const val = cellFitText(col, (row[`col_${colId}` as keyof GridRow] as string | null) ?? null, row, rule)
-      return Math.max(max, val.length * CHAR_WIDTH_CELL + CELL_PADDING)
-    }, MIN_COL_WIDTH)
-    const newWidth = Math.min(Math.max(headerWidth, maxContentWidth, DEFAULT_COL_WIDTH), MAX_AUTO_FIT_WIDTH)
-    setColumnSizing(prev => {
-      const next = { ...prev, [`col_${colId}`]: newWidth }
-      columnSizingRef.current = next
-      return next
-    })
-    updateColumn(colId, { width: newWidth })
-  }, [updateColumn])
-
-  // Wider, Narrower and Fit from a column's menu, so widths change without a mouse (AUDIT-150)
-  useEffect(() => pulseEvents.on('column:resize', ({ columnId, change }) => {
-    if (change === 'fit') { autoFitColumn(columnId); return }
-    const col = useGridStore.getState().columns.find(c => c.id === columnId)
-    if (!col) return
-    const key = `col_${columnId}`
-    handleColumnSizingChange((prev: ColumnSizingState) => {
-      const cur = prev[key] ?? col.width
-      const next = Math.min(800, Math.max(MIN_COL_WIDTH, cur + (change === 'wider' ? 40 : -40)))
-      return { ...prev, [key]: next }
-    })
-  }), [autoFitColumn, handleColumnSizingChange])
 
   // Links changed somewhere (W04): refresh just the link columns
   useEffect(() => window.api.on(IPC.RECORD_LINKS_CHANGED, () => { void useGridStore.getState().refreshLinkValues() }), [])
 
   // Convert sort config to TanStack format, prepending acuity sort when active
   const sorting: SortingState = useMemo(() => {
-    // The deadline comparator reads counts, readings and done flags that arrive after
-    // the rows. A new sorting array when they land makes the table sort again.
-    void deadlineContext
     const colSorts = sortConfig.map(s => ({ id: `col_${s.columnId}`, desc: s.direction === 'desc' }))
     if (acuitySortDir && acuityEnabled) {
       return [{ id: '_acuity_points', desc: acuitySortDir === 'desc' }, ...colSorts]
     }
     return colSorts
-  }, [sortConfig, acuitySortDir, acuityEnabled, deadlineContext])
+  }, [sortConfig, acuitySortDir, acuityEnabled])
   // The comparators read the direction at sort time, to keep blanks last either way
   const sortDescRef = useRef(new Map<string, boolean>())
   sortDescRef.current = new Map(sorting.map(s => [s.id, !!s.desc]))
 
-  const tableColumns = useMemo(() => {
-    const byAcuity = keyCompare(r => {
-      if (r.acuity_level_id == null) return null
-      return acuityLevels.find(l => l.id === r.acuity_level_id)?.points ?? null
-    }, () => sortDescRef.current.get('_acuity_points') === true)
-    // Hidden synthetic column for acuity sorting
-    const acuityCol = acuityEnabled ? [columnHelper.accessor(
-      (row) => {
-        if (row.acuity_level_id == null) return -1
-        const level = acuityLevels.find(l => l.id === row.acuity_level_id)
-        return level?.points ?? -1
-      },
-      {
-        id: '_acuity_points',
-        header: () => null,
-        cell: () => null,
-        // Unassigned after every priority, whichever way it's sorted
-        sortingFn: (rowA, rowB) => byAcuity(rowA.original, rowB.original),
-        enableSorting: true,
-        enableResizing: false,
-        size: 0,
-      }
-    )] : []
-
-    return [...acuityCol, ...columns.map(col => {
-      const isCalcDays = col.column_type === 'calculated_days'
-      const isAge = col.column_type === 'age_from_dob'
-      const isLink = col.column_type === 'link'
-      const compCfg = (isCalcDays || isAge)
-        ? (parsedColumnConfigs.get(col.id)?.config as { source_column_id?: number } | undefined) ?? {}
-        : null
-      // A column with a deadline rule sorts by when it's due, like its colors (G-11)
-      const ruleId = takesDeadlineRule(col.column_type) ? (parsedColumnConfigs.get(col.id)?.config as { alert_rule_id?: number } | undefined)?.alert_rule_id : undefined
-      const deadlineRule = ruleId !== undefined ? alertRuleMap.get(ruleId) : undefined
-      const desc = () => sortDescRef.current.get(`col_${col.id}`) === true
-      const byDeadline = deadlineRule ? deadlineCompare(col.id, deadlineRule, desc) : null
-      const byNumber = numberCompare(col.id, desc)
-      const byDate = dateCompare(col.id, desc)
-      const srcId = compCfg?.source_column_id
-      // The same days the cell shows: to when it's due when the date has a rule (R4)
-      const byDaysUntil = keyCompare(memoKey(r => srcId ? daysUntilSource(srcId, r, alertRules) : null), desc)
-      // Ages sort by date of birth (an earlier date is older)
-      const byAge = keyCompare(r => srcId ? (r[`col_${srcId}` as keyof GridRow] as string | null) || null : null, desc)
-      // Link columns (W04) sort by the linked names, not the stored ids
-      const byText = textCompare(r => {
-        const v = r[`col_${col.id}` as keyof GridRow] as string | null
-        return isLink ? linkValueText(v) || null : v
-      }, desc)
-
-      return columnHelper.accessor(`col_${col.id}` as keyof GridRow, {
-        id: `col_${col.id}`,
-        header: () => null,
-        cell: ({ row }) => {
-          const value = row.original[`col_${col.id}` as keyof GridRow] as string | null
-          return <CellDisplay column={col} value={value} row={row.original} allColumns={columns} parsedConfig={parsedColumnConfigs.get(col.id)?.config} />
-        },
-        sortingFn: isCalcDays ? (rowA, rowB) => byDaysUntil(rowA.original, rowB.original)
-          : isAge ? (rowA, rowB) => byAge(rowA.original, rowB.original)
-          : deadlineRule ? (rowA, rowB) => byDeadline!(rowA.original, rowB.original)
-          : (col.column_type === 'number' || col.column_type === 'currency') ? (rowA, rowB) => byNumber(rowA.original, rowB.original)
-          : col.column_type === 'date' ? (rowA, rowB) => byDate(rowA.original, rowB.original)
-          : (rowA, rowB) => byText(rowA.original, rowB.original),
-        enableSorting: true,
-        enableResizing: true,
-        size: col.width,
-        minSize: 60,
-        maxSize: 800,
-      })
-    })]
-  }, [columns, acuityEnabled, acuityLevels, alertRuleMap, alertRules])
+  const tableColumns = useMemo(
+    () => buildTableColumns({ columns, acuityEnabled, acuityLevels, alertRuleMap, alertRules, parsedColumnConfigs, sortDescRef }),
+    [columns, acuityEnabled, acuityLevels, alertRuleMap, alertRules, parsedColumnConfigs],
+  )
 
   // Custom global filter: only search name + text/dropdown columns
   // Search: every column that holds text, plus tags, the same as the board (G-25)
-  const globalFilterFn = useCallback((row: Row<GridRow>, _columnId: string, filterValue: string) => {
+  const globalFilterFn = useCallback((row: GridTableRow, _columnId: string, filterValue: string) => {
     if (!filterValue) return true
     if (row.original.row_id === useGridStore.getState().pinnedRowId) return true
     return rowMatchesSearch(row.original, columns, filterValue, rowTagsMap)
@@ -528,15 +288,21 @@ export function DataGrid(): React.ReactElement {
 
   const tableState = useMemo(() => ({ sorting, globalFilter: searchQuery, columnSizing }), [sorting, searchQuery, columnSizing])
 
-  const table = useReactTable({
-    data: filteredRows,
+  // The deadline comparator reads counts, readings and done flags that arrive after the
+  // rows (R1). The table sorts again only when its data or its state change, and it compares
+  // state by value, so it gets a new data array when they land.
+  const tableData = useMemo(() => {
+    void deadlineContext
+    return filteredRows.slice()
+  }, [filteredRows, deadlineContext])
+
+  const table = useTable({
+    features: gridFeatures,
+    data: tableData,
     columns: tableColumns,
     state: tableState,
     onSortingChange: handleSortingChange,
     onColumnSizingChange: handleColumnSizingChange,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     getRowId: row => String(row.row_id),
     globalFilterFn,
     enableColumnResizing: true,
@@ -624,32 +390,6 @@ export function DataGrid(): React.ReactElement {
   const totalWidth = HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0) + (showTagsColumn ? TAGS_COL_WIDTH : 0) + table.getTotalSize()
   const columnIds = useMemo(() => columns.map(c => `col_${c.id}`), [columns])
 
-  // CSS custom properties for column widths
-  const columnWidthVars = useMemo(() => {
-    const vars: Record<string, string> = {}
-    for (const col of columns) {
-      const w = columnSizing[`col_${col.id}`] ?? col.width
-      vars[`--cw-${col.id}`] = `${Math.max(w, 60)}px`
-    }
-    return vars
-  }, [columns, columnSizing])
-
-  // Frozen column left offsets for CSS sticky positioning
-  // Offsets include the leading fixed-width columns (handle, profile, acuity)
-  const frozenLeftOffsets = useMemo(() => {
-    const offsets = new Map<number, number>()
-    if (frozenColumnCount <= 0) return offsets
-    const leadingWidth = HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0) + (showTagsColumn ? TAGS_COL_WIDTH : 0)
-    let cumLeft = leadingWidth
-    for (let i = 0; i < Math.min(frozenColumnCount, columns.length); i++) {
-      const col = columns[i]!
-      const w = columnSizing[`col_${col.id}`] ?? col.width
-      offsets.set(col.id, cumLeft)
-      cumLeft += Math.max(w, 60)
-    }
-    return offsets
-  }, [frozenColumnCount, columns, columnSizing, acuityEnabled, showTagsColumn])
-
   // Column drag-end: reorder columns
   const handleColumnDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event
@@ -668,7 +408,7 @@ export function DataGrid(): React.ReactElement {
     editingCellRef, rowsRef, filteredRowsRef, visualRowIdsRef, selectedRowIdsRef,
     columns, columnMap, updateCell, navigateCell,
     setEditingCell, setSelectedRowIds, openRecord: handleNavigateToProfile,
-  }), [columns, columnMap, updateCell, navigateCell, setEditingCell, handleNavigateToProfile])
+  }), [editingCellRef, selectedRowIdsRef, columns, columnMap, updateCell, navigateCell, setEditingCell, setSelectedRowIds, handleNavigateToProfile])
   const handleCellKeyDown = useCallback((e: React.KeyboardEvent, rowId: number, columnId: number) => {
     handleCellKeyDownImpl(e, rowId, columnId, keyNavDeps)
   }, [keyNavDeps])
@@ -711,33 +451,16 @@ export function DataGrid(): React.ReactElement {
     return () => clearTimeout(timer)
   }, [lastAddedRowId, columns, setEditingCell]) // eslint-disable-line react-hooks/exhaustive-deps -- once per added record
 
-  // Said out loud for screen readers: entering and leaving a cell's editor (AUDIT-043)
-  const [announcement, setAnnouncement] = useState('')
-  const announcedEditRef = useRef<{ rowId: number; columnId: number } | null>(null)
-  useEffect(() => {
-    const prev = announcedEditRef.current
-    if (prev?.rowId === editingCell?.rowId && prev?.columnId === editingCell?.columnId) return
-    announcedEditRef.current = editingCell
-    const name = (id: number) => columnMap.get(id)?.name
-    if (editingCell) setAnnouncement(`Editing ${name(editingCell.columnId) ?? 'cell'}`)
-    else if (prev) setAnnouncement(`Done editing ${name(prev.columnId) ?? 'cell'}`)
-  }, [editingCell, columnMap])
-  // ...and how many records are picked for bulk actions, after Shift+Space, Ctrl+A or a click (AUDIT-057)
-  const announcedSelectedRef = useRef(selectedRowIds.size)
-  useEffect(() => {
-    const n = selectedRowIds.size
-    if (announcedSelectedRef.current === n) return
-    announcedSelectedRef.current = n
-    setAnnouncement(n === 0 ? 'Nothing selected' : `${n} ${t('record', { count: n })} selected`)
-  }, [selectedRowIds, t])
+  // Said out loud for screen readers: entering and leaving a cell's editor, and how many records are picked
+  const announcement = useGridAnnouncer(editingCell, columnMap, selectedRowIds)
 
   const handleBulkSetAcuityLevel = useCallback((levelId: number | null) => {
     const ids = Array.from(selectedRowIdsRef.current)
     void bulkSetRowAcuityLevel(ids, levelId)
-  }, [bulkSetRowAcuityLevel])
+  }, [bulkSetRowAcuityLevel, selectedRowIdsRef])
 
   // Render helper for SortableRow — eliminates duplication between grouped and ungrouped paths
-  const renderSortableRow = (row: Row<GridRow>, rowIndex: number, ariaRowIndex: number) => (
+  const renderSortableRow = (row: GridTableRow, rowIndex: number, ariaRowIndex: number) => (
     <SortableRow
       key={row.id}
       row={row}
@@ -795,14 +518,7 @@ export function DataGrid(): React.ReactElement {
   }
 
   if (loadError && !isLoading) {
-    return (
-      <div role="alert" className="flex flex-col items-center justify-center h-full gap-4 px-6 text-center">
-        <p className="text-base text-slate-700 dark:text-slate-300">{loadError} Please try again.</p>
-        <button type="button" className="btn-primary" onClick={() => { if (activeGridId !== null) void useGridStore.getState().loadGrid(activeGridId) }}>
-          Try again
-        </button>
-      </div>
-    )
+    return <GridLoadError message={loadError} onRetry={() => { if (activeGridId !== null) void useGridStore.getState().loadGrid(activeGridId) }} />
   }
 
   if (columns.length === 0) {
@@ -829,20 +545,7 @@ export function DataGrid(): React.ReactElement {
       {/* Only rows sit inside the grid: the tip, the Collapse all bar, the empty-list
           message and the dialogs are outside it, so screen readers stay in table mode */}
       {/* ── Hint banner for new users ─── */}
-      {!hintDismissed && tableRows.length > 0 && (
-        <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 text-sm text-blue-600 dark:text-blue-300 px-3 py-1.5 flex-shrink-0">
-          <span>Tip: Click column headers to sort &middot; Right-click column headers for deadline rules, tracking &amp; more &middot; Right-click {t('record', { article: true })} for options &middot; Press <kbd className="px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-800/40 font-mono">Shift+?</kbd> for all shortcuts</span>
-          <button
-            onClick={dismissHint}
-            className="hit-44 ml-3 p-0.5 rounded hover:bg-blue-100 dark:hover:bg-blue-800/40 text-blue-400 dark:text-blue-400"
-            aria-label="Dismiss tip"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      )}
+      {!hintDismissed && tableRows.length > 0 && <GridHintBanner onDismiss={dismissHint} />}
 
       {/* Collapse/Expand All toolbar (grouped mode only) */}
       {isGrouped && (
@@ -949,49 +652,7 @@ export function DataGrid(): React.ReactElement {
       </div>
 
       {/* Empty state */}
-      {isEmpty && (
-        <div className="flex-1 overflow-auto flex flex-col items-center justify-center py-16 px-6 text-center">
-          {searchQuery ? (
-            <p className="text-base text-slate-500 dark:text-slate-400">
-              No {t('record', { many: true })} found matching &ldquo;{searchQuery}&rdquo;
-            </p>
-          ) : rows.length > 0 ? (
-            <>
-              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-3">
-                No {t('record', { many: true })} match your filters
-              </h3>
-              <button type="button" className="btn-secondary" onClick={() => {
-                useGridStore.setState({ activeFilters: [], showStarredOnly: false })
-                useGridStore.getState().setActiveCustomGroupId(null)
-              }}>
-                Clear filters
-              </button>
-            </>
-          ) : (
-            <>
-              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                No {t('record', { many: true })} yet
-              </h3>
-              <p className="text-base text-slate-500 dark:text-slate-400 mb-4">
-                Add your first {t('record')}{' '}
-                (or press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-base font-mono">{IS_MAC ? '⌘N' : 'Ctrl+N'}</kbd>),
-                or bring them in from a spreadsheet.
-              </p>
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <button type="button" className="btn-primary" onClick={() => void useGridStore.getState().addRow()}>
-                  Add {t('record', { cap: true })}
-                </button>
-                <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('grid:open-import')}>
-                  Bring in a spreadsheet
-                </button>
-                <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('starters:open', { sample: true })}>
-                  See an example with sample data
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+      {isEmpty && <GridEmptyRecords searchQuery={searchQuery} hasRecords={rows.length > 0} />}
 
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="grid-announcer">{announcement}</div>
 

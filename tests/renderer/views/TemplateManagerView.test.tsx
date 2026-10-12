@@ -35,8 +35,10 @@ vi.mock('../../../src/shared/constants', async () => ({
   DEBOUNCE_SEARCH: 0, SPINNER_DELAY: 0,
 }))
 
+// Records what each dialog asked the trap for, so Escape can be pressed through it
+const focusTrapCalls = vi.hoisted(() => [] as Array<[unknown, boolean, { onEscape?: () => void } | undefined]>)
 vi.mock('../../../src/renderer/hooks/useFocusTrap', () => ({
-  useFocusTrap: () => ({ current: null }),
+  useFocusTrap: (ref: unknown, active: boolean, options?: { onEscape?: () => void }) => { focusTrapCalls.push([ref, active, options]) },
 }))
 
 // ── Mock child components ─────────────────────────────────────────────────────
@@ -96,6 +98,19 @@ describe('TemplateManagerView', () => {
     fireEvent.click(screen.getByTitle(/as a reusable template/))
     expect(screen.queryByText(/no .* to save yet/i)).toBeNull()
     expect((screen.getByLabelText(/Which/) as HTMLSelectElement).value).toBe('2')
+  })
+
+  it('"Save as template" picker is a named modal dialog that Escape closes (Q-100, Q-101)', async () => {
+    useGridStore.setState({ grids: [{ id: 1, name: 'Intake', is_active: 1 }, { id: 2, name: 'Waitlist', is_active: 1 }], activeGridId: 1 } as never)
+    render(<MemoryRouter><TemplateManagerView /></MemoryRouter>)
+    await flushEffects()
+    fireEvent.click(screen.getByTitle(/as a reusable template/))
+    const dialog = screen.getByRole('dialog', { name: /Save .* as Template/ })
+    expect(dialog.getAttribute('aria-modal')).toBe('true')
+    const [, active, options] = focusTrapCalls.at(-1)!
+    expect(active).toBe(true)
+    act(() => { options?.onEscape?.() })
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('renders without crashing', async () => {

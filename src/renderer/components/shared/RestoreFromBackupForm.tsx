@@ -4,8 +4,17 @@ import toast from 'react-hot-toast'
 import { usePlatform, cloudFolderAdvice } from '../../utils/platformText'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
+import { friendlyError } from '../../utils/friendlyError'
 import { PasswordStrength } from './PasswordStrength'
 import { checkNewPassword } from '../../../shared/passwordPolicy'
+import { parseDbOpenFailure, dbOpenFailureText } from '../../../shared/dbOpen'
+import { PRODUCT_NAME } from '../../../shared/constants'
+
+/** Main's words as they are, except an open-failure code, which becomes a sentence (F-031) */
+function restoreErrorText(error: string): string {
+  const kind = parseDbOpenFailure(error)
+  return kind ? `The backup was restored, but it couldn't be opened. ${dbOpenFailureText(kind, PRODUCT_NAME)}` : friendlyError(error, "The backup couldn't be restored. Please try again, or choose a different backup.")
+}
 
 interface RestoreFromBackupFormProps {
   onCancel: () => void
@@ -82,11 +91,11 @@ export function RestoreFromBackupForm({ onCancel, onRestored, mode = 'new-instal
       let info: { safetyPath?: string } = {}
       if (mode === 'replace') {
         const res = await safeInvoke(IPC.BACKUP_RESTORE_OTHER, backupPath, secretNow, pwNow, hint)
-        if (!res.ok) { setError(res.error); return }
+        if (!res.ok) { setError(restoreErrorText(res.error)); return }
         info = { safetyPath: res.data.safetyPath }
       } else {
         const res = await safeInvoke(IPC.AUTH_RESTORE_FROM_BACKUP, backupPath, secretNow, pwNow, hint)
-        if (!res.ok) { setError(res.error); return }
+        if (!res.ok) { setError(restoreErrorText(res.error)); return }
         toast.success('Your backup has been restored.')
         if (res.data.cloudWarning) {
           setSecret('')

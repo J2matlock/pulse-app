@@ -14,8 +14,8 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { dndAccessibility } from '../../utils/dndAnnouncements'
 import { User, EyeOff } from 'lucide-react'
-import type { Header } from '@tanstack/react-table'
-import type { GridRow, Column } from '../../../shared/types'
+import type { GridTableHeader } from './gridTable'
+import type { Column } from '../../../shared/types'
 import { ColumnHeader } from './ColumnHeader'
 import { HANDLE_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH } from './gridConstants'
 import { BADGE_WIDTH as ACUITY_BADGE_WIDTH } from './AcuityBadge'
@@ -24,7 +24,7 @@ import { useVocab } from '../../hooks/useVocab'
 // ── Sortable column header wrapper ────────────────────────────────────────────
 
 interface SortableColHeaderProps {
-  header: Header<GridRow, unknown>
+  header: GridTableHeader
   col: Column
   /** This column's place, counting the leading columns (AUDIT-012) */
   colIndex?: number
@@ -84,7 +84,7 @@ export const SortableColHeader = React.memo(function SortableColHeader({ header,
 // ── Grid header row ───────────────────────────────────────────────────────────
 
 export interface GridHeaderRowProps {
-  headers: Header<GridRow, unknown>[]
+  headers: GridTableHeader[]
   columns: Column[]
   columnIds: string[]
   rowHeight: number
@@ -160,7 +160,7 @@ export function GridHeaderRow({
                   setSelectedRowIds(new Set(selectableRowIds))
                 }
               }}
-              className={`w-5 h-5 flex items-center justify-center focus-visible:ring-3 focus-visible:ring-blue-500 focus-visible:ring-offset-1 rounded-sm
+              className={`hit-44 w-5 h-5 flex items-center justify-center focus-visible:ring-3 focus-visible:ring-blue-500 focus-visible:ring-offset-1 rounded-sm
                 ${selectableRowIds.length === 0 ? 'opacity-0 pointer-events-none' : 'opacity-60 hover:opacity-100'}
                 ${selectedRowIds.size > 0 ? 'opacity-100!' : ''}
                 transition-opacity`}

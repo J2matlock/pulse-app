@@ -24,6 +24,9 @@ export default function TrashView() {
   const filesOn = useFeature('attachments')
   const tFor = useVocabByList()
   const [rows, setRows] = useState<DeletedRow[]>([])
+  // The list shows the newest 500; Empty the Trash removes every one (Q-029)
+  const [rowTotal, setRowTotal] = useState(0)
+  const recordCount = Math.max(rowTotal, rows.length)
   const [loading, setLoading] = useState(true)
   const [purgeTarget, setPurgeTarget] = useState<number | null>(null)
   const purgeName = rows.find(r => r.id === purgeTarget)?.client_name?.trim() ?? ''
@@ -40,8 +43,9 @@ export default function TrashView() {
 
   const loadTrash = useCallback(async () => {
     try {
-      const [result, listRes] = await Promise.all([safeInvoke<DeletedRow[]>(IPC.ROW_GET_DELETED), safeInvoke(IPC.GRID_DELETED_LIST)])
+      const [result, listRes, countRes] = await Promise.all([safeInvoke<DeletedRow[]>(IPC.ROW_GET_DELETED), safeInvoke(IPC.GRID_DELETED_LIST), safeInvoke(IPC.ROW_COUNT_DELETED)])
       if (result.ok) setRows(result.data)
+      setRowTotal(countRes.ok && typeof countRes.data === 'number' ? countRes.data : 0)
       if (listRes.ok && Array.isArray(listRes.data)) setLists(listRes.data)
     } catch (err) {
       rlog.error('TrashView', 'Failed to load trash', err)
@@ -66,7 +70,7 @@ export default function TrashView() {
     }
     try {
       const result = await safeInvoke(IPC.ROW_RESTORE_DELETED, row.id)
-      if (result.ok) setRows(r => r.filter(r2 => r2.id !== row.id))
+      if (result.ok) { setRows(r => r.filter(r2 => r2.id !== row.id)); setRowTotal(n => Math.max(0, n - 1)) }
     } catch (err) {
       rlog.error('TrashView', 'Failed to restore row', err)
     }
@@ -96,7 +100,7 @@ export default function TrashView() {
   const purgeRow = async (rowId: number) => {
     try {
       const result = await safeInvoke(IPC.ROW_PURGE, rowId)
-      if (result.ok) { setRows(r => r.filter(row => row.id !== rowId)); forgetUndoSteps(); reloadFiles() }
+      if (result.ok) { setRows(r => r.filter(row => row.id !== rowId)); setRowTotal(n => Math.max(0, n - 1)); forgetUndoSteps(); reloadFiles() }
     } catch (err) {
       rlog.error('TrashView', 'Failed to purge row', err)
     }
@@ -105,7 +109,7 @@ export default function TrashView() {
   // One call, one transaction (X-38)
   const emptyTrash = async () => {
     const result = await safeInvoke(IPC.ROW_PURGE_ALL)
-    if (result.ok) { setRows([]); setLists([]); forgetUndoSteps() }
+    if (result.ok) { setRows([]); setRowTotal(0); setLists([]); forgetUndoSteps() }
     else {
       rlog.error('TrashView', 'Failed to empty trash', result.error)
       toast.error("We couldn't empty the Trash. Please try again.")
@@ -193,6 +197,11 @@ export default function TrashView() {
         />
       ) : (
         <div className="flex-1 overflow-auto px-6 py-4">
+          {recordCount > rows.length && (
+            <p className="text-base text-slate-600 dark:text-slate-300 mb-2">
+              Showing the {rows.length} most recent of {recordCount} {t('record', { many: true })}. Empty the Trash removes all {recordCount}.
+            </p>
+          )}
           <table className="w-full">
             <thead>
               <tr className="text-left text-sm font-medium text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
@@ -310,7 +319,7 @@ export default function TrashView() {
         open={showEmptyConfirm}
         title="Empty the Trash?"
         message={`This removes ${[
-          rows.length ? `${rows.length} ${t('record', { count: rows.length })}` : '',
+          recordCount ? `${recordCount} ${t('record', { count: recordCount })}` : '',
           lists.length ? `${lists.length} ${t('list', { count: lists.length })} with their ${t('record', { many: true })}` : '',
           files ? `${files} file${files === 1 ? '' : 's'}` : '',
         ].filter(Boolean).join(' and ')} for good, with everything on them. Type EMPTY to confirm.`}

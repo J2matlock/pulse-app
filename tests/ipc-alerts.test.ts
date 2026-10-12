@@ -108,6 +108,18 @@ describe('ALERT_RULE_GET_ALL', () => {
   })
 })
 
+describe('ALERT_RULE_CREATE / UPDATE edge checks (Q-056)', () => {
+  it('a missing rule or an oversized description is refused, not a crash', async () => {
+    expect(await invoke(IPC.ALERT_RULE_CREATE, null)).toEqual({ ok: false, error: 'Invalid rule' })
+    expect(await invoke(IPC.ALERT_RULE_CREATE, { name: 'X', thresholds: validThresholds, description: 'd'.repeat(2001) })).toEqual({ ok: false, error: 'Invalid rule description' })
+    expect(await invoke(IPC.ALERT_RULE_CREATE, { name: 'X', thresholds: validThresholds, description: 7 })).toEqual({ ok: false, error: 'Invalid rule description' })
+    const created = await invoke(IPC.ALERT_RULE_CREATE, { name: 'X', thresholds: validThresholds, description: 'Fine' })
+    expect(created.ok).toBe(true)
+    expect(await invoke(IPC.ALERT_RULE_UPDATE, created.data, null)).toEqual({ ok: false, error: 'Invalid rule' })
+    expect(await invoke(IPC.ALERT_RULE_UPDATE, created.data, { description: 'd'.repeat(2001) })).toEqual({ ok: false, error: 'Invalid rule description' })
+  })
+})
+
 describe('ALERT_RULE_CREATE', () => {
   it('creates a rule and returns its ID', async () => {
     const r = await invoke(IPC.ALERT_RULE_CREATE, {

@@ -15,6 +15,7 @@ import { useFeature } from '../../hooks/useFeature'
 import { localDateString } from '../../../shared/dates'
 import { HUMAN_SERVICES_VOCAB } from '../../../shared/vocab'
 import { friendlyError } from '../../utils/friendlyError'
+import { IPC_READ_ONLY } from '../../../shared/constants'
 
 /** Add or remove the sample caseload (made-up clients for trying things out). */
 function SampleDataControls(): React.ReactElement {
@@ -33,7 +34,7 @@ function SampleDataControls(): React.ReactElement {
     setBusy(true)
     try {
       const res = await safeInvoke(IPC.SAMPLE_DATA_CREATE)
-      if (!res.ok) { toast.error(res.error === 'READ_ONLY' ? 'Sample data is not available right now.' : `We couldn't add the sample ${t('list')}.`); return }
+      if (!res.ok) { toast.error(res.error === IPC_READ_ONLY ? 'Sample data is not available right now.' : `We couldn't add the sample ${t('list')}.`); return }
       await useGridStore.getState().loadGridList()
       sampleDataChanged()
       toast.success(`Sample ${t('list')} added — find it in the sidebar.`)
@@ -152,7 +153,7 @@ export function DataSection(): React.ReactElement {
         <div>
           <p className="text-base font-medium text-slate-700 dark:text-slate-300">Import &amp; export data</p>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Bring a spreadsheet into a {t('list')} here, or with <strong>Import</strong> above the {t('list')}. To save one {t('list')} as CSV or PDF, use <strong>Export</strong> there; to save every {t('list')} at once, use the button below.
+            Bring a spreadsheet into {t('list', { article: true })} here, or with <strong>Import</strong> above the {t('list')}. To save one {t('list')} as CSV or PDF, use <strong>Export</strong> there; to save every {t('list')} at once, use the button below.
           </p>
           <p className="text-sm text-slate-500 dark:text-slate-400">Export All saves one file per {t('list')} (hidden columns too) and one with every {t('activity')}. Tasks, contacts and appointments aren't included.</p>
           {filesOn && <p className="text-sm text-slate-500 dark:text-slate-400">Files attached to {t('record', { many: true })} aren't included in CSV exports; open or save them from each profile.</p>}

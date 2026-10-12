@@ -10,10 +10,10 @@
  * VACUUM INTO for .pulse-backup files) run for real.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { copyFileSync, existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 'fs'
+import { copyFileSync, existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync, statSync, utimesSync, symlinkSync, chmodSync } from 'fs'
 import { join, basename, dirname } from 'path'
 import { createHash } from 'crypto'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import {
   createTestDb,
   cleanupTestDb,
@@ -104,6 +104,8 @@ import {
   setScheduledConfig,
   getBackupInfo,
   recordAutoBackupSuccess,
+  cleanCrashLeftovers,
+  cleanBackupLeftovers,
   type DatabaseBridge,
 } from '../src/main/backup'
 
@@ -319,6 +321,37 @@ describe('Restore', () => {
     expect(countRows(dbSafety, 'rows', 'grid_id = ?', gridId)).toBe(5)
     dbSafety.close()
     expect(readdirSync(backupDir).filter(f => f.startsWith('restore-tmp-'))).toEqual([])
+  })
+
+  it('stops before touching anything when the latest changes cannot leave the WAL (A24-08)', async () => {
+    const { gridId } = seedGrid(t.db, { rowCount: 3, columnCount: 1 })
+    const { destPath } = await runManualBackup(join(t.tmpDir, 'out', 'wal-busy'))
+    // A second reader holding an old snapshot keeps the checkpoint from finishing
+    // (with no busy wait, so the test doesn't sit out the timeout)
+    t.db.pragma('busy_timeout = 0')
+    const reader = openTestDb(t.dbPath)
+    try {
+      reader.prepare('BEGIN').run()
+      reader.prepare('SELECT COUNT(*) FROM rows').get()
+      t.db.prepare("INSERT INTO rows (grid_id, position, created_at, updated_at) VALUES (?, 99, datetime('now'), datetime('now'))").run(gridId)
+      const walBefore = statSync(t.dbPath + '-wal').size
+      expect(walBefore).toBeGreaterThan(0)
+
+      const err = await restoreFromPulseBackup(destPath).catch((e: unknown) => e)
+      expect((err as { code?: string }).code).toBe('WAL_BUSY')
+      copyFileSync(t.dbPath, join(t.tmpDir, 'plain.db'))
+      const errDb = await restoreFromDb(join(t.tmpDir, 'plain.db')).catch((e: unknown) => e)
+      expect((errDb as { code?: string }).code).toBe('WAL_BUSY')
+
+      // The live database is still open, the WAL kept, no safety copy written
+      expect(t.db.open).toBe(true)
+      expect(existsSync(t.dbPath + '-wal')).toBe(true)
+      expect(readdirSync(backupDir).filter(f => f.startsWith('pulse-pre-restore-'))).toEqual([])
+    } finally {
+      try { reader.prepare('ROLLBACK').run() } catch { /* not in a transaction */ }
+      reader.close()
+    }
+    expect(countRows(t.db, 'rows', 'grid_id = ?', gridId)).toBe(4)
   })
 
   it('a damaged .pulse-backup is refused and the current database is untouched', async () => {
@@ -750,6 +783,24 @@ describe('pruneBackups', () => {
   })
 })
 
+describe('pruneBackups by time (A24-13)', () => {
+  it('pre-migration copies are pruned by their time stamp, not by the version text', () => {
+    const names = [
+      'pulse-pre-migration-v9-to-v10-20250101-100000.db',
+      'pulse-pre-migration-v10-to-v11-20250201-100000.db',
+      'pulse-pre-migration-v20-to-v21-20250301-100000.db',
+      'pulse-pre-migration-v30-to-v31-20250401-100000.db',
+      'pulse-pre-migration-v40-to-v41-20250501-100000.db',
+      'pulse-pre-migration-v46-to-v47-20250601-100000.db',
+      'pulse-pre-migration-v47-to-v48-20260101-100000.db',
+    ]
+    for (const n of names) writeFileSync(join(backupDir, n), 'x')
+    pruneBackups(backupDir, 'pulse-pre-migration-', '.db', 5)
+    const left = readdirSync(backupDir).filter(f => f.startsWith('pulse-pre-migration-')).sort()
+    expect(left).toEqual(names.slice(2).sort())
+  })
+})
+
 describe('Auto-backup tiered retention', () => {
   it('keeps backups from earlier days even after many quits in one day', () => {
     const files = [
@@ -776,5 +827,85 @@ describe('Auto-backup tiered retention', () => {
       files.push(`pulse-auto-${ymd}-080000.db`, `pulse-auto-${ymd}-170000.db`)
     }
     expect(selectAutoBackupsToKeep(files).size).toBeLessThanOrEqual(16)
+  })
+})
+
+describe('crash leftovers in Pulse\'s own folders (A24-12)', () => {
+  it('removes extracted and half-copied databases over an hour old, and nothing newer or unrelated', () => {
+    const now = Date.now()
+    const old = (now - 2 * 60 * 60 * 1000) / 1000
+    const age = (p: string) => { utimesSync(p, old, old); return p }
+    const file = (dir: string, name: string, aged = true) => { const p = join(dir, name); writeFileSync(p, 'x'); return aged ? age(p) : p }
+    const folder = (dir: string, name: string, aged = true) => {
+      const p = join(dir, name); mkdirSync(p); writeFileSync(join(p, 'pulse.db'), 'secret'); return aged ? age(p) : p
+    }
+    const gone = [
+      folder(backupDir, 'preview-tmp-1700000000000'), folder(backupDir, 'verify-tmp-1700000000001'),
+      folder(backupDir, 'restore-tmp-1700000000002'), folder(t.tmpDir, 'restore-tmp-1700000000003'),
+      file(t.tmpDir, 'pulse.db.tmp'), file(backupDir, 'pulse-pre-restore-20260101-100000.db.tmp'),
+      file(backupDir, 'pulse-snapshot-1700000000000.db'), file(backupDir, 'pulse-manual.pulse-backup.tmp'),
+    ]
+    const kept = [
+      folder(backupDir, 'restore-tmp-1800000000000', false), file(t.tmpDir, 'other.db.tmp', false),
+      file(backupDir, 'pulse-auto-20260101-100000.db'), file(backupDir, 'pulse-pre-restore-20260101-100000.db'),
+      file(backupDir, 'notes.tmp'), file(t.tmpDir, 'restore-tmp-1700000000009'), folder(t.tmpDir, 'pulse-files'),
+    ]
+    // A link named like a leftover is not followed or removed
+    const outside = folder(t.tmpDir, 'outside')
+    symlinkSync(outside, join(backupDir, 'verify-tmp-1700000000005'))
+
+    expect(cleanCrashLeftovers(now)).toBe(gone.length)
+    for (const p of gone) expect(existsSync(p)).toBe(false)
+    for (const p of kept) expect(existsSync(p)).toBe(true)
+    expect(existsSync(join(outside, 'pulse.db'))).toBe(true)
+    expect(cleanCrashLeftovers(now)).toBe(0)
+  })
+})
+
+describe('backup leftovers in the destination (P-006)', () => {
+  const old = (Date.now() - 2 * 60 * 60 * 1000) / 1000
+  const file = (dir: string, name: string, aged: boolean) => { const p = join(dir, name); writeFileSync(p, 'x'); if (aged) utimesSync(p, old, old); return p }
+
+  it('removes snapshot copies and half-written archives over an hour old, and nothing else', () => {
+    const dest = join(t.tmpDir, 'usb')
+    mkdirSync(dest)
+    const gone = [file(dest, 'pulse-snapshot-1700000000000.db', true), file(dest, 'pulse-scheduled-2026.pulse-backup.tmp', true)]
+    const kept = [file(dest, 'pulse-snapshot-1800000000000.db', false), file(dest, 'pulse-scheduled-2027.pulse-backup.tmp', false),
+      file(dest, 'pulse-scheduled-2026.pulse-backup', true), file(dest, 'my-snapshot.db', true), file(dest, 'notes.tmp', true),
+      file(dest, 'pulse.db.tmp', true)]
+    mkdirSync(join(dest, 'restore-tmp-1700000000000'))
+    expect(cleanBackupLeftovers(dest)).toBe(2)
+    for (const p of gone) expect(existsSync(p)).toBe(false)
+    for (const p of kept) expect(existsSync(p)).toBe(true)
+    expect(existsSync(join(dest, 'restore-tmp-1700000000000'))).toBe(true)
+    expect(cleanBackupLeftovers(join(t.tmpDir, 'missing'))).toBe(0)
+  })
+
+  it('a scheduled run clears old leftovers in the destination and in Pulse\'s folder, and writes no snapshot there', async () => {
+    seedGrid(t.db, { rowCount: 2, columnCount: 1 })
+    const dest = join(t.tmpDir, 'usb-scheduled')
+    mkdirSync(dest)
+    const leftovers = [file(dest, 'pulse-snapshot-1700000000000.db', true), file(dest, 'pulse-scheduled-old.pulse-backup.tmp', true),
+      file(backupDir, 'pulse-snapshot-1700000000001.db', true)]
+    setScheduledConfig({ enabled: true, intervalHours: 24, destinationDir: dest, lastRunISO: null })
+    await checkAndRunScheduled()
+    for (const p of leftovers) expect(existsSync(p)).toBe(false)
+    expect(readdirSync(dest)).toEqual([expect.stringMatching(/^pulse-scheduled-\d{8}-\d{6}\.pulse-backup$/)])
+    expect(readdirSync(backupDir).filter(f => f.startsWith('pulse-snapshot-'))).toEqual([])
+  })
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('takes the snapshot in Pulse\'s own backup folder, not the destination', async () => {
+    const dest = join(t.tmpDir, 'usb-readonly-own')
+    mkdirSync(dest)
+    // Pulse's folder can't be written: the backup fails although the destination is fine
+    chmodSync(backupDir, 0o500)
+    try {
+      setScheduledConfig({ enabled: true, intervalHours: 24, destinationDir: dest, lastRunISO: null })
+      await checkAndRunScheduled()
+      expect(getScheduledConfig().lastError).toBeTruthy()
+      expect(readdirSync(dest)).toEqual([])
+    } finally {
+      chmodSync(backupDir, 0o700)
+    }
   })
 })

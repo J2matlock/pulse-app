@@ -1,9 +1,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { useMenuKeys } from '../../hooks/useMenuKeys'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { createPortal } from 'react-dom'
-import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2, Edit2, EyeOff, GripVertical, Bell, BellOff, Plus, Pencil, Activity, List, Palette, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Pin, PinOff, Asterisk, Link2, Columns3, Clock, IdCard, Settings2, Shapes } from 'lucide-react'
-import { canBeRequired } from '../../../shared/requiredFields'
+import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2, Edit2, EyeOff, GripVertical, Bell, Activity, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Pin, PinOff, Clock, IdCard, Settings2, Shapes } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
 import { useAlertStore } from '../../stores/alertStore'
@@ -15,16 +13,14 @@ import { AlertRuleEditor } from '../alerts/AlertRuleEditor'
 import { DeleteRuleConfirm } from '../alerts/DeleteRuleConfirm'
 import { splitRulesByFit } from '../alerts/ruleFit'
 import { ruleSummary } from '../../../shared/ruleSummary'
-import { RuleColorKey } from '../alerts/RuleColorKey'
 import { pulseEvents } from '../../events'
 import { engineRuleFrom, needsDeadlineColumn } from '../../../shared/deadlineEngine'
 import toast from 'react-hot-toast'
-import { DoneChecklistPicker } from './DoneChecklistPicker'
-import { NoteUpdatePicker } from './NoteUpdatePicker'
+import { ColumnRulePicker } from './ColumnRulePicker'
+import { ColumnSettingsDialog } from './ColumnSettingsDialog'
 import { CellConditionalFormatPanel } from './CellConditionalFormatPanel'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { Tooltip } from '../shared/Tooltip'
-import { useFeature } from '../../hooks/useFeature'
 import { useVocab } from '../../hooks/useVocab'
 import { useLinkStore } from '../../stores/linkStore'
 import { LinkSetupDialog } from '../links/LinkSetupDialog'
@@ -32,7 +28,6 @@ import { StageSettingsDialog } from '../stages/StageSettingsDialog'
 import { EditOptionsDialog } from './EditOptionsDialog'
 import { ChangeTypeDialog } from './ChangeTypeDialog'
 import { CHANGEABLE_TYPES } from '../../../shared/columnTypes'
-import { canBeStage, stageConfigOf } from '../../../shared/stages'
 
 interface Props {
   column: Column
@@ -43,7 +38,6 @@ interface Props {
 const SORT_CLICK_DELAY = 250
 
 export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactElement {
-  const checklistsOn = useFeature('checklists')
   const { sortConfig, columns: allColumns, frozenColumnCount } = useGridStore(useShallow(s => ({
     sortConfig: s.sortConfig,
     columns: s.columns,
@@ -67,7 +61,6 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
   const [showAlertEditor, setShowAlertEditor] = useState(false)
   const [showLinkSettings, setShowLinkSettings] = useState(false)
   const [showStageSettings, setShowStageSettings] = useState(false)
-  const stagesOn = useFeature('stages')
   const { t } = useVocab()
   const [editingRule, setEditingRule] = useState<ParsedAlertRule | undefined>(undefined)
   const [showDeleteColConfirm, setShowDeleteColConfirm] = useState(false)
@@ -99,9 +92,6 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
   const colIndex = allColumns.findIndex(c => c.id === column.id)
   const menuRef = useRef<HTMLDivElement>(null)
   const onMenuKeyDown = useMenuKeys(menuRef, showMenu, () => { setShowMenu(false); setShowAlertPicker(false) })
-  // Column settings is a modal: focus goes in, Tab stays in, Escape closes, focus comes back (AUDIT-047)
-  const settingsRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(settingsRef, showColumnSettings, { onEscape: () => setShowColumnSettings(false) })
 
   // Move left / right among the shown columns, so columns can be reordered without dragging (G-32)
   const shownColumns = allColumns.filter(c => c.is_visible !== 0)
@@ -471,91 +461,17 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                   </button>
 
                   {showAlertPicker && (
-                    <div className="px-2 pb-2">
-                      {currentAlertRule && (
-                        <div className="px-2 py-1.5 mb-1 rounded-sm bg-slate-50 dark:bg-slate-900/40">
-                          <RuleColorKey rule={currentAlertRule} compact />
-                        </div>
-                      )}
-                      {currentAlertRule && (
-                        <button
-                          className="hit-44 flex items-center gap-2 w-full px-2 py-1.5 text-base text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-sm"
-                          onClick={() => handleSetAlertRule(null)}
-                        >
-                          <BellOff className="w-3.5 h-3.5" />
-                          Remove deadline rule
-                        </button>
-                      )}
-                      {alertRules.length === 0 && !currentAlertRule && (
-                        <p className="px-2 py-1.5 text-sm text-slate-500 dark:text-slate-400">
-                          No deadline rules yet.
-                        </p>
-                      )}
-                      {fittingRules.map(rule => (
-                        <div
-                          key={rule.id}
-                          className={`flex items-center gap-1 w-full rounded-sm ${
-                            rule.id === currentAlertRuleId
-                              ? 'bg-blue-50 dark:bg-blue-900/40'
-                              : 'hover:bg-slate-50 dark:hover:bg-slate-700'
-                          }`}
-                        >
-                          <button
-                            className={`hit-44 flex items-center gap-2 flex-1 px-2 py-1.5 text-base text-left min-w-0 ${
-                              rule.id === currentAlertRuleId
-                                ? 'text-blue-700 dark:text-blue-300 font-medium'
-                                : 'text-slate-700 dark:text-slate-300'
-                            }`}
-                            onClick={() => handleSetAlertRule(rule.id)}
-                          >
-                            <Bell className="w-3.5 h-3.5 flex-shrink-0" />
-                            <span className="truncate">{rule.name}</span>
-                          </button>
-                          <button
-                            className="hit-44 p-1 text-slate-500 dark:text-slate-400 hover:text-blue-500 rounded-sm flex-shrink-0"
-                            title="Edit rule"
-                            aria-label="Edit rule"
-                            onClick={e => { e.stopPropagation(); setEditingRule(rule); setShowAlertEditor(true); setShowMenu(false); setShowAlertPicker(false) }}
-                          >
-                            <Pencil className="w-3 h-3" />
-                          </button>
-                          <button
-                            className="hit-44 p-1 text-slate-500 dark:text-slate-400 hover:text-red-500 rounded-sm flex-shrink-0 mr-1"
-                            title="Delete rule"
-                            aria-label="Delete rule"
-                            onClick={e => {
-                              e.stopPropagation()
-                              setDeleteAlertRuleTarget(rule)
-                              setShowAlertPicker(false)
-                            }}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                      {otherListRules.length > 0 && (
-                        <details className="mt-1">
-                          <summary className="hit-44 flex items-center px-2 py-1.5 text-base text-slate-600 dark:text-slate-300 cursor-pointer rounded-sm hover:bg-slate-50 dark:hover:bg-slate-700">
-                            Rules from other {t('list', { many: true })} (won't work here)
-                          </summary>
-                          <ul className="pl-2">
-                            {otherListRules.map(rule => (
-                              <li key={rule.id} className="px-2 py-1.5 text-base text-slate-500 dark:text-slate-400 truncate" title={`This rule reads columns this ${t('list')} doesn't have`}>
-                                {rule.name}
-                              </li>
-                            ))}
-                          </ul>
-                        </details>
-                      )}
-                      <hr className="my-1 border-slate-200 dark:border-slate-700" />
-                      <button
-                        className="hit-44 flex items-center gap-2 w-full px-2 py-1.5 text-base text-blue-600 dark:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-sm"
-                        onClick={() => { setEditingRule(undefined); setShowAlertEditor(true); setShowMenu(false); setShowAlertPicker(false) }}
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        New deadline rule…
-                      </button>
-                    </div>
+                    <ColumnRulePicker
+                      currentAlertRule={currentAlertRule}
+                      currentAlertRuleId={currentAlertRuleId}
+                      hasAnyRule={alertRules.length > 0}
+                      fittingRules={fittingRules}
+                      otherListRules={otherListRules}
+                      onSetRule={ruleId => void handleSetAlertRule(ruleId)}
+                      onEditRule={rule => { setEditingRule(rule); setShowAlertEditor(true); setShowMenu(false); setShowAlertPicker(false) }}
+                      onDeleteRule={rule => { setDeleteAlertRuleTarget(rule); setShowAlertPicker(false) }}
+                      onNewRule={() => { setEditingRule(undefined); setShowAlertEditor(true); setShowMenu(false); setShowAlertPicker(false) }}
+                    />
                   )}
                 </>
               )}
@@ -575,99 +491,21 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
 
         {/* Column settings (G-21): required, choices, colors, changes in notes, stage, links, deadline extras */}
         {showColumnSettings && createPortal(
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby={`col-settings-${column.id}`}>
-            <div className="fixed inset-0 bg-black/50" onClick={() => setShowColumnSettings(false)} />
-            <div ref={settingsRef} className="relative w-full max-w-md max-h-[85vh] overflow-y-auto bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4">
-              <h2 id={`col-settings-${column.id}`} className="text-lg font-semibold text-slate-800 dark:text-slate-100 px-3 mb-2">“{column.name}” settings</h2>
-              <div onClick={e => { if ((e.target as HTMLElement).closest('button[data-opens]')) setShowColumnSettings(false) }}>
-              <button
-                className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                onClick={handleToggleLogChanges}
-              >
-                <Activity className="w-4 h-4" />
-                <span className="flex-1 text-left">Log changes in timeline</span>
-                <span className={`text-sm font-medium ${colConfig.log_changes ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                  {colConfig.log_changes ? 'On' : 'Off'}
-                </span>
-              </button>
-
-              {canBeRequired(column.column_type) && (
-                  <button
-                                  className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                  onClick={() => { void updateColumn(column.id, { config: JSON.stringify({ ...colConfig, required: colConfig.required ? undefined : true }) }); setShowMenu(false) }}
-                  title="Empty cells show 'Missing' and appear in the Missing information list"
-                >
-                  <Asterisk className="w-4 h-4" />
-                  <span className="flex-1 text-left">Required column</span>
-                  <span className={`text-sm font-medium ${colConfig.required ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                    {colConfig.required ? 'On' : 'Off'}
-                  </span>
-                </button>
-              )}
-
-              <button
-                data-opens
-                className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                onClick={() => { setShowColFormat(true); setShowMenu(false) }}
-              >
-                <Palette className="w-4 h-4" />
-                Color rules for this column…
-              </button>
-
-              {/* Edit options — only for dropdown/status columns */}
-              {(column.column_type === 'dropdown' || column.column_type === 'status') && (
-                <button
-                data-opens
-                  className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                  onClick={handleOpenEditOptions}
-                >
-                  <List className="w-4 h-4" />
-                  Edit options…
-                </button>
-              )}
-
-              {/* Stage (W06): one status or dropdown column per list drives the board */}
-              {stagesOn && canBeStage(column.column_type) && (
-                <button
-                data-opens
-                  className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                  onClick={() => { setShowMenu(false); setShowStageSettings(true) }}
-                >
-                  <Columns3 className="w-4 h-4" />
-                  {stageConfigOf(column) ? `${t('stage', { cap: true })} settings…` : `Use as the ${t('stage')}…`}
-                </button>
-              )}
-
-              {/* Link columns (W04): names, how many, or remove the link */}
-              {linkType && (
-                <button
-                data-opens
-                  className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                  onClick={() => { setShowMenu(false); setShowLinkSettings(true) }}
-                >
-                  <Link2 className="w-4 h-4" />
-                  Link settings…
-                </button>
-              )}
-
-
-              {takesDeadlineRule(column.column_type) && (
-                <div className="mt-2 border-t border-slate-200 dark:border-slate-700 pt-2">
-                  <NoteUpdatePicker
-                    value={Array.isArray(colConfig.note_updates) ? colConfig.note_updates : []}
-                    onChange={types => void updateColumn(column.id, { config: JSON.stringify({ ...colConfig, note_updates: types.length ? types : undefined }) })}
-                  />
-                  {currentAlertRule && checklistsOn && (
-                    <DoneChecklistPicker value={colConfig.done_checklist_id ?? null} onChange={id => void handleSetDoneChecklist(id)} />
-                  )}
-                </div>
-              )}
-              </div>
-              <div className="flex justify-end mt-4 px-3">
-                <button type="button" className="btn-secondary" onClick={() => setShowColumnSettings(false)}>Close</button>
-              </div>
-            </div>
-          </div>, document.body
+          <ColumnSettingsDialog
+            column={column}
+            colConfig={colConfig}
+            hasLinkType={!!linkType}
+            currentAlertRule={currentAlertRule}
+            onClose={() => setShowColumnSettings(false)}
+            onToggleLogChanges={() => void handleToggleLogChanges()}
+            onToggleRequired={() => { void updateColumn(column.id, { config: JSON.stringify({ ...colConfig, required: colConfig.required ? undefined : true }) }); setShowMenu(false) }}
+            onOpenColorRules={() => { setShowColFormat(true); setShowMenu(false) }}
+            onOpenEditOptions={handleOpenEditOptions}
+            onOpenStageSettings={() => { setShowMenu(false); setShowStageSettings(true) }}
+            onOpenLinkSettings={() => { setShowMenu(false); setShowLinkSettings(true) }}
+            onNoteUpdatesChange={types => void updateColumn(column.id, { config: JSON.stringify({ ...colConfig, note_updates: types.length ? types : undefined }) })}
+            onDoneChecklistChange={id => void handleSetDoneChecklist(id)}
+          />, document.body
         )}
 
         {showChangeType && <ChangeTypeDialog column={column} onClose={() => setShowChangeType(false)} />}

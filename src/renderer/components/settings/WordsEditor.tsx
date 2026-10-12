@@ -9,6 +9,7 @@ import { useGridStore } from '../../stores/gridStore'
 import { ListSettingsDialog } from '../grid/ListSettingsDialog'
 import { useVocab } from '../../hooks/useVocab'
 import { friendlyError } from '../../utils/friendlyError'
+import { IPC_READ_ONLY } from '../../../shared/constants'
 
 /** The words people can change, in the order they matter. (Appointments and stages arrive with their features.) */
 const ROWS: Array<{ key: VocabKey; label: string; hint: string }> = [
@@ -107,7 +108,7 @@ export function WordsEditor(): React.ReactElement {
       toast.success(ownWords.length > 0 ? `Words saved. ${t('list', { many: true, cap: true })} with their own words keep them.` : 'Words saved. They now appear everywhere.')
     } catch (err) {
       const fallback = "We couldn't save the words. Please try again."
-      toast.error(err instanceof Error && err.message !== 'READ_ONLY' ? friendlyError(err.message, fallback) : fallback)
+      toast.error(err instanceof Error && err.message !== IPC_READ_ONLY ? friendlyError(err.message, fallback) : fallback)
     } finally {
       setSaving(false)
     }

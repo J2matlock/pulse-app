@@ -36,7 +36,7 @@ export function DemoCaseLog() {
         </span>
         <span className="w-0.5 h-4 bg-blue-500 animate-pulse shrink-0" />
         <button
-          className="ml-auto px-2 py-1 rounded-sm text-white text-xs font-medium shrink-0"
+          className="ml-auto px-2 py-1 rounded-sm text-white text-sm font-medium shrink-0"
           style={{ animation: 'logBtn 8s ease infinite', background: 'rgb(59,130,246)' }}
         >
           Add
@@ -45,21 +45,21 @@ export function DemoCaseLog() {
       {/* New entry appearing */}
       <div
         className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 overflow-hidden"
-        style={{ animation: 'logEntry 8s ease infinite', fontSize: 13 }}
+        style={{ animation: 'logEntry 8s ease infinite', fontSize: 15 }}
       >
         <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
           <span>📝</span>
           <span className="font-medium">Phone call — all is well</span>
         </div>
-        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Today at 2:30 PM · You</div>
+        <div className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Today at 2:30 PM · You</div>
       </div>
       {/* Existing entries */}
-      <div className="mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg px-3 py-2" style={{ fontSize: 13 }}>
+      <div className="mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg px-3 py-2" style={{ fontSize: 15 }}>
         <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
           <span>📋</span>
           <span>Home visit completed</span>
         </div>
-        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Yesterday · You</div>
+        <div className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Yesterday · You</div>
       </div>
     </DemoWrapper>
   )

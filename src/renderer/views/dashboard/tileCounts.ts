@@ -1,22 +1,29 @@
-import { DAYS_THIS_WEEK, DAYS_THIS_MONTH } from '../../../shared/constants'
-import { isUsedUp, type DeadlineState } from '../../../shared/deadlineEngine'
+import { QUERY_LIMITS } from '../../../shared/query-limits'
+import { countDeadlineTiles, isLateDeadline, type DeadlineTileCounts } from '../../../shared/deadlineTiles'
+import type { DeadlineState } from '../../../shared/deadlineEngine'
 
-/** Late, or a used-up quota (due "now" whatever its end date): what the Overdue tile and tab count. */
-export function isLateDeadline(d: { daysUntil: number; state?: DeadlineState }): boolean {
-  return d.daysUntil < 0 || isUsedUp({ state: d.state, daysUntil: d.daysUntil })
-}
+export { countDeadlineTiles, isLateDeadline }
+
+/** Main sends at most this many deadlines / open follow-ups; a list this long may have been cut. */
+export const deadlinesMayBeCut = (n: number): boolean => n >= QUERY_LIMITS.DASHBOARD_PRIORITY
+export const followUpsMayBeCut = (n: number): boolean => n >= QUERY_LIMITS.DASHBOARD_FOLLOWUPS
 
 /**
- * The dashboard's deadline tiles, counted like the morning briefing and the
- * desktop reminder (D-19, D-20): overdue = late or a used-up quota; the
- * rolling "next 7 / 30 days" include today.
+ * The tile numbers. Counted from the lists on screen (so a Done shows at once),
+ * except when a list came back at main's cap: then the rest are missing from it,
+ * and main's own counts over everything are used (F-024).
  */
-export function countDeadlineTiles(deadlines: Array<{ daysUntil: number; state?: DeadlineState }>): { overdue: number; dueThisWeek: number; dueThisMonth: number } {
-  let overdue = 0, dueThisWeek = 0, dueThisMonth = 0
-  for (const d of deadlines) {
-    if (isLateDeadline(d)) { overdue++; continue }
-    if (d.daysUntil <= DAYS_THIS_WEEK) dueThisWeek++
-    if (d.daysUntil <= DAYS_THIS_MONTH) dueThisMonth++
-  }
-  return { overdue, dueThisWeek, dueThisMonth }
+export function dashboardTileCounts(input: {
+  deadlines: Array<{ daysUntil: number; state?: DeadlineState }>
+  deadlinesCut: boolean
+  followUpDays: number[]
+  followUpsCut: boolean
+  otherDueDays: number[]
+  server?: { deadlineTiles?: DeadlineTileCounts; followUpsPending?: number } | null
+}): DeadlineTileCounts & { otherDue: number } {
+  const tiles = input.deadlinesCut && input.server?.deadlineTiles ? input.server.deadlineTiles : countDeadlineTiles(input.deadlines)
+  const followUpsDue = input.followUpsCut && input.server?.followUpsPending !== undefined
+    ? input.server.followUpsPending
+    : input.followUpDays.filter(d => d <= 0).length
+  return { ...tiles, otherDue: input.otherDueDays.filter(d => d <= 0).length + followUpsDue }
 }

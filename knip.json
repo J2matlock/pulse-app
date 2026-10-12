@@ -1,0 +1,18 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "scripts/afterPack.js",
+    "scripts/starters/validate-starter.ts",
+    "scripts/website-copy/*.mjs",
+    "src/main/ipc/ipc-contract-check.ts",
+    "vitest.perf.config.ts",
+    "tests/perf/*.perf.{ts,tsx}"
+  ],
+  "ignoreBinaries": [
+    "reg"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "ignore": [
+    "src/main/migrations/001_initial_schema.ts"
+  ]
+}

@@ -37,7 +37,9 @@ export function ContactStatusLine({ rowId, gridId }: { rowId: number; gridId: nu
     void load()
     const offReq = pulseEvents.on('contact-req:changed', () => { void load() })
     const offLog = window.api.on(IPC.CASE_LOG_CHANGED, (changed: unknown) => { if (changed === rowId) void load() })
-    return () => { offReq(); offLog() }
+    // A new day can start a new period (Q-031)
+    const offDay = pulseEvents.on('day:changed', () => { void load() })
+    return () => { offReq(); offLog(); offDay() }
   }, [load, rowId])
 
   const client = grid?.clients.find(c => c.rowId === rowId)

@@ -14,9 +14,10 @@ import { getMissingInfo, missingInfoText } from './missing-info'
 import { contactsComplete, contactsMissing } from '../shared/contactRequirements'
 import { evaluate, engineRuleFrom, referencedColumns, meterHistoryColumn, extensionAnchor, buildRecordContext, matchExtension, applyExtension, type QuotaConfig, type StoredExtension } from '../shared/deadlineEngine'
 import { loadWorkCalendar, meterHistories, quotaCounts, progressEntries, finishedDates, previousValues } from './deadlines'
-import { localDateString } from '../shared/dates'
+import { localDateString, shortDate } from '../shared/dates'
 import { vocabFor, word, featureOn } from './vocab'
 import { term } from '../shared/vocab'
+import { LIVE_ROW, liveGrid } from '../shared/liveRecords'
 
 export interface ComplianceGrid {
   gridId: number
@@ -54,7 +55,7 @@ export function getComplianceSummary(month: string, gridId?: number): Compliance
   // End of the as-of day in local time, as a stored (UTC) timestamp
   const cutoff = (db.prepare("SELECT datetime(? || ' 23:59:59', 'utc') AS t").get(asOf) as { t: string }).t
 
-  const grids = db.prepare(`SELECT id, name FROM grids WHERE is_active = 1 AND (? IS NULL OR id = ?) ORDER BY position, name COLLATE NOCASE`)
+  const grids = db.prepare(`SELECT id, name FROM grids WHERE ${liveGrid('')} AND (? IS NULL OR id = ?) ORDER BY position, name COLLATE NOCASE`)
     .all(gridId ?? null, gridId ?? null) as Array<{ id: number; name: string }>
   const requirementsOn = featureOn('requirements')
   // Each requirement is counted over its own period containing the as-of day
@@ -71,7 +72,7 @@ export function getComplianceSummary(month: string, gridId?: number): Compliance
   `)
   const recordsStmt = db.prepare(`
     SELECT r.id, COALESCE(NULLIF(r.display_name, ''), @unnamed) AS client_name FROM rows r
-    WHERE r.grid_id = @gridId AND r.is_active = 1 AND r.deleted_at IS NULL AND r.created_at <= @cutoff
+    WHERE r.grid_id = @gridId AND ${LIVE_ROW} AND r.created_at <= @cutoff
   `)
   // What each cell was at the cutoff: the old value of the first change after it, else today's value
   const cellsStmt = db.prepare('SELECT c.row_id, c.column_id, c.value FROM cells c JOIN rows r ON r.id = c.row_id WHERE r.grid_id = ?')
@@ -81,10 +82,11 @@ export function getComplianceSummary(month: string, gridId?: number): Compliance
   const extStmt = db.prepare(`SELECT e.id, e.row_id, e.column_id, e.step, e.new_due, e.reason, e.anchor_value FROM deadline_extensions e JOIN rows r ON r.id = e.row_id
     WHERE r.grid_id = ? AND e.created_at <= ? AND (e.revoked_at IS NULL OR e.revoked_at > ?) ORDER BY e.id DESC`)
 
-  // Extensions given this month (still in effect or not), for "3 extended"
+  // Extensions given this month (still in effect or not), for "3 extended": on the same
+  // records as the rest of the card, so not ones in the Trash or archived (A16-03)
   const extendedStmt = db.prepare(`
     SELECT COUNT(*) AS n FROM deadline_extensions e JOIN rows r ON r.id = e.row_id
-    WHERE r.grid_id = ? AND strftime('%Y-%m', e.created_at, 'localtime') = ?
+    WHERE r.grid_id = ? AND ${LIVE_ROW} AND strftime('%Y-%m', e.created_at, 'localtime') = ?
   `)
 
   const result: ComplianceGrid[] = grids.map(g => {
@@ -165,7 +167,7 @@ export function getComplianceSummary(month: string, gridId?: number): Compliance
 const pct = (n: number, d: number) => d === 0 ? '—' : `${Math.round((n / d) * 100)}%`
 
 function fmtDay(ymd: string): string {
-  return parseYmd(ymd)!.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return shortDate(parseYmd(ymd)!)
 }
 
 export async function exportComplianceSummary(month: string, gridId: number | undefined, destPath: string, workerName?: string): Promise<void> {

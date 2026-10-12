@@ -46,6 +46,7 @@ describe('friendlyError', () => {
  */
 const PLAIN = new Set<string>([
   'READ_ONLY', // friendlyError turns it into its own sentence
+  "That link can't be opened from here. Pulse only opens its own https pages.", // F-035
   '${msg} Nothing was erased.',
   "${n} new file${n === 1 ? ' was' : 's were'} added, but the ones already attached weren't added again. ${again.error}",
   "${word('activity', { cap: true })} can't be empty. To remove one, use Void.",
@@ -81,6 +82,7 @@ const PLAIN = new Set<string>([
   'Each item must have a title',
   'Enter the password or recovery key used with this backup',
   'Enter the reading as a number.',
+  'Enter your current password to continue', // revoke with re-encrypt needs it to wrap the new key (P-001)
   'Enter your password to confirm.',
   'Keep at least one working day in the week.',
   "Link columns can't be changed to another type, or made from one.",
@@ -111,38 +113,40 @@ const PLAIN = new Set<string>([
   'That form no longer exists.',
   "That kind of ${word('activity')} isn't available any more. Pick another and try again.",
   'That link no longer exists.',
-  "That list doesn't exist any more.",
-  "That list isn't in the Trash.",
-  'That list no longer exists. It may have been deleted.',
+  "That ${word('list')} doesn't exist any more.",
+  "That ${word('list')} isn't in the Trash.",
+  "That ${word('list')} no longer exists. It may have been deleted.",
   "That password didn't work. Nothing was erased.",
   "That reminder setting isn't valid.",
   'That report is no longer available.',
   "That ${word('record')} is no longer available.",
   '"${meta.name}" needs a full date between ${MIN_YEAR} and ${MAX_YEAR}. Pick one from the calendar and try again.',
   "That setting isn't valid.",
+  "That isn't a version number Pulse knows.",
   "That template doesn't exist any more.",
   'That text is too long',
   "The backup was restored, but Pulse couldn't open it. Close Pulse, open it again and sign in with your new password.",
   "This computer isn't showing notifications from Pulse. Check that notifications are allowed for Pulse in your system settings.",
   "This kind of column can't be used as the name.",
   "Those ${word('contact')} details couldn't be saved.",
-  "Those list settings couldn't be saved.",
+  "Those ${word('list', {}, gridId)} settings couldn't be saved.",
   "Those repeat settings couldn't be saved.",
   'To number each one automatically, add a new auto-number column.',
   'Up to ${MAX_HOLIDAYS} days off can be saved.',
-  'Use "Link to another list" to add a link column.',
+  'Use "Link to another ${word(\'list\', {}, gridId)}" to add a link column.',
   "We couldn't add that example. Please try again.",
   "We couldn't find that ${word('record')} or ${word('list')}.",
   "We couldn't find that ${word('record')}.",
+  "We couldn't find that ${word('record', {}, gridId)}. It may have been moved to the Trash.",
   "We couldn't find the license file in this copy of Pulse.",
   "We couldn't open the license file. Your computer may not have an app for text files.",
   "We couldn't remove the sample data. Nothing was changed; please try again.",
   "We couldn't save that answer.",
-  "We couldn't save that change — the ${word('record')} or column no longer exists. Reopen the list and try again.",
+  "We couldn't save that change — the ${word('record')} or column no longer exists. Reopen the ${word('list')} and try again.",
   "We couldn't save your place in setup.",
 ])
 
-/** fail('…') literals and new XxxError('…') literals (not plain Error), as written in the source */
+/** fail('…') literals, argument-schema messages and new XxxError('…') literals (not plain Error), as written in the source */
 function mainMessages(): string[] {
   const out = new Set<string>()
   const walk = (dir: string): void => {
@@ -152,6 +156,16 @@ function mainMessages(): string[] {
       if (!p.endsWith('.ts')) continue
       const src = readFileSync(p, 'utf8')
       for (const m of src.matchAll(/\bfail\(\s*(['"`])((?:\\.|(?!\1).)*)\1/g)) out.add(m[2])
+      // defineHandler argument schemas answer with their own messages (src/main/ipc/ipc-define.ts)
+      for (const pattern of [
+        /\b(?:idArg|textArg|idListArg|z\.(?:string|number|boolean|int))\(\s*(['"`])((?:\\.|(?!\1).)*)\1/g,
+        /(?:\.(?:min|max|refine|regex)|\bschemaArg|\btextLength|\bz\.(?:custom(?:<.*?>)?|enum))\([^\n]*?,\s*(['"`])((?:\\.|(?!\1).)*)\1\s*\)/g,
+        /\bfunction \w+Arg\(\s*\w+\s*=\s*(['"`])((?:\\.|(?!\1).)*)\1/g,
+        // idListArg(listMessage, idMessage, …): the second message
+        /\bidListArg\(\s*(?:'(?:\\.|[^'])*'|"(?:\\.|[^"])*"|`(?:\\.|[^`])*`)\s*,\s*(['"`])((?:\\.|(?!\1).)*)\1/g,
+      ]) {
+        for (const m of src.matchAll(pattern)) out.add(m[2])
+      }
       for (const m of src.matchAll(/new ([A-Z]\w*Error)\(\s*(['"`])((?:\\.|(?!\2).)*)\2/g)) {
         if (!['Error', 'TypeError', 'RangeError', 'DatabaseOpenError'].includes(m[1])) out.add(`${m[1]}|${m[3]}`)
       }

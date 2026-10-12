@@ -2,7 +2,7 @@
  * CustomGroupEditor — modal dialog for creating or editing a custom group bucket definition.
  * Users assign discrete column values into named buckets, each with an optional accent color.
  */
-import React, { useRef, useState, useMemo } from 'react'
+import React, { useId, useRef, useState, useMemo } from 'react'
 import { X, Plus, Trash2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
@@ -41,6 +41,8 @@ export function CustomGroupEditor({ gridId, initialDef, onClose }: CustomGroupEd
   const acuityEnabled = acuityFlag && priorityOn
 
   const trapRef = useRef<HTMLDivElement>(null)
+
+  const titleId = useId()
   useFocusTrap(trapRef, true, { onEscape: onClose })
 
   const groupableColumns = useMemo(() => columns.filter(c => GROUPABLE_TYPES.has(c.column_type)), [columns])
@@ -94,7 +96,7 @@ export function CustomGroupEditor({ gridId, initialDef, onClose }: CustomGroupEd
       if (v !== null && v !== undefined && v !== '') seen.add(v)
     })
     return Array.from(seen).sort()
-  }, [selectedColId, rows])
+  }, [selectedColId, rows, acuityLevels])
 
   // Values not assigned to any bucket
   const assignedValues = useMemo<Set<string>>(() => {
@@ -184,9 +186,9 @@ export function CustomGroupEditor({ gridId, initialDef, onClose }: CustomGroupEd
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div ref={trapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          <h2 id={titleId} className="text-lg font-semibold text-slate-900 dark:text-slate-100">
             {initialDef ? 'Edit Custom Group' : 'New Custom Group'}
           </h2>
           <button

@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest'
 import BetterSqlite3 from 'better-sqlite3-multiple-ciphers'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { readFileSync, rmSync, existsSync } from 'fs'
 import { join } from 'path'
 import { mkdtempSync } from 'fs'

@@ -4,6 +4,7 @@ import type { CaseloadTask } from '../../shared/types'
 import toast from 'react-hot-toast'
 import { useUndoStore } from './undoStore'
 import { storeInvoke, ReadOnlyError } from '../utils/safeInvoke'
+import { pulseEvents } from '../events'
 
 export type TaskSortMode = 'manual' | 'due_date' | 'priority'
 
@@ -290,3 +291,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     })
   },
 }))
+
+// Locked: drop the task list (A24-11); the sidebar and Tasks screen load it again
+pulseEvents.on('app:locked', () => {
+  useTaskStore.setState(s => ({ tasks: [], loading: false, _loadVersion: s._loadVersion + 1 }))
+})

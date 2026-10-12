@@ -3,6 +3,7 @@ import { X, Sparkles } from 'lucide-react'
 import { motion } from 'motion/react'
 import { backdropVariants, modalPanelVariants } from '../../utils/animations'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { useVocab } from '../../hooks/useVocab'
 
 interface Props {
   open: boolean
@@ -15,7 +16,8 @@ interface ReleaseEntry {
   items: string[]
 }
 
-const RELEASES: ReleaseEntry[] = [
+/** Items name records, lists and notes with {word} tokens, filled with the workspace's words */
+export const RELEASES: ReleaseEntry[] = [
   {
     version: '2.4.0',
     date: '2026-10-11',
@@ -23,9 +25,9 @@ const RELEASES: ReleaseEntry[] = [
       'Safer data: backups work in folders with apostrophes or accents, USB drives and network folders can be used, and a damaged backup is refused before it replaces anything',
       'Imports keep accented names from Excel and Windows files, read typed dates in deadline columns, and never stop halfway',
       'PDFs print Polish, Turkish, Cyrillic and Greek names, and spreadsheets you export are protected against formula tricks in every column',
-      'Easier to use by keyboard and screen reader: the list, menus, dialogs and reordering all work without a mouse, with clearer contrast and Windows High Contrast support',
+      'Easier to use by keyboard and screen reader: the {list}, menus, dialogs and reordering all work without a mouse, with clearer contrast and Windows High Contrast support',
       'Dates Pulse can\'t read are marked "Not a date", late repeating items move past today when ticked off, and zoom goes up to 200%',
-      'Faster sorting on big lists, plain-language messages throughout, and an up-to-date Electron with the latest security fixes',
+      'Faster sorting on big {list:many}, plain-language messages throughout, and an up-to-date Electron with the latest security fixes',
     ],
   },
   {
@@ -33,10 +35,10 @@ const RELEASES: ReleaseEntry[] = [
     date: '2026-10-11',
     items: [
       'Dates with a deadline say how they stand in words, like "due Oct 8 · in 3 days", and a deadline can be marked done',
-      'Notes keep the day something happened as well as the day you wrote it, and dates in your list follow the day it happened',
-      'Deleted lists and columns wait in the Trash for 30 days, and made-up sample entries are marked with a ✦',
+      '{Activity:many} keep the day something happened as well as the day you wrote it, and dates in your {list} follow the day it happened',
+      'Deleted {list:many} and columns wait in the Trash for 30 days, and made-up sample entries are marked with a ✦',
       'Clearer screens: larger text, plain words, visible focus, tidier toolbars, and ⌘ shortcuts on a Mac',
-      'Many fixes: a new list shows right after setup, text stays inside its cell, Undo works from the Dashboard and Focus mode, and imports, restores and sample removal are safer',
+      'Many fixes: a new {list} shows right after setup, text stays inside its cell, Undo works from the Dashboard and Focus mode, and imports, restores and sample removal are safer',
     ],
   },
   {
@@ -77,11 +79,11 @@ const RELEASES: ReleaseEntry[] = [
     version: '2.0.0',
     date: '2026-10-08',
     items: [
-      'Pulse is now free and open source (GNU GPL v3): no trial, no license key and no limit on how many records you keep',
+      'Pulse is now free and open source (GNU GPL v3): no trial, no license key and no limit on how many {record:many} you keep',
       'Use your own words and track people, things or jobs; start from one of 38 ready-made examples, a spreadsheet, or blank',
       'New kinds of deadlines: every quarter, by miles or hours, sessions left on an authorization, step-by-step milestones, business days and extensions',
-      'Link lists together, move cards across a board, and keep appointments on a calendar',
-      'Forms, encrypted files on records and notes, a report builder and dashboard cards you can arrange',
+      'Link {list:many} together, move cards across a board, and keep {appointment:many} on a calendar',
+      'Forms, encrypted files on {record:many} and {activity:many}, a report builder and dashboard cards you can arrange',
       'Desktop reminders, with an option to keep Pulse running in the background',
     ],
   },
@@ -90,12 +92,12 @@ const RELEASES: ReleaseEntry[] = [
     date: '2026-02-22',
     items: [
       'Encrypted data with password protection and recovery keys',
-      'Lists with fast scrolling and editing in place, saved automatically',
+      '{List:many} with fast scrolling and editing in place, saved automatically',
       'Dashboard with priority list and deadlines',
-      'Profiles with scratch notes, a log, checklists, and documents',
+      'Profiles with scratch notes, {a activityLog}, checklists, and documents',
       'Tasks with recurrence and snooze',
       'Snippet library and letter templates',
-      'Contacts directory with categories, availability tracking, and vCard import/export',
+      '{ContactDirectory} directory with categories, availability tracking, and vCard import/export',
       'Command palette (Ctrl+K), keyboard shortcuts, and undo/redo',
       'Multi-column sort, filters, grouping, and saved views',
       'Three-layer backup system (auto, scheduled, manual)',
@@ -108,6 +110,7 @@ const RELEASES: ReleaseEntry[] = [
 export function WhatsNewModal({ open, onClose }: Props): React.ReactElement | null {
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, open)
+  const { f } = useVocab(null)
 
   return (
     <>
@@ -151,7 +154,7 @@ export function WhatsNewModal({ open, onClose }: Props): React.ReactElement | nu
                     {release.items.map((item, i) => (
                       <li key={i} className="flex items-start gap-2 text-base text-slate-600 dark:text-slate-300">
                         <span className="text-green-500 mt-0.5 flex-shrink-0">+</span>
-                        {item}
+                        {f(item)}
                       </li>
                     ))}
                   </ul>

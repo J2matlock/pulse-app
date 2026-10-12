@@ -96,7 +96,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   // {List} Grid (13)
   {
     id: 'grid-edit-cell',
-    question: 'How do I edit a cell in a {list}?',
+    question: 'How do I edit a cell in {a list}?',
     answer: 'Just click on any cell and start typing. For date cells, a date picker will appear. For dropdowns, you\'ll see a list of options. Everything saves automatically \u2014 no need to press a save button. Press Escape to cancel an edit.',
     category: 'caseload-grid',
     tourStepIds: ['grid'],
@@ -136,7 +136,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-filter',
     question: 'How do I filter to see only certain {record:many}?',
-    answer: 'Click the "Filter" button in the toolbar. Add filter rules like "Status equals Active" or "Program contains Housing." You can combine multiple filters and save frequently-used filter combinations as presets.',
+    answer: 'Click the "Filter" button in the toolbar. Add filter rules like "Status equals Active" or "Program contains Evening." You can combine multiple filters and save frequently-used filter combinations as presets.',
     category: 'caseload-grid',
     tourStepIds: ['filter-controls'],
   },
@@ -228,7 +228,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'grid-acuity-what',
     question: 'What is {priority} scoring?',
-    answer: '{Priority} scoring lets you assign a complexity or intensity level to each {record} \u2014 for example Low, Medium, or High. Each level has a point value, and the total points for your {list} are shown in the toolbar and status bar. This is how most social work agencies do {list} balancing: supervisors define tiers with point values, workers assign {record:many}, and the total tells you at a glance how heavy your {list} is.',
+    answer: '{Priority} scoring lets you assign a complexity or intensity level to each {record} \u2014 for example Low, Medium, or High. Each level has a point value, and the total points for your {list} are shown in the toolbar and status bar. Many teams balance their {list:many} this way: someone defines tiers with point values, each person assigns their {record:many}, and the total tells you at a glance how heavy your {list} is.',
     category: 'caseload-grid',
   },
   {
@@ -239,13 +239,13 @@ export const FAQ_ITEMS: FAQItem[] = [
   },
   {
     id: 'grid-acuity-assign',
-    question: 'How do I assign an {priority} level to {a record}?',
-    answer: 'When {priority} scoring is enabled, a small badge column appears in the {list} between the profile icon and your first data column. Hover over any {record} to see a dashed circle, then click it to open a dropdown with your {priority} levels. Select a level to assign it \u2014 the badge shows the level abbreviation in its color. Click the badge again to change it, or choose "None" to remove it.',
+    question: 'How do I assign {a priority} to {a record}?',
+    answer: 'When {priority} scoring is enabled, a small badge column appears in the {list} between the profile icon and your first data column. Hover over any {record} to see a dashed circle, then click it to open a dropdown with your {priority:many}. Select a level to assign it \u2014 the badge shows the level abbreviation in its color. Click the badge again to change it, or choose "None" to remove it.',
     category: 'caseload-grid',
   },
   {
     id: 'grid-acuity-customize',
-    question: 'How do I customize {priority} levels and point values?',
+    question: 'How do I customize {priority:many} and point values?',
     answer: 'Click the "{Priority}" button in the toolbar to open the configuration panel. Each level has a color swatch, name, abbreviation (1-4 characters shown on the badge), and point value. Edit any of these inline \u2014 changes save automatically when you click away. Use the arrow buttons to reorder levels, the trash icon to delete one, or "+ Add Level" to create a new one.',
     category: 'caseload-grid',
   },
@@ -294,7 +294,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'profile-requirement-periods',
     question: 'Can a requirement be per week, quarter or year instead of per month?',
-    answer: 'Yes. Open a {list}\'s {requirement:many} (in {List} settings or the sidebar menu) and choose "a week," "a month," "a quarter" or "a year" next to each one, like 2 check-ins a week. The dashboard shows how many days are left in each period, and each profile shows progress for the current one. Weeks start on the day set in Settings > Appearance.',
+    answer: 'Yes. Open {a list}\'s {requirement:many} (in {List} settings or the sidebar menu) and choose "a week," "a month," "a quarter" or "a year" next to each one, like 2 check-ins a week. The dashboard shows how many days are left in each period, and each profile shows progress for the current one. Weeks start on the day set in Settings > Appearance.',
     category: 'client-profiles',
   },
   {
@@ -402,7 +402,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'contacts-categories',
     question: 'How do I organize {contact:many} into categories?',
-    answer: 'Click "Categories" in the {ContactDirectory} toolbar to manage your category list. Default categories include Medical, Housing, Legal, and more. You can create custom categories with colors, and add custom fields per category (like NPI numbers for medical {contact:many}).',
+    answer: 'Click "Categories" in the {ContactDirectory} toolbar to manage your category list. You can create categories with colors, and add custom fields per category (like a license number for one kind of {contact}).',
     category: 'contacts',
     demo: <DemoContactCategories />,
   },
@@ -411,7 +411,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'ie-import-excel',
     question: 'How do I import from Excel or CSV?',
-    answer: 'In a {list}, click "Import" in the toolbar. Select your Excel (.xlsx) or CSV file. The wizard shows a preview and lets you map each spreadsheet column to a Pulse column. Click "Import" to bring in the data with a progress bar showing the status.',
+    answer: 'In {a list}, click "Import" in the toolbar. Select your Excel (.xlsx) or CSV file. The wizard shows a preview and lets you map each spreadsheet column to a Pulse column. Click "Import" to bring in the data with a progress bar showing the status.',
     category: 'import-export',
     tourStepIds: ['import-btn'],
     demo: <DemoImportFlow />,
@@ -447,7 +447,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'st-snippets',
     question: 'What are snippets and how do I use them?',
-    answer: 'Snippets are text shortcuts that expand into longer phrases. For example, typing "/hw" could expand into "Reported stable housing with no concerns." Create snippets in the Snippets view (sidebar). They work in scratch notes and the {activityLog} \u2014 just type the trigger and press Tab to expand it.',
+    answer: 'Snippets are text shortcuts that expand into longer phrases. For example, typing "/fu" could expand into "Followed up by phone; no changes since last time." Create snippets in the Snippets view (sidebar). They work in scratch notes and the {activityLog} \u2014 just type the trigger and press Tab to expand it.',
     category: 'snippets-templates',
     demo: <DemoSnippetExpand />,
   },
@@ -531,7 +531,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   },
   {
     id: 'tips-right-click',
-    question: 'How do I use right-click menus in a {list}?',
+    question: 'How do I use right-click menus in {a list}?',
     answer: 'Right-click any {record} in the {list} to see a context menu with options like: copy/paste cell values, duplicate it, archive it, or move it to another {list}. Right-click column headers for column-specific options.',
     category: 'tips-shortcuts',
     tourStepIds: ['right-click-rows'],
@@ -608,7 +608,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'profile-number-chart',
     question: 'Can I see a number change over time, like scores?',
-    answer: 'Yes. On a {record}\'s page, a number or currency column that has changed shows a small line next to its value. Click it for a chart of every value and date, starting from the first one entered.',
+    answer: 'Yes. On {a record}\'s page, a number or currency column that has changed shows a small line next to its value. Click it for a chart of every value and date, starting from the first one entered.',
     category: 'client-profiles',
   },
 
@@ -622,7 +622,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'appt-schedule',
     question: 'How do I schedule {appointment:many}, including repeating ones?',
-    answer: 'On the calendar, click "New {appointment}", click an empty time in the week or day view, or press N. On a {record}\'s page, use "Schedule…". Choose who it\'s with, the date and time, and where. Under "Repeats", pick daily, weekly on chosen days, or monthly, and when it ends: on a date, after a number of times, or on a date in one of the {record}\'s columns, such as when an authorization ends. Drag an {appointment} in the week view to move it, or drag its bottom edge to change its length. For repeating ones, Pulse asks whether to change only this one, this and the following ones, or all of them.',
+    answer: 'On the calendar, click "New {appointment}", click an empty time in the week or day view, or press N. On {a record}\'s page, use "Schedule…". Choose who it\'s with, the date and time, and where. Under "Repeats", pick daily, weekly on chosen days, or monthly, and when it ends: on a date, after a number of times, or on a date in one of the {record}\'s columns, such as when an authorization ends. Drag {a appointment} in the week view to move it, or drag its bottom edge to change its length. For repeating ones, Pulse asks whether to change only this one, this and the following ones, or all of them.',
     category: 'dashboard-deadlines',
     feature: 'appointments',
   },
@@ -636,7 +636,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   {
     id: 'forms-make',
     question: 'How do I make a form for adding or updating {record:many}?',
-    answer: 'Open the menu next to a {list} in the sidebar and choose "Forms…", then "New form". Add the columns you want, section headings, and questions whose answers go into {a activity}. Give each a label, help text, and mark which are required. Then use "Use a form" in the toolbar to add a {record}, or the form buttons on a {record}\'s page to update it. "Print blank" makes a paper version with lines and checkboxes, and "Print filled" prints the saved answers for signing.',
+    answer: 'Open the menu next to {a list} in the sidebar and choose "Forms…", then "New form". Add the columns you want, section headings, and questions whose answers go into {a activity}. Give each a label, help text, and mark which are required. Then use "Use a form" in the toolbar to add {a record}, or the form buttons on {a record}\'s page to update it. "Print blank" makes a paper version with lines and checkboxes, and "Print filled" prints the saved answers for signing.',
     category: 'caseload-grid',
     feature: 'forms',
   },

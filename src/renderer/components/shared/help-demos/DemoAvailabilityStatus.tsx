@@ -29,21 +29,21 @@ export function DemoAvailabilityStatus() {
           <div
             key={s.name}
             className="flex items-center gap-3 bg-white dark:bg-slate-800 rounded-lg px-3 py-2 border border-slate-200 dark:border-slate-700"
-            style={{ animation: `avCard 9s ease ${i * 0.6}s infinite`, fontSize: 13 }}
+            style={{ animation: `avCard 9s ease ${i * 0.6}s infinite`, fontSize: 15 }}
           >
             {/* Color stripe */}
             <div className="w-1 h-8 rounded-full shrink-0" style={{ background: s.color }} />
             <div className="flex-1 min-w-0">
               <div className="font-medium text-slate-700 dark:text-slate-300 truncate">{s.name}</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">{s.org}</div>
+              <div className="text-sm text-slate-500 dark:text-slate-400">{s.org}</div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${s.bg} ${s.text}`}>
+              <span className={`px-2 py-0.5 rounded-full text-sm font-medium ${s.bg} ${s.text}`}>
                 {s.status}
               </span>
               {s.status === 'Unknown' && (
                 <span
-                  className="text-xs text-slate-500 dark:text-slate-400 italic"
+                  className="text-sm text-slate-500 dark:text-slate-400 italic"
                   style={{ animation: `avStaleness 9s ease ${i * 0.6}s infinite` }}
                 >
                   90d ago

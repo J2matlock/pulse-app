@@ -3,7 +3,7 @@
  * Tests registerGridHandlers() in isolation with a real DB.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
 
@@ -662,6 +662,15 @@ describe('COLUMN_DEPENDENTS', () => {
 
     const none = await invoke(IPC.COLUMN_DEPENDENTS, columnIds[0]) as { ok: true; data: string[] }
     expect(none.data).toEqual([])
+  })
+
+  it('counts format rules only on cells of records not in the Trash (Q-084)', async () => {
+    const { columnIds, rowIds } = seedGrid(testDb.db, { columnCount: 2, rowCount: 3 })
+    const rules = JSON.stringify([{ operator: 'equals', value: 'x', bgColor: '#fecaca', columnId: columnIds[1] }])
+    for (const r of rowIds) testDb.db.prepare('INSERT INTO cell_formats (row_id, column_id, rules) VALUES (?, ?, ?)').run(r, columnIds[0], rules)
+    testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now'), is_active = 0 WHERE id = ?").run(rowIds[2])
+    const res = await invoke(IPC.COLUMN_DEPENDENTS, columnIds[1]) as { ok: true; data: string[] }
+    expect(res.data).toEqual(['Format rules on 2 cells'])
   })
 
   it('does not count a column id that only appears as a number elsewhere', async () => {

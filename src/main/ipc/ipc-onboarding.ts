@@ -5,14 +5,17 @@
 
 import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
-import { secureWrap, ok, fail, enforceWritable, logNonFatal, withCorrelation, validId } from './ipc-utils'
+import { ok, fail, enforceWritable, logNonFatal, withCorrelation } from './ipc-utils'
+import { handlersFor, idArg, schemaArg } from './ipc-define'
 import { getDb } from '../database'
 import { word } from '../vocab'
 import { VALID_COLUMN_TYPES } from '../../shared/types'
 import { createSampleCaseload, getSampleGridId, countSampleRows, planSampleRemoval, removeSampleData, answerSampleRow } from '../sample-data'
 import { z } from 'zod'
+import { textLength } from '../../shared/textLength'
 import { applyDateRules, StarterError } from '../starters'
 import type { SetupProgress } from '../../shared/ipc-contract'
+import { LIVE_GRID, NOT_TRASHED_ROW, liveGrid } from '../../shared/liveRecords'
 
 const dateAnswersSchema = z.array(z.union([
   z.object({ columnId: z.number().int().positive(), repeat: z.literal('due') }).strict(),
@@ -23,12 +26,12 @@ const dateAnswersSchema = z.array(z.union([
 const setupProgressSchema = z.object({
   step: z.enum(['sheet-import', 'sheet-rows', 'blank']),
   gridId: z.number().int().positive(),
-  listName: z.string().max(200).optional(),
+  listName: z.string().check(textLength({ max: 200 })).optional(),
   blank: z.object({
-    name: z.string().max(200),
+    name: z.string().check(textLength({ max: 200 })),
     kind: z.enum(['person', 'thing', 'job']),
-    one: z.string().max(40),
-    many: z.string().max(40),
+    one: z.string().check(textLength({ max: 40 })),
+    many: z.string().check(textLength({ max: 40 })),
   }).strict().optional(),
 }).strict()
 
@@ -41,16 +44,24 @@ function readSetupProgress(): SetupProgress | null {
   const res = setupProgressSchema.safeParse(parsed)
   if (!res.success) return null
   // The list may have been deleted since
-  return db.prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 1').get(res.data.gridId) ? res.data : null
+  return db.prepare(`SELECT 1 FROM grids WHERE id = ? AND ${liveGrid('')}`).get(res.data.gridId) ? res.data : null
+}
+
+const define = handlersFor('ipc-onboarding')
+
+type SetupGridInput = {
+  gridName: string
+  columns: Array<{ name: string; type: string; config?: string; isNameCol?: boolean }>
+  alertRules?: Array<{ columnName: string; intervalDays: number; thresholds: Array<{ daysBefore: number; bgClass: string; label: string }> }>
 }
 
 export function registerOnboardingHandlers(): void {
-  secureWrap(IPC.ONBOARDING_CHECK, 'ipc-onboarding', () => {
+  define(IPC.ONBOARDING_CHECK, [], () => {
     const db = getDb()
     const meta = db.prepare("SELECT value FROM app_meta WHERE key = 'onboarding_complete'").get() as { value: string } | undefined
     if (meta) return ok({ complete: meta.value === '1', progress: meta.value === '1' ? null : readSetupProgress() })
     // If no flag, check if any grids exist (existing installation → treat as complete)
-    const gridCount = (db.prepare('SELECT COUNT(*) as cnt FROM grids WHERE is_active = 1').get() as { cnt: number }).cnt
+    const gridCount = (db.prepare(`SELECT COUNT(*) as cnt FROM grids WHERE ${liveGrid('')}`).get() as { cnt: number }).cnt
     const complete = gridCount > 0
     // Caching the answer is a write; a read-only mode just answers (AUDIT-093)
     if (complete && !enforceWritable()) {
@@ -60,25 +71,28 @@ export function registerOnboardingHandlers(): void {
   })
 
   // "Getting started" card: which first steps have happened (the user's own data, not samples)
-  secureWrap(IPC.ONBOARDING_GETTING_STARTED, 'ipc-onboarding', () => {
+  define(IPC.ONBOARDING_GETTING_STARTED, [], () => {
     const db = getDb()
     const setting = (key: string) => (db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined)?.value ?? null
     const any = (sql: string) => !!db.prepare(`${sql} LIMIT 1`).get()
     const real = 'NOT EXISTS (SELECT 1 FROM sample_rows s WHERE s.row_id = r.id)'
     return ok({
       show: setting('onboarding_completed_at') !== null && setting('onboarding_getting_started_dismissed') !== '1',
-      record: any(`SELECT 1 FROM rows r JOIN grids g ON g.id = r.grid_id AND g.is_active = 1 WHERE r.deleted_at IS NULL AND ${real}`),
+      record: any(`SELECT 1 FROM rows r JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID} WHERE ${NOT_TRASHED_ROW} AND ${real}`),
       reminder: any(`SELECT 1 FROM cells c JOIN columns col ON col.id = c.column_id JOIN rows r ON r.id = c.row_id
-        WHERE r.deleted_at IS NULL AND ${real} AND COALESCE(c.value, '') != ''
+        JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
+        WHERE ${NOT_TRASHED_ROW} AND ${real} AND COALESCE(c.value, '') != ''
         AND (col.column_type = 'deadline' OR (json_valid(col.config) AND json_extract(col.config, '$.alert_rule_id') IS NOT NULL))`),
-      note: any(`SELECT 1 FROM case_log cl JOIN rows r ON r.id = cl.row_id WHERE cl.log_type != 'system' AND ${real}`),
+      // Not a note on a record in the Trash or in a list in the Trash (Q-084)
+      note: any(`SELECT 1 FROM case_log cl JOIN rows r ON r.id = cl.row_id JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
+        WHERE cl.log_type != 'system' AND ${NOT_TRASHED_ROW} AND ${real}`),
       recoverySnoozedUntil: setting('onboarding_recovery_snooze_until'),
     })
   })
 
   // Setup saves its place once it has made a list, so a lock or a closed window resumes it
-  secureWrap(IPC.ONBOARDING_SAVE_PROGRESS, 'ipc-onboarding', (_e, progress: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
+  // null clears the saved place; anything else must read as progress
+  define(IPC.ONBOARDING_SAVE_PROGRESS, [z.unknown()], (progress) => {
     const db = getDb()
     if (progress === null) {
       db.prepare("DELETE FROM app_meta WHERE key = 'setup_progress'").run()
@@ -92,24 +106,24 @@ export function registerOnboardingHandlers(): void {
       db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('setup_progress', ?)").run(JSON.stringify(parsed.data))
     })()
     return ok(true as const)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ONBOARDING_COMPLETE, 'ipc-onboarding', () => {
-    const guard = enforceWritable(); if (guard) return guard
-    getDb().prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('onboarding_complete', '1')").run()
-    getDb().prepare("DELETE FROM app_meta WHERE key = 'setup_progress'").run()
-    // New workspaces get the "Getting started" card on the dashboard (existing installs never set this)
-    getDb().prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('onboarding_completed_at', datetime('now'))").run()
-    // No daily briefing on the day someone finishes setup: they just saw everything
-    getDb().prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('briefing_last_shown', date('now', 'localtime'))").run()
+  define(IPC.ONBOARDING_COMPLETE, [], () => {
+    const db = getDb()
+    // All or nothing, so setup is never marked done with its other steps missing
+    db.transaction(() => {
+      db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('onboarding_complete', '1')").run()
+      db.prepare("DELETE FROM app_meta WHERE key = 'setup_progress'").run()
+      // New workspaces get the "Getting started" card on the dashboard (existing installs never set this)
+      db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('onboarding_completed_at', datetime('now'))").run()
+      // No daily briefing on the day someone finishes setup: they just saw everything
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('briefing_last_shown', date('now', 'localtime'))").run()
+    })()
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ONBOARDING_SETUP_GRID, 'ipc-onboarding', async (_e, setup: {
-    gridName: string
-    columns: Array<{ name: string; type: string; config?: string; isNameCol?: boolean }>
-    alertRules?: Array<{ columnName: string; intervalDays: number; thresholds: Array<{ daysBefore: number; bgClass: string; label: string }> }>
-  }) => {
+  // The read-only gate runs inside the correlation log, as before, so it stays in the body
+  define(IPC.ONBOARDING_SETUP_GRID, [z.custom<SetupGridInput>()], async (setup) => {
     return withCorrelation('onboarding-setup-grid', async (corrId) => {
     const guard = enforceWritable(); if (guard) return guard
     // Validate grid name
@@ -195,46 +209,35 @@ export function registerOnboardingHandlers(): void {
   // ── Sample caseload ("try it with sample clients") ─────────────────────────
   // Sample data is either the sample caseload or rows a starter template added to real lists
   // Setup's "Which of these dates repeat?" (also used by the guided blank start)
-  secureWrap(IPC.ONBOARDING_DATE_RULES, 'ipc-onboarding', (_e, gridId: unknown, answers: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(gridId)) return fail('Invalid ID')
-    const parsed = dateAnswersSchema.safeParse(answers)
-    if (!parsed.success) return fail("Those repeat settings couldn't be saved.")
+  define(IPC.ONBOARDING_DATE_RULES, [idArg(), schemaArg(dateAnswersSchema, "Those repeat settings couldn't be saved.")], (gridId, answers) => {
     try {
-      return ok(applyDateRules(gridId, parsed.data))
+      return ok(applyDateRules(gridId, answers))
     } catch (err) {
       return fail(err instanceof StarterError ? err.message : "We couldn't set up those reminders. You can add them later from each column's menu.")
     }
-  })
+  }, { write: true })
 
-  secureWrap(IPC.SAMPLE_DATA_STATUS, 'ipc-onboarding', () => ok({ gridId: getSampleGridId(), sampleRows: countSampleRows() }))
+  define(IPC.SAMPLE_DATA_STATUS, [], () => ok({ gridId: getSampleGridId(), sampleRows: countSampleRows() }))
 
   // "Keep this as a real entry?" after the first edit to a sample entry
-  secureWrap(IPC.SAMPLE_ROW_ANSWER, 'ipc-onboarding', (_e, rowId: unknown, answer: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId)) return fail('Invalid ID')
-    if (answer !== 'keep' && answer !== 'sample' && answer !== 'later') return fail("We couldn't save that answer.")
+  define(IPC.SAMPLE_ROW_ANSWER, [idArg(), z.enum(['keep', 'sample', 'later'], "We couldn't save that answer.")], (rowId, answer) => {
     answerSampleRow(rowId, answer)
     return ok(true as const)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.SAMPLE_DATA_PREVIEW, 'ipc-onboarding', () => {
+  define(IPC.SAMPLE_DATA_PREVIEW, [], () => {
     const plan = planSampleRemoval()
     return ok({ remove: plan.remove.length, keep: plan.keep.length, ownInSampleList: plan.ownInSampleList })
   })
 
-  secureWrap(IPC.SAMPLE_DATA_CREATE, 'ipc-onboarding', () => {
-    const guard = enforceWritable(); if (guard) return guard
-    return ok({ gridId: createSampleCaseload() })
-  })
+  define(IPC.SAMPLE_DATA_CREATE, [], () => ok({ gridId: createSampleCaseload() }), { write: true })
 
-  secureWrap(IPC.SAMPLE_DATA_REMOVE, 'ipc-onboarding', () => {
-    const guard = enforceWritable(); if (guard) return guard
+  define(IPC.SAMPLE_DATA_REMOVE, [], () => {
     try {
       return ok(removeSampleData())
     } catch (err) {
       logger.error('ipc-onboarding', 'Removing sample data failed', { error: err instanceof Error ? err.message : String(err) })
       return fail("We couldn't remove the sample data. Nothing was changed; please try again.")
     }
-  })
+  }, { write: true })
 }

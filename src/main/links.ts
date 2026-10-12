@@ -13,6 +13,8 @@ import { word } from './vocab'
 import { assignAutoNumbers } from './auto-number'
 import { hasDisplayFormat, refreshDisplayNames } from './display-names'
 import { holdsOne, CARDINALITIES, linkColumnSpecs, linkSelectSql, type LinkChange, type LinkDirection, type LinkRef, type LinkType, type LinkTypeInput, type LinkedRecord, type RowLinks } from '../shared/links'
+import { NOT_TRASHED_ROW, liveGrid, notTrashedRow } from '../shared/liveRecords'
+import { columnTypesSql } from '../shared/columnTraits'
 
 export class LinkError extends Error {}
 
@@ -66,7 +68,7 @@ export function saveLinkType(input: LinkTypeInput): LinkType {
       db.prepare('UPDATE link_types SET label_forward = ?, label_backward = ?, cardinality = ? WHERE id = ?').run(forward, backward, input.cardinality, input.id)
       return getLinkType(input.id)!
     }
-    const grids = db.prepare('SELECT COUNT(*) AS n FROM grids WHERE id IN (?, ?) AND is_active = 1').get(input.from_grid_id, input.to_grid_id) as { n: number }
+    const grids = db.prepare(`SELECT COUNT(*) AS n FROM grids WHERE id IN (?, ?) AND ${liveGrid('')}`).get(input.from_grid_id, input.to_grid_id) as { n: number }
     if (grids.n < (input.from_grid_id === input.to_grid_id ? 1 : 2)) throw new LinkError(`That ${word('list')} no longer exists.`)
     const id = Number(db.prepare('INSERT INTO link_types (from_grid_id, to_grid_id, label_forward, label_backward, cardinality) VALUES (?, ?, ?, ?, ?)')
       .run(input.from_grid_id, input.to_grid_id, forward, backward, input.cardinality).lastInsertRowid)
@@ -122,7 +124,7 @@ function checkedLink(typeId: number, fromRowId: number, toRowId: number): { type
   const to = rowInfo(toRowId)
   if (!from || !to || from.deleted_at || to.deleted_at) throw new LinkError(`That ${word('record')} is no longer available.`)
   if (from.grid_id !== type.from_grid_id || to.grid_id !== type.to_grid_id) throw new LinkError(`Those ${word('record', { many: true })} can't be linked this way.`)
-  if (fromRowId === toRowId) throw new LinkError(`A ${word('record', {}, from.grid_id)} can't be linked to itself.`)
+  if (fromRowId === toRowId) throw new LinkError(`${word('record', { article: true, cap: true }, from.grid_id)} can't be linked to itself.`)
   return { type, from, to }
 }
 
@@ -221,12 +223,12 @@ export function getLinksForRow(rowId: number): RowLinks[] {
     return db.prepare(`
       SELECT t.id AS row_id, t.grid_id, COALESCE(t.display_name, '') AS display_name, t.is_active
       FROM record_links l JOIN rows t ON t.id = l.${other}
-      WHERE l.link_type_id = ? AND l.${mine} = ? AND t.deleted_at IS NULL
+      WHERE l.link_type_id = ? AND l.${mine} = ? AND ${notTrashedRow('t')}
       ORDER BY t.display_name COLLATE NOCASE, t.id`).all(typeId, rowId) as LinkedRecord[]
   }
   // The other list's first two visible columns people fill in, shown under each linked record
   const keyCols = db.prepare(`SELECT id, name, column_type FROM columns WHERE grid_id = ? AND is_visible = 1 AND is_name_column = 0
-    AND column_type NOT IN ('link', 'deadline', 'age_from_dob', 'calculated_days', 'notes', 'checkbox') ORDER BY position LIMIT 2`)
+    AND column_type NOT IN (${columnTypesSql(t => !t.linkDetail)}) ORDER BY position LIMIT 2`)
   const cellOf = db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?')
   const withDetails = (records: LinkedRecord[], gridId: number): LinkedRecord[] => {
     const cols = keyCols.all(gridId) as Array<{ id: number; name: string; column_type: string }>
@@ -261,7 +263,7 @@ export function searchLinkTargets(typeId: number, direction: LinkDirection, quer
   return getDb().prepare(`
     SELECT id AS row_id, grid_id, COALESCE(display_name, '') AS display_name, is_active
     FROM rows
-    WHERE grid_id = ? AND deleted_at IS NULL AND COALESCE(display_name, '') LIKE ? ESCAPE '\\'
+    WHERE grid_id = ? AND ${notTrashedRow('')} AND COALESCE(display_name, '') LIKE ? ESCAPE '\\'
     ORDER BY is_active DESC, display_name COLLATE NOCASE, id
     LIMIT ?`).all(gridId, `%${q}%`, Math.max(1, Math.min(limit, 100))) as LinkedRecord[]
 }
@@ -271,7 +273,7 @@ export function linkValuesForGrid(gridId: number): Array<Record<string, unknown>
   const db = getDb()
   const specs = linkColumnSpecs(db.prepare("SELECT id, column_type, config FROM columns WHERE grid_id = ? AND column_type = 'link'").all(gridId) as Array<{ id: number; column_type: string; config: string | null }>)
   if (specs.length === 0) return []
-  return db.prepare(`SELECT r.id AS row_id, ${linkSelectSql(specs)} FROM rows r WHERE r.grid_id = ? AND r.deleted_at IS NULL`).all(gridId) as Array<Record<string, unknown>>
+  return db.prepare(`SELECT r.id AS row_id, ${linkSelectSql(specs)} FROM rows r WHERE r.grid_id = ? AND ${NOT_TRASHED_ROW}`).all(gridId) as Array<Record<string, unknown>>
 }
 
 /** The list on the other side of a link type from `direction` */
@@ -346,21 +348,26 @@ export function copyForwardLinks(fromRowId: number, toRowId: number): number {
 
 interface Misfit { typeId: number; fromRowId: number; toRowId: number; label: string; name: string }
 
-/** Links that can't stay when a record moves to another list */
-function misfits(rowId: number, targetGridId: number): Misfit[] {
+/**
+ * Links that can't stay when a record moves to another list. `liveOnly` leaves out
+ * links to records in the Trash (or in a list in the Trash), for the warning (Q-084);
+ * the move itself still removes those too.
+ */
+function misfits(rowId: number, targetGridId: number, liveOnly = false): Misfit[] {
+  const live = liveOnly ? `AND ${notTrashedRow('o')} AND EXISTS (SELECT 1 FROM grids og WHERE og.id = o.grid_id AND ${liveGrid('og')})` : ''
   return getDb().prepare(`
     SELECT l.link_type_id AS typeId, l.from_row_id AS fromRowId, l.to_row_id AS toRowId,
       CASE WHEN l.from_row_id = ? THEN lt.label_forward ELSE lt.label_backward END AS label,
       COALESCE(NULLIF(o.display_name, ''), '(unnamed)') AS name
     FROM record_links l JOIN link_types lt ON lt.id = l.link_type_id
     JOIN rows o ON o.id = CASE WHEN l.from_row_id = ? THEN l.to_row_id ELSE l.from_row_id END
-    WHERE (l.from_row_id = ? AND lt.from_grid_id != ?) OR (l.to_row_id = ? AND lt.to_grid_id != ?)
+    WHERE ((l.from_row_id = ? AND lt.from_grid_id != ?) OR (l.to_row_id = ? AND lt.to_grid_id != ?)) ${live}
     ORDER BY label, name`).all(rowId, rowId, rowId, targetGridId, rowId, targetGridId) as Misfit[]
 }
 
 /** "Owner: Jane Smith" for each link a move would remove, to warn first */
 export function linksThatWontFit(rowId: number, targetGridId: number): string[] {
-  return misfits(rowId, targetGridId).map(m => `${m.label}: ${m.name}`)
+  return misfits(rowId, targetGridId, true).map(m => `${m.label}: ${m.name}`)
 }
 
 /** Remove the links that don't fit the record's new list (call before moving it). */

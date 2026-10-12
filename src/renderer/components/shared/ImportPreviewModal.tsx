@@ -70,7 +70,7 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
   async function handleApply() {
     setError(null)
     if (applyMode === 'existing' && !selectedGridId) {
-      setError(`Choose a ${t('list')} to add it to.`)
+      setError(`Choose ${t('list', { article: true })} to add it to.`)
       return
     }
     setApplying(true)
@@ -209,7 +209,7 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
                   onChange={() => setApplyMode('existing')}
                   className="w-4 h-4 text-blue-600 focus:ring-3 focus:ring-blue-500"
                 />
-                <span className="text-base text-slate-700 dark:text-slate-300">Add to a {t('list')} I already have</span>
+                <span className="text-base text-slate-700 dark:text-slate-300">Add to {t('list', { article: true })} I already have</span>
               </label>
             </div>
 

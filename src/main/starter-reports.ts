@@ -40,7 +40,7 @@ function suggestedFor(gridId: number, isMain: boolean): Array<{ name: string; co
     out.push({ name: `${records} by ${stage.name}`, config: {
       source: 'records', filters: [], groupBy: [{ field: `col:${stage.id}` }],
       values: [{ fn: 'count' }, ...(money ? [{ fn: 'sum' as const, field: `col:${money.id}` }] : [])],
-      about: `How many ${records.toLowerCase()} are at each step${money ? `, and what they're worth` : ''}.`,
+      about: `How many ${word('record', { many: true }, gridId)} are at each step${money ? `, and what they're worth` : ''}.`,
     } })
     // Finished per month, by the date a done stage fills in
     const doneStamp = stageConfigOf(stage)?.options.find(o => o.done && o.onEnter?.stampColumnId)?.onEnter?.stampColumnId
@@ -59,7 +59,7 @@ function suggestedFor(gridId: number, isMain: boolean): Array<{ name: string; co
     out.push({ name: `${activities} per month`, config: {
       source: 'activities', filters: [], groupBy: [{ field: 'act:date', bucket: 'month' }], values: [{ fn: 'count' }],
       dateRange: { field: 'act:date', preset: 'this_year' },
-      about: `How many ${activities.toLowerCase()} were written each month this year: a quick look at how busy it's been.`,
+      about: `How many ${word('activity', { many: true }, gridId)} were written each month this year: a quick look at how busy it's been.`,
     } })
   }
   if (isMain && hasDeadlines(cols)) {
@@ -73,12 +73,12 @@ function suggestedFor(gridId: number, isMain: boolean): Array<{ name: string; co
 }
 
 /** A starter's own report settings name columns ("col:Estimate sent on"); swap in the list's column ids */
-function resolveColumns(config: unknown, cols: Col[]): unknown {
+function resolveColumns(config: unknown, cols: Col[], gridId: number): unknown {
   const byName = new Map(cols.map(c => [c.name.toLowerCase(), c.id]))
   const walk = (v: unknown): unknown => {
     if (typeof v === 'string' && v.startsWith('col:') && !/^col:\d+$/.test(v)) {
       const id = byName.get(v.slice(4).toLowerCase())
-      if (id === undefined) throw new ReportError(`It names a column "${v.slice(4)}" that isn't in the list.`)
+      if (id === undefined) throw new ReportError(`It names a column "${v.slice(4)}" that isn't in the ${word('list', {}, gridId)}.`)
       return `col:${id}`
     }
     if (Array.isArray(v)) return v.map(walk)
@@ -111,7 +111,7 @@ export function addStarterReports(s: Starter, gridIds: Record<string, number>, o
     const gridId = gridIds[r.list]
     if (!gridId) continue // that list wasn't added
     try {
-      const config = resolveColumns(r.config, columnsOf(gridId)) as Record<string, unknown>
+      const config = resolveColumns(r.config, columnsOf(gridId), gridId) as Record<string, unknown>
       save(gridId, r.name, { ...config, ...(r.description ? { about: r.description } : {}) })
     } catch (err) {
       warnings.push(`The report "${r.name}" wasn't added. ${err instanceof ReportError ? err.message : 'Its settings aren’t valid.'}`)

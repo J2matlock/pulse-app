@@ -4,7 +4,7 @@
  * the DROP into child rows, and must not commit links to rows that don't exist.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createTestDb, cleanupTestDb, type TestDb } from './helpers'
 import { applyMigration, type Migration } from '../src/main/migration-list'
 

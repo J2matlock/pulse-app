@@ -14,10 +14,12 @@
  * A record deleted forever is taken out of these copies at once (AUDIT-108).
  */
 import { getDb } from './database'
-import { rowsPurgedHooks } from './purge-hooks'
+import { rowsPurgedHooks, purgeRecordLeftovers, pruneAfterPurge } from './purge-hooks'
 import { deleteLinksForGrid } from './links'
 import { hasDisplayFormat, isLastNameColumnName, refreshDisplayNames } from './display-names'
 import { keepSamplesUntouched } from './sample-marks'
+import { word } from './vocab'
+import { NOT_TRASHED_ROW } from '../shared/liveRecords'
 
 export class TrashError extends Error {}
 
@@ -159,7 +161,7 @@ export function restoreColumn(deletedId: number): { columnId: number; gridId: nu
   let snap: ColumnSnapshot
   try { snap = JSON.parse(entry.snapshot) as ColumnSnapshot } catch { throw new TrashError("That column can't be restored.") }
   if (db.prepare('SELECT 1 FROM columns WHERE id = ?').get(entry.column_id)) throw new TrashError('That column is already back.')
-  if (!db.prepare('SELECT 1 FROM grids WHERE id = ?').get(entry.grid_id)) throw new TrashError(`Its list is gone, so the column can't come back.`)
+  if (!db.prepare('SELECT 1 FROM grids WHERE id = ?').get(entry.grid_id)) throw new TrashError(`Its ${word('list')} is gone, so the column can't come back.`)
   const hasRowId = (rows: Row[]) => rows.length > 0 && 'row_id' in rows[0]!
   db.transaction(() => keepSamplesUntouched(db, entry.grid_id, () => {
     // One name column per list. A deleted name column takes the role back from the
@@ -270,7 +272,7 @@ interface ListSnapshot { linkTypes: Row[]; linkColumns: ColumnSnapshot[]; record
 export function trashList(gridId: number): void {
   const db = getDb()
   const grid = db.prepare('SELECT id, is_active FROM grids WHERE id = ?').get(gridId) as { id: number; is_active: number } | undefined
-  if (!grid) throw new TrashError('That list no longer exists.')
+  if (!grid) throw new TrashError(`That ${word('list')} no longer exists.`)
   // Already there (a double click, a second window): trashing again would overwrite its saved links with none
   if (grid.is_active === 0) return
   db.transaction(() => {
@@ -295,7 +297,7 @@ export function trashList(gridId: number): void {
 export interface DeletedList { id: number; name: string; deleted_at: string; records: number }
 
 export function listDeletedLists(): DeletedList[] {
-  return getDb().prepare(`SELECT g.id, g.name, g.deleted_at, (SELECT COUNT(*) FROM rows r WHERE r.grid_id = g.id AND r.deleted_at IS NULL) AS records
+  return getDb().prepare(`SELECT g.id, g.name, g.deleted_at, (SELECT COUNT(*) FROM rows r WHERE r.grid_id = g.id AND ${NOT_TRASHED_ROW}) AS records
     FROM grids g WHERE g.is_active = 0 AND g.deleted_at IS NOT NULL ORDER BY g.deleted_at DESC, g.id DESC`).all() as DeletedList[]
 }
 
@@ -303,7 +305,7 @@ export function listDeletedLists(): DeletedList[] {
 export function restoreList(gridId: number): void {
   const db = getDb()
   const grid = db.prepare('SELECT id, is_active, deleted_snapshot FROM grids WHERE id = ?').get(gridId) as { id: number; is_active: number; deleted_snapshot: string | null } | undefined
-  if (!grid) throw new TrashError('That list is no longer in the Trash.')
+  if (!grid) throw new TrashError(`That ${word('list')} is no longer in the Trash.`)
   if (grid.is_active === 1) return
   let snap: ListSnapshot = { linkTypes: [], linkColumns: [], recordLinks: [] }
   try { if (grid.deleted_snapshot) snap = JSON.parse(grid.deleted_snapshot) as ListSnapshot } catch { /* nothing to bring back */ }
@@ -335,8 +337,12 @@ export function purgeList(gridId: number): boolean {
   const db = getDb()
   return db.transaction(() => {
     if (!db.prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 0 AND deleted_at IS NOT NULL').get(gridId)) return false
-    forgetPurgedRows((db.prepare('SELECT id FROM rows WHERE grid_id = ?').all(gridId) as Array<{ id: number }>).map(r => r.id))
-    return db.prepare('DELETE FROM grids WHERE id = ? AND is_active = 0 AND deleted_at IS NOT NULL').run(gridId).changes > 0
+    const ids = (db.prepare('SELECT id FROM rows WHERE grid_id = ?').all(gridId) as Array<{ id: number }>).map(r => r.id)
+    forgetPurgedRows(ids)
+    purgeRecordLeftovers(db, ids)
+    const gone = db.prepare('DELETE FROM grids WHERE id = ? AND is_active = 0 AND deleted_at IS NOT NULL').run(gridId).changes > 0
+    pruneAfterPurge(db, ids)
+    return gone
   })()
 }
 

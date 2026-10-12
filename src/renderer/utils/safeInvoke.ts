@@ -13,6 +13,7 @@ import type { IPCChannel } from '../../shared/ipc-channels'
 import type { IPCContract, ContractChannel } from '../../shared/ipc-contract'
 import toast from 'react-hot-toast'
 import { rlog } from './rendererLogger'
+import { IPC_READ_ONLY, PASSING_ERRORS } from '../../shared/constants'
 
 // ── safeInvoke — returns IPCResult<T>, never throws ─────────────────────
 
@@ -45,7 +46,7 @@ export async function safeInvoke(
 
 /** Sentinel error so callers can tell a read-only block from a real error. */
 export class ReadOnlyError extends Error {
-  constructor() { super('READ_ONLY') }
+  constructor() { super(IPC_READ_ONLY) }
 }
 
 /** Debounce read-only toasts (5 s cooldown). */
@@ -80,11 +81,11 @@ export async function storeInvoke(channel: string, ...args: unknown[]): Promise<
     throw err instanceof Error ? err : new Error('IPC communication error')
   }
   if (!result.ok) {
-    if (result.error === 'READ_ONLY') {
+    if (result.error === IPC_READ_ONLY) {
       const now = Date.now()
       if (now - lastReadOnlyToast > 5000) {
         lastReadOnlyToast = now
-        toast.error("Pulse can't save changes right now.", { duration: 5000 })
+        toast.error(PASSING_ERRORS.cantSaveNow, { duration: 5000 })
       }
       throw new ReadOnlyError()
     }
@@ -113,6 +114,6 @@ export async function mustInvoke<T = unknown>(
 
 export async function mustInvoke(channel: string, ...args: unknown[]): Promise<{ ok: true; data: unknown }> {
   const res = await safeInvoke(channel, ...args)
-  if (!res.ok) throw new Error(res.error === 'READ_ONLY' ? "Pulse can't save changes right now." : res.error)
+  if (!res.ok) throw new Error(res.error === IPC_READ_ONLY ? PASSING_ERRORS.cantSaveNow : res.error)
   return res
 }

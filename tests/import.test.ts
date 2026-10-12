@@ -42,6 +42,7 @@ vi.mock('../src/main/database', () => ({
 import { parseImportFile, autoMatchColumns, executeImport, clearImportCache, normalizeDate } from '../src/main/import'
 import type { ImportOptions, ImportPreview, ColumnMapping } from '../src/main/import'
 import { parseDate } from '../src/shared/parseDate'
+import { fakeZip } from './zipFixture'
 
 let tmpDir: string
 
@@ -224,11 +225,24 @@ describe('Data Handling', () => {
 
   it('corrupted/binary file handled gracefully', async () => {
     const binPath = join(tmpDir, 'test.csv')
+    // Fixed bytes (no quote mark): random ones sometimes held an unclosed ", which is
+    // refused on purpose with a plain message (the next test), so this test flaked
     const buf = Buffer.alloc(100)
-    for (let i = 0; i < 100; i++) buf[i] = Math.floor(Math.random() * 256)
+    let seed = 12345
+    for (let i = 0; i < 100; i++) {
+      seed = (seed * 1103515245 + 12345) % 2147483648
+      const b = seed % 256
+      buf[i] = b === 0x22 ? 0x21 : b
+    }
     writeFileSync(binPath, buf)
     // Should not throw — may return empty or garbage
     await expect(parseImportFile(binPath)).resolves.toBeDefined()
+  })
+
+  it('a binary file with a stray quote mark gets the plain "quote mark" message, not a crash', async () => {
+    const binPath = join(tmpDir, 'quote.csv')
+    writeFileSync(binPath, Buffer.from([0x01, 0xff, 0x0a, 0x22, 0x10, 0x7f, 0x0a, 0x80, 0x0a]))
+    await expect(parseImportFile(binPath)).rejects.toThrow(/quote mark/)
   })
 })
 
@@ -750,6 +764,119 @@ describe('executeImport', () => {
     })
   })
 
+  describe('duplicates compared as stored (Q-040)', () => {
+    async function importTwice(keyIndex: number): Promise<{ first: number; second: { imported: number; skipped: number } }> {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }, { name: 'Phone', type: 'phone' }, { name: 'Visit', type: 'date' }])
+      const filePath = writeImportCsv(`twice-${keyIndex}.csv`, 'Name,Phone,Visit\nAna,555.123.4567,3/15/2026\nBen,(555) 987 6543,4/1/2026\n')
+      const opts = {
+        gridId, filePath, cleanData: true, duplicateStrategy: 'by_column' as const, duplicateColumnId: columnIds[keyIndex],
+        columnMappings: [0, 1, 2].map(i => ({ sourceIndex: i, action: columnIds[i]! })),
+      }
+      const first = await executeImport(opts, await parseImportFile(filePath))
+      clearImportCache()
+      const second = await executeImport(opts, await parseImportFile(filePath))
+      return { first: first.imported, second }
+    }
+
+    it('importing the same file again keyed by a phone column skips everyone', async () => {
+      const r = await importTwice(1)
+      expect(r.first).toBe(2)
+      expect(r.second).toMatchObject({ imported: 0, skipped: 2 })
+    })
+
+    it('importing the same file again keyed by a date column skips everyone', async () => {
+      const r = await importTwice(2)
+      expect(r.first).toBe(2)
+      expect(r.second).toMatchObject({ imported: 0, skipped: 2 })
+    })
+  })
+
+  describe('an Export All file brings deadlines back (P-002)', () => {
+    it('maps "<deadline> (last done)" into the deadline column and leaves out its "Due …" text', async () => {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }, { name: 'Review', type: 'deadline' }])
+      const headers = ['Name', 'Review', 'Review (last done)']
+      expect(autoMatchColumns(gridId, headers)).toEqual([
+        { sourceIndex: 0, action: columnIds[0] }, { sourceIndex: 1, action: 'skip' }, { sourceIndex: 2, action: columnIds[1] },
+      ])
+      const filePath = writeImportCsv('all.csv', 'Name,Review,Review (last done)\nAna,"Dec 31, 2020 · 2000 days late",2020-01-01\n')
+      const preview = await parseImportFile(filePath)
+      await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'none', columnMappings: autoMatchColumns(gridId, headers) }, preview)
+      const row = testDb.db.prepare('SELECT id FROM rows WHERE grid_id = ?').get(gridId) as { id: number }
+      expect(getCellValue(row.id, columnIds[1])).toBe('2020-01-01')
+    })
+
+    it('reads a "(last done)" date written in the US format, and leaves other files alone', async () => {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }, { name: 'Review', type: 'deadline' }])
+      const headers = ['Name', 'Review', 'Review (last done)']
+      const filePath = writeImportCsv('all-us.csv', 'Name,Review,Review (last done)\nAna,"Due Dec 31, 2026",03/15/2026\n')
+      const preview = await parseImportFile(filePath)
+      await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'none', columnMappings: autoMatchColumns(gridId, headers) }, preview)
+      const row = testDb.db.prepare('SELECT id FROM rows WHERE grid_id = ?').get(gridId) as { id: number }
+      expect(getCellValue(row.id, columnIds[1])).toBe('2026-03-15')
+      // A file without the "(last done)" column still matches the deadline column by name
+      expect(autoMatchColumns(gridId, ['Name', 'Review'])).toEqual([{ sourceIndex: 0, action: columnIds[0] }, { sourceIndex: 1, action: columnIds[1] }])
+    })
+  })
+
+  describe('a workbook that unpacks too big (Q-043)', () => {
+    it('is refused before Excel reading starts, with a plain message', async () => {
+      const filePath = join(tmpDir, 'bomb.xlsx')
+      writeFileSync(filePath, fakeZip(3_000_000_000))
+      await expect(parseImportFile(filePath)).rejects.toThrow(/too big to import/)
+    })
+  })
+
+  describe('row numbers in messages match the file (Q-041)', () => {
+    it('counts title lines above the header and blank lines', async () => {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }, { name: 'Case ID' }, { name: 'Notes' }])
+      const long = 'x'.repeat(10_001)
+      // Lines 1–3 titles and a blank, header on line 4, the long value on line 7, a nameless duplicate on line 10
+      const csv = ['County report,,', 'Prepared by the office,,', ',,', 'Name,Case ID,Notes', 'Ana,A-1,ok', 'Ben,A-2,ok', `Cal,A-3,${long}`, ',,', 'Dee,A-4,ok', ',A-1,again'].join('\n') + '\n'
+      const filePath = writeImportCsv('rownums.csv', csv)
+      const preview = await parseImportFile(filePath, undefined, 3)
+      const result = await executeImport({
+        gridId, filePath, cleanData: true, headerRowIndex: 3, duplicateStrategy: 'by_column', duplicateColumnId: columnIds[1],
+        columnMappings: [0, 1, 2].map(i => ({ sourceIndex: i, action: columnIds[i]! })),
+      }, preview)
+      expect(result.warnings.join(' ')).toContain('"Notes" was longer than 10,000 characters and was cut short (row 7)')
+      expect(result.skippedNames).toEqual(['Row 10'])
+    })
+  })
+
+  describe('long cells and text files (Q-081)', () => {
+    it('gives one warning per column for many long cells, and never splits an emoji', async () => {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }, { name: 'Notes' }])
+      // 9,999 letters then an emoji: the 10,000th unit is the emoji's first half
+      const emojiAtEdge = 'x'.repeat(9_999) + '\u{1F600}' + 'tail'
+      const lines = ['Name,Notes', `Edge,${emojiAtEdge}`, ...Array.from({ length: 99 }, (_, i) => `P${i},${'y'.repeat(10_050)}`)]
+      const filePath = writeImportCsv('long.csv', lines.join('\n') + '\n')
+      const preview = await parseImportFile(filePath)
+      const result = await executeImport({
+        gridId, filePath, cleanData: true, duplicateStrategy: 'import_all',
+        columnMappings: [0, 1].map(i => ({ sourceIndex: i, action: columnIds[i]! })),
+      }, preview)
+      const cut = result.warnings.filter(w => w.includes('cut short'))
+      expect(cut).toEqual(['100 values in "Notes" were longer than 10,000 characters and were cut short, starting at row 2.'])
+      const stored = (testDb.db.prepare("SELECT c.value FROM cells c JOIN rows r ON r.id = c.row_id WHERE c.column_id = ? AND r.display_name = 'Edge'").get(columnIds[1]) as { value: string }).value
+      expect(stored).toBe('x'.repeat(9_999))
+      expect(/[\uD800-\uDBFF]$/.test(stored)).toBe(false)
+    })
+
+    it('imports a tab-separated .tsv and Excel\'s UTF-16 "Unicode Text" .txt', async () => {
+      const tsv = join(importTmpDir, 'people.tsv')
+      writeFileSync(tsv, 'Name\tCity\nAna Ruiz\tLeón\nBo Li\tOslo\n', 'utf-8')
+      const a = await parseImportFile(tsv)
+      expect(a.headers).toEqual(['Name', 'City'])
+      expect(a.rows[0]).toEqual(['Ana Ruiz', 'León'])
+
+      const txt = join(importTmpDir, 'unicode.txt')
+      writeFileSync(txt, Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('Name\tCity\r\nZoë Ångström\tMalmö\r\n', 'utf16le')]))
+      const b = await parseImportFile(txt)
+      expect(b.headers).toEqual(['Name', 'City'])
+      expect(b.rows[0]).toEqual(['Zoë Ångström', 'Malmö'])
+    })
+  })
+
   describe('two-digit birth years (audit L-21)', () => {
     it('reads them as 19xx when they would otherwise be in the future, and says so', async () => {
       const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }, { name: 'DOB', type: 'date' }])
@@ -1075,6 +1202,15 @@ describe('executeImport', () => {
 })
 
 // ── Date normalization must not depend on the computer's timezone ────────────
+
+describe('Excel serials only where Import asks for them (Q-033)', () => {
+  it('parseDate reads a 5-digit number as a date only with allowSerial, and only up to year 2100', () => {
+    expect(parseDate('90210')).toBeNull()
+    expect(parseDate('46096')).toBeNull()
+    expect(parseDate('46096', 'mdy', { allowSerial: true })).toBe('2026-03-15')
+    expect(parseDate('73051', 'mdy', { allowSerial: true })).toBeNull()
+  })
+})
 
 describe('normalizeDate across timezones', () => {
   const originalTz = process.env.TZ

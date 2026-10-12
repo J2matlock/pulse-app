@@ -5,6 +5,7 @@
  */
 import { engineRuleFrom, ordinal, type RelativeConfig, type CalendarConfig, type MeterConfig, type QuotaConfig, type SequenceConfig } from './deadlineEngine'
 import { describeInterval } from './ruleInterval'
+import { unhandledCase } from './assertNever'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -49,7 +50,11 @@ export function ruleSummary(rule: Parameters<typeof engineRuleFrom>[0], columnNa
       const names = c.steps.map(s => s.label)
       return names.length <= 3 ? names.join(', then ') : `${names.length} steps: ${names[0]}, ${names[1]}…`
     }
+    case 'interval':
+      return describeInterval(r.interval)
     default:
+      // engineRuleFrom() only returns known kinds; a new kind without a case fails typecheck
+      unhandledCase(r.kind)
       return describeInterval(r.interval)
   }
 }

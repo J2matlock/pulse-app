@@ -143,21 +143,28 @@ export function SavedViewsDropdown() {
                   {savedViews.map(view => (
                     <div
                       key={view.id}
-                      className="hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer"
+                      className="hover:bg-gray-100 dark:hover:bg-slate-700"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
                         minHeight: 44,
-                        padding: '0 12px',
+                        padding: '0 0 0 12px',
                         fontSize: 15,
                       }}
-                      onClick={() => handleApply(view.id)}
                     >
-                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {view.name}
-                      </span>
+                      {/* A real button, so the keyboard can apply a view too (Q-053) */}
                       <button
-                        className="text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400"
+                        type="button"
+                        className="text-left rounded-sm focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+                        style={{ flex: 1, minHeight: 44, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, padding: 0 }}
+                        onClick={() => handleApply(view.id)}
+                      >
+                        {view.name}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Delete view ${view.name}`}
+                        className="text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400 rounded-sm focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
                         style={{
                           minWidth: 44,
                           minHeight: 44,

@@ -22,8 +22,12 @@ import {
   MATERIALIZE_MONTHS, MAX_HORIZON_MONTHS, DATE_RE, OPEN_RECORD_SQL,
   type Appointment, type ApptInput, type ApptPatch, type EditScope, type SeriesRule, type SeriesTemplate, type ApptStatus,
 } from '../shared/appointments'
+import { LIVE_GRID, NOT_TRASHED_ROW, notTrashedRow } from '../shared/liveRecords'
 
 export class ApptError extends Error {}
+
+/** The note written when an appointment is closed without happening */
+const CLOSED_NOTE_PREFIX = { cancelled: 'Cancelled', no_show: 'No-show' } satisfies Record<Exclude<ApptStatus, 'scheduled' | 'done'>, string>
 
 interface ApptRow extends Omit<Appointment, 'record_name' | 'grid_id' | 'grid_name'> { series_date: string | null }
 interface SeriesRow { id: number; rule: string; template: string; materialized_until: string; created_at: string }
@@ -40,7 +44,7 @@ export interface ApptSnapshot {
 export interface ApptChange { snapshot: ApptSnapshot; ids: number[] }
 
 const SELECT = `
-  SELECT a.*, CASE WHEN r.deleted_at IS NULL THEN COALESCE(NULLIF(r.display_name, ''), '(unnamed)') END AS record_name,
+  SELECT a.*, CASE WHEN ${NOT_TRASHED_ROW} AND ${LIVE_GRID} THEN COALESCE(NULLIF(r.display_name, ''), '(unnamed)') END AS record_name,
          r.grid_id, g.name AS grid_name, ser.rule AS series_rule
   FROM appointments a LEFT JOIN rows r ON r.id = a.row_id LEFT JOIN grids g ON g.id = r.grid_id
   LEFT JOIN appointment_series ser ON ser.id = a.series_id`
@@ -171,7 +175,7 @@ export function removedAppointments(today = localDateString()): RemovedAppointme
 
 function checkRecord(rowId: number | null | undefined): number | null {
   if (rowId == null) return null
-  if (!getDb().prepare('SELECT 1 FROM rows WHERE id = ? AND deleted_at IS NULL').get(rowId)) throw new ApptError('That record is no longer available.')
+  if (!getDb().prepare(`SELECT 1 FROM rows WHERE id = ? AND ${notTrashedRow('')}`).get(rowId)) throw new ApptError(`That ${word('record')} is no longer available.`)
   return rowId
 }
 
@@ -268,7 +272,7 @@ export function createAppointment(input: ApptInput, rule?: SeriesRule | null): A
       return { snapshot, ids: [id] }
     }
     const r = parsed(seriesRuleSchema.safeParse(rule))
-    if (r.untilColumnId && rowId === null) throw new ApptError('Choose the record whose date ends the series.')
+    if (r.untilColumnId && rowId === null) throw new ApptError(`Choose the ${word('record')} whose date ends the series.`)
     const template = templateOf({ ...v, row_id: rowId, end_at: v.end_at ?? null })
     const through = addMonths(localDateString(), MATERIALIZE_MONTHS)
     const seriesId = Number(db.prepare('INSERT INTO appointment_series (rule, template, materialized_until) VALUES (?, ?, ?)')
@@ -336,7 +340,26 @@ export function followingRule(rule: SeriesRule, first: string, from: string, new
     const shift = (parseYmd(newFirst).getDay() - parseYmd(from).getDay() + 7) % 7
     if (shift) r.byDay = [...new Set(rule.byDay.map(d => (d + shift) % 7))].sort()
   }
+  if (rule.freq === 'monthly') {
+    const day = monthAnchor(rule, first, from, newFirst)
+    if (day) r.monthDay = day
+    else delete r.monthDay
+  }
   return r
+}
+
+/**
+ * The day of the month a monthly series split at `from` keeps (P-003): a
+ * month-end occurrence clamped short (Feb 28 of a 31st series) that wasn't
+ * moved keeps the series' day; otherwise undefined, and the new series
+ * counts from its first date's day.
+ */
+function monthAnchor(rule: SeriesRule, first: string, from: string, newFirst: string): number | undefined {
+  if (rule.freq !== 'monthly' || newFirst !== from) return undefined
+  const anchor = rule.monthDay ?? parseYmd(first).getDate()
+  const f = parseYmd(from)
+  const lastOfMonth = new Date(f.getFullYear(), f.getMonth() + 1, 0).getDate()
+  return f.getDate() === lastOfMonth && anchor > f.getDate() ? anchor : undefined
 }
 
 /**
@@ -353,7 +376,7 @@ export function updateAppointment(id: number, patch: ApptPatch, scope: EditScope
     const v = merged(a, patch)
     const rowId = checkRecord(v.row_id)
     if (ruleChange && a.series_id === null) throw new ApptError('Only a repeating appointment has a pattern to change.')
-    if (ruleChange?.untilColumnId && rowId === null) throw new ApptError('Choose the record whose date ends the series.')
+    if (ruleChange?.untilColumnId && rowId === null) throw new ApptError(`Choose the ${word('record')} whose date ends the series.`)
     if (a.series_id === null || scope === 'one') {
       const snapshot = tracker([], [id])
       db.prepare(`UPDATE appointments SET row_id = ?, title = ?, start_at = ?, end_at = ?, all_day = ?, location = ?, activity_type_key = ?, notes = ?,
@@ -390,7 +413,12 @@ export function updateAppointment(id: number, patch: ApptPatch, scope: EditScope
     // This and following: the old series ends the day before; a new one starts here
     endSeriesBefore(s, from)
     const next = { ...templateOf({ ...v, row_id: rowId, end_at: v.end_at ?? null }) }
-    const r = ruleChange ?? followingRule(rule, t.first, from, next.first, untilFromColumn(rule, t.row_id))
+    let r = ruleChange ?? followingRule(rule, t.first, from, next.first, untilFromColumn(rule, t.row_id))
+    if (ruleChange?.freq === 'monthly' && ruleChange.monthDay === undefined) {
+      // A new end (or count) set on a clamped month-end occurrence keeps the series' day too
+      const day = monthAnchor(rule, t.first, from, next.first)
+      if (day) r = { ...ruleChange, monthDay: day }
+    }
     if (!r) return { snapshot, ids: [] }
     const newId = Number(db.prepare('INSERT INTO appointment_series (rule, template, materialized_until) VALUES (?, ?, ?)')
       .run(JSON.stringify(r), JSON.stringify(next), '0000-00-00').lastInsertRowid)
@@ -506,14 +534,14 @@ export function setAppointmentStatus(id: number, status: ApptStatus, opts: Statu
       change.revertedDates = revertNoteDates(a.case_log_id)
     }
     let noteId: number | null = null
-    if (a.row_id !== null && !db.prepare('SELECT 1 FROM rows WHERE id = ? AND deleted_at IS NULL').get(a.row_id)) throw new ApptError('That record is no longer available.')
+    if (a.row_id !== null && !db.prepare(`SELECT 1 FROM rows WHERE id = ? AND ${notTrashedRow('')}`).get(a.row_id)) throw new ApptError(`That ${word('record')} is no longer available.`)
     if (a.row_id !== null && status !== 'scheduled') {
       const userTypes = userTypeKeys(false)
       const type = status === 'done' ? noteTypeFor(a) : userTypes.has(status) ? status : null
       if (type) {
         const content = opts.noteContent?.trim()
-          || (status === 'done' ? `${word('appointment', { cap: true })}: ${a.title}` : status === 'no_show' ? `No-show: ${a.title}` : `Cancelled: ${a.title}`)
-        if (content.length > 100_000) throw new ApptError('That note is too long.')
+          || (status === 'done' ? `${word('appointment', { cap: true })}: ${a.title}` : `${CLOSED_NOTE_PREFIX[status]}: ${a.title}`)
+        if (content.length > 100_000) throw new ApptError(`That ${word('activity')} is too long.`)
         let minutes = opts.minutes ?? null
         if (minutes === null && status === 'done' && featureOn('timeTracking') && a.end_at && !a.all_day) minutes = Math.max(0, Math.min(1440, minutesBetween(a.start_at, a.end_at)))
         if (minutes !== null && (!Number.isInteger(minutes) || minutes < 0 || minutes > 1440)) throw new ApptError('Minutes must be a whole number up to 1,440.')

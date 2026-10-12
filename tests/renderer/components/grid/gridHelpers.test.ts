@@ -24,6 +24,10 @@ describe('checkPaste', () => {
     }
   })
 
+  it('refuses a pasted 5-digit number (a zip code) instead of reading it as an Excel serial (Q-033)', () => {
+    expect(checkPaste('90210', col('date'))).toEqual({ error: expect.any(String) })
+  })
+
   it('refuses a pasted date with a year outside 1900–2999, as saving would (AUDIT-112)', () => {
     expect(checkPaste('1/1/1850', col('date'))).toEqual({ error: expect.stringMatching(/isn't a full date/) })
     expect(checkPaste('0026-10-11', col('date'))).toEqual({ error: expect.stringMatching(/isn't a full date/) })

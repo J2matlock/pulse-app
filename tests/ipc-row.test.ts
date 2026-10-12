@@ -502,6 +502,12 @@ describe('IPC Row — ROW_REORDER', () => {
     expect(rows[2].id).toBe(reversed[2])
   })
 
+  it('an empty list of records is a no-op, not a SQL error (A22-13)', async () => {
+    const { gridId } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    const result = await invoke(IPC.ROW_REORDER, gridId, []) as { ok: boolean; data?: unknown }
+    expect(result).toEqual({ ok: true, data: true })
+  })
+
   it('rejects invalid grid ID', async () => {
     const result = await invoke(IPC.ROW_REORDER, -1, [1, 2, 3]) as any
     expect(result.ok).toBe(false)
@@ -699,6 +705,13 @@ describe('IPC Row — ROW_SET_MANUAL_CONTACTS', () => {
 })
 
 describe('IPC Row — SEARCH_CLIENTS_CROSS_GRID', () => {
+  it('returns empty for a search over 200 characters (Q-056)', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    testDb.db.prepare('UPDATE rows SET display_name = ? WHERE id = ?').run('A'.repeat(250), rowIds[0])
+    expect(((await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'A'.repeat(200))) as any).data.length).toBe(1)
+    expect(((await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'A'.repeat(201))) as any).data).toEqual([])
+  })
+
   it('returns empty for search under 2 chars', async () => {
     const result = await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'a') as any
     expect(result.ok).toBe(true)
@@ -764,11 +777,54 @@ describe('IPC Row — ROW_PURGE_ALL', () => {
   })
 })
 
+describe('IPC Row — deleting for good leaves nothing behind (Q-030)', () => {
+  const series = (rowId: number) => testDb.db.prepare("INSERT INTO appointment_series (rule, template, materialized_until) VALUES ('{}', json_object('row_id', ?, 'title', 'Secret visit'), '2099-01-01')").run(rowId)
+  const seriesRows = () => (testDb.db.prepare('SELECT template FROM appointment_series').all() as Array<{ template: string }>).map(r => JSON.parse(r.template).row_id)
+
+  it('Delete forever removes the record\'s repeating-appointment series and keeps the others', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 2, columnCount: 1 })
+    series(rowIds[0]!); series(rowIds[1]!)
+    await invoke(IPC.ROW_DELETE, rowIds[0])
+    expect(await invoke(IPC.ROW_PURGE, rowIds[0])).toEqual({ ok: true, data: true })
+    expect(seriesRows()).toEqual([rowIds[1]])
+  })
+
+  it('Delete forever on a record that is not in the Trash touches nothing', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    series(rowIds[0]!)
+    await invoke(IPC.ROW_PURGE, rowIds[0])
+    expect(seriesRows()).toEqual([rowIds[0]])
+  })
+
+  it('Empty the Trash removes the series and link history only gone records could show', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 3, columnCount: 1 })
+    series(rowIds[0]!); series(rowIds[2]!)
+    const hist = testDb.db.prepare("INSERT INTO record_link_history (link_type_id, from_row_id, to_row_id, action) VALUES (1, ?, ?, 'add')")
+    hist.run(rowIds[0], rowIds[1]); hist.run(rowIds[0], rowIds[2])
+    testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now') WHERE id IN (?, ?)").run(rowIds[0], rowIds[1])
+    expect(await invoke(IPC.ROW_PURGE_ALL)).toEqual({ ok: true, data: 2 })
+    expect(seriesRows()).toEqual([rowIds[2]])
+    expect(testDb.db.prepare('SELECT from_row_id, to_row_id FROM record_link_history').all()).toEqual([{ from_row_id: rowIds[0], to_row_id: rowIds[2] }])
+  })
+})
+
+describe('IPC Row — Trash past the 500 shown (Q-029)', () => {
+  it('counts every record in the Trash, and Empty the Trash removes that many', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 501, columnCount: 1 })
+    testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now')").run()
+    const shown = await invoke(IPC.ROW_GET_DELETED) as any
+    expect(shown.data).toHaveLength(500)
+    expect(await invoke(IPC.ROW_COUNT_DELETED)).toEqual({ ok: true, data: 501 })
+    expect(await invoke(IPC.ROW_PURGE_ALL)).toEqual({ ok: true, data: rowIds.length })
+    expect(await invoke(IPC.ROW_COUNT_DELETED)).toEqual({ ok: true, data: 0 })
+  })
+})
+
 describe('IPC Row — handler registration', () => {
   it('registers all row channels', () => {
     const channels = [
       IPC.ROW_CREATE, IPC.ROW_GET, IPC.ROW_DELETE, IPC.ROW_HARD_DELETE,
-      IPC.ROW_RESTORE_DELETED, IPC.ROW_PURGE, IPC.ROW_GET_DELETED,
+      IPC.ROW_RESTORE_DELETED, IPC.ROW_PURGE, IPC.ROW_GET_DELETED, IPC.ROW_COUNT_DELETED,
       IPC.ROW_ARCHIVE, IPC.ROW_UNARCHIVE, IPC.ROW_DUPLICATE,
       IPC.ROW_MOVE_TO_GRID, IPC.ROW_COPY_TO_GRID, IPC.ROW_REORDER,
       IPC.ROW_UPDATE, IPC.ROW_BULK_ACTION,

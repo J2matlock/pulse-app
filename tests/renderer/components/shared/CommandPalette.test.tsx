@@ -56,8 +56,9 @@ vi.mock('../../../../src/renderer/stores/gridStore', () => ({
     { getState: () => ({ loadGrid: vi.fn() }) },
   ),
 }))
+const mockPrune = vi.hoisted(() => vi.fn())
 vi.mock('../../../../src/renderer/stores/profileStore', () => ({
-  useProfileStore: (s: Function) => s({ recentProfiles: [] }),
+  useProfileStore: Object.assign((s: Function) => s({ recentProfiles: [] }), { getState: () => ({ pruneRecentProfiles: mockPrune }) }),
 }))
 vi.mock('../../../../src/renderer/stores/settingsStore', () => ({
   useSettingsStore: (s: Function) => s({ lock: vi.fn() }),
@@ -94,6 +95,13 @@ describe('CommandPalette', () => {
   it('renders dialog when open', () => {
     render(<CommandPalette open={true} onOpenChange={onOpenChange} />)
     expect(screen.getByRole('dialog')).toBeDefined()
+  })
+
+  it('checks Recent when it opens, so records moved to the Trash meanwhile leave it (Q-048)', () => {
+    const { rerender } = render(<CommandPalette open={false} onOpenChange={onOpenChange} />)
+    expect(mockPrune).not.toHaveBeenCalled()
+    rerender(<CommandPalette open={true} onOpenChange={onOpenChange} />)
+    expect(mockPrune).toHaveBeenCalledTimes(1)
   })
 
   it('does not render when closed', () => {

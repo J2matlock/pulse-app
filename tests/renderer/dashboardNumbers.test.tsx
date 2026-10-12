@@ -8,7 +8,7 @@ import { MemoryRouter } from 'react-router-dom'
 vi.mock('lucide-react', async () => (await import('./lucideMock')).lucideMock)
 Object.defineProperty(window, 'api', { value: { invoke: vi.fn(async () => ({ ok: true, data: null })), on: () => () => {} }, writable: true, configurable: true })
 
-import { countDeadlineTiles } from '../../src/renderer/views/dashboard/tileCounts'
+import { countDeadlineTiles, dashboardTileCounts } from '../../src/renderer/views/dashboard/tileCounts'
 import { WeekViewTab, daysLeftInWeek } from '../../src/renderer/views/dashboard/WeekViewTab'
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore'
 import type { ExtendedDeadlineInfo } from '../../src/renderer/views/dashboard/types'
@@ -22,6 +22,17 @@ describe('dashboard tiles', () => {
   it('count deadlines the way the briefing does: overdue includes a used-up quota; the next 7 and 30 days include today', () => {
     const c = countDeadlineTiles([dl(-3), dl(0, { state: 'overdue' }), dl(0), dl(5), dl(7), dl(8), dl(30), dl(31)])
     expect(c).toEqual({ overdue: 2, dueThisWeek: 3, dueThisMonth: 5 })
+  })
+
+  it('use main\'s counts over everything when a list came back at its cap (F-024), and their own list otherwise', () => {
+    const server = { deadlineTiles: { overdue: 2500, dueThisWeek: 40, dueThisMonth: 90 }, followUpsPending: 412 }
+    const shown = { deadlines: [dl(-3), dl(2)], followUpDays: [-1, 0, 4], otherDueDays: [-2, 3] }
+    expect(dashboardTileCounts({ ...shown, deadlinesCut: false, followUpsCut: false, server }))
+      .toEqual({ overdue: 1, dueThisWeek: 1, dueThisMonth: 1, otherDue: 3 })
+    expect(dashboardTileCounts({ ...shown, deadlinesCut: true, followUpsCut: true, server }))
+      .toEqual({ overdue: 2500, dueThisWeek: 40, dueThisMonth: 90, otherDue: 413 })
+    // An older main without the counts: fall back to the list
+    expect(dashboardTileCounts({ ...shown, deadlinesCut: true, followUpsCut: false, server: null }).overdue).toBe(1)
   })
 })
 

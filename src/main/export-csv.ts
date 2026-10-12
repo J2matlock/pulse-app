@@ -7,9 +7,12 @@ import Papa from 'papaparse'
 import type { CsvExportOptions } from './export-shared'
 import { atomicWriteFileAsync, formatCellValue, loadGridData, pickColumns, pickRows, sanitizeCsvFormula, savedDateFormat, showDeadlinesAsText, stripHtml } from './export-shared'
 import { localDateString, parseDbTimestamp } from '../shared/dates'
+import { LAST_DONE_SUFFIX } from '../shared/constants'
+import type { Column } from '../shared/types'
 import { logger } from './logger'
 import { getDb } from './database'
 import { word } from './vocab'
+import { LIVE_GRID, NOT_TRASHED_ROW } from '../shared/liveRecords'
 
 /** "Guardian cell: 555-0199; Work email: a@b.org" for each record that has any */
 function manualContactsByRow(rowIds: number[]): Map<number, string> {
@@ -36,11 +39,24 @@ export async function exportCsv(options: CsvExportOptions): Promise<void> {
 
   const selectedColumns = pickColumns(columns, columnIds, options.includeHidden)
   const filteredRows = pickRows(rows, activeRowIds)
+  // The date last done, before the deadline columns become their "Due …" text (P-002)
+  const lastDone = new Map<string, string | null>()
+  if (options.storedDeadlineDates) {
+    for (const row of filteredRows) for (const c of selectedColumns) {
+      if (c.column_type === 'deadline') lastDone.set(`${row.row_id}:${c.id}`, (row[`col_${c.id}`] as string | null) ?? null)
+    }
+  }
   showDeadlinesAsText(gridId, selectedColumns, filteredRows)
 
-  const headers = selectedColumns.map(c => sanitizeCsvFormula(c.name))
+  const withLastDone = (c: Column) => options.storedDeadlineDates === true && c.column_type === 'deadline'
+  const headers = selectedColumns.flatMap(c => withLastDone(c)
+    ? [sanitizeCsvFormula(c.name), sanitizeCsvFormula(`${c.name}${LAST_DONE_SUFFIX}`)]
+    : [sanitizeCsvFormula(c.name)])
   const data = filteredRows.map(row =>
-    selectedColumns.map(col => formatCellValue(row[`col_${col.id}`] as string | null, col.column_type, dateFormat))
+    selectedColumns.flatMap(col => {
+      const shown = formatCellValue(row[`col_${col.id}`] as string | null, col.column_type, dateFormat)
+      return withLastDone(col) ? [shown, formatCellValue(lastDone.get(`${row.row_id}:${col.id}`) ?? null, 'date', dateFormat)] : [shown]
+    })
   )
 
   // Contact info added on the record page ("Add contact info") isn't a column; add it
@@ -75,8 +91,8 @@ export async function exportNotesCsv(destPath: string, dateFormat: 'iso' | 'us' 
   const notes = getDb().prepare(`
     SELECT COALESCE(cl.occurred_at, cl.created_at) AS occurred_at, g.name AS list, r.display_name AS record, COALESCE(at.label, cl.log_type) AS kind, cl.content, cl.follow_up_date
     FROM case_log cl
-    JOIN rows r ON r.id = cl.row_id AND r.deleted_at IS NULL
-    JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
+    JOIN rows r ON r.id = cl.row_id AND ${NOT_TRASHED_ROW}
+    JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
     LEFT JOIN activity_types at ON at.key = cl.log_type
     WHERE cl.voided_at IS NULL
     ORDER BY g.position, g.id, r.display_name, COALESCE(cl.occurred_at, cl.created_at)

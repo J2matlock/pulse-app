@@ -9,9 +9,10 @@
  */
 import { create } from 'zustand'
 import { IPC } from '../../shared/ipc-channels'
-import { storeInvoke } from '../utils/safeInvoke'
+import { storeInvoke, ReadOnlyError } from '../utils/safeInvoke'
 import { rlog } from '../utils/rendererLogger'
 import { isTechnicalError } from '../utils/friendlyError'
+import { PASSING_ERRORS } from '../../shared/constants'
 
 // ── Side effects ──────────────────────────────────────────────────────────────
 
@@ -89,11 +90,27 @@ const MAX_STACK = 100
 export interface PushOptions { evenWhileUndoing?: boolean }
 
 /** The reason an undo or redo failed, for the toast: handler messages are already plain English */
-function failureText(kind: 'Undo' | 'Redo', err: unknown): string {
+/** A handler's own plain-English reason, or '' for technical text that shouldn't reach the screen */
+function plainReason(err: unknown): string {
   const reason = err instanceof Error ? err.message.trim() : ''
-  const plain = reason && reason.length < 200 && !isTechnicalError(reason) && !/sqlite|ipc|undefined|null|TypeError/i.test(reason)
-  return plain ? `${kind} didn't work: ${reason}` : `${kind} failed — your change could not be ${kind === 'Undo' ? 'reverted' : 'reapplied'}`
+  return reason && reason.length < 200 && !isTechnicalError(reason) && !/sqlite|ipc|undefined|null|TypeError/i.test(reason) ? reason : ''
 }
+
+// Failures that may clear up by themselves (busy, unplugged drive, read-only, "try again"): never a reason to drop a step (R3-01)
+const PASSING_REASONS: ReadonlySet<string> = new Set(Object.values(PASSING_ERRORS))
+function isPassingFailure(err: unknown): boolean {
+  return err instanceof ReadOnlyError || (err instanceof Error && PASSING_REASONS.has(err.message.trim()))
+}
+
+function failureText(kind: 'Undo' | 'Redo', err: unknown): string {
+  const reason = plainReason(err)
+  return reason ? `${kind} didn't work: ${reason}` : `${kind} failed — your change could not be ${kind === 'Undo' ? 'reverted' : 'reapplied'}`
+}
+
+// The step whose undo failed last time. A failed step stays on top so it can be tried again (L-08),
+// but one that fails twice running for a plain reason ("That record was deleted.") can never work,
+// and would block every older step (Q-045), so the second failure takes it off the list.
+let _lastFailedUndo: UndoItem | null = null
 
 /**
  * For store actions that catch their own errors: while an undo or redo runs,
@@ -130,6 +147,15 @@ export function batchUndoItem(description: string, items: UndoItem[], extra?: Pa
     undo: () => runAll([...items].reverse(), 'undo'),
     redo: () => runAll(items, 'redo'),
   }
+}
+
+/**
+ * Put a step whose undo failed back on the undo stack where it was: under any
+ * step added while it ran (Q-085), not over it, and without dropping those.
+ */
+function reinsert(stack: UndoItem[], item: UndoItem, idsBefore: ReadonlySet<string>): UndoItem[] {
+  const at = stack.findIndex(i => !idsBefore.has(i.id))
+  return at === -1 ? [...stack, item] : [...stack.slice(0, at), item, ...stack.slice(at)]
 }
 
 // Module-scope mutex — set synchronously before any await in undo/redo.
@@ -203,9 +229,8 @@ export const useUndoStore = create<UndoState>((set, get) => {
       if (undoStack.length === 0 || _undoMutex) return
       _undoMutex = true
       const item = undoStack[undoStack.length - 1]!
-      // Snapshot stacks before mutation so we can revert on error
-      const prevUndoStack = [...undoStack]
-      const prevRedoStack = [...get().redoStack]
+      // Steps already there, so a failure can tell them from ones added while this ran (Q-085)
+      const idsBefore = new Set(undoStack.map(i => i.id))
       set(s => ({
         undoStack: s.undoStack.slice(0, -1),
         redoStack: [...s.redoStack, item],
@@ -217,11 +242,21 @@ export const useUndoStore = create<UndoState>((set, get) => {
         // The change first: its note is voided only once the change is really undone (AUDIT-023)
         await item.undo()
         await applySideEffects(item.sideEffects, 'undo')
+        _lastFailedUndo = null
       } catch (err) {
         rlog.error('UndoStore', 'Undo failed', err)
-        // Revert stack mutation so the item isn't lost
-        set({ undoStack: prevUndoStack, redoStack: prevRedoStack })
-        showToast(failureText('Undo', err))
+        // Read-only or a passing hiccup may clear up, so only a plain reason given twice counts as "can't work"
+        const reason = isPassingFailure(err) ? '' : plainReason(err)
+        if (reason && _lastFailedUndo === item) {
+          _lastFailedUndo = null
+          set(s => ({ redoStack: s.redoStack.filter(i => i !== item) }))
+          showToast(`Undo didn't work: ${reason} That step was taken off the undo list.`)
+        } else {
+          _lastFailedUndo = item
+          // Only the failed step goes back; steps added while it ran stay (Q-085)
+          set(s => ({ undoStack: reinsert(s.undoStack, item, idsBefore), redoStack: s.redoStack.filter(i => i !== item) }))
+          showToast(failureText('Undo', err))
+        }
       } finally {
         _undoMutex = false
         set({ isUndoing: false })
@@ -233,9 +268,7 @@ export const useUndoStore = create<UndoState>((set, get) => {
       if (redoStack.length === 0 || _undoMutex) return
       _undoMutex = true
       const item = redoStack[redoStack.length - 1]!
-      // Snapshot stacks before mutation so we can revert on error
-      const prevUndoStack = [...get().undoStack]
-      const prevRedoStack = [...redoStack]
+      const idsBefore = new Set(get().undoStack.map(i => i.id))
       set(s => ({
         redoStack: s.redoStack.slice(0, -1),
         undoStack: [...s.undoStack, item],
@@ -246,8 +279,13 @@ export const useUndoStore = create<UndoState>((set, get) => {
         await applySideEffects(item.sideEffects, 'redo')
       } catch (err) {
         rlog.error('UndoStore', 'Redo failed', err)
-        // Revert stack mutation so the item isn't lost
-        set({ undoStack: prevUndoStack, redoStack: prevRedoStack })
+        // The step goes back to be redone, unless a new step was made meanwhile (which ends redo);
+        // either way steps added while it ran stay (Q-085)
+        set(s => {
+          const undoStack = s.undoStack.filter(i => i !== item)
+          const changedSince = undoStack.some(i => !idsBefore.has(i.id))
+          return { undoStack, redoStack: changedSince ? s.redoStack : [...s.redoStack, item] }
+        })
         showToast(failureText('Redo', err))
       } finally {
         _undoMutex = false
@@ -263,14 +301,17 @@ export const useUndoStore = create<UndoState>((set, get) => {
 
       _undoMutex = true
       try {
-        // Undo everything from the top of the stack down to and including itemId
-        const count = undoStack.length - targetIdx
-        for (let i = 0; i < count; i++) {
+        // Undo everything from the top of the stack down to and including itemId: exactly the steps
+        // there now, newest first. A step added while this runs (a save landing) is never undone in
+        // their place; if one lands on top, stop rather than undo past it (Q-085)
+        const ids = undoStack.slice(targetIdx).map(i => i.id).reverse()
+        for (const id of ids) {
           const { undoStack: currentStack } = get()
-          if (currentStack.length === 0) break
-          const item = currentStack[currentStack.length - 1]!
+          const item = currentStack[currentStack.length - 1]
+          if (!item || item.id !== id) break
+          const idsBefore = new Set(currentStack.map(i => i.id))
           set(s => ({
-            undoStack: s.undoStack.slice(0, -1),
+            undoStack: s.undoStack.filter(i => i !== item),
             redoStack: [...s.redoStack, item],
             toast: null,
             isUndoing: true,
@@ -281,7 +322,7 @@ export const useUndoStore = create<UndoState>((set, get) => {
           } catch (err) {
             // Earlier steps really were undone; this one wasn't, so it goes back on the undo stack
             rlog.error('UndoStore', 'undoTo partial failure:', err)
-            set(s => ({ undoStack: [...s.undoStack, item], redoStack: s.redoStack.filter(i => i.id !== item.id) }))
+            set(s => ({ undoStack: reinsert(s.undoStack, item, idsBefore), redoStack: s.redoStack.filter(i => i.id !== item.id) }))
             showToast(failureText('Undo', err))
             return
           }
@@ -298,6 +339,7 @@ export const useUndoStore = create<UndoState>((set, get) => {
 
     clear() {
       clearToast()
+      _lastFailedUndo = null
       set({ undoStack: [], redoStack: [] })
     },
   }

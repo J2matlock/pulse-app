@@ -2,12 +2,15 @@
  * ipc-alerts.ts — ALERT_RULE_* IPC handlers
  */
 
+import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
-import { secureWrap, logNonFatal, ok, fail, buildSafeSetClause, validId, enforceWritable } from './ipc-utils'
+import { logNonFatal, ok, fail, buildSafeSetClause, validId } from './ipc-utils'
+import { handlersFor, idArg } from './ipc-define'
 import { getDb } from '../database'
 import type { AlertRule, AlertRuleUse, DeletedAlertRule } from '../../shared/types'
 import { RULE_KINDS, conditionSchema, parseRuleConfig, type RuleKind } from '../../shared/deadlineEngine'
 import { convertDateColumnsToDeadline } from '../rule-columns'
+import { LIVE_GRID } from '../../shared/liveRecords'
 
 /** Calendar-month intervals: whole months up to 10 years (null/0 = not month-based). */
 function validMonths(v: unknown): boolean {
@@ -45,15 +48,20 @@ function validEngineFields(input: Partial<AlertRule>, current?: { kind?: string 
   return { fields }
 }
 
+const define = handlersFor('ipc-alerts')
+
+/** Any object; its fields are checked in the body, each with its own message */
+const isObject = (v: unknown) => !!v && typeof v === 'object'
+
 export function registerAlertHandlers(): void {
-  secureWrap(IPC.ALERT_RULE_GET_ALL, 'ipc-alerts', () => {
+  define(IPC.ALERT_RULE_GET_ALL, [], () => {
     const rules = getDb().prepare('SELECT * FROM alert_rules ORDER BY name ASC').all() as AlertRule[]
     return ok(rules)
   })
 
-  secureWrap(IPC.ALERT_RULE_CREATE, 'ipc-alerts', (_e, rule: Omit<AlertRule, 'id' | 'created_at'>) => {
-    const guard = enforceWritable(); if (guard) return guard
+  define(IPC.ALERT_RULE_CREATE, [z.custom<Omit<AlertRule, 'id' | 'created_at'>>(isObject, 'Invalid rule')], (rule) => {
     if (typeof rule.name !== 'string' || !rule.name.trim() || rule.name.length > 200) return fail('Invalid rule name')
+    if (rule.description != null && (typeof rule.description !== 'string' || rule.description.length > 2000)) return fail('Invalid rule description')
     if (typeof rule.thresholds !== 'string' || rule.thresholds.length > 10_000) return fail('Thresholds too large')
     try { JSON.parse(rule.thresholds) } catch (err) { logNonFatal('ipc-alerts', 'Invalid thresholds JSON', err); return fail('Invalid thresholds JSON') }
     if (rule.interval_days != null && (!Number.isInteger(rule.interval_days) || rule.interval_days < 0)) return fail('Invalid interval_days')
@@ -68,11 +76,10 @@ export function registerAlertHandlers(): void {
     `).run(rule.name, rule.description ?? null, 0, rule.thresholds, rule.interval_days ?? null, rule.interval_months || null, rule.end_of_month ? 1 : 0,
       (f.kind as string | undefined) ?? 'interval', (f.rule_config as string | null | undefined) ?? null, (f.rule_condition as string | null | undefined) ?? null, (f.business_days as number | undefined) ?? 0)
     return ok(result.lastInsertRowid)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ALERT_RULE_UPDATE, 'ipc-alerts', (_e, id: number, updates: Partial<AlertRule>) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.ALERT_RULE_UPDATE, [idArg(), z.custom<Partial<AlertRule>>(isObject, 'Invalid rule')], (id, updates) => {
+    if (updates.description != null && (typeof updates.description !== 'string' || updates.description.length > 2000)) return fail('Invalid rule description')
     if (updates.thresholds !== undefined) {
       if (typeof updates.thresholds !== 'string' || updates.thresholds.length > 10_000) return fail('Thresholds too large')
       try { JSON.parse(updates.thresholds) } catch (err) { logNonFatal('ipc-alerts', 'Invalid thresholds JSON', err); return fail('Invalid thresholds JSON') }
@@ -97,13 +104,11 @@ export function registerAlertHandlers(): void {
       convertDateColumnsToDeadline(db, id)
     })()
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ALERT_RULE_USAGE, 'ipc-alerts', () => ok(ruleUsage()))
+  define(IPC.ALERT_RULE_USAGE, [], () => ok(ruleUsage()))
 
-  secureWrap(IPC.ALERT_RULE_DELETE, 'ipc-alerts', (_e, id: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.ALERT_RULE_DELETE, [idArg()], (id) => {
     const db = getDb()
     const rule = db.prepare('SELECT * FROM alert_rules WHERE id = ?').get(id) as AlertRule | undefined
     if (!rule) return fail('Alert rule not found')
@@ -119,12 +124,12 @@ export function registerAlertHandlers(): void {
     })()
     const snapshot: DeletedAlertRule = { rule, columnIds }
     return ok(snapshot)
-  })
+  }, { write: true })
 
   // Undo of a delete: the rule comes back with its id, and the columns it was
   // taken from use it again (unless they've been given another rule since)
-  secureWrap(IPC.ALERT_RULE_RESTORE, 'ipc-alerts', (_e, snapshot: DeletedAlertRule) => {
-    const guard = enforceWritable(); if (guard) return guard
+  // Checked in the body: a missing snapshot answers 'Invalid rule' like a bad one
+  define(IPC.ALERT_RULE_RESTORE, [z.custom<DeletedAlertRule | null | undefined>()], (snapshot) => {
     const r = snapshot?.rule
     if (!r || !validId(r.id) || typeof r.name !== 'string' || !r.name.trim() || r.name.length > 200) return fail('Invalid rule')
     if (typeof r.thresholds !== 'string' || r.thresholds.length > 10_000) return fail('Thresholds too large')
@@ -152,7 +157,7 @@ export function registerAlertHandlers(): void {
       return newId
     })()
     return ok(id)
-  })
+  }, { write: true })
 }
 
 /** Every column that uses a rule, in lists that are still in use. */
@@ -160,7 +165,7 @@ export function ruleUsage(): AlertRuleUse[] {
   const rows = getDb().prepare(`
     SELECT CAST(json_extract(col.config, '$.alert_rule_id') AS INTEGER) AS rule_id, col.id AS column_id, col.name AS column_name,
            g.id AS grid_id, g.name AS grid_name, col.is_visible
-    FROM columns col JOIN grids g ON g.id = col.grid_id AND g.is_active = 1
+    FROM columns col JOIN grids g ON g.id = col.grid_id AND ${LIVE_GRID}
     WHERE json_extract(col.config, '$.alert_rule_id') IS NOT NULL
     ORDER BY g.position, g.id, col.position, col.id
   `).all() as Array<Omit<AlertRuleUse, 'hidden'> & { is_visible: number }>

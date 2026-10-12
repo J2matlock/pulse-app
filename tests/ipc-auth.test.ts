@@ -119,6 +119,16 @@ vi.mock('../src/main/auth', () => ({
   },
 }))
 
+// Re-encrypt (P-001) is tested end to end in key-switch.test.ts; here only the handler's wiring
+const mockReencrypt = vi.fn(async (..._args: unknown[]): Promise<'switched' | 'locked'> => 'switched')
+const mockRevokeReencrypt = vi.fn(async (..._args: unknown[]): Promise<'switched' | 'locked'> => 'switched')
+vi.mock('../src/main/key-switch', () => ({
+  openWithUnlockKeys: (open: () => void) => open(),
+  changePasswordAndReencrypt: (...args: unknown[]) => mockReencrypt(...args),
+  revokeRecoveryKeyAndReencrypt: (...args: unknown[]) => mockRevokeReencrypt(...args),
+  REENCRYPT_FAILED_LOCKED: 'Pulse could not finish re-encrypting and has locked',
+}))
+
 vi.mock('../src/main/index', () => ({
   startScheduledBackup: () => {},
   stopScheduledBackup: () => {},
@@ -306,6 +316,15 @@ describe('AUTH_CHANGE_PASSWORD', () => {
     expect(r.error).toMatch(/Incorrect/)
   })
 
+  it('checks the current password at the edge too: wrong type or over 1024 characters (Q-056)', async () => {
+    mockChangePassword.mockClear()
+    for (const old of [null, 42, 'x'.repeat(1025)]) {
+      const r = await invoke(IPC.AUTH_CHANGE_PASSWORD, old, 'new-password-123', 'hint') as any
+      expect(r).toEqual({ ok: false, error: 'Invalid password' })
+    }
+    expect(mockChangePassword).not.toHaveBeenCalled()
+  })
+
   it('rejects new password shorter than 12 chars', async () => {
     const r = await invoke(IPC.AUTH_CHANGE_PASSWORD, 'old-password', 'short', 'hint') as any
     expect(r.ok).toBe(false)
@@ -325,6 +344,57 @@ describe('AUTH_CHANGE_PASSWORD', () => {
   it('rejects non-string new password', async () => {
     const r = await invoke(IPC.AUTH_CHANGE_PASSWORD, 'old-password', 12345678, 'hint') as any
     expect(r.ok).toBe(false)
+  })
+
+  it('re-encrypts only when asked: { reencrypt: true } takes the key-switch path (P-001)', async () => {
+    let r = await invoke(IPC.AUTH_CHANGE_PASSWORD, 'old-password', 'new-password-123', 'hint') as any
+    expect(r.ok).toBe(true)
+    expect(mockReencrypt).not.toHaveBeenCalled()
+    mockChangePassword.mockClear()
+    r = await invoke(IPC.AUTH_CHANGE_PASSWORD, 'old-password', 'new-password-123', 'hint', { reencrypt: true }) as any
+    expect(r).toEqual({ ok: true, data: true })
+    expect(mockReencrypt).toHaveBeenCalledWith('old-password', 'new-password-123', 'hint')
+    expect(mockChangePassword).not.toHaveBeenCalled()
+  })
+
+  it('a wrong current password with re-encrypt says so plainly (P-001)', async () => {
+    mockReencrypt.mockRejectedValueOnce(new Error('Incorrect password'))
+    const r = await invoke(IPC.AUTH_CHANGE_PASSWORD, 'wrong-old', 'new-password-123', 'hint', { reencrypt: true }) as any
+    expect(r).toEqual({ ok: false, error: 'Incorrect password' })
+  })
+
+  it('a re-encrypt that had to lock answers with its message (P-001)', async () => {
+    mockReencrypt.mockResolvedValueOnce('locked')
+    const r = await invoke(IPC.AUTH_CHANGE_PASSWORD, 'old-password', 'new-password-123', 'hint', { reencrypt: true }) as any
+    expect(r).toEqual({ ok: false, error: 'Pulse could not finish re-encrypting and has locked' })
+  })
+
+  it('refuses options that are not an object (P-001)', async () => {
+    const r = await invoke(IPC.AUTH_CHANGE_PASSWORD, 'old-password', 'new-password-123', 'hint', 'reencrypt') as any
+    expect(r).toEqual({ ok: false, error: 'Invalid options' })
+    expect(mockReencrypt).not.toHaveBeenCalled()
+  })
+})
+
+describe('AUTH_REVOKE_RECOVERY_KEY with re-encrypt (P-001)', () => {
+  it('takes the key-switch path with the current password', async () => {
+    const r = await invoke(IPC.AUTH_REVOKE_RECOVERY_KEY, 'current-password', { reencrypt: true }) as any
+    expect(r).toEqual({ ok: true, data: true })
+    expect(mockRevokeReencrypt).toHaveBeenCalledWith('current-password')
+    expect(mockRevokeRecoveryKey).not.toHaveBeenCalled()
+  })
+
+  it('needs the current password to wrap the new key', async () => {
+    const r = await invoke(IPC.AUTH_REVOKE_RECOVERY_KEY, undefined, { reencrypt: true }) as any
+    expect(r).toEqual({ ok: false, error: 'Enter your current password to continue' })
+    expect(mockRevokeReencrypt).not.toHaveBeenCalled()
+  })
+
+  it('without the option it only revokes', async () => {
+    const r = await invoke(IPC.AUTH_REVOKE_RECOVERY_KEY, 'current-password') as any
+    expect(r.ok).toBe(true)
+    expect(mockRevokeRecoveryKey).toHaveBeenCalled()
+    expect(mockRevokeReencrypt).not.toHaveBeenCalled()
   })
 })
 
@@ -477,6 +547,28 @@ describe('right password, but the data could not be opened (AUDIT-003)', () => {
     const again = await invoke(IPC.AUTH_RESTORE_FROM_BACKUP, '/tmp/pulse-test-auth/x.pulse-backup', 'old-pass', 'new-password-123', '')
     expect(again.ok).toBe(false)
     expect(again.error).toMatch(/already set up/)
+  })
+
+  it('first-time setup whose new data won\'t open says why and keeps no key (F-031)', async () => {
+    mockIsPasswordSetup.mockReturnValue(false)
+    mockLockApp.mockClear()
+    mockOpenDatabase.mockImplementationOnce(() => { throw new DatabaseOpenError('migration', 'Migration to version 48 failed') })
+    const r = await invoke(IPC.AUTH_SETUP_PASSWORD, 'validpass123', 'hint')
+    expect(r).toEqual({ ok: false, error: 'DB_OPEN_FAILED:migration' })
+    expect(mockLockApp).toHaveBeenCalled()
+  })
+
+  it('a restore on a new computer whose data won\'t open says why, keeps no key, and may be tried again (F-031)', async () => {
+    mockIsPasswordSetup.mockReturnValue(false)
+    mockLockApp.mockClear()
+    mockOpenDatabase.mockImplementationOnce(() => { throw new DatabaseOpenError('migration', 'Migration to version 48 failed') })
+    const r = await invoke(IPC.AUTH_RESTORE_FROM_BACKUP, '/tmp/pulse-test-auth/x.pulse-backup', 'old-pass', 'new-password-123', '')
+    expect(r).toEqual({ ok: false, error: 'DB_OPEN_FAILED:migration' })
+    expect(mockLockApp).toHaveBeenCalled()
+    // Credentials now exist, but the person may try another backup
+    mockIsPasswordSetup.mockReturnValue(true)
+    const again = await invoke(IPC.AUTH_RESTORE_FROM_BACKUP, '/tmp/pulse-test-auth/x.pulse-backup', 'old-pass', 'new-password-123', '')
+    expect(again.ok).toBe(true)
   })
 
   it('a wrong password never opens the restore path', async () => {

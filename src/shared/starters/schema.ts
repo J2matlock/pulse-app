@@ -11,11 +11,15 @@
  * Pulse can apply them.
  */
 import { z } from 'zod'
+import { textLength } from '../textLength'
+import { RULE_KINDS } from '../deadlineEngine'
+import { CARDINALITIES } from '../links'
+import { APPT_STATUSES } from '../appointments'
 import { vocabSchema, type VocabKey } from '../vocab'
 import { featureMapSchema, type FeatureKey } from '../features'
 import { ACTIVITY_COLORS } from '../activityTypes'
 import { MAX_ACTIVE_MEASURES, measureDefSchema } from '../measures'
-import { PERIOD_MAX } from '../periods'
+import { PERIOD_MAX, PERIODS } from '../periods'
 import { DISPLAY_FORMAT_MAX } from '../displayFormat'
 import { portableStageSchema } from '../stages'
 
@@ -27,13 +31,13 @@ export const MAX_STARTER_BYTES = 2 * 1024 * 1024
 const FUTURE_STARTER_KEYS: string[] = []
 const FUTURE_LIST_KEYS: string[] = []
 
-const text = (max: number) => z.string().trim().min(1).max(max)
-const optionalText = (max: number) => z.string().max(max).nullable().optional()
+const text = (max: number) => z.string().trim().check(textLength({ min: 1, max }))
+const optionalText = (max: number) => z.string().check(textLength({ max })).nullable().optional()
 const key = z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/, 'Keys use lowercase letters, numbers and dashes')
 
 const columnSchema = z.object({
   name: text(100),
-  column_type: z.string().max(40),
+  column_type: z.string().check(textLength({ max: 40 })),
   width: z.number().int().min(40).max(1000).optional(),
   position: z.number().int().min(0).max(500),
   is_name_column: z.number().int().min(0).max(1).optional(),
@@ -43,44 +47,44 @@ const columnSchema = z.object({
   default_value: optionalText(1000),
   description: optionalText(1000),
   /** JSON; may name rules and checklists (alert_rule_name, done_checklist_name) */
-  config: z.string().max(10_000).optional(),
+  config: z.string().check(textLength({ max: 10_000 })).optional(),
 }).strict()
 
 const alertRuleSchema = z.object({
   name: text(100),
   description: optionalText(500),
-  thresholds: z.string().max(10_000),
+  thresholds: z.string().check(textLength({ max: 10_000 })),
   interval_days: z.number().int().min(0).max(3650).nullable().optional(),
   interval_months: z.number().int().min(0).max(120).nullable().optional(),
   end_of_month: z.number().int().min(0).max(1).nullable().optional(),
   /** W05 kinds; settings name columns as { "column": "Referral date" } */
-  kind: z.enum(['interval', 'relative', 'calendar', 'meter', 'quota', 'sequence']).optional(),
-  rule_config: z.string().max(10_000).nullable().optional(),
-  rule_condition: z.string().max(2_000).nullable().optional(),
+  kind: z.enum(RULE_KINDS).optional(),
+  rule_config: z.string().check(textLength({ max: 10_000 })).nullable().optional(),
+  rule_condition: z.string().check(textLength({ max: 2_000 })).nullable().optional(),
   business_days: z.number().int().min(0).max(2).optional(),
 }).strict()
 
 const checklistSchema = z.object({
   name: text(100),
   description: optionalText(500),
-  items: z.string().max(10_000),
+  items: z.string().check(textLength({ max: 10_000 })),
   is_recurring: z.number().int().min(0).max(1).optional(),
   recurrence_days: z.number().int().min(1).max(3650).nullable().optional(),
 }).strict()
 
 const requirementSchema = z.object({
   label: text(100),
-  note_types: z.array(z.string().max(40)).min(1).max(10),
+  note_types: z.array(z.string().check(textLength({ max: 40 }))).min(1).max(10),
   /** How many per period (the name is kept from the monthly-only format) */
   per_month: z.number().int().min(1).max(365),
-  period: z.enum(['week', 'month', 'quarter', 'year']).optional(),
+  period: z.enum(PERIODS).optional(),
 }).strict().refine(r => r.per_month <= PERIOD_MAX[r.period ?? 'month'], { message: 'Too many per period' })
 
 /** A note type to add (W03 §5); matched to the workspace's types by key */
 const activityTypeSchema = z.object({
   key: z.string().regex(/^[a-z0-9_]{1,30}$/),
   label: text(40),
-  icon: z.string().max(16).optional(),
+  icon: z.string().check(textLength({ max: 16 })).optional(),
   color: z.enum(ACTIVITY_COLORS).optional(),
 }).strict()
 
@@ -90,7 +94,7 @@ const linkSchema = z.object({
   to: key,
   label_forward: text(60),
   label_backward: text(60),
-  cardinality: z.enum(['one_to_one', 'many_to_one', 'many_to_many']).default('many_to_one'),
+  cardinality: z.enum(CARDINALITIES).default('many_to_one'),
   /** Also add a column on the other list (default yes) */
   showOnOther: z.boolean().optional(),
 }).strict()
@@ -101,9 +105,9 @@ const starterFormSchema = z.object({
   intro: optionalText(2000),
   log_activity_type: z.string().regex(/^[a-z0-9_]{1,30}$/).nullable().optional(),
   fields: z.array(z.discriminatedUnion('kind', [
-    z.object({ kind: z.literal('column'), column: text(100), label: z.string().max(200).optional(), help: z.string().max(500).optional(), required: z.boolean().optional(), width: z.enum(['full', 'half']).optional() }).strict(),
-    z.object({ kind: z.literal('section'), title: text(200), text: z.string().max(1000).optional() }).strict(),
-    z.object({ kind: z.literal('note'), label: text(200), help: z.string().max(500).optional(), required: z.boolean().optional() }).strict(),
+    z.object({ kind: z.literal('column'), column: text(100), label: z.string().check(textLength({ max: 200 })).optional(), help: z.string().check(textLength({ max: 500 })).optional(), required: z.boolean().optional(), width: z.enum(['full', 'half']).optional() }).strict(),
+    z.object({ kind: z.literal('section'), title: text(200), text: z.string().check(textLength({ max: 1000 })).optional() }).strict(),
+    z.object({ kind: z.literal('note'), label: text(200), help: z.string().check(textLength({ max: 500 })).optional(), required: z.boolean().optional() }).strict(),
   ])).min(1).max(80),
 }).strict()
 export type StarterForm = z.infer<typeof starterFormSchema>
@@ -119,14 +123,14 @@ const listSchema = z.object({
   checklists: z.array(checklistSchema).max(50).optional(),
   requirements: z.array(requirementSchema).max(20).optional(),
   /** How each record's name is shown, e.g. "{Year} {Make} {Model}" (W02 §3) */
-  displayFormat: z.string().max(DISPLAY_FORMAT_MAX).optional(),
+  displayFormat: z.string().check(textLength({ max: DISPLAY_FORMAT_MAX })).optional(),
   links: z.array(linkSchema).max(20).optional(),
   /** Which column is the stage, and its settings (W06 §8) */
   stage: portableStageSchema.extend({ column: text(100) }).optional(),
   forms: z.array(starterFormSchema).max(20).optional(),
 }).strict()
 
-const sampleValue = z.union([z.string().max(1000), z.number(), z.null(), z.object({ daysFromToday: z.number().int().min(-36500).max(3650) }).strict()])
+const sampleValue = z.union([z.string().check(textLength({ max: 1000 })), z.number(), z.null(), z.object({ daysFromToday: z.number().int().min(-36500).max(3650) }).strict()])
 
 const sampleDataSchema = z.object({
   /** list key → records, each a column name → value map */
@@ -134,7 +138,7 @@ const sampleDataSchema = z.object({
   activities: z.array(z.object({
     /** "<list key>#<index>" */
     record: z.string().regex(/^[a-z0-9-]+#\d+$/),
-    type: z.string().max(40),
+    type: z.string().check(textLength({ max: 40 })),
     daysAgo: z.number().int().min(0).max(3650),
     text: text(5000),
   }).strict()).max(1000).optional(),
@@ -152,7 +156,7 @@ const sampleDataSchema = z.object({
   history: z.array(z.object({
     record: z.string().regex(/^[a-z0-9-]+#\d+$/),
     column: text(100),
-    values: z.array(z.object({ value: z.string().max(1000), daysAgo: z.number().int().min(0).max(3650) }).strict()).min(1).max(50),
+    values: z.array(z.object({ value: z.string().check(textLength({ max: 1000 })), daysAgo: z.number().int().min(0).max(3650) }).strict()).min(1).max(50),
   }).strict()).max(2000).optional(),
   /** Steps already done on a step-by-step deadline column, so the demo isn't all overdue */
   stepsDone: z.array(z.object({
@@ -173,9 +177,9 @@ const sampleDataSchema = z.object({
     time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
     minutes: z.number().int().min(5).max(720).optional(),
     type: z.string().regex(/^[a-z0-9_]{1,30}$/).optional(),
-    location: z.string().max(300).optional(),
+    location: z.string().check(textLength({ max: 300 })).optional(),
     repeatWeekly: z.number().int().min(2).max(52).optional(),
-    status: z.enum(['scheduled', 'done', 'cancelled', 'no_show']).optional(),
+    status: z.enum(APPT_STATUSES).optional(),
   }).strict()).max(500).optional(),
 }).strict()
 
@@ -208,7 +212,7 @@ export const starterSchema = z.object({
   activityTypes: z.array(activityTypeSchema).max(30).optional(),
   measures: z.array(measureDefSchema.omit({ archived: true })).max(MAX_ACTIVE_MEASURES).optional(),
   noteFormats: z.array(z.object({ id: key, name: text(60), fields: z.array(text(60)).min(1).max(8) }).strict()).max(20).optional(),
-  documentTemplates: z.array(z.object({ name: text(200), content: z.string().max(200_000) }).strict()).max(50).optional(),
+  documentTemplates: z.array(z.object({ name: text(200), content: z.string().check(textLength({ max: 200_000 })) }).strict()).max(50).optional(),
   sampleData: sampleDataSchema.optional(),
   helpTips: z.array(z.object({ title: text(100), body: text(2000) }).strict()).max(20).optional(),
   /** Suggested dashboard cards, in order (W10 §4); applied with the feature switches */

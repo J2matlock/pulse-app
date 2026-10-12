@@ -22,6 +22,8 @@ vi.mock('@tiptap/react', async () => {
   const React = await import('react')
   const editor = {
     isActive: () => false,
+    // tiptap 3 emits 'update' from setEditable unless told not to (R4-01)
+    setEditable: (_editable: boolean, emitUpdate = true) => { if (emitUpdate) editorState.onUpdate?.({ editor }) },
     chain: () => ({ focus: () => ({ toggleBold: () => ({ run: () => {} }) }) }),
     commands: { setContent: () => {} },
     getHTML: () => editorState.html,
@@ -42,6 +44,7 @@ import { ScratchPad } from '../../../../src/renderer/components/profile/ScratchP
 import { clearAllNoteDrafts, getNoteDraft } from '../../../../src/renderer/utils/noteDrafts'
 import { pulseEvents } from '../../../../src/renderer/events'
 import { setWords } from '../../vocabFixture'
+import { flushEffects } from '../../renderSettled'
 
 beforeEach(() => {
   setWords()
@@ -80,6 +83,7 @@ describe('note drafts', () => {
 describe('scratch pad saves', () => {
   it('saves pending typing to its own record when the pad goes away', async () => {
     const { unmount } = render(<ScratchPad rowId={5} />)
+    await flushEffects() // the pad is read-only until the saved notes are in
     editorState.html = '<p>call landlord</p>'
     act(() => { editorState.onUpdate!({ editor: { state: { selection: { from: 0 }, doc: { textBetween: () => '' } }, getHTML: () => editorState.html } }) })
     unmount()
@@ -88,6 +92,7 @@ describe('scratch pad saves', () => {
 
   it('saves pending typing before the app locks', async () => {
     render(<ScratchPad rowId={5} />)
+    await flushEffects()
     editorState.html = '<p>before lock</p>'
     act(() => { editorState.onUpdate!({ editor: { state: { selection: { from: 0 }, doc: { textBetween: () => '' } }, getHTML: () => editorState.html } }) })
     act(() => { pulseEvents.emit('app:locking') })
@@ -101,6 +106,7 @@ describe('scratch pad saves', () => {
         ? Promise.resolve({ ok: false, error: 'READ_ONLY' })
         : Promise.resolve({ ok: true, data: null }))
       render(<ScratchPad rowId={5} />)
+      await flushEffects()
       editorState.html = '<p>lost?</p>'
       act(() => { editorState.onUpdate!({ editor: { state: { selection: { from: 0 }, doc: { textBetween: () => '' } }, getHTML: () => editorState.html } }) })
       await act(async () => { await vi.advanceTimersByTimeAsync(2100) })

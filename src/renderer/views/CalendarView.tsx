@@ -8,6 +8,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { IPC } from '../../shared/ipc-channels'
 import type { Appointment } from '../../shared/appointments'
+import type { DeadlineState } from '../../shared/deadlineEngine'
 import { addDays, addMonths } from '../../shared/appointments'
 import { CALENDAR_LAYERS, formatTime, longDay, monthGrid, monthTitle, sameMonth, startOfWeek, type CalendarItem, type CalendarLayer } from '../../shared/calendar'
 import { useToday } from '../hooks/useToday'
@@ -31,11 +32,14 @@ const AGENDA_DAYS = 31
 const MAX_IN_CELL = 3
 
 const LAYER_LABELS: Record<CalendarLayer, string> = { appointments: '{Appointment:many}', deadlines: 'Deadlines', followups: 'Follow-ups', tasks: 'Tasks' }
-const STATE_CLASS: Record<string, string> = {
+const OK_CLASS = 'bg-green-100 text-green-900 dark:bg-green-900/40 dark:text-green-100 border-green-300 dark:border-green-700'
+const STATE_CLASS: Record<DeadlineState, string> = {
   overdue: 'bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-100 border-red-300 dark:border-red-700',
   due: 'bg-orange-100 text-orange-900 dark:bg-orange-900/40 dark:text-orange-100 border-orange-300 dark:border-orange-700',
   soon: 'bg-yellow-100 text-yellow-900 dark:bg-yellow-900/40 dark:text-yellow-100 border-yellow-300 dark:border-yellow-700',
-  ok: 'bg-green-100 text-green-900 dark:bg-green-900/40 dark:text-green-100 border-green-300 dark:border-green-700',
+  ok: OK_CLASS,
+  // Not shown on the calendar today; listed so a new state has to pick a colour
+  none: OK_CLASS, paused: OK_CLASS, done: OK_CLASS,
 }
 const APPT_CLASS: Record<Appointment['status'], string> = {
   scheduled: 'bg-blue-100 text-blue-900 dark:bg-blue-900/50 dark:text-blue-100 border-blue-300 dark:border-blue-700',

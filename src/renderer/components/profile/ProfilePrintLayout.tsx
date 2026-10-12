@@ -6,7 +6,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useGridStore } from '../../stores/gridStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { rlog } from '../../utils/rendererLogger'
-import { parseDbTimestamp } from '../../../shared/dates'
+import { parseDbTimestamp, ymdLocalDate } from '../../../shared/dates'
 import { PRODUCT_NAME } from '../../../shared/constants'
 import { deadlineSummary } from '../../../shared/deadlineSummary'
 import { htmlToText } from '../../../shared/htmlText'
@@ -180,7 +180,7 @@ export function ProfilePrintLayout({ rowId, gridId, clientName, row, sections, o
                 {item.title}
                 {item.due_date && (
                   <span style={{ color: '#555', marginLeft: 8 }}>
-                    (due {(() => { const [y = NaN, m = NaN, d = NaN] = item.due_date!.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString() })()})
+                    (due {ymdLocalDate(item.due_date!).toLocaleDateString()})
                   </span>
                 )}
               </li>

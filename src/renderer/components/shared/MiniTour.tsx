@@ -5,8 +5,8 @@
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { ArrowRight, ArrowLeft, X, Sparkles } from 'lucide-react'
-import type { TourStep } from './TourOverlay'
-import { computeTooltipPosition } from './TourOverlay'
+import type { TourStep } from './tourSteps'
+import { computeTooltipPosition } from './tourPosition'
 import { DEBOUNCE_CELL_SAVE, DEBOUNCE_RESIZE } from '../../../shared/constants'
 import { useVocab } from '../../hooks/useVocab'
 

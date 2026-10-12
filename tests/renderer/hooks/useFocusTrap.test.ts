@@ -48,6 +48,17 @@ describe('useFocusTrap', () => {
     expect(document.activeElement).toBe(buttons[0])
   })
 
+  it('keeps focus that moved inside the dialog before the first frame (autoFocus field, a click)', () => {
+    const ref = { current: container }
+    renderHook(() => useFocusTrap(ref as React.RefObject<HTMLElement | null>, true))
+    const buttons = container.querySelectorAll('button')
+    ;(buttons[2] as HTMLButtonElement).focus()
+
+    vi.advanceTimersByTime(20)
+
+    expect(document.activeElement).toBe(buttons[2])
+  })
+
   it('does nothing when not active', () => {
     const outsideBtn = document.createElement('button')
     document.body.appendChild(outsideBtn)

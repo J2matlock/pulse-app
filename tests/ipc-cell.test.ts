@@ -2,7 +2,7 @@
  * IPC Cell Handler Tests — tests all CELL_*, CELL_FORMAT_* handlers.
  */
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'vitest'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
 
@@ -91,6 +91,12 @@ describe('CELL_UPDATE', () => {
     expect(r.data).toHaveProperty('sysLogId')
   })
 
+  it('returns the value the save replaced, for the undo step of a record not in the open list (F-016)', async () => {
+    expect(((await invoke(IPC.CELL_UPDATE, rowId, columnId, 'A')) as any).data.previous).toBeNull()
+    expect(((await invoke(IPC.CELL_UPDATE, rowId, columnId, 'B')) as any).data.previous).toBe('A')
+    expect(((await invoke(IPC.CELL_UPDATE, rowId, columnId, null)) as any).data.previous).toBe('B')
+  })
+
   it('a restored database starts with fresh column types, even for a reused column id (bug sweep S4)', async () => {
     testDb.db.prepare("UPDATE columns SET column_type = 'link' WHERE id = ?").run(columnId)
     expect((await invoke(IPC.CELL_UPDATE, rowId, columnId, 'x') as any).ok).toBe(false)
@@ -134,6 +140,28 @@ describe('CELL_UPDATE', () => {
     const r = await invoke(IPC.CELL_UPDATE, rowId, columnId, 'Logged value') as any
     expect(r.ok).toBe(true)
     expect(r.data.sysLogId).toBeTypeOf('number')
+  })
+
+  it('edit, undo, redo on a logged column leaves one live note: undo and redo write none (F-028)', async () => {
+    testDb.db.prepare("UPDATE columns SET name = 'Status', config = ? WHERE id = ?").run(JSON.stringify({ log_changes: true }), columnId)
+    const { invalidateColumnCache } = await import('../src/main/ipc/ipc-cell')
+    invalidateColumnCache(columnId)
+    await invoke(IPC.CELL_UPDATE, rowId, columnId, 'Open')
+    const edit = await invoke(IPC.CELL_UPDATE, rowId, columnId, 'Closed') as { ok: true; data: { sysLogId: number } }
+    const live = () => (testDb.db.prepare("SELECT content FROM case_log WHERE row_id = ? AND log_type = 'system' AND voided_at IS NULL ORDER BY id").all(rowId) as Array<{ content: string }>).map(r => r.content)
+    expect(live()).toEqual(['Status set to "Open"', 'Status changed to "Closed"'])
+    // Undo: the edit's note is voided (its side effect) and the old value goes back silently
+    testDb.db.prepare("UPDATE case_log SET voided_at = datetime('now') WHERE id = ?").run(edit.data.sysLogId)
+    const undo = await invoke(IPC.CELL_UPDATE, rowId, columnId, 'Open', { silent: true }) as { ok: true; data: { sysLogId: number | null } }
+    expect(undo.data.sysLogId).toBeNull()
+    expect(live()).toEqual(['Status set to "Open"'])
+    // Redo: the note comes back and the new value goes in silently
+    testDb.db.prepare('UPDATE case_log SET voided_at = NULL WHERE id = ?').run(edit.data.sysLogId)
+    await invoke(IPC.CELL_UPDATE, rowId, columnId, 'Closed', { silent: true })
+    expect(live()).toEqual(['Status set to "Open"', 'Status changed to "Closed"'])
+    // Field history still has every change (the first value, the edit, the undo, the redo)
+    const history = (await invoke(IPC.CELL_GET_HISTORY, rowId, columnId) as { data: unknown[] }).data
+    expect(history).toHaveLength(4)
   })
 
   it('logs a cleared date as cleared, and a Mark done as a tagged completion (G-16, L-22)', async () => {
@@ -247,6 +275,22 @@ describe('CELL_HISTORY_COMPACT', () => {
     const r = await invoke(IPC.CELL_HISTORY_COMPACT, 1) as any
     expect(r.ok).toBe(true)
     expect(typeof r.data).toBe('number')
+  })
+
+  it('keeps N calendar months at a month end, not 3 days fewer (Q-032)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date(2026, 4, 31, 12, 0, 0)) // May 31, local noon
+      testDb.db.prepare(`INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, 'v', datetime('now'))`).run(rowId, columnId)
+      const cellId = (testDb.db.prepare('SELECT id FROM cells WHERE row_id = ? AND column_id = ?').get(rowId, columnId) as { id: number }).id
+      const add = testDb.db.prepare(`INSERT INTO cell_history (cell_id, row_id, column_id, old_value, new_value, changed_at) VALUES (?, ?, ?, 'a', 'b', ?)`)
+      add.run(cellId, rowId, columnId, '2026-03-01 12:00:00') // inside "the last 3 months" (Feb 28 on)
+      add.run(cellId, rowId, columnId, '2026-02-20 12:00:00') // older
+      expect(await invoke(IPC.CELL_HISTORY_COMPACT, 3)).toEqual({ ok: true, data: 1 })
+      expect(testDb.db.prepare('SELECT changed_at FROM cell_history WHERE column_id = ?').all(columnId)).toEqual([{ changed_at: '2026-03-01 12:00:00' }])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('fails for non-integer retention', async () => {

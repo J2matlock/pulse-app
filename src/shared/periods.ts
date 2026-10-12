@@ -3,9 +3,11 @@
  * quarter" (plans/generalization/W03-activity.md §4). All in local time.
  */
 import { localDateString } from './dates'
+import { unhandledCase } from './assertNever'
 
-export type Period = 'week' | 'month' | 'quarter' | 'year'
-export const PERIODS: readonly Period[] = ['week', 'month', 'quarter', 'year']
+/** Every period, shortest first. The union is derived from it. */
+export const PERIODS = ['week', 'month', 'quarter', 'year'] as const
+export type Period = typeof PERIODS[number]
 export type WeekStart = 'sunday' | 'monday'
 
 /** Most a requirement can ask for in one period */
@@ -38,32 +40,40 @@ function weekNumber(weekStartDay: Date): { year: number; week: number } {
 export function periodRange(period: Period, ref: Date, weekStart: WeekStart = 'sunday'): PeriodRange {
   const y = ref.getFullYear()
   const m = ref.getMonth()
-  if (period === 'week') {
-    const offset = (ref.getDay() - (weekStart === 'monday' ? 1 : 0) + 7) % 7
-    const start = new Date(y, m, ref.getDate() - offset)
-    const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6)
-    const { year, week } = weekNumber(start)
-    return {
-      period, start: localDateString(start), end: localDateString(end),
-      key: `${year}-W${String(week).padStart(2, '0')}`,
-      label: `Week of ${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+  switch (period) {
+    case 'week': {
+      const offset = (ref.getDay() - (weekStart === 'monday' ? 1 : 0) + 7) % 7
+      const start = new Date(y, m, ref.getDate() - offset)
+      const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6)
+      const { year, week } = weekNumber(start)
+      return {
+        period, start: localDateString(start), end: localDateString(end),
+        key: `${year}-W${String(week).padStart(2, '0')}`,
+        label: `Week of ${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+      }
     }
-  }
-  if (period === 'month') {
-    return {
-      period, start: localDateString(new Date(y, m, 1)), end: localDateString(new Date(y, m + 1, 0)),
-      key: `${y}-${String(m + 1).padStart(2, '0')}`,
-      label: ref.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+    case 'month':
+      return {
+        period, start: localDateString(new Date(y, m, 1)), end: localDateString(new Date(y, m + 1, 0)),
+        key: `${y}-${String(m + 1).padStart(2, '0')}`,
+        label: ref.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+      }
+    case 'quarter': {
+      const q = Math.floor(m / 3)
+      return {
+        period, start: localDateString(new Date(y, q * 3, 1)), end: localDateString(new Date(y, q * 3 + 3, 0)),
+        key: `${y}-Q${q + 1}`, label: `Q${q + 1} ${y}`,
+      }
     }
+    case 'year':
+      return { period, start: `${y}-01-01`, end: `${y}-12-31`, key: String(y), label: String(y) }
+    default:
+      // A period added to PERIODS without a case fails typecheck. Stored
+      // periods are checked with isPeriod() first; anything else counts by
+      // month, the default period, rather than over a whole year.
+      unhandledCase(period)
+      return periodRange('month', ref, weekStart)
   }
-  if (period === 'quarter') {
-    const q = Math.floor(m / 3)
-    return {
-      period, start: localDateString(new Date(y, q * 3, 1)), end: localDateString(new Date(y, q * 3 + 3, 0)),
-      key: `${y}-Q${q + 1}`, label: `Q${q + 1} ${y}`,
-    }
-  }
-  return { period, start: `${y}-01-01`, end: `${y}-12-31`, key: String(y), label: String(y) }
 }
 
 /** Whole days after `today` until the period ends (0 on its last day). */

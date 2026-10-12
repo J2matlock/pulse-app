@@ -1,7 +1,9 @@
 import React, { useState } from 'react'
 import { CheckCircle2, ChevronDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { classifyDeadline, computeEffectiveDeadline, formatDeadlineTooltip } from '../../utils/deadlineCalc'
+import { computeEffectiveDeadline, formatDeadlineTooltip } from '../../utils/deadlineCalc'
+import { classifyDeadline, daysAwayLabel, daysOverdueLabel } from '../../../shared/deadlineTiles'
+import { TIER_TEXT } from '../../utils/dueTiers'
 import { resolveAlertColor } from '../../utils/alertColors'
 import { completeDeadlines, startsNextCycle, isOneOffDeadline } from './completeDeadline'
 import { OneOffDoneDialog, type OneOffChoice } from './OneOffDoneDialog'
@@ -13,6 +15,7 @@ import { ExtendDeadlineDialog } from './ExtendDeadlineDialog'
 import { extendDeadline, removeExtension } from './extendDeadline'
 import { ymdToDate, isUsedUp } from '../../../shared/deadlineEngine'
 import { useVocab } from '../../hooks/useVocab'
+import { shortDate } from '../../../shared/dates'
 
 export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, onToggleSelect }: {
   deadline: ExtendedDeadlineInfo
@@ -39,17 +42,13 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
   const usedUp = isUsedUp({ state: deadline.state, daysUntil })
   const bucket = usedUp ? 'overdue' : classifyDeadline(daysUntil)
 
+  // A used-up quota is late whatever its end date: its label, or "N days overdue"
   const urgencyLabel =
-    usedUp && deadline.label ? deadline.label :
-    bucket === 'overdue'    ? `${Math.abs(daysUntil)} day${Math.abs(daysUntil) === 1 ? '' : 's'} overdue` :
-    bucket === 'today'      ? 'Due today' :
-    `${daysUntil} day${daysUntil === 1 ? '' : 's'}`
+    usedUp ? deadline.label || daysOverdueLabel(daysUntil) :
+    daysAwayLabel(daysUntil)
 
-  const urgencyColor =
-    bucket === 'overdue'   ? 'text-red-600 dark:text-red-400 font-semibold' :
-    bucket === 'today'     ? 'text-red-600 dark:text-red-400 font-semibold' :
-    bucket === 'this-week' ? 'text-orange-700 dark:text-orange-400' :
-    'text-yellow-700 dark:text-yellow-400'
+  // Deadlines further out than a month keep the this-month text color
+  const urgencyColor = TIER_TEXT[bucket === 'future' ? 'this-month' : bucket]
 
   const { className: alertBgClass, style: alertBgStyle } = threshold
     ? resolveAlertColor(threshold.bgClass)
@@ -58,18 +57,18 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
   const storedDateFormatted = (() => {
     try {
       const d = new Date(dateValue.includes('T') ? dateValue : `${dateValue}T00:00:00`)
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      return shortDate(d)
     } catch { return dateValue }
   })()
 
   const deadlineFormatted = (() => {
-    if (deadline.due) return ymdToDate(deadline.due).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    if (deadline.due) return shortDate(ymdToDate(deadline.due))
     if (!recurring) return storedDateFormatted
     try {
       // Calendar-day math (setDate) — adding raw milliseconds drifts across DST changes
       const eff = computeEffectiveDeadline(dateValue, ruleInterval)
       if (!eff) return storedDateFormatted
-      return eff.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      return shortDate(eff)
     } catch { return storedDateFormatted }
   })()
 
@@ -108,7 +107,7 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
       <div className={`w-1 self-stretch rounded-full ${
         bucket === 'overdue' || bucket === 'today' ? 'bg-red-500' :
         bucket === 'this-week' ? 'bg-orange-400' :
-        bucket === 'this-month' ? 'bg-yellow-400' : 'bg-slate-200'
+        bucket === 'this-month' ? 'bg-yellow-400' : 'bg-slate-200 dark:bg-slate-600'
       }`} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">

@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { toYmd, ymdToDate, dateToYmd, daysBetween, addDays } from '../src/shared/ymd'
-import { localDateString, localDateFromToday } from '../src/shared/dates'
+import { localDateString, localDateFromToday, ymdLocalDate, shortYmd, shortDate } from '../src/shared/dates'
 import { addRepeats } from '../src/shared/recurrence'
 import { minutesBetween, addMinutes } from '../src/shared/appointments'
 import { sequenceStepDue, evaluate, engineRuleFrom, type SequenceConfig } from '../src/shared/deadlineEngine'
@@ -142,5 +142,20 @@ describe('days from today across daylight saving (AUDIT-118)', () => {
       expect(daysBetween(day, localDateFromToday(1))).toBe(1)
       expect(daysBetween(day, localDateFromToday(30))).toBe(30)
     }
+  })
+})
+
+describe('short date labels (' + (process.env.TZ ?? 'default') + ')', () => {
+  it('read a calendar date as that local day, in US English', () => {
+    expect(shortYmd('2026-10-14')).toBe('Oct 14, 2026')
+    expect(shortYmd('2028-02-29')).toBe('Feb 29, 2028')
+    expect(shortDate(new Date(2026, 0, 1))).toBe('Jan 1, 2026')
+    expect(dateToYmd(ymdLocalDate('2026-03-08'))).toBe('2026-03-08')
+    for (const d of ['2024-01-01', '2026-11-01', '2027-12-31']) expect(dateToYmd(ymdLocalDate(d))).toBe(d)
+  })
+
+  it('give an Invalid Date for a value that is not a calendar date', () => {
+    expect(isNaN(ymdLocalDate('soon').getTime())).toBe(true)
+    expect(shortYmd('soon')).toBe('Invalid Date')
   })
 })

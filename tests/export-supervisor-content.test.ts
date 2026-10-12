@@ -67,6 +67,25 @@ async function summaryCsv(): Promise<string> {
 }
 
 describe('summary report', () => {
+  it('puts a hidden column chosen in the dialog in the roster (Q-034)', async () => {
+    const [first, second] = grid.columnIds as [number, number]
+    testDb.db.prepare("UPDATE columns SET name = 'Shown heading' WHERE id = ?").run(first)
+    testDb.db.prepare("UPDATE columns SET name = 'Hidden heading', is_visible = 0 WHERE id = ?").run(second)
+    const destPath = join(testDb.tmpDir, 'hidden.csv')
+    await exportSupervisorReport({
+      gridId: grid.gridId, columnIds: [first, second], dateRange: { start: localDateFromToday(-30), end: today },
+      includeActivityLog: false, includeSystemActivity: false, includeTaskSummary: false, format: 'csv', destPath,
+    })
+    const csv = readFileSync(destPath, 'utf8')
+    expect(csv).toContain('Shown heading')
+    expect(csv).toContain('Hidden heading')
+  })
+
+  it('leaves hidden columns out when none are chosen', async () => {
+    testDb.db.prepare("UPDATE columns SET name = 'Hidden heading', is_visible = 0 WHERE id = ?").run(grid.columnIds[1])
+    expect(await summaryCsv()).not.toContain('Hidden heading')
+  })
+
   it('labels the period with the days chosen, west of UTC too (S5)', async () => {
     const originalTz = process.env.TZ
     process.env.TZ = 'America/New_York'
@@ -83,6 +102,19 @@ describe('summary report', () => {
       if (originalTz === undefined) delete process.env.TZ
       else process.env.TZ = originalTz
     }
+  })
+
+  it('writes every date column in the format chosen in Settings (Q-076)', async () => {
+    testDb.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('date_format', 'us')").run()
+    testDb.db.prepare("INSERT INTO caseload_tasks (grid_id, title, is_completed, completed_at, due_date, position) VALUES (?, 'Dated task', 1, ?, '2026-03-05', 0)")
+      .run(grid.gridId, new Date().toISOString())
+    testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type) VALUES (?, 'Dated note', 'note')").run(grid.rowIds[0])
+    const [y, m, d] = today.split('-')
+    const us = `${m}/${d}/${y}`
+    const lines = (await summaryCsv()).split('\r\n')
+    expect(lines.find(l => l.startsWith('Dated task'))).toBe(`Dated task,normal,,03/05/2026,${us}`)
+    expect(lines.find(l => l.includes('Dated note'))!.startsWith(`${us},`)).toBe(true)
+    expect(lines.filter(l => l.includes(today))).toEqual([])
   })
 
   it('counts a task finished today, when the period ends today', async () => {

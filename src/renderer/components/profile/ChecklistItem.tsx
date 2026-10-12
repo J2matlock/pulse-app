@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useId } from 'react'
 import { GripVertical, Trash2, Calendar, X, Pencil, Repeat, AlertTriangle } from 'lucide-react'
 import { relativeTime } from '../../utils/relativeTime'
 import { useSortable } from '@dnd-kit/sortable'
@@ -6,6 +6,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import type { ChecklistItem as ChecklistItemType, ChecklistPriority } from '../../../shared/types'
 import { dueDateBadge } from '../../views/tasks/taskHelpers'
+import { useToday } from '../../hooks/useToday'
 import { parseRepeatRule, describeRepeat } from '../../../shared/recurrence'
 
 const PRIORITY_CONFIG: Record<ChecklistPriority, { label: string; dot: string; badge: string }> = {
@@ -30,8 +31,10 @@ function ChecklistEditDialog({ item, onSave, onClose }: {
   const [recurInterval, setRecurInterval] = useState(1)
   const titleRef = useRef<HTMLInputElement>(null)
   const trapRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
 
-  useFocusTrap(trapRef, true)
+  // Escape closes from anywhere in the dialog, not only from the text boxes
+  useFocusTrap(trapRef, true, { onEscape: onClose })
   useEffect(() => { titleRef.current?.focus() }, [])
 
   useEffect(() => {
@@ -65,8 +68,8 @@ function ChecklistEditDialog({ item, onSave, onClose }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
          onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div ref={trapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Edit checklist item</h2>
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg p-6 space-y-4">
+        <h2 id={titleId} className="text-lg font-semibold text-slate-800 dark:text-slate-100">Edit checklist item</h2>
 
         {/* Title */}
         <div>
@@ -78,7 +81,7 @@ function ChecklistEditDialog({ item, onSave, onClose }: {
             ref={titleRef}
             value={title}
             onChange={e => setTitle(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose() }}
+            onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
             className="input w-full"
             placeholder="What needs to be done?"
             style={{ fontSize: 15 }}
@@ -126,7 +129,7 @@ function ChecklistEditDialog({ item, onSave, onClose }: {
               type="date"
               value={dueDate}
               onChange={e => setDueDate(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose() }}
+              onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
               className="input w-full"
               style={{ fontSize: 15 }}
             />
@@ -261,6 +264,8 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
     setEditingDate(false)
   }
 
+  // dueDateBadge reads the clock: re-render at midnight so "Due today" becomes "Overdue" (Q-031)
+  useToday()
   const dueDate = dueDateBadge(item.due_date)
   const repeatRule = parseRepeatRule(item.recurrence_rule)
   const priority = (item.priority ?? 'normal') as ChecklistPriority
@@ -391,7 +396,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
           ) : (
             <button
               onClick={() => { setDateDraft(''); setEditingDate(true) }}
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base
+              className="hit-44 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-base
                          text-slate-500 dark:text-slate-300 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100
                          hover:bg-slate-200 dark:hover:bg-slate-600 transition-opacity focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
             >
@@ -412,7 +417,7 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
           <div className="relative" ref={priorityMenuRef}>
             <button
               onClick={() => setShowPriorityMenu(prev => !prev)}
-              className={`px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity
+              className={`hit-44 px-1.5 py-0.5 rounded-sm text-base font-medium transition-opacity
                          ${priorityCfg.badge}
                          ${priority === 'normal' ? 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 group-focus-within:opacity-100' : ''} focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500`}
               title="Set priority"

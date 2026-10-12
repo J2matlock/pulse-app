@@ -58,6 +58,12 @@ describe('calendar export', () => {
     expect(ics).toContain('TRIGGER:-PT15H')
     expect(ics.split('\r\n').every(l => Buffer.byteLength(l) <= 75)).toBe(true)
   })
+
+  it('escapes a lone CR, so a name can\'t start a new property line (Q-078)', () => {
+    const ics = buildIcs([{ uid: 'x@pulse', date: '2026-03-31', summary: 'A\rLOCATION:x\nB\r\nC' }], new Date('2026-03-01T12:00:00Z'))
+    expect(ics).toContain('SUMMARY:A\\nLOCATION:x\\nB\\nC\r\n')
+    expect(ics.replace(/\r\n/g, '')).not.toMatch(/[\r\n]/)
+  })
 })
 
 describe('appointments in the calendar file (W07 §7)', () => {

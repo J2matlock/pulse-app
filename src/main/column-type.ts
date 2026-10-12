@@ -8,10 +8,11 @@ import { getDb } from './database'
 import { word } from './vocab'
 import { setCellWithHistory } from './cell-write'
 import { keepSamplesUntouched } from './sample-marks'
-import { parseDate } from '../shared/parseDate'
+import { parseDate, looksLikeBirthColumn, detectDateOrder, type ParseDateOptions } from '../shared/parseDate'
 import { CHANGEABLE_TYPES } from '../shared/columnTypes'
 import { cellText } from '../shared/cellText'
 import { canNameRecords } from '../shared/types'
+import { NOT_TRASHED_ROW } from '../shared/liveRecords'
 
 export class ColumnTypeError extends Error {}
 
@@ -25,7 +26,7 @@ const STATUS_COLORS = ['#22c55e', '#3b82f6', '#eab308', '#f97316', '#ef4444', '#
  * the old type's stored form is read as the text it shows first, so tags
  * become "urgent, new" (not ["urgent","new"]) and a checkbox "Yes" or "No".
  */
-export function convertValue(value: string, to: string, from?: string, dateOrder: 'mdy' | 'dmy' = 'mdy'): string | null {
+export function convertValue(value: string, to: string, from?: string, dateOrder: 'mdy' | 'dmy' = 'mdy', dateOptions: ParseDateOptions = {}): string | null {
   const shown = from && from !== to && STORED_FORM_TYPES.has(from) ? cellText(from, value) : value
   const v = shown.trim()
   if (!v) return ''
@@ -35,7 +36,7 @@ export function convertValue(value: string, to: string, from?: string, dateOrder
       const n = Number(v.replace(/[$,\s]/g, ''))
       return isNaN(n) ? null : String(n)
     }
-    case 'date': return parseDate(v, dateOrder)
+    case 'date': return parseDate(v, dateOrder, dateOptions)
     case 'checkbox': {
       const l = v.toLowerCase()
       if (['true', 'yes', 'y', '1', 'x', '✓'].includes(l)) return 'true'
@@ -59,17 +60,28 @@ function savedDateOrder(): 'mdy' | 'dmy' {
   return v === 'eu' ? 'dmy' : 'mdy'
 }
 
+/**
+ * How a column's values are read as dates, as Import reads them (F-027): the
+ * order from the whole column (one 25/03/2026 makes 04/05/2026 day first),
+ * Settings deciding only what the column doesn't, and a birthday column's
+ * two-digit years never in the future ("DOB" 3/15/40 is 1940).
+ */
+function dateReading(col: Col, values: string[]): { order: 'mdy' | 'dmy'; options: ParseDateOptions } {
+  return { order: detectDateOrder(values, savedDateOrder()), options: { birth: looksLikeBirthColumn(col.name) } }
+}
+
 interface Col { id: number; grid_id: number; name: string; column_type: string; config: string | null; is_name_column: number }
 
-function load(columnId: number, to: string): { col: Col; cells: Array<{ row_id: number; value: string }> } {
+function load(columnId: number, to: string): { col: Col; cells: Array<{ row_id: number; value: string; live: number }> } {
   const db = getDb()
   const col = db.prepare('SELECT id, grid_id, name, column_type, config, is_name_column FROM columns WHERE id = ?').get(columnId) as Col | undefined
   if (!col) throw new ColumnTypeError('That column no longer exists.')
   if (col.is_name_column === 1 && !canNameRecords(to)) throw new ColumnTypeError(`This column names the ${word('record', { many: true }, col.grid_id)}, so it can't become that type. Choose another name column first.`)
   if (!CHANGEABLE_TYPES.has(col.column_type)) throw new ColumnTypeError("This kind of column can't be changed to another type.")
   if (!CHANGEABLE_TYPES.has(to)) throw new ColumnTypeError("A column can't be changed to that type. Add a new column instead.")
-  const cells = db.prepare(`SELECT c.row_id, c.value FROM cells c JOIN rows r ON r.id = c.row_id
-    WHERE c.column_id = ? AND c.value IS NOT NULL AND TRIM(c.value) != '' ORDER BY r.position, r.id`).all(columnId) as Array<{ row_id: number; value: string }>
+  // Records in the Trash are converted too (so a restore still fits), but not counted or offered as choices
+  const cells = db.prepare(`SELECT c.row_id, c.value, (${NOT_TRASHED_ROW}) AS live FROM cells c JOIN rows r ON r.id = c.row_id
+    WHERE c.column_id = ? AND c.value IS NOT NULL AND TRIM(c.value) != '' ORDER BY r.position, r.id`).all(columnId) as Array<{ row_id: number; value: string; live: number }>
   return { col, cells }
 }
 
@@ -77,9 +89,10 @@ export interface TypePreview { total: number; clean: number; examples: string[] 
 
 /** How many filled-in values fit the new type, and a few that don't */
 export function previewTypeChange(columnId: number, to: string): TypePreview {
-  const { col, cells } = load(columnId, to)
-  const order = savedDateOrder()
-  const bad = cells.filter(c => convertValue(c.value, to, col.column_type, order) === null)
+  const { col, cells: all } = load(columnId, to)
+  const cells = all.filter(c => c.live === 1)
+  const { order, options } = dateReading(col, cells.map(c => c.value))
+  const bad = cells.filter(c => convertValue(c.value, to, col.column_type, order, options) === null)
   return { total: cells.length, clean: cells.length - bad.length, examples: [...new Set(bad.map(c => c.value))].slice(0, 5) }
 }
 
@@ -89,15 +102,15 @@ export function changeColumnType(columnId: number, to: string): TypeChangeSnapsh
   const db = getDb()
   const { col, cells } = load(columnId, to)
   if (col.column_type === to) return { previousType: to, previousConfig: col.config, changed: [] }
-  const order = savedDateOrder()
+  const { order, options } = dateReading(col, cells.filter(c => c.live === 1).map(c => c.value))
   // Converted values aren't edits to the list's sample entries
   return db.transaction((): TypeChangeSnapshot => keepSamplesUntouched(db, col.grid_id, () => {
     const changed: TypeChangeSnapshot['changed'] = []
     const after: string[] = []
     for (const c of cells) {
-      const v = convertValue(c.value, to, col.column_type, order)
+      const v = convertValue(c.value, to, col.column_type, order, options)
       if (v !== null && v !== c.value) { setCellWithHistory(c.row_id, columnId, v); changed.push({ rowId: c.row_id, old: c.value }) }
-      after.push(v ?? c.value)
+      if (c.live === 1) after.push(v ?? c.value)
     }
     let cfg: Record<string, unknown> = {}
     try { cfg = JSON.parse(col.config || '{}') as Record<string, unknown> } catch { cfg = {} }

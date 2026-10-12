@@ -11,14 +11,20 @@ type PulseEvents = {
   'sample-data:changed': undefined
   /** Records were archived or reactivated (Undo and Redo included), so what's due changed */
   'records:archive-changed': undefined
+  /** Records went to the Trash; without ids (a whole list), every recent record is checked */
+  'records:trashed': { rowIds?: number[] }
   'contact-req:changed': undefined
   'note-tracking:changed': undefined
   /** Open a form to fill in (W08): a new record, or this one */
   'form:fill': { formId: number; gridId: number; rowId?: number }
   /** The app is about to lock: save anything pending while the database is still open */
   'app:locking': undefined
+  /** The app locked: stores holding records, notes or contacts drop them (they reload on unlock) */
+  'app:locked': undefined
   /** A cell was saved with a new value (not by undo) */
   'cell:changed': { rowId: number; columnId: number; from: string | null; to: string | null }
+  /** A cell was saved (Undo and Redo included) */
+  'cell:saved': { rowId: number; columnId: number; value: string | null }
   /** Open a column's deadline rule picker (from a "Choose a rule" cell) */
   'column:choose-rule': { columnId: number }
   /** Change a column's width from its menu, for keyboard users (AUDIT-150) */

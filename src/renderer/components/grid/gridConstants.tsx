@@ -2,7 +2,8 @@ import React from 'react'
 
 export const ROW_HEIGHTS = { compact: 44, comfortable: 44, spacious: 52 } as const
 export const HANDLE_WIDTH = 32  // Width of the row drag-handle column
-export const PROFILE_BTN_WIDTH = 64  // Width of per-row open + star buttons column
+// Per-row open + star buttons: two 28px buttons 16px apart, so each gets its own 44px click area (Q-103)
+export const PROFILE_BTN_WIDTH = 88
 /** The built-in Tags column: a record's tags from its page (G-37) */
 export const TAGS_COL_WIDTH = 160
 

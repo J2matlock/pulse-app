@@ -130,40 +130,49 @@ export default function App(): React.ReactElement {
     )
   }
 
+  // Every screen below sits under AppMotionConfig, so motion animations before
+  // unlock (recovery key, password reset) follow reduced motion too.
   // First launch — no password set yet
   if (authState === 'needs-setup') {
     return (
-      <ErrorBoundary>
-        <PasswordSetupView />
-        <Toaster position="bottom-right" toastOptions={{ duration: 5500 }} />
-      </ErrorBoundary>
+      <AppMotionConfig>
+        <ErrorBoundary>
+          <PasswordSetupView />
+          <Toaster position="bottom-right" toastOptions={{ duration: 5500 }} />
+        </ErrorBoundary>
+      </AppMotionConfig>
     )
   }
 
   // Every subsequent launch — show lock screen
   if (authState === 'locked') {
     return (
-      <ErrorBoundary>
-        <LockScreenView />
-        <Toaster position="bottom-right" toastOptions={{ duration: 5500 }} />
-      </ErrorBoundary>
+      <AppMotionConfig>
+        <ErrorBoundary>
+          <LockScreenView />
+          <Toaster position="bottom-right" toastOptions={{ duration: 5500 }} />
+        </ErrorBoundary>
+      </AppMotionConfig>
     )
   }
 
   // Recovery session — force password reset before anything else
   if (authState === 'recovery') {
     return (
-      <ErrorBoundary>
-        <ResetPasswordAfterRecoveryDialog open={true} onComplete={() => setRecoverySession(false)} />
-        <Toaster position="bottom-right" toastOptions={{ duration: 5500 }} />
-      </ErrorBoundary>
+      <AppMotionConfig>
+        <ErrorBoundary>
+          <ResetPasswordAfterRecoveryDialog open={true} onComplete={() => setRecoverySession(false)} />
+          <Toaster position="bottom-right" toastOptions={{ duration: 5500 }} />
+        </ErrorBoundary>
+      </AppMotionConfig>
     )
   }
 
   // Onboarding wizard — shown once on first launch
   if (authState === 'onboarding') {
     return (
-      <ErrorBoundary>
+      <AppMotionConfig>
+        <ErrorBoundary>
           <SetupView
             start={setupStart}
             onCancel={setupStart === 'welcome' ? undefined : completeOnboarding}
@@ -174,7 +183,8 @@ export default function App(): React.ReactElement {
             }}
           />
           <Toaster position="bottom-right" toastOptions={{ duration: 5500 }} />
-      </ErrorBoundary>
+        </ErrorBoundary>
+      </AppMotionConfig>
     )
   }
 

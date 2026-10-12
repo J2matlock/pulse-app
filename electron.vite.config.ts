@@ -1,10 +1,11 @@
 import { resolve } from 'path'
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 
+// Main and preload externalize package dependencies by default (electron-vite 4+, `build.externalizeDeps`).
+// Output stays CommonJS because package.json has no "type": "module" (electron-store 8 needs require).
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
     resolve: {
       alias: {
         '@shared': resolve('src/shared'),
@@ -12,9 +13,7 @@ export default defineConfig({
       }
     }
   },
-  preload: {
-    plugins: [externalizeDepsPlugin()]
-  },
+  preload: {},
   renderer: {
     resolve: {
       alias: {

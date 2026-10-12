@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import React from 'react'
 
@@ -7,6 +7,10 @@ import { AvailabilityBadge } from '../../../../src/renderer/components/contacts/
 import { setWords } from '../../vocabFixture'
 
 beforeEach(() => { setWords() })
+// Midday on a fixed day: "N days ago" counts calendar days, so a run near midnight
+// across a daylight-saving change would otherwise land a day off
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(2026, 5, 15, 12, 0, 0)) })
+afterEach(() => { vi.useRealTimers() })
 
 describe('AvailabilityBadge', () => {
   it('renders "Accepting" for accepting status', () => {
@@ -76,6 +80,19 @@ describe('AvailabilityBadge', () => {
     render(<AvailabilityBadge status="waitlist" checkedAt={checkedAt} />)
     const stalenessEl = screen.getByText(/Checked 50d ago/)
     expect(stalenessEl.className).toContain('text-amber-700')
+  })
+
+  it('counts calendar days: checked at 11pm, seen at 8am the next morning, is "yesterday" (A21a-08)', () => {
+    vi.setSystemTime(new Date(2026, 5, 16, 8, 0, 0))
+    render(<AvailabilityBadge status="accepting" checkedAt={new Date(2026, 5, 15, 23, 0, 0).toISOString()} />)
+    expect(screen.getByText('Checked yesterday')).toBeTruthy()
+  })
+
+  it('reads a database timestamp (UTC) as the local day it was', () => {
+    vi.setSystemTime(new Date(2026, 5, 16, 8, 0, 0))
+    const at = new Date(2026, 5, 16, 0, 30, 0).toISOString().replace('T', ' ').slice(0, 19)
+    render(<AvailabilityBadge status="accepting" checkedAt={at} />)
+    expect(screen.getByText('Checked today')).toBeTruthy()
   })
 
   it('shows "Checked today" for same-day', () => {

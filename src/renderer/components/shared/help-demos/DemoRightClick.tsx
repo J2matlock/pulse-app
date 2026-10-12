@@ -28,7 +28,7 @@ export function DemoRightClick() {
       <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Right-click context menu</div>
       <div className="relative" style={{ height: 180 }}>
         {/* Fake row */}
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-3 mt-6 flex gap-4" style={{ fontSize: 13 }}>
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-3 mt-6 flex gap-4" style={{ fontSize: 15 }}>
           <span className="text-slate-700 dark:text-slate-300 font-medium">Johnson, Maria</span>
           <span className="text-slate-500">Active</span>
           <span className="text-green-600 dark:text-green-400">Due: 03/15</span>
@@ -50,7 +50,7 @@ export function DemoRightClick() {
         {/* Context menu */}
         <div
           className="absolute left-[52%] top-[62%] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 min-w-[160px]"
-          style={{ animation: 'rcMenuIn 7s ease infinite', transformOrigin: 'top left', fontSize: 13 }}
+          style={{ animation: 'rcMenuIn 7s ease infinite', transformOrigin: 'top left', fontSize: 15 }}
         >
           {['Archive', `Duplicate ${t('record')}`, 'Color rules…', 'Move to…'].map(item => (
             <div key={item} className="px-3 py-1.5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">

@@ -1,0 +1,19 @@
+// The build and test config files. Vite loads them as ES modules, so they resolve like a bundler
+// (@vitejs/plugin-react 5 publishes its types only through package.json "exports").
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "types": ["node"]
+  },
+  "include": ["electron.vite.config.ts", "vitest.config.ts", "vitest.perf.config.ts"]
+}

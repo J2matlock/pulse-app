@@ -77,6 +77,7 @@ vi.mock('electron-store', () => {
 })
 
 let testDb: TestDb
+const migration = vi.hoisted(() => ({ failure: null as null | { version: number; error: string; timestamp: string } }))
 
 vi.mock('../src/main/database', async () => {
   const actual = await vi.importActual<typeof import('../src/main/database')>('../src/main/database')
@@ -88,7 +89,7 @@ vi.mock('../src/main/database', async () => {
     resolveDatabasePath: () => '/tmp/test.db',
     checkCloudSyncPath: () => null,
     getPortableDataDir: () => '/tmp/pulse-test-app',
-    getMigrationFailure: () => null,
+    getMigrationFailure: () => migration.failure,
     clearMigrationFailureFlag: () => {},
     cachedStmt: (_key: string, sql: string) => testDb.db.prepare(sql),
   }
@@ -177,15 +178,23 @@ describe('APP_GET_INFO', () => {
 })
 
 describe('APP_OPEN_EXTERNAL', () => {
-  it('opens http URLs', async () => {
-    const r = await invoke(IPC.APP_OPEN_EXTERNAL, 'http://example.com') as any
-    expect(r.ok).toBe(true)
-    expect(mockShellOpenExternal).toHaveBeenCalled()
+  it('opens Pulse\'s own https pages: source, releases, terms and privacy (F-035)', async () => {
+    for (const url of ['https://github.com/J2matlock/pulse-app', 'https://github.com/J2matlock/pulse-releases/releases/latest', 'https://www.baringasoft.com/terms.html', 'https://www.baringasoft.com/privacy.html']) {
+      mockShellOpenExternal.mockClear()
+      const r = await invoke(IPC.APP_OPEN_EXTERNAL, url) as any
+      expect(r.ok).toBe(true)
+      expect(mockShellOpenExternal).toHaveBeenCalledWith(url)
+    }
   })
 
-  it('opens https URLs', async () => {
-    const r = await invoke(IPC.APP_OPEN_EXTERNAL, 'https://example.com') as any
-    expect(r.ok).toBe(true)
+  it('refuses any other site, plain http, and lookalikes, so a compromised window can\'t send data out (F-035)', async () => {
+    mockShellOpenExternal.mockClear()
+    for (const url of ['https://evil.example/', 'https://example.com', 'http://github.com/J2matlock/pulse-app', 'https://github.com/someone-else/x',
+      'https://github.com@evil.example/J2matlock/', 'https://www.baringasoft.com.evil.example/', 'https://www.baringasoft.com:8443/x', `https://evil.example/?d=${'x'.repeat(100)}`]) {
+      const r = await invoke(IPC.APP_OPEN_EXTERNAL, url) as any
+      expect(r.ok).toBe(false)
+    }
+    expect(mockShellOpenExternal).not.toHaveBeenCalled()
   })
 
   it('rejects file:// URLs', async () => {
@@ -244,6 +253,13 @@ describe('APP_SHOW_FILE_DIALOG', () => {
     }) as any
     expect(r.ok).toBe(true)
     expect(mockDialogOpen).toHaveBeenCalled()
+  })
+
+  it('null options open a plain dialog instead of failing (Q-056)', async () => {
+    mockDialogOpen.mockResolvedValueOnce({ canceled: true, filePaths: [] })
+    expect((await invoke(IPC.APP_SHOW_FILE_DIALOG, null) as any).ok).toBe(true)
+    expect((mockDialogOpen.mock.calls.at(-1)![0] as any).properties).toEqual([])
+    expect((await invoke(IPC.APP_SHOW_SAVE_DIALOG, null) as any).ok).toBe(true)
   })
 
   it('strips unsafe dialog properties', async () => {
@@ -456,9 +472,29 @@ describe('APP_CHECK_FOR_UPDATES honours the setting in main (AUDIT-188) and stay
     const errorSpy = vi.spyOn(logger, 'error')
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('fetch failed'))
     try {
-      expect(await invoke(IPC.APP_CHECK_FOR_UPDATES, { manual: true })).toEqual({ ok: true, data: { available: false } })
+      // The button says it couldn't find out (F-036); nothing is logged as an error
+      expect(await invoke(IPC.APP_CHECK_FOR_UPDATES, { manual: true })).toEqual({ ok: true, data: { available: false, unreachable: true } })
       expect(errorSpy).not.toHaveBeenCalled()
     } finally { fetchSpy.mockRestore(); errorSpy.mockRestore() }
+  })
+
+  it('a manual check that can\'t reach the page or read it says so; the automatic one stays a plain "no update" (F-036)', async () => {
+    testDb.db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('onboarding_complete', '1')").run()
+    testDb.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('auto_update_check', 'true')").run()
+    const answers: Array<() => Promise<Response>> = [
+      async () => { throw new DOMException('The operation was aborted due to timeout', 'TimeoutError') },
+      async () => { throw Object.assign(new Error('aborted'), { name: 'AbortError' }) },
+      async () => new Response('busy', { status: 503 }),
+      async () => new Response('not json', { status: 200 }),
+      async () => new Response(JSON.stringify({ notes: 'no version' }), { status: 200 }),
+    ]
+    for (const answer of answers) {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(answer)
+      try {
+        expect(await invoke(IPC.APP_CHECK_FOR_UPDATES, { manual: true })).toEqual({ ok: true, data: { available: false, unreachable: true } })
+        expect(await invoke(IPC.APP_CHECK_FOR_UPDATES)).toEqual({ ok: true, data: { available: false } })
+      } finally { fetchSpy.mockRestore() }
+    }
   })
 })
 
@@ -467,6 +503,18 @@ describe('APP_MIGRATION_STATUS', () => {
     const r = await invoke(IPC.APP_MIGRATION_STATUS) as any
     expect(r.ok).toBe(true)
     expect(r.data).toBeNull()
+  })
+
+  it('a recorded failure comes back as a sentence, never the raw SQL error (Q-054)', async () => {
+    migration.failure = { version: 41, error: 'SqliteError: no such column: foo_bar', timestamp: '2026-10-11T10:00:00Z' }
+    try {
+      const r = await invoke(IPC.APP_MIGRATION_STATUS) as { ok: true; data: { version: number; error: string } }
+      expect(r.data.version).toBe(41)
+      expect(r.data.error).not.toMatch(/Sqlite|no such column|foo_bar/)
+      expect(r.data.error).toMatch(/couldn't finish updating your data/)
+    } finally {
+      migration.failure = null
+    }
   })
 
   it('clears flag when clearFlag=true', async () => {
@@ -478,7 +526,8 @@ describe('APP_MIGRATION_STATUS', () => {
 
 describe('APP_RELAUNCH', () => {
   it('reloads the window', async () => {
-    await invoke(IPC.APP_RELAUNCH)
+    // Answers { ok } like every handler, not undefined (Q-055)
+    expect(await invoke(IPC.APP_RELAUNCH)).toEqual({ ok: true, data: null })
     expect(mockReloadIgnoringCache).toHaveBeenCalled()
   })
 
@@ -486,5 +535,47 @@ describe('APP_RELAUNCH', () => {
     lifecycle.calls.length = 0
     await invoke(IPC.APP_RELAUNCH)
     expect(lifecycle.calls).toEqual(['stopScheduledBackup', 'lockApp', 'closeDatabase'])
+  })
+})
+
+describe('APP_UPDATE_SKIP / APP_UPDATE_SKIPPED_GET: "Skip this version" on the update banner (S-4)', () => {
+  afterEach(async () => { await invoke(IPC.APP_UPDATE_SKIP, null) })
+
+  it('stores the skipped version in the preferences file, not the database, and clears it with null', async () => {
+    const { prefs } = await import('../src/main/prefs')
+    expect(await invoke(IPC.APP_UPDATE_SKIPPED_GET)).toEqual({ ok: true, data: null })
+    expect(await invoke(IPC.APP_UPDATE_SKIP, '2.5.0')).toEqual({ ok: true, data: '2.5.0' })
+    expect(await invoke(IPC.APP_UPDATE_SKIPPED_GET)).toEqual({ ok: true, data: '2.5.0' })
+    expect(prefs().get('skippedUpdateVersion')).toBe('2.5.0')
+    expect(testDb.db.prepare("SELECT COUNT(*) AS n FROM settings WHERE value = '2.5.0'").get()).toEqual({ n: 0 })
+    // Skipping a newer one replaces it
+    expect(await invoke(IPC.APP_UPDATE_SKIP, '2.6.0-beta.1')).toEqual({ ok: true, data: '2.6.0-beta.1' })
+    expect(await invoke(IPC.APP_UPDATE_SKIP, null)).toEqual({ ok: true, data: null })
+    expect(prefs().has('skippedUpdateVersion')).toBe(false)
+    expect(await invoke(IPC.APP_UPDATE_SKIPPED_GET)).toEqual({ ok: true, data: null })
+  })
+
+  it('refuses anything that is not a version number and keeps what was stored', async () => {
+    await invoke(IPC.APP_UPDATE_SKIP, '2.5.0')
+    for (const bad of [undefined, '', 'abc', '2.5', '2.5.0.1', ' 2.5.0', '2.5.0; rm -rf', '1.2.3-' + 'x'.repeat(200), 250, {}, ['2.5.0'], true]) {
+      const r = await invoke(IPC.APP_UPDATE_SKIP, bad)
+      expect(r.ok).toBe(false)
+      expect(r.error).toMatch(/version number/)
+    }
+    expect(await invoke(IPC.APP_UPDATE_SKIPPED_GET)).toEqual({ ok: true, data: '2.5.0' })
+  })
+
+  it('reads an unusable stored value as nothing skipped', async () => {
+    const { prefs } = await import('../src/main/prefs')
+    prefs().set('skippedUpdateVersion', { evil: true } as unknown as string)
+    expect(await invoke(IPC.APP_UPDATE_SKIPPED_GET)).toEqual({ ok: true, data: null })
+  })
+
+  it('the update check itself still reports a skipped version (the banner decides; the button shows it)', async () => {
+    await invoke(IPC.APP_UPDATE_SKIP, '9.9.9')
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({ version: '9.9.9' }), { status: 200 }))
+    try {
+      expect((await invoke(IPC.APP_CHECK_FOR_UPDATES, { manual: true })).data).toMatchObject({ available: true, version: '9.9.9' })
+    } finally { fetchSpy.mockRestore() }
   })
 })

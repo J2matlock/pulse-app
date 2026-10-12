@@ -1,8 +1,29 @@
 /**
  * snippetExpander.test.ts — Snippet trigger detection, matching, and variable expansion.
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { expandVariables, detectTrigger, matchSnippets } from '../../../src/renderer/utils/snippetExpander'
+
+describe('expandVariables in the chosen formats (A21a-09)', () => {
+  afterEach(() => { vi.useRealTimers() })
+  const at = () => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(2026, 9, 11, 15, 5, 0)) }
+
+  it('follows Settings → Date format', () => {
+    at()
+    expect(expandVariables('{today}', undefined, { dateFormat: 'eu' })).toBe('11/10/2026')
+    expect(expandVariables('{today}', undefined, { dateFormat: 'iso' })).toBe('2026-10-11')
+    expect(expandVariables('{today}', undefined, { dateFormat: 'us' })).toBe('10/11/2026')
+    expect(expandVariables('{today}')).toBe('10/11/2026')
+    expect(expandVariables('{today+21}', undefined, { dateFormat: 'iso' })).toBe('2026-11-01')
+    expect(expandVariables('{today-11}', undefined, { dateFormat: 'eu' })).toBe('30/09/2026')
+  })
+
+  it('follows the clock setting for {now}', () => {
+    at()
+    expect(expandVariables('{now}', undefined, { clockFormat: '24h' })).toBe('15:05')
+    expect(expandVariables('{now}')).toBe('3:05 PM')
+  })
+})
 
 describe('expandVariables', () => {
   it('{today} expands to MM/DD/YYYY', () => {

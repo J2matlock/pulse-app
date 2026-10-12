@@ -4,12 +4,13 @@
  */
 import Papa from 'papaparse'
 import { getDb } from './database'
-import { atomicWriteFileAsync, sanitizeCsvFormula, stripHtml } from './export-shared'
+import { atomicWriteFileAsync, formatCellValue, sanitizeCsvFormula, savedDateFormat, stripHtml } from './export-shared'
 import { DEFAULT_UNIT_MINUTES, unitsFor, type TotalsReport, type TotalsRow } from '../shared/timeMileage'
 import { parseExtraMeasures, type MeasureDef } from '../shared/measures'
 import { word } from './vocab'
 import { activityLabel } from './activity-types'
 import { listMeasures } from './measures'
+import { LIVE_GRID, NOT_TRASHED_ROW } from '../shared/liveRecords'
 
 function setting(key: string): string | null {
   return (getDb().prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined)?.value ?? null
@@ -43,8 +44,8 @@ export const TOTALS_SQL = `
            COALESCE(NULLIF(r.display_name, ''), ?) AS client_name, g.name AS grid_name,
            cl.log_type, cl.minutes, cl.miles, cl.extra_measures, cl.content
     FROM case_log cl
-    CROSS JOIN rows r ON r.id = cl.row_id AND r.deleted_at IS NULL
-    JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
+    CROSS JOIN rows r ON r.id = cl.row_id AND ${NOT_TRASHED_ROW}
+    JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
     WHERE cl.voided_at IS NULL AND (cl.minutes IS NOT NULL OR cl.miles IS NOT NULL OR cl.extra_measures IS NOT NULL)
       AND cl.occurred_at >= ? AND cl.occurred_at < ?
       AND strftime('%Y-%m', cl.occurred_at, 'localtime') = ?
@@ -114,12 +115,14 @@ export async function exportTotalsCsv(month: string, gridId: number | undefined,
   const r = getTotals(month, gridId)
   const money = (miles: number | null) => r.mileageRate && miles ? (miles * r.mileageRate).toFixed(2) : ''
   const fields = [
-    'Date', word('record', { cap: true }), word('list', { cap: true }), 'Note type',
+    'Date', word('record', { cap: true }), word('list', { cap: true }), `${word('activity', { cap: true })} type`,
     'Minutes', `Units (${r.unitMinutes} min)`, 'Miles', ...(r.mileageRate ? ['Mileage amount'] : []),
-    ...r.measures.map(measureHeading), 'Note',
+    ...r.measures.map(measureHeading), word('activity', { cap: true }),
   ]
+  // The day follows Settings → Date format, like every other export (Q-076)
+  const dateFormat = savedDateFormat()
   const data = r.entries.map(e => [
-    e.date, e.clientName, e.gridName, activityLabel(e.logType), e.minutes ?? '', e.minutes ? unitsFor(e.minutes, r.unitMinutes) : '', e.miles ?? '',
+    formatCellValue(e.date, 'date', dateFormat), e.clientName, e.gridName, activityLabel(e.logType), e.minutes ?? '', e.minutes ? unitsFor(e.minutes, r.unitMinutes) : '', e.miles ?? '',
     ...(r.mileageRate ? [money(e.miles)] : []), ...r.measures.map(d => e.extra[d.key] ?? ''), e.excerpt,
   ].map(v => typeof v === 'string' ? sanitizeCsvFormula(v) : v))
   data.push([

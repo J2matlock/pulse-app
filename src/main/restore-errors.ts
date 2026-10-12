@@ -16,6 +16,7 @@ export function describeRestoreError(err: unknown): string {
     return DAMAGED_BACKUP
   }
   if (raw === 'Backup file not found' || code === 'ENOENT') return "We couldn't find that backup file. If it's on a USB drive or network folder, check that it's connected."
+  if (code === 'WAL_BUSY') return "Pulse was still saving your latest changes, so it didn't restore anything. Wait a moment and try again."
   if (code === 'ENOSPC') return "There isn't enough free space on this computer to restore that backup. Free up some space and try again."
   if (code === 'EACCES' || code === 'EPERM') return "Pulse isn't allowed to open that file. Copy it to your Documents folder and try again."
   return humanizeError(err)

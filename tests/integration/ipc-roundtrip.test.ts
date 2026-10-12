@@ -7,7 +7,7 @@
  * sort persistence, and search.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from '../helpers'
 
 // ---------------------------------------------------------------------------

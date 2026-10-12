@@ -125,6 +125,41 @@ describe('undoStore', () => {
       expect(undoFns[0]).not.toHaveBeenCalled()
     })
 
+    it('a step added while it runs survives, and the target is still undone (Q-085)', async () => {
+      const late = makeItem({ id: 'late' })
+      const b = makeItem({ id: 'b', undo: vi.fn(async () => { useUndoStore.getState().push(late, { evenWhileUndoing: true }) }) })
+      const c = makeItem({ id: 'c' })
+      for (const item of [makeItem({ id: 'a' }), b, c]) useUndoStore.getState().push(item)
+      await useUndoStore.getState().undoTo('b')
+      expect(c.undo).toHaveBeenCalledOnce()
+      expect(b.undo).toHaveBeenCalledOnce()
+      expect(late.undo).not.toHaveBeenCalled()
+      expect(useUndoStore.getState().undoStack.map(i => i.id)).toEqual(['a', 'late'])
+    })
+
+    it('stops instead of undoing a step that landed on top mid-way (Q-085)', async () => {
+      const late = makeItem({ id: 'late' })
+      const b = makeItem({ id: 'b' })
+      const c = makeItem({ id: 'c', undo: vi.fn(async () => { useUndoStore.getState().push(late, { evenWhileUndoing: true }) }) })
+      for (const item of [makeItem({ id: 'a' }), b, c]) useUndoStore.getState().push(item)
+      await useUndoStore.getState().undoTo('b')
+      expect(c.undo).toHaveBeenCalledOnce()
+      expect(late.undo).not.toHaveBeenCalled()
+      expect(b.undo).not.toHaveBeenCalled()
+      expect(useUndoStore.getState().undoStack.map(i => i.id)).toEqual(['a', 'b', 'late'])
+    })
+
+    it('a failed step goes back under a step added while it ran (Q-085)', async () => {
+      const late = makeItem({ id: 'late' })
+      const b = makeItem({ id: 'b', undo: vi.fn(async () => {
+        useUndoStore.getState().push(late, { evenWhileUndoing: true })
+        throw new Error('SQLITE_BUSY')
+      }) })
+      for (const item of [makeItem({ id: 'a' }), b]) useUndoStore.getState().push(item)
+      await useUndoStore.getState().undoTo('b')
+      expect(useUndoStore.getState().undoStack.map(i => i.id)).toEqual(['a', 'b', 'late'])
+    })
+
     it('undoTo with nonexistent id is a no-op', async () => {
       useUndoStore.getState().push(makeItem({ id: 'x' }))
       await useUndoStore.getState().undoTo('nonexistent')
@@ -144,6 +179,102 @@ describe('undoStore', () => {
       useUndoStore.getState().push(makeItem({ undo: vi.fn().mockRejectedValue(new Error("That can't be undone any more.")) }))
       await useUndoStore.getState().undo()
       expect(useUndoStore.getState().toast?.description).toBe("Undo didn't work: That can't be undone any more.")
+    })
+  })
+
+  describe('a step that can never be undone (Q-045)', () => {
+    it('stays after one failure, and is taken off after a second plain failure so older steps work', async () => {
+      const older = makeItem({ description: 'Older' })
+      const gone = makeItem({ description: 'Gone', undo: vi.fn().mockRejectedValue(new Error('That column is no longer in the Trash.')) })
+      useUndoStore.getState().push(older)
+      useUndoStore.getState().push(gone)
+      await useUndoStore.getState().undo()
+      expect(useUndoStore.getState().undoStack.map(i => i.description)).toEqual(['Older', 'Gone'])
+      await useUndoStore.getState().undo()
+      expect(useUndoStore.getState().undoStack.map(i => i.description)).toEqual(['Older'])
+      expect(useUndoStore.getState().redoStack).toHaveLength(0)
+      expect(useUndoStore.getState().toast?.description).toBe("Undo didn't work: That column is no longer in the Trash. That step was taken off the undo list.")
+      await useUndoStore.getState().undo()
+      expect(older.undo).toHaveBeenCalledTimes(1)
+      expect(useUndoStore.getState().undoStack).toHaveLength(0)
+    })
+
+    it('keeps a step that fails for a technical reason or because Pulse is read-only', async () => {
+      const { ReadOnlyError } = await import('../../../src/renderer/utils/safeInvoke')
+      const technical = makeItem({ undo: vi.fn().mockRejectedValue(new Error('SQLITE_BUSY: database is locked')) })
+      useUndoStore.getState().push(technical)
+      await useUndoStore.getState().undo()
+      await useUndoStore.getState().undo()
+      expect(useUndoStore.getState().undoStack).toHaveLength(1)
+      useUndoStore.setState({ undoStack: [] })
+      const readOnly = makeItem({ undo: vi.fn().mockRejectedValue(new ReadOnlyError()) })
+      useUndoStore.getState().push(readOnly)
+      await useUndoStore.getState().undo()
+      await useUndoStore.getState().undo()
+      expect(useUndoStore.getState().undoStack).toHaveLength(1)
+    })
+
+    it('keeps a step that fails twice for a passing reason main or the renderer words plainly (R3-01)', async () => {
+      const passing = [
+        'Pulse is busy for a moment. Please try again.',
+        "Pulse can't reach its data folder. If it's on a USB drive or network folder, reconnect it and restart Pulse.",
+        "Pulse can't save changes because its data file can't be written to. Close Pulse and open it again. If your data is on a USB drive, check that it's connected and not locked.",
+        'The disk is full. Free up some space, then try again.',
+        'Your computer ran out of memory. Close some other programs and try again.',
+        "Something went wrong and the change wasn't saved. Please try again.",
+        "Pulse can't save changes right now.",
+      ]
+      for (const message of passing) {
+        useUndoStore.setState({ undoStack: [], redoStack: [] })
+        const step = makeItem({ undo: vi.fn().mockRejectedValue(new Error(message)) })
+        useUndoStore.getState().push(step)
+        await useUndoStore.getState().undo()
+        await useUndoStore.getState().undo()
+        await useUndoStore.getState().undo()
+        expect(useUndoStore.getState().undoStack, message).toEqual([step])
+        expect(useUndoStore.getState().toast?.description, message).toBe(`Undo didn't work: ${message}`)
+      }
+    })
+
+    it('a failed undo keeps a step added while it ran (Q-085)', async () => {
+      const late = makeItem({ id: 'late' })
+      const failing = makeItem({ id: 'f', undo: vi.fn(async () => {
+        useUndoStore.getState().push(late, { evenWhileUndoing: true })
+        throw new Error('SQLITE_BUSY')
+      }) })
+      useUndoStore.getState().push(makeItem({ id: 'a' }))
+      useUndoStore.getState().push(failing)
+      await useUndoStore.getState().undo()
+      expect(useUndoStore.getState().undoStack.map(i => i.id)).toEqual(['a', 'f', 'late'])
+      expect(useUndoStore.getState().redoStack).toHaveLength(0)
+    })
+
+    it('a failed redo keeps a step added while it ran, and redo ends with it (Q-085)', async () => {
+      const late = makeItem({ id: 'late' })
+      let pushLate = false
+      const r = makeItem({ id: 'r', redo: vi.fn(async () => {
+        if (pushLate) useUndoStore.getState().push(late, { evenWhileUndoing: true })
+        throw new Error('SQLITE_BUSY')
+      }) })
+      useUndoStore.getState().push(r)
+      await useUndoStore.getState().undo()
+      await useUndoStore.getState().redo()
+      expect(useUndoStore.getState().redoStack.map(i => i.id)).toEqual(['r'])
+      expect(useUndoStore.getState().undoStack).toHaveLength(0)
+      pushLate = true
+      await useUndoStore.getState().redo()
+      expect(useUndoStore.getState().undoStack.map(i => i.id)).toEqual(['late'])
+      expect(useUndoStore.getState().redoStack).toHaveLength(0)
+    })
+
+    it('a success in between starts the count again', async () => {
+      let fail = true
+      const flaky = makeItem({ undo: vi.fn(async () => { if (fail) throw new Error('That record was deleted.') }) })
+      useUndoStore.getState().push(flaky)
+      await useUndoStore.getState().undo()
+      fail = false
+      await useUndoStore.getState().undo()
+      expect(useUndoStore.getState().redoStack).toHaveLength(1)
     })
   })
 

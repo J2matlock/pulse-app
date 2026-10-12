@@ -2,9 +2,12 @@
  * ipc-cell.ts — CELL_*, CELL_FORMAT_* IPC handlers
  */
 
+import { z } from 'zod'
+import { textLength } from '../../shared/textLength'
 import { IPC } from '../../shared/ipc-channels'
 import { QUERY_LIMITS } from '../../shared/query-limits'
-import { secureWrap, ok, fail, validId, logNonFatal, notifyCaseLogChanged, enforceWritable } from './ipc-utils'
+import { ok, fail, validId, logNonFatal, notifyCaseLogChanged } from './ipc-utils'
+import { handlersFor, idArg, idListArg } from './ipc-define'
 import { getDb, upsertCell, cachedStmt, registerCloseHook } from '../database'
 import { storesNoCells } from '../../shared/types'
 import { toYmd, MIN_YEAR, MAX_YEAR } from '../../shared/ymd'
@@ -12,6 +15,7 @@ import { word } from '../vocab'
 import { columnAffectsDisplayName, refreshDisplayNames } from '../display-names'
 import { numberSeries } from '../number-history'
 import { rematerializeForRecord } from '../appointments'
+import { shortYmd } from '../../shared/dates'
 
 // Column metadata cache for CELL_UPDATE log_changes checks.
 // Keyed by column_id → { name, column_type, config (parsed) }.
@@ -51,9 +55,10 @@ function getColMeta(columnId: number): ColMeta | undefined {
 // Clear the column metadata cache when the database closes (lock/quit/restore)
 registerCloseHook(() => _colMetaCache.clear())
 
+const define = handlersFor('ipc-cell')
+
 export function registerCellHandlers(): void {
-  secureWrap(IPC.CELL_GET_HISTORY, 'ipc-cell', (_e, rowId: number, columnId: number) => {
-    if (!validId(rowId) || !validId(columnId)) return fail('Invalid ID')
+  define(IPC.CELL_GET_HISTORY, [idArg(), idArg()], (rowId, columnId) => {
     const rows = cachedStmt('cell_history_get', `
       SELECT old_value, new_value, changed_at
       FROM cell_history
@@ -64,40 +69,42 @@ export function registerCellHandlers(): void {
     return ok(rows)
   })
 
-  secureWrap(IPC.CELL_HISTORY_SERIES, 'ipc-cell', (_e, rowId: unknown, columnIds: unknown) => {
-    if (!validId(rowId)) return fail('Invalid ID')
-    if (!Array.isArray(columnIds) || columnIds.length > 200 || !columnIds.every(validId)) return fail('Invalid columns')
-    return ok(numberSeries(rowId, columnIds as number[]))
-  })
+  define(IPC.CELL_HISTORY_SERIES, [idArg(), idListArg('Invalid columns', 'Invalid columns', { max: 200 })],
+    (rowId, columnIds) => ok(numberSeries(rowId, columnIds)))
 
-  secureWrap(IPC.CELL_HISTORY_COMPACT, 'ipc-cell', (_e, retentionMonths: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (typeof retentionMonths !== 'number' || retentionMonths < 1 || !Number.isInteger(retentionMonths)) {
-      return fail('retentionMonths must be an integer >= 1. To delete all history, use a dedicated purge operation.')
-    }
+  define(IPC.CELL_HISTORY_COMPACT, [
+    z.custom<number>(v => typeof v === 'number' && v >= 1 && Number.isInteger(v), 'retentionMonths must be an integer >= 1. To delete all history, use a dedicated purge operation.'),
+  ], (retentionMonths) => {
     // Pre-compute cutoff date in JS to avoid SQL string concatenation
-    const cutoff = new Date()
-    cutoff.setMonth(cutoff.getMonth() - retentionMonths)
+    // Same day N months back, clamped to that month's length: setMonth on May 31
+    // gave "Feb 31" = Mar 3 and deleted three extra days (Q-032)
+    const now = new Date()
+    const back = new Date(now.getFullYear(), now.getMonth() - retentionMonths, 1)
+    const day = Math.min(now.getDate(), new Date(back.getFullYear(), back.getMonth() + 1, 0).getDate())
+    const cutoff = new Date(back.getFullYear(), back.getMonth(), day, now.getHours(), now.getMinutes(), now.getSeconds())
     const cutoffIso = cutoff.toISOString().replace('T', ' ').slice(0, 19)
     const info = getDb().prepare(
       'DELETE FROM cell_history WHERE changed_at < ?'
     ).run(cutoffIso)
     return ok(info.changes)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CELL_UPDATE, 'ipc-cell', (_e, rowId: number, columnId: number, value: string | null, opts?: { doneNote?: string }) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId) || !validId(columnId)) return fail('Invalid ID')
+  // opts is read field by field below, as before
+  define(IPC.CELL_UPDATE, [
+    idArg(), idArg(), z.string('Cell value must be a string under 100k characters').nullable(), z.custom<{ doneNote?: unknown; silent?: unknown } | null | undefined>(),
+  ], (rowId, columnId, value, opts) => {
     // Mark done: its note is written here, tagged, so the dashboard counts completions by tag, not note text (L-22)
     const doneNote = typeof opts?.doneNote === 'string' && opts.doneNote.trim() ? opts.doneNote.trim().slice(0, 500) : null
-    if (value !== null && typeof value !== 'string') return fail('Cell value must be a string under 100k characters')
+    // Undo and redo put a value back: the edit's own note is voided or restored with it, so
+    // writing another "changed to" note would leave the case log with extras (F-028)
+    const silent = opts?.silent === true
     // Strip null bytes BEFORE length check so the limit reflects the actual stored value
     if (value !== null) value = value.replace(/\0/g, '')
     if (value !== null && value.length > 100_000) return fail('Cell value must be a string under 100k characters')
     // A cell must pair a row and a column from the same grid — otherwise a renderer
     // bug could write orphan data that never shows up in any grid.
     const pairOk = cachedStmt('cell_row_col_same_grid_id', 'SELECT r.grid_id FROM rows r JOIN columns c ON c.grid_id = r.grid_id WHERE r.id = ? AND c.id = ?').get(rowId, columnId) as { grid_id: number } | undefined
-    if (!pairOk) return fail(`We couldn't save that change — the ${word('record')} or column no longer exists. Reopen the list and try again.`)
+    if (!pairOk) return fail(`We couldn't save that change — the ${word('record')} or column no longer exists. Reopen the ${word('list')} and try again.`)
     // Link columns (W04) have no cells; their links change through RECORD_LINK_ADD/REMOVE
     if (storesNoCells(getColMeta(columnId)?.column_type ?? '')) return fail('That column shows links. Use the link picker to change it.')
     if (getColMeta(columnId)?.column_type === 'auto_number') return fail('Numbers are filled in automatically and can\'t be changed.')
@@ -110,10 +117,14 @@ export function registerCellHandlers(): void {
 
     let sysLogId: number | null = null
     let needsLogNotify = false
+    // The value this save replaced, for the renderer's undo step: a record that isn't in the
+    // open list (archived, on its own page) has no copy there to take it from (F-016)
+    let previous: string | null = null
 
     db.transaction(() => {
       // Record history before updating
       const existing = cachedStmt('cell_select', 'SELECT id, value FROM cells WHERE row_id = ? AND column_id = ?').get(rowId, columnId) as { id: number, value: string | null } | undefined
+      previous = existing?.value ?? null
 
       upsertCell(rowId, columnId, value)
       if (columnAffectsDisplayName(pairOk.grid_id, columnId)) refreshDisplayNames(pairOk.grid_id, [rowId])
@@ -143,17 +154,13 @@ export function registerCellHandlers(): void {
           .run(rowId, doneNote, `deadline_done:${columnId}`)
         sysLogId = logResult.lastInsertRowid as number
         needsLogNotify = true
-      } else if (oldValue !== value) {
+      } else if (oldValue !== value && !silent) {
         const col = getColMeta(columnId)
         if (col && col.config.log_changes) {
           let content: string
           if (col.column_type === 'date' || col.column_type === 'deadline') {
-            const fmt = (d: string) => {
-              const [y = NaN, m = NaN, day = NaN] = d.split('-').map(Number)
-              return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-            }
-            const from = oldValue ? fmt(oldValue) : 'blank'
-            const to = value ? fmt(value) : 'cleared'
+            const from = oldValue ? shortYmd(oldValue) : 'blank'
+            const to = value ? shortYmd(value) : 'cleared'
             // Clearing a date is not finishing it (G-16): only Mark done says "completed"
             content = value ? `${col.name} changed from ${from} to ${to}` : `${col.name} cleared (was ${from})`
           } else if (col.column_type === 'checkbox') {
@@ -178,17 +185,15 @@ export function registerCellHandlers(): void {
     // Notify outside transaction to avoid holding the lock
     if (needsLogNotify) notifyCaseLogChanged(rowId)
 
-    return ok({ sysLogId })
-  })
+    return ok({ sysLogId, previous })
+  }, { write: true })
 
   // CELL_BULK_UPDATE: removed — no multi-cell paste UI exists yet. Re-add when needed.
 
   // ── Cell Formats ──────────────────────────────────────────────────────────
-  secureWrap(IPC.CELL_FORMAT_SET, 'ipc-cell', (_e, rowId: number, columnId: number, rules: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId) || !validId(columnId)) return fail('Invalid ID')
-    if (typeof rules !== 'string') return fail('Invalid rules format')
-    if (rules.length > 50_000) return fail('Formatting rules too large')
+  define(IPC.CELL_FORMAT_SET, [
+    idArg(), idArg(), z.string('Invalid rules format').check(textLength({ max: 50_000 }, 'Formatting rules too large')),
+  ], (rowId, columnId, rules) => {
     try { JSON.parse(rules) } catch { return fail('Invalid rules JSON') }
     const db = getDb()
     if (!rules || rules === '[]') {
@@ -200,11 +205,12 @@ export function registerCellHandlers(): void {
       `).run(rowId, columnId, rules)
     }
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CELL_FORMAT_BATCH_SET, 'ipc-cell', (_e, entries: Array<{ rowId: number; columnId: number; rules: string }>) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!Array.isArray(entries) || entries.length > 2_000) return fail('Invalid batch format payload')
+  // Each entry is checked in the body, in order, with its own messages
+  define(IPC.CELL_FORMAT_BATCH_SET, [
+    z.array(z.custom<{ rowId: number; columnId: number; rules: string }>(), 'Invalid batch format payload').max(2_000, 'Invalid batch format payload'),
+  ], (entries) => {
     for (const e of entries) {
       if (!validId(e.rowId) || !validId(e.columnId)) return fail('Invalid ID in batch entry')
       if (typeof e.rules !== 'string' || e.rules.length > 50_000) return fail('Entry rules invalid')
@@ -226,5 +232,5 @@ export function registerCellHandlers(): void {
       }
     })()
     return ok(true)
-  })
+  }, { write: true })
 }

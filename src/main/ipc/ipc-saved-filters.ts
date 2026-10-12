@@ -3,21 +3,23 @@
  */
 
 import { IPC } from '../../shared/ipc-channels'
-import { secureWrap, ok, fail, validId, enforceWritable } from './ipc-utils'
+import { ok } from './ipc-utils'
+import { handlersFor, idArg, textArg } from './ipc-define'
 import { getDb } from '../database'
 
+const define = handlersFor('ipc-saved-filters')
+
 export function registerSavedFilterHandlers(): void {
-  secureWrap(IPC.SAVED_FILTER_GET_ALL, 'ipc-saved-filters', (_e, gridId: number) => {
-    if (!validId(gridId)) return fail('Invalid ID')
+  define(IPC.SAVED_FILTER_GET_ALL, [idArg()], (gridId) => {
     const rows = getDb().prepare('SELECT * FROM saved_filters WHERE grid_id = ? ORDER BY name ASC').all(gridId)
     return ok(rows)
   })
 
-  secureWrap(IPC.SAVED_FILTER_CREATE, 'ipc-saved-filters', (_e, gridId: number, name: string, definition: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(gridId)) return fail('Invalid ID')
-    if (typeof name !== 'string' || !name.trim() || name.length > 200) return fail('Invalid filter name')
-    if (typeof definition !== 'string' || definition.length > 50_000) return fail('Filter definition too large')
+  define(IPC.SAVED_FILTER_CREATE, [
+    idArg(),
+    textArg('Invalid filter name', { max: 200, notBlank: true }),
+    textArg('Filter definition too large', { max: 50_000 }),
+  ], (gridId, name, definition) => {
     const db = getDb()
     // Atomic count-then-insert in a transaction to prevent exceeding max 20
     const createFilter = db.transaction(() => {
@@ -27,12 +29,10 @@ export function registerSavedFilterHandlers(): void {
     })
     const info = createFilter()
     return ok(info.lastInsertRowid)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.SAVED_FILTER_DELETE, 'ipc-saved-filters', (_e, id: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.SAVED_FILTER_DELETE, [idArg()], (id) => {
     getDb().prepare('DELETE FROM saved_filters WHERE id = ?').run(id)
     return ok(true)
-  })
+  }, { write: true })
 }

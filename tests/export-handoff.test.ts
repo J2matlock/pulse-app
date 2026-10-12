@@ -38,6 +38,20 @@ describe('handoff packet', () => {
     expect(buf.toString('latin1')).toContain('Client handoff packet')
   })
 
+  it('wraps a long "To" and moves the next line down by the extra lines (Q-077)', async () => {
+    const { gridId, rowIds } = seedGrid(testDb.db, { rowCount: 1 })
+    const dest = join(testDb.tmpDir, 'handoff-long.pdf')
+    const receiving = 'Sam Lee, ' + 'Regional Intake and Transitions Team '.repeat(3) + 'TO-END'
+    await exportHandoffPacket({ rowId: rowIds[0]!, gridId, receiving, summary: 'Pending: housing application.' }, dest)
+    const pdf = readFileSync(dest, 'latin1')
+    const yOf = (start: string) => Number(new RegExp(`[\\d.]+ ([\\d.]+) Td\\s*\\(${start}`).exec(pdf)?.[1])
+    expect(pdf).toMatch(/TO-END\) Tj/)
+    const lines = (/\(Sam Lee,[^)]*\) Tj(?:\s*T\*\s*\([^)]*\) Tj)*/.exec(pdf)?.[0].match(/\) Tj/g) ?? []).length
+    expect(lines).toBeGreaterThan(1)
+    // "To" starts at the top of its block; the notes heading sits below every line of it (11 pt lines, 8 mm = 22.7 pt per row)
+    expect(yOf('Sam Lee,') - yOf('Notes for the next')).toBeGreaterThan(22.7 + 11 + (lines - 1) * 11)
+  })
+
   it('lists the record’s files and can add pictures as pages', () => {
     const { rowIds } = seedGrid(testDb.db, { rowCount: 1 })
     const r = rowIds[0]!

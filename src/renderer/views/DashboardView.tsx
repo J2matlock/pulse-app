@@ -12,6 +12,7 @@ import { localDateString } from '../../shared/dates'
 import { useToday } from '../hooks/useToday'
 import { noteUnencryptedExport } from '../utils/exportNotice'
 import { IPC } from '../../shared/ipc-channels'
+import { QUERY_LIMITS } from '../../shared/query-limits'
 import type { DashboardStats, AlertThreshold, ParsedAlertRule, CaseloadTask, ChecklistDueItem } from '../../shared/types'
 import { DEBOUNCE_SEARCH, DEBOUNCE_TASK_RELOAD, SPINNER_DELAY, MS_PER_DAY } from '../../shared/constants'
 import { safeInvoke } from '../utils/safeInvoke'
@@ -31,7 +32,7 @@ import type { FollowUpRow, RawDeadlineRow, ArchivedRow, ExtendedDeadlineInfo, To
 import { SummaryCard } from './dashboard/SummaryCard'
 import { DeadlineRow } from './dashboard/DeadlineRow'
 import { completeDeadlines, skippedForBulkDone } from './dashboard/completeDeadline'
-import { countDeadlineTiles, isLateDeadline } from './dashboard/tileCounts'
+import { dashboardTileCounts, deadlinesMayBeCut, followUpsMayBeCut, isLateDeadline } from './dashboard/tileCounts'
 import { useListsChanged } from './dashboard/useDashboardRefresh'
 import { RuleColorKey } from '../components/alerts/RuleColorKey'
 import { DashboardCards } from './dashboard/cards/DashboardCards'
@@ -68,6 +69,10 @@ export default function DashboardView(): React.ReactElement {
   const [tasksDue, setTasksDue] = useState<CaseloadTask[]>([])
   const [checklistDue, setChecklistDue] = useState<ChecklistDueItem[]>([])
   const [followUps, setFollowUps] = useState<FollowUpRow[]>([])
+  // A list that came back at main's cap is missing the rest: the tiles then use main's
+  // counts, and a change reloads everything so those stay right (F-024)
+  const [deadlinesCut, setDeadlinesCut] = useState(false)
+  const [followUpsCut, setFollowUpsCut] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [topTab, setTopTab] = useState<TopTab>('priority')
@@ -114,7 +119,7 @@ export default function DashboardView(): React.ReactElement {
 
   const reloadFollowUps = useCallback(async () => {
     const res = await safeInvoke<FollowUpRow[]>(IPC.DASHBOARD_GET_FOLLOWUPS)
-    if (res.ok) setFollowUps(res.data)
+    if (res.ok) { setFollowUps(res.data); setFollowUpsCut(followUpsMayBeCut(res.data.length)) }
   }, [])
 
   useEffect(() => {
@@ -141,7 +146,7 @@ export default function DashboardView(): React.ReactElement {
 
   const reloadDeadlines = useCallback(async () => {
     const result = await safeInvoke<RawDeadlineRow[]>(IPC.DASHBOARD_GET_DEADLINES)
-    if (result.ok) setRawDeadlines(result.data)
+    if (result.ok) { setRawDeadlines(result.data); setDeadlinesCut(deadlinesMayBeCut(result.data.length)) }
   }, [])
 
   // Everything on the dashboard. `quiet` refreshes in place (after sample data or a list
@@ -160,7 +165,9 @@ export default function DashboardView(): React.ReactElement {
       if (allRes.ok) {
         setStats(allRes.data.stats)
         setRawDeadlines(allRes.data.deadlines)
+        setDeadlinesCut(deadlinesMayBeCut(allRes.data.deadlines.length))
         setFollowUps(allRes.data.followUps)
+        setFollowUpsCut(followUpsMayBeCut(allRes.data.followUps.length))
         setArchivedRows(allRes.data.archived)
       } else {
         rlog.error('Dashboard', 'Dashboard load failed:', allRes.error)
@@ -202,15 +209,15 @@ export default function DashboardView(): React.ReactElement {
 
   // Refresh deadlines when cleared here, from FocusModeView or a note (or undone)
   useEffect(() => {
-    const unsub = pulseEvents.on('deadline:changed', () => { void reloadDeadlines() })
+    const unsub = pulseEvents.on('deadline:changed', () => { void (deadlinesCut ? loadAll({ quiet: true }) : reloadDeadlines()) })
     return unsub
-  }, [reloadDeadlines])
+  }, [reloadDeadlines, deadlinesCut, loadAll])
 
   // Refresh follow-ups when completed/uncompleted from FocusModeView (or undone)
   useEffect(() => {
-    const unsub = pulseEvents.on('followup:changed', () => { void reloadFollowUps() })
+    const unsub = pulseEvents.on('followup:changed', () => { void (followUpsCut ? loadAll({ quiet: true }) : reloadFollowUps()) })
     return unsub
-  }, [reloadFollowUps])
+  }, [reloadFollowUps, followUpsCut, loadAll])
 
   // Enrich deadline rows with threshold/interval math
   const deadlines: ExtendedDeadlineInfo[] = useMemo(() => {
@@ -322,11 +329,10 @@ export default function DashboardView(): React.ReactElement {
   // The tiles count deadlines the way the morning briefing and desktop reminder do
   // (overdue includes a used-up quota); tasks, checklist items and follow-ups due
   // or late get their own tile, the same as the briefing's "task due" lines
-  const derivedCounts = useMemo(() => {
-    const c = countDeadlineTiles(deadlines)
-    const otherDue = [...tasksWithDays, ...checklistWithDays, ...followUpsWithDays].filter(x => x.daysUntil <= 0).length
-    return { ...c, otherDue }
-  }, [deadlines, tasksWithDays, checklistWithDays, followUpsWithDays])
+  const derivedCounts = useMemo(() => dashboardTileCounts({
+    deadlines, deadlinesCut: deadlinesCut, followUpDays: followUpsWithDays.map(f => f.daysUntil), followUpsCut: followUpsCut,
+    otherDueDays: [...tasksWithDays, ...checklistWithDays].map(x => x.daysUntil), server: stats,
+  }), [deadlines, deadlinesCut, tasksWithDays, checklistWithDays, followUpsWithDays, followUpsCut, stats])
 
   const filteredItems = useMemo((): PriorityItem[] => {
     const q = debouncedSearch.toLowerCase()
@@ -505,6 +511,12 @@ export default function DashboardView(): React.ReactElement {
               {topTab === 'archived' ? 'Back to what\'s due' : 'Recently archived'}
             </button>
           </div>
+
+          {deadlinesCut && topTab !== 'archived' && (
+            <p className="px-4 py-2 text-base text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700" role="note">
+              Showing the soonest {QUERY_LIMITS.DASHBOARD_PRIORITY.toLocaleString()} deadlines. The numbers above count all of them.
+            </p>
+          )}
 
           {/* Priority List tab */}
           {topTab === 'priority' && (

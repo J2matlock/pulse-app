@@ -6,7 +6,7 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import { pulseEvents } from '../../events'
 import { LoadingOverlay } from '../../components/shared/LoadingSpinner'
 import type { ArchivedRow } from './types'
-import { parseDbTimestamp } from '../../../shared/dates'
+import { parseDbTimestamp, shortDate } from '../../../shared/dates'
 import { useVocab, useVocabByList } from '../../hooks/useVocab'
 
 export function RecentlyArchivedTab({
@@ -59,7 +59,7 @@ export function RecentlyArchivedTab({
               ? (() => {
                   try {
                     const d = parseDbTimestamp(row.archived_at)
-                    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    return shortDate(d)
                   } catch { return row.archived_at }
                 })()
               : 'Unknown date'

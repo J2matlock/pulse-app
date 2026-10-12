@@ -301,6 +301,83 @@ describe('gridStore', () => {
       expect(toast.error).toHaveBeenCalledWith('That record is no longer available.')
     })
 
+    it('an edit made while a reload is on its way survives the reload (Q-044)', async () => {
+      const row = makeRow(1)
+      ;(row as Record<string, unknown>)['col_5'] = 'old'
+      useGridStore.setState({ activeGridId: 1, isLoading: false, rows: [row], columns: [makeColumn(5, 'Notes')] })
+      let landLoad: (v: unknown) => void = () => {}
+      let landSave: (v: unknown) => void = () => {}
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === IPC.GRID_GET_FULL) return new Promise(r => { landLoad = r })
+        if (channel === IPC.CELL_UPDATE) return new Promise(r => { landSave = r })
+        return Promise.resolve({ ok: true, data: null })
+      })
+      const reload = useGridStore.getState().refreshRows()
+      const save = useGridStore.getState().updateCell(1, 5, 'new')
+      // The reload was read before the save reached the database
+      const stale = makeRow(1)
+      ;(stale as Record<string, unknown>)['col_5'] = 'old'
+      landLoad({ ok: true, data: { rows: [stale], rowTagsMap: {}, sampleRows: {} } })
+      await reload
+      expect((useGridStore.getState().rows[0] as Record<string, unknown>)['col_5']).toBe('new')
+      landSave({ ok: true, data: { sysLogId: null } })
+      await save
+      expect((useGridStore.getState().rows[0] as Record<string, unknown>)['col_5']).toBe('new')
+      expect(useGridStore.getState().isSaving).toBe(false)
+    })
+
+    it('an edit that lands before a slower reload answers still shows (Q-044)', async () => {
+      const row = makeRow(1)
+      ;(row as Record<string, unknown>)['col_5'] = 'old'
+      useGridStore.setState({ activeGridId: 1, isLoading: false, rows: [row], columns: [makeColumn(5, 'Notes')] })
+      let landLoad: (v: unknown) => void = () => {}
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === IPC.GRID_GET_FULL) return new Promise(r => { landLoad = r })
+        return Promise.resolve({ ok: true, data: { sysLogId: null } })
+      })
+      const reload = useGridStore.getState().refreshRows()
+      await useGridStore.getState().updateCell(1, 5, 'new')
+      const stale = makeRow(1)
+      ;(stale as Record<string, unknown>)['col_5'] = 'old'
+      landLoad({ ok: true, data: { rows: [stale], rowTagsMap: {}, sampleRows: {} } })
+      await reload
+      expect((useGridStore.getState().rows[0] as Record<string, unknown>)['col_5']).toBe('new')
+    })
+
+    it('two failed saves to one cell put back the saved value, not the first unsaved one (Q-044)', async () => {
+      const row = makeRow(1)
+      ;(row as Record<string, unknown>)['col_5'] = 'P'
+      useGridStore.setState({ activeGridId: 1, rows: [row], columns: [makeColumn(5, 'Notes')] })
+      const fails: Array<(v: unknown) => void> = []
+      mockInvoke.mockImplementation(() => new Promise(r => { fails.push(r) }))
+      const first = useGridStore.getState().updateCell(1, 5, 'A')
+      const second = useGridStore.getState().updateCell(1, 5, 'B')
+      fails[0]!({ ok: false, error: 'READ_ONLY' })
+      await first
+      // The other save is still out
+      expect(useGridStore.getState().isSaving).toBe(true)
+      expect((useGridStore.getState().rows[0] as Record<string, unknown>)['col_5']).toBe('B')
+      fails[1]!({ ok: false, error: 'READ_ONLY' })
+      await second
+      expect((useGridStore.getState().rows[0] as Record<string, unknown>)['col_5']).toBe('P')
+      expect(useGridStore.getState().isSaving).toBe(false)
+    })
+
+    it('when the first of two saves lands and the second fails, the first value stays (Q-044)', async () => {
+      const row = makeRow(1)
+      ;(row as Record<string, unknown>)['col_5'] = 'P'
+      useGridStore.setState({ activeGridId: 1, rows: [row], columns: [makeColumn(5, 'Notes')] })
+      const answers: Array<(v: unknown) => void> = []
+      mockInvoke.mockImplementation(() => new Promise(r => { answers.push(r) }))
+      const first = useGridStore.getState().updateCell(1, 5, 'A')
+      const second = useGridStore.getState().updateCell(1, 5, 'B')
+      answers[0]!({ ok: true, data: { sysLogId: null } })
+      await first
+      answers[1]!({ ok: false, error: 'READ_ONLY' })
+      await second
+      expect((useGridStore.getState().rows[0] as Record<string, unknown>)['col_5']).toBe('A')
+    })
+
     it('pushes to undo stack when value changes', async () => {
       const row = makeRow(1)
       ;(row as Record<string, unknown>)['col_5'] = 'old'
@@ -310,6 +387,27 @@ describe('gridStore', () => {
       await useGridStore.getState().updateCell(1, 5, 'new')
       expect(useUndoStore.getState().undoStack.length).toBe(1)
       expect(useUndoStore.getState().undoStack[0]!.category).toBe('silent')
+    })
+
+    it('undo and redo of a logged edit ask main for no note of their own; the note is voided and restored (F-028)', async () => {
+      useUndoStore.setState({ undoStack: [], redoStack: [], toast: null, isUndoing: false })
+      const row = makeRow(1)
+      ;(row as Record<string, unknown>)['col_5'] = 'old'
+      useGridStore.setState({ activeGridId: 1, rows: [row], columns: [makeColumn(5, 'Notes')] })
+      mockInvoke.mockReset()
+      mockInvoke.mockImplementation(async (channel: string, ...args: unknown[]) => channel === 'cell:update'
+        ? { ok: true, data: { sysLogId: args[3] ? null : 77, previous: null } } : { ok: true, data: true })
+      await useGridStore.getState().updateCell(1, 5, 'new')
+      expect(mockInvoke).toHaveBeenLastCalledWith('cell:update', 1, 5, 'new')
+      await useUndoStore.getState().undo()
+      await useUndoStore.getState().redo()
+      const calls = mockInvoke.mock.calls.map(c => [c[0], ...c.slice(1)])
+      expect(calls.filter(c => c[0] === 'cell:update')).toEqual([
+        ['cell:update', 1, 5, 'new'],
+        ['cell:update', 1, 5, 'old', { silent: true }],
+        ['cell:update', 1, 5, 'new', { silent: true }],
+      ])
+      expect(calls.filter(c => String(c[0]).startsWith('case-log:'))).toEqual([['case-log:void', 77, 'Undone action'], ['case-log:unvoid', 77]])
     })
 
     it('a failed undo of a cell edit stays undoable instead of looking done (L-08)', async () => {
@@ -370,6 +468,25 @@ describe('gridStore', () => {
       expect(steps).toHaveLength(1)
       expect(useUndoStore.getState().undoStack).toHaveLength(0)
       expect(toast.error).not.toHaveBeenCalled()
+    })
+
+    it("undoing an edit to a record not in the list (an archived record's page) puts the old value back, not a blank (F-016)", async () => {
+      useUndoStore.setState({ undoStack: [], redoStack: [], toast: null, isUndoing: false })
+      // Record 7 is archived: the open list doesn't have it
+      useGridStore.setState({ activeGridId: 1, rows: [makeRow(1)], columns: [makeColumn(5, 'Notes')] })
+      const { pulseEvents } = await import('../../../src/renderer/events')
+      const saved: unknown[] = []
+      const off = pulseEvents.on('cell:saved', d => { saved.push(d) })
+      mockInvoke.mockClear()
+      mockInvoke.mockResolvedValue({ ok: true, data: { sysLogId: null, previous: 'A' } })
+      await useGridStore.getState().updateCell(7, 5, 'B')
+      const step = useUndoStore.getState().undoStack.at(-1)!
+      mockInvoke.mockResolvedValue({ ok: true, data: { sysLogId: null, previous: 'B' } })
+      await step.undo()
+      expect(mockInvoke).toHaveBeenLastCalledWith(IPC.CELL_UPDATE, 7, 5, 'A', { silent: true })
+      // The record page keeps its own copy current through the save and the undo
+      expect(saved).toEqual([{ rowId: 7, columnId: 5, value: 'B' }, { rowId: 7, columnId: 5, value: 'A' }])
+      off()
     })
 
     it('keeps the undo history when another list opens (L-16)', async () => {
@@ -562,47 +679,6 @@ describe('gridStore', () => {
       useGridStore.setState({ groupByColumnId: 5 })
       useGridStore.getState().setGroupByColumnId(null)
       expect(useGridStore.getState().groupByColumnId).toBeNull()
-    })
-  })
-
-  describe('reorderRows', () => {
-    it('optimistically reorders rows by provided id order', async () => {
-      const rows = [makeRow(1), makeRow(2), makeRow(3)]
-      useGridStore.setState({ activeGridId: 1, rows })
-      mockInvoke.mockResolvedValue({ ok: true, data: true })
-
-      const promise = useGridStore.getState().reorderRows([3, 1, 2])
-      // Optimistic: rows should be reordered immediately
-      const reordered = useGridStore.getState().rows
-      expect(reordered[0]!.row_id).toBe(3)
-      expect(reordered[1]!.row_id).toBe(1)
-      expect(reordered[2]!.row_id).toBe(2)
-      // Positions should be updated
-      expect(reordered[0]!.position).toBe(0)
-      expect(reordered[1]!.position).toBe(1)
-      expect(reordered[2]!.position).toBe(2)
-
-      await promise
-    })
-
-    it('rolls back on IPC failure', async () => {
-      const rows = [makeRow(1), makeRow(2), makeRow(3)]
-      useGridStore.setState({ activeGridId: 1, rows })
-      mockInvoke.mockRejectedValue(new Error('DB error'))
-
-      await useGridStore.getState().reorderRows([3, 1, 2])
-      // Should rollback to original order
-      const result = useGridStore.getState().rows
-      expect(result[0]!.row_id).toBe(1)
-      expect(result[1]!.row_id).toBe(2)
-      expect(result[2]!.row_id).toBe(3)
-    })
-
-    it('does nothing without activeGridId', async () => {
-      useGridStore.setState({ activeGridId: null, rows: [makeRow(1)] })
-
-      await useGridStore.getState().reorderRows([1])
-      expect(mockInvoke).not.toHaveBeenCalled()
     })
   })
 

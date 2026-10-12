@@ -9,12 +9,14 @@
 
 import { getDb } from './database'
 import { atomicWriteFileAsync } from './export-shared'
+import { foldLine } from './fold-line'
 import { localDateFromToday } from '../shared/dates'
 import { featureOn, word } from './vocab'
 import { loadDeadlines } from './deadlines'
 import { isPersonKind } from '../shared/types'
 import { OPEN_RECORD_SQL } from '../shared/appointments'
 import { removedAppointments } from './appointments'
+import { LIVE_GRID, LIVE_ROW } from '../shared/liveRecords'
 
 export interface IcsOptions {
   /** Full client names instead of initials (and caseload task titles) */
@@ -47,23 +49,7 @@ export function initials(name: string): string {
 
 /** RFC 5545 text escaping. */
 function esc(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n')
-}
-
-/** Fold lines longer than 75 octets (RFC 5545 §3.1). */
-function fold(line: string): string {
-  const bytes = Buffer.from(line, 'utf8')
-  if (bytes.length <= 75) return line
-  const parts: string[] = []
-  let start = 0
-  while (start < bytes.length) {
-    let end = Math.min(start + (start === 0 ? 75 : 74), bytes.length)
-    // Don't split a multi-byte character
-    while (end < bytes.length && (bytes[end]! & 0xc0) === 0x80) end--
-    parts.push(bytes.subarray(start, end).toString('utf8'))
-    start = end
-  }
-  return parts.join('\r\n ')
+  return s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n')
 }
 
 function ymdCompact(ymd: string): string { return ymd.replace(/-/g, '') }
@@ -98,15 +84,15 @@ export function loadIcsItems(opts: IcsOptions = {}): IcsItem[] {
   const followUps = db.prepare(`
     SELECT cl.id, r.display_name AS name, g.record_kind AS kind, cl.follow_up_date AS due
     FROM case_log cl
-    JOIN rows r ON r.id = cl.row_id AND r.is_active = 1 AND r.deleted_at IS NULL
-    JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
+    JOIN rows r ON r.id = cl.row_id AND ${LIVE_ROW}
+    JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
     WHERE cl.follow_up_date BETWEEN ? AND ? AND cl.follow_up_completed = 0 AND cl.voided_at IS NULL
   `).all(from, to) as Array<{ id: number; name: string | null; kind: string | null; due: string }>
 
   const tasks = db.prepare(`
     SELECT ct.id, ct.title, ct.due_date AS due FROM caseload_tasks ct
     LEFT JOIN grids g ON g.id = ct.grid_id
-    WHERE ct.is_completed = 0 AND ct.due_date BETWEEN ? AND ? AND (ct.grid_id IS NULL OR g.is_active = 1)
+    WHERE ct.is_completed = 0 AND ct.due_date BETWEEN ? AND ? AND (ct.grid_id IS NULL OR ${LIVE_GRID})
   `).all(from, to) as Array<{ id: number; title: string; due: string }>
 
   // Appointments (W07 §7): titles are free text that may name people, so without full names only "Appointment with J.S."
@@ -189,7 +175,7 @@ export function buildIcs(items: IcsItem[], now = new Date()): string {
     )
   }
   lines.push('END:VCALENDAR')
-  return lines.map(fold).join('\r\n') + '\r\n'
+  return lines.map(foldLine).join('\r\n') + '\r\n'
 }
 
 export async function exportIcs(destPath: string, opts: IcsOptions = {}): Promise<number> {

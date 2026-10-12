@@ -15,6 +15,8 @@ import { word } from './vocab'
 import { hasDisplayFormat } from './display-names'
 import { cellText, deadlineText, type DateFormat } from '../shared/cellText'
 import { ageInYears, localDateString } from '../shared/dates'
+import { daysBetween } from '../shared/ymd'
+import { columnTypesWhere } from '../shared/columnTraits'
 import { htmlToText } from '../shared/htmlText'
 import { joinRecordName } from '../shared/recordName'
 import { loadDeadlines, type DeadlineItem } from './deadlines'
@@ -126,6 +128,11 @@ export function lastTableY(doc: AutoTableDoc): number {
   return (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY
 }
 
+/** How far one line of text at the current font size moves down, in the document's units (mm) */
+export function lineHeight(doc: AutoTableDoc): number {
+  return doc.getFontSize() * doc.getLineHeightFactor() / doc.internal.scaleFactor
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Types
 // ──────────────────────────────────────────────────────────────────────────────
@@ -144,6 +151,11 @@ export interface CsvExportOptions {
   includeHidden?: boolean
   /** Archived records too, with a Status column saying which (Export All) */
   includeArchived?: boolean
+  /**
+   * Next to each deadline column's text, a "<column> (last done)" column with the
+   * stored date, so Import can bring the deadline back (Export All, P-002)
+   */
+  storedDeadlineDates?: boolean
 }
 
 export interface PdfProfileOptions {
@@ -238,7 +250,7 @@ export function formatDate(value: string | null, fmt: 'iso' | 'us' | 'eu'): stri
 export { sanitizeCsvFormula, unguardCsvFormula } from '../shared/csvGuard'
 
 /** Columns whose text is a number or a date: a leading "-" there is a negative number, not a formula (X-21) */
-const NON_TEXT_TYPES = new Set(['number', 'currency', 'date', 'checkbox', 'auto_number', 'age_from_dob', 'calculated_days', 'file_count'])
+const NON_TEXT_TYPES = new Set<string>(columnTypesWhere(t => t.numericText))
 
 /** "-12.50", "$-1,234.00", "1e3": a number, so a leading "-" or "+" is a sign, not a formula */
 const NUMBER_TEXT = /^[-+]?\$?[-+]?(?:\d[\d,]*(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/
@@ -283,10 +295,7 @@ export function daysUntilText(n: number): string {
 function wholeDaysFromToday(value: string): number | null {
   const ymd = value.slice(0, 10)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null
-  const [y, m, d] = ymd.split('-').map(Number) as [number, number, number]
-  const [ty, tm, td] = localDateString().split('-').map(Number) as [number, number, number]
-  // Calendar days in UTC, so a clock change in between doesn't lose or add an hour's day
-  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(ty, tm - 1, td)) / 86_400_000)
+  return daysBetween(localDateString(), ymd)
 }
 
 /**
@@ -308,7 +317,7 @@ function showComputedAsText(gridId: number, columns: Column[], rows: GridRow[]):
     const ruled = typeof configOf(srcConfig).alert_rule_id === 'number'
     if (ruled && !due) {
       due = new Map()
-      for (const d of loadDeadlines({ gridId, includeDone: true, includePaused: true })) due.set(`${d.row_id}:${d.column_id}`, d)
+      for (const d of loadDeadlines({ gridId, includeDone: true, includePaused: true, includeArchived: rows.some(r => r.is_active === 0) })) due.set(`${d.row_id}:${d.column_id}`, d)
     }
     for (const row of rows) {
       const value = (row[`col_${src}` as const] as string | null | undefined) || null
@@ -335,7 +344,8 @@ export function showDeadlinesAsText(gridId: number, columns: Column[], rows: Gri
   const deadlineCols = columns.filter(c => c.column_type === 'deadline')
   if (!deadlineCols.length || !rows.length) return
   const results = new Map<string, DeadlineItem>()
-  for (const d of loadDeadlines({ gridId, includeDone: true, includePaused: true })) results.set(`${d.row_id}:${d.column_id}`, d)
+  // An export that prints archived records shows their deadlines as the table does, not blank (F-020)
+  for (const d of loadDeadlines({ gridId, includeDone: true, includePaused: true, includeArchived: rows.some(r => r.is_active === 0) })) results.set(`${d.row_id}:${d.column_id}`, d)
   for (const row of rows) {
     for (const c of deadlineCols) {
       const key = `col_${c.id}` as const

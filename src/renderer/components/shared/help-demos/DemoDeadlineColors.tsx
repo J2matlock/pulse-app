@@ -25,7 +25,7 @@ export function DemoDeadlineColors() {
       <div className="space-y-2">
         {stages.map((s, i) => (
           <div key={i} className="flex items-center gap-3">
-            <span className="text-xs text-slate-500 dark:text-slate-400 w-16 text-right shrink-0">{s.label}</span>
+            <span className="text-sm text-slate-500 dark:text-slate-400 w-16 text-right shrink-0">{s.label}</span>
             <div className="flex-1 h-6 rounded-md overflow-hidden bg-slate-200 dark:bg-slate-700">
               <div
                 className="h-full rounded-md origin-left"

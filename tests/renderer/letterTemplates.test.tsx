@@ -81,6 +81,13 @@ describe('letter editor errors (audit A06-14)', () => {
 })
 
 describe('making one letter', () => {
+  it('is a modal dialog named by its title (Q-101)', async () => {
+    render(<GenerateLetterModal template={template} grids={[{ id: 1, name: 'Intake' }] as never} onClose={vi.fn()} />)
+    const dialog = screen.getByRole('dialog', { name: `Generate: ${template.name}` })
+    expect(dialog.getAttribute('aria-modal')).toBe('true')
+    await screen.findByText('Person 001')
+  })
+
   it('finds the person with a search box instead of a long list', async () => {
     render(<GenerateLetterModal template={template} grids={[{ id: 1, name: 'Intake' }, { id: 2, name: 'Closed' }] as never} onClose={vi.fn()} />)
     await screen.findByText('Person 001')

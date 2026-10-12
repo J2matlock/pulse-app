@@ -43,6 +43,8 @@ export const IPC = {
   ROW_RESTORE_DELETED: 'row:restore-deleted',
   ROW_PURGE: 'row:purge',
   ROW_GET_DELETED: 'row:get-deleted',
+  /** How many records are in the Trash (the Trash shows the newest 500) */
+  ROW_COUNT_DELETED: 'row:count-deleted',
   ROW_GET: 'row:get',
   /** Which list a record is on and whether it's active, archived or in the Trash (open a record from anywhere) */
   ROW_LOCATE: 'row:locate',
@@ -367,6 +369,8 @@ export const IPC = {
   APP_SHOW_SAVE_DIALOG: 'app:show-save-dialog',
   APP_FACTORY_RESET: 'app:factory-reset',
   APP_CHECK_FOR_UPDATES: 'app:check-for-updates',
+  APP_UPDATE_SKIPPED_GET: 'app:update-skipped-get',
+  APP_UPDATE_SKIP: 'app:update-skip',
   APP_INTEGRITY_CHECK: 'app:integrity-check',
   APP_RELAUNCH: 'app:relaunch',
   APP_MIGRATION_STATUS: 'app:migration-status',
@@ -472,3 +476,14 @@ export const IPC = {
 } as const
 
 export type IPCChannel = typeof IPC[keyof typeof IPC]
+
+/**
+ * Channels main sends to the renderer (window.api.on); nothing invokes them. The preload lets the
+ * renderer listen on these only, and invoke only the rest (Q-055).
+ */
+export const EVENT_CHANNELS = [
+  IPC.MENU_COMMAND, IPC.CASE_LOG_CHANGED, IPC.IMPORT_PROGRESS, IPC.WORKSPACE_CHANGED,
+  IPC.ACTIVITY_TYPES_CHANGED, IPC.RECORD_LINKS_CHANGED, IPC.APPOINTMENTS_CHANGED,
+  IPC.ATTACHMENTS_CHANGED, IPC.REMINDER_OPEN, IPC.FILE_ASSOC_PENDING_ARRIVED, IPC.APP_FLUSH_PENDING,
+  IPC.AUTH_FORCE_LOCK,
+] as const

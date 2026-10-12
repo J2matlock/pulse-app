@@ -134,6 +134,16 @@ describe('IPC Onboarding — ONBOARDING_COMPLETE', () => {
     expect(result.ok).toBe(true)
   })
 
+  it('writes all or nothing: a failing step leaves setup unfinished (A22-13)', async () => {
+    testDb.db.exec(`CREATE TRIGGER fail_briefing BEFORE INSERT ON settings WHEN NEW.key = 'briefing_last_shown'
+      BEGIN SELECT RAISE(ABORT, 'disk full'); END`)
+    const result = await invoke(IPC.ONBOARDING_COMPLETE) as { ok: boolean }
+    expect(result.ok).toBe(false)
+    expect(testDb.db.prepare("SELECT value FROM app_meta WHERE key = 'onboarding_complete'").get()).toBeUndefined()
+    expect(testDb.db.prepare("SELECT 1 FROM settings WHERE key = 'onboarding_completed_at'").get()).toBeUndefined()
+    testDb.db.exec('DROP TRIGGER fail_briefing')
+  })
+
   it('leaves the words to the path chosen in setup', async () => {
     await invoke(IPC.ONBOARDING_COMPLETE)
     expect(testDb.db.prepare("SELECT 1 FROM settings WHERE key = 'workspace_vocab'").get()).toBeUndefined()
@@ -198,6 +208,22 @@ describe('IPC Onboarding — ONBOARDING_SETUP_GRID', () => {
     expect((await gs()).note).toBe(true)
     testDb.db.prepare("INSERT INTO settings (key, value) VALUES ('onboarding_getting_started_dismissed', '1')").run()
     expect((await gs()).show).toBe(false)
+  })
+
+  it('getting started: a note or reminder on a record in the Trash, or in a list in the Trash, doesn\'t tick its step (Q-084)', async () => {
+    const gs = async () => ((await invoke(IPC.ONBOARDING_GETTING_STARTED)) as any).data
+    await invoke(IPC.ONBOARDING_COMPLETE)
+    const trashed = seedGrid(testDb.db, { rowCount: 1, columnTypes: ['deadline'] })
+    const inTrashedList = seedGrid(testDb.db, { rowCount: 1, columnTypes: ['deadline'] })
+    for (const g of [trashed, inTrashedList]) {
+      testDb.db.prepare("INSERT INTO case_log (row_id, content, log_type) VALUES (?, 'Called', 'phone')").run(g.rowIds[0])
+      testDb.db.prepare("INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, '2030-01-01')").run(g.rowIds[0], g.columnIds[0])
+    }
+    testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now'), is_active = 0 WHERE id = ?").run(trashed.rowIds[0])
+    testDb.db.prepare('UPDATE grids SET is_active = 0 WHERE id = ?').run(inTrashedList.gridId)
+    expect(await gs()).toMatchObject({ record: false, reminder: false, note: false })
+    testDb.db.prepare('UPDATE grids SET is_active = 1 WHERE id = ?').run(inTrashedList.gridId)
+    expect(await gs()).toMatchObject({ record: true, reminder: true, note: true })
   })
 
   it('drops saved progress whose list was deleted', async () => {

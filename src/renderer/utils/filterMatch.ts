@@ -8,7 +8,9 @@ import { ROW_TAG_COLUMN_ID, ANY_DEADLINE_COLUMN_ID, takesDeadlineRule } from '..
 import { evaluateRuleForRow } from './deadlineCalc'
 import { linkValueText, parseLinkValue } from '../../shared/links'
 import { localDateString } from '../../shared/dates'
+import { autoNumberValue } from '../../shared/autoNumber'
 import { computedColumnNumber, isComputedColumnType } from './computedColumns'
+import { unhandledCase } from '../../shared/assertNever'
 
 /** A typed amount as a number: "$1,200.50" is 1200.5, the way paste reads it; NaN when it isn't one */
 function amount(text: string): number {
@@ -86,12 +88,22 @@ export function matchFilter(
       case 'is_not_empty': return tagNames.length > 0
       case 'contains':     return tagStr.includes(v)
       case 'not_contains': return !tagStr.includes(v)
-      default:             return true
+      // The tag filter offers only the four above; others leave it off
+      case 'equals': case 'not_equals': case 'starts_with': case 'ends_with':
+      case 'gt': case 'lt': case 'before': case 'after': case 'links_to':
+        return true
+      default:
+        // An operator added without a case fails typecheck; one from a saved
+        // view this version doesn't know leaves the filter off
+        unhandledCase(filter.operator)
+        return true
     }
   }
 
   const col = columns.find(c => c.id === filter.columnId)
-  const stored = row[`col_${filter.columnId}` as keyof GridRow] as string | null
+  // A Files column comes back as a number (a COUNT), not text (Q-049)
+  const storedRaw = row[`col_${filter.columnId}` as keyof GridRow] as string | number | null | undefined
+  const stored = storedRaw == null ? null : String(storedRaw)
   // Link columns (W04) match on the linked names, or on one linked record
   if (col?.column_type === 'link' && filter.operator === 'links_to') {
     return parseLinkValue(stored).some(c => String(c.rowId) === filter.value)
@@ -107,7 +119,12 @@ export function matchFilter(
     : rawVal
   const v = filter.value === TODAY_TOKEN ? localDateString() : filter.value
   // Numbers compare as numbers: "1,000" is a thousand, "$100" a hundred, 1200.5 equals "1200.50"
-  const numeric = col?.column_type === 'number' || col?.column_type === 'currency' || computed !== undefined
+  const numeric = col?.column_type === 'number' || col?.column_type === 'currency' || col?.column_type === 'file_count' || computed !== undefined
+  // An auto number ("J-0042") is greater or less than by its number; "40" and "J-0040" both mean 40
+  if (col?.column_type === 'auto_number' && (filter.operator === 'gt' || filter.operator === 'lt')) {
+    const n = autoNumberValue(cellVal), m = autoNumberValue(v)
+    return n !== null && m !== null && (filter.operator === 'gt' ? n > m : n < m)
+  }
   if (numeric && (filter.operator === 'equals' || filter.operator === 'not_equals')) {
     const n = amount(cellVal), m = amount(v)
     if (!isNaN(n) && !isNaN(m)) return filter.operator === 'equals' ? n === m : n !== m
@@ -141,6 +158,12 @@ export function matchFilter(
       const filterDate = new Date(v).getTime()
       return !isNaN(cellDate) && !isNaN(filterDate) && cellDate > filterDate
     }
-    default:       return true
+    // "Links to" on a column that is no longer a link column leaves the filter off
+    case 'links_to':      return true
+    default:
+      // An operator added without a case fails typecheck; one from a saved
+      // view this version doesn't know leaves the filter off, as before
+      unhandledCase(filter.operator)
+      return true
   }
 }

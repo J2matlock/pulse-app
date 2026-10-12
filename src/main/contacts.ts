@@ -14,7 +14,8 @@ import type {
   ProviderClientLink,
   ContactFilterParams,
 } from '../shared/types'
-import type { Statement } from 'better-sqlite3'
+import type { Statement } from 'better-sqlite3-multiple-ciphers'
+import { LIVE_GRID, LIVE_ROW } from '../shared/liveRecords'
 
 // ASCII unit separator: tags may legitimately contain commas ("Housing, Rental")
 const TAG_SEPARATOR = '\x1f'
@@ -100,7 +101,8 @@ function validateProviderField(col: string, value: unknown): unknown {
   return value
 }
 
-export function getProviders(params: ContactFilterParams = {}): Provider[] {
+/** `all`: no 1,000 cap (the directory PDF prints every contact the filter matches, Q-035) */
+export function getProviders(params: ContactFilterParams = {}, opts: { all?: boolean } = {}): Provider[] {
   const db = getDb()
   const {
     search,
@@ -177,7 +179,7 @@ export function getProviders(params: ContactFilterParams = {}): Provider[] {
 
   const sql = `
     SELECT
-      p.id, p.name, p.org_name, p.title, p.phone_main, p.email,
+      p.id, p.name, p.org_name, p.title, p.phone_main, p.phone_direct, p.email,
       p.availability_status, p.availability_checked_at,
       p.is_starred, p.category_id, p.created_at, p.updated_at,
       pc.name AS category_name,
@@ -187,7 +189,7 @@ export function getProviders(params: ContactFilterParams = {}): Provider[] {
     ${interactionJoin}
     ${whereClause}
     ORDER BY ${orderExpr}
-    LIMIT 1000
+    ${opts.all ? '' : 'LIMIT 1000'}
   `
 
   return cachedPrepare(db, sql).all(...binds) as Provider[]
@@ -368,9 +370,9 @@ export function getClientLinks(
         g.name AS grid_name,
         r.display_name AS client_name
       FROM provider_client_links pcl
-      JOIN rows r ON r.id = pcl.row_id AND r.is_active = 1 AND r.deleted_at IS NULL
+      JOIN rows r ON r.id = pcl.row_id AND ${LIVE_ROW}
       -- The record's own list, and only while it isn't in the Trash
-      JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
+      JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
       WHERE pcl.provider_id = ?
       ORDER BY pcl.linked_at DESC
     `).all(params.providerId) as ProviderClientLink[]

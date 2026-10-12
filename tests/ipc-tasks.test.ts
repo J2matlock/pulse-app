@@ -3,7 +3,7 @@
  * Covers TASK_*, SNIPPET_* handlers.
  */
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'vitest'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createTestDb, cleanupTestDb, seedGrid, setDbWords, type TestDb } from './helpers'
 import { GENERIC_VOCAB } from '../src/shared/vocab'
 import { IPC } from '../src/shared/ipc-channels'
@@ -426,6 +426,16 @@ describe('IPC Tasks', () => {
       expect(r1.position).toBe(1)
     })
 
+    it('leaves no two tasks on one position when some aren\'t sent, and keeps their slots (Q-087)', async () => {
+      const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
+      const [a, b, c, d] = ['A', 'B (snoozed)', 'C', 'D'].map(t => insertTask(gridId, t).lastInsertRowid as number) as [number, number, number, number]
+      ;[a, b, c, d].forEach((id, i) => testDb.db.prepare('UPDATE caseload_tasks SET position = ? WHERE id = ?').run(i, id))
+      expect((await invoke(IPC.TASK_REORDER, [d, c, a])).ok).toBe(true)
+      const rows = testDb.db.prepare('SELECT id, position FROM caseload_tasks ORDER BY position').all() as Array<{ id: number; position: number }>
+      expect(rows.map(r => r.id)).toEqual([d, b, c, a])
+      expect(new Set(rows.map(r => r.position)).size).toBe(rows.length)
+    })
+
     it('fails with non-array', async () => {
       const result = await invoke(IPC.TASK_REORDER, 'not array') as any
       expect(result.ok).toBe(false)
@@ -521,6 +531,16 @@ describe('IPC Tasks', () => {
       ])
     })
 
+    it('refuses a group that is not a real id, or is gone, and adds nothing (Q-056)', async () => {
+      const tid = addTemplate(['Intake'], null)
+      for (const g of ['3', -1, 1.5, 999]) {
+        const r = await invoke(IPC.TASK_APPLY_TEMPLATE, tid, g) as any
+        expect(r.ok).toBe(false)
+        expect(r.error).toMatch(/^(Invalid group ID|Task group not found)$/)
+      }
+      expect((testDb.db.prepare('SELECT COUNT(*) AS n FROM caseload_tasks').get() as { n: number }).n).toBe(0)
+    })
+
     it('one that does not repeat makes plain tasks, and an unknown priority becomes normal', async () => {
       const tid = addTemplate([{ title: 'Intake', priority: 'mega' }], null)
       await invoke(IPC.TASK_APPLY_TEMPLATE, tid, null)
@@ -554,6 +574,23 @@ describe('IPC Tasks', () => {
       expect((await invoke(IPC.TASK_UNCOMPLETE, id, { is_completed: 0, completed_at: null, due_date: null, snoozed_until: 'soon' }) as any).ok).toBe(false)
     })
 
+    it('undoing the later of two completions in the same instant removes that one (Q-086)', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      try {
+        vi.setSystemTime(new Date(2030, 2, 1, 10, 0, 0))
+        const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
+        const id = insertTask(gridId, 'Weekly', { due_date: '2030-03-01', recurrence_rule: '{"type":"weekly","interval":1}' }).lastInsertRowid as number
+        await invoke(IPC.TASK_COMPLETE, id)
+        await invoke(IPC.TASK_COMPLETE, id)
+        const history = () => testDb.db.prepare('SELECT cycle_number FROM caseload_task_history WHERE task_id = ? ORDER BY id').all(id)
+        expect(history()).toEqual([{ cycle_number: 1 }, { cycle_number: 2 }])
+        await invoke(IPC.TASK_UNCOMPLETE, id, { is_completed: 0, completed_at: null, due_date: '2030-03-08' })
+        expect(history()).toEqual([{ cycle_number: 1 }])
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('removes latest history entry', async () => {
       const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
       const t = insertTask(gridId, 'Task')
@@ -582,6 +619,17 @@ describe('IPC Tasks', () => {
     it('fails with invalid original object', async () => {
       const result = await invoke(IPC.TASK_UNCOMPLETE, 1, null) as any
       expect(result.ok).toBe(false)
+    })
+  })
+
+  // ── SNIPPET_CREATE ───────────────────────────────────────────────────────
+  describe('SNIPPET_CREATE category (Q-056)', () => {
+    it('takes a short text category or none, and refuses anything else', async () => {
+      expect((await invoke(IPC.SNIPPET_CREATE, '/a1', 'x', 'Visits') as any).ok).toBe(true)
+      expect((await invoke(IPC.SNIPPET_CREATE, '/a2', 'x', null) as any).ok).toBe(true)
+      for (const bad of [42, { evil: true }, 'c'.repeat(101)]) {
+        expect(await invoke(IPC.SNIPPET_CREATE, '/a3', 'x', bad)).toEqual({ ok: false, error: 'Invalid snippet category' })
+      }
     })
   })
 
