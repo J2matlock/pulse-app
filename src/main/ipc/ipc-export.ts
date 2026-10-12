@@ -3,9 +3,11 @@
  */
 
 import { BrowserWindow } from 'electron'
+import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
 import { secureWrap, ok, fail, assertSafePath, validId, enforceWritable, logNonFatal, withCorrelation, pickSavePath } from './ipc-utils'
+import { handlersFor, idArg, idListArg, textArg } from './ipc-define'
 import { openDatabase, getDb, resolveDatabasePath, closeDatabase, setEncryptionKey, latestSchemaVersion, DatabaseOpenError } from '../database'
 import { dbOpenFailedCode } from '../../shared/dbOpen'
 import { getProvider } from '../contacts'
@@ -114,14 +116,16 @@ function openRestoredOrRollBack(corrId: string, safetyPath: string): ReturnType<
   return fail("That backup couldn't be opened, so Pulse put your previous data back. Nothing was lost.")
 }
 
+const define = handlersFor('ipc-export')
+
 export function registerExportHandlers(): void {
   // ── Backup (Auto listing) ──────────────────────────────────────────────────
-  secureWrap(IPC.BACKUP_AUTO_LIST, 'ipc-export', () => {
+  define(IPC.BACKUP_AUTO_LIST, [], () => {
     return ok(listAutoBackupsRich())
   })
 
   // ── Backup (Layers 2 & 3) ──────────────────────────────────────────────────
-  secureWrap(IPC.BACKUP_GET_INFO, 'ipc-export', () => {
+  define(IPC.BACKUP_GET_INFO, [], () => {
     const info = getBackupInfo()
     const dbPath = resolveDatabasePath()
     let dbSize = 0
@@ -144,11 +148,12 @@ export function registerExportHandlers(): void {
   })
 
   // "Run now" runs entirely in main, so the renderer never fakes a config to trigger it
-  secureWrap(IPC.BACKUP_SCHEDULED_RUN_NOW, 'ipc-export', async () => {
+  define(IPC.BACKUP_SCHEDULED_RUN_NOW, [], async () => {
     return ok(await runScheduledBackupNow())
   })
 
-  secureWrap(IPC.BACKUP_MANUAL_CREATE, 'ipc-export', async (_e, destPath: string) => {
+  // assertSafePath checks the path (and throws) in the body, as before
+  define(IPC.BACKUP_MANUAL_CREATE, [z.custom<string>()], async (destPath) => {
     assertSafePath(destPath)
     try {
       return ok(await runManualBackup(destPath))
@@ -158,10 +163,9 @@ export function registerExportHandlers(): void {
     }
   })
 
-  secureWrap(IPC.BACKUP_RESTORE_AUTO, 'ipc-export', async (_e, backupDbPath: string) => {
-    // A restore replaces every piece of data, so it is the first write a
-    // read-only mode (e.g. viewing a backup) must stop; leave that mode first
-    const guard = enforceWritable(); if (guard) return guard
+  // A restore replaces every piece of data, so it is the first write a
+  // read-only mode (e.g. viewing a backup) must stop; leave that mode first
+  define(IPC.BACKUP_RESTORE_AUTO, [z.custom<string>()], async (backupDbPath) => {
     return withCorrelation('backup-restore-auto', async (corrId) => {
       assertSafePath(backupDbPath)
       logger.info('ipc-export', `[${corrId}] restoring from auto backup: ${backupDbPath}`)
@@ -178,12 +182,11 @@ export function registerExportHandlers(): void {
       logger.info('ipc-export', `[${corrId}] restore complete, safety backup at ${safetyPath}`)
       return ok({ safetyPath })
     })
-  })
+  }, { write: true })
 
-  secureWrap(IPC.BACKUP_RESTORE_FILE, 'ipc-export', async (_e, backupPath: string) => {
-    // A restore replaces every piece of data, so it is the first write a
-    // read-only mode (e.g. viewing a backup) must stop; leave that mode first
-    const guard = enforceWritable(); if (guard) return guard
+  // A restore replaces every piece of data, so it is the first write a
+  // read-only mode (e.g. viewing a backup) must stop; leave that mode first
+  define(IPC.BACKUP_RESTORE_FILE, [z.custom<string>()], async (backupPath) => {
     return withCorrelation('backup-restore-file', async (corrId) => {
       assertSafePath(backupPath)
       logger.info('ipc-export', `[${corrId}] restoring from file: ${backupPath}`)
@@ -201,9 +204,10 @@ export function registerExportHandlers(): void {
       logger.info('ipc-export', `[${corrId}] restore complete, safety backup at ${safetyPath}`)
       return ok({ safetyPath })
     })
-  })
+  }, { write: true })
 
-  // A backup made by another Pulse: unlocked with that Pulse's password or recovery key
+  // A backup made by another Pulse: unlocked with that Pulse's password or recovery key.
+  // Stays on secureWrap: it sends AUTH_FORCE_LOCK back through the event's sender (D-047)
   secureWrap(IPC.BACKUP_RESTORE_OTHER, 'ipc-export', async (_e, backupPath: string, secret: string, newPassword: string, hint: string) => {
     const guard = enforceWritable(); if (guard) return guard
     return withCorrelation('backup-restore-other', async (corrId) => {
@@ -239,19 +243,20 @@ export function registerExportHandlers(): void {
     })
   })
 
-  secureWrap(IPC.BACKUP_VERIFY, 'ipc-export', async (_e, backupPath: string) => {
+  define(IPC.BACKUP_VERIFY, [z.custom<string>()], async (backupPath) => {
     assertSafePath(backupPath)
     const result = await verifyBackup(backupPath)
     return ok(result)
   })
 
-  secureWrap(IPC.BACKUP_SCHEDULED_GET_CONFIG, 'ipc-export', () => {
+  define(IPC.BACKUP_SCHEDULED_GET_CONFIG, [], () => {
     return ok(getScheduledConfig())
   })
 
-  secureWrap(IPC.BACKUP_SCHEDULED_SET_CONFIG, 'ipc-export', (_e, config: PersistentScheduledConfig) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!config || typeof config !== 'object') return fail('Invalid config')
+  // The config's fields are checked in the body, in order, as before
+  define(IPC.BACKUP_SCHEDULED_SET_CONFIG, [
+    z.custom<PersistentScheduledConfig>(v => !!v && typeof v === 'object', 'Invalid config'),
+  ], (config) => {
     if (typeof config.enabled !== 'boolean') return fail('Invalid enabled flag')
     if (typeof config.intervalHours !== 'number' || config.intervalHours < 1 || config.intervalHours > 720) return fail('Invalid interval (must be 1-720 hours)')
     // Main owns the run history; the renderer only changes the settings
@@ -264,10 +269,10 @@ export function registerExportHandlers(): void {
     }
     setScheduledConfig({ ...current, enabled: config.enabled, intervalHours: config.intervalHours, destinationDir: config.destinationDir ?? current.destinationDir })
     return ok(true)
-  })
+  }, { write: true })
 
   // ── Backup Status (Finding 1.9) ────────────────────────────────────────────
-  secureWrap(IPC.BACKUP_GET_STATUS, 'ipc-export', () => {
+  define(IPC.BACKUP_GET_STATUS, [], () => {
     const info = getBackupInfo()
     const backups = listAutoBackupsRich()
     // Reminders are on unless switched off, and count only copies kept somewhere else
@@ -294,7 +299,8 @@ export function registerExportHandlers(): void {
   })
 
   // ── Backup Validate Destination (Finding 2.12) ────────────────────────────
-  secureWrap(IPC.BACKUP_VALIDATE_DESTINATION, 'ipc-export', async (_e, destPath: string) => {
+  // Every problem answers ok({ valid: false, error }) for the folder picker, so the checks stay in the body
+  define(IPC.BACKUP_VALIDATE_DESTINATION, [z.unknown()], async (destPath) => {
     // Shown as they are under the folder picker, so each is a sentence a person can act on (Q-054)
     if (typeof destPath !== 'string' || destPath.length === 0) return ok({ valid: false, error: 'Choose a folder for your backups.' })
     try {
@@ -327,8 +333,7 @@ export function registerExportHandlers(): void {
   })
 
   // ── Backup Preview (Finding 2.13) ─────────────────────────────────────────
-  secureWrap(IPC.BACKUP_PREVIEW, 'ipc-export', async (_e, backupPath: string) => {
-    if (typeof backupPath !== 'string' || backupPath.length === 0) return fail('No path provided')
+  define(IPC.BACKUP_PREVIEW, [textArg('No path provided', { min: 1 })], async (backupPath) => {
     assertSafePath(backupPath)
     if (!existsSync(backupPath)) return fail('Backup file not found')
 
@@ -373,8 +378,7 @@ export function registerExportHandlers(): void {
   })
 
   // ── Export All CSV (Finding 3.24) ─────────────────────────────────────────
-  secureWrap(IPC.EXPORT_ALL_CSV, 'ipc-export', async (_e, destFolder: string) => {
-    if (typeof destFolder !== 'string' || destFolder.length === 0) return fail('No folder provided')
+  define(IPC.EXPORT_ALL_CSV, [textArg('No folder provided', { min: 1 })], async (destFolder) => {
     assertSafePath(destFolder)
     if (!existsSync(destFolder)) {
       mkdirSync(destFolder, { recursive: true })
@@ -423,7 +427,8 @@ export function registerExportHandlers(): void {
   })
 
   // ── Export ─────────────────────────────────────────────────────────────────
-  secureWrap(IPC.EXPORT_CSV, 'ipc-export', async (_e, options: CsvExportOptions) => {
+  // The save path is checked first (and throws), then the choices, in the body as before
+  define(IPC.EXPORT_CSV, [z.custom<CsvExportOptions>()], async (options) => {
     assertSafePath(options.destPath)
     if (!validId(options.gridId)) return fail('Invalid grid ID')
     if (!validIdList(options.columnIds) || !validIdList(options.activeRowIds)) return fail('Invalid export choice')
@@ -431,7 +436,7 @@ export function registerExportHandlers(): void {
     return ok(true)
   })
 
-  secureWrap(IPC.EXPORT_PDF_GRID, 'ipc-export', async (_e, options: PdfGridOptions) => {
+  define(IPC.EXPORT_PDF_GRID, [z.custom<PdfGridOptions>()], async (options) => {
     assertSafePath(options.destPath)
     if (!validId(options.gridId)) return fail('Invalid grid ID')
     if (!validIdList(options.columnIds) || !validIdList(options.activeRowIds)) return fail('Invalid export choice')
@@ -439,7 +444,7 @@ export function registerExportHandlers(): void {
     return ok(true)
   })
 
-  secureWrap(IPC.EXPORT_PDF_PROFILE, 'ipc-export', async (_e, options: PdfProfileOptions) => {
+  define(IPC.EXPORT_PDF_PROFILE, [z.custom<PdfProfileOptions>()], async (options) => {
     assertSafePath(options.destPath)
     if (!validId(options.gridId)) return fail('Invalid grid ID')
     if (!validId(options.rowId)) return fail('Invalid row ID')
@@ -450,15 +455,14 @@ export function registerExportHandlers(): void {
     return ok(true)
   })
 
-  secureWrap(IPC.EXPORT_SUPERVISOR_REPORT, 'ipc-export', async (_e, options: SupervisorReportOptions) => {
+  define(IPC.EXPORT_SUPERVISOR_REPORT, [z.custom<SupervisorReportOptions>()], async (options) => {
     assertSafePath(options.destPath)
     if (!validId(options.gridId)) return fail('Invalid grid ID')
     await exportSupervisorReport(options)
     return ok(true)
   })
 
-  secureWrap(IPC.EXPORT_PDF_CONTACT, 'ipc-export', async (_e, providerId: number) => {
-    if (!validId(providerId)) return fail('Invalid ID')
+  define(IPC.EXPORT_PDF_CONTACT, [idArg()], async (providerId) => {
     const provider = getProvider(providerId)
     const defaultName = safeFileName(provider?.name ?? '', fileWord(word('contact'), 'contact'))
     const filePath = await pickSavePath({
@@ -472,7 +476,7 @@ export function registerExportHandlers(): void {
     return ok(filePath)
   })
 
-  secureWrap(IPC.EXPORT_PDF_DIRECTORY, 'ipc-export', async (_e, filterParams: Record<string, unknown>) => {
+  define(IPC.EXPORT_PDF_DIRECTORY, [z.custom<Record<string, unknown>>()], async (filterParams) => {
     const filePath = await pickSavePath({
       title: `Export ${word('contact', { cap: true })} directory as PDF`,
       defaultPath: `${fileWord(word('contact'), 'contact')}-directory.pdf`,
@@ -484,8 +488,9 @@ export function registerExportHandlers(): void {
     return ok(filePath)
   })
 
-  secureWrap(IPC.EXPORT_WEEKLY_PLANNER, 'ipc-export', async (_e, weekStart: string) => {
-    if (typeof weekStart !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) return fail('Invalid week')
+  define(IPC.EXPORT_WEEKLY_PLANNER, [
+    z.string('Invalid week').regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid week'),
+  ], async (weekStart) => {
     const filePath = await pickSavePath({
       title: 'Save Weekly Planner',
       defaultPath: `weekly-planner-${weekStart}.pdf`,
@@ -498,9 +503,11 @@ export function registerExportHandlers(): void {
     return ok(filePath)
   })
 
-  secureWrap(IPC.EXPORT_AUDIT_REPORT, 'ipc-export', async (_e, scope: AuditScope) => {
+  // The scope's ids and dates are checked in the body, as before
+  define(IPC.EXPORT_AUDIT_REPORT, [
+    z.custom<AuditScope>(v => typeof v === 'object' && v !== null, 'Invalid report options'),
+  ], async (scope) => {
     const ymd = (v: unknown) => v == null || (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v))
-    if (typeof scope !== 'object' || scope === null) return fail('Invalid report options')
     if ((scope.rowId != null && !validId(scope.rowId)) || (scope.gridId != null && !validId(scope.gridId))) return fail('Invalid ID')
     if (!ymd(scope.from) || !ymd(scope.to)) return fail('Invalid date range')
     const db = getDb()
@@ -523,7 +530,7 @@ export function registerExportHandlers(): void {
     return ok({ filePath, ...summary })
   })
 
-  secureWrap(IPC.EXPORT_HANDOFF_PACKET, 'ipc-export', async (_e, opts: HandoffOptions) => {
+  define(IPC.EXPORT_HANDOFF_PACKET, [z.custom<HandoffOptions>()], async (opts) => {
     if (typeof opts !== 'object' || opts === null || !validId(opts.rowId) || !validId(opts.gridId)) return fail('Invalid ID')
     const text = (v: unknown, max: number) => v == null || (typeof v === 'string' && v.length <= max)
     if (!text(opts.receiving, 500) || !text(opts.summary, 20_000)) return fail('That text is too long')
@@ -540,7 +547,7 @@ export function registerExportHandlers(): void {
     return ok(filePath)
   })
 
-  secureWrap(IPC.EXPORT_ICS, 'ipc-export', async (_e, opts?: { fullNames?: boolean }) => {
+  define(IPC.EXPORT_ICS, [z.custom<{ fullNames?: boolean } | undefined>()], async (opts) => {
     const fullNames = opts?.fullNames === true
     const filePath = await pickSavePath({
       title: 'Save Calendar File',
@@ -553,7 +560,7 @@ export function registerExportHandlers(): void {
     return ok({ filePath, count })
   })
 
-  secureWrap(IPC.LETTER_TEMPLATE_EXPORT_PDF, 'ipc-export', async (_e, opts: { text: string }) => {
+  define(IPC.LETTER_TEMPLATE_EXPORT_PDF, [z.custom<{ text: string }>()], async (opts) => {
     if (typeof opts?.text !== 'string') return fail('Text must be a string')
     if (opts.text.length > 500_000) return fail('Text too large (max 500,000 characters)')
     const filePath = await pickSavePath({
@@ -568,7 +575,10 @@ export function registerExportHandlers(): void {
   })
 
   // ── Import ─────────────────────────────────────────────────────────────────
-  secureWrap(IPC.IMPORT_FILE_PREVIEW, 'ipc-export', async (_e, filePath: string, sheetIndex?: number, headerRowIndex?: number) => {
+  // The path is checked first (and throws), then the header row, in the body as before
+  define(IPC.IMPORT_FILE_PREVIEW, [
+    z.custom<string>(), z.custom<number | undefined>(), z.custom<number | undefined>(),
+  ], async (filePath, sheetIndex, headerRowIndex) => {
     assertSafePath(filePath)
     // Validate headerRowIndex if provided
     if (headerRowIndex !== undefined && headerRowIndex !== null) {
@@ -580,17 +590,17 @@ export function registerExportHandlers(): void {
     return ok(preview)
   })
 
-  secureWrap(IPC.IMPORT_DETECT_COLUMNS, 'ipc-export', (_e, gridId: number, headers: string[]) => {
-    if (!validId(gridId)) return fail('Invalid grid ID')
-    if (!Array.isArray(headers)) return fail('Headers must be an array')
-    if (headers.length > 200) return fail('Too many headers (max 200)')
+  define(IPC.IMPORT_DETECT_COLUMNS, [
+    idArg('Invalid grid ID'), z.array(z.custom<string>(), 'Headers must be an array').max(200, 'Too many headers (max 200)'),
+  ], (gridId, headers) => {
     const mappings = autoMatchColumns(gridId, headers)
     return ok(mappings)
   })
 
-  secureWrap(IPC.IMPORT_FILE, 'ipc-export', async (_e, options: ImportOptions) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!options || typeof options !== 'object') return fail('Invalid import options')
+  // The options are checked in the body, in order, as before
+  define(IPC.IMPORT_FILE, [
+    z.custom<ImportOptions>(v => !!v && typeof v === 'object', 'Invalid import options'),
+  ], async (options) => {
     // The rest of the options, checked here rather than deep inside the import (Q-056)
     if (options.duplicateStrategy !== undefined && !['none', 'by_name', 'by_column', 'name_and_dob'].includes(options.duplicateStrategy)) return fail('Invalid import options')
     if (options.duplicateColumnId != null && !validId(options.duplicateColumnId)) return fail('Invalid import options')
@@ -610,34 +620,33 @@ export function registerExportHandlers(): void {
     const preview = await parseImportFile(options.filePath, 0, options.headerRowIndex, options.sheetName)
     const result = await executeImport({ ...options, createMissingLinks: options.createMissingLinks === true, skipHiddenRows: options.skipHiddenRows === true }, preview, onProgress)
     return ok(result)
-  })
+  }, { write: true })
 
   // "Undo this import": the records it added go to Trash, where they can still be restored
-  secureWrap(IPC.IMPORT_UNDO, 'ipc-export', (_e, gridId: number, rowIds: number[]) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(gridId)) return fail('Invalid list')
-    if (!Array.isArray(rowIds) || rowIds.length === 0 || rowIds.length > 50_000 || !rowIds.every(validId)) return fail('Nothing to undo')
+  define(IPC.IMPORT_UNDO, [
+    idArg('Invalid list'), idListArg('Nothing to undo', 'Nothing to undo', { min: 1, max: 50_000 }),
+  ], (gridId, rowIds) => {
     const db = getDb()
     const stmt = db.prepare("UPDATE rows SET is_active = 0, deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND grid_id = ? AND deleted_at IS NULL")
     let moved = 0
     db.transaction(() => { for (const id of rowIds) moved += stmt.run(id, gridId).changes })()
     return ok({ moved })
-  })
+  }, { write: true })
 
   // ── Setup Templates (.pulse) ────────────────────────────────────────────────
-  secureWrap(IPC.SETUP_TEMPLATE_GET_ALL, 'ipc-export', () => {
+  define(IPC.SETUP_TEMPLATE_GET_ALL, [], () => {
     return ok(getSetupTemplates())
   })
 
-  secureWrap(IPC.SETUP_TEMPLATE_DELETE, 'ipc-export', (_e, id: number) => {
-    if (!validId(id)) return fail('Invalid template ID')
+  // The id is checked before the read-only gate here, so the gate stays in the body
+  define(IPC.SETUP_TEMPLATE_DELETE, [idArg('Invalid template ID')], (id) => {
     const guard = enforceWritable(); if (guard) return guard
     deleteSetupTemplate(id)
     return ok(true)
   })
 
-  secureWrap(IPC.SETUP_TEMPLATE_EXPORT, 'ipc-export', async (_e, gridId: number, destPath: string) => {
-    if (!validId(gridId)) return fail('Invalid grid ID')
+  // The id is checked before the read-only gate here, so the gate stays in the body
+  define(IPC.SETUP_TEMPLATE_EXPORT, [idArg('Invalid grid ID'), z.custom<string>()], async (gridId, destPath) => {
     const guard = enforceWritable(); if (guard) return guard
     assertSafePath(destPath)
     const pulse = exportGridAsPulse(gridId)
@@ -649,9 +658,9 @@ export function registerExportHandlers(): void {
 
   // A template from the library (Templates page → Export): write what's stored.
   // SETUP_TEMPLATE_EXPORT takes a list id, so this used to fail with "Invalid grid ID".
-  secureWrap(IPC.SETUP_TEMPLATE_EXPORT_SAVED, 'ipc-export', (_e, templateId: number, destPath: string) => {
-    if (!validId(templateId)) return fail('Invalid template')
-    if (typeof destPath !== 'string' || destPath.length === 0) return fail('Choose where to save it')
+  define(IPC.SETUP_TEMPLATE_EXPORT_SAVED, [
+    idArg('Invalid template'), textArg('Choose where to save it', { min: 1 }),
+  ], (templateId, destPath) => {
     assertSafePath(destPath)
     const row = getDb().prepare('SELECT template_data FROM setup_templates WHERE id = ?').get(templateId) as { template_data: string } | undefined
     if (!row) return fail("That template doesn't exist any more.")
@@ -659,14 +668,16 @@ export function registerExportHandlers(): void {
     return ok(true)
   })
 
-  secureWrap(IPC.SETUP_TEMPLATE_IMPORT, 'ipc-export', async (_e, filePath: string) => {
+  define(IPC.SETUP_TEMPLATE_IMPORT, [z.custom<string>()], async (filePath) => {
     assertSafePath(filePath)
     const { pulse, preview } = await parsePulseFile(filePath)
     return ok({ pulse, preview })
   })
 
-  secureWrap(IPC.SETUP_TEMPLATE_APPLY, 'ipc-export', (_e, pulseJson: string, mode: 'new' | 'existing', gridId?: number, saveToLibrary?: boolean) => {
-    const guard = enforceWritable(); if (guard) return guard
+  // validatePulseJson checks the template (and throws) in the body, as before
+  define(IPC.SETUP_TEMPLATE_APPLY, [
+    z.custom<string>(), z.custom<'new' | 'existing'>(), z.custom<number | undefined>(), z.custom<boolean | undefined>(),
+  ], (pulseJson, mode, gridId, saveToLibrary) => {
     const pulse = validatePulseJson(pulseJson)
     if (mode === 'new') {
       const newGridId = applyPulseToNewGrid(pulse)
@@ -678,38 +689,36 @@ export function registerExportHandlers(): void {
       return ok(gridId)
     }
     return fail('Invalid apply mode or missing gridId')
-  })
+  }, { write: true })
 
   // ── Letter Templates ────────────────────────────────────────────────────────
-  secureWrap(IPC.LETTER_TEMPLATE_GET_ALL, 'ipc-export', () => {
+  define(IPC.LETTER_TEMPLATE_GET_ALL, [], () => {
     return ok(getLetterTemplates())
   })
 
-  secureWrap(IPC.LETTER_TEMPLATE_CREATE, 'ipc-export', (_e, name: string, description: string | null, content: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (typeof name !== 'string' || name.trim().length === 0 || name.length > 500) return fail('Template name required (max 500 chars)')
-    if (typeof content !== 'string' || content.length > 500_000) return fail('Content too large (max 500K chars)')
+  // The description (second) is checked after the content (third), so its check stays in the body
+  define(IPC.LETTER_TEMPLATE_CREATE, [
+    textArg('Template name required (max 500 chars)', { max: 500, notBlank: true }),
+    z.custom<string | null>(),
+    textArg('Content too large (max 500K chars)', { max: 500_000 }),
+  ], (name, description, content) => {
     if (description !== null && (typeof description !== 'string' || description.length > 2000)) return fail('Description too long')
     const id = createLetterTemplate(name, description, content)
     return ok(id)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.LETTER_TEMPLATE_UPDATE, 'ipc-export', (_e, id: number, updates: { name?: string; description?: string | null; content?: string }) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.LETTER_TEMPLATE_UPDATE, [idArg(), z.custom<{ name?: string; description?: string | null; content?: string }>()], (id, updates) => {
     if (updates.name !== undefined && (typeof updates.name !== 'string' || updates.name.trim().length === 0 || updates.name.length > 500)) return fail('Invalid name')
     if (updates.content !== undefined && (typeof updates.content !== 'string' || updates.content.length > 500_000)) return fail('Content too large')
     if (updates.description !== undefined && updates.description !== null && (typeof updates.description !== 'string' || updates.description.length > 2000)) return fail('Description too long')
     updateLetterTemplate(id, updates)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.LETTER_TEMPLATE_DELETE, 'ipc-export', (_e, id: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.LETTER_TEMPLATE_DELETE, [idArg()], (id) => {
     deleteLetterTemplate(id)
     return ok(true)
-  })
+  }, { write: true })
 
   // Batch documents and address labels (W10 §3.1–3.2): built first, so problems show before the save dialog
   const docTarget = (t: unknown): DocTarget | null => {
@@ -727,7 +736,8 @@ export function registerExportHandlers(): void {
     return { gridId: o.gridId as number, ...(o.rowIds ? { rowIds: o.rowIds as number[] } : {}), ...(deadline ? { deadline } : {}) }
   }
 
-  secureWrap(IPC.DOC_BATCH, 'ipc-export', async (_e, templateId: unknown, target: unknown, page: unknown) => {
+  // One message ('Invalid request') answers any bad argument, checked together in the body
+  define(IPC.DOC_BATCH, [z.unknown(), z.unknown(), z.unknown()], async (templateId, target, page) => {
     const t = docTarget(target)
     if (!validId(templateId) || !t || (page !== 'letter' && page !== 'postcard')) return fail('Invalid request')
     let built: ReturnType<typeof buildBatchPdf>
@@ -741,13 +751,13 @@ export function registerExportHandlers(): void {
     return ok({ filePath, count: built.count, unknown: built.unknown })
   })
 
-  secureWrap(IPC.DOC_BATCH_PREVIEW, 'ipc-export', (_e, templateId: unknown, target: unknown) => {
+  define(IPC.DOC_BATCH_PREVIEW, [z.unknown(), z.unknown()], (templateId, target) => {
     const t = docTarget(target)
     if (!t || (templateId !== null && !validId(templateId))) return fail('Invalid request')
     return ok(previewBatch(templateId as number | null, t))
   })
 
-  secureWrap(IPC.DOC_LABELS, 'ipc-export', async (_e, target: unknown, addressColumnId: unknown, layout: unknown) => {
+  define(IPC.DOC_LABELS, [z.unknown(), z.unknown(), z.unknown()], async (target, addressColumnId, layout) => {
     const t = docTarget(target)
     if (!t || !validId(addressColumnId) || (layout !== 'avery-5160' && layout !== 'avery-5163')) return fail('Invalid request')
     let built: ReturnType<typeof buildLabelsPdf>
@@ -761,13 +771,11 @@ export function registerExportHandlers(): void {
     return ok({ filePath, count: built.count, skipped: built.skipped })
   })
 
-  secureWrap(IPC.PLACEHOLDER_FIELDS, 'ipc-export', (_e, gridId: number) => {
-    if (!validId(gridId)) return fail('Invalid ID')
+  define(IPC.PLACEHOLDER_FIELDS, [idArg()], (gridId) => {
     return ok(placeholderFields(gridId))
   })
 
-  secureWrap(IPC.LETTER_TEMPLATE_GENERATE, 'ipc-export', (_e, templateId: number, rowId: number, gridId: number) => {
-    if (!validId(templateId) || !validId(rowId) || !validId(gridId)) return fail('Invalid ID')
+  define(IPC.LETTER_TEMPLATE_GENERATE, [idArg(), idArg(), idArg()], (templateId, rowId, gridId) => {
     const unavailable = refuseUnavailableRecord(rowId, gridId)
     if (unavailable) return unavailable
     const result = generateLetter(templateId, rowId, gridId)
