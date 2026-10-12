@@ -203,12 +203,22 @@ export function DataGrid(): React.ReactElement {
     useProfileStore.getState().clearSavedScroll()
   }, [savedScroll, activeGridId, listReady])
 
-  // Clean up resizeTimeoutRef on unmount to prevent stale callbacks
-  useEffect(() => {
-    return () => {
-      if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current)
-    }
+  // Width changes waiting for the debounce, worked out against the list they were made in
+  const pendingWidthsRef = useRef<{ columnId: number; width: number }[] | null>(null)
+  const flushColumnWidths = useCallback(() => {
+    if (resizeTimeoutRef.current) { clearTimeout(resizeTimeoutRef.current); resizeTimeoutRef.current = null }
+    const updates = pendingWidthsRef.current
+    pendingWidthsRef.current = null
+    if (!updates || updates.length === 0) return
+    // The new widths stay for this visit either way; only reopening would lose them
+    void safeInvoke(IPC.COLUMN_BATCH_UPDATE_WIDTHS, updates).then(res => {
+      if (!res.ok) rlog.error('DataGrid', 'Failed to batch update column widths', res.error)
+    })
   }, [])
+
+  // Leaving the list (or switching to another) within the debounce saves the widths now
+  // instead of dropping them (Q-088)
+  useEffect(() => () => flushColumnWidths(), [activeGridId, flushColumnWidths])
 
   // Hint banner — dismissible via localStorage
   const [hintDismissed, setHintDismissed] = useState(() =>
@@ -359,27 +369,23 @@ export function DataGrid(): React.ReactElement {
         : updater as ColumnSizingState
       columnSizingRef.current = next
 
-      // Debounce persist — batch all width changes in a single IPC call
+      // Debounce persist — batch all width changes in a single IPC call. The changes are
+      // worked out now, against this list's columns, so a flush after a switch saves them
+      // to the right columns (Q-088)
+      const widthUpdates: { columnId: number; width: number }[] = []
+      for (const col of useGridStore.getState().columns) {
+        const newWidth = next[`col_${col.id}`]
+        if (newWidth !== undefined && Math.round(newWidth) !== col.width) {
+          widthUpdates.push({ columnId: col.id, width: Math.round(newWidth) })
+        }
+      }
+      pendingWidthsRef.current = widthUpdates
       if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current)
-      resizeTimeoutRef.current = setTimeout(async () => {
-        const currentCols = useGridStore.getState().columns
-        const widthUpdates: { columnId: number; width: number }[] = []
-        for (const col of currentCols) {
-          const newWidth = columnSizingRef.current[`col_${col.id}`]
-          if (newWidth !== undefined && Math.round(newWidth) !== col.width) {
-            widthUpdates.push({ columnId: col.id, width: Math.round(newWidth) })
-          }
-        }
-        if (widthUpdates.length > 0) {
-          // The new widths stay for this visit either way; only reopening would lose them
-          const res = await safeInvoke(IPC.COLUMN_BATCH_UPDATE_WIDTHS, widthUpdates)
-          if (!res.ok) rlog.error('DataGrid', 'Failed to batch update column widths', res.error)
-        }
-      }, 500)
+      resizeTimeoutRef.current = setTimeout(flushColumnWidths, 500)
 
       return next
     })
-  }, [])
+  }, [flushColumnWidths])
 
   // Auto-fit a column to its content width
   const autoFitColumn = useCallback((colId: number) => {
