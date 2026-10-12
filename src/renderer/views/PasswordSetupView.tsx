@@ -32,6 +32,9 @@ export function PasswordSetupView(): React.ReactElement {
   // What's still missing, said on submit instead of a silently greyed-out button (audit F-25)
   const [missing, setMissing] = useState<string | null>(null)
   const termsRef = useRef<HTMLInputElement>(null)
+  // The password just saved. The recovery-key step confirms with it, so it still works
+  // after main's 10-minute no-password setup window has closed (R1-01)
+  const savedPasswordRef = useRef<string | null>(null)
 
   // Just the two actions: a settings change elsewhere needn't redraw this screen (AUDIT-137)
   const setPasswordSetup = useSettingsStore(s => s.setPasswordSetup)
@@ -89,6 +92,7 @@ export function PasswordSetupView(): React.ReactElement {
       }
 
       if (result.data.cloudWarning) setCloudWarning(result.data.cloudWarning)
+      savedPasswordRef.current = pwNow
 
       // Move to recovery key prompt instead of immediately unlocking
       setStep('recovery-prompt')
@@ -101,8 +105,9 @@ export function PasswordSetupView(): React.ReactElement {
 
   async function handleGenerateRecoveryKey() {
     try {
-      const result = await safeInvoke(IPC.AUTH_GENERATE_RECOVERY_KEY)
+      const result = await safeInvoke(IPC.AUTH_GENERATE_RECOVERY_KEY, savedPasswordRef.current ?? undefined)
       if (result.ok) {
+        savedPasswordRef.current = null
         setGeneratedKey(result.data)
         setStep('recovery-display')
       } else {
