@@ -39,8 +39,8 @@ export function registerTaskHandlers(): void {
     // history of finished tasks never pushes new ones off the list (audit S-14)
     const where = gridId != null ? 'ct.grid_id = ? AND' : ''
     const args = gridId != null ? [gridId] : []
-    const open = cachedStmt(`task_open_v2_${gridId != null ? 'grid' : 'all'}`, `SELECT ${TASK_COLS} ${FROM} ${where} ct.is_completed = 0
-      ORDER BY ct.position ASC, ct.due_date ASC NULLS LAST LIMIT ${QUERY_LIMITS.TASKS_LIST}`).all(...args) as CaseloadTask[]
+    const open = cachedStmt(`task_open_v3_${gridId != null ? 'grid' : 'all'}`, `SELECT ${TASK_COLS} ${FROM} ${where} ct.is_completed = 0
+      ORDER BY ct.position ASC, ct.due_date ASC NULLS LAST, ct.id ASC LIMIT ${QUERY_LIMITS.TASKS_LIST}`).all(...args) as CaseloadTask[]
     const done = cachedStmt(`task_done_v2_${gridId != null ? 'grid' : 'all'}`, `SELECT * FROM (SELECT ${TASK_COLS} ${FROM} ${where} ct.is_completed = 1
       ORDER BY ct.completed_at DESC, ct.id DESC LIMIT ${QUERY_LIMITS.TASKS_COMPLETED}) ORDER BY position ASC`).all(...args) as CaseloadTask[]
     return ok([...open, ...done])
@@ -194,11 +194,20 @@ export function registerTaskHandlers(): void {
     if (!Array.isArray(orderedIds) || orderedIds.length > MAX_REORDER_TASKS) return fail('Invalid reorder payload')
     if (!orderedIds.every(id => Number.isInteger(id) && id > 0)) return fail('Invalid IDs in reorder payload')
     const db = getDb()
+    // The list sends only the tasks it shows (not snoozed or older finished ones). As for
+    // columns, tasks left out keep their slots and the sent ones fill the other slots in
+    // the new order, so no two tasks share a position and a snoozed task comes back where
+    // it was (Q-087). Only positions that change are written.
     const reorder = db.transaction(() => {
+      const current = db.prepare('SELECT id, position FROM caseload_tasks ORDER BY position, id').all() as Array<{ id: number; position: number }>
+      const positionOf = new Map(current.map(t => [t.id, t.position]))
+      const sent = new Set(orderedIds)
+      const queue = [...sent].filter(id => positionOf.has(id))
       const stmt = db.prepare('UPDATE caseload_tasks SET position = ? WHERE id = ?')
-      for (let i = 0; i < orderedIds.length; i++) {
-        stmt.run(i, orderedIds[i])
-      }
+      current.forEach((t, i) => {
+        const id = sent.has(t.id) ? queue.shift()! : t.id
+        if (positionOf.get(id) !== i) stmt.run(i, id)
+      })
     })
     reorder()
     return ok(true)

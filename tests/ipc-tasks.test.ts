@@ -426,6 +426,16 @@ describe('IPC Tasks', () => {
       expect(r1.position).toBe(1)
     })
 
+    it('leaves no two tasks on one position when some aren\'t sent, and keeps their slots (Q-087)', async () => {
+      const { gridId } = seedGrid(testDb.db, { columnCount: 1, rowCount: 0 })
+      const [a, b, c, d] = ['A', 'B (snoozed)', 'C', 'D'].map(t => insertTask(gridId, t).lastInsertRowid as number) as [number, number, number, number]
+      ;[a, b, c, d].forEach((id, i) => testDb.db.prepare('UPDATE caseload_tasks SET position = ? WHERE id = ?').run(i, id))
+      expect((await invoke(IPC.TASK_REORDER, [d, c, a])).ok).toBe(true)
+      const rows = testDb.db.prepare('SELECT id, position FROM caseload_tasks ORDER BY position').all() as Array<{ id: number; position: number }>
+      expect(rows.map(r => r.id)).toEqual([d, b, c, a])
+      expect(new Set(rows.map(r => r.position)).size).toBe(rows.length)
+    })
+
     it('fails with non-array', async () => {
       const result = await invoke(IPC.TASK_REORDER, 'not array') as any
       expect(result.ok).toBe(false)
