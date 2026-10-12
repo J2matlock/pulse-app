@@ -5,6 +5,7 @@
  * ("col:12", "act:date") and checked against what the list actually has.
  */
 import { z } from 'zod'
+import { textLength } from './textLength'
 import { parseNumberCell } from './numbers'
 import { unhandledCase } from './assertNever'
 
@@ -37,13 +38,13 @@ export type ReportOperator = (typeof REPORT_OPERATORS)[number]
 
 export const REPORT_LIMITS = { sourceRows: 50_000, outputRows: 2_000, timeoutMs: 5_000, filters: 20, groupBy: 2, values: 6, columns: 30 } as const
 
-const fieldId = z.string().regex(/^[a-z_]+(:[a-z0-9_]+){0,2}$/).max(80)
+const fieldId = z.string().regex(/^[a-z_]+(:[a-z0-9_]+){0,2}$/).check(textLength({ max: 80 }))
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
 export const reportConfigSchema = z.object({
   source: z.enum(REPORT_SOURCES),
   includeArchived: z.boolean().optional(),
-  filters: z.array(z.object({ field: fieldId, operator: z.enum(REPORT_OPERATORS), value: z.string().max(500) })).max(REPORT_LIMITS.filters).default([]),
+  filters: z.array(z.object({ field: fieldId, operator: z.enum(REPORT_OPERATORS), value: z.string().check(textLength({ max: 500 })) })).max(REPORT_LIMITS.filters).default([]),
   dateRange: z.object({
     field: fieldId,
     from: ymd.optional(),
@@ -51,11 +52,11 @@ export const reportConfigSchema = z.object({
     preset: z.enum(DATE_PRESETS).optional(),
   }).optional(),
   groupBy: z.array(z.object({ field: fieldId, bucket: z.enum(DATE_BUCKETS).optional() })).max(REPORT_LIMITS.groupBy).default([]),
-  values: z.array(z.object({ fn: z.enum(VALUE_FNS), field: fieldId.optional(), label: z.string().max(60).optional() })).max(REPORT_LIMITS.values).default([]),
+  values: z.array(z.object({ fn: z.enum(VALUE_FNS), field: fieldId.optional(), label: z.string().check(textLength({ max: 60 })).optional() })).max(REPORT_LIMITS.values).default([]),
   columns: z.array(fieldId).max(REPORT_LIMITS.columns).optional(),
-  sort: z.object({ field: z.string().max(80), dir: z.enum(['asc', 'desc']) }).optional(),
+  sort: z.object({ field: z.string().check(textLength({ max: 80 })), dir: z.enum(['asc', 'desc']) }).optional(),
   /** One line on the question it answers ("Which estimates still need a call back?") */
-  about: z.string().max(200).optional(),
+  about: z.string().check(textLength({ max: 200 })).optional(),
 })
 export type ReportConfig = z.infer<typeof reportConfigSchema>
 

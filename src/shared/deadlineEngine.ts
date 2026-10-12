@@ -9,6 +9,7 @@
  * Dates are local calendar dates as 'YYYY-MM-DD' strings throughout.
  */
 import { z } from 'zod'
+import { textLength } from './textLength'
 import { addInterval, describeInterval, hasInterval, toRuleInterval, type RuleInterval } from './ruleInterval'
 import { addBusinessDays, rollBackToBusinessDay, rollForwardToBusinessDay, DEFAULT_WEEKEND, type WorkCalendar } from './businessDays'
 import { toYmd, ymdToDate, dateToYmd, daysBetween, addDays } from './ymd'
@@ -123,7 +124,7 @@ export const meterConfigSchema = z.object({
   lastServiceReadingColumnId: z.number().int().positive(),
   /** Due again after this much use */
   every: z.number().positive().max(1e9),
-  unit: z.string().trim().min(1).max(20),
+  unit: z.string().trim().check(textLength({ min: 1, max: 20 })),
   /** "…or 6 months, whichever is first", counted from the rule's own date (the last service) */
   timeFallback: offsetSchema.omit({ businessDays: true }).optional(),
   /** Usage per day to assume until there are enough readings */
@@ -152,7 +153,7 @@ export const sequenceConfigSchema = z.object({
   /** The date the steps count from, or 'self' for the rule's own column */
   anchorColumnId: z.union([z.number().int().positive(), z.literal('self')]),
   steps: z.array(z.object({
-    label: z.string().trim().min(1).max(80),
+    label: z.string().trim().check(textLength({ min: 1, max: 80 })),
     offset: offsetSchema,
   }).strict()).min(1).max(20),
   /** After the last step, repeat this often (annual reviews forever) */
@@ -163,7 +164,7 @@ export type SequenceConfig = z.infer<typeof sequenceConfigSchema>
 export const conditionSchema = z.object({
   columnId: z.number().int().positive(),
   op: z.enum(['is', 'is_not', 'empty', 'not_empty']),
-  values: z.array(z.string().max(200)).max(50).optional(),
+  values: z.array(z.string().check(textLength({ max: 200 }))).max(50).optional(),
   whenFalse: z.enum(['hide', 'pause']),
 }).strict()
 

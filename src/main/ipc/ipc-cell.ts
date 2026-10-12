@@ -3,6 +3,7 @@
  */
 
 import { z } from 'zod'
+import { textLength } from '../../shared/textLength'
 import { IPC } from '../../shared/ipc-channels'
 import { QUERY_LIMITS } from '../../shared/query-limits'
 import { ok, fail, validId, logNonFatal, notifyCaseLogChanged } from './ipc-utils'
@@ -191,7 +192,7 @@ export function registerCellHandlers(): void {
 
   // ── Cell Formats ──────────────────────────────────────────────────────────
   define(IPC.CELL_FORMAT_SET, [
-    idArg(), idArg(), z.string('Invalid rules format').max(50_000, 'Formatting rules too large'),
+    idArg(), idArg(), z.string('Invalid rules format').check(textLength({ max: 50_000 }, 'Formatting rules too large')),
   ], (rowId, columnId, rules) => {
     try { JSON.parse(rules) } catch { return fail('Invalid rules JSON') }
     const db = getDb()

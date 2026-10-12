@@ -12,6 +12,7 @@ import { startingWidth } from '../shared/columnTypes'
 import { columnTypesWhere } from '../shared/columnTraits'
 import fs from 'fs'
 import { z } from 'zod'
+import { textLength } from '../shared/textLength'
 import { getDb } from './database'
 import { logger } from './logger'
 import { usesHumanServicesWords } from './vocab'
@@ -88,13 +89,13 @@ const MAX_STRING_LEN = 1000
 const MAX_JSON_FIELD_LEN = 10_000  // config / thresholds / items JSON
 
 /** Validates that a string is parseable JSON */
-const jsonString = (maxLen: number) => z.string().max(maxLen).refine(
+const jsonString = (maxLen: number) => z.string().check(textLength({ max: maxLen })).refine(
   (s) => { try { JSON.parse(s); return true } catch (err) { logNonFatal('templates', 'jsonString validation parse', err); return false } },
   { message: 'Must be valid JSON' }
 )
 
 /** Validates that thresholds JSON is an array of {daysBefore, bgClass, label} objects */
-const thresholdsJson = z.string().max(MAX_JSON_FIELD_LEN).refine(
+const thresholdsJson = z.string().check(textLength({ max: MAX_JSON_FIELD_LEN })).refine(
   (s) => {
     try {
       const arr = JSON.parse(s)
@@ -111,7 +112,7 @@ const thresholdsJson = z.string().max(MAX_JSON_FIELD_LEN).refine(
 )
 
 /** Validates that items JSON is a flat array of strings or objects with a title field */
-const checklistItemsJson = z.string().max(MAX_JSON_FIELD_LEN).refine(
+const checklistItemsJson = z.string().check(textLength({ max: MAX_JSON_FIELD_LEN })).refine(
   (s) => {
     try {
       const arr = JSON.parse(s)
@@ -125,23 +126,23 @@ const checklistItemsJson = z.string().max(MAX_JSON_FIELD_LEN).refine(
 )
 
 const PulseColumnSchema = z.object({
-  name: z.string().min(1).max(MAX_STRING_LEN),
-  column_type: z.string().min(1).max(100),
+  name: z.string().check(textLength({ min: 1, max: MAX_STRING_LEN })),
+  column_type: z.string().check(textLength({ min: 1, max: 100 })),
   width: z.number().int().min(30).max(2000).optional(),
   position: z.number().int().min(0).max(MAX_COLUMNS),
   is_name_column: z.union([z.literal(0), z.literal(1)]).optional(),
   is_identifier: z.union([z.literal(0), z.literal(1)]).optional(),
   is_required: z.union([z.literal(0), z.literal(1)]).optional(),
-  default_value: z.string().max(MAX_STRING_LEN).nullable().optional(),
-  description: z.string().max(MAX_STRING_LEN).nullable().optional(),
+  default_value: z.string().check(textLength({ max: MAX_STRING_LEN })).nullable().optional(),
+  description: z.string().check(textLength({ max: MAX_STRING_LEN })).nullable().optional(),
   config: jsonString(MAX_JSON_FIELD_LEN).optional(),
-  original_type: z.string().max(100).optional(),
-  degraded_from: z.string().max(100).optional(),
+  original_type: z.string().check(textLength({ max: 100 })).optional(),
+  degraded_from: z.string().check(textLength({ max: 100 })).optional(),
 }).strict()
 
 const PulseAlertRuleSchema = z.object({
-  name: z.string().min(1).max(MAX_STRING_LEN),
-  description: z.string().max(MAX_STRING_LEN).nullable().optional(),
+  name: z.string().check(textLength({ min: 1, max: MAX_STRING_LEN })),
+  description: z.string().check(textLength({ max: MAX_STRING_LEN })).nullable().optional(),
   thresholds: thresholdsJson,
   interval_days: z.number().int().min(0).max(3650).nullable().optional(),
   interval_months: z.number().int().min(0).max(120).nullable().optional(),
@@ -153,20 +154,20 @@ const PulseAlertRuleSchema = z.object({
 }).strict()
 
 const PulseChecklistSchema = z.object({
-  name: z.string().min(1).max(MAX_STRING_LEN),
-  description: z.string().max(MAX_STRING_LEN).nullable().optional(),
+  name: z.string().check(textLength({ min: 1, max: MAX_STRING_LEN })),
+  description: z.string().check(textLength({ max: MAX_STRING_LEN })).nullable().optional(),
   items: checklistItemsJson,
   is_recurring: z.union([z.literal(0), z.literal(1)]).optional(),
   recurrence_days: z.number().int().min(1).max(3650).nullable().optional(),
 }).strict()
 
 const PulseFileSchema = z.object({
-  pulse_template: z.string().min(1).max(20),
+  pulse_template: z.string().check(textLength({ min: 1, max: 20 })),
   type: z.literal('setup'),
-  name: z.string().min(1).max(MAX_STRING_LEN),
-  description: z.string().max(MAX_STRING_LEN).optional(),
-  author: z.string().max(MAX_STRING_LEN).optional(),
-  created: z.string().max(20),
+  name: z.string().check(textLength({ min: 1, max: MAX_STRING_LEN })),
+  description: z.string().check(textLength({ max: MAX_STRING_LEN })).optional(),
+  author: z.string().check(textLength({ max: MAX_STRING_LEN })).optional(),
+  created: z.string().check(textLength({ max: 20 })),
   columns: z.array(PulseColumnSchema).max(MAX_COLUMNS),
   alert_rules: z.array(PulseAlertRuleSchema).max(MAX_ALERT_RULES),
   checklists: z.array(PulseChecklistSchema).max(MAX_CHECKLISTS),

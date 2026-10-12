@@ -4,6 +4,7 @@
  */
 import { BrowserWindow } from 'electron'
 import { z } from 'zod'
+import { textLength } from '../../shared/textLength'
 import { IPC } from '../../shared/ipc-channels'
 import { vocabSchema } from '../../shared/vocab'
 import { featureMapSchema } from '../../shared/features'
@@ -28,12 +29,12 @@ export function notifyWorkspaceChanged(): void {
 }
 
 const gridSettingsSchema = z.object({
-  name: z.string().trim().min(1).max(200).optional(),
+  name: z.string().trim().check(textLength({ min: 1, max: 200 })).optional(),
   record_kind: z.enum(['person', 'thing', 'job']).optional(),
   /** null clears the list's own words (it then uses the workspace's) */
   vocab: vocabSchema.nullable().optional(),
   /** How each record's name is shown, e.g. "{Year} {Make} {Model}"; null or "" goes back to the name column */
-  display_format: z.string().max(DISPLAY_FORMAT_MAX).nullable().optional(),
+  display_format: z.string().check(textLength({ max: DISPLAY_FORMAT_MAX })).nullable().optional(),
   /** Priority levels on this list */
   acuity_enabled: z.boolean().optional(),
 }).strict()

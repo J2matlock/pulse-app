@@ -5,6 +5,7 @@
 import { readFile } from 'fs/promises'
 import { statSync } from 'fs'
 import { z } from 'zod'
+import { textLength } from '../../shared/textLength'
 import { IPC } from '../../shared/ipc-channels'
 import { logNonFatal, ok, fail, assertSafePath, validId, notifyCaseLogChanged, pickSavePath } from './ipc-utils'
 import { handlersFor, idArg, textArg } from './ipc-define'
@@ -198,7 +199,7 @@ export function registerContactHandlers(): void {
   define(IPC.CONTACTS_GET_CUSTOM_VALUES, [idArg()], (providerId) => ok(getCustomValues(providerId)))
 
   define(IPC.CONTACTS_SAVE_CUSTOM_VALUE, [
-    idArg(), idArg(), z.string('Value too long (max 10,000 chars)').max(10_000, 'Value too long (max 10,000 chars)').nullable(),
+    idArg(), idArg(), z.string('Value too long (max 10,000 chars)').check(textLength({ max: 10_000 }, 'Value too long (max 10,000 chars)')).nullable(),
   ], (providerId, customFieldId, value) => {
     saveCustomValue(providerId, customFieldId, value); return ok(true)
   }, { write: true })

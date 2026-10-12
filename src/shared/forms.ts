@@ -3,6 +3,7 @@
  * main and the window.
  */
 import { z } from 'zod'
+import { textLength } from './textLength'
 import { columnTypesWhere } from './columnTraits'
 
 export const MAX_FORM_FIELDS = 80
@@ -11,20 +12,20 @@ export const formFieldSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('column'),
     columnId: z.number().int().positive(),
-    label: z.string().trim().max(200).optional(),
-    help: z.string().trim().max(500).optional(),
+    label: z.string().trim().check(textLength({ max: 200 })).optional(),
+    help: z.string().trim().check(textLength({ max: 500 })).optional(),
     required: z.boolean().optional(),
     width: z.enum(['full', 'half']).optional(),
   }).strict(),
   z.object({
     kind: z.literal('section'),
-    title: z.string().trim().min(1).max(200),
-    text: z.string().trim().max(1000).optional(),
+    title: z.string().trim().check(textLength({ min: 1, max: 200 })),
+    text: z.string().trim().check(textLength({ max: 1000 })).optional(),
   }).strict(),
   z.object({
     kind: z.literal('note'),
-    label: z.string().trim().min(1).max(200),
-    help: z.string().trim().max(500).optional(),
+    label: z.string().trim().check(textLength({ min: 1, max: 200 })),
+    help: z.string().trim().check(textLength({ max: 500 })).optional(),
     required: z.boolean().optional(),
   }).strict(),
 ])
@@ -33,8 +34,8 @@ export type FormField = z.infer<typeof formFieldSchema>
 export const formInputSchema = z.object({
   id: z.number().int().positive().optional(),
   grid_id: z.number().int().positive(),
-  name: z.string().trim().min(1).max(200),
-  intro: z.string().trim().max(2000).nullable().optional(),
+  name: z.string().trim().check(textLength({ min: 1, max: 200 })),
+  intro: z.string().trim().check(textLength({ max: 2000 })).nullable().optional(),
   fields: z.array(formFieldSchema).min(1).max(MAX_FORM_FIELDS),
   log_activity_type: z.string().regex(/^[a-z0-9_]{1,30}$/).nullable().optional(),
 }).strict()

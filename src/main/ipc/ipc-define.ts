@@ -22,11 +22,12 @@
  * Schemas are Zod. Give every schema the exact message people should see (or
  * the one a test pins), as the first argument of idArg / textArg / z.xxx(…),
  * the first two of idListArg, or the last of schemaArg / z.enum / z.custom /
- * .min / .max / .refine / .regex — tests/renderer/friendlyError.test.ts
+ * .min / .max / .refine / .regex / textLength — tests/renderer/friendlyError.test.ts
  * reads the messages from those places. Zod objects drop keys they don't
  * list; use z.looseObject where the body passes the whole object on.
  */
 import { z } from 'zod'
+import { textLength } from '../../shared/textLength'
 import { secureWrap, enforceWritable, fail, validId } from './ipc-utils'
 
 /** What every handler answers: ok(data) or fail(message) */
@@ -57,8 +58,7 @@ export interface TextArgOptions {
 /** A string within length limits (UTF-16 units, as String.length counts), answering `message` otherwise */
 export function textArg(message: string, { min, max, notBlank }: TextArgOptions = {}) {
   let schema = z.string(message)
-  if (min !== undefined) schema = schema.min(min, message)
-  if (max !== undefined) schema = schema.max(max, message)
+  if (min !== undefined || max !== undefined) schema = schema.check(textLength({ min, max }, message))
   return notBlank ? schema.refine(s => s.trim().length > 0, message) : schema
 }
 

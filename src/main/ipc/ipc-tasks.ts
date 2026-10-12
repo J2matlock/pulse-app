@@ -3,6 +3,7 @@
  */
 
 import { z } from 'zod'
+import { textLength } from '../../shared/textLength'
 import { IPC } from '../../shared/ipc-channels'
 import { QUERY_LIMITS } from '../../shared/query-limits'
 import { logNonFatal, ok, fail, buildSafeSetClause, validId } from './ipc-utils'
@@ -410,7 +411,7 @@ export function registerTaskHandlers(): void {
   define(IPC.SNIPPET_CREATE, [
     textArg('Invalid snippet trigger (max 50 characters)', { min: 1, max: 50 }),
     textArg('Snippet expansion too large (max 50,000 characters)', { max: 50_000 }),
-    z.string('Invalid snippet category').max(100, 'Invalid snippet category').nullish(),
+    z.string('Invalid snippet category').check(textLength({ max: 100 }, 'Invalid snippet category')).nullish(),
   ], (trigger, expansion, category) => {
     const db = getDb()
     const result = db.prepare(`

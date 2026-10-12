@@ -4,13 +4,14 @@
  * columns; each can count as done and do things when a record enters it.
  */
 import { z } from 'zod'
+import { textLength } from './textLength'
 import { ACTIVITY_COLORS } from './activityTypes'
 
 const color = z.union([z.enum(ACTIVITY_COLORS), z.string().regex(/^#[0-9a-fA-F]{6}$/)])
 
 export const stageOptionSchema = z.object({
   /** Matches the column's option */
-  value: z.string().trim().min(1).max(200),
+  value: z.string().trim().check(textLength({ min: 1, max: 200 })),
   color: color.optional(),
   /** Counts as finished: left out of "open" counts; the board can hide old ones */
   done: z.boolean().optional(),
@@ -107,12 +108,12 @@ export interface StageSummary {
 /** A stage in starters and shared files (W06 §8): checklist and date column by name */
 export const portableStageSchema = z.object({
   options: z.array(z.object({
-    value: z.string().trim().min(1).max(200),
-    color: z.string().max(20).optional(),
+    value: z.string().trim().check(textLength({ min: 1, max: 200 })),
+    color: z.string().check(textLength({ max: 20 })).optional(),
     done: z.boolean().optional(),
     onEnter: z.object({
-      checklist: z.string().trim().min(1).max(200).optional(),
-      stampColumn: z.string().trim().min(1).max(200).optional(),
+      checklist: z.string().trim().check(textLength({ min: 1, max: 200 })).optional(),
+      stampColumn: z.string().trim().check(textLength({ min: 1, max: 200 })).optional(),
       activityType: z.string().regex(/^[a-z0-9_]{1,30}$/).optional(),
     }).strict().optional(),
   }).strict()).min(1).max(30),

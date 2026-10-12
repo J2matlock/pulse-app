@@ -159,7 +159,7 @@ function mainMessages(): string[] {
       // defineHandler argument schemas answer with their own messages (src/main/ipc/ipc-define.ts)
       for (const pattern of [
         /\b(?:idArg|textArg|idListArg|z\.(?:string|number|boolean|int))\(\s*(['"`])((?:\\.|(?!\1).)*)\1/g,
-        /(?:\.(?:min|max|refine|regex)|\bschemaArg|\bz\.(?:custom(?:<.*?>)?|enum))\([^\n]*?,\s*(['"`])((?:\\.|(?!\1).)*)\1\s*\)/g,
+        /(?:\.(?:min|max|refine|regex)|\bschemaArg|\btextLength|\bz\.(?:custom(?:<.*?>)?|enum))\([^\n]*?,\s*(['"`])((?:\\.|(?!\1).)*)\1\s*\)/g,
         /\bfunction \w+Arg\(\s*\w+\s*=\s*(['"`])((?:\\.|(?!\1).)*)\1/g,
         // idListArg(listMessage, idMessage, …): the second message
         /\bidListArg\(\s*(?:'(?:\\.|[^'])*'|"(?:\\.|[^"])*"|`(?:\\.|[^`])*`)\s*,\s*(['"`])((?:\\.|(?!\1).)*)\1/g,

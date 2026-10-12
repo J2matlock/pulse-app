@@ -4,6 +4,7 @@
  * with no zone: 'YYYY-MM-DDTHH:MM', or 'YYYY-MM-DD' when all-day.
  */
 import { z } from 'zod'
+import { textLength } from './textLength'
 import { dateToYmd, addDays as addYmdDays } from './ymd'
 import { LIVE_GRID, LIVE_ROW, NOT_TRASHED_ROW } from './liveRecords'
 import { shortDate, ymdLocalDate } from './dates'
@@ -47,11 +48,11 @@ export const OPEN_RECORD_SQL = `(a.row_id IS NULL OR (${NOT_TRASHED_ROW} AND ${L
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 export const TIME_RE = /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/
 
-const optionalText = (max: number) => z.string().trim().max(max).nullable().optional().transform(v => (v ? v : null))
+const optionalText = (max: number) => z.string().trim().check(textLength({ max })).nullable().optional().transform(v => (v ? v : null))
 
 export const apptInputSchema = z.object({
   row_id: z.number().int().positive().nullable().optional(),
-  title: z.string().trim().min(1).max(200),
+  title: z.string().trim().check(textLength({ min: 1, max: 200 })),
   start_at: z.string(),
   end_at: z.string().nullable().optional(),
   all_day: z.boolean().optional(),
@@ -69,7 +70,7 @@ export type ApptInput = z.input<typeof apptInputSchema>
 
 export const apptPatchSchema = z.object({
   row_id: z.number().int().positive().nullable().optional(),
-  title: z.string().trim().min(1).max(200).optional(),
+  title: z.string().trim().check(textLength({ min: 1, max: 200 })).optional(),
   start_at: z.string().optional(),
   end_at: z.string().nullable().optional(),
   all_day: z.boolean().optional(),

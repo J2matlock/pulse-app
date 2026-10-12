@@ -12,6 +12,7 @@ import { word } from '../vocab'
 import { VALID_COLUMN_TYPES } from '../../shared/types'
 import { createSampleCaseload, getSampleGridId, countSampleRows, planSampleRemoval, removeSampleData, answerSampleRow } from '../sample-data'
 import { z } from 'zod'
+import { textLength } from '../../shared/textLength'
 import { applyDateRules, StarterError } from '../starters'
 import type { SetupProgress } from '../../shared/ipc-contract'
 import { LIVE_GRID, NOT_TRASHED_ROW, liveGrid } from '../../shared/liveRecords'
@@ -25,12 +26,12 @@ const dateAnswersSchema = z.array(z.union([
 const setupProgressSchema = z.object({
   step: z.enum(['sheet-import', 'sheet-rows', 'blank']),
   gridId: z.number().int().positive(),
-  listName: z.string().max(200).optional(),
+  listName: z.string().check(textLength({ max: 200 })).optional(),
   blank: z.object({
-    name: z.string().max(200),
+    name: z.string().check(textLength({ max: 200 })),
     kind: z.enum(['person', 'thing', 'job']),
-    one: z.string().max(40),
-    many: z.string().max(40),
+    one: z.string().check(textLength({ max: 40 })),
+    many: z.string().check(textLength({ max: 40 })),
   }).strict().optional(),
 }).strict()
 

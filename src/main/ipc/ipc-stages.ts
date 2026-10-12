@@ -2,6 +2,7 @@
  * ipc-stages.ts — stage settings, moves and durations (generalization W06 §7).
  */
 import { z } from 'zod'
+import { textLength } from '../../shared/textLength'
 import { IPC } from '../../shared/ipc-channels'
 import { ok, fail, validId, notifyCaseLogChanged } from './ipc-utils'
 import { handlersFor, idArg } from './ipc-define'
@@ -27,7 +28,7 @@ export function registerStageHandlers(): void {
     return res
   }, { write: true })
 
-  define(IPC.STAGE_MOVE, [idArg(), idArg(), z.string('Invalid stage').max(200, 'Invalid stage').nullable()], (rowId, columnId, value) => {
+  define(IPC.STAGE_MOVE, [idArg(), idArg(), z.string('Invalid stage').check(textLength({ max: 200 }, 'Invalid stage')).nullable()], (rowId, columnId, value) => {
     const res = action(() => moveStage(rowId, columnId, value))
     if (res.ok && res.data.changed) notifyCaseLogChanged(rowId)
     return res
