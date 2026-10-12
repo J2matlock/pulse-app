@@ -8,10 +8,11 @@ import { BrowserWindow, dialog } from 'electron'
 import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
 import { summarizeStarter, type StarterSource } from '../../shared/starters/schema'
-import { secureWrap, ok, fail, enforceWritable, assertSafePath, rememberUserChosenPaths, PATH_REFUSED_MESSAGE } from './ipc-utils'
+import { ok, fail, assertSafePath, rememberUserChosenPaths, PATH_REFUSED_MESSAGE } from './ipc-utils'
 import { applyStarter, exportWorkspaceStarter, listBuiltinStarters, loadStarter, previewStarter, StarterError } from '../starters'
 import { atomicWriteFileSync } from '../export-shared'
 import { notifyWorkspaceChanged } from './ipc-workspace'
+import { handlersFor } from './ipc-define'
 
 // The window never handles file paths: a file opened through the dialog here
 // gets a token, and the window refers to it by that token.
@@ -56,10 +57,15 @@ function failFrom(err: unknown, fallback: string) {
 
 const NOT_AVAILABLE = "That example isn't available. If you opened a file, open it again."
 
-export function registerStarterHandlers(): void {
-  secureWrap(IPC.STARTER_LIST, 'ipc-starters', () => ok(listBuiltinStarters()))
+const define = handlersFor('ipc-starters')
 
-  secureWrap(IPC.STARTER_PREVIEW, 'ipc-starters', (_e, ref: unknown, variant?: unknown) => {
+// The window's references resolve against this module's file tokens, and each
+// handler answers one message for a bad reference before it looks at the rest,
+// so the checks stay in the bodies.
+export function registerStarterHandlers(): void {
+  define(IPC.STARTER_LIST, [], () => ok(listBuiltinStarters()))
+
+  define(IPC.STARTER_PREVIEW, [z.unknown(), z.unknown()], (ref, variant) => {
     const src = resolveRef(ref)
     const v = variantSchema.safeParse(variant)
     if (!src || !v.success) return fail(NOT_AVAILABLE)
@@ -70,8 +76,7 @@ export function registerStarterHandlers(): void {
     }
   })
 
-  secureWrap(IPC.STARTER_APPLY, 'ipc-starters', (_e, ref: unknown, opts: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
+  define(IPC.STARTER_APPLY, [z.unknown(), z.unknown()], (ref, opts) => {
     const src = resolveRef(ref)
     if (!src) return fail(NOT_AVAILABLE)
     const o = optionsSchema.safeParse(opts)
@@ -86,9 +91,9 @@ export function registerStarterHandlers(): void {
     } catch (err) {
       return failFrom(err, "We couldn't add that example. Nothing was changed.")
     }
-  })
+  }, { write: true })
 
-  secureWrap(IPC.STARTER_OPEN_FILE, 'ipc-starters', async () => {
+  define(IPC.STARTER_OPEN_FILE, [], async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       title: 'Open a template file',
       properties: ['openFile'],
@@ -107,7 +112,7 @@ export function registerStarterHandlers(): void {
     }
   })
 
-  secureWrap(IPC.WORKSPACE_EXPORT_TEMPLATE, 'ipc-starters', async () => {
+  define(IPC.WORKSPACE_EXPORT_TEMPLATE, [], async () => {
     let json: string
     try {
       json = JSON.stringify(exportWorkspaceStarter(), null, 2)
