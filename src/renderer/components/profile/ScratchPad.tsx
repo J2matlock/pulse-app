@@ -87,7 +87,7 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
     editable: false,
     editorProps: {
       attributes: {
-        class: 'prose prose-sm dark:prose-invert max-w-none p-4 min-h-[140px] focus:outline-hidden text-slate-800 dark:text-slate-100',
+        class: 'scratch-editor max-w-none p-4 min-h-[140px] focus:outline-hidden text-slate-800 dark:text-slate-100',
         style: 'font-size: 15px;',
         spellcheck: 'false',
         // The editor is a textbox; give it a name and say it takes several lines
