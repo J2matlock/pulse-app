@@ -12,16 +12,6 @@ import { stageConfigOf } from '../../shared/stages'
 import { pulseEvents } from '../events'
 import type { GridState, UpdateCellOptions } from './gridTypes'
 
-/**
- * Typing into cells. Owns the cell values (`col_*` fields) of `rows`: the optimistic
- * write lands in the same update as isSaving, so it sets them directly (D-048).
- */
-export interface CellEditSliceState {
-  isSaving: boolean
-  saveError: string | null
-  /** Resolves false when the change couldn't be saved (or the column can't be typed into) */
-  updateCell: (rowId: number, columnId: number, value: string | null, opts?: UpdateCellOptions) => Promise<boolean>
-}
 
 /** Saves of the same cell closer together than this are one undo step (L-17) */
 const COALESCE_MS = 3000

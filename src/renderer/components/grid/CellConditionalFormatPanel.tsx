@@ -16,7 +16,6 @@ import { defaultOpForType, rowLabel } from './cellFormatRules'
 import { CellFormatRuleCard } from './CellFormatRuleCard'
 
 export { evalCellFormat } from './cellFormatRules'
-export { CellSwatchPicker, BORDER_COLORS } from './CellFormatRuleCard'
 
 // ── Component ─────────────────────────────────────────────────────────────────
 

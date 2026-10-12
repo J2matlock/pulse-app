@@ -10,40 +10,6 @@ import { pulseEvents } from '../events'
 import { clearCellCoalescing } from './gridCellEditSlice'
 import type { GridState } from './gridTypes'
 
-/**
- * The open list's records. This slice owns `rows`: other slices change records
- * through mapRows (or the actions here), not by setting `rows` themselves. The
- * exceptions are the list loader in gridStore.ts, which fills every slice, and
- * the cell edit slice, which owns the cell values in each row (D-048).
- */
-export interface RowSliceState {
-  rows: GridRow[]
-  /** Changes records in the open list on screen only (nothing is saved) */
-  mapRows: (fn: (row: GridRow) => GridRow) => void
-  lastAddedRowId: number | null
-  /** A record just added stays on screen even if the filter or search would hide it (G-28) */
-  pinnedRowId: number | null
-
-  /** Made-up sample entries in this list → whether "Keep this as a real entry?" was asked (0 = not yet) */
-  sampleRows: Record<number, number>
-  /** A sample entry just edited for the first time: ask once whether to keep it */
-  sampleKeepPrompt: number | null
-  /** The answer: keep it as real, it's just a sample, or decide later (don't ask again) */
-  answerSampleRow: (rowId: number, answer: 'keep' | 'sample' | 'later') => Promise<void>
-  /** Ask once whether this sample entry, just edited, is a real one now */
-  promptKeepSample: (rowId: number) => void
-
-  selectedRowIds: Set<number>
-  setSelectedRowIds: (ids: Set<number> | ((prev: Set<number>) => Set<number>)) => void
-
-  addRow: () => Promise<void>
-  deleteRow: (rowId: number) => Promise<void>
-  archiveRow: (rowId: number, reason?: string, opts?: { cancelAppointments?: boolean }) => Promise<void>
-  unarchiveRow: (rowId: number) => Promise<void>
-  duplicateRow: (rowId: number) => Promise<void>
-  updateRow: (rowId: number, updates: Partial<{ is_starred: 0 | 1 }>) => Promise<void>
-}
-
 /** Values main filled in on a new row (auto numbers), so it shows them straight away. */
 async function autoFilledValues(gridId: number, rowId: number, columns: Column[]): Promise<Partial<GridRow>> {
   const auto = columns.filter(c => c.column_type === 'auto_number')

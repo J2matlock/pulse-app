@@ -23,7 +23,6 @@ import { STEPS, FIRST_RUN_TOUR, tourSteps } from './tourSteps'
 import { computeTooltipPosition } from './tourPosition'
 
 export { STEPS, FIRST_RUN_TOUR, tourSteps, type TourStep } from './tourSteps'
-export { computeTooltipPosition } from './tourPosition'
 
 interface Props {
   onComplete: () => void

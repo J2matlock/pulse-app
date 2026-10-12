@@ -2,26 +2,12 @@ import { IPC } from '../../shared/ipc-channels'
 import { rlog } from '../utils/rendererLogger'
 import { type SideEffect } from './undoStore'
 import { pushContactUndo, liveContactId } from './contactsUndo'
+import type { ProviderInteraction, ProviderClientLink } from '../../shared/types'
 import { storeInvoke } from '../utils/safeInvoke'
 import { wordNow } from '../utils/vocab'
 import { pulseEvents } from '../events'
-import type { ProviderInteraction, ProviderClientLink } from '../../shared/types'
-import type { ContactsStore } from './contactsTypes'
+import type { ContactsStore, ContactActivitySliceState } from './contactsTypes'
 
-/** A contact's interaction log and the records it's linked to */
-export interface ContactActivitySliceState {
-  interactions: ProviderInteraction[]
-  clientLinks: ProviderClientLink[]
-
-  loadInteractions: (providerId: number) => Promise<void>
-  addInteraction: (providerId: number, contactType: string, content: string) => Promise<void>
-  updateInteraction: (id: number, data: { content?: string; contact_type?: string }) => Promise<void>
-  deleteInteraction: (id: number) => Promise<void>
-
-  loadClientLinks: (params: { providerId?: number; rowId?: number }) => Promise<void>
-  linkClient: (providerId: number, rowId: number, gridId: number, notes?: string) => Promise<void>
-  unlinkClient: (linkId: number) => Promise<void>
-}
 
 type SetState = (partial: Partial<ContactsStore> | ((s: ContactsStore) => Partial<ContactsStore>)) => void
 type GetState = () => ContactsStore

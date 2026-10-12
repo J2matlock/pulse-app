@@ -1,10 +1,27 @@
 import type {
   Provider,
   ProviderCategory,
+  ProviderInteraction,
+  ProviderClientLink,
   ProviderCustomField,
   ContactFilterParams,
 } from '../../shared/types'
-import type { ContactActivitySliceState } from './contactsActivitySlice'
+
+// Declared here, not in the slice, so the slice and these types don't import each other
+/** A contact's interaction log and the records it's linked to */
+export interface ContactActivitySliceState {
+  interactions: ProviderInteraction[]
+  clientLinks: ProviderClientLink[]
+
+  loadInteractions: (providerId: number) => Promise<void>
+  addInteraction: (providerId: number, contactType: string, content: string) => Promise<void>
+  updateInteraction: (id: number, data: { content?: string; contact_type?: string }) => Promise<void>
+  deleteInteraction: (id: number) => Promise<void>
+
+  loadClientLinks: (params: { providerId?: number; rowId?: number }) => Promise<void>
+  linkClient: (providerId: number, rowId: number, gridId: number, notes?: string) => Promise<void>
+  unlinkClient: (linkId: number) => Promise<void>
+}
 
 export type ViewMode = 'cards' | 'list'
 
