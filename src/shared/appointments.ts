@@ -98,6 +98,11 @@ export const seriesRuleSchema = z.object({
   count: z.number().int().min(1).max(500).optional(),
   /** Stop on the date in this column of the record ("until the authorization ends") */
   untilColumnId: z.number().int().positive().optional(),
+  /**
+   * Monthly: the day of the month it falls on, when that isn't the first date's day
+   * (a "This and following" edit of a Jan 31 series made on Feb 28 keeps the 31st).
+   */
+  monthDay: z.number().int().min(1).max(31).optional(),
 }).strict()
 export type SeriesRule = z.infer<typeof seriesRuleSchema>
 
@@ -189,7 +194,7 @@ export function seriesDates(rule: SeriesRule, firstStart: string, through: strin
     for (let i = 0; out.length < max; i++) {
       const target = new Date(f.getFullYear(), f.getMonth() + i * rule.interval, 1)
       const last = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate()
-      const d = ymd(new Date(target.getFullYear(), target.getMonth(), Math.min(f.getDate(), last)))
+      const d = ymd(new Date(target.getFullYear(), target.getMonth(), Math.min(rule.monthDay ?? f.getDate(), last)))
       if (d > end) break
       out.push(d)
     }

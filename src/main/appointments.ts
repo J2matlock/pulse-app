@@ -340,7 +340,26 @@ export function followingRule(rule: SeriesRule, first: string, from: string, new
     const shift = (parseYmd(newFirst).getDay() - parseYmd(from).getDay() + 7) % 7
     if (shift) r.byDay = [...new Set(rule.byDay.map(d => (d + shift) % 7))].sort()
   }
+  if (rule.freq === 'monthly') {
+    const day = monthAnchor(rule, first, from, newFirst)
+    if (day) r.monthDay = day
+    else delete r.monthDay
+  }
   return r
+}
+
+/**
+ * The day of the month a monthly series split at `from` keeps (P-003): a
+ * month-end occurrence clamped short (Feb 28 of a 31st series) that wasn't
+ * moved keeps the series' day; otherwise undefined, and the new series
+ * counts from its first date's day.
+ */
+function monthAnchor(rule: SeriesRule, first: string, from: string, newFirst: string): number | undefined {
+  if (rule.freq !== 'monthly' || newFirst !== from) return undefined
+  const anchor = rule.monthDay ?? parseYmd(first).getDate()
+  const f = parseYmd(from)
+  const lastOfMonth = new Date(f.getFullYear(), f.getMonth() + 1, 0).getDate()
+  return f.getDate() === lastOfMonth && anchor > f.getDate() ? anchor : undefined
 }
 
 /**
@@ -394,7 +413,12 @@ export function updateAppointment(id: number, patch: ApptPatch, scope: EditScope
     // This and following: the old series ends the day before; a new one starts here
     endSeriesBefore(s, from)
     const next = { ...templateOf({ ...v, row_id: rowId, end_at: v.end_at ?? null }) }
-    const r = ruleChange ?? followingRule(rule, t.first, from, next.first, untilFromColumn(rule, t.row_id))
+    let r = ruleChange ?? followingRule(rule, t.first, from, next.first, untilFromColumn(rule, t.row_id))
+    if (ruleChange?.freq === 'monthly' && ruleChange.monthDay === undefined) {
+      // A new end (or count) set on a clamped month-end occurrence keeps the series' day too
+      const day = monthAnchor(rule, t.first, from, next.first)
+      if (day) r = { ...ruleChange, monthDay: day }
+    }
     if (!r) return { snapshot, ids: [] }
     const newId = Number(db.prepare('INSERT INTO appointment_series (rule, template, materialized_until) VALUES (?, ?, ?)')
       .run(JSON.stringify(r), JSON.stringify(next), '0000-00-00').lastInsertRowid)
