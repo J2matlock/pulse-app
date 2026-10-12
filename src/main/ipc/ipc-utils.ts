@@ -345,12 +345,17 @@ function safeAppPath(name: Parameters<typeof app.getPath>[0]): string | null {
   } catch { return null }
 }
 
-/** Is `child` the folder `dir` or inside it? Case-insensitive on Windows. */
-function isWithin(child: string, dir: string): boolean {
+/**
+ * Is `child` the folder `dir` or inside it? Case-insensitive on Windows, and with
+ * `denyCheck` on macOS too: its default volume ignores case, so ~/library/keychains
+ * is ~/Library/Keychains and must not slip past a refusal (R2-01). Allow checks stay
+ * case-sensitive there, so a different casing never widens what's allowed.
+ */
+function isWithin(child: string, dir: string, denyCheck = false): boolean {
   const P = pathApi()
-  const win = process.platform === 'win32'
-  const c = win ? child.toLowerCase() : child
-  let d = win ? dir.toLowerCase() : dir
+  const fold = process.platform === 'win32' || (denyCheck && process.platform === 'darwin')
+  const c = fold ? child.toLowerCase() : child
+  let d = fold ? dir.toLowerCase() : dir
   if (d.length > 1 && d.endsWith(P.sep)) d = d.slice(0, -1)
   return c === d || c.startsWith(d + P.sep)
 }
@@ -420,7 +425,7 @@ export function assertSafePath(p: string): void {
   if (CREDENTIAL_FILE_RE.test(P.basename(resolved))) refusePath('credential file')
   if (home) {
     for (const h of withRealPath(home)) {
-      if (HOME_SECRET_DIRS.some(d => isWithin(resolved, P.join(h, d)))) refusePath('credential folder')
+      if (HOME_SECRET_DIRS.some(d => isWithin(resolved, P.join(h, d), true))) refusePath('credential folder')
     }
   }
 
@@ -437,7 +442,7 @@ export function assertSafePath(p: string): void {
     if (top !== undefined && WIN_SYSTEM_DIRS.includes(top)) refusePath('system folder')
     // Another person's profile on this computer
     if (top === 'users' && (rest?.split('\\').length ?? 0) > 1) refusePath('another user profile')
-  } else if (POSIX_SYSTEM_DIRS.some(d => isWithin(resolved, d))) {
+  } else if (POSIX_SYSTEM_DIRS.some(d => isWithin(resolved, d, true))) {
     refusePath('system folder')
   }
 

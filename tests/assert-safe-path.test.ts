@@ -265,4 +265,43 @@ describe('assertSafePath', () => {
       expect(refusalReason(p)).toBe(reason)
     })
   })
+
+  // ── macOS: the default volume ignores case, so ~/library/keychains is ~/Library/Keychains (R2-01)
+
+  describe('on macOS', () => {
+    const realPlatform = process.platform
+    beforeEach(() => {
+      Object.defineProperty(process, 'platform', { value: 'darwin' })
+      mockGetPath.mockImplementation((name: string) => {
+        switch (name) {
+          case 'userData': return '/Users/testuser/Library/Application Support/Pulse'
+          case 'home': return '/Users/testuser'
+          case 'documents': return '/Users/testuser/Documents'
+          case 'desktop': return '/Users/testuser/Desktop'
+          case 'downloads': return '/Users/testuser/Downloads'
+          case 'temp': return '/private/var/folders/xy/T'
+          default: return '/Users/testuser'
+        }
+      })
+    })
+    afterEach(() => { Object.defineProperty(process, 'platform', { value: realPlatform }) })
+
+    it.each([
+      '/Users/testuser/library/keychains/login.keychain-db',
+      '/Users/testuser/LIBRARY/Cookies/Cookies.binarycookies',
+      '/Users/testuser/Library/application support/google/chrome/Default/Login Data',
+      '/Users/testuser/.SSH/id_ed25519',
+      '/users/TESTUSER/Library/Keychains/login.keychain-db',
+    ])('refuses %s whatever its letter case', (p) => {
+      rememberUserChosenPaths(['/Users/testuser'])
+      expect(refusalReason(p)).toBe('credential folder')
+    })
+
+    it('refuses system folders whatever their letter case, and still allows the person\'s own files', () => {
+      expect(refusalReason('/ETC/hosts')).toBe('system folder')
+      expect(refusalReason('/system/Library/x')).toBe('system folder')
+      expect(refusalReason('/Users/testuser/Documents/export.csv')).toBeNull()
+      expect(refusalReason('/Users/testuser/Library/Application Support/Pulse/backups/x.db')).toBeNull()
+    })
+  })
 })
