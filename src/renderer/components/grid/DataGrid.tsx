@@ -5,7 +5,6 @@ import {
   getCoreRowModel,
   getFilteredRowModel,
   getSortedRowModel,
-  createColumnHelper,
   type SortingState,
   type Row,
 } from '@tanstack/react-table'
@@ -26,16 +25,13 @@ import { useSettingsStore } from '../../stores/settingsStore'
 import { useGridStore } from '../../stores/gridStore'
 import { useAlertStore } from '../../stores/alertStore'
 import { useProfileStore } from '../../stores/profileStore'
-import type { GridRow, SortConfig, CellFormatRule } from '../../../shared/types'
+import type { GridRow, SortConfig } from '../../../shared/types'
 import { matchFilter } from '../../utils/filterMatch'
-import { deadlineCompare, numberCompare, dateCompare, textCompare, keyCompare, daysUntilSource, memoKey } from './gridSort'
 import { rowMatchesSearch } from '../../utils/searchMatch'
 import { CellConditionalFormatPanel } from './CellConditionalFormatPanel'
 import { CellHistoryPopover } from '../shared/CellHistoryPopover'
 import { getClientName } from '../../utils/clientName'
 import { BADGE_WIDTH as ACUITY_BADGE_WIDTH } from './AcuityBadge'
-import { linkValueText } from '../../../shared/links'
-import { CellDisplay } from './CellDisplay'
 import { SortableRow } from './SortableRow'
 import { GridContextMenu } from './GridContextMenu'
 import { BulkActionBar } from './BulkActionBar'
@@ -43,6 +39,8 @@ import { handleCellKeyDown as handleCellKeyDownImpl, type KeyboardNavDeps } from
 import { ROW_HEIGHTS, HANDLE_WIDTH, PROFILE_BTN_WIDTH, GROUP_HEADER_HEIGHT, TAGS_COL_WIDTH } from './gridConstants'
 import { useGridSelection } from '../../hooks/useGridSelection'
 import { useGridColumnSizing } from '../../hooks/useGridColumnSizing'
+import { useGridRuleInfo } from '../../hooks/useGridRuleInfo'
+import { buildTableColumns } from './gridTableColumns'
 import { useGridContextMenu } from '../../hooks/useGridContextMenu'
 import { useGridGrouping } from '../../hooks/useGridGrouping'
 import { useGridVirtualizer } from '../../hooks/useGridVirtualizer'
@@ -59,10 +57,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { pulseEvents } from '../../events'
 import { IS_MAC } from '../../utils/keys'
 import { useFeature } from '../../hooks/useFeature'
-import { ACUITY_GROUP_KEY, isNotTypedColumnType, takesDeadlineRule } from '../../../shared/types'
-
-// Stateless column helper — no dependency on props/state, safe at module level
-const columnHelper = createColumnHelper<GridRow>()
+import { ACUITY_GROUP_KEY, isNotTypedColumnType } from '../../../shared/types'
 
 // ── Main DataGrid ─────────────────────────────────────────────────────────────
 
@@ -248,56 +243,7 @@ export function DataGrid(): React.ReactElement {
   // Alias for conditional format evaluation (same map, same type — no cast needed).
   const rowMap = rowById
 
-  // Pre-parse column configs and conditional formats once per columns change
-  const parsedColumnConfigs = useMemo(() => {
-    const map = new Map<number, { config: Record<string, unknown>; conditionalFormat: CellFormatRule[] }>()
-    for (const col of columns) {
-      let config: Record<string, unknown> = {}
-      let conditionalFormat: CellFormatRule[] = []
-      try { config = col.config ? JSON.parse(col.config) : {} } catch { /* malformed */ }
-      try { conditionalFormat = col.conditional_format ? JSON.parse(col.conditional_format) : [] } catch { /* malformed */ }
-      if (!Array.isArray(conditionalFormat)) conditionalFormat = []
-      map.set(col.id, { config, conditionalFormat })
-    }
-    return map
-  }, [columns])
-
-  // Pre-compute once: do any columns have highlight rules?
-  const hasAnyHighlightRules = useMemo(() => {
-    if (cellFormats.size > 0) return true
-    for (const pc of parsedColumnConfigs.values()) {
-      if (pc.conditionalFormat.some(r => r.highlightRow)) return true
-    }
-    return false
-  }, [cellFormats, parsedColumnConfigs])
-
-  // Does any rule color a cell from another record's cell? Then any record's change can redraw others (AUDIT-038)
-  const hasCrossRowRules = useMemo(() => {
-    const cross = (rules: CellFormatRule[]) => rules.some(r => r.sourceType === 'specific_cell')
-    for (const rules of cellFormats.values()) if (cross(rules)) return true
-    for (const pc of parsedColumnConfigs.values()) if (cross(pc.conditionalFormat)) return true
-    return false
-  }, [cellFormats, parsedColumnConfigs])
-
-  // Pre-compute the set of column IDs that have highlightRow format rules.
-  // SortableRow iterates only these columns instead of all columns.
-  const highlightColumnIds = useMemo(() => {
-    const ids = new Set<number>()
-    // Columns with column-level highlight rules
-    for (const [colId, pc] of parsedColumnConfigs.entries()) {
-      if (pc.conditionalFormat.some(r => r.highlightRow)) {
-        ids.add(colId)
-      }
-    }
-    // Columns referenced by cell-level highlight rules
-    for (const [key, rules] of cellFormats.entries()) {
-      if (rules.some(r => r.highlightRow)) {
-        const colId = parseInt(key.split('_')[1] ?? '', 10)
-        if (!isNaN(colId)) ids.add(colId)
-      }
-    }
-    return ids
-  }, [cellFormats, parsedColumnConfigs])
+  const { parsedColumnConfigs, hasAnyHighlightRules, hasCrossRowRules, highlightColumnIds } = useGridRuleInfo(columns, cellFormats)
 
   const handleDeleteRow = useCallback((rowId: number) => {
     setContextMenu(null)
@@ -350,76 +296,10 @@ export function DataGrid(): React.ReactElement {
   const sortDescRef = useRef(new Map<string, boolean>())
   sortDescRef.current = new Map(sorting.map(s => [s.id, !!s.desc]))
 
-  const tableColumns = useMemo(() => {
-    const byAcuity = keyCompare(r => {
-      if (r.acuity_level_id == null) return null
-      return acuityLevels.find(l => l.id === r.acuity_level_id)?.points ?? null
-    }, () => sortDescRef.current.get('_acuity_points') === true)
-    // Hidden synthetic column for acuity sorting
-    const acuityCol = acuityEnabled ? [columnHelper.accessor(
-      (row) => {
-        if (row.acuity_level_id == null) return -1
-        const level = acuityLevels.find(l => l.id === row.acuity_level_id)
-        return level?.points ?? -1
-      },
-      {
-        id: '_acuity_points',
-        header: () => null,
-        cell: () => null,
-        // Unassigned after every priority, whichever way it's sorted
-        sortingFn: (rowA, rowB) => byAcuity(rowA.original, rowB.original),
-        enableSorting: true,
-        enableResizing: false,
-        size: 0,
-      }
-    )] : []
-
-    return [...acuityCol, ...columns.map(col => {
-      const isCalcDays = col.column_type === 'calculated_days'
-      const isAge = col.column_type === 'age_from_dob'
-      const isLink = col.column_type === 'link'
-      const compCfg = (isCalcDays || isAge)
-        ? (parsedColumnConfigs.get(col.id)?.config as { source_column_id?: number } | undefined) ?? {}
-        : null
-      // A column with a deadline rule sorts by when it's due, like its colors (G-11)
-      const ruleId = takesDeadlineRule(col.column_type) ? (parsedColumnConfigs.get(col.id)?.config as { alert_rule_id?: number } | undefined)?.alert_rule_id : undefined
-      const deadlineRule = ruleId !== undefined ? alertRuleMap.get(ruleId) : undefined
-      const desc = () => sortDescRef.current.get(`col_${col.id}`) === true
-      const byDeadline = deadlineRule ? deadlineCompare(col.id, deadlineRule, desc) : null
-      const byNumber = numberCompare(col.id, desc)
-      const byDate = dateCompare(col.id, desc)
-      const srcId = compCfg?.source_column_id
-      // The same days the cell shows: to when it's due when the date has a rule (R4)
-      const byDaysUntil = keyCompare(memoKey(r => srcId ? daysUntilSource(srcId, r, alertRules) : null), desc)
-      // Ages sort by date of birth (an earlier date is older)
-      const byAge = keyCompare(r => srcId ? (r[`col_${srcId}` as keyof GridRow] as string | null) || null : null, desc)
-      // Link columns (W04) sort by the linked names, not the stored ids
-      const byText = textCompare(r => {
-        const v = r[`col_${col.id}` as keyof GridRow] as string | null
-        return isLink ? linkValueText(v) || null : v
-      }, desc)
-
-      return columnHelper.accessor(`col_${col.id}` as keyof GridRow, {
-        id: `col_${col.id}`,
-        header: () => null,
-        cell: ({ row }) => {
-          const value = row.original[`col_${col.id}` as keyof GridRow] as string | null
-          return <CellDisplay column={col} value={value} row={row.original} allColumns={columns} parsedConfig={parsedColumnConfigs.get(col.id)?.config} />
-        },
-        sortingFn: isCalcDays ? (rowA, rowB) => byDaysUntil(rowA.original, rowB.original)
-          : isAge ? (rowA, rowB) => byAge(rowA.original, rowB.original)
-          : deadlineRule ? (rowA, rowB) => byDeadline!(rowA.original, rowB.original)
-          : (col.column_type === 'number' || col.column_type === 'currency') ? (rowA, rowB) => byNumber(rowA.original, rowB.original)
-          : col.column_type === 'date' ? (rowA, rowB) => byDate(rowA.original, rowB.original)
-          : (rowA, rowB) => byText(rowA.original, rowB.original),
-        enableSorting: true,
-        enableResizing: true,
-        size: col.width,
-        minSize: 60,
-        maxSize: 800,
-      })
-    })]
-  }, [columns, acuityEnabled, acuityLevels, alertRuleMap, alertRules])
+  const tableColumns = useMemo(
+    () => buildTableColumns({ columns, acuityEnabled, acuityLevels, alertRuleMap, alertRules, parsedColumnConfigs, sortDescRef }),
+    [columns, acuityEnabled, acuityLevels, alertRuleMap, alertRules, parsedColumnConfigs],
+  )
 
   // Custom global filter: only search name + text/dropdown columns
   // Search: every column that holds text, plus tags, the same as the board (G-25)
