@@ -6,6 +6,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import type { ChecklistItem as ChecklistItemType, ChecklistPriority } from '../../../shared/types'
 import { dueDateBadge } from '../../views/tasks/taskHelpers'
+import { useToday } from '../../hooks/useToday'
 import { parseRepeatRule, describeRepeat } from '../../../shared/recurrence'
 
 const PRIORITY_CONFIG: Record<ChecklistPriority, { label: string; dot: string; badge: string }> = {
@@ -261,6 +262,8 @@ export function ChecklistItem({ item, isDragDisabled, onToggle, onUpdate, onDele
     setEditingDate(false)
   }
 
+  // dueDateBadge reads the clock: re-render at midnight so "Due today" becomes "Overdue" (Q-031)
+  useToday()
   const dueDate = dueDateBadge(item.due_date)
   const repeatRule = parseRepeatRule(item.recurrence_rule)
   const priority = (item.priority ?? 'normal') as ChecklistPriority

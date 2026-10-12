@@ -36,7 +36,9 @@ export function MonthlyContactsCard(): React.ReactElement | null {
     void load()
     const offReq = pulseEvents.on('contact-req:changed', () => { void load() })
     const offLog = window.api.on(IPC.CASE_LOG_CHANGED, () => { void load() })
-    return () => { offReq(); offLog() }
+    // A new day can start a new week, month or quarter (Q-031)
+    const offDay = pulseEvents.on('day:changed', () => { void load() })
+    return () => { offReq(); offLog(); offDay() }
   }, [load])
 
   if (status.length === 0) return null

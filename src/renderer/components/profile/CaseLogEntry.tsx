@@ -13,6 +13,7 @@ import { useActivityTypes } from '../../hooks/useActivityTypes'
 import { useMeasures } from '../../hooks/useMeasures'
 import { MeasureInput } from './MeasureInput'
 import { useVocab } from '../../hooks/useVocab'
+import { useToday } from '../../hooks/useToday'
 import { CaseLogEditHistory } from './CaseLogEditHistory'
 import { useCopyFeedback } from '../../hooks/useCopyFeedback'
 import { formatMeasure, parseExtraMeasures, type MeasureDef } from '../../../shared/measures'
@@ -110,8 +111,10 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
   const isSystem = entry.log_type === 'system'
   const isVoided = entry.voided_at != null
 
+  // Moves on at midnight while the profile stays open (Q-031)
+  const today = useToday()
   const followUpOverdue = entry.follow_up_date && !entry.follow_up_completed &&
-    entry.follow_up_date < localDateString()
+    entry.follow_up_date < today
 
   function startEdit() {
     setEditing(true)
