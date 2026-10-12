@@ -679,6 +679,14 @@ describe('DataGrid', () => {
       expect(useGridStore.getState().sortedRowIds).toEqual([3])
     })
 
+    it('searches when the first record has every cell empty', async () => {
+      // @tanstack/react-table 8 only searched columns whose first-record value was text or a number
+      setupStores({ rows: [makeRow(1, { col_1: null, col_2: null, col_3: null, col_4: null }), ...makeTestRows(5).slice(1)], searchQuery: 'Client 3' })
+      renderDataGrid()
+      await flushEffects()
+      expect(useGridStore.getState().sortedRowIds).toEqual([3])
+    })
+
     it('keeps a record just added on screen, and says when the filter would hide it (G-28)', async () => {
       const toast = (await import('react-hot-toast')).default as unknown as ReturnType<typeof vi.fn>
       toast.mockClear()

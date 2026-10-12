@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { type Row } from '@tanstack/react-table'
+import type { GridTableRow } from './gridTable'
 import { User, Star, AlertTriangle } from 'lucide-react'
 import { BADGE_WIDTH as ACUITY_BADGE_WIDTH } from './AcuityBadge'
 import type { GridRow, Column, ParsedAlertRule, CellFormatRule, AcuityLevel } from '../../../shared/types'
@@ -18,7 +18,7 @@ import { pulseEvents } from '../../events'
 type CellCoord = { rowId: number; columnId: number }
 
 export interface SortableRowProps {
-  row: Row<GridRow>
+  row: GridTableRow
   rowIndex: number
   /** Where this row sits for a screen reader: the header row is 1, group headers count (AUDIT-042) */
   ariaRowIndex?: number
@@ -256,7 +256,7 @@ export const SortableRow = React.memo(function SortableRow({
       )}
 
       {/* Cells – flex-1 to push menu button to the right */}
-      {row.getVisibleCells().map(cell => {
+      {row.getAllCells().map(cell => {
         const colId = parseInt(cell.column.id.replace('col_', ''), 10)
         const col = columnMap.get(colId)
         if (!col) return null

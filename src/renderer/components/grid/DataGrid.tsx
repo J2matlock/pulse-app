@@ -1,13 +1,7 @@
 import toast from 'react-hot-toast'
 import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react'
-import {
-  useReactTable,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
-  type SortingState,
-  type Row,
-} from '@tanstack/react-table'
+import { useTable, type SortingState } from '@tanstack/react-table'
+import { gridFeatures, type GridTableRow } from './gridTable'
 import {
   PointerSensor,
   useSensor,
@@ -257,15 +251,12 @@ export function DataGrid(): React.ReactElement {
 
   // Convert sort config to TanStack format, prepending acuity sort when active
   const sorting: SortingState = useMemo(() => {
-    // The deadline comparator reads counts, readings and done flags that arrive after
-    // the rows. A new sorting array when they land makes the table sort again.
-    void deadlineContext
     const colSorts = sortConfig.map(s => ({ id: `col_${s.columnId}`, desc: s.direction === 'desc' }))
     if (acuitySortDir && acuityEnabled) {
       return [{ id: '_acuity_points', desc: acuitySortDir === 'desc' }, ...colSorts]
     }
     return colSorts
-  }, [sortConfig, acuitySortDir, acuityEnabled, deadlineContext])
+  }, [sortConfig, acuitySortDir, acuityEnabled])
   // The comparators read the direction at sort time, to keep blanks last either way
   const sortDescRef = useRef(new Map<string, boolean>())
   sortDescRef.current = new Map(sorting.map(s => [s.id, !!s.desc]))
@@ -277,7 +268,7 @@ export function DataGrid(): React.ReactElement {
 
   // Custom global filter: only search name + text/dropdown columns
   // Search: every column that holds text, plus tags, the same as the board (G-25)
-  const globalFilterFn = useCallback((row: Row<GridRow>, _columnId: string, filterValue: string) => {
+  const globalFilterFn = useCallback((row: GridTableRow, _columnId: string, filterValue: string) => {
     if (!filterValue) return true
     if (row.original.row_id === useGridStore.getState().pinnedRowId) return true
     return rowMatchesSearch(row.original, columns, filterValue, rowTagsMap)
@@ -297,15 +288,21 @@ export function DataGrid(): React.ReactElement {
 
   const tableState = useMemo(() => ({ sorting, globalFilter: searchQuery, columnSizing }), [sorting, searchQuery, columnSizing])
 
-  const table = useReactTable({
-    data: filteredRows,
+  // The deadline comparator reads counts, readings and done flags that arrive after the
+  // rows (R1). The table sorts again only when its data or its state change, and it compares
+  // state by value, so it gets a new data array when they land.
+  const tableData = useMemo(() => {
+    void deadlineContext
+    return filteredRows.slice()
+  }, [filteredRows, deadlineContext])
+
+  const table = useTable({
+    features: gridFeatures,
+    data: tableData,
     columns: tableColumns,
     state: tableState,
     onSortingChange: handleSortingChange,
     onColumnSizingChange: handleColumnSizingChange,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     getRowId: row => String(row.row_id),
     globalFilterFn,
     enableColumnResizing: true,
@@ -463,7 +460,7 @@ export function DataGrid(): React.ReactElement {
   }, [bulkSetRowAcuityLevel, selectedRowIdsRef])
 
   // Render helper for SortableRow — eliminates duplication between grouped and ungrouped paths
-  const renderSortableRow = (row: Row<GridRow>, rowIndex: number, ariaRowIndex: number) => (
+  const renderSortableRow = (row: GridTableRow, rowIndex: number, ariaRowIndex: number) => (
     <SortableRow
       key={row.id}
       row={row}

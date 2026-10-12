@@ -5,7 +5,7 @@ import { renderHook } from '@testing-library/react'
 import { matchFilter } from '../../src/renderer/utils/filterMatch'
 import { useGridGrouping } from '../../src/renderer/hooks/useGridGrouping'
 import type { Column, GridRow } from '../../src/shared/types'
-import type { Row } from '@tanstack/react-table'
+import type { GridTableRow } from '../../src/renderer/components/grid/gridTable'
 
 const col = { id: 9, grid_id: 1, name: 'Owner', column_type: 'link', config: '{}' } as Column
 const v = (...items: string[]) => items.join('\u001f')
@@ -33,7 +33,7 @@ describe('link column filters', () => {
 
 describe('grouping by a link column', () => {
   it('groups by the linked names', () => {
-    const tableRows = rows.map(r => ({ original: r })) as unknown as Row<GridRow>[]
+    const tableRows = rows.map(r => ({ original: r })) as unknown as GridTableRow[]
     const { result } = renderHook(() => useGridGrouping({ tableRows, columns: [col], groupByColumnId: 9, acuityLevels: [], customGroups: [], activeCustomGroupId: null }))
     const headers = result.current.displayItems.filter(i => i.kind === 'group-header').map(i => i.kind === 'group-header' ? `${i.value}:${i.count}` : '')
     expect(headers).toEqual(['Bob Lee, Jane Smith:1', 'Jane Smith:2', ':1'])

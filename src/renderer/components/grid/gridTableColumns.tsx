@@ -1,5 +1,6 @@
 import type React from 'react'
 import { createColumnHelper } from '@tanstack/react-table'
+import type { GridFeatures } from './gridTable'
 import type { AcuityLevel, ParsedAlertRule, Column, GridRow } from '../../../shared/types'
 import { takesDeadlineRule } from '../../../shared/types'
 import { linkValueText } from '../../../shared/links'
@@ -8,7 +9,7 @@ import { CellDisplay } from './CellDisplay'
 import type { ParsedColumnConfig } from '../../hooks/useGridRuleInfo'
 
 // Stateless column helper — no dependency on props/state, safe at module level
-const columnHelper = createColumnHelper<GridRow>()
+const columnHelper = createColumnHelper<GridFeatures, GridRow>()
 
 interface TableColumnsInput {
   columns: Column[]
@@ -41,14 +42,15 @@ export function buildTableColumns({
       header: () => null,
       cell: () => null,
       // Unassigned after every priority, whichever way it's sorted
-      sortingFn: (rowA, rowB) => byAcuity(rowA.original, rowB.original),
+      sortFn: (rowA, rowB) => byAcuity(rowA.original, rowB.original),
       enableSorting: true,
       enableResizing: false,
       size: 0,
     }
   )] : []
 
-  return [...acuityCol, ...columns.map(col => {
+  // columns() keeps each definition's value type (the priority column's is a number)
+  return columnHelper.columns([...acuityCol, ...columns.map(col => {
     const isCalcDays = col.column_type === 'calculated_days'
     const isAge = col.column_type === 'age_from_dob'
     const isLink = col.column_type === 'link'
@@ -80,17 +82,21 @@ export function buildTableColumns({
         const value = row.original[`col_${col.id}` as keyof GridRow] as string | null
         return <CellDisplay column={col} value={value} row={row.original} allColumns={columns} parsedConfig={parsedColumnConfigs.get(col.id)?.config} />
       },
-      sortingFn: isCalcDays ? (rowA, rowB) => byDaysUntil(rowA.original, rowB.original)
+      sortFn: isCalcDays ? (rowA, rowB) => byDaysUntil(rowA.original, rowB.original)
         : isAge ? (rowA, rowB) => byAge(rowA.original, rowB.original)
         : deadlineRule ? (rowA, rowB) => byDeadline!(rowA.original, rowB.original)
         : (col.column_type === 'number' || col.column_type === 'currency') ? (rowA, rowB) => byNumber(rowA.original, rowB.original)
         : col.column_type === 'date' ? (rowA, rowB) => byDate(rowA.original, rowB.original)
         : (rowA, rowB) => byText(rowA.original, rowB.original),
       enableSorting: true,
+      // The comparators place blank cells, missing values included, themselves (last either
+      // way). Left on, the table would skip the comparator when both values are missing,
+      // which a column added since the list loaded has on every record
+      sortUndefined: false,
       enableResizing: true,
       size: col.width,
       minSize: 60,
       maxSize: 800,
     })
-  })]
+  })])
 }
