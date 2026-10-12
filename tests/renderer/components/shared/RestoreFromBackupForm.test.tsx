@@ -47,4 +47,24 @@ describe('RestoreFromBackupForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
     expect(onRestored).toHaveBeenCalled()
   })
+
+  it('turns an open-failure code into plain words, not "DB_OPEN_FAILED" (F-031)', async () => {
+    invoke.mockImplementation(async (channel: string) => {
+      if (channel === 'app:show-file-dialog') return { ok: true, data: { canceled: false, filePaths: ['/home/me/Documents/old.pulse-backup'] } }
+      if (channel === 'backup:restore-other') return { ok: false, error: 'DB_OPEN_FAILED:migration' }
+      if (channel === 'app:get-info') return { ok: true, data: { platform: 'linux' } }
+      return { ok: false, error: 'not in this test' }
+    })
+    render(<RestoreFromBackupForm mode="replace" onCancel={vi.fn()} onRestored={vi.fn()} />)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Choose a .pulse-backup file/ })) })
+    ;(document.getElementById('restore-secret') as HTMLInputElement).value = 'old password'
+    ;(document.getElementById('restore-new-password') as HTMLInputElement).value = PASSWORD
+    ;(document.getElementById('restore-confirm') as HTMLInputElement).value = PASSWORD
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Restore backup' })) })
+    expect(invoke).toHaveBeenCalledWith('backup:restore-other', '/home/me/Documents/old.pulse-backup', 'old password', PASSWORD, '')
+    const text = document.body.textContent ?? ''
+    expect(text).not.toContain('DB_OPEN_FAILED')
+    expect(text).toContain("The backup was restored, but it couldn't be opened.")
+    expect(text).toContain("the update didn't finish")
+  })
 })

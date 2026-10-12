@@ -74,6 +74,7 @@ vi.mock('../src/main/auth', () => ({
   isPasswordSetup: () => true,
   getDbKey: () => Buffer.from('a'.repeat(64), 'hex'),
   getAutoLockMinutes: () => 30,
+  lockApp: vi.fn(),
 }))
 
 vi.mock('../src/main/backup', () => ({
@@ -144,7 +145,7 @@ vi.mock('../src/main/file-association', () => ({
   isPulseFileTypeRegistered: () => false,
 }))
 
-const fakeEvent = { senderFrame: { parent: null } }
+const fakeEvent = { senderFrame: { parent: null }, sender: { send: vi.fn() } }
 
 async function invoke(channel: string, ...args: unknown[]): Promise<unknown> {
   const handler = handlers.get(channel)
@@ -328,12 +329,19 @@ describe('BACKUP_RESTORE_OTHER', () => {
     expect(result.error).toMatch(/doesn't match this backup/)
   })
 
-  it('says so in plain words when the restored data then fails to open (S4)', async () => {
+  it('says which of the three open failures it was when the restored data then fails to open, keeps no key and locks (S4, F-031)', async () => {
+    const { lockApp } = await import('../src/main/auth')
+    const { DatabaseOpenError } = await import('../src/main/database')
+    vi.mocked(lockApp).mockClear(); fakeEvent.sender.send.mockClear()
     backupMock.restoreOther = vi.fn(async () => ({ safetyPath: '/b/pulse-pre-restore-x.pulse-backup', schemaVersion: 43 }))
     backupMock.openError = new Error('SQLITE_CORRUPT: database disk image is malformed')
     const result = await invoke(IPC.BACKUP_RESTORE_OTHER, path, 'right', 'A-Strong-New-Pass-42', '') as { ok: false; error: string }
-    expect(result.ok).toBe(false)
-    expect(result.error).toMatch(/restored, but Pulse couldn't open it/)
+    // The form turns the code into plain words (tests/renderer/RestoreFromBackupForm.test.tsx)
+    expect(result).toEqual({ ok: false, error: 'DB_OPEN_FAILED:unreadable' })
+    expect(lockApp).toHaveBeenCalled()
+    expect(fakeEvent.sender.send).toHaveBeenCalledWith(IPC.AUTH_FORCE_LOCK)
+    backupMock.openError = new DatabaseOpenError('migration', 'Migration to version 48 failed')
+    expect(await invoke(IPC.BACKUP_RESTORE_OTHER, path, 'right', 'A-Strong-New-Pass-42', '')).toEqual({ ok: false, error: 'DB_OPEN_FAILED:migration' })
   })
 
   it('returns the safety copy path', async () => {

@@ -6,7 +6,8 @@ import { dialog, BrowserWindow } from 'electron'
 import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
 import { secureWrap, ok, fail, assertSafePath, validId, enforceWritable, logNonFatal, withCorrelation } from './ipc-utils'
-import { openDatabase, getDb, resolveDatabasePath, closeDatabase, setEncryptionKey, latestSchemaVersion } from '../database'
+import { openDatabase, getDb, resolveDatabasePath, closeDatabase, setEncryptionKey, latestSchemaVersion, DatabaseOpenError } from '../database'
+import { dbOpenFailedCode } from '../../shared/dbOpen'
 import { getProvider } from '../contacts'
 import {
   listAutoBackupsRich, runManualBackup,
@@ -15,7 +16,7 @@ import {
   describeBackupError, getBackupHealth, getBackupMadeInfo, restoreOtherPulseBackup, NEWER_BACKUP,
   type PersistentScheduledConfig
 } from '../backup'
-import { getDbKey } from '../auth'
+import { getDbKey, lockApp } from '../auth'
 const BetterSqlite3 = require('better-sqlite3-multiple-ciphers') as typeof import('better-sqlite3')
 import { exportCsv, exportPdfGrid, exportPdfProfile, exportLetterPdf, exportSupervisorReport, exportContactPdf, exportDirectoryPdf, type CsvExportOptions, type PdfGridOptions, type PdfProfileOptions, type SupervisorReportOptions } from '../export'
 import { parseImportFile, autoMatchColumns, executeImport, type ImportOptions } from '../import'
@@ -225,7 +226,12 @@ export function registerExportHandlers(): void {
         openDatabase()
       } catch (openErr) {
         logger.error('ipc-export', `[${corrId}] restored another Pulse's backup but could not open it`, openErr)
-        return fail('The backup was restored, but Pulse couldn\'t open it. Close Pulse, open it again and sign in with your new password.')
+        // Nothing is open: don't keep the key, and go to the lock screen, where signing in
+        // with the new password says what's wrong and offers a restore (F-031)
+        const kind = openErr instanceof DatabaseOpenError ? openErr.kind : 'unreadable'
+        lockApp()
+        try { _e.sender.send(IPC.AUTH_FORCE_LOCK) } catch (sendErr) { logNonFatal('ipc-export', 'send force-lock after a failed open', sendErr) }
+        return fail(dbOpenFailedCode(kind))
       }
       logger.info('ipc-export', `[${corrId}] restored another Pulse's backup, safety copy at ${result.safetyPath}`)
       return ok({ safetyPath: result.safetyPath })

@@ -479,6 +479,28 @@ describe('right password, but the data could not be opened (AUDIT-003)', () => {
     expect(again.error).toMatch(/already set up/)
   })
 
+  it('first-time setup whose new data won\'t open says why and keeps no key (F-031)', async () => {
+    mockIsPasswordSetup.mockReturnValue(false)
+    mockLockApp.mockClear()
+    mockOpenDatabase.mockImplementationOnce(() => { throw new DatabaseOpenError('migration', 'Migration to version 48 failed') })
+    const r = await invoke(IPC.AUTH_SETUP_PASSWORD, 'validpass123', 'hint')
+    expect(r).toEqual({ ok: false, error: 'DB_OPEN_FAILED:migration' })
+    expect(mockLockApp).toHaveBeenCalled()
+  })
+
+  it('a restore on a new computer whose data won\'t open says why, keeps no key, and may be tried again (F-031)', async () => {
+    mockIsPasswordSetup.mockReturnValue(false)
+    mockLockApp.mockClear()
+    mockOpenDatabase.mockImplementationOnce(() => { throw new DatabaseOpenError('migration', 'Migration to version 48 failed') })
+    const r = await invoke(IPC.AUTH_RESTORE_FROM_BACKUP, '/tmp/pulse-test-auth/x.pulse-backup', 'old-pass', 'new-password-123', '')
+    expect(r).toEqual({ ok: false, error: 'DB_OPEN_FAILED:migration' })
+    expect(mockLockApp).toHaveBeenCalled()
+    // Credentials now exist, but the person may try another backup
+    mockIsPasswordSetup.mockReturnValue(true)
+    const again = await invoke(IPC.AUTH_RESTORE_FROM_BACKUP, '/tmp/pulse-test-auth/x.pulse-backup', 'old-pass', 'new-password-123', '')
+    expect(again.ok).toBe(true)
+  })
+
   it('a wrong password never opens the restore path', async () => {
     await invoke(IPC.AUTH_VERIFY_PASSWORD, 'wrong-password')
     const r = await invoke(IPC.AUTH_RESTORE_FROM_BACKUP, '/tmp/pulse-test-auth/x.pulse-backup', 'old-pass', 'new-password-123', '')

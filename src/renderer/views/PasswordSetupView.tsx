@@ -12,6 +12,7 @@ import { PasswordStrength } from '../components/shared/PasswordStrength'
 import { FieldError, fieldErrorProps } from '../components/shared/FieldError'
 import { checkNewPassword } from '../../shared/passwordPolicy'
 import { PRODUCT_NAME } from '../../shared/constants'
+import { parseDbOpenFailure, dbOpenFailureText } from '../../shared/dbOpen'
 
 type SetupStep = 'password' | 'recovery-prompt' | 'recovery-display' | 'restore'
 
@@ -73,7 +74,16 @@ export function PasswordSetupView(): React.ReactElement {
       const result = await safeInvoke(IPC.AUTH_SETUP_PASSWORD, pwNow, hint)
 
       if (!result.ok) {
-        toast.error('Password setup failed. Please try again.')
+        const openKind = parseDbOpenFailure(result.error)
+        if (openKind) {
+          // The password is set but the new data wouldn't open: the lock screen takes it from
+          // here (sign in again; it says what's wrong and offers a restore) (F-031)
+          toast.error(dbOpenFailureText(openKind, PRODUCT_NAME), { duration: 12000 })
+          setPasswordSetup(true)
+          setLocked(true)
+        } else {
+          toast.error('Password setup failed. Please try again.')
+        }
         setIsSubmitting(false)
         return
       }

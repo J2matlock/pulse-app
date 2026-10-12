@@ -26,6 +26,19 @@ export function parseDbOpenFailure(error: string | null | undefined): DbOpenFail
 }
 
 /**
+ * One paragraph for a form or toast that got an open-failure code (a restore or
+ * first-time setup whose data then wouldn't open, F-031). The lock screen has
+ * its own fuller page for the same three kinds.
+ */
+export function dbOpenFailureText(kind: DbOpenFailureKind, productName: string): string {
+  switch (kind) {
+    case 'newer': return `That data was last saved by a newer version of ${productName} than this one. Install the newest version of ${productName}, then sign in again. Nothing has been changed.`
+    case 'migration': return `${productName} was updating how the data is stored, and the update didn't finish. It was undone. Restart your computer and sign in again; if it happens again, restore a different backup file.`
+    case 'unreadable': return `${productName} couldn't read the data file. It may be damaged, or another program may be using it. Restart your computer and sign in again; if that doesn't help, restore a different backup file.`
+  }
+}
+
+/**
  * The native error box when Pulse can't start (AUDIT-059). Plain words and a
  * next step; the technical detail goes to the log only.
  */

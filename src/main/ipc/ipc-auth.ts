@@ -86,7 +86,9 @@ export function registerAuthHandlers(): void {
       if (orphaned) logger.warn('ipc-auth', `[${corrId}] existing database moved aside before setup: ${orphaned}`)
 
       await setupPassword(password, hint, dbPath)
-      openDatabase()
+      // Like an unlock: if the new data won't open, say why and don't keep the key (F-031)
+      const openFailure = openAfterUnlock()
+      if (openFailure) return openFailure
       startScheduledBackup()
       logger.info('ipc-auth', `[${corrId}] password setup complete, DB opened`)
       return ok({ cloudWarning: cloudService })
@@ -161,8 +163,10 @@ export function registerAuthHandlers(): void {
         logger.warn('ipc-auth', `[${corrId}] restore from backup failed: ${msg}`)
         return fail(describeRestoreError(err))
       }
-      openDatabase()
-      openFailedAfterUnlock = false
+      // The restored data may not open (an update to how it's stored failed): one of the
+      // three plain messages, and the key isn't kept, as after an unlock (F-031)
+      const openFailure = openAfterUnlock()
+      if (openFailure) return openFailure
       startScheduledBackup()
       logger.info('ipc-auth', `[${corrId}] restored from backup on new install`)
       return ok({ cloudWarning: checkCloudSyncPath(resolveDatabasePath()) })
