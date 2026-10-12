@@ -9,6 +9,7 @@ import { ipcMain, app, BrowserWindow, dialog } from 'electron'
 import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
 import { getPortableDataDir } from '../data-dir'
+import { IPC_READ_ONLY } from '../../shared/constants'
 
 // Helper to wrap handler results
 export function ok<T>(data: T) { return { ok: true as const, data } }
@@ -35,7 +36,7 @@ export function registerReadOnlyChecker(fn: (() => boolean) | null): void {
 }
 
 export function enforceWritable(): { ok: false; error: string } | null {
-  if (_readOnlyChecker && _readOnlyChecker()) return fail('READ_ONLY')
+  if (_readOnlyChecker && _readOnlyChecker()) return fail(IPC_READ_ONLY)
   return null
 }
 

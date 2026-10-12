@@ -4,6 +4,7 @@ import { FEATURES, isOn, type FeatureGroup, type FeatureKey } from '../../../sha
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { useVocab } from '../../hooks/useVocab'
 import { friendlyError } from '../../utils/friendlyError'
+import { IPC_READ_ONLY } from '../../../shared/constants'
 
 const GROUPS: FeatureGroup[] = ['Records', 'Notes & activity', 'Planning', 'Reports']
 
@@ -24,7 +25,7 @@ export function FeaturesSection(): React.ReactElement {
       await update({ features: { [key]: on } })
     } catch (err) {
       const fallback = "We couldn't change that setting. Please try again."
-      toast.error(err instanceof Error && err.message !== 'READ_ONLY' ? friendlyError(err.message, fallback) : fallback)
+      toast.error(err instanceof Error && err.message !== IPC_READ_ONLY ? friendlyError(err.message, fallback) : fallback)
     } finally {
       setSaving(null)
     }

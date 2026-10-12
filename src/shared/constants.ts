@@ -6,6 +6,12 @@
  * Display only: never use it for paths, key stores or identifiers.
  */
 export const PRODUCT_NAME = 'Pulse by BaringaSoft'
+/**
+ * The error an IPC handler returns when the database can't be written to
+ * right now (enforceWritable()). The renderer compares against it to show a
+ * plain message instead of a generic failure.
+ */
+export const IPC_READ_ONLY = 'READ_ONLY'
 /** Public source code (Pulse is free software under the GNU GPL v3) */
 export const SOURCE_CODE_URL = 'https://github.com/J2matlock/pulse-app'
 

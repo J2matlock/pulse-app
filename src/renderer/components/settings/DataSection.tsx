@@ -15,6 +15,7 @@ import { useFeature } from '../../hooks/useFeature'
 import { localDateString } from '../../../shared/dates'
 import { HUMAN_SERVICES_VOCAB } from '../../../shared/vocab'
 import { friendlyError } from '../../utils/friendlyError'
+import { IPC_READ_ONLY } from '../../../shared/constants'
 
 /** Add or remove the sample caseload (made-up clients for trying things out). */
 function SampleDataControls(): React.ReactElement {
@@ -33,7 +34,7 @@ function SampleDataControls(): React.ReactElement {
     setBusy(true)
     try {
       const res = await safeInvoke(IPC.SAMPLE_DATA_CREATE)
-      if (!res.ok) { toast.error(res.error === 'READ_ONLY' ? 'Sample data is not available right now.' : `We couldn't add the sample ${t('list')}.`); return }
+      if (!res.ok) { toast.error(res.error === IPC_READ_ONLY ? 'Sample data is not available right now.' : `We couldn't add the sample ${t('list')}.`); return }
       await useGridStore.getState().loadGridList()
       sampleDataChanged()
       toast.success(`Sample ${t('list')} added — find it in the sidebar.`)
