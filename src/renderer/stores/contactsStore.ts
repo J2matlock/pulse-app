@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import toast from 'react-hot-toast'
 import { IPC } from '../../shared/ipc-channels'
 import { rlog } from '../utils/rendererLogger'
-import { type SideEffect } from './undoStore'
 import { pushContactUndo, snapshotProvider, liveContactId, restoreProvider, pickProviderFields, type ProviderSnapshot } from './contactsUndo'
 import { storeInvoke, ReadOnlyError } from '../utils/safeInvoke'
 import { wordNow } from '../utils/vocab'
@@ -10,72 +9,11 @@ import { pulseEvents } from '../events'
 import type {
   Provider,
   ProviderCategory,
-  ProviderInteraction,
-  ProviderClientLink,
   ProviderCustomField,
-  ContactFilterParams,
 } from '../../shared/types'
 import { modHelp } from '../utils/keys'
-
-type ViewMode = 'cards' | 'list'
-
-interface ContactsStore {
-  // State
-  providers: Provider[]
-  categories: ProviderCategory[]
-  selectedProviderId: number | null
-  selectedProvider: Provider | null
-  interactions: ProviderInteraction[]
-  clientLinks: ProviderClientLink[]
-  customFields: ProviderCustomField[]
-  loading: boolean
-  initialLoadDone: boolean
-  _loadVersion: number
-  viewMode: ViewMode
-  filterParams: ContactFilterParams
-
-  // Actions
-  loadProviders: () => Promise<void>
-  loadCategories: () => Promise<void>
-  selectProvider: (id: number | null) => Promise<void>
-  /** Throws when the save fails, so the form can keep what was typed. */
-  createProvider: (data: Partial<Provider>) => Promise<Provider>
-  /** Throws when the save fails, so the form can keep what was typed. */
-  updateProvider: (id: number, data: Partial<Provider>) => Promise<void>
-  deleteProvider: (id: number) => Promise<void>
-  toggleStar: (id: number) => Promise<void>
-  setViewMode: (mode: ViewMode) => void
-  setFilterParams: (params: ContactFilterParams) => void
-
-  // Category actions
-  createCategory: (name: string, color: string) => Promise<ProviderCategory | null>
-  updateCategory: (id: number, data: { name?: string; color?: string; position?: number }) => Promise<void>
-  deleteCategory: (id: number) => Promise<void>
-
-  // Tag actions
-  addTag: (providerId: number, tag: string) => Promise<void>
-  removeTag: (providerId: number, tag: string) => Promise<void>
-
-  // Interaction actions
-  loadInteractions: (providerId: number) => Promise<void>
-  addInteraction: (providerId: number, contactType: string, content: string) => Promise<void>
-  updateInteraction: (id: number, data: { content?: string; contact_type?: string }) => Promise<void>
-  deleteInteraction: (id: number) => Promise<void>
-
-  // Client link actions
-  loadClientLinks: (params: { providerId?: number; rowId?: number }) => Promise<void>
-  linkClient: (providerId: number, rowId: number, gridId: number, notes?: string) => Promise<void>
-  unlinkClient: (linkId: number) => Promise<void>
-
-  // Availability
-  markAvailabilityChecked: (providerId: number) => Promise<void>
-
-  // Custom fields
-  loadCustomFields: (categoryId: number) => Promise<void>
-  createCustomField: (categoryId: number, fieldName: string, fieldType: string) => Promise<void>
-  deleteCustomField: (fieldId: number, categoryId: number) => Promise<void>
-  saveCustomValue: (providerId: number, customFieldId: number, value: string | null) => Promise<void>
-}
+import type { ContactsStore } from './contactsTypes'
+import { createContactActivitySlice } from './contactsActivitySlice'
 
 /** After an undo or redo removes a contact: close it if it was open, and refresh the list. */
 async function afterProviderRemoved(id: number): Promise<void> {
@@ -85,12 +23,11 @@ async function afterProviderRemoved(id: number): Promise<void> {
 }
 
 export const useContactsStore = create<ContactsStore>((set, get) => ({
+  ...createContactActivitySlice(set, get),
   providers: [],
   categories: [],
   selectedProviderId: null,
   selectedProvider: null,
-  interactions: [],
-  clientLinks: [],
   customFields: [],
   loading: false,
   initialLoadDone: false,
@@ -417,161 +354,6 @@ export const useContactsStore = create<ContactsStore>((set, get) => ({
         }
       },
     )
-  },
-
-  loadInteractions: async (providerId) => {
-    try {
-      const data = await storeInvoke<ProviderInteraction[]>(IPC.CONTACTS_GET_INTERACTIONS, providerId)
-      set({ interactions: data })
-    } catch (err) { rlog.error('contactsStore', 'loadInteractions failed', err) }
-  },
-
-  addInteraction: async (providerId, contactType, content) => {
-    try {
-      const created = await storeInvoke<ProviderInteraction>(IPC.CONTACTS_ADD_INTERACTION, providerId, contactType, content)
-      await get().loadInteractions(providerId)
-      pushContactUndo(
-        'Added interaction log', 'plus',
-        async () => {
-          await storeInvoke(IPC.CONTACTS_DELETE_INTERACTION, created.id)
-          await useContactsStore.getState().loadInteractions(liveContactId(providerId))
-        },
-        async () => {
-          const now = liveContactId(providerId)
-          await storeInvoke(IPC.CONTACTS_ADD_INTERACTION, now, created.contact_type, created.content, created.created_at)
-          await useContactsStore.getState().loadInteractions(now)
-        },
-      )
-    } catch (err) {
-      rlog.error('contactsStore', 'addInteraction failed', err)
-      await get().loadInteractions(providerId)
-    }
-  },
-
-  updateInteraction: async (id, data) => {
-    const prev = get().interactions.find(i => i.id === id)
-    try {
-      await storeInvoke(IPC.CONTACTS_UPDATE_INTERACTION, id, data)
-    } catch (err) { rlog.error('contactsStore', 'updateInteraction failed', err); return }
-    const providerId = get().selectedProviderId
-    if (providerId) await get().loadInteractions(providerId)
-    if (prev) {
-      const prevData = { content: prev.content, contact_type: prev.contact_type }
-      pushContactUndo(
-        'Updated interaction log', 'edit',
-        async () => {
-          await storeInvoke(IPC.CONTACTS_UPDATE_INTERACTION, id, prevData)
-          const pid = useContactsStore.getState().selectedProviderId
-          if (pid) await useContactsStore.getState().loadInteractions(pid)
-        },
-        async () => {
-          await storeInvoke(IPC.CONTACTS_UPDATE_INTERACTION, id, data)
-          const pid = useContactsStore.getState().selectedProviderId
-          if (pid) await useContactsStore.getState().loadInteractions(pid)
-        },
-      )
-    }
-  },
-
-  deleteInteraction: async (id) => {
-    const interaction = get().interactions.find(i => i.id === id)
-    try {
-      await storeInvoke(IPC.CONTACTS_DELETE_INTERACTION, id)
-    } catch (err) { rlog.error('contactsStore', 'deleteInteraction failed', err); return }
-    const providerId = get().selectedProviderId
-    if (providerId) await get().loadInteractions(providerId)
-    if (interaction) {
-      pushContactUndo(
-        'Deleted interaction log', 'trash',
-        async () => {
-          // Recreate with original timestamp to preserve order
-          await storeInvoke(IPC.CONTACTS_ADD_INTERACTION, liveContactId(interaction.provider_id), interaction.contact_type, interaction.content, interaction.created_at)
-          const pid = useContactsStore.getState().selectedProviderId
-          if (pid) await useContactsStore.getState().loadInteractions(pid)
-        },
-        async () => {
-          // Find the restored interaction and delete it
-          const currentInteractions = useContactsStore.getState().interactions
-          const restored = currentInteractions.find(i => i.provider_id === liveContactId(interaction.provider_id) && i.content === interaction.content && i.created_at === interaction.created_at)
-          if (restored) await storeInvoke(IPC.CONTACTS_DELETE_INTERACTION, restored.id)
-          const pid = useContactsStore.getState().selectedProviderId
-          if (pid) await useContactsStore.getState().loadInteractions(pid)
-        },
-      )
-    }
-  },
-
-  loadClientLinks: async (params) => {
-    try {
-      const data = await storeInvoke<ProviderClientLink[]>(IPC.CONTACTS_GET_CLIENT_LINKS, params)
-      set({ clientLinks: data })
-    } catch (err) { rlog.error('contactsStore', 'loadClientLinks failed', err) }
-  },
-
-  linkClient: async (providerId, rowId, gridId, notes) => {
-    try {
-      const linkData = await storeInvoke<ProviderClientLink & { sysLogId: number | null }>(IPC.CONTACTS_LINK_CLIENT, providerId, rowId, gridId, notes)
-      await get().loadClientLinks({ providerId })
-      let currentLinkId = linkData.id
-      const sysLogId = linkData.sysLogId
-      const sideEffects: SideEffect[] | undefined = sysLogId ? [{ type: 'void_case_log', caseLogId: sysLogId }] : undefined
-      const providerName = get().providers.find(p => p.id === providerId)?.name
-      pushContactUndo(
-        providerName ? `Linked "${providerName}" to ${wordNow('record')}` : `Linked ${wordNow('contact', {}, null)} to ${wordNow('record')}`, 'link',
-        async () => {
-          await storeInvoke(IPC.CONTACTS_UNLINK_CLIENT, currentLinkId)
-          await get().loadClientLinks({ providerId })
-          pulseEvents.emit('linkedproviders:changed', { rowId })
-        },
-        async () => {
-          const r = await storeInvoke<ProviderClientLink & { sysLogId: number | null }>(IPC.CONTACTS_LINK_CLIENT, liveContactId(providerId), rowId, gridId, notes)
-          currentLinkId = r.id
-          await get().loadClientLinks({ providerId: liveContactId(providerId) })
-          pulseEvents.emit('linkedproviders:changed', { rowId })
-        },
-        { sideEffects },
-      )
-    } catch (err) {
-      rlog.error('contactsStore', 'linkClient failed', err)
-      await get().loadClientLinks({ providerId })
-    }
-  },
-
-  unlinkClient: async (linkId) => {
-    const link = get().clientLinks.find(l => l.id === linkId)
-    try {
-      const unlinkData = await storeInvoke<{ sysLogId: number | null }>(IPC.CONTACTS_UNLINK_CLIENT, linkId)
-      const providerId = get().selectedProviderId
-      if (providerId) await get().loadClientLinks({ providerId })
-      if (link) {
-        const sysLogId = unlinkData.sysLogId
-        const sideEffects: SideEffect[] | undefined = sysLogId ? [{ type: 'void_case_log', caseLogId: sysLogId }] : undefined
-        const providerName = get().providers.find(p => p.id === link.provider_id)?.name
-        let restoredLinkId: number | null = null
-        pushContactUndo(
-          providerName ? `Unlinked "${providerName}" from ${wordNow('record')}` : `Unlinked ${wordNow('contact', {}, null)} from ${wordNow('record')}`, 'unlink',
-          async () => {
-            const r = await storeInvoke<ProviderClientLink & { sysLogId: number | null }>(IPC.CONTACTS_LINK_CLIENT, liveContactId(link.provider_id), link.row_id, link.grid_id, link.notes ?? undefined)
-            restoredLinkId = r.id
-            await get().loadClientLinks({ providerId: liveContactId(link.provider_id) })
-            pulseEvents.emit('linkedproviders:changed', { rowId: link.row_id })
-          },
-          async () => {
-            if (restoredLinkId !== null) {
-              await storeInvoke(IPC.CONTACTS_UNLINK_CLIENT, restoredLinkId)
-              await get().loadClientLinks({ providerId: link.provider_id })
-              pulseEvents.emit('linkedproviders:changed', { rowId: link.row_id })
-              restoredLinkId = null
-            }
-          },
-          { sideEffects },
-        )
-      }
-    } catch (err) {
-      rlog.error('contactsStore', 'unlinkClient failed', err)
-      const providerId = get().selectedProviderId
-      if (providerId) await get().loadClientLinks({ providerId })
-    }
   },
 
   markAvailabilityChecked: async (providerId) => {
