@@ -3,8 +3,10 @@
  * MISSING_INFO_* (required fields), COMPLIANCE_* (monthly summary) and
  * TOTALS_* (time, mileage and your own numbers from notes)
  */
+import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
-import { secureWrap, ok, fail, validId, enforceWritable, assertSafePath, pickSavePath } from './ipc-utils'
+import { ok, fail, assertSafePath, pickSavePath } from './ipc-utils'
+import { handlersFor, idArg } from './ipc-define'
 import { getRequirements, saveRequirements, validateRequirements, getRequirementStatus } from '../contact-requirements'
 import { getMissingInfo, exportMissingInfoCsv } from '../missing-info'
 import { getComplianceSummary, exportComplianceSummary, monthAsOf } from '../compliance'
@@ -14,38 +16,37 @@ import { localDateString } from '../../shared/dates'
 import { fileWord } from '../../shared/fileName'
 import { word } from '../vocab'
 
-export function registerComplianceHandlers(): void {
-  secureWrap(IPC.CONTACT_REQ_GET, 'ipc-compliance', (_e, gridId?: number) => {
-    if (gridId != null && !validId(gridId)) return fail('Invalid ID')
-    return ok(getRequirements(gridId ?? undefined))
-  })
+const define = handlersFor('ipc-compliance')
 
-  secureWrap(IPC.CONTACT_REQ_SAVE, 'ipc-compliance', (_e, gridId: number, reqs: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(gridId)) return fail('Invalid ID')
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/
+const DAY = /^\d{4}-\d{2}-\d{2}$/
+/** 'YYYY-MM' */
+const monthArg = () => z.string('Invalid month').regex(MONTH, 'Invalid month')
+/** A list, or every list when null or left out */
+const optionalGridArg = () => idArg().nullish()
+
+export function registerComplianceHandlers(): void {
+  define(IPC.CONTACT_REQ_GET, [optionalGridArg()], (gridId) => ok(getRequirements(gridId ?? undefined)))
+
+  define(IPC.CONTACT_REQ_SAVE, [idArg(), z.unknown()], (gridId, reqs) => {
     const cleaned = validateRequirements(reqs)
     if (typeof cleaned === 'string') return fail(cleaned)
     saveRequirements(gridId, cleaned)
     return ok(getRequirements(gridId))
-  })
+  }, { write: true })
 
   // ref: a day ('YYYY-MM-DD'), or a month ('YYYY-MM', counted as of its last day or today); omitted = today
-  secureWrap(IPC.CONTACT_REQ_STATUS, 'ipc-compliance', (_e, ref?: string, gridId?: number) => {
-    const isMonth = (v: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(v)
-    const isDay = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v)
-    if (ref != null && (typeof ref !== 'string' || !(isMonth(ref) || isDay(ref)))) return fail('Invalid date')
-    if (gridId != null && !validId(gridId)) return fail('Invalid ID')
+  define(IPC.CONTACT_REQ_STATUS, [
+    z.string('Invalid date').refine(v => MONTH.test(v) || DAY.test(v), 'Invalid date').nullish(),
+    optionalGridArg(),
+  ], (ref, gridId) => {
     const day = ref == null ? undefined : ref.length === 7 ? monthAsOf(ref) : ref
     return ok(getRequirementStatus(day, gridId ?? undefined))
   })
 
-  secureWrap(IPC.MISSING_INFO_GET, 'ipc-compliance', (_e, gridId?: number) => {
-    if (gridId != null && !validId(gridId)) return fail('Invalid ID')
-    return ok(getMissingInfo(gridId ?? undefined))
-  })
+  define(IPC.MISSING_INFO_GET, [optionalGridArg()], (gridId) => ok(getMissingInfo(gridId ?? undefined)))
 
-  secureWrap(IPC.MISSING_INFO_EXPORT_CSV, 'ipc-compliance', async (_e, gridId?: number) => {
-    if (gridId != null && !validId(gridId)) return fail('Invalid ID')
+  define(IPC.MISSING_INFO_EXPORT_CSV, [optionalGridArg()], async (gridId) => {
     const filePath = await pickSavePath({
       title: 'Save Missing Information List',
       defaultPath: `missing-information-${localDateString()}.csv`,
@@ -57,17 +58,11 @@ export function registerComplianceHandlers(): void {
     return ok({ filePath, count })
   })
 
-  const validMonth = (m: unknown) => typeof m === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(m)
-
-  secureWrap(IPC.COMPLIANCE_SUMMARY_GET, 'ipc-compliance', (_e, month: string, gridId?: number) => {
-    if (!validMonth(month)) return fail('Invalid month')
-    if (gridId != null && !validId(gridId)) return fail('Invalid ID')
+  define(IPC.COMPLIANCE_SUMMARY_GET, [monthArg(), optionalGridArg()], (month, gridId) => {
     return ok(getComplianceSummary(month, gridId ?? undefined))
   })
 
-  secureWrap(IPC.EXPORT_COMPLIANCE_SUMMARY, 'ipc-compliance', async (_e, month: string, gridId?: number) => {
-    if (!validMonth(month)) return fail('Invalid month')
-    if (gridId != null && !validId(gridId)) return fail('Invalid ID')
+  define(IPC.EXPORT_COMPLIANCE_SUMMARY, [monthArg(), optionalGridArg()], async (month, gridId) => {
     const filePath = await pickSavePath({
       title: `Save ${word('requirement', { many: true, cap: true })} summary`,
       defaultPath: `${fileWord(word('requirement', { many: true }), 'requirements')}-summary-${month}.pdf`,
@@ -80,15 +75,11 @@ export function registerComplianceHandlers(): void {
     return ok(filePath)
   })
 
-  secureWrap(IPC.TOTALS_GET, 'ipc-compliance', (_e, month: string, gridId?: number) => {
-    if (!validMonth(month)) return fail('Invalid month')
-    if (gridId != null && !validId(gridId)) return fail('Invalid ID')
+  define(IPC.TOTALS_GET, [monthArg(), optionalGridArg()], (month, gridId) => {
     return ok(getTotals(month, gridId ?? undefined))
   })
 
-  secureWrap(IPC.TOTALS_EXPORT_CSV, 'ipc-compliance', async (_e, month: string, gridId?: number) => {
-    if (!validMonth(month)) return fail('Invalid month')
-    if (gridId != null && !validId(gridId)) return fail('Invalid ID')
+  define(IPC.TOTALS_EXPORT_CSV, [monthArg(), optionalGridArg()], async (month, gridId) => {
     const filePath = await pickSavePath({
       title: 'Save Totals',
       defaultPath: `totals-${month}.csv`,
