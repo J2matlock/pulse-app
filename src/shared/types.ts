@@ -320,27 +320,6 @@ export interface CellFormat {
   rules: string             // JSON array of CellFormatRule
 }
 
-// ── Named Conditional Format Rules ────────────────────────────────────────────
-
-// The condition + style content of a named rule (stored as JSON)
-export interface NamedRuleContent extends FormatStyle {
-  sourceType?: 'self' | 'same_row_column'
-  sourceColumnId?: number
-  operator: CellFormatOperator
-  value: string
-  value2?: string
-}
-
-// Named rule as stored in DB
-export interface CondFormatRuleRecord {
-  id: number
-  name: string
-  description: string | null
-  column_type_hint: string | null  // optional hint: 'text'|'date'|'number'|'checkbox'|'dropdown'|null
-  rule_json: string                // JSON: NamedRuleContent
-  created_at: string
-}
-
 export interface DashboardStats {
   totalActive: number
   followUpsPending: number

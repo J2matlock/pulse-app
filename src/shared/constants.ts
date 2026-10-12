@@ -45,14 +45,6 @@ export const MS_PER_DAY = 86_400_000
 export const DAYS_THIS_WEEK = 7
 export const DAYS_THIS_MONTH = 30
 
-// Data limits — payload size validation
-/** Maximum length for a single cell value */
-export const MAX_CELL_VALUE_LENGTH = 50_000
-/** Maximum number of alert rules */
-export const MAX_ALERT_RULES = 50
-/** Default cache size for import rows */
-export const MAX_CACHE_ROWS = 10_000
-
 // Auto-lock (HIPAA automatic logoff). There is deliberately no "never" option.
 /** 15: what the security checkup and most organizations expect */
 export const AUTO_LOCK_DEFAULT_MINUTES = 15

@@ -31,11 +31,10 @@ import { pulseEvents } from '../events'
 
 export type { GridState } from './gridTypes'
 
-// FilterOperator and ColumnFilter imported from shared/types
-export type { FilterOperator, ColumnFilter } from '../../shared/types'
+export type { FilterOperator } from '../../shared/types'
 
 // Re-export slice types for consumers that import from gridStore
-export type { SavedFilter, SavedView, SavedViewConfig } from './gridFilterSlice'
+export type { SavedView } from './gridFilterSlice'
 
 
 // O(1) coalesce index for cell edits: maps "rowId:columnId" → undo item id

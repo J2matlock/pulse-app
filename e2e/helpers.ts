@@ -128,27 +128,6 @@ export async function unlockApp(window: Page, password: string): Promise<void> {
 }
 
 /**
- * Set up a fresh app: launch, create password, and get past any onboarding.
- * Returns the app context with the main UI visible.
- */
-export async function launchAndSetup(password: string): Promise<AppContext> {
-  const ctx = await launchApp();
-  await setupPassword(ctx.window, password);
-
-  // After password setup, the app may show lock screen or go straight to main UI
-  try {
-    const lockInput = await ctx.window.waitForSelector('input[type="password"]', { timeout: 3000 });
-    if (lockInput) {
-      await unlockApp(ctx.window, password);
-    }
-  } catch {
-    // No lock screen — app went directly to main UI or onboarding
-  }
-
-  return ctx;
-}
-
-/**
  * First-run setup up to "How do you want to start?": welcome → your name
  * (left blank). Returns false when there is no setup to do.
  */

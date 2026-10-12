@@ -695,6 +695,7 @@ export type InvokeChannel = Exclude<IPCChannel, EventChannel>
  * to compile here and names the channel (audit A08-4).
  */
 type MustBeEmpty<T extends never> = T
+/** @public compile-time check only; nothing imports it */
 export type ContractCoverage = [
   MustBeEmpty<Exclude<InvokeChannel, ContractChannel>>,
   MustBeEmpty<Exclude<ContractChannel, InvokeChannel>>,
