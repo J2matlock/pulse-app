@@ -17,7 +17,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'fs'
 import { join, relative } from 'path'
 import { createTestDb, cleanupTestDb, type TestDb } from './helpers'
-import { IPC } from '../src/shared/ipc-channels'
+import { IPC, EVENT_CHANNELS as EVENT_CHANNEL_LIST } from '../src/shared/ipc-channels'
 
 /** Every ipcMain.handle call, in order (a channel twice means two registrations) */
 const registrations: Array<{ channel: string; listener: (...args: unknown[]) => unknown }> = []
@@ -104,13 +104,8 @@ const CONTRACT_KEYS = (() => {
   return [...contractSrc.slice(start, end).matchAll(/^\s*'([^']+)'\s*:/gm)].map(m => m[1]!)
 })()
 
-/** Channels in `export type EventChannel = typeof IPC.X | ...` */
-const EVENT_CHANNELS = (() => {
-  const start = contractSrc.indexOf('export type EventChannel =')
-  const end = contractSrc.indexOf('\n\n', start)
-  expect(start).toBeGreaterThan(-1)
-  return new Set([...contractSrc.slice(start, end).matchAll(/typeof IPC\.([A-Z0-9_]+)/g)].map(m => (IPC as Record<string, string>)[m[1]!]!))
-})()
+/** Event channels: the shared list, which the contract's EventChannel type and the preload are built from (Q-055) */
+const EVENT_CHANNELS = new Set<string>(EVENT_CHANNEL_LIST)
 
 const INVOKE_CHANNELS = new Set([...ALL].filter(c => !EVENT_CHANNELS.has(c)))
 
@@ -135,6 +130,11 @@ describe('contract (ipc-contract.ts)', () => {
     expect(new Set(CONTRACT_KEYS).size).toBe(CONTRACT_KEYS.length)
     expect([...INVOKE_CHANNELS].filter(c => !CONTRACT_KEYS.includes(c))).toEqual([])
     expect(CONTRACT_KEYS.filter(c => !INVOKE_CHANNELS.has(c))).toEqual([])
+  })
+
+  it('takes its EventChannel type from the shared EVENT_CHANNELS list', () => {
+    expect(contractSrc).toMatch(/export type EventChannel = typeof EVENT_CHANNELS\[number\]/)
+    expect(EVENT_CHANNELS.size).toBe(EVENT_CHANNEL_LIST.length)
   })
 
   it('lists as event channels exactly the ones main sends to the window', () => {
@@ -172,6 +172,18 @@ describe('handlers', () => {
     }
   })
 
+  it('the handlers registered in index.ts answer { ok } on every path, never undefined (Q-055)', () => {
+    const index = read('main/index.ts')
+    for (const name of ['AUTH_ACTIVITY_PING', 'APP_FLUSH_DONE', 'LOG_FORWARD']) {
+      const start = index.indexOf(`secureWrap(IPC.${name},`)
+      expect(start, name).toBeGreaterThan(-1)
+      const body = index.slice(start, index.indexOf('\n  })', start))
+      expect(body, name).toMatch(/return ok\(null\)/)
+      // No bare "return" that would answer undefined
+      expect(body, name).not.toMatch(/\breturn\s*(\n|$)/)
+    }
+  })
+
   it('handlers are only ever registered through secureWrap', () => {
     for (const file of filesUnder(join(SRC, 'main'))) {
       const src = readFileSync(file, 'utf8')
@@ -190,10 +202,13 @@ describe('handlers', () => {
 describe('preload and renderer', () => {
   const preload = read('preload/index.ts')
 
-  it('the preload allows exactly the channel constants', () => {
-    expect(preload).toMatch(/const allowedChannels = new Set<string>\(Object\.values\(IPC\)\)/)
-    // Both generic entry points check the allow-list before touching ipcRenderer
-    expect(preload.match(/if \(!allowedChannels\.has\(channel\)\)/g)).toHaveLength(2)
+  it('the preload lets invoke reach invoke channels only, and on reach event channels only (Q-055)', () => {
+    expect(preload).toMatch(/const eventChannels = new Set<string>\(EVENT_CHANNELS\)/)
+    expect(preload).toMatch(/const invokeChannels = new Set<string>\(Object\.values\(IPC\)\.filter\(c => !eventChannels\.has\(c\)\)\)/)
+    // Each generic entry point checks its own list before touching ipcRenderer
+    expect(preload).toMatch(/invoke: \(channel[^\n]*\n\s*if \(!invokeChannels\.has\(channel\)\)/)
+    expect(preload).toMatch(/on: \(channel[^\n]*\n\s*if \(!eventChannels\.has\(channel\)\)/)
+    expect(preload).not.toMatch(/allowedChannels/)
   })
 
   it('the preload only calls ipcRenderer with a checked channel or a channel constant', () => {

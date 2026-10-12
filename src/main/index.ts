@@ -22,7 +22,7 @@ import { startupFailureText } from '../shared/dbOpen'
 import { clearImportCache } from './import'
 import { logger, formatForwardedLogData } from './logger'
 import { IPC } from '../shared/ipc-channels'
-import { secureWrap, logNonFatal } from './ipc/ipc-utils'
+import { secureWrap, logNonFatal, ok, fail } from './ipc/ipc-utils'
 
 process.on('unhandledRejection', (reason) => {
   logger.error('process', 'Unhandled rejection', { reason: reason instanceof Error ? { message: reason.message, stack: reason.stack } : String(reason) })
@@ -323,11 +323,14 @@ app.whenReady().then(async () => {
   registerIpcHandlers()
 
   // Main-process auto-lock: renderer sends activity pings to reset the timer
+  // Every handler answers { ok, … }, so safeInvoke never sees undefined (Q-055)
   secureWrap(IPC.AUTH_ACTIVITY_PING, 'app', () => {
     resetAutoLockTimer()
+    return ok(null)
   })
   secureWrap(IPC.APP_FLUSH_DONE, 'app', () => {
     for (const done of flushWaiters.slice()) done()
+    return ok(null)
   })
   resetAutoLockTimer()
 
@@ -341,15 +344,16 @@ app.whenReady().then(async () => {
   const ALLOWED_LOG_LEVELS = new Set(['info', 'warn', 'error'])
   const MAX_LOG_MSG_LEN = 2000
   secureWrap(IPC.LOG_FORWARD, 'app', (_event, payload: { level: string; component: string; msg: string; data?: unknown }) => {
-    if (!payload || typeof payload !== 'object') return
+    if (!payload || typeof payload !== 'object') return fail('Invalid log entry')
     const { level: rawLevel, component, msg } = payload
-    if (typeof rawLevel !== 'string' || !ALLOWED_LOG_LEVELS.has(rawLevel)) return
-    if (typeof component !== 'string' || component.length > 200) return
-    if (typeof msg !== 'string' || msg.length > MAX_LOG_MSG_LEN) return
+    if (typeof rawLevel !== 'string' || !ALLOWED_LOG_LEVELS.has(rawLevel)) return fail('Invalid log entry')
+    if (typeof component !== 'string' || component.length > 200) return fail('Invalid log entry')
+    if (typeof msg !== 'string' || msg.length > MAX_LOG_MSG_LEN) return fail('Invalid log entry')
     const level = rawLevel as 'error' | 'warn' | 'info'
     const fn = logger[level]
     // Scrub as an object first: once stringified, key-based redaction can't see it
     if (fn) fn(`renderer:${component}`, msg, formatForwardedLogData(payload.data))
+    return ok(null)
   })
 
   // Dev mode needs 'unsafe-inline' for script-src because Vite injects inline HMR preambles.

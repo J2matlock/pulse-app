@@ -272,5 +272,6 @@ export function registerAppHandlers(): void {
       app.relaunch()
       app.exit(0)
     }
+    return ok(null)
   })
 }

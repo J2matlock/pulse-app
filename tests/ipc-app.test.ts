@@ -519,7 +519,8 @@ describe('APP_MIGRATION_STATUS', () => {
 
 describe('APP_RELAUNCH', () => {
   it('reloads the window', async () => {
-    await invoke(IPC.APP_RELAUNCH)
+    // Answers { ok } like every handler, not undefined (Q-055)
+    expect(await invoke(IPC.APP_RELAUNCH)).toEqual({ ok: true, data: null })
     expect(mockReloadIgnoringCache).toHaveBeenCalled()
   })
 

@@ -474,3 +474,14 @@ export const IPC = {
 } as const
 
 export type IPCChannel = typeof IPC[keyof typeof IPC]
+
+/**
+ * Channels main sends to the renderer (window.api.on); nothing invokes them. The preload lets the
+ * renderer listen on these only, and invoke only the rest (Q-055).
+ */
+export const EVENT_CHANNELS = [
+  IPC.MENU_COMMAND, IPC.CASE_LOG_CHANGED, IPC.IMPORT_PROGRESS, IPC.WORKSPACE_CHANGED,
+  IPC.ACTIVITY_TYPES_CHANGED, IPC.RECORD_LINKS_CHANGED, IPC.APPOINTMENTS_CHANGED,
+  IPC.ATTACHMENTS_CHANGED, IPC.REMINDER_OPEN, IPC.FILE_ASSOC_PENDING_ARRIVED, IPC.APP_FLUSH_PENDING,
+  IPC.AUTH_FORCE_LOCK,
+] as const

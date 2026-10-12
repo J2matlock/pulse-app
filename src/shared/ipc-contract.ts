@@ -37,7 +37,7 @@ import type { Attachment, AttachmentUsage } from './attachments'
 import type { ReportSource, ReportField, ReportConfig, ReportResult, SavedReport } from './reports'
 import type { TotalsReport } from './timeMileage'
 import type { StarterSummary, StarterRef, StarterPreview, ApplyOptions, ApplyResult } from './starters/schema'
-import type { IPC, IPCChannel } from './ipc-channels'
+import type { IPCChannel, EVENT_CHANNELS } from './ipc-channels'
 
 /** Search and filter for a record's notes (CASE_LOG_GET / CASE_LOG_COUNT) */
 export interface CaseLogQuery { query?: string; oldestFirst?: boolean; logType?: string }
@@ -381,7 +381,7 @@ export interface IPCContract {
   'auth:verify-password':               { args: [password: string];                                              return: { cloudWarning: string | null; failedAttempts?: number } }
   'auth:change-password':               { args: [oldPassword: string, newPassword: string, newHint: string];     return: true }
   'auth:lock':                          { args: [];                                                              return: true }
-  'auth:activity-ping':                 { args: [];                                                              return: void }
+  'auth:activity-ping':                 { args: [];                                                              return: null }
   'auth:get-hint':                      { args: [];                                                              return: string | null }
   'auth:is-setup':                      { args: [];                                                              return: boolean }
   'auth:generate-recovery-key':         { args: [currentPassword?: string];                                      return: string }
@@ -672,11 +672,11 @@ export interface IPCContract {
   'background:set':   { args: [patch: Partial<Pick<BackgroundSettings, 'trayMode' | 'openAtLogin'>>]; return: BackgroundSettings }
 
   // ── App lifecycle ───────────────────────────────────────────────────────
-  'app:relaunch':          { args: [];                                                         return: void }
+  'app:relaunch':          { args: [];                                                         return: null }
   /** true: forget the failure once it has been shown */
   'app:migration-status':  { args: [clearFlag?: boolean];                                      return: { version: number; error: string; timestamp: string } | null }
-  'app:flush-done':        { args: [];                                                         return: void }
-  'log:forward':           { args: [payload: { level: 'error' | 'warn' | 'info'; component: string; msg: string; data?: unknown }]; return: void }
+  'app:flush-done':        { args: [];                                                         return: null }
+  'log:forward':           { args: [payload: { level: 'error' | 'warn' | 'info'; component: string; msg: string; data?: unknown }]; return: null }
   'cell-history:series':   { args: [rowId: number, columnIds: number[]];                       return: Record<number, Array<{ at: string; value: number }>> }
 }
 
@@ -684,11 +684,7 @@ export interface IPCContract {
 export type ContractChannel = keyof IPCContract
 
 /** Channels main sends to the renderer (window.api.on); nothing invokes them */
-export type EventChannel =
-  | typeof IPC.MENU_COMMAND | typeof IPC.CASE_LOG_CHANGED | typeof IPC.IMPORT_PROGRESS | typeof IPC.WORKSPACE_CHANGED
-  | typeof IPC.ACTIVITY_TYPES_CHANGED | typeof IPC.RECORD_LINKS_CHANGED | typeof IPC.APPOINTMENTS_CHANGED
-  | typeof IPC.ATTACHMENTS_CHANGED | typeof IPC.REMINDER_OPEN | typeof IPC.FILE_ASSOC_PENDING_ARRIVED | typeof IPC.APP_FLUSH_PENDING
-  | typeof IPC.AUTH_FORCE_LOCK
+export type EventChannel = typeof EVENT_CHANNELS[number]
 
 /** Channels the renderer can invoke */
 export type InvokeChannel = Exclude<IPCChannel, EventChannel>
