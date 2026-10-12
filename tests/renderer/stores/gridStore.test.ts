@@ -301,6 +301,83 @@ describe('gridStore', () => {
       expect(toast.error).toHaveBeenCalledWith('That record is no longer available.')
     })
 
+    it('an edit made while a reload is on its way survives the reload (Q-044)', async () => {
+      const row = makeRow(1)
+      ;(row as Record<string, unknown>)['col_5'] = 'old'
+      useGridStore.setState({ activeGridId: 1, isLoading: false, rows: [row], columns: [makeColumn(5, 'Notes')] })
+      let landLoad: (v: unknown) => void = () => {}
+      let landSave: (v: unknown) => void = () => {}
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === IPC.GRID_GET_FULL) return new Promise(r => { landLoad = r })
+        if (channel === IPC.CELL_UPDATE) return new Promise(r => { landSave = r })
+        return Promise.resolve({ ok: true, data: null })
+      })
+      const reload = useGridStore.getState().refreshRows()
+      const save = useGridStore.getState().updateCell(1, 5, 'new')
+      // The reload was read before the save reached the database
+      const stale = makeRow(1)
+      ;(stale as Record<string, unknown>)['col_5'] = 'old'
+      landLoad({ ok: true, data: { rows: [stale], rowTagsMap: {}, sampleRows: {} } })
+      await reload
+      expect((useGridStore.getState().rows[0] as Record<string, unknown>)['col_5']).toBe('new')
+      landSave({ ok: true, data: { sysLogId: null } })
+      await save
+      expect((useGridStore.getState().rows[0] as Record<string, unknown>)['col_5']).toBe('new')
+      expect(useGridStore.getState().isSaving).toBe(false)
+    })
+
+    it('an edit that lands before a slower reload answers still shows (Q-044)', async () => {
+      const row = makeRow(1)
+      ;(row as Record<string, unknown>)['col_5'] = 'old'
+      useGridStore.setState({ activeGridId: 1, isLoading: false, rows: [row], columns: [makeColumn(5, 'Notes')] })
+      let landLoad: (v: unknown) => void = () => {}
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === IPC.GRID_GET_FULL) return new Promise(r => { landLoad = r })
+        return Promise.resolve({ ok: true, data: { sysLogId: null } })
+      })
+      const reload = useGridStore.getState().refreshRows()
+      await useGridStore.getState().updateCell(1, 5, 'new')
+      const stale = makeRow(1)
+      ;(stale as Record<string, unknown>)['col_5'] = 'old'
+      landLoad({ ok: true, data: { rows: [stale], rowTagsMap: {}, sampleRows: {} } })
+      await reload
+      expect((useGridStore.getState().rows[0] as Record<string, unknown>)['col_5']).toBe('new')
+    })
+
+    it('two failed saves to one cell put back the saved value, not the first unsaved one (Q-044)', async () => {
+      const row = makeRow(1)
+      ;(row as Record<string, unknown>)['col_5'] = 'P'
+      useGridStore.setState({ activeGridId: 1, rows: [row], columns: [makeColumn(5, 'Notes')] })
+      const fails: Array<(v: unknown) => void> = []
+      mockInvoke.mockImplementation(() => new Promise(r => { fails.push(r) }))
+      const first = useGridStore.getState().updateCell(1, 5, 'A')
+      const second = useGridStore.getState().updateCell(1, 5, 'B')
+      fails[0]!({ ok: false, error: 'READ_ONLY' })
+      await first
+      // The other save is still out
+      expect(useGridStore.getState().isSaving).toBe(true)
+      expect((useGridStore.getState().rows[0] as Record<string, unknown>)['col_5']).toBe('B')
+      fails[1]!({ ok: false, error: 'READ_ONLY' })
+      await second
+      expect((useGridStore.getState().rows[0] as Record<string, unknown>)['col_5']).toBe('P')
+      expect(useGridStore.getState().isSaving).toBe(false)
+    })
+
+    it('when the first of two saves lands and the second fails, the first value stays (Q-044)', async () => {
+      const row = makeRow(1)
+      ;(row as Record<string, unknown>)['col_5'] = 'P'
+      useGridStore.setState({ activeGridId: 1, rows: [row], columns: [makeColumn(5, 'Notes')] })
+      const answers: Array<(v: unknown) => void> = []
+      mockInvoke.mockImplementation(() => new Promise(r => { answers.push(r) }))
+      const first = useGridStore.getState().updateCell(1, 5, 'A')
+      const second = useGridStore.getState().updateCell(1, 5, 'B')
+      answers[0]!({ ok: true, data: { sysLogId: null } })
+      await first
+      answers[1]!({ ok: false, error: 'READ_ONLY' })
+      await second
+      expect((useGridStore.getState().rows[0] as Record<string, unknown>)['col_5']).toBe('A')
+    })
+
     it('pushes to undo stack when value changes', async () => {
       const row = makeRow(1)
       ;(row as Record<string, unknown>)['col_5'] = 'old'

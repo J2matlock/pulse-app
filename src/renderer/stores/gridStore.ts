@@ -45,6 +45,36 @@ const _coalesceIndex = new Map<string, string>()
 // Only the newest list-of-lists fetch may land, so a slow one from before setup can't wipe the new lists
 let _gridListSeq = 0
 
+// Cell saves still on their way to main, by "rowId:columnId" (Q-044). A list load that was asked for
+// before the save reads the old value; the edit is put back on top of it so it doesn't snap back.
+// `confirmed` is the value main last accepted, which a failed save falls back to: an edit's own
+// "before" value may be another edit that failed too, and never reached the database.
+interface PendingCell { seq: number; value: string | null; confirmed: string | null; count: number }
+const _pendingCells = new Map<string, PendingCell>()
+// Saves that landed after a load was asked for, which that load may not have seen
+const _savedCells = new Map<string, { seq: number; value: string | null }>()
+let _cellSeq = 0
+let _savesInFlight = 0
+
+/** Lays edits a load can't have seen over the rows it read; `sinceSeq` is the edit count when the load was asked for. */
+function withUnsavedEdits(rows: GridRow[], sinceSeq: number): GridRow[] {
+  if (!_pendingCells.size && !_savedCells.size) return rows
+  const byRow = new Map<number, Array<[string, string | null]>>()
+  const note = (k: string, value: string | null) => {
+    const [rowId, columnId] = k.split(':').map(Number) as [number, number]
+    const list = byRow.get(rowId) ?? []
+    list.push([`col_${columnId}`, value])
+    byRow.set(rowId, list)
+  }
+  for (const [k, saved] of _savedCells) if (saved.seq > sinceSeq && !_pendingCells.has(k)) note(k, saved.value)
+  for (const [k, pending] of _pendingCells) note(k, pending.value)
+  if (!byRow.size) return rows
+  return rows.map(r => {
+    const edits = byRow.get(r.row_id)
+    return edits ? { ...r, ...Object.fromEntries(edits) } as GridRow : r
+  })
+}
+
 /** Values main filled in on a new row (auto numbers), so it shows them straight away. */
 async function autoFilledValues(gridId: number, rowId: number, columns: Column[]): Promise<Partial<GridRow>> {
   const auto = columns.filter(c => c.column_type === 'auto_number')
@@ -125,13 +155,14 @@ export const useGridStore = create<GridState>((set, get) => ({
   refreshRows: async () => {
     const { activeGridId: gridId, _loadVersion: version, isLoading, showArchived } = get()
     if (!gridId || isLoading) return
+    const editsSeen = _cellSeq
     try {
       const data = await invoke<{ rows: GridRow[]; rowTagsMap: Record<number, string[]>; sampleRows?: Record<number, number> }>(IPC.GRID_GET_FULL, gridId, showArchived)
       // A list opened or loaded meanwhile wins
       if (get()._loadVersion !== version || get().activeGridId !== gridId || !data || !Array.isArray(data.rows)) return
       const rowTagsMap = new Map(Object.entries(data.rowTagsMap ?? {}).map(([k, v]) => [Number(k), v]))
       set({
-        rows: data.rows,
+        rows: withUnsavedEdits(data.rows, editsSeen),
         rowTagsMap,
         sampleRows: data.sampleRows ?? {},
       })
@@ -212,6 +243,7 @@ export const useGridStore = create<GridState>((set, get) => ({
       set({ ...(_listViews.get(gridId) ?? DEFAULT_LIST_VIEW), loadedGridId: null })
     }
     set({ isLoading: true, loadError: null, activeGridId: gridId, _loadVersion: version, sortedRowIds: [], selectedRowIds: new Set<number>(), pinnedRowId: null })
+    const editsSeen = _cellSeq
     try {
       const showArchived = get().showArchived
       const fullData = await invoke<{
@@ -258,7 +290,7 @@ export const useGridStore = create<GridState>((set, get) => ({
       set({
         ...(keptFilters.length !== activeFilters.length ? { activeFilters: keptFilters } : {}),
         ...(typeof groupByColumnId === 'number' && !known.has(groupByColumnId) ? { groupByColumnId: null } : {}),
-        columns, hiddenColumns, rows, sortConfig, isLoading: false, loadedGridId: gridId,
+        columns, hiddenColumns, rows: withUnsavedEdits(rows, editsSeen), sortConfig, isLoading: false, loadedGridId: gridId,
         acuityLevels: acuityLevels ?? [],
         acuityEnabled: grid.acuity_enabled === 1,
         cellFormats: cellFormatsMap,
@@ -629,6 +661,20 @@ export const useGridStore = create<GridState>((set, get) => ({
     const idx = currentRows.findIndex(r => r.row_id === rowId)
     const listValue = idx !== -1 ? (currentRows[idx]![key] as string | null) ?? null : null
 
+    const cellKey = `${rowId}:${columnId}`
+    const seq = ++_cellSeq
+    const pending = _pendingCells.get(cellKey)
+    if (pending) { pending.seq = seq; pending.value = value; pending.count++ }
+    else _pendingCells.set(cellKey, { seq, value, confirmed: listValue, count: 1 })
+    _savesInFlight++
+    // A save is done when main has answered for this edit; the entry goes when no other edit of the cell is out
+    const settle = (): PendingCell | undefined => {
+      _savesInFlight = Math.max(0, _savesInFlight - 1)
+      const entry = _pendingCells.get(cellKey)
+      if (entry && --entry.count <= 0) _pendingCells.delete(cellKey)
+      return entry
+    }
+
     // Optimistic update — single findIndex + splice instead of find + map (O(n) → O(n) but one pass)
     if (idx !== -1) {
       const newRows = [...currentRows]
@@ -637,13 +683,39 @@ export const useGridStore = create<GridState>((set, get) => ({
     } else {
       set({ isSaving: true, saveError: null })
     }
+    let result: { sysLogId: number | null; previous?: string | null }
     try {
       // An undo or redo writes no change note of its own: the edit's note is voided or restored by its side effect (F-028)
-      const result = await invoke<{ sysLogId: number | null; previous?: string | null }>(IPC.CELL_UPDATE, rowId, columnId, value, ...(fromUndo ? [{ silent: true }] : []))
-      set({ isSaving: false })
+      result = await invoke<{ sysLogId: number | null; previous?: string | null }>(IPC.CELL_UPDATE, rowId, columnId, value, ...(fromUndo ? [{ silent: true }] : []))
+    } catch (err) {
+      const entry = settle()
+      // Back to what main last accepted, unless a newer edit has replaced this one meanwhile (AUDIT-130, Q-044)
+      const isLatest = !entry || entry.seq === seq
+      const fallback = entry ? entry.confirmed : listValue
+      set(s => ({
+        rows: isLatest ? s.rows.map(r => r.row_id === rowId ? { ...r, [key]: fallback } : r) : s.rows,
+        isSaving: _savesInFlight > 0,
+        saveError: fromUndo || collect ? null : "We couldn't save your changes — please try again."
+      }))
+      rlog.error('GridStore', 'Cell update failed', err)
+      if (fromUndo) throw err
+      // A bulk action counts its failures and says so once
+      if (!collect) toast.error(friendlyError(err instanceof Error ? err.message : null, 'Could not save — please try again'))
+      return false
+    }
+    const entry = settle()
+    if (entry) entry.confirmed = value
+    _savedCells.delete(cellKey)
+    _savedCells.set(cellKey, { seq, value })
+    if (_savedCells.size > 500) {
+      const keys = [..._savedCells.keys()]
+      for (let i = 0; i < 100; i++) _savedCells.delete(keys[i]!)
+    }
+    try {
+      set({ isSaving: _savesInFlight > 0 })
       // A record not in the open list (archived, shown on its own page) has no copy here:
       // the value it replaced comes from the database, or Undo would blank the field (F-016)
-      const prevValue = idx !== -1 ? listValue : (result.previous ?? null)
+      const prevValue = idx !== -1 ? listValue : (result?.previous ?? null)
       // Lets a page showing a record that isn't in the list keep its copy current, Undo included
       pulseEvents.emit('cell:saved', { rowId, columnId, value })
       // Lets a sequence ask "correction or new start?" when its start date changes (D-37)
@@ -656,7 +728,7 @@ export const useGridStore = create<GridState>((set, get) => ({
         const colName = col?.name ?? 'cell'
         const row = get().rows.find(r => r.row_id === rowId)
         const contextLabel = row ? getClientName(row, get().columns) : undefined
-        const sideEffects: SideEffect[] = result.sysLogId != null
+        const sideEffects: SideEffect[] = result?.sysLogId != null
           ? [{ type: 'void_case_log', caseLogId: result.sysLogId }]
           : []
         const item: UndoItem = {
@@ -703,17 +775,9 @@ export const useGridStore = create<GridState>((set, get) => ({
       }
       return true
     } catch (err) {
-      // Roll back to the previous value, unless a newer edit has replaced this one meanwhile (AUDIT-130)
-      set(s => ({
-        rows: s.rows.map(r => r.row_id === rowId && (r[key] ?? null) === value ? { ...r, [key]: listValue } : r),
-        isSaving: false,
-        saveError: fromUndo || collect ? null : "We couldn't save your changes — please try again."
-      }))
-      rlog.error('GridStore', 'Cell update failed', err)
-      if (fromUndo) throw err
-      // A bulk action counts its failures and says so once
-      if (!collect) toast.error(friendlyError(err instanceof Error ? err.message : null, 'Could not save — please try again'))
-      return false
+      // The value is saved; only the bookkeeping after it (undo step, events) went wrong
+      rlog.error('GridStore', 'Cell saved, but its undo step could not be recorded', err)
+      return true
     }
   },
 
