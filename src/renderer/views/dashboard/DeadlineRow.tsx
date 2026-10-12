@@ -108,7 +108,7 @@ export function DeadlineRow({ deadline, onMarkDone, onUndoneMarkDone, selected, 
       <div className={`w-1 self-stretch rounded-full ${
         bucket === 'overdue' || bucket === 'today' ? 'bg-red-500' :
         bucket === 'this-week' ? 'bg-orange-400' :
-        bucket === 'this-month' ? 'bg-yellow-400' : 'bg-slate-200'
+        bucket === 'this-month' ? 'bg-yellow-400' : 'bg-slate-200 dark:bg-slate-600'
       }`} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">

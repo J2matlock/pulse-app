@@ -136,6 +136,16 @@ describe('SortableRow', () => {
     expect(container.querySelector('[role="row"]')).toBeTruthy()
   })
 
+  it('the row and the open/star column use the grid border colour, like the data cells (Q-106)', () => {
+    const { container } = render(<SortableRow {...makeProps()} />)
+    const row = container.querySelector('[role="row"]')!
+    const profileCell = container.querySelector('[aria-colindex="2"]')!
+    for (const el of [row, profileCell]) {
+      expect(el.className).toContain('border-[var(--border-grid)]')
+      expect(el.className).not.toMatch(/border-slate-200|dark:border-slate-700/)
+    }
+  })
+
   it('renders select row button', () => {
     render(<SortableRow {...makeProps()} />)
     expect(screen.getByTitle('Select client')).toBeTruthy()

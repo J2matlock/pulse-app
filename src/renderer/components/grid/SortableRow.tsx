@@ -180,7 +180,7 @@ export const SortableRow = React.memo(function SortableRow({
       aria-rowindex={ariaRowIndex}
       aria-selected={isSelected}
       data-row-index={rowIndex}
-      className={`flex border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 group
+      className={`flex border-b border-[var(--border-grid)] hover:bg-slate-50 dark:hover:bg-slate-800/50 group
         ${isArchived ? 'opacity-50' : ''}
         ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
       `}
@@ -221,7 +221,7 @@ export const SortableRow = React.memo(function SortableRow({
       <div
         role="gridcell"
         aria-colindex={2}
-        className="flex-shrink-0 flex items-center justify-center gap-4 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+        className="flex-shrink-0 flex items-center justify-center gap-4 border-r border-[var(--border-grid)] bg-white dark:bg-slate-900"
         style={{
           width: PROFILE_BTN_WIDTH, height: rowHeight,
           ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH, zIndex: 10 } : {}),
