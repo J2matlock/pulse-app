@@ -20,6 +20,7 @@ import { app } from 'electron'
 import { logger } from './logger'
 import { logNonFatal } from './ipc/ipc-utils'
 import Store from 'electron-store'
+import { ensurePrivateDir, privateStoreOptions, tightenStore } from './private-files'
 import { getStoredDbPath, getDbKey, getKeyEnvelope, isValidKeyEnvelope, unwrapKeyEnvelope, adoptRestoredDbKey } from './auth'
 import { MS_PER_DAY } from '../shared/constants'
 import { LIMIT_MB_RANGE, formatBytes } from '../shared/attachments'
@@ -667,7 +668,7 @@ let _configStore: Store<ScheduledConfigStore> | null = null
 function getConfigStore(): Store<ScheduledConfigStore> {
   if (!_configStore) {
     const cwd = getPortableDataDir()
-    _configStore = new Store<ScheduledConfigStore>({ name: 'pulse-backup-config', cwd })
+    _configStore = tightenStore(new Store<ScheduledConfigStore>(privateStoreOptions('pulse-backup-config', cwd)))
   }
   return _configStore
 }
@@ -1020,7 +1021,7 @@ let _statusStore: Store<BackupStatusStore> | null = null
 function getStatusStore(): Store<BackupStatusStore> {
   if (!_statusStore) {
     const cwd = getPortableDataDir()
-    _statusStore = new Store<BackupStatusStore>({ name: 'pulse-backup-status', cwd })
+    _statusStore = tightenStore(new Store<BackupStatusStore>(privateStoreOptions('pulse-backup-status', cwd)))
   }
   return _statusStore
 }
@@ -1163,7 +1164,7 @@ export async function restoreBackupOnNewInstall(opts: {
   if (statSync(backupPath).size > maxBackupBytes()) throw new Error(tooBigToRestore())
 
   const dataDir = getPortableDataDir()
-  mkdirSync(dataDir, { recursive: true })
+  ensurePrivateDir(dataDir)
   const tmpDir = join(dataDir, `restore-tmp-${Date.now()}`)
   mkdirSync(tmpDir, { recursive: true, mode: 0o700 })
 

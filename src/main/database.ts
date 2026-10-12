@@ -11,6 +11,7 @@ import { logger } from './logger'
 import { join } from 'path'
 import { mkdirSync, chmodSync, existsSync, unlinkSync } from 'fs'
 import Store from 'electron-store'
+import { ensurePrivateDir, privateStoreOptions, tightenStore } from './private-files'
 import { getDbKey, setStoredDbPath, isPasswordSetup } from './auth'
 import { clearContactsStmtCache } from './contacts'
 import { logNonFatal } from './ipc/ipc-utils'
@@ -104,7 +105,7 @@ import { getPortableDataDir } from './data-dir'
  */
 export function resolveDatabasePath(): string {
   const dataDir = getPortableDataDir()
-  mkdirSync(dataDir, { recursive: true })
+  ensurePrivateDir(dataDir)
   return join(dataDir, 'pulse.db')
 }
 
@@ -365,10 +366,7 @@ let _migrationStatusStore: Store<MigrationStatusStore> | null = null
 
 function getMigrationStatusStore(): Store<MigrationStatusStore> {
   if (!_migrationStatusStore) {
-    _migrationStatusStore = new Store<MigrationStatusStore>({
-      name: 'pulse-migration-status',
-      cwd: getPortableDataDir()
-    })
+    _migrationStatusStore = tightenStore(new Store<MigrationStatusStore>(privateStoreOptions('pulse-migration-status', getPortableDataDir())))
   }
   return _migrationStatusStore
 }

@@ -14,9 +14,10 @@ import * as crypto from 'crypto'
 import bcrypt from 'bcryptjs'
 import Store from 'electron-store'
 import { safeStorage, dialog, clipboard } from 'electron'
-import { mkdirSync, existsSync, renameSync, copyFileSync, chmodSync } from 'fs'
+import { existsSync, renameSync, copyFileSync, chmodSync } from 'fs'
 import { join } from 'path'
 import { getPortableDataDir } from './data-dir'
+import { ensurePrivateDir, privateStoreOptions, tightenStore } from './private-files'
 import { logger } from './logger'
 import { logNonFatal } from './ipc/ipc-utils'
 import { checkNewPassword } from '../shared/passwordPolicy'
@@ -64,7 +65,7 @@ interface SecureStore {
 }
 
 const dataDir = getPortableDataDir()
-mkdirSync(dataDir, { recursive: true })
+ensurePrivateDir(dataDir)
 
 const SECURE_STORE_NAME = 'pulse-secure'
 const secureStorePath = join(dataDir, `${SECURE_STORE_NAME}.json`)
@@ -85,20 +86,20 @@ function quarantineSecureStore(): void {
 
 const store = (() => {
   try {
-    return new Store<SecureStore>({ name: SECURE_STORE_NAME, cwd: dataDir })
+    return tightenStore(new Store<SecureStore>(privateStoreOptions(SECURE_STORE_NAME, dataDir)))
   } catch (err) {
     logger.error('auth', 'pulse-secure.json is unreadable — quarantining and trying the backup copy', err)
     quarantineSecureStore()
     if (existsSync(secureStoreBackupPath)) {
       try {
         copyFileSync(secureStoreBackupPath, secureStorePath)
-        return new Store<SecureStore>({ name: SECURE_STORE_NAME, cwd: dataDir })
+        return tightenStore(new Store<SecureStore>(privateStoreOptions(SECURE_STORE_NAME, dataDir)))
       } catch (restoreErr) {
         logger.error('auth', 'Backup copy of pulse-secure.json is also unreadable', restoreErr)
         quarantineSecureStore()
       }
     }
-    return new Store<SecureStore>({ name: SECURE_STORE_NAME, cwd: dataDir })
+    return tightenStore(new Store<SecureStore>(privateStoreOptions(SECURE_STORE_NAME, dataDir)))
   }
 })()
 

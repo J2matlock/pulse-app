@@ -7,6 +7,7 @@ import Store from 'electron-store'
 import { unlinkSync } from 'fs'
 import { join } from 'path'
 import { getPortableDataDir } from './database'
+import { privateStoreOptions, tightenStore } from './private-files'
 import { logNonFatal } from './ipc/ipc-utils'
 
 export interface Prefs {
@@ -23,13 +24,13 @@ export function prefs(): Store<Prefs> {
   if (store) return store
   const cwd = getPortableDataDir()
   try {
-    store = new Store<Prefs>({ name: 'pulse-prefs', cwd })
+    store = tightenStore(new Store<Prefs>(privateStoreOptions('pulse-prefs', cwd)))
   } catch (err) {
     logNonFatal('app', 'Failed to load prefs store, resetting', err)
     try {
       unlinkSync(join(cwd, 'pulse-prefs.json'))
     } catch (unlinkErr) { logNonFatal('app', 'Failed to delete corrupt prefs file', unlinkErr) }
-    store = new Store<Prefs>({ name: 'pulse-prefs', cwd })
+    store = tightenStore(new Store<Prefs>(privateStoreOptions('pulse-prefs', cwd)))
   }
   return store
 }

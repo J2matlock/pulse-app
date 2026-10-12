@@ -7,6 +7,7 @@ import { app, BrowserWindow, shell, dialog, clipboard } from 'electron'
 import { existsSync, unlinkSync, readdirSync, rmSync } from 'fs'
 import { join, dirname } from 'path'
 import Store from 'electron-store'
+import { privateStoreOptions } from '../private-files'
 import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
 import { secureWrap, logNonFatal, ok, fail, rememberUserChosenPaths } from './ipc-utils'
@@ -169,7 +170,7 @@ export function registerAppHandlers(): void {
     const dataDir = getPortableDataDir()
     // pulse-license is left over from versions that had a paid license
     for (const storeName of ['pulse-secure', 'pulse-prefs', 'pulse-backup-config', 'pulse-backup-status', 'pulse-license']) {
-      try { new Store({ name: storeName, cwd: dataDir }).clear() } catch (err) { logNonFatal('ipc-app', `APP_FACTORY_RESET clear store ${storeName}`, err) }
+      try { new Store(privateStoreOptions(storeName, dataDir)).clear() } catch (err) { logNonFatal('ipc-app', `APP_FACTORY_RESET clear store ${storeName}`, err) }
     }
     // "Permanently deletes all data" must include every local copy that, together
     // with the old password, could reopen it: the credential backup copy, any
