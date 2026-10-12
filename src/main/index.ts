@@ -165,7 +165,10 @@ export function stopAutoLockTimer(): void {
 const gotTheLock = app.requestSingleInstanceLock()
 
 if (!gotTheLock) {
-  app.quit()
+  // Not app.quit(): that's asynchronous, so whenReady still fired and this
+  // second process opened the database, wiped the running copy's opened files
+  // and started its own backups and reminders
+  app.exit(0)
 } else {
   app.on('second-instance', (_event, argv) => {
     const pulsePath = extractPulseFileFromArgv(argv)
@@ -301,6 +304,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
+  if (!gotTheLock) return // a second launch: the running copy handles it (see above)
   logger.info('app', 'Starting', { version: app.getVersion() })
   try {
     await initDatabase()
