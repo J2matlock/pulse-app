@@ -89,7 +89,11 @@ describe('meter rules in main', () => {
   })
 
   it('uses the reading on file before the first change, so two readings give a forecast (D-32)', () => {
-    t.db.prepare("UPDATE rows SET created_at = datetime('now', '-60 days') WHERE id = ?").run(rowId)
+    // Local noon 60 calendar days ago, stored as SQLite UTC text. datetime('now', '-60 days')
+    // is 60 × 24 hours, which lands on the day before in the first hour after midnight when a
+    // DST change falls inside the 60 days (Pacific/Auckland at 00:37 NZDT, F-120)
+    const created = new Date(); created.setDate(created.getDate() - 60); created.setHours(12, 0, 0, 0)
+    t.db.prepare('UPDATE rows SET created_at = ? WHERE id = ?').run(created.toISOString().slice(0, 19).replace('T', ' '), rowId)
     t.db.prepare("UPDATE cell_history SET old_value = '38000' WHERE row_id = ?").run(rowId)
     const points = loadGridDeadlineContext(gridId).meter[`${rowId}:${odo}`]!
     expect(points).toHaveLength(2)
