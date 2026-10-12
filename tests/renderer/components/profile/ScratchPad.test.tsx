@@ -21,8 +21,13 @@ vi.mock('react-hot-toast', () => {
 
 // Mock tiptap
 const mockSetContent = vi.fn()
-const mockSetEditable = vi.fn()
 let capturedOnUpdate: ((a: { editor: unknown }) => void) | undefined
+// Like tiptap 3 (Editor.setEditable(editable, emitUpdate = true)): emits 'update' unless told not to,
+// so the pad's onUpdate runs just as it does in the app (R4-01)
+const updateEditor = { state: { selection: { from: 0 }, doc: { textBetween: () => '' } }, getHTML: () => '<p></p>', view: { coordsAtPos: () => ({ bottom: 0, left: 0 }), dom: { closest: () => null } } }
+const mockSetEditable = vi.fn((_editable: boolean, emitUpdate = true) => {
+  if (emitUpdate) capturedOnUpdate?.({ editor: updateEditor })
+})
 const mockChain = vi.fn().mockReturnValue({
   focus: vi.fn().mockReturnValue({
     toggleBold: vi.fn().mockReturnValue({ run: vi.fn() }),
@@ -120,7 +125,7 @@ describe('ScratchPad', () => {
     })
     const { unmount } = await renderSettled(<ScratchPad rowId={7} />)
     expect(screen.getByRole('alert').textContent).toMatch(/couldn't load the scratch notes/)
-    expect(mockSetEditable).not.toHaveBeenCalledWith(true)
+    expect(mockSetEditable.mock.calls.some(c => c[0] === true)).toBe(false)
     // Whatever gets into the editor now is not saved
     const fake = { state: { selection: { from: 0 }, doc: { textBetween: () => '' } }, getHTML: () => '<p>typed</p>', view: { coordsAtPos: () => ({ bottom: 0, left: 0 }), dom: { closest: () => null } } }
     act(() => { capturedOnUpdate?.({ editor: fake }) })
@@ -137,8 +142,64 @@ describe('ScratchPad', () => {
     await renderSettled(<ScratchPad rowId={7} />)
     fail = false
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
-    await waitFor(() => expect(mockSetEditable).toHaveBeenCalledWith(true))
+    await waitFor(() => expect(mockSetEditable).toHaveBeenCalledWith(true, false))
     expect(mockSetContent).toHaveBeenCalledWith('<p>saved</p>', { emitUpdate: false })
     expect(screen.queryByText(/couldn't load the scratch notes/)).toBeNull()
+  })
+
+  // R4-01: tiptap's setEditable() emits 'update' by default, which used to mark the pad
+  // dirty and start the save timer before (or without) the notes having loaded
+  describe('switching the pad read-only and back saves nothing (R4-01)', () => {
+    const saves = () => mockInvoke.mock.calls.filter(c => c[0] === 'scrap-note:update')
+
+    it('leaving before the notes arrive does not save an empty pad over them', async () => {
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'scrap-note:get') return new Promise(() => {})
+        return Promise.resolve({ ok: true, data: null })
+      })
+      const { unmount } = await renderSettled(<ScratchPad rowId={7} />)
+      unmount()
+      expect(saves()).toEqual([])
+    })
+
+    it('a failed load never saves, even after the save delay', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        mockInvoke.mockImplementation((channel: string) => {
+          if (channel === 'scrap-note:get') return Promise.resolve({ ok: false, error: 'Database is locked' })
+          return Promise.resolve({ ok: true, data: null })
+        })
+        const { unmount } = await renderSettled(<ScratchPad rowId={7} />)
+        await act(async () => { vi.advanceTimersByTime(5000) })
+        unmount()
+        expect(saves()).toEqual([])
+      } finally { vi.useRealTimers() }
+    })
+
+    it('opening the notes without typing does not rewrite them', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        mockInvoke.mockImplementation((channel: string) => {
+          if (channel === 'scrap-note:get') return Promise.resolve({ ok: true, data: { content: '<p>saved</p>' } })
+          return Promise.resolve({ ok: true, data: null })
+        })
+        const { unmount } = await renderSettled(<ScratchPad rowId={7} />)
+        expect(mockSetEditable).toHaveBeenCalledWith(true, false)
+        await act(async () => { vi.advanceTimersByTime(5000) })
+        expect(screen.queryByText(/Saving/)).toBeNull()
+        unmount()
+        expect(saves()).toEqual([])
+      } finally { vi.useRealTimers() }
+    })
+
+    it('typing after the notes load is still saved', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        await renderSettled(<ScratchPad rowId={7} />)
+        act(() => { capturedOnUpdate?.({ editor: { ...updateEditor, getHTML: () => '<p>typed</p>' } }) })
+        await act(async () => { vi.advanceTimersByTime(2100) })
+        expect(saves()).toEqual([['scrap-note:update', 7, '<p>typed</p>']])
+      } finally { vi.useRealTimers() }
+    })
   })
 })

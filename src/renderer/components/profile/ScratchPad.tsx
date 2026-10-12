@@ -46,6 +46,8 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
   // The saved notes couldn't be read: the pad stays read-only, and nothing is saved over them (Q-047)
   const [loadFailed, setLoadFailed] = useState(false)
   const loadFailedRef = useRef(false)
+  // True only once the saved notes are in the editor; until then nothing is saved (R4-01)
+  const loadedRef = useRef(false)
   const loadSeqRef = useRef(0)
   const [internalSnippets, setInternalSnippets] = useState<Snippet[]>([])
   // With snippets switched off the "/" menu finds nothing to offer
@@ -131,11 +133,12 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
         setSnippetMenuPos(null)
       }
 
-      if (loadFailedRef.current) return
+      if (loadFailedRef.current || !loadedRef.current) return
       dirtyRef.current = true
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
       saveTimerRef.current = setTimeout(async () => {
         saveTimerRef.current = null
+        if (loadFailedRef.current || !loadedRef.current) return
         setSaving(true)
         // Anything typed while this save is on its way marks the pad dirty again
         dirtyRef.current = false
@@ -159,13 +162,18 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
     if (!request) return
     // Only the newest load lands (Prev/Next, Try again)
     const seq = ++loadSeqRef.current
-    editor.setEditable(false)
+    loadedRef.current = false
+    // No 'update' event: tiptap emits one by default, which would count as an edit and
+    // save the still-empty pad (R4-01)
+    editor.setEditable(false, false)
     void request.then(res => {
       if (seq !== loadSeqRef.current) return
       if (!res.ok) {
         // An empty pad here would be saved over the real notes as soon as anyone typed (Q-047)
         rlog.warn('ScratchPad', 'Load failed', res.error)
         loadFailedRef.current = true
+        if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null }
+        dirtyRef.current = false
         setLoadFailed(true)
         editor.commands.setContent('', { emitUpdate: false })
         return
@@ -173,7 +181,8 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
       loadFailedRef.current = false
       setLoadFailed(false)
       editor.commands.setContent(res.data?.content ? sanitizeHtml(res.data.content) : '', { emitUpdate: false })
-      editor.setEditable(true)
+      loadedRef.current = true
+      editor.setEditable(true, false)
     })
   }, [rowId, globalScope, editor])
   useEffect(() => { loadPad() }, [loadPad])
@@ -213,7 +222,7 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
   // while the database is still open (1.2).
   const flushNow = useCallback(() => {
     if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null }
-    if (!dirtyRef.current || !editorRef.current || loadFailedRef.current) return
+    if (!dirtyRef.current || !editorRef.current || loadFailedRef.current || !loadedRef.current) return
     dirtyRef.current = false
     void persistPad(globalScopeRef.current, rowIdRef.current, sanitizeHtml(editorRef.current.getHTML())).then(res => {
       if (!res.ok) toast.error('We couldn\'t save your last changes to the scratch notes. Please check them and try again.')
