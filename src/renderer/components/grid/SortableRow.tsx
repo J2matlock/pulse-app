@@ -3,17 +3,14 @@ import { type Row } from '@tanstack/react-table'
 import { User, Star, AlertTriangle } from 'lucide-react'
 import { BADGE_WIDTH as ACUITY_BADGE_WIDTH } from './AcuityBadge'
 import type { GridRow, Column, ParsedAlertRule, CellFormatRule, AcuityLevel } from '../../../shared/types'
-import { isNotTypedColumnType, takesDeadlineRule } from '../../../shared/types'
-import { isNotADate } from '../../../shared/ymd'
-import { getMatchingThreshold, evaluateRuleForRow, formatResultTooltip, deadlineChipText } from '../../utils/deadlineCalc'
-import { resolveAlertColor } from '../../utils/alertColors'
-import { evalCellFormat } from './CellConditionalFormatPanel'
+import { isNotTypedColumnType } from '../../../shared/types'
+import { deadlineCellInfo, rowHighlightStyle, applyCellFormat } from './gridCellStyle'
 import { withComputedValues } from '../../utils/computedColumns'
 import { CellEditor, type NavDirection } from './CellEditor'
 import { GridLinkEditor } from '../links/LinkPicker'
 import { CellDisplay } from './CellDisplay'
 import { AcuityBadge } from './AcuityBadge'
-import { alertShapeForBand, HANDLE_STYLE, HANDLE_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH } from './gridConstants'
+import { HANDLE_STYLE, HANDLE_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH } from './gridConstants'
 import { useVocab } from '../../hooks/useVocab'
 import { SamplePill } from '../shared/SampleDataBanner'
 import { pulseEvents } from '../../events'
@@ -129,39 +126,10 @@ export const SortableRow = React.memo(function SortableRow({
   const rowOriginal = row.original as GridRow
   // Highlight rules on Age and Days-until compare the number the cell shows (bug sweep S5)
   const evalRow = useMemo(() => withComputedValues(rowOriginal, columns, alertRuleMap), [rowOriginal, columns, alertRuleMap, deadlineContext]) // eslint-disable-line react-hooks/exhaustive-deps -- deadlineContext: done flags and counts change what Days-until shows
-  const rowFormatStyle = useMemo<React.CSSProperties>(() => {
-    const style: React.CSSProperties = {}
-    if (!hasAnyHighlightRules || highlightColumnIds.size === 0) return style
-    for (const colId of highlightColumnIds) {
-      try {
-        const selfVal = evalRow[`col_${colId}`] ?? null
-        const cellFmtRules = (cellFormats.get(`${rowId}_${colId}`) ?? []).filter(r => r.highlightRow)
-        if (cellFmtRules.length > 0) {
-          const cellMatch = evalCellFormat(cellFmtRules, selfVal, evalRow, rowMap)
-          if (cellMatch && (cellMatch.bgColor || cellMatch.borderColor)) {
-            if (cellMatch.bgColor) style.backgroundColor = cellMatch.bgColor
-            if (cellMatch.textColor) style.color = cellMatch.textColor
-            if (cellMatch.borderColor) style.boxShadow = `inset 0 0 0 2px ${cellMatch.borderColor}`
-            return style
-          }
-        }
-        const colFmtRaw = parsedColumnConfigs.get(colId)?.conditionalFormat ?? []
-        if (colFmtRaw.length > 0) {
-          const colHighlightRules = colFmtRaw.filter((r: CellFormatRule) => r.highlightRow)
-          if (colHighlightRules.length > 0) {
-            const colMatch = evalCellFormat(colHighlightRules, selfVal, evalRow, rowMap)
-            if (colMatch && (colMatch.bgColor || colMatch.borderColor)) {
-              if (colMatch.bgColor) style.backgroundColor = colMatch.bgColor
-              if (colMatch.textColor) style.color = colMatch.textColor
-              if (colMatch.borderColor) style.boxShadow = `inset 0 0 0 2px ${colMatch.borderColor}`
-              return style
-            }
-          }
-        }
-      } catch { /* malformed rule — skip */ }
-    }
-    return style
-  }, [hasAnyHighlightRules, highlightColumnIds, cellFormats, parsedColumnConfigs, evalRow, rowMap, rowId])
+  const rowFormatStyle = useMemo<React.CSSProperties>(
+    () => rowHighlightStyle({ hasAnyHighlightRules, highlightColumnIds, cellFormats, parsedColumnConfigs, evalRow, rowMap, rowId }),
+    [hasAnyHighlightRules, highlightColumnIds, cellFormats, parsedColumnConfigs, evalRow, rowMap, rowId],
+  )
 
   const isArchived = row.original.is_active === 0
   // Each cell names its column's place, matching the header (AUDIT-012)
@@ -300,48 +268,9 @@ export const SortableRow = React.memo(function SortableRow({
         // Link columns (W04) can't be typed into, but Enter or double-click opens their picker
         const isComputed = isNotTypedColumnType(col.column_type) && col.column_type !== 'link'
 
-        // Alert color for date columns with an alert rule attached
-        let alertBgClass = ''
-        let alertBgStyle: React.CSSProperties = {}
-        let hasAlertStyle = false
-        let alertTooltip = ''
-        let alertIcon: React.ReactNode = null
-        // Date columns with a rule say how they stand, not only by color (G-09)
-        let alertChip: string | null = null
-        let alertSpoken = ''
-        let hasRule = false
-        // A value the deadline engine can't read ("TBD", "2/30/2026") would quietly show no deadline (AUDIT-026)
-        let notADate = false
-        if (takesDeadlineRule(col.column_type)) {
-          const cfg = parsedColumnConfigs.get(col.id)?.config as { alert_rule_id?: number } | undefined
-          if (cfg?.alert_rule_id) {
-            const rule = alertRuleMap.get(cfg.alert_rule_id)
-            hasRule = !!rule
-            if (rule && isNotADate(value)) {
-              notADate = true
-              alertTooltip = `Pulse can't read this as a date, so no deadline is shown for this ${t('record')}. Pick a date to fix it.`
-              alertSpoken = alertTooltip
-            } else if (rule) {
-              // The shared engine (W05): relative and other kinds can be due with this cell empty
-              const res = evaluateRuleForRow(rule, value, rowOriginal, col.id)
-              const days = res.daysUntil
-              if (col.column_type === 'date') alertChip = deadlineChipText(res, value)
-              // Cut-off words can still be read on hover, colored or not
-              alertTooltip = (res.state === 'done' || res.state === 'paused' ? alertChip : formatResultTooltip(res) || alertChip) ?? ''
-              // Unparseable dates yield null — don't let them coerce to "due today"
-              const threshold = days !== null ? getMatchingThreshold(days, rule.thresholds) : undefined
-              if (days !== null && threshold) {
-                const resolved = resolveAlertColor(threshold.bgClass)
-                alertBgClass = resolved.className
-                alertBgStyle = resolved.style
-                hasAlertStyle = !!(resolved.className || Object.keys(resolved.style).length > 0)
-                alertTooltip = formatResultTooltip(res)
-                alertIcon = alertShapeForBand(days, threshold, rule.thresholds)
-                alertSpoken = [threshold.label, alertTooltip].filter(Boolean).join('. ')
-              }
-            }
-          }
-        }
+        // Date columns with a rule: color, shape, words and tooltip for how they stand (G-09, AUDIT-026)
+        const { alertBgClass, alertBgStyle, hasAlertStyle, alertTooltip, alertIcon, alertChip, alertSpoken, hasRule, notADate } =
+          deadlineCellInfo(col, value, rowOriginal, parsedColumnConfigs, alertRuleMap, t('record'))
 
         // Frozen column sticky positioning
         const frozenLeft = frozenLeftOffsets.get(colId)
@@ -350,7 +279,7 @@ export const SortableRow = React.memo(function SortableRow({
         const isLastFrozenCell = isCellFrozen && colIdx === frozenColumnCount - 1
 
         // Priority: alert > cell-level format > column format > row highlight
-        let cellStyle: React.CSSProperties = {
+        const cellStyle: React.CSSProperties = {
           width: `var(--cw-${colId})`, height: rowHeight,
           ...(isCellFrozen ? {
             position: 'sticky' as const,
@@ -367,30 +296,12 @@ export const SortableRow = React.memo(function SortableRow({
         if (hasAlertStyle) {
           Object.assign(cellStyle, alertBgStyle)
         } else {
-          const cellFmtRules = cellFormats.get(`${rowId}_${colId}`) ?? []
-          const fmtValue = (evalRow[`col_${colId}`] as string | null | undefined) ?? null
-          let fmtMatch = evalCellFormat(cellFmtRules, fmtValue, evalRow, rowMap)
-
-          if (!fmtMatch) {
-            const colFmtRules = parsedColumnConfigs.get(col.id)?.conditionalFormat ?? []
-            if (colFmtRules.length > 0) {
-              fmtMatch = evalCellFormat(colFmtRules, fmtValue, evalRow, rowMap)
-            }
-          }
-
-          if (fmtMatch) {
-            if (fmtMatch.pulse) {
-              cellExtraClass = 'alert-pulse'
-            } else if (fmtMatch.bgColor) {
-              cellStyle.backgroundColor = fmtMatch.bgColor
-            }
-            if (fmtMatch.textColor)  cellStyle.color      = fmtMatch.textColor
-            if (fmtMatch.bold)       cellStyle.fontWeight  = 'bold'
-            if (fmtMatch.italic)     cellStyle.fontStyle   = 'italic'
-            if (fmtMatch.borderColor) cellStyle.boxShadow  = `inset 0 0 0 2px ${fmtMatch.borderColor}`
-          } else if (Object.keys(rowFormatStyle).length > 0) {
-            Object.assign(cellStyle, rowFormatStyle)
-          }
+          cellExtraClass = applyCellFormat(cellStyle, cellExtraClass, {
+            cellFmtRules: cellFormats.get(`${rowId}_${colId}`) ?? [],
+            colFmtRules: parsedColumnConfigs.get(col.id)?.conditionalFormat ?? [],
+            fmtValue: (evalRow[`col_${colId}`] as string | null | undefined) ?? null,
+            evalRow, rowMap, rowFormatStyle,
+          })
         }
 
         // Cursor hint: editable cells get text/pointer cursor, computed/display stay default
