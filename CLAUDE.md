@@ -13,7 +13,7 @@ The spec is the source of truth. It contains exact SQL schemas, exact file paths
 
 **IMPORTANT FOR AI SESSIONS:** Some of these versions may be newer than your training data. If you don't know an API or behavior for a specific version, use WebSearch to look it up rather than guessing from older knowledge. Always check `package.json` for the actual installed versions before making assumptions.
 
-**Current versions (as of 2026-02-28):**
+**Current versions (as of 2026-10-12):**
 - **Electron 44** (Node 24, Chromium 152) + **React 19** + **TypeScript 5.9** (strict mode)
 - **Vite 7** via **electron-vite 5** for build tooling (plus @vitejs/plugin-react 5; tests on **vitest 5**)
 - **SQLite** via `better-sqlite3-multiple-ciphers` 13 (Node-API, prebuilt binaries bundled for every platform; encrypted local database — NOT `@journeyapps/sqlcipher`)
@@ -27,8 +27,11 @@ The spec is the source of truth. It contains exact SQL schemas, exact file paths
 - **papaparse** for CSV import
 - **zustand 5** for state management
 - **react-router-dom 7** for routing
-- **@dnd-kit** (core 6 + sortable 8) for drag-and-drop
+- **@dnd-kit** (core 6 + sortable 10, the classic packages) for drag-and-drop
 - **motion 12** (framer-motion successor) for animations
+- **@tanstack/react-table 9** for the grid's table model (features registered in `src/renderer/components/grid/gridTable.ts`) + **@tanstack/react-virtual 3** for row virtualization
+- **lucide-react 1.x** for icons; **zod 4** for IPC and shared schemas (string lengths via `textLength`, see Decision Log)
+- Tests: **jsdom 29** for renderer tests
 
 All planned upgrades complete. See `UPGRADE_PLAN.md` for history.
 
@@ -218,7 +221,7 @@ Uses `better-sqlite3-multiple-ciphers` (NOT `@journeyapps/sqlcipher`). See Decis
 
 ## Testing Approach
 - **ALWAYS run tests via `npm test`, NEVER vitest directly** (a PreToolUse hook blocks it). `scripts/run-tests.sh` does the ABI dance: (1) `node-gyp rebuild` for system Node ABI, (2) vitest, (3) `electron-rebuild` back to Electron ABI (steps 1 and 3 are no-ops since the Node-API module, 2026-10-11). Args pass through: `npm test -- tests/auth.test.ts -t "lockout"`.
-- Test suite: 477 files, 5571 tests, ~90 s. Typecheck: `npm run typecheck`. Lint: `npm run lint`.
+- Test suite: 481 files, 5646 tests, ~90 s. Typecheck: `npm run typecheck`. Lint: `npm run lint`.
 - `npm run gate` (`scripts/gate.sh`): typecheck + `eslint src --quiet` + full tests. Run it before every commit; it must be green.
 - `npm run test:tz`: the whole suite in UTC, America/Los_Angeles, Pacific/Auckland and Asia/Kolkata (`scripts/test-tz.sh`). Run it after any date/time change; tests that build "today" or timestamps must use local dates (local noon, not N × 24 hours), or they fail across a DST change.
 - `npm run perf`: main-process and DataGrid benchmarks on a seeded 5,000-record workspace (`vitest.perf.config.ts`, `tests/perf/`); not part of `npm test`. Use `seedWorkspace()` from `tests/seedWorkspace.ts` for large test data.
@@ -283,7 +286,7 @@ When implementation deviates from the spec, document it here:
 | 2026-10-11 | Upgrade to Electron 44 (44.4.5), replacing the "39, not 40" decision | Node 24 is an LTS line now, and Electron 39 went out of support on 2026-05-05 (unpatched Chromium). 44 is supported until 2027-03-02; re-bump every 1–2 majors. macOS minimum is now 13. Dialogs without a `defaultPath` open in Downloads (Electron 43). |
 | 2026-10-11 | better-sqlite3-multiple-ciphers 12.6.2 → 13.0.3 (Node-API) | 12.6.2 doesn't compile against Electron 44's V8, and 12.x has no prebuilds past Electron 42, which the Windows build (cross-compiled from Linux) needs. 13.x bundles a Node-API binary per platform; each build ships only its own (`build.<platform>.files`). Checked that databases written by 12.6.2 open in 13.0.3 and the other way round. Linux prebuilt needs glibc 2.35+. |
 | 2026-10-11 | Linux ships as an AppImage only (no .deb) | The maintainer builds and uses Fedora; a .deb (for Ubuntu 24.04's AppArmor sandbox rules) was built and then removed because it added a Fedora build dependency (libxcrypt-compat for fpm) for a format nobody here uses. AUDIT-019 closed as won't-fix; revisit if Ubuntu users report the AppImage won't start. |
-| 2026-02-27 | Keep `@dnd-kit` at core 6 + sortable 8 | dnd-kit v10 (`@dnd-kit/react`) is beta (0.3.2), complete API rewrite. Wait for 1.0 stable. |
+| 2026-02-27 | Keep `@dnd-kit` on the classic packages (core 6; sortable 10 since 2026-10-12) | The `@dnd-kit/react` rewrite (complete API change) is still avoided; wait for its 1.0 stable. `@dnd-kit/sortable` 9 and 10 are the classic package (peer `@dnd-kit/core ^6.3`), so moving within it is fine (sweep P-008). |
 | 2026-02-27 | Keep `electron-store` at v8 | v9+ is ESM-only, requires main process ESM migration throughout. Not worth the effort. |
 | 2026-10-12 | Vite 7 toolchain: vite 7.3, electron-vite 5.0, @vitejs/plugin-react 5.2, vitest + coverage-v8 5.0 (replaces "electron-vite 3 + Vite 6", 2026-02-27) | electron-vite 3.1 had gone 18 months without a release. The old blocker is gone: Tailwind runs through `@tailwindcss/postcss`, which has no Vite peer. The ceiling is now electron-vite 5, which accepts Vite 5–7, not 8; plugin-react 6 needs Vite 8, so it stays on 5.x. Main and preload externalize dependencies by default now (`externalizeDepsPlugin` dropped from the config); output is unchanged CommonJS (byte-identical main/preload bundles). plugin-react 5 ships types only via `exports`, so the config files typecheck under `tsconfig.config.json` (bundler resolution), a third pass in `npm run typecheck`. |
 | 2026-02-28 | Tailwind 4 upgrade: `.btn` as `@utility` | Tailwind 4 `@apply` only resolves Tailwind utilities, not custom CSS classes. Converted `.btn` to `@utility btn {}` so `.btn-primary/secondary/danger` can `@apply btn`. |
@@ -297,6 +300,8 @@ When implementation deviates from the spec, document it here:
 | 2026-10-12 | Migration 049 adds indexes on `record_links` from/to, `cell_history(column_id, row_id, id)` and `column_id` on six per-cell tables | Deadline loads (dashboard, briefing) about 215 → 115 ms at 5,000 × 40; the cost is index upkeep, so Empty Trash of 500 records goes about 365 → 425 ms. Dashboard runs on every visit, Empty Trash rarely. No covering cells index for the pivot (it would double the cells index) (sweep D-050). |
 | 2026-10-12 | zod 4.6.5 with string lengths in UTF-16 units (replaces "hold zod at 4.4.3") | zod 4.5+ counts string `.min()/.max()/.length()` in code points, not UTF-16 units, which would loosen every length limit for text with emoji. Never put those on a `z.string()`; use `.check(textLength({ min, max }, message))` from `src/shared/textLength.ts`, which counts `String.length` like the renderer's `maxLength` (textArg uses it). `tests/textLength.test.ts` fails on any `z.string()…max(` chain in src; `tests/ipc-define.test.ts` pins the units (sweep D-053, P-011). |
 | 2026-10-12 | Dependency bumps take the newest release that has been on npm for at least 14 days | Guards against a compromised release in its first days; majors go through a written proposal, not a sweep (sweep D-052). |
+| 2026-10-12 | @tanstack/react-table 9: the grid's table gets a new data array when deadline counts arrive, and `sortUndefined: false` on its columns | v9 compares controlled state by value (a new-but-equal sorting array no longer re-sorts) and skips the comparator when both values are undefined. `@tanstack/react-store` and `@tanstack/store` are pinned to 0.11.1 under `overrides` (0.11.2 was under 14 days old); drop the pins when react-table next moves (sweep P-008). |
+| 2026-10-12 | TypeScript stays 5.9; motion stays 12 | typescript-eslint 8.71 (latest) declares `typescript <6.1.0`, so TS 7 waits for it. motion 14.0.0 was 10 days old on 2026-10-12 (14-day rule); take it after 2026-10-16 with a reduced-motion / AnimatePresence check (sweep P-008, P-009). |
 | 2026-10-12 | "Change password" and "Revoke recovery key" can also re-encrypt the database with a new key (the spec says the key never changes) | A plain change still only re-wraps. With the option, an old password or revoked recovery key plus an old backup stops opening today's data. Crash-safe: pending credential slot → rekey → promote, and unlock tries current then pending (`src/main/key-switch.ts`). Old backups still open with the old credentials; pre-switch local auto-backups no longer restore on this install (sweep P-001, D-059..D-062). |
 
 Communication Style
