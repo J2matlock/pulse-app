@@ -25,8 +25,7 @@
     "src/main/**/*.ts",
     "src/preload/**/*.ts",
     "src/shared/**/*.ts",
-    "src/shared/**/*.json",
-    "electron.vite.config.ts"
+    "src/shared/**/*.json"
   ],
   "exclude": ["node_modules"]
 }

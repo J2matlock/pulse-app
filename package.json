@@ -37,7 +37,7 @@
     "test:watch": "echo 'NOTE: DB-dependent tests may fail in watch mode (ABI mismatch). Use npm test for full suite.' && vitest --watch",
     "test:e2e": "npm run build && npx playwright test",
     "test:all": "npm run test:unit && npm run test:e2e",
-    "typecheck": "tsc --noEmit -p tsconfig.node.json; A=$?; tsc --noEmit -p tsconfig.web.json; B=$?; [ $A -eq 0 ] && [ $B -eq 0 ]",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json; A=$?; tsc --noEmit -p tsconfig.web.json; B=$?; tsc --noEmit -p tsconfig.config.json; C=$?; [ $A -eq 0 ] && [ $B -eq 0 ] && [ $C -eq 0 ]",
     "lint": "eslint src",
     "ui-tour": "npm run build && UI_TOUR=1 npx playwright test e2e/ui-tour.spec.ts --reporter=line",
     "licenses": "node scripts/third-party-licenses.mjs"
@@ -86,12 +86,12 @@
     "@types/yazl": "^3.3.1",
     "@typescript-eslint/eslint-plugin": "8.70.1",
     "@typescript-eslint/parser": "8.70.1",
-    "@vitejs/plugin-react": "4.7.0",
-    "@vitest/coverage-v8": "4.1.11",
+    "@vitejs/plugin-react": "5.2.0",
+    "@vitest/coverage-v8": "5.0.2",
     "axe-core": "4.13.0",
     "electron": "44.4.5",
     "electron-builder": "26.17.0",
-    "electron-vite": "3.1.0",
+    "electron-vite": "5.0.0",
     "eslint": "10.11.0",
     "eslint-plugin-react-hooks": "7.1.1",
     "eslint-plugin-security": "4.1.0",
@@ -99,8 +99,8 @@
     "postcss": "8.5.28",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3",
-    "vite": "6.4.3",
-    "vitest": "4.1.11"
+    "vite": "7.3.6",
+    "vitest": "5.0.2"
   },
   "build": {
     "appId": "com.baringasoft.pulse",

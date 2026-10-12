@@ -15,7 +15,7 @@ The spec is the source of truth. It contains exact SQL schemas, exact file paths
 
 **Current versions (as of 2026-02-28):**
 - **Electron 44** (Node 24, Chromium 152) + **React 19** + **TypeScript 5.9** (strict mode)
-- **Vite 6** via **electron-vite 3** for build tooling
+- **Vite 7** via **electron-vite 5** for build tooling (plus @vitejs/plugin-react 5; tests on **vitest 5**)
 - **SQLite** via `better-sqlite3-multiple-ciphers` 13 (Node-API, prebuilt binaries bundled for every platform; encrypted local database — NOT `@journeyapps/sqlcipher`)
 - **Tailwind CSS 4** with CSS-first `@theme` config (no tailwind.config.js, no autoprefixer)
 - **electron-builder 26** for packaging
@@ -285,7 +285,7 @@ When implementation deviates from the spec, document it here:
 | 2026-10-11 | Linux ships as an AppImage only (no .deb) | The maintainer builds and uses Fedora; a .deb (for Ubuntu 24.04's AppArmor sandbox rules) was built and then removed because it added a Fedora build dependency (libxcrypt-compat for fpm) for a format nobody here uses. AUDIT-019 closed as won't-fix; revisit if Ubuntu users report the AppImage won't start. |
 | 2026-02-27 | Keep `@dnd-kit` at core 6 + sortable 8 | dnd-kit v10 (`@dnd-kit/react`) is beta (0.3.2), complete API rewrite. Wait for 1.0 stable. |
 | 2026-02-27 | Keep `electron-store` at v8 | v9+ is ESM-only, requires main process ESM migration throughout. Not worth the effort. |
-| 2026-02-27 | Use electron-vite 3 + Vite 6, NOT electron-vite 4 + Vite 7 | Tailwind 4 PostCSS plugin doesn't support Vite 7 yet. Vite 6 path is safer and more battle-tested. |
+| 2026-10-12 | Vite 7 toolchain: vite 7.3, electron-vite 5.0, @vitejs/plugin-react 5.2, vitest + coverage-v8 5.0 (replaces "electron-vite 3 + Vite 6", 2026-02-27) | electron-vite 3.1 had gone 18 months without a release. The old blocker is gone: Tailwind runs through `@tailwindcss/postcss`, which has no Vite peer. The ceiling is now electron-vite 5, which accepts Vite 5–7, not 8; plugin-react 6 needs Vite 8, so it stays on 5.x. Main and preload externalize dependencies by default now (`externalizeDepsPlugin` dropped from the config); output is unchanged CommonJS (byte-identical main/preload bundles). plugin-react 5 ships types only via `exports`, so the config files typecheck under `tsconfig.config.json` (bundler resolution), a third pass in `npm run typecheck`. |
 | 2026-02-28 | Tailwind 4 upgrade: `.btn` as `@utility` | Tailwind 4 `@apply` only resolves Tailwind utilities, not custom CSS classes. Converted `.btn` to `@utility btn {}` so `.btn-primary/secondary/danger` can `@apply btn`. |
 | 2026-10-09 | No code signing | The Azure Trusted Signing subscription lapsed and Pulse isn't sold anymore. `scripts/sign-exe.js` and the signing steps in `build-win.js` were removed; releases ship a `SHA256SUMS.txt` instead. |
 | 2026-10-08 | Free and open source under GPL-3.0; licensing removed | No trial, no license key, no record limit. `enforceWritable()` stays as a generic read-only gate (error code `READ_ONLY`), with nothing registering a checker. Audit and security-finding reports in `plans/` stay local (git-ignored) and aren't in the public repo. |
