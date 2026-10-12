@@ -84,12 +84,13 @@ export default [
     // auth.ts (pulse-secure.json, its .backup/.corrupt copies), database.ts
     // (resolveDatabasePath() = <data>/pulse.db and its -wal/-shm),
     // private-files.ts (chmod/mkdir on the data folder and electron-store files),
-    // prefs.ts (<data>/pulse-prefs.json), attachment-files.ts (<data>/tmp-open with
-    // random hex names). Checked file by file in sweep Phase 4 (D-055); a module
-    // that takes a user-chosen path does not belong in this list.
+    // prefs.ts (<data>/pulse-prefs.json). Checked file by file in sweep Phase 4
+    // (D-055); a module that takes a user-chosen path does not belong in this list,
+    // which is why attachment-files.ts isn't here (saveAttachmentCopy takes the
+    // save-dialog path, R5-03).
     files: [
       'src/main/logger.ts', 'src/main/auth.ts', 'src/main/database.ts',
-      'src/main/private-files.ts', 'src/main/prefs.ts', 'src/main/attachment-files.ts',
+      'src/main/private-files.ts', 'src/main/prefs.ts',
     ],
     rules: { 'security/detect-non-literal-fs-filename': 'off' },
   },
