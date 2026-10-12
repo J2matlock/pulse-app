@@ -68,6 +68,15 @@ describe('secureHandle', () => {
     expect(result).toEqual({ ok: true, data: 'allowed' })
     expect(listener).toHaveBeenCalled()
   })
+
+  it('rejects a top frame with an empty URL, which has not loaded Pulse (Q-058)', async () => {
+    const listener = vi.fn(() => ({ ok: true, data: 'allowed' }))
+    secureHandle('test-channel-empty-url', listener)
+    const registeredHandler = mockHandle.mock.calls[0][1]
+    expect(await registeredHandler({ senderFrame: { parent: null, url: '' } })).toEqual({ ok: false, error: 'Unauthorized IPC sender' })
+    expect(await registeredHandler({ senderFrame: { parent: null, url: 'app://bundle/index.html' } })).toEqual({ ok: true, data: 'allowed' })
+    expect(listener).toHaveBeenCalledTimes(1)
+  })
 })
 
 // ── secureWrap integration tests ──────────────────────────────────────────

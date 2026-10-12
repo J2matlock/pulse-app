@@ -54,8 +54,9 @@ export function secureHandle(
     }
     // The top frame must be our own bundle (or the dev server). will-navigate
     // already blocks leaving the app; this is the second lock on that door.
+    // An empty URL (a frame that hasn't loaded a page) isn't Pulse either (Q-058, D-022)
     const url = event.senderFrame.url
-    if (typeof url === 'string' && url !== '' && !isTrustedSenderUrl(url)) {
+    if (typeof url === 'string' && !isTrustedSenderUrl(url)) {
       logger.warn('ipc', 'Rejected IPC from untrusted origin', { channel, origin: safeOrigin(url) })
       return fail('Unauthorized IPC sender')
     }

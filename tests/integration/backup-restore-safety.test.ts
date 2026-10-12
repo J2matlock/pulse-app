@@ -91,7 +91,7 @@ type Result<T = unknown> = { ok: true; data: T } | { ok: false; error: string }
 async function invoke<T = unknown>(channel: string, ...args: unknown[]): Promise<Result<T>> {
   const fn = h.handlers.get(channel)
   if (!fn) throw new Error(`No handler for ${channel}`)
-  return await fn({ senderFrame: { parent: null, url: '' } }, ...args) as Result<T>
+  return await fn({ senderFrame: { parent: null, url: 'app://bundle/index.html' } }, ...args) as Result<T>
 }
 
 /** Open a file the way the app does (same cipher settings and key) */

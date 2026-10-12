@@ -128,7 +128,7 @@ type Result = { ok: true; data: unknown } | { ok: false; error: string }
 async function invoke(channel: string, ...args: unknown[]): Promise<unknown> {
   const fn = h.handlers.get(channel)
   if (!fn) throw new Error(`No handler for ${channel}`)
-  const res = await fn({ senderFrame: { parent: null, url: '' } }, ...args) as Result
+  const res = await fn({ senderFrame: { parent: null, url: 'app://bundle/index.html' } }, ...args) as Result
   if (!res.ok) throw new Error(`${channel}: ${res.error}`)
   return res.data
 }
@@ -329,7 +329,7 @@ describe('Trashed records appear only in the Trash', () => {
     const listRecord = (db.prepare('SELECT id FROM rows WHERE grid_id = ? LIMIT 1').get(trashedListId) as { id: number }).id
     const templateId = Number(db.prepare("INSERT INTO letter_templates (name, content) VALUES ('Letter', 'Dear {{name}}')").run().lastInsertRowid)
     const sections = { deadlines: true, checklist: true, caseLog: true, scratchPad: true, contactInfo: true, gridData: true }
-    const call = async (channel: string, ...args: unknown[]) => await h.handlers.get(channel)!({ senderFrame: { parent: null, url: '' } }, ...args) as Result
+    const call = async (channel: string, ...args: unknown[]) => await h.handlers.get(channel)!({ senderFrame: { parent: null, url: 'app://bundle/index.html' } }, ...args) as Result
     for (const [rowId, gridId] of [[seed.trashedRowIds[0]!, seed.gridId], [listRecord, trashedListId]] as const) {
       const profile = await call(IPC.EXPORT_PDF_PROFILE, { rowId, gridId, destPath: join(dir, 'p.pdf'), includeSections: sections })
       expect(profile).toEqual({ ok: false, error: expect.stringMatching(/moved to the Trash/) })

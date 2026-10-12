@@ -23,6 +23,7 @@ import { clearImportCache } from './import'
 import { logger, formatForwardedLogData } from './logger'
 import { IPC } from '../shared/ipc-channels'
 import { secureWrap, logNonFatal, ok, fail } from './ipc/ipc-utils'
+import { hardenWebContents, SECURE_WEB_PREFERENCES } from './web-contents-guard'
 
 process.on('unhandledRejection', (reason) => {
   logger.error('process', 'Unhandled rejection', { reason: reason instanceof Error ? { message: reason.message, stack: reason.stack } : String(reason) })
@@ -185,6 +186,10 @@ if (!gotTheLock) {
   })
 }
 
+// Every page Pulse creates gets the same floor: no pop-ups, no <webview>, no leaving Pulse (Q-058).
+// It runs as each one is made, before createWindow adds the main window's own handlers.
+app.on('web-contents-created', (_event, contents) => hardenWebContents(contents))
+
 // ── Window state persistence ─────────────────────────────────────────────────
 
 function getWindowState(): SavedWindowState {
@@ -222,9 +227,9 @@ function createWindow(): void {
     backgroundColor: '#F8FAFC',  // light mode bg, prevents white flash
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: true,           // ipcRenderer available in sandboxed preload since Electron 20+
-      contextIsolation: true,  // renderer cannot access Node.js directly
-      nodeIntegration: false,  // renderer is a plain web page
+      // sandbox, contextIsolation, nodeIntegration off, webSecurity, no insecure content, no <webview>:
+      // stated, not left to Electron's defaults (Q-058)
+      ...SECURE_WEB_PREFERENCES,
       devTools: isDev,          // disable DevTools in production builds
       spellcheck: spellcheckAllowed(process.platform)  // no dictionary downloads (see spellcheck.ts)
     }
