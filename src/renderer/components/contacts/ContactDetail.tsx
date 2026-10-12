@@ -45,7 +45,7 @@ function CopyField({ label, value, icon }: { label: string; value: string; icon:
       </div>
       <button
         onClick={copy}
-        className="flex-shrink-0 p-1.5 rounded-sm opacity-0 group-hover:opacity-100 hover:bg-slate-100 dark:hover:bg-slate-700 transition-opacity focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:opacity-100"
+        className="hit-44 flex-shrink-0 p-1.5 rounded-sm opacity-0 group-hover:opacity-100 hover:bg-slate-100 dark:hover:bg-slate-700 transition-opacity focus:outline-hidden focus:ring-3 focus:ring-blue-500 focus:opacity-100"
         title={`Copy ${label.toLowerCase()}`}
         aria-label={`Copy ${label.toLowerCase()}`}
       >

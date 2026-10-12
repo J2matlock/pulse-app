@@ -102,7 +102,7 @@ function SortableCard({ col, value, row, allColumns, alertRules, series, onSave 
         <button
           {...attributes}
           {...listeners}
-          className="absolute right-1 top-1 p-1 rounded-sm text-slate-300 dark:text-slate-500
+          className="hit-44 absolute right-1 top-1 p-1 rounded-sm text-slate-300 dark:text-slate-500
                      opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100 hover:text-slate-500 dark:hover:text-slate-400
                      focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
                      cursor-grab active:cursor-grabbing transition-opacity touch-none"

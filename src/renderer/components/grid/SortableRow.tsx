@@ -221,7 +221,7 @@ export const SortableRow = React.memo(function SortableRow({
       <div
         role="gridcell"
         aria-colindex={2}
-        className="flex-shrink-0 flex items-center justify-center border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+        className="flex-shrink-0 flex items-center justify-center gap-4 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
         style={{
           width: PROFILE_BTN_WIDTH, height: rowHeight,
           ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH, zIndex: 10 } : {}),
@@ -230,7 +230,7 @@ export const SortableRow = React.memo(function SortableRow({
         <button
           tabIndex={-1}
           onClick={e => { e.stopPropagation(); onNavigateToProfile(rowId) }}
-          className="flex items-center justify-center w-7 h-7 profile-btn-glow
+          className="hit-44 flex items-center justify-center w-7 h-7 profile-btn-glow
                      focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-indigo-500"
           title={`Open ${t('record')} profile`}
           aria-label={`Open ${t('record')} profile`}
@@ -242,7 +242,7 @@ export const SortableRow = React.memo(function SortableRow({
         <button
           tabIndex={-1}
           onClick={e => { e.stopPropagation(); onToggleStar?.(rowId) }}
-          className={`flex items-center justify-center w-7 h-7 rounded focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
+          className={`hit-44 flex items-center justify-center w-7 h-7 rounded focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
             ${row.original.is_starred ? '' : 'opacity-0 group-hover:opacity-60 hover:!opacity-100'}`}
           title={row.original.is_starred ? 'Remove star' : `Star this ${t('record')}`}
           aria-label={row.original.is_starred ? 'Remove star' : `Star this ${t('record')}`}

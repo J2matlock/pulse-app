@@ -160,7 +160,7 @@ export function GridHeaderRow({
                   setSelectedRowIds(new Set(selectableRowIds))
                 }
               }}
-              className={`w-5 h-5 flex items-center justify-center focus-visible:ring-3 focus-visible:ring-blue-500 focus-visible:ring-offset-1 rounded-sm
+              className={`hit-44 w-5 h-5 flex items-center justify-center focus-visible:ring-3 focus-visible:ring-blue-500 focus-visible:ring-offset-1 rounded-sm
                 ${selectableRowIds.length === 0 ? 'opacity-0 pointer-events-none' : 'opacity-60 hover:opacity-100'}
                 ${selectedRowIds.size > 0 ? 'opacity-100!' : ''}
                 transition-opacity`}
