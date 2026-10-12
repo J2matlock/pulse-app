@@ -531,7 +531,7 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
                     <label className="flex items-center gap-2 cursor-pointer select-none text-base text-slate-600 dark:text-slate-300">
                       <input type="checkbox" checked={!!rule.highlightRow}
                         onChange={e => updateRule(i, { highlightRow: e.target.checked })}
-                        className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500" />
+                        className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500" />
                       Highlight the whole {t('record')} when matched
                     </label>
 

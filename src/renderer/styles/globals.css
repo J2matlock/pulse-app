@@ -222,11 +222,6 @@
 
 @layer components {
   /* Focus rings — 3px, clearly visible (accessibility requirement) */
-  .focus-ring {
-    @apply outline-hidden ring-3 ring-offset-1;
-    ring-color: var(--ring-color);
-  }
-
   .btn:focus-visible {
     @apply outline-hidden ring-3 ring-offset-1 ring-blue-500;
   }

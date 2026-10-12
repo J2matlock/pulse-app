@@ -261,7 +261,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
                       type="checkbox"
                       checked={parsedRows.every(r => r.selected)}
                       onChange={toggleAll}
-                      className="h-4 w-4 rounded-sm border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="h-4 w-4 rounded-sm border-gray-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
                       aria-label={`Select all ${t('contact', { many: true })} for import`}
                     />
                   </th>
@@ -284,7 +284,7 @@ export function ContactImportExport({ open, onClose, mode }: Props) {
                         type="checkbox"
                         checked={row.selected}
                         onChange={() => toggleRow(i)}
-                        className="h-4 w-4 rounded-sm border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="h-4 w-4 rounded-sm border-gray-300 text-blue-600 focus-visible:ring-3 focus-visible:ring-blue-500"
                         aria-label={`Select ${row.data.name ?? t('contact')}`}
                       />
                     </td>

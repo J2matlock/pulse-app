@@ -246,11 +246,12 @@ export function ContactLinkedClients({ providerId }: Props) {
               </div>
               <button
                 onClick={() => handleUnlink(link.id)}
-                className={`flex-shrink-0 p-1.5 rounded-sm transition-opacity hover:bg-red-50 dark:hover:bg-red-900/20 focus:outline-hidden focus:ring-3 focus:ring-red-500 ${
+                className={`hit-44 flex-shrink-0 p-1.5 rounded-sm transition-opacity hover:bg-red-50 dark:hover:bg-red-900/20 focus:outline-hidden focus:ring-3 focus:ring-red-500 focus-visible:opacity-100 ${
                   hoveredLinkId === link.id ? 'opacity-100' : 'opacity-0'
                 }`}
                 style={{ minWidth: 32, minHeight: 32 }}
                 title={`Unlink ${t('record')}`}
+                aria-label={`Unlink ${link.client_name || `${t('record', { cap: true })} #${link.row_id}`}`}
               >
                 <X size={14} className="text-red-600 dark:text-red-400" />
               </button>

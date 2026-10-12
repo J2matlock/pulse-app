@@ -313,7 +313,8 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
       <div
         data-scratchpad-wrap
         ref={editorWrapperRef}
-        className="relative overflow-auto"
+        // The editor itself draws no outline, so the box around it shows keyboard focus
+        className="relative overflow-auto focus-within:ring-3 focus-within:ring-inset focus-within:ring-blue-500"
         style={{ minHeight: 140, maxHeight: 600 }}
         onKeyDownCapture={handleKeyDownCapture}
       >
