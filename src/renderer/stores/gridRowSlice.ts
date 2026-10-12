@@ -10,7 +10,16 @@ import { pulseEvents } from '../events'
 import { clearCellCoalescing } from './gridCellEditSlice'
 import type { GridState } from './gridTypes'
 
+/**
+ * The open list's records. This slice owns `rows`: other slices change records
+ * through mapRows (or the actions here), not by setting `rows` themselves. The
+ * exceptions are the list loader in gridStore.ts, which fills every slice, and
+ * the cell edit slice, which owns the cell values in each row (D-048).
+ */
 export interface RowSliceState {
+  rows: GridRow[]
+  /** Changes records in the open list on screen only (nothing is saved) */
+  mapRows: (fn: (row: GridRow) => GridRow) => void
   lastAddedRowId: number | null
   /** A record just added stays on screen even if the filter or search would hide it (G-28) */
   pinnedRowId: number | null
@@ -21,6 +30,8 @@ export interface RowSliceState {
   sampleKeepPrompt: number | null
   /** The answer: keep it as real, it's just a sample, or decide later (don't ask again) */
   answerSampleRow: (rowId: number, answer: 'keep' | 'sample' | 'later') => Promise<void>
+  /** Ask once whether this sample entry, just edited, is a real one now */
+  promptKeepSample: (rowId: number) => void
 
   selectedRowIds: Set<number>
   setSelectedRowIds: (ids: Set<number> | ((prev: Set<number>) => Set<number>)) => void
@@ -51,6 +62,8 @@ type SetState = (partial: Partial<GridState> | ((s: GridState) => Partial<GridSt
 type GetState = () => GridState
 
 export const createRowSlice = (set: SetState, get: GetState) => ({
+  rows: [] as GridRow[],
+  mapRows: (fn: (row: GridRow) => GridRow) => set(s => ({ rows: s.rows.map(fn) })),
   lastAddedRowId: null as number | null,
   pinnedRowId: null as number | null,
   sampleRows: {} as Record<number, number>,
@@ -69,6 +82,7 @@ export const createRowSlice = (set: SetState, get: GetState) => ({
       rlog.warn('GridStore', 'Could not save the sample answer', err)
     }
   },
+  promptKeepSample: (rowId: number) => set({ sampleKeepPrompt: rowId }),
   selectedRowIds: new Set<number>(),
   setSelectedRowIds: (ids: Set<number> | ((prev: Set<number>) => Set<number>)) => {
     if (typeof ids === 'function') {

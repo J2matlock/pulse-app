@@ -49,14 +49,10 @@ export const useGridStore = create<GridState>((set, get) => ({
   grids: [],
   gridListLoaded: false,
   activeGridId: null,
-  columns: [],
-  hiddenColumns: [],
-  rows: [],
   isLoading: false,
   loadedGridId: null,
   loadError: null,
   showArchived: false,
-  groupByColumnId: null,
   deadlineContext: { meter: {}, quota: {}, progress: {}, extensions: {} },
   refreshDeadlineContext: async () => {
     const gridId = get().activeGridId
@@ -119,19 +115,6 @@ export const useGridStore = create<GridState>((set, get) => ({
     const gridId = get().activeGridId
     if (gridId) {
       void invoke(IPC.GRID_UPDATE, gridId, { frozen_columns: count })
-    }
-  },
-
-  setGroupByColumnId: (id: string | number | null) => {
-    if (typeof id === 'string') {
-      if (id === '__acuity__') {
-        set({ groupByColumnId: id })
-      } else {
-        const parsed = parseInt(id, 10)
-        set({ groupByColumnId: Number.isNaN(parsed) ? null : parsed })
-      }
-    } else {
-      set({ groupByColumnId: id })
     }
   },
 

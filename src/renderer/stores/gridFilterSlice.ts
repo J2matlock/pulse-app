@@ -47,6 +47,8 @@ export interface FilterSliceState {
   clearFilters: () => void
   showStarredOnly: boolean
   setShowStarredOnly: (show: boolean) => void
+  groupByColumnId: number | string | null
+  setGroupByColumnId: (id: number | string | null) => void
   savedFilters: SavedFilter[]
   loadSavedFilters: () => Promise<void>
   saveFilter: (name: string) => Promise<void>
@@ -101,6 +103,19 @@ export const createFilterSlice = (set: Set, get: Get) => ({
   setFilterMode: (mode: 'and' | 'or') => set({ filterMode: mode }),
   showStarredOnly: false,
   setShowStarredOnly: (show: boolean) => set({ showStarredOnly: show }),
+  groupByColumnId: null as number | string | null,
+  setGroupByColumnId: (id: string | number | null) => {
+    if (typeof id === 'string') {
+      if (id === '__acuity__') {
+        set({ groupByColumnId: id })
+      } else {
+        const parsed = parseInt(id, 10)
+        set({ groupByColumnId: Number.isNaN(parsed) ? null : parsed })
+      }
+    } else {
+      set({ groupByColumnId: id })
+    }
+  },
 
   activeFilters: [] as ColumnFilter[],
   addFilter: (filter: ColumnFilter) => set(s => ({ activeFilters: [...s.activeFilters, filter] })),

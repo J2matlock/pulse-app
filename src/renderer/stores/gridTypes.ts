@@ -9,7 +9,7 @@ import type { GridDeadlineContext } from '../../shared/ipc-contract'
  *   gridColumnSlice → gridTypes (no cycle)
  */
 
-import type { Grid, Column, GridRow } from '../../shared/types'
+import type { Grid } from '../../shared/types'
 import type { UndoItem } from './undoStore'
 import type { FilterSliceState } from './gridFilterSlice'
 import type { ColumnSliceState } from './gridColumnSlice'
@@ -26,13 +26,15 @@ export interface UpdateCellOptions {
   collect?: UndoItem[]
 }
 
+/**
+ * The open list and the list of lists. Each slice owns its own state and changes
+ * another slice's only through that slice's actions. loadGrid, refreshRows and the
+ * lock reset in gridStore.ts are the exception: they fill or clear every slice (D-048).
+ */
 export interface CoreGridState {
   grids: Grid[]
   gridListLoaded: boolean
   activeGridId: number | null
-  columns: Column[]
-  hiddenColumns: Column[]
-  rows: GridRow[]
   isLoading: boolean
   /** The list whose columns and records are loaded now; a reload of it keeps the table on screen (AUDIT-039) */
   loadedGridId: number | null
@@ -65,8 +67,6 @@ export interface CoreGridState {
   frozenColumnCount: number
   setFrozenColumnCount: (count: number) => void
 
-  groupByColumnId: number | string | null
-  setGroupByColumnId: (id: number | string | null) => void
 
   _loadVersion: number
 }

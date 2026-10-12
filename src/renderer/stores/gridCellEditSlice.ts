@@ -12,6 +12,10 @@ import { stageConfigOf } from '../../shared/stages'
 import { pulseEvents } from '../events'
 import type { GridState, UpdateCellOptions } from './gridTypes'
 
+/**
+ * Typing into cells. Owns the cell values (`col_*` fields) of `rows`: the optimistic
+ * write lands in the same update as isSaving, so it sets them directly (D-048).
+ */
 export interface CellEditSliceState {
   isSaving: boolean
   saveError: string | null
@@ -160,7 +164,7 @@ export const createCellEditSlice = (set: Set, get: Get) => ({
       // Lets a sequence ask "correction or new start?" when its start date changes (D-37)
       if (prevValue !== value && !useUndoStore.getState().isUndoing) pulseEvents.emit('cell:changed', { rowId, columnId, from: prevValue, to: value })
       // The first edit to a made-up sample entry: ask once whether it's real now
-      if (prevValue !== value && get().sampleRows[rowId] === 0 && !useUndoStore.getState().isUndoing) set({ sampleKeepPrompt: rowId })
+      if (prevValue !== value && get().sampleRows[rowId] === 0 && !useUndoStore.getState().isUndoing) get().promptKeepSample(rowId)
       // Push undo for cell change (only if value actually changed)
       if (prevValue !== value && !fromUndo) {
         const col = get().columns.find(c => c.id === columnId)
