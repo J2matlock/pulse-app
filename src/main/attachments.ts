@@ -8,6 +8,7 @@ import { createHash } from 'crypto'
 import { readFileSync, statSync } from 'fs'
 import { basename } from 'path'
 import { getDb } from './database'
+import { scheduleReclaimFreePages } from './purge-hooks'
 import { ALLOWED_TYPES_TEXT, DEFAULT_LIMIT_MB, LIMIT_MB_RANGE, MAX_FILE_BYTES, formatBytes, type Attachment, type AttachmentUsage } from '../shared/attachments'
 
 export class AttachmentError extends Error {}
@@ -215,7 +216,10 @@ export function restoreAttachment(id: number): void {
 
 /** Remove files that have been in the trash this long (0 = all of them now) */
 export function purgeDeletedAttachments(olderThanDays = 30): number {
-  return getDb().prepare("DELETE FROM attachments WHERE deleted_at IS NOT NULL AND deleted_at <= datetime('now', ?)").run(`-${Math.max(0, olderThanDays)} days`).changes
+  const db = getDb()
+  const n = db.prepare("DELETE FROM attachments WHERE deleted_at IS NOT NULL AND deleted_at <= datetime('now', ?)").run(`-${Math.max(0, olderThanDays)} days`).changes
+  if (n) scheduleReclaimFreePages(db)
+  return n
 }
 
 /** Files in the trash, newest first, with the record they belong to */
@@ -227,5 +231,7 @@ export function trashedAttachments(): Array<Attachment & { record_name: string |
 
 /** Remove one file from the trash for good */
 export function purgeAttachment(id: number): void {
-  if (getDb().prepare('DELETE FROM attachments WHERE id = ? AND deleted_at IS NOT NULL').run(id).changes === 0) throw new AttachmentError("That file isn't in the Trash.")
+  const db = getDb()
+  if (db.prepare('DELETE FROM attachments WHERE id = ? AND deleted_at IS NOT NULL').run(id).changes === 0) throw new AttachmentError("That file isn't in the Trash.")
+  scheduleReclaimFreePages(db)
 }

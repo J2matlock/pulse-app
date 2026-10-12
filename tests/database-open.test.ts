@@ -82,6 +82,7 @@ vi.mock('../src/main/migration-list', async () => {
 
 import { openDatabase, closeDatabase, getDb, getMigrationFailure, latestSchemaVersion, DatabaseOpenError } from '../src/main/database'
 import { trashColumn, trashList, type ColumnSnapshot } from '../src/main/list-trash'
+import { purgeAttachment } from '../src/main/attachments'
 
 let dir: string
 let dbPath: string
@@ -358,6 +359,28 @@ describe('openDatabase refusing or failing safely', () => {
     })
     expect(openFailureKind()).toBe('unreadable')
     expect(() => getDb()).toThrow()
+  })
+
+  it('zeroes deleted content and gives the freed pages back after a file is deleted for good (A22-12)', () => {
+    openDatabase()
+    const db = getDb()
+    expect(db.pragma('secure_delete', { simple: true })).toBe(1) // ON: freed pages are zeroed too
+    const { rowIds } = seedList(db)
+    const id = Number(db.prepare("INSERT INTO attachments (row_id, file_name, mime_type, size_bytes, sha256, deleted_at) VALUES (?, 'scan.pdf', 'application/pdf', ?, 'x', datetime('now'))")
+      .run(rowIds[0], 4_000_000).lastInsertRowid)
+    db.prepare('INSERT INTO attachment_blobs (attachment_id, data) VALUES (?, ?)').run(id, Buffer.alloc(4_000_000, 0x5a))
+    const pagesBefore = Number(db.pragma('page_count', { simple: true }))
+
+    vi.useFakeTimers()
+    try {
+      purgeAttachment(id)
+      expect(Number(db.pragma('freelist_count', { simple: true }))).toBeGreaterThan(900)
+      vi.runAllTimers()
+    } finally {
+      vi.useRealTimers()
+    }
+    expect(Number(db.pragma('freelist_count', { simple: true }))).toBe(0)
+    expect(Number(db.pragma('page_count', { simple: true }))).toBeLessThan(pagesBefore - 900)
   })
 
   it('opening again closes the connection that was still open (AUDIT-020)', () => {

@@ -36,6 +36,7 @@ export function purgeRecordLeftovers(db: Database, rowIds: number[]): void {
  * audit trail still shows the link, to "(deleted)".
  */
 export function pruneAfterPurge(db: Database, rowIds: number[]): void {
+  scheduleReclaimFreePages(db)
   if (rowIds.length) {
     inChunks(rowIds, (chunk, marks) => {
       db.prepare(`DELETE FROM record_link_history WHERE (from_row_id IN (${marks}) OR to_row_id IN (${marks}))
@@ -50,4 +51,35 @@ export function pruneAfterPurge(db: Database, rowIds: number[]): void {
   const exists = db.prepare('SELECT 1 FROM report_definitions WHERE id = ?')
   const next = ids.filter(id => typeof id === 'number' && exists.get(id))
   if (next.length !== ids.length) db.prepare("UPDATE settings SET value = ? WHERE key = 'dashboard_reports'").run(JSON.stringify(next))
+}
+
+const RECLAIM_PAGES_PER_STEP = 512   // 2 MB at 4 KB pages: short enough not to stall the window
+let reclaimTimer: ReturnType<typeof setTimeout> | null = null
+let reclaimDb: Database | null = null
+
+/**
+ * After something is deleted for good: give the freed pages back so the file
+ * shrinks and what was deleted no longer sits in it (A22-12). Runs shortly
+ * after, outside the delete's transaction, a few megabytes at a time until the
+ * free list is empty; stops if the database closes. Best effort: a failure
+ * only means the space is reclaimed later (the unlock clean-up does some too).
+ */
+export function scheduleReclaimFreePages(db: Database, delayMs = 1000): void {
+  // One pending run per open database; a run left for a closed one is replaced
+  if (reclaimTimer && reclaimDb === db) return
+  if (reclaimTimer) clearTimeout(reclaimTimer)
+  reclaimDb = db
+  const step = (): void => {
+    if (reclaimDb !== db) return  // replaced by a run for a newer connection
+    reclaimTimer = null
+    try {
+      if (!db.open) return
+      db.pragma(`incremental_vacuum(${RECLAIM_PAGES_PER_STEP})`)
+      if (Number(db.pragma('freelist_count', { simple: true })) > 0) reclaimTimer = setTimeout(step, 0)
+    } catch {
+      // Busy or closing: the next purge or unlock tries again
+    }
+  }
+  reclaimTimer = setTimeout(step, delayMs)
+  reclaimTimer.unref?.()
 }

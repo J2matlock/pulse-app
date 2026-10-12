@@ -19,7 +19,7 @@ import { detectCloudSyncService } from '../shared/cloudSync'
 import type { DbOpenFailureKind } from '../shared/dbOpen'
 import { runPreMigrationBackup, setDatabaseBridge } from './backup'
 import { MIGRATIONS, applyMigration } from './migration-list'
-import { rowsPurgedHooks, purgeRecordLeftovers, pruneAfterPurge } from './purge-hooks'
+import { rowsPurgedHooks, purgeRecordLeftovers, pruneAfterPurge, scheduleReclaimFreePages } from './purge-hooks'
 import { linkColumnSpecs, linkSelectSql, linkSpecKey, type LinkColumnSpec } from '../shared/links'
 import { fileCountColumnIds } from '../shared/attachments'
 
@@ -187,6 +187,10 @@ function openWithKey(dbPath: string, rawDbKey: string): BetterSqlite3DB {
   }
 
   database.pragma('foreign_keys = ON')
+  // Deleted content is overwritten with zeros, freed pages included (A22-12).
+  // The bundled driver already defaults to ON; stated here so a driver update
+  // can't quietly turn it off. Freed pages go back via scheduleReclaimFreePages.
+  database.pragma('secure_delete = ON')
   database.pragma('journal_mode = WAL')
   database.pragma('synchronous = NORMAL')
   database.pragma('cache_size = -32000')  // 32MB page cache for large caseloads
@@ -241,7 +245,7 @@ function purgeExpiredTrash(): void {
     // Files in the trash go after the same time as records (W09 §3)
     try {
       const files = db.prepare(`DELETE FROM attachments WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-' || ? || ' days')`).run(TRASH_PURGE_DAYS).changes
-      if (files) logger.info('database', `Purged ${files} files from the trash`)
+      if (files) { logger.info('database', `Purged ${files} files from the trash`); scheduleReclaimFreePages(db) }
     } catch (err) { logNonFatal('database', 'attachment purge', err) }
     // Lists, columns and records in the Trash (audit 5.2), in one transaction, with
     // what the foreign keys don't reach, like Delete forever and Empty the Trash (Q-030)
