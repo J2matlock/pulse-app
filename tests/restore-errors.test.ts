@@ -24,6 +24,11 @@ describe('describeRestoreError', () => {
     expect(describeRestoreError(err)).toBe(damaged)
   })
 
+  it('the latest changes could not be saved first (A24-08)', () => {
+    expect(describeRestoreError(withCode('Could not save the latest changes into the database file before the restore', 'WAL_BUSY')))
+      .toBe("Pulse was still saving your latest changes, so it didn't restore anything. Wait a moment and try again.")
+  })
+
   it('a wrong password', () => {
     expect(describeRestoreError(new Error('Incorrect password or recovery key'))).toMatch(/doesn't match this backup/)
   })

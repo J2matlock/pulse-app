@@ -211,6 +211,31 @@ function checkpointWal(): void {
 }
 
 /**
+ * Before a restore: move every commit out of the WAL into the main file, and
+ * refuse the restore if that didn't finish (A24-08). The safety copy is taken
+ * from the main file and the WAL is deleted afterwards, so an incomplete
+ * checkpoint (a reader still open, a busy lock) would lose the latest changes.
+ * With the database closed there is nothing to checkpoint through, so this
+ * does nothing, as before.
+ */
+function flushWalBeforeRestore(): void {
+  let database: DatabaseBridge | null = null
+  try { database = _getDb?.() ?? null } catch { database = null }
+  if (!database) return
+  let complete = false
+  try {
+    const rows = database.pragma('wal_checkpoint(TRUNCATE)')
+    const row = (Array.isArray(rows) ? rows[0] : rows) as { busy?: unknown; log?: unknown; checkpointed?: unknown } | undefined
+    complete = !!row && row.busy === 0 && row.log === row.checkpointed
+  } catch (err) {
+    logger.warn('backup', 'WAL checkpoint before restore failed', err)
+  }
+  if (!complete) {
+    throw Object.assign(new Error('Could not save the latest changes into the database file before the restore'), { code: 'WAL_BUSY' })
+  }
+}
+
+/**
  * Remove stale WAL and SHM files so SQLite doesn't replay old journal
  * data on top of a freshly restored database.
  */
@@ -873,8 +898,8 @@ export async function restoreFromDb(backupDbPath: string): Promise<string> {
   if (!dbPath) throw new Error('No active database path found')
   if (!existsSync(backupDbPath)) throw new Error('Backup file not found')
 
-  // Checkpoint WAL so the safety copy captures all recent changes
-  checkpointWal()
+  // Checkpoint WAL so the safety copy captures all recent changes; stop if it can't
+  flushWalBeforeRestore()
 
   // Safety backup before restore
   const safetyDir = getBackupDir()
@@ -922,8 +947,8 @@ export async function restoreFromPulseBackup(backupZipPath: string): Promise<str
   const dbPath = getStoredDbPath()
   if (!dbPath) throw new Error('No active database path found')
 
-  // Checkpoint WAL so the safety copy captures all recent changes
-  checkpointWal()
+  // Checkpoint WAL so the safety copy captures all recent changes; stop if it can't
+  flushWalBeforeRestore()
 
   // Safety backup before touching anything
   const safetyDir = getBackupDir()

@@ -10,7 +10,7 @@
  * VACUUM INTO for .pulse-backup files) run for real.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { copyFileSync, existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 'fs'
+import { copyFileSync, existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync, statSync } from 'fs'
 import { join, basename, dirname } from 'path'
 import { createHash } from 'crypto'
 import type { Database } from 'better-sqlite3'
@@ -319,6 +319,37 @@ describe('Restore', () => {
     expect(countRows(dbSafety, 'rows', 'grid_id = ?', gridId)).toBe(5)
     dbSafety.close()
     expect(readdirSync(backupDir).filter(f => f.startsWith('restore-tmp-'))).toEqual([])
+  })
+
+  it('stops before touching anything when the latest changes cannot leave the WAL (A24-08)', async () => {
+    const { gridId } = seedGrid(t.db, { rowCount: 3, columnCount: 1 })
+    const { destPath } = await runManualBackup(join(t.tmpDir, 'out', 'wal-busy'))
+    // A second reader holding an old snapshot keeps the checkpoint from finishing
+    // (with no busy wait, so the test doesn't sit out the timeout)
+    t.db.pragma('busy_timeout = 0')
+    const reader = openTestDb(t.dbPath)
+    try {
+      reader.prepare('BEGIN').run()
+      reader.prepare('SELECT COUNT(*) FROM rows').get()
+      t.db.prepare("INSERT INTO rows (grid_id, position, created_at, updated_at) VALUES (?, 99, datetime('now'), datetime('now'))").run(gridId)
+      const walBefore = statSync(t.dbPath + '-wal').size
+      expect(walBefore).toBeGreaterThan(0)
+
+      const err = await restoreFromPulseBackup(destPath).catch((e: unknown) => e)
+      expect((err as { code?: string }).code).toBe('WAL_BUSY')
+      copyFileSync(t.dbPath, join(t.tmpDir, 'plain.db'))
+      const errDb = await restoreFromDb(join(t.tmpDir, 'plain.db')).catch((e: unknown) => e)
+      expect((errDb as { code?: string }).code).toBe('WAL_BUSY')
+
+      // The live database is still open, the WAL kept, no safety copy written
+      expect(t.db.open).toBe(true)
+      expect(existsSync(t.dbPath + '-wal')).toBe(true)
+      expect(readdirSync(backupDir).filter(f => f.startsWith('pulse-pre-restore-'))).toEqual([])
+    } finally {
+      try { reader.prepare('ROLLBACK').run() } catch { /* not in a transaction */ }
+      reader.close()
+    }
+    expect(countRows(t.db, 'rows', 'grid_id = ?', gridId)).toBe(4)
   })
 
   it('a damaged .pulse-backup is refused and the current database is untouched', async () => {
