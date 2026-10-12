@@ -22,6 +22,7 @@ vi.mock('@tiptap/react', async () => {
   const React = await import('react')
   const editor = {
     isActive: () => false,
+    setEditable: () => {},
     chain: () => ({ focus: () => ({ toggleBold: () => ({ run: () => {} }) }) }),
     commands: { setContent: () => {} },
     getHTML: () => editorState.html,
