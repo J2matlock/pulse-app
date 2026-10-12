@@ -214,6 +214,28 @@ describe('undoStore', () => {
       expect(useUndoStore.getState().undoStack).toHaveLength(1)
     })
 
+    it('keeps a step that fails twice for a passing reason main or the renderer words plainly (R3-01)', async () => {
+      const passing = [
+        'Pulse is busy for a moment. Please try again.',
+        "Pulse can't reach its data folder. If it's on a USB drive or network folder, reconnect it and restart Pulse.",
+        "Pulse can't save changes because its data file can't be written to. Close Pulse and open it again. If your data is on a USB drive, check that it's connected and not locked.",
+        'The disk is full. Free up some space, then try again.',
+        'Your computer ran out of memory. Close some other programs and try again.',
+        "Something went wrong and the change wasn't saved. Please try again.",
+        "Pulse can't save changes right now.",
+      ]
+      for (const message of passing) {
+        useUndoStore.setState({ undoStack: [], redoStack: [] })
+        const step = makeItem({ undo: vi.fn().mockRejectedValue(new Error(message)) })
+        useUndoStore.getState().push(step)
+        await useUndoStore.getState().undo()
+        await useUndoStore.getState().undo()
+        await useUndoStore.getState().undo()
+        expect(useUndoStore.getState().undoStack, message).toEqual([step])
+        expect(useUndoStore.getState().toast?.description, message).toBe(`Undo didn't work: ${message}`)
+      }
+    })
+
     it('a failed undo keeps a step added while it ran (Q-085)', async () => {
       const late = makeItem({ id: 'late' })
       const failing = makeItem({ id: 'f', undo: vi.fn(async () => {

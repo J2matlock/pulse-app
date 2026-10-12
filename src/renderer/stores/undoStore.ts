@@ -12,6 +12,7 @@ import { IPC } from '../../shared/ipc-channels'
 import { storeInvoke, ReadOnlyError } from '../utils/safeInvoke'
 import { rlog } from '../utils/rendererLogger'
 import { isTechnicalError } from '../utils/friendlyError'
+import { PASSING_ERRORS } from '../../shared/constants'
 
 // ── Side effects ──────────────────────────────────────────────────────────────
 
@@ -93,6 +94,12 @@ export interface PushOptions { evenWhileUndoing?: boolean }
 function plainReason(err: unknown): string {
   const reason = err instanceof Error ? err.message.trim() : ''
   return reason && reason.length < 200 && !isTechnicalError(reason) && !/sqlite|ipc|undefined|null|TypeError/i.test(reason) ? reason : ''
+}
+
+// Failures that may clear up by themselves (busy, unplugged drive, read-only, "try again"): never a reason to drop a step (R3-01)
+const PASSING_REASONS: ReadonlySet<string> = new Set(Object.values(PASSING_ERRORS))
+function isPassingFailure(err: unknown): boolean {
+  return err instanceof ReadOnlyError || (err instanceof Error && PASSING_REASONS.has(err.message.trim()))
 }
 
 function failureText(kind: 'Undo' | 'Redo', err: unknown): string {
@@ -239,7 +246,7 @@ export const useUndoStore = create<UndoState>((set, get) => {
       } catch (err) {
         rlog.error('UndoStore', 'Undo failed', err)
         // Read-only or a passing hiccup may clear up, so only a plain reason given twice counts as "can't work"
-        const reason = err instanceof ReadOnlyError ? '' : plainReason(err)
+        const reason = isPassingFailure(err) ? '' : plainReason(err)
         if (reason && _lastFailedUndo === item) {
           _lastFailedUndo = null
           set(s => ({ redoStack: s.redoStack.filter(i => i !== item) }))

@@ -9,7 +9,7 @@ import { ipcMain, app, BrowserWindow, dialog } from 'electron'
 import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
 import { getPortableDataDir } from '../data-dir'
-import { IPC_READ_ONLY } from '../../shared/constants'
+import { IPC_READ_ONLY, PASSING_ERRORS } from '../../shared/constants'
 
 // Helper to wrap handler results
 export function ok<T>(data: T) { return { ok: true as const, data } }
@@ -83,15 +83,15 @@ const MSG = {
   duplicate: "There's already one with that name. Choose a different name.",
   missing: "Something that's needed is missing. Fill it in and try again.",
   inUse: "This is still used somewhere else in Pulse, so it can't be removed yet.",
-  busy: 'Pulse is busy for a moment. Please try again.',
-  readOnly: "Pulse can't save changes because its data file can't be written to. Close Pulse and open it again. If your data is on a USB drive, check that it's connected and not locked.",
-  unreachable: "Pulse can't reach its data folder. If it's on a USB drive or network folder, reconnect it and restart Pulse.",
+  busy: PASSING_ERRORS.busy,
+  readOnly: PASSING_ERRORS.readOnly,
+  unreachable: PASSING_ERRORS.unreachable,
   damaged: 'Your data file looks damaged. Restore your most recent backup (Settings → Backup).',
-  diskFull: 'The disk is full. Free up some space, then try again.',
+  diskFull: PASSING_ERRORS.diskFull,
   notFound: "Pulse couldn't find that file. It may have been moved, renamed or deleted.",
   noPermission: "Pulse isn't allowed to use that file or folder. Choose a different one.",
   readOnlyDrive: "That drive can't be written to. Choose a different folder.",
-  noMemory: 'Your computer ran out of memory. Close some other programs and try again.',
+  noMemory: PASSING_ERRORS.noMemory,
   backupDiskFull: "The backup couldn't be saved. The drive may be full or disconnected.",
 } as const
 
@@ -162,7 +162,7 @@ const CODE_PREFIX_MAP: Array<[string, string]> = [
   ['SQLITE_CORRUPT', MSG.damaged],
 ]
 
-const GENERIC = "Something went wrong and the change wasn't saved. Please try again."
+const GENERIC = PASSING_ERRORS.generic
 /** humanizeError's answer when it can't say anything more specific */
 export const GENERIC_ERROR_MESSAGE = GENERIC
 

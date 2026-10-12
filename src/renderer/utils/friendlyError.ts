@@ -11,9 +11,9 @@
  * src/main through this filter: each must either be on its list of plain
  * messages or be replaced here.
  */
-import { IPC_READ_ONLY } from '../../shared/constants'
+import { IPC_READ_ONLY, PASSING_ERRORS } from '../../shared/constants'
 
-export const DEFAULT_ERROR = "Something went wrong and the change wasn't saved. Please try again."
+export const DEFAULT_ERROR: string = PASSING_ERRORS.generic
 
 const TECHNICAL: RegExp[] = [
   /\binvalid\b/i,                              // "Invalid ID", "Entry rules invalid"

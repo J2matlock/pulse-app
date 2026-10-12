@@ -12,6 +12,23 @@ export const PRODUCT_NAME = 'Pulse by BaringaSoft'
  * plain message instead of a generic failure.
  */
 export const IPC_READ_ONLY = 'READ_ONLY'
+/**
+ * Plain-English failures that can clear up by themselves (a busy database, an
+ * unplugged drive, a full disk, an unexpected error worth retrying). Main sends
+ * them (ipc-utils humanizeError); the undo list reads them so a step that fails
+ * for one of these is never thrown away, however often it fails (R3-01, D-019).
+ */
+export const PASSING_ERRORS = {
+  busy: 'Pulse is busy for a moment. Please try again.',
+  readOnly: "Pulse can't save changes because its data file can't be written to. Close Pulse and open it again. If your data is on a USB drive, check that it's connected and not locked.",
+  unreachable: "Pulse can't reach its data folder. If it's on a USB drive or network folder, reconnect it and restart Pulse.",
+  diskFull: 'The disk is full. Free up some space, then try again.',
+  noMemory: 'Your computer ran out of memory. Close some other programs and try again.',
+  generic: "Something went wrong and the change wasn't saved. Please try again.",
+  /** The renderer's own wording for IPC_READ_ONLY */
+  cantSaveNow: "Pulse can't save changes right now.",
+} as const
+
 /** Public source code (Pulse is free software under the GNU GPL v3) */
 export const SOURCE_CODE_URL = 'https://github.com/J2matlock/pulse-app'
 
