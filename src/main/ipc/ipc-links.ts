@@ -2,9 +2,11 @@
  * ipc-links.ts — link types and record links (generalization W04 §6).
  */
 import { BrowserWindow } from 'electron'
+import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
 import { CARDINALITIES, type LinkChange, type LinkTypeInput } from '../../shared/links'
-import { secureWrap, ok, fail, enforceWritable, validId, notifyCaseLogChanged } from './ipc-utils'
+import { ok, fail, validId, notifyCaseLogChanged } from './ipc-utils'
+import { handlersFor, idArg, textArg } from './ipc-define'
 import { LinkError, listLinkTypes, saveLinkType, deleteLinkType, countLinks, getLinksForRow, addLink, removeLink, searchLinkTargets, linkValuesForGrid, createLinkedRecord, getLinkType, setupLink, linksThatWontFit, linkCountsForGrid } from '../links'
 import { invalidateGridStmtCache } from '../database'
 
@@ -35,60 +37,46 @@ function validInput(v: unknown): LinkTypeInput | null {
   }
 }
 
-export function registerLinkHandlers(): void {
-  secureWrap(IPC.LINK_TYPE_GET_ALL, 'ipc-links', (_e, gridId?: unknown) => {
-    if (gridId != null && !validId(gridId)) return fail('Invalid ID')
-    return ok(listLinkTypes(gridId == null ? undefined : gridId as number))
-  })
+const define = handlersFor('ipc-links')
 
-  secureWrap(IPC.LINK_TYPE_SAVE, 'ipc-links', (_e, input: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
+export function registerLinkHandlers(): void {
+  define(IPC.LINK_TYPE_GET_ALL, [idArg().nullish()], (gridId) => ok(listLinkTypes(gridId ?? undefined)))
+
+  define(IPC.LINK_TYPE_SAVE, [z.unknown()], (input) => {
     const v = validInput(input)
     if (!v) return fail('Invalid link settings')
     return action(() => saveLinkType(v))
-  })
+  }, { write: true })
 
-  secureWrap(IPC.LINK_SETUP, 'ipc-links', (_e, input: unknown, opts: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
+  define(IPC.LINK_SETUP, [z.unknown(), z.unknown()], (input, opts) => {
     const v = validInput(input)
     if (!v || v.id !== undefined) return fail('Invalid link settings')
     const o = (opts && typeof opts === 'object' ? opts : {}) as Record<string, unknown>
     const res = action(() => setupLink(v, { showOnOther: o.showOnOther === true, logChanges: o.logChanges !== false }))
     if (res.ok) invalidateGridStmtCache()
     return res
-  })
+  }, { write: true })
 
-  secureWrap(IPC.LINK_TYPE_COUNT, 'ipc-links', (_e, id: unknown) => {
-    if (!validId(id)) return fail('Invalid ID')
-    return ok(countLinks(id))
-  })
+  define(IPC.LINK_TYPE_COUNT, [idArg()], (id) => ok(countLinks(id)))
 
-  secureWrap(IPC.LINK_TYPE_DELETE, 'ipc-links', (_e, id: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.LINK_TYPE_DELETE, [idArg()], (id) => {
     const res = action(() => deleteLinkType(id))
     if (res.ok) invalidateGridStmtCache()
     return res
-  })
+  }, { write: true })
 
-  secureWrap(IPC.RECORD_LINKS_GET, 'ipc-links', (_e, rowId: unknown) => {
-    if (!validId(rowId)) return fail('Invalid ID')
-    return ok(getLinksForRow(rowId))
-  })
+  define(IPC.RECORD_LINKS_GET, [idArg()], (rowId) => ok(getLinksForRow(rowId)))
 
   for (const [channel, fn] of [[IPC.RECORD_LINK_ADD, addLink], [IPC.RECORD_LINK_REMOVE, removeLink]] as const) {
-    secureWrap(channel, 'ipc-links', (_e, typeId: unknown, fromRowId: unknown, toRowId: unknown) => {
-      const guard = enforceWritable(); if (guard) return guard
-      if (!validId(typeId) || !validId(fromRowId) || !validId(toRowId)) return fail('Invalid ID')
+    define(channel, [idArg(), idArg(), idArg()], (typeId, fromRowId, toRowId) => {
       const res = action(() => fn(typeId, fromRowId, toRowId))
       if (res.ok) announce(res.data)
       return res
-    })
+    }, { write: true })
   }
 
-  secureWrap(IPC.RECORD_LINK_CREATE, 'ipc-links', (_e, typeId: unknown, direction: unknown, rowId: unknown, name: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(typeId) || !validId(rowId)) return fail('Invalid ID')
+  // Both ids are checked before the direction (the second argument), so direction and name stay in the body
+  define(IPC.RECORD_LINK_CREATE, [idArg(), z.unknown(), idArg(), z.unknown()], (typeId, direction, rowId, name) => {
     if (direction !== 'forward' && direction !== 'backward') return fail('Invalid direction')
     if (typeof name !== 'string' || name.length > 500) return fail('Invalid name')
     const type = getLinkType(typeId)
@@ -96,27 +84,15 @@ export function registerLinkHandlers(): void {
     const res = action(() => createLinkedRecord(typeId, direction, rowId, name))
     if (res.ok) announce(res.data.change)
     return res
-  })
+  }, { write: true })
 
-  secureWrap(IPC.RECORD_LINKS_MOVE_CHECK, 'ipc-links', (_e, rowId: unknown, targetGridId: unknown) => {
-    if (!validId(rowId) || !validId(targetGridId)) return fail('Invalid ID')
-    return ok(linksThatWontFit(rowId, targetGridId))
-  })
+  define(IPC.RECORD_LINKS_MOVE_CHECK, [idArg(), idArg()], (rowId, targetGridId) => ok(linksThatWontFit(rowId, targetGridId)))
 
-  secureWrap(IPC.LINK_COUNTS_FOR_GRID, 'ipc-links', (_e, gridId: unknown) => {
-    if (!validId(gridId)) return fail('Invalid ID')
-    return ok(linkCountsForGrid(gridId))
-  })
+  define(IPC.LINK_COUNTS_FOR_GRID, [idArg()], (gridId) => ok(linkCountsForGrid(gridId)))
 
-  secureWrap(IPC.GRID_LINK_VALUES, 'ipc-links', (_e, gridId: unknown) => {
-    if (!validId(gridId)) return fail('Invalid ID')
-    return ok(linkValuesForGrid(gridId))
-  })
+  define(IPC.GRID_LINK_VALUES, [idArg()], (gridId) => ok(linkValuesForGrid(gridId)))
 
-  secureWrap(IPC.RECORD_LINK_SEARCH, 'ipc-links', (_e, typeId: unknown, direction: unknown, query: unknown) => {
-    if (!validId(typeId)) return fail('Invalid ID')
-    if (direction !== 'forward' && direction !== 'backward') return fail('Invalid direction')
-    if (typeof query !== 'string' || query.length > 200) return fail('Invalid search')
-    return action(() => searchLinkTargets(typeId, direction, query))
-  })
+  define(IPC.RECORD_LINK_SEARCH, [
+    idArg(), z.enum(['forward', 'backward'], 'Invalid direction'), textArg('Invalid search', { max: 200 }),
+  ], (typeId, direction, query) => action(() => searchLinkTargets(typeId, direction, query)))
 }
