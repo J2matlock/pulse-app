@@ -105,3 +105,58 @@ describe('SecuritySection — recovery key (F-032)', () => {
     expect(screen.queryByText(/will stop working/)).toBeNull()
   })
 })
+
+describe('SecuritySection — also re-encrypt my data (P-001)', () => {
+  beforeEach(() => {
+    mockInvoke.mockReset()
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'auth:change-password' || channel === 'auth:revoke-recovery-key') return Promise.resolve({ ok: true, data: true })
+      if (channel === 'auth:has-recovery-key') return Promise.resolve({ ok: true, data: true })
+      if (channel === 'app:show-save-dialog') return Promise.resolve({ ok: true, data: { canceled: false, filePath: '/backups/after.pulse-backup' } })
+      if (channel === 'backup:manual-create') return Promise.resolve({ ok: true, data: { destPath: '/backups/after.pulse-backup', sizeBytes: 1 } })
+      return Promise.resolve({ ok: false, error: 'nope' })
+    })
+  })
+
+  it('is off by default, and explains in plain words what old backups still open with', async () => {
+    render(<SecuritySection saveSetting={vi.fn().mockResolvedValue(undefined)} />)
+    fireEvent.click(screen.getByText('Change…'))
+    const box = screen.getByLabelText(/Also re-encrypt my data/) as HTMLInputElement
+    expect(box.type).toBe('checkbox')
+    expect(box.checked).toBe(false)
+    const help = document.getElementById(box.getAttribute('aria-describedby') ?? '')
+    expect(help?.textContent).toMatch(/Backups made before now still open with your old password or recovery key/)
+    expect(help?.textContent).toMatch(/save a new backup afterwards/)
+    // A 44px target: the label around the box is the click area
+    expect((box.closest('label') as HTMLElement).style.minHeight).toBe('44px')
+  })
+
+  it('sends { reencrypt: true } when ticked, then offers a new backup and a new recovery key', async () => {
+    render(<SecuritySection saveSetting={vi.fn().mockResolvedValue(undefined)} />)
+    await screen.findByText('Recovery key active')
+    fireEvent.click(screen.getByText('Change…'))
+    fillForm('old password here', 'a much stronger passphrase 42!')
+    fireEvent.click(screen.getByLabelText(/Also re-encrypt my data/))
+    fireEvent.click(screen.getByRole('button', { name: 'Save new password' }))
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('auth:change-password', 'old password here', 'a much stronger passphrase 42!', '', { reencrypt: true }))
+    expect(await screen.findByText('Your data has a new key. Save a new backup now.')).toBeTruthy()
+    expect(screen.getByText(/old recovery key no longer unlocks Pulse/)).toBeTruthy()
+    // The existing recovery-key flow opens, asking for the (new) password
+    expect(screen.getByLabelText('Enter your current password to continue')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Create recovery key' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save a new backup now' }))
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('backup:manual-create', '/backups/after.pulse-backup'))
+    await waitFor(() => expect(screen.queryByText('Your data has a new key. Save a new backup now.')).toBeNull())
+  })
+
+  it('revoking can re-encrypt too, and only sends the option when ticked', async () => {
+    render(<SecuritySection saveSetting={vi.fn().mockResolvedValue(undefined)} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Revoke' }))
+    fireEvent.click(screen.getByLabelText(/Also re-encrypt my data/))
+    fireEvent.change(screen.getByLabelText('Enter your current password to continue'), { target: { value: 'my password' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke recovery key' }))
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('auth:revoke-recovery-key', 'my password', { reencrypt: true }))
+    expect(await screen.findByText('Your data has a new key. Save a new backup now.')).toBeTruthy()
+  })
+})
