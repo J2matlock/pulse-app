@@ -52,6 +52,17 @@ describe('focusDeadlineItems', () => {
     expect(item!.label).toContain('IFSP (step 2 of 4)')
   })
 
+  it('marks a used-up quota as late, with its label, even before its date (A21a-06)', () => {
+    const [today] = focusDeadlineItems([row({ rule_kind: 'quota', daysUntil: 0, state: 'overdue', label: 'All 12 used' })])
+    expect(today!.urgency).toBe('overdue')
+    expect(today!.usedUpLabel).toBe('All 12 used')
+    expect(today!.label).toBe('Annual review')
+    const [later] = focusDeadlineItems([row({ rule_kind: 'quota', daysUntil: 40, state: 'overdue', label: 'All 12 used' })])
+    expect(later!.urgency).toBe('overdue')
+    // A plain deadline due today is still "today"
+    expect(focusDeadlineItems([row({ daysUntil: 0, state: 'due' })])[0]!.urgency).toBe('today')
+  })
+
   it('leaves out what is not due yet and has no color reached', () => {
     expect(focusDeadlineItems([row({ daysUntil: 40 })])).toEqual([])
   })

@@ -1,5 +1,5 @@
 import type { CaseloadTask, UrgentChecklistItem } from '../../../shared/types'
-import type { RuleKind, MeterInfo } from '../../../shared/deadlineEngine'
+import type { RuleKind, MeterInfo, DeadlineState } from '../../../shared/deadlineEngine'
 import type { RuleInterval } from '../../../shared/ruleInterval'
 
 export interface RawDeadlineRow {
@@ -23,6 +23,7 @@ export interface RawDeadlineRow {
   step?: number
   label?: string
   meter?: MeterInfo
+  state?: DeadlineState
 }
 
 export interface FocusItem {
@@ -47,6 +48,8 @@ export interface FocusItem {
   meter?: MeterInfo
   /** The engine's due date ('YYYY-MM-DD') */
   dueYmd: string | null
+  /** A used-up quota: shown as late, with this text ("All 12 used") instead of a day count */
+  usedUpLabel?: string
 }
 
 export interface FocusTask {

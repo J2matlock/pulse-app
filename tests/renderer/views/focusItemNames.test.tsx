@@ -29,3 +29,12 @@ describe('Focus mode names', () => {
     expect(screen.getAllByRole('button', { name: longName })).toHaveLength(2)
   })
 })
+
+describe('Focus mode used-up quota (A21a-06)', () => {
+  it('shows the quota label, not "Due today"', () => {
+    render(<ClientFocusItem item={{ clientName: 'Ada', label: 'Visits', urgency: 'overdue', daysUntil: 0, usedUpLabel: 'All 12 used' } as FocusItem}
+      celebrating={false} onComplete={vi.fn()} onNavigate={vi.fn()} />)
+    expect(screen.getByText('All 12 used')).toBeTruthy()
+    expect(screen.queryByText('Due today')).toBeNull()
+  })
+})
