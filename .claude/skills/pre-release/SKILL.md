@@ -13,12 +13,13 @@ Run every automated check yourself, then list the manual checks for the user. Re
 ```bash
 npm run typecheck 2>&1 | grep -c "error TS"     # must be 0
 npx eslint src --quiet 2>&1 | tail -5            # must be 0 errors
-npm test                                         # full suite; never vitest directly
+npm run gate                                     # typecheck + eslint --quiet + full suite (scripts/gate.sh)
+npm run test:tz                                  # full suite under UTC, Los Angeles, Auckland, Kolkata
 npm audit --omit=dev                             # only production deps ship
 git status --short                               # clean tree, nothing stray
 ```
 - **Version**: `package.json` version is bumped, and the git tag doesn't exist yet (`git tag -l v<ver>`).
-- **Schema**: the last entry in `migrations[]` in `src/main/database.ts` equals the number of the last file in `src/main/migrations/`. Each migration writes `schema_version`.
+- **Schema**: the last entry in `MIGRATIONS` in `src/main/migration-list.ts` equals the number of the last file in `src/main/migrations/`. Each migration writes `schema_version`.
 - **Tests track migrations**: `LATEST_SCHEMA_VERSION` in `tests/helpers.ts` matches.
 - **Credentials**: every stored credential is readable by the new build — no change to `normalizePassword` or to the wrapping format that lacks a fallback.
 - **No debug leftovers**: `grep -rn "console.log\|debugger" src/main src/renderer | grep -v test`.
