@@ -2,9 +2,11 @@
  * ipc-cell.ts — CELL_*, CELL_FORMAT_* IPC handlers
  */
 
+import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
 import { QUERY_LIMITS } from '../../shared/query-limits'
-import { secureWrap, ok, fail, validId, logNonFatal, notifyCaseLogChanged, enforceWritable } from './ipc-utils'
+import { ok, fail, validId, logNonFatal, notifyCaseLogChanged } from './ipc-utils'
+import { handlersFor, idArg, idListArg } from './ipc-define'
 import { getDb, upsertCell, cachedStmt, registerCloseHook } from '../database'
 import { storesNoCells } from '../../shared/types'
 import { toYmd, MIN_YEAR, MAX_YEAR } from '../../shared/ymd'
@@ -52,9 +54,10 @@ function getColMeta(columnId: number): ColMeta | undefined {
 // Clear the column metadata cache when the database closes (lock/quit/restore)
 registerCloseHook(() => _colMetaCache.clear())
 
+const define = handlersFor('ipc-cell')
+
 export function registerCellHandlers(): void {
-  secureWrap(IPC.CELL_GET_HISTORY, 'ipc-cell', (_e, rowId: number, columnId: number) => {
-    if (!validId(rowId) || !validId(columnId)) return fail('Invalid ID')
+  define(IPC.CELL_GET_HISTORY, [idArg(), idArg()], (rowId, columnId) => {
     const rows = cachedStmt('cell_history_get', `
       SELECT old_value, new_value, changed_at
       FROM cell_history
@@ -65,17 +68,12 @@ export function registerCellHandlers(): void {
     return ok(rows)
   })
 
-  secureWrap(IPC.CELL_HISTORY_SERIES, 'ipc-cell', (_e, rowId: unknown, columnIds: unknown) => {
-    if (!validId(rowId)) return fail('Invalid ID')
-    if (!Array.isArray(columnIds) || columnIds.length > 200 || !columnIds.every(validId)) return fail('Invalid columns')
-    return ok(numberSeries(rowId, columnIds as number[]))
-  })
+  define(IPC.CELL_HISTORY_SERIES, [idArg(), idListArg('Invalid columns', 'Invalid columns', { max: 200 })],
+    (rowId, columnIds) => ok(numberSeries(rowId, columnIds)))
 
-  secureWrap(IPC.CELL_HISTORY_COMPACT, 'ipc-cell', (_e, retentionMonths: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (typeof retentionMonths !== 'number' || retentionMonths < 1 || !Number.isInteger(retentionMonths)) {
-      return fail('retentionMonths must be an integer >= 1. To delete all history, use a dedicated purge operation.')
-    }
+  define(IPC.CELL_HISTORY_COMPACT, [
+    z.custom<number>(v => typeof v === 'number' && v >= 1 && Number.isInteger(v), 'retentionMonths must be an integer >= 1. To delete all history, use a dedicated purge operation.'),
+  ], (retentionMonths) => {
     // Pre-compute cutoff date in JS to avoid SQL string concatenation
     // Same day N months back, clamped to that month's length: setMonth on May 31
     // gave "Feb 31" = Mar 3 and deleted three extra days (Q-032)
@@ -88,17 +86,17 @@ export function registerCellHandlers(): void {
       'DELETE FROM cell_history WHERE changed_at < ?'
     ).run(cutoffIso)
     return ok(info.changes)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CELL_UPDATE, 'ipc-cell', (_e, rowId: number, columnId: number, value: string | null, opts?: { doneNote?: string; silent?: boolean }) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId) || !validId(columnId)) return fail('Invalid ID')
+  // opts is read field by field below, as before
+  define(IPC.CELL_UPDATE, [
+    idArg(), idArg(), z.string('Cell value must be a string under 100k characters').nullable(), z.custom<{ doneNote?: unknown; silent?: unknown } | null | undefined>(),
+  ], (rowId, columnId, value, opts) => {
     // Mark done: its note is written here, tagged, so the dashboard counts completions by tag, not note text (L-22)
     const doneNote = typeof opts?.doneNote === 'string' && opts.doneNote.trim() ? opts.doneNote.trim().slice(0, 500) : null
     // Undo and redo put a value back: the edit's own note is voided or restored with it, so
     // writing another "changed to" note would leave the case log with extras (F-028)
     const silent = opts?.silent === true
-    if (value !== null && typeof value !== 'string') return fail('Cell value must be a string under 100k characters')
     // Strip null bytes BEFORE length check so the limit reflects the actual stored value
     if (value !== null) value = value.replace(/\0/g, '')
     if (value !== null && value.length > 100_000) return fail('Cell value must be a string under 100k characters')
@@ -187,16 +185,14 @@ export function registerCellHandlers(): void {
     if (needsLogNotify) notifyCaseLogChanged(rowId)
 
     return ok({ sysLogId, previous })
-  })
+  }, { write: true })
 
   // CELL_BULK_UPDATE: removed — no multi-cell paste UI exists yet. Re-add when needed.
 
   // ── Cell Formats ──────────────────────────────────────────────────────────
-  secureWrap(IPC.CELL_FORMAT_SET, 'ipc-cell', (_e, rowId: number, columnId: number, rules: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId) || !validId(columnId)) return fail('Invalid ID')
-    if (typeof rules !== 'string') return fail('Invalid rules format')
-    if (rules.length > 50_000) return fail('Formatting rules too large')
+  define(IPC.CELL_FORMAT_SET, [
+    idArg(), idArg(), z.string('Invalid rules format').max(50_000, 'Formatting rules too large'),
+  ], (rowId, columnId, rules) => {
     try { JSON.parse(rules) } catch { return fail('Invalid rules JSON') }
     const db = getDb()
     if (!rules || rules === '[]') {
@@ -208,11 +204,12 @@ export function registerCellHandlers(): void {
       `).run(rowId, columnId, rules)
     }
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.CELL_FORMAT_BATCH_SET, 'ipc-cell', (_e, entries: Array<{ rowId: number; columnId: number; rules: string }>) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!Array.isArray(entries) || entries.length > 2_000) return fail('Invalid batch format payload')
+  // Each entry is checked in the body, in order, with its own messages
+  define(IPC.CELL_FORMAT_BATCH_SET, [
+    z.array(z.custom<{ rowId: number; columnId: number; rules: string }>(), 'Invalid batch format payload').max(2_000, 'Invalid batch format payload'),
+  ], (entries) => {
     for (const e of entries) {
       if (!validId(e.rowId) || !validId(e.columnId)) return fail('Invalid ID in batch entry')
       if (typeof e.rules !== 'string' || e.rules.length > 50_000) return fail('Entry rules invalid')
@@ -234,5 +231,5 @@ export function registerCellHandlers(): void {
       }
     })()
     return ok(true)
-  })
+  }, { write: true })
 }
