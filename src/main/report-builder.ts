@@ -16,6 +16,7 @@ import { fileCountColumnIds } from '../shared/attachments'
 import { stageColumnOf, columnOptionLabels } from '../shared/stages'
 import { labelFor } from '../shared/activityTypes'
 import { localDateString } from '../shared/dates'
+import { minutesBetween } from '../shared/appointments'
 import type { Column, GridRow } from '../shared/types'
 import {
   REPORT_LIMITS, bucketDate, isFilterActive, matchReportFilter, presetRange, reportConfigSchema, toNumber, valueKey, valueLabel,
@@ -268,8 +269,10 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
     if (appts.length > cap) { appts.pop(); truncated = `Only the latest ${cap.toLocaleString('en-US')} were counted.` }
     appts.reverse()
     items = appts.map(a => {
+      // Clock minutes between the two times, as the calendar shows them: elapsed time
+      // would be 60 off on a daylight-saving night (A21a-11)
       const minutes = !a.all_day && a.end_at && a.start_at.length >= 16 && a.end_at.length >= 16
-        ? Math.round((new Date(a.end_at).getTime() - new Date(a.start_at).getTime()) / 60000) : null
+        ? minutesBetween(a.start_at, a.end_at) : null
       return { rowId: a.row_id, own: {
         'appt:date': a.start_at.slice(0, 10), 'appt:title': a.title, 'appt:status': APPT_STATUS_LABELS[a.status] ?? a.status,
         'appt:type': a.activity_type_key ? labelFor(types, a.activity_type_key) : null, 'appt:minutes': minutes,

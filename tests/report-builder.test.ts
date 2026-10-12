@@ -178,6 +178,16 @@ describe('appointments and deadlines', () => {
     expect(r.rows).toEqual([{ g0: 'Scheduled', v0: 1, v1: null }, { g0: 'Done', v0: 2, v1: 120 }])
   })
 
+  it('counts an appointment\'s length in clock minutes, also on a daylight-saving night (A21a-11)', () => {
+    const ins = t.db.prepare('INSERT INTO appointments (row_id, title, start_at, end_at, status) VALUES (?, ?, ?, ?, ?)')
+    ins.run(rows[0], 'Night shift (US clocks go back)', '2026-11-01T00:30', '2026-11-01T02:30', 'done')
+    ins.run(rows[1], 'Night shift (US clocks go forward)', '2026-03-08T01:00', '2026-03-08T04:00', 'done')
+    const r = runReport(gridId, { source: 'appointments', groupBy: [{ field: 'appt:title' }], values: [{ fn: 'sum', field: 'appt:minutes' }] }, NOW)
+    expect(Object.fromEntries(r.rows.map(x => [x.g0, x.v0]))).toEqual({
+      'Night shift (US clocks go back)': 120, 'Night shift (US clocks go forward)': 180,
+    })
+  })
+
   it('reports deadlines through the deadline engine', () => {
     const rule = Number(t.db.prepare("INSERT INTO alert_rules (name, thresholds, interval_days) VALUES ('Yearly', '[]', 365)").run().lastInsertRowid)
     t.db.prepare('UPDATE columns SET config = ? WHERE id = ?').run(JSON.stringify({ alert_rule_id: rule }), dueCol)
