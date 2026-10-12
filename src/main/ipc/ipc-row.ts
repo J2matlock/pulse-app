@@ -572,6 +572,8 @@ export function registerRowHandlers(): void {
     if (!validId(gridId)) return fail('Invalid ID')
     if (!Array.isArray(orderedIds) || orderedIds.length > MAX_REORDER_ROWS) return fail('Invalid reorder payload')
     if (!orderedIds.every(id => Number.isInteger(id) && id > 0)) return fail('Invalid IDs in reorder payload')
+    // Nothing to move (an empty CASE is a SQL syntax error)
+    if (orderedIds.length === 0) return ok(true)
     const db = getDb()
     const cases = orderedIds.map((id, idx) => `WHEN ${Number(id)} THEN ${idx}`).join(' ')
     const idList = orderedIds.map(Number).join(',')

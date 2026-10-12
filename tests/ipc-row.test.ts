@@ -502,6 +502,12 @@ describe('IPC Row — ROW_REORDER', () => {
     expect(rows[2].id).toBe(reversed[2])
   })
 
+  it('an empty list of records is a no-op, not a SQL error (A22-13)', async () => {
+    const { gridId } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    const result = await invoke(IPC.ROW_REORDER, gridId, []) as { ok: boolean; data?: unknown }
+    expect(result).toEqual({ ok: true, data: true })
+  })
+
   it('rejects invalid grid ID', async () => {
     const result = await invoke(IPC.ROW_REORDER, -1, [1, 2, 3]) as any
     expect(result.ok).toBe(false)

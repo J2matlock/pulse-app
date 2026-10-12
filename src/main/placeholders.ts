@@ -138,7 +138,7 @@ export function resolvePlaceholders(content: string, rowId: number, gridId: numb
   // "(unnamed)" is the list's stand-in; a document leaves it blank
   const display = row?.display_name && row.display_name !== '(unnamed)' ? row.display_name : ''
   const name = display || (nameCol ? cells.get(nameCol.id) ?? '' : '')
-  const profile = Object.fromEntries((db.prepare("SELECT key, value FROM settings WHERE key LIKE 'profile_%'").all() as Array<{ key: string; value: string }>).map(r => [r.key, r.value]))
+  const profile = Object.fromEntries((db.prepare("SELECT key, value FROM settings WHERE substr(key, 1, 8) = 'profile_'").all() as Array<{ key: string; value: string }>).map(r => [r.key, r.value]))
 
   // The fixed placeholders, new names and old ones
   const fixed: Record<string, string> = {

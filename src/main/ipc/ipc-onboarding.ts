@@ -96,12 +96,16 @@ export function registerOnboardingHandlers(): void {
 
   secureWrap(IPC.ONBOARDING_COMPLETE, 'ipc-onboarding', () => {
     const guard = enforceWritable(); if (guard) return guard
-    getDb().prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('onboarding_complete', '1')").run()
-    getDb().prepare("DELETE FROM app_meta WHERE key = 'setup_progress'").run()
-    // New workspaces get the "Getting started" card on the dashboard (existing installs never set this)
-    getDb().prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('onboarding_completed_at', datetime('now'))").run()
-    // No daily briefing on the day someone finishes setup: they just saw everything
-    getDb().prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('briefing_last_shown', date('now', 'localtime'))").run()
+    const db = getDb()
+    // All or nothing, so setup is never marked done with its other steps missing
+    db.transaction(() => {
+      db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('onboarding_complete', '1')").run()
+      db.prepare("DELETE FROM app_meta WHERE key = 'setup_progress'").run()
+      // New workspaces get the "Getting started" card on the dashboard (existing installs never set this)
+      db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('onboarding_completed_at', datetime('now'))").run()
+      // No daily briefing on the day someone finishes setup: they just saw everything
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('briefing_last_shown', date('now', 'localtime'))").run()
+    })()
     return ok(true)
   })
 

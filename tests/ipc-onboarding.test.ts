@@ -134,6 +134,16 @@ describe('IPC Onboarding — ONBOARDING_COMPLETE', () => {
     expect(result.ok).toBe(true)
   })
 
+  it('writes all or nothing: a failing step leaves setup unfinished (A22-13)', async () => {
+    testDb.db.exec(`CREATE TRIGGER fail_briefing BEFORE INSERT ON settings WHEN NEW.key = 'briefing_last_shown'
+      BEGIN SELECT RAISE(ABORT, 'disk full'); END`)
+    const result = await invoke(IPC.ONBOARDING_COMPLETE) as { ok: boolean }
+    expect(result.ok).toBe(false)
+    expect(testDb.db.prepare("SELECT value FROM app_meta WHERE key = 'onboarding_complete'").get()).toBeUndefined()
+    expect(testDb.db.prepare("SELECT 1 FROM settings WHERE key = 'onboarding_completed_at'").get()).toBeUndefined()
+    testDb.db.exec('DROP TRIGGER fail_briefing')
+  })
+
   it('leaves the words to the path chosen in setup', async () => {
     await invoke(IPC.ONBOARDING_COMPLETE)
     expect(testDb.db.prepare("SELECT 1 FROM settings WHERE key = 'workspace_vocab'").get()).toBeUndefined()
