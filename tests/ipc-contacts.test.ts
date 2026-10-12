@@ -712,4 +712,20 @@ describe('CONTACTS_EXPORT_VCF', () => {
     const r = await invoke(IPC.CONTACTS_EXPORT_VCF, [-1, 0]) as any
     expect(r.ok).toBe(false)
   })
+
+  it('suggests a file name in the workspace\'s words (R2-02)', async () => {
+    const electron = await import('electron')
+    const { localDateString } = await import('../src/shared/dates')
+    const named = async (ids: number[] | null) => {
+      const spy = vi.spyOn(electron.dialog, 'showSaveDialog').mockResolvedValueOnce({ canceled: true, filePath: '' })
+      await invoke(IPC.CONTACTS_EXPORT_VCF, ids)
+      const opts = spy.mock.calls.at(-1)!.at(-1) as { defaultPath?: string }
+      spy.mockRestore()
+      return opts.defaultPath?.split(/[\\/]/).pop()
+    }
+    await createProvider('Dr. Jones')
+    expect(await named(null)).toBe(`pulse-providers-${localDateString()}.vcf`)
+    const blank = testDb.db.prepare("INSERT INTO providers (name, created_at, updated_at) VALUES ('***', datetime('now'), datetime('now'))").run().lastInsertRowid as number
+    expect(await named([blank])).toBe('provider.vcf')
+  })
 })

@@ -20,7 +20,7 @@ import {
 import { PROVIDER_CONTACT_TYPES } from '../../shared/types'
 import type { ContactFilterParams, Provider } from '../../shared/types'
 import { localDateString } from '../../shared/dates'
-import { safeFileName } from '../../shared/fileName'
+import { fileWord, safeFileName } from '../../shared/fileName'
 import { normalizeHexColor } from '../../shared/color'
 import { word } from '../vocab'
 import { atomicWriteFileAsync } from '../export-shared'
@@ -315,8 +315,8 @@ export function registerContactHandlers(): void {
     const filePath = await pickSavePath({
       title: `Export ${word('contact', { many: true, cap: true })}`,
       defaultPath: providerIds && providerIds.length === 1 && providers[0]
-        ? `${safeFileName(providers[0].name)}.vcf`
-        : `pulse-contacts-${localDateString()}.vcf`,
+        ? `${safeFileName(providers[0].name, fileWord(word('contact'), 'contact'))}.vcf`
+        : `pulse-${fileWord(word('contact', { many: true }), 'contacts')}-${localDateString()}.vcf`,
       filters: [{ name: 'vCard', extensions: ['vcf'] }]
     })
     if (!filePath) return ok(null)
