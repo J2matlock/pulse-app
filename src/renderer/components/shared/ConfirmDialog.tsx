@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useId } from 'react'
 import { motion } from 'motion/react'
 import { AlertTriangle, X } from 'lucide-react'
 import { backdropVariants, modalPanelVariants } from '../../utils/animations'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 
 interface BaseProps {
   open: boolean
@@ -36,28 +37,24 @@ export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | n
   const [typed, setTyped] = useState('')
   const primaryRef = useRef<HTMLButtonElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const previousFocusRef = useRef<Element | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const messageId = useId()
 
+  // The shared trap: it goes on the stack of open dialogs, so a dialog underneath stops taking Tab
+  // and Escape, and it gives focus back when this closes, also when it's unmounted while open (Q-050)
+  useFocusTrap(panelRef, open, { onEscape: onCancel })
+
   useEffect(() => {
-    if (open) {
-      previousFocusRef.current = document.activeElement
-      setTyped('')
-      // Focus the typed input if present, otherwise the confirm button
-      setTimeout(() => {
-        if (props.variant === 'typed') inputRef.current?.focus()
-        else primaryRef.current?.focus()
-      }, 50)
-    } else {
-      // Restore focus on close
-      if (previousFocusRef.current instanceof HTMLElement) {
-        previousFocusRef.current.focus()
-        previousFocusRef.current = null
-      }
-    }
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps -- focus management: save/restore focus on open/close; no other deps needed
+    if (!open) return
+    setTyped('')
+    // Focus the typed input if present, otherwise the confirm button (D-020); after the trap's own first focus
+    const timer = setTimeout(() => {
+      if (props.variant === 'typed') inputRef.current?.focus()
+      else primaryRef.current?.focus()
+    }, 50)
+    return () => clearTimeout(timer)
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps -- runs when the dialog opens; the variant doesn't change while it's open
 
   const canConfirm = props.variant === 'typed' ? typed === props.requiredPhrase : true
 
@@ -78,22 +75,6 @@ export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | n
       e.preventDefault()
       onConfirm()
     }
-    // Focus trap: Tab/Shift+Tab stays within dialog
-    if (e.key === 'Tab' && panelRef.current) {
-      const focusable = panelRef.current.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
-      )
-      if (focusable.length === 0) return
-      const first = focusable[0]!
-      const last = focusable[focusable.length - 1]!
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault()
-        last.focus()
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault()
-        first.focus()
-      }
-    }
   }
 
   return (
@@ -107,6 +88,8 @@ export function ConfirmDialog(props: ConfirmDialogProps): React.ReactElement | n
           aria-labelledby={titleId}
           aria-describedby={message ? messageId : undefined}
           onKeyDown={handleKeyDown}
+          // Opened inside another dialog, a click here must not reach that dialog's backdrop and close it (Q-051)
+          onClick={e => e.stopPropagation()}
         >
           {/* Backdrop */}
           <motion.div

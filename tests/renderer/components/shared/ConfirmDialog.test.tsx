@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import React, { useRef, useState } from 'react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { ConfirmDialog } from '../../../../src/renderer/components/shared/ConfirmDialog'
+import { useFocusTrap } from '../../../../src/renderer/hooks/useFocusTrap'
 
 // Mock motion/react to render plain divs (avoids animation issues in tests)
 vi.mock('motion/react', () => ({
@@ -153,6 +155,79 @@ describe('ConfirmDialog', () => {
       fireEvent.change(input, { target: { value: 'DEL' } })
       const confirmBtn = screen.getByText('Confirm')
       expect(confirmBtn.hasAttribute('disabled')).toBe(true)
+    })
+  })
+
+  describe('over another dialog, and focus return (Q-050, Q-051)', () => {
+    // The confirm opens after the dialog behind it, as in the app (Delete → "Sure?")
+    function Parent({ onClose }: { onClose: () => void }) {
+      const ref = useRef<HTMLDivElement>(null)
+      const [asking, setAsking] = useState(false)
+      useFocusTrap(ref, true, { onEscape: onClose })
+      return (
+        <div onClick={onClose} data-testid="parent-backdrop">
+          <div ref={ref} role="dialog" aria-label="Parent" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setAsking(true)}>Delete</button>
+            <button>Parent last</button>
+          </div>
+          <ConfirmDialog {...baseProps} open={asking} title="Sure?" />
+        </div>
+      )
+    }
+    const openConfirm = async () => {
+      fireEvent.click(screen.getByText('Delete'))
+      await act(async () => { await new Promise(r => setTimeout(r, 60)) })
+    }
+
+    it('Tab stays in the confirm while the dialog behind it has its own trap', async () => {
+      render(<Parent onClose={vi.fn()} />)
+      await openConfirm()
+      const confirm = screen.getByRole('alertdialog')
+      const buttons = confirm.querySelectorAll('button')
+      const last = buttons[buttons.length - 1] as HTMLElement
+      last.focus()
+      fireEvent.keyDown(last, { key: 'Tab' })
+      expect(confirm.contains(document.activeElement)).toBe(true)
+      expect(document.activeElement).toBe(buttons[0])
+    })
+
+    it('Escape cancels only the confirm, not the dialog behind it', async () => {
+      const onClose = vi.fn()
+      render(<Parent onClose={onClose} />)
+      await openConfirm()
+      ;(document.activeElement as HTMLElement).blur()
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(baseProps.onCancel).toHaveBeenCalledTimes(1)
+      expect(onClose).not.toHaveBeenCalled()
+    })
+
+    it('a click inside the confirm does not reach the dialog behind it', async () => {
+      const onClose = vi.fn()
+      render(<Parent onClose={onClose} />)
+      await openConfirm()
+      fireEvent.click(screen.getByText('Cancel'))
+      expect(baseProps.onCancel).toHaveBeenCalledTimes(1)
+      expect(onClose).not.toHaveBeenCalled()
+    })
+
+    it('gives focus back to the button that opened it when it is unmounted while open', async () => {
+      function Host() {
+        const [show, setShow] = useState(false)
+        return (
+          <>
+            <button onClick={() => setShow(true)}>Open it</button>
+            {show && <ConfirmDialog {...baseProps} open onCancel={() => setShow(false)} />}
+          </>
+        )
+      }
+      render(<Host />)
+      const trigger = screen.getByText('Open it')
+      trigger.focus()
+      fireEvent.click(trigger)
+      await act(async () => { await new Promise(r => setTimeout(r, 60)) })
+      expect(document.activeElement?.textContent).toBe('Confirm')
+      fireEvent.click(screen.getByText('Cancel'))
+      expect(document.activeElement).toBe(trigger)
     })
   })
 })

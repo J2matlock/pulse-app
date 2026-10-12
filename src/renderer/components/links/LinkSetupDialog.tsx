@@ -103,7 +103,7 @@ export function LinkSetupDialog(props: Props): React.ReactElement {
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={props.onClose}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={e => { if (e.target === e.currentTarget) props.onClose() }}>
       <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="link-setup-title" onClick={e => e.stopPropagation()}
         className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
         <div className="flex items-center justify-between">
