@@ -59,9 +59,11 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   const { columns: allColumns, rows } = loadGridData(gridId, { includeHidden: true })
   const selectedColumns = pickColumns(allColumns, columnIds)
   showDeadlinesAsText(gridId, selectedColumns, rows)
+  // Read the date format once, not once per cell
+  const rosterDateFormat = savedDateFormat()
   const rosterText = (format: 'csv' | 'pdf') => rows.map(r => selectedColumns.map(col => {
     const value = (r[`col_${col.id}` as const] as string | null | undefined) ?? null
-    return format === 'csv' ? formatCellValue(value, col.column_type) : cellDisplayText(value, col.column_type)
+    return format === 'csv' ? formatCellValue(value, col.column_type, rosterDateFormat) : cellDisplayText(value, col.column_type, rosterDateFormat)
   }))
 
   // Compute stats

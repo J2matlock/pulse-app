@@ -23,6 +23,7 @@ import {
   getClientName,
   batchGetClientNames,
   lineHeight,
+  savedDateFormat,
 } from './export-shared'
 import type { PdfProfileOptions, PdfGridOptions } from './export-shared'
 import { parseDbTimestamp, shortDate } from '../shared/dates'
@@ -98,8 +99,10 @@ export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
   doc.setTextColor(0)
 
   const head = [selectedColumns.map(c => c.name)]
+  // Read the date format once, not once per cell
+  const dateFormat = savedDateFormat()
   const body = filteredRows.map(row =>
-    selectedColumns.map(col => cellDisplayText(row[`col_${col.id}`] as string | null, col.column_type))
+    selectedColumns.map(col => cellDisplayText(row[`col_${col.id}`] as string | null, col.column_type, dateFormat))
   )
 
   // Compute column widths: Name gets more space
