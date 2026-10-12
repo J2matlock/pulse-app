@@ -17,6 +17,7 @@ import { invalidateColumnCache } from './ipc-cell'
 import { afterColumnRenamed, hasDisplayFormat, isLastNameColumnName, refreshDisplayNames } from '../display-names'
 import { numberExistingRows } from '../auto-number'
 import { keepSamplesUntouched } from '../sample-marks'
+import { word } from '../vocab'
 import { DEFAULT_AUTO_NUMBER } from '../../shared/autoNumber'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
@@ -85,7 +86,7 @@ export function registerGridHandlers(): void {
   secureWrap(IPC.GRID_GET, 'ipc-grid', (_e, gridId: number, showArchived = false) => {
     if (!validId(gridId)) return fail('Invalid ID')
     const grid = cachedStmt('grid_by_id', 'SELECT * FROM grids WHERE id = ?').get(gridId) as Grid | undefined
-    if (!grid) return fail('That list no longer exists. It may have been deleted.')
+    if (!grid) return fail(`That ${word('list')} no longer exists. It may have been deleted.`)
 
     const { columns, hiddenColumns, rows, acuityLevels } = resolveGridColumns(gridId, showArchived)
 
@@ -96,7 +97,7 @@ export function registerGridHandlers(): void {
     if (!validId(gridId)) return fail('Invalid ID')
     const db = getDb()
     const grid = cachedStmt('grid_by_id', 'SELECT * FROM grids WHERE id = ?').get(gridId) as import('../../shared/types').Grid | undefined
-    if (!grid) return fail('That list no longer exists. It may have been deleted.')
+    if (!grid) return fail(`That ${word('list')} no longer exists. It may have been deleted.`)
 
     const { columns, hiddenColumns, rows, acuityLevels } = resolveGridColumns(gridId, showArchived)
 
@@ -207,7 +208,7 @@ export function registerGridHandlers(): void {
     if (!validId(gridId)) return fail('Invalid ID')
     if (typeof name !== 'string' || name.trim().length === 0 || name.length > 200) return fail('Invalid column name')
     if (!VALID_COLUMN_TYPES.has(columnType as never)) return fail(`Invalid column type: ${columnType}`)
-    if (columnType === 'link') return fail('Use "Link to another list" to add a link column.')
+    if (columnType === 'link') return fail(`Use "Link to another ${word('list', {}, gridId)}" to add a link column.`)
     const db = getDb()
     const createColumn = db.transaction(() => {
       const maxPos = (db.prepare('SELECT MAX(position) as p FROM columns WHERE grid_id = ?').get(gridId) as { p: number | null }).p ?? -1
@@ -380,7 +381,7 @@ export function registerGridHandlers(): void {
   secureWrap(IPC.GRID_PURGE, 'ipc-grid', (_e, gridId: number) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(gridId)) return fail('Invalid ID')
-    if (!purgeList(gridId)) return fail("That list isn't in the Trash.")
+    if (!purgeList(gridId)) return fail(`That ${word('list')} isn't in the Trash.`)
     invalidateGridStmtCache()
     return ok(true as const)
   })

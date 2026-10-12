@@ -9,7 +9,7 @@ import { vocabSchema } from '../../shared/vocab'
 import { featureMapSchema } from '../../shared/features'
 import { secureWrap, ok, fail, enforceWritable, validId } from './ipc-utils'
 import { getDb } from '../database'
-import { getWorkspaceState, workspaceFeatures } from '../vocab'
+import { getWorkspaceState, word, workspaceFeatures } from '../vocab'
 import { refreshDisplayNames } from '../display-names'
 import { DISPLAY_FORMAT_MAX, normalizeDisplayFormat } from '../../shared/displayFormat'
 import { MAX_HOLIDAYS } from '../../shared/businessDays'
@@ -42,9 +42,9 @@ export function registerWorkspaceHandlers(): void {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(gridId)) return fail('Invalid ID')
     const parsed = gridSettingsSchema.safeParse(patch)
-    if (!parsed.success) return fail("Those list settings couldn't be saved.")
+    if (!parsed.success) return fail(`Those ${word('list', {}, gridId)} settings couldn't be saved.`)
     const db = getDb()
-    if (!db.prepare('SELECT 1 FROM grids WHERE id = ?').get(gridId)) return fail("That list doesn't exist any more.")
+    if (!db.prepare('SELECT 1 FROM grids WHERE id = ?').get(gridId)) return fail(`That ${word('list')} doesn't exist any more.`)
     const { name, record_kind, vocab, display_format, acuity_enabled } = parsed.data
     db.transaction(() => {
       if (name !== undefined) db.prepare("UPDATE grids SET name = ?, updated_at = datetime('now') WHERE id = ?").run(name, gridId)

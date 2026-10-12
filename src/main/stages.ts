@@ -60,7 +60,7 @@ export function saveStageConfig(columnId: number, input: unknown): number[] {
         throw new StageError(`The checklist for "${o.value}" no longer exists.`)
       }
       if (e.stampColumnId !== undefined && !db.prepare("SELECT 1 FROM columns WHERE id = ? AND grid_id = ? AND column_type IN ('date', 'deadline')").get(e.stampColumnId, col.grid_id)) {
-        throw new StageError(`The date to fill in for "${o.value}" must be a date column of this list.`)
+        throw new StageError(`The date to fill in for "${o.value}" must be a date column of this ${word('list', {}, col.grid_id)}.`)
       }
       if (e.activityTypeKey !== undefined && !db.prepare('SELECT 1 FROM activity_types WHERE key = ?').get(e.activityTypeKey)) {
         throw new StageError(`The kind of ${word('activity', {}, col.grid_id)} for "${o.value}" no longer exists.`)

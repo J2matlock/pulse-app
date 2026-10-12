@@ -7,6 +7,7 @@
 import { getDb } from './database'
 import { jsPDF } from './export-shared'
 import { getForm } from './forms'
+import { word } from './vocab'
 import { formatDue } from '../shared/deadlineEngine'
 import { tagText } from '../shared/tagValue'
 
@@ -30,7 +31,7 @@ export function buildFormPdf(formId: number, rowId: number | null): { pdf: Insta
   const cols = new Map((db.prepare('SELECT id, name, column_type, config FROM columns WHERE grid_id = ?').all(form.grid_id) as Col[]).map(c => [c.id, c]))
   let value: (c: Col) => string = () => ''
   if (rowId !== null) {
-    if (!db.prepare('SELECT 1 FROM rows WHERE id = ? AND grid_id = ? AND deleted_at IS NULL').get(rowId, form.grid_id)) throw new FormPrintError('That record is no longer available.')
+    if (!db.prepare('SELECT 1 FROM rows WHERE id = ? AND grid_id = ? AND deleted_at IS NULL').get(rowId, form.grid_id)) throw new FormPrintError(`That ${word('record', {}, form.grid_id)} is no longer available.`)
     const cells = new Map((db.prepare('SELECT column_id, value FROM cells WHERE row_id = ?').all(rowId) as Array<{ column_id: number; value: string | null }>).map(c => [c.column_id, c.value ?? '']))
     const links = (c: Col) => {
       try {

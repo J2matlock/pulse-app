@@ -73,12 +73,12 @@ function suggestedFor(gridId: number, isMain: boolean): Array<{ name: string; co
 }
 
 /** A starter's own report settings name columns ("col:Estimate sent on"); swap in the list's column ids */
-function resolveColumns(config: unknown, cols: Col[]): unknown {
+function resolveColumns(config: unknown, cols: Col[], gridId: number): unknown {
   const byName = new Map(cols.map(c => [c.name.toLowerCase(), c.id]))
   const walk = (v: unknown): unknown => {
     if (typeof v === 'string' && v.startsWith('col:') && !/^col:\d+$/.test(v)) {
       const id = byName.get(v.slice(4).toLowerCase())
-      if (id === undefined) throw new ReportError(`It names a column "${v.slice(4)}" that isn't in the list.`)
+      if (id === undefined) throw new ReportError(`It names a column "${v.slice(4)}" that isn't in the ${word('list', {}, gridId)}.`)
       return `col:${id}`
     }
     if (Array.isArray(v)) return v.map(walk)
@@ -111,7 +111,7 @@ export function addStarterReports(s: Starter, gridIds: Record<string, number>, o
     const gridId = gridIds[r.list]
     if (!gridId) continue // that list wasn't added
     try {
-      const config = resolveColumns(r.config, columnsOf(gridId)) as Record<string, unknown>
+      const config = resolveColumns(r.config, columnsOf(gridId), gridId) as Record<string, unknown>
       save(gridId, r.name, { ...config, ...(r.description ? { about: r.description } : {}) })
     } catch (err) {
       warnings.push(`The report "${r.name}" wasn't added. ${err instanceof ReportError ? err.message : 'Its settings aren’t valid.'}`)

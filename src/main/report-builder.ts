@@ -139,7 +139,7 @@ export function validateReportConfig(gridId: number, input: unknown): { config: 
   const byId = new Map(fields.map(f => [f.id, f]))
   const need = (id: string | undefined, what: string) => {
     if (id === undefined) return
-    if (!byId.has(id)) throw new ReportError(`The ${what} in this report is no longer on the list. Choose another.`)
+    if (!byId.has(id)) throw new ReportError(`The ${what} in this report is no longer on the ${word('list', {}, gridId)}. Choose another.`)
   }
   config.filters.forEach(f => need(f.field, 'filter field'))
   config.groupBy.forEach(g => need(g.field, 'grouping'))
@@ -175,7 +175,7 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
   const started = Date.now()
   const tick = () => { if (Date.now() - started > REPORT_LIMITS.timeoutMs) throw new ReportError('This report is taking too long. Add a filter or a shorter date range.') }
   const db = getDb()
-  if (!db.prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 1').get(gridId)) throw new ReportError('That list is no longer available.')
+  if (!db.prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 1').get(gridId)) throw new ReportError(`That ${word('list')} is no longer available.`)
   const { config, fields } = validateReportConfig(gridId, input)
   const byId = new Map(fields.map(f => [f.id, f]))
   const today = localDateString(now)
@@ -432,7 +432,7 @@ export function saveReport(input: { id?: number; name: unknown; gridId: number; 
   if (!name) throw new ReportError('Give the report a name.')
   if (name.length > 100) throw new ReportError('Keep the name under 100 characters.')
   const db = getDb()
-  if (!db.prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 1').get(input.gridId)) throw new ReportError('That list is no longer available.')
+  if (!db.prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 1').get(input.gridId)) throw new ReportError(`That ${word('list')} is no longer available.`)
   const { config } = validateReportConfig(input.gridId, input.config)
   const json = JSON.stringify(config)
   if (input.id !== undefined) {

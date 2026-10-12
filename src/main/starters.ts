@@ -151,8 +151,8 @@ export function exportWorkspaceStarter(): Starter {
   const grids = (db.prepare('SELECT id, name, description, record_kind, vocab, display_format FROM grids WHERE is_active = 1 ORDER BY position, id').all() as
     Array<{ id: number; name: string; description: string | null; record_kind: string | null; vocab: string | null; display_format: string | null }>)
     .filter(g => g.id !== sampleGridId)
-  if (grids.length === 0) throw new StarterError(`There's nothing to share yet: add a list first.`)
-  if (grids.length > 50) throw new StarterError('Sharing works for up to 50 lists.')
+  if (grids.length === 0) throw new StarterError(`There's nothing to share yet: add ${word('list', { article: true })} first.`)
+  if (grids.length > 50) throw new StarterError(`Sharing works for up to 50 ${word('list', { many: true })}.`)
 
   const usedKeys = new Set<string>()
   const referenced = new Set<string>()
@@ -357,7 +357,7 @@ function linkConfig(db: Db, config: string | undefined, rules: Map<string, { id:
 export function applyStarter(src: StarterSource, opts: ApplyOptions): ApplyResult {
   const s = loadStarter(src)
   const chosen = starterLists(s, opts.variant).filter(l => opts.lists.includes(l.key))
-  if (chosen.length === 0) throw new StarterError('Pick at least one list to add.')
+  if (chosen.length === 0) throw new StarterError(`Pick at least one ${word('list')} to add.`)
   const db = getDb()
   const result: ApplyResult = { gridIds: {}, renamed: {}, warnings: [], workspaceChanged: false }
 
@@ -640,7 +640,7 @@ export function applyDateRules(gridId: number, answers: import('../shared/ipc-co
     let linked = 0
     for (const a of answers) {
       const row = col.get(a.columnId, gridId) as { id: number; config: string | null } | undefined
-      if (!row) throw new StarterError("One of those dates isn't in this list.")
+      if (!row) throw new StarterError(`One of those dates isn't in this ${word('list', {}, gridId)}.`)
       const rule = ensureRule(db, a.repeat === 'due' ? STANDARD_RULES.due : ruleForInterval(a.n, a.unit), {})
       let cfg: Record<string, unknown> = {}
       try { cfg = JSON.parse(row.config || '{}') as Record<string, unknown> } catch { cfg = {} }

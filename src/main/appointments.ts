@@ -171,7 +171,7 @@ export function removedAppointments(today = localDateString()): RemovedAppointme
 
 function checkRecord(rowId: number | null | undefined): number | null {
   if (rowId == null) return null
-  if (!getDb().prepare('SELECT 1 FROM rows WHERE id = ? AND deleted_at IS NULL').get(rowId)) throw new ApptError('That record is no longer available.')
+  if (!getDb().prepare('SELECT 1 FROM rows WHERE id = ? AND deleted_at IS NULL').get(rowId)) throw new ApptError(`That ${word('record')} is no longer available.`)
   return rowId
 }
 
@@ -268,7 +268,7 @@ export function createAppointment(input: ApptInput, rule?: SeriesRule | null): A
       return { snapshot, ids: [id] }
     }
     const r = parsed(seriesRuleSchema.safeParse(rule))
-    if (r.untilColumnId && rowId === null) throw new ApptError('Choose the record whose date ends the series.')
+    if (r.untilColumnId && rowId === null) throw new ApptError(`Choose the ${word('record')} whose date ends the series.`)
     const template = templateOf({ ...v, row_id: rowId, end_at: v.end_at ?? null })
     const through = addMonths(localDateString(), MATERIALIZE_MONTHS)
     const seriesId = Number(db.prepare('INSERT INTO appointment_series (rule, template, materialized_until) VALUES (?, ?, ?)')
@@ -353,7 +353,7 @@ export function updateAppointment(id: number, patch: ApptPatch, scope: EditScope
     const v = merged(a, patch)
     const rowId = checkRecord(v.row_id)
     if (ruleChange && a.series_id === null) throw new ApptError('Only a repeating appointment has a pattern to change.')
-    if (ruleChange?.untilColumnId && rowId === null) throw new ApptError('Choose the record whose date ends the series.')
+    if (ruleChange?.untilColumnId && rowId === null) throw new ApptError(`Choose the ${word('record')} whose date ends the series.`)
     if (a.series_id === null || scope === 'one') {
       const snapshot = tracker([], [id])
       db.prepare(`UPDATE appointments SET row_id = ?, title = ?, start_at = ?, end_at = ?, all_day = ?, location = ?, activity_type_key = ?, notes = ?,
@@ -506,14 +506,14 @@ export function setAppointmentStatus(id: number, status: ApptStatus, opts: Statu
       change.revertedDates = revertNoteDates(a.case_log_id)
     }
     let noteId: number | null = null
-    if (a.row_id !== null && !db.prepare('SELECT 1 FROM rows WHERE id = ? AND deleted_at IS NULL').get(a.row_id)) throw new ApptError('That record is no longer available.')
+    if (a.row_id !== null && !db.prepare('SELECT 1 FROM rows WHERE id = ? AND deleted_at IS NULL').get(a.row_id)) throw new ApptError(`That ${word('record')} is no longer available.`)
     if (a.row_id !== null && status !== 'scheduled') {
       const userTypes = userTypeKeys(false)
       const type = status === 'done' ? noteTypeFor(a) : userTypes.has(status) ? status : null
       if (type) {
         const content = opts.noteContent?.trim()
           || (status === 'done' ? `${word('appointment', { cap: true })}: ${a.title}` : status === 'no_show' ? `No-show: ${a.title}` : `Cancelled: ${a.title}`)
-        if (content.length > 100_000) throw new ApptError('That note is too long.')
+        if (content.length > 100_000) throw new ApptError(`That ${word('activity')} is too long.`)
         let minutes = opts.minutes ?? null
         if (minutes === null && status === 'done' && featureOn('timeTracking') && a.end_at && !a.all_day) minutes = Math.max(0, Math.min(1440, minutesBetween(a.start_at, a.end_at)))
         if (minutes !== null && (!Number.isInteger(minutes) || minutes < 0 || minutes > 1440)) throw new ApptError('Minutes must be a whole number up to 1,440.')
