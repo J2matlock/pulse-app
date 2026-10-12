@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Plus, Pencil, Trash2, X, Zap } from 'lucide-react'
 import { IPC } from '../../shared/ipc-channels'
 import { expandVariables } from '../utils/snippetExpander'
+import { useSettingsStore } from '../stores/settingsStore'
 import type { Snippet } from '../../shared/types'
 import { safeInvoke } from '../utils/safeInvoke'
 import { useFocusTrap } from '../hooks/useFocusTrap'
@@ -37,6 +38,8 @@ interface EditorProps {
 
 function SnippetEditor({ initial, onSave, onClose, takenTriggers }: EditorProps) {
   const { t, f } = useVocab(null)
+  // {today} and {now} follow Settings → Date format and Clock (A21a-09)
+  const snippetFormats = { dateFormat: useSettingsStore(s => s.dateFormat), clockFormat: useSettingsStore(s => s.clockFormat) }
   const [trigger, setTrigger] = useState(initial?.trigger_text ?? '')
   const [expansion, setExpansion] = useState(initial?.expansion ?? '')
   const [category] = useState(initial?.category ?? '')
@@ -82,7 +85,7 @@ function SnippetEditor({ initial, onSave, onClose, takenTriggers }: EditorProps)
     }
   }
 
-  const preview = expandVariables(expansion, 'Maria Rodriguez')
+  const preview = expandVariables(expansion, 'Maria Rodriguez', snippetFormats)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"

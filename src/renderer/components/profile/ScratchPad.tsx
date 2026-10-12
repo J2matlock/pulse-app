@@ -7,6 +7,7 @@ import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, StickyNote
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { expandVariables, detectTrigger, matchSnippets } from '../../utils/snippetExpander'
+import { useSettingsStore } from '../../stores/settingsStore'
 import type { IPCResult, Snippet } from '../../../shared/types'
 import { pulseEvents } from '../../events'
 import { rlog } from '../../utils/rendererLogger'
@@ -62,6 +63,8 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
   const snippetMenuRef = useRef(snippetMenu)
   const selectedIndexRef = useRef(selectedIndex)
   const clientNameRef = useRef(clientName)
+  // {today} and {now} follow Settings → Date format and Clock (A21a-09)
+  const snippetFormats = { dateFormat: useSettingsStore(s => s.dateFormat), clockFormat: useSettingsStore(s => s.clockFormat) }
   const rowIdRef = useRef(rowId)
   const globalScopeRef = useRef(globalScope)
   useEffect(() => { snippetMenuRef.current = snippetMenu }, [snippetMenu])
@@ -226,7 +229,7 @@ export function ScratchPad({ rowId, clientName, globalScope, snippets: externalS
     const textBefore = state.doc.textBetween(Math.max(0, from - 50), from, '\n', '\0')
     const match = detectTrigger(textBefore)
     if (!match) return
-    const expanded = expandVariables(snippet.expansion, clientNameRef.current)
+    const expanded = expandVariables(snippet.expansion, clientNameRef.current, snippetFormats)
     // Insert as plain text to prevent XSS via snippet content containing HTML
     editor.chain().focus().deleteRange({ from: from - match.trigger.length, to: from }).insertContent({ type: 'text', text: expanded }).run()
     setSnippetMenu(null)

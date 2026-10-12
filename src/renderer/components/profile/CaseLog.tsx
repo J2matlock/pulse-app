@@ -15,6 +15,7 @@ import { NoteFormatsDialog } from './NoteFormatsDialog'
 import { useNoteTracking } from '../../hooks/useNoteTracking'
 import { CaseLogEntry } from './CaseLogEntry'
 import { expandVariables, detectTrigger, matchSnippets } from '../../utils/snippetExpander'
+import { useSettingsStore } from '../../stores/settingsStore'
 import { useUndoStore } from '../../stores/undoStore'
 import { safeInvoke, mustInvoke } from '../../utils/safeInvoke'
 import { isMod, modHelp } from '../../utils/keys'
@@ -103,6 +104,8 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
   const [offer, setOffer] = useState<'timeTracking' | 'mileage' | null>(null)
   const snippetsOn = useFeature('snippets')
   const { t } = useVocab()
+  // {today} and {now} follow Settings → Date format and Clock (A21a-09)
+  const snippetFormats = { dateFormat: useSettingsStore(s => s.dateFormat), clockFormat: useSettingsStore(s => s.clockFormat) }
   const [entries, setEntries] = useState<CaseLogEntryType[]>([])
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -335,7 +338,7 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
     const match = detectTrigger(before)
     if (!match) return
 
-    const expanded = expandVariables(snippet.expansion, clientName)
+    const expanded = expandVariables(snippet.expansion, clientName, snippetFormats)
     const newVal = before.slice(0, -match.trigger.length) + expanded + after
     setNewContent(newVal)
     setSnippetMenu(null)

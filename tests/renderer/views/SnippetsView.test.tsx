@@ -15,14 +15,14 @@ Object.defineProperty(window, 'api', {
 vi.mock('lucide-react', async () => (await import('../lucideMock')).lucideMock)
 
 // Mock snippetExpander
-vi.mock('../../../src/renderer/utils/snippetExpander', () => ({
-  expandVariables: (text: string) => text,
-}))
+const expandVariables = vi.hoisted(() => vi.fn((text: string) => text))
+vi.mock('../../../src/renderer/utils/snippetExpander', () => ({ expandVariables }))
 
 const toastError = vi.hoisted(() => vi.fn())
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: toastError, success: vi.fn() }) }))
 
 import SnippetsView from '../../../src/renderer/views/SnippetsView'
+import { useSettingsStore } from '../../../src/renderer/stores/settingsStore'
 
 const sampleSnippets = [
   { id: 1, trigger_text: 'lm', expansion: 'Left message on voicemail.', category: null, created_at: '2026-01-01' },
@@ -84,6 +84,17 @@ describe('SnippetsView', () => {
       expect(screen.getByLabelText(/Trigger/)).toBeDefined()
       expect(screen.getByLabelText(/Expansion/)).toBeDefined()
     })
+  })
+
+  it('previews dates and times in the formats chosen in Settings (A21a-09)', async () => {
+    mockInvoke.mockResolvedValue({ ok: true, data: [] })
+    useSettingsStore.setState({ dateFormat: 'eu', clockFormat: '24h' })
+    render(<SnippetsView />)
+    await waitFor(() => { expect(screen.getByText('New Snippet')).toBeDefined() })
+    fireEvent.click(screen.getByText('New Snippet'))
+    await waitFor(() => { expect(screen.getByLabelText(/Expansion/)).toBeDefined() })
+    expect(expandVariables).toHaveBeenCalledWith(expect.any(String), expect.any(String), { dateFormat: 'eu', clockFormat: '24h' })
+    useSettingsStore.setState({ dateFormat: 'us', clockFormat: '12h' })
   })
 
   it('refuses a trigger another snippet already uses, keeping the text (audit X-34)', async () => {
