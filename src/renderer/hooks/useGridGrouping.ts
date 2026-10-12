@@ -184,7 +184,7 @@ export function useGridGrouping({
       }
     }
     return items
-  }, [tableRows, groupByColumnId, collapsedGroups, columns, acuityLevels, customGroups, activeCustomGroupId])
+  }, [tableRows, groupByColumnId, collapsedGroups, columns, acuityLevels, activeCustomGroup])
 
   // Row IDs in visual order
   const visualRowIds = useMemo(() => {

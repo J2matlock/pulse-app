@@ -135,7 +135,7 @@ export function MainLayout({ children }: Props): React.ReactElement {
     handleChange(mql)
     mql.addEventListener('change', handleChange)
     return () => mql.removeEventListener('change', handleChange)
-  }, [])
+  }, [setSidebarCollapsed])
 
   // Check for updates once per launch, silently — unless turned off in Settings → About
   useEffect(() => {

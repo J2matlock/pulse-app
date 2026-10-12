@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useCallback, useEffect, useState, useRef } from 'react'
 import { Star, FileText, Plus, X, Phone, Mail, MapPin, Copy, Check, Trash2, Pencil, History, Send } from 'lucide-react'
 import type { GridRow, Column } from '../../../shared/types'
 import { IPC } from '../../../shared/ipc-channels'
@@ -108,41 +108,42 @@ export function ProfileHeader({
   const [newContactLabel, setNewContactLabel] = useState('')
   const [newContactValue, setNewContactValue] = useState('')
 
-  useEffect(() => {
-    void loadTags()
-  }, [gridId])
-
-  useEffect(() => {
-    void loadRowTags()
-    void loadManualContacts()
-  }, [row.row_id])
-
-  async function loadTags() {
+  const rowId = row.row_id
+  const loadTags = useCallback(async () => {
     try {
       const tags = await invoke<Tag[]>(IPC.TAG_GET_ALL, gridId)
       setAllTags(tags)
     } catch (err) {
       rlog.error('ProfileHeader', 'Failed to load tags', err)
     }
-  }
+  }, [gridId])
 
-  async function loadRowTags() {
+  const loadRowTags = useCallback(async () => {
     try {
-      const tagIds = await invoke<number[]>(IPC.TAG_GET_FOR_ROW, row.row_id)
+      const tagIds = await invoke<number[]>(IPC.TAG_GET_FOR_ROW, rowId)
       setRowTagIds(tagIds)
     } catch (err) {
       rlog.error('ProfileHeader', 'Failed to load row tags', err)
     }
-  }
+  }, [rowId])
 
-  async function loadManualContacts() {
+  const loadManualContacts = useCallback(async () => {
     try {
-      const contacts = await invoke<ManualContact[]>(IPC.ROW_GET_MANUAL_CONTACTS, row.row_id)
+      const contacts = await invoke<ManualContact[]>(IPC.ROW_GET_MANUAL_CONTACTS, rowId)
       setManualContacts(contacts)
     } catch (err) {
       rlog.error('ProfileHeader', 'Failed to load manual contacts', err)
     }
-  }
+  }, [rowId])
+
+  useEffect(() => {
+    void loadTags()
+  }, [loadTags])
+
+  useEffect(() => {
+    void loadRowTags()
+    void loadManualContacts()
+  }, [loadRowTags, loadManualContacts])
 
   /** Saves the list, showing it straight away; puts the old list back if the save fails. */
   async function saveManualContacts(contacts: ManualContact[]): Promise<boolean> {

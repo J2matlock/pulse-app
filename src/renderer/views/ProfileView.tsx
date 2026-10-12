@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { canGoBack, previousPage } from '../utils/navHistory'
 import { pageTitle } from '../components/layout/TopBar'
@@ -69,7 +69,7 @@ export default function ProfileView(): React.ReactElement {
       toast.error(`That ${t('record')} link isn't valid — going back to the ${t('list')}.`)
       navigate('/')
     }
-  }, [rowIdStr, rowId, navigate])
+  }, [rowIdStr, rowId, navigate, t])
   const [searchParams] = useSearchParams()
 
   const checklistFocusRef = useRef<(() => void) | null>(null)
@@ -227,8 +227,9 @@ export default function ProfileView(): React.ReactElement {
   }, [row, nameCol, columns])
   const clientName = knownName ?? `Unknown ${t('record')}`
 
-  // Track as recently visited
-  useEffect(() => {
+  // Track as recently visited: once per record, and again when its name loads,
+  // not every time the list of lists reloads
+  const recordVisit = useEffectEvent(() => {
     if (rowId == null || !activeGrid || knownName == null) return
     addRecentProfile({
       rowId,
@@ -237,7 +238,8 @@ export default function ProfileView(): React.ReactElement {
       gridName: activeGrid.name,
       visitedAt: new Date().toISOString(),
     })
-  }, [rowId, knownName]) // Re-run when the name loads
+  })
+  useEffect(() => { recordVisit() }, [rowId, knownName])
 
   // Prev / Next based on sortedRowIds
   const currentIndex = rowId != null ? sortedRowIds.indexOf(rowId) : -1

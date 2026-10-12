@@ -411,7 +411,7 @@ export function DataGrid(): React.ReactElement {
     editingCellRef, rowsRef, filteredRowsRef, visualRowIdsRef, selectedRowIdsRef,
     columns, columnMap, updateCell, navigateCell,
     setEditingCell, setSelectedRowIds, openRecord: handleNavigateToProfile,
-  }), [columns, columnMap, updateCell, navigateCell, setEditingCell, handleNavigateToProfile])
+  }), [editingCellRef, selectedRowIdsRef, columns, columnMap, updateCell, navigateCell, setEditingCell, setSelectedRowIds, handleNavigateToProfile])
   const handleCellKeyDown = useCallback((e: React.KeyboardEvent, rowId: number, columnId: number) => {
     handleCellKeyDownImpl(e, rowId, columnId, keyNavDeps)
   }, [keyNavDeps])
@@ -460,7 +460,7 @@ export function DataGrid(): React.ReactElement {
   const handleBulkSetAcuityLevel = useCallback((levelId: number | null) => {
     const ids = Array.from(selectedRowIdsRef.current)
     void bulkSetRowAcuityLevel(ids, levelId)
-  }, [bulkSetRowAcuityLevel])
+  }, [bulkSetRowAcuityLevel, selectedRowIdsRef])
 
   // Render helper for SortableRow — eliminates duplication between grouped and ungrouped paths
   const renderSortableRow = (row: Row<GridRow>, rowIndex: number, ariaRowIndex: number) => (

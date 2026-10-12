@@ -96,7 +96,7 @@ export function CustomGroupEditor({ gridId, initialDef, onClose }: CustomGroupEd
       if (v !== null && v !== undefined && v !== '') seen.add(v)
     })
     return Array.from(seen).sort()
-  }, [selectedColId, rows])
+  }, [selectedColId, rows, acuityLevels])
 
   // Values not assigned to any bucket
   const assignedValues = useMemo<Set<string>>(() => {

@@ -61,11 +61,14 @@ export function CellEditor({ column, value, onSave, onCancel }: Props): React.Re
     onSave(val, navDirection)
   }
 
+  // Focus once, when the editor opens, for the column it opened on
+  const openedTypeRef = useRef(column.column_type)
   useEffect(() => {
     const el = inputRef.current
+    const openedType = openedTypeRef.current
     if (el) {
       el.focus()
-      if (column.column_type === 'dropdown' || column.column_type === 'status') {
+      if (openedType === 'dropdown' || openedType === 'status') {
         try {
           if (el instanceof HTMLSelectElement || el instanceof HTMLInputElement) el.showPicker()
         } catch { /* showPicker may throw if no user gesture */ }
