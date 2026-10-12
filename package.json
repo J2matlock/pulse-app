@@ -31,6 +31,7 @@
     "test": "bash scripts/run-tests.sh",
     "test:unit": "bash scripts/run-tests.sh",
     "test:tz": "bash scripts/test-tz.sh",
+    "gate": "npm run typecheck && eslint src --quiet && npm test",
     "perf": "bash scripts/run-tests.sh --config vitest.perf.config.ts",
     "test:coverage": "bash scripts/run-tests.sh --coverage",
     "test:watch": "echo 'NOTE: DB-dependent tests may fail in watch mode (ABI mismatch). Use npm test for full suite.' && vitest --watch",
