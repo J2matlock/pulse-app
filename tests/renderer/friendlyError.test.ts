@@ -144,7 +144,7 @@ const PLAIN = new Set<string>([
   "We couldn't save your place in setup.",
 ])
 
-/** fail('…') literals and new XxxError('…') literals (not plain Error), as written in the source */
+/** fail('…') literals, argument-schema messages and new XxxError('…') literals (not plain Error), as written in the source */
 function mainMessages(): string[] {
   const out = new Set<string>()
   const walk = (dir: string): void => {
@@ -154,6 +154,14 @@ function mainMessages(): string[] {
       if (!p.endsWith('.ts')) continue
       const src = readFileSync(p, 'utf8')
       for (const m of src.matchAll(/\bfail\(\s*(['"`])((?:\\.|(?!\1).)*)\1/g)) out.add(m[2])
+      // defineHandler argument schemas answer with their own messages (src/main/ipc/ipc-define.ts)
+      for (const pattern of [
+        /\b(?:idArg|textArg|z\.(?:string|number|boolean|int))\(\s*(['"`])((?:\\.|(?!\1).)*)\1/g,
+        /\.(?:min|max|refine)\([^'"`\n]*?,\s*(['"`])((?:\\.|(?!\1).)*)\1\s*\)/g,
+        /\bfunction \w+Arg\(\s*\w+\s*=\s*(['"`])((?:\\.|(?!\1).)*)\1/g,
+      ]) {
+        for (const m of src.matchAll(pattern)) out.add(m[2])
+      }
       for (const m of src.matchAll(/new ([A-Z]\w*Error)\(\s*(['"`])((?:\\.|(?!\2).)*)\2/g)) {
         if (!['Error', 'TypeError', 'RangeError', 'DatabaseOpenError'].includes(m[1])) out.add(`${m[1]}|${m[3]}`)
       }

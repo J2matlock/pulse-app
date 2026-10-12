@@ -3,7 +3,8 @@
  * in src/shared/ipc-channels.ts is one of two kinds:
  *
  * - invoke channels: a contract entry in ipc-contract.ts, exactly one handler
- *   registered through secureWrap (so it refuses subframes), reachable through
+ *   registered through secureWrap (directly or through defineHandler; either
+ *   way it refuses subframes), reachable through
  *   the preload's allow-list;
  * - event channels (EventChannel in ipc-contract.ts): main sends them, the
  *   renderer listens, nothing handles them.
@@ -196,6 +197,10 @@ describe('handlers', () => {
     const utils = read('main/ipc/ipc-utils.ts')
     expect(utils.match(/ipcMain\.handle\(/g)).toHaveLength(1)
     expect(utils.match(/\bsecureHandle\(/g)).toHaveLength(2)
+    // defineHandler (ipc-define) registers only by calling secureWrap
+    const define = read('main/ipc/ipc-define.ts')
+    expect(define.match(/\bsecureWrap\(/g)).toHaveLength(1)
+    expect(define).toMatch(/^\s*secureWrap\(channel, component, /m)
   })
 })
 
