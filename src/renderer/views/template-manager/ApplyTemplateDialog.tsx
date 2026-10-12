@@ -39,7 +39,7 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
   async function handleApply() {
     setError(null)
     if (applyMode === 'existing' && !selectedGridId) {
-      setError(`Choose a ${t('list')} first.`)
+      setError(`Choose ${t('list', { article: true })} first.`)
       return
     }
     setApplying(true)
@@ -107,7 +107,7 @@ export function ApplyTemplateDialog({ template, grids, onClose, onApplied }: App
                 onChange={() => setApplyMode('existing')}
                 className="w-4 h-4 text-blue-600 focus:ring-3 focus:ring-blue-500"
               />
-              <span className="text-base text-slate-700 dark:text-slate-300">Add to a {t('list')} I already have</span>
+              <span className="text-base text-slate-700 dark:text-slate-300">Add to {t('list', { article: true })} I already have</span>
             </label>
           </div>
 

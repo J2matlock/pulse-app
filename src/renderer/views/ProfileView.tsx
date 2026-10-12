@@ -381,7 +381,7 @@ export default function ProfileView(): React.ReactElement {
     const message = status === 'trash'
       ? `This ${t('record')} is in the Trash. You can bring it back from there.`
       : status === 'list-deleted'
-        ? `This ${t('record')} was on a ${t('list')} that has been deleted.`
+        ? `This ${t('record')} was on ${t('list', { article: true })} that has been deleted.`
         : `We couldn't find this ${t('record')}. It may have been deleted.`
     return (
       <div className="flex flex-col items-center justify-center gap-3 h-full text-base text-slate-600 dark:text-slate-300 px-6 text-center">

@@ -107,7 +107,7 @@ export function NotesSection(): React.ReactElement {
         <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Note formats</h2>
         <p className="text-sm text-slate-600 dark:text-slate-300">
           {builtinFormatsFor(w('record')).length > 0 ? 'DAP, SOAP, BIRP and contact notes are built in. ' : ''}
-          Give a {w('activity')} its own sections, like “Who / What happened / Next steps”, each with its own box.
+          Give {w('activity', { article: true })} its own sections, like “Who / What happened / Next steps”, each with its own box.
         </p>
         <button type="button" className="btn-secondary" onClick={() => void openFormats()}>Edit note formats…</button>
       </section>

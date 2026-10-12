@@ -126,9 +126,9 @@ export default function ReportsView(): React.ReactElement {
         <p className="p-4 text-base text-slate-500 dark:text-slate-400">Working…</p>
       ) : !openId && noLists ? (
         <div className="m-4 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 p-6 text-center space-y-3">
-          <p className="text-base text-slate-700 dark:text-slate-200">Reports count what&rsquo;s in a {t('list')}. Make a {t('list')} first, then come back here.</p>
+          <p className="text-base text-slate-700 dark:text-slate-200">Reports count what&rsquo;s in {t('list', { article: true })}. Make {t('list', { article: true })} first, then come back here.</p>
           <button type="button" className="btn-primary" onClick={() => pulseEvents.emit('setup:open', { step: 'start' })}>
-            <Plus className="w-4 h-4" />Make a {t('list')}
+            <Plus className="w-4 h-4" />Make {t('list', { article: true })}
           </button>
         </div>
       ) : (

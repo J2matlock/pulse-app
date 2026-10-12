@@ -18,7 +18,8 @@ import { VARIABLE_GROUPS } from '../../src/renderer/components/shared/VariableIn
 import { SECURITY_SUMMARY_TEXT } from '../../src/renderer/components/shared/SecuritySummaryDialog'
 import { FAQ_ITEMS } from '../../src/renderer/views/help/faqData'
 import { CATEGORY_LABELS } from '../../src/renderer/views/help/types'
-import { fillVocab, resolveVocab } from '../../src/shared/vocab'
+import { RELEASES } from '../../src/renderer/components/shared/WhatsNewModal'
+import { fillVocab, resolveVocab, GENERIC_VOCAB, HUMAN_SERVICES_VOCAB, type Vocab } from '../../src/shared/vocab'
 
 const HARD_CODED = /\b(clients?|caseloads?|case (notes?|logs?)|providers?|acuity|grids?)\b/i
 /** Job titles and trade framing that would tell a car shop it's a social-work agency */
@@ -38,7 +39,12 @@ const texts: string[] = [
   SECURITY_SUMMARY_TEXT,
   ...FAQ_ITEMS.flatMap(i => [i.question, i.answer]),
   ...Object.values(CATEGORY_LABELS),
+  ...RELEASES.flatMap(r => r.items),
 ]
+
+/** Every word starts "oz", so a hard-coded "a" in front of one shows as "a oz…" */
+const VOWEL_VOCAB: Vocab = Object.fromEntries(Object.entries(GENERIC_VOCAB).map(([k, t]) =>
+  [k, { one: `oz${k}`, many: `oz${k}s`, article: 'an' }])) as Vocab
 
 describe('static text uses word tokens', () => {
   it('has no hard-coded record, list, note or contact words', () => {
@@ -73,6 +79,28 @@ describe('static text uses word tokens', () => {
         return [...code.matchAll(new RegExp(JOB_TITLES.source, 'gi'))].map(m => `${relative(join(__dirname, '../..'), file)}: ${m[0]}`)
       })
     expect(offenders).toEqual([])
+  })
+
+  it('never doubles "level" or hard-codes "a"/"an" in front of a word (A28-09, A28-10)', () => {
+    for (const v of [GENERIC_VOCAB, HUMAN_SERVICES_VOCAB]) {
+      expect(texts.map(t => fillVocab(t, v)).filter(t => /\blevels? levels?\b/i.test(t))).toEqual([])
+    }
+    expect(texts.map(t => fillVocab(t, VOWEL_VOCAB)).filter(t => /\ba oz/i.test(t))).toEqual([])
+  })
+
+  it('no code hard-codes "a"/"an" in front of a word call (A28-10)', () => {
+    // t('list', { article: true }) picks "a" or "an" from the word itself
+    const call = String.raw`\b[Aa]n? (?:\{|\$\{)(?:t|w|word|term|tFor\([^)]*\))\(`
+    const offenders = sourceFiles(join(__dirname, '../../src'))
+      .flatMap(file => {
+        const code = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+        return [...code.matchAll(new RegExp(call, 'g'))].map(m => `${relative(join(__dirname, '../..'), file)}: ${code.slice(m.index, m.index + 40)}`)
+      })
+    expect(offenders).toEqual([])
+  })
+
+  it('has no human-services examples (A28-11)', () => {
+    expect(texts.filter(t => /\b(housing|caseworkers?|supervisors define)\b/i.test(t))).toEqual([])
   })
 
   it('every token is a known word', () => {

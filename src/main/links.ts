@@ -122,7 +122,7 @@ function checkedLink(typeId: number, fromRowId: number, toRowId: number): { type
   const to = rowInfo(toRowId)
   if (!from || !to || from.deleted_at || to.deleted_at) throw new LinkError(`That ${word('record')} is no longer available.`)
   if (from.grid_id !== type.from_grid_id || to.grid_id !== type.to_grid_id) throw new LinkError(`Those ${word('record', { many: true })} can't be linked this way.`)
-  if (fromRowId === toRowId) throw new LinkError(`A ${word('record', {}, from.grid_id)} can't be linked to itself.`)
+  if (fromRowId === toRowId) throw new LinkError(`${word('record', { article: true, cap: true }, from.grid_id)} can't be linked to itself.`)
   return { type, from, to }
 }
 
