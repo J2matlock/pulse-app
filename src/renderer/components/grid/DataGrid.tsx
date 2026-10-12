@@ -39,6 +39,7 @@ import { handleCellKeyDown as handleCellKeyDownImpl, type KeyboardNavDeps } from
 import { ROW_HEIGHTS, HANDLE_WIDTH, PROFILE_BTN_WIDTH, GROUP_HEADER_HEIGHT, TAGS_COL_WIDTH } from './gridConstants'
 import { useGridSelection } from '../../hooks/useGridSelection'
 import { useGridColumnSizing } from '../../hooks/useGridColumnSizing'
+import { useGridAnnouncer } from '../../hooks/useGridAnnouncer'
 import { useGridRuleInfo } from '../../hooks/useGridRuleInfo'
 import { buildTableColumns } from './gridTableColumns'
 import { useGridContextMenu } from '../../hooks/useGridContextMenu'
@@ -53,9 +54,9 @@ import { GroupHeaderItem, CollapseExpandBar, GroupContextMenuOverlay } from './G
 import { ArchiveDialog, DeleteRowDialog, MoveToGridDialog, BulkDeleteDialog, BulkMoveDialog } from './GridDialogs'
 import { BulkEditDialog } from './BulkEditDialog'
 import { GridLoadingSkeleton, GridEmptyColumns } from './GridLoadingState'
+import { GridHintBanner, GridLoadError, GridEmptyRecords } from './GridNotices'
 import { useVocab } from '../../hooks/useVocab'
 import { pulseEvents } from '../../events'
-import { IS_MAC } from '../../utils/keys'
 import { useFeature } from '../../hooks/useFeature'
 import { ACUITY_GROUP_KEY, isNotTypedColumnType } from '../../../shared/types'
 
@@ -480,25 +481,8 @@ export function DataGrid(): React.ReactElement {
     return () => clearTimeout(timer)
   }, [lastAddedRowId, columns, setEditingCell]) // eslint-disable-line react-hooks/exhaustive-deps -- once per added record
 
-  // Said out loud for screen readers: entering and leaving a cell's editor (AUDIT-043)
-  const [announcement, setAnnouncement] = useState('')
-  const announcedEditRef = useRef<{ rowId: number; columnId: number } | null>(null)
-  useEffect(() => {
-    const prev = announcedEditRef.current
-    if (prev?.rowId === editingCell?.rowId && prev?.columnId === editingCell?.columnId) return
-    announcedEditRef.current = editingCell
-    const name = (id: number) => columnMap.get(id)?.name
-    if (editingCell) setAnnouncement(`Editing ${name(editingCell.columnId) ?? 'cell'}`)
-    else if (prev) setAnnouncement(`Done editing ${name(prev.columnId) ?? 'cell'}`)
-  }, [editingCell, columnMap])
-  // ...and how many records are picked for bulk actions, after Shift+Space, Ctrl+A or a click (AUDIT-057)
-  const announcedSelectedRef = useRef(selectedRowIds.size)
-  useEffect(() => {
-    const n = selectedRowIds.size
-    if (announcedSelectedRef.current === n) return
-    announcedSelectedRef.current = n
-    setAnnouncement(n === 0 ? 'Nothing selected' : `${n} ${t('record', { count: n })} selected`)
-  }, [selectedRowIds, t])
+  // Said out loud for screen readers: entering and leaving a cell's editor, and how many records are picked
+  const announcement = useGridAnnouncer(editingCell, columnMap, selectedRowIds)
 
   const handleBulkSetAcuityLevel = useCallback((levelId: number | null) => {
     const ids = Array.from(selectedRowIdsRef.current)
@@ -564,14 +548,7 @@ export function DataGrid(): React.ReactElement {
   }
 
   if (loadError && !isLoading) {
-    return (
-      <div role="alert" className="flex flex-col items-center justify-center h-full gap-4 px-6 text-center">
-        <p className="text-base text-slate-700 dark:text-slate-300">{loadError} Please try again.</p>
-        <button type="button" className="btn-primary" onClick={() => { if (activeGridId !== null) void useGridStore.getState().loadGrid(activeGridId) }}>
-          Try again
-        </button>
-      </div>
-    )
+    return <GridLoadError message={loadError} onRetry={() => { if (activeGridId !== null) void useGridStore.getState().loadGrid(activeGridId) }} />
   }
 
   if (columns.length === 0) {
@@ -598,20 +575,7 @@ export function DataGrid(): React.ReactElement {
       {/* Only rows sit inside the grid: the tip, the Collapse all bar, the empty-list
           message and the dialogs are outside it, so screen readers stay in table mode */}
       {/* ── Hint banner for new users ─── */}
-      {!hintDismissed && tableRows.length > 0 && (
-        <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 text-sm text-blue-600 dark:text-blue-300 px-3 py-1.5 flex-shrink-0">
-          <span>Tip: Click column headers to sort &middot; Right-click column headers for deadline rules, tracking &amp; more &middot; Right-click {t('record', { article: true })} for options &middot; Press <kbd className="px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-800/40 font-mono">Shift+?</kbd> for all shortcuts</span>
-          <button
-            onClick={dismissHint}
-            className="hit-44 ml-3 p-0.5 rounded hover:bg-blue-100 dark:hover:bg-blue-800/40 text-blue-400 dark:text-blue-400"
-            aria-label="Dismiss tip"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      )}
+      {!hintDismissed && tableRows.length > 0 && <GridHintBanner onDismiss={dismissHint} />}
 
       {/* Collapse/Expand All toolbar (grouped mode only) */}
       {isGrouped && (
@@ -718,49 +682,7 @@ export function DataGrid(): React.ReactElement {
       </div>
 
       {/* Empty state */}
-      {isEmpty && (
-        <div className="flex-1 overflow-auto flex flex-col items-center justify-center py-16 px-6 text-center">
-          {searchQuery ? (
-            <p className="text-base text-slate-500 dark:text-slate-400">
-              No {t('record', { many: true })} found matching &ldquo;{searchQuery}&rdquo;
-            </p>
-          ) : rows.length > 0 ? (
-            <>
-              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-3">
-                No {t('record', { many: true })} match your filters
-              </h3>
-              <button type="button" className="btn-secondary" onClick={() => {
-                useGridStore.setState({ activeFilters: [], showStarredOnly: false })
-                useGridStore.getState().setActiveCustomGroupId(null)
-              }}>
-                Clear filters
-              </button>
-            </>
-          ) : (
-            <>
-              <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                No {t('record', { many: true })} yet
-              </h3>
-              <p className="text-base text-slate-500 dark:text-slate-400 mb-4">
-                Add your first {t('record')}{' '}
-                (or press <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-base font-mono">{IS_MAC ? '⌘N' : 'Ctrl+N'}</kbd>),
-                or bring them in from a spreadsheet.
-              </p>
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <button type="button" className="btn-primary" onClick={() => void useGridStore.getState().addRow()}>
-                  Add {t('record', { cap: true })}
-                </button>
-                <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('grid:open-import')}>
-                  Bring in a spreadsheet
-                </button>
-                <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('starters:open', { sample: true })}>
-                  See an example with sample data
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+      {isEmpty && <GridEmptyRecords searchQuery={searchQuery} hasRecords={rows.length > 0} />}
 
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="grid-announcer">{announcement}</div>
 
