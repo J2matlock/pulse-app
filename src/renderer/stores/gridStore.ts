@@ -638,7 +638,8 @@ export const useGridStore = create<GridState>((set, get) => ({
       set({ isSaving: true, saveError: null })
     }
     try {
-      const result = await invoke<{ sysLogId: number | null; previous?: string | null }>(IPC.CELL_UPDATE, rowId, columnId, value)
+      // An undo or redo writes no change note of its own: the edit's note is voided or restored by its side effect (F-028)
+      const result = await invoke<{ sysLogId: number | null; previous?: string | null }>(IPC.CELL_UPDATE, rowId, columnId, value, ...(fromUndo ? [{ silent: true }] : []))
       set({ isSaving: false })
       // A record not in the open list (archived, shown on its own page) has no copy here:
       // the value it replaced comes from the database, or Undo would blank the field (F-016)

@@ -312,6 +312,27 @@ describe('gridStore', () => {
       expect(useUndoStore.getState().undoStack[0]!.category).toBe('silent')
     })
 
+    it('undo and redo of a logged edit ask main for no note of their own; the note is voided and restored (F-028)', async () => {
+      useUndoStore.setState({ undoStack: [], redoStack: [], toast: null, isUndoing: false })
+      const row = makeRow(1)
+      ;(row as Record<string, unknown>)['col_5'] = 'old'
+      useGridStore.setState({ activeGridId: 1, rows: [row], columns: [makeColumn(5, 'Notes')] })
+      mockInvoke.mockReset()
+      mockInvoke.mockImplementation(async (channel: string, ...args: unknown[]) => channel === 'cell:update'
+        ? { ok: true, data: { sysLogId: args[3] ? null : 77, previous: null } } : { ok: true, data: true })
+      await useGridStore.getState().updateCell(1, 5, 'new')
+      expect(mockInvoke).toHaveBeenLastCalledWith('cell:update', 1, 5, 'new')
+      await useUndoStore.getState().undo()
+      await useUndoStore.getState().redo()
+      const calls = mockInvoke.mock.calls.map(c => [c[0], ...c.slice(1)])
+      expect(calls.filter(c => c[0] === 'cell:update')).toEqual([
+        ['cell:update', 1, 5, 'new'],
+        ['cell:update', 1, 5, 'old', { silent: true }],
+        ['cell:update', 1, 5, 'new', { silent: true }],
+      ])
+      expect(calls.filter(c => String(c[0]).startsWith('case-log:'))).toEqual([['case-log:void', 77, 'Undone action'], ['case-log:unvoid', 77]])
+    })
+
     it('a failed undo of a cell edit stays undoable instead of looking done (L-08)', async () => {
       useUndoStore.setState({ undoStack: [], redoStack: [], toast: null, isUndoing: false })
       const row = makeRow(1)
@@ -385,7 +406,7 @@ describe('gridStore', () => {
       const step = useUndoStore.getState().undoStack.at(-1)!
       mockInvoke.mockResolvedValue({ ok: true, data: { sysLogId: null, previous: 'B' } })
       await step.undo()
-      expect(mockInvoke).toHaveBeenLastCalledWith(IPC.CELL_UPDATE, 7, 5, 'A')
+      expect(mockInvoke).toHaveBeenLastCalledWith(IPC.CELL_UPDATE, 7, 5, 'A', { silent: true })
       // The record page keeps its own copy current through the save and the undo
       expect(saved).toEqual([{ rowId: 7, columnId: 5, value: 'B' }, { rowId: 7, columnId: 5, value: 'A' }])
       off()

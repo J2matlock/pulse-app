@@ -85,11 +85,14 @@ export function registerCellHandlers(): void {
     return ok(info.changes)
   })
 
-  secureWrap(IPC.CELL_UPDATE, 'ipc-cell', (_e, rowId: number, columnId: number, value: string | null, opts?: { doneNote?: string }) => {
+  secureWrap(IPC.CELL_UPDATE, 'ipc-cell', (_e, rowId: number, columnId: number, value: string | null, opts?: { doneNote?: string; silent?: boolean }) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(rowId) || !validId(columnId)) return fail('Invalid ID')
     // Mark done: its note is written here, tagged, so the dashboard counts completions by tag, not note text (L-22)
     const doneNote = typeof opts?.doneNote === 'string' && opts.doneNote.trim() ? opts.doneNote.trim().slice(0, 500) : null
+    // Undo and redo put a value back: the edit's own note is voided or restored with it, so
+    // writing another "changed to" note would leave the case log with extras (F-028)
+    const silent = opts?.silent === true
     if (value !== null && typeof value !== 'string') return fail('Cell value must be a string under 100k characters')
     // Strip null bytes BEFORE length check so the limit reflects the actual stored value
     if (value !== null) value = value.replace(/\0/g, '')
@@ -147,7 +150,7 @@ export function registerCellHandlers(): void {
           .run(rowId, doneNote, `deadline_done:${columnId}`)
         sysLogId = logResult.lastInsertRowid as number
         needsLogNotify = true
-      } else if (oldValue !== value) {
+      } else if (oldValue !== value && !silent) {
         const col = getColMeta(columnId)
         if (col && col.config.log_changes) {
           let content: string

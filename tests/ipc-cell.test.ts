@@ -142,6 +142,28 @@ describe('CELL_UPDATE', () => {
     expect(r.data.sysLogId).toBeTypeOf('number')
   })
 
+  it('edit, undo, redo on a logged column leaves one live note: undo and redo write none (F-028)', async () => {
+    testDb.db.prepare("UPDATE columns SET name = 'Status', config = ? WHERE id = ?").run(JSON.stringify({ log_changes: true }), columnId)
+    const { invalidateColumnCache } = await import('../src/main/ipc/ipc-cell')
+    invalidateColumnCache(columnId)
+    await invoke(IPC.CELL_UPDATE, rowId, columnId, 'Open')
+    const edit = await invoke(IPC.CELL_UPDATE, rowId, columnId, 'Closed') as { ok: true; data: { sysLogId: number } }
+    const live = () => (testDb.db.prepare("SELECT content FROM case_log WHERE row_id = ? AND log_type = 'system' AND voided_at IS NULL ORDER BY id").all(rowId) as Array<{ content: string }>).map(r => r.content)
+    expect(live()).toEqual(['Status set to "Open"', 'Status changed to "Closed"'])
+    // Undo: the edit's note is voided (its side effect) and the old value goes back silently
+    testDb.db.prepare("UPDATE case_log SET voided_at = datetime('now') WHERE id = ?").run(edit.data.sysLogId)
+    const undo = await invoke(IPC.CELL_UPDATE, rowId, columnId, 'Open', { silent: true }) as { ok: true; data: { sysLogId: number | null } }
+    expect(undo.data.sysLogId).toBeNull()
+    expect(live()).toEqual(['Status set to "Open"'])
+    // Redo: the note comes back and the new value goes in silently
+    testDb.db.prepare('UPDATE case_log SET voided_at = NULL WHERE id = ?').run(edit.data.sysLogId)
+    await invoke(IPC.CELL_UPDATE, rowId, columnId, 'Closed', { silent: true })
+    expect(live()).toEqual(['Status set to "Open"', 'Status changed to "Closed"'])
+    // Field history still has every change (the first value, the edit, the undo, the redo)
+    const history = (await invoke(IPC.CELL_GET_HISTORY, rowId, columnId) as { data: unknown[] }).data
+    expect(history).toHaveLength(4)
+  })
+
   it('logs a cleared date as cleared, and a Mark done as a tagged completion (G-16, L-22)', async () => {
     testDb.db.prepare("UPDATE columns SET name = 'Review', column_type = 'date', config = ? WHERE id = ?").run(JSON.stringify({ log_changes: true }), columnId)
     const { invalidateColumnCache } = await import('../src/main/ipc/ipc-cell')
