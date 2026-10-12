@@ -46,7 +46,7 @@
     "@dnd-kit/sortable": "8.0.0",
     "@dnd-kit/utilities": "3.2.2",
     "@tanstack/react-table": "8.21.3",
-    "@tanstack/react-virtual": "3.13.19",
+    "@tanstack/react-virtual": "3.14.13",
     "@tiptap/pm": "3.31.4",
     "@tiptap/react": "3.31.4",
     "@tiptap/starter-kit": "3.31.4",
