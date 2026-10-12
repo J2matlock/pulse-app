@@ -59,6 +59,17 @@ function failedBeforeReplace(corrId: string, err: unknown) {
 }
 
 /**
+ * A record exported on its own (profile PDF, handoff packet, letter) must be in
+ * that list, and neither it nor its list may be in the Trash (A16-06). The
+ * screens can't normally ask for one, but a stale window could.
+ */
+function refuseUnavailableRecord(rowId: number, gridId: number): ReturnType<typeof fail> | null {
+  const live = getDb().prepare(`SELECT 1 FROM rows r JOIN grids g ON g.id = r.grid_id
+    WHERE r.id = ? AND r.grid_id = ? AND r.deleted_at IS NULL AND g.deleted_at IS NULL`).get(rowId, gridId)
+  return live ? null : fail(`We couldn't find that ${word('record', {}, gridId)}. It may have been moved to the Trash.`)
+}
+
+/**
  * Check a backup made by this Pulse before it replaces anything: it must open with
  * this install's key, every page must read back (a cut-off or damaged .db backup
  * has no hash to catch it, A24-04), and it can't be from a newer Pulse (A24-03).
@@ -421,6 +432,8 @@ export function registerExportHandlers(): void {
     if (!validId(options.gridId)) return fail('Invalid grid ID')
     if (!validId(options.rowId)) return fail('Invalid row ID')
     if (!options.includeSections || typeof options.includeSections !== 'object') return fail('Invalid includeSections')
+    const unavailable = refuseUnavailableRecord(options.rowId, options.gridId)
+    if (unavailable) return unavailable
     await exportPdfProfile(options)
     return ok(true)
   })
@@ -502,8 +515,8 @@ export function registerExportHandlers(): void {
     if (typeof opts !== 'object' || opts === null || !validId(opts.rowId) || !validId(opts.gridId)) return fail('Invalid ID')
     const text = (v: unknown, max: number) => v == null || (typeof v === 'string' && v.length <= max)
     if (!text(opts.receiving, 500) || !text(opts.summary, 20_000)) return fail('That text is too long')
-    const row = getDb().prepare('SELECT grid_id FROM rows WHERE id = ?').get(opts.rowId) as { grid_id: number } | undefined
-    if (!row || row.grid_id !== opts.gridId) return fail(`We couldn't find that ${word('record')}.`)
+    const unavailable = refuseUnavailableRecord(opts.rowId, opts.gridId)
+    if (unavailable) return unavailable
     const { canceled, filePath } = await dialog.showSaveDialog({
       title: 'Save Handoff Packet',
       defaultPath: `handoff-packet-${localDateString()}.pdf`,
@@ -735,6 +748,8 @@ export function registerExportHandlers(): void {
 
   secureWrap(IPC.LETTER_TEMPLATE_GENERATE, 'ipc-export', (_e, templateId: number, rowId: number, gridId: number) => {
     if (!validId(templateId) || !validId(rowId) || !validId(gridId)) return fail('Invalid ID')
+    const unavailable = refuseUnavailableRecord(rowId, gridId)
+    if (unavailable) return unavailable
     const result = generateLetter(templateId, rowId, gridId)
     return ok(result)
   })

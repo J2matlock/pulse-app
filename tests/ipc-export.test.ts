@@ -729,7 +729,9 @@ describe('LETTER_TEMPLATE_GENERATE', () => {
   })
 
   it('returns generated letter text on valid IDs', async () => {
-    const result = await invoke(IPC.LETTER_TEMPLATE_GENERATE, 1, 1, 1) as { ok: true; data: string }
+    // A record that exists and isn't in the Trash (letters for any other are refused, A16-06)
+    const { gridId, rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    const result = await invoke(IPC.LETTER_TEMPLATE_GENERATE, 1, rowIds[0], gridId) as { ok: true; data: string }
     expect(result.ok).toBe(true)
     expect(typeof result.data).toBe('string')
   })

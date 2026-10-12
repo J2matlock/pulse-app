@@ -323,4 +323,22 @@ describe('Trashed records appear only in the Trash', () => {
     const pdfRuns = readFileSync(f('sup.pdf'), 'latin1').match(/\((?:\\.|[^\\)])*\)/g) ?? []
     expect(pdfRuns.filter(r => r.includes(MARK)).map(r => r.slice(1, -1)).sort()).toEqual(trashedNames)
   })
+
+  it('a record in the Trash, or in a list in the Trash, is refused by the one-record exports (A16-06)', async () => {
+    const db = getDb()
+    const listRecord = (db.prepare('SELECT id FROM rows WHERE grid_id = ? LIMIT 1').get(trashedListId) as { id: number }).id
+    const templateId = Number(db.prepare("INSERT INTO letter_templates (name, content) VALUES ('Letter', 'Dear {{name}}')").run().lastInsertRowid)
+    const sections = { deadlines: true, checklist: true, caseLog: true, scratchPad: true, contactInfo: true, gridData: true }
+    const call = async (channel: string, ...args: unknown[]) => await h.handlers.get(channel)!({ senderFrame: { parent: null, url: '' } }, ...args) as Result
+    for (const [rowId, gridId] of [[seed.trashedRowIds[0]!, seed.gridId], [listRecord, trashedListId]] as const) {
+      const profile = await call(IPC.EXPORT_PDF_PROFILE, { rowId, gridId, destPath: join(dir, 'p.pdf'), includeSections: sections })
+      expect(profile).toEqual({ ok: false, error: expect.stringMatching(/moved to the Trash/) })
+      expect(await call(IPC.EXPORT_HANDOFF_PACKET, { rowId, gridId })).toEqual({ ok: false, error: expect.stringMatching(/moved to the Trash/) })
+      expect(await call(IPC.LETTER_TEMPLATE_GENERATE, templateId, rowId, gridId)).toEqual({ ok: false, error: expect.stringMatching(/moved to the Trash/) })
+    }
+    // A live record still exports
+    const live = seed.activeRowIds[0]!
+    expect(await call(IPC.EXPORT_PDF_PROFILE, { rowId: live, gridId: seed.gridId, destPath: join(dir, 'live.pdf'), includeSections: sections })).toEqual({ ok: true, data: true })
+    expect(await call(IPC.LETTER_TEMPLATE_GENERATE, templateId, live, seed.gridId)).toMatchObject({ ok: true })
+  })
 })

@@ -134,6 +134,7 @@ const PLAIN = new Set<string>([
   "We couldn't add that example. Please try again.",
   "We couldn't find that ${word('record')} or ${word('list')}.",
   "We couldn't find that ${word('record')}.",
+  "We couldn't find that ${word('record', {}, gridId)}. It may have been moved to the Trash.",
   "We couldn't find the license file in this copy of Pulse.",
   "We couldn't open the license file. Your computer may not have an app for text files.",
   "We couldn't remove the sample data. Nothing was changed; please try again.",
