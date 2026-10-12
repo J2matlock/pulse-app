@@ -381,3 +381,33 @@ describe('Edge Cases', () => {
     expect(matchFilter(row, { columnId: 1, operator: 'contains', value: '' }, allCols)).toBe(true)
   })
 })
+
+// ── Files and auto-number columns (Q-049) ───────────────────────────────────
+
+describe('Files and auto-number columns', () => {
+  const filesCol = { id: 6, column_type: 'file_count' } as Column
+  const autoCol = { id: 7, column_type: 'auto_number' } as Column
+  const cols = [filesCol, autoCol]
+  // The grid query gives a Files column as a number (a COUNT)
+  const withFiles = (n: number, auto: string | null) => {
+    const row = makeRow(1, { 7: auto })
+    ;(row as Record<string, unknown>).col_6 = n
+    return row
+  }
+
+  it('compares how many files as numbers, 0 included', () => {
+    expect(matchFilter(withFiles(3, null), { columnId: 6, operator: 'gt', value: '2' }, cols)).toBe(true)
+    expect(matchFilter(withFiles(1, null), { columnId: 6, operator: 'gt', value: '2' }, cols)).toBe(false)
+    expect(matchFilter(withFiles(0, null), { columnId: 6, operator: 'lt', value: '1' }, cols)).toBe(true)
+    expect(matchFilter(withFiles(0, null), { columnId: 6, operator: 'equals', value: '0' }, cols)).toBe(true)
+    expect(matchFilter(withFiles(2, null), { columnId: 6, operator: 'not_equals', value: '2' }, cols)).toBe(false)
+  })
+
+  it('compares an auto number by its number for greater and less than, and as text otherwise', () => {
+    expect(matchFilter(withFiles(0, 'J-0042'), { columnId: 7, operator: 'gt', value: '40' }, cols)).toBe(true)
+    expect(matchFilter(withFiles(0, 'J-0042'), { columnId: 7, operator: 'gt', value: 'J-0050' }, cols)).toBe(false)
+    expect(matchFilter(withFiles(0, 'J-0042'), { columnId: 7, operator: 'lt', value: '100' }, cols)).toBe(true)
+    expect(matchFilter(withFiles(0, 'J-0042'), { columnId: 7, operator: 'equals', value: 'j-0042' }, cols)).toBe(true)
+    expect(matchFilter(withFiles(0, null), { columnId: 7, operator: 'gt', value: '1' }, cols)).toBe(false)
+  })
+})

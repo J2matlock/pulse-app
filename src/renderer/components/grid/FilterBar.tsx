@@ -7,7 +7,7 @@ import { TOOLBAR_ICON, TOOLBAR_LABEL } from './gridConstants'
 import { useShallow } from 'zustand/react/shallow'
 import { useGridStore, type FilterOperator } from '../../stores/gridStore'
 import { dropdownVariants } from '../../utils/animations'
-import { ROW_TAG_COLUMN_ID, ANY_DEADLINE_COLUMN_ID, takesDeadlineRule, type Column, type ColumnFilter, type GridRow } from '../../../shared/types'
+import { ROW_TAG_COLUMN_ID, ANY_DEADLINE_COLUMN_ID, takesDeadlineRule, type Column, type ColumnFilter, type ColumnType, type GridRow } from '../../../shared/types'
 import { parseLinkValue, type LinkChip } from '../../../shared/links'
 import { Tooltip } from '../shared/Tooltip'
 import { TODAY_TOKEN, DUE_STATUSES } from '../../utils/filterMatch'
@@ -50,8 +50,8 @@ const OPERATOR_LABELS: Record<FilterOperator, string> = {
   due_status:    'due status is',
 }
 
-// Operators available per column type
-const OPS_FOR_TYPE: Record<string, FilterOperator[]> = {
+// Operators available per column type; every type has its own entry (a missing one fell back to text, Q-049)
+const OPS_FOR_TYPE: Record<Exclude<ColumnType, 'deadline'>, FilterOperator[]> = {
   text:     ['contains', 'not_contains', 'equals', 'not_equals', 'starts_with', 'ends_with', 'is_empty', 'is_not_empty'],
   notes:    ['contains', 'not_contains', 'is_empty', 'is_not_empty'],
   address:  ['contains', 'not_contains', 'is_empty', 'is_not_empty'],
@@ -69,6 +69,10 @@ const OPS_FOR_TYPE: Record<string, FilterOperator[]> = {
   status:   ['equals', 'not_equals', 'is_empty', 'is_not_empty'],
   tag:      ['contains', 'not_contains', 'is_empty', 'is_not_empty'],
   link:     ['links_to', 'contains', 'not_contains', 'is_empty', 'is_not_empty'],
+  // "J-0042": matched as text, or by its number for greater/less than
+  auto_number: ['equals', 'not_equals', 'contains', 'gt', 'lt', 'is_empty', 'is_not_empty'],
+  // How many files: always a number, 0 when there are none
+  file_count:  ['gt', 'lt', 'equals', 'not_equals'],
 }
 
 const NO_VALUE_OPS: FilterOperator[] = ['is_empty', 'is_not_empty']
@@ -79,10 +83,10 @@ const NO_VALUE_OPS: FilterOperator[] = ['is_empty', 'is_not_empty']
  * people, so it offers only that.
  */
 function opsForColumn(col: Column | undefined): FilterOperator[] {
-  if (!col) return OPS_FOR_TYPE.text!
+  if (!col) return OPS_FOR_TYPE.text
   const hasRule = takesDeadlineRule(col.column_type) && (() => { try { return !!(JSON.parse(col.config || '{}') as { alert_rule_id?: number }).alert_rule_id } catch { return false } })()
   if (col.column_type === 'deadline') return ['due_status']
-  const base = OPS_FOR_TYPE[col.column_type] ?? OPS_FOR_TYPE.text!
+  const base = OPS_FOR_TYPE[col.column_type] ?? OPS_FOR_TYPE.text
   return hasRule ? ['due_status', ...base] : base
 }
 
@@ -166,6 +170,14 @@ const PRESETS_BY_TYPE: Record<string, FilterPreset[]> = {
   link: [
     { label: 'Links to\u2026', op: 'links_to' },
     { label: 'Is empty', op: 'is_empty' },
+  ],
+  auto_number: [
+    { label: 'Contains\u2026', op: 'contains' },
+    { label: 'Greater than\u2026', op: 'gt' },
+  ],
+  file_count: [
+    { label: 'Greater than\u2026', op: 'gt' },
+    { label: 'Less than\u2026', op: 'lt' },
   ],
 }
 
