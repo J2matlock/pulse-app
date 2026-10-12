@@ -85,3 +85,23 @@ describe('SecuritySection — change password', () => {
     expect((screen.getByRole('button', { name: 'Save new password' }) as HTMLButtonElement).disabled).toBe(true)
   })
 })
+
+describe('SecuritySection — recovery key (F-032)', () => {
+  beforeEach(() => {
+    mockInvoke.mockReset()
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'auth:has-recovery-key' ? { ok: true, data: true } : { ok: false, error: 'nope' }))
+  })
+
+  it('revoking says backups made before still open with the old key, instead of promising it stops working', async () => {
+    render(<SecuritySection saveSetting={vi.fn().mockResolvedValue(undefined)} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Revoke' }))
+    expect(screen.getByText(/stops this key from unlocking Pulse, but backups made before now still open with it/)).toBeTruthy()
+  })
+
+  it('regenerating says the same about the old key', async () => {
+    render(<SecuritySection saveSetting={vi.fn().mockResolvedValue(undefined)} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Regenerate' }))
+    expect(screen.getByText(/will no longer unlock Pulse\. Backups made before now still open with the old key/)).toBeTruthy()
+    expect(screen.queryByText(/will stop working/)).toBeNull()
+  })
+})

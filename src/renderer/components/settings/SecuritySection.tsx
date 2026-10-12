@@ -259,10 +259,11 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
               : hasRecovery ? 'Create a new recovery key?' : 'Create a recovery key'}
           </p>
           <p className="text-base text-slate-600 dark:text-slate-400">
+            {/* The data's key isn't changed, only how it's locked: say what the old key still opens (F-032) */}
             {pendingKeyAction === 'revoke'
-              ? 'Without a recovery key, a forgotten password means permanent data loss.'
+              ? 'Without a recovery key, a forgotten password means permanent data loss. Revoking stops this key from unlocking Pulse, but backups made before now still open with it, so keep them safe.'
               : hasRecovery
-                ? 'Your current recovery key will stop working. Backups you already made still open with the old key.'
+                ? 'Your current recovery key will no longer unlock Pulse. Backups made before now still open with the old key, so keep them safe.'
                 : 'You will see the key once — print it or write it down and keep it somewhere safe.'}
           </p>
           <label htmlFor="key-action-password" className="block text-base text-slate-700 dark:text-slate-300">Enter your current password to continue</label>
