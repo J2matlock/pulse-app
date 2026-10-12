@@ -57,6 +57,16 @@ describe('contact PDF', () => {
 })
 
 describe('directory PDF', () => {
+  it('prints every contact past 1,000, and the direct phone when there is no main one (Q-035)', async () => {
+    const add = testDb.db.prepare("INSERT INTO providers (name, created_at, updated_at) VALUES (?, datetime('now'), datetime('now'))")
+    testDb.db.transaction(() => { for (let i = 1; i <= 1001; i++) add.run(`Person ${String(i).padStart(4, '0')}`) })()
+    testDb.db.prepare("UPDATE providers SET phone_direct = '555-0199' WHERE name = 'Person 0001'").run()
+    await exportDirectoryPdf({}, dest('d.pdf'))
+    const all = runs(dest('d.pdf'))
+    expect(all.filter(r => /^Person \d{4}$/.test(r))).toHaveLength(1001)
+    expect(all).toContain('555-0199')
+  }, 30_000)
+
   it('prints a category whose color was typed as a word', async () => {
     const cat = testDb.db.prepare("INSERT INTO provider_categories (name, color, position) VALUES ('Old', 'red', 0)").run()
     addProvider({ name: 'In Old', category_id: Number(cat.lastInsertRowid), availability_status: 'full' })

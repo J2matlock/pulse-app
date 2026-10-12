@@ -684,7 +684,7 @@ export async function exportContactPdf(providerId: number, destPath: string): Pr
 // ──────────────────────────────────────────────────────────────────────────────
 
 export async function exportDirectoryPdf(filterParams: Record<string, unknown>, destPath: string): Promise<void> {
-  const providers = getProviders(filterParams as ContactFilterParams)
+  const providers = getProviders(filterParams as ContactFilterParams, { all: true })
   const categories = getCategories()
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
