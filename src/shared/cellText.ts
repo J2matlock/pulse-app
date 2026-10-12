@@ -18,6 +18,12 @@ export function formatDateAs(value: string, fmt: DateFormat): string {
   return `${d}/${mo}/${y}`
 }
 
+/**
+ * One formatter for every money cell: toLocaleString with options builds a new
+ * Intl.NumberFormat on each call, which was most of a large CSV export's time
+ */
+const USD = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
 /** The text of a cell; deadline columns need their worked-out result (see deadlineText) */
 export function cellText(columnType: string, value: string | null, opts: { dateFormat?: DateFormat } = {}): string {
   if (value === null || value === '') return ''
@@ -26,7 +32,7 @@ export function cellText(columnType: string, value: string | null, opts: { dateF
     case 'date': return formatDateAs(value, opts.dateFormat ?? 'iso')
     case 'currency': {
       const n = parseFloat(value)
-      return isNaN(n) ? value : '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      return isNaN(n) ? value : '$' + USD.format(n)
     }
     case 'tag': {
       try {
