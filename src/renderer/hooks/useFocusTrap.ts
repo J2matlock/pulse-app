@@ -28,10 +28,13 @@ export function useFocusTrap(containerRef: React.RefObject<HTMLElement | null>, 
     openTraps.push(token)
     const isTop = () => openTraps[openTraps.length - 1] === token
 
-    // Focus first focusable element
+    // Focus the first focusable element on the next frame, unless focus is already inside by then
+    // (an autoFocus field, a focus() in the dialog's own effect, or a click): that choice stands
     const firstFocusable = container.querySelector<HTMLElement>(FOCUSABLE)
     if (firstFocusable) {
-      requestAnimationFrame(() => firstFocusable.focus())
+      requestAnimationFrame(() => {
+        if (!container.contains(document.activeElement)) firstFocusable.focus()
+      })
     }
 
     function handleKeyDown(e: KeyboardEvent) {
