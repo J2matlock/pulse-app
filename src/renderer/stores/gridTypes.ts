@@ -16,6 +16,7 @@ import type { ColumnSliceState } from './gridColumnSlice'
 import type { FormatSliceState } from './gridFormatSlice'
 import type { AcuitySliceState } from './gridAcuitySlice'
 import type { CustomGroupSliceState } from './gridCustomGroupSlice'
+import type { CellEditSliceState } from './gridCellEditSlice'
 
 export interface UpdateCellOptions {
   /** An undo or redo is putting a value back: push no undo entry, and throw on failure */
@@ -36,8 +37,6 @@ export interface CoreGridState {
   loadedGridId: number | null
   /** The open list couldn't be read: the table shows this with a "Try again" button (AUDIT-041) */
   loadError: string | null
-  isSaving: boolean
-  saveError: string | null
 
   loadGridList: () => Promise<void>
   loadGrid: (gridId: number) => Promise<void>
@@ -89,10 +88,7 @@ export interface CoreGridState {
   duplicateRow: (rowId: number) => Promise<void>
   updateRow: (rowId: number, updates: Partial<{ is_starred: 0 | 1 }>) => Promise<void>
 
-  /** Resolves false when the change couldn't be saved (or the column can't be typed into) */
-  updateCell: (rowId: number, columnId: number, value: string | null, opts?: UpdateCellOptions) => Promise<boolean>
-
   _loadVersion: number
 }
 
-export type GridState = CoreGridState & FilterSliceState & ColumnSliceState & FormatSliceState & AcuitySliceState & CustomGroupSliceState
+export type GridState = CoreGridState & FilterSliceState & ColumnSliceState & FormatSliceState & AcuitySliceState & CustomGroupSliceState & CellEditSliceState
