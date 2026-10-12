@@ -204,7 +204,7 @@ Built sequentially. Each phase produced a working, testable build. See `plans/BU
 
 **Current state:** Feature-complete. 49 migrations, schema version 49 (031 removed Reference Board and Documents; 032 case-note edit history; 033 calendar-month deadline rules; 034 monthly contact requirements; 035 time and mileage on notes; 036 workspace words and feature switches; 037 note types, custom measures column, requirement periods; 038 deadline engine v2; 039 linked records; 040 appointments; 041 forms; 042 attachments; 043 saved reports; 044 note occurred-at; 045 list Trash; 046 deadline done dates; 047 sample rows; 048 appointment note index; 049 foreign-key child indexes). 5571 tests in 477 files passing (0 skipped) as of 2026-10-12. Remaining work is polish and accessibility. Since 2026-10-08 Pulse is free and open source (GPL-3.0): the trial, license activation and the 15-record free limit are gone. Public repo: https://github.com/J2matlock/pulse-app.
 
-**Quality gates (2026-10-12):** `npm run typecheck` = 0 errors and `npx eslint src --quiet` = 0 errors. `npx eslint src` shows 143 warnings, all from eslint-plugin-security (119 non-literal fs paths, 17 unsafe regex, 4 non-literal regexp, 3 timing); react-hooks/exhaustive-deps is at 0 — keep it there, and fix rather than disable (no eslint-disable, @ts-ignore or `as any`). Keep errors at zero — the build (esbuild) does NOT typecheck, so run `/verify`, and `npm run gate` (typecheck + eslint --quiet + full tests, same as `sweep/gate.sh`) before a commit.
+**Quality gates (2026-10-12):** `npm run typecheck` = 0 errors and `npx eslint src --quiet` = 0 errors. `npx eslint src` shows 143 warnings, all from eslint-plugin-security (119 non-literal fs paths, 17 unsafe regex, 4 non-literal regexp, 3 timing); react-hooks/exhaustive-deps is at 0 — keep it there, and fix rather than disable (no eslint-disable, @ts-ignore or `as any`). Keep errors at zero — the build (esbuild) does NOT typecheck, so run `/verify`, and `npm run gate` (typecheck + eslint --quiet + full tests, `scripts/gate.sh`) before a commit.
 
 ### Database Note
 Uses `better-sqlite3-multiple-ciphers` (NOT `@journeyapps/sqlcipher`). See Decision Log below for rationale. Since 13.x (2026-10-11) it is Node-API: the same bundled binary loads in system Node and in Electron, so `electron-rebuild` and the ABI steps in `scripts/run-tests.sh` are now no-ops (kept, harmless).
@@ -219,7 +219,7 @@ Uses `better-sqlite3-multiple-ciphers` (NOT `@journeyapps/sqlcipher`). See Decis
 ## Testing Approach
 - **ALWAYS run tests via `npm test`, NEVER vitest directly** (a PreToolUse hook blocks it). `scripts/run-tests.sh` does the ABI dance: (1) `node-gyp rebuild` for system Node ABI, (2) vitest, (3) `electron-rebuild` back to Electron ABI (steps 1 and 3 are no-ops since the Node-API module, 2026-10-11). Args pass through: `npm test -- tests/auth.test.ts -t "lockout"`.
 - Test suite: 477 files, 5571 tests, ~90 s. Typecheck: `npm run typecheck`. Lint: `npm run lint`.
-- `npm run gate`: typecheck + `eslint src --quiet` + full tests (same steps as `sweep/gate.sh`). Run it before every commit; it must be green.
+- `npm run gate` (`scripts/gate.sh`): typecheck + `eslint src --quiet` + full tests. Run it before every commit; it must be green.
 - `npm run test:tz`: the whole suite in UTC, America/Los_Angeles, Pacific/Auckland and Asia/Kolkata (`scripts/test-tz.sh`). Run it after any date/time change; tests that build "today" or timestamps must use local dates (local noon, not N × 24 hours), or they fail across a DST change.
 - `npm run perf`: main-process and DataGrid benchmarks on a seeded 5,000-record workspace (`vitest.perf.config.ts`, `tests/perf/`); not part of `npm test`. Use `seedWorkspace()` from `tests/seedWorkspace.ts` for large test data.
 - `npm run test:e2e` (Playwright; on this machine run with `env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11`): includes `e2e/smoke-persist.spec.ts` (edit survives quit, relaunch and unlock).
@@ -271,6 +271,8 @@ Keep explanations proportional to complexity. Simple changes need one sentence, 
 - No exceptions. Not for "clarity", not for alignment, not for terminal output.
 
 ## Decision Log
+Ids such as D-###, F-###, Q-### and A##-## (and "sweep plan" / "sweep Phase" section numbers) in comments and below point at the 2026-10 sweep and earlier audit logs, which stay local and aren't in the public repo. The reason is always written next to the id, so nothing here depends on those files.
+
 When implementation deviates from the spec, document it here:
 
 | Date | Decision | Reason |

@@ -11,8 +11,7 @@
  *    list purged), and every path is read again. Anything trashed data was
  *    counted in shows up as a difference.
  *
- * Deliberate exceptions are listed in KNOWN_TRASH_READERS with the reason
- * (sweep/DECISIONS.md).
+ * Deliberate exceptions are listed in KNOWN_TRASH_READERS, each with its reason.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mkdtempSync, rmSync, readFileSync, readdirSync, writeFileSync } from 'fs'
@@ -258,11 +257,11 @@ async function readAll(): Promise<Record<string, unknown>> {
 }
 
 /**
- * Paths that read the Trash on purpose (sweep/DECISIONS.md), with the reason.
+ * Paths that read the Trash on purpose, each with its reason.
  * Everything else must give the same answer before and after Empty Trash.
  */
 const KNOWN_TRASH_READERS: Record<string, string> = {
-  'audit trail': 'D-007: the audit trail keeps trashed records on purpose (it records "Moved to the Trash"); A16-01 is open',
+  'audit trail': 'D-007/D-010: the audit trail keeps trashed records on purpose (it records "Moved to the Trash") and marks each one "In the Trash since …" (F-009)',
   'audit.pdf': 'D-007, as above',
   'grid:get-full cellFormats': "D-009: format rules are sent for every row id in the list; the grid only draws the ones for rows it shows",
   'grid:get-full (archived shown) cellFormats': 'D-009, as above',
@@ -270,7 +269,7 @@ const KNOWN_TRASH_READERS: Record<string, string> = {
   'linkCountsForGrid': 'D-009: the "delete this list" warning counts every link the delete removes, trashed records\' too',
 }
 
-/** The supervisor report has a labelled "removed from the list" section naming records in the Trash (D-008, A16-02 open) */
+/** The supervisor report has a labelled "removed from the list" section naming records in the Trash (D-008/D-012: labelled "Still in the Trash", F-010) */
 const SUPERVISOR_FILES = ['sup.csv', 'sup.pdf']
 
 describe('Trashed records appear only in the Trash', () => {
