@@ -13,6 +13,7 @@ vi.stubGlobal('crypto', { randomUUID: () => 'test-uuid' })
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore'
 import { useUndoStore } from '../../../src/renderer/stores/undoStore'
 import { useGridStore } from '../../../src/renderer/stores/gridStore'
+import { withUnsavedEdits } from '../../../src/renderer/stores/gridCellEditSlice'
 import { useContactsStore } from '../../../src/renderer/stores/contactsStore'
 import { useTaskStore } from '../../../src/renderer/stores/taskStore'
 import type { GridRow, CaseloadTask, Provider } from '../../../src/shared/types'
@@ -91,6 +92,27 @@ describe('settingsStore', () => {
       expect(c.selectedProvider).toBeNull()
       expect(c.initialLoadDone).toBe(false)
       expect(useTaskStore.getState().tasks).toEqual([])
+    })
+
+    it('lock() also forgets saved cell values and other lists\' search text (R3-03)', async () => {
+      useGridStore.setState({ activeGridId: 3, loadedGridId: 3, rows: [{ row_id: 1, col_5: 'Jane' } as GridRow], columns: [], hiddenColumns: [] })
+      mockInvoke.mockImplementation(async (channel: string) => channel === 'cell:update'
+        ? { ok: true, data: { sysLogId: null } }
+        : channel === 'grid:get-full' ? { ok: false, error: 'not in this test' } : { ok: true, data: null })
+      await useGridStore.getState().updateCell(1, 5, 'Jane Doe')
+      const fresh = [{ row_id: 1, col_5: 'Jane' } as GridRow]
+      expect(withUnsavedEdits(fresh, 0)[0]!.col_5).toBe('Jane Doe')
+      // List 3 searched for a name, then another list opened: list 3's search is put away
+      useGridStore.setState({ searchQuery: 'Jane Doe' })
+      await useGridStore.getState().loadGrid(4)
+      mockInvoke.mockResolvedValue(undefined)
+
+      await useSettingsStore.getState().lock()
+
+      expect(withUnsavedEdits(fresh, 0)).toBe(fresh)
+      mockInvoke.mockImplementation(async () => ({ ok: false, error: 'not in this test' }))
+      await useGridStore.getState().loadGrid(3)
+      expect(useGridStore.getState().searchQuery).toBe('')
     })
 
     it('lock() clears focusModeOpen', async () => {

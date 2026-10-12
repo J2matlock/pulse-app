@@ -31,6 +31,8 @@ const _pendingCells = new Map<string, PendingCell>()
 const _savedCells = new Map<string, { seq: number; value: string | null }>()
 let _cellSeq = 0
 let _savesInFlight = 0
+// Bumped on lock, so a save that lands after the lock isn't remembered in _savedCells
+let _lockEpoch = 0
 
 /** The edit count now; a load notes it when asked for and passes it to withUnsavedEdits. */
 export function cellEditsSeen(): number {
@@ -43,6 +45,17 @@ export function clearCellCoalescing(rowId?: number): void {
   for (const key of _coalesceIndex.keys()) {
     if (key.startsWith(`${rowId}:`)) _coalesceIndex.delete(key)
   }
+}
+
+/**
+ * Locked: forget saved cell values (names, notes, dates people typed) so they don't stay in
+ * memory while Pulse is locked (A24-11, R3-03). The load after unlock asks with a fresh
+ * cellEditsSeen(), so it never needed them. Saves still on their way keep their own entry
+ * in _pendingCells until main answers, then it goes as usual.
+ */
+export function clearCellEditMemory(): void {
+  _lockEpoch++
+  _savedCells.clear()
 }
 
 /** Lays edits a load can't have seen over the rows it read; `sinceSeq` is the edit count when the load was asked for. */
@@ -96,6 +109,7 @@ export const createCellEditSlice = (set: Set, get: Get) => ({
 
     const cellKey = `${rowId}:${columnId}`
     const seq = ++_cellSeq
+    const epoch = _lockEpoch
     const pending = _pendingCells.get(cellKey)
     if (pending) { pending.seq = seq; pending.value = value; pending.count++ }
     else _pendingCells.set(cellKey, { seq, value, confirmed: listValue, count: 1 })
@@ -139,7 +153,7 @@ export const createCellEditSlice = (set: Set, get: Get) => ({
     const entry = settle()
     if (entry) entry.confirmed = value
     _savedCells.delete(cellKey)
-    _savedCells.set(cellKey, { seq, value })
+    if (epoch === _lockEpoch) _savedCells.set(cellKey, { seq, value })
     if (_savedCells.size > 500) {
       const keys = [..._savedCells.keys()]
       for (let i = 0; i < 100; i++) _savedCells.delete(keys[i]!)

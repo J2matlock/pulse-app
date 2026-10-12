@@ -13,7 +13,7 @@ import { createFormatSlice } from './gridFormatSlice'
 import { createAcuitySlice } from './gridAcuitySlice'
 import { createCustomGroupSlice } from './gridCustomGroupSlice'
 import { createRowSlice } from './gridRowSlice'
-import { createCellEditSlice, cellEditsSeen, clearCellCoalescing, withUnsavedEdits } from './gridCellEditSlice'
+import { createCellEditSlice, cellEditsSeen, clearCellCoalescing, clearCellEditMemory, withUnsavedEdits } from './gridCellEditSlice'
 import type { SavedView } from './gridFilterSlice'
 import type { GridState } from './gridTypes'
 
@@ -315,6 +315,9 @@ export const useGridStore = create<GridState>((set, get) => ({
 // so unlocking reloads the same list (GridView sees loadedGridId is null)
 pulseEvents.on('app:locked', () => {
   clearCellCoalescing()
+  clearCellEditMemory()
+  // Other lists' search text can be a person's name; their filters and grouping stay (R3-03)
+  for (const [id, view] of _listViews) if (view.searchQuery) _listViews.set(id, { ...view, searchQuery: '' })
   useGridStore.setState(s => ({
     rows: [],
     rowTagsMap: new Map<number, string[]>(),
