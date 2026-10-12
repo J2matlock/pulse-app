@@ -7,7 +7,8 @@ import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
 import { vocabSchema } from '../../shared/vocab'
 import { featureMapSchema } from '../../shared/features'
-import { secureWrap, ok, fail, enforceWritable, validId } from './ipc-utils'
+import { ok, fail } from './ipc-utils'
+import { handlersFor, idArg } from './ipc-define'
 import { getDb } from '../database'
 import { getWorkspaceState, word, workspaceFeatures } from '../vocab'
 import { refreshDisplayNames } from '../display-names'
@@ -37,10 +38,10 @@ const gridSettingsSchema = z.object({
   acuity_enabled: z.boolean().optional(),
 }).strict()
 
+const define = handlersFor('ipc-workspace')
+
 export function registerWorkspaceHandlers(): void {
-  secureWrap(IPC.GRID_SETTINGS_UPDATE, 'ipc-workspace', (_e, gridId: unknown, patch: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(gridId)) return fail('Invalid ID')
+  define(IPC.GRID_SETTINGS_UPDATE, [idArg(), z.unknown()], (gridId, patch) => {
     const parsed = gridSettingsSchema.safeParse(patch)
     if (!parsed.success) return fail(`Those ${word('list', {}, gridId)} settings couldn't be saved.`)
     const db = getDb()
@@ -58,14 +59,15 @@ export function registerWorkspaceHandlers(): void {
     })()
     notifyWorkspaceChanged()
     return ok(getWorkspaceState())
-  })
+  }, { write: true })
 
-  secureWrap(IPC.WORKSPACE_GET, 'ipc-workspace', () => ok(getWorkspaceState()))
+  define(IPC.WORKSPACE_GET, [], () => ok(getWorkspaceState()))
 
   // Days off for business-day deadlines: replaces the list (and the weekend, when given)
-  secureWrap(IPC.HOLIDAYS_SET, 'ipc-workspace', (_e, holidays: unknown, weekend: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!Array.isArray(holidays) || holidays.length > MAX_HOLIDAYS) return fail(`Up to ${MAX_HOLIDAYS} days off can be saved.`)
+  define(IPC.HOLIDAYS_SET, [
+    z.array(z.unknown(), `Up to ${MAX_HOLIDAYS} days off can be saved.`).max(MAX_HOLIDAYS, `Up to ${MAX_HOLIDAYS} days off can be saved.`),
+    z.unknown(),
+  ], (holidays, weekend) => {
     const days = [...new Set(holidays.filter((d): d is string => typeof d === 'string' && toYmd(d) === d))].sort()
     if (days.length !== new Set(holidays).size) return fail('Some of those dates could not be read.')
     if (weekend !== undefined && (!Array.isArray(weekend) || weekend.length > 6 || !weekend.every(n => Number.isInteger(n) && n >= 0 && n <= 6))) {
@@ -78,10 +80,9 @@ export function registerWorkspaceHandlers(): void {
     })()
     notifyWorkspaceChanged()
     return ok(getWorkspaceState())
-  })
+  }, { write: true })
 
-  secureWrap(IPC.WORKSPACE_UPDATE, 'ipc-workspace', (_e, patch: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
+  define(IPC.WORKSPACE_UPDATE, [z.unknown()], (patch) => {
     const parsed = patchSchema.safeParse(patch)
     if (!parsed.success) {
       // The pattern check carries a readable message; everything else gets a general one
@@ -97,5 +98,5 @@ export function registerWorkspaceHandlers(): void {
     })()
     notifyWorkspaceChanged()
     return ok(getWorkspaceState())
-  })
+  }, { write: true })
 }
