@@ -49,7 +49,6 @@ vi.mock('@tiptap/react', () => ({
 }))
 
 vi.mock('@tiptap/starter-kit', () => ({ default: {} }))
-vi.mock('@tiptap/extension-underline', () => ({ default: {} }))
 
 // Mock DOMPurify
 vi.mock('dompurify', () => ({
