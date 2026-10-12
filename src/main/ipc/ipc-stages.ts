@@ -1,8 +1,10 @@
 /**
  * ipc-stages.ts — stage settings, moves and durations (generalization W06 §7).
  */
+import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
-import { secureWrap, ok, fail, enforceWritable, validId, notifyCaseLogChanged } from './ipc-utils'
+import { ok, fail, validId, notifyCaseLogChanged } from './ipc-utils'
+import { handlersFor, idArg } from './ipc-define'
 import { invalidateColumnCache } from './ipc-cell'
 import { StageError, saveStageConfig, moveStage, undoStageMove, stageDurations, stageSummary } from '../stages'
 import type { StageMoveResult } from '../../shared/stages'
@@ -15,29 +17,24 @@ function action<T>(fn: () => T) {
   }
 }
 
+const define = handlersFor('ipc-stages')
+
 export function registerStageHandlers(): void {
-  secureWrap(IPC.STAGE_CONFIG_SAVE, 'ipc-stages', (_e, columnId: unknown, config: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(columnId)) return fail('Invalid ID')
+  define(IPC.STAGE_CONFIG_SAVE, [idArg(), z.unknown()], (columnId, config) => {
     const res = action(() => saveStageConfig(columnId, config ?? null))
     // Change logging is part of the settings the cell writer caches
     if (res.ok) for (const id of res.data) invalidateColumnCache(id)
     return res
-  })
+  }, { write: true })
 
-  secureWrap(IPC.STAGE_MOVE, 'ipc-stages', (_e, rowId: unknown, columnId: unknown, value: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId) || !validId(columnId)) return fail('Invalid ID')
-    if (value !== null && (typeof value !== 'string' || value.length > 200)) return fail('Invalid stage')
+  define(IPC.STAGE_MOVE, [idArg(), idArg(), z.string('Invalid stage').max(200, 'Invalid stage').nullable()], (rowId, columnId, value) => {
     const res = action(() => moveStage(rowId, columnId, value))
     if (res.ok && res.data.changed) notifyCaseLogChanged(rowId)
     return res
-  })
+  }, { write: true })
 
   /** Undo a move as if it never happened (audit S-16) */
-  secureWrap(IPC.STAGE_UNDO, 'ipc-stages', (_e, rowId: unknown, columnId: unknown, move: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId) || !validId(columnId)) return fail('Invalid ID')
+  define(IPC.STAGE_UNDO, [idArg(), idArg(), z.unknown()], (rowId, columnId, move) => {
     const m = (move && typeof move === 'object' ? move : null) as Partial<StageMoveResult> | null
     const idList = (v: unknown) => v === undefined || (Array.isArray(v) && v.length <= 1000 && v.every(validId))
     const text = (v: unknown) => v === null || (typeof v === 'string' && v.length <= 10_000)
@@ -53,13 +50,12 @@ export function registerStageHandlers(): void {
       if (m.stamped) rematerializeForRecord(rowId)
     }
     return res
-  })
+  }, { write: true })
 
-  secureWrap(IPC.STAGE_DURATIONS, 'ipc-stages', (_e, gridId: unknown, columnId: unknown, rowIds?: unknown) => {
-    if (!validId(gridId) || !validId(columnId)) return fail('Invalid ID')
-    if (rowIds != null && (!Array.isArray(rowIds) || rowIds.length > 5000 || !rowIds.every(validId))) return fail('Invalid records')
-    return ok(stageDurations(gridId, columnId, rowIds == null ? undefined : rowIds as number[]))
-  })
+  define(IPC.STAGE_DURATIONS, [
+    idArg(), idArg(),
+    z.array(idArg('Invalid records'), 'Invalid records').max(5000, 'Invalid records').nullish(),
+  ], (gridId, columnId, rowIds) => ok(stageDurations(gridId, columnId, rowIds ?? undefined)))
 
-  secureWrap(IPC.STAGE_SUMMARY, 'ipc-stages', () => ok(stageSummary()))
+  define(IPC.STAGE_SUMMARY, [], () => ok(stageSummary()))
 }
