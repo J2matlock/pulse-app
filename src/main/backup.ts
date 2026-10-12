@@ -323,6 +323,14 @@ async function createPulseBackup(dbPath: string, destPath: string, backupType: s
   const finalPath = destPath.endsWith('.pulse-backup') ? destPath : destPath + '.pulse-backup'
   mkdirSync(dirname(finalPath), { recursive: true, mode: 0o700 })
 
+  // Password/recovery-wrapped DB key so this backup can be opened on another
+  // computer (see KeyEnvelope in auth.ts). Without it, the backup only works
+  // on the machine that made it. Read in the same synchronous stretch as the
+  // snapshot: a re-encrypt (P-001) finishing during the awaits below would
+  // otherwise pair the old-key snapshot with the new key's envelope.
+  const envelope = getKeyEnvelope()
+  if (!envelope) logger.warn('backup', 'Key envelope unavailable — backup will only restore on this computer')
+
   // Create an atomic snapshot via VACUUM INTO so the zip contains a
   // consistent point-in-time copy (no interleaved writes possible)
   const snapshotDir = dirname(finalPath)
@@ -342,12 +350,6 @@ async function createPulseBackup(dbPath: string, destPath: string, backupType: s
 
     const storedDocsDir = join(getPortableDataDir(), 'pulse-files', 'documents')
     const hasStoredDocs = existsSync(storedDocsDir) && readdirSync(storedDocsDir).length > 0
-
-    // Password/recovery-wrapped DB key so this backup can be opened on another
-    // computer (see KeyEnvelope in auth.ts). Without it, the backup only works
-    // on the machine that made it.
-    const envelope = getKeyEnvelope()
-    if (!envelope) logger.warn('backup', 'Key envelope unavailable — backup will only restore on this computer')
 
     const meta = {
       created: new Date().toISOString(),

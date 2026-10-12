@@ -82,6 +82,7 @@ const PLAIN = new Set<string>([
   'Each item must have a title',
   'Enter the password or recovery key used with this backup',
   'Enter the reading as a number.',
+  'Enter your current password to continue', // revoke with re-encrypt needs it to wrap the new key (P-001)
   'Enter your password to confirm.',
   'Keep at least one working day in the week.',
   "Link columns can't be changed to another type, or made from one.",

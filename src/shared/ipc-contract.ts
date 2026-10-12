@@ -379,14 +379,14 @@ export interface IPCContract {
   // ── Auth & Security ─────────────────────────────────────────────────────
   'auth:setup-password':                { args: [password: string, hint: string];                                return: { cloudWarning: string | null } }
   'auth:verify-password':               { args: [password: string];                                              return: { cloudWarning: string | null; failedAttempts?: number } }
-  'auth:change-password':               { args: [oldPassword: string, newPassword: string, newHint: string];     return: true }
+  'auth:change-password':               { args: [oldPassword: string, newPassword: string, newHint: string, opts?: { reencrypt?: boolean }]; return: true }
   'auth:lock':                          { args: [];                                                              return: true }
   'auth:activity-ping':                 { args: [];                                                              return: null }
   'auth:get-hint':                      { args: [];                                                              return: string | null }
   'auth:is-setup':                      { args: [];                                                              return: boolean }
   'auth:generate-recovery-key':         { args: [currentPassword?: string];                                      return: string }
   'auth:verify-recovery-key':           { args: [recoveryKey: string];                                           return: true }
-  'auth:revoke-recovery-key':           { args: [currentPassword?: string];                                      return: true }
+  'auth:revoke-recovery-key':           { args: [currentPassword?: string, opts?: { reencrypt?: boolean }];      return: true }
   'auth:has-recovery-key':              { args: [];                                                              return: boolean }
   'auth:lockout-remaining':             { args: [];                                                              return: number }
   'auth:reset-password-after-recovery': { args: [newPassword: string, newHint: string];                          return: true }

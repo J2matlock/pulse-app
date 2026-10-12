@@ -4,7 +4,7 @@
 
 import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
-import { secureWrap, ok, fail, withCorrelation, assertSafePath } from './ipc-utils'
+import { secureWrap, ok, fail, withCorrelation, assertSafePath, enforceWritable, logNonFatal } from './ipc-utils'
 import { checkNewPassword } from '../../shared/passwordPolicy'
 import { openDatabase, closeDatabase, resolveDatabasePath, checkCloudSyncPath, getDb, DatabaseOpenError } from '../database'
 import { dbOpenFailedCode } from '../../shared/dbOpen'
@@ -13,6 +13,7 @@ import { moveAsideExistingDatabase, restoreBackupOnNewInstall, runAutoBackupOnLo
 import { describeRestoreError } from '../restore-errors'
 import { stopScheduledBackup, startScheduledBackup } from '../index'
 import { ensureMaterialized } from '../appointments'
+import { openWithUnlockKeys, changePasswordAndReencrypt, revokeRecoveryKeyAndReencrypt, REENCRYPT_FAILED_LOCKED, type KeySwitchResult } from '../key-switch'
 import {
   isPasswordSetup,
   setupPassword,
@@ -39,10 +40,13 @@ function databaseIsOpen(): boolean {
 // backup" (AUDIT-003): the person has just proved they own this data.
 let openFailedAfterUnlock = false
 
-/** Open the database after a successful unlock; on failure, lock again and say why */
+/**
+ * Open the database after a successful unlock; on failure, lock again and say why.
+ * Tries every key the password unwrapped and settles a re-encrypt a crash cut short (P-001).
+ */
 function openAfterUnlock(): ReturnType<typeof fail> | null {
   try {
-    openDatabase()
+    openWithUnlockKeys(openDatabase)
     openFailedAfterUnlock = false
     return null
   } catch (err) {
@@ -53,6 +57,17 @@ function openAfterUnlock(): ReturnType<typeof fail> | null {
     openFailedAfterUnlock = true
     return fail(dbOpenFailedCode(kind))
   }
+}
+
+/**
+ * After a re-encrypt: 'locked' means a failed rekey left Pulse locked (both
+ * credential slots kept), so the lock screen comes up as after a failed open.
+ */
+function afterKeySwitch(e: Electron.IpcMainInvokeEvent, result: KeySwitchResult): ReturnType<typeof ok<true>> | ReturnType<typeof fail> {
+  if (result === 'switched') return ok(true)
+  closeDatabase()
+  try { e.sender.send(IPC.AUTH_FORCE_LOCK) } catch (err) { logNonFatal('ipc-auth', 'send force-lock after a failed re-encrypt', err) }
+  return fail(REENCRYPT_FAILED_LOCKED)
 }
 
 export function registerAuthHandlers(): void {
@@ -173,13 +188,21 @@ export function registerAuthHandlers(): void {
     })
   })
 
-  secureWrap(IPC.AUTH_CHANGE_PASSWORD, 'ipc-auth', async (_e, oldPassword: string, newPassword: string, newHint: string) => {
+  secureWrap(IPC.AUTH_CHANGE_PASSWORD, 'ipc-auth', async (e, oldPassword: string, newPassword: string, newHint: string, opts?: { reencrypt?: boolean }) => {
     return withCorrelation('auth-change-password', async (corrId) => {
       try {
         if (typeof oldPassword !== 'string' || oldPassword.length > 1024) return fail('Invalid password')
         if (typeof newPassword !== 'string' || newPassword.length > 1024) return fail('Invalid password')
       { const check = checkNewPassword(newPassword); if (!check.ok) return fail(check.message ?? 'Choose a stronger password') }
         if (typeof newHint !== 'string' || newHint.length > 512) return fail('Hint too long')
+        if (opts !== undefined && (opts === null || typeof opts !== 'object')) return fail('Invalid options')
+        if (opts?.reencrypt === true) {
+          // A new key for the data (P-001): it writes every page, so the read-only gate applies
+          const guard = enforceWritable(); if (guard) return guard
+          const result = await changePasswordAndReencrypt(oldPassword, newPassword, newHint)
+          logger.info('ipc-auth', `[${corrId}] password change with re-encrypt: ${result}`)
+          return afterKeySwitch(e, result)
+        }
         await changePassword(oldPassword, newPassword, newHint)
         logger.info('ipc-auth', `[${corrId}] password changed successfully`)
         return ok(true)
@@ -211,8 +234,21 @@ export function registerAuthHandlers(): void {
     return ok(key)
   })
 
-  secureWrap(IPC.AUTH_REVOKE_RECOVERY_KEY, 'ipc-auth', async (_e, currentPassword?: string) => {
+  secureWrap(IPC.AUTH_REVOKE_RECOVERY_KEY, 'ipc-auth', async (e, currentPassword?: string, opts?: { reencrypt?: boolean }) => {
     if (currentPassword !== undefined && (typeof currentPassword !== 'string' || currentPassword.length > 1024)) return fail('Invalid password')
+    if (opts !== undefined && (opts === null || typeof opts !== 'object')) return fail('Invalid options')
+    if (opts?.reencrypt === true) {
+      // Revoke by giving the data a new key wrapped by the current password only (P-001)
+      const guard = enforceWritable(); if (guard) return guard
+      if (typeof currentPassword !== 'string' || currentPassword.length === 0) return fail('Enter your current password to continue')
+      try {
+        return afterKeySwitch(e, await revokeRecoveryKeyAndReencrypt(currentPassword))
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : ''
+        if (msg === 'Incorrect password' || msg.startsWith('Too many failed attempts')) return fail(msg)
+        throw err
+      }
+    }
     await revokeRecoveryKey(currentPassword)
     return ok(true)
   })

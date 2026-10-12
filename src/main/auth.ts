@@ -7,7 +7,12 @@
  *   3. The wrapping key encrypts the DB key → stored in electron-store.
  *   4. Optional recovery key does the same, stored as a second wrapped copy.
  *   5. On unlock: either password or recovery key unwraps the DB key.
- *   6. Password changes only re-wrap the stored key — DB itself is never re-keyed.
+ *   6. A plain password change only re-wraps the stored key. "Change password and
+ *      re-encrypt" (P-001) gives the DB a new random key: the new key is first saved,
+ *      wrapped by the new password, in a pending slot next to the current one; then
+ *      the DB is rekeyed; then pending replaces current in one write. Unlock tries
+ *      current, then pending, so a crash at any point leaves a DB that opens with
+ *      the old or the new password (see key-switch.ts).
  */
 
 import * as crypto from 'crypto'
@@ -61,8 +66,19 @@ interface SecureStore {
   salt_recovery: string        // hex — salt for recovery key PBKDF2 (if enabled)
   wrapped_db_key_recovery: string  // hex — DB key encrypted by recovery-derived key (if enabled)
   recovery_key_hash: string    // bcrypt hash of recovery key for pre-validation
+  // Pending slot (P-001): the new DB key wrapped by the new password, present only
+  // while a re-encrypt is in progress or was cut short by a crash
+  pending_password_hash: string
+  pending_password_hint: string
+  pending_salt_password: string
+  pending_wrapped_db_key_password: string
   db_path: string
 }
+
+const HEX64 = /^[0-9a-f]{64}$/
+
+const PENDING_FIELDS = ['pending_password_hash', 'pending_password_hint', 'pending_salt_password', 'pending_wrapped_db_key_password'] as const
+const RECOVERY_FIELDS = ['recovery_key_hash', 'salt_recovery', 'wrapped_db_key_recovery'] as const
 
 const dataDir = getPortableDataDir()
 ensurePrivateDir(dataDir)
@@ -202,6 +218,22 @@ let liveDbKey: Buffer | null = null
 function setLiveKey(next: Buffer | null): void {
   if (liveDbKey && liveDbKey !== next) liveDbKey.fill(0)
   liveDbKey = next
+}
+
+/**
+ * Which stored slot the live key came from, and the other keys the typed password
+ * unwrapped (P-001). After a re-encrypt cut short by a crash the password can open
+ * both the current slot (old key) and the pending one (new key), and only opening
+ * the database tells which key it has: the caller tries the live key, then
+ * tryNextUnlockKey(), then settles with settleUnlockedKey().
+ */
+type KeySlot = 'current' | 'pending' | 'recovery'
+let liveKeySlot: KeySlot | null = null
+let spareUnlockKeys: Array<{ slot: KeySlot; key: Buffer }> = []
+
+function clearSpareUnlockKeys(): void {
+  for (const s of spareUnlockKeys) s.key.fill(0)
+  spareUnlockKeys = []
 }
 
 // Set right after first-run setup or a recovery-key unlock, cleared on lock.
@@ -383,6 +415,8 @@ function commitPasswordCredentials(dbKey: Buffer, values: Partial<SecureStore>):
   snapshotSecureStore()
 
   setLiveKey(Buffer.from(dbKey))
+  clearSpareUnlockKeys()
+  liveKeySlot = 'current'
   credentialGrace = 'setup'
   setupGraceUntil = Date.now() + SETUP_GRACE_MS
 }
@@ -422,7 +456,9 @@ export async function verifyAndUnlock(password: string): Promise<{ failedAttempt
   for (const candidate of passwordCandidates(password)) {
     if (await bcrypt.compare(candidate.value, hash)) { match = candidate; break }
   }
-  if (!match) {
+  // A re-encrypt cut short (P-001): the new password opens the pending slot
+  const pendingKey = hasPendingKeySwitch() ? await unwrapPendingSlot(password) : null
+  if (!match && !pendingKey) {
     recordFailedAttempt()
     const attempts = _getFailedAttempts()
     logger.warn('auth', 'Unlock failed: invalid password', { failedAttempts: attempts })
@@ -430,33 +466,39 @@ export async function verifyAndUnlock(password: string): Promise<{ failedAttempt
   }
 
   const failedAttempts = _getFailedAttempts()
-  const saltHex = store.get('salt_password') as string
-  if (!saltHex || !/^[0-9a-f]{64}$/.test(saltHex)) {
-    logger.error('auth', 'Password salt missing or corrupted')
-    throw new Error('Stored password salt is missing or corrupted. Restore from backup or use your recovery key.')
-  }
-  const salt = Buffer.from(saltHex, 'hex')
-  const wrapKey = await deriveWrappingKey(match.value, salt)
-  const wrapped = secureGet('wrapped_db_key_password')
-  let rawDbKey: string
-  try {
-    rawDbKey = unwrapKey256(wrapped, wrapKey)
-  } catch (err) {
-    // A pre-1.1.7 hash is bcrypt over the raw password, which only looks at its
-    // first 72 bytes: a different password sharing them passes bcrypt, and only
-    // the key unwrap tells them apart. That's a wrong password, not an error (A24-09).
-    if (!match.legacy) throw err
-    recordFailedAttempt()
-    logger.warn('auth', 'Unlock failed: invalid password', { failedAttempts: _getFailedAttempts() })
-    throw new Error('Incorrect password')
+  let currentKey: Buffer | null = null
+  if (match) {
+    try {
+      currentKey = await unwrapCurrentSlot(match.value)
+    } catch (err) {
+      if (!pendingKey) {
+        // A pre-1.1.7 hash is bcrypt over the raw password, which only looks at its
+        // first 72 bytes: a different password sharing them passes bcrypt, and only
+        // the key unwrap tells them apart. That's a wrong password, not an error (A24-09).
+        if (!match.legacy || isSaltError(err)) throw err
+        recordFailedAttempt()
+        logger.warn('auth', 'Unlock failed: invalid password', { failedAttempts: _getFailedAttempts() })
+        throw new Error('Incorrect password')
+      }
+      logNonFatal('auth', 'current slot did not unwrap; trying the pending slot', err)
+    }
   }
   resetFailedAttempts()
 
-  setLiveKey(Buffer.from(rawDbKey, 'hex'))
+  // Current first: if the rekey never finished, opening with the old key also rolls back its journal
+  const candidates: Array<{ slot: KeySlot; key: Buffer }> = []
+  if (currentKey) candidates.push({ slot: 'current', key: currentKey })
+  if (pendingKey) candidates.push({ slot: 'pending', key: pendingKey })
+  const [first, ...rest] = candidates
+  if (!first) throw new Error('Incorrect password')
+  clearSpareUnlockKeys()
+  setLiveKey(first.key)
+  liveKeySlot = first.slot
+  spareUnlockKeys = rest
   if (!existsSync(secureStoreBackupPath)) snapshotSecureStore()
   logger.info('auth', 'Unlock successful')
 
-  if (match.legacy) {
+  if (match?.legacy && liveKeySlot === 'current') {
     // Re-wrap under the normalized form so future unlocks take the fast path
     try {
       await rewrapPassword(password, secureGet('password_hint', ''))
@@ -464,6 +506,140 @@ export async function verifyAndUnlock(password: string): Promise<{ failedAttempt
     } catch (err) { logNonFatal('auth', 'legacy long-password migration', err) }
   }
   return { failedAttempts }
+}
+
+const SALT_CORRUPT = 'Stored password salt is missing or corrupted. Restore from backup or use your recovery key.'
+
+function isSaltError(err: unknown): boolean {
+  return err instanceof Error && err.message === SALT_CORRUPT
+}
+
+/** Unwrap the current slot's DB key with a password form that passed bcrypt. */
+async function unwrapCurrentSlot(passwordForm: string): Promise<Buffer> {
+  const saltHex = store.get('salt_password') as string
+  if (!saltHex || !/^[0-9a-f]{64}$/.test(saltHex)) {
+    logger.error('auth', 'Password salt missing or corrupted')
+    throw new Error(SALT_CORRUPT)
+  }
+  const wrapKey = await deriveWrappingKey(passwordForm, Buffer.from(saltHex, 'hex'))
+  return Buffer.from(unwrapKey256(secureGet('wrapped_db_key_password'), wrapKey), 'hex')
+}
+
+// ── Re-encrypt key switch (P-001) ────────────────────────────────────────────
+
+export function hasPendingKeySwitch(): boolean {
+  return store.has('pending_wrapped_db_key_password')
+}
+
+/** The pending slot's DB key if `password` opens it, else null (never counts as a failed attempt by itself). */
+async function unwrapPendingSlot(password: string): Promise<Buffer | null> {
+  try {
+    // Written by this version only, so always the normalized form
+    const normalized = normalizePassword(password)
+    const hash = secureGet('pending_password_hash')
+    if (!hash || !(await bcrypt.compare(normalized, hash))) return null
+    const saltHex = store.get('pending_salt_password') as string
+    if (!saltHex || !HEX64.test(saltHex)) return null
+    const wrapKey = await deriveWrappingKey(normalized, Buffer.from(saltHex, 'hex'))
+    const rawDbKey = unwrapKey256(secureGet('pending_wrapped_db_key_password'), wrapKey)
+    return HEX64.test(rawDbKey) ? Buffer.from(rawDbKey, 'hex') : null
+  } catch (err) {
+    if (err instanceof Error && err.message === KEYRING_UNAVAILABLE) throw err
+    logNonFatal('auth', 'unwrap pending credential slot', err)
+    return null
+  }
+}
+
+/**
+ * Replace the whole credential file in one write (atomic temp + rename in conf),
+ * so a crash can't leave half a slot: electron-store's delete() writes once per key.
+ */
+function replaceSecureStore(edit: (values: Record<string, unknown>) => void): void {
+  const next = { ...(store.store as unknown as Record<string, unknown>) }
+  edit(next)
+  store.store = next as unknown as SecureStore
+  snapshotSecureStore()
+}
+
+/**
+ * The live key didn't open the database: switch to the next key the password
+ * unwrapped. False when there is none left.
+ */
+export function tryNextUnlockKey(): boolean {
+  const next = spareUnlockKeys.shift()
+  if (!next) return false
+  setLiveKey(next.key)
+  liveKeySlot = next.slot
+  return true
+}
+
+/**
+ * The database is open with the live key: finish or drop a re-encrypt that a
+ * crash cut short. Opened with the pending key → the rekey finished, so pending
+ * becomes current (and the recovery slot, which wraps the old key, goes). Opened
+ * with the current or recovery key → the rekey never happened (or was rolled
+ * back), so the pending slot is dropped.
+ */
+export function settleUnlockedKey(): void {
+  clearSpareUnlockKeys()
+  if (!hasPendingKeySwitch()) return
+  if (liveKeySlot === 'pending') {
+    promotePendingSlot()
+    logger.warn('auth', 'Finished a re-encrypt that was cut short: the new password is now the one in use')
+  } else {
+    abandonKeySwitch()
+    logger.warn('auth', 'Dropped a re-encrypt that was cut short before the data changed')
+  }
+}
+
+/**
+ * Step 1 of a re-encrypt: save `newKey` wrapped by `newPassword` in the pending
+ * slot, next to the current one, in one write. All the slow and fallible work
+ * (bcrypt, PBKDF2, the OS vault) happens before that write. The caller checks
+ * the password policy (revoking with re-encrypt keeps the current password).
+ */
+export async function beginKeySwitch(newKey: Buffer, newPassword: string, newHint: string): Promise<void> {
+  if (!liveDbKey) throw new Error('Database is locked')
+  if (newKey.length !== 32) throw new Error('Invalid database key format')
+  const normalized = normalizePassword(newPassword)
+  const passwordHash = await bcrypt.hash(normalized, 12)
+  const saltPassword = crypto.randomBytes(32)
+  const wrapKey = await deriveWrappingKey(normalized, saltPassword)
+  const wrapped = wrapKey256(newKey.toString('hex'), wrapKey)
+  store.set({
+    pending_password_hash: secureValue(passwordHash),
+    pending_password_hint: secureValue(newHint),
+    pending_salt_password: saltPassword.toString('hex'),
+    pending_wrapped_db_key_password: secureValue(wrapped),
+  })
+  snapshotSecureStore()
+}
+
+function promotePendingSlot(): void {
+  replaceSecureStore(v => {
+    v.password_hash = v.pending_password_hash
+    v.password_hint = v.pending_password_hint
+    v.salt_password = v.pending_salt_password
+    v.wrapped_db_key_password = v.pending_wrapped_db_key_password
+    for (const k of PENDING_FIELDS) delete v[k]
+    // The recovery slot wraps the old key, which no longer opens anything
+    for (const k of RECOVERY_FIELDS) delete v[k]
+  })
+  liveKeySlot = 'current'
+}
+
+/** Step 3: the database now has `newKey`; pending becomes current in one write. */
+export function finishKeySwitch(newKey: Buffer): void {
+  if (!hasPendingKeySwitch()) throw new Error('No re-encrypt in progress')
+  promotePendingSlot()
+  setLiveKey(Buffer.from(newKey))
+  logger.info('auth', 'Database re-encrypted with a new key')
+}
+
+/** The database still has the current key: drop the pending slot (one write). */
+export function abandonKeySwitch(): void {
+  if (!hasPendingKeySwitch()) return
+  replaceSecureStore(v => { for (const k of PENDING_FIELDS) delete v[k] })
 }
 
 /** Re-wrap the live DB key under a (raw, user-typed) password. Recovery key unaffected. */
@@ -545,7 +721,9 @@ export async function verifyAndUnlockRecovery(recoveryKey: string): Promise<void
   const wrapped = secureGet('wrapped_db_key_recovery')
   const rawDbKey = unwrapKey256(wrapped, wrapKey)
 
+  clearSpareUnlockKeys()
   setLiveKey(Buffer.from(rawDbKey, 'hex'))
+  liveKeySlot = 'recovery'
   credentialGrace = 'recovery'
   logger.info('auth', 'Recovery unlock successful')
 }
@@ -597,6 +775,8 @@ export async function revokeRecoveryKey(currentPassword?: string): Promise<void>
 export function lockApp(): void {
   clipboard.clear()
   setLiveKey(null)
+  clearSpareUnlockKeys()
+  liveKeySlot = null
   credentialGrace = null
   logger.info('auth', 'App locked')
 }
@@ -644,8 +824,6 @@ export function getKeyEnvelope(): KeyEnvelope | null {
     return null
   }
 }
-
-const HEX64 = /^[0-9a-f]{64}$/
 
 export function isValidKeyEnvelope(x: unknown): x is KeyEnvelope {
   if (!x || typeof x !== 'object') return false

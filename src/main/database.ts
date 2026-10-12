@@ -33,6 +33,52 @@ export function setEncryptionKey(database: BetterSqlite3DB, hexKey: string): voi
   database.pragma(`key='${hexKey}'`)
 }
 
+/**
+ * Re-encrypt an open database with a new key (P-001), so an old password, a
+ * revoked recovery key or an old backup's key envelope no longer opens it.
+ * SQLite3 Multiple Ciphers documents rekey as unsupported in WAL mode, so the
+ * WAL is folded in and the journal goes to DELETE first: the rekey is then one
+ * rollback-journal transaction (a crash part way leaves a hot journal that the
+ * old key rolls back), and WAL comes back on afterwards.
+ */
+export function rekeyDatabase(newHexKey: string, database: BetterSqlite3DB = getDb()): void {
+  if (!/^[0-9a-f]{64}$/.test(newHexKey)) throw new Error('Invalid database key format')
+  database.pragma('wal_checkpoint(TRUNCATE)')
+  database.pragma('journal_mode = DELETE')
+  try {
+    // Validated hex above, as in setEncryptionKey: pragma() takes no parameters
+    database.pragma(`rekey='${newHexKey}'`)
+  } finally {
+    database.pragma('journal_mode = WAL')
+  }
+}
+
+/**
+ * Whether `hexKey` opens the database file, on a connection of its own that is
+ * closed again. Opening with the right key also rolls back a hot journal left
+ * by a rekey that was cut short; a wrong key leaves the file as it was.
+ */
+export function databaseOpensWithKey(hexKey: string, dbPath: string = resolveDatabasePath()): boolean {
+  if (!existsSync(dbPath)) return false
+  try {
+    withOwnerOnlyUmask(() => openWithKey(dbPath, hexKey)).close()
+    return true
+  } catch (err) {
+    logNonFatal('database', 'probe database key', err)
+    return false
+  }
+}
+
+/** Re-encrypt the database file from one key to another on a connection of its own (rekey rollback, P-001). */
+export function rekeyDatabaseFile(fromHexKey: string, toHexKey: string, dbPath: string = resolveDatabasePath()): void {
+  const database = withOwnerOnlyUmask(() => openWithKey(dbPath, fromHexKey))
+  try {
+    rekeyDatabase(toHexKey, database)
+  } finally {
+    database.close()
+  }
+}
+
 let db: BetterSqlite3DB | null = null
 let cleanupTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -122,16 +168,21 @@ export function checkCloudSyncPath(dbPath: string): string | null {
 function openEncryptedDatabase(dbPath: string): BetterSqlite3DB {
   const keyBuf = getDbKey()  // throws if locked
   const rawDbKey = keyBuf.toString('hex')
+  return withOwnerOnlyUmask(() => openWithKey(dbPath, rawDbKey))
+}
 
-  // Set restrictive umask before creating any files (DB, WAL, SHM).
-  // This ensures all files created by SQLite inherit owner-only permissions.
-  // IMPORTANT: This code path must remain synchronous — umask is process-global,
-  // so any async work between set/restore would affect unrelated file operations.
+/**
+ * Run `fn` with an owner-only umask, so every file SQLite creates (DB, WAL, SHM,
+ * journal) gets owner-only permissions.
+ * IMPORTANT: `fn` must be synchronous — umask is process-global, so any async
+ * work between set/restore would affect unrelated file operations.
+ */
+function withOwnerOnlyUmask<T>(fn: () => T): T {
   const prevUmask = process.platform !== 'win32' ? process.umask(0o077) : null
   // Put the umask back however this ends: a throw from the constructor or any
   // pragma would otherwise leave the whole process creating owner-only files (A22-10)
   try {
-    return openWithKey(dbPath, rawDbKey)
+    return fn()
   } finally {
     if (prevUmask !== null) process.umask(prevUmask)
   }
