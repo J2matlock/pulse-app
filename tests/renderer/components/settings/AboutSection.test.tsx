@@ -43,3 +43,22 @@ describe('AboutSection licenses', () => {
     await waitFor(() => expect(toastError).toHaveBeenCalledWith("We couldn't find the license file in this copy of Pulse."))
   })
 })
+
+describe('AboutSection update check (F-036)', () => {
+  it('says it couldn\'t reach the update page instead of "You have the latest version"', async () => {
+    mockInvoke.mockImplementation(async (channel: string) => channel === IPC.APP_CHECK_FOR_UPDATES
+      ? { ok: true, data: { available: false, unreachable: true } } : { ok: true, data: {} })
+    render(<AboutSection />)
+    fireEvent.click(screen.getByRole('button', { name: 'Check for updates' }))
+    expect(await screen.findByText(/couldn.t reach the update page\. Check your internet connection and try again\./)).toBeTruthy()
+    expect(screen.queryByText('You have the latest version.')).toBeNull()
+  })
+
+  it('still says "latest version" when the check worked', async () => {
+    mockInvoke.mockImplementation(async (channel: string) => channel === IPC.APP_CHECK_FOR_UPDATES
+      ? { ok: true, data: { available: false } } : { ok: true, data: {} })
+    render(<AboutSection />)
+    fireEvent.click(screen.getByRole('button', { name: 'Check for updates' }))
+    expect(await screen.findByText('You have the latest version.')).toBeTruthy()
+  })
+})

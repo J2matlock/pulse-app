@@ -203,17 +203,20 @@ export function registerAppHandlers(): void {
     const UPDATE_CHECK_URL = 'https://raw.githubusercontent.com/J2matlock/pulse-releases/main/latest.json'
     const UPDATE_ALLOWED_URL_PREFIX = 'https://github.com/J2matlock/pulse-releases/'
     let data: { version?: string; downloadUrl?: string; downloads?: Partial<Record<'win' | 'mac' | 'linux', string>>; releaseNotes?: string }
+    // Couldn't find out: the button says so instead of "You have the latest version" (F-036);
+    // the automatic check stays silent, as before
+    const unknown = () => ok(manual ? { available: false, unreachable: true } : { available: false })
     try {
       const res = await fetch(UPDATE_CHECK_URL, { signal: AbortSignal.timeout(8000) })
-      if (!res.ok) return ok({ available: false })
+      if (!res.ok) return unknown()
       data = await res.json() as typeof data
     } catch (err) {
       // Offline, timed out or a proxy in the way: normal for an offline app, not an error
       logger.info('ipc-app', 'Update check could not reach the release page', { error: err instanceof Error ? err.message : String(err) })
-      return ok({ available: false })
+      return unknown()
     }
-    if (!data || typeof data !== 'object') return ok({ available: false })
-    if (!data.version) return ok({ available: false })
+    if (!data || typeof data !== 'object') return unknown()
+    if (!data.version) return unknown()
     // Per-platform links when the release lists them (older files have only downloadUrl)
     const platformKey = process.platform === 'darwin' ? 'mac' : process.platform === 'win32' ? 'win' : 'linux'
     const platformUrl = data.downloads && typeof data.downloads === 'object' ? data.downloads[platformKey] : undefined

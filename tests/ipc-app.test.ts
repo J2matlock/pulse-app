@@ -464,9 +464,29 @@ describe('APP_CHECK_FOR_UPDATES honours the setting in main (AUDIT-188) and stay
     const errorSpy = vi.spyOn(logger, 'error')
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('fetch failed'))
     try {
-      expect(await invoke(IPC.APP_CHECK_FOR_UPDATES, { manual: true })).toEqual({ ok: true, data: { available: false } })
+      // The button says it couldn't find out (F-036); nothing is logged as an error
+      expect(await invoke(IPC.APP_CHECK_FOR_UPDATES, { manual: true })).toEqual({ ok: true, data: { available: false, unreachable: true } })
       expect(errorSpy).not.toHaveBeenCalled()
     } finally { fetchSpy.mockRestore(); errorSpy.mockRestore() }
+  })
+
+  it('a manual check that can\'t reach the page or read it says so; the automatic one stays a plain "no update" (F-036)', async () => {
+    testDb.db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('onboarding_complete', '1')").run()
+    testDb.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('auto_update_check', 'true')").run()
+    const answers: Array<() => Promise<Response>> = [
+      async () => { throw new DOMException('The operation was aborted due to timeout', 'TimeoutError') },
+      async () => { throw Object.assign(new Error('aborted'), { name: 'AbortError' }) },
+      async () => new Response('busy', { status: 503 }),
+      async () => new Response('not json', { status: 200 }),
+      async () => new Response(JSON.stringify({ notes: 'no version' }), { status: 200 }),
+    ]
+    for (const answer of answers) {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(answer)
+      try {
+        expect(await invoke(IPC.APP_CHECK_FOR_UPDATES, { manual: true })).toEqual({ ok: true, data: { available: false, unreachable: true } })
+        expect(await invoke(IPC.APP_CHECK_FOR_UPDATES)).toEqual({ ok: true, data: { available: false } })
+      } finally { fetchSpy.mockRestore() }
+    }
   })
 })
 

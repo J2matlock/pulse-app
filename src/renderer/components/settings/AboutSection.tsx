@@ -42,7 +42,7 @@ function AutoUpdateCheckToggle(): React.ReactElement {
 function CheckForUpdatesButton(): React.ReactElement {
   const howTo = updateText(usePlatform())
   const [checking, setChecking] = useState(false)
-  const [result, setResult] = useState<{ available: boolean; version?: string; downloadUrl?: string } | null>(null)
+  const [result, setResult] = useState<{ available: boolean; version?: string; downloadUrl?: string; unreachable?: boolean } | null>(null)
 
   async function check() {
     setChecking(true)
@@ -50,7 +50,8 @@ function CheckForUpdatesButton(): React.ReactElement {
     // manual: the button works even when the automatic check is switched off
     const res = await safeInvoke(IPC.APP_CHECK_FOR_UPDATES, { manual: true })
     if (res.ok) setResult(res.data)
-    else setResult({ available: false })
+    // Not knowing isn't the same as being up to date (F-036)
+    else setResult({ available: false, unreachable: true })
     setChecking(false)
   }
 
@@ -72,8 +73,11 @@ function CheckForUpdatesButton(): React.ReactElement {
           <RefreshCw className={`w-4 h-4 ${checking ? 'animate-spin' : ''}`} />
           {checking ? 'Checking…' : 'Check for updates'}
         </button>
-        {result && !result.available && (
+        {result && !result.available && !result.unreachable && (
           <p className="text-sm text-green-600 dark:text-green-400 self-center">You have the latest version.</p>
+        )}
+        {result?.unreachable && (
+          <p role="status" className="text-base text-slate-700 dark:text-slate-300 self-center">{PRODUCT_NAME} couldn&rsquo;t reach the update page. Check your internet connection and try again.</p>
         )}
       </div>
       {result?.available && result.version && (
