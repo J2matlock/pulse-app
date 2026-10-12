@@ -5,7 +5,8 @@
 
 import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
-import { secureWrap, ok, fail, enforceWritable, logNonFatal, withCorrelation, validId } from './ipc-utils'
+import { ok, fail, enforceWritable, logNonFatal, withCorrelation } from './ipc-utils'
+import { handlersFor, idArg, schemaArg } from './ipc-define'
 import { getDb } from '../database'
 import { word } from '../vocab'
 import { VALID_COLUMN_TYPES } from '../../shared/types'
@@ -45,8 +46,16 @@ function readSetupProgress(): SetupProgress | null {
   return db.prepare(`SELECT 1 FROM grids WHERE id = ? AND ${liveGrid('')}`).get(res.data.gridId) ? res.data : null
 }
 
+const define = handlersFor('ipc-onboarding')
+
+type SetupGridInput = {
+  gridName: string
+  columns: Array<{ name: string; type: string; config?: string; isNameCol?: boolean }>
+  alertRules?: Array<{ columnName: string; intervalDays: number; thresholds: Array<{ daysBefore: number; bgClass: string; label: string }> }>
+}
+
 export function registerOnboardingHandlers(): void {
-  secureWrap(IPC.ONBOARDING_CHECK, 'ipc-onboarding', () => {
+  define(IPC.ONBOARDING_CHECK, [], () => {
     const db = getDb()
     const meta = db.prepare("SELECT value FROM app_meta WHERE key = 'onboarding_complete'").get() as { value: string } | undefined
     if (meta) return ok({ complete: meta.value === '1', progress: meta.value === '1' ? null : readSetupProgress() })
@@ -61,7 +70,7 @@ export function registerOnboardingHandlers(): void {
   })
 
   // "Getting started" card: which first steps have happened (the user's own data, not samples)
-  secureWrap(IPC.ONBOARDING_GETTING_STARTED, 'ipc-onboarding', () => {
+  define(IPC.ONBOARDING_GETTING_STARTED, [], () => {
     const db = getDb()
     const setting = (key: string) => (db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined)?.value ?? null
     const any = (sql: string) => !!db.prepare(`${sql} LIMIT 1`).get()
@@ -81,8 +90,8 @@ export function registerOnboardingHandlers(): void {
   })
 
   // Setup saves its place once it has made a list, so a lock or a closed window resumes it
-  secureWrap(IPC.ONBOARDING_SAVE_PROGRESS, 'ipc-onboarding', (_e, progress: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
+  // null clears the saved place; anything else must read as progress
+  define(IPC.ONBOARDING_SAVE_PROGRESS, [z.unknown()], (progress) => {
     const db = getDb()
     if (progress === null) {
       db.prepare("DELETE FROM app_meta WHERE key = 'setup_progress'").run()
@@ -96,10 +105,9 @@ export function registerOnboardingHandlers(): void {
       db.prepare("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('setup_progress', ?)").run(JSON.stringify(parsed.data))
     })()
     return ok(true as const)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ONBOARDING_COMPLETE, 'ipc-onboarding', () => {
-    const guard = enforceWritable(); if (guard) return guard
+  define(IPC.ONBOARDING_COMPLETE, [], () => {
     const db = getDb()
     // All or nothing, so setup is never marked done with its other steps missing
     db.transaction(() => {
@@ -111,13 +119,10 @@ export function registerOnboardingHandlers(): void {
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('briefing_last_shown', date('now', 'localtime'))").run()
     })()
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.ONBOARDING_SETUP_GRID, 'ipc-onboarding', async (_e, setup: {
-    gridName: string
-    columns: Array<{ name: string; type: string; config?: string; isNameCol?: boolean }>
-    alertRules?: Array<{ columnName: string; intervalDays: number; thresholds: Array<{ daysBefore: number; bgClass: string; label: string }> }>
-  }) => {
+  // The read-only gate runs inside the correlation log, as before, so it stays in the body
+  define(IPC.ONBOARDING_SETUP_GRID, [z.custom<SetupGridInput>()], async (setup) => {
     return withCorrelation('onboarding-setup-grid', async (corrId) => {
     const guard = enforceWritable(); if (guard) return guard
     // Validate grid name
@@ -203,46 +208,35 @@ export function registerOnboardingHandlers(): void {
   // ── Sample caseload ("try it with sample clients") ─────────────────────────
   // Sample data is either the sample caseload or rows a starter template added to real lists
   // Setup's "Which of these dates repeat?" (also used by the guided blank start)
-  secureWrap(IPC.ONBOARDING_DATE_RULES, 'ipc-onboarding', (_e, gridId: unknown, answers: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(gridId)) return fail('Invalid ID')
-    const parsed = dateAnswersSchema.safeParse(answers)
-    if (!parsed.success) return fail("Those repeat settings couldn't be saved.")
+  define(IPC.ONBOARDING_DATE_RULES, [idArg(), schemaArg(dateAnswersSchema, "Those repeat settings couldn't be saved.")], (gridId, answers) => {
     try {
-      return ok(applyDateRules(gridId, parsed.data))
+      return ok(applyDateRules(gridId, answers))
     } catch (err) {
       return fail(err instanceof StarterError ? err.message : "We couldn't set up those reminders. You can add them later from each column's menu.")
     }
-  })
+  }, { write: true })
 
-  secureWrap(IPC.SAMPLE_DATA_STATUS, 'ipc-onboarding', () => ok({ gridId: getSampleGridId(), sampleRows: countSampleRows() }))
+  define(IPC.SAMPLE_DATA_STATUS, [], () => ok({ gridId: getSampleGridId(), sampleRows: countSampleRows() }))
 
   // "Keep this as a real entry?" after the first edit to a sample entry
-  secureWrap(IPC.SAMPLE_ROW_ANSWER, 'ipc-onboarding', (_e, rowId: unknown, answer: unknown) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(rowId)) return fail('Invalid ID')
-    if (answer !== 'keep' && answer !== 'sample' && answer !== 'later') return fail("We couldn't save that answer.")
+  define(IPC.SAMPLE_ROW_ANSWER, [idArg(), z.enum(['keep', 'sample', 'later'], "We couldn't save that answer.")], (rowId, answer) => {
     answerSampleRow(rowId, answer)
     return ok(true as const)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.SAMPLE_DATA_PREVIEW, 'ipc-onboarding', () => {
+  define(IPC.SAMPLE_DATA_PREVIEW, [], () => {
     const plan = planSampleRemoval()
     return ok({ remove: plan.remove.length, keep: plan.keep.length, ownInSampleList: plan.ownInSampleList })
   })
 
-  secureWrap(IPC.SAMPLE_DATA_CREATE, 'ipc-onboarding', () => {
-    const guard = enforceWritable(); if (guard) return guard
-    return ok({ gridId: createSampleCaseload() })
-  })
+  define(IPC.SAMPLE_DATA_CREATE, [], () => ok({ gridId: createSampleCaseload() }), { write: true })
 
-  secureWrap(IPC.SAMPLE_DATA_REMOVE, 'ipc-onboarding', () => {
-    const guard = enforceWritable(); if (guard) return guard
+  define(IPC.SAMPLE_DATA_REMOVE, [], () => {
     try {
       return ok(removeSampleData())
     } catch (err) {
       logger.error('ipc-onboarding', 'Removing sample data failed', { error: err instanceof Error ? err.message : String(err) })
       return fail("We couldn't remove the sample data. Nothing was changed; please try again.")
     }
-  })
+  }, { write: true })
 }
