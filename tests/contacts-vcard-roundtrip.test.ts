@@ -51,3 +51,27 @@ describe('vCard round trip', () => {
     expect(parseVCard(vcf)[0]!.name).toBe('Test, Person')
   })
 })
+
+describe('vCards other apps write (Q-042)', () => {
+  it('keeps a contact with a large embedded photo', () => {
+    const photo = 'A'.repeat(200 * 1024)
+    const vcf = ['BEGIN:VCARD', 'VERSION:3.0', 'FN:Photo Person', `PHOTO;ENCODING=b;TYPE=JPEG:${photo}`, 'TEL;TYPE=WORK:555-0100', 'END:VCARD'].join('\r\n')
+    const [p] = parseVCard(vcf)
+    expect(p?.name).toBe('Photo Person')
+    expect(p?.phone_main).toBe('555-0100')
+    expect(JSON.stringify(p)).not.toContain('AAAA')
+  })
+
+  it('names a card with no FN from N (given then family)', () => {
+    const vcf = ['BEGIN:VCARD', 'VERSION:2.1', 'N:Rivera;Maria;;Dr.;', 'EMAIL:m@example.org', 'END:VCARD'].join('\r\n')
+    const [p] = parseVCard(vcf)
+    expect(p?.name).toBe('Maria Rivera')
+    expect(p?.email).toBe('m@example.org')
+  })
+
+  it('still prefers FN when both are there, and still drops a card with no name at all', () => {
+    expect(parseVCard('BEGIN:VCARD\nN:Rivera;Maria\nFN:Dr. Maria Rivera\nEND:VCARD')[0]?.name).toBe('Dr. Maria Rivera')
+    expect(parseVCard('BEGIN:VCARD\nEMAIL:x@example.org\nEND:VCARD')).toEqual([])
+  })
+})
+
