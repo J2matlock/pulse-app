@@ -51,31 +51,24 @@ function AcuityPointsBadge(): React.ReactElement | null {
     </span>
   )
 }
-import type { ColumnType, SaveDialogResult } from '../../../shared/types'
+import type { SaveDialogResult } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { friendlyError } from '../../utils/friendlyError'
 import { noteUnencryptedExport } from '../../utils/exportNotice'
 import { useVocab } from '../../hooks/useVocab'
 import { useFeature } from '../../hooks/useFeature'
-import { FeatureOffer } from '../shared/FeatureOffer'
 import { LinkSetupDialog } from '../links/LinkSetupDialog'
 import { BatchDocumentsDialog } from '../documents/BatchDocumentsDialog'
 import { useFormStore } from '../../stores/formStore'
 import { pulseEvents } from '../../events'
 import type { Form } from '../../../shared/forms'
 import { stageConfigOf } from '../../../shared/stages'
-import { DeadlineQuestion } from './DeadlineQuestion'
-import { ensurePlainRule, type DeadlineChoice } from '../alerts/plainRule'
+import { AddColumnForm, useAddColumnDraft } from './AddColumnPanel'
 import { AlertRuleEditor } from '../alerts/AlertRuleEditor'
 import { useAlertStore } from '../../stores/alertStore'
 import { engineRuleFrom, needsDeadlineColumn } from '../../../shared/deadlineEngine'
-import { COLUMN_TYPE_INFO } from '../../../shared/columnTypes'
-import { AUTO_NUMBER_PREFIX_MAX, DEFAULT_AUTO_NUMBER, formatAutoNumber, parseAutoNumberConfig } from '../../../shared/autoNumber'
 
 const EMPTY_FORMS: Form[] = []
-
-/** Every type a new column can be (links and file counts have their own entries) */
-const COLUMN_TYPES = COLUMN_TYPE_INFO
 
 export function GridToolbar(): React.ReactElement {
   const { t } = useVocab()
@@ -95,8 +88,8 @@ export function GridToolbar(): React.ReactElement {
   const requirementsOn = useFeature('requirements')
   const acuityEnabled = acuityFlag && priorityOn
   const activeGridName = useGridStore(s => s.grids.find(g => g.id === s.activeGridId)?.name)
-  const { addRow, addColumn, toggleColumnVisibility, setShowArchived } = useGridStore(useShallow(s => ({
-    addRow: s.addRow, addColumn: s.addColumn, toggleColumnVisibility: s.toggleColumnVisibility, setShowArchived: s.setShowArchived,
+  const { addRow, toggleColumnVisibility, setShowArchived } = useGridStore(useShallow(s => ({
+    addRow: s.addRow, toggleColumnVisibility: s.toggleColumnVisibility, setShowArchived: s.setShowArchived,
   })))
   const [showAddColumn, setShowAddColumn] = useState(false)
   const [showListSettings, setShowListSettings] = useState(false)
@@ -111,21 +104,10 @@ export function GridToolbar(): React.ReactElement {
   const closeReport = useCallback(() => setReport(null), [])
   const [showAcuityPanel, setShowAcuityPanel] = useState(false)
   const [exportColumnSelect, setExportColumnSelect] = useState<'csv' | 'pdf' | null>(null)
-  const [newColName, setNewColName] = useState('')
-  const [newColType, setNewColType] = useState<ColumnType>('text')
-  const [deadlineChoice, setDeadlineChoice] = useState<DeadlineChoice>({ mode: 'none' })
   // "More options…": the full rule editor for the column just added
   const [ruleEditorFor, setRuleEditorFor] = useState<number | null>(null)
-  const alertRules = useAlertStore(s => s.rules)
-  const createRule = useAlertStore(s => s.createRule)
   const updateColumn = useGridStore(s => s.updateColumn)
-  const [dropdownOptions, setDropdownOptions] = useState('')
-  const [sourceColumnId, setSourceColumnId] = useState<number | null>(null)
-  const [autoPrefix, setAutoPrefix] = useState('')
-  const [autoPad, setAutoPad] = useState(DEFAULT_AUTO_NUMBER.pad)
-  const [numberExisting, setNumberExisting] = useState(true)
   const rowCount = useGridStore(s => s.rows.length)
-  const colNameInputRef = useRef<HTMLInputElement>(null)
   const linksOn = useFeature('links')
   const lettersOn = useFeature('letters')
   const formsOn = useFeature('forms')
@@ -153,6 +135,9 @@ export function GridToolbar(): React.ReactElement {
   const hasStage = useGridStore(s => s.columns.concat(s.hiddenColumns).some(c => stageConfigOf(c) !== null))
   const gridCount = useGridStore(s => s.grids.length)
   const [linkSetup, setLinkSetup] = useState(false)
+  const addColumnDraft = useAddColumnDraft({
+    open: showAddColumn, rowCount, onAdded: () => setShowAddColumn(false), onMoreOptions: setRuleEditorFor,
+  })
 
   function handleExportCsvStart() {
     openExport('csv')
@@ -224,50 +209,6 @@ export function GridToolbar(): React.ReactElement {
     }
   }
 
-  // Imperatively focus the input each time the popup opens (autoFocus is unreliable
-  // in Electron after a loadGrid re-render resets focus state)
-  useEffect(() => {
-    if (showAddColumn) {
-      setTimeout(() => colNameInputRef.current?.focus(), 0)
-    }
-  }, [showAddColumn])
-
-  async function handleAddColumn(e: React.FormEvent) {
-    e.preventDefault()
-    const name = newColName.trim()
-    if (!name) return
-
-    let config: string | undefined
-    if (newColType === 'dropdown') {
-      const options = dropdownOptions.split('\n').map(o => o.trim()).filter(Boolean)
-      config = JSON.stringify({ options })
-    } else if (newColType === 'status') {
-      const STATUS_COLORS = ['#22c55e', '#3b82f6', '#eab308', '#f97316', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899']
-      const labels = dropdownOptions.split('\n').map(o => o.trim()).filter(Boolean)
-      const options = labels.map((label, i) => ({ label, color: STATUS_COLORS[i % STATUS_COLORS.length] }))
-      config = JSON.stringify({ options })
-    } else if (newColType === 'age_from_dob' || newColType === 'calculated_days') {
-      if (sourceColumnId === null) { toast.error('Choose the date it works from.'); return }
-      config = JSON.stringify({ source_column_id: sourceColumnId })
-    } else if (newColType === 'auto_number') {
-      config = JSON.stringify(parseAutoNumberConfig({ prefix: autoPrefix, pad: autoPad, next: 1 }))
-    } else if (newColType === 'date' || newColType === 'deadline') {
-      // "Does this date come due again?": a plain rule now, or the full editor once the column exists
-      const ruleId = await ensurePlainRule(deadlineChoice, alertRules, createRule)
-      if (ruleId !== null) config = JSON.stringify({ alert_rule_id: ruleId })
-    }
-
-    const colId = await addColumn(name, newColType, config, { numberExisting: rowCount > 0 && numberExisting })
-    if (colId !== null && (newColType === 'date' || newColType === 'deadline') && deadlineChoice.mode === 'more') setRuleEditorFor(colId)
-    setDeadlineChoice({ mode: 'none' })
-    setNewColName('')
-    setNewColType('text')
-    setDropdownOptions('')
-    setAutoPrefix('')
-    setAutoPad(DEFAULT_AUTO_NUMBER.pad)
-    setNumberExisting(true)
-    setShowAddColumn(false)
-  }
 
   const allColumns = useMemo(() => [...columns, ...hiddenColumns].sort((a, b) => a.position - b.position), [columns, hiddenColumns])
 
@@ -561,130 +502,16 @@ export function GridToolbar(): React.ReactElement {
                 variants={dropdownVariants}
                 initial="hidden" animate="visible" exit="exit"
               >
-                <form onSubmit={handleAddColumn} className="space-y-3">
-                  <div>
-                    <label htmlFor="new-col-name" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      Column name
-                    </label>
-                    <input
-                      id="new-col-name"
-                      ref={colNameInputRef}
-                      type="text"
-                      className="input"
-                      style={{ minHeight: 36 }}
-                      value={newColName}
-                      onChange={e => setNewColName(e.target.value)}
-                      placeholder="e.g. Last Contact Date"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="new-col-type" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      Type
-                    </label>
-                    <select
-                      id="new-col-type"
-                      className="input"
-                      style={{ minHeight: 36 }}
-                      value={newColType}
-                      onChange={e => {
-                        // A link column is set up in its own dialog (W04 §7.1)
-                        if (e.target.value === 'link') { setShowAddColumn(false); setLinkSetup(true); return }
-                        setNewColType(e.target.value as ColumnType); setDropdownOptions('')
-                        setDeadlineChoice(e.target.value === 'deadline' ? { mode: 'every', n: 12, unit: 'months' } : { mode: 'none' })
-                      }}
-                    >
-                      {COLUMN_TYPES.map(({ type, label }) => (
-                        <option key={type} value={type}>{label}</option>
-                      ))}
-                      {linksOn && <option value="link">Link to another {t('list')}…</option>}
-                      {filesOn && <option value="file_count">Files (how many)</option>}
-                    </select>
-                    {COLUMN_TYPES.find(c => c.type === newColType) && (
-                      <p className="mt-1 text-base text-slate-500 dark:text-slate-400">{COLUMN_TYPES.find(c => c.type === newColType)!.description}</p>
-                    )}
-                  </div>
-                  {!linksOn && gridCount > 1 && (
-                    <FeatureOffer feature="links" message={`Connect your ${t('list', { many: true })}, like customers and their vehicles?`} />
-                  )}
-
-                  {(newColType === 'date' || newColType === 'deadline') && (
-                    <DeadlineQuestion type={newColType} value={deadlineChoice} onChange={setDeadlineChoice} />
-                  )}
-
-                  {(newColType === 'age_from_dob' || newColType === 'calculated_days') && (
-                    <div>
-                      <label htmlFor="new-col-source" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Worked out from</label>
-                      <select id="new-col-source" className="input" style={{ minHeight: 36 }} value={sourceColumnId ?? ''} onChange={e => setSourceColumnId(e.target.value ? Number(e.target.value) : null)}>
-                        <option value="">Choose a date column…</option>
-                        {allColumns.filter(c => c.column_type === 'date').map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                      {!allColumns.some(c => c.column_type === 'date') && <p className="mt-1 text-base text-slate-500 dark:text-slate-400">Add a date column first.</p>}
-                    </div>
-                  )}
-
-                  {(newColType === 'dropdown' || newColType === 'status') && (
-                    <div>
-                      <label htmlFor="new-col-options" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
-                        {newColType === 'status' ? 'Statuses' : 'Options'} <span className="font-normal text-slate-500 dark:text-slate-400">(one per line)</span>
-                      </label>
-                      <textarea
-                        id="new-col-options"
-                        className="input resize-none"
-                        rows={4}
-                        value={dropdownOptions}
-                        onChange={e => setDropdownOptions(e.target.value)}
-                        placeholder={newColType === 'status' ? 'Active\nPending\nClosed' : 'Option A\nOption B\nOption C'}
-                        style={{ minHeight: 'unset', height: 'auto', padding: '8px 12px' }}
-                      />
-                      {newColType === 'status' && (
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Colors are assigned automatically.</p>
-                      )}
-                    </div>
-                  )}
-
-                  {newColType === 'auto_number' && (
-                    <div className="space-y-3">
-                      <div className="flex gap-3">
-                        <div className="flex-1">
-                          <label htmlFor="new-col-prefix" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            Starts with <span className="font-normal text-slate-500 dark:text-slate-400">(optional)</span>
-                          </label>
-                          <input id="new-col-prefix" className="input" style={{ minHeight: 36 }} maxLength={AUTO_NUMBER_PREFIX_MAX}
-                            placeholder="e.g. J-" value={autoPrefix} onChange={e => setAutoPrefix(e.target.value)} />
-                        </div>
-                        <div className="w-28">
-                          <label htmlFor="new-col-pad" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">Digits</label>
-                          <select id="new-col-pad" className="input" style={{ minHeight: 36 }} value={autoPad} onChange={e => setAutoPad(Number(e.target.value))}>
-                            {[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                      <p className="text-sm text-slate-600 dark:text-slate-300">
-                        Each new {t('record')} gets the next number: {formatAutoNumber({ prefix: autoPrefix, pad: autoPad }, 1)}, {formatAutoNumber({ prefix: autoPrefix, pad: autoPad }, 2)}…
-                      </p>
-                      {rowCount > 0 && (
-                        <label className="flex items-center gap-2 text-base text-slate-700 dark:text-slate-300 cursor-pointer" style={{ minHeight: 44 }}>
-                          <input type="checkbox" className="w-5 h-5" checked={numberExisting} onChange={e => setNumberExisting(e.target.checked)} />
-                          Number the {t('record', { many: true })} already in this {t('list')}
-                        </label>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="flex gap-2">
-                    <button type="submit" className="btn-primary flex-1" style={{ minHeight: 36, fontSize: 15 }}>
-                      Add
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-secondary flex-1"
-                      style={{ minHeight: 36, fontSize: 15 }}
-                      onClick={() => setShowAddColumn(false)}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
+                <AddColumnForm
+                  draft={addColumnDraft}
+                  allColumns={allColumns}
+                  rowCount={rowCount}
+                  gridCount={gridCount}
+                  linksOn={linksOn}
+                  filesOn={filesOn}
+                  onLinkColumn={() => { setShowAddColumn(false); setLinkSetup(true) }}
+                  onCancel={() => setShowAddColumn(false)}
+                />
               </motion.div>
             </>
           )}
