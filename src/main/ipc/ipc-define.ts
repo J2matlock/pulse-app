@@ -21,7 +21,7 @@
  *
  * Schemas are Zod. Give every schema the exact message people should see (or
  * the one a test pins), as the first argument of idArg / textArg / z.xxx(…)
- * or the last of .min / .max / .refine — tests/renderer/friendlyError.test.ts
+ * or the last of schemaArg / .min / .max / .refine — tests/renderer/friendlyError.test.ts
  * reads the messages from those places. Zod objects drop keys they don't
  * list; use z.looseObject where the body passes the whole object on.
  */
@@ -59,6 +59,16 @@ export function textArg(message: string, { min, max, notBlank }: TextArgOptions 
   if (min !== undefined) schema = schema.min(min, message)
   if (max !== undefined) schema = schema.max(max, message)
   return notBlank ? schema.refine(s => s.trim().length > 0, message) : schema
+}
+
+/**
+ * An argument checked against a schema of its own (one with its own messages,
+ * shared with other code), answering one `message` whatever the reason, as
+ * `if (!schema.safeParse(x).success) return fail(message)` did. The body gets
+ * the schema's parsed value.
+ */
+export function schemaArg<S extends z.ZodType>(schema: S, message: string) {
+  return z.custom<unknown>(v => schema.safeParse(v).success, message).pipe(schema)
 }
 
 /**

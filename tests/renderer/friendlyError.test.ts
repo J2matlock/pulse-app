@@ -158,6 +158,7 @@ function mainMessages(): string[] {
       for (const pattern of [
         /\b(?:idArg|textArg|z\.(?:string|number|boolean|int))\(\s*(['"`])((?:\\.|(?!\1).)*)\1/g,
         /\.(?:min|max|refine)\([^'"`\n]*?,\s*(['"`])((?:\\.|(?!\1).)*)\1\s*\)/g,
+        /\bschemaArg\([^'"`\n]*?,\s*(['"`])((?:\\.|(?!\1).)*)\1\s*\)/g,
         /\bfunction \w+Arg\(\s*\w+\s*=\s*(['"`])((?:\\.|(?!\1).)*)\1/g,
       ]) {
         for (const m of src.matchAll(pattern)) out.add(m[2])

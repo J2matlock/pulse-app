@@ -5,28 +5,30 @@
 import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
 import type { BackgroundSettings } from '../../shared/ipc-contract'
-import { secureWrap, ok, fail } from './ipc-utils'
+import { ok } from './ipc-utils'
+import { handlersFor, schemaArg } from './ipc-define'
 import { isTrayMode, setTrayMode } from '../tray'
 import { wantsOpenAtLogin, setOpenAtLogin, applyLoginItem, loginItemSupported, isPortableCopy } from '../login-item'
 
 const patchSchema = z.object({ trayMode: z.boolean(), openAtLogin: z.boolean() }).partial().strict()
+
+const define = handlersFor('ipc-background')
 
 function current(): BackgroundSettings {
   return { trayMode: isTrayMode(), openAtLogin: wantsOpenAtLogin(), loginSupported: loginItemSupported(), portable: isPortableCopy() }
 }
 
 export function registerBackgroundHandlers(): void {
-  secureWrap(IPC.BACKGROUND_GET, 'ipc-background', () => ok(current()))
+  define(IPC.BACKGROUND_GET, [], () => ok(current()))
 
-  secureWrap(IPC.BACKGROUND_SET, 'ipc-background', (_e, patch: unknown) => {
-    const p = patchSchema.safeParse(patch)
-    if (!p.success) return fail('That setting isn\'t valid.')
-    if (p.data.trayMode !== undefined) {
-      setTrayMode(p.data.trayMode)
+  // Not gated: a preference outside the database (see enforceWritable)
+  define(IPC.BACKGROUND_SET, [schemaArg(patchSchema, 'That setting isn\'t valid.')], (patch) => {
+    if (patch.trayMode !== undefined) {
+      setTrayMode(patch.trayMode)
       // Opening hidden depends on background mode
       applyLoginItem()
     }
-    if (p.data.openAtLogin !== undefined) setOpenAtLogin(p.data.openAtLogin)
+    if (patch.openAtLogin !== undefined) setOpenAtLogin(patch.openAtLogin)
     return ok(current())
   })
 }

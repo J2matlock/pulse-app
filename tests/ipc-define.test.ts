@@ -24,7 +24,7 @@ vi.mock('../src/main/logger', () => ({
 }))
 vi.mock('../src/main/data-dir', () => ({ getPortableDataDir: () => '/tmp' }))
 
-import { defineHandler, handlersFor, idArg, textArg } from '../src/main/ipc/ipc-define'
+import { defineHandler, handlersFor, idArg, textArg, schemaArg } from '../src/main/ipc/ipc-define'
 import { ok, fail, registerReadOnlyChecker, GENERIC_ERROR_MESSAGE } from '../src/main/ipc/ipc-utils'
 import { IPC_READ_ONLY } from '../src/shared/constants'
 
@@ -156,6 +156,23 @@ describe('textArg', () => {
 
   it('without limits takes any string, the empty one included', () => {
     expect(msg(textArg('Invalid').safeParse(''))).toBe('ok')
+  })
+})
+
+describe('schemaArg', () => {
+  const patch = z.object({ trayMode: z.boolean('needs a boolean') }).partial().strict()
+
+  it('answers its one message whatever the schema says', () => {
+    for (const v of [undefined, null, 'x', { trayMode: 'yes' }, { other: true }]) {
+      expect(schemaArg(patch, 'That setting isn\'t valid.').safeParse(v))
+        .toMatchObject({ success: false, error: { issues: [{ message: 'That setting isn\'t valid.' }] } })
+    }
+  })
+
+  it('hands on the schema\'s parsed value', () => {
+    const trimmed = z.object({ name: z.string().trim() })
+    expect(schemaArg(trimmed, 'Invalid').safeParse({ name: ' a ', extra: 1 })).toMatchObject({ success: true, data: { name: 'a' } })
+    expect(schemaArg(patch, 'Invalid').safeParse({})).toMatchObject({ success: true, data: {} })
   })
 })
 
