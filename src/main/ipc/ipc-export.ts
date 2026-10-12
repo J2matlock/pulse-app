@@ -589,6 +589,14 @@ export function registerExportHandlers(): void {
 
   secureWrap(IPC.IMPORT_FILE, 'ipc-export', async (_e, options: ImportOptions) => {
     const guard = enforceWritable(); if (guard) return guard
+    if (!options || typeof options !== 'object') return fail('Invalid import options')
+    // The rest of the options, checked here rather than deep inside the import (Q-056)
+    if (options.duplicateStrategy !== undefined && !['none', 'by_name', 'by_column', 'name_and_dob'].includes(options.duplicateStrategy)) return fail('Invalid import options')
+    if (options.duplicateColumnId != null && !validId(options.duplicateColumnId)) return fail('Invalid import options')
+    if (options.headerRowIndex != null && (!Number.isInteger(options.headerRowIndex) || options.headerRowIndex < 0 || options.headerRowIndex >= 100)) return fail('Invalid import options')
+    for (const flag of ['cleanData', 'flipLastFirst', 'createMissingLinks', 'skipHiddenRows'] as const) {
+      if (options[flag] !== undefined && typeof options[flag] !== 'boolean') return fail('Invalid import options')
+    }
     assertSafePath(options.filePath)
     if (!validId(options.gridId)) return fail('Invalid grid ID')
     if (!Array.isArray(options.columnMappings) || options.columnMappings.length > 200) return fail('Invalid or too many column mappings (max 200)')

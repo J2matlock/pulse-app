@@ -35,6 +35,7 @@ export function registerFileAssocHandlers(): void {
   })
 
   secureWrap(IPC.FILE_ASSOC_REGISTER, 'ipc-file-assoc', (_e, register: boolean = true) => {
+    if (typeof register !== 'boolean') return fail('Invalid setting')
     if (process.platform !== 'win32') return fail('Not supported on this platform')
     if (register) registerPulseFileType()
     else unregisterPulseFileType()

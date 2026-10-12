@@ -611,6 +611,10 @@ describe('checklist template files (polish R6)', () => {
       expect(await importError(write('d.json', '{}'))).toMatch(/Choose a Pulse checklist file/)
     })
 
+    it('a very large file is refused by its size (Q-056)', async () => {
+      expect(await importError(write('huge.pulse-checklist', 'x'.repeat(3_000_000)))).toBe('That file is too large to be a Pulse checklist.')
+    })
+
     it('never shows raw file-system text when saving fails', async () => {
       const id = Number(testDb.db.prepare("INSERT INTO checklist_templates (name, items) VALUES ('Intake', '[]')").run().lastInsertRowid)
       // A folder where the file should go: writing fails with EISDIR

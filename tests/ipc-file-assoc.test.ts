@@ -163,6 +163,12 @@ describe('FILE_ASSOC_REGISTER', () => {
     expect(result.error).toContain('Not supported')
   })
 
+  it('refuses anything but true or false (Q-056)', async () => {
+    for (const v of ['yes', 1, {}]) {
+      expect(await invoke(IPC.FILE_ASSOC_REGISTER, v)).toEqual({ ok: false, error: 'Invalid setting' })
+    }
+  })
+
   it('fails on non-win32 when unregistering', async () => {
     const result = await invoke(IPC.FILE_ASSOC_REGISTER, false) as { ok: false }
     expect(result.ok).toBe(false)

@@ -622,6 +622,14 @@ describe('IMPORT_FILE', () => {
     expect(result.ok).toBe(false)
   })
 
+  it('checks every option at the edge (Q-056)', async () => {
+    const base = { gridId: 1, filePath: '/tmp/import.csv', columnMappings: [] }
+    for (const bad of [null, 'x', { ...base, duplicateStrategy: 'everything' }, { ...base, duplicateColumnId: -1 },
+      { ...base, headerRowIndex: 1.5 }, { ...base, headerRowIndex: 100 }, { ...base, cleanData: 'yes' }, { ...base, skipHiddenRows: 1 }]) {
+      expect(await invoke(IPC.IMPORT_FILE, bad)).toEqual({ ok: false, error: 'Invalid import options' })
+    }
+  })
+
   it('rejects > 200 column mappings', async () => {
     const mappings = Array.from({ length: 201 }, (_, i) => ({ header: `Col${i}`, columnId: i + 1 }))
     const result = await invoke(IPC.IMPORT_FILE, { gridId: 1, filePath: '/tmp/import.csv', columnMappings: mappings }) as { ok: false }

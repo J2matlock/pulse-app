@@ -643,7 +643,8 @@ export function registerRowHandlers(): void {
 
   // ── Cross-grid client search ──────────────────────────────────────────────
   secureWrap(IPC.SEARCH_CLIENTS_CROSS_GRID, 'ipc-row', (_e, search: string, offset?: number) => {
-    if (typeof search !== 'string' || search.length < 2) return ok([])
+    // Nothing is called anything this long; a pasted page of text needn't scan every record (Q-056)
+    if (typeof search !== 'string' || search.length < 2 || search.length > 200) return ok([])
     const safeOffset = Math.max(0, Math.min(offset || 0, 10000))
     const rows = cachedStmt('row_search_cross_grid', `
       SELECT r.id as rowId, r.grid_id as gridId, g.name as gridName,

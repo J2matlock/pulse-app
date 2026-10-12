@@ -255,6 +255,13 @@ describe('APP_SHOW_FILE_DIALOG', () => {
     expect(mockDialogOpen).toHaveBeenCalled()
   })
 
+  it('null options open a plain dialog instead of failing (Q-056)', async () => {
+    mockDialogOpen.mockResolvedValueOnce({ canceled: true, filePaths: [] })
+    expect((await invoke(IPC.APP_SHOW_FILE_DIALOG, null) as any).ok).toBe(true)
+    expect((mockDialogOpen.mock.calls.at(-1)![0] as any).properties).toEqual([])
+    expect((await invoke(IPC.APP_SHOW_SAVE_DIALOG, null) as any).ok).toBe(true)
+  })
+
   it('strips unsafe dialog properties', async () => {
     mockDialogOpen.mockResolvedValueOnce({ canceled: true, filePaths: [] })
     await invoke(IPC.APP_SHOW_FILE_DIALOG, {

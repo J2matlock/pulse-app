@@ -306,6 +306,15 @@ describe('AUTH_CHANGE_PASSWORD', () => {
     expect(r.error).toMatch(/Incorrect/)
   })
 
+  it('checks the current password at the edge too: wrong type or over 1024 characters (Q-056)', async () => {
+    mockChangePassword.mockClear()
+    for (const old of [null, 42, 'x'.repeat(1025)]) {
+      const r = await invoke(IPC.AUTH_CHANGE_PASSWORD, old, 'new-password-123', 'hint') as any
+      expect(r).toEqual({ ok: false, error: 'Invalid password' })
+    }
+    expect(mockChangePassword).not.toHaveBeenCalled()
+  })
+
   it('rejects new password shorter than 12 chars', async () => {
     const r = await invoke(IPC.AUTH_CHANGE_PASSWORD, 'old-password', 'short', 'hint') as any
     expect(r.ok).toBe(false)

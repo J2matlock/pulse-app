@@ -176,6 +176,7 @@ export function registerAuthHandlers(): void {
   secureWrap(IPC.AUTH_CHANGE_PASSWORD, 'ipc-auth', async (_e, oldPassword: string, newPassword: string, newHint: string) => {
     return withCorrelation('auth-change-password', async (corrId) => {
       try {
+        if (typeof oldPassword !== 'string' || oldPassword.length > 1024) return fail('Invalid password')
         if (typeof newPassword !== 'string' || newPassword.length > 1024) return fail('Invalid password')
       { const check = checkNewPassword(newPassword); if (!check.ok) return fail(check.message ?? 'Choose a stronger password') }
         if (typeof newHint !== 'string' || newHint.length > 512) return fail('Hint too long')

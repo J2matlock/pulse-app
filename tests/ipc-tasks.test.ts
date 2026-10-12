@@ -521,6 +521,16 @@ describe('IPC Tasks', () => {
       ])
     })
 
+    it('refuses a group that is not a real id, or is gone, and adds nothing (Q-056)', async () => {
+      const tid = addTemplate(['Intake'], null)
+      for (const g of ['3', -1, 1.5, 999]) {
+        const r = await invoke(IPC.TASK_APPLY_TEMPLATE, tid, g) as any
+        expect(r.ok).toBe(false)
+        expect(r.error).toMatch(/^(Invalid group ID|Task group not found)$/)
+      }
+      expect((testDb.db.prepare('SELECT COUNT(*) AS n FROM caseload_tasks').get() as { n: number }).n).toBe(0)
+    })
+
     it('one that does not repeat makes plain tasks, and an unknown priority becomes normal', async () => {
       const tid = addTemplate([{ title: 'Intake', priority: 'mega' }], null)
       await invoke(IPC.TASK_APPLY_TEMPLATE, tid, null)
@@ -582,6 +592,17 @@ describe('IPC Tasks', () => {
     it('fails with invalid original object', async () => {
       const result = await invoke(IPC.TASK_UNCOMPLETE, 1, null) as any
       expect(result.ok).toBe(false)
+    })
+  })
+
+  // ── SNIPPET_CREATE ───────────────────────────────────────────────────────
+  describe('SNIPPET_CREATE category (Q-056)', () => {
+    it('takes a short text category or none, and refuses anything else', async () => {
+      expect((await invoke(IPC.SNIPPET_CREATE, '/a1', 'x', 'Visits') as any).ok).toBe(true)
+      expect((await invoke(IPC.SNIPPET_CREATE, '/a2', 'x', null) as any).ok).toBe(true)
+      for (const bad of [42, { evil: true }, 'c'.repeat(101)]) {
+        expect(await invoke(IPC.SNIPPET_CREATE, '/a3', 'x', bad)).toEqual({ ok: false, error: 'Invalid snippet category' })
+      }
     })
   })
 

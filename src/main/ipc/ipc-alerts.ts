@@ -53,7 +53,9 @@ export function registerAlertHandlers(): void {
 
   secureWrap(IPC.ALERT_RULE_CREATE, 'ipc-alerts', (_e, rule: Omit<AlertRule, 'id' | 'created_at'>) => {
     const guard = enforceWritable(); if (guard) return guard
+    if (!rule || typeof rule !== 'object') return fail('Invalid rule')
     if (typeof rule.name !== 'string' || !rule.name.trim() || rule.name.length > 200) return fail('Invalid rule name')
+    if (rule.description != null && (typeof rule.description !== 'string' || rule.description.length > 2000)) return fail('Invalid rule description')
     if (typeof rule.thresholds !== 'string' || rule.thresholds.length > 10_000) return fail('Thresholds too large')
     try { JSON.parse(rule.thresholds) } catch (err) { logNonFatal('ipc-alerts', 'Invalid thresholds JSON', err); return fail('Invalid thresholds JSON') }
     if (rule.interval_days != null && (!Number.isInteger(rule.interval_days) || rule.interval_days < 0)) return fail('Invalid interval_days')
@@ -73,6 +75,8 @@ export function registerAlertHandlers(): void {
   secureWrap(IPC.ALERT_RULE_UPDATE, 'ipc-alerts', (_e, id: number, updates: Partial<AlertRule>) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(id)) return fail('Invalid ID')
+    if (!updates || typeof updates !== 'object') return fail('Invalid rule')
+    if (updates.description != null && (typeof updates.description !== 'string' || updates.description.length > 2000)) return fail('Invalid rule description')
     if (updates.thresholds !== undefined) {
       if (typeof updates.thresholds !== 'string' || updates.thresholds.length > 10_000) return fail('Thresholds too large')
       try { JSON.parse(updates.thresholds) } catch (err) { logNonFatal('ipc-alerts', 'Invalid thresholds JSON', err); return fail('Invalid thresholds JSON') }

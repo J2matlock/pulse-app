@@ -100,10 +100,12 @@ export function registerAppHandlers(): void {
     return ok(true)
   })
 
-  secureWrap(IPC.APP_SHOW_FILE_DIALOG, 'ipc-app', async (_e, options: Electron.OpenDialogOptions) => {
+  secureWrap(IPC.APP_SHOW_FILE_DIALOG, 'ipc-app', async (_e, rawOptions: Electron.OpenDialogOptions) => {
+    // No options (null) is a plain dialog, not a TypeError (Q-056)
+    const options: Electron.OpenDialogOptions = rawOptions && typeof rawOptions === 'object' ? rawOptions : {}
     // Sanitize: only allow safe dialog properties from the renderer
     const safeProps: Electron.OpenDialogOptions['properties'] =
-      (options.properties ?? []).filter(p =>
+      (Array.isArray(options.properties) ? options.properties : []).filter(p =>
         ['openFile', 'openDirectory', 'multiSelections'].includes(p)
       ) as Electron.OpenDialogOptions['properties']
     const safeOptions: Electron.OpenDialogOptions = {
@@ -123,7 +125,8 @@ export function registerAppHandlers(): void {
     return ok(result)
   })
 
-  secureWrap(IPC.APP_SHOW_SAVE_DIALOG, 'ipc-app', async (_e, options: Electron.SaveDialogOptions) => {
+  secureWrap(IPC.APP_SHOW_SAVE_DIALOG, 'ipc-app', async (_e, rawOptions: Electron.SaveDialogOptions) => {
+    const options: Electron.SaveDialogOptions = rawOptions && typeof rawOptions === 'object' ? rawOptions : {}
     // Sanitize: only allow safe dialog properties from the renderer
     const safeOptions: Electron.SaveDialogOptions = {
       title: typeof options.title === 'string' ? options.title.slice(0, 200) : undefined,

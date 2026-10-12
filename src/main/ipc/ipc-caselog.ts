@@ -52,8 +52,9 @@ const CASE_LOG_COLS = `id, row_id, content, log_type, created_at, updated_at, oc
 export function registerCaseLogHandlers(): void {
   secureWrap(IPC.CASE_LOG_GET, 'ipc-caselog', (_e, rowId: number, includeSystem?: boolean, includeVoided?: boolean, limit?: number, offset?: number, opts?: CaseLogQuery) => {
     if (!validId(rowId)) return fail('Invalid ID')
-    const safeLimit = Math.min(Math.max(limit ?? 200, 1), 1000)
-    const safeOffset = Math.max(offset ?? 0, 0)
+    // Whole numbers only: NaN or 1.5 would reach LIMIT/OFFSET (Q-056)
+    const safeLimit = Number.isInteger(limit) ? Math.min(Math.max(limit as number, 1), 1000) : 200
+    const safeOffset = Number.isInteger(offset) ? Math.max(offset as number, 0) : 0
     const f = caseLogFilter(rowId, includeSystem, includeVoided, opts)
     // Pinned first, then by the day it happened (then when it was written); searching and
     // "oldest first" happen here so they cover every note, not just the loaded page (1.31)

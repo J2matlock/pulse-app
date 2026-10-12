@@ -699,6 +699,13 @@ describe('IPC Row — ROW_SET_MANUAL_CONTACTS', () => {
 })
 
 describe('IPC Row — SEARCH_CLIENTS_CROSS_GRID', () => {
+  it('returns empty for a search over 200 characters (Q-056)', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 1 })
+    testDb.db.prepare('UPDATE rows SET display_name = ? WHERE id = ?').run('A'.repeat(250), rowIds[0])
+    expect(((await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'A'.repeat(200))) as any).data.length).toBe(1)
+    expect(((await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'A'.repeat(201))) as any).data).toEqual([])
+  })
+
   it('returns empty for search under 2 chars', async () => {
     const result = await invoke(IPC.SEARCH_CLIENTS_CROSS_GRID, 'a') as any
     expect(result.ok).toBe(true)

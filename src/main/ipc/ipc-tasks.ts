@@ -337,6 +337,11 @@ export function registerTaskHandlers(): void {
       templateItems = JSON.parse(template.items)
       if (!Array.isArray(templateItems)) return fail('Invalid template items format')
     } catch { return fail('Invalid template items format') }
+    // A group that's a string, negative or gone would be written as is (Q-056)
+    if (groupId != null) {
+      if (!validId(groupId)) return fail('Invalid group ID')
+      if (!db.prepare('SELECT id FROM task_groups WHERE id = ?').get(groupId)) return fail('Task group not found')
+    }
 
     const resolvedGroupId = groupId ?? null
     const maxPos = (db.prepare('SELECT COALESCE(MAX(position), -1) as m FROM caseload_tasks WHERE group_id IS ?').get(resolvedGroupId) as { m: number }).m
@@ -404,6 +409,7 @@ export function registerTaskHandlers(): void {
     const guard = enforceWritable(); if (guard) return guard
     if (typeof trigger !== 'string' || trigger.length === 0 || trigger.length > 50) return fail('Invalid snippet trigger (max 50 characters)')
     if (typeof expansion !== 'string' || expansion.length > 50_000) return fail('Snippet expansion too large (max 50,000 characters)')
+    if (category != null && (typeof category !== 'string' || category.length > 100)) return fail('Invalid snippet category')
     const db = getDb()
     const result = db.prepare(`
       INSERT INTO snippets (trigger_text, expansion, category, created_at)

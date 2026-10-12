@@ -2,7 +2,7 @@
  * ipc-checklists.ts — CHECKLIST_*, CL_TEMPLATE_* IPC handlers
  */
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { atomicWriteFileSync } from '../export-shared'
 import { extname } from 'node:path'
 import { IPC } from '../../shared/ipc-channels'
@@ -404,6 +404,8 @@ export function registerChecklistHandlers(): void {
     if (extname(filePath).toLowerCase() !== '.pulse-checklist') return fail('Choose a Pulse checklist file (the name ends in .pulse-checklist).')
     if (!safePath(filePath)) return fail(UNSAFE_PATH)
 
+    // Size first: a huge file named .pulse-checklist isn't read into memory to find out (Q-056)
+    try { if (statSync(filePath).size > 2_000_000) return fail('That file is too large to be a Pulse checklist.') } catch { return fail("Pulse couldn't open that file. It may have been moved or deleted.") }
     let raw: string
     try { raw = readFileSync(filePath, 'utf-8') } catch { return fail("Pulse couldn't open that file. It may have been moved or deleted.") }
     if (raw.length > 500_000) return fail('That file is too large to be a Pulse checklist.')
