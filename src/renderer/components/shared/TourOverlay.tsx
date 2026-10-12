@@ -42,6 +42,7 @@ import {
 } from 'lucide-react'
 import { useGridStore } from '../../stores/gridStore'
 import { useVocab } from '../../hooks/useVocab'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { featureNow } from '../../hooks/useFeature'
 import type { FeatureKey } from '../../../shared/features'
 import { modHelp } from '../../utils/keys'
@@ -608,13 +609,12 @@ export function TourOverlay({ onComplete, full = false }: Props): React.ReactEle
     }
   }
 
+  // Tab stays in the card, Escape skips the tour, and focus goes back where it was
+  useFocusTrap(tooltipRef, true, { onEscape: () => { window.location.hash = '#/grid'; onComplete() } })
+
   // Handle keyboard nav
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        window.location.hash = '#/grid'
-        onComplete()
-      }
       // Enter is the focused button's own (Next, Back, Skip); arrows move from anywhere
       if (e.key === 'ArrowRight') { next() }
       if (e.key === 'ArrowLeft') { prev() }

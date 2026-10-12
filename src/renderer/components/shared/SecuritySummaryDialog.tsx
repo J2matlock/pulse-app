@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { ShieldCheck, Copy, Check, X } from 'lucide-react'
 import { PRODUCT_NAME } from '../../../shared/constants'
 import { useVocab } from '../../hooks/useVocab'
 import { copyText } from '../../hooks/useCopyFeedback'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 
 /**
  * Plain-English security summary a worker can show (or paste to) their
@@ -44,14 +45,9 @@ Questions: support@baringasoft.com`
 export function SecuritySummaryDialog({ open, onClose }: { open: boolean; onClose: () => void }): React.ReactElement | null {
   const { f } = useVocab(null)
   const [copied, setCopied] = useState(false)
-  const closeRef = useRef<HTMLButtonElement>(null)
-  useEffect(() => {
-    if (!open) return
-    closeRef.current?.focus()
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  const dialogRef = useRef<HTMLDivElement>(null)
+  // Tab stays inside, Escape closes, and focus goes back to the button that opened it
+  useFocusTrap(dialogRef, open, { onEscape: onClose })
   if (!open) return null
 
   async function copy() {
@@ -64,6 +60,7 @@ export function SecuritySummaryDialog({ open, onClose }: { open: boolean; onClos
   return (
     <div className="fixed inset-0 z-[200] flex items-center-safe justify-center bg-black/50 p-4 overflow-y-auto" onClick={onClose}>
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="security-summary-title"
@@ -73,7 +70,7 @@ export function SecuritySummaryDialog({ open, onClose }: { open: boolean; onClos
         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
           <ShieldCheck className="w-6 h-6 text-green-600 dark:text-green-400" aria-hidden="true" />
           <h2 id="security-summary-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex-1">{title}</h2>
-          <button ref={closeRef} type="button" onClick={onClose} aria-label="Close" className="hit-44 p-2 rounded-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+          <button type="button" onClick={onClose} aria-label="Close" className="hit-44 p-2 rounded-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
             <X className="w-5 h-5" />
           </button>
         </div>
