@@ -81,3 +81,6 @@ export function normalizeAutoLockMinutes(raw: unknown): number {
 
 /** Case notes can be deleted only this soon after they're written; after that they're voided (kept, hidden). */
 export const CASE_NOTE_DELETE_WINDOW_MINUTES = 15
+
+/** Export All writes a deadline column's stored date under "<column> (last done)"; Import maps it back (P-002) */
+export const LAST_DONE_SUFFIX = ' (last done)'

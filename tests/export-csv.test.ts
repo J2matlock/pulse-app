@@ -204,6 +204,20 @@ describe('exportCsv', () => {
     expect(archived.Review).toBe(active.Review)
   })
 
+  it('Export All writes each deadline column\'s stored date next to its text (P-002)', async () => {
+    const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 2, columnTypes: ['text', 'deadline'] })
+    const rule = Number(testDb.db.prepare("INSERT INTO alert_rules (name, thresholds, interval_days) VALUES ('Yearly', '[]', 365)").run().lastInsertRowid)
+    testDb.db.prepare("UPDATE columns SET name = 'Name' WHERE id = ?").run(columnIds[0])
+    testDb.db.prepare("UPDATE columns SET name = 'Review', config = ? WHERE id = ?").run(JSON.stringify({ alert_rule_id: rule }), columnIds[1])
+    testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)').run(rowIds[0], columnIds[1], '2020-01-01')
+    const destPath = join(testDb.tmpDir, 'all.csv')
+    await exportCsv({ gridId, columnIds: [], activeRowIds: [], destPath, dateFormat: 'iso', includeArchived: true, storedDeadlineDates: true })
+    const parsed = Papa.parse<Record<string, string>>(readFileSync(destPath, 'utf-8').slice(1), { header: true, skipEmptyLines: true })
+    expect(parsed.meta.fields).toEqual(['Name', 'Review', 'Review (last done)'])
+    expect(parsed.data[0]!.Review).toMatch(/^Dec 31, 2020/)
+    expect(parsed.data[0]!['Review (last done)']).toBe('2020-01-01')
+  })
+
   it('keeps the on-screen order of the rows it was given, and can include a hidden column (G-07)', async () => {
     const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 3, columnCount: 2 })
     testDb.db.prepare("UPDATE columns SET name = 'Name' WHERE id = ?").run(columnIds[0])

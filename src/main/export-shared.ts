@@ -151,6 +151,11 @@ export interface CsvExportOptions {
   includeHidden?: boolean
   /** Archived records too, with a Status column saying which (Export All) */
   includeArchived?: boolean
+  /**
+   * Next to each deadline column's text, a "<column> (last done)" column with the
+   * stored date, so Import can bring the deadline back (Export All, P-002)
+   */
+  storedDeadlineDates?: boolean
 }
 
 export interface PdfProfileOptions {

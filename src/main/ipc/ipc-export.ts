@@ -407,6 +407,7 @@ export function registerExportHandlers(): void {
           destPath: csvPath,
           includeHidden: true,
           includeArchived: true,
+          storedDeadlineDates: true,
         })
         exported++
       } catch (err) {

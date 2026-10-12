@@ -11,6 +11,7 @@ import { TextDecoder } from 'util'
 import Papa from 'papaparse'
 import { parseDate, ymdFromParts, hasTwoDigitYear, looksLikeBirthColumn, analyzeDateOrder, type DateOrderAnalysis } from '../shared/parseDate'
 import { localDateString } from '../shared/dates'
+import { LAST_DONE_SUFFIX } from '../shared/constants'
 import { VALID_COLUMN_TYPES, canImportInto } from '../shared/types'
 import type { ColumnType } from '../shared/types'
 import ExcelJS from 'exceljs'
@@ -933,9 +934,25 @@ export function autoMatchColumns(gridId: number, headers: string[]): ColumnMappi
   const existingCols = (db.prepare('SELECT * FROM columns WHERE grid_id = ? ORDER BY position').all(gridId) as Column[])
     .filter(c => canImportInto(c.column_type))
   const usedColIds = new Set<number>()
+  // Export All's "<deadline> (last done)" holds the stored date: it goes into the deadline
+  // column, and the "<deadline>" column next to it (the "Due …" text) is left out (P-002)
+  const lastDoneFor = (header: string): Column | undefined => {
+    const h = header.toLowerCase().trim()
+    if (!h.endsWith(LAST_DONE_SUFFIX.trim())) return undefined
+    const base = h.slice(0, -LAST_DONE_SUFFIX.trim().length).trim()
+    return existingCols.find(c => c.column_type === 'deadline' && c.name.toLowerCase().trim() === base)
+  }
+  const restored = new Set(headers.map(lastDoneFor).filter((c): c is Column => !!c).map(c => c.name.toLowerCase().trim()))
 
   const result = headers.map((header, i) => {
     const h = header.toLowerCase().trim()
+
+    const lastDone = lastDoneFor(header)
+    if (lastDone && !usedColIds.has(lastDone.id)) {
+      usedColIds.add(lastDone.id)
+      return { sourceIndex: i, action: lastDone.id as number }
+    }
+    if (restored.has(h)) return { sourceIndex: i, action: 'skip' as const }
 
     // 1. Exact match
     let match = existingCols.find(c => !usedColIds.has(c.id) && c.name.toLowerCase().trim() === h)

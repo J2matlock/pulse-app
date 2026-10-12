@@ -791,6 +791,33 @@ describe('executeImport', () => {
     })
   })
 
+  describe('an Export All file brings deadlines back (P-002)', () => {
+    it('maps "<deadline> (last done)" into the deadline column and leaves out its "Due …" text', async () => {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }, { name: 'Review', type: 'deadline' }])
+      const headers = ['Name', 'Review', 'Review (last done)']
+      expect(autoMatchColumns(gridId, headers)).toEqual([
+        { sourceIndex: 0, action: columnIds[0] }, { sourceIndex: 1, action: 'skip' }, { sourceIndex: 2, action: columnIds[1] },
+      ])
+      const filePath = writeImportCsv('all.csv', 'Name,Review,Review (last done)\nAna,"Dec 31, 2020 · 2000 days late",2020-01-01\n')
+      const preview = await parseImportFile(filePath)
+      await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'none', columnMappings: autoMatchColumns(gridId, headers) }, preview)
+      const row = testDb.db.prepare('SELECT id FROM rows WHERE grid_id = ?').get(gridId) as { id: number }
+      expect(getCellValue(row.id, columnIds[1])).toBe('2020-01-01')
+    })
+
+    it('reads a "(last done)" date written in the US format, and leaves other files alone', async () => {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }, { name: 'Review', type: 'deadline' }])
+      const headers = ['Name', 'Review', 'Review (last done)']
+      const filePath = writeImportCsv('all-us.csv', 'Name,Review,Review (last done)\nAna,"Due Dec 31, 2026",03/15/2026\n')
+      const preview = await parseImportFile(filePath)
+      await executeImport({ gridId, filePath, cleanData: true, duplicateStrategy: 'none', columnMappings: autoMatchColumns(gridId, headers) }, preview)
+      const row = testDb.db.prepare('SELECT id FROM rows WHERE grid_id = ?').get(gridId) as { id: number }
+      expect(getCellValue(row.id, columnIds[1])).toBe('2026-03-15')
+      // A file without the "(last done)" column still matches the deadline column by name
+      expect(autoMatchColumns(gridId, ['Name', 'Review'])).toEqual([{ sourceIndex: 0, action: columnIds[0] }, { sourceIndex: 1, action: columnIds[1] }])
+    })
+  })
+
   describe('a workbook that unpacks too big (Q-043)', () => {
     it('is refused before Excel reading starts, with a plain message', async () => {
       const filePath = join(tmpDir, 'bomb.xlsx')

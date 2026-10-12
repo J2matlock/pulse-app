@@ -594,6 +594,8 @@ describe('EXPORT_ALL_CSV', () => {
     expect(calls.every(c => c.includeHidden)).toBe(true)
     // Archived records come out too (S4)
     expect(calls.every(c => (c as { includeArchived?: boolean }).includeArchived)).toBe(true)
+    // Deadline columns carry their stored date too, so Import can bring them back (P-002)
+    expect(calls.every(c => (c as { storedDeadlineDates?: boolean }).storedDeadlineDates)).toBe(true)
     expect(readdirSync(dir)).toEqual(['notes.csv'])
     const notes = readFileSync(join(dir, 'notes.csv'), 'utf-8')
     expect(notes).toContain('José Núñez')
