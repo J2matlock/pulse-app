@@ -17,6 +17,7 @@ import { ruleSummary } from '../src/shared/ruleSummary'
 import { matchFilter } from '../src/renderer/utils/filterMatch'
 import { evalCellFormat } from '../src/renderer/components/grid/CellConditionalFormatPanel'
 import { ROW_TAG_COLUMN_ID, type CellFormatRule, type Column, type FilterOperator, type GridRow } from '../src/shared/types'
+import { FEATURES, isOn } from '../src/shared/features'
 import { PERIODS, PERIOD_MAX, periodRange, type Period } from '../src/shared/periods'
 import { EMPTY_DRAFT, draftToConfig } from '../src/renderer/components/alerts/ruleDraft'
 
@@ -109,5 +110,20 @@ describe('filter operators from stored data', () => {
   it('a colour rule with an operator this version does not know never matches', () => {
     const rule: CellFormatRule = { operator: 'sounds_like' as CellFormatRule['operator'], value: 'Alpha', sourceType: 'self' }
     expect(evalCellFormat([rule], 'Alpha', row, new Map())).toBeNull()
+  })
+})
+
+describe('feature switches', () => {
+  it('keep the Settings order, one entry per key, each group together', () => {
+    const keys = FEATURES.map(f => f.key)
+    expect(new Set(keys).size).toBe(keys.length)
+    expect(keys.slice(0, 3)).toEqual(['personFields', 'priority', 'links'])
+    expect(keys.at(-1)).toBe('handoff')
+    const groups = FEATURES.map(f => f.group).filter((g, i, a) => i === 0 || a[i - 1] !== g)
+    expect(groups).toEqual(['Records', 'Notes & activity', 'Planning', 'Reports'])
+  })
+
+  it('every listed feature can be switched on', () => {
+    for (const f of FEATURES) expect(isOn({ [f.key]: true }, f.key), f.key).toBe(true)
   })
 })
