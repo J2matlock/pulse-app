@@ -74,9 +74,11 @@ vi.mock('../../../src/renderer/stores/gridStore', () => {
   return { useGridStore: Object.assign((sel: Function) => sel(state()), { getState: state }) }
 })
 
+const { addRecentProfile } = vi.hoisted(() => ({ addRecentProfile: vi.fn() }))
+
 vi.mock('../../../src/renderer/stores/profileStore', () => ({
   useProfileStore: (sel: Function) => sel({
-    addRecentProfile: vi.fn(),
+    addRecentProfile,
     recentProfiles: [{ rowId: 42, name: 'Maria Santos', gridId: 1, timestamp: Date.now() }],
   }),
 }))
@@ -227,5 +229,37 @@ describe('ProfileView — data smoke tests (1 client)', () => {
     renderProfile(999)
     await flushEffects()
     expect(screen.getByText('Back to the caseload')).toBeDefined()
+  })
+})
+
+describe('ProfileView — Recent', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockInvoke.mockResolvedValue({ ok: true, data: [] })
+  })
+
+  it('records the visit once, with the record and list names, and not again on later renders', async () => {
+    const { rerender } = renderProfile()
+    await flushEffects()
+    expect(addRecentProfile).toHaveBeenCalledTimes(1)
+    expect(addRecentProfile).toHaveBeenCalledWith(expect.objectContaining({
+      rowId: 42, gridId: 1, gridName: 'Main Caseload', name: expect.stringContaining('Santos'),
+    }))
+    // Every render hands out a fresh list of lists (the store mock builds a new state each time)
+    rerender(
+      <MemoryRouter initialEntries={['/profile/42']}>
+        <Routes>
+          <Route path="/profile/:rowId" element={<ProfileView />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await flushEffects()
+    expect(addRecentProfile).toHaveBeenCalledTimes(1)
+  })
+
+  it("doesn't record a record that isn't there", async () => {
+    renderProfile(999)
+    await flushEffects()
+    expect(addRecentProfile).not.toHaveBeenCalled()
   })
 })
