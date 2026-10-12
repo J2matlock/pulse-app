@@ -17,6 +17,7 @@ import type { FormatSliceState } from './gridFormatSlice'
 import type { AcuitySliceState } from './gridAcuitySlice'
 import type { CustomGroupSliceState } from './gridCustomGroupSlice'
 import type { CellEditSliceState } from './gridCellEditSlice'
+import type { RowSliceState } from './gridRowSlice'
 
 export interface UpdateCellOptions {
   /** An undo or redo is putting a value back: push no undo entry, and throw on failure */
@@ -48,17 +49,6 @@ export interface CoreGridState {
   showArchived: boolean
   setShowArchived: (show: boolean) => void
 
-  lastAddedRowId: number | null
-  /** A record just added stays on screen even if the filter or search would hide it (G-28) */
-  pinnedRowId: number | null
-
-  /** Made-up sample entries in this list → whether "Keep this as a real entry?" was asked (0 = not yet) */
-  sampleRows: Record<number, number>
-  /** A sample entry just edited for the first time: ask once whether to keep it */
-  sampleKeepPrompt: number | null
-  /** The answer: keep it as real, it's just a sample, or decide later (don't ask again) */
-  answerSampleRow: (rowId: number, answer: 'keep' | 'sample' | 'later') => Promise<void>
-
   /** What deadline rules need besides each row (meter readings…), for grid coloring (W05) */
   deadlineContext: GridDeadlineContext
   /** Reload just the deadline context (after a step is checked off, a reading entered…) */
@@ -72,23 +62,13 @@ export interface CoreGridState {
    */
   refreshRows: () => Promise<void>
 
-  selectedRowIds: Set<number>
-  setSelectedRowIds: (ids: Set<number> | ((prev: Set<number>) => Set<number>)) => void
-
   frozenColumnCount: number
   setFrozenColumnCount: (count: number) => void
 
   groupByColumnId: number | string | null
   setGroupByColumnId: (id: number | string | null) => void
 
-  addRow: () => Promise<void>
-  deleteRow: (rowId: number) => Promise<void>
-  archiveRow: (rowId: number, reason?: string, opts?: { cancelAppointments?: boolean }) => Promise<void>
-  unarchiveRow: (rowId: number) => Promise<void>
-  duplicateRow: (rowId: number) => Promise<void>
-  updateRow: (rowId: number, updates: Partial<{ is_starred: 0 | 1 }>) => Promise<void>
-
   _loadVersion: number
 }
 
-export type GridState = CoreGridState & FilterSliceState & ColumnSliceState & FormatSliceState & AcuitySliceState & CustomGroupSliceState & CellEditSliceState
+export type GridState = CoreGridState & FilterSliceState & ColumnSliceState & FormatSliceState & AcuitySliceState & CustomGroupSliceState & CellEditSliceState & RowSliceState
