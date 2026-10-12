@@ -225,11 +225,24 @@ describe('Data Handling', () => {
 
   it('corrupted/binary file handled gracefully', async () => {
     const binPath = join(tmpDir, 'test.csv')
+    // Fixed bytes (no quote mark): random ones sometimes held an unclosed ", which is
+    // refused on purpose with a plain message (the next test), so this test flaked
     const buf = Buffer.alloc(100)
-    for (let i = 0; i < 100; i++) buf[i] = Math.floor(Math.random() * 256)
+    let seed = 12345
+    for (let i = 0; i < 100; i++) {
+      seed = (seed * 1103515245 + 12345) % 2147483648
+      const b = seed % 256
+      buf[i] = b === 0x22 ? 0x21 : b
+    }
     writeFileSync(binPath, buf)
     // Should not throw — may return empty or garbage
     await expect(parseImportFile(binPath)).resolves.toBeDefined()
+  })
+
+  it('a binary file with a stray quote mark gets the plain "quote mark" message, not a crash', async () => {
+    const binPath = join(tmpDir, 'quote.csv')
+    writeFileSync(binPath, Buffer.from([0x01, 0xff, 0x0a, 0x22, 0x10, 0x7f, 0x0a, 0x80, 0x0a]))
+    await expect(parseImportFile(binPath)).rejects.toThrow(/quote mark/)
   })
 })
 
