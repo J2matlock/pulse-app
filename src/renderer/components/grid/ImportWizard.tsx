@@ -254,7 +254,7 @@ export function ImportWizard({ open, gridId, onClose, onImported }: Props): Reac
     const res = await safeInvoke<{ canceled: boolean; filePaths: string[] }>(IPC.APP_SHOW_FILE_DIALOG, {
       properties: ['openFile'],
       filters: [
-        { name: 'Spreadsheets', extensions: ['csv', 'xlsx'] },
+        { name: 'Spreadsheets', extensions: ['csv', 'xlsx', 'tsv', 'txt'] },
         { name: 'All Files', extensions: ['*'] },
       ],
     })

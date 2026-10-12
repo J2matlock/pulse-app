@@ -811,8 +811,42 @@ describe('executeImport', () => {
         gridId, filePath, cleanData: true, headerRowIndex: 3, duplicateStrategy: 'by_column', duplicateColumnId: columnIds[1],
         columnMappings: [0, 1, 2].map(i => ({ sourceIndex: i, action: columnIds[i]! })),
       }, preview)
-      expect(result.warnings.join(' ')).toContain('Row 7, column 3: value truncated')
+      expect(result.warnings.join(' ')).toContain('"Notes" was longer than 10,000 characters and was cut short (row 7)')
       expect(result.skippedNames).toEqual(['Row 10'])
+    })
+  })
+
+  describe('long cells and text files (Q-081)', () => {
+    it('gives one warning per column for many long cells, and never splits an emoji', async () => {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }, { name: 'Notes' }])
+      // 9,999 letters then an emoji: the 10,000th unit is the emoji's first half
+      const emojiAtEdge = 'x'.repeat(9_999) + '\u{1F600}' + 'tail'
+      const lines = ['Name,Notes', `Edge,${emojiAtEdge}`, ...Array.from({ length: 99 }, (_, i) => `P${i},${'y'.repeat(10_050)}`)]
+      const filePath = writeImportCsv('long.csv', lines.join('\n') + '\n')
+      const preview = await parseImportFile(filePath)
+      const result = await executeImport({
+        gridId, filePath, cleanData: true, duplicateStrategy: 'import_all',
+        columnMappings: [0, 1].map(i => ({ sourceIndex: i, action: columnIds[i]! })),
+      }, preview)
+      const cut = result.warnings.filter(w => w.includes('cut short'))
+      expect(cut).toEqual(['100 values in "Notes" were longer than 10,000 characters and were cut short, starting at row 2.'])
+      const stored = (testDb.db.prepare("SELECT c.value FROM cells c JOIN rows r ON r.id = c.row_id WHERE c.column_id = ? AND r.display_name = 'Edge'").get(columnIds[1]) as { value: string }).value
+      expect(stored).toBe('x'.repeat(9_999))
+      expect(/[\uD800-\uDBFF]$/.test(stored)).toBe(false)
+    })
+
+    it('imports a tab-separated .tsv and Excel\'s UTF-16 "Unicode Text" .txt', async () => {
+      const tsv = join(importTmpDir, 'people.tsv')
+      writeFileSync(tsv, 'Name\tCity\nAna Ruiz\tLeón\nBo Li\tOslo\n', 'utf-8')
+      const a = await parseImportFile(tsv)
+      expect(a.headers).toEqual(['Name', 'City'])
+      expect(a.rows[0]).toEqual(['Ana Ruiz', 'León'])
+
+      const txt = join(importTmpDir, 'unicode.txt')
+      writeFileSync(txt, Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('Name\tCity\r\nZoë Ångström\tMalmö\r\n', 'utf16le')]))
+      const b = await parseImportFile(txt)
+      expect(b.headers).toEqual(['Name', 'City'])
+      expect(b.rows[0]).toEqual(['Zoë Ångström', 'Malmö'])
     })
   })
 

@@ -81,6 +81,13 @@ describe('grouped headers and merged cells', () => {
     expect(allRows[1]![3]).toBe('Waiver')
   })
 
+  it('renames repeated headers without colliding with a header already in the file (Q-080)', () => {
+    expect(buildTable([['Name', 'Name', 'Name 2'], ['a', 'b', 'c']], 0).headers).toEqual(['Name', 'Name 2', 'Name 2 2'])
+    expect(buildTable([['Name 2', 'Name', 'name'], ['a', 'b', 'c']], 0).headers).toEqual(['Name 2', 'Name', 'name 3'])
+    expect(buildTable([['Name', 'Name', 'Name'], ['a', 'b', 'c']], 0).headers).toEqual(['Name', 'Name 2', 'Name 3'])
+    expect(buildTable([['', 'Column 1'], ['a', 'b']], 0).headers).toEqual(['Column 1', 'Column 1 2'])
+  })
+
   it('handles a real Excel sheet with a title row, grouped header and vertical merge', async () => {
     const wb = new ExcelJS.Workbook()
     const ws = wb.addWorksheet('Caseload')

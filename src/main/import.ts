@@ -411,15 +411,18 @@ export function buildTable(rawRows: string[][], headerIdx: number, mergedRanges?
     if (!m || (m.endCol - m.startCol + 1) > width * 0.5) return ''
     return (rawRows[m.anchorRow]?.[m.startCol] ?? '').trim()
   }
-  const seen = new Map<string, number>()
+  // A repeated header gets " 2", " 3"…, skipping any name already taken, so
+  // ["Name", "Name", "Name 2"] can't give two "Name 2" columns (Q-080)
+  const used = new Set<string>()
   const headers = Array.from({ length: Math.max(width, headerRow.length) }, (_, c) => {
     const sub = (headerRow[c] ?? '').trim()
     const group = groupFor(c)
     let h = group && sub && !sub.toLowerCase().includes(group.toLowerCase()) ? `${group} ${sub}` : (sub || group)
     if (!h) h = `Column ${c + 1}`
-    const n = (seen.get(h.toLowerCase()) ?? 0) + 1
-    seen.set(h.toLowerCase(), n)
-    return n > 1 ? `${h} ${n}` : h
+    let name = h
+    for (let n = 2; used.has(name.toLowerCase()); n++) name = `${h} ${n}`
+    used.add(name.toLowerCase())
+    return name
   })
   // Trailing columns with no header and no data are just sheet width
   let keep = headers.length
@@ -490,10 +493,22 @@ const MAX_IMPORT_FILE_SIZE = 100 * 1024 * 1024
 /** Maximum cell value length stored in the database */
 const MAX_CELL_VALUE_LENGTH = 10_000
 
+/** The first `max` UTF-16 units, without splitting an emoji or other surrogate pair in half (Q-081) */
+export function cutToLength(text: string, max: number): string {
+  if (text.length <= max) return text
+  const last = text.charCodeAt(max - 1)
+  return text.slice(0, last >= 0xd800 && last <= 0xdbff ? max - 1 : max)
+}
+
 /** Maximum number of data rows to import (excludes header) */
 const MAX_IMPORT_ROWS = 50_000
 /** Raw rows read from a file: the data rows plus room for titles above the headers */
 const MAX_RAW_ROWS = MAX_IMPORT_ROWS + 20
+/**
+ * Files read as delimited text. Papa finds the delimiter, so .tsv and Excel's
+ * "Unicode Text" (.txt: tab-separated UTF-16 with a byte order mark) read like a CSV (Q-081)
+ */
+const TEXT_IMPORT_EXTENSIONS = new Set(['csv', 'tsv', 'txt'])
 /** An .xlsx is a zip; more than this unpacked is refused before reading (Q-043) */
 const MAX_XLSX_UNPACKED_BYTES = 500 * 1024 * 1024
 
@@ -546,12 +561,13 @@ export class ImportFileError extends Error {}
  * for header detection). A quote that isn't closed properly would swallow the
  * rest of the file into one cell, so it stops with the line to fix instead.
  */
-function parseCsvText(text: string): { rows: string[][]; truncated: boolean } {
+function parseCsvText(text: string, delimiter?: string): { rows: string[][]; truncated: boolean } {
   const rows: string[][] = []
   let truncated = false
   let rowStart = 0
   let badQuoteAt: number | null = null
   Papa.parse<string[]>(text, {
+    delimiter,
     skipEmptyLines: false,
     header: false,
     step: (result, parser) => {
@@ -703,14 +719,19 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
   const hiddenRawRows = new Set<number>()
   const hiddenCols: number[] = []
 
-  if (ext === 'csv') {
+  if (TEXT_IMPORT_EXTENSIONS.has(ext)) {
     // The whole file is decoded before parsing: decoding read-stream chunks one by one
     // broke a character split across two chunks, and Excel's "CSV" isn't UTF-8
     const decoded = decodeCsvBytes(await readFile(filePath))
     if (decoded.encoding === 'windows-1252') {
       parseWarnings.push('This file wasn\'t saved in the usual text format, so Pulse converted it. Check that accented letters (like é or ñ) look right.')
     }
-    const parsed = parseCsvText(decoded.text)
+    // Papa's guess needs about two fields a line and otherwise falls back to commas, so a
+    // two-column tab file would come in as one column: .tsv is tabs, and a .txt whose first
+    // line has a tab is Excel's "Unicode Text"
+    const firstLine = decoded.text.slice(0, decoded.text.search(/\r?\n|$/))
+    const delimiter = ext === 'tsv' || (ext === 'txt' && firstLine.includes('\t')) ? '\t' : undefined
+    const parsed = parseCsvText(decoded.text, delimiter)
     rawRows = parsed.rows
     if (parsed.truncated) parseWarnings.push(rowCapWarning())
     sheets = ['Sheet1']
@@ -808,16 +829,16 @@ export async function parseImportFile(filePath: string, sheetIndex = 0, headerRo
   if (ext === 'xls' || ext === 'ods') {
     throw new Error('This is an older spreadsheet file. Open it in Excel (or LibreOffice) and choose Save As → Excel Workbook (.xlsx), then try again.')
   }
-  const VALID_IMPORT_EXTENSIONS = new Set(['csv', 'xlsx'])
-  if (!VALID_IMPORT_EXTENSIONS.has(ext)) {
+  if (!TEXT_IMPORT_EXTENSIONS.has(ext) && ext !== 'xlsx') {
     throw new Error(`Pulse can't read .${ext} files. Save it as a .csv or .xlsx file, then try again.`)
   }
 
   logger.info('import', 'Parsing import file', { format: ext })
 
   // For Excel with non-default sheet index, we need the sheet name
-  let sheetName: string | undefined = ext === 'csv' ? undefined : sheetNameOverride
-  if (ext !== 'csv' && !sheetName && sheetIndex > 0) {
+  const isText = TEXT_IMPORT_EXTENSIONS.has(ext)
+  let sheetName: string | undefined = isText ? undefined : sheetNameOverride
+  if (!isText && !sheetName && sheetIndex > 0) {
     // Pre-parse to get sheet names for selecting the target sheet
     const preParsed = await getCachedOrParse(filePath, undefined, headerRowIndex)
     sheetName = preParsed.sheets[sheetIndex] || preParsed.sheets[0]
@@ -1157,6 +1178,8 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
       : [])
     const unreadableDates = new Map<number, number>()
     const unclearChecks = new Map<number, number>()
+    /** Cells cut to the length limit, per column: how many and the first file row (Q-081) */
+    const cutCells = new Map<number, { n: number; firstRow: number }>()
     const cellValue = (row: string[], srcIdx: number): string => {
       const raw = String(row[srcIdx] || '').trim()
       return flipCols.has(srcIdx) ? flipLastFirst(raw) : raw
@@ -1275,8 +1298,10 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
         if (normalized) {
           let cellValue = normalized
           if (cellValue.length > MAX_CELL_VALUE_LENGTH) {
-            cellValue = cellValue.slice(0, MAX_CELL_VALUE_LENGTH)
-            warnings.push(`Row ${lineOf(i)}, column ${srcIdx + 1}: value truncated to ${MAX_CELL_VALUE_LENGTH} characters`)
+            cellValue = cutToLength(cellValue, MAX_CELL_VALUE_LENGTH)
+            const cut = cutCells.get(srcIdx)
+            if (cut) cut.n++
+            else cutCells.set(srcIdx, { n: 1, firstRow: lineOf(i) })
           }
           insertCell.run(rowId, info.columnId, cellValue)
         }
@@ -1333,6 +1358,9 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
     warnings.push(`${n} value${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" didn't look like ${n === 1 ? 'a date' : 'dates'} and ${n === 1 ? 'was' : 'were'} kept as typed. Check ${n === 1 ? 'it' : 'them'} in the list.`)
   }
 
+  for (const [srcIdx, { n, firstRow }] of cutCells) {
+    warnings.push(`${n} value${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" ${n === 1 ? 'was' : 'were'} longer than ${MAX_CELL_VALUE_LENGTH.toLocaleString('en-US')} characters and ${n === 1 ? 'was' : 'were'} cut short${n === 1 ? ` (row ${firstRow})` : `, starting at row ${firstRow}`}.`)
+  }
   for (const [srcIdx, n] of unclearChecks) {
     warnings.push(`${n} value${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" ${n === 1 ? 'wasn\'t' : 'weren\'t'} clearly yes or no and ${n === 1 ? 'was' : 'were'} left unticked. Check ${n === 1 ? 'it' : 'them'} in the list.`)
   }
