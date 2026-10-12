@@ -224,6 +224,17 @@ describe('series', () => {
     expect(all().filter(a => a.title === 'Session')).toHaveLength(before.length)
   })
 
+  it('addMonths stays in the target month, using its last day when shorter (A21b-07)', () => {
+    expect(addMonths('2026-01-31', 1)).toBe('2026-02-28')
+    expect(addMonths('2028-01-31', 1)).toBe('2028-02-29')
+    expect(addMonths('2028-02-29', 12)).toBe('2029-02-28')
+    expect(addMonths('2026-03-31', -1)).toBe('2026-02-28')
+    expect(addMonths('2026-08-31', 6)).toBe('2027-02-28')
+    expect(addMonths('2026-10-15', 1)).toBe('2026-11-15')
+    expect(addMonths('2026-12-31', 2)).toBe('2027-02-28')
+    expect(addMonths('2026-10-01', -10)).toBe('2025-12-01')
+  })
+
   it('keep going past two years: the horizon moves with today', () => {
     const start = addMonths(today, -30)
     createAppointment({ row_id: g.rowIds[0]!, title: 'Session', start_at: `${start}T15:00` }, { freq: 'monthly', interval: 1 })

@@ -115,9 +115,11 @@ export function parseYmd(s: string): Date {
   return new Date(y, m - 1, d)
 }
 
+/** The same day N months on, or that month's last day when it's shorter (Jan 31 + 1 = Feb 28, A21b-07) */
 export function addMonths(date: string, months: number): string {
   const d = parseYmd(date)
-  return ymd(new Date(d.getFullYear(), d.getMonth() + months, d.getDate()))
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + months + 1, 0).getDate()
+  return ymd(new Date(d.getFullYear(), d.getMonth() + months, Math.min(d.getDate(), lastDay)))
 }
 
 export function addDays(date: string, days: number): string {
