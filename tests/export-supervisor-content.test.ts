@@ -67,6 +67,25 @@ async function summaryCsv(): Promise<string> {
 }
 
 describe('summary report', () => {
+  it('puts a hidden column chosen in the dialog in the roster (Q-034)', async () => {
+    const [first, second] = grid.columnIds as [number, number]
+    testDb.db.prepare("UPDATE columns SET name = 'Shown heading' WHERE id = ?").run(first)
+    testDb.db.prepare("UPDATE columns SET name = 'Hidden heading', is_visible = 0 WHERE id = ?").run(second)
+    const destPath = join(testDb.tmpDir, 'hidden.csv')
+    await exportSupervisorReport({
+      gridId: grid.gridId, columnIds: [first, second], dateRange: { start: localDateFromToday(-30), end: today },
+      includeActivityLog: false, includeSystemActivity: false, includeTaskSummary: false, format: 'csv', destPath,
+    })
+    const csv = readFileSync(destPath, 'utf8')
+    expect(csv).toContain('Shown heading')
+    expect(csv).toContain('Hidden heading')
+  })
+
+  it('leaves hidden columns out when none are chosen', async () => {
+    testDb.db.prepare("UPDATE columns SET name = 'Hidden heading', is_visible = 0 WHERE id = ?").run(grid.columnIds[1])
+    expect(await summaryCsv()).not.toContain('Hidden heading')
+  })
+
   it('labels the period with the days chosen, west of UTC too (S5)', async () => {
     const originalTz = process.env.TZ
     process.env.TZ = 'America/New_York'

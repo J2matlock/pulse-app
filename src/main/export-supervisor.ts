@@ -52,7 +52,8 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   const grid = db.prepare('SELECT * FROM grids WHERE id = ?').get(gridId) as Grid & { acuity_enabled?: number }
   // The roster shows what the table shows: deadlines as "Due …", Age and Days-until worked out,
   // linked records by name and file counts, from the same loader as the other exports (AUDIT-036)
-  const { columns: allColumns, rows } = loadGridData(gridId)
+  // Hidden columns too: the dialog offers them, and nothing chosen still means the visible ones (Q-034)
+  const { columns: allColumns, rows } = loadGridData(gridId, { includeHidden: true })
   const selectedColumns = pickColumns(allColumns, columnIds)
   showDeadlinesAsText(gridId, selectedColumns, rows)
   const rosterText = (format: 'csv' | 'pdf') => rows.map(r => selectedColumns.map(col => {
