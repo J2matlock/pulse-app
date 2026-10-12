@@ -12,6 +12,7 @@ import { columnTypeLabel } from '../../../shared/columnTypes'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { friendlyError } from '../../utils/friendlyError'
 import { useGridStore } from '../../stores/gridStore'
+import { useUndoStore } from '../../stores/undoStore'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
 
 type Deleted = { id: number; name: string; column_type: string; deleted_at: string; values: number }
@@ -28,6 +29,9 @@ export function DeletedColumnsSection({ gridId }: { gridId: number }): React.Rea
   async function restore(d: Deleted) {
     const r = await safeInvoke(IPC.COLUMN_RESTORE, d.id)
     if (!r.ok) { toast.error(friendlyError(r.error)); return }
+    // The "Deleted column" undo step points at the Trash entry that's gone now; a failed step stays on
+    // top of the stack, so every later Ctrl+Z would hit it (as TrashView does, Q-045)
+    useUndoStore.getState().clear()
     toast.success(`"${d.name}" is back, with its values.`)
     if (useGridStore.getState().activeGridId === gridId) await useGridStore.getState().loadGrid(gridId)
     await load()
@@ -67,6 +71,7 @@ export function DeletedColumnsSection({ gridId }: { gridId: number }): React.Rea
           if (forever) {
             const r = await safeInvoke(IPC.COLUMN_PURGE, forever.id)
             if (!r.ok) toast.error(friendlyError(r.error))
+            else useUndoStore.getState().clear()
           }
           setForever(null)
           await load()

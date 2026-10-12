@@ -13,6 +13,10 @@ const invoke = vi.fn(async (channel: string) => channel === 'column:deleted-list
 Object.defineProperty(window, 'api', { value: { invoke }, writable: true, configurable: true })
 
 import { DeletedColumnsSection } from '../../../../src/renderer/components/grid/DeletedColumnsSection'
+import { useUndoStore } from '../../../../src/renderer/stores/undoStore'
+import type { UndoItem } from '../../../../src/renderer/stores/undoStore'
+
+const step = (): UndoItem => ({ id: 's1', description: 'Deleted column', timestamp: Date.now(), category: 'structural', icon: 'trash', undo: vi.fn(), redo: vi.fn() })
 
 beforeEach(() => invoke.mockClear())
 
@@ -33,5 +37,19 @@ describe('DeletedColumnsSection', () => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Gate code' } })
     fireEvent.click(screen.getAllByRole('button', { name: 'Delete forever' }).at(-1)!)
     await waitFor(() => expect(invoke).toHaveBeenCalledWith('column:purge', 3))
+  })
+
+  it('forgets undo steps after deleting forever or restoring by hand: they point at the Trash entry that is gone (Q-045)', async () => {
+    useUndoStore.setState({ undoStack: [step()], redoStack: [] })
+    render(<DeletedColumnsSection gridId={1} />)
+    await waitFor(() => expect(screen.getByText('Gate code')).toBeTruthy())
+    fireEvent.click(screen.getByText('Delete forever'))
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Gate code' } })
+    fireEvent.click(screen.getAllByRole('button', { name: 'Delete forever' }).at(-1)!)
+    await waitFor(() => expect(useUndoStore.getState().undoStack).toHaveLength(0))
+
+    useUndoStore.setState({ undoStack: [step()], redoStack: [] })
+    fireEvent.click(screen.getByText('Restore'))
+    await waitFor(() => expect(useUndoStore.getState().undoStack).toHaveLength(0))
   })
 })

@@ -147,6 +147,49 @@ describe('undoStore', () => {
     })
   })
 
+  describe('a step that can never be undone (Q-045)', () => {
+    it('stays after one failure, and is taken off after a second plain failure so older steps work', async () => {
+      const older = makeItem({ description: 'Older' })
+      const gone = makeItem({ description: 'Gone', undo: vi.fn().mockRejectedValue(new Error('That column is no longer in the Trash.')) })
+      useUndoStore.getState().push(older)
+      useUndoStore.getState().push(gone)
+      await useUndoStore.getState().undo()
+      expect(useUndoStore.getState().undoStack.map(i => i.description)).toEqual(['Older', 'Gone'])
+      await useUndoStore.getState().undo()
+      expect(useUndoStore.getState().undoStack.map(i => i.description)).toEqual(['Older'])
+      expect(useUndoStore.getState().redoStack).toHaveLength(0)
+      expect(useUndoStore.getState().toast?.description).toBe("Undo didn't work: That column is no longer in the Trash. That step was taken off the undo list.")
+      await useUndoStore.getState().undo()
+      expect(older.undo).toHaveBeenCalledTimes(1)
+      expect(useUndoStore.getState().undoStack).toHaveLength(0)
+    })
+
+    it('keeps a step that fails for a technical reason or because Pulse is read-only', async () => {
+      const { ReadOnlyError } = await import('../../../src/renderer/utils/safeInvoke')
+      const technical = makeItem({ undo: vi.fn().mockRejectedValue(new Error('SQLITE_BUSY: database is locked')) })
+      useUndoStore.getState().push(technical)
+      await useUndoStore.getState().undo()
+      await useUndoStore.getState().undo()
+      expect(useUndoStore.getState().undoStack).toHaveLength(1)
+      useUndoStore.setState({ undoStack: [] })
+      const readOnly = makeItem({ undo: vi.fn().mockRejectedValue(new ReadOnlyError()) })
+      useUndoStore.getState().push(readOnly)
+      await useUndoStore.getState().undo()
+      await useUndoStore.getState().undo()
+      expect(useUndoStore.getState().undoStack).toHaveLength(1)
+    })
+
+    it('a success in between starts the count again', async () => {
+      let fail = true
+      const flaky = makeItem({ undo: vi.fn(async () => { if (fail) throw new Error('That record was deleted.') }) })
+      useUndoStore.getState().push(flaky)
+      await useUndoStore.getState().undo()
+      fail = false
+      await useUndoStore.getState().undo()
+      expect(useUndoStore.getState().redoStack).toHaveLength(1)
+    })
+  })
+
   describe('clear', () => {
     it('empties both stacks', () => {
       useUndoStore.getState().push(makeItem())

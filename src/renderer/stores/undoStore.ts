@@ -9,7 +9,7 @@
  */
 import { create } from 'zustand'
 import { IPC } from '../../shared/ipc-channels'
-import { storeInvoke } from '../utils/safeInvoke'
+import { storeInvoke, ReadOnlyError } from '../utils/safeInvoke'
 import { rlog } from '../utils/rendererLogger'
 import { isTechnicalError } from '../utils/friendlyError'
 
@@ -89,11 +89,21 @@ const MAX_STACK = 100
 export interface PushOptions { evenWhileUndoing?: boolean }
 
 /** The reason an undo or redo failed, for the toast: handler messages are already plain English */
-function failureText(kind: 'Undo' | 'Redo', err: unknown): string {
+/** A handler's own plain-English reason, or '' for technical text that shouldn't reach the screen */
+function plainReason(err: unknown): string {
   const reason = err instanceof Error ? err.message.trim() : ''
-  const plain = reason && reason.length < 200 && !isTechnicalError(reason) && !/sqlite|ipc|undefined|null|TypeError/i.test(reason)
-  return plain ? `${kind} didn't work: ${reason}` : `${kind} failed — your change could not be ${kind === 'Undo' ? 'reverted' : 'reapplied'}`
+  return reason && reason.length < 200 && !isTechnicalError(reason) && !/sqlite|ipc|undefined|null|TypeError/i.test(reason) ? reason : ''
 }
+
+function failureText(kind: 'Undo' | 'Redo', err: unknown): string {
+  const reason = plainReason(err)
+  return reason ? `${kind} didn't work: ${reason}` : `${kind} failed — your change could not be ${kind === 'Undo' ? 'reverted' : 'reapplied'}`
+}
+
+// The step whose undo failed last time. A failed step stays on top so it can be tried again (L-08),
+// but one that fails twice running for a plain reason ("That record was deleted.") can never work,
+// and would block every older step (Q-045), so the second failure takes it off the list.
+let _lastFailedUndo: UndoItem | null = null
 
 /**
  * For store actions that catch their own errors: while an undo or redo runs,
@@ -217,11 +227,21 @@ export const useUndoStore = create<UndoState>((set, get) => {
         // The change first: its note is voided only once the change is really undone (AUDIT-023)
         await item.undo()
         await applySideEffects(item.sideEffects, 'undo')
+        _lastFailedUndo = null
       } catch (err) {
         rlog.error('UndoStore', 'Undo failed', err)
-        // Revert stack mutation so the item isn't lost
-        set({ undoStack: prevUndoStack, redoStack: prevRedoStack })
-        showToast(failureText('Undo', err))
+        // Read-only or a passing hiccup may clear up, so only a plain reason given twice counts as "can't work"
+        const reason = err instanceof ReadOnlyError ? '' : plainReason(err)
+        if (reason && _lastFailedUndo === item) {
+          _lastFailedUndo = null
+          set({ undoStack: prevUndoStack.slice(0, -1), redoStack: prevRedoStack })
+          showToast(`Undo didn't work: ${reason} That step was taken off the undo list.`)
+        } else {
+          _lastFailedUndo = item
+          // Revert stack mutation so the item isn't lost
+          set({ undoStack: prevUndoStack, redoStack: prevRedoStack })
+          showToast(failureText('Undo', err))
+        }
       } finally {
         _undoMutex = false
         set({ isUndoing: false })
@@ -298,6 +318,7 @@ export const useUndoStore = create<UndoState>((set, get) => {
 
     clear() {
       clearToast()
+      _lastFailedUndo = null
       set({ undoStack: [], redoStack: [] })
     },
   }

@@ -6,6 +6,7 @@ import { IPC } from '../../../shared/ipc-channels'
 import { LIMIT_MB_RANGE, formatBytes } from '../../../shared/attachments'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { friendlyError } from '../../utils/friendlyError'
+import { useUndoStore } from '../../stores/undoStore'
 
 export function FilesStorageSection(): React.ReactElement {
   const [usage, setUsage] = useState<{ count: number; bytes: number; limitBytes: number } | null>(null)
@@ -25,6 +26,8 @@ export function FilesStorageSection(): React.ReactElement {
 
   async function emptyTrash() {
     const r = await safeInvoke<number>(IPC.ATTACHMENT_PURGE)
+    // Undo steps bringing removed files back would fail from now on, and block older steps (Q-045)
+    if (r.ok) useUndoStore.getState().clear()
     if (r.ok) { toast.success(r.data ? `Removed ${r.data} file${r.data === 1 ? '' : 's'} from the Trash` : 'No files in the Trash'); void load() } else toast.error(friendlyError(r.error))
   }
 
