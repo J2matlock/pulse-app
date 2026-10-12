@@ -40,7 +40,7 @@ function suggestedFor(gridId: number, isMain: boolean): Array<{ name: string; co
     out.push({ name: `${records} by ${stage.name}`, config: {
       source: 'records', filters: [], groupBy: [{ field: `col:${stage.id}` }],
       values: [{ fn: 'count' }, ...(money ? [{ fn: 'sum' as const, field: `col:${money.id}` }] : [])],
-      about: `How many ${records.toLowerCase()} are at each step${money ? `, and what they're worth` : ''}.`,
+      about: `How many ${word('record', { many: true }, gridId)} are at each step${money ? `, and what they're worth` : ''}.`,
     } })
     // Finished per month, by the date a done stage fills in
     const doneStamp = stageConfigOf(stage)?.options.find(o => o.done && o.onEnter?.stampColumnId)?.onEnter?.stampColumnId
@@ -59,7 +59,7 @@ function suggestedFor(gridId: number, isMain: boolean): Array<{ name: string; co
     out.push({ name: `${activities} per month`, config: {
       source: 'activities', filters: [], groupBy: [{ field: 'act:date', bucket: 'month' }], values: [{ fn: 'count' }],
       dateRange: { field: 'act:date', preset: 'this_year' },
-      about: `How many ${activities.toLowerCase()} were written each month this year: a quick look at how busy it's been.`,
+      about: `How many ${word('activity', { many: true }, gridId)} were written each month this year: a quick look at how busy it's been.`,
     } })
   }
   if (isMain && hasDeadlines(cols)) {
