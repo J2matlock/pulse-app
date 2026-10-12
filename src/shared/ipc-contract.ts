@@ -439,6 +439,10 @@ export interface IPCContract {
   'app:show-save-dialog':   { args: [options: Record<string, unknown>];   return: SaveDialogResult }
   'app:factory-reset':      { args: [password: string];                   return: true }
   'app:check-for-updates':  { args: [opts?: { manual?: boolean }];        return: { available: boolean; version?: string; downloadUrl?: string; releaseNotes?: string; reason?: string; unreachable?: boolean } }
+  /** The version the person chose to skip on the update banner, or null */
+  'app:update-skipped-get': { args: [];                                   return: string | null }
+  /** Skip a version on the update banner; null stops skipping. Returns what is now skipped. */
+  'app:update-skip':        { args: [version: string | null];             return: string | null }
   'app:integrity-check':    { args: [];                                   return: boolean }
 
   // ── Backup ──────────────────────────────────────────────────────────────

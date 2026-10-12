@@ -17,6 +17,7 @@ import { stopScheduledBackup } from '../index'
 import { isLicenseDoc, licenseFilePath } from '../license-files'
 import { isAppLink } from '../external-links'
 import { liveGrid } from '../../shared/liveRecords'
+import { getSkippedUpdateVersion, setSkippedUpdateVersion, isValidVersion } from '../prefs'
 
 /** Returns true if `remote` is a higher semver than `current` (X.Y.Z format). */
 function isNewerVersion(remote: string, current: string): boolean {
@@ -239,6 +240,16 @@ export function registerAppHandlers(): void {
     }
     const available = isNewerVersion(data.version, app.getVersion())
     return ok({ available, version: data.version, downloadUrl: safeDownloadUrl, releaseNotes: data.releaseNotes })
+  })
+
+  // "Skip this version" on the update banner (S-4). Kept in the preferences file,
+  // not the database, and not gated by enforceWritable: it's not record data.
+  secureWrap(IPC.APP_UPDATE_SKIPPED_GET, 'ipc-app', () => ok(getSkippedUpdateVersion()))
+
+  secureWrap(IPC.APP_UPDATE_SKIP, 'ipc-app', (_e, version: unknown) => {
+    if (version !== null && !isValidVersion(version)) return fail('That isn\'t a version number Pulse knows.')
+    setSkippedUpdateVersion(version)
+    return ok(getSkippedUpdateVersion())
   })
 
   secureWrap(IPC.APP_INTEGRITY_CHECK, 'ipc-app', () => {

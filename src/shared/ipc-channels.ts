@@ -369,6 +369,8 @@ export const IPC = {
   APP_SHOW_SAVE_DIALOG: 'app:show-save-dialog',
   APP_FACTORY_RESET: 'app:factory-reset',
   APP_CHECK_FOR_UPDATES: 'app:check-for-updates',
+  APP_UPDATE_SKIPPED_GET: 'app:update-skipped-get',
+  APP_UPDATE_SKIP: 'app:update-skip',
   APP_INTEGRITY_CHECK: 'app:integrity-check',
   APP_RELAUNCH: 'app:relaunch',
   APP_MIGRATION_STATUS: 'app:migration-status',

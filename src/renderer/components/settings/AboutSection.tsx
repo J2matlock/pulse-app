@@ -46,16 +46,30 @@ function CheckForUpdatesButton(): React.ReactElement {
   const howTo = updateText(usePlatform())
   const [checking, setChecking] = useState(false)
   const [result, setResult] = useState<{ available: boolean; version?: string; downloadUrl?: string; unreachable?: boolean } | null>(null)
+  // The version skipped on the update banner (S-4); the button still reports it
+  const [skipped, setSkipped] = useState<string | null>(null)
 
   async function check() {
     setChecking(true)
     setResult(null)
     // manual: the button works even when the automatic check is switched off
     const res = await safeInvoke(IPC.APP_CHECK_FOR_UPDATES, { manual: true })
-    if (res.ok) setResult(res.data)
+    if (res.ok) {
+      setResult(res.data)
+      const skip = res.data.available ? await safeInvoke(IPC.APP_UPDATE_SKIPPED_GET) : null
+      setSkipped(skip?.ok ? skip.data : null)
+    }
     // Not knowing isn't the same as being up to date (F-036)
     else setResult({ available: false, unreachable: true })
     setChecking(false)
+  }
+
+  async function stopSkipping() {
+    const res = await safeInvoke(IPC.APP_UPDATE_SKIP, null)
+    if (res.ok) {
+      setSkipped(null)
+      toast.success('The update notice will show for this version again.')
+    } else toast.error(friendlyError(res.error))
   }
 
   function openDownload() {
@@ -96,6 +110,18 @@ function CheckForUpdatesButton(): React.ReactElement {
             <Download className="w-4 h-4" />
             Download update
           </button>
+          {skipped === result.version && (
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-base text-slate-700 dark:text-slate-300">You chose to skip this version, so the update notice doesn&rsquo;t show it.</p>
+              <button
+                onClick={() => void stopSkipping()}
+                className="btn-secondary"
+                style={{ minHeight: 44 }}
+              >
+                Stop skipping this version
+              </button>
+            </div>
+          )}
         </div>
       )}
 

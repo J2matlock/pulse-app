@@ -537,3 +537,45 @@ describe('APP_RELAUNCH', () => {
     expect(lifecycle.calls).toEqual(['stopScheduledBackup', 'lockApp', 'closeDatabase'])
   })
 })
+
+describe('APP_UPDATE_SKIP / APP_UPDATE_SKIPPED_GET: "Skip this version" on the update banner (S-4)', () => {
+  afterEach(async () => { await invoke(IPC.APP_UPDATE_SKIP, null) })
+
+  it('stores the skipped version in the preferences file, not the database, and clears it with null', async () => {
+    const { prefs } = await import('../src/main/prefs')
+    expect(await invoke(IPC.APP_UPDATE_SKIPPED_GET)).toEqual({ ok: true, data: null })
+    expect(await invoke(IPC.APP_UPDATE_SKIP, '2.5.0')).toEqual({ ok: true, data: '2.5.0' })
+    expect(await invoke(IPC.APP_UPDATE_SKIPPED_GET)).toEqual({ ok: true, data: '2.5.0' })
+    expect(prefs().get('skippedUpdateVersion')).toBe('2.5.0')
+    expect(testDb.db.prepare("SELECT COUNT(*) AS n FROM settings WHERE value = '2.5.0'").get()).toEqual({ n: 0 })
+    // Skipping a newer one replaces it
+    expect(await invoke(IPC.APP_UPDATE_SKIP, '2.6.0-beta.1')).toEqual({ ok: true, data: '2.6.0-beta.1' })
+    expect(await invoke(IPC.APP_UPDATE_SKIP, null)).toEqual({ ok: true, data: null })
+    expect(prefs().has('skippedUpdateVersion')).toBe(false)
+    expect(await invoke(IPC.APP_UPDATE_SKIPPED_GET)).toEqual({ ok: true, data: null })
+  })
+
+  it('refuses anything that is not a version number and keeps what was stored', async () => {
+    await invoke(IPC.APP_UPDATE_SKIP, '2.5.0')
+    for (const bad of [undefined, '', 'abc', '2.5', '2.5.0.1', ' 2.5.0', '2.5.0; rm -rf', '1.2.3-' + 'x'.repeat(200), 250, {}, ['2.5.0'], true]) {
+      const r = await invoke(IPC.APP_UPDATE_SKIP, bad)
+      expect(r.ok).toBe(false)
+      expect(r.error).toMatch(/version number/)
+    }
+    expect(await invoke(IPC.APP_UPDATE_SKIPPED_GET)).toEqual({ ok: true, data: '2.5.0' })
+  })
+
+  it('reads an unusable stored value as nothing skipped', async () => {
+    const { prefs } = await import('../src/main/prefs')
+    prefs().set('skippedUpdateVersion', { evil: true } as unknown as string)
+    expect(await invoke(IPC.APP_UPDATE_SKIPPED_GET)).toEqual({ ok: true, data: null })
+  })
+
+  it('the update check itself still reports a skipped version (the banner decides; the button shows it)', async () => {
+    await invoke(IPC.APP_UPDATE_SKIP, '9.9.9')
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({ version: '9.9.9' }), { status: 200 }))
+    try {
+      expect((await invoke(IPC.APP_CHECK_FOR_UPDATES, { manual: true })).data).toMatchObject({ available: true, version: '9.9.9' })
+    } finally { fetchSpy.mockRestore() }
+  })
+})

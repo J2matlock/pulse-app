@@ -62,3 +62,35 @@ describe('AboutSection update check (F-036)', () => {
     expect(await screen.findByText('You have the latest version.')).toBeTruthy()
   })
 })
+
+describe('AboutSection update check and a skipped version (S-4)', () => {
+  function answer(skipped: string | null) {
+    mockInvoke.mockImplementation(async (channel: string) => {
+      if (channel === IPC.APP_CHECK_FOR_UPDATES) return { ok: true, data: { available: true, version: '9.9.9' } }
+      if (channel === IPC.APP_UPDATE_SKIPPED_GET) return { ok: true, data: skipped }
+      if (channel === IPC.APP_UPDATE_SKIP) return { ok: true, data: null }
+      return { ok: true, data: {} }
+    })
+  }
+
+  it('still reports the skipped version as available, and can stop skipping it', async () => {
+    answer('9.9.9')
+    render(<AboutSection />)
+    fireEvent.click(screen.getByRole('button', { name: 'Check for updates' }))
+    expect(await screen.findByText('Version 9.9.9 is available')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Download update' })).toBeTruthy()
+    expect(screen.getByText(/You chose to skip this version/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Stop skipping this version' }))
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.APP_UPDATE_SKIP, null))
+    await waitFor(() => expect(screen.queryByText(/You chose to skip this version/)).toBeNull())
+  })
+
+  it('says nothing about skipping when a different version was skipped', async () => {
+    answer('9.9.8')
+    render(<AboutSection />)
+    fireEvent.click(screen.getByRole('button', { name: 'Check for updates' }))
+    expect(await screen.findByText('Version 9.9.9 is available')).toBeTruthy()
+    expect(screen.queryByText(/You chose to skip this version/)).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Stop skipping this version' })).toBeNull()
+  })
+})
