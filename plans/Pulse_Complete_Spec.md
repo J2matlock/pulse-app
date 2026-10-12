@@ -17,7 +17,7 @@ CaseConnect Pulse is an offline-first, local-storage desktop application that re
 ### Core Philosophy
 - **Offline-first**: Zero internet required. Ever. No telemetry, no analytics, no phone-home.
 - **Local data**: Single encrypted SQLite database file on the user's machine. Password-protected at rest.
-- **Cross-platform**: Single codebase → Windows (.exe), Linux (.AppImage/.deb), macOS (.dmg).
+- **Cross-platform**: Single codebase → Windows (portable .exe), Linux (.AppImage), macOS (.dmg).
 - **Boomer-friendly**: Every feature discoverable without docs. Tooltips, clear labels, obvious buttons. Base font 14-15px minimum. Thick focus rings. Chunky, clickable UI. Descriptive error messages ("Date must be after 1900"), not just red borders.
 - **Professional aesthetics**: Clean, confident. Never pure black (#000000) — use slate-900. Designed for meetings.
 
@@ -299,7 +299,7 @@ function createDatabase(dbPath: string, dbKey: string): Database.Database {
 {
   "password_hash": "<bcrypt hash>",       // For quick validation before attempting DB open
   "password_hint": "My cat's name",       // Optional user-set hint
-  "auto_lock_minutes": 30,                // Auto-lock after inactivity (0 = disabled, default 30)
+  "auto_lock_minutes": 15,                // Auto-lock after inactivity (default 15, max 120, no "never"; 0 from older versions reads as 120)
   "db_path": "/home/user/.pulse/data.db", // Database file location
   "recovery_key_hash": "<bcrypt hash>"    // Hash of the recovery key (if user generated one)
 }
@@ -1045,6 +1045,9 @@ When editing rules, show horizontal timeline:
 | Triennial Re-Eval | 1095d | 180d yellow, 90d orange, 30d red, 0d pulse |
 | Court Date | no cycle | 30d yellow, 14d orange, 7d red, 0d pulse |
 
+#### "How soon" marker (fixed tiers)
+Separate from a rule's own thresholds above. The rule thresholds color the grid cell and the dashboard row background. A second, fixed marker says how soon something is due, the same for every rule: **late**, **today**, **within 7 days**, **within 30 days**, **later** (`classifyDeadline` in `src/shared/deadlineTiles.ts`, using `DAYS_THIS_WEEK` = 7 and `DAYS_THIS_MONTH` = 30). It drives the colored accent bar at the start of a dashboard row, Focus Mode, the "Days until" text ("3 days overdue", "Due today", "5 days") and the dashboard's deadline tiles. Colors live in `src/renderer/utils/dueTiers.ts`: late and today red, within 7 days orange, within 30 days yellow, later gray (no bar). So a row can carry a green rule color with an orange "how soon" bar; both are intended.
+
 #### Auto-Cycling
 When date column has cycleDays and user enters new date: old date saved to cell_history, alert resets, case log auto-entry generated.
 
@@ -1518,7 +1521,7 @@ Pulse is designed as a **portable-first application**. It always runs without re
 
 **Distribution Formats:**
 - **Windows**: Portable `.exe` (primary) + optional `.zip` containing the exe + Data folder. No installer, no `%APPDATA%` dependency. Also offer a traditional `.exe` installer for users who prefer it.
-- **Linux**: `.AppImage` (already inherently portable) + `.deb` for users who prefer system installation
+- **Linux**: `.AppImage` only (already inherently portable). No `.deb`: see the CLAUDE.md Decision Log, 2026-10-11.
 - **macOS**: `.dmg`
 
 **Storage Strategy:**
@@ -1550,38 +1553,26 @@ The target user demographic will not hunt for updates manually. The app needs to
 
 #### Update Architecture
 
-Uses `electron-updater` (part of `electron-builder`, already in the stack). Release artifacts hosted on GitHub Releases, which integrates natively with `electron-updater` at zero cost.
+Every build Pulse ships is portable and unsigned (Windows portable `.exe`, Linux `.AppImage`; the macOS `.dmg` is dragged into Applications), so Pulse can't replace itself in place. There is no `electron-updater`, no background download and no "Restart Now". Pulse checks for a newer version and points the user to the download page; the user replaces the app file themselves.
 
 **How it works:**
-1. On app launch (after password unlock), the app makes a single small HTTP request to check `latest.yml` at the GitHub Releases URL
-2. If a newer version exists, a non-blocking banner appears at the top of the screen (below the TopBar, above the grid):
-   - "Pulse 1.2 is available — improved dashboard and new export options. [Download Update] [Remind Me Later] [Skip This Version]"
-3. User clicks [Download Update] → update downloads in the background with a subtle progress indicator in the status bar
-4. When download completes: "Update ready. It will install next time you restart Pulse. [Restart Now]"
-5. On next launch: new version is active. "What's New" modal appears.
-
-**Installed versions** (.exe installer, .deb, .dmg):
-- Full auto-update flow as described above
-- `electron-updater` handles download, verification, and installation on restart
-- The update replaces the application binary; the database and Data folder are untouched
-
-**Portable versions** (.exe portable, .AppImage):
-- Auto-update in place is not reliable — the .exe may be locked by the OS while running, the USB stick may be read-only, or the user may not have write permissions to the app's location
-- Instead, the update banner shows: "Pulse 1.2 is available. [Download from Website] [Remind Me Later] [Skip This Version]"
-- [Download from Website] opens the default browser to `pulse.caseconnect.com/download`
-- User downloads the new portable .exe, replaces the old one next to their Data folder, done
-- Data is untouched because it lives in the `Data/` folder, not inside the executable
+1. On app launch (after password unlock, and only once first-run setup is finished), the main process makes one small HTTPS GET for `latest.json` in the `J2matlock/pulse-releases` GitHub repository (8-second timeout). The file gives the version number and download links (per platform when listed).
+2. A download link is used only if it is HTTPS and points into `https://github.com/J2matlock/pulse-releases/`; otherwise the banner falls back to the latest-release page.
+3. If the version is newer than the running one, a non-blocking banner appears at the top of the screen (below the TopBar, above the page):
+   - "Version 1.2.0 is available. [platform-specific one-line how-to] [Download update] [Skip this version] [Remind me later]"
+4. [Download update] opens the default browser at the download link. The user downloads the new file, closes Pulse and replaces the old file (Settings → About lists the steps for their platform).
+5. Data is untouched because it lives in the data folder (`PulseData` next to the portable exe, or the OS standard location), not inside the app file. On the first launch of the new version, the migration and "What's New" steps below run.
 
 #### Update Behavior Rules
 
-- **Check once per launch**, not continuously. Single HTTP request on startup.
+- **Check once per launch**, not continuously. Locking and unlocking doesn't check again.
 - **If no internet, fail silently.** No error, no warning, no indication that a check was attempted. The app works perfectly without updates. Most users will never have internet while using Pulse.
 - **Never auto-restart.** Never interrupt work. Never download anything without the user initiating it.
-- **Never force an update.** [Skip This Version] hides that specific version permanently. The user is never nagged about a version they've explicitly skipped. The next version they haven't skipped will trigger the banner.
-- **[Remind Me Later]** suppresses the banner for 3 days.
-- **Settings → About → "Check for Updates"** button for manual check.
-- **Settings → General → "Check for updates on launch"** toggle (on by default). Can be turned off for truly air-gapped environments or users who don't want any network activity.
-- The update check URL is the ONLY network request besides the one-time LemonSqueezy license activation. No telemetry, no analytics, no usage tracking is transmitted during the update check.
+- **Never force an update.** [Skip this version] hides that specific version from the banner permanently (stored in the app preferences file, outside the database). The user is never nagged about a version they've explicitly skipped. A newer version they haven't skipped shows the banner again.
+- **[Remind me later]** hides the banner for the rest of this session; it comes back on the next launch.
+- **Settings → About → "Check for updates"** button for a manual check. It always runs (even with the automatic check turned off) and reports a skipped version as available, with a way to stop skipping it. If it can't reach the release page it says so instead of "You have the latest version."
+- **Settings → About → "Check for updates automatically when Pulse opens"** toggle (on by default; first-run setup asks). Can be turned off for truly air-gapped environments or users who don't want any network activity. Main enforces it, and if the setting can't be read the automatic check stays off.
+- The update check is the ONLY network request Pulse makes. No telemetry, no analytics, no usage tracking is transmitted during the update check.
 
 #### Database Migrations on Update
 
@@ -1609,28 +1600,26 @@ After an update installs successfully:
 - "Don't show release notes" checkbox for users who don't care
 - This is how users discover new features. Without it, you ship improvements and nobody notices.
 
-#### Release Channels (Post-Launch)
+#### Release Channels
 
-Not for v1, but the architecture should support it:
-- **Stable**: What everyone gets. Default channel.
-- **Beta**: Opt-in from Settings → About → "Join Beta Program" toggle. Points `electron-updater` at a separate `beta.yml` release file. Beta users get early access to new features and are your best testers. Beta builds show a small "BETA" badge in the TopBar.
+One channel: everyone gets the same release. No beta channel and no "BETA" badge (dropped with `electron-updater`).
 
 #### IPC Channels
 
 ```typescript
-// Add to existing IPC channels:
-UPDATE_CHECK: 'update:check',              // Manual check from Settings
-UPDATE_DOWNLOAD: 'update:download',         // User initiated download
-UPDATE_INSTALL: 'update:install',           // Restart and install
-UPDATE_SKIP_VERSION: 'update:skip-version', // Skip this version
-UPDATE_GET_STATUS: 'update:get-status',     // Current update state for UI
+APP_CHECK_FOR_UPDATES: 'app:check-for-updates',   // { manual: true } from Settings → About; otherwise the launch check
+APP_UPDATE_SKIPPED_GET: 'app:update-skipped-get', // The version the user chose to skip, or null
+APP_UPDATE_SKIP: 'app:update-skip',               // Skip a version (or null to stop skipping)
 ```
 
-#### Project Structure Additions
+#### Project Structure
 
 ```
-src/main/updater.ts                        # electron-updater config, check/download/install logic
+src/main/ipc/ipc-app.ts                          # Update check (fetch latest.json, validate links) and skip-version handlers
+src/main/prefs.ts                                # App preferences file; holds the skipped version
+src/renderer/components/layout/MainLayout.tsx    # Runs the launch check, decides whether the banner shows
 src/renderer/components/shared/UpdateBanner.tsx  # Non-blocking top banner
+src/renderer/components/settings/AboutSection.tsx # Manual check, automatic-check toggle, how-to steps
 src/renderer/components/shared/WhatsNewModal.tsx # Post-update release notes
 ```
 
@@ -1798,7 +1787,7 @@ Every worker reports to a supervisor. Usually this means re-typing data into a m
 
 #### Settings Page
 - **Appearance**: Theme (light/dark/system), accent color, font size (small 13px/medium 15px/large 17px), date format, time format, row height
-- **Security**: Change password (requires current password), recovery key management (generate/regenerate/revoke — see Section 4), password hint (view/edit), auto-lock timer (disabled/5/10/15/30/60 minutes of inactivity, default 30), pause auto-lock toggle, lock now button
+- **Security**: Change password (requires current password), recovery key management (generate/regenerate/revoke — see Section 4), password hint (view/edit), auto-lock timer (5/15/30/60/120 minutes of inactivity, default 15; there is no "never" option), lock now button
 - **Grid**: default column width, alternating rows, gridlines, row numbers, confirm before delete
 - **Alerts**: default rule for new date columns, notification style, startup notification on/off
 - **Backup**: reminder interval, auto-backup on/off + interval + location, default encryption
@@ -1863,7 +1852,6 @@ Every worker reports to a supervisor. Usually this means re-typing data into a m
 | Ctrl+\ | Toggle sidebar |
 | Ctrl+P | Print |
 | Ctrl+L | Lock app (return to password screen) |
-| Ctrl+Shift+L | Toggle pause auto-lock |
 | Ctrl+Shift+F | Focus Mode |
 | Escape | Close/deselect/back |
 | ? | Shortcuts reference |
@@ -2354,10 +2342,10 @@ New Client Intake, Annual Review Prep, Discharge Planning, Home Visit Prep, Mont
 ### Password System
 - **First launch**: Password creation during onboarding (Step 2), followed by optional recovery key generation
 - **Every launch**: Lock screen with password prompt before any data is accessible
-- **Auto-lock**: Configurable inactivity timer (default 30 min, 0=disabled). After timeout, app returns to lock screen. Database connection is closed on lock.
-  - **Default is 30 minutes, not 15.** Care coordinators spend 30+ minutes on phone calls where they're not touching the keyboard. A 15-minute default causes lock-outs mid-conversation, forcing re-authentication and breaking flow. 30 minutes balances security with real-world usage patterns. Security-conscious users can tighten it in Settings.
-  - **"Pause auto-lock" toggle**: Status bar shows a small lock icon. Click → "🔓 Auto-lock paused for this session." Click again → re-enables. Also accessible via Ctrl+Shift+L. Paused state does NOT persist across app restarts — next launch resets to the configured timer. This is for "I'm on a long phone call right now" situations, not a permanent override.
-  - **Inactivity detection**: Monitors keyboard, mouse, and trackpad input. System-level sleep/hibernate always triggers lock regardless of pause state.
+- **Auto-lock**: Configurable inactivity timer: 5, 15, 30, 60 or 120 minutes, default 15. There is no "never" option; a stored 0 (which meant "never" in older versions) is read as 120, and anything unreadable as 15 (`normalizeAutoLockMinutes` in `src/shared/constants.ts`). After timeout, app returns to lock screen. Database connection is closed on lock.
+  - **Default is 15 minutes, with no way to turn it off.** Automatic logoff is what HIPAA-minded organizations and the security checkup expect, and stricter is the safe side for client records. Someone on long phone calls can pick 30 minutes, 1 hour or 2 hours in Settings.
+  - **No "pause auto-lock" toggle.** It was planned (status-bar lock icon, Ctrl+Shift+L, session-only) and dropped: it would be a way around the automatic logoff above.
+  - **Inactivity detection**: Monitors keyboard, mouse, and trackpad input. System-level sleep/hibernate and locking the computer's screen always trigger lock.
 - **Manual lock**: Ctrl+L or File menu → Lock App
 - **Change password**: Settings → Security (requires current password). Under the hood: unwrap the DB encryption key with old password, re-wrap with new password in electron-store. The SQLCipher database key itself does not change — only the wrapping changes. Recovery key (if active) is unaffected.
 - **Recovery key**: Optional, generated during onboarding or later in Settings → Security. See "Recovery Key System" in Section 4.
@@ -2599,8 +2587,7 @@ When a template contains a column type the current app version doesn't recognize
 - File path arrives via Electron's `app.on('open-file', (event, path) => ...)` event
 - Works automatically after drag-to-Applications install — cleanest implementation of the three platforms
 
-**Linux (.AppImage / .deb):**
-- `.deb`: Include a MIME type XML definition registering `application/x-pulse-template` for `.pulse`, plus a `.desktop` file declaring the association. Handled by `electron-builder`.
+**Linux (.AppImage):**
 - `.AppImage`: Works if user integrates via AppImageLauncher or runs `--install`. Otherwise, manual import through the app.
 - File path arrives as `process.argv[1]` (same as Windows)
 
