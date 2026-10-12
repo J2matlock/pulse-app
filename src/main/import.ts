@@ -340,15 +340,54 @@ export function normalizeDate(value: string, order: 'mdy' | 'dmy' = 'mdy'): stri
  * over 12 means day-first (e.g. 25/03/2026). US order otherwise.
  */
 export function detectDateOrder(values: string[], fallback: 'mdy' | 'dmy' = 'mdy'): 'mdy' | 'dmy' {
-  let dayFirst = 0, monthFirst = 0
+  return analyzeDateOrder(values, fallback).order
+}
+
+export interface DateOrderAnalysis {
+  order: 'mdy' | 'dmy'
+  /** Values only day-first can read (25/03/2026), and only month-first (03/25/2026) */
+  dayFirst: number
+  monthFirst: number
+  /** Values either order reads, differently (03/04/2026) */
+  ambiguous: number
+  /** An example of each, for the warning */
+  examples: { dayFirst?: string; monthFirst?: string; ambiguous?: string }
+  /** Whether the column's own values chose the order, or Settings did */
+  settledBy: 'data' | 'fallback'
+}
+
+/** detectDateOrder with what it saw, so the import can say when the order was a guess (F-026) */
+export function analyzeDateOrder(values: string[], fallback: 'mdy' | 'dmy' = 'mdy'): DateOrderAnalysis {
+  let dayFirst = 0, monthFirst = 0, ambiguous = 0
+  const examples: DateOrderAnalysis['examples'] = {}
   for (const v of values) {
     const m = v.trim().match(/^(\d{1,2})[/.-](\d{1,2})[/.-]\d{2,4}/)
     if (!m) continue
-    if (Number(m[1]) > 12) dayFirst++
-    else if (Number(m[2]) > 12) monthFirst++
+    const a = Number(m[1]), b = Number(m[2])
+    if (a > 12) { dayFirst++; examples.dayFirst ??= v.trim() }
+    else if (b > 12) { monthFirst++; examples.monthFirst ??= v.trim() }
+    else if (a !== b && a > 0 && b > 0) { ambiguous++; examples.ambiguous ??= v.trim() }
   }
-  if (dayFirst === monthFirst) return fallback
-  return dayFirst > monthFirst ? 'dmy' : 'mdy'
+  const settledBy = dayFirst === monthFirst ? 'fallback' : 'data'
+  const order = settledBy === 'fallback' ? fallback : dayFirst > monthFirst ? 'dmy' : 'mdy'
+  return { order, dayFirst, monthFirst, ambiguous, examples, settledBy }
+}
+
+/** What to tell the person when a column's date order was a guess or a vote (F-026); null when it was clear */
+export function dateOrderWarning(column: string, a: DateOrderAnalysis): string | null {
+  const how = a.order === 'dmy' ? 'day first' : 'month first'
+  const other = a.order === 'dmy' ? 'month first' : 'day first'
+  if (a.ambiguous === 0) return null
+  const n = `${a.ambiguous} date${a.ambiguous === 1 ? '' : 's'}`
+  const were = a.ambiguous === 1 ? 'was' : 'were'
+  // Dates only one order can read are read that way; the either-way ones follow the majority
+  if (a.dayFirst > 0 && a.monthFirst > 0) {
+    return `"${column}" has dates written both day first (like ${a.examples.dayFirst}) and month first (like ${a.examples.monthFirst}). ${n} that could be read either way (like ${a.examples.ambiguous}) ${were} read ${how}. Check ${a.ambiguous === 1 ? 'it' : 'them'} in the list.`
+  }
+  if (a.settledBy === 'fallback') {
+    return `${n} in "${column}" (like ${a.examples.ambiguous}) could be read either way and ${were} read ${how}, as Settings → Appearance → Date Format says. If your dates are written ${other}, change Date Format and import again.`
+  }
+  return null
 }
 
 /** Column types that store a calendar date (a deadline column stores the date last done) */
@@ -1110,9 +1149,14 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
 
     // Day-first or month-first, decided per date column from all of its values
     const dateOrders = new Map<number, 'mdy' | 'dmy'>()
+    const dateOrderWarnings: string[] = []
     const fallbackOrder = preferredDateOrder()
     for (const [srcIdx, info] of colMap.entries()) {
-      if (holdsDate(info.type)) dateOrders.set(srcIdx, detectDateOrder(allRows.map(r => String(r[srcIdx] ?? '')), fallbackOrder))
+      if (!holdsDate(info.type)) continue
+      const a = analyzeDateOrder(allRows.map(r => String(r[srcIdx] ?? '')), fallbackOrder)
+      dateOrders.set(srcIdx, a.order)
+      const w = dateOrderWarning(headers[srcIdx] ?? `Column ${srcIdx + 1}`, a)
+      if (w) dateOrderWarnings.push(w)
     }
     const flipCols = new Set(options.flipLastFirst
       ? preview.detectedColumns.filter(c => c.lastFirstNames).map(c => c.index)
@@ -1287,6 +1331,7 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
   db.exec('COMMIT')
   began = false
 
+  warnings.push(...dateOrderWarnings)
   for (const [srcIdx, n] of birthAs1900s) {
     warnings.push(`${n} date${n === 1 ? '' : 's'} in "${headers[srcIdx] ?? `Column ${srcIdx + 1}`}" had a two-digit year and ${n === 1 ? 'was' : 'were'} read as 19xx. Check ${n === 1 ? 'it' : 'them'}.`)
   }
