@@ -88,7 +88,6 @@ export interface CoreGridState {
   unarchiveRow: (rowId: number) => Promise<void>
   duplicateRow: (rowId: number) => Promise<void>
   updateRow: (rowId: number, updates: Partial<{ is_starred: 0 | 1 }>) => Promise<void>
-  reorderRows: (orderedIds: number[]) => Promise<void>
 
   /** Resolves false when the change couldn't be saved (or the column can't be typed into) */
   updateCell: (rowId: number, columnId: number, value: string | null, opts?: UpdateCellOptions) => Promise<boolean>

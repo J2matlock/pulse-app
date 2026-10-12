@@ -618,27 +618,6 @@ export const useGridStore = create<GridState>((set, get) => ({
     }
   },
 
-  reorderRows: async (orderedIds: number[]) => {
-    const gridId = get().activeGridId
-    if (!gridId) return
-    const snapshot = get().rows
-    // Optimistic update
-    set(s => {
-      const rowMap = new Map(s.rows.map(r => [r.row_id, r]))
-      const reordered = orderedIds
-        .map((id, i) => { const row = rowMap.get(id); return row ? { ...row, position: i } : null })
-        .filter((r): r is NonNullable<typeof r> => r != null)
-      return { rows: reordered }
-    })
-    try {
-      await invoke(IPC.ROW_REORDER, gridId, orderedIds)
-    } catch (err) {
-      set({ rows: snapshot })
-      rlog.error('GridStore', 'Failed to reorder rows', err)
-      toast.error(`Could not reorder ${wordNow('record', { many: true })} — please try again`)
-    }
-  },
-
   updateCell: async (rowId: number, columnId: number, value: string | null, opts?: UpdateCellOptions) => {
     // fromUndo: an undo or redo is putting a value back; it pushes nothing and a failure throws (L-08, L-24)
     const fromUndo = !!opts?.fromUndo

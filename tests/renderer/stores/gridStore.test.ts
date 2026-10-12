@@ -682,47 +682,6 @@ describe('gridStore', () => {
     })
   })
 
-  describe('reorderRows', () => {
-    it('optimistically reorders rows by provided id order', async () => {
-      const rows = [makeRow(1), makeRow(2), makeRow(3)]
-      useGridStore.setState({ activeGridId: 1, rows })
-      mockInvoke.mockResolvedValue({ ok: true, data: true })
-
-      const promise = useGridStore.getState().reorderRows([3, 1, 2])
-      // Optimistic: rows should be reordered immediately
-      const reordered = useGridStore.getState().rows
-      expect(reordered[0]!.row_id).toBe(3)
-      expect(reordered[1]!.row_id).toBe(1)
-      expect(reordered[2]!.row_id).toBe(2)
-      // Positions should be updated
-      expect(reordered[0]!.position).toBe(0)
-      expect(reordered[1]!.position).toBe(1)
-      expect(reordered[2]!.position).toBe(2)
-
-      await promise
-    })
-
-    it('rolls back on IPC failure', async () => {
-      const rows = [makeRow(1), makeRow(2), makeRow(3)]
-      useGridStore.setState({ activeGridId: 1, rows })
-      mockInvoke.mockRejectedValue(new Error('DB error'))
-
-      await useGridStore.getState().reorderRows([3, 1, 2])
-      // Should rollback to original order
-      const result = useGridStore.getState().rows
-      expect(result[0]!.row_id).toBe(1)
-      expect(result[1]!.row_id).toBe(2)
-      expect(result[2]!.row_id).toBe(3)
-    })
-
-    it('does nothing without activeGridId', async () => {
-      useGridStore.setState({ activeGridId: null, rows: [makeRow(1)] })
-
-      await useGridStore.getState().reorderRows([1])
-      expect(mockInvoke).not.toHaveBeenCalled()
-    })
-  })
-
   describe('loadGridList', () => {
     it('fetches grids and sets gridListLoaded', async () => {
       const grids = [{ id: 1, name: 'G1' } as Grid, { id: 2, name: 'G2' } as Grid]
