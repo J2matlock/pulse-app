@@ -55,6 +55,8 @@ const state = vi.hoisted(() => ({
   stmts: new Map<string, import('better-sqlite3').Statement>(),
   /** SQL → the first arguments it ran with, for EXPLAIN */
   seen: new Map<string, unknown[]>(),
+  /** SQL → time spent running it during the current measure */
+  spent: new Map<string, number>(),
 }))
 
 /** Like the real cachedStmt: one prepared statement per key, reused */
@@ -105,7 +107,8 @@ function recordingProxy(db: Database): Database {
       if (prop === 'all' || prop === 'get' || prop === 'run' || prop === 'iterate') {
         return (...args: unknown[]) => {
           if (!state.seen.has(sql)) state.seen.set(sql, args)
-          return (v as (...a: unknown[]) => unknown).apply(target, args)
+          const t0 = performance.now()
+          try { return (v as (...a: unknown[]) => unknown).apply(target, args) } finally { state.spent.set(sql, (state.spent.get(sql) ?? 0) + performance.now() - t0) }
         }
       }
       return (v as (...a: unknown[]) => unknown).bind(target)
@@ -121,6 +124,12 @@ function recordingProxy(db: Database): Database {
 }
 
 function useConnection(db: Database): void {
+  // The connection settings the app opens with (database.ts openWithKey): the page
+  // cache size and secure_delete change both read and delete times a lot
+  db.pragma('secure_delete = ON')
+  db.pragma('synchronous = NORMAL')
+  db.pragma('cache_size = -32000')
+  db.pragma('busy_timeout = 5000')
   state.db = db
   state.proxy = recordingProxy(db)
   state.stmts.clear()
@@ -142,6 +151,7 @@ async function time(name: string, fn: () => unknown, opts: { runs?: number; warm
   const runs = opts.runs ?? RUNS
   if (opts.warmup !== false) { opts.before?.(); await fn() }
   const samples: number[] = []
+  state.spent.clear()
   for (let i = 0; i < runs; i++) {
     opts.before?.()
     const t0 = performance.now()
@@ -155,6 +165,10 @@ async function time(name: string, fn: () => unknown, opts: { runs?: number; warm
     ...(opts.note ? { note: opts.note } : {}),
   }
   results.push(r)
+  // Where a measure's time went, statement by statement (a cascade counts toward the statement that set it off)
+  const top = [...state.spent].sort((a, b) => b[1] - a[1]).slice(0, 3)
+    .map(([sql, ms]) => `    ${round(ms / runs)} ms/run  ${sql.replace(/\s+/g, ' ').trim().slice(0, 120)}`)
+  console.log(`[perf] ${name}: median ${r.medianMs} ms\n${top.join('\n')}`)
   return r
 }
 const round = (n: number) => Math.round(n * 10) / 10
