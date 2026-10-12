@@ -22,6 +22,7 @@ import {
   pickColumns,
   showDeadlinesAsText,
   savedDateFormat,
+  lineHeight,
 } from './export-shared'
 import type { SupervisorReportOptions } from './export-shared'
 import { parseDbTimestamp } from '../shared/dates'
@@ -346,6 +347,8 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   doc.setFont('helvetica', 'normal')
   y += summaryBoxH + 6
 
+  const wrap = (text: string, width: number) => doc.splitTextToSize(text, width) as string[]
+
   function sectionTitle(title: string): void {
     const curPageH = doc.internal.pageSize.height
     const curPageW = doc.internal.pageSize.width
@@ -421,16 +424,20 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
     sectionTitle(`${RecsCap} Archived`)
     doc.setFontSize(9)
     for (const a of archivedClientNames) {
-      if (y > pageH - footerBarH - 10) { doc.addPage(); y = 18 }
+      // Long names and reasons wrap in their own column instead of running over the date or off the page (Q-077)
+      const nameLines = wrap(a.client_name, 64)
+      const reasonLines = a.reason ? wrap(a.reason, marginR - (marginL + 100)) : []
+      const extra = (Math.max(nameLines.length, reasonLines.length) - 1) * lineHeight(doc)
+      if (y + extra > pageH - footerBarH - 10) { doc.addPage(); y = 18 }
       doc.setFont('helvetica', 'normal')
-      doc.text(a.client_name, marginL + 4, y)
+      doc.text(nameLines, marginL + 4, y)
       doc.setTextColor(100)
       doc.text(a.archived_date, marginL + 70, y)
-      if (a.reason) {
-        doc.text(a.reason, marginL + 100, y)
+      if (reasonLines.length > 0) {
+        doc.text(reasonLines, marginL + 100, y)
       }
       doc.setTextColor(0)
-      y += 5.5
+      y += 5.5 + extra
     }
   }
 
@@ -440,13 +447,15 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
     sectionTitle(`${RecsCap} Removed From ${ListCap} (Still in the Trash)`)
     doc.setFontSize(9)
     for (const d of deletedClientNames) {
-      if (y > pageH - footerBarH - 10) { doc.addPage(); y = 18 }
+      const nameLines = wrap(d.client_name, 84)
+      const extra = (nameLines.length - 1) * lineHeight(doc)
+      if (y + extra > pageH - footerBarH - 10) { doc.addPage(); y = 18 }
       doc.setFont('helvetica', 'normal')
-      doc.text(d.client_name, marginL + 4, y)
+      doc.text(nameLines, marginL + 4, y)
       doc.setTextColor(100)
       doc.text(d.deleted_date, marginL + 90, y)
       doc.setTextColor(0)
-      y += 5.5
+      y += 5.5 + extra
     }
   }
 
@@ -456,13 +465,15 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
     sectionTitle(`New ${RecsCap} Added`)
     doc.setFontSize(9)
     for (const n of newClientNames) {
-      if (y > pageH - footerBarH - 10) { doc.addPage(); y = 18 }
+      const nameLines = wrap(n.client_name, 84)
+      const extra = (nameLines.length - 1) * lineHeight(doc)
+      if (y + extra > pageH - footerBarH - 10) { doc.addPage(); y = 18 }
       doc.setFont('helvetica', 'normal')
-      doc.text(n.client_name, marginL + 4, y)
+      doc.text(nameLines, marginL + 4, y)
       doc.setTextColor(100)
       doc.text(n.added_date, marginL + 90, y)
       doc.setTextColor(0)
-      y += 5.5
+      y += 5.5 + extra
     }
   }
 

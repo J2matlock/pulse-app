@@ -92,6 +92,19 @@ describe('exportPdfGrid', () => {
     expect(isPdfBuffer(readFileSync(destPath))).toBe(true)
   })
 
+  it('wraps a long title and moves the line under it down (Q-077)', async () => {
+    const { gridId } = seedGrid(testDb.db, { rowCount: 1, columnCount: 2 })
+    const title = 'Quarterly review of ' + 'every open record in the northern region '.repeat(4) + 'TITLE-END'
+    const destPath = join(testDb.tmpDir, 'grid-title.pdf')
+    await exportPdfGrid({ gridId, columnIds: [], activeRowIds: [], destPath, title })
+    const pdf = readFileSync(destPath, 'latin1')
+    expect(pdf).not.toContain(`(${title})`)
+    expect(pdf).toMatch(/TITLE-END\) Tj/)
+    const yOf = (start: string) => Number(new RegExp(`[\\d.]+ ([\\d.]+) Td\\s*\\(${start}`).exec(pdf)?.[1])
+    // 6 mm (17 pt) under a one-line title; a wrapped one adds at least a 16 pt line
+    expect(yOf('Quarterly review') - yOf('Exported ')).toBeGreaterThan(30)
+  })
+
   it('respects column filter', async () => {
     const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 3 })
     const insert = testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')

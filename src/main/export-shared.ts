@@ -126,6 +126,11 @@ export function lastTableY(doc: AutoTableDoc): number {
   return (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY
 }
 
+/** How far one line of text at the current font size moves down, in the document's units (mm) */
+export function lineHeight(doc: AutoTableDoc): number {
+  return doc.getFontSize() * doc.getLineHeightFactor() / doc.internal.scaleFactor
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Types
 // ──────────────────────────────────────────────────────────────────────────────

@@ -8,7 +8,7 @@
  */
 
 import { getDb } from './database'
-import { jsPDF, atomicWriteFileAsync, getClientName } from './export-shared'
+import { jsPDF, atomicWriteFileAsync, getClientName, lineHeight } from './export-shared'
 import { renderProfileToDoc } from './export-pdf'
 import { loadAuditTrail, drawAuditClients, auditFootnote } from './export-audit'
 import { listAttachments, attachmentBytes } from './attachments'
@@ -104,14 +104,17 @@ export async function exportHandoffPacket(opts: HandoffOptions, destPath: string
   doc.setFont('helvetica', 'bold')
   doc.text(`${term(v, 'record', { cap: true })} handoff packet`, marginL, 28)
   doc.setFontSize(16)
-  doc.text(clientName, marginL, 40)
+  // A long name or "To" wraps, and what follows moves down by the extra lines (Q-077)
+  const nameLines = doc.splitTextToSize(clientName, width) as string[]
+  doc.text(nameLines, marginL, 40)
+  let y = 52 + (nameLines.length - 1) * lineHeight(doc)
   doc.setFontSize(11)
   doc.setFont('helvetica', 'normal')
-  let y = 52
   const line = (label: string, value: string) => {
+    const lines = doc.splitTextToSize(value, width - 40) as string[]
     doc.setFont('helvetica', 'bold'); doc.text(`${label}:`, marginL, y)
-    doc.setFont('helvetica', 'normal'); doc.text(doc.splitTextToSize(value, width - 40), marginL + 40, y)
-    y += 8
+    doc.setFont('helvetica', 'normal'); doc.text(lines, marginL + 40, y)
+    y += 8 + (lines.length - 1) * lineHeight(doc)
   }
   line('Date', today)
   if (grid) line(term(v, 'list', { cap: true }), grid.name)

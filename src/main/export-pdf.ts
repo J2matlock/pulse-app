@@ -22,6 +22,7 @@ import {
   showDeadlinesAsText,
   getClientName,
   batchGetClientNames,
+  lineHeight,
 } from './export-shared'
 import type { PdfProfileOptions, PdfGridOptions } from './export-shared'
 import { parseDbTimestamp } from '../shared/dates'
@@ -86,11 +87,14 @@ export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
   const exportTitle = title || grid.name
   doc.setFontSize(16)
   doc.setFont('helvetica', 'bold')
-  doc.text(exportTitle, 14, 18)
+  // A long title wraps, and the line under it and the table move down by the extra lines (Q-077)
+  const titleLines = doc.splitTextToSize(exportTitle, doc.internal.pageSize.width - 28) as string[]
+  const titleExtra = (titleLines.length - 1) * lineHeight(doc)
+  doc.text(titleLines, 14, 18)
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(100)
-  doc.text(`Exported ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}  ·  ${filteredRows.length} ${term(v, 'record', { count: filteredRows.length })}`, 14, 24)
+  doc.text(`Exported ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}  ·  ${filteredRows.length} ${term(v, 'record', { count: filteredRows.length })}`, 14, 24 + titleExtra)
   doc.setTextColor(0)
 
   const head = [selectedColumns.map(c => c.name)]
@@ -115,7 +119,7 @@ export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
   autoTable(doc, {
     head,
     body,
-    startY: 28,
+    startY: 28 + titleExtra,
     styles: { fontSize: gridFontSize, cellPadding: 2 },
     headStyles: { fillColor: [71, 85, 105], textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [248, 250, 252] },

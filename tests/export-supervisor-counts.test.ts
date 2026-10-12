@@ -113,6 +113,32 @@ describe('Summary report new and deleted records (F-018, F-010)', () => {
   })
 })
 
+/** Where jsPDF put the run that starts with `start`: "x y Td (start…) Tj" (y counts up from the bottom, in points) */
+function yOf(pdf: string, start: string): number {
+  const m = new RegExp(`([\\d.]+) ([\\d.]+) Td\\s*\\(${start.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).exec(pdf)
+  if (!m) throw new Error(`"${start}" not found`)
+  return Number(m[2])
+}
+
+describe('Summary report PDF wrapping (Q-077)', () => {
+  it('wraps a long archived name and reason and moves the next record down', async () => {
+    const db = testDb.db
+    const g = seedGrid(db, { rowCount: 2 })
+    const [long, short] = g.rowIds as [number, number]
+    const longName = 'Archie ' + 'Longname '.repeat(8) + 'NAME-END'
+    const longReason = 'Moved ' + 'to another county far away '.repeat(3) + 'REASON-END'
+    db.prepare("UPDATE rows SET display_name = ?, is_active = 0, archived_at = datetime('now'), archived_reason = ? WHERE id = ?").run(longName, longReason, long)
+    db.prepare("UPDATE rows SET display_name = 'Zed Short', is_active = 0, archived_at = datetime('now', '-1 hours') WHERE id = ?").run(short)
+    const pdf = await report(g.gridId, 'pdf', { start: localDateFromToday(-7) })
+    expect(pdf).not.toContain(`(${longName})`)
+    expect(pdf).not.toContain(`(${longReason})`)
+    expect(pdf).toMatch(/NAME-END\) Tj/)
+    expect(pdf).toMatch(/REASON-END\) Tj/)
+    // One 5.5 mm row is about 15.6 pt; a wrapped name needs at least one more 9 pt line
+    expect(yOf(pdf, 'Archie Longname') - yOf(pdf, 'Zed Short')).toBeGreaterThan(24)
+  })
+})
+
 describe('Summary report capped lists (F-019)', () => {
   it('says when the notes and system entries are cut short, CSV and PDF, and dates PDF rows with the year', async () => {
     const db = testDb.db
