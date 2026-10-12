@@ -1,6 +1,6 @@
 import type { AvailabilityStatus } from '../../../shared/types'
-import { MS_PER_DAY } from '../../../shared/constants'
-import { parseDbTimestamp } from '../../../shared/dates'
+import { parseDbTimestamp, localDateString } from '../../../shared/dates'
+import { daysBetween } from '../../../shared/ymd'
 import { AVAILABILITY_LABELS } from '../../../shared/availability'
 
 const STATUS_CONFIG: Record<AvailabilityStatus, { label: string; bg: string; text: string }> = {
@@ -16,10 +16,9 @@ interface Props {
   compact?: boolean
 }
 
+/** Calendar days since the check, so 11pm then 8am the next morning is "yesterday" (A21a-08) */
 function daysSince(dateStr: string): number {
-  const then = parseDbTimestamp(dateStr)
-  const now = new Date()
-  return Math.floor((now.getTime() - then.getTime()) / MS_PER_DAY)
+  return Math.max(0, daysBetween(localDateString(parseDbTimestamp(dateStr)), localDateString()))
 }
 
 export function AvailabilityBadge({ status, checkedAt, compact }: Props) {
