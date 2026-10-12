@@ -33,6 +33,8 @@ export interface AuditClient {
   rowId: number
   clientName: string
   gridName: string
+  /** "In the Trash since …" when the record or its list is in the Trash, whatever the range (F-009) */
+  trashNote: string | null
   events: AuditEvent[]
 }
 
@@ -76,11 +78,11 @@ export function loadAuditTrail(scope: AuditScope): AuditClient[] {
   if (scope.gridId != null) { where.push('r.grid_id = ?'); params.push(scope.gridId) }
   const clients = db.prepare(`
     SELECT r.id, r.grid_id, COALESCE(NULLIF(r.display_name, ''), ?) AS name, g.name AS grid_name,
-           r.created_at, r.archived_at, r.archived_reason, r.deleted_at
+           r.created_at, r.archived_at, r.archived_reason, r.deleted_at, g.deleted_at AS grid_deleted_at
     FROM rows r JOIN grids g ON g.id = r.grid_id
     ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
     ORDER BY g.name COLLATE NOCASE, name COLLATE NOCASE
-  `).all(`Unnamed ${word('record')}`, ...params) as Array<{ id: number; grid_id: number; name: string; grid_name: string; created_at: string; archived_at: string | null; archived_reason: string | null; deleted_at: string | null }>
+  `).all(`Unnamed ${word('record')}`, ...params) as Array<{ id: number; grid_id: number; name: string; grid_name: string; created_at: string; archived_at: string | null; archived_reason: string | null; deleted_at: string | null; grid_deleted_at: string | null }>
 
   // Stored timestamps are UTC; the range is the user's local calendar days
   const inRange = (col: string) => `(? IS NULL OR date(${col}, 'localtime') >= ?) AND (? IS NULL OR date(${col}, 'localtime') <= ?)`
@@ -167,7 +169,11 @@ export function loadAuditTrail(scope: AuditScope): AuditClient[] {
     // Checklist ticks are stored as ISO ("…T13:00:00.000Z"), the rest as datetime('now') ("… 15:00:00"); compare instants, not text
     const instant = (at: string) => { const t = parseDbTimestamp(at).getTime(); return Number.isNaN(t) ? 0 : t }
     events.sort((a, b) => instant(a.at) - instant(b.at) || a.at.localeCompare(b.at))
-    return { rowId: c.id, clientName: c.name, gridName: c.grid_name, events }
+    // A record trashed before the range, or one of a list in the Trash, must not read as live
+    const trashNotes: string[] = []
+    if (c.deleted_at) trashNotes.push(`In the Trash since ${fmtDate(localDay(c.deleted_at))}`)
+    if (c.grid_deleted_at) trashNotes.push(`${word('list', { cap: true }, c.grid_id)} in the Trash since ${fmtDate(localDay(c.grid_deleted_at))}`)
+    return { rowId: c.id, clientName: c.name, gridName: c.grid_name, trashNote: trashNotes.length ? trashNotes.join('; ') : null, events }
   })
 }
 
@@ -187,7 +193,7 @@ export function drawAuditClients(doc: InstanceType<typeof jsPDF>, shown: AuditCl
     doc.setFontSize(10)
     doc.setFont('helvetica', 'normal')
     // The count is of events, not records: "12 records" under a record's name reads as something else
-    doc.text(`${c.gridName}  ·  ${c.events.length} entr${c.events.length === 1 ? 'y' : 'ies'}`, marginL, y + 5)
+    doc.text(`${c.gridName}  ·  ${c.trashNote ? `${c.trashNote}  ·  ` : ''}${c.events.length} entr${c.events.length === 1 ? 'y' : 'ies'}`, marginL, y + 5)
     autoTable(doc, {
       startY: y + 8,
       head: [['When', 'What', 'Details']],

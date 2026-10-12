@@ -107,6 +107,29 @@ describe('audit trail', () => {
     rmSync(dir, { recursive: true, force: true })
   })
 
+  it('marks a record trashed before the range, and the records of a list in the Trash, whatever the range (F-009)', async () => {
+    const db = testDb.db
+    // Ana went to the Trash before the chosen range; her March history is still listed
+    db.prepare('UPDATE rows SET deleted_at = ? WHERE id = ?').run(utc('2027-02-15 09:00:00'), rowA)
+    const [a] = loadAuditTrail({ rowId: rowA, from: '2027-03-01' })
+    expect(a!.events.map(e => e.what)).not.toContain('Moved to the Trash')
+    expect(a!.trashNote).toBe('In the Trash since Feb 15, 2027')
+    expect(loadAuditTrail({ rowId: rowB })[0]!.trashNote).toBeNull()
+
+    // The whole list goes to the Trash: Cal is still live in it, but must not read as live
+    db.prepare('UPDATE grids SET is_active = 0, deleted_at = ? WHERE id = ?').run(utc('2027-03-10 09:00:00'), gridId)
+    const all = loadAuditTrail({ gridId })
+    expect(all.find(c => c.rowId === rowB)!.trashNote).toBe('Caseload in the Trash since Mar 10, 2027')
+    expect(all.find(c => c.rowId === rowA)!.trashNote).toBe('In the Trash since Feb 15, 2027; Caseload in the Trash since Mar 10, 2027')
+
+    const dir = mkdtempSync(join(tmpdir(), 'audit-'))
+    const dest = join(dir, 'audit.pdf')
+    await exportAuditReport({ gridId, from: '2027-03-01' }, dest, 'Test Caseload')
+    const pdf = readFileSync(dest).toString('latin1')
+    expect(pdf).toContain('In the Trash since Feb 15, 2027')
+    rmSync(dir, { recursive: true, force: true })
+  })
+
   it('writes a PDF and reports the totals', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'audit-'))
     const dest = join(dir, 'audit.pdf')
