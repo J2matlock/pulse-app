@@ -403,6 +403,13 @@ export function registerRowHandlers(): void {
     return ok(rows)
   })
 
+  // The list above stops at 500; Empty the Trash removes them all, so the
+  // Trash says how many there really are (Q-029)
+  secureWrap(IPC.ROW_COUNT_DELETED, 'ipc-row', () => {
+    const r = cachedStmt('row_count_deleted', 'SELECT COUNT(*) AS n FROM rows WHERE deleted_at IS NOT NULL').get() as { n: number }
+    return ok(r.n)
+  })
+
   secureWrap(IPC.ROW_ARCHIVE, 'ipc-row', (_e, rowId: number, reason?: string) => {
     const guard = enforceWritable(); if (guard) return guard
     if (!validId(rowId)) return fail('Invalid ID')

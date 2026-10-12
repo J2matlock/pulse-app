@@ -269,6 +269,7 @@ export interface IPCContract {
   'row:purge-all':           { args: [];                                                                                   return: number }
   'row:purge':               { args: [rowId: number];                                                                      return: true }
   'row:get-deleted':         { args: [];                                                                                   return: DeletedRow[] }
+  'row:count-deleted':       { args: [];                                                                                   return: number }
   'row:get':                 { args: [gridId: number, rowId: number];                                                      return: GridRow }
   'row:move-to-grid':        { args: [rowId: number, targetGridId: number];                                                return: number }
   'row:copy-to-grid':        { args: [rowId: number, targetGridId: number];                                                return: number | bigint }

@@ -43,6 +43,8 @@ export const IPC = {
   ROW_RESTORE_DELETED: 'row:restore-deleted',
   ROW_PURGE: 'row:purge',
   ROW_GET_DELETED: 'row:get-deleted',
+  /** How many records are in the Trash (the Trash shows the newest 500) */
+  ROW_COUNT_DELETED: 'row:count-deleted',
   ROW_GET: 'row:get',
   /** Which list a record is on and whether it's active, archived or in the Trash (open a record from anywhere) */
   ROW_LOCATE: 'row:locate',

@@ -764,11 +764,23 @@ describe('IPC Row — ROW_PURGE_ALL', () => {
   })
 })
 
+describe('IPC Row — Trash past the 500 shown (Q-029)', () => {
+  it('counts every record in the Trash, and Empty the Trash removes that many', async () => {
+    const { rowIds } = seedGrid(testDb.db, { rowCount: 501, columnCount: 1 })
+    testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now')").run()
+    const shown = await invoke(IPC.ROW_GET_DELETED) as any
+    expect(shown.data).toHaveLength(500)
+    expect(await invoke(IPC.ROW_COUNT_DELETED)).toEqual({ ok: true, data: 501 })
+    expect(await invoke(IPC.ROW_PURGE_ALL)).toEqual({ ok: true, data: rowIds.length })
+    expect(await invoke(IPC.ROW_COUNT_DELETED)).toEqual({ ok: true, data: 0 })
+  })
+})
+
 describe('IPC Row — handler registration', () => {
   it('registers all row channels', () => {
     const channels = [
       IPC.ROW_CREATE, IPC.ROW_GET, IPC.ROW_DELETE, IPC.ROW_HARD_DELETE,
-      IPC.ROW_RESTORE_DELETED, IPC.ROW_PURGE, IPC.ROW_GET_DELETED,
+      IPC.ROW_RESTORE_DELETED, IPC.ROW_PURGE, IPC.ROW_GET_DELETED, IPC.ROW_COUNT_DELETED,
       IPC.ROW_ARCHIVE, IPC.ROW_UNARCHIVE, IPC.ROW_DUPLICATE,
       IPC.ROW_MOVE_TO_GRID, IPC.ROW_COPY_TO_GRID, IPC.ROW_REORDER,
       IPC.ROW_UPDATE, IPC.ROW_BULK_ACTION,
