@@ -18,6 +18,7 @@ import { matchFilter } from '../src/renderer/utils/filterMatch'
 import { evalCellFormat } from '../src/renderer/components/grid/CellConditionalFormatPanel'
 import { ROW_TAG_COLUMN_ID, type CellFormatRule, type Column, type FilterOperator, type GridRow } from '../src/shared/types'
 import { FEATURES, isOn } from '../src/shared/features'
+import { DATE_BUCKETS, DATE_PRESETS, REPORT_SOURCES, VALUE_FNS, FN_LABELS, SOURCE_LABELS, bucketDate, formatReportCell, presetRange, reportConfigSchema, type DateBucket, type DatePreset } from '../src/shared/reports'
 import { PERIODS, PERIOD_MAX, periodRange, type Period } from '../src/shared/periods'
 import { EMPTY_DRAFT, draftToConfig } from '../src/renderer/components/alerts/ruleDraft'
 
@@ -125,5 +126,26 @@ describe('feature switches', () => {
 
   it('every listed feature can be switched on', () => {
     for (const f of FEATURES) expect(isOn({ [f.key]: true }, f.key), f.key).toBe(true)
+  })
+})
+
+describe('saved report values', () => {
+  it('the config schema accepts exactly the listed sources, buckets, presets and value kinds', () => {
+    const base = { filters: [], groupBy: [], values: [{ fn: 'count' }] }
+    for (const source of REPORT_SOURCES) expect(reportConfigSchema.safeParse({ ...base, source }).success, source).toBe(true)
+    expect(reportConfigSchema.safeParse({ ...base, source: 'tasks' }).success).toBe(false)
+    for (const bucket of DATE_BUCKETS) expect(reportConfigSchema.safeParse({ ...base, source: 'records', groupBy: [{ field: 'col:1', bucket }] }).success, bucket).toBe(true)
+    for (const preset of DATE_PRESETS) expect(reportConfigSchema.safeParse({ ...base, source: 'records', dateRange: { field: 'col:1', preset } }).success, preset).toBe(true)
+    for (const fn of VALUE_FNS) expect(reportConfigSchema.safeParse({ ...base, source: 'records', values: [{ fn, field: 'col:1' }] }).success, fn).toBe(true)
+    expect(Object.keys(SOURCE_LABELS).sort()).toEqual([...REPORT_SOURCES].sort())
+    expect(Object.keys(FN_LABELS).sort()).toEqual([...VALUE_FNS].sort())
+  })
+
+  it('an unknown bucket or preset falls back to a day and this month, as before', () => {
+    expect(bucketDate('2026-10-12', 'decade' as DateBucket)).toBe(bucketDate('2026-10-12', 'day'))
+    expect(formatReportCell('2026-10-12', 'date', 'decade' as DateBucket)).toBe(formatReportCell('2026-10-12', 'date', 'day'))
+    expect(formatReportCell('2026-10-12', 'date')).toBe('Oct 12, 2026')
+    const today = new Date(2026, 9, 12)
+    expect(presetRange('ytd' as DatePreset, today)).toEqual(presetRange('this_month', today))
   })
 })

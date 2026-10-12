@@ -18,6 +18,9 @@ import { labelFor } from '../shared/activityTypes'
 import { localDateString } from '../shared/dates'
 import { minutesBetween } from '../shared/appointments'
 import type { Column, GridRow } from '../shared/types'
+import type { ApptStatus } from '../shared/appointments'
+import type { DeadlineState } from '../shared/deadlineEngine'
+import { unhandledCase } from '../shared/assertNever'
 import {
   REPORT_LIMITS, bucketDate, isFilterActive, matchReportFilter, presetRange, reportConfigSchema, toNumber, valueKey, valueLabel,
   type ReportCell, type ReportColumn, type ReportConfig, type ReportField, type ReportFieldKind, type ReportResult, type ReportSource, type SavedReport,
@@ -26,8 +29,10 @@ import {
 /** A problem the person can fix; the message is shown as is. */
 export class ReportError extends Error {}
 
-const APPT_STATUS_LABELS: Record<string, string> = { scheduled: 'Scheduled', done: 'Done', cancelled: 'Cancelled', no_show: 'No-show' }
-const DEADLINE_STATE_LABELS: Record<string, string> = { none: 'Nothing due', ok: 'On track', soon: 'Coming up', due: 'Due', overdue: 'Overdue', paused: 'Paused', done: 'Done' }
+const APPT_STATUS_LABELS = { scheduled: 'Scheduled', done: 'Done', cancelled: 'Cancelled', no_show: 'No-show' } satisfies Record<ApptStatus, string>
+const DEADLINE_STATE_LABELS = { none: 'Nothing due', ok: 'On track', soon: 'Coming up', due: 'Due', overdue: 'Overdue', paused: 'Paused', done: 'Done' } satisfies Record<DeadlineState, string>
+/** A stored value's label; one this version doesn't know shows as stored */
+const labelOf = (labels: Record<string, string | undefined>, key: string): string => labels[key] ?? key
 /** Most urgent first, so a report grouped by state reads top-down */
 const DEADLINE_STATE_ORDER = ['Overdue', 'Due', 'Coming up', 'On track', 'Paused', 'Done', 'Nothing due']
 
@@ -116,7 +121,10 @@ export function sourceWord(source: ReportSource, gridId: number): string {
     case 'records': return word('record', { many: true, cap: true }, gridId)
     case 'activities': return word('activity', { many: true, cap: true }, gridId)
     case 'appointments': return word('appointment', { many: true, cap: true }, gridId)
-    default: return 'Deadlines'
+    case 'deadlines': return 'Deadlines'
+    default:
+      unhandledCase(source)
+      return 'Deadlines'
   }
 }
 
@@ -126,7 +134,10 @@ export function sourceWordOne(source: ReportSource, gridId: number): string {
     case 'records': return word('record', { cap: true }, gridId)
     case 'activities': return word('activity', { cap: true }, gridId)
     case 'appointments': return word('appointment', { cap: true }, gridId)
-    default: return 'Deadline'
+    case 'deadlines': return 'Deadline'
+    default:
+      unhandledCase(source)
+      return 'Deadline'
   }
 }
 
@@ -274,18 +285,21 @@ export function runReport(gridId: number, input: unknown, now = new Date()): Rep
       const minutes = !a.all_day && a.end_at && a.start_at.length >= 16 && a.end_at.length >= 16
         ? minutesBetween(a.start_at, a.end_at) : null
       return { rowId: a.row_id, own: {
-        'appt:date': a.start_at.slice(0, 10), 'appt:title': a.title, 'appt:status': APPT_STATUS_LABELS[a.status] ?? a.status,
+        'appt:date': a.start_at.slice(0, 10), 'appt:title': a.title, 'appt:status': labelOf(APPT_STATUS_LABELS, a.status),
         'appt:type': a.activity_type_key ? labelFor(types, a.activity_type_key) : null, 'appt:minutes': minutes,
       } }
     })
-  } else {
+  } else if (config.source === 'deadlines') {
     const deadlines = loadDeadlines({ gridId, today, includeDone: true, includePaused: true }).filter(d => recordById.has(d.row_id))
     if (deadlines.length > cap) { deadlines.length = cap; truncated = `Only the first ${cap.toLocaleString('en-US')} were counted.` }
     items = deadlines.map(d => ({ rowId: d.row_id, own: {
-      'dl:rule': d.column_name, 'dl:state': DEADLINE_STATE_LABELS[d.state] ?? d.state, 'dl:due': d.due,
+      'dl:rule': d.column_name, 'dl:state': labelOf(DEADLINE_STATE_LABELS, d.state), 'dl:due': d.due,
       // A used-up quota is overdue with its end still ahead: 0 days late, not negative (F-022)
       'dl:overdue': d.state === 'overdue' && d.daysUntil !== null ? Math.max(0, -d.daysUntil) : 0,
     } }))
+  } else {
+    // A source added without a branch fails typecheck; validateReportConfig() refuses unknown ones
+    unhandledCase(config.source)
   }
   tick()
 

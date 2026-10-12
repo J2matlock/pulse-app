@@ -6,9 +6,10 @@
  */
 import { z } from 'zod'
 import { parseNumberCell } from './numbers'
+import { unhandledCase } from './assertNever'
 
-export type ReportSource = 'records' | 'activities' | 'appointments' | 'deadlines'
-export const REPORT_SOURCES: readonly ReportSource[] = ['records', 'activities', 'appointments', 'deadlines']
+export const REPORT_SOURCES = ['records', 'activities', 'appointments', 'deadlines'] as const
+export type ReportSource = typeof REPORT_SOURCES[number]
 
 export type ReportFieldKind = 'text' | 'number' | 'currency' | 'date'
 
@@ -24,10 +25,12 @@ export interface ReportField {
   hint?: 'name' | 'stage' | 'derived'
 }
 
-export type DateBucket = 'day' | 'week' | 'month' | 'quarter' | 'year'
-export const DATE_BUCKETS: readonly DateBucket[] = ['day', 'week', 'month', 'quarter', 'year']
-export type DatePreset = 'this_month' | 'last_month' | 'this_quarter' | 'this_year' | 'last_year'
-export type ValueFn = 'count' | 'sum' | 'avg' | 'min' | 'max'
+export const DATE_BUCKETS = ['day', 'week', 'month', 'quarter', 'year'] as const
+export type DateBucket = typeof DATE_BUCKETS[number]
+export const DATE_PRESETS = ['this_month', 'last_month', 'this_quarter', 'this_year', 'last_year'] as const
+export type DatePreset = typeof DATE_PRESETS[number]
+export const VALUE_FNS = ['count', 'sum', 'avg', 'min', 'max'] as const
+export type ValueFn = typeof VALUE_FNS[number]
 
 export const REPORT_OPERATORS = ['contains', 'not_contains', 'equals', 'not_equals', 'starts_with', 'is_empty', 'is_not_empty', 'gt', 'lt', 'before', 'after'] as const
 export type ReportOperator = (typeof REPORT_OPERATORS)[number]
@@ -38,17 +41,17 @@ const fieldId = z.string().regex(/^[a-z_]+(:[a-z0-9_]+){0,2}$/).max(80)
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
 export const reportConfigSchema = z.object({
-  source: z.enum(['records', 'activities', 'appointments', 'deadlines']),
+  source: z.enum(REPORT_SOURCES),
   includeArchived: z.boolean().optional(),
   filters: z.array(z.object({ field: fieldId, operator: z.enum(REPORT_OPERATORS), value: z.string().max(500) })).max(REPORT_LIMITS.filters).default([]),
   dateRange: z.object({
     field: fieldId,
     from: ymd.optional(),
     to: ymd.optional(),
-    preset: z.enum(['this_month', 'last_month', 'this_quarter', 'this_year', 'last_year']).optional(),
+    preset: z.enum(DATE_PRESETS).optional(),
   }).optional(),
-  groupBy: z.array(z.object({ field: fieldId, bucket: z.enum(['day', 'week', 'month', 'quarter', 'year']).optional() })).max(REPORT_LIMITS.groupBy).default([]),
-  values: z.array(z.object({ fn: z.enum(['count', 'sum', 'avg', 'min', 'max']), field: fieldId.optional(), label: z.string().max(60).optional() })).max(REPORT_LIMITS.values).default([]),
+  groupBy: z.array(z.object({ field: fieldId, bucket: z.enum(DATE_BUCKETS).optional() })).max(REPORT_LIMITS.groupBy).default([]),
+  values: z.array(z.object({ fn: z.enum(VALUE_FNS), field: fieldId.optional(), label: z.string().max(60).optional() })).max(REPORT_LIMITS.values).default([]),
   columns: z.array(fieldId).max(REPORT_LIMITS.columns).optional(),
   sort: z.object({ field: z.string().max(80), dir: z.enum(['asc', 'desc']) }).optional(),
   /** One line on the question it answers ("Which estimates still need a call back?") */
@@ -129,7 +132,11 @@ export function bucketDate(ymdValue: string, bucket: DateBucket = 'day', weekSta
       dt.setDate(dt.getDate() - (weekStart === 'monday' ? (dt.getDay() + 6) % 7 : dt.getDay()))
       return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`
     }
-    default: return `${y}-${pad(mo)}-${pad(d)}`
+    case 'day': return `${y}-${pad(mo)}-${pad(d)}`
+    default:
+      // A bucket added without a case fails typecheck; saved reports are checked against DATE_BUCKETS
+      unhandledCase(bucket)
+      return `${y}-${pad(mo)}-${pad(d)}`
   }
 }
 
@@ -142,7 +149,11 @@ export function presetRange(preset: DatePreset, today: Date = new Date()): { fro
     case 'this_quarter': { const q = Math.floor(m / 3) * 3; return { from: day(new Date(y, q, 1)), to: day(new Date(y, q + 3, 0)) } }
     case 'this_year': return { from: `${y}-01-01`, to: `${y}-12-31` }
     case 'last_year': return { from: `${y - 1}-01-01`, to: `${y - 1}-12-31` }
-    default: return { from: day(new Date(y, m, 1)), to: day(new Date(y, m + 1, 0)) }
+    case 'this_month': return { from: day(new Date(y, m, 1)), to: day(new Date(y, m + 1, 0)) }
+    default:
+      // A preset added without a case fails typecheck; saved reports are checked against DATE_PRESETS
+      unhandledCase(preset)
+      return { from: day(new Date(y, m, 1)), to: day(new Date(y, m + 1, 0)) }
   }
 }
 
@@ -210,7 +221,10 @@ export function formatReportCell(v: ReportCell, kind: ReportFieldKind, bucket?: 
     case 'quarter': { const m = /^(\d{4}) (Q\d)$/.exec(v); return m ? `${m[2]} ${m[1]}` : v }
     case 'week': return /^\d{4}-\d{2}-\d{2}$/.test(v) ? `Week of ${formatYmd(v)}` : v
     case 'year': return v
-    default: return formatYmd(v.slice(0, 10))
+    case 'day': case undefined: return formatYmd(v.slice(0, 10))
+    default:
+      unhandledCase(bucket)
+      return formatYmd(v.slice(0, 10))
   }
 }
 

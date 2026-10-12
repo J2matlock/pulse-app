@@ -8,9 +8,9 @@ import toast from 'react-hot-toast'
 import { FileDown, Pin, PinOff, Plus, Save, Sparkles, Trash2 } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import {
-  DATE_BUCKETS, FN_LABELS, OPERATOR_LABELS, REPORT_LIMITS, SOURCE_LABELS, SOURCE_LABELS_ONE, chartableReport, defaultFilterField, defaultGroupField, defaultValueField,
+  DATE_BUCKETS, DATE_PRESETS, FN_LABELS, OPERATOR_LABELS, REPORT_LIMITS, SOURCE_LABELS, SOURCE_LABELS_ONE, chartableReport, defaultFilterField, defaultGroupField, defaultValueField,
   explainReport, filterNeedsValue, operatorsFor, suggestReportName,
-  type DatePreset, type ReportConfig, type ReportField, type ReportResult, type ReportSource, type SavedReport, type ValueFn,
+  type DateBucket, type DatePreset, type ReportConfig, type ReportField, type ReportResult, type ReportSource, type SavedReport, type ValueFn,
 } from '../../../shared/reports'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useGridStore } from '../../stores/gridStore'
@@ -24,11 +24,11 @@ import { friendlyError } from '../../utils/friendlyError'
 
 export const EMPTY_CONFIG: ReportConfig = { source: 'records', filters: [], groupBy: [], values: [{ fn: 'count' }] }
 
-const PRESETS: Array<{ value: DatePreset; label: string }> = [
-  { value: 'this_month', label: 'This month' }, { value: 'last_month', label: 'Last month' },
-  { value: 'this_quarter', label: 'This quarter' }, { value: 'this_year', label: 'This year' }, { value: 'last_year', label: 'Last year' },
-]
-const BUCKET_LABELS: Record<string, string> = { day: 'by day', week: 'by week', month: 'by month', quarter: 'by quarter', year: 'by year' }
+const PRESET_LABELS = {
+  this_month: 'This month', last_month: 'Last month', this_quarter: 'This quarter', this_year: 'This year', last_year: 'Last year',
+} satisfies Record<DatePreset, string>
+const PRESETS: Array<{ value: DatePreset; label: string }> = DATE_PRESETS.map(value => ({ value, label: PRESET_LABELS[value] }))
+const BUCKET_LABELS: Record<DateBucket, string> = { day: 'by day', week: 'by week', month: 'by month', quarter: 'by quarter', year: 'by year' }
 
 function FieldSelect({ fields, value, onChange, label, allow, placeholder, className = '' }: {
   fields: ReportField[]; value: string | undefined; onChange: (id: string) => void; label: string
