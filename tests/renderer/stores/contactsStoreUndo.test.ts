@@ -48,7 +48,9 @@ function handle(channel: string, ...args: unknown[]): { ok: boolean; data?: unkn
       return { ok: true, data: full(id) }
     }
     case 'contacts:update': {
-      const r = rows.get(args[0] as number)!
+      // Like the real handler: an id that's gone updates nothing and still answers ok
+      const r = rows.get(args[0] as number)
+      if (!r) return { ok: true, data: true }
       for (const [k, v] of Object.entries(args[1] as Record<string, unknown>)) if (v !== undefined) r[k] = v
       return { ok: true, data: true }
     }
@@ -130,6 +132,46 @@ describe('contactsStore undo keeps every detail', () => {
     await redo()
     expect(rows.has(restoredId)).toBe(false)
     expect(rows.size).toBe(1)
+  })
+
+  it('steps older than a deleted-and-undone contact reach it under its new id (Q-046)', async () => {
+    const id = seed({ phone_main: '555-0001' })
+    await useContactsStore.getState().loadProviders()
+    await useContactsStore.getState().updateProvider(id, { phone_main: '555-9999' })
+    await useContactsStore.getState().addTag(id, 'housing')
+    await useContactsStore.getState().deleteProvider(id)
+    await undo() // the contact comes back under a new id
+    const [back] = [...rows.values()]
+    expect(back!.id).not.toBe(id)
+    expect(tags.get(back!.id)).toEqual(['housing'])
+    await undo() // the tag
+    expect(tags.get(back!.id)).toEqual([])
+    await undo() // the phone
+    expect(rows.get(back!.id)!.phone_main).toBe('555-0001')
+    await redo()
+    expect(rows.get(back!.id)!.phone_main).toBe('555-9999')
+  })
+
+  it('a delete undone twice (undo, redo, undo) still leads older steps to the contact (Q-046)', async () => {
+    const id = seed({ phone_main: '555-0001' })
+    await useContactsStore.getState().loadProviders()
+    await useContactsStore.getState().updateProvider(id, { phone_main: '555-9999' })
+    await useContactsStore.getState().deleteProvider(id)
+    await undo(); await redo(); await undo()
+    expect(rows.size).toBe(1)
+    await undo()
+    expect([...rows.values()][0]!.phone_main).toBe('555-0001')
+  })
+
+  it('a failed undo of a delete says so and stays undoable (Q-046)', async () => {
+    const id = seed({})
+    await useContactsStore.getState().loadProviders()
+    await useContactsStore.getState().deleteProvider(id)
+    failNext = 'contacts:create'
+    await undo()
+    expect(rows.size).toBe(0)
+    expect(useUndoStore.getState().undoStack).toHaveLength(1)
+    expect(useUndoStore.getState().toast?.description).toMatch(/^Undo didn't work|^Undo failed/)
   })
 
   it('undoing an edit restores a field that was empty and one the list rows lack', async () => {
