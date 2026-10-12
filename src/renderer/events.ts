@@ -19,6 +19,8 @@ type PulseEvents = {
   'app:locking': undefined
   /** A cell was saved with a new value (not by undo) */
   'cell:changed': { rowId: number; columnId: number; from: string | null; to: string | null }
+  /** A cell was saved (Undo and Redo included) */
+  'cell:saved': { rowId: number; columnId: number; value: string | null }
   /** Open a column's deadline rule picker (from a "Choose a rule" cell) */
   'column:choose-rule': { columnId: number }
   /** Change a column's width from its menu, for keyboard users (AUDIT-150) */

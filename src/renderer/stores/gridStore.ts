@@ -627,7 +627,7 @@ export const useGridStore = create<GridState>((set, get) => ({
     // Capture previous value for undo before optimistic update
     const currentRows = get().rows
     const idx = currentRows.findIndex(r => r.row_id === rowId)
-    const prevValue = idx !== -1 ? (currentRows[idx]![key] as string | null) ?? null : null
+    const listValue = idx !== -1 ? (currentRows[idx]![key] as string | null) ?? null : null
 
     // Optimistic update — single findIndex + splice instead of find + map (O(n) → O(n) but one pass)
     if (idx !== -1) {
@@ -638,8 +638,13 @@ export const useGridStore = create<GridState>((set, get) => ({
       set({ isSaving: true, saveError: null })
     }
     try {
-      const result = await invoke<{ sysLogId: number | null }>(IPC.CELL_UPDATE, rowId, columnId, value)
+      const result = await invoke<{ sysLogId: number | null; previous?: string | null }>(IPC.CELL_UPDATE, rowId, columnId, value)
       set({ isSaving: false })
+      // A record not in the open list (archived, shown on its own page) has no copy here:
+      // the value it replaced comes from the database, or Undo would blank the field (F-016)
+      const prevValue = idx !== -1 ? listValue : (result.previous ?? null)
+      // Lets a page showing a record that isn't in the list keep its copy current, Undo included
+      pulseEvents.emit('cell:saved', { rowId, columnId, value })
       // Lets a sequence ask "correction or new start?" when its start date changes (D-37)
       if (prevValue !== value && !useUndoStore.getState().isUndoing) pulseEvents.emit('cell:changed', { rowId, columnId, from: prevValue, to: value })
       // The first edit to a made-up sample entry: ask once whether it's real now
@@ -699,7 +704,7 @@ export const useGridStore = create<GridState>((set, get) => ({
     } catch (err) {
       // Roll back to the previous value, unless a newer edit has replaced this one meanwhile (AUDIT-130)
       set(s => ({
-        rows: s.rows.map(r => r.row_id === rowId && (r[key] ?? null) === value ? { ...r, [key]: prevValue } : r),
+        rows: s.rows.map(r => r.row_id === rowId && (r[key] ?? null) === value ? { ...r, [key]: listValue } : r),
         isSaving: false,
         saveError: fromUndo || collect ? null : "We couldn't save your changes — please try again."
       }))

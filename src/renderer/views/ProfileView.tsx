@@ -201,6 +201,10 @@ export default function ProfileView(): React.ReactElement {
   const goneStatus = lookup?.rowId === rowId && !rowInList && lookup.status !== 'active' && lookup.status !== 'archived' ? lookup.status : null
   useEffect(() => { if (rowId != null && goneStatus) removeRecentProfile?.(rowId) }, [rowId, goneStatus, removeRecentProfile])
   const archivedRow = lookup?.rowId === rowId && !rowInList ? lookup.archivedRow : undefined
+  // An archived record's page shows its own copy of the record: keep it current after a save, Undo included (F-016)
+  useEffect(() => pulseEvents.on('cell:saved', ({ rowId: savedId, columnId, value }) => {
+    setLookup(l => l?.rowId === savedId && l.archivedRow ? { ...l, archivedRow: { ...l.archivedRow, [`col_${columnId}`]: value } } : l)
+  }), [])
   const row = rowInList ?? archivedRow
   const isArchived = !!row && row.is_active === 0
   const [unarchiving, setUnarchiving] = useState(false)

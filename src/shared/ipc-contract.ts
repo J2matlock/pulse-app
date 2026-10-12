@@ -276,7 +276,7 @@ export interface IPCContract {
   'row:set-manual-contacts': { args: [rowId: number, contacts: ManualContact[]];                                           return: true }
 
   // ── Cell ────────────────────────────────────────────────────────────────
-  'cell:update':              { args: [rowId: number, columnId: number, value: string | null, opts?: { doneNote?: string }]; return: { sysLogId: number | null } }
+  'cell:update':              { args: [rowId: number, columnId: number, value: string | null, opts?: { doneNote?: string }]; return: { sysLogId: number | null; previous: string | null } }
   'cell:get-history':         { args: [rowId: number, columnId: number];                      return: CellHistoryEntry[] }
   'cell-format:set':          { args: [rowId: number, columnId: number, rules: string];       return: true }
   'cell-format:batch-set':    { args: [entries: Array<{ rowId: number; columnId: number; rules: string }>]; return: true }

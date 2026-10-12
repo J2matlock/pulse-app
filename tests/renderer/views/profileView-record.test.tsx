@@ -77,7 +77,10 @@ vi.mock('../../../src/renderer/components/profile/CaseLog', async () => {
     },
   }
 })
-vi.mock('../../../src/renderer/components/profile/GridDataSummary', () => ({ GridDataSummary: () => null }))
+vi.mock('../../../src/renderer/components/profile/GridDataSummary', () => ({
+  // No text, so it doesn't add to what the other tests query; the row it was given is in an attribute
+  GridDataSummary: ({ row }: { row?: Record<string, unknown> }) => <output data-testid="record-details" data-name={String(row?.col_1 ?? '')} />,
+}))
 vi.mock('../../../src/renderer/components/profile/LinkedProviders', () => ({ LinkedProviders: () => null }))
 vi.mock('../../../src/renderer/components/profile/Checklist', () => ({ Checklist: () => null, TemplateManager: () => null }))
 vi.mock('../../../src/renderer/components/profile/ScratchPad', () => ({ ScratchPad: () => null }))
@@ -249,6 +252,27 @@ describe('A record opens from anywhere (1.24)', () => {
     expect(screen.getByLabelText('note for 9')).toBeTruthy()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Unarchive' })) })
     expect(unarchiveRow).toHaveBeenCalledWith(9)
+  })
+
+  it("an archived record's page shows a save, and its undo, at once (F-016)", async () => {
+    invokeMock.fn = async (channel: string) => {
+      if (channel === 'row:locate') return { ok: true, data: { gridId: 1, status: 'archived', archivedReason: null } }
+      if (channel === 'row:get') return { ok: true, data: rowOf(9, 'Ann', { is_active: 0 }) }
+      return { ok: true, data: [] }
+    }
+    renderAt('/profile/9')
+    await flush()
+    await flush()
+    const details = () => screen.getByTestId('record-details').getAttribute('data-name')
+    expect(details()).toBe('Ann')
+    const { pulseEvents } = await import('../../../src/renderer/events')
+    act(() => { pulseEvents.emit('cell:saved', { rowId: 9, columnId: 1, value: 'Anne' }) })
+    expect(details()).toBe('Anne')
+    // Another record's save leaves this page alone
+    act(() => { pulseEvents.emit('cell:saved', { rowId: 2, columnId: 1, value: 'Bob' }) })
+    expect(details()).toBe('Anne')
+    act(() => { pulseEvents.emit('cell:saved', { rowId: 9, columnId: 1, value: 'Ann' }) })
+    expect(details()).toBe('Ann')
   })
 
   it('says when a record is in the Trash', async () => {

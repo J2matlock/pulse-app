@@ -91,6 +91,12 @@ describe('CELL_UPDATE', () => {
     expect(r.data).toHaveProperty('sysLogId')
   })
 
+  it('returns the value the save replaced, for the undo step of a record not in the open list (F-016)', async () => {
+    expect(((await invoke(IPC.CELL_UPDATE, rowId, columnId, 'A')) as any).data.previous).toBeNull()
+    expect(((await invoke(IPC.CELL_UPDATE, rowId, columnId, 'B')) as any).data.previous).toBe('A')
+    expect(((await invoke(IPC.CELL_UPDATE, rowId, columnId, null)) as any).data.previous).toBe('B')
+  })
+
   it('a restored database starts with fresh column types, even for a reused column id (bug sweep S4)', async () => {
     testDb.db.prepare("UPDATE columns SET column_type = 'link' WHERE id = ?").run(columnId)
     expect((await invoke(IPC.CELL_UPDATE, rowId, columnId, 'x') as any).ok).toBe(false)

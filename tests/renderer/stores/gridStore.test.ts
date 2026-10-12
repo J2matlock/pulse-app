@@ -372,6 +372,25 @@ describe('gridStore', () => {
       expect(toast.error).not.toHaveBeenCalled()
     })
 
+    it("undoing an edit to a record not in the list (an archived record's page) puts the old value back, not a blank (F-016)", async () => {
+      useUndoStore.setState({ undoStack: [], redoStack: [], toast: null, isUndoing: false })
+      // Record 7 is archived: the open list doesn't have it
+      useGridStore.setState({ activeGridId: 1, rows: [makeRow(1)], columns: [makeColumn(5, 'Notes')] })
+      const { pulseEvents } = await import('../../../src/renderer/events')
+      const saved: unknown[] = []
+      const off = pulseEvents.on('cell:saved', d => { saved.push(d) })
+      mockInvoke.mockClear()
+      mockInvoke.mockResolvedValue({ ok: true, data: { sysLogId: null, previous: 'A' } })
+      await useGridStore.getState().updateCell(7, 5, 'B')
+      const step = useUndoStore.getState().undoStack.at(-1)!
+      mockInvoke.mockResolvedValue({ ok: true, data: { sysLogId: null, previous: 'B' } })
+      await step.undo()
+      expect(mockInvoke).toHaveBeenLastCalledWith(IPC.CELL_UPDATE, 7, 5, 'A')
+      // The record page keeps its own copy current through the save and the undo
+      expect(saved).toEqual([{ rowId: 7, columnId: 5, value: 'B' }, { rowId: 7, columnId: 5, value: 'A' }])
+      off()
+    })
+
     it('keeps the undo history when another list opens (L-16)', async () => {
       useUndoStore.setState({ undoStack: [], redoStack: [], toast: null, isUndoing: false })
       const row = makeRow(1)

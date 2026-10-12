@@ -110,10 +110,14 @@ export function registerCellHandlers(): void {
 
     let sysLogId: number | null = null
     let needsLogNotify = false
+    // The value this save replaced, for the renderer's undo step: a record that isn't in the
+    // open list (archived, on its own page) has no copy there to take it from (F-016)
+    let previous: string | null = null
 
     db.transaction(() => {
       // Record history before updating
       const existing = cachedStmt('cell_select', 'SELECT id, value FROM cells WHERE row_id = ? AND column_id = ?').get(rowId, columnId) as { id: number, value: string | null } | undefined
+      previous = existing?.value ?? null
 
       upsertCell(rowId, columnId, value)
       if (columnAffectsDisplayName(pairOk.grid_id, columnId)) refreshDisplayNames(pairOk.grid_id, [rowId])
@@ -178,7 +182,7 @@ export function registerCellHandlers(): void {
     // Notify outside transaction to avoid holding the lock
     if (needsLogNotify) notifyCaseLogChanged(rowId)
 
-    return ok({ sysLogId })
+    return ok({ sysLogId, previous })
   })
 
   // CELL_BULK_UPDATE: removed — no multi-cell paste UI exists yet. Re-add when needed.
