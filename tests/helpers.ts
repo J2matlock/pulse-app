@@ -3,7 +3,7 @@
  * No Electron mocks needed: we import better-sqlite3-multiple-ciphers directly.
  */
 import BetterSqlite3 from 'better-sqlite3-multiple-ciphers'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { mkdirSync, mkdtempSync, rmSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'

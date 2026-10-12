@@ -6,7 +6,7 @@
  * stubs that operate on testDb.db directly.
  */
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'vitest'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createTestDb, cleanupTestDb, seedGrid, setDbWords, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
 

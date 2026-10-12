@@ -9,7 +9,7 @@ import { createHash } from 'crypto'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import BetterSqlite3 from 'better-sqlite3-multiple-ciphers'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import type { Migration } from '../src/main/migration-list'
 
 const KEY_HEX = 'a1'.repeat(32)

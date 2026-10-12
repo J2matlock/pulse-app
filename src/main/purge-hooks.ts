@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 
 /**
  * Called inside the transaction that permanently deletes records, before the rows go,

@@ -6,7 +6,7 @@
  * Mock fs for file I/O (parsePulseFile, writePulseFile) and electron for path checks.
  */
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'vitest'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createTestDb, cleanupTestDb, seedGrid, setDbWords, type TestDb } from './helpers'
 import { GENERIC_VOCAB } from '../src/shared/vocab'
 

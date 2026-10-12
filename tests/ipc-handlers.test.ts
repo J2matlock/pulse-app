@@ -7,7 +7,7 @@
  * handlers directly and assert results.
  */
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'vitest'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
 import { registerReadOnlyChecker } from '../src/main/ipc/ipc-utils'

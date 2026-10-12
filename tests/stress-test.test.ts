@@ -16,7 +16,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { writeFileSync, rmSync } from 'fs'
 import { join } from 'path'
 import BetterSqlite3 from 'better-sqlite3-multiple-ciphers'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 
 // ── Migrations: the app's own list, so the schema is the one the code expects ──
 import { MIGRATIONS, applyMigration } from '../src/main/migration-list'

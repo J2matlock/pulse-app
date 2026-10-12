@@ -3,7 +3,7 @@
  * still count every deadline, the same as the morning briefing. Caps made small here.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
 

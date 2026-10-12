@@ -2,7 +2,7 @@
  * IPC Settings handler tests — ipc-settings.ts
  */
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'vitest'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createTestDb, cleanupTestDb, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
 

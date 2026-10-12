@@ -8,7 +8,7 @@
  * verifyBackup / restoreBackupOnNewInstall need a production-format database.
  */
 import BetterSqlite3 from 'better-sqlite3-multiple-ciphers'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createWriteStream, readFileSync, writeFileSync } from 'fs'
 import { pipeline } from 'stream/promises'
 import yazl from 'yazl'

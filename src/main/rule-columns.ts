@@ -6,7 +6,7 @@
  * instead: `{ "column": "Referral date" }`. Applying a file resolves the names
  * against the list the rule lands on, after its columns exist.
  */
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { parseRuleConfig, conditionSchema, RULE_KINDS, type RuleKind } from '../shared/deadlineEngine'
 
 /** Settings keys that hold a column id, across every kind */

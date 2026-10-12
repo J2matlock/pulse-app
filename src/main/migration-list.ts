@@ -5,7 +5,7 @@
  * test databases from it, so a migration can't be registered in one and not the
  * other. Only imports the migration files, so tests can load it without Electron.
  */
-import type { Database as BetterSqlite3DB } from 'better-sqlite3'
+import type { Database as BetterSqlite3DB } from 'better-sqlite3-multiple-ciphers'
 import { removeOrphansBefore014 } from './migration-fixups'
 import { up as migration001 } from './migrations/001_initial_schema'
 import { up as migration002 } from './migrations/002_cell_formats'

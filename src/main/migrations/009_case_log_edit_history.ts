@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 
 export function up(db: Database): void {
   // Track original content when a case log entry is edited, so the activity

@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 
 /**
  * Monthly contact requirements per caseload, e.g. "1 face-to-face (Visit

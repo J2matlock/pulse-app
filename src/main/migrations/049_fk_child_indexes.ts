@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 
 /**
  * Migration 049: indexes for lookups by a foreign key that no index led with

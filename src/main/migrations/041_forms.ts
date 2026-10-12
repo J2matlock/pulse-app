@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 
 /**
  * Forms (generalization W08 §2): a clean way to add or update a record, or

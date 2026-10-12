@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 
 export function up(db: Database): void {
   // ── 1. Compound index on case_log for filtered reads ────────────────────────

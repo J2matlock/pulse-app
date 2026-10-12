@@ -14,7 +14,7 @@ import type {
   ProviderClientLink,
   ContactFilterParams,
 } from '../shared/types'
-import type { Statement } from 'better-sqlite3'
+import type { Statement } from 'better-sqlite3-multiple-ciphers'
 import { LIVE_GRID, LIVE_ROW } from '../shared/liveRecords'
 
 // ASCII unit separator: tags may legitimately contain commas ("Housing, Rental")

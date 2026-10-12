@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import BetterSqlite3 from 'better-sqlite3-multiple-ciphers'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 
 const KEY_A = 'test-cipher-key-alpha-0123456789'
 const KEY_B = 'test-cipher-key-bravo-9876543210'

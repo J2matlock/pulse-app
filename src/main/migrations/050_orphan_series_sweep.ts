@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 
 /**
  * Migration 050: remove repeating-appointment series whose record was deleted for good (P-005).

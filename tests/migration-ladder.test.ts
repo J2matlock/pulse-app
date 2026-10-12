@@ -18,7 +18,7 @@
  * tests/database-open.test.ts and tests/ipc-auth.test.ts (AUDIT-003).
  */
 import { describe, it, expect, afterEach } from 'vitest'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createEmptyEncryptedDb, cleanupTestDb, LATEST_SCHEMA_VERSION, type TestDb } from './helpers'
 import { MIGRATIONS, applyMigration, type Migration } from '../src/main/migration-list'
 

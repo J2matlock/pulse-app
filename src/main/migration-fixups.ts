@@ -2,7 +2,7 @@
  * migration-fixups.ts — repairs run just before a shipped migration that can't
  * be edited any more (old installs have already run it).
  */
-import type { Database as BetterSqlite3DB } from 'better-sqlite3'
+import type { Database as BetterSqlite3DB } from 'better-sqlite3-multiple-ciphers'
 
 /**
  * Before 014: drop format and contact-link rows that point at deleted records.

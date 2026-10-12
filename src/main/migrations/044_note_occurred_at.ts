@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 
 /**
  * Notes dated by when they happened (audit plan 1.22, 1.23; owner decision B1).

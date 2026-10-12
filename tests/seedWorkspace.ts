@@ -13,7 +13,7 @@
  * seconds; it doesn't go through IPC handlers and never needs electron.
  */
 import { createHash } from 'crypto'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { localDateString } from '../src/shared/dates'
 import { addDays } from '../src/shared/ymd'
 

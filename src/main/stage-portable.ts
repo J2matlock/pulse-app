@@ -3,7 +3,7 @@
  * point at a checklist and a date column by id, which means nothing in
  * another database; in files they point by name and are resolved on apply.
  */
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { saveStageConfig, StageError } from './stages'
 import type { PortableStage, StageConfig } from '../shared/stages'
 

@@ -2,7 +2,7 @@
  * IPC Cell Handler Tests — tests all CELL_*, CELL_FORMAT_* handlers.
  */
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'vitest'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
 

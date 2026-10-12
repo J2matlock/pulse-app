@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 
 export function up(db: Database): void {
   // This index already exists from migration 019 — this is a no-op kept for

@@ -15,7 +15,7 @@ import { mkdirSync, mkdtempSync, rmSync, existsSync, readdirSync, readFileSync, 
 import { tmpdir } from 'os'
 import { join } from 'path'
 import BetterSqlite3 from 'better-sqlite3-multiple-ciphers'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { IPC } from '../../src/shared/ipc-channels'
 
 const KEY_HEX = 'c3'.repeat(32)

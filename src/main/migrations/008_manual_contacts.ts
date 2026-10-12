@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 
 export function up(db: Database): void {
   // Add manual_contacts column to rows for storing contact info not in grid columns

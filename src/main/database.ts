@@ -6,7 +6,7 @@
  */
 
 import BetterSqlite3 from 'better-sqlite3-multiple-ciphers'
-import type { Database as BetterSqlite3DB } from 'better-sqlite3'
+import type { Database as BetterSqlite3DB } from 'better-sqlite3-multiple-ciphers'
 import { logger } from './logger'
 import { join } from 'path'
 import { mkdirSync, chmodSync, existsSync, unlinkSync } from 'fs'
@@ -84,13 +84,13 @@ let cleanupTimer: ReturnType<typeof setTimeout> | null = null
 
 // ── Prepared statement cache ─────────────────────────────────────────────────
 // Avoids re-compiling SQL on every call. Invalidated when the DB connection changes.
-const stmtCache = new Map<string, import('better-sqlite3').Statement>()
+const stmtCache = new Map<string, import('better-sqlite3-multiple-ciphers').Statement>()
 const STMT_CACHE_MAX = 128
 const CELL_HISTORY_MAX_PER_CELL = 50
 const TRASH_PURGE_DAYS = 30
 const DEFERRED_CLEANUP_DELAY_MS = 15_000
 
-export function cachedStmt(key: string, sql: string): import('better-sqlite3').Statement {
+export function cachedStmt(key: string, sql: string): import('better-sqlite3-multiple-ciphers').Statement {
   const existing = stmtCache.get(key)
   if (existing) {
     // Collision assertion: same key must always map to same SQL

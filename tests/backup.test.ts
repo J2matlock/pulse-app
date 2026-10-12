@@ -13,7 +13,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { copyFileSync, existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync, statSync, utimesSync, symlinkSync, chmodSync } from 'fs'
 import { join, basename, dirname } from 'path'
 import { createHash } from 'crypto'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import {
   createTestDb,
   cleanupTestDb,

@@ -25,7 +25,7 @@ import { getStoredDbPath, getDbKey, getKeyEnvelope, isValidKeyEnvelope, unwrapKe
 import { MS_PER_DAY } from '../shared/constants'
 import { LIMIT_MB_RANGE, formatBytes } from '../shared/attachments'
 import { getPortableDataDir, setEncryptionKey, resolveDatabasePath, latestSchemaVersion } from './database'
-const BetterSqlite3 = require('better-sqlite3-multiple-ciphers') as typeof import('better-sqlite3')
+const BetterSqlite3 = require('better-sqlite3-multiple-ciphers') as typeof import('better-sqlite3-multiple-ciphers')
 
 // ── Bridge to database.ts (avoids circular require that breaks in bundled builds) ──
 // database.ts calls setDatabaseBridge() at startup to provide its functions.

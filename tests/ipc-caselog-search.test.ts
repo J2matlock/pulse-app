@@ -3,7 +3,7 @@
  * cover every note on a record, not just the loaded page.
  */
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll } from 'vitest'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
 

@@ -20,7 +20,7 @@ import {
 } from '../backup'
 import { getDbKey, lockApp } from '../auth'
 import { LIVE_GRID, LIVE_ROW, NOT_TRASHED_ROW, liveGrid } from '../../shared/liveRecords'
-const BetterSqlite3 = require('better-sqlite3-multiple-ciphers') as typeof import('better-sqlite3')
+const BetterSqlite3 = require('better-sqlite3-multiple-ciphers') as typeof import('better-sqlite3-multiple-ciphers')
 import { exportCsv, exportPdfGrid, exportPdfProfile, exportLetterPdf, exportSupervisorReport, exportContactPdf, exportDirectoryPdf, type CsvExportOptions, type PdfGridOptions, type PdfProfileOptions, type SupervisorReportOptions } from '../export'
 import { parseImportFile, autoMatchColumns, executeImport, type ImportOptions } from '../import'
 import { exportNotesCsv } from '../export-csv'

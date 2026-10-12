@@ -2,7 +2,7 @@
  * Migration 029: Reference Board — categories and items tables.
  */
 
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 
 export function up(db: Database): void {
   db.exec(`

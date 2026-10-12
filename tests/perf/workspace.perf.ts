@@ -15,7 +15,7 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { writeFileSync, mkdirSync, rmSync, statSync } from 'fs'
 import { join } from 'path'
-import type { Database, Statement } from 'better-sqlite3'
+import type { Database, Statement } from 'better-sqlite3-multiple-ciphers'
 
 const tmpDir = await vi.hoisted(async () => {
   const { mkdtempSync } = await import('fs')
@@ -50,9 +50,9 @@ vi.mock('electron-store', () => {
 // ── The database the handlers see: the test DB, through a recorder ──────────
 const handlers = vi.hoisted(() => new Map<string, (...args: unknown[]) => unknown>())
 const state = vi.hoisted(() => ({
-  db: null as unknown as import('better-sqlite3').Database,
-  proxy: null as unknown as import('better-sqlite3').Database,
-  stmts: new Map<string, import('better-sqlite3').Statement>(),
+  db: null as unknown as import('better-sqlite3-multiple-ciphers').Database,
+  proxy: null as unknown as import('better-sqlite3-multiple-ciphers').Database,
+  stmts: new Map<string, import('better-sqlite3-multiple-ciphers').Statement>(),
   /** SQL → the first arguments it ran with, for EXPLAIN */
   seen: new Map<string, unknown[]>(),
   /** SQL → time spent running it during the current measure */

@@ -4,7 +4,7 @@
  * and the per-cell tables by column.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createEmptyEncryptedDb, cleanupTestDb, allMigrations, type TestDb } from './helpers'
 import { up as migration049 } from '../src/main/migrations/049_fk_child_indexes'
 

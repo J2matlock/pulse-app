@@ -3,7 +3,7 @@
  * Captures handlers from registerDashboardHandlers() and tests them against a real DB.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
-import type { Database } from 'better-sqlite3'
+import type { Database } from 'better-sqlite3-multiple-ciphers'
 import { createTestDb, cleanupTestDb, seedGrid, type TestDb } from './helpers'
 import { IPC } from '../src/shared/ipc-channels'
 
