@@ -15,7 +15,7 @@ import { getDb } from './database'
 import { logger } from './logger'
 import { usesHumanServicesWords } from './vocab'
 import { freshAutoNumberConfig } from './auto-number'
-import { buildSafeSetClause, logNonFatal } from './ipc/ipc-utils'
+import { buildSafeSetClause, logNonFatal, assertSafePath } from './ipc/ipc-utils'
 import type { Column, ChecklistTemplate, AlertRule } from '../shared/types'
 import type { RuleKind } from '../shared/deadlineEngine'
 import { linkColumnRules, portableRuleFields, refersToColumns, resolveRuleFields } from './rule-columns'
@@ -322,16 +322,12 @@ export function exportGridAsPulse(gridId: number): PulseFile {
 
 export function writePulseFile(pulseFile: PulseFile, destPath: string): void {
   if (!destPath.endsWith('.pulse')) {
-    throw new Error('Destination path must have a .pulse extension')
+    throw new Error('A template file needs the .pulse extension. Choose a name that ends in .pulse.')
   }
-  // Validate path is within allowed directories (home or userData)
-  const { app } = require('electron') as typeof import('electron')
-  const resolved = require('path').resolve(destPath) as string
-  const home = app.getPath('home')
-  const userData = app.getPath('userData')
-  if (!resolved.startsWith(home) && !resolved.startsWith(userData)) {
-    throw new Error(`Path outside allowed directories: ${destPath}`)
-  }
+  // The same rule as every other file Pulse writes: USB drives, second drives and folders
+  // picked in a dialog are fine, system folders aren't. A home-or-data-folder check here
+  // refused a USB drive and showed the raw path (F-034).
+  assertSafePath(destPath)
   // Atomic write to prevent corruption on power loss or disk-full
   const { writeFileSync: ws, openSync, fsyncSync, closeSync, unlinkSync, renameSync } = require('fs') as typeof import('fs')
   const tmp = destPath + '.tmp'
