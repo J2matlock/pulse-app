@@ -208,7 +208,17 @@ function setLiveKey(next: Buffer | null): void {
 // Lets those flows create a recovery key / reset the password without asking
 // for a password the user just typed (or has forgotten). Everywhere else,
 // changing recovery credentials requires re-entering the current password.
+// The setup grace only covers the setup step itself (A24-10): someone at the
+// machine later in that first session can't revoke or replace the recovery key.
+// The recovery grace ends once the new password is set.
 let credentialGrace: 'setup' | 'recovery' | null = null
+let setupGraceUntil = 0
+export const SETUP_GRACE_MS = 10 * 60 * 1000
+
+function hasCredentialGrace(): boolean {
+  if (credentialGrace === 'recovery') return true
+  return credentialGrace === 'setup' && Date.now() < setupGraceUntil
+}
 
 // Brute-force protection: persist failed attempt state across restarts
 const MAX_LOCKOUT_MS = 30 * 60 * 1000 // 30 minutes max (prevents permanent lockout from corrupted state)
@@ -374,11 +384,12 @@ function commitPasswordCredentials(dbKey: Buffer, values: Partial<SecureStore>):
 
   setLiveKey(Buffer.from(dbKey))
   credentialGrace = 'setup'
+  setupGraceUntil = Date.now() + SETUP_GRACE_MS
 }
 
 /** Re-check the current password without touching liveDbKey (for sensitive settings changes). */
 async function confirmCurrentPassword(password: unknown): Promise<void> {
-  if (credentialGrace) return
+  if (hasCredentialGrace()) return
   if (typeof password !== 'string' || password.length === 0) throw new Error('Enter your current password to continue')
   const lockoutMsg = checkAndApplyLockout()
   if (lockoutMsg) throw new Error(lockoutMsg)
@@ -564,6 +575,8 @@ export async function resetPasswordAfterRecovery(newPassword: string, newHint: s
   if (credentialGrace !== 'recovery') throw new Error('Password reset is only available after unlocking with your recovery key')
 
   await rewrapPassword(newPassword, newHint)
+  // The person knows a password again, so later changes ask for it
+  credentialGrace = null
   logger.info('auth', 'Password reset via recovery key')
 }
 
