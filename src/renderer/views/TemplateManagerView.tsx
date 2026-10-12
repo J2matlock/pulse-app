@@ -2,7 +2,7 @@
  * TemplateManagerView — Full-page view at /templates.
  * Manages setup templates (.pulse files) and checklist templates.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { Download, Upload, FileText, Plus, Check } from 'lucide-react'
 import { IPC } from '../../shared/ipc-channels'
 import type { ChecklistTemplate, SaveDialogResult, OpenDialogResult } from '../../shared/types'
@@ -49,7 +49,8 @@ export default function TemplateManagerView(): React.ReactElement {
   const [gridPickerOpen, setGridPickerOpen] = useState(false)
   const [pickerGridId, setPickerGridId] = useState<number | null>(null)
   const gridPickerTrapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(gridPickerTrapRef, gridPickerOpen)
+  const gridPickerTitleId = useId()
+  useFocusTrap(gridPickerTrapRef, gridPickerOpen, { onEscape: () => setGridPickerOpen(false) })
 
   const loadSetupTemplates = useCallback(async () => {
     setLoadingSetup(true)
@@ -468,8 +469,8 @@ export default function TemplateManagerView(): React.ReactElement {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
           onClick={e => { if (e.target === e.currentTarget) setGridPickerOpen(false) }}
         >
-          <div ref={gridPickerTrapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+          <div ref={gridPickerTrapRef} role="dialog" aria-modal="true" aria-labelledby={gridPickerTitleId} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <h2 id={gridPickerTitleId} className="text-lg font-semibold text-slate-800 dark:text-slate-100">
               Save {w('list', { cap: true })} as Template
             </h2>
             <div>

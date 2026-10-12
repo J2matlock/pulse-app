@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useId } from 'react'
 import { GripVertical, Trash2, Calendar, X, Pencil, Repeat, AlertTriangle } from 'lucide-react'
 import { relativeTime } from '../../utils/relativeTime'
 import { useSortable } from '@dnd-kit/sortable'
@@ -31,8 +31,10 @@ function ChecklistEditDialog({ item, onSave, onClose }: {
   const [recurInterval, setRecurInterval] = useState(1)
   const titleRef = useRef<HTMLInputElement>(null)
   const trapRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
 
-  useFocusTrap(trapRef, true)
+  // Escape closes from anywhere in the dialog, not only from the text boxes
+  useFocusTrap(trapRef, true, { onEscape: onClose })
   useEffect(() => { titleRef.current?.focus() }, [])
 
   useEffect(() => {
@@ -66,8 +68,8 @@ function ChecklistEditDialog({ item, onSave, onClose }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
          onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div ref={trapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Edit checklist item</h2>
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg p-6 space-y-4">
+        <h2 id={titleId} className="text-lg font-semibold text-slate-800 dark:text-slate-100">Edit checklist item</h2>
 
         {/* Title */}
         <div>
@@ -79,7 +81,7 @@ function ChecklistEditDialog({ item, onSave, onClose }: {
             ref={titleRef}
             value={title}
             onChange={e => setTitle(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose() }}
+            onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
             className="input w-full"
             placeholder="What needs to be done?"
             style={{ fontSize: 15 }}
@@ -127,7 +129,7 @@ function ChecklistEditDialog({ item, onSave, onClose }: {
               type="date"
               value={dueDate}
               onChange={e => setDueDate(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose() }}
+              onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
               className="input w-full"
               style={{ fontSize: 15 }}
             />

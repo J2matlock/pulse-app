@@ -4,7 +4,7 @@
  * Column rules stored in columns.conditional_format JSON.
  * Priority: Alert rules > Cell formats > Column formats > Row highlights
  */
-import React, { useRef, useState } from 'react'
+import React, { useId, useRef, useState } from 'react'
 import { X, Plus, Trash2, Pipette, ChevronUp, ChevronDown } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useShallow } from 'zustand/react/shallow'
@@ -186,6 +186,8 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
   })))
 
   const trapRef = useRef<HTMLDivElement>(null)
+
+  const titleId = useId()
   useFocusTrap(trapRef, true, { onEscape: onClose })
 
   const isColumnMode = mode === 'column'
@@ -291,11 +293,11 @@ export function CellConditionalFormatPanel({ rowId, columnId, onClose, mode = 'c
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div ref={trapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col">
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col">
 
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+            <h2 id={titleId} className="text-lg font-semibold text-slate-800 dark:text-slate-100">
               {isColumnMode ? 'Auto-Highlight Column' : 'Auto-Highlight Cell'}
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">

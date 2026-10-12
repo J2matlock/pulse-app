@@ -1,5 +1,5 @@
 import toast from 'react-hot-toast'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useId, useRef, useState } from 'react'
 import { FileText, X, AlertTriangle, ChevronDown, Copy, Check, FileDown } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Column, Grid, GridRow } from '../../../shared/types'
@@ -43,6 +43,7 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
   const { copied, copyToClipboard: doCopy, resetCopied } = useCopyFeedback()
   const resultRef = useRef<HTMLTextAreaElement>(null)
   const trapRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
 
   useFocusTrap(trapRef, true)
 
@@ -124,11 +125,11 @@ export function GenerateLetterModal({ template, grids, onClose }: GenerateModalP
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div ref={trapRef} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
           <FileText className="w-5 h-5 text-blue-500 flex-shrink-0" />
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1 truncate">
+          <h2 id={titleId} className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1 truncate">
             Generate: {template.name}
           </h2>
           <button

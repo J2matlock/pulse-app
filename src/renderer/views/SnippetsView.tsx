@@ -49,7 +49,7 @@ function SnippetEditor({ initial, onSave, onClose, takenTriggers }: EditorProps)
   const triggerRef = useRef<HTMLInputElement>(null)
   const trapRef = useRef<HTMLDivElement>(null)
 
-  useFocusTrap(trapRef, true)
+  useFocusTrap(trapRef, true, { onEscape: onClose })
   useEffect(() => { triggerRef.current?.focus() }, [])
 
   function insertVariable(v: string) {

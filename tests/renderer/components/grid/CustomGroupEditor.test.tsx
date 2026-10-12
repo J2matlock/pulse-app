@@ -89,6 +89,11 @@ describe('CustomGroupEditor', () => {
     setupStore()
   })
 
+  it('is a modal dialog named by its title (Q-101)', () => {
+    render(<CustomGroupEditor gridId={1} onClose={vi.fn()} />)
+    expect(screen.getByRole('dialog', { name: 'New Custom Group' }).getAttribute('aria-modal')).toBe('true')
+  })
+
   it('renders New Custom Group title', () => {
     render(<CustomGroupEditor gridId={1} onClose={vi.fn()} />)
     expect(screen.getByText('New Custom Group')).toBeTruthy()
