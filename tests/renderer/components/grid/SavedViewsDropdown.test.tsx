@@ -98,6 +98,19 @@ describe('SavedViewsDropdown', () => {
     expect(screen.getByText('No saved views yet')).toBeTruthy()
   })
 
+  it('each saved view is a button, so the keyboard can apply it; delete names the view (Q-053)', () => {
+    const applySavedView = vi.fn()
+    const deleteSavedView = vi.fn()
+    setupStore({ savedViews: [{ id: 4, name: 'Due soon', grid_id: 1, config: '{}', created_at: '' }], applySavedView, deleteSavedView })
+    render(<SavedViewsDropdown />)
+    fireEvent.click(screen.getByText('Views'))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete view Due soon' }))
+    expect(deleteSavedView).toHaveBeenCalledWith(4)
+    expect(applySavedView).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Due soon' }))
+    expect(applySavedView).toHaveBeenCalledWith(4)
+  })
+
   it('shows badge count when views exist', () => {
     setupStore({
       savedViews: [{ id: 1, name: 'My View', grid_id: 1, config: '{}', created_at: '' }],
