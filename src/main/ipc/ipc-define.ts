@@ -20,8 +20,9 @@
  * 4. the body, with the parsed arguments.
  *
  * Schemas are Zod. Give every schema the exact message people should see (or
- * the one a test pins), as the first argument of idArg / textArg / z.xxx(…)
- * or the last of schemaArg / .min / .max / .refine — tests/renderer/friendlyError.test.ts
+ * the one a test pins), as the first argument of idArg / textArg / z.xxx(…),
+ * the first two of idListArg, or the last of schemaArg / z.enum / z.custom /
+ * .min / .max / .refine / .regex — tests/renderer/friendlyError.test.ts
  * reads the messages from those places. Zod objects drop keys they don't
  * list; use z.looseObject where the body passes the whole object on.
  */
@@ -59,6 +60,18 @@ export function textArg(message: string, { min, max, notBlank }: TextArgOptions 
   if (min !== undefined) schema = schema.min(min, message)
   if (max !== undefined) schema = schema.max(max, message)
   return notBlank ? schema.refine(s => s.trim().length > 0, message) : schema
+}
+
+/**
+ * A list of ids: not a list, or too short or long → `listMessage`; then a bad id
+ * in it → `idMessage` (checked only once the list itself passed, as the
+ * hand-written "length first, then every id" checks did).
+ */
+export function idListArg(listMessage: string, idMessage: string, { min, max }: { min?: number; max?: number } = {}) {
+  let list = z.array(z.unknown(), listMessage)
+  if (min !== undefined) list = list.min(min, listMessage)
+  if (max !== undefined) list = list.max(max, listMessage)
+  return list.pipe(z.array(idArg(idMessage)))
 }
 
 /**

@@ -24,7 +24,7 @@ vi.mock('../src/main/logger', () => ({
 }))
 vi.mock('../src/main/data-dir', () => ({ getPortableDataDir: () => '/tmp' }))
 
-import { defineHandler, handlersFor, idArg, textArg, schemaArg } from '../src/main/ipc/ipc-define'
+import { defineHandler, handlersFor, idArg, textArg, schemaArg, idListArg } from '../src/main/ipc/ipc-define'
 import { ok, fail, registerReadOnlyChecker, GENERIC_ERROR_MESSAGE } from '../src/main/ipc/ipc-utils'
 import { IPC_READ_ONLY } from '../src/shared/constants'
 
@@ -156,6 +156,26 @@ describe('textArg', () => {
 
   it('without limits takes any string, the empty one included', () => {
     expect(msg(textArg('Invalid').safeParse(''))).toBe('ok')
+  })
+})
+
+describe('idListArg', () => {
+  const ids = idListArg('Invalid reorder payload', 'Invalid IDs in reorder payload', { min: 1, max: 3 })
+  const msg = (v: unknown) => { const r = ids.safeParse(v); return r.success ? r.data : r.error.issues[0]!.message }
+
+  it('checks the list before its ids', () => {
+    expect(msg('x')).toBe('Invalid reorder payload')
+    expect(msg(null)).toBe('Invalid reorder payload')
+    expect(msg([])).toBe('Invalid reorder payload')
+    // Too long and a bad id: the length answers, as it did when checked first
+    expect(msg([0, 1, 2, 3])).toBe('Invalid reorder payload')
+    expect(msg([1, 0])).toBe('Invalid IDs in reorder payload')
+    expect(msg([1, '2'])).toBe('Invalid IDs in reorder payload')
+    expect(msg([1, 2, 3])).toEqual([1, 2, 3])
+  })
+
+  it('without limits takes any length, the empty list included', () => {
+    expect(idListArg('Invalid', 'Invalid ID').safeParse([])).toMatchObject({ success: true, data: [] })
   })
 })
 

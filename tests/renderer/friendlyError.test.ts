@@ -156,9 +156,11 @@ function mainMessages(): string[] {
       for (const m of src.matchAll(/\bfail\(\s*(['"`])((?:\\.|(?!\1).)*)\1/g)) out.add(m[2])
       // defineHandler argument schemas answer with their own messages (src/main/ipc/ipc-define.ts)
       for (const pattern of [
-        /\b(?:idArg|textArg|z\.(?:string|number|boolean|int))\(\s*(['"`])((?:\\.|(?!\1).)*)\1/g,
+        /\b(?:idArg|textArg|idListArg|z\.(?:string|number|boolean|int))\(\s*(['"`])((?:\\.|(?!\1).)*)\1/g,
         /(?:\.(?:min|max|refine|regex)|\bschemaArg|\bz\.(?:custom(?:<.*?>)?|enum))\([^\n]*?,\s*(['"`])((?:\\.|(?!\1).)*)\1\s*\)/g,
         /\bfunction \w+Arg\(\s*\w+\s*=\s*(['"`])((?:\\.|(?!\1).)*)\1/g,
+        // idListArg(listMessage, idMessage, …): the second message
+        /\bidListArg\(\s*(?:'(?:\\.|[^'])*'|"(?:\\.|[^"])*"|`(?:\\.|[^`])*`)\s*,\s*(['"`])((?:\\.|(?!\1).)*)\1/g,
       ]) {
         for (const m of src.matchAll(pattern)) out.add(m[2])
       }
