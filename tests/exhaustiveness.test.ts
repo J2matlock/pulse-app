@@ -19,6 +19,10 @@ import { evalCellFormat } from '../src/renderer/components/grid/CellConditionalF
 import { ROW_TAG_COLUMN_ID, type CellFormatRule, type Column, type FilterOperator, type GridRow } from '../src/shared/types'
 import { FEATURES, isOn } from '../src/shared/features'
 import { DATE_BUCKETS, DATE_PRESETS, REPORT_SOURCES, VALUE_FNS, FN_LABELS, SOURCE_LABELS, bucketDate, formatReportCell, presetRange, reportConfigSchema, type DateBucket, type DatePreset } from '../src/shared/reports'
+import { APPT_STATUSES } from '../src/shared/appointments'
+import { CARDINALITIES } from '../src/shared/links'
+import { CALENDAR_LAYERS } from '../src/shared/calendar'
+import { PROVIDER_CONTACT_TYPES } from '../src/shared/types'
 import { PERIODS, PERIOD_MAX, periodRange, type Period } from '../src/shared/periods'
 import { EMPTY_DRAFT, draftToConfig } from '../src/renderer/components/alerts/ruleDraft'
 
@@ -147,5 +151,19 @@ describe('saved report values', () => {
     expect(formatReportCell('2026-10-12', 'date')).toBe('Oct 12, 2026')
     const today = new Date(2026, 9, 12)
     expect(presetRange('ytd' as DatePreset, today)).toEqual(presetRange('this_month', today))
+  })
+})
+
+describe('stored value lists', () => {
+  // These values are written to the database and to .pulse files; the lists
+  // now define the unions, so they must keep every stored value
+  it('keep the values already stored', () => {
+    expect(APPT_STATUSES).toEqual(['scheduled', 'done', 'cancelled', 'no_show'])
+    expect(CARDINALITIES).toEqual(['one_to_one', 'many_to_one', 'many_to_many'])
+    expect(CALENDAR_LAYERS).toEqual(['appointments', 'deadlines', 'followups', 'tasks'])
+    expect(PROVIDER_CONTACT_TYPES).toEqual(['call', 'email', 'visit', 'note', 'meeting', 'referral', 'other'])
+    expect(RULE_KINDS).toEqual(['interval', 'relative', 'calendar', 'meter', 'quota', 'sequence'])
+    expect(PERIODS).toEqual(['week', 'month', 'quarter', 'year'])
+    expect(REPORT_SOURCES).toEqual(['records', 'activities', 'appointments', 'deadlines'])
   })
 })

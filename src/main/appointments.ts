@@ -25,6 +25,9 @@ import {
 
 export class ApptError extends Error {}
 
+/** The note written when an appointment is closed without happening */
+const CLOSED_NOTE_PREFIX = { cancelled: 'Cancelled', no_show: 'No-show' } satisfies Record<Exclude<ApptStatus, 'scheduled' | 'done'>, string>
+
 interface ApptRow extends Omit<Appointment, 'record_name' | 'grid_id' | 'grid_name'> { series_date: string | null }
 interface SeriesRow { id: number; rule: string; template: string; materialized_until: string; created_at: string }
 type StoredTemplate = SeriesTemplate & { first: string; exdates?: string[] }
@@ -512,7 +515,7 @@ export function setAppointmentStatus(id: number, status: ApptStatus, opts: Statu
       const type = status === 'done' ? noteTypeFor(a) : userTypes.has(status) ? status : null
       if (type) {
         const content = opts.noteContent?.trim()
-          || (status === 'done' ? `${word('appointment', { cap: true })}: ${a.title}` : status === 'no_show' ? `No-show: ${a.title}` : `Cancelled: ${a.title}`)
+          || (status === 'done' ? `${word('appointment', { cap: true })}: ${a.title}` : `${CLOSED_NOTE_PREFIX[status]}: ${a.title}`)
         if (content.length > 100_000) throw new ApptError(`That ${word('activity')} is too long.`)
         let minutes = opts.minutes ?? null
         if (minutes === null && status === 'done' && featureOn('timeTracking') && a.end_at && !a.all_day) minutes = Math.max(0, Math.min(1440, minutesBetween(a.start_at, a.end_at)))

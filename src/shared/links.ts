@@ -2,10 +2,10 @@
  * Linked records (generalization W04): types shared by main and the window.
  */
 
-export type Cardinality = 'one_to_one' | 'many_to_one' | 'many_to_many'
+export const CARDINALITIES = ['one_to_one', 'many_to_one', 'many_to_many'] as const
+export type Cardinality = typeof CARDINALITIES[number]
 export type LinkDirection = 'forward' | 'backward'
 
-export const CARDINALITIES: readonly Cardinality[] = ['one_to_one', 'many_to_one', 'many_to_many']
 
 /** A named relationship between two lists, e.g. Vehicles → Customers, "Owner" / "Vehicles" */
 export interface LinkType {

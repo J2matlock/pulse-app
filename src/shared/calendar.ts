@@ -2,8 +2,8 @@
 import type { DeadlineState } from './deadlineEngine'
 import { addDays, parseYmd, ymd } from './appointments'
 
-export type CalendarLayer = 'appointments' | 'deadlines' | 'followups' | 'tasks'
-export const CALENDAR_LAYERS: readonly CalendarLayer[] = ['appointments', 'deadlines', 'followups', 'tasks']
+export const CALENDAR_LAYERS = ['appointments', 'deadlines', 'followups', 'tasks'] as const
+export type CalendarLayer = typeof CALENDAR_LAYERS[number]
 
 export interface CalendarItem {
   kind: 'deadline' | 'followup' | 'task'

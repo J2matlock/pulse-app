@@ -556,8 +556,8 @@ export interface CaseloadTask {
 // ── Provider Directory ───────────────────────────────────────────────────────
 
 export type AvailabilityStatus = 'accepting' | 'waitlist' | 'full' | 'unknown'
-export type ProviderContactType = 'call' | 'email' | 'visit' | 'note' | 'meeting' | 'referral' | 'other'
-export const PROVIDER_CONTACT_TYPES: readonly ProviderContactType[] = ['call', 'email', 'visit', 'note', 'meeting', 'referral', 'other'] as const
+export const PROVIDER_CONTACT_TYPES = ['call', 'email', 'visit', 'note', 'meeting', 'referral', 'other'] as const
+export type ProviderContactType = typeof PROVIDER_CONTACT_TYPES[number]
 export type ProviderCustomFieldType = 'text' | 'phone' | 'email' | 'url' | 'number'
 
 export interface ProviderCategory {

@@ -6,8 +6,8 @@
 import { z } from 'zod'
 import { dateToYmd, addDays as addYmdDays } from './ymd'
 
-export type ApptStatus = 'scheduled' | 'done' | 'cancelled' | 'no_show'
-export const APPT_STATUSES: readonly ApptStatus[] = ['scheduled', 'done', 'cancelled', 'no_show']
+export const APPT_STATUSES = ['scheduled', 'done', 'cancelled', 'no_show'] as const
+export type ApptStatus = typeof APPT_STATUSES[number]
 export type EditScope = 'one' | 'following' | 'all'
 
 export interface Appointment {

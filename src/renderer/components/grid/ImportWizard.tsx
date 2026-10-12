@@ -101,7 +101,7 @@ const COLUMN_TYPES = [
   'text', 'date', 'number', 'phone', 'email', 'currency', 'checkbox',
 ] as const
 
-const TYPE_BADGE_CLASSES: Record<string, string> = {
+const TYPE_BADGE_CLASSES: Record<typeof COLUMN_TYPES[number], string> = {
   date: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
   number: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
   phone: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
@@ -114,7 +114,8 @@ const TYPE_BADGE_CLASSES: Record<string, string> = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function TypeBadge({ type }: { type: string }): React.ReactElement {
-  const cls = TYPE_BADGE_CLASSES[type] ?? TYPE_BADGE_CLASSES.text
+  const byType: Record<string, string | undefined> = TYPE_BADGE_CLASSES
+  const cls = byType[type] ?? TYPE_BADGE_CLASSES.text
   return (
     <span className={`inline-flex items-center px-1.5 py-0.5 rounded-sm text-sm font-medium ${cls}`}>
       {columnTypeLabel(type)}

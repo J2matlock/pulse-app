@@ -12,6 +12,8 @@
  */
 import { z } from 'zod'
 import { RULE_KINDS } from '../deadlineEngine'
+import { CARDINALITIES } from '../links'
+import { APPT_STATUSES } from '../appointments'
 import { vocabSchema, type VocabKey } from '../vocab'
 import { featureMapSchema, type FeatureKey } from '../features'
 import { ACTIVITY_COLORS } from '../activityTypes'
@@ -91,7 +93,7 @@ const linkSchema = z.object({
   to: key,
   label_forward: text(60),
   label_backward: text(60),
-  cardinality: z.enum(['one_to_one', 'many_to_one', 'many_to_many']).default('many_to_one'),
+  cardinality: z.enum(CARDINALITIES).default('many_to_one'),
   /** Also add a column on the other list (default yes) */
   showOnOther: z.boolean().optional(),
 }).strict()
@@ -176,7 +178,7 @@ const sampleDataSchema = z.object({
     type: z.string().regex(/^[a-z0-9_]{1,30}$/).optional(),
     location: z.string().max(300).optional(),
     repeatWeekly: z.number().int().min(2).max(52).optional(),
-    status: z.enum(['scheduled', 'done', 'cancelled', 'no_show']).optional(),
+    status: z.enum(APPT_STATUSES).optional(),
   }).strict()).max(500).optional(),
 }).strict()
 

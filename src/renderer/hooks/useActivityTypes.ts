@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useActivityTypeStore } from '../stores/activityTypeStore'
 import {
-  isSystemActivityType, labelFor, SYSTEM_ACTIVITY_ICONS, type ActivityColor, type ActivityType,
+  isSystemActivityType, labelFor, SYSTEM_ACTIVITY_ICONS, type ActivityColor, type ActivityType, type SystemActivityType,
 } from '../../shared/activityTypes'
 
 /** Light/dark backgrounds for note entries, by palette key */
@@ -23,7 +23,7 @@ export const ACTIVITY_SWATCH: Record<ActivityColor, string> = {
 }
 
 // Pulse's own entries keep the look they always had
-const SYSTEM_BG: Record<string, string> = {
+const SYSTEM_BG: Record<SystemActivityType, string> = {
   system: 'bg-slate-50/50 dark:bg-slate-900/30',
   manual: ACTIVITY_BG.slate,
   import: ACTIVITY_BG.teal,
@@ -56,7 +56,7 @@ export function useActivityTypes(): ActivityTypesApi {
       label: (key: string) => labelFor(sorted, key),
       icon: (key: string) => byKey.get(key)?.icon ?? (isSystemActivityType(key) ? SYSTEM_ACTIVITY_ICONS[key] : '📝'),
       bgClass: (key: string) => {
-        if (isSystemActivityType(key)) return SYSTEM_BG[key]!
+        if (isSystemActivityType(key)) return SYSTEM_BG[key]
         const color = byKey.get(key)?.color
         return color ? ACTIVITY_BG[color] : ACTIVITY_BG.slate
       },

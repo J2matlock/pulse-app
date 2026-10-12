@@ -10,6 +10,7 @@
 
 import { getDb } from './database'
 import { activityLabel } from './activity-types'
+import { isSystemActivityType, type SystemActivityType } from '../shared/activityTypes'
 import { jsPDF, autoTable, lastTableY, atomicWriteFileAsync, stripHtml } from './export-shared'
 import { parseDbTimestamp } from '../shared/dates'
 import { CASE_NOTE_DELETE_WINDOW_MINUTES } from '../shared/constants'
@@ -38,8 +39,9 @@ export interface AuditClient {
   events: AuditEvent[]
 }
 
-const SYSTEM_NOTE_LABEL: Record<string, string> = {
-  system: 'Recorded by Pulse', import: 'Imported', followup: 'Follow-up',
+/** Fixed labels for Pulse's own note types; a plain note (manual) uses the workspace word below */
+const SYSTEM_NOTE_LABEL: Record<SystemActivityType, string | null> = {
+  system: 'Recorded by Pulse', import: 'Imported', followup: 'Follow-up', manual: null,
 }
 
 /**
@@ -48,7 +50,8 @@ const SYSTEM_NOTE_LABEL: Record<string, string> = {
  * "… note"; a type already called "… note" / "… jot" isn't doubled.
  */
 function noteEventLabel(key: string, gridId: number): string {
-  if (SYSTEM_NOTE_LABEL[key]) return SYSTEM_NOTE_LABEL[key]
+  const fixed = isSystemActivityType(key) ? SYSTEM_NOTE_LABEL[key] : null
+  if (fixed) return fixed
   const act = word('activity', {}, gridId)
   const suffix = /\bnote$/i.test(act) ? 'note' : act
   if (key === 'manual') return suffix.charAt(0).toUpperCase() + suffix.slice(1)

@@ -1,8 +1,8 @@
-import type { CaseloadTask } from '../../../shared/types'
+import type { CaseloadTask, TaskPriority } from '../../../shared/types'
 import { MS_PER_DAY } from '../../../shared/constants'
 import { localDateString } from '../../../shared/dates'
 
-export const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 }
+export const PRIORITY_ORDER: Record<TaskPriority, number> = { urgent: 0, high: 1, normal: 2, low: 3 }
 
 export function isOverdue(task: CaseloadTask, today: string = localDateString()): boolean {
   if (!task.due_date || task.is_completed) return false
