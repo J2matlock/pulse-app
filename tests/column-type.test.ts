@@ -24,6 +24,13 @@ describe('changing a column type', () => {
     expect(previewTypeChange(g.columnIds[1]!, 'date')).toEqual({ total: 3, clean: 2, examples: ['soon'] })
   })
 
+  it('a 5-digit number (a zip code or ID) doesn\'t fit Date and stays as it was (Q-033)', () => {
+    t.db.prepare('UPDATE cells SET value = ? WHERE row_id = ? AND column_id = ?').run('10234', g.rowIds[1], g.columnIds[1])
+    expect(previewTypeChange(g.columnIds[1]!, 'date')).toEqual({ total: 3, clean: 2, examples: ['10234'] })
+    changeColumnType(g.columnIds[1]!, 'date')
+    expect(cell(g.rowIds[1]!, g.columnIds[1]!)).toBe('10234')
+  })
+
   it('converts what fits, keeps the rest, and undo puts it all back', () => {
     const snap = changeColumnType(g.columnIds[1]!, 'date')
     expect(col(g.columnIds[1]!).column_type).toBe('date')

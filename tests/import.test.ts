@@ -1076,6 +1076,15 @@ describe('executeImport', () => {
 
 // ── Date normalization must not depend on the computer's timezone ────────────
 
+describe('Excel serials only where Import asks for them (Q-033)', () => {
+  it('parseDate reads a 5-digit number as a date only with allowSerial, and only up to year 2100', () => {
+    expect(parseDate('90210')).toBeNull()
+    expect(parseDate('46096')).toBeNull()
+    expect(parseDate('46096', 'mdy', { allowSerial: true })).toBe('2026-03-15')
+    expect(parseDate('73051', 'mdy', { allowSerial: true })).toBeNull()
+  })
+})
+
 describe('normalizeDate across timezones', () => {
   const originalTz = process.env.TZ
   afterEach(() => { if (originalTz === undefined) delete process.env.TZ; else process.env.TZ = originalTz })

@@ -1,6 +1,6 @@
 /**
  * Reading a typed or pasted date as YYYY-MM-DD (shared by Import and the
- * grid's paste, audit G-14). Handles Excel serials, ISO dates (with or
+ * grid's paste, audit G-14). Handles Excel serials (Import only), ISO dates (with or
  * without a time), M/D/Y with slashes, dashes or dots (2- or 4-digit years),
  * and written months ("Feb 19, 2026", "19 Feb 2026", "19-Feb-26").
  */
@@ -48,7 +48,15 @@ export function hasTwoDigitYear(value: string): boolean {
 export interface ParseDateOptions {
   /** A birthday: a two-digit year never puts it in the future (it goes back a century) */
   birth?: boolean
+  /**
+   * Read a bare 5-digit number as an Excel serial (Import only, Q-033). Pasting
+   * or changing a column to Date must not turn a zip code or ID into a date.
+   */
+  allowSerial?: boolean
 }
+
+/** Excel serials Import reads as dates: up to 73050, about the year 2100 */
+const MAX_DATE_SERIAL = 73050
 
 /** Validated YYYY-MM-DD from calendar parts (rejects 02/30 etc.), or null. */
 export function ymdFromParts(y: number, m: number, d: number): string | null {
@@ -59,17 +67,18 @@ export function ymdFromParts(y: number, m: number, d: number): string | null {
 
 /** YYYY-MM-DD, or null when the value isn't a recognizable date. */
 export function parseDate(value: string, order: 'mdy' | 'dmy' = 'mdy', options: ParseDateOptions = {}): string | null {
-  const ymd = parseDateRaw(value, order)
+  const ymd = parseDateRaw(value, order, options.allowSerial === true)
   if (!ymd || !options.birth || !hasTwoDigitYear(value) || ymd <= localDateString()) return ymd
   return ymdFromParts(Number(ymd.slice(0, 4)) - 100, Number(ymd.slice(5, 7)), Number(ymd.slice(8, 10))) ?? ymd
 }
 
-function parseDateRaw(value: string, order: 'mdy' | 'dmy'): string | null {
+function parseDateRaw(value: string, order: 'mdy' | 'dmy', allowSerial: boolean): string | null {
   const v = value.trim()
   // Excel serial date (5-digit number). Computed entirely in UTC so no local
   // offset can shift the calendar day.
   if (/^\d{5}$/.test(v)) {
     const serial = parseInt(v, 10)
+    if (!allowSerial || serial > MAX_DATE_SERIAL) return null
     // Excel epoch: Jan 1 1900 = serial 1 (with the Lotus 1-2-3 bug: serial 60 = Feb 29 1900)
     const d = new Date(Date.UTC(1899, 11, 30) + serial * MS_PER_DAY)
     return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10)

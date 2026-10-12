@@ -331,7 +331,7 @@ export { parseDate }
  * Anything unrecognized is returned unchanged.
  */
 export function normalizeDate(value: string, order: 'mdy' | 'dmy' = 'mdy'): string {
-  return parseDate(value, order) ?? value
+  return parseDate(value, order, { allowSerial: true }) ?? value
 }
 
 
