@@ -22,6 +22,7 @@ import { MIGRATIONS, applyMigration } from './migration-list'
 import { rowsPurgedHooks, purgeRecordLeftovers, pruneAfterPurge, scheduleReclaimFreePages } from './purge-hooks'
 import { linkColumnSpecs, linkSelectSql, linkSpecKey, type LinkColumnSpec } from '../shared/links'
 import { fileCountColumnIds } from '../shared/attachments'
+import { LIVE_ROW, NOT_TRASHED_ROW } from '../shared/liveRecords'
 
 /**
  * Validate and set the SQLCipher encryption key on a database connection.
@@ -519,8 +520,8 @@ export function buildGridQuery(columnIds: number[], includeArchived = false, lin
   const { select: cases } = columnSelects(columnIds, links, fileCounts)
 
   const activeFilter = includeArchived
-    ? 'AND r.deleted_at IS NULL'
-    : 'AND r.is_active = 1 AND r.deleted_at IS NULL'
+    ? `AND ${NOT_TRASHED_ROW}`
+    : `AND ${LIVE_ROW}`
 
   return `
     SELECT
@@ -553,7 +554,7 @@ ${ROW_BASE_COLUMNS},
       ${cases}
     FROM rows r
     LEFT JOIN cells c ON c.row_id = r.id
-    WHERE r.grid_id = ? AND r.id = ? AND r.deleted_at IS NULL
+    WHERE r.grid_id = ? AND r.id = ? AND ${NOT_TRASHED_ROW}
     GROUP BY r.id
   `
   // Cache keyed by grid + column IDs (different grids with same column count have different queries)

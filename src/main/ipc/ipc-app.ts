@@ -16,6 +16,7 @@ import { verifyAndUnlock, lockApp } from '../auth'
 import { stopScheduledBackup } from '../index'
 import { isLicenseDoc, licenseFilePath } from '../license-files'
 import { isAppLink } from '../external-links'
+import { liveGrid } from '../../shared/liveRecords'
 
 /** Returns true if `remote` is a higher semver than `current` (X.Y.Z format). */
 function isNewerVersion(remote: string, current: string): boolean {
@@ -50,7 +51,7 @@ function setupFinished(): boolean {
     const db = getDb()
     const meta = db.prepare("SELECT value FROM app_meta WHERE key = 'onboarding_complete'").get() as { value: string } | undefined
     if (meta) return meta.value === '1'
-    return !!db.prepare('SELECT 1 FROM grids WHERE is_active = 1 LIMIT 1').get()
+    return !!db.prepare(`SELECT 1 FROM grids WHERE ${liveGrid('')} LIMIT 1`).get()
   } catch (err) {
     logNonFatal('ipc-app', 'read onboarding_complete', err)
     return false

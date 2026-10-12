@@ -12,6 +12,7 @@ import { refreshDisplayNames } from '../display-names'
 import { assignAutoNumbers } from '../auto-number'
 import { forgetPurgedRows } from '../list-trash'
 import { purgeRecordLeftovers, pruneAfterPurge } from '../purge-hooks'
+import { LIVE_GRID, LIVE_ROW } from '../../shared/liveRecords'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_ROWS = 5000
@@ -652,8 +653,8 @@ export function registerRowHandlers(): void {
       SELECT r.id as rowId, r.grid_id as gridId, g.name as gridName,
              r.display_name AS clientName
       FROM rows r
-      JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
-      WHERE r.is_active = 1
+      JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
+      WHERE ${LIVE_ROW}
         AND (r.display_name LIKE ? ESCAPE '\\'
           -- Phone numbers and emails added with "Add contact info" are found too (R-27)
           OR (r.manual_contacts IS NOT NULL AND EXISTS (

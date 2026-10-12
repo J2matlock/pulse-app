@@ -8,6 +8,7 @@ import { getDb } from '../database'
 import type { AlertRule, AlertRuleUse, DeletedAlertRule } from '../../shared/types'
 import { RULE_KINDS, conditionSchema, parseRuleConfig, type RuleKind } from '../../shared/deadlineEngine'
 import { convertDateColumnsToDeadline } from '../rule-columns'
+import { LIVE_GRID } from '../../shared/liveRecords'
 
 /** Calendar-month intervals: whole months up to 10 years (null/0 = not month-based). */
 function validMonths(v: unknown): boolean {
@@ -164,7 +165,7 @@ export function ruleUsage(): AlertRuleUse[] {
   const rows = getDb().prepare(`
     SELECT CAST(json_extract(col.config, '$.alert_rule_id') AS INTEGER) AS rule_id, col.id AS column_id, col.name AS column_name,
            g.id AS grid_id, g.name AS grid_name, col.is_visible
-    FROM columns col JOIN grids g ON g.id = col.grid_id AND g.is_active = 1
+    FROM columns col JOIN grids g ON g.id = col.grid_id AND ${LIVE_GRID}
     WHERE json_extract(col.config, '$.alert_rule_id') IS NOT NULL
     ORDER BY g.position, g.id, col.position, col.id
   `).all() as Array<Omit<AlertRuleUse, 'hidden'> & { is_visible: number }>

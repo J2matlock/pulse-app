@@ -13,6 +13,7 @@ import { createSampleCaseload, getSampleGridId, countSampleRows, planSampleRemov
 import { z } from 'zod'
 import { applyDateRules, StarterError } from '../starters'
 import type { SetupProgress } from '../../shared/ipc-contract'
+import { LIVE_GRID, NOT_TRASHED_ROW, liveGrid } from '../../shared/liveRecords'
 
 const dateAnswersSchema = z.array(z.union([
   z.object({ columnId: z.number().int().positive(), repeat: z.literal('due') }).strict(),
@@ -41,7 +42,7 @@ function readSetupProgress(): SetupProgress | null {
   const res = setupProgressSchema.safeParse(parsed)
   if (!res.success) return null
   // The list may have been deleted since
-  return db.prepare('SELECT 1 FROM grids WHERE id = ? AND is_active = 1').get(res.data.gridId) ? res.data : null
+  return db.prepare(`SELECT 1 FROM grids WHERE id = ? AND ${liveGrid('')}`).get(res.data.gridId) ? res.data : null
 }
 
 export function registerOnboardingHandlers(): void {
@@ -50,7 +51,7 @@ export function registerOnboardingHandlers(): void {
     const meta = db.prepare("SELECT value FROM app_meta WHERE key = 'onboarding_complete'").get() as { value: string } | undefined
     if (meta) return ok({ complete: meta.value === '1', progress: meta.value === '1' ? null : readSetupProgress() })
     // If no flag, check if any grids exist (existing installation → treat as complete)
-    const gridCount = (db.prepare('SELECT COUNT(*) as cnt FROM grids WHERE is_active = 1').get() as { cnt: number }).cnt
+    const gridCount = (db.prepare(`SELECT COUNT(*) as cnt FROM grids WHERE ${liveGrid('')}`).get() as { cnt: number }).cnt
     const complete = gridCount > 0
     // Caching the answer is a write; a read-only mode just answers (AUDIT-093)
     if (complete && !enforceWritable()) {
@@ -67,14 +68,14 @@ export function registerOnboardingHandlers(): void {
     const real = 'NOT EXISTS (SELECT 1 FROM sample_rows s WHERE s.row_id = r.id)'
     return ok({
       show: setting('onboarding_completed_at') !== null && setting('onboarding_getting_started_dismissed') !== '1',
-      record: any(`SELECT 1 FROM rows r JOIN grids g ON g.id = r.grid_id AND g.is_active = 1 WHERE r.deleted_at IS NULL AND ${real}`),
+      record: any(`SELECT 1 FROM rows r JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID} WHERE ${NOT_TRASHED_ROW} AND ${real}`),
       reminder: any(`SELECT 1 FROM cells c JOIN columns col ON col.id = c.column_id JOIN rows r ON r.id = c.row_id
-        JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
-        WHERE r.deleted_at IS NULL AND ${real} AND COALESCE(c.value, '') != ''
+        JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
+        WHERE ${NOT_TRASHED_ROW} AND ${real} AND COALESCE(c.value, '') != ''
         AND (col.column_type = 'deadline' OR (json_valid(col.config) AND json_extract(col.config, '$.alert_rule_id') IS NOT NULL))`),
       // Not a note on a record in the Trash or in a list in the Trash (Q-084)
-      note: any(`SELECT 1 FROM case_log cl JOIN rows r ON r.id = cl.row_id JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
-        WHERE cl.log_type != 'system' AND r.deleted_at IS NULL AND ${real}`),
+      note: any(`SELECT 1 FROM case_log cl JOIN rows r ON r.id = cl.row_id JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
+        WHERE cl.log_type != 'system' AND ${NOT_TRASHED_ROW} AND ${real}`),
       recoverySnoozedUntil: setting('onboarding_recovery_snooze_until'),
     })
   })

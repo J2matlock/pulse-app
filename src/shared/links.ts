@@ -1,6 +1,7 @@
 /**
  * Linked records (generalization W04): types shared by main and the window.
  */
+import { notTrashedRow } from './liveRecords'
 
 export const CARDINALITIES = ['one_to_one', 'many_to_one', 'many_to_many'] as const
 export type Cardinality = typeof CARDINALITIES[number]
@@ -136,7 +137,7 @@ export function linkSelectSql(specs: LinkColumnSpec[]): string {
     return `(SELECT GROUP_CONCAT(v, char(31)) FROM (
         SELECT t.id || char(30) || COALESCE(t.display_name, '') || CASE WHEN t.is_active = 0 THEN char(30) || 'a' ELSE '' END AS v
         FROM record_links l JOIN rows t ON t.id = l.${other}
-        WHERE l.link_type_id = ${type} AND l.${mine} = r.id AND t.deleted_at IS NULL
+        WHERE l.link_type_id = ${type} AND l.${mine} = r.id AND ${notTrashedRow('t')}
         ORDER BY t.display_name COLLATE NOCASE, t.id)) AS col_${id}`
   }).join(',\n      ')
 }

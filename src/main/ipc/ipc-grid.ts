@@ -19,6 +19,7 @@ import { numberExistingRows } from '../auto-number'
 import { keepSamplesUntouched } from '../sample-marks'
 import { word } from '../vocab'
 import { DEFAULT_AUTO_NUMBER } from '../../shared/autoNumber'
+import { liveGrid } from '../../shared/liveRecords'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_GRIDS = 500
@@ -78,7 +79,7 @@ export function registerGridHandlers(): void {
              filter_config, column_order, frozen_columns, row_height,
              show_gridlines, show_row_numbers, show_alternating_rows,
              position, is_active, acuity_enabled, record_kind, display_format
-      FROM grids WHERE is_active = 1 ORDER BY position, id
+      FROM grids WHERE ${liveGrid('')} ORDER BY position, id
     `).all() as Grid[]
     return ok(grids)
   })

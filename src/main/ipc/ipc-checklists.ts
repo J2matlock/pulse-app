@@ -14,6 +14,7 @@ import { seedChecklistTemplates } from '../templates'
 import { applyChecklistTemplate, ChecklistApplyError } from '../checklist-apply'
 import { parseRepeatRule, nextRepeatDate, withAnchorDay, withoutAnchorDay } from '../../shared/recurrence'
 import { localDateString } from '../../shared/dates'
+import { LIVE_GRID, LIVE_ROW } from '../../shared/liveRecords'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_CHECKLIST = 500
@@ -154,8 +155,8 @@ export function registerChecklistHandlers(): void {
              g.name AS grid_name,
              r.display_name AS client_name
       FROM checklist_items ci
-      JOIN rows r ON r.id = ci.row_id AND r.is_active = 1 AND r.deleted_at IS NULL
-      JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
+      JOIN rows r ON r.id = ci.row_id AND ${LIVE_ROW}
+      JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
       WHERE ci.priority = 'urgent'
         AND ci.is_completed = 0
         AND ci.is_archived = 0
@@ -175,8 +176,8 @@ export function registerChecklistHandlers(): void {
              g.name AS grid_name,
              r.display_name AS client_name
       FROM checklist_items ci
-      JOIN rows r ON r.id = ci.row_id AND r.is_active = 1 AND r.deleted_at IS NULL
-      JOIN grids g ON g.id = r.grid_id AND g.is_active = 1
+      JOIN rows r ON r.id = ci.row_id AND ${LIVE_ROW}
+      JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
       WHERE ci.due_date IS NOT NULL
         AND ci.is_completed = 0
         AND ci.is_archived = 0

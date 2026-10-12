@@ -11,6 +11,7 @@ import { localDateString } from '../../shared/dates'
 import { usesHumanServicesWords } from '../vocab'
 import { parseRepeatRule, nextRepeatDate, withAnchorDay, withoutAnchorDay } from '../../shared/recurrence'
 import { toYmd } from '../../shared/ymd'
+import { LIVE_GRID } from '../../shared/liveRecords'
 
 // ── IPC payload size limits ────────────────────────────────────────────────
 const MAX_REORDER_TASKS = 500
@@ -34,7 +35,7 @@ export function registerTaskHandlers(): void {
     if (gridId != null && !validId(gridId)) return fail('Invalid ID')
     const TASK_COLS = 'ct.id, ct.grid_id, ct.group_id, ct.title, ct.description, ct.priority, ct.category, ct.due_date, ct.recurrence_rule, ct.is_completed, ct.completed_at, ct.snoozed_until, ct.position, ct.created_at, ct.updated_at'
     // Tasks of a list in the Trash are left out, as on the Dashboard and calendar (bug sweep S2/S4)
-    const FROM = 'FROM caseload_tasks ct LEFT JOIN grids g ON g.id = ct.grid_id WHERE (ct.grid_id IS NULL OR g.is_active = 1) AND'
+    const FROM = `FROM caseload_tasks ct LEFT JOIN grids g ON g.id = ct.grid_id WHERE (ct.grid_id IS NULL OR ${LIVE_GRID}) AND`
     // Open tasks first, then only the most recent finished ones, so a long
     // history of finished tasks never pushes new ones off the list (audit S-14)
     const where = gridId != null ? 'ct.grid_id = ? AND' : ''
@@ -56,7 +57,7 @@ export function registerTaskHandlers(): void {
       WHERE ct.is_completed = 0
         AND ct.due_date IS NOT NULL
         AND (ct.snoozed_until IS NULL OR ct.snoozed_until <= ?)
-        AND (ct.grid_id IS NULL OR g.is_active = 1)
+        AND (ct.grid_id IS NULL OR ${LIVE_GRID})
       ORDER BY ct.due_date ASC
     `).all(today) as CaseloadTask[]
     return ok(tasks)

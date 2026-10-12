@@ -5,6 +5,7 @@
  */
 import { z } from 'zod'
 import { dateToYmd, addDays as addYmdDays } from './ymd'
+import { LIVE_GRID, LIVE_ROW, NOT_TRASHED_ROW } from './liveRecords'
 
 export const APPT_STATUSES = ['scheduled', 'done', 'cancelled', 'no_show'] as const
 export type ApptStatus = typeof APPT_STATUSES[number]
@@ -40,7 +41,7 @@ export interface Appointment {
  * Nothing shows for a record in the Trash or a record of a list in the
  * Trash (A16-04). Needs `r` (rows) and `g` (grids).
  */
-export const OPEN_RECORD_SQL = "(a.row_id IS NULL OR (r.deleted_at IS NULL AND g.is_active = 1 AND (a.status != 'scheduled' OR r.is_active = 1)))"
+export const OPEN_RECORD_SQL = `(a.row_id IS NULL OR (${NOT_TRASHED_ROW} AND ${LIVE_GRID} AND (a.status != 'scheduled' OR ${LIVE_ROW})))`
 
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 export const TIME_RE = /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/
