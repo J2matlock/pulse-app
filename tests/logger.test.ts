@@ -89,6 +89,29 @@ describe('Logger — data sanitization', () => {
     stderrSpy.mockRestore()
   })
 
+  it('keeps file names out of messages, Error text and stacks; folders, code files and URLs stay (F-030)', async () => {
+    const logger = await getLogger()
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    const err = new Error("ENOENT: no such file or directory, open '/home/u/Jane Doe.pdf'")
+    err.stack = `${err.message}\n    at open (/opt/Pulse/resources/app.asar/out/main/index.js:120:7)`
+    logger.error('x', 'm /home/u/Jane Doe.pdf', err)
+    logger.warn('x', 'Backup to C:\\Users\\u\\Backups\\Smith family.pulse-backup failed; see https://github.com/J2matlock/pulse-app/releases')
+    logger.info('x', 'renamed', { from: '/media/usb/Ann Lee notes.docx' })
+    const lines = stderrSpy.mock.calls.map(c => c[0] as string)
+    const all = lines.join('\n')
+    expect(all).not.toContain('Jane Doe')
+    expect(all).not.toContain('Smith family')
+    expect(all).not.toContain('Ann Lee')
+    const first = JSON.parse(lines[0]!)
+    expect(first.msg).toBe('m /home/u/<file>')
+    expect(first.data.message).toBe("ENOENT: no such file or directory, open '/home/u/<file>'")
+    expect(first.data.stack).toContain('/out/main/index.js:120:7')
+    // An unquoted name may have spaces, so it runs to the semicolon
+    expect(JSON.parse(lines[1]!).msg).toBe('Backup to C:\\Users\\u\\Backups\\<file>; see https://github.com/J2matlock/pulse-app/releases')
+    expect(JSON.parse(lines[2]!).data.from).toBe('/media/usb/<file>')
+    stderrSpy.mockRestore()
+  })
+
   it('caps recursion depth to prevent infinite nesting', async () => {
     const logger = await getLogger()
     const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
