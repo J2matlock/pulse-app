@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { RefreshCw, Download, Shield, Code2 } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
@@ -13,12 +13,15 @@ import { usePlatform, updateText } from '../../utils/platformText'
 function AutoUpdateCheckToggle(): React.ReactElement {
   const { t } = useVocab(null)
   const [enabled, setEnabled] = useState(true)
+  // A choice made before the saved value arrives wins over it (F-039)
+  const changed = useRef(false)
   useEffect(() => {
     void safeInvoke(IPC.SETTINGS_GET, 'auto_update_check').then(res => {
-      if (res.ok) setEnabled(res.data !== 'false')
+      if (res.ok && !changed.current) setEnabled(res.data !== 'false')
     })
   }, [])
   async function toggle(next: boolean) {
+    changed.current = true
     setEnabled(next)
     const res = await safeInvoke(IPC.SETTINGS_UPDATE, 'auto_update_check', next ? 'true' : 'false')
     if (!res.ok) setEnabled(!next)
