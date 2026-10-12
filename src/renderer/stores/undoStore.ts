@@ -142,6 +142,15 @@ export function batchUndoItem(description: string, items: UndoItem[], extra?: Pa
   }
 }
 
+/**
+ * Put a step whose undo failed back on the undo stack where it was: under any
+ * step added while it ran (Q-085), not over it, and without dropping those.
+ */
+function reinsert(stack: UndoItem[], item: UndoItem, idsBefore: ReadonlySet<string>): UndoItem[] {
+  const at = stack.findIndex(i => !idsBefore.has(i.id))
+  return at === -1 ? [...stack, item] : [...stack.slice(0, at), item, ...stack.slice(at)]
+}
+
 // Module-scope mutex — set synchronously before any await in undo/redo.
 // Using a plain boolean outside Zustand ensures two rapid Ctrl+Z presses
 // cannot both pass the guard before the first setState propagates.
@@ -213,9 +222,8 @@ export const useUndoStore = create<UndoState>((set, get) => {
       if (undoStack.length === 0 || _undoMutex) return
       _undoMutex = true
       const item = undoStack[undoStack.length - 1]!
-      // Snapshot stacks before mutation so we can revert on error
-      const prevUndoStack = [...undoStack]
-      const prevRedoStack = [...get().redoStack]
+      // Steps already there, so a failure can tell them from ones added while this ran (Q-085)
+      const idsBefore = new Set(undoStack.map(i => i.id))
       set(s => ({
         undoStack: s.undoStack.slice(0, -1),
         redoStack: [...s.redoStack, item],
@@ -234,12 +242,12 @@ export const useUndoStore = create<UndoState>((set, get) => {
         const reason = err instanceof ReadOnlyError ? '' : plainReason(err)
         if (reason && _lastFailedUndo === item) {
           _lastFailedUndo = null
-          set({ undoStack: prevUndoStack.slice(0, -1), redoStack: prevRedoStack })
+          set(s => ({ redoStack: s.redoStack.filter(i => i !== item) }))
           showToast(`Undo didn't work: ${reason} That step was taken off the undo list.`)
         } else {
           _lastFailedUndo = item
-          // Revert stack mutation so the item isn't lost
-          set({ undoStack: prevUndoStack, redoStack: prevRedoStack })
+          // Only the failed step goes back; steps added while it ran stay (Q-085)
+          set(s => ({ undoStack: reinsert(s.undoStack, item, idsBefore), redoStack: s.redoStack.filter(i => i !== item) }))
           showToast(failureText('Undo', err))
         }
       } finally {
@@ -253,9 +261,7 @@ export const useUndoStore = create<UndoState>((set, get) => {
       if (redoStack.length === 0 || _undoMutex) return
       _undoMutex = true
       const item = redoStack[redoStack.length - 1]!
-      // Snapshot stacks before mutation so we can revert on error
-      const prevUndoStack = [...get().undoStack]
-      const prevRedoStack = [...redoStack]
+      const idsBefore = new Set(get().undoStack.map(i => i.id))
       set(s => ({
         redoStack: s.redoStack.slice(0, -1),
         undoStack: [...s.undoStack, item],
@@ -266,8 +272,13 @@ export const useUndoStore = create<UndoState>((set, get) => {
         await applySideEffects(item.sideEffects, 'redo')
       } catch (err) {
         rlog.error('UndoStore', 'Redo failed', err)
-        // Revert stack mutation so the item isn't lost
-        set({ undoStack: prevUndoStack, redoStack: prevRedoStack })
+        // The step goes back to be redone, unless a new step was made meanwhile (which ends redo);
+        // either way steps added while it ran stay (Q-085)
+        set(s => {
+          const undoStack = s.undoStack.filter(i => i !== item)
+          const changedSince = undoStack.some(i => !idsBefore.has(i.id))
+          return { undoStack, redoStack: changedSince ? s.redoStack : [...s.redoStack, item] }
+        })
         showToast(failureText('Redo', err))
       } finally {
         _undoMutex = false
@@ -283,14 +294,17 @@ export const useUndoStore = create<UndoState>((set, get) => {
 
       _undoMutex = true
       try {
-        // Undo everything from the top of the stack down to and including itemId
-        const count = undoStack.length - targetIdx
-        for (let i = 0; i < count; i++) {
+        // Undo everything from the top of the stack down to and including itemId: exactly the steps
+        // there now, newest first. A step added while this runs (a save landing) is never undone in
+        // their place; if one lands on top, stop rather than undo past it (Q-085)
+        const ids = undoStack.slice(targetIdx).map(i => i.id).reverse()
+        for (const id of ids) {
           const { undoStack: currentStack } = get()
-          if (currentStack.length === 0) break
-          const item = currentStack[currentStack.length - 1]!
+          const item = currentStack[currentStack.length - 1]
+          if (!item || item.id !== id) break
+          const idsBefore = new Set(currentStack.map(i => i.id))
           set(s => ({
-            undoStack: s.undoStack.slice(0, -1),
+            undoStack: s.undoStack.filter(i => i !== item),
             redoStack: [...s.redoStack, item],
             toast: null,
             isUndoing: true,
@@ -301,7 +315,7 @@ export const useUndoStore = create<UndoState>((set, get) => {
           } catch (err) {
             // Earlier steps really were undone; this one wasn't, so it goes back on the undo stack
             rlog.error('UndoStore', 'undoTo partial failure:', err)
-            set(s => ({ undoStack: [...s.undoStack, item], redoStack: s.redoStack.filter(i => i.id !== item.id) }))
+            set(s => ({ undoStack: reinsert(s.undoStack, item, idsBefore), redoStack: s.redoStack.filter(i => i.id !== item.id) }))
             showToast(failureText('Undo', err))
             return
           }
