@@ -17,6 +17,7 @@ import { tmpdir } from 'os'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
 const crashes = vi.hoisted(() => ({ list: [] as Array<{ channel?: string; error?: string }> }))
+const saveDialog = vi.hoisted(() => vi.fn(async (_opts: { defaultPath?: string }) => ({ canceled: true })))
 
 vi.mock('electron', () => ({
   app: {
@@ -29,7 +30,7 @@ vi.mock('electron', () => ({
   dialog: {
     showMessageBox: async () => ({ response: 1 }),
     showOpenDialog: async () => ({ canceled: true, filePaths: [] }),
-    showSaveDialog: async () => ({ canceled: true }),
+    showSaveDialog: saveDialog,
   },
   shell: { openPath: async () => '' },
   safeStorage: { isEncryptionAvailable: () => false, encryptString: (s: string) => Buffer.from(s), decryptString: (b: Buffer) => b.toString() },
@@ -233,6 +234,15 @@ describe('specific limits', () => {
   it('APPT_RESTORE refuses a snapshot with too many appointments', async () => {
     const res = await call(IPC.APPT_RESTORE, { appointments: Array(50_001).fill({}), series: [], createdAppointmentIds: [], createdSeriesIds: [] })
     expect(res.ok).toBe(false)
+  })
+})
+
+describe('ATTACHMENT_SAVE_AS suggested name (Q-057)', () => {
+  it('ends as the bytes really are, even for a name saved before names were checked', async () => {
+    const id = Number(testDb.db.prepare("INSERT INTO attachments (row_id, file_name, mime_type, size_bytes, sha256) VALUES (?, 'run.bat', 'text/plain', 3, 'x')").run(rowIds[0]).lastInsertRowid)
+    saveDialog.mockClear()
+    expect((await call(IPC.ATTACHMENT_SAVE_AS, id)).ok).toBe(true)
+    expect(saveDialog.mock.calls[0]![0].defaultPath).toBe('run.bat.txt')
   })
 })
 

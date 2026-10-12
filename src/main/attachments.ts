@@ -53,18 +53,36 @@ export function sniffType(b: Buffer, fileName: string): string | null {
 /** A safe display name: the last part of the path, no control characters, at most 200 characters */
 const EXTENSION = /\.[A-Za-z0-9]{1,8}$/
 
+/** Endings of the kinds of file Pulse keeps (see sniffType): a rename may switch between these */
+const KEPT_EXTENSIONS = new Set(['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif', 'rtf', 'txt', 'csv', 'docx', 'xlsx', 'pptx', 'odt', 'ods'])
+
 /**
  * Renaming "scan.pdf" to "Intake scan" keeps ".pdf": without it "Save a copy"
- * writes a file the computer can't open with a double-click.
+ * writes a file the computer can't open with a double-click. A new ending that
+ * isn't one of those kinds ("notes.txt" renamed "run.bat") gets the old one added
+ * after it ("run.bat.txt"), so plain text can't be saved as a script (Q-057, D-021).
  */
 export function keepExtension(newName: string, oldName: string): string {
   const ext = EXTENSION.exec(oldName)?.[0]
-  if (!ext || EXTENSION.test(newName)) return newName
+  const newExt = EXTENSION.exec(newName)?.[0]
+  if (!ext) return newName
+  if (newExt && KEPT_EXTENSIONS.has(newExt.slice(1).toLowerCase())) return newName
   return cleanFileName(newName + ext)
 }
 
+/** Windows device names, which can't be file names there, with or without an ending */
+const RESERVED_NAME = /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])(\.|$)/i
+
 export function cleanFileName(path: string): string {
-  const name = basename(path).replace(/[\u0000-\u001f\u007f<>:"/\\|?*]+/g, '_').trim() || 'file'
+  let name = basename(path)
+    .replace(/[\u0000-\u001f\u007f<>:"/\\|?*]+/g, '_')
+    // Zero-width and direction marks can disguise an ending ("txt.exe" shown as "exe.txt")
+    .replace(/[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, '')
+    .trim()
+    // Windows drops trailing dots and spaces, so "report.pdf." would save as something else
+    .replace(/[. ]+$/, '')
+  if (!name || /^\.+$/.test(name)) name = 'file'
+  if (RESERVED_NAME.test(name)) name = `_${name}`
   if (name.length <= 200) return name
   const dot = name.lastIndexOf('.')
   const ext = dot > 0 && name.length - dot <= 10 ? name.slice(dot) : ''

@@ -26,6 +26,11 @@ const EXT: Record<string, string> = {
 }
 const REMOVE_AFTER_MS = 10 * 60 * 1000
 
+/** The ending for a kind of file Pulse keeps ("pdf"), worked out from its bytes when it was added */
+export function extensionForMime(mime: string): string | undefined {
+  return EXT[mime]
+}
+
 export function openedFilesDir(): string {
   return join(getPortableDataDir(), 'tmp-open')
 }

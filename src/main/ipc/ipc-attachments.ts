@@ -10,10 +10,10 @@ import { parseDbTimestamp } from '../../shared/dates'
 import { secureWrap, ok, fail, enforceWritable, validId, assertSafePath, notifyCaseLogChanged, pickSavePath, pickOpenPaths } from './ipc-utils'
 import {
   AttachmentError, addAttachments, listAttachments, describeAttachment, deleteAttachment, restoreAttachment, attachmentUsage, purgeDeletedAttachments, getAttachment,
-  trashedAttachments, purgeAttachment,
+  trashedAttachments, purgeAttachment, keepExtension, cleanFileName,
   type AddResult,
 } from '../attachments'
-import { openAttachment, saveAttachmentCopy, previewAttachment } from '../attachment-files'
+import { openAttachment, saveAttachmentCopy, previewAttachment, extensionForMime } from '../attachment-files'
 
 function action<T>(fn: () => T) {
   try { return ok(fn()) } catch (err) {
@@ -131,7 +131,10 @@ export function registerAttachmentHandlers(): void {
     if (!validId(id)) return fail('Invalid ID')
     const a = getAttachment(id)
     if (!a) return fail('That file is no longer available.')
-    const filePath = await pickSavePath({ title: 'Save a copy', defaultPath: a.file_name })
+    // The suggested name ends as the bytes really are: a name saved before Q-057 may say "run.bat" for text
+    const ext = extensionForMime(a.mime_type)
+    const suggested = ext ? keepExtension(cleanFileName(a.file_name), `file.${ext}`) : cleanFileName(a.file_name)
+    const filePath = await pickSavePath({ title: 'Save a copy', defaultPath: suggested })
     if (!filePath) return ok(null)
     assertSafePath(filePath)
     try { await saveAttachmentCopy(id, filePath); return ok(filePath) } catch (err) { if (err instanceof AttachmentError) return fail(err.message); throw err }

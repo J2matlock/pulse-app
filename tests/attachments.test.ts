@@ -62,6 +62,18 @@ describe('file types', () => {
     expect(cleanFileName(`/x/${'a'.repeat(300)}.pdf`)).toHaveLength(200)
     expect(cleanFileName(`/x/${'a'.repeat(300)}.pdf`).endsWith('.pdf')).toBe(true)
   })
+
+  it('cleans names Windows can\'t use and marks that disguise an ending (Q-057)', () => {
+    expect(cleanFileName('CON.pdf')).toBe('_CON.pdf')
+    expect(cleanFileName('nul')).toBe('_nul')
+    expect(cleanFileName('lpt1.txt')).toBe('_lpt1.txt')
+    expect(cleanFileName('console.pdf')).toBe('console.pdf')
+    expect(cleanFileName('invoice\u202Efdp.exe')).toBe('invoicefdp.exe')
+    expect(cleanFileName('a\u200Bb.pdf')).toBe('ab.pdf')
+    expect(cleanFileName('report.pdf. . ')).toBe('report.pdf')
+    expect(cleanFileName('..')).toBe('file')
+    expect(cleanFileName('.')).toBe('file')
+  })
 })
 
 describe('adding files', () => {
@@ -110,6 +122,14 @@ describe('renaming', () => {
     const [a] = addAttachments(g.rowIds[0]!, [file('scan.pdf', PDF)]).added
     expect(describeAttachment(a!.id, { fileName: 'Intake scan' }).file_name).toBe('Intake scan.pdf')
     expect(describeAttachment(a!.id, { fileName: 'Intake scan.txt' }).file_name).toBe('Intake scan.txt')
+  })
+
+  it('a rename to a script ending keeps the real one after it (Q-057)', () => {
+    const [a] = addAttachments(g.rowIds[0]!, [file('notes.txt', 'plain words')]).added
+    expect(describeAttachment(a!.id, { fileName: 'run.bat' }).file_name).toBe('run.bat.txt')
+    expect(describeAttachment(a!.id, { fileName: 'x.vbs' }).file_name).toBe('x.vbs.txt')
+    expect(describeAttachment(a!.id, { fileName: 'Visit v2.1' }).file_name).toBe('Visit v2.1.txt')
+    expect(describeAttachment(a!.id, { fileName: 'notes.csv' }).file_name).toBe('notes.csv')
   })
 })
 
