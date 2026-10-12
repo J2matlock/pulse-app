@@ -63,7 +63,7 @@
     "papaparse": "5.7.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "react-hot-toast": "2.6.0",
+    "react-hot-toast": "2.6.1",
     "react-router-dom": "7.18.4",
     "yauzl": "3.2.1",
     "yazl": "3.3.1",
