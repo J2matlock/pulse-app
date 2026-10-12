@@ -750,6 +750,33 @@ describe('executeImport', () => {
     })
   })
 
+  describe('duplicates compared as stored (Q-040)', () => {
+    async function importTwice(keyIndex: number): Promise<{ first: number; second: { imported: number; skipped: number } }> {
+      const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }, { name: 'Phone', type: 'phone' }, { name: 'Visit', type: 'date' }])
+      const filePath = writeImportCsv(`twice-${keyIndex}.csv`, 'Name,Phone,Visit\nAna,555.123.4567,3/15/2026\nBen,(555) 987 6543,4/1/2026\n')
+      const opts = {
+        gridId, filePath, cleanData: true, duplicateStrategy: 'by_column' as const, duplicateColumnId: columnIds[keyIndex],
+        columnMappings: [0, 1, 2].map(i => ({ sourceIndex: i, action: columnIds[i]! })),
+      }
+      const first = await executeImport(opts, await parseImportFile(filePath))
+      clearImportCache()
+      const second = await executeImport(opts, await parseImportFile(filePath))
+      return { first: first.imported, second }
+    }
+
+    it('importing the same file again keyed by a phone column skips everyone', async () => {
+      const r = await importTwice(1)
+      expect(r.first).toBe(2)
+      expect(r.second).toMatchObject({ imported: 0, skipped: 2 })
+    })
+
+    it('importing the same file again keyed by a date column skips everyone', async () => {
+      const r = await importTwice(2)
+      expect(r.first).toBe(2)
+      expect(r.second).toMatchObject({ imported: 0, skipped: 2 })
+    })
+  })
+
   describe('two-digit birth years (audit L-21)', () => {
     it('reads them as 19xx when they would otherwise be in the future, and says so', async () => {
       const { gridId, columnIds } = createImportGrid([{ name: 'Name', isName: true }, { name: 'DOB', type: 'date' }])

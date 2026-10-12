@@ -1099,8 +1099,16 @@ export async function executeImport(options: ImportOptions, preview: ImportPrevi
         }
         const src = keySrc
         dupLabelSrc = nameSourceIndex ?? keySrc
+        // Compared as it will be stored ("555.123.4567" is kept as "(555) 123-4567",
+        // "3/15/2026" as "2026-03-15"), since that's what the existing cells hold (Q-040)
+        const stored = (row: string[], srcIdx: number): string => {
+          const type = colMap.get(srcIdx)?.type
+          const raw = cellValue(row, srcIdx)
+          if (!type || !raw) return raw
+          return holdsDate(type) ? importedDate(row, srcIdx) : normalizeValue(raw, type, cleanData, dateOrders.get(srcIdx))
+        }
         dupKeyOf = (row) => {
-          const name = norm(cellValue(row, src))
+          const name = norm(stored(row, src))
           if (!name) return null
           if (dobSrc === null) return name
           return `${name}|${norm(importedDate(row, dobSrc))}`
