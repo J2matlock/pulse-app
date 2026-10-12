@@ -618,15 +618,19 @@ function excelNumber(n: number, numFmt: string): string {
 }
 
 /** Convert an ExcelJS cell value to a plain string */
-function excelValueToString(v: ExcelJS.CellValue | undefined, numFmt: string, notes: ExcelReadNotes): string {
+function excelValueToString(v: ExcelJS.CellValue | undefined, numFmt: string, notes: ExcelReadNotes, date1904 = false): string {
   if (v === null || v === undefined) return ''
   if (typeof v === 'string') return v
   if (typeof v === 'number') return excelNumber(v, numFmt)
   if (typeof v === 'boolean') return String(v)
   if (v instanceof Date) {
     if (isNaN(v.getTime())) return ''
-    // A time with no date sits on Excel's day zero
-    if (v.getUTCFullYear() === 1899 && v.getUTCMonth() === 11 && v.getUTCDate() >= 30) return excelTime(v, numFmt)
+    // A time with no date sits on Excel's day zero: 1899-12-30, or 1904-01-01 in a
+    // workbook using the 1904 date system (older Mac Excel, A21b-08)
+    const dayZero = date1904
+      ? v.getUTCFullYear() === 1904 && v.getUTCMonth() === 0 && v.getUTCDate() === 1
+      : v.getUTCFullYear() === 1899 && v.getUTCMonth() === 11 && v.getUTCDate() >= 30
+    if (dayZero) return excelTime(v, numFmt)
     return excelDateToYmd(v)
   }
   if (typeof v !== 'object') return ''
@@ -637,10 +641,10 @@ function excelValueToString(v: ExcelJS.CellValue | undefined, numFmt: string, no
   if ('formula' in v || 'sharedFormula' in v || 'result' in v) {
     const result = (v as { result?: ExcelJS.CellValue }).result
     if (result === undefined || result === null) { notes.noResult++; return '' }
-    return excelValueToString(result, numFmt, notes)
+    return excelValueToString(result, numFmt, notes, date1904)
   }
   // Hyperlinks: the text shown, which may itself be rich text
-  if ('hyperlink' in v && 'text' in v) return excelValueToString((v as { text: ExcelJS.CellValue }).text, numFmt, notes)
+  if ('hyperlink' in v && 'text' in v) return excelValueToString((v as { text: ExcelJS.CellValue }).text, numFmt, notes, date1904)
   return ''
 }
 
@@ -736,6 +740,7 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
       const maxRow = Math.min(ws.rowCount, MAX_RAW_ROWS)
       if (ws.rowCount > MAX_RAW_ROWS) parseWarnings.push(rowCapWarning())
       const notes: ExcelReadNotes = { errors: 0, noResult: 0 }
+      const date1904 = wb.properties?.date1904 === true
       for (let c = 1; c <= colCount; c++) if (ws.getColumn(c).hidden) hiddenCols.push(c - 1)
       for (let r = 1; r <= maxRow; r++) {
         const row = ws.getRow(r)
@@ -743,7 +748,7 @@ async function getCachedOrParse(filePath: string, sheetName?: string, headerRowI
         const rowData: string[] = []
         for (let c = 1; c <= colCount; c++) {
           const cell = row.getCell(c)
-          rowData.push(unguardCsvFormula(excelValueToString(cell.value, cell.numFmt ?? '', notes)))
+          rowData.push(unguardCsvFormula(excelValueToString(cell.value, cell.numFmt ?? '', notes, date1904)))
         }
         rawRows.push(rowData)
       }

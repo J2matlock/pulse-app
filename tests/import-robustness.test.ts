@@ -247,6 +247,20 @@ describe('Excel cells', () => {
     expect(preview.detectedColumns[1]!.detectedType).not.toBe('date')
   })
 
+  it('in a 1904-date-system workbook, a time-only cell is a time and dates stay right (A21b-08)', async () => {
+    const wb = new ExcelJS.Workbook()
+    wb.properties.date1904 = true
+    const ws = wb.addWorksheet('Data')
+    ws.addRow(['Name', 'Visit time', 'Seen on'])
+    ws.addRow(['Test Person', new Date(Date.UTC(1904, 0, 1, 9, 30)), new Date(Date.UTC(2026, 9, 11))])
+    ws.getCell('B2').numFmt = 'h:mm AM/PM'
+    ws.getCell('C2').numFmt = 'yyyy-mm-dd'
+    const filePath = join(tmpDir, 'mac1904.xlsx')
+    await wb.xlsx.writeFile(filePath)
+    const preview = await parseImportFile(filePath)
+    expect(preview.rows[0]).toEqual(['Test Person', '9:30 AM', '2026-10-11'])
+  })
+
   it('leading-zero and percent formats keep what the sheet shows', async () => {
     const filePath = await writeXlsx('fmt.xlsx', ws => {
       ws.addRow(['Name', 'Zip', 'Share', 'Rate'])
