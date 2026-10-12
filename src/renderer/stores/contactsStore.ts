@@ -728,3 +728,17 @@ export const useContactsStore = create<ContactsStore>((set, get) => ({
     await storeInvoke(IPC.CONTACTS_SAVE_CUSTOM_VALUE, providerId, customFieldId, value).catch((err) => { rlog.error('contactsStore', 'saveCustomValue failed', err) })
   },
 }))
+
+// Locked: drop contacts and their notes (A24-11); the directory reloads when it opens again
+pulseEvents.on('app:locked', () => {
+  useContactsStore.setState(s => ({
+    providers: [],
+    selectedProviderId: null,
+    selectedProvider: null,
+    interactions: [],
+    clientLinks: [],
+    loading: false,
+    initialLoadDone: false,
+    _loadVersion: s._loadVersion + 1,
+  }))
+})

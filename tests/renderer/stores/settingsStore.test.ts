@@ -12,6 +12,10 @@ vi.stubGlobal('crypto', { randomUUID: () => 'test-uuid' })
 
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore'
 import { useUndoStore } from '../../../src/renderer/stores/undoStore'
+import { useGridStore } from '../../../src/renderer/stores/gridStore'
+import { useContactsStore } from '../../../src/renderer/stores/contactsStore'
+import { useTaskStore } from '../../../src/renderer/stores/taskStore'
+import type { GridRow, CaseloadTask, Provider } from '../../../src/shared/types'
 
 const initialState = {
   isLocked: true,
@@ -57,6 +61,36 @@ describe('settingsStore', () => {
       await useSettingsStore.getState().lock()
       expect(useUndoStore.getState().undoStack).toHaveLength(0)
       expect(useUndoStore.getState().redoStack).toHaveLength(0)
+    })
+
+    it('lock() drops records, contacts and tasks from memory, keeping which list was open (A24-11)', async () => {
+      useGridStore.setState({
+        activeGridId: 3, loadedGridId: 3,
+        rows: [{ row_id: 1, col_5: 'Jane Doe' } as GridRow],
+        rowTagsMap: new Map([[1, ['vip']]]), selectedRowIds: new Set([1]), sortedRowIds: [1], pinnedRowId: 1,
+      })
+      useContactsStore.setState({
+        providers: [{ id: 9, name: 'Dr Smith' } as Provider], selectedProviderId: 9,
+        selectedProvider: { id: 9, name: 'Dr Smith' } as Provider, initialLoadDone: true,
+      })
+      useTaskStore.setState({ tasks: [{ id: 4, title: 'Call Jane' } as CaseloadTask] })
+      mockInvoke.mockResolvedValue(undefined)
+
+      await useSettingsStore.getState().lock()
+
+      const g = useGridStore.getState()
+      expect(g.rows).toEqual([])
+      expect(g.rowTagsMap.size).toBe(0)
+      expect(g.selectedRowIds.size).toBe(0)
+      expect(g.sortedRowIds).toEqual([])
+      expect(g.pinnedRowId).toBeNull()
+      expect(g.loadedGridId).toBeNull()
+      expect(g.activeGridId).toBe(3)
+      const c = useContactsStore.getState()
+      expect(c.providers).toEqual([])
+      expect(c.selectedProvider).toBeNull()
+      expect(c.initialLoadDone).toBe(false)
+      expect(useTaskStore.getState().tasks).toEqual([])
     })
 
     it('lock() clears focusModeOpen', async () => {

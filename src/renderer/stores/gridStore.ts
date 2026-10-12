@@ -784,3 +784,24 @@ export const useGridStore = create<GridState>((set, get) => ({
   },
 
 }))
+
+// Locked: drop the open list's records (A24-11). The list and its view settings stay,
+// so unlocking reloads the same list (GridView sees loadedGridId is null)
+pulseEvents.on('app:locked', () => {
+  _coalesceIndex.clear()
+  useGridStore.setState(s => ({
+    rows: [],
+    rowTagsMap: new Map<number, string[]>(),
+    sortedRowIds: [],
+    selectedRowIds: new Set<number>(),
+    sampleRows: {},
+    sampleKeepPrompt: null,
+    lastAddedRowId: null,
+    pinnedRowId: null,
+    deadlineContext: { meter: {}, quota: {}, progress: {}, extensions: {} },
+    loadedGridId: null,
+    isLoading: false,
+    // A load still on its way back is dropped
+    _loadVersion: s._loadVersion + 1,
+  }))
+})

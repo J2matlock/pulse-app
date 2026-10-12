@@ -19,6 +19,8 @@ type PulseEvents = {
   'form:fill': { formId: number; gridId: number; rowId?: number }
   /** The app is about to lock: save anything pending while the database is still open */
   'app:locking': undefined
+  /** The app locked: stores holding records, notes or contacts drop them (they reload on unlock) */
+  'app:locked': undefined
   /** A cell was saved with a new value (not by undo) */
   'cell:changed': { rowId: number; columnId: number; from: string | null; to: string | null }
   /** A cell was saved (Undo and Redo included) */

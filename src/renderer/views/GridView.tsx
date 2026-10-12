@@ -93,8 +93,11 @@ export default function GridView(): React.ReactElement {
 
   // Coming back to a list that's already loaded: read its records again, so ones restored
   // from the Trash or reactivated on the Dashboard show (R2). Quietly, keeping the selection.
+  // After an unlock the records were dropped (A24-11): load the same list again in full.
   useEffect(() => {
-    void useGridStore.getState().refreshRows()
+    const s = useGridStore.getState()
+    if (s.activeGridId !== null && s.loadedGridId === null && !s.isLoading) void s.loadGrid(s.activeGridId)
+    else void s.refreshRows()
   }, [])
 
   // Auto-select first grid — only after loadGridList has resolved.

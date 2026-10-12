@@ -6,6 +6,7 @@ import { rlog } from '../utils/rendererLogger'
 import { flushPendingEdits } from '../utils/flushPendingEdits'
 import { storeInvoke } from '../utils/safeInvoke'
 import { UI_SCALE_MIN, UI_SCALE_MAX } from '../utils/uiScale'
+import { pulseEvents } from '../events'
 import { normalizeAutoLockMinutes, AUTO_LOCK_DEFAULT_MINUTES } from '../../shared/constants'
 
 interface SettingsState {
@@ -125,5 +126,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     }
     useUndoStore.getState().clear()
     set({ isLocked: true, focusModeOpen: false, recoverySession: false })
+    // Locked means no record data left in the window's memory (A24-11)
+    pulseEvents.emit('app:locked')
   }
 }))
