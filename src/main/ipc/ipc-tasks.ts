@@ -2,9 +2,11 @@
  * ipc-tasks.ts — TASK_*, SNIPPET_* IPC handlers
  */
 
+import { z } from 'zod'
 import { IPC } from '../../shared/ipc-channels'
 import { QUERY_LIMITS } from '../../shared/query-limits'
-import { secureWrap, logNonFatal, ok, fail, buildSafeSetClause, validId, enforceWritable } from './ipc-utils'
+import { logNonFatal, ok, fail, buildSafeSetClause, validId } from './ipc-utils'
+import { handlersFor, idArg, idListArg, textArg } from './ipc-define'
 import { getDb, cachedStmt } from '../database'
 import type { CaseloadTask, TaskGroup, Snippet } from '../../shared/types'
 import { localDateString } from '../../shared/dates'
@@ -29,10 +31,18 @@ function taskDay(value: unknown): { day: string | null } | { error: string } {
   return day ? { day } : { error: 'Choose a real date.' }
 }
 
+/** A deleted task put back by undo */
+interface RestoredTask {
+  id: number; grid_id: number | null; group_id?: number | null; title: string; description: string | null; priority: string
+  category: string | null; due_date: string | null; recurrence_rule: string | null; position: number; is_completed: number
+  completed_at: string | null; snoozed_until: string | null; created_at: string
+}
+
+const define = handlersFor('ipc-tasks')
+
 export function registerTaskHandlers(): void {
   // ── Caseload Tasks ──────────────────────────────────────────────────────────
-  secureWrap(IPC.TASK_GET_ALL, 'ipc-tasks', (_e, gridId?: number) => {
-    if (gridId != null && !validId(gridId)) return fail('Invalid ID')
+  define(IPC.TASK_GET_ALL, [idArg().nullish()], (gridId) => {
     const TASK_COLS = 'ct.id, ct.grid_id, ct.group_id, ct.title, ct.description, ct.priority, ct.category, ct.due_date, ct.recurrence_rule, ct.is_completed, ct.completed_at, ct.snoozed_until, ct.position, ct.created_at, ct.updated_at'
     // Tasks of a list in the Trash are left out, as on the Dashboard and calendar (bug sweep S2/S4)
     const FROM = `FROM caseload_tasks ct LEFT JOIN grids g ON g.id = ct.grid_id WHERE (ct.grid_id IS NULL OR ${LIVE_GRID}) AND`
@@ -47,7 +57,7 @@ export function registerTaskHandlers(): void {
     return ok([...open, ...done])
   })
 
-  secureWrap(IPC.TASK_GET_DUE, 'ipc-tasks', () => {
+  define(IPC.TASK_GET_DUE, [], () => {
     const today = localDateString()
     // Only tasks with a due date assigned; LEFT JOIN grids so global tasks
     // still appear, but tasks tied to a deleted/inactive grid are excluded.
@@ -63,8 +73,8 @@ export function registerTaskHandlers(): void {
     return ok(tasks)
   })
 
-  secureWrap(IPC.TASK_CREATE, 'ipc-tasks', (_e, task: Omit<CaseloadTask, 'id' | 'created_at' | 'updated_at'>) => {
-    const guard = enforceWritable(); if (guard) return guard
+  // The task's fields are checked in the body, in order, as before
+  define(IPC.TASK_CREATE, [z.custom<Omit<CaseloadTask, 'id' | 'created_at' | 'updated_at'>>()], (task) => {
     const priority = task.priority ?? 'normal'
     if (!ALLOWED_PRIORITIES.has(priority)) return fail(`Invalid priority: ${priority}`)
     if (typeof task.title !== 'string' || !task.title.trim() || task.title.length > 500) return fail('Invalid task title')
@@ -89,11 +99,9 @@ export function registerTaskHandlers(): void {
            task.category ?? null, dueDate, task.recurrence_rule ?? null, maxPos + 1)
     const created = db.prepare('SELECT * FROM caseload_tasks WHERE id = ?').get(result.lastInsertRowid) as CaseloadTask
     return ok(created)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.TASK_UPDATE, 'ipc-tasks', (_e, id: number, updates: Partial<CaseloadTask>) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.TASK_UPDATE, [idArg(), z.custom<Partial<CaseloadTask>>()], (id, updates) => {
     if (updates.priority != null && !ALLOWED_PRIORITIES.has(updates.priority)) return fail('Invalid priority')
     if (updates.title !== undefined && (typeof updates.title !== 'string' || !updates.title.trim() || updates.title.length > 500)) return fail('Invalid title (max 500 chars)')
     if (updates.description !== undefined && updates.description !== null && (typeof updates.description !== 'string' || updates.description.length > 100_000)) return fail('Description too long')
@@ -127,14 +135,12 @@ export function registerTaskHandlers(): void {
     if (!result) return fail('No valid fields to update')
     getDb().prepare(`UPDATE caseload_tasks SET ${result.setClause} WHERE id = ?`).run(...result.values, id)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.TASK_DELETE, 'ipc-tasks', (_e, id: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.TASK_DELETE, [idArg()], (id) => {
     getDb().prepare('DELETE FROM caseload_tasks WHERE id = ?').run(id)
     return ok(true)
-  })
+  }, { write: true })
 
   /**
    * Tick a task off. A repeating one comes back with its next date (rolled
@@ -142,10 +148,7 @@ export function registerTaskHandlers(): void {
    * window passes the due date it saw, so a second click on the same task
    * (already moved on) is ignored instead of skipping a cycle (audit L-27).
    */
-  secureWrap(IPC.TASK_COMPLETE, 'ipc-tasks', (_e, id: number, expectedDue?: string | null) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
-    if (expectedDue !== undefined && expectedDue !== null && typeof expectedDue !== 'string') return fail('Invalid due date')
+  define(IPC.TASK_COMPLETE, [idArg(), z.string('Invalid due date').nullish()], (id, expectedDue) => {
     const db = getDb()
     const doComplete = db.transaction((): boolean => {
       const task = db.prepare('SELECT * FROM caseload_tasks WHERE id = ?').get(id) as CaseloadTask | undefined
@@ -180,20 +183,18 @@ export function registerTaskHandlers(): void {
       return true
     })
     return ok(doComplete())
-  })
+  }, { write: true })
 
-  secureWrap(IPC.TASK_SNOOZE, 'ipc-tasks', (_e, id: number, until: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
-    if (typeof until !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(until)) return fail('Invalid snooze date format')
+  define(IPC.TASK_SNOOZE, [
+    idArg(), z.string('Invalid snooze date format').regex(/^\d{4}-\d{2}-\d{2}/, 'Invalid snooze date format'),
+  ], (id, until) => {
     getDb().prepare(`UPDATE caseload_tasks SET snoozed_until = ?, updated_at = datetime('now') WHERE id = ?`).run(until, id)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.TASK_REORDER, 'ipc-tasks', (_e, orderedIds: number[]) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!Array.isArray(orderedIds) || orderedIds.length > MAX_REORDER_TASKS) return fail('Invalid reorder payload')
-    if (!orderedIds.every(id => Number.isInteger(id) && id > 0)) return fail('Invalid IDs in reorder payload')
+  define(IPC.TASK_REORDER, [
+    idListArg('Invalid reorder payload', 'Invalid IDs in reorder payload', { max: MAX_REORDER_TASKS }),
+  ], (orderedIds) => {
     const db = getDb()
     // The list sends only the tasks it shows (not snoozed or older finished ones). As for
     // columns, tasks left out keep their slots and the sent ones fill the other slots in
@@ -212,10 +213,10 @@ export function registerTaskHandlers(): void {
     })
     reorder()
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.TASK_RESTORE, 'ipc-tasks', (_e, task: { id: number; grid_id: number | null; group_id?: number | null; title: string; description: string | null; priority: string; category: string | null; due_date: string | null; recurrence_rule: string | null; position: number; is_completed: number; completed_at: string | null; snoozed_until: string | null; created_at: string }) => {
-    const guard = enforceWritable(); if (guard) return guard
+  // The task is checked in the body, field by field, as before
+  define(IPC.TASK_RESTORE, [z.custom<RestoredTask>()], (task) => {
     if (!task || typeof task.id !== 'number') return fail('Invalid task format')
     if (!task.title || typeof task.title !== 'string' || task.title.length > 1000) return fail('Title missing or too long')
     if (!ALLOWED_PRIORITIES.has(task.priority)) return fail(`Invalid priority: ${task.priority}`)
@@ -240,12 +241,13 @@ export function registerTaskHandlers(): void {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
     `).run(task.id, task.grid_id ?? null, groupId, task.title, task.description ?? null, task.priority, task.category ?? null, task.due_date ?? null, task.recurrence_rule ?? null, task.position, task.is_completed, task.completed_at ?? null, task.snoozed_until ?? null, task.created_at)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.TASK_UNCOMPLETE, 'ipc-tasks', (_e, id: number, original: { is_completed: number; completed_at: string | null; due_date: string | null; snoozed_until?: string | null }) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
-    if (!original || typeof original !== 'object') return fail('Invalid original state')
+  // The saved state's fields are checked in the body, in order, as before
+  define(IPC.TASK_UNCOMPLETE, [
+    idArg(),
+    z.custom<{ is_completed: number; completed_at: string | null; due_date: string | null; snoozed_until?: string | null }>(v => !!v && typeof v === 'object', 'Invalid original state'),
+  ], (id, original) => {
     if (original.is_completed !== 0 && original.is_completed !== 1) return fail('is_completed must be 0 or 1')
     if (original.completed_at !== null && (typeof original.completed_at !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(original.completed_at))) return fail('Invalid completed_at date format')
     if (original.due_date !== null && (typeof original.due_date !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(original.due_date))) return fail('Invalid due_date date format')
@@ -267,17 +269,15 @@ export function registerTaskHandlers(): void {
       if (snooze !== undefined) db.prepare('UPDATE caseload_tasks SET snoozed_until = ? WHERE id = ?').run(snooze ?? null, id)
     })()
     return ok(true)
-  })
+  }, { write: true })
 
   // ── Task Groups ─────────────────────────────────────────────────────────────
-  secureWrap(IPC.TASK_GROUP_GET_ALL, 'ipc-tasks', () => {
+  define(IPC.TASK_GROUP_GET_ALL, [], () => {
     const groups = getDb().prepare('SELECT * FROM task_groups ORDER BY position, id').all() as TaskGroup[]
     return ok(groups)
   })
 
-  secureWrap(IPC.TASK_GROUP_CREATE, 'ipc-tasks', (_e, name: string) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (typeof name !== 'string' || !name.trim() || name.length > 200) return fail('Invalid group name (max 200 chars)')
+  define(IPC.TASK_GROUP_CREATE, [textArg('Invalid group name (max 200 chars)', { max: 200, notBlank: true })], (name) => {
     const db = getDb()
     const maxPos = (db.prepare('SELECT COALESCE(MAX(position), -1) as m FROM task_groups').get() as { m: number }).m
     const result = db.prepare(`
@@ -285,34 +285,29 @@ export function registerTaskHandlers(): void {
     `).run(name.trim(), maxPos + 1)
     const group = db.prepare('SELECT * FROM task_groups WHERE id = ?').get(result.lastInsertRowid) as TaskGroup
     return ok(group)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.TASK_GROUP_UPDATE, 'ipc-tasks', (_e, groupId: number, updates: Partial<TaskGroup>) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(groupId)) return fail('Invalid ID')
+  define(IPC.TASK_GROUP_UPDATE, [idArg(), z.custom<Partial<TaskGroup>>()], (groupId, updates) => {
     if (updates.name !== undefined && (typeof updates.name !== 'string' || !updates.name.trim() || updates.name.length > 200)) return fail('Invalid group name (max 200 chars)')
     const allowed = ['name', 'position', 'is_collapsed'] as const
     const result = buildSafeSetClause(updates as Record<string, unknown>, allowed)
     if (!result) return fail('No valid fields to update')
     getDb().prepare(`UPDATE task_groups SET ${result.setClause} WHERE id = ?`).run(...result.values, groupId)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.TASK_GROUP_DELETE, 'ipc-tasks', (_e, groupId: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(groupId)) return fail('Invalid ID')
+  define(IPC.TASK_GROUP_DELETE, [idArg()], (groupId) => {
     const db = getDb()
     db.transaction(() => {
       db.prepare('UPDATE caseload_tasks SET group_id = NULL WHERE group_id = ?').run(groupId)
       db.prepare('DELETE FROM task_groups WHERE id = ?').run(groupId)
     })()
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.TASK_GROUP_REORDER, 'ipc-tasks', (_e, orderedGroupIds: number[]) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!Array.isArray(orderedGroupIds) || orderedGroupIds.length > 200) return fail('Invalid reorder payload')
-    if (!orderedGroupIds.every(id => Number.isInteger(id) && id > 0)) return fail('Invalid IDs in reorder payload')
+  define(IPC.TASK_GROUP_REORDER, [
+    idListArg('Invalid reorder payload', 'Invalid IDs in reorder payload', { max: 200 }),
+  ], (orderedGroupIds) => {
     const db = getDb()
     db.transaction(() => {
       const stmt = db.prepare('UPDATE task_groups SET position = ? WHERE id = ?')
@@ -321,24 +316,20 @@ export function registerTaskHandlers(): void {
       }
     })()
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.TASK_MOVE_TO_GROUP, 'ipc-tasks', (_e, taskId: number, groupId: number | null) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(taskId)) return fail('Invalid task ID')
+  define(IPC.TASK_MOVE_TO_GROUP, [idArg('Invalid task ID'), idArg('Invalid group ID').nullish()], (taskId, groupId) => {
     const db = getDb()
     if (groupId != null) {
-      if (!validId(groupId)) return fail('Invalid group ID')
       const group = db.prepare('SELECT id FROM task_groups WHERE id = ?').get(groupId)
       if (!group) return fail('Task group not found')
     }
     db.prepare('UPDATE caseload_tasks SET group_id = ? WHERE id = ?').run(groupId, taskId)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.TASK_APPLY_TEMPLATE, 'ipc-tasks', (_e, templateId: number, groupId?: number | null) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(templateId)) return fail('Invalid template ID')
+  // The group is checked in the body, after the template: a missing template answers first, as before
+  define(IPC.TASK_APPLY_TEMPLATE, [idArg('Invalid template ID'), z.custom<number | null | undefined>()], (templateId, groupId) => {
     const db = getDb()
     const template = db.prepare('SELECT * FROM checklist_templates WHERE id = ?').get(templateId) as { id: number; name: string; items: string; is_recurring: number | null; recurrence_days: number | null } | undefined
     if (!template) return fail('Template not found')
@@ -380,10 +371,10 @@ export function registerTaskHandlers(): void {
     })()
 
     return ok({ createdIds })
-  })
+  }, { write: true })
 
   // ── Snippets ────────────────────────────────────────────────────────────────
-  secureWrap(IPC.SNIPPET_GET_ALL, 'ipc-tasks', () => {
+  define(IPC.SNIPPET_GET_ALL, [], () => {
     const db = getDb()
     // Lazy-seed pre-built snippets once (they're written for human services). The flag
     // stops them coming back after someone deletes every snippet to start fresh.
@@ -416,11 +407,11 @@ export function registerTaskHandlers(): void {
     return ok(snippets)
   })
 
-  secureWrap(IPC.SNIPPET_CREATE, 'ipc-tasks', (_e, trigger: string, expansion: string, category: string | null) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (typeof trigger !== 'string' || trigger.length === 0 || trigger.length > 50) return fail('Invalid snippet trigger (max 50 characters)')
-    if (typeof expansion !== 'string' || expansion.length > 50_000) return fail('Snippet expansion too large (max 50,000 characters)')
-    if (category != null && (typeof category !== 'string' || category.length > 100)) return fail('Invalid snippet category')
+  define(IPC.SNIPPET_CREATE, [
+    textArg('Invalid snippet trigger (max 50 characters)', { min: 1, max: 50 }),
+    textArg('Snippet expansion too large (max 50,000 characters)', { max: 50_000 }),
+    z.string('Invalid snippet category').max(100, 'Invalid snippet category').nullish(),
+  ], (trigger, expansion, category) => {
     const db = getDb()
     const result = db.prepare(`
       INSERT INTO snippets (trigger_text, expansion, category, created_at)
@@ -428,11 +419,9 @@ export function registerTaskHandlers(): void {
     `).run(trigger, expansion, category ?? null)
     const snippet = db.prepare('SELECT * FROM snippets WHERE id = ?').get(result.lastInsertRowid) as Snippet
     return ok(snippet)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.SNIPPET_UPDATE, 'ipc-tasks', (_e, id: number, updates: { trigger_text?: string; expansion?: string; category?: string | null }) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.SNIPPET_UPDATE, [idArg(), z.custom<{ trigger_text?: string; expansion?: string; category?: string | null }>()], (id, updates) => {
     if (updates.trigger_text !== undefined && (typeof updates.trigger_text !== 'string' || updates.trigger_text.length === 0 || updates.trigger_text.length > 50)) return fail('Invalid trigger (max 50 chars)')
     if (updates.expansion !== undefined && (typeof updates.expansion !== 'string' || updates.expansion.length > 50_000)) return fail('Expansion too large (max 50,000 chars)')
     if (updates.category !== undefined && updates.category !== null && (typeof updates.category !== 'string' || updates.category.length > 200)) return fail('Category too long (max 200 chars)')
@@ -441,13 +430,11 @@ export function registerTaskHandlers(): void {
     if (!result) return fail('No valid fields to update')
     getDb().prepare(`UPDATE snippets SET ${result.setClause} WHERE id = ?`).run(...result.values, id)
     return ok(true)
-  })
+  }, { write: true })
 
-  secureWrap(IPC.SNIPPET_DELETE, 'ipc-tasks', (_e, id: number) => {
-    const guard = enforceWritable(); if (guard) return guard
-    if (!validId(id)) return fail('Invalid ID')
+  define(IPC.SNIPPET_DELETE, [idArg()], (id) => {
     getDb().prepare('DELETE FROM snippets WHERE id = ?').run(id)
     return ok(true)
-  })
+  }, { write: true })
 
 }
