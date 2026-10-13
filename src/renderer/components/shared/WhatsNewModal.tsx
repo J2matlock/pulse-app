@@ -19,6 +19,17 @@ interface ReleaseEntry {
 /** Items name records, lists and notes with {word} tokens, filled with the workspace's words */
 export const RELEASES: ReleaseEntry[] = [
   {
+    version: '2.6.0',
+    date: '2026-10-13',
+    items: [
+      'Calendar events that aren\'t tied to anyone: a title, a time or all day, a place, details and repeats, like any calendar',
+      'Choose which deadlines show on the Calendar, from the "Which deadlines" menu or a column\'s settings',
+      'Click an empty day on the Calendar to add an event, a deadline for one of your {record:many} or a task due that day',
+      'A date column with a deadline rule can show only the date: the colour stays and the words move to the tooltip',
+      'The star has its own column in the {list}, and the deadline rule editor\'s colour steps fit their numbers and names',
+    ],
+  },
+  {
     version: '2.5.0',
     date: '2026-10-12',
     items: [
