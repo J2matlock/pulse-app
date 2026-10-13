@@ -1,5 +1,5 @@
 import React, { useRef } from 'react'
-import { Activity, Asterisk, Columns3, Link2, List, Palette } from 'lucide-react'
+import { Activity, Asterisk, CalendarDays, Columns3, Link2, List, Palette } from 'lucide-react'
 import type { Column, ParsedAlertRule } from '../../../shared/types'
 import { takesDeadlineRule } from '../../../shared/types'
 import { canBeRequired } from '../../../shared/requiredFields'
@@ -13,13 +13,14 @@ import { NoteUpdatePicker } from './NoteUpdatePicker'
 export interface ColumnSettingsDialogProps {
   column: Column
   /** The column's parsed config */
-  colConfig: Record<string, unknown> & { log_changes?: boolean; required?: boolean; note_updates?: unknown; done_checklist_id?: number | null }
+  colConfig: Record<string, unknown> & { log_changes?: boolean; required?: boolean; date_only?: boolean; note_updates?: unknown; done_checklist_id?: number | null }
   /** A link column whose link type was found: its settings can open */
   hasLinkType: boolean
   currentAlertRule: ParsedAlertRule | undefined
   onClose: () => void
   onToggleLogChanges: () => void
   onToggleRequired: () => void
+  onToggleDateOnly: () => void
   onOpenColorRules: () => void
   onOpenEditOptions: () => void
   onOpenStageSettings: () => void
@@ -30,7 +31,7 @@ export interface ColumnSettingsDialogProps {
 
 /** Column settings (G-21): required, choices, colors, changes in notes, stage, links, deadline extras */
 export function ColumnSettingsDialog({
-  column, colConfig, hasLinkType, currentAlertRule, onClose, onToggleLogChanges, onToggleRequired, onOpenColorRules,
+  column, colConfig, hasLinkType, currentAlertRule, onClose, onToggleLogChanges, onToggleRequired, onToggleDateOnly, onOpenColorRules,
   onOpenEditOptions, onOpenStageSettings, onOpenLinkSettings, onNoteUpdatesChange, onDoneChecklistChange,
 }: ColumnSettingsDialogProps): React.ReactElement {
   const { t } = useVocab()
@@ -66,6 +67,24 @@ export function ColumnSettingsDialog({
             <span className="flex-1 text-left">Required column</span>
             <span className={`text-sm font-medium ${colConfig.required ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
               {colConfig.required ? 'On' : 'Off'}
+            </span>
+          </button>
+        )}
+
+        {/* A date with a rule says how it stands beside the date; some lists only want the date */}
+        {column.column_type === 'date' && currentAlertRule && (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={colConfig.date_only === true}
+            className="hit-44 flex items-center gap-2 w-full px-3 py-2 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+            onClick={onToggleDateOnly}
+            title="Hide the words beside the date, like “in 5 days”. The color stays, and the words show when you point at the cell."
+          >
+            <CalendarDays className="w-4 h-4" />
+            <span className="flex-1 text-left">Show only the date</span>
+            <span aria-hidden="true" className={`text-sm font-medium ${colConfig.date_only ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
+              {colConfig.date_only ? 'On' : 'Off'}
             </span>
           </button>
         )}

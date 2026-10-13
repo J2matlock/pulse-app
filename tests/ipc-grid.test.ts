@@ -441,6 +441,15 @@ describe('COLUMN_UPDATE', () => {
     const result = await invoke(IPC.COLUMN_UPDATE, columnIds[0], { width: 300 }) as { ok: boolean }
     expect(result.ok).toBe(true)
   })
+
+  it('keeps "Show only the date" (date_only) in the config alongside the rule', async () => {
+    const { columnIds } = seedGrid(testDb.db)
+    const config = JSON.stringify({ alert_rule_id: 1, log_changes: true, date_only: true })
+    const result = await invoke(IPC.COLUMN_UPDATE, columnIds[1], { config }) as { ok: boolean }
+    expect(result.ok).toBe(true)
+    const row = testDb.db.prepare('SELECT config FROM columns WHERE id = ?').get(columnIds[1]) as { config: string }
+    expect(JSON.parse(row.config)).toEqual({ alert_rule_id: 1, log_changes: true, date_only: true })
+  })
 })
 
 // ── COLUMN_BATCH_UPDATE_VISIBILITY ───────────────────────────────────────────

@@ -15,11 +15,18 @@ if (!globalThis.crypto?.randomUUID) {
 
 vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMock)
 
-vi.mock('../../../../src/renderer/utils/deadlineCalc', () => ({
-  computeDaysUntil: () => 10,
-  getMatchingThreshold: () => null,
-  formatDeadlineTooltip: () => '',
-}))
+// The words a dated cell shows are real; colors stay off (getMatchingThreshold → null)
+vi.mock('../../../../src/renderer/utils/deadlineCalc', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../../src/renderer/utils/deadlineCalc')>()
+  return {
+    computeDaysUntil: () => 10,
+    getMatchingThreshold: () => null,
+    formatDeadlineTooltip: () => '',
+    evaluateRuleForRow: actual.evaluateRuleForRow,
+    deadlineChipText: actual.deadlineChipText,
+    formatResultTooltip: actual.formatResultTooltip,
+  }
+})
 
 vi.mock('../../../../src/renderer/utils/alertColors', () => ({
   resolveAlertColor: () => ({ className: '', style: {} }),
@@ -53,6 +60,7 @@ import { SortableRow, type SortableRowProps } from '../../../../src/renderer/com
 import type { GridRow, Column } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
 import { pulseEvents } from '../../../../src/renderer/events'
+import { localDateString } from '../../../../src/shared/dates'
 
 function makeColumn(id: number, name: string, type = 'text'): Column {
   return {
@@ -274,6 +282,38 @@ describe('SortableRow', () => {
     it('says nothing in a date column without a rule', () => {
       render(<SortableRow {...propsWith('TBD', false)} />)
       expect(screen.queryByTestId('not-a-date')).toBeNull()
+    })
+
+    describe('"Show only the date" (date_only)', () => {
+      const banded = { ...rule, thresholds: [{ daysBefore: 30, bgClass: '#facc15', label: 'Due Soon' }, { daysBefore: -1, bgClass: '#dc2626', label: 'Overdue' }] } as unknown as import('../../../../src/shared/types').ParsedAlertRule
+      const daysFromToday = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return localDateString(d) }
+      function dateOnlyProps(value: string, dateOnly: boolean): SortableRowProps {
+        const props = propsWith(value)
+        const config = { alert_rule_id: 5, ...(dateOnly ? { date_only: true } : {}) }
+        return { ...props, alertRuleMap: new Map([[5, banded]]), parsedColumnConfigs: new Map([[2, { config, conditionalFormat: [] }]]) as unknown as SortableRowProps['parsedColumnConfigs'] }
+      }
+
+      it('off: the words show beside the date', () => {
+        render(<SortableRow {...dateOnlyProps(daysFromToday(5), false)} />)
+        expect(screen.getByTestId('deadline-chip').textContent).toBe('in 5 days')
+      })
+
+      it('on: the date stays, the words move to the tooltip and the screen-reader text', () => {
+        const { container } = render(<SortableRow {...dateOnlyProps(daysFromToday(5), true)} />)
+        expect(screen.queryByTestId('deadline-chip')).toBeNull()
+        const cell = container.querySelector<HTMLElement>('[data-col-id="2"]')!
+        expect(cell.getAttribute('title')).toMatch(/in 5 days/i)
+        expect(cell.querySelector('.sr-only')!.textContent).toMatch(/in 5 days/i)
+        // Visible text is the date alone, with no "in 5 days"
+        const visible = Array.from(cell.childNodes).filter(n => !(n instanceof HTMLElement && n.classList.contains('sr-only'))).map(n => n.textContent).join('')
+        expect(visible).not.toMatch(/in 5 days/i)
+      })
+
+      it('on, when late: the tooltip says how late', () => {
+        const { container } = render(<SortableRow {...dateOnlyProps('2025-01-01', true)} />)
+        expect(screen.queryByTestId('deadline-chip')).toBeNull()
+        expect(container.querySelector('[data-col-id="2"]')!.getAttribute('title')).toMatch(/late/)
+      })
     })
 
     it('uses the workspace words in the tooltip', () => {

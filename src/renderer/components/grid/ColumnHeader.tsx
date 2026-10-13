@@ -499,6 +499,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
             onClose={() => setShowColumnSettings(false)}
             onToggleLogChanges={() => void handleToggleLogChanges()}
             onToggleRequired={() => { void updateColumn(column.id, { config: JSON.stringify({ ...colConfig, required: colConfig.required ? undefined : true }) }); setShowMenu(false) }}
+            onToggleDateOnly={() => void updateColumn(column.id, { config: JSON.stringify({ ...colConfig, date_only: colConfig.date_only ? undefined : true }) })}
             onOpenColorRules={() => { setShowColFormat(true); setShowMenu(false) }}
             onOpenEditOptions={handleOpenEditOptions}
             onOpenStageSettings={() => { setShowMenu(false); setShowStageSettings(true) }}

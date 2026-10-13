@@ -187,6 +187,43 @@ describe('ColumnHeader', () => {
     expect(screen.getByText('Color rules for this column…')).toBeTruthy()
   })
 
+  describe('"Show only the date" for a date with a deadline rule', () => {
+    const rule = { id: 5, name: 'Promised', description: null, is_system: 0, interval_days: null, created_at: '', thresholds: [{ daysBefore: 0, bgClass: '#dc2626', label: 'Late' }] }
+    function openSettings(column: Column) {
+      render(<ColumnHeader column={column} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Column options' }))
+      fireEvent.click(screen.getByText('Column settings…'))
+    }
+
+    it('is off by default, and turning it on saves date_only in the column config, keeping the rest', () => {
+      const updateColumn = vi.fn()
+      setupStores({ updateColumn })
+      useAlertStore.setState({ rules: [rule] } as never)
+      openSettings(makeColumn(3, 'Review', 'date', JSON.stringify({ alert_rule_id: 5, log_changes: true })))
+      const toggle = screen.getByRole('switch', { name: 'Show only the date' })
+      expect(toggle.getAttribute('aria-checked')).toBe('false')
+      fireEvent.click(toggle)
+      expect(updateColumn).toHaveBeenCalledWith(3, { config: JSON.stringify({ alert_rule_id: 5, log_changes: true, date_only: true }) })
+    })
+
+    it('turning it off removes the key, so the config is as it was', () => {
+      const updateColumn = vi.fn()
+      setupStores({ updateColumn })
+      useAlertStore.setState({ rules: [rule] } as never)
+      openSettings(makeColumn(3, 'Review', 'date', JSON.stringify({ alert_rule_id: 5, date_only: true })))
+      const toggle = screen.getByRole('switch', { name: 'Show only the date' })
+      expect(toggle.getAttribute('aria-checked')).toBe('true')
+      fireEvent.click(toggle)
+      expect(updateColumn).toHaveBeenCalledWith(3, { config: JSON.stringify({ alert_rule_id: 5 }) })
+    })
+
+    it('is not offered on a date column without a rule', () => {
+      useAlertStore.setState({ rules: [rule] } as never)
+      openSettings(makeColumn(3, 'Review', 'date', '{}'))
+      expect(screen.queryByRole('switch', { name: 'Show only the date' })).toBeNull()
+    })
+  })
+
   it('column settings takes focus, keeps Tab inside, closes on Escape and gives focus back (AUDIT-047)', async () => {
     render(<ColumnHeader column={makeColumn(4, 'Phone')} />)
     const opener = screen.getByRole('button', { name: 'Column options' })

@@ -46,7 +46,7 @@ export function deadlineCellInfo(
   let hasRule = false
   let notADate = false
   if (takesDeadlineRule(col.column_type)) {
-    const cfg = parsedColumnConfigs.get(col.id)?.config as { alert_rule_id?: number } | undefined
+    const cfg = parsedColumnConfigs.get(col.id)?.config as { alert_rule_id?: number; date_only?: boolean } | undefined
     if (cfg?.alert_rule_id) {
       const rule = alertRuleMap.get(cfg.alert_rule_id)
       hasRule = !!rule
@@ -71,6 +71,13 @@ export function deadlineCellInfo(
           alertTooltip = formatResultTooltip(res)
           alertIcon = alertShapeForBand(days, threshold, rule.thresholds)
           alertSpoken = [threshold.label, alertTooltip].filter(Boolean).join('. ')
+        }
+        // "Show only the date": the words move off the cell, into its tooltip and the screen-reader text
+        if (cfg.date_only === true && alertChip) {
+          const words = alertChip.charAt(0).toUpperCase() + alertChip.slice(1)
+          if (!alertTooltip.includes(alertChip)) alertTooltip = alertTooltip ? `${words}\n${alertTooltip}` : words
+          alertSpoken = [words, alertSpoken].filter(Boolean).join('. ')
+          alertChip = null
         }
       }
     }

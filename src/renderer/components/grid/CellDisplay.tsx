@@ -264,6 +264,11 @@ export function deadlineCellText(res: DeadlineResult, value: string | null): str
   return `${res.label ? `${res.label} · ` : ''}${formatDue(res.due)} · ${when}`
 }
 
+/** A date column set to "Show only the date": its deadline words go in the tooltip, not the cell */
+export function showsOnlyDate(column: Pick<Column, 'config'>): boolean {
+  try { return (JSON.parse(column.config || '{}') as { date_only?: unknown }).date_only === true } catch { return false }
+}
+
 /**
  * About what a cell shows, for double-click auto-fit: a date with a rule
  * shows its shape and words beside the date, a deadline column its status,
@@ -275,7 +280,8 @@ export function cellFitText(column: Column, value: string | null, row: GridRow, 
   }
   if (column.column_type === 'date' && rule) {
     if (isNotADate(value)) return `   Not a date ${value}`
-    const chip = deadlineChipText(evaluateRuleForRow(rule, value, row, column.id), value)
+    // "Show only the date" keeps the words in the tooltip, so they take no room
+    const chip = showsOnlyDate(column) ? null : deadlineChipText(evaluateRuleForRow(rule, value, row, column.id), value)
     // Three characters or so for the shape in front of the date
     return `   ${value ? formatDate(value) : '—'}${chip ? `  ${chip}` : ''}`
   }
