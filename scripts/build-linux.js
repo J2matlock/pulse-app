@@ -113,7 +113,9 @@ if (fs.existsSync(fusesSource)) {
 
 // ---------- step 4: run electron-builder ----------
 console.log('\n=== Step 4: electron-builder --linux ===')
-run(`npx electron-builder --linux --project "${STAGING}" -c.electronVersion=${electronVersion}`, { cwd: ROOT })
+// Run from the staging dir: electron-builder 26.17+ refuses hook paths (afterPack) outside the working directory
+const builderBin = path.join(ROOT, 'node_modules', '.bin', 'electron-builder')
+run(`"${builderBin}" --linux --project "${STAGING}" -c.electronVersion=${electronVersion}`, { cwd: STAGING })
 
 // ---------- step 5: copy artifacts ----------
 console.log('\n=== Step 5: Copy artifacts ===')
