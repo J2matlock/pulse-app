@@ -20,6 +20,9 @@ import { RecordSearchField, type PickedRecord } from './RecordSearchField'
 
 const label = 'block text-base font-semibold text-slate-800 dark:text-slate-100 mb-1'
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+/** A column that can be set, and isn't already due that day */
+const changes = (o: DeadlineDayOption) => !!o.value && o.value !== o.current?.slice(0, 10)
+const shortDue = (v: string) => (DATE_RE.test(v.slice(0, 10)) ? formatDue(v.slice(0, 10)) : v)
 
 export interface DeadlineForRecordDialogProps {
   date: string
@@ -49,15 +52,15 @@ export function DeadlineForRecordDialog({ date, onClose, onSaved }: DeadlineForR
       setOptions(r.data)
       // Keep the choice while it still works; otherwise the only one that does
       setColumnId(prev => {
-        if (prev !== null && r.data.some(o => o.columnId === prev && o.value)) return prev
-        const usable = r.data.filter(o => o.value)
+        if (prev !== null && r.data.some(o => o.columnId === prev && changes(o))) return prev
+        const usable = r.data.filter(changes)
         return usable.length === 1 ? usable[0]!.columnId : null
       })
     })
     return () => { live = false }
   }, [record, due])
 
-  const chosen = options?.find(o => o.columnId === columnId && o.value) ?? null
+  const chosen = options?.find(o => o.columnId === columnId && changes(o)) ?? null
 
   async function save() {
     if (!record || !chosen?.value) return
@@ -102,16 +105,17 @@ export function DeadlineForRecordDialog({ date, onClose, onSaved }: DeadlineForR
             <fieldset className="space-y-2">
               <legend className={label}>Which deadline</legend>
               {options.map(o => (
-                <div key={o.columnId} className={`rounded-lg border px-3 py-2 ${o.value ? 'border-slate-300 dark:border-slate-600' : 'border-dashed border-slate-300 dark:border-slate-600'}`}>
-                  <label className={`flex items-start gap-3 ${o.value ? 'cursor-pointer' : 'cursor-not-allowed'}`} style={{ minHeight: 44 }}>
-                    <input type="radio" name="deadline-column" className="mt-1 w-5 h-5" disabled={!o.value} checked={columnId === o.columnId}
+                <div key={o.columnId} className={`rounded-lg border px-3 py-2 ${changes(o) ? 'border-slate-300 dark:border-slate-600' : 'border-dashed border-slate-300 dark:border-slate-600'}`}>
+                  <label className={`flex items-start gap-3 ${changes(o) ? 'cursor-pointer' : 'cursor-not-allowed'}`} style={{ minHeight: 44 }}>
+                    <input type="radio" name="deadline-column" className="mt-1 w-5 h-5" disabled={!changes(o)} checked={columnId === o.columnId}
                       onChange={() => setColumnId(o.columnId)} aria-labelledby={`deadline-col-${o.columnId}-name`} aria-describedby={`deadline-col-${o.columnId}`} />
                     <span className="flex-1">
-                      <span id={`deadline-col-${o.columnId}-name`} className={`block text-base font-medium ${o.value ? 'text-slate-800 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400'}`}>{o.columnName}</span>
+                      <span id={`deadline-col-${o.columnId}-name`} className={`block text-base font-medium ${changes(o) ? 'text-slate-800 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400'}`}>{o.columnName}</span>
                       <span id={`deadline-col-${o.columnId}`} className="block text-sm text-slate-600 dark:text-slate-300">
-                        {o.value
-                          ? `Pulse will set it to ${formatDue(o.value)}${o.current ? ` (now ${DATE_RE.test(o.current.slice(0, 10)) ? formatDue(o.current.slice(0, 10)) : o.current})` : ''}.`
-                          : o.reason}
+                        {!o.value ? o.reason
+                          : !changes(o) ? 'It\'s already due that day.'
+                          // The column holds the date it's worked out from (often the last time it was done), not always the due date
+                          : `${o.value === due ? `Sets it to ${formatDue(o.value)}` : `Sets it to ${formatDue(o.value)}, so it's due ${formatDue(due)}`}${o.current ? ` (now ${shortDue(o.current)})` : ''}.`}
                       </span>
                     </span>
                   </label>

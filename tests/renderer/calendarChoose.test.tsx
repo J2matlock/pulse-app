@@ -33,6 +33,7 @@ Object.defineProperty(window, 'api', { value: { invoke, on: () => () => {} }, wr
 const deadlineOptions = (due: string) => [
   { columnId: 9, columnName: 'Care plan review', current: '2026-01-10', value: due === '2026-10-20' ? '2026-04-20' : '2026-04-21', reason: null, nearest: [] },
   { columnId: 11, columnName: 'Quarterly report', current: null, value: null, reason: 'This deadline is only due on its scheduled dates.', nearest: ['2026-10-15', '2027-01-15'] },
+  { columnId: 13, columnName: 'Next visit', current: due, value: due, reason: null, nearest: [] },
   { columnId: 12, columnName: 'Oil change', current: null, value: null, reason: 'It\'s worked out from miles readings, so it can\'t be set from a date.', nearest: [] },
 ]
 
@@ -186,8 +187,11 @@ describe('adding from the Calendar', () => {
     // The only usable column is chosen; the others are listed, but can't be picked, with the reason
     const review = within(dialog).getByRole('radio', { name: 'Care plan review' }) as HTMLInputElement
     expect(review.checked).toBe(true)
-    expect(within(dialog).getByText('Pulse will set it to Apr 20, 2026 (now Jan 10, 2026).')).toBeTruthy()
+    expect(within(dialog).getByText('Sets it to Apr 20, 2026, so it\'s due Oct 20, 2026 (now Jan 10, 2026).')).toBeTruthy()
     expect((within(dialog).getByRole('radio', { name: 'Oil change' }) as HTMLInputElement).disabled).toBe(true)
+    // Already due that day: nothing to change
+    expect((within(dialog).getByRole('radio', { name: 'Next visit' }) as HTMLInputElement).disabled).toBe(true)
+    expect(within(dialog).getByText('It\'s already due that day.')).toBeTruthy()
     expect(within(dialog).getByText(/miles readings/)).toBeTruthy()
     expect(within(dialog).getByRole('button', { name: 'Oct 15, 2026' })).toBeTruthy()
 

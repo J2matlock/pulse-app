@@ -57,7 +57,8 @@ const APPT_CLASS: Record<Appointment['status'], string> = {
 }
 
 /** Events (no record) in teal, so they stand apart from appointments; once they have an outcome they look like appointments do */
-const EVENT_CLASS = 'bg-teal-100 text-teal-900 dark:bg-teal-900/50 dark:text-teal-100 border-teal-300 dark:border-teal-700'
+// A thick left edge too, so an event doesn't read as a green (not yet due) deadline
+const EVENT_CLASS = 'bg-teal-100 text-teal-900 dark:bg-teal-900/50 dark:text-teal-100 border-teal-300 dark:border-teal-700 border-l-4 border-l-teal-600 dark:border-l-teal-400'
 const apptClass = (a: Appointment) => (a.row_id === null && a.status === 'scheduled' ? EVENT_CLASS : APPT_CLASS[a.status])
 
 export type CalEvent =
