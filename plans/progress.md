@@ -1737,3 +1737,10 @@ Build state: npm test 4355 pass / 4 skip; typecheck 0; eslint 0 errors; e2e 11/1
 - Dependencies: Vite 7 / electron-vite 5 / vitest 5, react-table 9, lucide 1.x, dnd-kit sortable 10, jsdom 29, zod 4.6 (UTF-16 length helper); motion 14 waits until 2026-10-16 (14-day rule), TypeScript 7 waits on typescript-eslint. npm audit 35 → 10 moderate (build-time / unreachable).
 - Gates: 481 files / 5646 tests, typecheck 0, eslint 0 errors (146 security-plugin warnings), test:tz green, build + e2e (incl. new persist smoke test) green. Schema 50.
 - `sweep/` (findings, proposals, decisions) holds security detail: stripped from the public history with filter-branch and git-ignored; the local `sweep/2026-10` branch still has it — never push that branch.
+
+## 2026-10-12 (cont.) — Pulse 2.5.0 released
+- Version 2.5.0 (the sweep, the approved proposals, the dependency majors), What's New entry, SBOM/licenses regenerated, tagged v2.5.0 in pulse-app. Gate 481 files / 5646 tests.
+- Build fix: electron-builder 26.17 refuses an afterPack hook outside its working directory; build-linux.js and build-win.js now run it from the staging folder (build-mac.js not changed, macOS isn't shipped).
+- `pulse-releases` v2.5.0: `PULSE.exe`, `BaringaSoftPulse-2.5.0.AppImage`, `SHA256SUMS.txt`, marked latest (GitHub asset digests match the local checksums); `latest.json` announces 2.5.0.
+- AppImage smoke-launched on Fedora with an isolated home (starts, opens its database, logs version 2.5.0). The Windows exe was not launch-tested on Windows.
+- Website (pulse-landing-page) still shows 2.3.0; a prompt covering 2.4.0 and 2.5.0 was given to the user.
