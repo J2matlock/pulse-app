@@ -70,6 +70,25 @@ describe('the rule editor', () => {
     expect(screen.getAllByRole('button', { name: 'Remove this color step' }).length).toBe(swatches.length)
   })
 
+  it('each color step has a days box wide enough for three digits and a named, fitting name box', () => {
+    render(<AlertRuleEditor columnId={3} onClose={vi.fn()} />)
+    const days = screen.getAllByRole('spinbutton', { name: /^Number of days for / })
+    expect(days.length).toBeGreaterThan(0)
+    // "60" showed as "6(": the box needs room for three digits beside the arrows
+    expect(days[0]!.className).toMatch(/(^|\s)min-w-\[9ch\](\s|$)/)
+    expect(days[0]!.className).not.toMatch(/(^|\s)w-14(\s|$)/)
+    // The "before/past" choice doesn't take the whole row (.input is full width)
+    const when = screen.getAllByRole('combobox', { name: /^Before or past the deadline/ })
+    expect(when[0]!.className).toMatch(/(^|\s)w-auto(\s|$)/)
+    // The box after it was the step's unlabelled name squeezed to nothing: it has a name, a hint and room
+    const names = screen.getAllByRole('textbox', { name: 'Name for this color step' })
+    expect(names.length).toBe(days.length)
+    expect(names[0]!.getAttribute('placeholder')).toMatch(/Name/)
+    expect(names[0]!.className).toMatch(/min-w-\[10rem\]/)
+    // The row wraps when it's narrow rather than cutting the boxes
+    expect(names[0]!.parentElement!.className).toMatch(/(^|\s)flex-wrap(\s|$)/)
+  })
+
   it('flags a setting that points at a deleted column in red (D-25)', () => {
     const rule = {
       id: 5, name: 'Plan due', description: null, thresholds: [], interval_days: null, interval_months: null, end_of_month: 0,

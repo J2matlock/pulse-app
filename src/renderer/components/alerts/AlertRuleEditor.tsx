@@ -551,22 +551,26 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
                         style={colorStyle}
                       />
 
-                      {/* Timing */}
-                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      {/* Timing, then the step's name; the name drops to its own line when the row is narrow */}
+                      <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
                         {!isSystem ? (
                           <>
+                            {/* Room for three digits beside the spinner arrows: "60" was cut to "6(" */}
                             <input
                               type="number" min={0}
-                              className="input w-14 text-center py-0.5 text-base"
+                              className="input w-[9ch] min-w-[9ch] flex-shrink-0 px-2 text-center py-0.5 text-base"
                               style={{ minHeight: 44 }}
+                              aria-label={`Number of days for ${t.label || 'this step'}`}
                               value={absValue}
                               onChange={e => { e.stopPropagation(); setThresholdDays(i, parseInt(e.target.value, 10) || 0, direction) }}
                               onClick={e => e.stopPropagation()}
                               disabled={isSystem}
                             />
+                            {/* .input is full width: as a flex item it took the name box's room too */}
                             <select
-                              className="input py-0.5 text-base"
+                              className="input w-auto flex-shrink-0 py-0.5 text-base"
                               style={{ minHeight: 44 }}
+                              aria-label={`Before or past the deadline, for ${t.label || 'this step'}`}
                               value={direction}
                               onChange={e => { e.stopPropagation(); setThresholdDays(i, absValue, e.target.value as 'before' | 'after') }}
                               onClick={e => e.stopPropagation()}
@@ -581,15 +585,18 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
                             {absValue} {direction === 'before' ? 'days before' : 'days past'} deadline
                           </span>
                         )}
+                        {/* The step's name: the color key, the shape's tooltip and screen readers say it */}
                         <input
                           type="text"
-                          className="input flex-1 py-0.5 text-base min-w-0"
+                          className="input flex-1 basis-40 min-w-[10rem] py-0.5 text-base"
                           style={{ minHeight: 44 }}
                           value={t.label}
                           onChange={e => { e.stopPropagation(); updateThreshold(i, { label: e.target.value }) }}
                           onClick={e => e.stopPropagation()}
                           disabled={isSystem}
-                          placeholder="Label"
+                          aria-label="Name for this color step"
+                          title="A name for this color step, like “Due soon”. It shows in the color key and is read out by screen readers."
+                          placeholder="Name, like “Due soon”"
                         />
                       </div>
 
