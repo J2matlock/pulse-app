@@ -251,7 +251,7 @@ function calendarOf(ctx: RecordContext): WorkCalendar {
 }
 
 /** Apply an offset (months, then days, then working days) forwards or backwards. */
-function applyOffset(ymd: string, offset: RelativeConfig['offset'], cal: WorkCalendar): string {
+export function applyOffset(ymd: string, offset: RelativeConfig['offset'], cal: WorkCalendar): string {
   const sign = offset.direction === 'before' ? -1 : 1
   let d = ymdToDate(ymd)
   if (offset.months) d = sign > 0 ? addInterval(d, { days: 0, months: offset.months, endOfMonth: false }) : subtractMonths(d, offset.months)
@@ -319,7 +319,7 @@ function evaluateInterval(rule: EngineRule, ctx: RecordContext): DeadlineResult 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 /** The date in (year, month 1–12) for a day number or 'last', clamped to the month's length. */
-function dayIn(year: number, month: number, day: number | 'last'): string {
+export function dayIn(year: number, month: number, day: number | 'last'): string {
   const last = new Date(year, month, 0).getDate()
   return dateToYmd(new Date(year, month - 1, day === 'last' ? last : Math.min(day, last)))
 }
@@ -383,7 +383,7 @@ function evaluateCalendar(rule: EngineRule, ctx: RecordContext): DeadlineResult 
 }
 
 /** The latest date in these months (day `day`) on or before `ymd`. */
-function occurrenceOnOrBefore(months: number[], day: number | 'last', ymd: string): string | null {
+export function occurrenceOnOrBefore(months: number[], day: number | 'last', ymd: string): string | null {
   const y = Number(ymd.slice(0, 4))
   for (let year = y; year >= y - 2; year--) {
     for (const m of [...months].reverse()) {
