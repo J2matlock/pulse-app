@@ -1744,3 +1744,9 @@ Build state: npm test 4355 pass / 4 skip; typecheck 0; eslint 0 errors; e2e 11/1
 - `pulse-releases` v2.5.0: `PULSE.exe`, `BaringaSoftPulse-2.5.0.AppImage`, `SHA256SUMS.txt`, marked latest (GitHub asset digests match the local checksums); `latest.json` announces 2.5.0.
 - AppImage smoke-launched on Fedora with an isolated home (starts, opens its database, logs version 2.5.0). The Windows exe was not launch-tested on Windows.
 - Website (pulse-landing-page) still shows 2.3.0; a prompt covering 2.4.0 and 2.5.0 was given to the user.
+
+## 2026-10-12 (cont.) — Three grid / rule-editor tweaks from screenshots
+- "Show only the date" (`3f283259`): per-column switch in Column settings for a date column with a deadline rule, saved as `date_only` in the column config (off by default). The cell keeps its shape, date and colour; the "due … · in N days" words move to the tooltip and the screen-reader text. Auto-fit measures the date alone; exports and copy unchanged.
+- Rule editor colour steps (`2e13c8fe`): the days box is 9ch (was 3.5rem, so "60" showed "6("). The narrow empty box was the step's name ("Due soon"), squeezed out by the full-width before/past select; the select now sizes to its text, the name box has a label, placeholder and 10rem minimum, and the row wraps when narrow.
+- Star column (`fc06efdf`): the shared 88px open+star column is now two 44px columns with their own gridlines and headers (star header named "Starred"), sticky as before; row lines now run through the select/open/star columns (and follow "no grid lines"). aria-colindex renumbered.
+- Gate: 482 files / 5660 tests, typecheck 0, eslint 0. Checked by screenshot in light and dark after `electron-vite build`. No version bump.
