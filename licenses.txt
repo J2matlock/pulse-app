@@ -1,10 +1,10 @@
-Pulse by BaringaSoft 2.4.0 — third-party license summary (2026-10-11)
+Pulse by BaringaSoft 2.5.0 — third-party license summary (2026-10-13)
 Pulse itself is licensed under the GNU GPL v3 (GPL-3.0-only).
-252 packages ship with Pulse (production dependencies and the Electron runtime).
+253 packages ship with Pulse (production dependencies and the Electron runtime).
 Compiled into better-sqlite3-multiple-ciphers: SQLite (public domain) and SQLite3 Multiple Ciphers (MIT) with its components; notices are at the end of THIRD_PARTY_LICENSES.txt.
 
 Licenses:
-   219  MIT
+   220  MIT
     15  ISC
      4  BSD-3-Clause
      2  (MIT AND Zlib)
@@ -23,7 +23,7 @@ Packages:
   @babel/runtime@7.28.6 — MIT — https://github.com/babel/babel
   @dnd-kit/accessibility@3.1.1 — MIT — https://github.com/clauderic/dnd-kit
   @dnd-kit/core@6.3.1 — MIT — https://github.com/clauderic/dnd-kit
-  @dnd-kit/sortable@8.0.0 — MIT — https://github.com/clauderic/dnd-kit
+  @dnd-kit/sortable@10.0.0 — MIT — https://github.com/clauderic/dnd-kit
   @dnd-kit/utilities@3.2.2 — MIT — https://github.com/clauderic/dnd-kit
   @fast-csv/format@4.3.5 — MIT — https://github.com/C2FO/fast-csv
   @fast-csv/parse@4.3.6 — MIT — https://github.com/C2FO/fast-csv
@@ -49,10 +49,12 @@ Packages:
   @radix-ui/react-use-effect-event@0.0.2 — MIT — https://github.com/radix-ui/primitives
   @radix-ui/react-use-escape-keydown@1.1.1 — MIT — https://github.com/radix-ui/primitives
   @radix-ui/react-use-layout-effect@1.1.1 — MIT — https://github.com/radix-ui/primitives
-  @tanstack/react-table@8.21.3 — MIT — https://github.com/TanStack/table
-  @tanstack/react-virtual@3.13.19 — MIT — https://github.com/TanStack/virtual
-  @tanstack/table-core@8.21.3 — MIT — https://github.com/TanStack/table
-  @tanstack/virtual-core@3.13.19 — MIT — https://github.com/TanStack/virtual
+  @tanstack/react-store@0.11.1 — MIT — https://github.com/TanStack/store
+  @tanstack/react-table@9.2.4 — MIT — https://github.com/TanStack/table
+  @tanstack/react-virtual@3.14.13 — MIT — https://github.com/TanStack/virtual
+  @tanstack/store@0.11.1 — MIT — https://github.com/TanStack/store
+  @tanstack/table-core@9.2.4 — MIT — https://github.com/TanStack/table
+  @tanstack/virtual-core@3.17.11 — MIT — https://github.com/TanStack/virtual
   @tiptap/core@3.31.4 — MIT — https://github.com/ueberdosis/tiptap
   @tiptap/extension-blockquote@3.31.4 — MIT — https://github.com/ueberdosis/tiptap
   @tiptap/extension-bold@3.31.4 — MIT — https://github.com/ueberdosis/tiptap
@@ -84,8 +86,8 @@ Packages:
   @types/node@14.18.63 — MIT — https://github.com/DefinitelyTyped/DefinitelyTyped
   @types/pako@2.0.4 — MIT — https://github.com/DefinitelyTyped/DefinitelyTyped
   @types/raf@3.4.3 — MIT — https://github.com/DefinitelyTyped/DefinitelyTyped
-  @types/react@19.2.14 — MIT — https://github.com/DefinitelyTyped/DefinitelyTyped
-  @types/react-dom@19.2.3 — MIT — https://github.com/DefinitelyTyped/DefinitelyTyped
+  @types/react@19.3.0 — MIT — https://github.com/DefinitelyTyped/DefinitelyTyped
+  @types/react-dom@19.3.0 — MIT — https://github.com/DefinitelyTyped/DefinitelyTyped
   @types/trusted-types@2.0.7 — MIT — https://github.com/DefinitelyTyped/DefinitelyTyped
   @types/use-sync-external-store@0.0.6 — MIT — https://github.com/DefinitelyTyped/DefinitelyTyped
   ajv@8.18.0 — MIT — ajv-validator/ajv
@@ -125,7 +127,6 @@ Packages:
   crc32-stream@4.0.3 — MIT — https://github.com/archiverjs/node-crc32-stream
   css-line-break@2.1.0 — MIT — ssh://git@github.com/niklasvh/css-line-break
   csstype@3.2.3 — MIT — https://github.com/frenic/csstype
-  date-fns@4.1.0 — MIT — https://github.com/date-fns/date-fns
   dayjs@1.11.19 — MIT — https://github.com/iamkun/dayjs
   debounce-fn@4.0.0 — MIT — sindresorhus/debounce-fn
   detect-node-es@1.1.0 — MIT — https://github.com/thekashey/detect-node
@@ -144,7 +145,7 @@ Packages:
   fast-uri@3.1.8 — BSD-3-Clause — https://github.com/fastify/fast-uri
   fflate@0.8.3 — MIT — https://github.com/101arrowz/fflate
   find-up@3.0.0 — MIT — sindresorhus/find-up
-  framer-motion@12.34.3 — MIT — https://github.com/motiondivision/motion/
+  framer-motion@12.43.0 — MIT — https://github.com/motiondivision/motion/
   fs-constants@1.0.0 — MIT — https://github.com/mafintosh/fs-constants
   fs.realpath@1.0.0 — ISC — https://github.com/isaacs/fs.realpath
   fstream@1.0.12 — ISC — https://github.com/npm/fstream
@@ -163,7 +164,7 @@ Packages:
   json-schema-traverse@1.0.0 — MIT — https://github.com/epoberezkin/json-schema-traverse
   json-schema-typed@7.0.3 — BSD-2-Clause — https://github.com/typeslick/json-schema-typed
   jspdf@4.2.1 — MIT — https://github.com/parallax/jsPDF
-  jspdf-autotable@5.0.7 — MIT — https://github.com/simonbengtsson/jsPDF-AutoTable
+  jspdf-autotable@5.0.8 — MIT — https://github.com/simonbengtsson/jsPDF-AutoTable
   jszip@3.10.1 — (MIT OR GPL-3.0-or-later) — https://github.com/Stuk/jszip
   lazystream@1.0.1 — MIT — https://github.com/jpommerening/node-lazystream
   lie@3.3.0 — MIT — https://github.com/calvinmetcalf/lie
@@ -183,16 +184,16 @@ Packages:
   lodash.isundefined@3.0.1 — MIT — lodash/lodash
   lodash.union@4.6.0 — MIT — lodash/lodash
   lodash.uniq@4.5.0 — MIT — lodash/lodash
-  lucide-react@0.575.0 — ISC — https://github.com/lucide-icons/lucide
+  lucide-react@1.48.0 — ISC — https://github.com/lucide-icons/lucide
   mimic-fn@2.1.0 — MIT — sindresorhus/mimic-fn
   mimic-fn@3.1.0 — MIT — sindresorhus/mimic-fn
   minimatch@3.1.5 — ISC — git://github.com/isaacs/minimatch
   minimatch@5.1.9 — ISC — git://github.com/isaacs/minimatch
   minimist@1.2.8 — MIT — git://github.com/minimistjs/minimist
   mkdirp@0.5.6 — MIT — https://github.com/substack/node-mkdirp
-  motion@12.34.3 — MIT — https://github.com/motiondivision/motion
-  motion-dom@12.34.3 — MIT — https://github.com/motiondivision/motion
-  motion-utils@12.29.2 — MIT — https://github.com/motiondivision/motion
+  motion@12.43.0 — MIT — https://github.com/motiondivision/motion
+  motion-dom@12.43.0 — MIT — https://github.com/motiondivision/motion
+  motion-utils@12.39.0 — MIT — https://github.com/motiondivision/motion
   node-addon-api@8.9.2 — MIT — git://github.com/nodejs/node-addon-api
   normalize-path@3.0.0 — MIT — jonschlinkert/normalize-path
   once@1.4.0 — ISC — git://github.com/isaacs/once
@@ -203,7 +204,7 @@ Packages:
   p-try@2.2.0 — MIT — sindresorhus/p-try
   pako@1.0.11 — (MIT AND Zlib) — nodeca/pako
   pako@2.1.0 — (MIT AND Zlib) — nodeca/pako
-  papaparse@5.5.3 — MIT — https://github.com/mholt/PapaParse
+  papaparse@5.7.0 — MIT — https://github.com/mholt/PapaParse
   path-exists@3.0.0 — MIT — sindresorhus/path-exists
   path-is-absolute@1.0.1 — MIT — sindresorhus/path-is-absolute
   pend@1.2.0 — MIT — git://github.com/andrewrk/node-pend
@@ -224,9 +225,9 @@ Packages:
   prosemirror-transform@1.12.2 — MIT — https://code.haverbeke.berlin/prosemirror/prosemirror-transform
   prosemirror-view@1.42.6 — MIT — https://code.haverbeke.berlin/prosemirror/prosemirror-view
   raf@3.4.1 — MIT — git://github.com/chrisdickinson/raf
-  react@19.2.4 — MIT — https://github.com/facebook/react
-  react-dom@19.2.4 — MIT — https://github.com/facebook/react
-  react-hot-toast@2.6.0 — MIT — timolins/react-hot-toast
+  react@19.3.0 — MIT — https://github.com/react/react
+  react-dom@19.3.0 — MIT — https://github.com/react/react
+  react-hot-toast@2.6.1 — MIT — timolins/react-hot-toast
   react-remove-scroll@2.7.2 — MIT — https://github.com/theKashey/react-remove-scroll
   react-remove-scroll-bar@2.3.8 — MIT — https://github.com/theKashey/react-remove-scroll-bar
   react-router@7.18.4 — MIT — https://github.com/remix-run/react-router
@@ -243,7 +244,7 @@ Packages:
   safe-buffer@5.1.2 — MIT — git://github.com/feross/safe-buffer
   safe-buffer@5.2.1 — MIT — git://github.com/feross/safe-buffer
   saxes@5.0.1 — ISC — https://github.com/lddubeau/saxes
-  scheduler@0.27.0 — MIT — https://github.com/facebook/react
+  scheduler@0.28.0 — MIT — https://github.com/react/react
   semver@7.7.4 — ISC — https://github.com/npm/node-semver
   set-cookie-parser@2.7.2 — MIT — nfriedly/set-cookie-parser
   setimmediate@1.0.5 — MIT — YuzuJS/setImmediate
@@ -267,8 +268,8 @@ Packages:
   w3c-keyname@2.2.8 — MIT — https://github.com/marijnh/w3c-keyname
   wrappy@1.0.2 — ISC — https://github.com/npm/wrappy
   xmlchars@2.2.0 — MIT — https://github.com/lddubeau/xmlchars
-  yauzl@3.2.1 — MIT — https://github.com/thejoshwolfe/yauzl
+  yauzl@3.4.0 — MIT — https://github.com/thejoshwolfe/yauzl
   yazl@3.3.1 — MIT — https://github.com/thejoshwolfe/yazl
   zip-stream@4.1.1 — MIT — https://github.com/archiverjs/node-zip-stream
-  zod@4.3.6 — MIT — https://github.com/colinhacks/zod
-  zustand@5.0.11 — MIT — https://github.com/pmndrs/zustand
+  zod@4.6.5 — MIT — https://github.com/colinhacks/zod
+  zustand@5.0.15 — MIT — https://github.com/pmndrs/zustand
