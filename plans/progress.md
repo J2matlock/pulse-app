@@ -1757,3 +1757,8 @@ Build state: npm test 4355 pass / 4 skip; typecheck 0; eslint 0 errors; e2e 11/1
 - Events (`7b925fac`): record-less appointments are an "Events" layer (teal, no record prefix, click opens the edit dialog with Delete). Kept with the Appointments feature off (appointments:list sends only events then; reminders and the .ics include them). `calendar_layers` now stores the hidden layers (old saved lists gain Events).
 - Add from a day (`511b1ca8`, `e2701548`): clicking an empty part of a month day or "New…" opens a chooser (Event, Appointment, Deadline for a record, Task). Deadline for a record uses new channel `calendar:deadline-options` and saves through the usual cell update; Task prefills the due date.
 - Gate: 486 files / 5710 tests, typecheck 0, eslint 0; test:tz green in 4 zones; `electron-vite build` ok; screenshots checked (dark month with the menu, chooser, deadline form, events). No version bump.
+
+## 2026-10-13 — Pulse 2.6.0 released
+- Version 2.6.0: calendar events not tied to a record (own Events layer, works with appointments switched off), choose which deadline columns show on the Calendar, add an event / appointment / deadline-for-a-record / task from a day, "Show only the date" for rule date columns, the star in its own column, rule editor colour steps fit. What's New entry, SBOM/licenses regenerated, tagged v2.6.0. Gate 486 files / 5710 tests.
+- `pulse-releases` v2.6.0: `PULSE.exe`, `BaringaSoftPulse-2.6.0.AppImage`, `SHA256SUMS.txt`, marked latest (asset digests match local checksums); `latest.json` announces 2.6.0. AppImage smoke-launched on Fedora with an isolated home; the exe wasn't launch-tested on Windows.
+- Website still shows 2.3.0; a combined 2.4.0 + 2.5.0 + 2.6.0 prompt was given to the user.
