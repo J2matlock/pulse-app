@@ -53,7 +53,9 @@ vi.mock('../../../../src/renderer/components/grid/gridConstants', () => ({
   alertShapeForBand: () => null,
   HANDLE_STYLE: { width: 32 },
   HANDLE_WIDTH: 32,
-  PROFILE_BTN_WIDTH: 32,
+  PROFILE_BTN_WIDTH: 88,
+  OPEN_COL_WIDTH: 44,
+  STAR_COL_WIDTH: 44,
 }))
 
 import { SortableRow, type SortableRowProps } from '../../../../src/renderer/components/grid/SortableRow'
@@ -144,11 +146,18 @@ describe('SortableRow', () => {
     expect(container.querySelector('[role="row"]')).toBeTruthy()
   })
 
-  it('the row and the open/star column use the grid border colour, like the data cells (Q-106)', () => {
+  it('the row and the open and star columns use the grid border colour, like the data cells (Q-106)', () => {
     const { container } = render(<SortableRow {...makeProps()} />)
     const row = container.querySelector('[role="row"]')!
     const profileCell = container.querySelector('[aria-colindex="2"]')!
-    for (const el of [row, profileCell]) {
+    const starCell = container.querySelector('[aria-colindex="3"]')!
+    expect(profileCell.querySelector('[aria-label="Open client profile"]')).toBeTruthy()
+    expect(starCell.querySelector('[aria-label="Star this client"]')).toBeTruthy()
+    // Each has its own gridline on the right, and the row lines run through them and the select box
+    for (const el of [profileCell, starCell]) expect(el.className).toMatch(/(^|\s)border-r(\s|$)/)
+    const selectCell = container.querySelector('[aria-colindex="1"]')!
+    for (const el of [selectCell, profileCell, starCell]) expect(el.className).toMatch(/(^|\s)grid-lead-cell .*border-b(\s|$)/)
+    for (const el of [row, profileCell, starCell]) {
       expect(el.className).toContain('border-[var(--border-grid)]')
       expect(el.className).not.toMatch(/border-slate-200|dark:border-slate-700/)
     }

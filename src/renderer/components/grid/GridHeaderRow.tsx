@@ -13,11 +13,11 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { dndAccessibility } from '../../utils/dndAnnouncements'
-import { User, EyeOff } from 'lucide-react'
+import { User, Star, EyeOff } from 'lucide-react'
 import type { GridTableHeader } from './gridTable'
 import type { Column } from '../../../shared/types'
 import { ColumnHeader } from './ColumnHeader'
-import { HANDLE_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH } from './gridConstants'
+import { HANDLE_WIDTH, OPEN_COL_WIDTH, STAR_COL_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH } from './gridConstants'
 import { BADGE_WIDTH as ACUITY_BADGE_WIDTH } from './AcuityBadge'
 import { useVocab } from '../../hooks/useVocab'
 
@@ -128,7 +128,7 @@ export function GridHeaderRow({
 }: GridHeaderRowProps): React.ReactElement {
   const { t } = useVocab()
   // Screen readers pair each cell with the header in the same place (AUDIT-012)
-  const leadingColCount = 2 + (acuityEnabled ? 1 : 0) + (showTags ? 1 : 0)
+  const leadingColCount = 3 + (acuityEnabled ? 1 : 0) + (showTags ? 1 : 0)
   // A dragged column is read out by name, not its id (AUDIT-049)
   const dragA11y = useMemo(() => dndAccessibility(id => columns.find(c => `col_${c.id}` === id)?.name), [columns])
   // Every record on screen is ticked (records hidden in a collapsed group don't count)
@@ -194,24 +194,39 @@ export function GridHeaderRow({
               </div>
             </button>
           </div>
-          {/* Profile column header */}
+          {/* Open-record column header */}
           <div
             role="columnheader"
             aria-colindex={2}
             className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
             style={{
-              width: PROFILE_BTN_WIDTH, height: rowHeight,
+              width: OPEN_COL_WIDTH, height: rowHeight,
               ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH, zIndex: 12 } : {}),
             }}
             aria-label="Profile"
+            title={`Open the ${t('record')}'s page`}
           >
-            <User className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+            <User className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+          </div>
+          {/* Star column header */}
+          <div
+            role="columnheader"
+            aria-colindex={3}
+            className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-800"
+            style={{
+              width: STAR_COL_WIDTH, height: rowHeight,
+              ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + OPEN_COL_WIDTH, zIndex: 12 } : {}),
+            }}
+            aria-label="Starred"
+            title="Starred"
+          >
+            <Star className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
           </div>
           {/* Acuity column header — clickable to sort */}
           {acuityEnabled && (
             <div
               role="columnheader"
-              aria-colindex={3}
+              aria-colindex={4}
               aria-sort={acuitySortDir === 'asc' ? 'ascending' : acuitySortDir === 'desc' ? 'descending' : 'none'}
               className="flex-shrink-0 border-r border-slate-300 dark:border-slate-600 flex items-center justify-center text-sm font-semibold select-none cursor-pointer
                          hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors bg-slate-50 dark:bg-slate-800"
@@ -234,7 +249,7 @@ export function GridHeaderRow({
             </div>
           )}
           {showTags && (
-            <div role="columnheader" aria-colindex={3 + (acuityEnabled ? 1 : 0)} className="flex-shrink-0 flex items-center gap-1 px-2 border-r border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-base font-semibold text-slate-700 dark:text-slate-200"
+            <div role="columnheader" aria-colindex={4 + (acuityEnabled ? 1 : 0)} className="flex-shrink-0 flex items-center gap-1 px-2 border-r border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-base font-semibold text-slate-700 dark:text-slate-200"
               style={{ width: TAGS_COL_WIDTH, height: rowHeight, ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0), zIndex: 12 } : {}) }}>
               <span className="flex-1 truncate" title={`Tags from each ${t('record')}'s page`}>Tags</span>
               {onHideTags && (

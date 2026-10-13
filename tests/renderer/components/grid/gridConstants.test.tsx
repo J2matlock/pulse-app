@@ -5,6 +5,8 @@ import {
   ROW_HEIGHTS,
   HANDLE_WIDTH,
   PROFILE_BTN_WIDTH,
+  OPEN_COL_WIDTH,
+  STAR_COL_WIDTH,
   HANDLE_STYLE,
 } from '../../../../src/renderer/components/grid/gridConstants'
 import { setWords } from '../../vocabFixture'
@@ -24,7 +26,9 @@ describe('gridConstants', () => {
     expect(typeof HANDLE_WIDTH).toBe('number')
     expect(typeof PROFILE_BTN_WIDTH).toBe('number')
     expect(HANDLE_WIDTH).toBe(32)
-    // Two 28px buttons 16px apart: each gets a 44px click area that doesn't overlap the other (Q-103, D-034)
+    // The open and star buttons each have their own 44px column (Q-103, D-034)
+    expect(OPEN_COL_WIDTH).toBe(44)
+    expect(STAR_COL_WIDTH).toBe(44)
     expect(PROFILE_BTN_WIDTH).toBe(88)
   })
 

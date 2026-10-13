@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { PROFILE_BTN_WIDTH } from '../../../src/renderer/components/grid/gridConstants'
+import { OPEN_COL_WIDTH, STAR_COL_WIDTH, PROFILE_BTN_WIDTH } from '../../../src/renderer/components/grid/gridConstants'
 
 const ROOT = join(__dirname, '../../../src/renderer')
 
@@ -67,9 +67,12 @@ describe('click targets are 44px (Q-103)', () => {
     const src = readFileSync(join(ROOT, 'components/grid/SortableRow.tsx'), 'utf8')
     expect(src).toMatch(/hit-44 flex items-center justify-center w-7 h-7 profile-btn-glow/)
     expect(src).toMatch(/hit-44 flex items-center justify-center w-7 h-7 rounded focus-visible/)
-    // two 28px buttons, 16px apart: 44px between their centres, so the areas don't overlap
-    expect(src).toMatch(/justify-center gap-4 border-r/)
-    expect(PROFILE_BTN_WIDTH).toBeGreaterThanOrEqual(28 + 16 + 28 + 16)
+    // Each button has a column of its own, at least 44px wide, so the areas can't overlap
+    expect(src).toMatch(/width: OPEN_COL_WIDTH, height: rowHeight/)
+    expect(src).toMatch(/width: STAR_COL_WIDTH, height: rowHeight/)
+    expect(OPEN_COL_WIDTH).toBeGreaterThanOrEqual(44)
+    expect(STAR_COL_WIDTH).toBeGreaterThanOrEqual(44)
+    expect(PROFILE_BTN_WIDTH).toBe(OPEN_COL_WIDTH + STAR_COL_WIDTH)
   })
 
   it('contact import checkboxes sit in a 44px label', () => {

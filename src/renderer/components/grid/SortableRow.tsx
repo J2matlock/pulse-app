@@ -10,7 +10,7 @@ import { CellEditor, type NavDirection } from './CellEditor'
 import { GridLinkEditor } from '../links/LinkPicker'
 import { CellDisplay } from './CellDisplay'
 import { AcuityBadge } from './AcuityBadge'
-import { HANDLE_STYLE, HANDLE_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH } from './gridConstants'
+import { HANDLE_STYLE, HANDLE_WIDTH, OPEN_COL_WIDTH, STAR_COL_WIDTH, PROFILE_BTN_WIDTH, TAGS_COL_WIDTH } from './gridConstants'
 import { useVocab } from '../../hooks/useVocab'
 import { SamplePill } from '../shared/SampleDataBanner'
 import { pulseEvents } from '../../events'
@@ -133,9 +133,9 @@ export const SortableRow = React.memo(function SortableRow({
 
   const isArchived = row.original.is_active === 0
   // Each cell names its column's place, matching the header (AUDIT-012)
-  const priorityColIndex = acuityEnabled ? 3 : undefined
-  const tagsColIndex = showTags ? 3 + (acuityEnabled ? 1 : 0) : undefined
-  const leadingColCount = 2 + (acuityEnabled ? 1 : 0) + (showTags ? 1 : 0)
+  const priorityColIndex = acuityEnabled ? 4 : undefined
+  const tagsColIndex = showTags ? 4 + (acuityEnabled ? 1 : 0) : undefined
+  const leadingColCount = 3 + (acuityEnabled ? 1 : 0) + (showTags ? 1 : 0)
 
   const rowStyle = useMemo<React.CSSProperties>(() => ({
     height: rowHeight,
@@ -158,7 +158,7 @@ export const SortableRow = React.memo(function SortableRow({
       <div
         role="gridcell"
         aria-colindex={1}
-        className="flex-shrink-0 flex items-center justify-center bg-white dark:bg-slate-900"
+        className="grid-lead-cell flex-shrink-0 flex items-center justify-center border-b border-[var(--border-grid)] bg-white dark:bg-slate-900"
         style={{
           ...HANDLE_STYLE,
           ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: 0, zIndex: 10 } : {}),
@@ -185,13 +185,13 @@ export const SortableRow = React.memo(function SortableRow({
         </button>
       </div>
 
-      {/* Profile button */}
+      {/* Open the record */}
       <div
         role="gridcell"
         aria-colindex={2}
-        className="flex-shrink-0 flex items-center justify-center gap-4 border-r border-[var(--border-grid)] bg-white dark:bg-slate-900"
+        className="grid-lead-cell flex-shrink-0 flex items-center justify-center border-r border-b border-[var(--border-grid)] bg-white dark:bg-slate-900"
         style={{
-          width: PROFILE_BTN_WIDTH, height: rowHeight,
+          width: OPEN_COL_WIDTH, height: rowHeight,
           ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH, zIndex: 10 } : {}),
         }}
       >
@@ -206,7 +206,18 @@ export const SortableRow = React.memo(function SortableRow({
         >
           <User className="w-4 h-4" />
         </button>
-        {/* Starred records show it (G-30); a faint outline on hover stars one */}
+      </div>
+
+      {/* Star: starred records show it (G-30); a faint outline on hover stars one */}
+      <div
+        role="gridcell"
+        aria-colindex={3}
+        className="grid-lead-cell flex-shrink-0 flex items-center justify-center border-r border-b border-[var(--border-grid)] bg-white dark:bg-slate-900"
+        style={{
+          width: STAR_COL_WIDTH, height: rowHeight,
+          ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + OPEN_COL_WIDTH, zIndex: 10 } : {}),
+        }}
+      >
         <button
           tabIndex={-1}
           onClick={e => { e.stopPropagation(); onToggleStar?.(rowId) }}

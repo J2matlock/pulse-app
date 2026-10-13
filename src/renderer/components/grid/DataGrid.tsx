@@ -532,7 +532,7 @@ export function DataGrid(): React.ReactElement {
   const isGrouped = isGroupedFromHook
   // Screen readers pair each cell with its header by these numbers, and hear how many
   // records there are while only some are drawn (AUDIT-012, AUDIT-042)
-  const leadingColCount = 2 + (acuityEnabled ? 1 : 0) + (showTagsColumn ? 1 : 0)
+  const leadingColCount = 3 + (acuityEnabled ? 1 : 0) + (showTagsColumn ? 1 : 0)
   const colCount = leadingColCount + columns.length
   const rowCount = 1 + (isGrouped ? displayItems.length : tableRows.length)
   const isEmpty = tableRows.length === 0 && !isLoading

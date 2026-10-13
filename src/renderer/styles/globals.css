@@ -559,6 +559,8 @@
 /* ── Grid line modes ──────────────────────────────────────────────────────── */
 .grid-lines-horizontal .grid-cell { border-right-color: transparent; }
 .grid-lines-none .grid-cell { border-right-color: transparent; border-bottom-color: transparent; }
+/* The select, open and star columns draw the row lines too, so they follow the same switch */
+.grid-lines-none .grid-lead-cell { border-bottom-color: transparent; }
 
 /* ── App-level reduced motion (mirrors prefers-reduced-motion) ────────────── */
 .reduce-motion *, .reduce-motion *::before, .reduce-motion *::after {

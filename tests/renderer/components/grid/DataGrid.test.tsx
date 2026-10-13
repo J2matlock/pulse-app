@@ -321,9 +321,9 @@ describe('DataGrid', () => {
     it('renders column headers from store', async () => {
       renderDataGrid()
       await flushEffects()
-      // GridHeaderRow renders: select-all checkbox + profile icon + 4 data columns = 6 columnheaders
+      // GridHeaderRow renders: select-all checkbox + open + star + 4 data columns = 7 columnheaders
       const headers = screen.getAllByRole('columnheader')
-      expect(headers.length).toBe(TEST_COLUMNS.length + 2)
+      expect(headers.length).toBe(TEST_COLUMNS.length + 3)
     })
 
     it('renders rows with cell values', async () => {
@@ -334,8 +334,8 @@ describe('DataGrid', () => {
       expect(rows.length).toBe(6)
       // Check gridcell elements exist: 5 rows * 4 columns = 20 data cells
       expect(dataCells().length).toBe(20)
-      // and each row has a cell for every header, select and open included (AUDIT-012): 5 * 6
-      expect(screen.getAllByRole('gridcell').length).toBe(30)
+      // and each row has a cell for every header, select, open and star included (AUDIT-012): 5 * 7
+      expect(screen.getAllByRole('gridcell').length).toBe(35)
     })
 
     it('is a single Tab stop: only one cell can be tabbed to (G-32)', async () => {
@@ -807,8 +807,8 @@ describe('DataGrid', () => {
       renderDataGrid()
       await flushEffects()
       const headers = screen.getAllByRole('columnheader')
-      // 2 fixed headers (select-all, profile) + 4 data columns = 6
-      expect(headers.length).toBe(6)
+      // 3 fixed headers (select-all, open, star) + 4 data columns = 7
+      expect(headers.length).toBe(7)
     })
 
     it('sorted column shows correct aria-sort attribute', async () => {
@@ -818,10 +818,10 @@ describe('DataGrid', () => {
       renderDataGrid()
       await flushEffects()
       const headers = screen.getAllByRole('columnheader')
-      // Data columns start at index 2 (after select-all and profile icon headers)
-      expect(headers[2]!.getAttribute('aria-sort')).toBe('ascending')
+      // Data columns start at index 3 (after the select-all, open and star headers)
+      expect(headers[3]!.getAttribute('aria-sort')).toBe('ascending')
       // Second data column should be 'none'
-      expect(headers[3]!.getAttribute('aria-sort')).toBe('none')
+      expect(headers[4]!.getAttribute('aria-sort')).toBe('none')
     })
 
     it('descending sort shows correct aria-sort', async () => {
@@ -831,8 +831,8 @@ describe('DataGrid', () => {
       renderDataGrid()
       await flushEffects()
       const headers = screen.getAllByRole('columnheader')
-      // Due Date is column index 1 → header index 3
-      expect(headers[3]!.getAttribute('aria-sort')).toBe('descending')
+      // Due Date is column index 1 → header index 4
+      expect(headers[4]!.getAttribute('aria-sort')).toBe('descending')
     })
 
     it('sorts again by deadline when the counts arrive after the records (R1)', async () => {
@@ -928,7 +928,7 @@ describe('DataGrid', () => {
       })
       renderDataGrid()
       await flushEffects()
-      expect(screen.getAllByRole('columnheader').length).toBe(TEST_COLUMNS.length + 4)
+      expect(screen.getAllByRole('columnheader').length).toBe(TEST_COLUMNS.length + 5)
       expectCellsMatchHeaders()
     })
 
