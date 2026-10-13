@@ -7,6 +7,7 @@ import { IPC } from '../../shared/ipc-channels'
 import { ok, fail } from './ipc-utils'
 import { handlersFor, textArg } from './ipc-define'
 import { getDb } from '../database'
+import { HIDDEN_DEADLINES_KEY, validHiddenColumns } from '../../shared/calendar'
 
 const ALLOWED_SETTINGS_KEYS = new Set([
   'theme', 'font_size', 'auto_lock_minutes',
@@ -18,8 +19,13 @@ const ALLOWED_SETTINGS_KEYS = new Set([
   'auto_update_check', 'briefing_enabled', 'briefing_last_shown',
   'note_formats', 'note_format_last',
   'track_time', 'track_mileage', 'unit_minutes', 'mileage_rate', 'ics_full_names', 'note_type_last',
-  'workspace_vocab', 'workspace_features', 'feature_offers_dismissed', 'dashboard_layout', 'calendar_layers', 'calendar_mode', 'attachments_max_mb', 'dashboard_reports',
+  'workspace_vocab', 'workspace_features', 'feature_offers_dismissed', 'dashboard_layout', 'calendar_layers', 'calendar_mode', HIDDEN_DEADLINES_KEY, 'attachments_max_mb', 'dashboard_reports',
 ])
+
+/** Settings main reads itself: a value it can't read is refused rather than stored */
+const VALUE_CHECKS: Record<string, (value: string) => boolean> = {
+  [HIDDEN_DEADLINES_KEY]: validHiddenColumns,
+}
 
 /** Readable here, but only WORKSPACE_UPDATE may write them (it validates the shape) */
 const WORKSPACE_ONLY_KEYS = new Set(['workspace_vocab', 'workspace_features'])
@@ -58,6 +64,7 @@ export function registerSettingsHandlers(): void {
     const isAllowed = ALLOWED_SETTINGS_KEYS.has(key) || ALLOWED_PREFIXES.some(p => key.startsWith(p))
     if (!isAllowed) return fail(`Unknown settings key: ${key}`)
     if (WORKSPACE_ONLY_KEYS.has(key)) return fail('Change words and features from Settings → Workspace')
+    if (VALUE_CHECKS[key] && !VALUE_CHECKS[key](value)) return fail("We couldn't save that setting. Try again.")
     getDb().prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value)
     return ok(true)
   }, { write: true })

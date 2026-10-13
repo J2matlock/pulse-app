@@ -50,3 +50,24 @@ const LONG_DAY = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'sho
 export const longDay = (date: string) => LONG_DAY.format(parseYmd(date))
 const MONTH = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' })
 export const monthTitle = (date: string) => MONTH.format(parseYmd(date))
+
+// ── Which deadline columns show (calendar-flexibility plan, Part 1) ─────────
+// The setting holds the columns turned OFF, so a column added later shows by
+// default, and with no setting at all everything shows, as it always did.
+
+export const HIDDEN_DEADLINES_KEY = 'calendar_hidden_deadline_columns'
+export const MAX_HIDDEN_DEADLINE_COLUMNS = 5000
+
+/** Strict: what the settings handler accepts, a JSON list of column ids */
+export function validHiddenColumns(raw: string): boolean {
+  try {
+    const v = JSON.parse(raw) as unknown
+    return Array.isArray(v) && v.length <= MAX_HIDDEN_DEADLINE_COLUMNS && v.every(x => Number.isSafeInteger(x) && (x as number) > 0)
+  } catch { return false }
+}
+
+/** Lenient: the hidden columns, or none when the setting is missing or unreadable */
+export function parseHiddenColumns(raw: string | null | undefined): Set<number> {
+  if (!raw || !validHiddenColumns(raw)) return new Set()
+  return new Set(JSON.parse(raw) as number[])
+}

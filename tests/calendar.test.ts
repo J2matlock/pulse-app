@@ -66,3 +66,36 @@ describe('one list on the calendar (audit S-32)', () => {
     expect(noteSnippet('')).toBe('')
   })
 })
+
+describe('choosing deadline columns (calendar-flexibility plan, Part 1)', () => {
+  function twoColumns() {
+    const g = seedGrid(t.db, { rowCount: 1, columnCount: 2 })
+    t.db.prepare("UPDATE rows SET display_name = 'Pat' WHERE id = ?").run(g.rowIds[0])
+    const rule = Number(t.db.prepare("INSERT INTO alert_rules (name, thresholds) VALUES ('Due', '[]')").run().lastInsertRowid)
+    g.columnIds.forEach((id, i) => {
+      t.db.prepare("UPDATE columns SET name = ?, column_type = 'date', config = ? WHERE id = ?").run(i ? 'Care plan review' : 'Phone contact', JSON.stringify({ alert_rule_id: rule }), id)
+      t.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)').run(g.rowIds[0], id, localDateFromToday(1))
+    })
+    return g
+  }
+  const titles = () => calendarItems(localDateFromToday(-7), localDateFromToday(7)).map(i => i.title).sort()
+
+  it('shows every deadline column when nothing has been chosen (existing settings carry over)', () => {
+    twoColumns()
+    expect(titles()).toEqual(['Care plan review', 'Phone contact'])
+    // An unreadable setting is the same as none
+    t.db.prepare("INSERT INTO settings (key, value) VALUES ('calendar_hidden_deadline_columns', 'oops')").run()
+    expect(titles()).toEqual(['Care plan review', 'Phone contact'])
+  })
+
+  it('leaves hidden columns out in main, and new columns show', () => {
+    const g = twoColumns()
+    t.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('calendar_hidden_deadline_columns', ?)").run(JSON.stringify([g.columnIds[0]]))
+    expect(titles()).toEqual(['Care plan review'])
+    // Follow-ups and tasks aren't affected
+    t.db.prepare("INSERT INTO caseload_tasks (title, due_date) VALUES ('Order forms', ?)").run(localDateFromToday(2))
+    expect(titles()).toEqual(['Care plan review', 'Order forms'])
+    t.db.prepare("UPDATE settings SET value = '[]' WHERE key = 'calendar_hidden_deadline_columns'").run()
+    expect(titles()).toEqual(['Care plan review', 'Order forms', 'Phone contact'])
+  })
+})

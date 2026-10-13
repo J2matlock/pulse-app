@@ -194,6 +194,18 @@ describe('IPC Settings', () => {
       expect(result.ok).toBe(true)
     })
 
+    it('accepts the calendar\'s hidden deadline columns only as a list of column ids', async () => {
+      expect((await invoke(IPC.SETTINGS_UPDATE, 'calendar_hidden_deadline_columns', '[3,9]')).ok).toBe(true)
+      expect((await invoke(IPC.SETTINGS_UPDATE, 'calendar_hidden_deadline_columns', '[]')).ok).toBe(true)
+      for (const bad of ['3,9', '{"a":1}', '[0]', '[-2]', '[1.5]', '["3"]', 'null', JSON.stringify(Array.from({ length: 5001 }, (_, i) => i + 1))]) {
+        const res = await invoke(IPC.SETTINGS_UPDATE, 'calendar_hidden_deadline_columns', bad)
+        expect(res.ok, bad).toBe(false)
+        expect(res.error).not.toMatch(/JSON|SQL/)
+      }
+      // The refused values didn't replace the good one
+      expect((await invoke(IPC.SETTINGS_GET, 'calendar_hidden_deadline_columns')).data).toBe('[]')
+    })
+
     it('allows custom_groups_ prefixed keys', async () => {
       const result = await invoke(IPC.SETTINGS_UPDATE, 'custom_groups_grid1', '[]') as any
       expect(result.ok).toBe(true)

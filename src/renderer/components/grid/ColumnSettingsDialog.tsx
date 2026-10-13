@@ -9,6 +9,7 @@ import { useFeature } from '../../hooks/useFeature'
 import { useVocab } from '../../hooks/useVocab'
 import { DoneChecklistPicker } from './DoneChecklistPicker'
 import { NoteUpdatePicker } from './NoteUpdatePicker'
+import { CalendarColumnSwitch } from './CalendarColumnSwitch'
 
 export interface ColumnSettingsDialogProps {
   column: Column
@@ -88,6 +89,9 @@ export function ColumnSettingsDialog({
             </span>
           </button>
         )}
+
+        {/* Its deadlines on the Calendar, or not (the Calendar's "Which deadlines…" menu writes the same setting) */}
+        {takesDeadlineRule(column.column_type) && currentAlertRule && <CalendarColumnSwitch columnId={column.id} />}
 
         <button
           data-opens

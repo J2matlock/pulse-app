@@ -24,6 +24,8 @@ import { updateAppointment } from '../utils/appointmentActions'
 import { useGridStore } from '../stores/gridStore'
 import { useShallow } from 'zustand/react/shallow'
 import { CalendarExportDialog } from '../components/reports/CalendarExportDialog'
+import { DeadlineColumnsMenu } from '../components/calendar/DeadlineColumnsMenu'
+import { readHiddenDeadlineColumns, saveHiddenDeadlineColumns } from '../utils/calendarDeadlineColumns'
 
 export type CalendarMode = 'month' | 'week' | 'day' | 'agenda'
 const MODES: readonly CalendarMode[] = ['month', 'week', 'day', 'agenda']
@@ -106,6 +108,8 @@ export default function CalendarView(): React.ReactElement {
   const [selected, setSelected] = useState<Appointment | null>(null)
   const [newAt, setNewAt] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
+  // Deadline columns turned off here (main leaves them out of calendar:items)
+  const [hiddenCols, setHiddenCols] = useState<Set<number>>(new Set())
   // One list, or all of them (audit S-32), remembered like the layers
   const grids = useGridStore(useShallow(s => s.grids))
   const [listId, setListId] = useState<number | null>(null)
@@ -123,6 +127,7 @@ export default function CalendarView(): React.ReactElement {
 
   useEffect(() => {
     void safeInvoke<string | null>(IPC.SETTINGS_GET, 'calendar_layers').then(r => { if (r.ok && r.data) setLayers(readLayers(r.data)) })
+    void readHiddenDeadlineColumns().then(setHiddenCols)
     void safeInvoke<string | null>(IPC.SETTINGS_GET, 'calendar_list').then(r => { if (r.ok && r.data && Number(r.data) > 0) setListId(Number(r.data)) })
     if (!datedOpen) void safeInvoke<string | null>(IPC.SETTINGS_GET, 'calendar_mode').then(r => { if (r.ok && MODES.includes(r.data as CalendarMode)) setMode(r.data as CalendarMode) })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- once on open; a dated open keeps the day view
@@ -165,6 +170,12 @@ export default function CalendarView(): React.ReactElement {
     if (next.has(l)) next.delete(l); else next.add(l)
     setLayers(next)
     void safeInvoke(IPC.SETTINGS_UPDATE, 'calendar_layers', JSON.stringify([...next]))
+  }
+  async function chooseDeadlineColumns(next: Set<number>) {
+    const before = hiddenCols
+    setHiddenCols(next)
+    if (await saveHiddenDeadlineColumns(next)) void load()
+    else setHiddenCols(before)
   }
   function chooseList(id: number | null) {
     setListId(id)
@@ -256,10 +267,13 @@ export default function CalendarView(): React.ReactElement {
             <div className="flex flex-wrap items-center gap-1.5" role="group" aria-labelledby="calendar-show-label">
               <span id="calendar-show-label" className="text-base text-slate-600 dark:text-slate-300">Show:</span>
               {offered.map(l => (
-                <button key={l} type="button" aria-pressed={layers.has(l)} onClick={() => toggleLayer(l)}
-                  className={`hit-44 px-3 rounded-full border text-sm ${layers.has(l) ? 'bg-slate-800 text-white border-slate-800 dark:bg-slate-100 dark:text-slate-900' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300'}`} style={{ minHeight: 32 }}>
-                  {f(LAYER_LABELS[l])}
-                </button>
+                <React.Fragment key={l}>
+                  <button type="button" aria-pressed={layers.has(l)} onClick={() => toggleLayer(l)}
+                    className={`hit-44 px-3 rounded-full border text-sm ${layers.has(l) ? 'bg-slate-800 text-white border-slate-800 dark:bg-slate-100 dark:text-slate-900' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300'}`} style={{ minHeight: 32 }}>
+                    {f(LAYER_LABELS[l])}
+                  </button>
+                  {l === 'deadlines' && layers.has('deadlines') && <DeadlineColumnsMenu hidden={hiddenCols} onChange={next => void chooseDeadlineColumns(next)} />}
+                </React.Fragment>
               ))}
             </div>
             {grids.length > 1 && (

@@ -4,7 +4,7 @@
  */
 import { getDb } from './database'
 import { loadDeadlines } from './deadlines'
-import type { CalendarItem } from '../shared/calendar'
+import { HIDDEN_DEADLINES_KEY, parseHiddenColumns, type CalendarItem } from '../shared/calendar'
 import { LIVE_GRID, LIVE_ROW } from '../shared/liveRecords'
 
 /** The first words of a note, for its follow-up on the calendar */
@@ -13,10 +13,20 @@ export function noteSnippet(content: string, max = 40): string {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
 }
 
-/** Everything but appointments in a date range; with `gridId`, only that list's (audit S-32) */
+/** Deadline columns turned off on the calendar (none when never set) */
+export function hiddenDeadlineColumns(): Set<number> {
+  const raw = (getDb().prepare('SELECT value FROM settings WHERE key = ?').get(HIDDEN_DEADLINES_KEY) as { value: string } | undefined)?.value
+  return parseHiddenColumns(raw)
+}
+
+/**
+ * Everything but appointments in a date range; with `gridId`, only that list's (audit S-32).
+ * Deadline columns turned off on the calendar are left out here, so day counts and "N more" stay right.
+ */
 export function calendarItems(from: string, to: string, gridId?: number): CalendarItem[] {
   const db = getDb()
-  const deadlines: CalendarItem[] = loadDeadlines({ from, to, ...(gridId !== undefined ? { gridId } : {}) }).filter(d => d.due).map(d => ({
+  const hidden = hiddenDeadlineColumns()
+  const deadlines: CalendarItem[] = loadDeadlines({ from, to, ...(gridId !== undefined ? { gridId } : {}) }).filter(d => d.due && !hidden.has(d.column_id)).map(d => ({
     kind: 'deadline', key: `deadline-${d.row_id}-${d.column_id}`, date: d.due!.slice(0, 10), title: d.column_name,
     rowId: d.row_id, gridId: d.grid_id, recordName: d.client_name || '(unnamed)', state: d.state, daysUntil: d.daysUntil, columnId: d.column_id,
   }))
