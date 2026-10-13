@@ -59,10 +59,9 @@ export function RemindersSection({ summary }: { summary?: React.ReactNode } = {}
         </label>
         <button type="button" className="btn-secondary" onClick={() => void test()}>Send a test reminder</button>
       </div>
-      {apptsOn && (
-        <>
+      {/* Events (no record) remind too, so this stays with the Appointments feature off */}
           <label className="flex flex-wrap items-center gap-2 text-base text-slate-700 dark:text-slate-200">
-            Before each {t('appointment')}
+            {apptsOn ? `Before each ${t('appointment')} or event` : 'Before each event'}
             <select className="input w-auto" disabled={!settings} value={settings?.apptLeadMinutes ?? 0}
               onChange={e => void save({ apptLeadMinutes: Number(e.target.value) })}>
               {LEADS.map(m => <option key={m} value={m}>{m === 0 ? 'No reminder' : m === 60 ? '1 hour before' : `${m} minutes before`}</option>)}
@@ -72,14 +71,13 @@ export function RemindersSection({ summary }: { summary?: React.ReactNode } = {}
             <input type="checkbox" className="mt-1 w-5 h-5 flex-shrink-0" disabled={!settings || settings.apptLeadMinutes === 0} checked={!!settings?.showNames}
               onChange={e => void save({ showNames: e.target.checked })} />
             <span>
-              <span className="block text-base font-medium text-slate-800 dark:text-slate-100">Show who it's with</span>
+              <span className="block text-base font-medium text-slate-800 dark:text-slate-100">{apptsOn ? "Show who it's with" : 'Show event titles'}</span>
               <span className="block text-sm text-slate-600 dark:text-slate-300">
-                Adds initials (or a thing's name), like "{t('appointment', { cap: true })} at 3:00 pm with J.S." Names can appear on your lock screen and in notification history.
+                {apptsOn ? <>Adds initials (or a thing's name), like "{t('appointment', { cap: true })} at 3:00 pm with J.S.", and event titles. </> : <>Adds the title, like "Event at 3:00 pm: Staff meeting". </>}
+                Names can appear on your lock screen and in notification history.
               </span>
             </span>
           </label>
-        </>
-      )}
     </section>
   )
 }

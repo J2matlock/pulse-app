@@ -621,7 +621,7 @@ export interface IPCContract {
   'stages:summary':       { args: [];                                                          return: StageSummary[] }
 
   // ── Appointments and calendar ───────────────────────────────────────────
-  'appointments:list':            { args: [range: { from: string; to: string }, filter?: { gridId?: number; rowId?: number; status?: ApptStatus[] }]; return: Appointment[] }
+  'appointments:list':            { args: [range: { from: string; to: string }, filter?: { gridId?: number; rowId?: number; status?: ApptStatus[]; withEvents?: boolean }]; return: Appointment[] }
   'appointments:for-record':      { args: [rowId: number];                                     return: { upcoming: Appointment[]; past: Appointment[]; upcomingTotal: number; pastTotal: number } }
   'appointments:create':          { args: [input: ApptInput, rule?: SeriesRule | null];        return: ApptChange }
   'appointments:update':          { args: [id: number, patch: ApptPatch, scope?: EditScope, rule?: SeriesRule | null]; return: ApptChange }

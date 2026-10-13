@@ -96,23 +96,26 @@ export function loadIcsItems(opts: IcsOptions = {}): IcsItem[] {
   `).all(from, to) as Array<{ id: number; title: string; due: string }>
 
   // Appointments (W07 §7): titles are free text that may name people, so without full names only "Appointment with J.S."
-  const appointments = featureOn('appointments') ? db.prepare(`
-    SELECT a.id, a.title, a.start_at, a.end_at, a.all_day, r.display_name AS name, g.record_kind AS kind
+  // Events (no record) go out with the Appointments feature off too, as they stay on the calendar; without full names only "Event"
+  const apptsOn = featureOn('appointments') ? 1 : 0
+  const appointments = db.prepare(`
+    SELECT a.id, a.title, a.start_at, a.end_at, a.all_day, a.row_id IS NULL AS event, r.display_name AS name, g.record_kind AS kind
     FROM appointments a LEFT JOIN rows r ON r.id = a.row_id LEFT JOIN grids g ON g.id = r.grid_id
-    WHERE a.status = 'scheduled' AND a.start_at >= ? AND a.start_at <= ? AND ${OPEN_RECORD_SQL}
-  `).all(from, `${to}T99:99`) as Array<{ id: number; title: string; start_at: string; end_at: string | null; all_day: number; name: string | null; kind: string | null }> : []
+    WHERE a.status = 'scheduled' AND a.start_at >= ? AND a.start_at <= ? AND ${OPEN_RECORD_SQL} AND (? = 1 OR a.row_id IS NULL)
+  `).all(from, `${to}T99:99`, apptsOn) as Array<{ id: number; title: string; start_at: string; end_at: string | null; all_day: number; event: number; name: string | null; kind: string | null }>
 
   // Cancelled ones, ones whose record was archived or deleted, and ones removed lately go out as
   // cancelled with the same UID, so a calendar that imported them before drops them (audit S-30)
   const cancelled: IcsItem[] = []
-  if (featureOn('appointments')) {
+  {
     const gone = db.prepare(`
-      SELECT a.id, a.start_at, a.end_at, a.all_day FROM appointments a LEFT JOIN rows r ON r.id = a.row_id LEFT JOIN grids g ON g.id = r.grid_id
-      WHERE a.start_at >= ? AND a.start_at <= ? AND (a.status = 'cancelled' OR (a.status = 'scheduled' AND NOT ${OPEN_RECORD_SQL}))
-    `).all(from, `${to}T99:99`) as Array<{ id: number; start_at: string; end_at: string | null; all_day: number }>
+      SELECT a.id, a.start_at, a.end_at, a.all_day, a.row_id IS NULL AS event FROM appointments a LEFT JOIN rows r ON r.id = a.row_id LEFT JOIN grids g ON g.id = r.grid_id
+      WHERE a.start_at >= ? AND a.start_at <= ? AND (a.status = 'cancelled' OR (a.status = 'scheduled' AND NOT ${OPEN_RECORD_SQL})) AND (? = 1 OR a.row_id IS NULL)
+    `).all(from, `${to}T99:99`, apptsOn) as Array<{ id: number; start_at: string; end_at: string | null; all_day: number; event?: number }>
+    // Removed ones keep only their times: they're all sent as cancelled (harmless for ones never exported)
     for (const a of [...gone, ...removedAppointments().filter(r => r.start_at >= from && r.start_at <= `${to}T99:99`)]) {
       cancelled.push({
-        uid: `appointment-${a.id}@pulse`, date: a.start_at.slice(0, 10), summary: `Cancelled: ${word('appointment', { cap: true })}`, cancelled: true,
+        uid: `appointment-${a.id}@pulse`, date: a.start_at.slice(0, 10), summary: `Cancelled: ${'event' in a && a.event ? 'Event' : word('appointment', { cap: true })}`, cancelled: true,
         ...(a.all_day ? allDayEnd(a.start_at, a.end_at) : { start: a.start_at, end: a.end_at }),
       })
     }
@@ -122,7 +125,7 @@ export function loadIcsItems(opts: IcsOptions = {}): IcsItem[] {
     ...cancelled,
     ...appointments.map(a => ({
       uid: `appointment-${a.id}@pulse`, date: a.start_at.slice(0, 10),
-      summary: opts.fullNames ? `${a.title}${a.name ? ` (${a.name})` : ''}` : `${word('appointment', { cap: true })}${a.name ? ` with ${who(a.name, a.kind)}` : ''}`,
+      summary: opts.fullNames ? `${a.title}${a.name ? ` (${a.name})` : ''}` : a.event ? 'Event' : `${word('appointment', { cap: true })}${a.name ? ` with ${who(a.name, a.kind)}` : ''}`,
       ...(a.all_day ? allDayEnd(a.start_at, a.end_at) : { start: a.start_at, end: a.end_at }),
     })),
     // Stable UIDs, so importing a newer file updates events instead of duplicating them

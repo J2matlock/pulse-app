@@ -13,6 +13,7 @@ import {
   type ApptSnapshot,
 } from '../appointments'
 import { calendarItems } from '../calendar'
+import { featureOn } from '../vocab'
 
 function action<T>(fn: () => T) {
   try { return ok(fn()) } catch (err) {
@@ -55,6 +56,9 @@ export function registerAppointmentHandlers(): void {
     return action(() => listAppointments({ from: r.from as string, to: r.to as string }, {
       ...(f.gridId != null ? { gridId: f.gridId as number } : {}), ...(f.rowId != null ? { rowId: f.rowId as number } : {}),
       ...(f.status ? { status: f.status as ApptStatus[] } : {}),
+      ...(f.withEvents === true ? { withEvents: true } : {}),
+      // Events (no record) stay on the calendar with the Appointments feature off; record appointments don't
+      ...(featureOn('appointments') ? {} : { eventsOnly: true }),
     }))
   })
 

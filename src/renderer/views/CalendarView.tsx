@@ -10,7 +10,7 @@ import { IPC } from '../../shared/ipc-channels'
 import type { Appointment } from '../../shared/appointments'
 import type { DeadlineState } from '../../shared/deadlineEngine'
 import { addDays, addMonths } from '../../shared/appointments'
-import { CALENDAR_LAYERS, formatTime, longDay, monthGrid, monthTitle, sameMonth, startOfWeek, type CalendarItem, type CalendarLayer } from '../../shared/calendar'
+import { CALENDAR_LAYERS, apptLayer, formatTime, longDay, monthGrid, monthTitle, readCalendarLayers, sameMonth, startOfWeek, writeCalendarLayers, type CalendarItem, type CalendarLayer } from '../../shared/calendar'
 import { useToday } from '../hooks/useToday'
 import { safeInvoke } from '../utils/safeInvoke'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -33,7 +33,7 @@ const MODE_LABELS: Record<CalendarMode, string> = { month: 'Month', week: 'Week'
 const AGENDA_DAYS = 31
 const MAX_IN_CELL = 3
 
-const LAYER_LABELS: Record<CalendarLayer, string> = { appointments: '{Appointment:many}', deadlines: 'Deadlines', followups: 'Follow-ups', tasks: 'Tasks' }
+const LAYER_LABELS: Record<CalendarLayer, string> = { appointments: '{Appointment:many}', events: 'Events', deadlines: 'Deadlines', followups: 'Follow-ups', tasks: 'Tasks' }
 const OK_CLASS = 'bg-green-100 text-green-900 dark:bg-green-900/40 dark:text-green-100 border-green-300 dark:border-green-700'
 const STATE_CLASS: Record<DeadlineState, string> = {
   overdue: 'bg-red-100 text-red-900 dark:bg-red-900/40 dark:text-red-100 border-red-300 dark:border-red-700',
@@ -51,6 +51,10 @@ const APPT_CLASS: Record<Appointment['status'], string> = {
   cancelled: 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400 border-slate-300 dark:border-slate-600 line-through',
 }
 
+/** Events (no record) in teal, so they stand apart from appointments; once they have an outcome they look like appointments do */
+const EVENT_CLASS = 'bg-teal-100 text-teal-900 dark:bg-teal-900/50 dark:text-teal-100 border-teal-300 dark:border-teal-700'
+const apptClass = (a: Appointment) => (a.row_id === null && a.status === 'scheduled' ? EVENT_CLASS : APPT_CLASS[a.status])
+
 export type CalEvent =
   | { type: 'appointment'; date: string; sortKey: string; appt: Appointment }
   | { type: 'item'; date: string; sortKey: string; item: CalendarItem }
@@ -59,7 +63,7 @@ export type CalEvent =
 export function eventsByDay(appts: Appointment[], items: CalendarItem[], layers: Set<CalendarLayer>): Map<string, CalEvent[]> {
   const out = new Map<string, CalEvent[]>()
   const add = (e: CalEvent) => out.set(e.date, [...(out.get(e.date) ?? []), e])
-  if (layers.has('appointments')) for (const a of appts) add({ type: 'appointment', date: a.start_at.slice(0, 10), sortKey: `0${a.all_day ? '00:00' : a.start_at.slice(11, 16)}`, appt: a })
+  for (const a of appts) if (layers.has(apptLayer(a))) add({ type: 'appointment', date: a.start_at.slice(0, 10), sortKey: `0${a.all_day ? '00:00' : a.start_at.slice(11, 16)}`, appt: a })
   const layerOf: Record<CalendarItem['kind'], CalendarLayer> = { deadline: 'deadlines', followup: 'followups', task: 'tasks' }
   for (const i of items) if (layers.has(layerOf[i.kind])) add({ type: 'item', date: i.date, sortKey: `1${i.kind}${i.title}`, item: i })
   for (const list of out.values()) list.sort((a, b) => a.sortKey.localeCompare(b.sortKey))
@@ -81,14 +85,6 @@ export function eventText(e: CalEvent, clock: '12h' | '24h'): { short: string; f
   return { short: label, full: `${longDay(i.date)}, ${label}${i.kind === 'deadline' && i.state === 'overdue' ? ', overdue' : ''}` }
 }
 
-function readLayers(raw: string | null | undefined): Set<CalendarLayer> {
-  try {
-    const v = raw ? JSON.parse(raw) as unknown : null
-    if (Array.isArray(v)) return new Set(v.filter((x): x is CalendarLayer => CALENDAR_LAYERS.includes(x as CalendarLayer)))
-  } catch { /* defaults */ }
-  return new Set(CALENDAR_LAYERS)
-}
-
 export default function CalendarView(): React.ReactElement {
   const navigate = useNavigate()
   const apptsOn = useFeature('appointments')
@@ -107,6 +103,9 @@ export default function CalendarView(): React.ReactElement {
   const [items, setItems] = useState<CalendarItem[]>([])
   const [selected, setSelected] = useState<Appointment | null>(null)
   const [newAt, setNewAt] = useState<string | null>(null)
+  // A new event (no record) starting here, or an event being edited: events open for editing, not a panel
+  const [newEventAt, setNewEventAt] = useState<string | null>(null)
+  const [editingEvent, setEditingEvent] = useState<Appointment | null>(null)
   const [exporting, setExporting] = useState(false)
   // Deadline columns turned off here (main leaves them out of calendar:items)
   const [hiddenCols, setHiddenCols] = useState<Set<number>>(new Set())
@@ -126,7 +125,7 @@ export default function CalendarView(): React.ReactElement {
   }, [datedOpen, openDate])
 
   useEffect(() => {
-    void safeInvoke<string | null>(IPC.SETTINGS_GET, 'calendar_layers').then(r => { if (r.ok && r.data) setLayers(readLayers(r.data)) })
+    void safeInvoke<string | null>(IPC.SETTINGS_GET, 'calendar_layers').then(r => { if (r.ok && r.data) setLayers(readCalendarLayers(r.data)) })
     void readHiddenDeadlineColumns().then(setHiddenCols)
     void safeInvoke<string | null>(IPC.SETTINGS_GET, 'calendar_list').then(r => { if (r.ok && r.data && Number(r.data) > 0) setListId(Number(r.data)) })
     if (!datedOpen) void safeInvoke<string | null>(IPC.SETTINGS_GET, 'calendar_mode').then(r => { if (r.ok && MODES.includes(r.data as CalendarMode)) setMode(r.data as CalendarMode) })
@@ -143,7 +142,8 @@ export default function CalendarView(): React.ReactElement {
 
   const load = useCallback(async () => {
     const [a, i] = await Promise.all([
-      apptsOn ? safeInvoke<Appointment[]>(IPC.APPT_LIST, range, shownList != null ? { gridId: shownList } : undefined) : Promise.resolve({ ok: true as const, data: [] as Appointment[] }),
+      // With the Appointments feature off, main sends only events (no record); events belong to no list, so they show with one chosen
+      safeInvoke<Appointment[]>(IPC.APPT_LIST, range, shownList != null ? { gridId: shownList, withEvents: true } : undefined),
       safeInvoke<CalendarItem[]>(IPC.CALENDAR_ITEMS, range.from, range.to, shownList ?? undefined),
     ])
     if (a.ok) setAppts(a.data)
@@ -169,7 +169,7 @@ export default function CalendarView(): React.ReactElement {
     const next = new Set(layers)
     if (next.has(l)) next.delete(l); else next.add(l)
     setLayers(next)
-    void safeInvoke(IPC.SETTINGS_UPDATE, 'calendar_layers', JSON.stringify([...next]))
+    void safeInvoke(IPC.SETTINGS_UPDATE, 'calendar_layers', writeCalendarLayers(next))
   }
   async function chooseDeadlineColumns(next: Set<number>) {
     const before = hiddenCols
@@ -194,8 +194,15 @@ export default function CalendarView(): React.ReactElement {
     if (a.series_id !== null) setPendingDrop({ appt: a, times })
     else void updateAppointment(a, times, 'one')
   }
+  function openAppt(a: Appointment) {
+    if (a.row_id === null) { setSelected(null); setEditingEvent(a) } else setSelected(a)
+  }
+  /** A new appointment, or an event when appointments are switched off */
+  function startNew(startAt: string) {
+    if (apptsOn) setNewAt(startAt); else setNewEventAt(startAt)
+  }
   function openEvent(e: CalEvent) {
-    if (e.type === 'appointment') { setSelected(e.appt); return }
+    if (e.type === 'appointment') { openAppt(e.appt); return }
     if (e.item.kind === 'task') navigate(e.item.taskId ? `/tasks?task=${e.item.taskId}` : '/tasks')
     else if (e.item.rowId) navigate(`/profile/${e.item.rowId}?gridId=${e.item.gridId}`)
   }
@@ -206,7 +213,7 @@ export default function CalendarView(): React.ReactElement {
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || e.ctrlKey || e.metaKey || e.altKey) return
     const k = e.key.toLowerCase()
     if (k === 't') { setAnchor(today); setFocusDay(today); e.preventDefault() }
-    else if (k === 'n' && apptsOn) { setNewAt(`${focusDay}T09:00`); e.preventDefault() }
+    else if (k === 'n') { startNew(`${focusDay}T09:00`); e.preventDefault() }
     else if (k === 'm') switchMode('month')
     else if (k === 'w') switchMode('week')
     else if (k === 'd') switchMode('day')
@@ -225,7 +232,7 @@ export default function CalendarView(): React.ReactElement {
 
   const eventButton = (e: CalEvent, compact: boolean) => {
     const text = eventText(e, clock)
-    const cls = e.type === 'appointment' ? APPT_CLASS[e.appt.status] : e.item.kind === 'deadline' ? STATE_CLASS[e.item.state ?? 'ok'] ?? STATE_CLASS.ok : 'bg-purple-100 text-purple-900 dark:bg-purple-900/40 dark:text-purple-100 border-purple-300 dark:border-purple-700'
+    const cls = e.type === 'appointment' ? apptClass(e.appt) : e.item.kind === 'deadline' ? STATE_CLASS[e.item.state ?? 'ok'] ?? STATE_CLASS.ok : 'bg-purple-100 text-purple-900 dark:bg-purple-900/40 dark:text-purple-100 border-purple-300 dark:border-purple-700'
     return (
       <button key={e.type === 'appointment' ? `a${e.appt.id}` : e.item.key} type="button" aria-label={text.full} title={text.full}
         onClick={ev => { ev.stopPropagation(); openEvent(e) }}
@@ -290,12 +297,12 @@ export default function CalendarView(): React.ReactElement {
 
         {mode === 'week' || mode === 'day' ? (
           <TimeGrid days={mode === 'week' ? Array.from({ length: 7 }, (_, i) => addDays(weekFrom, i)) : [anchor]} clock={clock}
-            appointments={layers.has('appointments') ? appts.filter(a => !a.all_day) : []}
+            appointments={appts.filter(a => !a.all_day && shownLayers.has(apptLayer(a)))}
             allDay={d => (byDay.get(d) ?? []).filter(e => e.type === 'item' || e.appt.all_day).map(e => eventButton(e, true))}
             label={a => eventText({ type: 'appointment', date: a.start_at.slice(0, 10), sortKey: '', appt: a }, clock)}
-            colorOf={a => APPT_CLASS[a.status]}
-            onOpen={setSelected}
-            onNew={startAt => apptsOn && setNewAt(startAt)}
+            colorOf={apptClass}
+            onOpen={openAppt}
+            onNew={startNew}
             onDrop={dropped} />
         ) : mode === 'month' ? (
           <div ref={gridRef} role="grid" aria-label={monthTitle(anchor)} className="flex-1 grid overflow-auto"
@@ -311,7 +318,7 @@ export default function CalendarView(): React.ReactElement {
                   return (
                     <div key={d} role="gridcell" tabIndex={d === focusDay ? 0 : -1} data-day={d} aria-label={`${longDay(d)}, ${events.length ? `${events.length} item${events.length === 1 ? '' : 's'}` : 'nothing'}`}
                       onFocus={() => setFocusDay(d)}
-                      onDoubleClick={() => apptsOn && setNewAt(`${d}T09:00`)}
+                      onDoubleClick={() => startNew(`${d}T09:00`)}
                       className={`border-r border-b border-slate-300 dark:border-slate-600 p-1 space-y-1 overflow-hidden focus:outline-hidden focus:ring-3 focus:ring-inset focus:ring-blue-500 ${sameMonth(d, anchor) ? '' : 'bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400'}`}>
                       <button type="button" tabIndex={-1} onClick={() => openDay(d)} aria-label={`Open ${longDay(d)}`}
                         className={`text-sm font-medium w-7 h-7 rounded-full ${d === today ? 'bg-blue-600 text-white' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
@@ -343,6 +350,8 @@ export default function CalendarView(): React.ReactElement {
       </div>
       {selected && <AppointmentPanel appointment={selected} onClose={() => setSelected(null)} />}
       {newAt && <AppointmentDialog start={newAt} onClose={() => setNewAt(null)} />}
+      {newEventAt && <AppointmentDialog start={newEventAt} event onClose={() => setNewEventAt(null)} />}
+      {editingEvent && <AppointmentDialog appointment={editingEvent} onClose={() => setEditingEvent(null)} />}
       {exporting && <CalendarExportDialog onClose={() => setExporting(false)} />}
       {pendingDrop && (
         <ScopeDialog verb="Change" onCancel={() => setPendingDrop(null)} dateChanged={pendingDrop.times.start_at.slice(0, 10) !== pendingDrop.appt.start_at.slice(0, 10)}

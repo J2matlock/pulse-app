@@ -2,7 +2,8 @@
 import type { DeadlineState } from './deadlineEngine'
 import { addDays, parseYmd, ymd } from './appointments'
 
-export const CALENDAR_LAYERS = ['appointments', 'deadlines', 'followups', 'tasks'] as const
+/** 'events' are appointments with no record: their own layer, on even with the Appointments feature off */
+export const CALENDAR_LAYERS = ['appointments', 'events', 'deadlines', 'followups', 'tasks'] as const
 export type CalendarLayer = typeof CALENDAR_LAYERS[number]
 
 export interface CalendarItem {
@@ -70,4 +71,32 @@ export function validHiddenColumns(raw: string): boolean {
 export function parseHiddenColumns(raw: string | null | undefined): Set<number> {
   if (!raw || !validHiddenColumns(raw)) return new Set()
   return new Set(JSON.parse(raw) as number[])
+}
+
+/** Which layer an appointment belongs to */
+export function apptLayer(a: { row_id: number | null }): 'appointments' | 'events' {
+  return a.row_id === null ? 'events' : 'appointments'
+}
+
+/**
+ * The layers turned on, from the saved setting. It used to hold the layers
+ * that were on; now it holds the ones turned off ({"hidden": [...]}), so a
+ * layer added later (Events) shows for everyone until they turn it off.
+ */
+export function readCalendarLayers(raw: string | null | undefined): Set<CalendarLayer> {
+  const all = new Set<CalendarLayer>(CALENDAR_LAYERS)
+  try {
+    const v = raw ? JSON.parse(raw) as unknown : null
+    const known = (x: unknown): x is CalendarLayer => CALENDAR_LAYERS.includes(x as CalendarLayer)
+    // The old list of layers that were on: those, plus layers it didn't know about
+    if (Array.isArray(v)) return new Set([...v.filter(known), 'events'])
+    if (v && typeof v === 'object' && Array.isArray((v as { hidden?: unknown }).hidden)) {
+      for (const l of (v as { hidden: unknown[] }).hidden) if (known(l)) all.delete(l)
+    }
+  } catch { /* everything on */ }
+  return all
+}
+
+export function writeCalendarLayers(on: Set<CalendarLayer>): string {
+  return JSON.stringify({ hidden: CALENDAR_LAYERS.filter(l => !on.has(l)) })
 }

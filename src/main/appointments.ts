@@ -52,7 +52,13 @@ const SELECT = `
 // ── Reading ──────────────────────────────────────────────────────────────────
 
 
-export interface ApptFilter { gridId?: number; rowId?: number; status?: ApptStatus[] }
+export interface ApptFilter {
+  gridId?: number; rowId?: number; status?: ApptStatus[]
+  /** With `gridId`: events (no record) too, since they belong to no list */
+  withEvents?: boolean
+  /** Only events: the Appointments feature is off, but events stay on the calendar */
+  eventsOnly?: boolean
+}
 
 /** Appointments starting in a date range (inclusive), in time order; records in the trash, and archived records' scheduled ones, are left out */
 export function listAppointments(range: { from: string; to: string }, filter: ApptFilter = {}): Appointment[] {
@@ -60,7 +66,8 @@ export function listAppointments(range: { from: string; to: string }, filter: Ap
   ensureMaterialized(range.to)
   const where = ["a.start_at >= ?", "a.start_at <= ?", OPEN_RECORD_SQL]
   const params: unknown[] = [range.from, `${range.to}T99:99`]
-  if (filter.gridId !== undefined) { where.push('r.grid_id = ?'); params.push(filter.gridId) }
+  if (filter.gridId !== undefined) { where.push(filter.withEvents ? '(r.grid_id = ? OR a.row_id IS NULL)' : 'r.grid_id = ?'); params.push(filter.gridId) }
+  if (filter.eventsOnly) where.push('a.row_id IS NULL')
   if (filter.rowId !== undefined) { where.push('a.row_id = ?'); params.push(filter.rowId) }
   if (filter.status?.length) { where.push(`a.status IN (${filter.status.map(() => '?').join(',')})`); params.push(...filter.status) }
   return getDb().prepare(`${SELECT} WHERE ${where.join(' AND ')} ORDER BY a.start_at, a.id`).all(...params) as Appointment[]

@@ -55,7 +55,7 @@ export function CalendarExportDialog({ onClose }: { onClose: () => void }): Reac
           </button>
         </div>
         <div className="px-6 py-5 space-y-3 text-base text-slate-700 dark:text-slate-200">
-          <p>Saves a calendar file with your {apptsOn ? `${t('appointment', { many: true })}, ` : ''}deadlines and follow-ups for the next six months, each with a reminder. Open it in Outlook, or import it in Google Calendar (Settings → Import).</p>
+          <p>Saves a calendar file with your {apptsOn ? `${t('appointment', { many: true })}, ` : ''}events, deadlines and follow-ups for the next six months, each with a reminder. Open it in Outlook, or import it in Google Calendar (Settings → Import).</p>
           {anyPeople && !anyOther && <p>{t('record', { many: true, cap: true })} are shown by initials, like <strong>J.S.: Annual Review</strong>. {noteText}</p>}
           {anyPeople && anyOther && <p>People are shown by initials, like <strong>J.S.: Annual Review</strong>; things and jobs by name. {noteText}</p>}
           {!anyPeople && <p>Each one is shown by name. {noteText}</p>}
@@ -63,11 +63,11 @@ export function CalendarExportDialog({ onClose }: { onClose: () => void }): Reac
             <input type="checkbox" className="mt-1 w-5 h-5" checked={fullNames} onChange={e => setFullNames(e.target.checked)} />
             {anyPeople ? (
               <span>
-                Use full {t('record')} names and include task titles
+                Use full {t('record')} names and include task and event titles
                 <span className="block text-sm text-slate-600 dark:text-slate-300">Only if your workplace allows {t('record')} names in your work calendar.</span>
               </span>
             ) : (
-              <span>Include task titles</span>
+              <span>Include task and event titles</span>
             )}
           </label>
           <p className="text-sm text-slate-600 dark:text-slate-300">The calendar doesn't update by itself. Save a new file when things change; importing it again updates the same events{apptsOn ? ` and cancels ${t('appointment', { many: true })} you've cancelled or removed` : ''}.</p>

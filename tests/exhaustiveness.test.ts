@@ -160,7 +160,7 @@ describe('stored value lists', () => {
   it('keep the values already stored', () => {
     expect(APPT_STATUSES).toEqual(['scheduled', 'done', 'cancelled', 'no_show'])
     expect(CARDINALITIES).toEqual(['one_to_one', 'many_to_one', 'many_to_many'])
-    expect(CALENDAR_LAYERS).toEqual(['appointments', 'deadlines', 'followups', 'tasks'])
+    expect(CALENDAR_LAYERS).toEqual(['appointments', 'events', 'deadlines', 'followups', 'tasks'])
     expect(PROVIDER_CONTACT_TYPES).toEqual(['call', 'email', 'visit', 'note', 'meeting', 'referral', 'other'])
     expect(RULE_KINDS).toEqual(['interval', 'relative', 'calendar', 'meter', 'quota', 'sequence'])
     expect(PERIODS).toEqual(['week', 'month', 'quarter', 'year'])

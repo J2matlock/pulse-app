@@ -3,16 +3,17 @@
  * of note it becomes when done, and (for new ones) how it repeats.
  */
 import React, { useEffect, useRef, useState } from 'react'
-import { CalendarClock, X } from 'lucide-react'
+import { CalendarClock, Trash2, X } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { CrossGridSearchResult } from '../../../shared/ipc-contract'
 import type { Column } from '../../../shared/types'
 import { apptInputSchema, addMinutes, minutesBetween, seriesRuleSchema, type Appointment, type ApptInput, type SeriesRule } from '../../../shared/appointments'
 import { safeInvoke } from '../../utils/safeInvoke'
-import { createAppointment, updateAppointment } from '../../utils/appointmentActions'
+import { createAppointment, deleteAppointment, updateAppointment } from '../../utils/appointmentActions'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
 import { useActivityTypes } from '../../hooks/useActivityTypes'
+import { useFeature } from '../../hooks/useFeature'
 import { ScopeDialog } from './ScopeDialog'
 
 const label = 'block text-base font-semibold text-slate-800 dark:text-slate-100 mb-1'
@@ -40,15 +41,22 @@ export interface AppointmentDialogProps {
   start?: string
   /** New: who it's with */
   record?: { rowId: number; gridId: number; name: string }
+  /**
+   * New: an event, a plain calendar entry with no record (it shows in the
+   * Calendar's Events layer). Editing one with no record is an event too.
+   */
+  event?: boolean
   onClose: () => void
 }
 
-export function AppointmentDialog({ appointment, start, record, onClose }: AppointmentDialogProps): React.ReactElement {
+export function AppointmentDialog({ appointment, start, record, event = false, onClose }: AppointmentDialogProps): React.ReactElement {
   const trapRef = useRef<HTMLDivElement>(null)
   useFocusTrap(trapRef, true)
   const { t } = useVocab(null)
   const { active: noteTypes } = useActivityTypes()
   const a = appointment
+  const apptsOn = useFeature('appointments')
+  const isEvent = a ? a.row_id === null : event
   const startAt = a?.start_at ?? start ?? ''
   const [title, setTitle] = useState(a?.title ?? '')
   const [who, setWho] = useState<{ rowId: number; gridId: number; name: string } | null>(
@@ -77,6 +85,10 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
   const [whenError, setWhenError] = useState(false)
   const [saving, setSaving] = useState(false)
   const [askScope, setAskScope] = useState<ApptInput | null>(null)
+  const [askDelete, setAskDelete] = useState(false)
+  // An event with someone chosen becomes an appointment, and says so
+  const asEvent = isEvent && !who
+  const noun = asEvent ? 'event' : t('appointment')
 
   useEffect(() => {
     if (!query.trim()) { setResults([]); return }
@@ -93,10 +105,10 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
   }, [who?.gridId])
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !askScope) { e.preventDefault(); onClose() } }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !askScope && !askDelete) { e.preventDefault(); onClose() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, askScope])
+  }, [onClose, askScope, askDelete])
 
   const whenErrorProps = whenError && error ? { 'aria-invalid': true, 'aria-describedby': 'appt-dialog-error' } as const : {}
 
@@ -123,6 +135,12 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
     return r
   }
 
+  async function remove(scope: 'one' | 'following' | 'all') {
+    if (!a) return
+    setAskDelete(false)
+    if (await deleteAppointment(a, scope)) onClose()
+  }
+
   async function save(scope?: 'one' | 'following' | 'all', prepared?: ApptInput) {
     setError(null)
     setWhenError(false)
@@ -147,7 +165,7 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
         className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 id="appt-dialog-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <CalendarClock className="w-5 h-5" aria-hidden="true" />{a ? `Edit ${t('appointment')}` : `New ${t('appointment')}`}
+            <CalendarClock className="w-5 h-5" aria-hidden="true" />{a ? `Edit ${noun}` : `New ${noun}`}
           </h2>
           <button type="button" aria-label="Close" onClick={onClose}
             className="hit-44 p-1.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
@@ -157,11 +175,12 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
 
         <label className="block">
           <span className={label}>What</span>
-          <input className="input w-full" autoFocus maxLength={200} value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Session, Drop-off, Home visit" />
+          <input className="input w-full" autoFocus maxLength={200} value={title} onChange={e => setTitle(e.target.value)} placeholder={isEvent ? 'e.g. Staff meeting, Training, Day off' : 'e.g. Session, Drop-off, Home visit'} />
         </label>
 
-        <div>
-          <span className={label}>With</span>
+        {/* An event can be about someone (then it's an appointment), but only while appointments are switched on */}
+        {(!isEvent || apptsOn || who) && <div>
+          <span className={label}>With{isEvent && <span className="font-normal text-slate-500 dark:text-slate-400"> (optional)</span>}</span>
           {who ? (
             <div className="flex items-center gap-2">
               <span className="text-base text-slate-800 dark:text-slate-100">{who.name || '(unnamed)'}</span>
@@ -185,7 +204,7 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
               )}
             </div>
           )}
-        </div>
+        </div>}
 
         <div className="flex flex-wrap items-end gap-3">
           <label className="block">
@@ -215,13 +234,14 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
           <input className="input w-full" maxLength={300} value={location} onChange={e => setLocation(e.target.value)} />
         </label>
 
-        <label className="block">
+        {/* Only a record gets a note when it's done */}
+        {!asEvent && <label className="block">
           <span className={label}>When it's done, log it as</span>
           <select className="input w-full" value={kind} onChange={e => setKind(e.target.value)}>
             <option value="">Usual: {(noteTypes.find(nt => nt.key === 'visit') ?? noteTypes[0])?.label ?? 'a note'}</option>
             {noteTypes.map(nt => <option key={nt.key} value={nt.key}>{nt.label}</option>)}
           </select>
-        </label>
+        </label>}
 
         {(!a || initialRule) && (
           <fieldset className="space-y-2">
@@ -281,10 +301,17 @@ export function AppointmentDialog({ appointment, start, record, onClose }: Appoi
         {error && <p id="appt-dialog-error" role="alert" className="text-base text-red-700 dark:text-red-400">{error}</p>}
 
         <div className="flex justify-end gap-2">
+          {/* Events open straight into this dialog, so it's where they're deleted */}
+          {a && isEvent && (
+            <button type="button" className="btn-secondary mr-auto" onClick={() => (a.series_id !== null ? setAskDelete(true) : void remove('one'))}>
+              <Trash2 className="w-4 h-4" aria-hidden="true" />Delete
+            </button>
+          )}
           <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn-primary" disabled={saving || !title.trim() || !date} onClick={() => void save()}>{a ? 'Save' : 'Schedule'}</button>
+          <button type="button" className="btn-primary" disabled={saving || !title.trim() || !date} onClick={() => void save()}>{a ? 'Save' : asEvent ? 'Add event' : 'Schedule'}</button>
         </div>
       </div>
+      {askDelete && <ScopeDialog verb="Delete" onChoose={scope => void remove(scope)} onCancel={() => setAskDelete(false)} />}
       {askScope && <ScopeDialog verb="Change" onChoose={scope => void save(scope, askScope)} onCancel={() => setAskScope(null)}
         dateChanged={!!a && askScope.start_at.slice(0, 10) !== a.start_at.slice(0, 10)} />}
     </div>

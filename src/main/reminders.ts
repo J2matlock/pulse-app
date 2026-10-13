@@ -108,7 +108,12 @@ function wallToDate(wall: string): Date {
   return new Date(y, mo - 1, d, h, mi)
 }
 
-export interface ApptForReminder { id: number; start_at: string; all_day: number; record_name: string | null; record_kind: string | null }
+export interface ApptForReminder {
+  id: number; start_at: string; all_day: number; record_name: string | null; record_kind: string | null
+  /** An event: an appointment with no record, on the calendar even with the Appointments feature off */
+  event?: boolean
+  title?: string
+}
 
 /**
  * Appointments whose reminder time has come: from `lead` minutes before the
@@ -131,22 +136,27 @@ const timeKey = (startAt: string) => `t@${startAt}`
 
 /** "Appointment at 3:00 pm", plus "with J.S." (people) or the thing's name only when names are on */
 export function apptReminderText(a: ApptForReminder, showNames: boolean, clock: '12h' | '24h' = '12h'): string {
+  // An event's title is free text that may name people, so it's only shown with names on
+  if (a.event) return `Event at ${formatTime(a.start_at, clock)}${showNames && a.title ? `: ${a.title}` : ''}`
   const base = `${word('appointment', { cap: true })} at ${formatTime(a.start_at, clock)}`
   if (!showNames || !a.record_name) return base
   return `${base} with ${isPersonKind(a.record_kind) ? initials(a.record_name) : a.record_name}`
 }
 
-/** Scheduled, timed appointments from now through the longest lead (crosses midnight) */
-function upcomingAppointments(now: Date): ApptForReminder[] {
+/**
+ * Scheduled, timed appointments from now through the longest lead (crosses midnight).
+ * With the Appointments feature off, only events (no record): they stay on the calendar.
+ */
+function upcomingAppointments(now: Date, apptsOn: boolean): ApptForReminder[] {
   const today = localDateString(now)
-  return getDb().prepare(`
-    SELECT a.id, a.start_at, a.all_day,
+  return (getDb().prepare(`
+    SELECT a.id, a.start_at, a.all_day, a.title, a.row_id IS NULL AS event,
            CASE WHEN ${NOT_TRASHED_ROW} THEN NULLIF(r.display_name, '') END AS record_name, g.record_kind
     FROM appointments a LEFT JOIN rows r ON r.id = a.row_id LEFT JOIN grids g ON g.id = r.grid_id
     WHERE a.status = 'scheduled' AND a.all_day = 0 AND a.start_at >= ? AND a.start_at <= ?
-      AND ${OPEN_RECORD_SQL}
+      AND ${OPEN_RECORD_SQL} AND (? = 1 OR a.row_id IS NULL)
     ORDER BY a.start_at, a.id
-  `).all(today, `${addDays(today, 1)}T99:99`) as ApptForReminder[]
+  `).all(today, `${addDays(today, 1)}T99:99`, apptsOn ? 1 : 0) as Array<Omit<ApptForReminder, 'event'> & { event: number }>).map(a => ({ ...a, event: a.event === 1 }))
 }
 
 /** Appointment reminders already shown; in memory only, so nothing about them is written to disk */
@@ -168,8 +178,10 @@ export interface LockedSnapshot {
   lastDaily: string | null
   notificationsOn: boolean
   apptsOn: boolean
-  /** Scheduled, timed appointments today and tomorrow, "YYYY-MM-DDTHH:MM" */
+  /** Scheduled, timed appointments with a record today and tomorrow, "YYYY-MM-DDTHH:MM" (empty with the feature off) */
   apptTimes: string[]
+  /** The same for events (no record), which remind with the Appointments feature off too */
+  eventTimes?: string[]
   clock: '12h' | '24h'
   words: ApptWords
 }
@@ -183,6 +195,9 @@ export function snapshotForLock(now = new Date()): LockedSnapshot | null {
     const today = localDateString(now)
     const features = workspaceFeatures()
     const apptsOn = isOn(features, 'appointments')
+    // Events remind even with the Appointments feature off
+    const upcoming = upcomingAppointments(now, apptsOn)
+    const times = (event: boolean) => [...new Set(upcoming.filter(a => !!a.event === event).map(a => a.start_at))]
     return {
       date: today,
       counts: { ...deadlineCounts(today), appointments: appointmentsToday(today).appointmentsToday },
@@ -190,7 +205,8 @@ export function snapshotForLock(now = new Date()): LockedSnapshot | null {
       lastDaily: readSetting(KEYS.lastDaily) ?? null,
       notificationsOn: isOn(features, 'notifications'),
       apptsOn,
-      apptTimes: apptsOn ? [...new Set(upcomingAppointments(now).map(a => a.start_at))] : [],
+      apptTimes: times(false),
+      eventTimes: times(true),
       clock: clockFormat(),
       words: apptWords(),
     }
@@ -214,11 +230,14 @@ export function lockedReminders(now: Date, snap: LockedSnapshot, sent: Set<strin
     const text = snap.date === today ? dailySummaryText(snap.counts, snap.words) : 'Unlock to see what\'s due today.'
     if (text) out.push({ text, route: '/dashboard' })
   }
-  if (snap.apptsOn && snap.settings.apptLeadMinutes > 0) {
-    const due = apptRemindersDue(now, snap.apptTimes.map((start_at, i) => ({ id: -1 - i, start_at, all_day: 0, record_name: null, record_kind: null })), snap.settings.apptLeadMinutes, sent)
+  if (snap.settings.apptLeadMinutes > 0) {
+    // Appointments with a record only while the feature is on; events either way
+    const times = [...(snap.apptsOn ? snap.apptTimes.map(start_at => ({ start_at, event: false })) : []), ...(snap.eventTimes ?? []).map(start_at => ({ start_at, event: true }))]
+    const due = apptRemindersDue(now, times.map((x, i) => ({ id: -1 - i, start_at: x.start_at, all_day: 0, record_name: null, record_kind: null, event: x.event })), snap.settings.apptLeadMinutes, sent)
     for (const a of due) {
+      if (sent.has(timeKey(a.start_at))) continue
       sent.add(timeKey(a.start_at))
-      out.push({ text: `${snap.words.oneCap} at ${formatTime(a.start_at, snap.clock)}`, route: `/calendar?date=${a.start_at.slice(0, 10)}` })
+      out.push({ text: `${a.event ? 'Event' : snap.words.oneCap} at ${formatTime(a.start_at, snap.clock)}`, route: `/calendar?date=${a.start_at.slice(0, 10)}` })
     }
   }
   return out
@@ -275,9 +294,9 @@ export function reminderTick(now = new Date()): string[] {
       const text = dailySummaryText({ ...deadlineCounts(localDateString(now)), appointments: appointmentsToday(localDateString(now)).appointmentsToday })
       if (text) { show(text, '/dashboard'); out.push(text) }
     }
-    if (settings.apptLeadMinutes > 0 && isOn(features, 'appointments')) {
+    if (settings.apptLeadMinutes > 0) {
       const clock = clockFormat()
-      for (const a of apptRemindersDue(now, upcomingAppointments(now), settings.apptLeadMinutes, sentAppts)) {
+      for (const a of apptRemindersDue(now, upcomingAppointments(now, isOn(features, 'appointments')), settings.apptLeadMinutes, sentAppts)) {
         sentAppts.add(apptKey(a))
         const text = apptReminderText(a, settings.showNames, clock)
         show(text, `/calendar?date=${a.start_at.slice(0, 10)}`)
