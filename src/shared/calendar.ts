@@ -100,3 +100,17 @@ export function readCalendarLayers(raw: string | null | undefined): Set<Calendar
 export function writeCalendarLayers(on: Set<CalendarLayer>): string {
   return JSON.stringify({ hidden: CALENDAR_LAYERS.filter(l => !on.has(l)) })
 }
+
+/** One of a record's deadline columns, for "Deadline for a record" on a chosen day */
+export interface DeadlineDayOption {
+  columnId: number
+  columnName: string
+  /** What the column holds now */
+  current: string | null
+  /** The date to store so it's due that day; null when it can't be set that way */
+  value: string | null
+  /** Why not, in plain words */
+  reason: string | null
+  /** Days it could be due instead, nearest first */
+  nearest: string[]
+}

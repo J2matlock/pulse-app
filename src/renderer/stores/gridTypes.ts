@@ -22,6 +22,9 @@ export interface UpdateCellOptions {
   fromUndo?: boolean
   /** A bulk action: add this change's undo step here instead of pushing it, and don't toast a failure */
   collect?: UndoItem[]
+  /** Names for the undo step when the record isn't in the open list (set from the Calendar) */
+  columnName?: string
+  recordName?: string
 }
 
 /**

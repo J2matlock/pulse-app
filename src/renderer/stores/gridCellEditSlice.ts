@@ -172,9 +172,9 @@ export const createCellEditSlice = (set: Set, get: Get) => ({
       // Push undo for cell change (only if value actually changed)
       if (prevValue !== value && !fromUndo) {
         const col = get().columns.find(c => c.id === columnId)
-        const colName = col?.name ?? 'cell'
+        const colName = col?.name ?? opts?.columnName ?? 'cell'
         const row = get().rows.find(r => r.row_id === rowId)
-        const contextLabel = row ? getClientName(row, get().columns) : undefined
+        const contextLabel = row ? getClientName(row, get().columns) : opts?.recordName
         const sideEffects: SideEffect[] = result?.sysLogId != null
           ? [{ type: 'void_case_log', caseLogId: result.sysLogId }]
           : []

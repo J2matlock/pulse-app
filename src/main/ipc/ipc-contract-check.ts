@@ -11,7 +11,7 @@ import type { IPCContract, ContractChannel, DeadlineListItem, MeterDoneResult as
 import type { listLinkTypes, saveLinkType, setupLink, deleteLinkType, countLinks, getLinksForRow, addLink, removeLink, searchLinkTargets, createLinkedRecord, linkValuesForGrid, linksThatWontFit, linkCountsForGrid } from '../links'
 import type { saveStageConfig, moveStage, stageDurations, stageSummary } from '../stages'
 import type { listAppointments, recordAppointments, createAppointment, updateAppointment, deleteAppointment, setAppointmentStatus, countUpcomingForRecords, cancelUpcomingForRecords, endSeriesOn, ApptSnapshot, StatusChange, StatusOptions } from '../appointments'
-import type { calendarItems } from '../calendar'
+import type { calendarItems, deadlineOptionsForDay } from '../calendar'
 import type { listForms, saveForm, submitForm, redoFormSubmit, FormValues } from '../forms'
 import type { listAttachments, describeAttachment, attachmentUsage, purgeDeletedAttachments, trashedAttachments, AddResult } from '../attachments'
 import type { previewAttachment } from '../attachment-files'
@@ -86,6 +86,7 @@ export type IPCContractChecks = [
   Expect<Fits<ReturnType<typeof cancelUpcomingForRecords>, Ret<'appointments:cancel-upcoming'>>>,
   Expect<Fits<ReturnType<typeof endSeriesOn>, Ret<'appointments:end-series'>>>,
   Expect<Fits<ReturnType<typeof calendarItems>, Ret<'calendar:items'>>>,
+  Expect<Fits<NonNullable<ReturnType<typeof deadlineOptionsForDay>>, Ret<'calendar:deadline-options'>>>,
 
   // Forms
   Expect<Fits<ReturnType<typeof listForms>, Ret<'forms:list'>>>,

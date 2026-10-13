@@ -31,7 +31,7 @@ import type { DeadlineResult, MeterInfo, RuleKind } from './deadlineEngine'
 import type { LinkType, LinkTypeInput, LinkedRecord, RowLinks, LinkChange, LinkDirection } from './links'
 import type { StageConfig, StageMoveResult, StageDurations, StageSummary } from './stages'
 import type { Appointment, ApptInput, ApptPatch, ApptStatus, EditScope, SeriesRule } from './appointments'
-import type { CalendarItem } from './calendar'
+import type { CalendarItem, DeadlineDayOption } from './calendar'
 import type { Form, FormInput, FormChange } from './forms'
 import type { Attachment, AttachmentUsage } from './attachments'
 import type { ReportSource, ReportField, ReportConfig, ReportResult, SavedReport } from './reports'
@@ -632,6 +632,7 @@ export interface IPCContract {
   'appointments:cancel-upcoming': { args: [rowIds: number[]];                                  return: ApptChange }
   'appointments:end-series':      { args: [id: number, lastDate: string];                      return: ApptChange }
   'calendar:items':               { args: [from: string, to: string, gridId?: number];         return: CalendarItem[] }
+  'calendar:deadline-options':    { args: [rowId: number, due: string];                        return: DeadlineDayOption[] }
 
   // ── Forms ───────────────────────────────────────────────────────────────
   'forms:list':    { args: [gridId: number];                                                   return: Form[] }

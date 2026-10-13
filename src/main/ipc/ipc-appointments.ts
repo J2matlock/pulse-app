@@ -12,8 +12,8 @@ import {
   countUpcomingForRecords, cancelUpcomingForRecords, endSeriesOn,
   type ApptSnapshot,
 } from '../appointments'
-import { calendarItems } from '../calendar'
-import { featureOn } from '../vocab'
+import { calendarItems, deadlineOptionsForDay } from '../calendar'
+import { featureOn, word } from '../vocab'
 
 function action<T>(fn: () => T) {
   try { return ok(fn()) } catch (err) {
@@ -130,5 +130,11 @@ export function registerAppointmentHandlers(): void {
     if (to < from) return fail('Invalid dates')
     if (gridId != null && !validId(gridId)) return fail('Invalid ID')
     return ok(calendarItems(from, to, gridId == null ? undefined : gridId))
+  })
+
+  /** "Deadline for a record": the record's deadline columns, and what to store so each is due that day */
+  define(IPC.CALENDAR_DEADLINE_OPTIONS, [idArg(), dateArg('Invalid date')], (rowId, due) => {
+    const options = deadlineOptionsForDay(rowId, due)
+    return options ? ok(options) : fail(`That ${word('record')} is no longer available.`)
   })
 }

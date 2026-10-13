@@ -26,6 +26,11 @@ import { useShallow } from 'zustand/react/shallow'
 import { CalendarExportDialog } from '../components/reports/CalendarExportDialog'
 import { DeadlineColumnsMenu } from '../components/calendar/DeadlineColumnsMenu'
 import { readHiddenDeadlineColumns, saveHiddenDeadlineColumns } from '../utils/calendarDeadlineColumns'
+import { NewOnCalendarChooser, type NewOnCalendar } from '../components/calendar/NewOnCalendarChooser'
+import { DeadlineForRecordDialog } from '../components/calendar/DeadlineForRecordDialog'
+import { TaskFormDialog, type NewTask } from './tasks/TaskFormDialog'
+import { useTaskStore } from '../stores/taskStore'
+import toast from 'react-hot-toast'
 
 export type CalendarMode = 'month' | 'week' | 'day' | 'agenda'
 const MODES: readonly CalendarMode[] = ['month', 'week', 'day', 'agenda']
@@ -106,6 +111,10 @@ export default function CalendarView(): React.ReactElement {
   // A new event (no record) starting here, or an event being edited: events open for editing, not a panel
   const [newEventAt, setNewEventAt] = useState<string | null>(null)
   const [editingEvent, setEditingEvent] = useState<Appointment | null>(null)
+  // "Add to this day": the chooser, then the dialog it picked
+  const [chooserDay, setChooserDay] = useState<string | null>(null)
+  const [deadlineDay, setDeadlineDay] = useState<string | null>(null)
+  const [taskDay, setTaskDay] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   // Deadline columns turned off here (main leaves them out of calendar:items)
   const [hiddenCols, setHiddenCols] = useState<Set<number>>(new Set())
@@ -201,6 +210,17 @@ export default function CalendarView(): React.ReactElement {
   function startNew(startAt: string) {
     if (apptsOn) setNewAt(startAt); else setNewEventAt(startAt)
   }
+  function chooseNew(kind: NewOnCalendar) {
+    const d = chooserDay
+    setChooserDay(null)
+    if (!d) return
+    switch (kind) {
+      case 'event': setNewEventAt(`${d}T09:00`); break
+      case 'appointment': setNewAt(`${d}T09:00`); break
+      case 'deadline': setDeadlineDay(d); break
+      case 'task': setTaskDay(d); break
+    }
+  }
   function openEvent(e: CalEvent) {
     if (e.type === 'appointment') { openAppt(e.appt); return }
     if (e.item.kind === 'task') navigate(e.item.taskId ? `/tasks?task=${e.item.taskId}` : '/tasks')
@@ -266,9 +286,7 @@ export default function CalendarView(): React.ReactElement {
           <div className="flex flex-wrap gap-2 ml-auto">
             {/* Outlook or Google Calendar (audit S-30) */}
             <button type="button" className="btn-compact-secondary" onClick={() => setExporting(true)}><CalendarPlus className="w-4 h-4" aria-hidden="true" />Add to my calendar…</button>
-            {apptsOn && (
-              <button type="button" className="btn-compact-primary" onClick={() => setNewAt(`${focusDay}T09:00`)}><Plus className="w-4 h-4" />New {t('appointment')}</button>
-            )}
+            <button type="button" className="btn-compact-primary" aria-haspopup="dialog" onClick={() => setChooserDay(focusDay)}><Plus className="w-4 h-4" aria-hidden="true" />New…</button>
           </div>
           <div className="flex flex-wrap items-center gap-2 w-full">
             <div className="flex flex-wrap items-center gap-1.5" role="group" aria-labelledby="calendar-show-label">
@@ -318,7 +336,8 @@ export default function CalendarView(): React.ReactElement {
                   return (
                     <div key={d} role="gridcell" tabIndex={d === focusDay ? 0 : -1} data-day={d} aria-label={`${longDay(d)}, ${events.length ? `${events.length} item${events.length === 1 ? '' : 's'}` : 'nothing'}`}
                       onFocus={() => setFocusDay(d)}
-                      onDoubleClick={() => startNew(`${d}T09:00`)}
+                      // A click on the empty part of a day (not an item, the date or "more") offers what to add there
+                      onClick={e => { if (e.target === e.currentTarget) setChooserDay(d) }}
                       className={`border-r border-b border-slate-300 dark:border-slate-600 p-1 space-y-1 overflow-hidden focus:outline-hidden focus:ring-3 focus:ring-inset focus:ring-blue-500 ${sameMonth(d, anchor) ? '' : 'bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400'}`}>
                       <button type="button" tabIndex={-1} onClick={() => openDay(d)} aria-label={`Open ${longDay(d)}`}
                         className={`text-sm font-medium w-7 h-7 rounded-full ${d === today ? 'bg-blue-600 text-white' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
@@ -352,6 +371,18 @@ export default function CalendarView(): React.ReactElement {
       {newAt && <AppointmentDialog start={newAt} onClose={() => setNewAt(null)} />}
       {newEventAt && <AppointmentDialog start={newEventAt} event onClose={() => setNewEventAt(null)} />}
       {editingEvent && <AppointmentDialog appointment={editingEvent} onClose={() => setEditingEvent(null)} />}
+      {chooserDay && <NewOnCalendarChooser date={chooserDay} apptsOn={apptsOn} tasksOn={tasksOn} onChoose={chooseNew} onClose={() => setChooserDay(null)} />}
+      {deadlineDay && <DeadlineForRecordDialog date={deadlineDay} onClose={() => setDeadlineDay(null)} onSaved={() => void load()} />}
+      {taskDay && (
+        <TaskFormDialog initial={{ due_date: taskDay }} onClose={() => setTaskDay(null)}
+          onSave={task => {
+            void useTaskStore.getState().createTask(task as NewTask).then(created => {
+              if (!created) return
+              toast.success(`Task "${created.title}" added for ${longDay(created.due_date ?? taskDay)}`)
+              void load()
+            })
+          }} />
+      )}
       {exporting && <CalendarExportDialog onClose={() => setExporting(false)} />}
       {pendingDrop && (
         <ScopeDialog verb="Change" onCancel={() => setPendingDrop(null)} dateChanged={pendingDrop.times.start_at.slice(0, 10) !== pendingDrop.appt.start_at.slice(0, 10)}

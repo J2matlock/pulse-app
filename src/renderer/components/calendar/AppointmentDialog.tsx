@@ -5,7 +5,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { CalendarClock, Trash2, X } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
-import type { CrossGridSearchResult } from '../../../shared/ipc-contract'
 import type { Column } from '../../../shared/types'
 import { apptInputSchema, addMinutes, minutesBetween, seriesRuleSchema, type Appointment, type ApptInput, type SeriesRule } from '../../../shared/appointments'
 import { safeInvoke } from '../../utils/safeInvoke'
@@ -15,6 +14,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { useActivityTypes } from '../../hooks/useActivityTypes'
 import { useFeature } from '../../hooks/useFeature'
 import { ScopeDialog } from './ScopeDialog'
+import { RecordSearchField } from './RecordSearchField'
 
 const label = 'block text-base font-semibold text-slate-800 dark:text-slate-100 mb-1'
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -61,8 +61,6 @@ export function AppointmentDialog({ appointment, start, record, event = false, o
   const [title, setTitle] = useState(a?.title ?? '')
   const [who, setWho] = useState<{ rowId: number; gridId: number; name: string } | null>(
     a?.row_id ? { rowId: a.row_id, gridId: a.grid_id ?? 0, name: a.record_name ?? '' } : record ?? null)
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<CrossGridSearchResult[]>([])
   const [date, setDate] = useState(startAt.slice(0, 10))
   const [allDay, setAllDay] = useState(a ? !!a.all_day : false)
   const [time, setTime] = useState(startAt.length > 10 ? startAt.slice(11, 16) : '09:00')
@@ -89,14 +87,6 @@ export function AppointmentDialog({ appointment, start, record, event = false, o
   // An event with someone chosen becomes an appointment, and says so
   const asEvent = isEvent && !who
   const noun = asEvent ? 'event' : t('appointment')
-
-  useEffect(() => {
-    if (!query.trim()) { setResults([]); return }
-    const timer = setTimeout(() => {
-      void safeInvoke<CrossGridSearchResult[]>(IPC.SEARCH_CLIENTS_CROSS_GRID, query.trim()).then(r => setResults(r.ok ? r.data.slice(0, 8) : []))
-    }, 150)
-    return () => clearTimeout(timer)
-  }, [query])
 
   // "Until the date in a column": the record's own date columns
   useEffect(() => {
@@ -181,29 +171,7 @@ export function AppointmentDialog({ appointment, start, record, event = false, o
         {/* An event can be about someone (then it's an appointment), but only while appointments are switched on */}
         {(!isEvent || apptsOn || who) && <div>
           <span className={label}>With{isEvent && <span className="font-normal text-slate-500 dark:text-slate-400"> (optional)</span>}</span>
-          {who ? (
-            <div className="flex items-center gap-2">
-              <span className="text-base text-slate-800 dark:text-slate-100">{who.name || '(unnamed)'}</span>
-              <button type="button" className="btn-compact-secondary" onClick={() => setWho(null)}>Change</button>
-            </div>
-          ) : (
-            <div>
-              <input type="search" className="input w-full" aria-label={`Find ${t('record', { article: true })}`} value={query}
-                onChange={e => setQuery(e.target.value)} placeholder={`Search ${t('record', { many: true })}, or leave empty`} />
-              {results.length > 0 && (
-                <ul className="mt-1 rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700" aria-label="Matches">
-                  {results.map(r => (
-                    <li key={r.rowId}>
-                      <button type="button" className="w-full text-left px-3 text-base hover:bg-slate-50 dark:hover:bg-slate-700" style={{ minHeight: 44 }}
-                        onClick={() => { setWho({ rowId: r.rowId, gridId: r.gridId, name: r.clientName }); setQuery('') }}>
-                        {r.clientName} <span className="text-sm text-slate-500 dark:text-slate-400">{r.gridName}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
+          <RecordSearchField value={who} onChange={setWho} placeholder={`Search ${t('record', { many: true })}, or leave empty`} />
         </div>}
 
         <div className="flex flex-wrap items-end gap-3">
