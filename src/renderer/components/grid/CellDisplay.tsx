@@ -10,6 +10,7 @@ import { isNotADate } from '../../../shared/ymd'
 import { canBeRequired, isMissingValue } from '../../../shared/requiredFields'
 import { LinkCell } from './LinkCell'
 import { pulseEvents } from '../../events'
+import { dateOnlyOn } from './dateOnly'
 
 export interface CellDisplayProps {
   column: Column
@@ -264,9 +265,9 @@ export function deadlineCellText(res: DeadlineResult, value: string | null): str
   return `${res.label ? `${res.label} · ` : ''}${formatDue(res.due)} · ${when}`
 }
 
-/** A date column set to "Show only the date": its deadline words go in the tooltip, not the cell */
+/** A date column set to "Show only the date" (the default): its deadline words go in the tooltip, not the cell */
 export function showsOnlyDate(column: Pick<Column, 'config'>): boolean {
-  try { return (JSON.parse(column.config || '{}') as { date_only?: unknown }).date_only === true } catch { return false }
+  try { return dateOnlyOn(JSON.parse(column.config || '{}') as { date_only?: unknown }) } catch { return true }
 }
 
 /**

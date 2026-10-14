@@ -1762,3 +1762,10 @@ Build state: npm test 4355 pass / 4 skip; typecheck 0; eslint 0 errors; e2e 11/1
 - Version 2.6.0: calendar events not tied to a record (own Events layer, works with appointments switched off), choose which deadline columns show on the Calendar, add an event / appointment / deadline-for-a-record / task from a day, "Show only the date" for rule date columns, the star in its own column, rule editor colour steps fit. What's New entry, SBOM/licenses regenerated, tagged v2.6.0. Gate 486 files / 5710 tests.
 - `pulse-releases` v2.6.0: `PULSE.exe`, `BaringaSoftPulse-2.6.0.AppImage`, `SHA256SUMS.txt`, marked latest (asset digests match local checksums); `latest.json` announces 2.6.0. AppImage smoke-launched on Fedora with an isolated home; the exe wasn't launch-tested on Windows.
 - Website still shows 2.3.0; a combined 2.4.0 + 2.5.0 + 2.6.0 prompt was given to the user.
+
+## 2026-10-14 — Three tweaks from screenshots
+- Name column: the hover "Open" link in the name cell is gone; the profile button in front of each row (and Ctrl+Enter, right-click "Open …") still open the record.
+- "Show only the date" is now on by default: only `date_only: false` in the column config turns it off (helper `dateOnlyOn`, `src/renderer/components/grid/dateOnly.ts`). Existing rule date columns that never set it now show only the date too; turning it off saves `false`, turning it back on removes the key.
+- Profile header: dropped `overflow-hidden` on the header card, which clipped the "More" menu.
+- Answered: the activity timeline now lives in the profile's notes log ("Show: Notes and changes" / "Changes only"); contact requirements need the Requirements feature on (Settings → Workspace), then Settings → Deadlines & reminders, List settings or the sidebar list menu.
+- Gate: 486 files / 5711 tests, typecheck 0, eslint 0. No version bump.

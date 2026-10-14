@@ -195,24 +195,24 @@ describe('ColumnHeader', () => {
       fireEvent.click(screen.getByText('Column settings…'))
     }
 
-    it('is off by default, and turning it on saves date_only in the column config, keeping the rest', () => {
+    it('is on by default, and turning it off saves date_only: false in the column config, keeping the rest', () => {
       const updateColumn = vi.fn()
       setupStores({ updateColumn })
       useAlertStore.setState({ rules: [rule] } as never)
       openSettings(makeColumn(3, 'Review', 'date', JSON.stringify({ alert_rule_id: 5, log_changes: true })))
       const toggle = screen.getByRole('switch', { name: 'Show only the date' })
-      expect(toggle.getAttribute('aria-checked')).toBe('false')
+      expect(toggle.getAttribute('aria-checked')).toBe('true')
       fireEvent.click(toggle)
-      expect(updateColumn).toHaveBeenCalledWith(3, { config: JSON.stringify({ alert_rule_id: 5, log_changes: true, date_only: true }) })
+      expect(updateColumn).toHaveBeenCalledWith(3, { config: JSON.stringify({ alert_rule_id: 5, log_changes: true, date_only: false }) })
     })
 
-    it('turning it off removes the key, so the config is as it was', () => {
+    it('turning it back on removes the key, so the config is as it was', () => {
       const updateColumn = vi.fn()
       setupStores({ updateColumn })
       useAlertStore.setState({ rules: [rule] } as never)
-      openSettings(makeColumn(3, 'Review', 'date', JSON.stringify({ alert_rule_id: 5, date_only: true })))
+      openSettings(makeColumn(3, 'Review', 'date', JSON.stringify({ alert_rule_id: 5, date_only: false })))
       const toggle = screen.getByRole('switch', { name: 'Show only the date' })
-      expect(toggle.getAttribute('aria-checked')).toBe('true')
+      expect(toggle.getAttribute('aria-checked')).toBe('false')
       fireEvent.click(toggle)
       expect(updateColumn).toHaveBeenCalledWith(3, { config: JSON.stringify({ alert_rule_id: 5 }) })
     })

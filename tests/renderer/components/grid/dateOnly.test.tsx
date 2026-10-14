@@ -39,10 +39,14 @@ function info(value: string, config: Record<string, unknown>) {
 beforeEach(() => { setWords() })
 
 describe('a date column with a rule', () => {
-  it('off (the default): the words show beside the date', () => {
-    const res = info(daysFromToday(5), { alert_rule_id: 5 })
+  it('off: the words show beside the date', () => {
+    const res = info(daysFromToday(5), { alert_rule_id: 5, date_only: false })
     expect(res.alertChip).toBe('in 5 days')
     expect(res.hasAlertStyle).toBe(true)
+  })
+
+  it('on by default: a column that never set it shows only the date', () => {
+    expect(info(daysFromToday(5), { alert_rule_id: 5 }).alertChip).toBeNull()
   })
 
   it('on: no words beside the date, but the color, shape, tooltip and spoken words stay', () => {
@@ -66,14 +70,15 @@ describe('a date column with a rule', () => {
   it('auto-fit leaves room only for the date when the words are hidden', () => {
     const value = daysFromToday(5)
     const row = { row_id: 1, col_2: value } as unknown as GridRow
-    expect(cellFitText(column({ alert_rule_id: 5 }), value, row, rule)).toContain('in 5 days')
-    expect(cellFitText(column({ alert_rule_id: 5, date_only: true }), value, row, rule)).not.toContain('in 5 days')
+    expect(cellFitText(column({ alert_rule_id: 5, date_only: false }), value, row, rule)).toContain('in 5 days')
+    expect(cellFitText(column({ alert_rule_id: 5 }), value, row, rule)).not.toContain('in 5 days')
   })
 
-  it('reads the setting only when it is exactly true', () => {
+  it('is off only when the column says exactly false', () => {
     expect(showsOnlyDate(column({ date_only: true }))).toBe(true)
-    expect(showsOnlyDate(column({ date_only: 'yes' }))).toBe(false)
-    expect(showsOnlyDate(column({}))).toBe(false)
-    expect(showsOnlyDate({ config: 'not json' })).toBe(false)
+    expect(showsOnlyDate(column({ date_only: 'no' }))).toBe(true)
+    expect(showsOnlyDate(column({}))).toBe(true)
+    expect(showsOnlyDate({ config: 'not json' })).toBe(true)
+    expect(showsOnlyDate(column({ date_only: false }))).toBe(false)
   })
 })

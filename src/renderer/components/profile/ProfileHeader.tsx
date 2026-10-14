@@ -339,7 +339,8 @@ export function ProfileHeader({
   const assignedTags = allTags.filter(t => rowTagIds.includes(t.id))
   return (
     <div
-      className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden"
+      // No overflow-hidden: it clipped the "More" menu that opens below the buttons
+      className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
     >
       <div className="p-5">
         {/* ── Row 1: Avatar + Name + Status Badges + Controls ── */}

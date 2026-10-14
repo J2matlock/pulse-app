@@ -28,6 +28,7 @@ import { StageSettingsDialog } from '../stages/StageSettingsDialog'
 import { EditOptionsDialog } from './EditOptionsDialog'
 import { ChangeTypeDialog } from './ChangeTypeDialog'
 import { CHANGEABLE_TYPES } from '../../../shared/columnTypes'
+import { dateOnlyOn } from './dateOnly'
 
 interface Props {
   column: Column
@@ -499,7 +500,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
             onClose={() => setShowColumnSettings(false)}
             onToggleLogChanges={() => void handleToggleLogChanges()}
             onToggleRequired={() => { void updateColumn(column.id, { config: JSON.stringify({ ...colConfig, required: colConfig.required ? undefined : true }) }); setShowMenu(false) }}
-            onToggleDateOnly={() => void updateColumn(column.id, { config: JSON.stringify({ ...colConfig, date_only: colConfig.date_only ? undefined : true }) })}
+            onToggleDateOnly={() => void updateColumn(column.id, { config: JSON.stringify({ ...colConfig, date_only: dateOnlyOn(colConfig) ? false : undefined }) })}
             onOpenColorRules={() => { setShowColFormat(true); setShowMenu(false) }}
             onOpenEditOptions={handleOpenEditOptions}
             onOpenStageSettings={() => { setShowMenu(false); setShowStageSettings(true) }}

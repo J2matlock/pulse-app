@@ -235,15 +235,11 @@ describe('SortableRow', () => {
     off()
   })
 
-  it('the name cell\'s "Open" takes no room until the row is hovered (R1)', () => {
+  it('the name cell has no "Open" of its own; the profile button in front of the row opens it', () => {
     const onNavigateToProfile = vi.fn()
     render(<SortableRow {...makeProps({ onNavigateToProfile })} />)
-    const open = screen.getByRole('button', { name: 'Open client', hidden: true })
-    // opacity-0 kept its width and cut short names; hidden doesn't
-    expect(open.className).toContain('hidden')
-    expect(open.className).toContain('group-hover:inline-flex')
-    expect(open.className).not.toContain('opacity-0')
-    fireEvent.click(open)
+    expect(screen.queryByRole('button', { name: 'Open client', hidden: true })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Open client profile', hidden: true }))
     expect(onNavigateToProfile).toHaveBeenCalledWith(1)
   })
 
@@ -298,7 +294,7 @@ describe('SortableRow', () => {
       const daysFromToday = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return localDateString(d) }
       function dateOnlyProps(value: string, dateOnly: boolean): SortableRowProps {
         const props = propsWith(value)
-        const config = { alert_rule_id: 5, ...(dateOnly ? { date_only: true } : {}) }
+        const config = { alert_rule_id: 5, date_only: dateOnly }
         return { ...props, alertRuleMap: new Map([[5, banded]]), parsedColumnConfigs: new Map([[2, { config, conditionalFormat: [] }]]) as unknown as SortableRowProps['parsedColumnConfigs'] }
       }
 

@@ -7,6 +7,7 @@ import { resolveAlertColor } from '../../utils/alertColors'
 // Through the panel's module, as the grid always has (tests stub it there)
 import { evalCellFormat } from './CellConditionalFormatPanel'
 import { alertShapeForBand } from './gridConstants'
+import { dateOnlyOn } from './dateOnly'
 
 // How a grid cell and its row look: deadline colors and words, highlight rules.
 // Priority: alert > cell-level format > column format > row highlight
@@ -73,7 +74,7 @@ export function deadlineCellInfo(
           alertSpoken = [threshold.label, alertTooltip].filter(Boolean).join('. ')
         }
         // "Show only the date": the words move off the cell, into its tooltip and the screen-reader text
-        if (cfg.date_only === true && alertChip) {
+        if (dateOnlyOn(cfg) && alertChip) {
           const words = alertChip.charAt(0).toUpperCase() + alertChip.slice(1)
           if (!alertTooltip.includes(alertChip)) alertTooltip = alertTooltip ? `${words}\n${alertTooltip}` : words
           alertSpoken = [words, alertSpoken].filter(Boolean).join('. ')

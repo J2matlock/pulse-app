@@ -50,7 +50,7 @@ describe('deadline cells', () => {
 
   it('a "Days until" column counts to when its date is due when that date has a rule (R4)', () => {
     const every30 = { ...rule, id: 8, kind: 'interval', interval_days: 30, rule_config: null } as unknown as ParsedAlertRule
-    const visit = { ...column, id: 2, name: 'Last visit', column_type: 'date', config: '{"alert_rule_id":8}' } as Column
+    const visit = { ...column, id: 2, name: 'Last visit', column_type: 'date', config: '{"alert_rule_id":8,"date_only":false}' } as Column
     const days = { ...column, id: 3, name: 'Days until visit', column_type: 'calculated_days', config: '{"source_column_id":2}' } as Column
     useAlertStore.setState({ rules: [every30] } as never)
     useGridStore.setState({ columns: [visit, days], hiddenColumns: [], deadlineContext: null } as never)
@@ -61,7 +61,7 @@ describe('deadline cells', () => {
 
   it('auto-fit measures what the cell shows: deadline words, link names (R1)', () => {
     const every30 = { ...rule, id: 8, kind: 'interval', interval_days: 30, rule_config: null } as unknown as ParsedAlertRule
-    const visit = { ...column, id: 2, name: 'Last visit', column_type: 'date', config: '{"alert_rule_id":8}' } as Column
+    const visit = { ...column, id: 2, name: 'Last visit', column_type: 'date', config: '{"alert_rule_id":8,"date_only":false}' } as Column
     const row = { row_id: 1, col_2: '2026-08-07', col_4: null } as unknown as GridRow
     // Due Sep 6: the date and its chip, not just "2026-08-07"
     expect(cellFitText(visit, '2026-08-07', row, every30)).toContain('due Sep 6 · 26 days late')
