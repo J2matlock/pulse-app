@@ -15,3 +15,8 @@ export function motionReduced(): boolean {
     return true
   }
 }
+
+/** How long a leaving record or list item takes to close up (--motion-base in motion.css) */
+export const ROW_LEAVE_MS = 180
+/** How long a record that just arrived stays lit (.motion-flash) */
+export const ROW_FLASH_MS = 1200

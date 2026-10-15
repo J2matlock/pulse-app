@@ -79,16 +79,38 @@
   100% { transform: scale(1); }
 }
 
+/* ── Done on the dashboard: the item slides right, fades and closes up, and the
+   items below move into its place (useLeavingItems takes it out after 180 ms;
+   under reduced motion it goes at once). interpolate-size lets height run from
+   auto to 0. */
+.motion-item-leave {
+  interpolate-size: allow-keywords;
+  overflow: hidden;
+  pointer-events: none;
+  animation: motion-item-leave var(--motion-base) ease-in forwards;
+}
+@keyframes motion-item-leave {
+  from { height: auto; }
+  to   { opacity: 0; height: 0; transform: translateX(24px); }
+}
+
+/* ── Dashboard list items sit in a wrapper that animates them out. The rows'
+   own last:border-0 then hits every row, so the wrapper puts the line back on
+   all but the last. */
+.motion-list-item:not(:last-child) > [role="listitem"] { border-bottom-width: 1px; }
+
 /* ── Reduced motion ───────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .motion-flash::after { animation: none; }
   .motion-row-leave { animation-name: motion-row-dim; }
   .motion-col-enter { animation: none; }
+  .motion-item-leave { animation: none; }
   .animate-check-pop { animation: none; }
   .animate-star-bounce { animation: none; }
 }
 .reduce-motion .motion-flash::after { animation: none; }
 .reduce-motion .motion-row-leave { animation-name: motion-row-dim; }
 .reduce-motion .motion-col-enter { animation: none; }
+.reduce-motion .motion-item-leave { animation: none; }
 .reduce-motion .animate-check-pop { animation: none; }
 .reduce-motion .animate-star-bounce { animation: none; }

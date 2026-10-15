@@ -20,7 +20,7 @@ Object.defineProperty(window, 'matchMedia', {
 
 import { useGridStore } from '../../../src/renderer/stores/gridStore'
 import { useUndoStore } from '../../../src/renderer/stores/undoStore'
-import { ROW_LEAVE_MS, ROW_FLASH_MS } from '../../../src/renderer/stores/gridRowSlice'
+import { ROW_LEAVE_MS, ROW_FLASH_MS } from '../../../src/renderer/utils/reducedMotion'
 import { IPC } from '../../../src/shared/ipc-channels'
 import type { GridRow, Column } from '../../../src/shared/types'
 

@@ -11,7 +11,7 @@ import { storeInvoke as invoke } from '../utils/safeInvoke'
 import { pulseEvents } from '../events'
 import { clearCellCoalescing } from './gridCellEditSlice'
 import type { GridState } from './gridTypes'
-import { motionReduced } from '../utils/reducedMotion'
+import { motionReduced, ROW_LEAVE_MS, ROW_FLASH_MS } from '../utils/reducedMotion'
 
 /** Values main filled in on a new row (auto numbers), so it shows them straight away. */
 async function autoFilledValues(gridId: number, rowId: number, columns: Column[]): Promise<Partial<GridRow>> {
@@ -29,11 +29,6 @@ async function autoFilledValues(gridId: number, rowId: number, columns: Column[]
 
 type SetState = (partial: Partial<GridState> | ((s: GridState) => Partial<GridState>)) => void
 type GetState = () => GridState
-
-/** How long a leaving record takes to close up (--motion-base in motion.css) */
-export const ROW_LEAVE_MS = 180
-/** How long a record that just arrived stays lit (.motion-flash) */
-export const ROW_FLASH_MS = 1200
 
 let flashTimer: ReturnType<typeof setTimeout> | null = null
 
