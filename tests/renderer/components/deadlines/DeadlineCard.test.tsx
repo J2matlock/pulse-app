@@ -2,7 +2,7 @@
 /** A grid cell's deadline card (UX pass Q3): opened by event, focus on Done, Escape and a click outside close it. */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
 vi.mock('lucide-react', async () => (await import('../../lucideMock')).lucideMock)
@@ -27,11 +27,13 @@ const loaded = {
 }
 const refreshDeadlineContext = vi.fn(async () => {})
 
+const onCellDoubleClick = vi.fn()
+
 function renderGrid() {
   render(
     <MemoryRouter>
       <div role="grid">
-        <div role="gridcell" tabIndex={-1} data-row-id="9" data-col-id="3" data-testid="cell">Oct 26, 2025</div>
+        <div role="gridcell" tabIndex={-1} data-row-id="9" data-col-id="3" data-testid="cell" onDoubleClick={onCellDoubleClick}>Oct 26, 2025</div>
       </div>
       <button type="button">Somewhere else</button>
       <DeadlineCardHost />
@@ -109,12 +111,34 @@ describe('the grid deadline card', () => {
     expect(useGridStore.getState().rows[0]).toMatchObject({ col_3: '2026-10-15' })
   })
 
+  it('Change date… closes the card and opens the cell\'s date editor, as a double-click does', async () => {
+    onCellDoubleClick.mockClear()
+    const cell = renderGrid()
+    act(() => { openDeadlineCard(9, 3, cell) })
+    const buttons = within(await screen.findByTestId('deadline-card-actions')).getAllByRole('button')
+    expect(buttons[buttons.length - 1]!.textContent).toBe('Change date…')
+    act(() => { fireEvent.click(buttons[buttons.length - 1]!) })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    await waitFor(() => expect(onCellDoubleClick).toHaveBeenCalledTimes(1))
+    expect(document.activeElement).toBe(cell)
+  })
+
+  it('has no Change date… on a Deadline column, whose date only Done sets', async () => {
+    useGridStore.setState({ columns: [col(3, 'Annual review', 'deadline', '{"alert_rule_id":7}')] } as never)
+    const cell = renderGrid()
+    act(() => { openDeadlineCard(9, 3, cell) })
+    await screen.findByTestId('deadline-card-actions')
+    expect(screen.queryByRole('button', { name: 'Change date…' })).toBeNull()
+  })
+
   it('says "Nothing due yet" when the engine has nothing due', async () => {
     served = []
     const cell = renderGrid()
     act(() => { openDeadlineCard(9, 3, cell) })
     expect(await screen.findByText('Nothing due yet.')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Open client' })).toBeTruthy()
+    // An empty date can be filled in from here
+    expect(screen.getByRole('button', { name: 'Change date…' })).toBeTruthy()
   })
 
   it('finds the cell itself when no anchor is given (the cell menu)', async () => {

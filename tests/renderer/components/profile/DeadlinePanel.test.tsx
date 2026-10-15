@@ -284,9 +284,17 @@ describe('DeadlinePanel', () => {
     const actions = await screen.findByTestId('deadline-card-actions')
     const buttons = Array.from(actions.querySelectorAll('button'))
     expect(buttons.map(b => b.getAttribute('aria-label') ?? b.textContent)).toEqual([
-      'Mark Last Contact done for Robert', 'Done on another day: Last Contact for Robert', 'Extend…',
+      'Mark Last Contact done for Robert', 'Done on another day: Last Contact for Robert', 'Extend…', 'Change date…',
     ])
     for (const b of buttons) expect(b.className).toMatch(/(^|\s)btn-(primary|secondary)(\s|$)/)
+  })
+
+  it('Change date… starts the date editor on the card', async () => {
+    serveDeadline()
+    const col = makeColumn({ id: 1, name: 'Last Contact' })
+    render(<MemoryRouter><DeadlinePanel row={makeRow({ col_1: '2026-04-01' })} columns={[col]} alertRules={[defaultRule]} onDateSave={onDateSave} /></MemoryRouter>)
+    fireEvent.click(await screen.findByRole('button', { name: 'Change date…' }))
+    expect((screen.getByLabelText(/Last done on|Due on/) as HTMLInputElement).value).toBe('2026-04-01')
   })
 
   it('shows no Done for a finished date, and Remove extension for an extended one', async () => {
@@ -294,7 +302,7 @@ describe('DeadlinePanel', () => {
     const col = makeColumn({ id: 1, name: 'Last Contact' })
     const { unmount } = render(<MemoryRouter><DeadlinePanel row={makeRow({ col_1: '2026-04-01' })} columns={[col]} alertRules={[defaultRule]} onDateSave={onDateSave} /></MemoryRouter>)
     const actions = await screen.findByTestId('deadline-card-actions')
-    expect(actions.querySelectorAll('button').length).toBe(0)
+    expect(Array.from(actions.querySelectorAll('button')).map(b => b.textContent)).toEqual(['Change date…'])
     unmount()
     serveDeadline({ extension_id: 4, detail: 'Extended: waiting on the report' })
     render(<MemoryRouter><DeadlinePanel row={makeRow({ col_1: '2026-04-01' })} columns={[col]} alertRules={[defaultRule]} onDateSave={onDateSave} /></MemoryRouter>)

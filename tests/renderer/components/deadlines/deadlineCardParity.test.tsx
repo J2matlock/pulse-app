@@ -25,6 +25,7 @@ import { openDeadlineCard } from '../../../../src/renderer/components/deadlines/
 import { toInfo, type Loaded } from '../../../../src/renderer/components/deadlines/useRecordDeadlines'
 import type { Column, GridRow, ParsedAlertRule } from '../../../../src/shared/types'
 import { setWords } from '../../vocabFixture'
+import { useGridStore } from '../../../../src/renderer/stores/gridStore'
 
 const base: Loaded = {
   row_id: 9, grid_id: 1, grid_name: 'Fleet', column_id: 3, column_name: 'Service', column_config: '{}',
@@ -82,6 +83,7 @@ async function onProfile(d: Loaded) {
 
 async function onGrid(d: Loaded) {
   served = [d]
+  useGridStore.setState({ columns: [{ id: d.column_id, grid_id: 1, name: d.column_name, column_type: 'date', config: '{"alert_rule_id":7}' } as Column] } as never)
   render(<MemoryRouter><div tabIndex={-1} data-row-id={d.row_id} data-col-id={d.column_id} data-testid="cell" /><DeadlineCardHost /></MemoryRouter>)
   act(() => { openDeadlineCard(d.row_id, d.column_id, screen.getByTestId('cell')) })
   await screen.findByTestId('deadline-card-actions')
@@ -104,10 +106,12 @@ describe('one deadline card everywhere', () => {
       expect(withoutOpen(cal)).toEqual(dash)
       expect(cal[cal.length - 1]![0]).toBe('Open vehicle')
       // The profile: the record is open already, and a quota is renewed in its own fields there
+      // Change date… comes last, where a date column's editor is at hand: the grid and the profile
+      const changeDate: [string, string] = ['Change date…', 'Type or pick a different date']
       const profile = await onProfile(d)
-      expect(profile).toEqual(dash.filter(([label]) => label !== 'Renew…'))
+      expect(profile).toEqual([...dash.filter(([label]) => label !== 'Renew…'), changeDate])
       // A grid cell's card: everything the Calendar has
-      expect(await onGrid(d)).toEqual(cal)
+      expect(await onGrid(d)).toEqual([...cal, changeDate])
     })
   }
 

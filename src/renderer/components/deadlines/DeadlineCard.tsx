@@ -115,6 +115,12 @@ export function DeadlineCard({ rowId, columnId, anchor, onClose }: {
     await reload()
   }
   const openRecord = () => { onClose(); navigate(`/profile/${rowId}?gridId=${info?.gridId ?? column?.grid_id ?? ''}`) }
+  // A date column: its own editor, opened as a double-click opens it, once the card has
+  // closed and focus is back on the cell (a Deadline column's date is set by Done only)
+  const changeDate = column?.column_type === 'date' ? () => {
+    onClose()
+    setTimeout(() => { if (anchor.isConnected) anchor.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })) }, 0)
+  } : undefined
 
   return createPortal(
     // Under the dialog layer (z-[200]), so the card's own Extend… and Done on… open over it
@@ -127,12 +133,13 @@ export function DeadlineCard({ rowId, columnId, anchor, onClose }: {
       ) : info ? (
         <DeadlineCardContent info={info} where="grid" layout="stack" onChanged={changed}
           onDone={() => { void useGridStore.getState().refreshDeadlineContext(); onClose() }}
-          onOpenRecord={onClose} />
+          onOpenRecord={onClose} onChangeDate={changeDate} />
       ) : (
         <>
           <p className="text-base text-slate-600 dark:text-slate-300">Nothing due yet.</p>
           <div className="flex flex-wrap gap-2" data-testid="deadline-card-actions">
             <SecondaryButton onClick={openRecord}>Open {t('record')}</SecondaryButton>
+            {changeDate && <SecondaryButton onClick={changeDate} title="Type or pick a different date">Change date…</SecondaryButton>}
           </div>
         </>
       )}

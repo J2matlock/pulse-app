@@ -419,7 +419,8 @@ export function DeadlinePanel({
                 {!isEditing && info && (
                   <div className="mt-2">
                     <DeadlineCardContent info={info} where="profile" layout="stack" words={false}
-                      onChanged={changed} onDone={() => void changed()} />
+                      onChanged={changed} onDone={() => void changed()}
+                      onChangeDate={col.column_type === 'date' ? () => startEdit(col, rawValue) : undefined} />
                   </div>
                 )}
 
