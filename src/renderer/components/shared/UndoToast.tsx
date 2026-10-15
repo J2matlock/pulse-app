@@ -8,11 +8,13 @@ import React, { useEffect, useState } from 'react'
 import { RotateCcw, X } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUndoStore, UNDO_TOAST_MS } from '../../stores/undoStore'
-import { PrimaryButton, IconButton } from '../ui/Button'
+import { PrimaryButton, SecondaryButton, IconButton } from '../ui/Button'
+import { modHelp } from '../../utils/keys'
 
 export function UndoToast(): React.ReactElement | null {
-  const { toast, undo, dismissToast, holdToast, undoStack } = useUndoStore(useShallow(s => ({
-    toast: s.toast, undo: s.undo, dismissToast: s.dismissToast, holdToast: s.holdToast, undoStack: s.undoStack,
+  const { toast, undoFromToast, dismissToast, holdToast, topId } = useUndoStore(useShallow(s => ({
+    toast: s.toast, undoFromToast: s.undoFromToast, dismissToast: s.dismissToast, holdToast: s.holdToast,
+    topId: s.undoStack[s.undoStack.length - 1]?.id,
   })))
   const [progress, setProgress] = useState(100)
   const [held, setHeld] = useState(false)
@@ -40,7 +42,8 @@ export function UndoToast(): React.ReactElement | null {
 
   if (!toast) return null
 
-  const canUndo = undoStack.length > 0
+  const canUndo = !!toast.itemId && toast.itemId === topId
+  const action = toast.action
 
   return (
     <div
@@ -55,9 +58,14 @@ export function UndoToast(): React.ReactElement | null {
     >
       {/* Content row */}
       <div className="flex items-center gap-3 px-4 py-3">
-        <span className="flex-1 text-sm break-words min-w-0">{toast.description}</span>
+        <span className="flex-1 text-base break-words min-w-0">{toast.description}</span>
+        {action && (
+          <SecondaryButton tone="inverse" onClick={() => { dismissToast(); action.run() }}>
+            {action.label}
+          </SecondaryButton>
+        )}
         {canUndo && (
-          <PrimaryButton size="compact" tone="inverse" icon={<RotateCcw className="w-4 h-4" />} onClick={() => void undo()}>
+          <PrimaryButton tone="inverse" icon={<RotateCcw className="w-4 h-4" />} title={`Undo (${modHelp('Ctrl+Z')})`} onClick={() => void undoFromToast()}>
             Undo
           </PrimaryButton>
         )}
