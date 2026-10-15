@@ -34,7 +34,9 @@ export function BulkEditDialog({
   const previousFocusRef = useRef<Element | null>(null)
   useFocusTrap(panelRef, open)
 
+  // The name column last: one value for every selected record renames them all (UX-B-11)
   const editableColumns = columns.filter(c => c.is_visible && !isNotTypedColumnType(c.column_type))
+    .sort((a, b) => a.is_name_column - b.is_name_column)
   const [selectedColumnId, setSelectedColumnId] = useState<number | null>(null)
   const [value, setValue] = useState<string | null>('')
   const [applying, setApplying] = useState(false)
@@ -47,7 +49,8 @@ export function BulkEditDialog({
   useEffect(() => {
     if (open) {
       previousFocusRef.current = document.activeElement
-      setSelectedColumnId(editableColumns.length > 0 ? editableColumns[0]!.id : null)
+      // Nothing chosen to start with, so Apply can't change a column she didn't pick
+      setSelectedColumnId(null)
       setValue('')
       setApplying(false)
       setProgress({ done: 0, total: 0 })
@@ -111,7 +114,7 @@ export function BulkEditDialog({
         const r = rowById.get(id)
         return r ? getClientName(r, columns, t('record', { cap: true })) : t('record', { cap: true })
       })
-      const desc = `Bulk edited "${selectedColumn.name}" for ${total} ${t('record', { count: total })} (${names.join(', ')}${total > 3 ? '...' : ''})`
+      const desc = `Changed "${selectedColumn.name}" for ${total} ${t('record', { count: total })} (${names.join(', ')}${total > 3 ? '...' : ''})`
       useUndoStore.getState().pushWithToast(batchUndoItem(desc, steps))
     }
 
@@ -187,26 +190,34 @@ export function BulkEditDialog({
             onChange={e => setSelectedColumnId(e.target.value ? Number(e.target.value) : null)}
             disabled={applying}
           >
+            <option value="" disabled>Choose a column…</option>
             {editableColumns.map(col => (
-              <option key={col.id} value={col.id}>{col.name}</option>
+              <option key={col.id} value={col.id}>
+                {col.is_name_column === 1 ? `${col.name} (this renames them all)` : col.name}
+              </option>
             ))}
           </select>
         </div>
 
         {/* Value editor */}
-        <div className="mb-5">
-          <label htmlFor="bulk-edit-value" className="block text-[15px] font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-            New value
-          </label>
-          {selectedColumn && (
+        {selectedColumn && (
+          <div className="mb-5">
+            <label htmlFor="bulk-edit-value" className="block text-[15px] font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+              New value
+            </label>
             <ValueEditor
               column={selectedColumn}
               value={value}
               onChange={setValue}
               disabled={applying}
             />
-          )}
-        </div>
+            {selectedColumn.is_name_column === 1 && count > 1 && (
+              <p role="alert" className="text-[15px] text-amber-800 dark:text-amber-300 mt-2">
+                All {count} {t('record', { many: true })} will get this same name.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Warning text */}
         <p className="text-[15px] text-slate-500 dark:text-slate-400 mb-5">
