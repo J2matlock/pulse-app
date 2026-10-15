@@ -7,13 +7,16 @@
 
 import type { AlertThreshold, GridRow, ParsedAlertRule } from '../../shared/types'
 import { toRuleInterval, type RuleInterval } from '../../shared/ruleInterval'
-import { evaluate, isUsedUp, engineRuleFrom, meterHistoryColumn, referencedColumns, buildRecordContext, extensionAnchor, matchExtension, applyExtension, ymdToDate, type DeadlineResult } from '../../shared/deadlineEngine'
+import { evaluate, isUsedUp, engineRuleFrom, meterHistoryColumn, referencedColumns, buildRecordContext, extensionAnchor, matchExtension, applyExtension, ymdToDate, type DeadlineResult, type EngineRule } from '../../shared/deadlineEngine'
 import { useGridStore } from '../stores/gridStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { localDateString, shortDate } from '../../shared/dates'
 
 /** A rule's interval, or (older callers) a bare number of days. */
 export type IntervalInput = RuleInterval | number | null | undefined
+
+/** "Oct 6", made once: a new formatter per deadline cell drawn was most of a scroll frame (UX pass Q9b) */
+const MONTH_DAY = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
 
 /** Threshold constants for formatCalculatedDays display tiers */
 const DAYS_FAR_FUTURE = 30
@@ -50,12 +53,30 @@ export function computeDaysUntil(dateValue: string, interval: IntervalInput = 0)
 /** What a rule reads from a row: its id (for done flags and counts) and its column values */
 export type RuleRow = Partial<Pick<GridRow, 'row_id'>> & { [key: `col_${number}`]: string | null | undefined }
 
+// A rule read from its stored form once, not once per cell: the rules store replaces a rule's
+// object when it changes, so the object is the key. The list asks for every deadline cell
+// drawn and for the Overdue count over every record (UX pass Q9b)
+const engineRules = new WeakMap<ParsedAlertRule, EngineRule>()
+function engineRuleOf(rule: ParsedAlertRule): EngineRule {
+  let engineRule = engineRules.get(rule)
+  if (!engineRule) { engineRule = engineRuleFrom(rule); engineRules.set(rule, engineRule) }
+  return engineRule
+}
+const holidaySets = new WeakMap<string[], Set<string>>()
+const NO_HOLIDAYS = new Set<string>()
+function holidaySet(holidays: string[] | undefined): Set<string> {
+  if (!holidays) return NO_HOLIDAYS
+  let set = holidaySets.get(holidays)
+  if (!set) { set = new Set(holidays); holidaySets.set(holidays, set) }
+  return set
+}
+
 /**
  * A rule's deadline for one grid row (W05): the engine with the row's other
  * columns and the workspace's days off. Read at call time, like the words.
  */
 export function evaluateRuleForRow(rule: ParsedAlertRule, columnValue: string | null, row: RuleRow, columnId?: number): DeadlineResult {
-  const engineRule = engineRuleFrom(rule)
+  const engineRule = engineRuleOf(rule)
   const values: Record<number, string | null> = {}
   for (const id of referencedColumns(engineRule)) {
     const v = row[`col_${id}` as const]
@@ -73,7 +94,7 @@ export function evaluateRuleForRow(rule: ParsedAlertRule, columnValue: string | 
     progress: known ? context?.progress?.[key] ?? [] : undefined,
     previousDone: known && context?.previous && key in context.previous ? context.previous[key] ?? null : undefined,
     finishedFor: known ? context?.finished?.[key] : undefined,
-    holidays: new Set(cal?.holidays ?? []), weekend: cal?.weekend ?? [0, 6],
+    holidays: holidaySet(cal?.holidays), weekend: cal?.weekend ?? [0, 6],
   }))
   const ext = columnId !== undefined
     ? matchExtension(context?.extensions?.[`${String(row.row_id)}:${columnId}`], extensionAnchor(engineRule, columnValue, values), res.step)
@@ -107,7 +128,9 @@ export function deadlineChipText(res: DeadlineResult, storedValue: string | null
   const when = d < 0 ? `${-d} day${d === -1 ? '' : 's'} late` : d === 0 ? 'due today' : `in ${d} day${d === 1 ? '' : 's'}`
   const shown = storedValue ? storedValue.slice(0, 10) : null
   if (shown === res.due) return when
-  const due = ymdToDate(res.due).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const dueDate = ymdToDate(res.due)
+  // format() throws on an invalid date, where toLocaleDateString gave its own words
+  const due = isNaN(dueDate.getTime()) ? String(dueDate) : MONTH_DAY.format(dueDate)
   return d === 0 ? `due today (${due})` : `due ${due} · ${when}`
 }
 
