@@ -1,0 +1,41 @@
+/*
+ * Motion (Q6): what changed and where it went, in 120–200 ms.
+ * The same numbers as MOTION in utils/animations.ts. Every animated class here
+ * has a reduced-motion rule twice: the computer's setting (@media) and
+ * Settings → Reduce motion (.reduce-motion on <html>, set by useThemeEffect).
+ * tests/renderer/motionTokens.test.ts keeps it that way.
+ */
+:root {
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-enter: 200ms;
+}
+
+/* ── A ticked checkbox pops (checklists, tasks) ───────────────────────────── */
+.animate-check-pop {
+  animation: check-pop var(--motion-enter) cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes check-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+/* ── A starred contact's star bounces ─────────────────────────────────────── */
+.animate-star-bounce {
+  animation: star-bounce var(--motion-enter) ease-out;
+}
+@keyframes star-bounce {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.3); }
+  60%  { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .animate-check-pop { animation: none; }
+  .animate-star-bounce { animation: none; }
+}
+.reduce-motion .animate-check-pop { animation: none; }
+.reduce-motion .animate-star-bounce { animation: none; }

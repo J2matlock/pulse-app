@@ -9,7 +9,7 @@ import { NewListDialog } from '../grid/NewListDialog'
 import { ApplyStarterDialog } from '../starters/ApplyStarterDialog'
 import { pulseEvents } from '../../events'
 import { AnimatePresence, motion } from 'motion/react'
-import { dropdownVariants } from '../../utils/animations'
+import { dropdownVariants, MOTION } from '../../utils/animations'
 import { useMenuKeys } from '../../hooks/useMenuKeys'
 import { dndAccessibility } from '../../utils/dndAnnouncements'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -354,7 +354,7 @@ function NavButton({ icon: Icon, label, onClick, collapsed, active = false, mute
         <motion.div
           layoutId="sidebar-active"
           className="absolute inset-0 bg-blue-50 dark:bg-blue-900/40 rounded-xs"
-          transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+          transition={{ duration: MOTION.enter, ease: [0.4, 0, 0.2, 1] }}
         />
       )}
       <Icon className="relative z-10 w-5 h-5 flex-shrink-0" />
@@ -553,7 +553,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
           title={modHelp(collapsed ? 'Expand sidebar (Ctrl+\\)' : 'Collapse sidebar (Ctrl+\\)')}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          <motion.div animate={{ rotate: collapsed ? 180 : 0 }} transition={{ duration: 0.25 }}>
+          <motion.div animate={{ rotate: collapsed ? 180 : 0 }} transition={{ duration: MOTION.enter }}>
             <ChevronLeft className="w-5 h-5" />
           </motion.div>
         </button>

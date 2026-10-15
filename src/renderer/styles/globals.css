@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./motion.css";
 
 /* ── Class-based dark mode (Pulse uses .dark class, not prefers-color-scheme) ── */
 @variant dark (&:where(.dark, .dark *));
@@ -228,8 +229,10 @@
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
-  transition-property: color, background-color, border-color;
+  transition-property: color, background-color, border-color, transform;
   transition-duration: 150ms;
+  /* Pressed look at once, like .btn: every click shows it landed (Q6) */
+  &:active:not(:disabled) { transform: scale(0.97); transition-duration: var(--motion-fast); }
   &:not(.absolute, .fixed, .sticky) { position: relative; }
   &::after {
     content: '';
@@ -328,125 +331,7 @@
     .alert-pulse-dark { animation: none; }
   }
 
-  /* Page transitions */
-  .page-enter {
-    animation: page-fade-in 150ms ease-out;
-  }
-
-  @keyframes page-fade-in {
-    from { opacity: 0; transform: translateY(4px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  /* Checklist check-pop animation — satisfying scale bounce on completion */
-  @keyframes check-pop {
-    0%   { transform: scale(1); }
-    40%  { transform: scale(1.25); }
-    100% { transform: scale(1); }
-  }
-
-  .animate-check-pop {
-    animation: check-pop 280ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .animate-check-pop { animation: none; }
-  }
-
-  /* ── Modal animation: 200ms scale+fade ────────────────────────────────────── */
-  @keyframes modal-enter {
-    from { opacity: 0; transform: scale(0.95); }
-    to   { opacity: 1; transform: scale(1); }
-  }
-
-  .animate-modal-enter {
-    animation: modal-enter 200ms ease-out;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .animate-modal-enter { animation: none; }
-  }
-
-  /* ── Toast slide-in from bottom-right ─────────────────────────────────────── */
-  @keyframes toast-slide-in {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  @keyframes toast-slide-out {
-    from { opacity: 1; transform: translateY(0); }
-    to   { opacity: 0; transform: translateY(16px); }
-  }
-
-  .animate-toast-in {
-    animation: toast-slide-in 200ms ease-out;
-  }
-
-  .animate-toast-out {
-    animation: toast-slide-out 200ms ease-in forwards;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .animate-toast-in { animation: none; }
-    .animate-toast-out { animation: none; opacity: 0; }
-  }
-
-  /* ── Cell save flash — brief green flash on successful save ───────────────── */
-  @keyframes cell-save-flash {
-    0%   { background-color: rgba(34, 197, 94, 0.2); }
-    100% { background-color: transparent; }
-  }
-
-  .animate-cell-save {
-    animation: cell-save-flash 600ms ease-out;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .animate-cell-save { animation: none; }
-  }
-
-  /* ── Status indicator fade ────────────────────────────────────────────────── */
-  @keyframes status-fade {
-    0%, 70% { opacity: 1; }
-    100%    { opacity: 0; }
-  }
-
-  .animate-status-fade {
-    animation: status-fade 2s ease-out forwards;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .animate-status-fade { animation: none; opacity: 0; }
-  }
-
-  /* ── Row highlight flash — blue flash on newly added rows (Finding 2.5) ──── */
-  @keyframes row-highlight {
-    0%   { background-color: rgba(59, 130, 246, 0.25); }
-    100% { background-color: transparent; }
-  }
-  @keyframes row-highlight-dark {
-    0%   { background-color: rgba(59, 130, 246, 0.15); }
-    100% { background-color: transparent; }
-  }
-
-  .animate-row-highlight {
-    animation: row-highlight 1500ms ease-out forwards;
-  }
-
-  :is(.dark .animate-row-highlight) {
-    animation: row-highlight-dark 1500ms ease-out forwards;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .animate-row-highlight { animation: none; }
-  }
-
-  /* ── Search mark pulse — highlight search matches (Finding 3.1) ──────────── */
-  @keyframes mark-pulse {
-    0%, 100% { background-color: rgba(250, 204, 21, 0.5); }
-    50%      { background-color: rgba(250, 204, 21, 0.8); }
-  }
-
+  /* Search matches in grid cells (the current match has an outline) */
   .search-mark {
     background-color: rgba(250, 204, 21, 0.35);
     border-radius: 2px;
@@ -461,67 +346,7 @@
     outline-offset: -1px;
   }
 
-  .search-mark-active {
-    animation: mark-pulse 600ms ease-in-out 2;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .search-mark-active { animation: none; }
-  }
-
-  /* ── Task completion celebration (Finding 3.17) ──────────────────────────── */
-  @keyframes celebration-pop {
-    0%   { transform: scale(1); }
-    50%  { transform: scale(1.15); }
-    100% { transform: scale(1); opacity: 0.7; }
-  }
-
-  .animate-celebration {
-    animation: celebration-pop 500ms cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .animate-celebration { animation: none; }
-  }
-
-  /* ── Star bounce — favorite toggle feedback (Finding 3.18) ───────────────── */
-  @keyframes star-bounce {
-    0%   { transform: scale(1); }
-    30%  { transform: scale(1.3); }
-    60%  { transform: scale(0.9); }
-    100% { transform: scale(1); }
-  }
-
-  .animate-star-bounce {
-    animation: star-bounce 400ms ease-out;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .animate-star-bounce { animation: none; }
-  }
-
-  /* ── Row slide in/out — smooth row add/remove (Finding 3.19) ─────────────── */
-  @keyframes slide-in-fade {
-    0%   { opacity: 0; transform: translateY(-8px); }
-    100% { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes slide-out-fade {
-    0%   { opacity: 1; transform: translateY(0); }
-    100% { opacity: 0; transform: translateY(8px); }
-  }
-
-  .animate-slide-in {
-    animation: slide-in-fade 200ms ease-out forwards;
-  }
-
-  .animate-slide-out {
-    animation: slide-out-fade 200ms ease-in forwards;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .animate-slide-in { animation: none; }
-    .animate-slide-out { animation: none; opacity: 0; }
-  }
+  /* Animations (check pop, star bounce, rows arriving and leaving) live in motion.css */
 
   /* ── Profile button ─────────────────────────────────────────────────────────── */
   .profile-btn-glow {
@@ -557,8 +382,6 @@
 
   /* ── Global reduced-motion: disable all transitions/animations ────────────── */
   @media (prefers-reduced-motion: reduce) {
-    .page-enter { animation: none; }
-
     *, *::before, *::after {
       transition-duration: 0.01ms !important;
       animation-duration: 0.01ms !important;
