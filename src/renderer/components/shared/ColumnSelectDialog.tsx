@@ -4,6 +4,7 @@ import { FileText } from 'lucide-react'
 import { backdropVariants, modalPanelVariants } from '../../utils/animations'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useVocab } from '../../hooks/useVocab'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
 
 interface PdfPreviewInfo {
   rowCount: number
@@ -194,21 +195,12 @@ export function ColumnSelectDialog({ open, columns, onConfirm, onCancel, title =
 
         {/* Action buttons */}
         <div className="flex gap-3 justify-end mt-5">
-          <button
-            onClick={onCancel}
-            className="btn-secondary"
-            style={{ minHeight: 40, padding: '0 16px', fontSize: 15 }}
-          >
+          <SecondaryButton onClick={onCancel}>
             Cancel
-          </button>
-          <button
-            onClick={() => onConfirm(selectedIds, scope)}
-            disabled={selectedIds.length === 0}
-            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ minHeight: 40, padding: '0 16px', fontSize: 15 }}
-          >
+          </SecondaryButton>
+          <PrimaryButton onClick={() => onConfirm(selectedIds, scope)} disabled={selectedIds.length === 0}>
             Export
-          </button>
+          </PrimaryButton>
         </div>
           </motion.div>
         </div>
