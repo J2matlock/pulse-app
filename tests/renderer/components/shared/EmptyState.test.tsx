@@ -45,7 +45,7 @@ describe('EmptyState', () => {
     expect(paragraphs.length).toBe(0)
   })
 
-  it('CTA button has correct minimum height styling', () => {
+  it('CTA button is the shared 44 px primary button', () => {
     const onClick = vi.fn()
     render(
       <EmptyState
@@ -54,6 +54,23 @@ describe('EmptyState', () => {
       />
     )
     const btn = screen.getByText('Go')
-    expect(btn.style.minHeight).toBe('44px')
+    expect(btn.className).toMatch(/(^| )btn-primary( |$)/)
+    expect(btn.getAttribute('style')).toBeNull()
+  })
+
+  it('draws a secondary action as a link-style button next to the main one', () => {
+    const onClick = vi.fn()
+    render(<EmptyState title="Empty" action={{ label: 'Add', onClick: vi.fn() }} secondaryAction={{ label: 'Import', onClick }} />)
+    const link = screen.getByRole('button', { name: 'Import' })
+    expect(link.className).not.toMatch(/btn-primary/)
+    fireEvent.click(link)
+    expect(onClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('page size puts the icon in a circle; inline size drops it', () => {
+    const { container, rerender } = render(<EmptyState title="Empty" icon={<svg data-testid="ic" />} />)
+    expect(screen.getByTestId('ic').parentElement!.className).toMatch(/rounded-full/)
+    rerender(<EmptyState title="Empty" size="inline" icon={<svg data-testid="ic" />} />)
+    expect(container.querySelector('[data-testid="ic"]')).toBeNull()
   })
 })

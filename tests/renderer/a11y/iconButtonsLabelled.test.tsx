@@ -102,6 +102,19 @@ describe('icon-only buttons say what they do', () => {
     expect(hinted).toEqual([])
   })
 
+  it('every <IconButton> has a label (its aria-label and tooltip), and no title=', () => {
+    const bad: string[] = []
+    for (const file of sourceFiles(ROOT)) {
+      const src = readFileSync(file, 'utf8')
+      for (let i = src.indexOf('<IconButton'); i >= 0; i = src.indexOf('<IconButton', i + 1)) {
+        if (!/\s/.test(src[i + 11] ?? '')) continue
+        const attrs = src.slice(i, tagEnd(src, i))
+        if (!/\slabel=(?!"")/.test(attrs) || /\stitle=/.test(attrs)) bad.push(`${relative(ROOT, file)}:${src.slice(0, i).split('\n').length}`)
+      }
+    }
+    expect(bad).toEqual([])
+  })
+
   it('the scan tells icons from text', () => {
     expect(iconOnly('<Pencil className="w-4 h-4" />')).toBe(true)
     expect(iconOnly('{open ? <ChevronDown className="a" /> : <ChevronRight className="b" />}')).toBe(true)
