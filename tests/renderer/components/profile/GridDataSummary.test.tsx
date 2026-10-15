@@ -155,22 +155,28 @@ describe('GridDataSummary', () => {
     })
   })
 
-  it('shows dash for empty values', async () => {
-    const col = makeColumn({ id: 2, name: 'Notes' })
+  it('keeps empty columns out of the way until asked, then offers "Add…" (C-13)', async () => {
+    const cols = [makeColumn({ id: 2, name: 'Status' }), makeColumn({ id: 3, name: 'Notes' }), makeColumn({ id: 4, name: 'Phone' })]
     render(
       <GridDataSummary
-        row={makeRow({ col_2: null })}
-        columns={[col]}
+        row={makeRow({ col_2: 'Active', col_3: null, col_4: '' })}
+        columns={cols}
         alertRules={[]}
         gridId={1}
         onCellSave={onCellSave}
       />
     )
-
-    await waitFor(() => {
-      // The em dash is rendered for empty values
-      expect(screen.getByText('—')).toBeTruthy()
-    })
+    expect(await screen.findByText('Showing 1 of 3 columns')).toBeTruthy()
+    expect(screen.getByText('· 2 empty —')).toBeTruthy()
+    expect(screen.queryByText('Notes')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'show' }))
+    expect(screen.getByText('Showing 3 of 3 columns')).toBeTruthy()
+    expect(screen.getByText('Notes')).toBeTruthy()
+    // An empty typed-in column invites a value instead of showing a dash
+    expect(screen.getAllByText('Add…')).toHaveLength(2)
+    expect(screen.queryByText('—')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Notes' }))
+    expect(screen.getByDisplayValue('')).toBeTruthy()
   })
 
   it('edits a value in place with the list\'s editor and saves it like a list edit', async () => {
@@ -203,7 +209,7 @@ describe('GridDataSummary', () => {
     expect(screen.getByRole('button', { name: 'Edit Fee' })).toBeTruthy()
   })
 
-  it('shows columns added after the picker was used, and plain type names', async () => {
+  it('shows columns added after the picker was used, with no type words in the picker', async () => {
     mockInvoke.mockImplementation((channel: string) => {
       // An older install saved the columns to show: 2 only (3 didn't exist yet)
       if (channel === 'settings:get-all') return Promise.resolve({ ok: true, data: { client_details_columns_1: '[2]' } })
@@ -213,9 +219,10 @@ describe('GridDataSummary', () => {
     render(<GridDataSummary row={makeRow({ col_2: '555', col_3: 'Open', col_5: 'hi' })} columns={cols} alertRules={[]} gridId={1} onCellSave={onCellSave} />)
     // Hidden by the old choice: the ones not shown then
     await waitFor(() => expect(screen.queryByText('hi')).toBeNull())
-    fireEvent.click(screen.getByTitle('Choose visible columns'))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose columns' }))
     expect(screen.getAllByText('Status').length).toBeGreaterThan(0)
     expect(screen.queryByText('status')).toBeNull()
+    expect(screen.queryByText('Text')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /Notes/ }))
     expect(mockInvoke).toHaveBeenCalledWith('settings:update', 'client_details_hidden_1', '[3]')
   })

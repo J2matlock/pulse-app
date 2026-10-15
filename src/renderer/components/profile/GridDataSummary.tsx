@@ -6,7 +6,7 @@ import { dndAccessibility } from '../../utils/dndAnnouncements'
 import { CSS } from '@dnd-kit/utilities'
 import { evaluateRuleForRow } from '../../utils/deadlineCalc'
 import { IPC } from '../../../shared/ipc-channels'
-import { isNotTypedColumnType, type Column, type ColumnType, type GridRow, type ParsedAlertRule } from '../../../shared/types'
+import { isNotTypedColumnType, type Column, type GridRow, type ParsedAlertRule } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
 import toast from 'react-hot-toast'
 import { friendlyError } from '../../utils/friendlyError'
@@ -52,12 +52,9 @@ function deadlineBadge(col: Column, value: string | null, row: GridRow, alertRul
   } catch { return null }
 }
 
-/** Plain names for column types, as in the add-column menu (R-22) */
-const TYPE_LABEL: Record<ColumnType, string> = {
-  text: 'Text', number: 'Number', date: 'Date', checkbox: 'Checkbox', dropdown: 'Dropdown', phone: 'Phone',
-  email: 'Email', url: 'Web link', currency: 'Money', address: 'Address', status: 'Status', tag: 'Tags', notes: 'Notes',
-  auto_number: 'Auto number', deadline: 'Deadline', age_from_dob: 'Age', calculated_days: 'Days count', link: 'Linked',
-  file_count: 'Files',
+/** A typed-in column with nothing in it (worked-out columns always have something to show) */
+export function isEmptyCell(col: Column, value: string | null): boolean {
+  return (value == null || value === '') && !isNotTypedColumnType(col.column_type)
 }
 
 /** Older installs saved the columns to show; new columns never appeared. Now the hidden ones are saved. */
@@ -126,10 +123,10 @@ function SortableCard({ col, value, row, allColumns, alertRules, series, onSave 
           <button type="button" onClick={() => setEditing(true)} aria-label={`Edit ${col.name}`}
             className="group/edit flex-1 min-w-0 flex items-center gap-2 text-left rounded-sm -mx-1 px-1 hover:bg-slate-50 dark:hover:bg-slate-700/50 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
             style={{ minHeight: 44 }}>
-            {renderValue(col, value, row, allColumns, alertRules)}
+            {renderValue(col, value, row, allColumns, alertRules, true)}
             <Pencil className="w-3.5 h-3.5 flex-shrink-0 text-slate-400 opacity-0 group-hover/edit:opacity-100 group-focus-visible/edit:opacity-100" aria-hidden="true" />
           </button>
-        ) : renderValue(col, value, row, allColumns, alertRules)}
+        ) : renderValue(col, value, row, allColumns, alertRules, false)}
         {!editing && series && <Sparkline points={series} label={col.name} onOpen={() => setChart(true)} />}
       </dd>
       {chart && series && <NumberHistoryDialog label={col.name} points={series} currency={col.column_type === 'currency'} onClose={() => setChart(false)} />}
@@ -138,11 +135,11 @@ function SortableCard({ col, value, row, allColumns, alertRules, series, onSave 
 }
 
 /** The value as the list shows it (money, tags, status colors, age…), plus a deadline badge. */
-function renderValue(col: Column, rawValue: string | null, row: GridRow, allColumns: Column[], alertRules: ParsedAlertRule[]) {
-  const empty = rawValue == null || rawValue === ''
-  // Worked-out columns (age, days, deadline, links) have a value even with an empty cell
-  if (empty && !isNotTypedColumnType(col.column_type)) {
-    return <span className="text-slate-400 dark:text-slate-500 italic text-base">—</span>
+function renderValue(col: Column, rawValue: string | null, row: GridRow, allColumns: Column[], alertRules: ParsedAlertRule[], editable: boolean) {
+  // Worked-out columns (age, days, deadline, links) have a value even with an empty cell;
+  // an empty typed-in one says "Add…", since clicking it starts editing (C-13)
+  if (isEmptyCell(col, rawValue)) {
+    return <span className="text-slate-500 dark:text-slate-400 italic text-base">{editable ? 'Add…' : '—'}</span>
   }
   const badge = deadlineBadge(col, rawValue, row, alertRules)
   return (
@@ -161,6 +158,8 @@ export function GridDataSummary({ row, columns, alertRules, gridId, onCellSave }
   const [showColumnPicker, setShowColumnPicker] = useState(false)
   const [hiddenColumnIds, setHiddenColumnIds] = useState<Set<number>>(new Set())
   const [columnOrder, setColumnOrder] = useState<number[] | null>(null)
+  // Empty columns stay out of the way until asked for (C-13); a page of "—" hid the notes below
+  const [showEmpty, setShowEmpty] = useState(false)
 
   const allCols = columns
 
@@ -267,23 +266,38 @@ export function GridDataSummary({ row, columns, alertRules, gridId, onCellSave }
     return (row[`col_${col.id}` as keyof GridRow] as string | null) ?? null
   }
 
+  const emptyCount = displayCols.filter(c => isEmptyCell(c, getValue(c))).length
+  const shownCols = showEmpty ? displayCols : displayCols.filter(c => !isEmptyCell(c, getValue(c)))
+
   if (allCols.length === 0) return null
 
   return (
     <section className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-visible">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
         <LayoutList className="w-4 h-4 text-slate-500 flex-shrink-0" />
         {/* The record page's section already says "Client details"; this line says what's shown */}
-        <span className="text-base text-slate-600 dark:text-slate-300">Showing {displayCols.length} of {allCols.length} columns</span>
+        <span className="text-base text-slate-600 dark:text-slate-300">Showing {shownCols.length} of {allCols.length} columns</span>
+        {emptyCount > 0 && (
+          <span className="text-base text-slate-600 dark:text-slate-300">
+            · {emptyCount} empty —{' '}
+            <button type="button" onClick={() => setShowEmpty(v => !v)} aria-expanded={showEmpty}
+              className="hit-44 text-blue-700 dark:text-blue-300 hover:underline rounded-sm focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
+              {showEmpty ? 'hide' : 'show'}
+            </button>
+          </span>
+        )}
         <div className="ml-auto relative">
           <button
+            type="button"
             onClick={() => setShowColumnPicker(v => !v)}
-            className="hit-44 p-1.5 rounded-sm text-slate-500 hover:text-slate-600 dark:hover:text-slate-300
+            aria-expanded={showColumnPicker}
+            className="hit-44 inline-flex items-center gap-1.5 px-2 py-1.5 rounded-sm text-base text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100
                        hover:bg-slate-100 dark:hover:bg-slate-700
                        focus:outline-hidden focus:ring-3 focus:ring-blue-500"
-            title="Choose visible columns"
+            title="Choose which columns show here"
           >
-            <Settings2 className="w-4 h-4" />
+            <Settings2 className="w-4 h-4" aria-hidden="true" />
+            Choose columns
           </button>
 
           {showColumnPicker && (
@@ -309,7 +323,6 @@ export function GridDataSummary({ row, columns, alertRules, gridId, onCellSave }
                         {isVisible && <Check className="w-3 h-3" />}
                       </span>
                       <span className="truncate">{col.name}</span>
-                      <span className="ml-auto text-sm text-slate-500 dark:text-slate-400">{TYPE_LABEL[col.column_type] ?? 'Other'}</span>
                     </button>
                   )
                 })}
@@ -320,14 +333,18 @@ export function GridDataSummary({ row, columns, alertRules, gridId, onCellSave }
       </div>
 
       {displayCols.length === 0 ? (
-        <div className="px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400">
-          No columns selected. Click the gear icon to choose which columns to show.
+        <div className="px-4 py-6 text-center text-base text-slate-500 dark:text-slate-400">
+          No columns chosen. Use "Choose columns" to pick which ones show here.
+        </div>
+      ) : shownCols.length === 0 ? (
+        <div className="px-4 py-6 text-center text-base text-slate-500 dark:text-slate-400">
+          Nothing filled in yet. Choose "show" above to add details.
         </div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} accessibility={dragA11y}>
-          <SortableContext items={displayCols.map(c => c.id)} strategy={rectSortingStrategy}>
+          <SortableContext items={shownCols.map(c => c.id)} strategy={rectSortingStrategy}>
             <dl className="grid grid-cols-2 gap-0 divide-y divide-slate-100 dark:divide-slate-700/50">
-              {displayCols.map(col => (
+              {shownCols.map(col => (
                 <SortableCard
                   key={col.id}
                   col={col}

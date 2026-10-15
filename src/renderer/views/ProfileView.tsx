@@ -16,7 +16,7 @@ import { HandoffDialog } from '../components/profile/HandoffDialog'
 import { Checklist } from '../components/profile/Checklist'
 import { ScratchPad } from '../components/profile/ScratchPad'
 import { CaseLog } from '../components/profile/CaseLog'
-import { GridDataSummary } from '../components/profile/GridDataSummary'
+import { GridDataSummary, isEmptyCell } from '../components/profile/GridDataSummary'
 import { LinkedProviders } from '../components/profile/LinkedProviders'
 import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
@@ -226,6 +226,8 @@ export default function ProfileView(): React.ReactElement {
     return getClientName(row, columns, '') || null
   }, [row, nameCol, columns])
   const clientName = knownName ?? `Unknown ${t('record')}`
+  // "Client details (4 filled)": how many typed-in columns have something in them (C-02)
+  const filledCount = useMemo(() => row ? [...columns, ...hiddenColumns].filter(c => !isEmptyCell(c, (row[`col_${c.id}` as keyof GridRow] as string | null) ?? null)).length : 0, [row, columns, hiddenColumns])
 
   // Track as recently visited: once per record, and again when its name loads,
   // not every time the list of lists reloads
@@ -517,19 +519,10 @@ export default function ProfileView(): React.ReactElement {
 
             {activeGridId && showRequirements && <ContactStatusLine rowId={rowId} gridId={activeGridId} />}
 
-            {/* W08 — Fill a form for this record */}
-            {formsOn && activeGridId && profileForms.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-base text-slate-600 dark:text-slate-300">Fill in a form:</span>
-                {profileForms.map(f => (
-                  <button key={f.id} type="button" className="btn-compact-secondary"
-                    onClick={() => pulseEvents.emit('form:fill', { formId: f.id, gridId: activeGridId, rowId })}>{f.name}</button>
-                ))}
-              </div>
-            )}
-
+            {/* Note box, deadlines, then the notes log: "what happened last time?" is why the
+                page was opened, so the details block comes after it, collapsed (C-02) */}
             <div data-tour="case-log" className="space-y-6">
-              <CaseLog rowId={rowId} clientName={clientName} snippets={snippets} focusRef={noteFocusRef} between={<>
+              <CaseLog rowId={rowId} clientName={clientName} snippets={snippets} focusRef={noteFocusRef} between={
                 <div data-tour="deadline-panel">
                   <DeadlinePanel
                     row={row}
@@ -538,8 +531,21 @@ export default function ProfileView(): React.ReactElement {
                     onDateSave={handleDateSave}
                   />
                 </div>
+              } />
 
-                <CollapsibleSection title={`${t('record', { cap: true })} details`} sectionKey={`profile-client-data-${activeGridId}`} defaultExpanded>
+              <CollapsibleSection title={`${t('record', { cap: true })} details`} sectionKey={`profile-client-data-${activeGridId}`}
+                defaultExpanded={false} count={filledCount} countLabel={`${filledCount} filled`} keepMounted>
+                <div className="space-y-3">
+                  {/* W08 — a form fills this record in (C-40: lives with the details it fills) */}
+                  {formsOn && activeGridId && profileForms.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 px-2">
+                      <span className="text-base text-slate-600 dark:text-slate-300">Fill in from a form:</span>
+                      {profileForms.map(f => (
+                        <button key={f.id} type="button" className="btn-compact-secondary"
+                          onClick={() => pulseEvents.emit('form:fill', { formId: f.id, gridId: activeGridId, rowId })}>{f.name}</button>
+                      ))}
+                    </div>
+                  )}
                   <GridDataSummary
                     row={row}
                     columns={[...columns, ...hiddenColumns]}
@@ -547,8 +553,8 @@ export default function ProfileView(): React.ReactElement {
                     gridId={activeGridId!}
                     onCellSave={updateCell}
                   />
-                </CollapsibleSection>
-              </>} />
+                </div>
+              </CollapsibleSection>
             </div>
 
             {/* The rest: collapsed when empty, with counts in the titles; open/closed is remembered per list */}

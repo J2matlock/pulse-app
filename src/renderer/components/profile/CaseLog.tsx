@@ -597,9 +597,11 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
 
   return (
     <>
-    {/* The note box comes first on the record page (3.4); past notes follow further down */}
-    <section aria-label={`New ${t('activity')}`} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-      {!composerOpen && (
+    {/* The note box comes first on the record page (3.4); past notes follow further down.
+        With a header button to open it (focusRef), the box stays out of the way until then (C-34) */}
+    <section aria-label={`New ${t('activity')}`} hidden={!composerOpen && !!focusRef}
+      className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+      {!composerOpen && !focusRef && (
         <button type="button" onClick={openComposer}
           className="w-full text-left px-4 text-base text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
           style={{ minHeight: 52 }}>
