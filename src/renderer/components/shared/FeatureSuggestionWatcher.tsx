@@ -30,6 +30,8 @@ import { pulseEvents } from '../../events'
 import { FeatureOffer, readDismissedOffers } from './FeatureOffer'
 
 export const SUGGESTION_TOAST_MS = 20_000
+/** Wider than other toasts, so the offer reads in two lines */
+const SUGGESTION_TOAST_WIDTH = 560
 /** No offers this soon after setup finishes: the new list's columns are Pulse's, not hers */
 export const QUIET_AFTER_SETUP_MS = 60_000
 
@@ -41,14 +43,15 @@ export const suggestionToastId = (key: FeatureKey): string => `feature-offer-${k
 let seenLists = new Map<number, Map<number, number | null>>()
 let offered = new Set<FeatureKey>()
 let showing: FeatureKey | null = null
-let rulesRequested = false
+/** Rules asked for once each: one made outside the rule store (an import) loads on its own */
+let rulesRequested = new Set<number>()
 
 /** For tests: forget the session */
 export function resetFeatureSuggestionSession(): void {
   seenLists = new Map()
   offered = new Set()
   showing = null
-  rulesRequested = false
+  rulesRequested = new Set()
 }
 
 function columnRuleId(c: Column): number | null {
@@ -60,12 +63,12 @@ function columnRuleId(c: Column): number | null {
   }
 }
 
-/** A rule that changed on a column, or null while it isn't loaded yet (looked at again when it is) */
-function ruleTrigger(c: Column, ruleId: number): SuggestionInput | null | 'wait' {
+/** A rule that changed on a column, or 'wait' while it isn't loaded yet (looked at again when it is) */
+function ruleTrigger(c: Column, ruleId: number): SuggestionInput | 'wait' {
   const alerts = useAlertStore.getState()
   const rule = alerts.rules.find(r => r.id === ruleId)
   if (!rule) {
-    if (!alerts.isLoaded && !rulesRequested) { rulesRequested = true; void alerts.loadRules() }
+    if (!rulesRequested.has(ruleId)) { rulesRequested.add(ruleId); void alerts.loadRules() }
     return 'wait'
   }
   return { trigger: 'ruleSet', name: c.name, interval: toRuleInterval(rule) }
@@ -94,7 +97,7 @@ function collectTriggers(): SuggestionInput[] {
     const t = ruleTrigger(c, ruleId)
     if (t === 'wait') continue
     seen.set(c.id, ruleId)
-    if (t) triggers.push(t)
+    triggers.push(t)
   }
   return triggers
 }
@@ -104,7 +107,7 @@ function offer(key: FeatureKey): void {
   offered.add(key)
   void readDismissedOffers().then(dismissed => {
     if (dismissed.includes(key) || featureNow(key)) { showing = null; return }
-    toast(t => <FeatureSuggestionToast id={t.id} feature={key} />, { id: suggestionToastId(key), duration: SUGGESTION_TOAST_MS })
+    toast(t => <FeatureSuggestionToast id={t.id} feature={key} />, { id: suggestionToastId(key), duration: SUGGESTION_TOAST_MS, style: { maxWidth: SUGGESTION_TOAST_WIDTH } })
   })
 }
 

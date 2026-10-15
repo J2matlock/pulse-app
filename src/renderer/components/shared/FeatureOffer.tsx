@@ -97,14 +97,27 @@ export function FeatureOffer({ feature, message, onDone, always = false, notDism
     onDone?.()
   }
 
+  const icon = <Lightbulb className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" aria-hidden="true" />
+  const buttons = <>
+    <SecondaryButton size="compact" onClick={() => void turnOn()}>Turn on</SecondaryButton>
+    {!always && <SecondaryButton size="compact" onClick={() => void notNow()}>Not now</SecondaryButton>}
+  </>
+
+  // In a toast the text gets the full width and the buttons go underneath
+  if (plain) {
+    return (
+      <div role="status" className="flex flex-col gap-2 text-base">
+        <div className="flex items-start gap-2"><span className="mt-1">{icon}</span><span>{message}</span></div>
+        <div className="flex justify-end gap-2">{buttons}</div>
+      </div>
+    )
+  }
+
   return (
-    <div role="status" className={plain
-      ? 'flex flex-wrap items-center gap-2 text-base'
-      : 'flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-base text-slate-800 dark:text-slate-100'}>
-      <Lightbulb className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" aria-hidden="true" />
+    <div role="status" className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-base text-slate-800 dark:text-slate-100">
+      {icon}
       <span className="flex-1 min-w-0">{message}</span>
-      <SecondaryButton size="compact" onClick={() => void turnOn()}>Turn on</SecondaryButton>
-      {!always && <SecondaryButton size="compact" onClick={() => void notNow()}>Not now</SecondaryButton>}
+      {buttons}
     </div>
   )
 }

@@ -123,6 +123,18 @@ describe('FeatureSuggestionWatcher', () => {
     expect(await screen.findByText(REQUIREMENTS_OFFER)).toBeTruthy()
   })
 
+  it('a rule made outside the rule store (an import) is fetched, then counts', async () => {
+    const base = mockInvoke.getMockImplementation()!
+    mockInvoke.mockImplementation((channel: string, ...rest: unknown[]) => channel === IPC.ALERT_RULE_GET_ALL
+      ? Promise.resolve({ ok: true, data: [{ ...rule(20, { interval_days: 28 }), thresholds: '[]' }] })
+      : base(channel, ...rest))
+    await mount()
+    openList()
+    setColumns([BASE[0]!, col(2, 'Monthly contact', { type: 'date', ruleId: 20 }), BASE[2]!])
+    expect(await screen.findByText(REQUIREMENTS_OFFER)).toBeTruthy()
+    expect(mockInvoke).toHaveBeenCalledWith(IPC.ALERT_RULE_GET_ALL)
+  })
+
   it('a column brought back by Undo is not new', async () => {
     await mount()
     openList([...BASE, col(4, 'Doctor')])
