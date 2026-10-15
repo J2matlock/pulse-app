@@ -631,16 +631,21 @@ export function registerRowHandlers(): void {
 
   // ── Cross-grid client search ──────────────────────────────────────────────
   // A search that's too short or long answers an empty list, not a failure, so it stays in the body
-  define(IPC.SEARCH_CLIENTS_CROSS_GRID, [z.custom<string>(), z.custom<number | undefined>()], (search, offset) => {
+  // excludeGridId: the palette shows the open list's matches itself, so it asks for the others only;
+  // otherwise a big open list took all 20 places
+  define(IPC.SEARCH_CLIENTS_CROSS_GRID, [z.custom<string>(), z.custom<number | undefined>(), z.custom<number | undefined>()], (search, offset, excludeGridId) => {
     // Nothing is called anything this long; a pasted page of text needn't scan every record (Q-056)
     if (typeof search !== 'string' || search.length < 2 || search.length > 200) return ok([])
-    const safeOffset = Math.max(0, Math.min(offset || 0, 10000))
-    const rows = cachedStmt('row_search_cross_grid', `
+    const safeOffset = Math.max(0, Math.min(Number.isInteger(offset) ? offset as number : 0, 10000))
+    // 0 is no list, so nothing is left out
+    const exclude = Number.isSafeInteger(excludeGridId) && (excludeGridId as number) > 0 ? excludeGridId as number : 0
+    const rows = cachedStmt('row_search_cross_grid_excl', `
       SELECT r.id as rowId, r.grid_id as gridId, g.name as gridName,
              r.display_name AS clientName
       FROM rows r
       JOIN grids g ON g.id = r.grid_id AND ${LIVE_GRID}
       WHERE ${LIVE_ROW}
+        AND r.grid_id != ?
         AND (r.display_name LIKE ? ESCAPE '\\'
           -- Phone numbers and emails added with "Add contact info" are found too (R-27)
           OR (r.manual_contacts IS NOT NULL AND EXISTS (
@@ -648,7 +653,7 @@ export function registerRowHandlers(): void {
             WHERE json_extract(j.value, '$.value') LIKE ? ESCAPE '\\' OR json_extract(j.value, '$.label') LIKE ? ESCAPE '\\')))
       ORDER BY r.display_name
       LIMIT 20 OFFSET ?
-    `).all(...Array(3).fill(`%${search.replace(/[%_\\]/g, '\\$&')}%`), safeOffset)
+    `).all(exclude, ...Array(3).fill(`%${search.replace(/[%_\\]/g, '\\$&')}%`), safeOffset)
     return ok(rows)
   })
   // "Add a reason…" on the Undo toast after archiving (Q4): the reason is saved on the

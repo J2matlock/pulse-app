@@ -507,7 +507,7 @@ export interface IPCContract {
   'clipboard:write': { args: [text: string]; return: true }
 
   // ── Cross-grid Search ───────────────────────────────────────────────────
-  'search:clients-cross-grid': { args: [search: string, offset?: number]; return: CrossGridSearchResult[] }
+  'search:clients-cross-grid': { args: [search: string, offset?: number, excludeGridId?: number]; return: CrossGridSearchResult[] }
 
   // ── File Association ────────────────────────────────────────────────────
   'file-assoc:get-pending':   { args: [];                   return: { filePath: string; preview: unknown; workspace?: { source: StarterRef; summary: StarterSummary } } | null }

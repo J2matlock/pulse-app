@@ -33,22 +33,12 @@ interface CommandPaletteProps {
   onFocusMode?: () => void
 }
 
+/**
+ * The palette is mounted all the time (App), so the part that reads the list,
+ * the records and the settings exists only while it's open: a closed palette
+ * doesn't redraw when a cell changes, and each opening starts with an empty box.
+ */
 export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPaletteProps): React.ReactElement | null {
-  const features = useWorkspaceStore(s => s.features)
-  // Results span lists, so headings use workspace words; the open list's group uses its own
-  const { t, f } = useVocab(null)
-  const { t: tActive } = useVocab()
-  const navigate = useNavigate()
-  const { rows, columns, grids, activeGridId } = useGridStore(useShallow(s => ({
-    rows: s.rows, columns: s.columns, grids: s.grids, activeGridId: s.activeGridId,
-  })))
-  const { addRow } = useGridStore(useShallow(s => ({
-    addRow: s.addRow,
-  })))
-  const recentProfiles = useProfileStore(s => s.recentProfiles)
-  const lock = useSettingsStore(s => s.lock)
-  const [query, setQuery] = useState('')
-
   const previousFocusRef = useRef<Element | null>(null)
 
   // Save/restore focus on open/close
@@ -65,12 +55,28 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
     }
   }, [open])
 
-  // Reset query when closed
-  useEffect(() => {
-    if (!open) setQuery('')
-  }, [open])
-  // Other lists' records, by name, a moment after typing stops
-  const crossGridResults = useCrossListSearch(open, query)
+  return open ? <PaletteBody onOpenChange={onOpenChange} onFocusMode={onFocusMode} /> : null
+}
+
+function PaletteBody({ onOpenChange, onFocusMode }: Omit<CommandPaletteProps, 'open'>): React.ReactElement {
+  const features = useWorkspaceStore(s => s.features)
+  // Results span lists, so headings use workspace words; the open list's group uses its own
+  const { t, f } = useVocab(null)
+  const { t: tActive } = useVocab()
+  const navigate = useNavigate()
+  const { rows, columns, grids, activeGridId } = useGridStore(useShallow(s => ({
+    rows: s.rows, columns: s.columns, grids: s.grids, activeGridId: s.activeGridId,
+  })))
+  const { addRow } = useGridStore(useShallow(s => ({
+    addRow: s.addRow,
+  })))
+  const recentProfiles = useProfileStore(s => s.recentProfiles)
+  const lock = useSettingsStore(s => s.lock)
+  const [query, setQuery] = useState('')
+
+  // Other lists' records, by name, a moment after typing stops; main leaves out the open
+  // list's, which are above already, so they can't take every place (the filter stays for a list switch)
+  const crossGridResults = useCrossListSearch(query, activeGridId)
   const otherListResults = useMemo(() => crossGridResults.filter(r => r.gridId !== activeGridId), [crossGridResults, activeGridId])
 
 
@@ -78,7 +84,6 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
 
   // Keyboard: Escape closes, Tab traps focus within dialog
   useEffect(() => {
-    if (!open) return
     function handler(e: KeyboardEvent) {
       if (e.key === 'Escape') { e.preventDefault(); onOpenChange(false) }
       if (e.key === 'Tab' && dialogRef.current) {
@@ -99,7 +104,7 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [open, onOpenChange])
+  }, [onOpenChange])
 
   const activeGrid = grids.find(g => g.id === activeGridId)
 
@@ -208,8 +213,6 @@ export function CommandPalette({ open, onOpenChange, onFocusMode }: CommandPalet
     navigate('/help')
     onOpenChange(false)
   }
-
-  if (!open) return null
 
   return (
     <div
