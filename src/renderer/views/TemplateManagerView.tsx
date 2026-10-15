@@ -20,12 +20,14 @@ import { ChecklistTemplateRow } from './template-manager/ChecklistTemplateRow'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import { EmptyState } from '../components/shared/EmptyState'
 import { useVocab } from '../hooks/useVocab'
+import { PrimaryButton } from '../components/ui/Button'
+import { PurposeLine } from '../components/shared/PurposeLine'
 import { useFeature } from '../hooks/useFeature'
 import { friendlyError } from '../utils/friendlyError'
 
 export default function TemplateManagerView(): React.ReactElement {
   const checklistsOn = useFeature('checklists')
-  const { t: w } = useVocab(null)
+  const { t: w, f } = useVocab(null)
   const [setupTemplates, setSetupTemplates] = useState<SetupTemplate[]>([])
   const [clTemplates, setClTemplates] = useState<ChecklistTemplate[]>([])
   // From the grid store, so a list made while this page is open (applying a
@@ -248,11 +250,8 @@ export default function TemplateManagerView(): React.ReactElement {
       {/* Page header — fixed at top */}
       <div className="flex-shrink-0 max-w-7xl w-full mx-auto px-6 pt-8 pb-4">
         <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Templates</h1>
-        <p className="mt-1 text-base text-slate-500 dark:text-slate-400">
-          {/* One name per thing: layouts are whole-{list} setups, checklists are to-do lists (E-28) */}
-          <strong>{w('list', { cap: true })} layouts</strong> save the columns and rules of {w('list', { article: true })} so you can reuse them.{' '}
-          <strong>Checklists</strong> are reusable to-do lists you can add to {w('record', { article: true })}'s page.
-        </p>
+        {/* One name per thing: layouts are whole-{list} setups, checklists are to-do lists (E-28) */}
+        <PurposeLine className="mt-1">{f("Reuse {a list}'s columns and rules (layouts), or a standard to-do list for {a record}'s page (checklists).")}</PurposeLine>
       </div>
 
       <div className="flex-1 min-h-0 max-w-7xl w-full mx-auto px-6 pb-8">
@@ -375,18 +374,9 @@ export default function TemplateManagerView(): React.ReactElement {
                   <Upload className="w-4 h-4" />
                   Import
                 </button>
-                <button
-                  type="button"
-                  onClick={() => openEditor(null)}
-                  title="Create a new checklist template"
-                  aria-label="Create a new checklist template"
-                  className="hit-44 flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white
-                             text-base font-medium min-h-[40px]
-                             focus:outline-hidden focus:ring-3 focus:ring-blue-500 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
+                <PrimaryButton data-primary-action onClick={() => openEditor(null)} icon={<Plus className="w-4 h-4" />}>
                   New checklist template
-                </button>
+                </PrimaryButton>
               </div>
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">

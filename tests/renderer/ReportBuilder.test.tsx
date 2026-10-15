@@ -189,7 +189,7 @@ describe('reports view and dashboard card', () => {
     render(<MemoryRouter initialEntries={['/reports']}><ReportsView /></MemoryRouter>)
     await wait()
     // The home page: what reports are for, and each saved report as a card with a glance at its answer
-    expect(screen.getByText(/A report answers a question/)).toBeTruthy()
+    expect(screen.getByText(/Each report answers a question about your work/)).toBeTruthy()
     const card = screen.getByRole('button', { name: /By make/ })
     expect(card.textContent).toMatch(/Honda/)
     fireEvent.click(card)

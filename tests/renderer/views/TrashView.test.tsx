@@ -99,7 +99,7 @@ describe('TrashView — interactions', () => {
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
 
-    expect(screen.getByText('Items are removed for good after 30 days')).toBeDefined()
+    expect(screen.getByText('Deleted clients and caseloads wait here for 30 days, then go for good. Restore brings one back.')).toBeDefined()
   })
 
   it('fires IPC call to restore a row when Restore button is clicked', async () => {

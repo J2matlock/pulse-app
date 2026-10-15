@@ -16,6 +16,8 @@ import { safeInvoke } from '../utils/safeInvoke'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useFeature } from '../hooks/useFeature'
 import { useVocab } from '../hooks/useVocab'
+import { PrimaryButton } from '../components/ui/Button'
+import { PurposeLine } from '../components/shared/PurposeLine'
 import { AppointmentPanel } from '../components/calendar/AppointmentPanel'
 import { CalendarItemPanel } from '../components/calendar/CalendarItemPanel'
 import { AppointmentDialog } from '../components/calendar/AppointmentDialog'
@@ -303,7 +305,7 @@ export default function CalendarView(): React.ReactElement {
           <div className="flex flex-wrap gap-2 ml-auto">
             {/* Outlook or Google Calendar (audit S-30) */}
             <button type="button" className="btn-compact-secondary" onClick={() => setExporting(true)}><CalendarPlus className="w-4 h-4" aria-hidden="true" />Add to my calendar…</button>
-            <button type="button" className="btn-compact-primary" aria-haspopup="dialog" onClick={() => setChooserDay(focusDay)}><Plus className="w-4 h-4" aria-hidden="true" />Add…</button>
+            <PrimaryButton size="compact" data-primary-action aria-haspopup="dialog" onClick={() => setChooserDay(focusDay)} icon={<Plus className="w-4 h-4" />}>Add…</PrimaryButton>
           </div>
           <div className="flex flex-wrap items-center gap-2 w-full">
             {/* Checkbox chips with a colour swatch each, so "on" is plain to see (UX D-09) */}
@@ -329,11 +331,10 @@ export default function CalendarView(): React.ReactElement {
                 </select>
               </label>
             )}
-            {layers.has('deadlines') && (
-              <p className="w-full text-sm text-slate-600 dark:text-slate-300">
-                Deadline colors: red = late, orange = due now, yellow = coming up, green = not yet due.
-              </p>
-            )}
+            {/* What the screen is for, and the deadline colours while deadlines show (Q2) */}
+            <PurposeLine className="w-full">
+              Click a day to see what's due or add to it.{layers.has('deadlines') && ' Red = late, orange = due now, yellow = coming up, green = not yet due.'}
+            </PurposeLine>
           </div>
         </div>
 

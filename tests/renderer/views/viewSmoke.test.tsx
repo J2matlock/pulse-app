@@ -439,18 +439,19 @@ describe('ContactsView', () => {
   it('renders the Provider Directory heading', async () => {
     render(<MemoryRouter><ContactsView /></MemoryRouter>)
     await flushEffects()
-    const heading = screen.getByRole('heading', { name: /^Contacts\s*— your / })
+    const heading = screen.getByRole('heading', { name: 'Contacts' })
     expect(heading).toBeDefined()
     expect(heading.tagName).toBe('H1')
   })
 
-  it('renders action buttons (Add Provider, Import, Export, Categories)', async () => {
+  it('renders Add Provider, with Import, Export, Print and Categories under More (Q2)', async () => {
     render(<MemoryRouter><ContactsView /></MemoryRouter>)
     await flushEffects()
     expect(screen.getByText('Add Provider')).toBeDefined()
-    expect(screen.getByText('Import')).toBeDefined()
-    expect(screen.getByText('Export')).toBeDefined()
-    expect(screen.getByText('Categories')).toBeDefined()
+    expect(screen.queryByText('Import…')).toBeNull()
+    act(() => { screen.getByRole('button', { name: /^More/ }).click() })
+    const items = screen.getAllByRole('menuitem').map(m => m.textContent ?? '')
+    for (const label of ['Import…', 'Export…', 'Print…', 'Categories…']) expect(items.some(x => x.startsWith(label)), label).toBe(true)
   })
 
   it('shows empty state when no providers exist', async () => {
@@ -522,7 +523,7 @@ describe('TrashView', () => {
   it('shows the 30-day retention notice', async () => {
     render(<MemoryRouter><TrashView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByText('Items are removed for good after 30 days')).toBeDefined()
+    expect(screen.getByText('Deleted clients and caseloads wait here for 30 days, then go for good. Restore brings one back.')).toBeDefined()
   })
 
   it('shows empty state when trash is empty', async () => {

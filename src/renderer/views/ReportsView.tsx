@@ -15,6 +15,8 @@ import { ReportBuilder, forgetReportDraft, reportDraftKey } from '../components/
 import { ReportChart } from '../components/reports/ReportChart'
 import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { useVocab } from '../hooks/useVocab'
+import { PrimaryButton } from '../components/ui/Button'
+import { PurposeLine } from '../components/shared/PurposeLine'
 import { pulseEvents } from '../events'
 
 interface RunSaved { report: SavedReport; result: ReportResult; explanation?: string; listName?: string }
@@ -99,15 +101,12 @@ export default function ReportsView(): React.ReactElement {
           <button type="button" className="btn-compact-secondary" onClick={() => request('home')}><ArrowLeft className="w-4 h-4" />All reports</button>
         )}
         <h1 className="flex-1 text-xl font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2"><BarChart3 className="w-5 h-5" aria-hidden="true" />Reports</h1>
-        <button type="button" className="btn-primary" onClick={() => request('new')}><Plus className="w-4 h-4" />New report</button>
+        <PrimaryButton data-primary-action onClick={() => request('new')} icon={<Plus className="w-4 h-4" />}>New report</PrimaryButton>
       </div>
 
       {!building ? (
         <div className="flex-1 min-h-0 overflow-auto p-4 space-y-4">
-          <p className="text-base text-slate-600 dark:text-slate-300 max-w-3xl">
-            A report answers a question about your work, like “how many are at each stage?” or “how busy was each month?”.
-            Open one below to see the whole answer, change it, print it or pin it to the dashboard, or click New report to ask your own.
-          </p>
+          <PurposeLine>Each report answers a question about your work. Open one to see it, print it or pin it to the dashboard.</PurposeLine>
           {reports === null ? <p className="text-base text-slate-500 dark:text-slate-400">Working…</p>
             : reports.length === 0 ? (
               <div className="rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 p-6 text-center space-y-3">

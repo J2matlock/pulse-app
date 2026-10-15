@@ -351,6 +351,29 @@ describe('screens use the workspace words', () => {
     expect([...hits]).toEqual([])
   }, 120_000)
 
+  // Import, Export, Print and Categories live under the contacts screen's More menu (Q2):
+  // press each item too, so what they open (the computer's Open/Save boxes included) is read
+  it('everything the contacts More menu opens', async () => {
+    const hits = new Set<string>()
+    await renderAt('/contacts', '/contacts', <ContactsView />)
+    const openMore = () => {
+      const more = Array.from(document.querySelectorAll<HTMLElement>('main button')).find(b => /^More/.test(b.textContent ?? ''))
+      expect(more).toBeDefined()
+      fireEvent.click(more!)
+      return Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]'))
+    }
+    const items = openMore().map(m => m.textContent ?? '')
+    expect(items.length).toBeGreaterThanOrEqual(4)
+    for (let i = 0; i < items.length; i++) {
+      cleanup()
+      await renderAt('/contacts', '/contacts', <ContactsView />)
+      fireEvent.click(openMore()[i]!)
+      await settle()
+      for (const h of leaksIn(visibleWords())) hits.add(`${items[i]}: ${h}`)
+    }
+    expect([...hits]).toEqual([])
+  }, 60_000)
+
   it('native dialogs opened along the way', () => {
     expect(native.dialogText.length).toBeGreaterThan(0)
     expect(native.dialogText.flatMap(leaksIn)).toEqual([])

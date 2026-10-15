@@ -103,7 +103,7 @@ describe('LetterTemplateView', () => {
   it('renders New button', async () => {
     render(<MemoryRouter><LetterTemplateView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.getByLabelText('New letter template')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'New letter' })).toBeDefined()
   })
 
   it('shows empty state when no templates exist', async () => {
@@ -125,7 +125,7 @@ describe('LetterTemplateView', () => {
     render(<MemoryRouter><LetterTemplateView /></MemoryRouter>)
     await flushEffects()
     expect(screen.getByRole('heading', { name: 'Old letter' })).toBeDefined()
-    fireEvent.click(screen.getByLabelText('New letter template'))
+    fireEvent.click(screen.getByRole('button', { name: 'New letter' }))
     fireEvent.click(screen.getByText('save-mock'))
     await flushEffects()
     expect(screen.getByRole('heading', { name: 'Fresh letter' })).toBeDefined()

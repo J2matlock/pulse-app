@@ -16,6 +16,8 @@ import { SecuritySummaryDialog } from '../components/shared/SecuritySummaryDialo
 import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { highlightText } from './help/highlightText'
 import { useVocab } from '../hooks/useVocab'
+import { PurposeLine } from '../components/shared/PurposeLine'
+import { Tooltip } from '../components/shared/Tooltip'
 import toast from 'react-hot-toast'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { FEATURES, isOn, type FeatureKey } from '../../shared/features'
@@ -226,15 +228,20 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
       <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <BookOpen className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Help Center</h1>
+          <div>
+            <div className="flex items-center gap-3">
+              <BookOpen className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Help Center</h1>
+            </div>
+            <PurposeLine className="mt-1">Type a question, or pick a topic below.</PurposeLine>
           </div>
           {/* Search */}
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
+            {/* Search is how this screen is used: ready to type on arrival (Q2) */}
             <input
               ref={searchRef}
+              autoFocus
               type="search"
               className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600
                          bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100
@@ -250,19 +257,22 @@ export default function HelpView({ onStartTour, onStartMiniTour }: Props): React
 
         {/* One slim row for the tour, what's new and the security summary, so the first
             question is on the first screen at 768 px (E-17) */}
-        <div className="flex gap-2 flex-wrap">
-          <button type="button" className="btn-secondary flex items-center gap-2" onClick={() => setConfirmTour(true)}>
-            <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" aria-hidden="true" />
-            Retake the full tour
+        <div className="flex items-center gap-x-3 gap-y-1 flex-wrap">
+          <button type="button" className="hit-44 inline-flex items-center gap-2 text-base text-blue-700 dark:text-blue-300 underline hover:no-underline rounded-lg focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500" onClick={() => setConfirmTour(true)}>
+            <Sparkles className="w-4 h-4" aria-hidden="true" />
+            Take the tour
           </button>
-          <button type="button" className="btn-secondary" onClick={() => pulseEvents.emit('whats-new:open')}>
-            What's new in this version
+          <span aria-hidden="true" className="text-slate-400">·</span>
+          <button type="button" className="hit-44 inline-flex items-center gap-2 text-base text-blue-700 dark:text-blue-300 underline hover:no-underline rounded-lg focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500" onClick={() => pulseEvents.emit('whats-new:open')}>
+            What's new
           </button>
-          <button type="button" className="btn-secondary flex items-center gap-2" onClick={() => setShowSecuritySummary(true)}
-            title={`A one-page, plain-English summary of how Pulse protects ${t('record')} information, for your supervisor or IT`}>
-            <ShieldCheck className="w-4 h-4 text-green-700 dark:text-green-300" aria-hidden="true" />
-            Security &amp; privacy summary
-          </button>
+          <span aria-hidden="true" className="text-slate-400">·</span>
+          <Tooltip content={`A one-page, plain-English summary of how Pulse protects ${t('record')} information, for your supervisor or IT`}>
+            <button type="button" className="hit-44 inline-flex items-center gap-2 text-base text-blue-700 dark:text-blue-300 underline hover:no-underline rounded-lg focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500" onClick={() => setShowSecuritySummary(true)}>
+              <ShieldCheck className="w-4 h-4" aria-hidden="true" />
+              Security and privacy summary
+            </button>
+          </Tooltip>
         </div>
         <SecuritySummaryDialog open={showSecuritySummary} onClose={() => setShowSecuritySummary(false)} />
         {/* The tour leaves this page, so it asks first (E-43) */}
