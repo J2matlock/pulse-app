@@ -14,6 +14,7 @@ import type { DeadlineState } from '../../../shared/deadlineEngine'
 import { CellDisplay } from '../grid/CellDisplay'
 import { CellEditor } from '../grid/CellEditor'
 import { Sparkline, NumberHistoryDialog, type SeriesPoint } from './NumberHistory'
+import { isEmptyCell } from '../../utils/emptyCell'
 
 interface Props {
   row: GridRow
@@ -50,11 +51,6 @@ function deadlineBadge(col: Column, value: string | null, row: GridRow, alertRul
     const badge = STATE_BADGE[res.state]
     return badge ? { ...badge, label: res.extended ? 'Extended' : badge.label } : null
   } catch { return null }
-}
-
-/** A typed-in column with nothing in it (worked-out columns always have something to show) */
-export function isEmptyCell(col: Column, value: string | null): boolean {
-  return (value == null || value === '') && !isNotTypedColumnType(col.column_type)
 }
 
 /** Older installs saved the columns to show; new columns never appeared. Now the hidden ones are saved. */

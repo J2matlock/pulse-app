@@ -338,7 +338,7 @@ describe('IPC Row — ROW_DUPLICATE', () => {
     expect(copiedCell?.value).toBe('test-value')
   })
 
-  it('copies the name column too', async () => {
+  it('names the copy "<name> (copy)" and leaves the original alone (C-03)', async () => {
     const { gridId, rowIds, columnIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 2 })
     // columnIds[0] is the name column (is_name_column=1 in seedGrid)
     testDb.db.prepare("INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))").run(rowIds[0], columnIds[0], 'John Doe')
@@ -346,7 +346,20 @@ describe('IPC Row — ROW_DUPLICATE', () => {
     expect(result.ok).toBe(true)
     const cells = testDb.db.prepare('SELECT * FROM cells WHERE row_id = ? AND column_id = ?').all(result.data, columnIds[0]) as any[]
     expect(cells).toHaveLength(1)
-    expect(cells[0].value).toBe('John Doe')
+    expect(cells[0].value).toBe('John Doe (copy)')
+    const original = testDb.db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?').get(rowIds[0], columnIds[0]) as any
+    expect(original.value).toBe('John Doe')
+    const names = testDb.db.prepare('SELECT display_name FROM rows WHERE id = ?').get(result.data) as any
+    expect(names.display_name).toContain('(copy)')
+  })
+
+  it('leaves a blank name blank on the copy', async () => {
+    const { rowIds, columnIds } = seedGrid(testDb.db, { rowCount: 1, columnCount: 2 })
+    testDb.db.prepare("INSERT INTO cells (row_id, column_id, value, updated_at) VALUES (?, ?, ?, datetime('now'))").run(rowIds[0], columnIds[1], 'kept')
+    const result = await invoke(IPC.ROW_DUPLICATE, rowIds[0]) as any
+    expect(result.ok).toBe(true)
+    expect(testDb.db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?').get(result.data, columnIds[0])).toBeUndefined()
+    expect((testDb.db.prepare('SELECT value FROM cells WHERE row_id = ? AND column_id = ?').get(result.data, columnIds[1]) as any).value).toBe('kept')
   })
 
   it('returns fail for non-existent row', async () => {

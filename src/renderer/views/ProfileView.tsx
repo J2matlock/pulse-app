@@ -16,7 +16,8 @@ import { HandoffDialog } from '../components/profile/HandoffDialog'
 import { Checklist } from '../components/profile/Checklist'
 import { ScratchPad } from '../components/profile/ScratchPad'
 import { CaseLog } from '../components/profile/CaseLog'
-import { GridDataSummary, isEmptyCell } from '../components/profile/GridDataSummary'
+import { GridDataSummary } from '../components/profile/GridDataSummary'
+import { isEmptyCell } from '../utils/emptyCell'
 import { LinkedProviders } from '../components/profile/LinkedProviders'
 import { IPC } from '../../shared/ipc-channels'
 import { safeInvoke } from '../utils/safeInvoke'
@@ -323,10 +324,19 @@ export default function ProfileView(): React.ReactElement {
     leaveRecord()
   }
 
+  /** The copy is named "<name> (copy)" and its page opens, so the two aren't mistaken for each other (C-03) */
+  async function duplicateHere() {
+    if (rowId == null) return
+    const copyId = await duplicateRow(rowId)
+    if (copyId == null) return
+    navigate(`/profile/${copyId}`)
+    toast.success('Opened the copy — rename it', { id: 'duplicate-opened' })
+  }
+
   const moreItems: MoreMenuItem[] = [
     { label: 'Print / PDF…', onSelect: () => setShowExportDialog(true) },
     ...(row && row.is_active !== 0 ? [{ label: 'Archive…', onSelect: () => setAskArchive(true) }] : []),
-    ...(rowInList ? [{ label: 'Duplicate', onSelect: () => { if (rowId != null) void duplicateRow(rowId) } }] : []),
+    ...(rowInList ? [{ label: `Duplicate (copies details, not ${t('activity', { many: true })})`, onSelect: () => void duplicateHere() }] : []),
     ...(grids.length > 1 ? [{ label: `Move to another ${t('list')}…`, onSelect: () => setShowMove(true) }] : []),
     { label: 'Move to the Trash…', onSelect: () => setAskTrash(true), danger: true },
   ]

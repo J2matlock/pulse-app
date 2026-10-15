@@ -469,6 +469,13 @@ export function registerRowHandlers(): void {
       for (const cell of cells) {
         insertCell.run(id, cell.column_id, cell.value)
       }
+      // The copy says it's a copy: two identical "Maria Garcia" rows mean the next note
+      // lands on the wrong one (C-03). Notes, files and the checklist aren't copied.
+      const nameCol = cachedStmt('row_dup_name_col', 'SELECT id FROM columns WHERE grid_id = ? AND is_name_column = 1').get(row.grid_id) as { id: number } | undefined
+      const name = nameCol ? cells.find(c => c.column_id === nameCol.id)?.value : null
+      if (nameCol && name && name.trim()) {
+        cachedStmt('row_dup_name_copy', 'UPDATE cells SET value = ? WHERE row_id = ? AND column_id = ?').run(`${name.trim()} (copy)`, id, nameCol.id)
+      }
       // A duplicate is a new record: it gets its own number
       assignAutoNumbers(row.grid_id, [id], { overwrite: true })
       refreshDisplayNames(row.grid_id, [id])

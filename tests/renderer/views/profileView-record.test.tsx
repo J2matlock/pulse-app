@@ -341,12 +341,14 @@ describe('Acting on a record from its own page (3.6)', () => {
     expect(screen.getByText('LIST PAGE')).toBeTruthy()
   })
 
-  it('duplicates from the page', async () => {
-    const duplicateRow = vi.fn(async () => {})
-    setGrid({ duplicateRow })
+  it('duplicates from the page and opens the copy (C-03)', async () => {
+    const duplicateRow = vi.fn(async () => 2)
+    setGrid({ duplicateRow, rows: [rowOf(1, 'Maria'), rowOf(2, 'Maria (copy)')], sortedRowIds: [1, 2] })
     renderAt('/profile/1')
     await flush()
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Duplicate' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Duplicate (copies details, not case notes)' })) })
     expect(duplicateRow).toHaveBeenCalledWith(1)
+    // The page moved on to the copy (record 2 of 2)
+    expect(await screen.findByText('2 of 2')).toBeTruthy()
   })
 })
