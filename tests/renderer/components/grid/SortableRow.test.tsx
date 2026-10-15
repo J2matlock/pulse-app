@@ -377,10 +377,27 @@ describe('SortableRow', () => {
     expect(updateCell).toHaveBeenCalledWith(1, 1, 'true')
   })
 
-  it('applies selected styling when isSelected is true', () => {
+  it('a selected record has a solid fill and a bar on the left, not the hover tint (persona study, Joe)', () => {
     const { container } = render(<SortableRow {...makeProps({ isSelected: true })} />)
     const row = container.querySelector('[role="row"]')!
-    expect(row.className).toContain('bg-blue-50')
+    expect(row.className).toMatch(/(^|\s)bg-blue-100(\s|$)/)
+    expect(row.className).toMatch(/(^|\s)dark:bg-blue-950(\s|$)/)
+    // Hovering a selected row doesn't change it to the hover tint
+    expect(row.className).not.toMatch(/hover:bg-slate-50/)
+    expect(screen.getByTestId('row-select-cell').className).toContain('shadow-[inset_3px_0_0_var(--color-blue-600)]')
+    // Each cell carries the fill, over the stripes
+    const cell = container.querySelector('[data-col-id="1"]')!
+    expect(cell.className).toContain('bg-blue-100!')
+    for (const lead of container.querySelectorAll('.grid-lead-cell')) expect(lead.className).toMatch(/(^|\s)bg-blue-100(\s|$)/)
+  })
+
+  it('an unselected record keeps the white cells and the hover tint', () => {
+    const { container } = render(<SortableRow {...makeProps()} />)
+    const row = container.querySelector('[role="row"]')!
+    expect(row.className).toContain('hover:bg-slate-50')
+    expect(row.className).not.toMatch(/bg-blue-100/)
+    expect(screen.getByTestId('row-select-cell').className).not.toContain('shadow-')
+    expect(container.querySelector('[data-col-id="1"]')!.className).not.toContain('bg-blue-100')
   })
 
   describe('a date Pulse can\'t read in a column with a deadline rule (AUDIT-026)', () => {

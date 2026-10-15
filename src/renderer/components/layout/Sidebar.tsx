@@ -185,7 +185,7 @@ function SortableGridItem({
           className={`
             flex items-center gap-3 w-full px-3 text-left transition-colors
             hover:bg-slate-200 dark:hover:bg-slate-700
-            focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
+            focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-blue-500
             ${isActive
               ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium'
               : 'text-slate-700 dark:text-slate-300'}
@@ -212,7 +212,8 @@ function SortableGridItem({
           size="compact"
           label={`${t('list', { cap: true })} options`}
           icon={<MoreHorizontal className="w-4 h-4" />}
-          className={`absolute right-1 top-1/2 -translate-y-1/2 transition-opacity
+          // Inset: the nav scrolls, and an outer ring is cut off at its edges (persona study, Mark)
+          className={`absolute right-1 top-1/2 -translate-y-1/2 transition-opacity focus-visible:ring-inset
                      ${isActive ? '' : 'opacity-40 group-hover/griditem:opacity-100 focus:opacity-100'}`}
           onClick={onMenuToggle}
           aria-haspopup="menu"
@@ -341,7 +342,7 @@ function NavButton({ icon: Icon, label, onClick, collapsed, active = false, mute
       className={`
         relative flex items-center gap-3 w-full px-3 text-left transition-colors
         hover:bg-slate-200 dark:hover:bg-slate-700
-        focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
+        focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-blue-500
         ${active
           ? 'text-blue-700 dark:text-blue-300 font-medium'
           : muted ? 'text-slate-500 dark:text-slate-400' : 'text-slate-700 dark:text-slate-300'}
@@ -549,7 +550,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
         <button
           onClick={onToggle}
           className="hit-44 p-1.5 rounded-sm hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400
-                     focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
+                     focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-blue-500"
           title={modHelp(collapsed ? 'Expand sidebar (Ctrl+\\)' : 'Collapse sidebar (Ctrl+\\)')}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
@@ -658,7 +659,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
             className={`flex items-center gap-3 w-full px-3 text-left transition-colors
                        text-slate-600 dark:text-slate-400 hover:text-blue-700 dark:hover:text-blue-300
                        hover:bg-slate-200 dark:hover:bg-slate-700
-                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500
+                       focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-blue-500
                        ${collapsed ? 'justify-center' : ''}`}
             style={{ minHeight: NAV_ROW }}
             title={collapsed ? `New ${t('list')}` : undefined}

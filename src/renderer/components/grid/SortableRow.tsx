@@ -163,6 +163,11 @@ export const SortableRow = React.memo(function SortableRow({
     onOpenRowMenu?.(rowId, colId, { x: rect.left, y: rect.bottom })
   }
 
+  // Selected is a solid fill on every cell and a bar on the left, so it can't be taken for the
+  // hover tint (persona study, Joe: "only a faint blue"). Solid, because the leading and frozen
+  // cells are sticky and something translucent would show what scrolls under them
+  const leadBg = isSelected ? 'bg-blue-100 dark:bg-blue-950' : 'bg-white dark:bg-slate-900'
+
   const rowStyle = useMemo<React.CSSProperties>(() => ({
     height: rowHeight,
     opacity: isArchived ? 0.5 : 1,
@@ -174,9 +179,9 @@ export const SortableRow = React.memo(function SortableRow({
       aria-rowindex={ariaRowIndex}
       aria-selected={isSelected}
       data-row-index={rowIndex}
-      className={`flex border-b border-[var(--border-grid)] hover:bg-slate-50 dark:hover:bg-slate-800/50 group
+      className={`flex border-b border-[var(--border-grid)] group
         ${isArchived ? 'opacity-50' : ''}
-        ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
+        ${isSelected ? 'bg-blue-100 dark:bg-blue-950' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}
         ${motionState ? MOTION_CLASS[motionState] : ''}
       `}
       style={rowStyle}
@@ -185,7 +190,9 @@ export const SortableRow = React.memo(function SortableRow({
       <div
         role="gridcell"
         aria-colindex={1}
-        className="grid-lead-cell flex-shrink-0 flex items-center justify-center border-b border-[var(--border-grid)] bg-white dark:bg-slate-900"
+        className={`grid-lead-cell flex-shrink-0 flex items-center justify-center border-b border-[var(--border-grid)] ${leadBg}
+          ${isSelected ? 'shadow-[inset_3px_0_0_var(--color-blue-600)]' : ''}`}
+        data-testid="row-select-cell"
         style={{
           ...HANDLE_STYLE,
           ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: 0, zIndex: 10 } : {}),
@@ -216,7 +223,7 @@ export const SortableRow = React.memo(function SortableRow({
       <div
         role="gridcell"
         aria-colindex={2}
-        className="grid-lead-cell flex-shrink-0 flex items-center justify-center border-r border-b border-[var(--border-grid)] bg-white dark:bg-slate-900"
+        className={`grid-lead-cell flex-shrink-0 flex items-center justify-center border-r border-b border-[var(--border-grid)] ${leadBg}`}
         style={{
           width: OPEN_COL_WIDTH, height: rowHeight,
           ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH, zIndex: 10 } : {}),
@@ -239,7 +246,7 @@ export const SortableRow = React.memo(function SortableRow({
       <div
         role="gridcell"
         aria-colindex={3}
-        className="grid-lead-cell flex-shrink-0 flex items-center justify-center border-r border-b border-[var(--border-grid)] bg-white dark:bg-slate-900"
+        className={`grid-lead-cell flex-shrink-0 flex items-center justify-center border-r border-b border-[var(--border-grid)] ${leadBg}`}
         style={{
           width: STAR_COL_WIDTH, height: rowHeight,
           ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + OPEN_COL_WIDTH, zIndex: 10 } : {}),
@@ -262,7 +269,7 @@ export const SortableRow = React.memo(function SortableRow({
       <div
         role="gridcell"
         aria-colindex={4}
-        className="grid-lead-cell flex-shrink-0 flex items-center justify-center border-r border-b border-[var(--border-grid)] bg-white dark:bg-slate-900"
+        className={`grid-lead-cell flex-shrink-0 flex items-center justify-center border-r border-b border-[var(--border-grid)] ${leadBg}`}
         style={{
           width: MENU_COL_WIDTH, height: rowHeight,
           ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + OPEN_COL_WIDTH + STAR_COL_WIDTH, zIndex: 10 } : {}),
@@ -286,7 +293,7 @@ export const SortableRow = React.memo(function SortableRow({
         <div
           role="gridcell"
           aria-colindex={priorityColIndex}
-          className="bg-white dark:bg-slate-900"
+          className={leadBg}
           style={frozenColumnCount > 0 ? { position: 'sticky', left: HANDLE_WIDTH + PROFILE_BTN_WIDTH, zIndex: 10 } : undefined}
         >
           <AcuityBadge
@@ -306,7 +313,7 @@ export const SortableRow = React.memo(function SortableRow({
 
       {/* Tags from the record's page, as a built-in column (G-37) */}
       {showTags && (
-        <div role="gridcell" aria-colindex={tagsColIndex} className="flex-shrink-0 flex items-center gap-1 px-2 overflow-hidden border-r border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900"
+        <div role="gridcell" aria-colindex={tagsColIndex} className={`flex-shrink-0 flex items-center gap-1 px-2 overflow-hidden border-r border-slate-300 dark:border-slate-600 ${leadBg}`}
           style={{ width: TAGS_COL_WIDTH, height: rowHeight, ...(frozenColumnCount > 0 ? { position: 'sticky' as const, left: HANDLE_WIDTH + PROFILE_BTN_WIDTH + (acuityEnabled ? ACUITY_BADGE_WIDTH : 0), zIndex: 10 } : {}) }}
           title={rowTags?.join(', ')} data-testid="row-tags-cell">
           {(rowTags ?? []).slice(0, 2).map(tag => (
@@ -352,7 +359,7 @@ export const SortableRow = React.memo(function SortableRow({
           // squeezed a date's digits under its calendar button
           ...(isEditing ? { paddingLeft: 0, paddingRight: 0 } : {}),
         }
-        let cellExtraClass = isCellFrozen ? 'bg-white dark:bg-slate-900 ' : ''
+        let cellExtraClass = isCellFrozen ? `${leadBg} ` : ''
 
         if (hasAlertStyle) {
           Object.assign(cellStyle, alertBgStyle)
@@ -363,6 +370,12 @@ export const SortableRow = React.memo(function SortableRow({
             fmtValue: (evalRow[`col_${colId}`] as string | null | undefined) ?? null,
             evalRow, rowMap, rowFormatStyle,
           })
+        }
+
+        // Selected: the fill wins over the stripes, but not over a deadline or color rule's own colour
+        if (isSelected && !hasAlertStyle && cellStyle.backgroundColor === undefined && cellStyle.background === undefined
+          && !/(^|\s)bg-(?!blue-100\b)/.test(cellExtraClass)) {
+          cellExtraClass += 'bg-blue-100! dark:bg-blue-950! '
         }
 
         // Cursor hint: editable cells get text/pointer cursor, computed/display stay default

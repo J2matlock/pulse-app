@@ -182,6 +182,21 @@ describe('GridContextMenu', () => {
     expect(move.style.minHeight).toBe('')
   })
 
+  it("names the record at the top, and in the menu's name; the Trash stays last (persona study, Mark)", () => {
+    render(<GridContextMenu {...makeProps()} />)
+    const heading = screen.getByTestId('row-menu-heading')
+    expect(heading.textContent).toBe('Test Client')
+    expect(heading.className).toMatch(/font-bold/)
+    expect(heading.className).toMatch(/text-base/)
+    // Not a stop: the arrows go from item to item
+    expect(heading.tabIndex).toBe(-1)
+    expect(heading.matches('button, [role="menuitem"]')).toBe(false)
+    const menu = screen.getByRole('menu', { name: 'Client menu for Test Client' })
+    expect(menu.firstElementChild).toBe(heading)
+    const buttons = menu.querySelectorAll('button')
+    expect(buttons[buttons.length - 1]!.textContent).toBe('Move to the Trash')
+  })
+
   it('puts "Open client" first, and it opens the record (G-31)', () => {
     const onOpenRecord = vi.fn()
     render(<GridContextMenu {...makeProps({ onOpenRecord })} />)
