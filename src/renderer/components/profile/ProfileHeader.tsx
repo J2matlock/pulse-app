@@ -746,7 +746,7 @@ export function ProfileHeader({
         {/* ── Row 4: Quick action buttons ── */}
         <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 flex-wrap">
           {onAddNote && (
-            <PrimaryButton onClick={onAddNote} icon={<Plus className="w-4 h-4" />} className="font-semibold shadow-sm">
+            <PrimaryButton onClick={onAddNote} icon={<Plus className="w-4 h-4" />} className="font-semibold shadow-sm" data-tour="add-note">
               {t('activity', { cap: true })}
             </PrimaryButton>
           )}

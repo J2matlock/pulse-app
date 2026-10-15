@@ -27,15 +27,17 @@ export const HINTS: Record<HintId, ScreenHintDef | null> = {
   caseload: null,
   grid: {
     route: /^\/grid(\/|$)/,
+    // The first record's open icon, with the card beside it rather than over the rows below
     target: '[data-tour="profile-icon"]',
-    position: 'bottom',
+    position: 'right',
     text: "This icon opens {a record}'s page: {activity:many}, deadlines and files together. Click a column name to sort.",
   },
   profile: {
     route: /^\/profile\//,
-    target: '[data-tour="case-log"]',
-    position: 'left',
-    text: 'Write what happened in the {activity} box. Pick the kind first, like a visit or a call.',
+    // The button that opens the note box, not the whole column (it sat on Scratch notes, persona study Linda)
+    target: '[data-tour="add-note"]',
+    position: 'right',
+    text: 'This button opens the {activity} box. Write what happened, and pick the kind first, like a visit or a call.',
   },
   dashboard: {
     route: /^\/dashboard$/,
