@@ -41,6 +41,8 @@ export interface EngineRule {
   businessDays: boolean
   /** ...the next one instead of the one before (business_days = 2) */
   rollForward?: boolean
+  /** The condition column's name, for "Counted because Needs check is blank"; callers that know it set it */
+  conditionColumnName?: string
 }
 
 export interface RecordContext {
@@ -617,13 +619,35 @@ function describeCondition(cond: Condition): string {
   }
 }
 
+/**
+ * A condition that fails only because its column isn't filled in ("only when
+ * Needs check is Yes" with Needs check blank). Such a deadline is still
+ * tracked: a hidden expired background check is worse than an extra colour
+ * (persona study R4). A value that's there and doesn't match still hides or pauses.
+ */
+export function conditionBlank(cond: Condition | null, values: Record<number, string | null> | undefined): boolean {
+  if (!cond || (cond.op !== 'is' && cond.op !== 'not_empty')) return false
+  return (values?.[cond.columnId] ?? '').toString().trim() === '' && !conditionHolds(cond, values)
+}
+
 /** What's due for one record under one rule. */
 export function evaluate(rule: EngineRule, ctx: RecordContext): DeadlineResult {
   if (!conditionHolds(rule.condition, ctx.values)) {
+    if (conditionBlank(rule.condition, ctx.values)) {
+      const res = evaluateHeld(rule, ctx)
+      if (res.state === 'none' && !res.upcoming) return res
+      const why = `Counted because ${rule.conditionColumnName?.trim() || 'the column it depends on'} is blank`
+      return { ...res, detail: res.detail ? `${res.detail} · ${why}` : why }
+    }
     if (rule.condition!.whenFalse === 'hide') return NONE
     const res = evaluateKind(rule, ctx)
     return { ...res, state: 'paused', daysUntil: null, detail: `Paused (${describeCondition(rule.condition!)})${res.detail ? ` · ${res.detail}` : ''}` }
   }
+  return evaluateHeld(rule, ctx)
+}
+
+/** A rule whose condition holds (or has none): the kind's date, then extensions and days off. */
+function evaluateHeld(rule: EngineRule, ctx: RecordContext): DeadlineResult {
   const res = evaluateKind(rule, ctx)
   if (ctx.extension) return applyExtension(res, ctx.extension, ctx.today)
   // "Count business days only": a due date on a day off moves to the working day before.

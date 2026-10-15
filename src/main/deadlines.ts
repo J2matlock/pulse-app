@@ -160,6 +160,11 @@ export function loadDeadlines(q: DeadlineQuery = {}): DeadlineItem[] {
       WHERE r.grid_id = ? AND ${rowState} ${rowFilter}
     `).all(rc.column_id, rc.grid_id, ...(q.rowIds ?? [])) as Array<Record<string, unknown> & { row_id: number; client_name: string | null; record_kind: string | null; own: string | null }>
     const parsed = engineRuleFrom({ ...rc, id: rc.rule_id })
+    if (parsed.condition) {
+      const cond = getDb().prepare('SELECT name FROM columns WHERE id = ?').get(parsed.condition.columnId) as { name: string } | undefined
+      if (cond) parsed.conditionColumnName = cond.name
+    }
+    rules.set(rc.rule_id, parsed)
     const history = meterHistories(meterHistoryColumn(parsed))
     const counts = parsed.kind === 'quota' && parsed.config ? quotaCounts(rc.grid_id, parsed.config as QuotaConfig) : new Map<number, number>()
     const progress = parsed.kind === 'sequence' ? progressEntries(rc.column_id) : new Map<number, Array<{ step: number; anchor: string | null }>>()
