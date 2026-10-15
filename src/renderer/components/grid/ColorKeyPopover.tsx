@@ -1,18 +1,21 @@
 /**
  * "What do the colors mean?" (B-04, A-11): the colors and shapes of the
- * deadline rules in use, where the colored cells are. The clock in a date
- * column's header opens it for that column's rule; the list's footer can open
- * it for every rule the shown columns use.
+ * deadline rules in use, where the colored cells are. The one color key: the
+ * clock in a date column's header opens it for that column's rule, the list's
+ * footer for every rule the shown columns use, and the dashboard's link for
+ * the rules its deadlines use (with a line about the row stripes).
  */
 import React, { useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
+import { IconButton } from '../ui/Button'
 import type { Column, ParsedAlertRule } from '../../../shared/types'
 import { takesDeadlineRule } from '../../../shared/types'
 import { RuleColorKey } from '../alerts/RuleColorKey'
 import { useMenuKeys } from '../../hooks/useMenuKeys'
 
-function ruleIdFromConfig(config: string | null | undefined): number | undefined {
+/** The deadline rule a column's settings name, if any */
+export function ruleIdFromConfig(config: string | null | undefined): number | undefined {
   try {
     const id = (JSON.parse(config || '{}') as { alert_rule_id?: unknown }).alert_rule_id
     return typeof id === 'number' ? id : undefined
@@ -65,18 +68,25 @@ export interface ColorKeyPopoverProps {
   columnNames?: Map<number, string[]>
   /** The button's accessible name, and its tooltip */
   label: string
-  /** Classes for the button */
+  /** Classes for the button (added to the link look when triggerVariant is 'link') */
   buttonClassName?: string
   /** Where the pop-up opens, relative to the button */
   placement?: 'below' | 'above'
+  /** A sentence before the rules, e.g. what the dashboard's row stripes mean */
+  intro?: string
+  /** 'icon' (default): the caller styles the button and its label is the tooltip; 'link': underlined accent words */
+  triggerVariant?: 'icon' | 'link'
   /** What the button shows */
   children: React.ReactNode
+  'data-testid'?: string
 }
+
+const LINK_CLASS = 'hit-44 inline-flex items-center gap-1 text-base text-blue-700 dark:text-blue-300 underline hover:no-underline rounded-lg focus:outline-hidden focus-visible:ring-3 focus-visible:ring-accent'
 
 const POPOVER_WIDTH = 340
 
 /** A button that opens the color key in a pop-up beside it */
-export function ColorKeyPopover({ rules, columnNames, label, buttonClassName, placement = 'below', children }: ColorKeyPopoverProps): React.ReactElement {
+export function ColorKeyPopover({ rules, columnNames, label, buttonClassName, placement = 'below', intro, triggerVariant = 'icon', children, 'data-testid': testId }: ColorKeyPopoverProps): React.ReactElement {
   const [open, setOpen] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -97,9 +107,11 @@ export function ColorKeyPopover({ rules, columnNames, label, buttonClassName, pl
       <button
         ref={buttonRef}
         type="button"
-        className={buttonClassName}
+        className={triggerVariant === 'link' ? `${LINK_CLASS} ${buttonClassName ?? ''}` : buttonClassName}
         aria-label={label}
-        title={label}
+        // A link shows its words; an icon gets them as a tooltip
+        title={triggerVariant === 'icon' ? label : undefined}
+        data-testid={testId}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={e => { e.stopPropagation(); setOpen(v => !v) }}
@@ -120,11 +132,9 @@ export function ColorKeyPopover({ rules, columnNames, label, buttonClassName, pl
           >
             <div className="flex items-start justify-between gap-2 mb-2">
               <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">What the colors mean</h3>
-              <button type="button" className="hit-44 p-1 rounded-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
-                aria-label="Close" onClick={() => setOpen(false)}>
-                <X className="w-4 h-4" />
-              </button>
+              <IconButton label="Close" size="compact" icon={<X className="w-4 h-4" />} onClick={() => setOpen(false)} className="-mr-2 -mt-2" />
             </div>
+            {intro && <p className="mb-3 text-base text-slate-700 dark:text-slate-300">{intro}</p>}
             {rules.length > 0
               ? <DeadlineColorKey rules={rules} columnNames={columnNames} />
               : <p className="text-base text-slate-600 dark:text-slate-300">No date column here has a deadline rule yet.</p>}

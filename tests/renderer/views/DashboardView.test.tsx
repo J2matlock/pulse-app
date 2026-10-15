@@ -260,15 +260,17 @@ describe('DashboardView — interactions', () => {
     expect(screen.getByRole('button', { name: /Customize/ })).toBeDefined()
   })
 
-  it('the color guide opens from a link and starts open until closed once (D-21)', async () => {
+  it('the color key is a pop-up from a link and no longer opens on its own (D-21, Q5)', async () => {
     render(<MemoryRouter><DashboardView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.queryByText('Deadline Colors')).toBeNull()
     const link = screen.getByRole('button', { name: 'What do the colors mean?' })
-    expect(link.getAttribute('aria-expanded')).toBe('true')
-    fireEvent.click(screen.getByRole('button', { name: 'Got it' }))
     expect(link.getAttribute('aria-expanded')).toBe('false')
-    expect(mockSafeInvoke).toHaveBeenCalledWith('settings:update', 'dashboard_color_guide_seen', '1')
+    expect(screen.queryByRole('dialog', { name: 'What the colors mean' })).toBeNull()
+    expect(mockSafeInvoke).not.toHaveBeenCalledWith('settings:get', 'dashboard_color_guide_seen')
+    fireEvent.click(link)
+    const key = screen.getByRole('dialog', { name: 'What the colors mean' })
+    expect(key.textContent).toContain('The stripe on the left of each row')
+    expect(screen.queryByRole('button', { name: 'Got it' })).toBeNull()
   })
 
   it('renders deadline rows from IPC data on priority tab', async () => {

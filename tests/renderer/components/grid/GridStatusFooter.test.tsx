@@ -163,6 +163,9 @@ describe('GridStatusFooter', () => {
     expect(panel.textContent).toContain('Annual review')
     expect(panel.textContent).toContain('Coming up')
     expect(panel.textContent).not.toContain('Not used here')
+    // The shared key: names the columns using each rule, drawn above the page
+    expect(panel.textContent).toContain('Review due')
+    expect(panel.parentElement).toBe(document.body)
   })
 
   it('has no color key when no shown column has a deadline rule', () => {

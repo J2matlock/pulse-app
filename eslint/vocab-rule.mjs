@@ -20,7 +20,7 @@ const GENERIC = String.raw`\b(records?|contacts|(a|this|that|each|every|new|sele
 const MESSAGE = 'Use the vocabulary layer (useVocab) for record, list and note words.'
 /** Props whose text people read; the generic words are checked only in the first four (see D-033) */
 const ATTR = String.raw`^(placeholder|title|aria-label|label)$`
-const ATTR_ALL = String.raw`^(placeholder|title|aria-label|label|content|message|description|confirmLabel|emptyText)$`
+const ATTR_ALL = String.raw`^(placeholder|title|aria-label|label|content|message|description|confirmLabel|emptyText|intro|menuLabel)$`
 
 /** Plain strings and template-literal text in labels and toast() calls */
 const inLabelsAndToasts = (words, attr = ATTR) => [
