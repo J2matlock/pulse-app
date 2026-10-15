@@ -35,8 +35,8 @@ export const FIRST_LOOK_TEXT = {
   plain: 'Red means overdue.',
 } as const
 
-/** How long the list and its colours are waited for before the first look gives up */
-export const FIRST_LOOK_WAIT_MS = 4000
+/** How long the list and its colours are waited for before the first look gives up (a slow laptop right after setup) */
+export const FIRST_LOOK_WAIT_MS = 6000
 const POLL_MS = 200
 const CARD_WIDTH = 420
 
