@@ -13,6 +13,7 @@ const mockDialogOpen = vi.fn(async () => ({ canceled: true, filePaths: [] }))
 const mockDialogSave = vi.fn(async () => ({ canceled: true, filePath: undefined }))
 const mockShellOpenExternal = vi.fn(async () => {})
 const mockShellOpenPath = vi.fn(async (_p: string) => '')
+const mockShowItemInFolder = vi.fn((_p: string) => {})
 const mockReloadIgnoringCache = vi.fn()
 const mockAppRelaunch = vi.fn()
 const mockAppExit = vi.fn()
@@ -52,6 +53,7 @@ vi.mock('electron', () => ({
   },
   shell: {
     openPath: mockShellOpenPath,
+    showItemInFolder: mockShowItemInFolder,
     openExternal: mockShellOpenExternal,
   },
   clipboard: {
@@ -240,6 +242,45 @@ describe('APP_OPEN_LICENSE', () => {
     const r = await invoke(IPC.APP_OPEN_LICENSE, 'license')
     expect(r.ok).toBe(false)
     expect(r.error).toMatch(/couldn't open the license file/)
+  })
+})
+
+describe('APP_SHOW_IN_FOLDER ("Backup saved to … · Show")', () => {
+  const dir = '/tmp/pulse-test-app/show-in-folder'
+  const saved = `${dir}/pulse-backup-2026-10-15.pulse-backup`
+  beforeEach(async () => {
+    mockShowItemInFolder.mockClear()
+    const { mkdirSync, writeFileSync } = await import('fs')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(saved, 'x')
+    const { clearSavedFiles } = await import('../src/main/saved-files')
+    clearSavedFiles()
+  })
+
+  it('shows a file Pulse saved this session', async () => {
+    const { rememberSavedFile } = await import('../src/main/saved-files')
+    rememberSavedFile(saved)
+    expect(await invoke(IPC.APP_SHOW_IN_FOLDER, saved)).toEqual({ ok: true, data: true })
+    expect(mockShowItemInFolder).toHaveBeenCalledWith(saved)
+  })
+
+  it('refuses any path Pulse did not save itself, even an existing one', async () => {
+    for (const p of [saved, '/etc/passwd', '', 42, null, `${dir}/../show-in-folder/other.pulse-backup`]) {
+      const r = await invoke(IPC.APP_SHOW_IN_FOLDER, p)
+      expect(r).toEqual({ ok: false, error: 'Pulse can only show files it saved itself.' })
+    }
+    expect(mockShowItemInFolder).not.toHaveBeenCalled()
+  })
+
+  it('says so when the saved file has since been moved', async () => {
+    const { rememberSavedFile } = await import('../src/main/saved-files')
+    const { rmSync } = await import('fs')
+    rememberSavedFile(saved)
+    rmSync(saved)
+    const r = await invoke(IPC.APP_SHOW_IN_FOLDER, saved)
+    expect(r.ok).toBe(false)
+    expect(r.error).toMatch(/isn't there any more/)
+    expect(mockShowItemInFolder).not.toHaveBeenCalled()
   })
 })
 

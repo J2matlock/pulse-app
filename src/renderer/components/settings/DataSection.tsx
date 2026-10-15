@@ -9,6 +9,8 @@ import { pulseEvents } from '../../events'
 import { useGridStore } from '../../stores/gridStore'
 import { RemoveSampleDataDialog, sampleDataChanged } from '../shared/SampleDataBanner'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
+import { showBackupSaved } from '../shared/BackupSavedToast'
+import { savedBackupPath } from '../../utils/saveBackupArchive'
 import { useVocab } from '../../hooks/useVocab'
 import { FilesStorageSection } from './FilesStorageSection'
 import { MoreSettings } from './MoreSettings'
@@ -104,7 +106,7 @@ export function DataSection(): React.ReactElement {
       })
       if (!saveRes.ok || saveRes.data.canceled || !saveRes.data.filePath) return
       const res = await safeInvoke(IPC.BACKUP_MANUAL_CREATE, saveRes.data.filePath)
-      if (res.ok) toast.success('Backup saved. Keep it somewhere safe.')
+      if (res.ok) showBackupSaved(savedBackupPath(res.data, saveRes.data.filePath), 'Keep it somewhere safe.')
       else toast.error(friendlyError(res.error, 'The backup couldn\'t be saved. Try again, or choose a different folder.'))
     } finally {
       setBackingUp(false)

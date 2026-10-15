@@ -19,6 +19,7 @@ import { useVocab } from '../../hooks/useVocab'
 import { useBackupStatusStore } from '../../stores/backupStatusStore'
 import { friendlyError } from '../../utils/friendlyError'
 import { saveBackupArchive } from '../../utils/saveBackupArchive'
+import { showBackupSaved } from '../shared/BackupSavedToast'
 import { PrimaryButton, SecondaryButton } from '../ui/Button'
 import { EmptyState } from '../shared/EmptyState'
 
@@ -134,7 +135,7 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
     try {
       const res = await saveBackupArchive()
       if (res.status === 'saved') {
-        toast.success('Backup saved.')
+        showBackupSaved(res.path)
         await refreshOffsite()
       } else if (res.status === 'failed') {
         toast.error(friendlyError(res.error, 'The backup couldn\'t be saved. Try again, or choose a different folder.'))

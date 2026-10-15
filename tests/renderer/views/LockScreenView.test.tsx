@@ -136,6 +136,26 @@ describe('LockScreenView', () => {
     expect(key.value).toBe('ABCD-1234-EFGH-5678-IJKL-9012-MNOP')
   })
 
+  it('says a part of a key is too short, rather than "didn\'t match", and doesn\'t say "during setup" (persona study #19)', async () => {
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'auth:has-recovery-key') return Promise.resolve({ ok: true, data: true })
+      if (channel === 'auth:verify-recovery-key') return Promise.resolve({ ok: true, data: false })
+      if (channel === 'auth:get-hint') return Promise.resolve({ ok: true, data: '' })
+      return Promise.resolve({ ok: false })
+    })
+    render(<LockScreenView />)
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('auth:has-recovery-key'))
+    fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }))
+    expect(screen.getByText(/Enter your 28-character recovery key \(from the card or note you saved\)/)).toBeTruthy()
+    expect(screen.queryByText(/during setup/)).toBeNull()
+    const key = screen.getByLabelText('Recovery key') as HTMLInputElement
+    fireEvent.change(key, { target: { value: 'abcd 1234 efgh 5678' } })
+    fireEvent.submit(key.closest('form')!)
+    expect((await screen.findByRole('alert')).textContent).toBe('That key is too short. It has 28 letters and numbers, in 7 groups of 4.')
+    expect(mockInvoke).not.toHaveBeenCalledWith('auth:verify-recovery-key', expect.anything())
+    expect(key.value).toBe('ABCD-1234-EFGH-5678')
+  })
+
   it('without a recovery key, explains honestly and offers no restore that cannot work (audit F-29)', async () => {
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === 'auth:get-hint') return Promise.resolve({ ok: true, data: 'my dog' })

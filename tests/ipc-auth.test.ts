@@ -109,6 +109,7 @@ vi.mock('../src/main/auth', () => ({
   lockApp: () => mockLockApp(),
   getPasswordHint: () => 'my pet name',
   hasRecoveryKey: () => true,
+  recoveryKeyWasUsed: () => true,
   setStoredDbPath: () => {},
   normalizePassword: (pw: string) => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -300,6 +301,12 @@ describe('AUTH_VERIFY_RECOVERY_KEY', () => {
     const r = await invoke(IPC.AUTH_VERIFY_RECOVERY_KEY, 'VALID-KEY') as any
     expect(r).toEqual({ ok: false, error: 'KEYRING_UNAVAILABLE' })
     expect(mockOpenDatabase).not.toHaveBeenCalled()
+  })
+})
+
+describe('AUTH_RECOVERY_KEY_USED', () => {
+  it('says whether the current recovery key has unlocked Pulse (Settings suggests a new one)', async () => {
+    expect(await invoke(IPC.AUTH_RECOVERY_KEY_USED)).toEqual({ ok: true, data: true })
   })
 })
 

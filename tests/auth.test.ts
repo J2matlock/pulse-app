@@ -65,6 +65,7 @@ import {
   getPasswordHint,
   isPasswordSetup,
   hasRecoveryKey,
+  recoveryKeyWasUsed,
   resetPasswordAfterRecovery,
   getKeyEnvelope,
   unwrapKeyEnvelope,
@@ -120,6 +121,22 @@ describe('Auth', () => {
     lockApp()
     await verifyAndUnlockRecovery(recoveryKey)
     expect(getDbKey().toString('hex')).toBe(setupKeyHex)
+  })
+
+  it('notes that the recovery key was used, until a new key is made or it is revoked (persona study #19)', async () => {
+    await setupPassword(TEST_PWD, TEST_HINT, TEST_DB_PATH)
+    const recoveryKey = await generateRecoveryKey()
+    expect(recoveryKeyWasUsed()).toBe(false)
+    lockApp()
+    await verifyAndUnlockRecovery(recoveryKey)
+    expect(recoveryKeyWasUsed()).toBe(true)
+    const next = await generateRecoveryKey()
+    expect(recoveryKeyWasUsed()).toBe(false)
+    lockApp()
+    await verifyAndUnlockRecovery(next)
+    expect(recoveryKeyWasUsed()).toBe(true)
+    await revokeRecoveryKey()
+    expect(recoveryKeyWasUsed()).toBe(false)
   })
 
   it('changePassword: new password works, old fails', async () => {

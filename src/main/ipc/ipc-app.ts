@@ -10,7 +10,8 @@ import Store from 'electron-store'
 import { privateStoreOptions } from '../private-files'
 import { IPC } from '../../shared/ipc-channels'
 import { logger } from '../logger'
-import { secureWrap, logNonFatal, ok, fail, rememberUserChosenPaths } from './ipc-utils'
+import { secureWrap, logNonFatal, ok, fail, rememberUserChosenPaths, assertSafePath } from './ipc-utils'
+import { wasSavedByPulse } from '../saved-files'
 import { resolveDatabasePath, closeDatabase, getDb, getPortableDataDir, getMigrationFailure, clearMigrationFailureFlag } from '../database'
 import { verifyAndUnlock, lockApp } from '../auth'
 import { stopScheduledBackup } from '../index'
@@ -99,6 +100,18 @@ export function registerAppHandlers(): void {
       logNonFatal('ipc-app', 'APP_OPEN_LICENSE openPath', error)
       return fail("We couldn't open the license file. Your computer may not have an app for text files.")
     }
+    return ok(true)
+  })
+
+  // "Backup saved to USB · Show": only a file Pulse wrote this session, never a
+  // path the renderer made up, and still through the path checks
+  secureWrap(IPC.APP_SHOW_IN_FOLDER, 'ipc-app', (_e, filePath: unknown) => {
+    if (typeof filePath !== 'string' || filePath.length === 0 || filePath.length > 4096 || !wasSavedByPulse(filePath)) {
+      return fail('Pulse can only show files it saved itself.')
+    }
+    assertSafePath(filePath)
+    if (!existsSync(filePath)) return fail("That file isn't there any more. It may have been moved or deleted.")
+    shell.showItemInFolder(filePath)
     return ok(true)
   })
 

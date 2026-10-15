@@ -31,6 +31,24 @@ describe('SecurityCheckup', () => {
     expect(screen.getByText('Security checkup: 1 of 4')).toBeTruthy()
   })
 
+  it('after the recovery key was used, says so and offers to make a new one (persona study #19)', async () => {
+    autoLock = 15
+    const onMake = vi.fn()
+    render(<SecurityCheckup hasRecovery={true} recoveryUsed onMakeRecoveryKey={onMake} />)
+    expect(await screen.findByText('Your recovery key was used')).toBeTruthy()
+    expect(screen.getByText('Make a new one, so a lost password can be recovered again.')).toBeTruthy()
+    expect(screen.queryByText('Recovery key saved')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Make a new recovery key' }))
+    expect(onMake).toHaveBeenCalled()
+  })
+
+  it('a used key matters only while there is a key', async () => {
+    autoLock = 15
+    render(<SecurityCheckup hasRecovery={false} recoveryUsed />)
+    expect(await screen.findByText('No recovery key yet')).toBeTruthy()
+    expect(screen.queryByText('Your recovery key was used')).toBeNull()
+  })
+
   // E-01: every line reads as its state, so "Recovery key created" never sits beside a warning triangle
   it('says "No recovery key yet" when there is none and "Recovery key saved" when there is', async () => {
     autoLock = 15

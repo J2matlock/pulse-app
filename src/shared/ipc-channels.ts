@@ -478,6 +478,12 @@ export const IPC = {
 
   // Logging
   LOG_FORWARD: 'log:forward',
+
+  // Show a file Pulse saved (a backup) in the system file manager
+  APP_SHOW_IN_FOLDER: 'app:show-in-folder',
+
+  // The current recovery key has unlocked Pulse once (Settings suggests a new one)
+  AUTH_RECOVERY_KEY_USED: 'auth:recovery-key-used',
 } as const
 
 export type IPCChannel = typeof IPC[keyof typeof IPC]

@@ -12,6 +12,7 @@ import { FieldError, fieldErrorProps } from '../shared/FieldError'
 import { checkNewPassword } from '../../../shared/passwordPolicy'
 import { modHelp } from '../../utils/keys'
 import { saveBackupArchive } from '../../utils/saveBackupArchive'
+import { showBackupSaved } from '../shared/BackupSavedToast'
 
 /** What "Also re-encrypt my data" does, in plain words (P-001) */
 const REENCRYPT_HELP =
@@ -32,6 +33,8 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
   const [pwSaving, setPwSaving] = useState(false)
   const currentPwRef = useRef<HTMLInputElement>(null)
   const [hasRecovery, setHasRecovery] = useState<boolean | null>(null)
+  // The key unlocked Pulse after a forgotten password, so suggest a new one (persona study #19)
+  const [recoveryUsed, setRecoveryUsed] = useState(false)
   const [showRecoveryKeyModal, setShowRecoveryKeyModal] = useState(false)
   const [generatedRecoveryKey, setGeneratedRecoveryKey] = useState('')
   // Recovery-key changes need the current password (someone at an unlocked
@@ -69,7 +72,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
     setSavingBackup(true)
     try {
       const res = await saveBackupArchive()
-      if (res.status === 'saved') { toast.success('Backup saved.'); setReencrypted(false); setRecoveryRemoved(false) }
+      if (res.status === 'saved') { showBackupSaved(res.path); setReencrypted(false); setRecoveryRemoved(false) }
       else if (res.status === 'failed') toast.error(friendlyError(res.error, "The backup couldn't be saved. Try again, or choose a different folder."))
     } finally {
       setSavingBackup(false)
@@ -96,6 +99,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
         if (!res.ok) { setKeyActionError(res.error === 'Incorrect password' ? 'That password is incorrect.' : friendlyError(res.error, "We couldn't turn off the recovery key — try again")); return }
         closeKeyAction()
         setHasRecovery(false)
+        setRecoveryUsed(false)
         if (reencrypt) setReencrypted(true)
         toast.success(reencrypt ? 'Recovery key revoked and your data re-encrypted.' : 'Recovery key revoked.')
       }
@@ -107,11 +111,17 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
   // Load recovery key status
   useEffect(() => {
     async function loadRecoveryStatus() {
-      const res = await safeInvoke(IPC.AUTH_HAS_RECOVERY_KEY)
+      const [res, used] = await Promise.all([safeInvoke(IPC.AUTH_HAS_RECOVERY_KEY), safeInvoke(IPC.AUTH_RECOVERY_KEY_USED)])
       if (res.ok) setHasRecovery(res.data)
+      if (used.ok) setRecoveryUsed(used.data === true)
     }
     loadRecoveryStatus()
   }, [])
+
+  function makeNewRecoveryKey() {
+    setPendingKeyAction('generate')
+    document.getElementById(CHECKUP_TARGETS.recoveryKey)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }
 
   async function handleAutoLockChange(minutes: number) {
     useSettingsStore.setState({ autoLockMinutes: minutes })
@@ -181,7 +191,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
   return (
     <>
       <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Security</h2>
-      <SecurityCheckup hasRecovery={hasRecovery} onGoToBackup={onGoToSection ? () => onGoToSection('backup') : undefined} />
+      <SecurityCheckup hasRecovery={hasRecovery} recoveryUsed={recoveryUsed} onMakeRecoveryKey={makeNewRecoveryKey} onGoToBackup={onGoToSection ? () => onGoToSection('backup') : undefined} />
 
       <div className="space-y-2">
         <label htmlFor="settings-auto-lock" className="block text-base font-medium text-slate-700 dark:text-slate-300">
@@ -317,7 +327,9 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
           <>
             <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg">
               <div className="w-2 h-2 bg-green-500 rounded-full" />
-              <span className="text-sm font-medium text-green-700 dark:text-green-300">Recovery key active</span>
+              <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                {recoveryUsed ? 'Recovery key active, and it has been used once. Make a new one.' : 'Recovery key active'}
+              </span>
             </div>
             <div className="flex gap-3">
               <button
@@ -326,7 +338,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
                 className="btn-secondary"
                 style={{ minHeight: 44 }}
               >
-                Regenerate
+                {recoveryUsed ? 'Make a new recovery key' : 'Regenerate'}
               </button>
               <button
                 type="button"
@@ -423,6 +435,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
           onClose={() => {
             setShowRecoveryKeyModal(false)
             setHasRecovery(true)
+            setRecoveryUsed(false)
           }}
         />
       )}

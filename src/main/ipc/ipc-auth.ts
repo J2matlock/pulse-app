@@ -26,6 +26,7 @@ import {
   lockApp,
   getPasswordHint,
   hasRecoveryKey,
+  recoveryKeyWasUsed,
   getLoginLockoutRemaining,
   setStoredDbPath,
   areCredentialsUnreadable
@@ -76,6 +77,7 @@ export function registerAuthHandlers(): void {
   secureWrap(IPC.AUTH_GET_HINT, 'ipc-auth', () => ok(getPasswordHint()))
 
   secureWrap(IPC.AUTH_HAS_RECOVERY_KEY, 'ipc-auth', () => ok(hasRecoveryKey()))
+  secureWrap(IPC.AUTH_RECOVERY_KEY_USED, 'ipc-auth', () => ok(recoveryKeyWasUsed()))
 
   // Seconds left in a wrong-password lockout, so the lock screen can count down (audit F-27)
   secureWrap(IPC.AUTH_LOCKOUT_REMAINING, 'ipc-auth', () => ok(getLoginLockoutRemaining()))

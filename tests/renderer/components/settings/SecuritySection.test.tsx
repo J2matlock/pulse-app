@@ -158,6 +158,23 @@ describe('SecuritySection — recovery key (F-032)', () => {
   })
 })
 
+describe('SecuritySection — a used recovery key (persona study #19)', () => {
+  beforeEach(() => {
+    mockInvoke.mockReset()
+    mockInvoke.mockImplementation((channel: string) => Promise.resolve(
+      channel === 'auth:has-recovery-key' || channel === 'auth:recovery-key-used' ? { ok: true, data: true } : { ok: false, error: 'nope' }))
+  })
+
+  it('nudges for a new key, and the checkup button opens the new-key form', async () => {
+    render(<SecuritySection saveSetting={vi.fn().mockResolvedValue(undefined)} />)
+    expect(await screen.findByText('Your recovery key was used')).toBeTruthy()
+    expect(screen.getByText(/it has been used once\. Make a new one\./)).toBeTruthy()
+    // The checkup's button (the recovery key section has one too)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Make a new recovery key' })[0]!)
+    expect(await screen.findByText('Create a new recovery key?')).toBeTruthy()
+  })
+})
+
 describe('SecuritySection — also re-encrypt my data (P-001)', () => {
   beforeEach(() => {
     mockInvoke.mockReset()

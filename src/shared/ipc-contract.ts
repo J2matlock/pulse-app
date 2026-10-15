@@ -690,6 +690,9 @@ export interface IPCContract {
   'app:flush-done':        { args: [];                                                         return: null }
   'log:forward':           { args: [payload: { level: 'error' | 'warn' | 'info'; component: string; msg: string; data?: unknown }]; return: null }
   'cell-history:series':   { args: [rowId: number, columnIds: number[]];                       return: Record<number, Array<{ at: string; value: number }>> }
+  /** Only a file Pulse itself saved this session (a backup) */
+  'app:show-in-folder':    { args: [filePath: string];                                         return: boolean }
+  'auth:recovery-key-used': { args: [];                                                        return: boolean }
 }
 
 /** Union of all typed channel names */

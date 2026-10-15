@@ -47,6 +47,7 @@ import { atomicWriteFileAsync } from '../export-shared'
 import { describeRestoreError } from '../restore-errors'
 import { fileWord, safeFileName } from '../../shared/fileName'
 import { deleteKeepingCopy } from '../library-restore'
+import { rememberSavedFile } from '../saved-files'
 
 /** Row and column choices for an export: whole positive ids, and not absurdly many */
 function validIdList(v: unknown): v is number[] {
@@ -157,7 +158,10 @@ export function registerExportHandlers(): void {
   define(IPC.BACKUP_MANUAL_CREATE, [z.custom<string>()], async (destPath) => {
     assertSafePath(destPath)
     try {
-      return ok(await runManualBackup(destPath))
+      const result = await runManualBackup(destPath)
+      // So "Backup saved to … · Show" can reveal this file, and only files like it
+      rememberSavedFile(result.destPath)
+      return ok(result)
     } catch (err) {
       logger.error('ipc-export', 'Manual backup failed', err)
       return fail(describeBackupError(err))

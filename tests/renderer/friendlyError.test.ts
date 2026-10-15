@@ -91,6 +91,9 @@ const PLAIN = new Set<string>([
   ...MUST_SHOW,
   'READ_ONLY', // friendlyError turns it into its own sentence
   "That link can't be opened from here. Pulse only opens its own https pages.", // F-035
+  // "Backup saved to … · Show" (persona study #19)
+  'Pulse can only show files it saved itself.',
+  "That file isn't there any more. It may have been moved or deleted.",
   '${msg} Nothing was erased.',
   "${n} new file${n === 1 ? ' was' : 's were'} added, but the ones already attached weren't added again. ${again.error}",
   "${word('activity', { cap: true })} can't be empty. To remove one, use Void.",
