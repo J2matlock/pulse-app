@@ -15,6 +15,7 @@ import { CellDisplay } from '../grid/CellDisplay'
 import { CellEditor } from '../grid/CellEditor'
 import { Sparkline, NumberHistoryDialog, type SeriesPoint } from './NumberHistory'
 import { isEmptyCell } from '../../utils/emptyCell'
+import { shortDate, ymdLocalDate } from '../../../shared/dates'
 
 interface Props {
   row: GridRow
@@ -130,6 +131,17 @@ function SortableCard({ col, value, row, allColumns, alertRules, series, onSave 
   )
 }
 
+/**
+ * A date column's value the way the rest of the record page shows dates ("Sep 25, 2026",
+ * like the deadline panel and notes), not the list's 09/25/2026 (C-30). Null when it
+ * isn't a calendar date, so the list's own display handles it.
+ */
+function recordPageDate(rawValue: string | null): string | null {
+  if (!rawValue || !/^\d{4}-\d{2}-\d{2}/.test(rawValue)) return null
+  const d = ymdLocalDate(rawValue.slice(0, 10))
+  return isNaN(d.getTime()) ? null : shortDate(d)
+}
+
 /** The value as the list shows it (money, tags, status colors, age…), plus a deadline badge. */
 function renderValue(col: Column, rawValue: string | null, row: GridRow, allColumns: Column[], alertRules: ParsedAlertRule[], editable: boolean) {
   // Worked-out columns (age, days, deadline, links) have a value even with an empty cell;
@@ -138,9 +150,14 @@ function renderValue(col: Column, rawValue: string | null, row: GridRow, allColu
     return <span className="text-slate-500 dark:text-slate-400 italic text-base">{editable ? 'Add…' : '—'}</span>
   }
   const badge = deadlineBadge(col, rawValue, row, alertRules)
+  const fullDate = col.column_type === 'date' ? recordPageDate(rawValue) : null
   return (
     <span className="flex items-center gap-2 min-w-0 text-base text-slate-900 dark:text-slate-100">
-      <span className="min-w-0"><CellDisplay column={col} value={rawValue} row={row} allColumns={allColumns} parsedConfig={getColumnConfig(col)} /></span>
+      <span className="min-w-0">
+        {fullDate !== null
+          ? <span className="tabular-nums">{fullDate}</span>
+          : <CellDisplay column={col} value={rawValue} row={row} allColumns={allColumns} parsedConfig={getColumnConfig(col)} />}
+      </span>
       {badge && (
         <span className={`px-2 py-0.5 rounded-full text-base font-medium ${badge.bg} ${badge.text}`}>{badge.label}</span>
       )}

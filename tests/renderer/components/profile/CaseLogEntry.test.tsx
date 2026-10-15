@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import React from 'react'
 
-import { CaseLogEntry } from '../../../../src/renderer/components/profile/CaseLogEntry'
+import { CaseLogEntry, formatDate } from '../../../../src/renderer/components/profile/CaseLogEntry'
 import type { CaseLogEntry as CaseLogEntryType } from '../../../../src/shared/types'
 import { localDateString } from '../../../../src/shared/dates'
 import { setWords } from '../../vocabFixture'
@@ -176,5 +176,20 @@ describe('CaseLogEntry', () => {
     })
     render(<CaseLogEntry entry={entry} {...handlers} />)
     expect(screen.getByText(/overdue/)).toBeTruthy()
+  })
+})
+
+describe('formatDate (C-30)', () => {
+  it('says Sep 25, 2026 whatever the computer\'s language, like the deadline panel', () => {
+    const real = Date.prototype.toLocaleDateString
+    // A UK computer: the default locale would say "25 Sept 2026"
+    const spy = vi.spyOn(Date.prototype, 'toLocaleDateString').mockImplementation(function (this: Date, locales, options) {
+      return real.call(this, locales ?? 'en-GB', options)
+    })
+    try {
+      expect(formatDate('2026-09-25')).toBe('Sep 25, 2026')
+    } finally {
+      spy.mockRestore()
+    }
   })
 })
