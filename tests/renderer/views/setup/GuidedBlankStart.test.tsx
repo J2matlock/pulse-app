@@ -76,20 +76,47 @@ describe('GuidedBlankStart', () => {
     expect(mockInvoke).toHaveBeenCalledWith(IPC.WORKSPACE_UPDATE, { vocab: { record: term }, features: { checklists: true, tasks: true, timeTracking: false, mileage: true } })
   })
 
-  it('clicking straight through makes a usable list with neutral words, saved as soon as the list exists', async () => {
+  it('clicking straight through makes a usable list with the kind\'s words, saved as soon as the list exists (UX-A-19)', async () => {
     const onProgress = vi.fn()
     render(<GuidedBlankStart onBack={vi.fn()} onFinished={onFinished} onProgress={onProgress} />)
-    next(); next(); next()
+    expect(screen.getByText('Pick one or type your own:')).toBeTruthy()
+    next(); next()
+    // No name typed, People chosen: "person / people", not "record"
+    expect((screen.getByLabelText('One') as HTMLInputElement).value).toBe('person')
+    expect((screen.getByLabelText('More than one') as HTMLInputElement).value).toBe('people')
+    next()
     fireEvent.click(screen.getByRole('button', { name: 'Just the name column' }))
     await screen.findByText('A few quick questions')
     expect(mockInvoke).toHaveBeenCalledWith(IPC.ONBOARDING_SETUP_GRID, { gridName: 'My list', columns: [{ name: 'Name', type: 'text', isNameCol: true }] })
     expect(mockInvoke).not.toHaveBeenCalledWith(IPC.ONBOARDING_DATE_RULES, expect.anything(), expect.anything())
     // The words are kept before the last questions, in case setup is interrupted
-    const term = { one: 'record', many: 'records', article: 'a' }
+    const term = { one: 'person', many: 'people', article: 'a' }
     expect(mockInvoke).toHaveBeenCalledWith(IPC.WORKSPACE_UPDATE, { vocab: { record: term } })
-    expect(onProgress).toHaveBeenCalledWith({ gridId: 5, name: 'My list', kind: 'person', one: 'record', many: 'records' })
+    expect(onProgress).toHaveBeenCalledWith({ gridId: 5, name: 'My list', kind: 'person', one: 'person', many: 'people' })
     next(/Finish/)
     await waitFor(() => expect(onFinished).toHaveBeenCalled())
+  })
+
+  it('a list name that says nothing about its rows ("My caseload") falls back to the kind\'s words', () => {
+    render(<GuidedBlankStart onBack={vi.fn()} onFinished={onFinished} />)
+    fireEvent.change(screen.getByLabelText('List name'), { target: { value: 'My caseload' } })
+    next()
+    fireEvent.click(screen.getByRole('radio', { name: /Things/ }))
+    next()
+    expect((screen.getByLabelText('One') as HTMLInputElement).value).toBe('item')
+    expect((screen.getByLabelText('More than one') as HTMLInputElement).value).toBe('items')
+  })
+
+  it('the date step says why there is no Back (UX-A-20)', async () => {
+    render(<GuidedBlankStart onBack={vi.fn()} onFinished={onFinished} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Vehicles' }))
+    next()
+    fireEvent.click(screen.getByRole('radio', { name: /Things/ }))
+    next(); next()
+    next(/Create list/)
+    await screen.findByText(/Do any of these dates repeat/)
+    expect(screen.queryByRole('button', { name: /Back/ })).toBeNull()
+    expect(screen.getByText(/Your list is made/)).toBeTruthy()
   })
 
   it('"Continue" keeps what is on screen: the typed name and the ticked details (audit F-20)', async () => {

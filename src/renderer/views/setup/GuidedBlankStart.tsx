@@ -12,7 +12,7 @@ import { IPC } from '../../../shared/ipc-channels'
 import type { DateRuleAnswer } from '../../../shared/ipc-contract'
 import type { ColumnType, RecordKind } from '../../../shared/types'
 import { guessArticle } from '../../../shared/vocab'
-import { ownWordsProblem, wordsFromListName } from '../../../shared/listWords'
+import { NEUTRAL_WORDS, ownWordsProblem, wordsFromListName } from '../../../shared/listWords'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { DateRepeatPicker, suggestRepeat, type DateAnswer } from './DateRepeatPicker'
@@ -61,6 +61,13 @@ export const SUGGESTIONS: Record<RecordKind, Suggestion[]> = {
   ],
 }
 
+/** With no list name to go on, the kind chosen one step earlier says more than "record" (UX-A-19) */
+const KIND_WORDS: Record<RecordKind, { one: string; many: string }> = {
+  person: { one: 'person', many: 'people' },
+  thing: { one: 'item', many: 'items' },
+  job: { one: 'job', many: 'jobs' },
+}
+
 const OWN_TYPES: Array<{ type: ColumnType; label: string }> = [
   { type: 'text', label: 'Text' }, { type: 'date', label: 'Date' }, { type: 'number', label: 'Number' },
   { type: 'phone', label: 'Phone' }, { type: 'email', label: 'Email' }, { type: 'checkbox', label: 'Checkbox' },
@@ -102,8 +109,9 @@ export function GuidedBlankStart({ onBack, onFinished, resume, onProgress }: Pro
   const updateWorkspace = useWorkspaceStore(s => s.update)
 
   const listName = name.trim() || 'My list'
-  // No name typed: keep the neutral words rather than guessing from "My list"
-  const guessed = name.trim() ? wordsFromListName(name) : { one: 'record', many: 'records' }
+  // No name typed, or a name that says nothing about its rows ("My caseload"): the kind's words
+  const fromName = wordsFromListName(name)
+  const guessed = name.trim() && fromName.one !== NEUTRAL_WORDS.one ? fromName : KIND_WORDS[kind]
   const one = words.one.trim() || guessed.one
   const many = words.many.trim() || guessed.many
 
@@ -228,7 +236,8 @@ export function GuidedBlankStart({ onBack, onFinished, resume, onProgress }: Pro
             <label htmlFor="guided-name" className="sr-only">List name</label>
             <input id="guided-name" className={field} value={name} maxLength={200} autoFocus placeholder="e.g. Customers" onChange={e => setName(e.target.value)} />
           </div>
-          <div className="flex flex-wrap gap-2" aria-label="Suggestions">
+          <p id="guided-name-chips" className={lead}>Pick one or type your own:</p>
+          <div className="flex flex-wrap gap-2" aria-labelledby="guided-name-chips">
             {NAME_CHIPS.map(c => (
               <button key={c} type="button" onClick={() => setName(c)}
                 className="hit-44 px-3 py-1.5 rounded-full border border-slate-300 dark:border-slate-600 text-base text-slate-700 dark:text-slate-200 hover:border-blue-500 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
@@ -332,6 +341,8 @@ export function GuidedBlankStart({ onBack, onFinished, resume, onProgress }: Pro
           <p className={lead}>Dates with a reminder change color as they come due: green, then yellow, orange and red.</p>
           <DateRepeatPicker columns={dateCols} value={dates} onChange={setDates} />
           {error && <p role="alert" className="text-base text-red-700 dark:text-red-300">{error}</p>}
+          {/* No Back: the list exists now. Said plainly so the missing button isn't a trap (UX-A-20) */}
+          <p className="text-base text-slate-500 dark:text-slate-400">Your list is made. You can add or change columns from the list itself later.</p>
           {nav({ next: () => void saveDates() })}
         </>
       )}
@@ -339,7 +350,7 @@ export function GuidedBlankStart({ onBack, onFinished, resume, onProgress }: Pro
       {step === 6 && (
         <>
           <h2 className={h2}>A few quick questions</h2>
-          <p className={lead}>This turns on only what you'll use. You can change it later in Settings → Workspace.</p>
+          <p className={lead}>This turns on only what you'll use. You can change it later in Settings → Words & features.</p>
           {([
             ['checklists', `Do you follow step-by-step checklists for each ${one}?`],
             ['tasks', 'Do you keep a to-do list of your own?'],

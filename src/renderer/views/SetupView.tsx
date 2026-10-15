@@ -5,13 +5,14 @@
  *   • from an example (the example gallery),
  *   • bring in a spreadsheet (import, then "What are these rows?" and
  *     "Which of these dates repeat?"),
- *   • start blank (a guided, step-by-step first list),
- *   • or just look around with sample data.
- * Only new workspaces see this; existing installs never do.
+ *   • or start blank (a guided, step-by-step first list).
+ * The example path adds sample data by default, so there's no separate
+ * "just looking" entry (UX-A-17). Only new workspaces see this; existing
+ * installs never do.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardList, FileSpreadsheet, LayoutTemplate, Pencil, Sparkles, User } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardList, FileSpreadsheet, LayoutTemplate, Pencil, User } from 'lucide-react'
 import { IPC } from '../../shared/ipc-channels'
 import { PRODUCT_NAME } from '../../shared/constants'
 import type { DateRuleAnswer, SetupProgress } from '../../shared/ipc-contract'
@@ -268,7 +269,7 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
               </div>
               <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-3">Welcome to {PRODUCT_NAME}</h1>
               <p className="text-lg text-slate-600 dark:text-slate-300 mb-8 max-w-md mx-auto">
-                {PRODUCT_NAME} keeps track of the people and things you're responsible for, and what's due for each.
+                Pulse keeps track of the people and things you're responsible for, and what's due for each.
               </p>
               <button type="button" className="btn-primary inline-flex items-center gap-2 px-8" onClick={() => go('profile')}>
                 Get started <ArrowRight className="w-5 h-5" aria-hidden="true" />
@@ -306,13 +307,6 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
                 description="Excel or CSV. We'll help you match the columns." onClick={() => go('sheet-name')} />
               <StartCard icon={<Pencil className="w-6 h-6" aria-hidden="true" />} title="Start blank"
                 description="Set up your first list step by step." onClick={() => go('blank')} />
-              <p className="text-base text-slate-600 dark:text-slate-300 pt-2 flex flex-wrap items-center gap-2">
-                Just looking?
-                {/* Any example can be a demo: the gallery opens with "Add sample data" ticked (Decision C (i)) */}
-                <button type="button" className="btn-compact-secondary inline-flex items-center gap-2" disabled={busy} onClick={() => setShowExamples(true)}>
-                  <Sparkles className="w-4 h-4" aria-hidden="true" /> Try it with sample data
-                </button>
-              </p>
               {error && <p role="alert" className="text-base text-red-700 dark:text-red-300">{error}</p>}
               {onCancel
                 ? <button type="button" onClick={onCancel} className="hit-44 text-base text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100">Not now</button>
@@ -347,10 +341,10 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
 
           {step === 'sheet-rows' && (
             <div className="p-8 space-y-5">
-              <h2 className={h2}>What are these rows?</h2>
-              <p className={lead}>{PRODUCT_NAME} will use this word everywhere. You can change it later in Settings → Workspace.</p>
+              <h2 className={h2}>Each line of your spreadsheet is one…</h2>
+              <p className={lead}>Pulse uses the word in its buttons and counts, like “Add customer” and “3 customers due this week”. You can change it later in Settings → Words & features.</p>
               <fieldset className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <legend className="sr-only">What are these rows?</legend>
+                <legend className="sr-only">Each line of your spreadsheet is one…</legend>
                 {ROW_CHOICES.map((c, i) => (
                   <label key={c.many} className="flex items-center gap-2 p-3 rounded-lg border border-slate-200 dark:border-slate-600 cursor-pointer text-base text-slate-800 dark:text-slate-100 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20" style={{ minHeight: 44 }}>
                     <input type="radio" name="setup-rows" className="w-5 h-5 flex-shrink-0" checked={rows.choice === i} onChange={() => setRows(r => ({ ...r, choice: i }))} />
@@ -422,7 +416,7 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
               <div className="w-16 h-16 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center mx-auto mb-6">
                 <CheckCircle2 className="text-green-600 dark:text-green-400 w-9 h-9" aria-hidden="true" />
               </div>
-              <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-3">Your workspace is ready</h2>
+              <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-3">You're all set</h2>
               {exampleWarnings.length > 0 && (
                 <div role="alert" className="text-left rounded-lg border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 mb-6 max-w-md mx-auto">
                   <p className="text-base font-medium text-amber-900 dark:text-amber-100">Some of the example didn't come in:</p>
@@ -431,9 +425,6 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
                   </ul>
                 </div>
               )}
-              <div className="mb-6 rounded-lg border border-slate-200 dark:border-slate-600 px-4 py-3 max-w-md mx-auto">
-                <UpdateCheckChoice />
-              </div>
               <p className="text-lg text-slate-600 dark:text-slate-300 mb-6 max-w-sm mx-auto">Would you like a quick tour of the main features?</p>
               <button type="button" className="btn-primary inline-flex items-center gap-2 px-8" onClick={onStartTour}>
                 Show me around <ArrowRight className="w-5 h-5" aria-hidden="true" />
@@ -442,6 +433,10 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete, onS
                 <button type="button" onClick={onComplete} className="hit-44 text-base text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100">
                   No thanks, I'll explore on my own
                 </button>
+              </div>
+              {/* The small print, after the choice that matters (UX-A-18) */}
+              <div className="mt-8 pt-5 border-t border-slate-200 dark:border-slate-700 max-w-md mx-auto">
+                <UpdateCheckChoice />
               </div>
             </div>
           )}
