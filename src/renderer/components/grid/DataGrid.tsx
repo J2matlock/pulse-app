@@ -509,7 +509,9 @@ export function DataGrid(): React.ReactElement {
       ), { duration: 8000 })
     }
     const timer = setTimeout(() => {
-      const firstEditableCol = columns.find(c => !isNotTypedColumnType(c.column_type))
+      // The name first: it's what a new record needs, whatever column comes first (UX-B-39)
+      const firstEditableCol = columns.find(c => c.is_name_column === 1 && !isNotTypedColumnType(c.column_type))
+        ?? columns.find(c => !isNotTypedColumnType(c.column_type))
       if (firstEditableCol) {
         setFocusedCell({ rowId: lastAddedRowId, columnId: firstEditableCol.id })
         setEditingCell({ rowId: lastAddedRowId, columnId: firstEditableCol.id })

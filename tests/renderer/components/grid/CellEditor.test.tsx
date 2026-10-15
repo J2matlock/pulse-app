@@ -51,6 +51,11 @@ describe('CellEditor', () => {
     expect((input as HTMLInputElement).value).toBe('hello')
   })
 
+  it('shows a placeholder in an empty text editor when given one (UX-B-39)', () => {
+    render(<CellEditor column={makeColumn('text')} value={null} onSave={onSave} onCancel={onCancel} placeholder="Type the name" />)
+    expect((screen.getByRole('textbox') as HTMLInputElement).placeholder).toBe('Type the name')
+  })
+
   it('names every editor by its column and says how to finish (AUDIT-043)', () => {
     const types = ['text', 'date', 'number', 'dropdown', 'status', 'notes', 'address', 'tag', 'checkbox', 'phone', 'email', 'url', 'currency']
     for (const type of types) {

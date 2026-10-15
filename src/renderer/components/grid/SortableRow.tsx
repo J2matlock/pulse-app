@@ -453,6 +453,8 @@ export const SortableRow = React.memo(function SortableRow({
               <CellEditor
                 column={col}
                 value={value}
+                // An empty name says what to do, as on a record just added (UX-B-39)
+                placeholder={col.is_name_column === 1 && !value ? `Type the ${t('record')}'s name, then press Enter` : undefined}
                 onSave={(newValue, navDirection) => {
                   // Check if this cell is still the active editing cell.
                   // If another cell already claimed focus (e.g. click-out), skip

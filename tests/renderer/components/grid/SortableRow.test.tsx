@@ -37,7 +37,7 @@ vi.mock('../../../../src/renderer/components/grid/CellConditionalFormatPanel', (
 }))
 
 vi.mock('../../../../src/renderer/components/grid/CellEditor', () => ({
-  CellEditor: () => <div data-testid="cell-editor" />,
+  CellEditor: (p: { placeholder?: string }) => <div data-testid="cell-editor" data-placeholder={p.placeholder} />,
 }))
 
 vi.mock('../../../../src/renderer/components/grid/CellDisplay', () => ({
@@ -289,6 +289,12 @@ describe('SortableRow', () => {
     const archived = { ...makeRow(1), is_active: 0 } as unknown as GridRow
     render(<SortableRow {...makeProps({ row: makeTanstackRow(archived) })} />)
     expect(screen.getByTestId('archived-pill').textContent).toBe('Archived')
+  })
+
+  it('an empty name being typed says what to do (UX-B-39)', () => {
+    const blank = { ...makeRow(1), col_1: null } as unknown as GridRow
+    render(<SortableRow {...makeProps({ row: makeTanstackRow(blank), editingRowId: 1, editingColId: 1 })} />)
+    expect(screen.getByTestId('cell-editor').getAttribute('data-placeholder')).toBe("Type the client's name, then press Enter")
   })
 
   it('an active record has no Archived pill', () => {
