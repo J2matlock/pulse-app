@@ -2,6 +2,7 @@ import React from 'react'
 import { Pencil, Trash2, Download } from 'lucide-react'
 import type { ChecklistTemplate } from '../../../shared/types'
 import { Badge } from './Badge'
+import { IconButton } from '../../components/ui/Button'
 
 interface CL_RowProps {
   template: ChecklistTemplate
@@ -43,39 +44,10 @@ export function ChecklistTemplateRow({ template, onEdit, onDelete, onExport }: C
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-2 whitespace-nowrap">
-          <button
-            type="button"
-            onClick={() => onExport(template)}
-            className="p-2 rounded-lg text-slate-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20
-                       min-h-[44px] min-w-[44px] flex items-center justify-center
-                       focus:outline-hidden focus:ring-3 focus:ring-green-500 transition-colors"
-            title="Export as .pulse-checklist file"
-            aria-label="Export template"
-          >
-            <Download className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => onEdit(template)}
-            className="p-2 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20
-                       min-h-[44px] min-w-[44px] flex items-center justify-center
-                       focus:outline-hidden focus:ring-3 focus:ring-blue-500 transition-colors"
-            title="Edit template"
-            aria-label="Edit template"
-          >
-            <Pencil className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => onDelete(template.id)}
-            className="p-2 rounded-lg text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20
-                       min-h-[44px] min-w-[44px] flex items-center justify-center
-                       focus:outline-hidden focus:ring-3 focus:ring-red-400 transition-colors"
-            title="Delete template"
-            aria-label="Delete template"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          <IconButton label="Export template" icon={<Download className="w-4 h-4" />} onClick={() => onExport(template)} />
+          <IconButton label="Edit template" icon={<Pencil className="w-4 h-4" />} onClick={() => onEdit(template)} />
+          <IconButton label="Delete template" icon={<Trash2 className="w-4 h-4" />} onClick={() => onDelete(template.id)}
+            className="hover:text-red-700! dark:hover:text-red-300!" />
         </div>
       </td>
     </tr>

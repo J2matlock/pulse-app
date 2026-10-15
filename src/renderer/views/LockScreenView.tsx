@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Lock, Eye, EyeOff, Shield } from 'lucide-react'
+import { Lock, Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useSettingsStore } from '../stores/settingsStore'
 import { IPC } from '../../shared/ipc-channels'
@@ -11,6 +11,7 @@ import { usePlatform, cloudFolderAdvice, type Platform } from '../utils/platform
 import { PRODUCT_NAME } from '../../shared/constants'
 import { parseDbOpenFailure, type DbOpenFailureKind } from '../../shared/dbOpen'
 import { KEYRING_UNAVAILABLE } from '../../shared/authErrors'
+import { PulseMark } from '../components/ui/PulseMark'
 
 type LockView = 'password' | 'recovery-key' | 'no-recovery' | 'restore' | 'open-failed'
 
@@ -181,7 +182,7 @@ export function LockScreenView(): React.ReactElement {
       <div className="w-full max-w-md px-4">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-3">
-            <Shield className="w-10 h-10 text-blue-600" />
+            <PulseMark size={48} />
             <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">{PRODUCT_NAME}</h1>
           </div>
           <div className="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400">

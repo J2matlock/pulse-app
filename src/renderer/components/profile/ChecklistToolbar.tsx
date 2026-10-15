@@ -23,10 +23,10 @@ export function ChecklistToolbar({ loading, total, doneCount, onOpenTemplates, o
   ]
 
   return (
-    <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-slate-100 dark:border-slate-700 flex-wrap gap-2">
+    <div className="flex items-center justify-between px-1 pb-3 border-b border-slate-200 dark:border-slate-700 flex-wrap gap-2">
       <div className="flex items-center gap-2">
-        <ListChecks className="w-5 h-5 text-slate-500 dark:text-slate-400" />
-        <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300">Checklist</h2>
+        <ListChecks className="w-5 h-5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+        <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Checklist</h2>
         {!loading && total > 0 && (
           <span className="text-sm text-slate-500 dark:text-slate-400 tabular-nums">
             {doneCount}/{total}

@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react'
 import { usePlatform, cloudFolderAdvice } from '../utils/platformText'
-import { Eye, EyeOff, Shield, KeyRound } from 'lucide-react'
+import { Eye, EyeOff, KeyRound } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useSettingsStore } from '../stores/settingsStore'
 import { IPC } from '../../shared/ipc-channels'
@@ -13,6 +13,7 @@ import { FieldError, fieldErrorProps } from '../components/shared/FieldError'
 import { checkNewPassword } from '../../shared/passwordPolicy'
 import { PRODUCT_NAME } from '../../shared/constants'
 import { parseDbOpenFailure, dbOpenFailureText } from '../../shared/dbOpen'
+import { PulseMark } from '../components/ui/PulseMark'
 
 type SetupStep = 'password' | 'recovery-prompt' | 'recovery-display' | 'restore'
 
@@ -148,7 +149,7 @@ export function PasswordSetupView(): React.ReactElement {
         <div className="w-full max-w-md px-4">
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-3">
-              <Shield className="w-10 h-10 text-blue-600" />
+              <PulseMark size={48} />
               <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">{PRODUCT_NAME}</h1>
             </div>
           </div>
@@ -218,7 +219,7 @@ export function PasswordSetupView(): React.ReactElement {
         <div className="w-full max-w-md px-4">
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-3">
-              <Shield className="w-10 h-10 text-blue-600" />
+              <PulseMark size={48} />
               <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">{PRODUCT_NAME}</h1>
             </div>
           </div>
@@ -242,7 +243,7 @@ export function PasswordSetupView(): React.ReactElement {
       <div className="w-full max-w-md px-4">
         <div className="text-center mb-5">
           <div className="flex items-center justify-center gap-3 mb-2">
-            <Shield className="w-10 h-10 text-blue-600" />
+            <PulseMark size={48} />
             <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">{PRODUCT_NAME}</h1>
           </div>
           <p className="text-slate-500 dark:text-slate-400 text-base">

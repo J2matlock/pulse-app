@@ -361,11 +361,10 @@ export function ProfileHeader({
 
   const assignedTags = allTags.filter(t => rowTagIds.includes(t.id))
   return (
-    <div
-      // No overflow-hidden: it clipped the "More" menu that opens below the buttons
-      className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
-    >
-      <div className="p-5">
+    // On the page itself, not a card (Q8): space and the name's size set it apart.
+    // No overflow-hidden: it clipped the "More" menu that opens below the buttons
+    <div>
+      <div className="px-4 pt-2 pb-4">
         {/* ── Row 1: Avatar + Name + Status Badges + Controls ── */}
         <div className="flex items-start gap-4">
           {/* Avatar */}

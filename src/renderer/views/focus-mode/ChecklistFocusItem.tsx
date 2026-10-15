@@ -1,5 +1,6 @@
 import React from 'react'
-import { CheckCircle2 } from 'lucide-react'
+import { Check } from 'lucide-react'
+import { PrimaryButton } from '../../components/ui/Button'
 import type { UrgentChecklistItem } from './types'
 import { useVocabByList } from '../../hooks/useVocab'
 import { ymdLocalDate } from '../../../shared/dates'
@@ -20,7 +21,7 @@ export const ChecklistFocusItem = React.memo(function ChecklistFocusItem({ item,
       className={`flex items-center gap-4 px-5 py-4 ${celebrating ? 'celebrating' : ''}`}
       style={{ minHeight: 64 }}
     >
-      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-amber-400" />
+      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-slate-400 dark:bg-slate-500" />
       <div className="flex-1 min-w-0">
         <div className="font-medium text-slate-900 dark:text-white truncate">{item.title}</div>
         <div className="text-sm text-slate-600 dark:text-slate-400 truncate">
@@ -35,16 +36,16 @@ export const ChecklistFocusItem = React.memo(function ChecklistFocusItem({ item,
           </div>
         )}
       </div>
-      <button
+      <PrimaryButton
+        size="compact"
+        icon={<Check className="w-4 h-4" />}
         onClick={onComplete}
         disabled={celebrating}
         aria-label={`Mark ${item.title} done`}
-        className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-700 hover:bg-amber-600 text-white text-base font-medium transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-amber-400 disabled:opacity-50"
-        style={{ minHeight: 44 }}
+        className="flex-shrink-0"
       >
-        <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
         Done
-      </button>
+      </PrimaryButton>
     </div>
   )
 })

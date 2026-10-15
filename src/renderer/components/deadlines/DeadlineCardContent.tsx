@@ -13,7 +13,7 @@
  */
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle2 } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { formatDue, isUsedUp } from '../../../shared/deadlineEngine'
 import { daysAwayLabel, daysOverdueLabel } from '../../../shared/deadlineTiles'
 import { shortDate } from '../../../shared/dates'
@@ -62,6 +62,11 @@ export function DeadlineCardContent({ info, where, layout, words = layout === 's
   const openRecord = () => { onOpenRecord?.(); navigate(`/profile/${info.rowId}?gridId=${info.gridId}`) }
   const showOpen = where === 'grid' || where === 'calendar'
   const target = act.stepName ?? info.columnName
+  // One accent per screen (Q8): Done is the card's main action in a grid card or
+  // the Calendar's panel, but on a dashboard row or the profile it's one of many,
+  // so it's drawn neutral and the page keeps its own main action
+  const MainButton = where === 'grid' || where === 'calendar' ? PrimaryButton : SecondaryButton
+  const size = layout === 'row' ? 'compact' : 'normal'
 
   return (
     <>
@@ -76,24 +81,24 @@ export function DeadlineCardContent({ info, where, layout, words = layout === 's
       <div className={layout === 'row' ? 'flex flex-shrink-0 items-center gap-2' : 'flex flex-wrap gap-2'} data-testid="deadline-card-actions">
         {act.ruleKind === 'quota' ? (
           where !== 'profile' && (
-            <PrimaryButton onClick={openRecord} title={`Open the ${t('record')} to set new dates and how many are allowed`}>Renew…</PrimaryButton>
+            <MainButton size={size} onClick={openRecord} title={`Open the ${t('record')} to set new dates and how many are allowed`}>Renew…</MainButton>
           )
         ) : act.canMarkDone && (
-          <PrimaryButton busy={act.marking} title={act.doneTitle} onClick={act.startDone}
-            icon={<CheckCircle2 className="w-4 h-4" />}
+          <MainButton size={size} busy={act.marking} title={act.doneTitle} onClick={act.startDone}
+            icon={<Check className="w-4 h-4" />}
             aria-label={`Mark ${target} done${info.clientName ? ` for ${info.clientName}` : ''}`}>
             {act.stepName ? `Mark ${act.stepName} done` : 'Done'}
-          </PrimaryButton>
+          </MainButton>
         )}
         {act.canMarkDone && act.canPickDay && (
-          <SecondaryButton disabled={act.marking} onClick={act.startDoneOnDay} title="It happened on an earlier day: choose which"
+          <SecondaryButton size={size} disabled={act.marking} onClick={act.startDoneOnDay} title="It happened on an earlier day: choose which"
             aria-label={`Done on another day: ${info.columnName}${info.clientName ? ` for ${info.clientName}` : ''}`}>Done on…</SecondaryButton>
         )}
         {info.extensionId
-          ? <SecondaryButton onClick={() => void act.removeExtension()} title={info.detail || undefined}>Remove extension</SecondaryButton>
-          : act.canExtend && <SecondaryButton onClick={act.startExtend} title="Give it a new due date, with a reason">Extend…</SecondaryButton>}
-        {showOpen && <SecondaryButton onClick={openRecord}>Open {t('record')}</SecondaryButton>}
-        {onChangeDate && <SecondaryButton onClick={onChangeDate} title="Type or pick a different date">Change date…</SecondaryButton>}
+          ? <SecondaryButton size={size} onClick={() => void act.removeExtension()} title={info.detail || undefined}>Remove extension</SecondaryButton>
+          : act.canExtend && <SecondaryButton size={size} onClick={act.startExtend} title="Give it a new due date, with a reason">Extend…</SecondaryButton>}
+        {showOpen && <SecondaryButton size={size} onClick={openRecord}>Open {t('record')}</SecondaryButton>}
+        {onChangeDate && <SecondaryButton size={size} onClick={onChangeDate} title="Type or pick a different date">Change date…</SecondaryButton>}
       </div>
       {act.dialogs}
     </>

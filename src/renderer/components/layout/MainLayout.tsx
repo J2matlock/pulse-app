@@ -14,6 +14,7 @@ import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useVocab } from '../../hooks/useVocab'
 import { PRODUCT_NAME } from '../../../shared/constants'
+import { useGridStore } from '../../stores/gridStore'
 import type { VocabKey, TermOptions } from '../../../shared/vocab'
 
 interface UpdateInfo {
@@ -55,6 +56,18 @@ export function viewName(pathname: string, t: (key: VocabKey, opts?: TermOptions
     case 'help': return 'Help'
     default: return PRODUCT_NAME
   }
+}
+
+/**
+ * The window title (Q8). On the list page it's the open list's name ("Social
+ * Worker Caseload – " and the product name), so the taskbar says which list is
+ * open. A record's page stays generic ("Client – …"): the title shows in the
+ * taskbar, Alt+Tab and screen sharing, so a person's name must never be in it.
+ */
+export function windowTitle(pathname: string, pageName: string, listName?: string | null): string {
+  const first = pathname.split('/')[1] ?? ''
+  const name = (first === '' || first === 'grid') && listName?.trim() ? listName.trim() : pageName
+  return name === PRODUCT_NAME ? PRODUCT_NAME : `${name} – ${PRODUCT_NAME}`
 }
 
 async function checkForUpdateOnce(): Promise<UpdateInfo | null> {
@@ -102,11 +115,12 @@ export function MainLayout({ children }: Props): React.ReactElement {
   const lastPathname = useRef(pathname)
   const [announcement, setAnnouncement] = useState('')
   const pageName = viewName(pathname, t)
+  const listName = useGridStore(s => s.grids.find(g => g.id === s.activeGridId)?.name ?? null)
 
-  // The window title names the page; the lock screen goes back to the plain name
+  // The window title names the page (the list on the list page); the lock screen goes back to the plain name
   useEffect(() => {
-    document.title = pageName === PRODUCT_NAME ? PRODUCT_NAME : `${pageName} – ${PRODUCT_NAME}`
-  }, [pageName])
+    document.title = windowTitle(pathname, pageName, listName)
+  }, [pathname, pageName, listName])
   useEffect(() => () => { document.title = PRODUCT_NAME }, [])
 
   // Moving to another page takes keyboard focus to it and says which page it is,

@@ -13,6 +13,8 @@ import { safeInvoke } from '../../utils/safeInvoke'
 import { addDroppedFiles, addFilesWithDialog, deleteAttachment, saveAttachmentCopy } from '../../utils/attachmentActions'
 import { friendlyError } from '../../utils/friendlyError'
 import { useVocab } from '../../hooks/useVocab'
+import { EmptyState } from '../shared/EmptyState'
+import { SecondaryButton } from '../ui/Button'
 
 const day = (ts: string) => shortDate(parseDbTimestamp(ts))
 
@@ -64,12 +66,21 @@ export function RecordFiles({ rowId, onCount }: { rowId: number; onCount?: (n: n
       onDragLeave={() => setOver(false)}
       onDrop={e => { e.preventDefault(); setOver(false); if (e.dataTransfer.files.length) void addDroppedFiles(rowId, e.dataTransfer.files) }}
       className={`space-y-2 rounded-lg ${over ? 'ring-3 ring-blue-400 bg-blue-50/50 dark:bg-blue-900/20' : ''}`}>
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="flex-1 text-base text-slate-500 dark:text-slate-400">
-          {files.length === 0 ? 'No files yet. ' : ''}Drop files here or click Add files… They're stored encrypted inside Pulse.
-        </p>
-        <button type="button" className="btn-compact-secondary" onClick={() => void addFilesWithDialog(rowId)}><Paperclip className="w-4 h-4" />Add files…</button>
-      </div>
+      {files.length === 0 ? (
+        // Still a drop target, so it keeps its dashed outline, with the empty-state layout inside (Q8)
+        <div className="rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-600">
+          <EmptyState size="panel" icon={<Paperclip />} title="No files yet"
+            description="Drop files here or click Add files… They're stored encrypted inside Pulse."
+            action={{ label: 'Add files…', onClick: () => void addFilesWithDialog(rowId) }} />
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="flex-1 text-base text-slate-600 dark:text-slate-300">
+            Drop files here or click Add files… They're stored encrypted inside Pulse.
+          </p>
+          <SecondaryButton size="compact" icon={<Paperclip className="w-4 h-4" />} onClick={() => void addFilesWithDialog(rowId)}>Add files…</SecondaryButton>
+        </div>
+      )}
       {files.length === 0 ? null : (
         <ul className="divide-y divide-slate-100 dark:divide-slate-700" aria-label="Files">
           {files.map(a => (

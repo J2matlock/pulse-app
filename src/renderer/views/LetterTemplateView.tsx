@@ -114,7 +114,7 @@ export default function LetterTemplateView(): React.ReactElement {
         {/* Panel header */}
         <div className="px-4 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0 space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h1 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+            <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">
               Letters
             </h1>
             <PrimaryButton

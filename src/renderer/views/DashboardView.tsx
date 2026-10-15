@@ -4,7 +4,9 @@
  */
 import { onTabListKeyDown } from '../utils/tabListKeys'
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
-import { AlertTriangle, Calendar, CheckCircle, Clock, Users, Archive, ClipboardList, RefreshCw, Printer, ShieldCheck, CalendarPlus, LayoutGrid, Mail } from 'lucide-react'
+import { AlertTriangle, Calendar, Check, CheckCircle, Clock, Users, Archive, ClipboardList, RefreshCw, Printer, ShieldCheck, CalendarPlus, LayoutGrid, Mail, LayoutDashboard } from 'lucide-react'
+import { PrimaryButton, SecondaryButton } from '../components/ui/Button'
+import { Tooltip } from '../components/shared/Tooltip'
 import { CalendarExportDialog } from '../components/reports/CalendarExportDialog'
 import { ComplianceSummaryDialog } from '../components/reports/ComplianceSummaryDialog'
 import toast from 'react-hot-toast'
@@ -52,6 +54,7 @@ import { useFeature } from '../hooks/useFeature'
 import { assertNever } from '../../shared/assertNever'
 import { nextStep } from './dashboard/nextStep'
 import { NextStepBanner } from './dashboard/NextStepBanner'
+import { EmptyState } from '../components/shared/EmptyState'
 
 const LOAD_ERROR = "We couldn't load the dashboard — try again"
 
@@ -488,10 +491,10 @@ export default function DashboardView(): React.ReactElement {
           Select all shown
         </label>
         <span className="text-base font-medium text-blue-900 dark:text-blue-100 flex-1">{selectedDeadlines.size} selected</span>
-        <button type="button" className="btn-compact-primary" disabled={bulkBusy || selectedDeadlines.size === 0} onClick={() => void markSelectedDone(visible)}>
+        <PrimaryButton size="compact" icon={<Check className="w-4 h-4" />} disabled={bulkBusy || selectedDeadlines.size === 0} onClick={() => void markSelectedDone(visible)}>
           {bulkBusy ? 'Marking…' : 'Mark done'}
-        </button>
-        <button type="button" className="btn-compact-secondary" onClick={() => setSelectedDeadlines(new Set())}>Clear</button>
+        </PrimaryButton>
+        <SecondaryButton size="compact" onClick={() => setSelectedDeadlines(new Set())}>Clear</SecondaryButton>
       </div>
     )
   }
@@ -563,26 +566,17 @@ export default function DashboardView(): React.ReactElement {
               {isLoading ? (
                 showSpinner ? <LoadingOverlay label="Loading dashboard…" /> : <div className="py-16" />
               ) : filteredItems.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-2 text-slate-500 dark:text-slate-400">
-                  {debouncedSearch.trim() ? (
-                    // A search that finds nothing isn't an empty dashboard
-                    <p className="text-base font-semibold text-slate-700 dark:text-slate-300">Nothing matches &ldquo;{debouncedSearch.trim()}&rdquo;</p>
-                  ) : stats?.totalActive === 0 ? (
-                    <>
-                      <p className="text-base font-semibold text-slate-700 dark:text-slate-300">Nothing here yet</p>
-                      <p className="text-base text-slate-500 dark:text-slate-400">Your dashboard fills up as you add {t('record', { many: true })} with dates.</p>
-                      <button type="button" className="btn-secondary mt-2" onClick={() => pulseEvents.emit('starters:open', { sample: true })}>
-                        See an example with sample data
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-12 h-12 text-green-400 dark:text-green-500 opacity-60" />
-                      <p className="text-base font-semibold text-slate-700 dark:text-slate-300">All clear!</p>
-                      <p className="text-base text-slate-500 dark:text-slate-400">No deadlines, tasks, or follow-ups need attention right now.</p>
-                    </>
-                  )}
-                </div>
+                debouncedSearch.trim() ? (
+                  // A search that finds nothing isn't an empty dashboard: words, no action
+                  <p className="py-16 text-center text-base font-semibold text-slate-700 dark:text-slate-300">Nothing matches &ldquo;{debouncedSearch.trim()}&rdquo;</p>
+                ) : stats?.totalActive === 0 ? (
+                  <EmptyState icon={<LayoutDashboard />} title="Nothing here yet"
+                    description={`Your dashboard fills up as you add ${t('record', { many: true })} with dates.`}
+                    action={{ label: 'See an example with sample data', onClick: () => pulseEvents.emit('starters:open', { sample: true }) }} />
+                ) : (
+                  <EmptyState size="panel" icon={<CheckCircle />} title="All clear!"
+                    description="No deadlines, tasks, or follow-ups need attention right now." />
+                )
               ) : (
                 <div role="list">
                   {renderBulkBar(filteredItems)}
@@ -643,11 +637,8 @@ export default function DashboardView(): React.ReactElement {
           {/* Overdue tab */}
           {topTab === 'overdue' && (
             overdueItems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 gap-2 text-slate-500 dark:text-slate-400">
-                <CheckCircle className="w-12 h-12 text-green-400 dark:text-green-500 opacity-60" />
-                <p className="text-base font-semibold text-slate-700 dark:text-slate-300">Nothing overdue</p>
-                <p className="text-base text-slate-500 dark:text-slate-400">Great work — you're all caught up!</p>
-              </div>
+              <EmptyState size="panel" icon={<CheckCircle />} title="Nothing overdue"
+                description="Great work — you're all caught up!" />
             ) : (
               <div role="list">
                 {renderBulkBar(overdueItems)}
@@ -721,8 +712,9 @@ export default function DashboardView(): React.ReactElement {
 
   // Recently archived is a card people can hide or move, not a tab among the deadlines (UX D-20)
   const recentlyArchived = (
-    <section aria-labelledby="recently-archived-title" className="mb-6 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-      <h2 id="recently-archived-title" className="flex items-center gap-2 px-4 pt-3 text-base font-semibold text-slate-700 dark:text-slate-200">
+    // A heading on the page, not a card (Q8)
+    <section aria-labelledby="recently-archived-title" className="mb-8">
+      <h2 id="recently-archived-title" className="flex items-center gap-2 text-xl font-semibold text-slate-800 dark:text-slate-100">
         <Archive className="w-5 h-5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
         Recently archived
       </h2>
@@ -749,7 +741,7 @@ export default function DashboardView(): React.ReactElement {
       <div className="max-w-4xl xl:max-w-6xl mx-auto px-6 py-6">
         {/* The buttons wrap among themselves, right-aligned, instead of dropping under the title */}
         <div className="flex items-start gap-3 mb-6">
-          <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100 shrink-0 py-2">Dashboard</h1>
+          <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100 shrink-0 py-2">Dashboard</h1>
           <div className="flex flex-1 min-w-0 flex-wrap justify-end gap-3">
             {/* The occasional actions share one menu; Customize stays out (UX D-19) */}
             <PrintExportMenu items={printExportItems} />
@@ -763,10 +755,11 @@ export default function DashboardView(): React.ReactElement {
                 }} />
             )}
             {reminderLetters && openGridId != null && <BatchDocumentsDialog gridId={openGridId} title="Print reminder letters" preferTemplate="Reminder" onClose={() => setReminderLetters(false)} />}
-            <button type="button" className="btn-compact-secondary" aria-pressed={customizing} onClick={() => setCustomizing(c => !c)} title="Choose which cards show, and their order">
-              <LayoutGrid className="w-4 h-4" aria-hidden="true" />
-              Customize
-            </button>
+            <Tooltip content="Choose which cards show, and their order">
+              <SecondaryButton size="compact" aria-pressed={customizing} onClick={() => setCustomizing(c => !c)} icon={<LayoutGrid className="w-4 h-4" />}>
+                Customize
+              </SecondaryButton>
+            </Tooltip>
           </div>
           {showCompliance && <ComplianceSummaryDialog onClose={closeCompliance} />}
           {showCalendar && <CalendarExportDialog onClose={closeCalendar} />}
@@ -780,20 +773,20 @@ export default function DashboardView(): React.ReactElement {
         {/* Cards, in the order people chose (W10 §4) */}
         <DashboardCards customizing={customizing} onDoneCustomizing={() => setCustomizing(false)} whatsDue={whatsDue} recentlyArchived={recentlyArchived} summary={
         <>
-        {/* One row of tiles; each opens what it counts (UX D-06) */}
+        {/* One row of tiles; each opens what it counts (UX D-06). Only the status counts are coloured, and only above 0 (Q8) */}
         <div className="flex flex-wrap gap-3 mb-6 [&>*]:flex-1 [&>*]:min-w-[150px]">
           <SummaryCard
             label={activeLabel}
             value={stats?.totalActive ?? '—'}
             icon={<Users className="w-5 h-5" />}
-            colorClass="text-blue-600 dark:text-blue-400"
+            colorClass="text-slate-800 dark:text-slate-100"
             href="/grid"
           />
           <SummaryCard
             label="Overdue deadlines"
             value={isLoading ? '—' : derivedCounts.overdue}
             icon={<AlertTriangle className="w-5 h-5" />}
-            colorClass={derivedCounts.overdue > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-500'}
+            colorClass={derivedCounts.overdue > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-300'}
             urgent={derivedCounts.overdue > 0}
             onClick={() => openTab('overdue')}
           />
@@ -801,14 +794,14 @@ export default function DashboardView(): React.ReactElement {
             label="Due in the next 7 days"
             value={isLoading ? '—' : derivedCounts.dueThisWeek}
             icon={<Clock className="w-5 h-5" />}
-            colorClass="text-orange-700 dark:text-orange-400"
+            colorClass={derivedCounts.dueThisWeek > 0 ? 'text-orange-700 dark:text-orange-400' : 'text-slate-600 dark:text-slate-300'}
             onClick={() => openTab('week')}
           />
           <SummaryCard
             label="Due in the next 30 days"
             value={isLoading ? '—' : derivedCounts.dueThisMonth}
             icon={<Calendar className="w-5 h-5" />}
-            colorClass="text-yellow-700 dark:text-yellow-400"
+            colorClass={derivedCounts.dueThisMonth > 0 ? 'text-yellow-700 dark:text-yellow-400' : 'text-slate-600 dark:text-slate-300'}
             onClick={() => openTab('month')}
           />
           {(showTasks || showChecklists) && (<>
@@ -816,8 +809,7 @@ export default function DashboardView(): React.ReactElement {
               label="Tasks, checklist items and follow-ups due or late"
               value={isLoading ? '—' : derivedCounts.otherDue}
               icon={<ClipboardList className="w-5 h-5" />}
-              colorClass={derivedCounts.otherDue > 0 ? 'text-purple-600 dark:text-purple-400' : 'text-slate-500'}
-              urgent={derivedCounts.otherDue > 0}
+              colorClass="text-slate-800 dark:text-slate-100"
               href="/tasks"
             />
           </>)}

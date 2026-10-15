@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
+import { ListChecks } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { ChecklistDueItem } from '../../../shared/types'
 import { tickChecklistItem } from '../../utils/checklistTick'
 import { classifyDeadline, daysAwayLabel } from '../../../shared/deadlineTiles'
 import { TIER_TEXT, TIER_BAR } from '../../utils/dueTiers'
+import { Tooltip } from '../../components/shared/Tooltip'
 import { shortYmd } from '../../../shared/dates'
 
 export function ChecklistDueRow({
@@ -23,7 +25,7 @@ export function ChecklistDueRow({
   const tier = classifyDeadline(daysUntil)
   const urgencyLabel = daysAwayLabel(daysUntil)
   const urgencyColor = TIER_TEXT[tier]
-  const barColor = tier === 'future' ? 'bg-teal-300' : TIER_BAR[tier]
+  const barColor = tier === 'future' ? 'bg-slate-200 dark:bg-slate-600' : TIER_BAR[tier]
 
   const dueDateFormatted = shortYmd(item.due_date!)
 
@@ -55,24 +57,25 @@ export function ChecklistDueRow({
   return (
     <div
       role="listitem"
-      className="flex items-center gap-4 px-4 border-b border-slate-100 dark:border-slate-700/50 last:border-0 hover:bg-teal-50/30 dark:hover:bg-teal-900/10 transition-colors"
+      className="flex items-center gap-4 px-4 border-b border-slate-100 dark:border-slate-700/50 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
       style={{ minHeight: 52 }}
     >
       <div className={`w-1 self-stretch rounded-full ${barColor}`} />
-      <button
-        onClick={handleComplete}
-        disabled={completing}
-        title="Mark complete"
-        aria-label="Mark complete"
-        className="hit-44 w-5 h-5 rounded-full border-2 border-teal-400 dark:border-teal-500 flex items-center justify-center flex-shrink-0 hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-teal-500"
-      >
-        {completing && <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />}
-      </button>
+      <Tooltip content="Mark complete">
+        <button
+          onClick={handleComplete}
+          disabled={completing}
+          aria-label="Mark complete"
+          className="hit-44 w-5 h-5 rounded-full border-2 border-slate-400 dark:border-slate-500 flex items-center justify-center flex-shrink-0 hover:border-accent hover:bg-accent-soft focus-visible:border-accent transition-colors focus:outline-hidden focus-visible:ring-3 focus-visible:ring-accent"
+        >
+          {completing && <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />}
+        </button>
+      </Tooltip>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <span className="text-sm">{priorityDot}</span>
           <span className="font-medium text-slate-800 dark:text-slate-100 truncate">{item.title}</span>
-          <span className="text-sm bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 px-1.5 py-0.5 rounded-sm flex-shrink-0">checklist</span>
+          <span className="inline-flex items-center gap-1 text-sm bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-2 rounded-full flex-shrink-0"><ListChecks className="w-3.5 h-3.5" aria-hidden="true" />checklist</span>
         </div>
         <div className="text-sm text-slate-500 dark:text-slate-400 truncate">
           <button

@@ -79,7 +79,7 @@
     "native-title": 3,
     "radius": 8,
     "spacing": 1,
-    "text-size": 10
+    "text-size": 9
   },
   "components/contacts/ContactCard.tsx": {
     "native-title": 3,
@@ -121,7 +121,7 @@
     "radius": 8,
     "raw-button": 2,
     "spacing": 5,
-    "text-size": 9
+    "text-size": 8
   },
   "components/contacts/ContactLinkedClients.tsx": {
     "inline-size": 5,
@@ -179,12 +179,6 @@
     "raw-button": 2,
     "text-size": 2
   },
-  "components/grid/BulkActionBar.tsx": {
-    "action-colour": 4,
-    "inline-size": 2,
-    "native-title": 2,
-    "spacing": 7
-  },
   "components/grid/BulkEditDialog.tsx": {
     "radius": 1,
     "spacing": 4,
@@ -224,7 +218,6 @@
     "spacing": 3
   },
   "components/grid/CustomGroupEditor.tsx": {
-    "action-colour": 1,
     "inline-size": 4,
     "native-title": 3,
     "radius": 5,
@@ -280,9 +273,6 @@
     "native-title": 3,
     "radius": 2
   },
-  "components/grid/GridLoadingState.tsx": {
-    "raw-button": 2
-  },
   "components/grid/GridNotices.tsx": {
     "radius": 1,
     "raw-button": 5,
@@ -300,7 +290,6 @@
     "text-size": 1
   },
   "components/grid/GroupingBar.tsx": {
-    "action-colour": 5,
     "inline-size": 6,
     "native-title": 1,
     "radius": 3,
@@ -324,7 +313,6 @@
     "spacing": 2
   },
   "components/grid/SavedViewsDropdown.tsx": {
-    "action-colour": 1,
     "inline-size": 5,
     "native-title": 3,
     "radius": 2,
@@ -383,10 +371,10 @@
     "spacing": 1
   },
   "components/profile/CaseLogEntry.tsx": {
-    "native-title": 5,
-    "radius": 10,
+    "native-title": 4,
+    "radius": 9,
     "raw-button": 3,
-    "spacing": 4,
+    "spacing": 3,
     "text-size": 2
   },
   "components/profile/Checklist.tsx": {
@@ -466,7 +454,7 @@
     "inline-size": 2,
     "native-title": 5,
     "radius": 16,
-    "spacing": 9,
+    "spacing": 8,
     "text-size": 8
   },
   "components/profile/RecordAppointments.tsx": {
@@ -476,7 +464,7 @@
   "components/profile/RecordFiles.tsx": {
     "native-title": 1,
     "radius": 7,
-    "raw-button": 3
+    "raw-button": 2
   },
   "components/profile/RecordLetterDialog.tsx": {
     "text-size": 2
@@ -505,11 +493,6 @@
     "inline-size": 1,
     "radius": 1
   },
-  "components/settings/AboutSection.tsx": {
-    "inline-size": 6,
-    "radius": 2,
-    "raw-button": 7
-  },
   "components/settings/ActivityTypesEditor.tsx": {
     "native-title": 4,
     "radius": 1,
@@ -527,10 +510,10 @@
     "text-size": 1
   },
   "components/settings/BackupSection.tsx": {
-    "inline-size": 6,
+    "inline-size": 5,
     "radius": 5,
-    "raw-button": 7,
-    "spacing": 6,
+    "raw-button": 5,
+    "spacing": 4,
     "text-size": 4
   },
   "components/settings/DataSection.tsx": {
@@ -564,9 +547,6 @@
     "spacing": 1
   },
   "components/settings/RemindersSection.tsx": {
-    "raw-button": 1
-  },
-  "components/settings/SecurityCheckup.tsx": {
     "raw-button": 1
   },
   "components/settings/SecuritySection.tsx": {
@@ -723,23 +703,16 @@
     "text-size": 1
   },
   "views/ContactsView.tsx": {
-    "radius": 1,
-    "spacing": 3,
-    "text-size": 5
+    "spacing": 1
   },
   "views/DashboardView.tsx": {
     "inline-size": 2,
-    "native-title": 1,
     "radius": 1,
-    "raw-button": 4,
-    "spacing": 6
+    "spacing": 5
   },
   "views/FocusModeView.tsx": {
-    "action-colour": 1,
-    "inline-size": 2,
     "radius": 1,
-    "spacing": 6,
-    "text-size": 1
+    "spacing": 5
   },
   "views/GridView.tsx": {
     "inline-size": 2,
@@ -779,9 +752,7 @@
     "raw-button": 3
   },
   "views/ReportsView.tsx": {
-    "radius": 3,
-    "raw-button": 3,
-    "text-size": 2
+    "text-size": 1
   },
   "views/SettingsView.tsx": {
     "inline-size": 1,
@@ -790,7 +761,7 @@
   },
   "views/SetupView.tsx": {
     "inline-size": 1,
-    "radius": 4,
+    "radius": 3,
     "raw-button": 5,
     "spacing": 8,
     "text-size": 2
@@ -811,8 +782,7 @@
   },
   "views/TemplateManagerView.tsx": {
     "native-title": 3,
-    "radius": 2,
-    "text-size": 3
+    "text-size": 1
   },
   "views/TrashView.tsx": {
     "inline-size": 5,
@@ -820,25 +790,16 @@
     "spacing": 9,
     "text-size": 10
   },
-  "views/dashboard/ChecklistDueRow.tsx": {
-    "action-colour": 1,
-    "native-title": 1,
-    "radius": 1,
-    "spacing": 2
-  },
   "views/dashboard/DeadlineRow.tsx": {
     "radius": 2
   },
   "views/dashboard/FollowUpDashRow.tsx": {
-    "native-title": 1,
-    "radius": 2,
-    "spacing": 2
+    "radius": 1
   },
   "views/dashboard/GettingStartedCard.tsx": {
     "inline-size": 1,
-    "radius": 4,
+    "radius": 2,
     "raw-button": 2,
-    "spacing": 1,
     "text-size": 1
   },
   "views/dashboard/MeterReadingDialog.tsx": {
@@ -873,12 +834,6 @@
   "views/dashboard/SummaryCard.tsx": {
     "inline-size": 1
   },
-  "views/dashboard/TaskRow.tsx": {
-    "action-colour": 1,
-    "native-title": 1,
-    "radius": 1,
-    "spacing": 2
-  },
   "views/dashboard/WeekViewTab.tsx": {
     "radius": 3,
     "spacing": 4
@@ -909,17 +864,13 @@
     "text-size": 1
   },
   "views/focus-mode/ChecklistFocusItem.tsx": {
-    "action-colour": 1,
-    "inline-size": 1,
     "radius": 1,
-    "spacing": 2
+    "spacing": 1
   },
   "views/focus-mode/ClientFocusItem.tsx": {
-    "action-colour": 1,
-    "inline-size": 4,
-    "native-title": 5,
+    "native-title": 1,
     "radius": 1,
-    "spacing": 6
+    "spacing": 1
   },
   "views/focus-mode/FocusSection.tsx": {
     "inline-size": 1,
@@ -927,16 +878,12 @@
     "spacing": 1
   },
   "views/focus-mode/FollowUpFocusItem.tsx": {
-    "action-colour": 1,
-    "inline-size": 1,
     "native-title": 1,
     "radius": 1,
-    "spacing": 2
+    "spacing": 1
   },
   "views/focus-mode/TaskFocusItem.tsx": {
-    "action-colour": 1,
-    "inline-size": 1,
-    "spacing": 2
+    "spacing": 1
   },
   "views/help/highlightText.tsx": {
     "radius": 1
@@ -985,9 +932,6 @@
   },
   "views/template-manager/Badge.tsx": {
     "radius": 1
-  },
-  "views/template-manager/ChecklistTemplateRow.tsx": {
-    "native-title": 3
   },
   "views/template-manager/SetupTemplateCard.tsx": {
     "native-title": 2,

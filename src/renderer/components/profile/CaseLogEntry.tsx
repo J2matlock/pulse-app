@@ -18,7 +18,7 @@ import { useToday } from '../../hooks/useToday'
 import { CaseLogEditHistory } from './CaseLogEditHistory'
 import { useCopyFeedback } from '../../hooks/useCopyFeedback'
 import { formatMeasure, parseExtraMeasures, type MeasureDef } from '../../../shared/measures'
-import { DangerButton } from '../ui/Button'
+import { DangerButton, IconButton } from '../ui/Button'
 
 interface Props {
   entry: CaseLogEntryType
@@ -386,15 +386,10 @@ export function CaseLogEntry({ entry, onPin, onEdit, onDelete, onVoid, onComplet
               {!entry.follow_up_completed && followUpOverdue && ' — overdue'}
             </span>
             {!entry.follow_up_completed && (
-              <button
-                onClick={() => onCompleteFollowUp(entry.id)}
-                title="Mark follow-up done"
-                aria-label="Mark follow-up done"
-                className="hit-44 ml-auto p-1.5 rounded-sm hover:bg-green-100 dark:hover:bg-green-900/30
-                           focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-green-500"
-              >
-                <CheckCircle className="w-4 h-4" />
-              </button>
+              <span className="ml-auto">
+                <IconButton size="compact" label="Mark follow-up done" icon={<CheckCircle className="w-4 h-4" />}
+                  onClick={() => onCompleteFollowUp(entry.id)} />
+              </span>
             )}
           </div>
         )}

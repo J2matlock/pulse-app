@@ -271,8 +271,7 @@
   .btn-compact-danger {
     @apply btn-compact bg-red-600 text-white hover:bg-red-700;
   }
-  /* btn-compact-soft has the same look now: one secondary style (its last users go in Q8) */
-  .btn-compact-secondary, .btn-compact-soft {
+  .btn-compact-secondary {
     @apply btn-compact border border-slate-300 bg-white text-slate-700 hover:bg-slate-100
            dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700;
   }

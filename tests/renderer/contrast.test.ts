@@ -22,8 +22,8 @@ const CLASS = /className=(?:"([^"]*)"|\{`([^`]*)`\})/g
 const SIZED = /(^|\s)text-(sm|base|lg)\b/
 const FAINT_LIGHT = /(^|\s)text-(slate|gray)-(300|400)(\/\d+)?\b/
 const FAINT_DARK = /(^|\s)dark:text-(slate|gray)-(500|600)(\/\d+)?\b/
-// Checked by hand: light text on the dark bulk-action bar, and an empty-value dash
-const ALLOWED = ['/components/grid/BulkActionBar.tsx', '/components/profile/GridDataSummary.tsx: text-slate-400 dark:text-slate-500 italic text-base']
+// Checked by hand: an empty-value dash
+const ALLOWED = ['/components/profile/GridDataSummary.tsx: text-slate-400 dark:text-slate-500 italic text-base']
 
 describe('text contrast', () => {
   it('no sized text uses a grey too faint to read', () => {

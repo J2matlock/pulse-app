@@ -107,7 +107,8 @@ describe('CellConditionalFormatPanel', () => {
 
   it('calls them color rules everywhere: empty state, add button, Save (UX-B-23)', () => {
     render(<CellConditionalFormatPanel rowId={1} columnId={1} onClose={vi.fn()} />)
-    expect(screen.getByText('No color rules yet. Add one below.')).toBeTruthy()
+    expect(screen.getByText('No color rules yet')).toBeTruthy()
+    expect(screen.getByText('Add one below.')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Add a color rule' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy()
     expect(document.body.textContent).not.toMatch(/highlight|trigger|format/i)

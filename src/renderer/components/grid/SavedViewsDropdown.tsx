@@ -59,7 +59,7 @@ export function SavedViewsDropdown() {
     <div>
       <button
         ref={btnRef}
-        className={`btn-secondary ${open ? 'bg-purple-50 dark:bg-purple-900/30' : ''}`}
+        className={`btn-secondary ${open ? 'bg-slate-100 dark:bg-slate-700' : ''}`}
         style={{ minHeight: 36, padding: '0 12px', fontSize: 15, display: 'flex', alignItems: 'center', gap: 6 }}
         title={`Saved views: the way the ${t('list')} looks, saved to come back to`}
         aria-expanded={open}
@@ -74,7 +74,7 @@ export function SavedViewsDropdown() {
         <span>Saved views</span>
         {savedViews.length > 0 && (
           <span
-            className="bg-purple-500 text-white text-sm"
+            className="bg-slate-200 text-slate-800 dark:bg-slate-600 dark:text-slate-100 text-sm"
             style={{
               borderRadius: 9999,
               minWidth: 18,

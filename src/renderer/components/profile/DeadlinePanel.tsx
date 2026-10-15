@@ -273,9 +273,10 @@ export function DeadlinePanel({
   }
 
   return (
-    <section className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4">
-      <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
-        <Calendar className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+    // A heading and space, not a card holding cards (Q8): each deadline keeps its status stripe
+    <section aria-labelledby={`deadlines-${row.row_id}`} className="px-4">
+      <h2 id={`deadlines-${row.row_id}`} className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+        <Calendar className="w-5 h-5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
         Deadlines
       </h2>
 
@@ -300,7 +301,7 @@ export function DeadlinePanel({
           return (
             <div
               key={col.id}
-              className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden"
+              className={`rounded-lg overflow-hidden ${bgClass ? '' : 'bg-slate-50 dark:bg-slate-800/60'}`}
               style={{ ...bgStyle, borderLeft: `4px solid ${accentColor}` }}
             >
               <div className="p-3">

@@ -15,7 +15,8 @@ import { ReportBuilder, forgetReportDraft, reportDraftKey } from '../components/
 import { ReportChart } from '../components/reports/ReportChart'
 import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { useVocab } from '../hooks/useVocab'
-import { PrimaryButton } from '../components/ui/Button'
+import { PrimaryButton, SecondaryButton } from '../components/ui/Button'
+import { EmptyState } from '../components/shared/EmptyState'
 import { PurposeLine } from '../components/shared/PurposeLine'
 import { pulseEvents } from '../events'
 import { onLibraryChanged } from '../utils/libraryUndo'
@@ -37,8 +38,8 @@ function ReportCard({ report, onOpen }: { report: SavedReport; onOpen: () => voi
   const first = run?.result.columns.find(c => /^v\d+$/.test(c.key))
   return (
     <button type="button" onClick={onOpen}
-      className="text-left flex flex-col items-stretch justify-start rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 p-4 space-y-2 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 bg-white dark:bg-slate-800/40">
-      <span className="block text-lg font-semibold text-slate-800 dark:text-slate-100">{report.name}</span>
+      className="text-left flex flex-col items-stretch justify-start rounded-lg border border-slate-200 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500 hover:shadow-md transition-shadow p-4 space-y-2 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-accent bg-white dark:bg-slate-800/40">
+      <span className="block text-xl font-semibold text-slate-800 dark:text-slate-100">{report.name}</span>
       {run?.listName && <span className="block text-sm text-slate-500 dark:text-slate-400">{run.listName}</span>}
       <span className="block text-base text-slate-600 dark:text-slate-300">{report.config.about ?? run?.explanation ?? ''}</span>
       <span className="block pt-1">
@@ -99,23 +100,22 @@ export default function ReportsView(): React.ReactElement {
 
   return (
     <div className="h-full flex flex-col bg-white dark:bg-slate-900">
-      <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+      <div className="flex flex-wrap items-center gap-3 px-6 py-3 border-b border-slate-200 dark:border-slate-700">
         {building && (
-          <button type="button" className="btn-compact-secondary" onClick={() => request('home')}><ArrowLeft className="w-4 h-4" />All reports</button>
+          <SecondaryButton size="compact" onClick={() => request('home')} icon={<ArrowLeft className="w-4 h-4" />}>All reports</SecondaryButton>
         )}
-        <h1 className="flex-1 text-xl font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2"><BarChart3 className="w-5 h-5" aria-hidden="true" />Reports</h1>
+        <h1 className="flex-1 text-2xl font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2"><BarChart3 className="w-5 h-5 text-slate-500 dark:text-slate-400" aria-hidden="true" />Reports</h1>
         <PrimaryButton data-primary-action onClick={() => request('new')} icon={<Plus className="w-4 h-4" />}>New report</PrimaryButton>
       </div>
 
       {!building ? (
-        <div className="flex-1 min-h-0 overflow-auto p-4 space-y-4">
+        <div className="flex-1 min-h-0 overflow-auto px-6 py-4 space-y-4">
           <PurposeLine>Each report answers a question about your work. Open one to see it, print it or pin it to the dashboard.</PurposeLine>
           {reports === null ? <p className="text-base text-slate-500 dark:text-slate-400">Working…</p>
             : reports.length === 0 ? (
-              <div className="rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 p-6 text-center space-y-3">
-                <p className="text-base text-slate-700 dark:text-slate-200">You don't have any reports yet.</p>
-                <button type="button" className="btn-primary" onClick={() => request('new')}><Plus className="w-4 h-4" />Make your first report</button>
-              </div>
+              <EmptyState icon={<BarChart3 />} title="No reports yet"
+                description="Ask a question about your work and Pulse will count it."
+                action={{ label: 'Make your first report', onClick: () => request('new') }} />
             ) : (
               <div className="grid gap-4 grid-cols-1 md:grid-cols-2 2xl:grid-cols-3">
                 {reports.map(r => <ReportCard key={r.id} report={r} onOpen={() => request(r.id)} />)}
@@ -127,12 +127,9 @@ export default function ReportsView(): React.ReactElement {
       ) : openId && reports === null ? (
         <p className="p-4 text-base text-slate-500 dark:text-slate-400">Working…</p>
       ) : !openId && noLists ? (
-        <div className="m-4 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 p-6 text-center space-y-3">
-          <p className="text-base text-slate-700 dark:text-slate-200">Reports count what&rsquo;s in {t('list', { article: true })}. Make {t('list', { article: true })} first, then come back here.</p>
-          <button type="button" className="btn-primary" onClick={() => pulseEvents.emit('setup:open', { step: 'start' })}>
-            <Plus className="w-4 h-4" />Make {t('list', { article: true })}
-          </button>
-        </div>
+        <EmptyState icon={<BarChart3 />} title={`No ${t('list', { many: true })} yet`}
+          description={`Reports count what's in ${t('list', { article: true })}, so make one first.`}
+          action={{ label: `Make ${t('list', { article: true })}`, onClick: () => pulseEvents.emit('setup:open', { step: 'start' }) }} />
       ) : (
         <div className="flex-1 min-h-0">
           <ReportBuilder

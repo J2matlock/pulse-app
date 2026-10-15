@@ -47,7 +47,8 @@ describe('ContactInteractionLog', () => {
 
   it('shows empty state message when no interactions', () => {
     render(<ContactInteractionLog providerId={1} />)
-    expect(screen.getByText('No history yet. Note a call, meeting or email above to keep track of what was said.')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'No history yet' })).toBeTruthy()
+    expect(screen.getByText('Note a call, meeting or email above to keep track of what was said.')).toBeTruthy()
   })
 
   it('renders the add interaction form with type buttons and textarea', () => {

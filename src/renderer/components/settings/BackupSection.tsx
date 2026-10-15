@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
-  RotateCcw, FolderOpen, Play, Upload, Download, CheckCircle, Loader2, Info,
+  RotateCcw, FolderOpen, Play, Upload, Download, CheckCircle, Loader2, HardDrive,
 } from 'lucide-react'
 import { useGridStore } from '../../stores/gridStore'
 import { useUndoStore } from '../../stores/undoStore'
@@ -19,6 +19,8 @@ import { useVocab } from '../../hooks/useVocab'
 import { useBackupStatusStore } from '../../stores/backupStatusStore'
 import { friendlyError } from '../../utils/friendlyError'
 import { saveBackupArchive } from '../../utils/saveBackupArchive'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
+import { EmptyState } from '../shared/EmptyState'
 
 interface BackupPreviewData {
   gridCount: number
@@ -269,12 +271,12 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
     <>
       <div className="flex items-center gap-3 flex-wrap">
         <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 flex-1">Backup</h2>
-        <button type="button" className="btn-compact-soft" onClick={() => setShowMove(true)}>Move to a new computer…</button>
+        <SecondaryButton size="compact" onClick={() => setShowMove(true)}>Move to a new computer…</SecondaryButton>
       </div>
       <MoveComputerWizard open={showMove} onClose={() => setShowMove(false)} onGoToSecurity={onGoToSection ? () => onGoToSection('security') : undefined} />
 
-      {/* The one safety action everyone needs, always visible */}
-      <div className="rounded-lg border-2 border-slate-200 dark:border-slate-700 p-4 space-y-2">
+      {/* The one safety action everyone needs, always visible; space, not a box, sets it apart (Q8) */}
+      <div>
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex-1 min-w-[12rem]">
             <p className="text-base text-slate-700 dark:text-slate-300">
@@ -286,26 +288,17 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
                 : 'No backup saved to another place yet.'}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => void handleManualBackup()}
-            disabled={runningBackup}
-            className="btn-primary flex items-center gap-1.5 disabled:opacity-50"
-            style={{ minHeight: 44 }}
-          >
-            {runningBackup ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+          <PrimaryButton onClick={() => void handleManualBackup()} busy={runningBackup}
+            icon={runningBackup ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}>
             {runningBackup ? 'Backing up…' : 'Back up now…'}
-          </button>
+          </PrimaryButton>
         </div>
       </div>
 
-      {/* Info box: 3-layer backup explanation */}
-      <div className="flex items-start gap-2.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm text-blue-700 dark:text-blue-300">
-        <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
-        <p>
-          Pulse protects your data with three backup layers: <strong>Auto-backup</strong> saves when you close the app, <strong>Scheduled backup</strong> runs on your chosen interval, and <strong>Back up now</strong> saves a copy wherever you choose.
-        </p>
-      </div>
+      {/* The three backup layers, said in plain text rather than a blue box (Q8) */}
+      <p className="max-w-prose text-base text-slate-600 dark:text-slate-300">
+        Pulse protects your data with three backup layers: <strong>Auto-backup</strong> saves when you close the app, <strong>Scheduled backup</strong> runs on your chosen interval, and <strong>Back up now</strong> saves a copy wherever you choose.
+      </p>
 
       {/* Files live inside the database, so a big one makes every backup big */}
       {(backupInfo?.dbSize ?? 0) > LARGE_BACKUP_BYTES && (
@@ -350,9 +343,8 @@ export function BackupSection({ saveSetting, onGoToSection }: BackupSectionProps
           </p>
         </div>
         {autoBackups.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400 italic">
-            No auto-backups yet — they appear here after you close and reopen the app.
-          </p>
+          <EmptyState size="panel" icon={<HardDrive />} title="No auto-backups yet"
+            description="They appear here after you close and reopen the app." />
         ) : (
           <div
             className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden"

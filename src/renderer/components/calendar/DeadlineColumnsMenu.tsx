@@ -4,11 +4,12 @@
  * off the Calendar (the setting holds the hidden ones, so new columns show).
  */
 import React, { useEffect, useId, useRef, useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, CalendarDays } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { AlertRuleUse } from '../../../shared/types'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { EmptyState } from '../shared/EmptyState'
 
 export interface DeadlineColumnsMenuProps {
   hidden: Set<number>
@@ -71,7 +72,8 @@ export function DeadlineColumnsMenu({ hidden, disabled = false, onChange }: Dead
           {columns === null ? (
             <p className="text-base text-slate-600 dark:text-slate-300">Loading…</p>
           ) : columns.length === 0 ? (
-            <p className="text-base text-slate-600 dark:text-slate-300">No columns have deadline rules yet. Give a date column one (its ⋯ menu, "Deadline rule…") and its dates show on the Calendar.</p>
+            <EmptyState size="panel" heading="p" icon={<CalendarDays />} title="No columns have deadline rules yet"
+              description={'Give a date column one (its ⋯ menu, "Deadline rule…") and its dates show on the Calendar.'} />
           ) : (
             <>
               <p className="text-sm text-slate-600 dark:text-slate-300">{shownCount} of {columns.length} shown. New deadline columns show until you turn them off.</p>

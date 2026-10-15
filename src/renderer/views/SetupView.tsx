@@ -11,7 +11,7 @@
  */
 import React, { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardList, FileSpreadsheet, LayoutTemplate, Pencil, User } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CheckCircle2, FileSpreadsheet, LayoutTemplate, Pencil, User } from 'lucide-react'
 import { IPC } from '../../shared/ipc-channels'
 import { PRODUCT_NAME } from '../../shared/constants'
 import type { DateRuleAnswer, SetupProgress } from '../../shared/ipc-contract'
@@ -30,6 +30,7 @@ import { UpdateCheckChoice } from './setup/UpdateCheckChoice'
 import { friendlyError } from '../utils/friendlyError'
 import { useVocab } from '../hooks/useVocab'
 import { PrimaryButton } from '../components/ui/Button'
+import { PulseMark } from '../components/ui/PulseMark'
 
 type Step = 'welcome' | 'profile' | 'start' | 'sheet-name' | 'sheet-import' | 'sheet-rows' | 'sheet-dates' | 'blank' | 'done'
 
@@ -188,9 +189,7 @@ export default function SetupView({ start = 'welcome', onCancel, onComplete }: P
         <div className={card}>
           {step === 'welcome' && (
             <div className="p-10 text-center">
-              <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <ClipboardList className="text-white w-8 h-8" aria-hidden="true" />
-              </div>
+              <PulseMark size={64} className="mx-auto mb-6" />
               <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-3">Welcome to {PRODUCT_NAME}</h1>
               <p className="text-lg text-slate-600 dark:text-slate-300 mb-8 max-w-md mx-auto">
                 Pulse keeps track of the people and things you're responsible for, and what's due for each.

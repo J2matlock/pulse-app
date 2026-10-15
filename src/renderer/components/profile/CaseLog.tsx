@@ -35,6 +35,7 @@ import { daysOverdueLabel } from '../../../shared/deadlineTiles'
 import type { NoteSuggestion } from '../../utils/suggestedNote'
 import type { IPCResult } from '../../../shared/types'
 import type { CaseLogCounts } from '../../../shared/ipc-contract'
+import { EmptyState } from '../shared/EmptyState'
 
 /** What the notes filter hides, from a CASE_LOG_COUNTS answer (none when it failed) */
 function hiddenFrom(res: IPCResult<CaseLogCounts | null>): { changes: number; voided: number } {
@@ -830,11 +831,12 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
 
     {between}
 
-    <section className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+    // On the page, not in a card (Q8); the line under the heading row ends the section above
+    <section>
       {/* Header */}
-      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-        <MessageSquare className="w-4 h-4 text-slate-500 flex-shrink-0" />
-        <h2 className="text-base font-semibold text-slate-700 dark:text-slate-300 flex-1">
+      <div className="flex flex-wrap items-center gap-2 px-4 pb-3 border-b border-slate-200 dark:border-slate-700">
+        <MessageSquare className="w-5 h-5 text-slate-500 dark:text-slate-400 flex-shrink-0" aria-hidden="true" />
+        <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 flex-1">
           {t('activityLog', { cap: true })}
           {(shownTotal > 0 || query) && (
             <span className="ml-2 text-base font-normal text-slate-500 dark:text-slate-400">({query ? `${shownTotal} found` : shownTotal})</span>
@@ -912,10 +914,14 @@ export function CaseLog({ rowId, clientName, snippets: externalSnippets, focusRe
           <p className="text-base text-slate-500 dark:text-slate-400 text-center py-8">Loading…</p>
         )}
 
-        {!loading && filtered.length === 0 && (
-          <p className="text-base text-slate-500 dark:text-slate-400 text-center py-8">
+        {/* An empty log gets the designed empty state; a search or a filter that finds nothing gets words (Q8) */}
+        {!loading && filtered.length === 0 && !search && (show === 'notes' || show === 'everything') ? (
+          <EmptyState size="panel" icon={<MessageSquare />} title={`No ${t('activity', { many: true })} yet`}
+            description={`What happened with this ${t('record')}, written down as you go.`}
+            action={{ label: `Add ${t('activity', { article: true })}`, onClick: openComposer }} />
+        ) : !loading && filtered.length === 0 && (
+          <p className="text-base text-slate-600 dark:text-slate-300 text-center py-8">
             {search ? 'No entries match your search.'
-              : show === 'notes' || show === 'everything' ? `No ${t('activity', { many: true })} yet.`
               // "Changes only" or one note type: the record may have plenty of other entries
               : `Nothing of this kind yet. Choose "${t('activity', { many: true, cap: true })} only" under Show to see the rest.`}
           </p>

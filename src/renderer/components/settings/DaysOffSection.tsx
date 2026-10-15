@@ -5,7 +5,7 @@
  */
 import React, { useState } from 'react'
 import toast from 'react-hot-toast'
-import { Trash2 } from 'lucide-react'
+import { Trash2, CalendarOff } from 'lucide-react'
 import { IPC } from '../../../shared/ipc-channels'
 import type { WorkspaceState } from '../../../shared/ipc-contract'
 import { daysInRange, usFederalHolidays } from '../../../shared/businessDays'
@@ -15,6 +15,7 @@ import { useWorkspaceStore } from '../../stores/workspaceStore'
 import { useAlertStore } from '../../stores/alertStore'
 import { friendlyError } from '../../utils/friendlyError'
 import { MoreSettings } from './MoreSettings'
+import { EmptyState } from '../shared/EmptyState'
 
 /** A rule that moves off a day off, or counts working days ("10 school days"), is what makes days off matter */
 export function rulesUseDaysOff(rules: readonly { business_days?: number | null; rule_config?: string | null }[]): boolean {
@@ -109,7 +110,8 @@ export function DaysOffSection(): React.ReactElement {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-slate-500 dark:text-slate-400">No days off added yet. Add a day or a break above, and business-day deadlines skip it.</p>
+          <EmptyState size="panel" icon={<CalendarOff />} title="No days off added yet"
+            description="Add a day or a break above, and business-day deadlines skip it." />
         )}
       </MoreSettings>
     </section>

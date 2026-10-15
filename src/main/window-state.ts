@@ -51,3 +51,13 @@ export function restorableWindowState(saved: SavedWindowState, workAreas: Rect[]
   if (reachable) return saved
   return { width: saved.width, height: saved.height, maximized: saved.maximized }
 }
+
+/**
+ * The window's colour before the page paints (Q8). The saved theme is inside
+ * the locked database when the window opens, so the computer's own setting is
+ * the best guess, and it's also Pulse's default (follow the computer). With a
+ * fixed light colour a dark-mode user got a light flash on every launch.
+ */
+export function windowBackground(dark: boolean): string {
+  return dark ? '#0F172A' : '#F8FAFC' // slate-900 / slate-50, the app's own backgrounds
+}

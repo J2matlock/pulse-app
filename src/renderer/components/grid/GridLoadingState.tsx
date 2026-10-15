@@ -1,4 +1,6 @@
 import React from 'react'
+import { EyeOff, Columns3 } from 'lucide-react'
+import { EmptyState } from '../shared/EmptyState'
 
 // ── Loading skeleton ─────────────────────────────────────────────────────────
 
@@ -43,17 +45,14 @@ export interface GridEmptyColumnsProps {
 
 export function GridEmptyColumns({ hiddenCount, onShowAll, onAddColumn }: GridEmptyColumnsProps): React.ReactElement {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-500 dark:text-slate-400">
+    <div className="flex items-center justify-center h-full">
       {hiddenCount > 0 ? (
-        <>
-          <p className="text-base">All {hiddenCount === 1 ? 'the columns are' : `${hiddenCount} columns are`} hidden.</p>
-          <button type="button" className="btn-primary" onClick={onShowAll}>Show columns</button>
-        </>
+        <EmptyState icon={<EyeOff />} heading="h2"
+          title={`All ${hiddenCount === 1 ? 'the columns are' : `${hiddenCount} columns are`} hidden`}
+          action={{ label: 'Show columns', onClick: onShowAll }} />
       ) : (
-        <>
-          <p className="text-base">No columns yet. Add a column to get started.</p>
-          <button type="button" className="btn-primary" onClick={onAddColumn}>Add column</button>
-        </>
+        <EmptyState icon={<Columns3 />} heading="h2" title="No columns yet"
+          description="Add a column to get started." action={{ label: 'Add column', onClick: onAddColumn }} />
       )}
     </div>
   )

@@ -30,17 +30,19 @@ beforeEach(() => {
 })
 
 describe('the update-check choice (F-039)', () => {
+  // Setup asks with a checkbox; Settings → About has a switch (Q8)
+  const isOn = (el: HTMLElement) => el.getAttribute('role') === 'switch' ? el.getAttribute('aria-checked') === 'true' : (el as HTMLInputElement).checked
   it.each([
-    ['setup', () => render(<UpdateCheckChoice />), /Check for new versions when Pulse opens/],
-    ['Settings → About', () => render(<AboutSection />), /Check for updates automatically when Pulse opens/],
-  ])('%s: a click before the saved value arrives is kept', async (_where, show, label) => {
+    ['setup', () => render(<UpdateCheckChoice />), 'checkbox', /Check for new versions when Pulse opens/],
+    ['Settings → About', () => render(<AboutSection />), 'switch', /Check for updates automatically when Pulse opens/],
+  ] as const)('%s: a click before the saved value arrives is kept', async (_where, show, role, label) => {
     show()
-    const box = screen.getByRole('checkbox', { name: label }) as HTMLInputElement
-    expect(box.checked).toBe(true)
+    const box = screen.getByRole(role, { name: label })
+    expect(isOn(box)).toBe(true)
     fireEvent.click(box)
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith(IPC.SETTINGS_UPDATE, 'auto_update_check', 'false'))
     await act(async () => { answerGet({ ok: true, data: 'true' }) })
-    expect(box.checked).toBe(false)
+    expect(isOn(box)).toBe(false)
   })
 
   it('still shows the saved value when nobody has touched it', async () => {

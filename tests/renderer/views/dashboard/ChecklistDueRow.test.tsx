@@ -37,7 +37,7 @@ describe('Done on a Dashboard checklist item', () => {
   it('a repeating one comes back at its next date, and undo puts the old date back', async () => {
     invoke.mockResolvedValue({ ok: true, data: { sysLogId: null, repeat: { previousDue: '2026-10-01', nextDue: '2026-11-01' } } })
     const { onComplete, onRestore } = renderRow()
-    await act(async () => { fireEvent.click(screen.getByTitle(/complete/i)) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /complete/i })) })
     expect(onComplete).toHaveBeenCalledWith(3)
     expect(onRestore).toHaveBeenLastCalledWith({ ...item, due_date: '2026-11-01' })
 
@@ -48,7 +48,7 @@ describe('Done on a Dashboard checklist item', () => {
   it('a one-off one just leaves the list', async () => {
     invoke.mockResolvedValue({ ok: true, data: { sysLogId: null, repeat: null } })
     const { onComplete, onRestore } = renderRow()
-    await act(async () => { fireEvent.click(screen.getByTitle(/complete/i)) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /complete/i })) })
     expect(onComplete).toHaveBeenCalledWith(3)
     expect(onRestore).not.toHaveBeenCalled()
   })

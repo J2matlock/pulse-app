@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 64 64">
+  <!-- Candidate B, every size: the pulse line in white running into the orange peak, on a navy tile (reads on light and dark taskbars) -->
+  <defs>
+    <linearGradient id="line" x1="6" y1="0" x2="58" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.42" stop-color="#FFFFFF"/>
+      <stop offset="0.62" stop-color="#F5A65B"/>
+      <stop offset="1" stop-color="#EF8B4A"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="64" height="64" rx="14" fill="#123458"/>
+  <polyline points="7,35 19,35 24,41 31,12 38,52 43,35 57,35" fill="none" stroke="url(#line)" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

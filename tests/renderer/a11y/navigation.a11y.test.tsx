@@ -24,7 +24,8 @@ vi.mock('../../../src/renderer/utils/rendererLogger', () => ({
   rlog: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }))
 
-import { MainLayout, resetMainLayoutSession } from '../../../src/renderer/components/layout/MainLayout'
+import { MainLayout, resetMainLayoutSession, windowTitle } from '../../../src/renderer/components/layout/MainLayout'
+import { useGridStore } from '../../../src/renderer/stores/gridStore'
 import { PRODUCT_NAME } from '../../../src/shared/constants'
 import { setWords } from '../vocabFixture'
 
@@ -49,6 +50,7 @@ function app(start = '/dashboard') {
         <Route path="/dashboard" element={<MainLayout><Page title="Dashboard" /></MainLayout>} />
         <Route path="/grid/*" element={<MainLayout><Page title="List" /></MainLayout>} />
         <Route path="/tasks" element={<MainLayout><Page title="Tasks" autoFocus /></MainLayout>} />
+        <Route path="/profile/:id" element={<MainLayout><Page title="Maria Garcia" /></MainLayout>} />
         <Route path="/settings" element={<MainLayout><Page title="Settings" /></MainLayout>} />
       </Routes>
     </MemoryRouter>
@@ -92,6 +94,27 @@ describe('changing pages (A06-10)', () => {
     act(() => setWords({ record: { one: 'vehicle', many: 'vehicles' } } as never))
     await flush()
     expect(document.title).toBe(`Vehicles – ${PRODUCT_NAME}`)
+  })
+
+  it('on the list page it names the open list, and a record page never names the person (Q8)', async () => {
+    useGridStore.setState({ grids: [{ id: 3, name: 'Social Worker Caseload' }] as never, activeGridId: 3 })
+    render(app('/grid'))
+    await flush()
+    expect(document.title).toBe(`Social Worker Caseload – ${PRODUCT_NAME}`)
+    act(() => go('/profile/42?gridId=3'))
+    await flush()
+    expect(document.title).toBe(`Client – ${PRODUCT_NAME}`)
+    act(() => go('/dashboard'))
+    await flush()
+    expect(document.title).toBe(`Dashboard – ${PRODUCT_NAME}`)
+    useGridStore.setState({ grids: [] as never, activeGridId: null })
+  })
+
+  it('windowTitle: only the list page uses the list name', () => {
+    expect(windowTitle('/grid', 'Clients', 'Caseload A')).toBe(`Caseload A – ${PRODUCT_NAME}`)
+    expect(windowTitle('/grid', 'Clients', null)).toBe(`Clients – ${PRODUCT_NAME}`)
+    expect(windowTitle('/profile/7', 'Client', 'Caseload A')).toBe(`Client – ${PRODUCT_NAME}`)
+    expect(windowTitle('/tasks', 'Tasks', 'Caseload A')).toBe(`Tasks – ${PRODUCT_NAME}`)
   })
 
   it('goes back to the plain name when the layout closes (locking)', async () => {
