@@ -1,9 +1,10 @@
-import React, { useRef, useState } from 'react'
-import { ShieldCheck, Copy, Check, X } from 'lucide-react'
+import React, { useState } from 'react'
+import { ShieldCheck, Copy, Check } from 'lucide-react'
 import { PRODUCT_NAME } from '../../../shared/constants'
 import { useVocab } from '../../hooks/useVocab'
 import { copyText } from '../../hooks/useCopyFeedback'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton } from '../ui/Button'
 
 /**
  * Plain-English security summary a worker can show (or paste to) their
@@ -45,9 +46,6 @@ Questions: support@baringasoft.com`
 export function SecuritySummaryDialog({ open, onClose }: { open: boolean; onClose: () => void }): React.ReactElement | null {
   const { f } = useVocab(null)
   const [copied, setCopied] = useState(false)
-  const dialogRef = useRef<HTMLDivElement>(null)
-  // Tab stays inside, Escape closes, and focus goes back to the button that opened it
-  useFocusTrap(dialogRef, open, { onEscape: onClose })
   if (!open) return null
 
   async function copy() {
@@ -57,42 +55,27 @@ export function SecuritySummaryDialog({ open, onClose }: { open: boolean; onClos
   }
 
   const [title, ...paragraphs] = f(SECURITY_SUMMARY_TEXT).split('\n\n')
+  // The shared Dialog: Tab stays inside, Escape closes, and focus goes back to the button that opened it
   return (
-    <div className="fixed inset-0 z-[200] flex items-center-safe justify-center bg-black/50 p-4 overflow-y-auto" onClick={onClose}>
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="security-summary-title"
-        className="w-full max-w-2xl rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-          <ShieldCheck className="w-6 h-6 text-green-600 dark:text-green-400" aria-hidden="true" />
-          <h2 id="security-summary-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex-1">{title}</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="hit-44 p-2 rounded-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <div className="px-6 py-4 max-h-[60vh] overflow-y-auto space-y-4 text-base text-slate-700 dark:text-slate-200">
-          {paragraphs.map((p, i) => {
-            const [head, ...lines] = p.split('\n')
-            return lines.length > 0 ? (
-              <div key={i}>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">{head}</p>
-                <ul className="mt-1 space-y-1">{lines.map((l, j) => <li key={j}>{l}</li>)}</ul>
-              </div>
-            ) : <p key={i}>{head}</p>
-          })}
-        </div>
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
-          <span className="text-sm text-slate-600 dark:text-slate-300 mr-auto">Paste it into an email to your supervisor or IT.</span>
-          <button type="button" className="btn-primary" onClick={() => void copy()}>
-            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            {copied ? 'Copied' : 'Copy for my supervisor'}
-          </button>
-        </div>
+    <Dialog open onClose={onClose} title={title} size="xl"
+      icon={<ShieldCheck className="w-6 h-6 text-green-600 dark:text-green-400" aria-hidden="true" />}
+      footer={<>
+        <span className="text-sm text-slate-600 dark:text-slate-300 mr-auto">Paste it into an email to your supervisor or IT.</span>
+        <PrimaryButton onClick={() => void copy()} icon={copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}>
+          {copied ? 'Copied' : 'Copy for my supervisor'}
+        </PrimaryButton>
+      </>}>
+      <div className="space-y-4 text-base text-slate-700 dark:text-slate-200">
+        {paragraphs.map((p, i) => {
+          const [head, ...lines] = p.split('\n')
+          return lines.length > 0 ? (
+            <div key={i}>
+              <p className="font-semibold text-slate-900 dark:text-slate-100">{head}</p>
+              <ul className="mt-1 space-y-1">{lines.map((l, j) => <li key={j}>{l}</li>)}</ul>
+            </div>
+          ) : <p key={i}>{head}</p>
+        })}
       </div>
-    </div>
+    </Dialog>
   )
 }

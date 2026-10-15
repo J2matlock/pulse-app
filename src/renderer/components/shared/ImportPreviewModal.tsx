@@ -4,11 +4,10 @@
  *
  * Used by TemplateManagerView (manual import) and App.tsx (file association open).
  */
-import React, { useEffect, useRef, useState, useId } from 'react'
-import { FileText, X, ChevronDown } from 'lucide-react'
-import { motion } from 'motion/react'
-import { backdropVariants, modalPanelVariants } from '../../utils/animations'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import React, { useState } from 'react'
+import { FileText, ChevronDown } from 'lucide-react'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton, SecondaryButton } from '../ui/Button'
 import { useVocab } from '../../hooks/useVocab'
 import { IPC } from '../../../shared/ipc-channels'
 import type { Grid } from '../../../shared/types'
@@ -49,23 +48,12 @@ interface ImportPreviewModalProps {
 }
 
 export function ImportPreviewModal({ imported, grids, onClose, onApplied }: ImportPreviewModalProps): React.ReactElement {
-  const dialogTitleId = useId()
   const { filePath, preview } = imported
   const { t } = useVocab(null)
-  const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, true)
   const [applyMode, setApplyMode] = useState<ApplyMode>('new')
   const [selectedGridId, setSelectedGridId] = useState<number | null>(grids[0]?.id ?? null)
   const [applying, setApplying] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    function handler(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
 
   async function handleApply() {
     setError(null)
@@ -109,36 +97,18 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
   }
 
   return (
-    <motion.div
-        ref={trapRef}
-        variants={backdropVariants}
-        initial="hidden"
-        animate="visible"
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={dialogTitleId}
-        onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      >
-        <motion.div variants={modalPanelVariants} initial="hidden" animate="visible" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0">
-          <FileText className="w-5 h-5 text-blue-500 flex-shrink-0" />
-          <h2 id={dialogTitleId} className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex-1">
-            Import template
-          </h2>
-          <button
-            onClick={onClose}
-            className="hit-44 p-1.5 rounded-sm text-slate-500 hover:text-slate-600 dark:hover:text-slate-200
-                       focus:outline-hidden focus:ring-3 focus:ring-blue-500 min-w-[44px] flex items-center justify-center"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+    <Dialog open onClose={onClose} title="Import template" size="lg"
+      icon={<FileText className="w-6 h-6 text-blue-500" aria-hidden="true" />}
+      footer={<>
+        <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
+        <PrimaryButton
+          onClick={handleApply}
+          disabled={applying || (applyMode === 'existing' && grids.length === 0)}
+        >
+          {applying ? 'Applying…' : applyMode === 'new' ? `Make the ${t('list')}` : `Add to this ${t('list')}`}
+        </PrimaryButton>
+      </>}>
+        <div className="space-y-6">
           {/* Template info */}
           <div>
             <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">{preview.name}</h3>
@@ -244,31 +214,6 @@ export function ImportPreviewModal({ imported, grids, onClose, onApplied }: Impo
             </div>
           )}
         </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2 rounded-lg border border-slate-300 dark:border-slate-600
-                       text-base text-slate-700 dark:text-slate-300
-                       hover:bg-slate-50 dark:hover:bg-slate-700 min-h-[44px]
-                       focus:outline-hidden focus:ring-3 focus:ring-slate-400 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleApply}
-            disabled={applying || (applyMode === 'existing' && grids.length === 0)}
-            className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-base font-medium
-                       min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed
-                       focus:outline-hidden focus:ring-3 focus:ring-blue-500 transition-colors"
-          >
-            {applying ? 'Applying…' : applyMode === 'new' ? `Make the ${t('list')}` : `Add to this ${t('list')}`}
-          </button>
-        </div>
-        </motion.div>
-      </motion.div>
+    </Dialog>
   )
 }

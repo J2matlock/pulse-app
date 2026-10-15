@@ -1,8 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { motion } from 'motion/react'
+import React, { useState, useEffect } from 'react'
 import { FileText } from 'lucide-react'
-import { backdropVariants, modalPanelVariants } from '../../utils/animations'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { Dialog } from '../ui/Dialog'
 import { useVocab } from '../../hooks/useVocab'
 import { PrimaryButton, SecondaryButton } from '../ui/Button'
 
@@ -43,8 +41,6 @@ export function ColumnSelectDialog({ open, columns, onConfirm, onCancel, title =
   const { t } = useVocab()
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [scope, setScope] = useState<RowScope>('all')
-  const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, open)
 
   useEffect(() => {
     if (open) {
@@ -74,42 +70,24 @@ export function ColumnSelectDialog({ open, columns, onConfirm, onCancel, title =
     setSelectedIds([])
   }
 
+  // Escape is the Dialog's. Enter exports, except on a button, which does its own job (and Export's own click would export twice)
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Escape') {
-      e.stopPropagation()
-      onCancel()
-    }
-    if (e.key === 'Enter' && selectedIds.length > 0) {
+    if (e.key === 'Enter' && selectedIds.length > 0 && !(e.target as HTMLElement).closest('button')) {
       e.stopPropagation()
       onConfirm(selectedIds, scope)
     }
   }
 
   return (
-    <>
-      {open && (
-        <div
-          ref={trapRef}
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="column-select-dialog-title"
-          onKeyDown={handleKeyDown}
-        >
-          {/* Backdrop */}
-          <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 bg-black/50" onClick={onCancel} />
-
-          {/* Panel */}
-          <motion.div variants={modalPanelVariants} initial="hidden" animate="visible" className="relative w-full max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-6 mx-4">
-        {/* Title */}
-        <h2
-          id="column-select-dialog-title"
-          className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-4"
-          style={{ fontSize: 15 }}
-        >
-          {title}
-        </h2>
-
+    <Dialog open={open} onClose={onCancel} title={title} size="md" onKeyDown={handleKeyDown}
+      footer={<>
+        <SecondaryButton onClick={onCancel}>
+          Cancel
+        </SecondaryButton>
+        <PrimaryButton onClick={() => onConfirm(selectedIds, scope)} disabled={selectedIds.length === 0}>
+          Export
+        </PrimaryButton>
+      </>}>
         {/* Which records */}
         {scopeOptions.length > 1 && (
           <fieldset className="mb-4">
@@ -193,18 +171,6 @@ export function ColumnSelectDialog({ open, columns, onConfirm, onCancel, title =
           </div>
         )}
 
-        {/* Action buttons */}
-        <div className="flex gap-3 justify-end mt-5">
-          <SecondaryButton onClick={onCancel}>
-            Cancel
-          </SecondaryButton>
-          <PrimaryButton onClick={() => onConfirm(selectedIds, scope)} disabled={selectedIds.length === 0}>
-            Export
-          </PrimaryButton>
-        </div>
-          </motion.div>
-        </div>
-      )}
-    </>
+    </Dialog>
   )
 }

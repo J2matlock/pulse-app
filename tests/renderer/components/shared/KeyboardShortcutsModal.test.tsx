@@ -10,6 +10,7 @@ vi.mock('motion/react', () => ({
       return <div {...(rest as React.HTMLAttributes<HTMLDivElement>)}>{children as React.ReactNode}</div>
     },
   },
+  AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
 vi.mock('lucide-react', () => ({

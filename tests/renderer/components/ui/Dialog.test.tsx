@@ -91,6 +91,15 @@ describe('Dialog', () => {
     expect(onClose).toHaveBeenCalledTimes(2)
   })
 
+  it('dismissible={false}: no X, and Escape and the backdrop leave it open', () => {
+    const onClose = vi.fn()
+    const { container } = render(<Basic onClose={onClose} dismissible={false} />)
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
+    fireEvent.keyDown(screen.getByLabelText('Name'), { key: 'Escape' })
+    fireEvent.click(container.querySelector('.bg-black\\/50')!)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
   it('passes other keys to its own onKeyDown', () => {
     const onKeyDown = vi.fn()
     render(<Basic onKeyDown={onKeyDown} />)

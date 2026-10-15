@@ -21,7 +21,9 @@
  * - role="alertdialog" for a question that interrupts (a destructive confirm).
  * - initialFocus: the element to focus when it opens; otherwise the first
  *   focusable one (the trap's choice), unless something inside took focus.
- * - Escape, the X and a click on the backdrop all call onClose.
+ * - Escape, the X and a click on the backdrop all call onClose, unless
+ *   dismissible={false}: a step that must be finished with its own button
+ *   (the recovery key screen) has no X and ignores Escape and the backdrop.
  * - Other props (data-testid, data-tour, id, aria-*, onKeyDown) go on the panel.
  *
  * Safety details carried over from ConfirmDialog: the shared focus trap (a
@@ -54,6 +56,8 @@ export interface DialogProps extends PanelAttributes {
   /** Shown before the title, e.g. a warning icon in a circle */
   icon?: React.ReactNode
   footer?: React.ReactNode
+  /** false: no X, and Escape and the backdrop do nothing (default true) */
+  dismissible?: boolean
   children?: React.ReactNode
 }
 
@@ -65,14 +69,14 @@ const WIDTH: Record<DialogSize, string> = {
 }
 
 export function Dialog({
-  open, onClose, title, description, size = 'md', role = 'dialog', initialFocus, icon, footer, children,
+  open, onClose, title, description, size = 'md', role = 'dialog', initialFocus, icon, footer, dismissible = true, children,
   className, onKeyDown, ...rest
 }: DialogProps): React.ReactElement | null {
   const panelRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const descriptionId = useId()
 
-  useFocusTrap(panelRef, open, { onEscape: onClose })
+  useFocusTrap(panelRef, open, { onEscape: dismissible ? onClose : undefined })
 
   useEffect(() => {
     if (!open || !initialFocus) return
@@ -88,7 +92,7 @@ export function Dialog({
       // preventDefault tells page-level Escape handlers (the record page) it's taken
       e.preventDefault()
       e.stopPropagation()
-      onClose()
+      if (dismissible) onClose()
       return
     }
     onKeyDown?.(e)
@@ -108,7 +112,7 @@ export function Dialog({
         variants={backdropVariants}
         initial="hidden"
         animate="visible"
-        onClick={onClose}
+        onClick={dismissible ? onClose : undefined}
         aria-hidden="true"
       />
       <motion.div
@@ -124,7 +128,7 @@ export function Dialog({
         onKeyDown={handleKeyDown}
         {...rest}
       >
-        <div className={`flex flex-shrink-0 items-start gap-3 pl-6 pr-16 pt-6 ${hasBody ? 'pb-3' : 'pb-6'}`}>
+        <div className={`flex flex-shrink-0 items-start gap-3 pl-6 ${dismissible ? 'pr-16' : 'pr-6'} pt-6 ${hasBody ? 'pb-3' : 'pb-6'}`}>
           {icon && <div className="flex-shrink-0">{icon}</div>}
           <h2 id={titleId} className={`min-w-0 flex-1 ${icon ? 'pt-2' : 'pt-0.5'} text-xl font-semibold text-slate-800 dark:text-slate-100`}>
             {title}
@@ -147,7 +151,7 @@ export function Dialog({
         )}
 
         {/* Last in the tab order, so opening the dialog lands on its content rather than on the X */}
-        <IconButton label="Close" size="compact" icon={<X className="w-5 h-5" />} onClick={onClose} className="absolute top-5 right-5" />
+        {dismissible && <IconButton label="Close" size="compact" icon={<X className="w-5 h-5" />} onClick={onClose} className="absolute top-5 right-5" />}
       </motion.div>
     </div>
   )

@@ -1,12 +1,11 @@
-import React, { useRef, useState } from 'react'
+import React, { useState } from 'react'
 import { Eye, EyeOff, KeyRound } from 'lucide-react'
-import { motion } from 'motion/react'
-import { backdropVariants, modalPanelVariants } from '../../utils/animations'
 import toast from 'react-hot-toast'
 import { IPC } from '../../../shared/ipc-channels'
 import { safeInvoke } from '../../utils/safeInvoke'
 import { friendlyError } from '../../utils/friendlyError'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton } from '../ui/Button'
 import { PasswordStrength } from './PasswordStrength'
 import { FieldError, fieldErrorProps } from './FieldError'
 import { checkNewPassword, MIN_PASSWORD_LENGTH } from '../../../shared/passwordPolicy'
@@ -23,10 +22,6 @@ export function ResetPasswordAfterRecoveryDialog({ open, onComplete }: ResetPass
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const trapRef = useRef<HTMLDivElement>(null)
-
-  useFocusTrap(trapRef, open)
 
   const passwordsMatch = password === confirm
   const confirmMismatch = confirm.length > 0 && !passwordsMatch && 'Passwords do not match'
@@ -53,22 +48,17 @@ export function ResetPasswordAfterRecoveryDialog({ open, onComplete }: ResetPass
     }
   }
 
+  // Not dismissible: a new password has to be set before anything else
   return (
-    <>
-      {open && (
-        <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50">
-          <motion.div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="recovery-reset-title" variants={modalPanelVariants} initial="hidden" animate="visible" className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md mx-4 p-8">
-        <div className="flex items-center gap-3 mb-2">
-          <KeyRound className="w-6 h-6 text-blue-600" />
-          <h2 id="recovery-reset-title" className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-            Set a new password
-          </h2>
-        </div>
-        <p className="text-base text-slate-500 dark:text-slate-400 mb-6">
-          You unlocked with your recovery key. You must set a new password before continuing.
-        </p>
-
-        <form onSubmit={handleSubmit} className="space-y-5">
+    <Dialog open={open} onClose={() => {}} dismissible={false} title="Set a new password" size="md"
+      icon={<KeyRound className="w-6 h-6 text-blue-600" aria-hidden="true" />}
+      description="You unlocked with your recovery key. You must set a new password before continuing."
+      footer={
+        <PrimaryButton type="submit" form="recovery-reset-form" className="w-full" disabled={!isValid || isSubmitting}>
+          {isSubmitting ? 'Saving…' : 'Set new password'}
+        </PrimaryButton>
+      }>
+        <form id="recovery-reset-form" onSubmit={handleSubmit} className="space-y-6">
           {error && (
             <p role="alert" className="text-sm text-red-600 dark:text-red-400 font-medium">{error}</p>
           )}
@@ -135,19 +125,7 @@ export function ResetPasswordAfterRecoveryDialog({ open, onComplete }: ResetPass
               autoComplete="off"
             />
           </div>
-
-          <button
-            type="submit"
-            className="btn-primary w-full"
-            style={{ minHeight: 44 }}
-            disabled={!isValid || isSubmitting}
-          >
-            {isSubmitting ? 'Saving…' : 'Set new password'}
-          </button>
         </form>
-          </motion.div>
-        </motion.div>
-      )}
-    </>
+    </Dialog>
   )
 }

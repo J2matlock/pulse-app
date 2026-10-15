@@ -1,8 +1,7 @@
-import React, { useRef } from 'react'
-import { X, Sparkles } from 'lucide-react'
-import { motion } from 'motion/react'
-import { backdropVariants, modalPanelVariants } from '../../utils/animations'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import React from 'react'
+import { Sparkles } from 'lucide-react'
+import { Dialog } from '../ui/Dialog'
+import { PrimaryButton } from '../ui/Button'
 import { useVocab } from '../../hooks/useVocab'
 
 interface Props {
@@ -131,40 +130,13 @@ export const RELEASES: ReleaseEntry[] = [
 ]
 
 export function WhatsNewModal({ open, onClose }: Props): React.ReactElement | null {
-  const trapRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(trapRef, open)
   const { f } = useVocab(null)
 
   return (
-    <>
-      {open && (
-        <div
-          ref={trapRef}
-          className="fixed inset-0 z-[200] flex items-center justify-center"
-          role="dialog"
-          aria-modal="true"
-          aria-label="What's new"
-          onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }}
-        >
-          <motion.div variants={backdropVariants} initial="hidden" animate="visible" className="fixed inset-0 bg-black/50" onClick={onClose} />
-          <motion.div variants={modalPanelVariants} initial="hidden" animate="visible" className="relative w-full max-w-lg bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 max-h-[80vh] flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-              <div className="flex items-center gap-2 text-slate-800 dark:text-slate-100 font-semibold text-base">
-                <Sparkles className="w-5 h-5 text-amber-500 dark:text-amber-400" />
-                What's New
-              </div>
-              <button
-                onClick={onClose}
-                className="hit-44 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500 rounded-sm"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="overflow-y-auto flex-1 px-6 py-4 space-y-6">
+    <Dialog open={open} onClose={onClose} title="What's new" size="lg"
+      icon={<Sparkles className="w-6 h-6 text-amber-500 dark:text-amber-400" aria-hidden="true" />}
+      footer={<PrimaryButton onClick={onClose} className="w-full">Got it</PrimaryButton>}>
+      <div className="space-y-6">
               {RELEASES.map(release => (
                 <section key={release.version}>
                   <div className="flex items-baseline gap-3 mb-2">
@@ -183,20 +155,7 @@ export function WhatsNewModal({ open, onClose }: Props): React.ReactElement | nu
                   </ul>
                 </section>
               ))}
-            </div>
-
-            <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-700">
-              <button
-                onClick={onClose}
-                className="btn-primary w-full"
-                style={{ minHeight: 44 }}
-              >
-                Got it
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </>
+      </div>
+    </Dialog>
   )
 }
