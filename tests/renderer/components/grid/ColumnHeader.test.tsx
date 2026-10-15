@@ -190,7 +190,7 @@ describe('ColumnHeader', () => {
     expect(history.getAttribute('aria-checked')).toBe('false')
     expect(history.getAttribute('aria-describedby')).toBeTruthy()
     expect(screen.getByText("Write every change to this column into the client's notes.")).toBeTruthy()
-    expect(screen.getByRole('switch', { name: 'Required column' })).toBeTruthy()
+    expect(screen.getByRole('switch', { name: 'Must be filled in' })).toBeTruthy()
     expect(screen.queryByText('Log changes in timeline')).toBeNull()
   })
 
@@ -436,7 +436,7 @@ describe('ColumnHeader', () => {
     expect(screen.queryByRole('button', { name: /Use this as each/ })).toBeNull()
   })
 
-  it('"Keep a history of changes" and "Required column" flip from their switches', () => {
+  it('"Keep a history of changes" and "Must be filled in" flip from their switches', () => {
     const updateColumn = vi.fn().mockResolvedValue(true)
     setupStores({ updateColumn })
     render(<ColumnHeader column={makeColumn(4, 'Phone', 'text', JSON.stringify({ log_changes: true }))} />)
@@ -446,7 +446,7 @@ describe('ColumnHeader', () => {
     expect(history.getAttribute('aria-checked')).toBe('true')
     fireEvent.click(history)
     expect(updateColumn).toHaveBeenCalledWith(4, { config: JSON.stringify({ log_changes: false }) })
-    fireEvent.click(screen.getByRole('switch', { name: 'Required column' }))
+    fireEvent.click(screen.getByRole('switch', { name: 'Must be filled in' }))
     expect(updateColumn).toHaveBeenLastCalledWith(4, { config: JSON.stringify({ log_changes: true, required: true }) })
   })
 

@@ -33,7 +33,7 @@ describe('DataSection — reset everything', () => {
     render(<DataSection />)
     fireEvent.change(screen.getByLabelText(/to enable/), { target: { value: 'RESET EVERYTHING' } })
     fireEvent.change(screen.getByLabelText(/Enter your password to confirm/), { target: { value: 'my password' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Reset everything' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Erase everything' }))
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('app:factory-reset', 'my password'))
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('app:relaunch'))
   })
@@ -48,7 +48,7 @@ describe('DataSection — reset everything', () => {
     const toast = (await import('react-hot-toast')).default as unknown as { success: ReturnType<typeof vi.fn> }
     mockInvoke.mockImplementation((channel: string) => Promise.resolve(channel === 'cell-history:compact' ? { ok: true, data: 340 } : { ok: false, error: 'not in this test' }))
     render(<DataSection />)
-    fireEvent.click(screen.getByRole('button', { name: 'Compact now' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove older ones' }))
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Removed 340 old cell changes from the edit history.'))
   })
 

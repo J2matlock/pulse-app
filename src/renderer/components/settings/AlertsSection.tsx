@@ -53,7 +53,7 @@ export function AlertsSection(): React.ReactElement {
       </p>
 
       {alertRules.length === 0 && alertsLoaded && (
-        <p className="text-sm text-slate-500 dark:text-slate-400 italic">No deadline rules yet.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 italic">No deadline rules yet. To make one, click the ⋯ on a date column in {t('list', { article: true })} and choose "Deadline rule…".</p>
       )}
 
       <div className="space-y-2">

@@ -44,7 +44,7 @@ describe('dates Pulse can\'t read in Missing information', () => {
     mockInvoke.mockResolvedValue({ ok: true, data: [] })
     const { container } = render(<MemoryRouter><MissingInfoDialog onClose={() => {}} /></MemoryRouter>)
     await flush()
-    expect(container.ownerDocument.body.textContent).toMatch(/click the ⋯ button next to a column's name, choose Column settings… and turn on Required column/)
+    expect(container.ownerDocument.body.textContent).toMatch(/click the ⋯ button next to a column's name, choose Column settings… and turn on Must be filled in/)
   })
 
   it('the dashboard nudge doesn\'t count them', async () => {

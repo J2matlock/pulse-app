@@ -81,13 +81,13 @@ describe('ContactFilterBar', () => {
 
   it('renders view toggle buttons (card and list)', () => {
     render(<ContactFilterBar {...defaultProps} />)
-    expect(screen.getByLabelText('Card view')).toBeTruthy()
-    expect(screen.getByLabelText('List view')).toBeTruthy()
+    expect(screen.getByLabelText('Show as cards')).toBeTruthy()
+    expect(screen.getByLabelText('Show as a list')).toBeTruthy()
   })
 
   it('calls onViewModeChange when list view button is clicked', () => {
     render(<ContactFilterBar {...defaultProps} />)
-    fireEvent.click(screen.getByLabelText('List view'))
+    fireEvent.click(screen.getByLabelText('Show as a list'))
     expect(defaultProps.onViewModeChange).toHaveBeenCalledWith('list')
   })
 

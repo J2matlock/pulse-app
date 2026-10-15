@@ -114,7 +114,7 @@ export function LinkedRecords({ rowId, onCount }: { rowId: number; onCount?: (n:
             )}
 
             {block.records.length === 0 ? (
-              <p className="text-sm text-slate-500 dark:text-slate-400">None linked yet.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">None linked yet. Use the buttons above to link one or add a new one.</p>
             ) : (
               <ul className="divide-y divide-slate-100 dark:divide-slate-700 rounded-lg border border-slate-200 dark:border-slate-700">
                 {block.records.map(r => (

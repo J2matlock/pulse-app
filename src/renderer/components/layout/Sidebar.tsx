@@ -562,7 +562,7 @@ export function Sidebar({ collapsed, onToggle }: Props): React.ReactElement {
           className="hit-44 p-1.5 rounded-sm hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400
                      focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
           title={modHelp(collapsed ? 'Expand sidebar (Ctrl+\\)' : 'Collapse sidebar (Ctrl+\\)')}
-          aria-label={modHelp(collapsed ? 'Expand sidebar (Ctrl+\\)' : 'Collapse sidebar (Ctrl+\\)')}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           <motion.div animate={{ rotate: collapsed ? 180 : 0 }} transition={{ duration: 0.25 }}>
             <ChevronLeft className="w-5 h-5" />

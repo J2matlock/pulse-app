@@ -142,8 +142,8 @@ export function ContactFilterBar({ viewMode, onViewModeChange, searchInputRef }:
             onClick={() => onViewModeChange('cards')}
             className={`p-2 ${viewMode === 'cards' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
             style={{ minHeight: 44, minWidth: 44 }}
-            title="Card view"
-            aria-label="Card view"
+            title="Show as cards"
+            aria-label="Show as cards"
           >
             <LayoutGrid size={16} />
           </button>
@@ -151,8 +151,8 @@ export function ContactFilterBar({ viewMode, onViewModeChange, searchInputRef }:
             onClick={() => onViewModeChange('list')}
             className={`p-2 ${viewMode === 'list' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
             style={{ minHeight: 44, minWidth: 44 }}
-            title="List view"
-            aria-label="List view"
+            title="Show as a list"
+            aria-label="Show as a list"
           >
             <List size={16} />
           </button>

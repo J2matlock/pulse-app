@@ -51,7 +51,7 @@ export function FilesStorageSection(): React.ReactElement {
         <button type="button" className="btn-secondary" onClick={() => void saveLimit()}>Save</button>
         <button type="button" className="btn-secondary" onClick={() => void emptyTrash()}>Remove files in the Trash now</button>
       </div>
-      <p className="text-sm text-slate-500 dark:text-slate-400">Files are kept inside the encrypted database, so they're part of every backup. Bigger files make backups slower.</p>
+      <p className="text-sm text-slate-500 dark:text-slate-400">Files are kept inside your Pulse data, locked with your password, so they're part of every backup. Bigger files make backups slower.</p>
     </section>
   )
 }

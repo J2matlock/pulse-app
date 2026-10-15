@@ -113,13 +113,13 @@ export default function SettingsView(): React.ReactElement {
   const navItems: Array<{ id: Section; label: string; desc: string; icon: React.ElementType }> = [
     { id: 'workspace', label: 'Words & features', desc: 'Words, features and ready-made examples', icon: ToggleLeft },
     { id: 'profile', label: 'Profile', desc: 'Your name, title, and contact info', icon: User },
-    { id: 'appearance', label: 'Appearance', desc: 'Theme, font size, and display options', icon: Monitor },
-    { id: 'security', label: 'Security', desc: 'Password and encryption settings', icon: Shield },
-    { id: 'backup', label: 'Backup', desc: 'Automatic and manual backup configuration', icon: HardDrive },
-    { id: 'data', label: 'Data', desc: 'Import, export, and data management', icon: Database },
+    { id: 'appearance', label: 'Appearance', desc: 'Light or dark, text size, and how the list looks', icon: Monitor },
+    { id: 'security', label: 'Security', desc: 'Your password, recovery key and when Pulse locks', icon: Shield },
+    { id: 'backup', label: 'Backup', desc: 'When Pulse saves copies of your data, and where', icon: HardDrive },
+    { id: 'data', label: 'Data', desc: 'Bring data in, send it out, and clean up', icon: Database },
     { id: 'alerts', label: 'Deadlines & reminders', desc: 'Deadline rules, requirements, reminders, days off', icon: Bell },
     { id: 'notes', label: t('activity', { many: true, cap: true }), desc: 'Kinds, time, mileage, and formats', icon: NotebookPen },
-    { id: 'about', label: 'About', desc: 'Version info and credits', icon: Info },
+    { id: 'about', label: 'About', desc: 'Which version you have, and updates', icon: Info },
   ]
 
   return (

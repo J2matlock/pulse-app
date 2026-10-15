@@ -14,7 +14,7 @@ export function ReportTable({ result, sort, onSort, maxRows, caption }: {
   const rows = maxRows ? result.rows.slice(0, maxRows) : result.rows
   const numeric = (kind: string) => kind === 'number' || kind === 'currency'
   const showTotals = result.rows.length > 1 && result.columns.some(c => c.key in result.totals)
-  if (result.rows.length === 0) return <p className="text-base text-slate-500 dark:text-slate-400 py-4">Nothing matches yet.</p>
+  if (result.rows.length === 0) return <p className="text-base text-slate-500 dark:text-slate-400 py-4">Nothing to count yet. Add more, or widen the filters above.</p>
   return (
     <div className="overflow-auto">
       <table className="w-full text-base border-collapse">

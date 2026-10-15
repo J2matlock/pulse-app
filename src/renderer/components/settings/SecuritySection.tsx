@@ -241,7 +241,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
                   checked={pwReencrypt} onChange={e => setPwReencrypt(e.target.checked)}
                   aria-describedby="settings-pw-reencrypt-help" />
                 <span>
-                  <span className="block text-base font-medium text-slate-700 dark:text-slate-300">Also re-encrypt my data</span>
+                  <span className="block text-base font-medium text-slate-700 dark:text-slate-300">Also give my data a new key (slower, safer)</span>
                   <span id="settings-pw-reencrypt-help" className="block text-base text-slate-600 dark:text-slate-400">
                     {REENCRYPT_HELP} Your recovery key stops working too, so you'll make a new one. This can take a minute if you have a lot of data.
                   </span>
@@ -351,7 +351,7 @@ export function SecuritySection({ saveSetting, onGoToSection }: SecuritySectionP
                 checked={revokeReencrypt} onChange={e => setRevokeReencrypt(e.target.checked)}
                 aria-describedby="revoke-reencrypt-help" />
               <span>
-                <span className="block text-base font-medium text-slate-700 dark:text-slate-300">Also re-encrypt my data</span>
+                <span className="block text-base font-medium text-slate-700 dark:text-slate-300">Also give my data a new key (slower, safer)</span>
                 <span id="revoke-reencrypt-help" className="block text-base text-slate-600 dark:text-slate-400">
                   Gives your data a new key, so this recovery key can't open anything from now on, even together with an old backup. Old backups still open with it. Save a new backup afterwards.
                 </span>

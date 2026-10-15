@@ -387,7 +387,7 @@ export default function CalendarView(): React.ReactElement {
                 <div className="space-y-1.5 max-w-2xl">{byDay.get(d)!.map(e => eventButton(e, 'list'))}</div>
               </section>
             ))}
-            {![...byDay.keys()].some(d => d >= anchor && d <= range.to) && <p className="text-base text-slate-500 dark:text-slate-400">Nothing in the next {AGENDA_DAYS} days.</p>}
+            {![...byDay.keys()].some(d => d >= anchor && d <= range.to) && <p className="text-base text-slate-500 dark:text-slate-400">Nothing in the next {AGENDA_DAYS} days. To add an event or appointment, click Add….</p>}
           </div>
         )}
       </div>

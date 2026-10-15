@@ -307,7 +307,7 @@ export function LinkedProviders({ rowId, gridId, onCount }: Props) {
         {!loading && links.length === 0 && !searching && (
           <div className="py-6 text-center">
             <BookUser className="w-8 h-8 text-slate-300 dark:text-slate-500 mx-auto mb-2" />
-            <p className="text-sm text-slate-500 dark:text-slate-400" style={{ fontSize: 15 }}>No {t('contact', { many: true })} linked.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400" style={{ fontSize: 15 }}>No {t('contact', { many: true })} linked yet.</p>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
               Click &ldquo;Link {t('contact', { cap: true })}&rdquo; to connect {t('contact', { article: true })} to this {t('record')}.
             </p>

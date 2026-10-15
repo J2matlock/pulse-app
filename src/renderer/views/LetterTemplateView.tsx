@@ -178,7 +178,7 @@ export default function LetterTemplateView(): React.ReactElement {
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <FileText className="w-12 h-12 text-slate-200 dark:text-slate-700 mx-auto mb-3" />
-              <p className="text-base text-slate-500 dark:text-slate-400">Select a template to view it</p>
+              <p className="text-base text-slate-500 dark:text-slate-400">Choose a template on the left to read or change it.</p>
             </div>
           </div>
         )}

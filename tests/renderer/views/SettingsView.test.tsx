@@ -105,7 +105,7 @@ describe('SettingsView', () => {
     for (const tab of screen.getAllByRole('tab')) expect(tab.querySelector('p')).toBeNull()
     expect(screen.getByText('Words, features and ready-made examples').closest('[role="tabpanel"]')).not.toBeNull()
     fireEvent.click(screen.getByRole('tab', { name: /Appearance/i }))
-    expect(screen.getByText('Theme, font size, and display options').closest('[role="tabpanel"]')).not.toBeNull()
+    expect(screen.getByText('Light or dark, text size, and how the list looks').closest('[role="tabpanel"]')).not.toBeNull()
     expect(screen.queryByText('Words, features and ready-made examples')).toBeNull()
   })
 

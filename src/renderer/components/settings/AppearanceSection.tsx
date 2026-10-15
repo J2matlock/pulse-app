@@ -177,7 +177,7 @@ export function AppearanceSection({
           <span>{UI_SCALE_MAX}%</span>
         </div>
         {uiScale < 100 && (
-          <p className="text-sm text-amber-700 dark:text-amber-400">Smaller sizes may reduce readability</p>
+          <p className="text-sm text-amber-700 dark:text-amber-400">Smaller text can be harder to read</p>
         )}
         <p className="text-sm text-slate-500 dark:text-slate-400">{modHelp('Ctrl+= / Ctrl+- to zoom, Ctrl+0 to reset')}</p>
       </div>
@@ -216,8 +216,8 @@ export function AppearanceSection({
         {/* Row striping */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <span id={`${ids}-striping`} className="text-base text-slate-700 dark:text-slate-300">Row striping</span>
-            <p id={`${ids}-striping-desc`} className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Alternate row colors for easier reading</p>
+            <span id={`${ids}-striping`} className="text-base text-slate-700 dark:text-slate-300">Shade every other line</span>
+            <p id={`${ids}-striping-desc`} className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Makes a long line easier to follow across the screen</p>
           </div>
           <SettingSwitch checked={rowStriping} onChange={setRowStriping} labelId={`${ids}-striping`} descriptionId={`${ids}-striping-desc`} />
         </div>
@@ -253,7 +253,7 @@ export function AppearanceSection({
       {/* Subsection 4: Sidebar width */}
       <div className="border-t border-slate-200 dark:border-slate-700 pt-6 mt-6 space-y-3">
         <label className="block text-base font-medium text-slate-700 dark:text-slate-300">Sidebar width</label>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Width of the navigation sidebar</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">How wide the sidebar on the left is</p>
         <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden w-fit">
           {([
             { value: 'narrow', label: 'Narrow' },
@@ -277,7 +277,7 @@ export function AppearanceSection({
 
       {/* Subsection 5: Date & Time */}
       <div className="border-t border-slate-200 dark:border-slate-700 pt-6 mt-6 space-y-4">
-        <label className="block text-base font-medium text-slate-700 dark:text-slate-300">Date &amp; Time</label>
+        <label className="block text-base font-medium text-slate-700 dark:text-slate-300">Date and time</label>
 
         {/* Date format */}
         <div className="space-y-1">
@@ -295,9 +295,9 @@ export function AppearanceSection({
               if (v === 'us' || v === 'iso' || v === 'eu') useSettingsStore.setState({ dateFormat: v })
             }}
           >
-            <option value="us">MM/DD/YYYY (US)</option>
-            <option value="iso">YYYY-MM-DD (ISO)</option>
-            <option value="eu">DD/MM/YYYY (EU)</option>
+            <option value="us">10/14/2026 (month first)</option>
+            <option value="iso">2026-10-14 (year first)</option>
+            <option value="eu">14/10/2026 (day first)</option>
           </select>
         </div>
 
@@ -361,8 +361,8 @@ export function AppearanceSection({
         {/* Reduced motion */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p id={`${ids}-motion`} className="text-base text-slate-700 dark:text-slate-300">Reduced motion</p>
-            <p id={`${ids}-motion-desc`} className="text-sm text-slate-500 dark:text-slate-400">Disable animations and transitions</p>
+            <p id={`${ids}-motion`} className="text-base text-slate-700 dark:text-slate-300">Less movement</p>
+            <p id={`${ids}-motion-desc`} className="text-sm text-slate-500 dark:text-slate-400">Turn off animations</p>
           </div>
           <SettingSwitch checked={reducedMotion} onChange={setReducedMotion} labelId={`${ids}-motion`} descriptionId={`${ids}-motion-desc`} />
         </div>
@@ -370,8 +370,8 @@ export function AppearanceSection({
         {/* High contrast */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p id={`${ids}-contrast`} className="text-base text-slate-700 dark:text-slate-300">High contrast</p>
-            <p id={`${ids}-contrast-desc`} className="text-sm text-slate-500 dark:text-slate-400">Increase border and text contrast</p>
+            <p id={`${ids}-contrast`} className="text-base text-slate-700 dark:text-slate-300">Stronger contrast</p>
+            <p id={`${ids}-contrast-desc`} className="text-sm text-slate-500 dark:text-slate-400">Darker lines and text</p>
           </div>
           <SettingSwitch checked={highContrast} onChange={setHighContrast} labelId={`${ids}-contrast`} descriptionId={`${ids}-contrast-desc`} />
         </div>

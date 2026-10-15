@@ -49,7 +49,7 @@ export function MissingInfoDialog({ gridId, onClose }: { gridId?: number; onClos
           {data === null && <p className="text-base text-slate-500 dark:text-slate-400">Loading…</p>}
           {data?.length === 0 && (
             <p className="text-base text-slate-700 dark:text-slate-200">
-              No columns are marked required yet. In {t('list', { article: true })}, click the <strong>⋯</strong> button next to a column's name, choose <strong>Column settings…</strong> and turn on <strong>Required column</strong>. Empty cells in that column then show "Missing" and are listed here.
+              No columns have to be filled in yet. In {t('list', { article: true })}, click the <strong>⋯</strong> button next to a column's name, choose <strong>Column settings…</strong> and turn on <strong>Must be filled in</strong>. Empty cells in that column then show "Missing" and are listed here.
             </p>
           )}
           {data?.map(g => (

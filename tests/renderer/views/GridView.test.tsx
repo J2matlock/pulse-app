@@ -218,7 +218,7 @@ describe('GridView', () => {
     render(<MemoryRouter><GridView /></MemoryRouter>)
     await flushEffects()
     expect(screen.getByTestId('empty-state')).toBeDefined()
-    expect(screen.getByText('No caseload selected')).toBeDefined()
+    expect(screen.getByText('Choose a caseload')).toBeDefined()
   })
 
   it('renders toolbar, grid, and footer when a grid is active', async () => {

@@ -357,7 +357,7 @@ export function FilterBar(): React.ReactElement | null {
               </p>
               {savedFilters.length === 0 ? (
                 <div className="px-4 py-4 text-center">
-                  <p className="text-sm text-slate-500 dark:text-slate-400">No saved filters yet.</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">No saved filters yet. Set up a filter, then click "Save this filter" to keep it for next time.</p>
                   <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                     Add a filter, then click "Save this filter".
                   </p>

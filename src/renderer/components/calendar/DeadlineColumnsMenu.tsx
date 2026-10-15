@@ -71,7 +71,7 @@ export function DeadlineColumnsMenu({ hidden, disabled = false, onChange }: Dead
           {columns === null ? (
             <p className="text-base text-slate-600 dark:text-slate-300">Loading…</p>
           ) : columns.length === 0 ? (
-            <p className="text-base text-slate-600 dark:text-slate-300">No columns have deadline rules yet.</p>
+            <p className="text-base text-slate-600 dark:text-slate-300">No columns have deadline rules yet. Give a date column one (its ⋯ menu, "Deadline rule…") and its dates show on the Calendar.</p>
           ) : (
             <>
               <p className="text-sm text-slate-600 dark:text-slate-300">{shownCount} of {columns.length} shown. New deadline columns show until you turn them off.</p>

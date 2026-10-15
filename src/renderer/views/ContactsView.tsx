@@ -256,7 +256,7 @@ export default function ContactsView() {
               {hasActiveFilters ? (
                 <div className="text-center py-12">
                   <p className="text-slate-700 dark:text-slate-300 font-semibold mb-1" style={{ fontSize: 15 }}>No {t('contact', { many: true })} match your search</p>
-                  <p className="text-slate-500 dark:text-slate-400" style={{ fontSize: 15 }}>Try adjusting your filters or search terms</p>
+                  <p className="text-slate-500 dark:text-slate-400" style={{ fontSize: 15 }}>Clear the search and filters above, or try another name.</p>
                 </div>
               ) : (
                 <div className="flex items-center justify-center h-full py-16">

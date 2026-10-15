@@ -134,6 +134,6 @@ describe('LetterTemplateView', () => {
   it('with no templates, the right panel does not ask to select one', async () => {
     render(<MemoryRouter><LetterTemplateView /></MemoryRouter>)
     await flushEffects()
-    expect(screen.queryByText('Select a template to view it')).toBeNull()
+    expect(screen.queryByText('Choose a template on the left to read or change it.')).toBeNull()
   })
 })

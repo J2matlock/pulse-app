@@ -58,11 +58,11 @@ describe('axe: settings', () => {
 
   it('names each switch by its visible label (audit A06-13)', () => {
     render(appearance(false))
-    for (const name of ['Row striping', 'Reduced motion', 'High contrast']) {
+    for (const name of ['Shade every other line', 'Less movement', 'Stronger contrast']) {
       const sw = screen.getByRole('switch', { name })
       expect(sw.getAttribute('aria-checked')).toBe('false')
     }
-    expect(screen.getByRole('switch', { name: 'Reduced motion' }).getAttribute('aria-describedby')).toBeTruthy()
+    expect(screen.getByRole('switch', { name: 'Less movement' }).getAttribute('aria-describedby')).toBeTruthy()
   })
 
   it('every settings tab', async () => {

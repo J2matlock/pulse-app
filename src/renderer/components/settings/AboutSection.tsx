@@ -177,7 +177,7 @@ export function AboutSection(): React.ReactElement {
       </div>
 
       <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
-        <p>Your data stays on your device. No cloud sync, no telemetry, no account required.</p>
+        <p>Your data stays on your computer. Nothing goes to the internet, nothing is reported back, and no account is needed.</p>
         <p>Built by a care coordinator, for anyone who keeps track of people or things with deadlines.</p>
       </div>
 

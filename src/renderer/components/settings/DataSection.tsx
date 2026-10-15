@@ -142,12 +142,12 @@ export function DataSection(): React.ReactElement {
       {dbInfo && (
         <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 space-y-3 text-sm">
           <div className="flex justify-between gap-4">
-            <span className="text-slate-500 dark:text-slate-400 flex-shrink-0">Database location</span>
+            <span className="text-slate-500 dark:text-slate-400 flex-shrink-0">Where your data is kept</span>
             <span className="font-mono text-slate-700 dark:text-slate-300 text-sm text-right break-all"
               title={dbInfo.path}>{dbInfo.path}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500 dark:text-slate-400">Database size</span>
+            <span className="text-slate-500 dark:text-slate-400">Size of your data</span>
             <span className="text-slate-700 dark:text-slate-300">{dbInfo.size}</span>
           </div>
           <div className="flex justify-between">
@@ -229,7 +229,7 @@ export function DataSection(): React.ReactElement {
       </div>
 
       <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-        <p className="text-base font-medium text-slate-700 dark:text-slate-300">Cell history</p>
+        <p className="text-base font-medium text-slate-700 dark:text-slate-300">Old cell values</p>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Pulse keeps a record of every cell change so you can see what a value used to be ("View history" on a cell). Removing old changes frees space.
         </p>
@@ -255,7 +255,7 @@ export function DataSection(): React.ReactElement {
             style={{ minHeight: 44, padding: '0 16px', fontSize: 15 }}
             onClick={() => void compactHistory(parseInt((document.getElementById('history-retention') as HTMLSelectElement | null)?.value ?? '12', 10))}
           >
-            Compact now
+            Remove older ones
           </button>
         </div>
         {/* Destructive, so not an option in the "keep" dropdown (E-32) */}
@@ -278,23 +278,22 @@ export function DataSection(): React.ReactElement {
       </div>
 
       <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-        <p className="text-base font-medium text-slate-700 dark:text-slate-300">Database integrity</p>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Verify your database isn't corrupted</p>
+        <p className="text-base font-medium text-slate-700 dark:text-slate-300">Check your data file</p>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Run a quick check to verify the database file is not corrupted.
+          Looks for damage in the file that holds your data. It takes a few seconds and changes nothing.
         </p>
         <button
           className="btn-secondary"
           style={{ minHeight: 44, padding: '0 16px', fontSize: 15 }}
           onClick={async () => {
             const res = await safeInvoke<boolean>(IPC.APP_INTEGRITY_CHECK)
-            if (res.ok && res.data) toast.success('Database integrity check passed.')
-            else if (res.ok && !res.data) toast.error('Database integrity check FAILED. Consider restoring from backup.')
+            if (res.ok && res.data) toast.success('No problems found in your data file.')
+            else if (res.ok && !res.data) toast.error('Your data file has a problem. Restore a backup from Settings → Backup.')
             else toast.error("We couldn't check the data file — try again")
           }}
         >
           <RefreshCw className="w-4 h-4 inline mr-2" />
-          Run integrity check
+          Check the data file
         </button>
       </div>
 
@@ -313,7 +312,7 @@ export function DataSection(): React.ReactElement {
               const res = await safeInvoke(IPC.FILE_ASSOC_REGISTER, shouldRegister)
               if (res.ok) {
                 setPulseRegistered(shouldRegister)
-                toast.success(shouldRegister ? '.pulse files registered.' : '.pulse files unregistered.')
+                toast.success(shouldRegister ? 'Pulse now opens .pulse files when you double-click them.' : 'Pulse no longer opens .pulse files on a double-click.')
               } else {
                 toast.error("Pulse couldn't set itself up to open .pulse files — you can still open them from Templates")
               }
@@ -340,7 +339,7 @@ export function DataSection(): React.ReactElement {
           <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
           <div className="space-y-3 flex-1 min-w-0">
             <div>
-              <p className="text-base font-medium text-red-700 dark:text-red-400">Danger zone</p>
+              <p className="text-base font-medium text-red-700 dark:text-red-400">Start over</p>
               <p className="text-sm text-slate-500 dark:text-slate-400">Erase all data and start fresh. This can't be undone.</p>
               <p className="text-sm text-red-600 dark:text-red-400 mt-1">
                 Permanently deletes all data on this computer, including every {t('record')}, column, setting, and the automatic backups. Backups you saved somewhere else (a USB drive or another folder) are not deleted.
@@ -395,7 +394,7 @@ export function DataSection(): React.ReactElement {
               className="btn-primary bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed w-full"
               style={{ minHeight: 44 }}
             >
-              Reset everything
+              Erase everything
             </button>
           </div>
         </div>

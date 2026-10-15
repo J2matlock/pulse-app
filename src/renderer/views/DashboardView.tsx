@@ -548,7 +548,7 @@ export default function DashboardView(): React.ReactElement {
                   </p>
                   <div className="space-y-2">
                     {rulesInUse.length === 0
-                      ? <p className="text-sm text-slate-500 dark:text-slate-400">No deadline rules are in use yet.</p>
+                      ? <p className="text-sm text-slate-500 dark:text-slate-400">No deadline rules are in use yet. Colors show here once a date column has a deadline rule: click the ⋯ on a date column and choose "Deadline rule…".</p>
                       : rulesInUse.map(r => <RuleColorKey key={r.id} rule={r} />)}
                   </div>
                 </div>

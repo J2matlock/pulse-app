@@ -121,7 +121,7 @@ describe('SecuritySection — also re-encrypt my data (P-001)', () => {
   it('is off by default, and explains in plain words what old backups still open with', async () => {
     render(<SecuritySection saveSetting={vi.fn().mockResolvedValue(undefined)} />)
     fireEvent.click(screen.getByText('Change…'))
-    const box = screen.getByLabelText(/Also re-encrypt my data/) as HTMLInputElement
+    const box = screen.getByLabelText(/Also give my data a new key/) as HTMLInputElement
     expect(box.type).toBe('checkbox')
     expect(box.checked).toBe(false)
     const help = document.getElementById(box.getAttribute('aria-describedby') ?? '')
@@ -136,7 +136,7 @@ describe('SecuritySection — also re-encrypt my data (P-001)', () => {
     await screen.findByText('Recovery key active')
     fireEvent.click(screen.getByText('Change…'))
     fillForm('old password here', 'a much stronger passphrase 42!')
-    fireEvent.click(screen.getByLabelText(/Also re-encrypt my data/))
+    fireEvent.click(screen.getByLabelText(/Also give my data a new key/))
     fireEvent.click(screen.getByRole('button', { name: 'Save new password' }))
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('auth:change-password', 'old password here', 'a much stronger passphrase 42!', '', { reencrypt: true }))
     expect(await screen.findByText('Your data has a new key. Save a new backup now.')).toBeTruthy()
@@ -153,7 +153,7 @@ describe('SecuritySection — also re-encrypt my data (P-001)', () => {
   it('revoking can re-encrypt too, and only sends the option when ticked', async () => {
     render(<SecuritySection saveSetting={vi.fn().mockResolvedValue(undefined)} />)
     fireEvent.click(await screen.findByRole('button', { name: 'Revoke' }))
-    fireEvent.click(screen.getByLabelText(/Also re-encrypt my data/))
+    fireEvent.click(screen.getByLabelText(/Also give my data a new key/))
     fireEvent.change(screen.getByLabelText('Enter your current password to continue'), { target: { value: 'my password' } })
     fireEvent.click(screen.getByRole('button', { name: 'Revoke recovery key' }))
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('auth:revoke-recovery-key', 'my password', { reencrypt: true }))

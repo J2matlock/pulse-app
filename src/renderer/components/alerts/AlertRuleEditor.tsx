@@ -524,7 +524,7 @@ export function AlertRuleEditor({ rule, columnId, onClose }: Props): React.React
               Click a color step to change it.
             </p>
 
-            {thresholds.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400 py-2">No colors yet.</p>}
+            {thresholds.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400 py-2">No colors yet. Add one to say how many days before the date the cell changes color.</p>}
 
             <div className="space-y-2">
               {thresholds.map((t, i) => {

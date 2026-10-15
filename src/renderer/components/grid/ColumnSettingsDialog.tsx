@@ -61,7 +61,7 @@ export function ColumnSettingsDialog({
         {canBeRequired(column.column_type) && (
           <SettingSwitchRow
             icon={<Asterisk className="w-4 h-4" />}
-            label="Required column"
+            label="Must be filled in"
             description="Empty cells show “Missing” and are listed in the Missing information report."
             checked={!!colConfig.required}
             onChange={onToggleRequired}

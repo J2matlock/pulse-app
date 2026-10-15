@@ -148,7 +148,7 @@ export function LinkPicker({ type, direction, rowId, chips, anchor, onClose }: L
             <Plus className="w-4 h-4" />New {t('record')}: “{query.trim()}”
           </li>
         )}
-        {results.length === 0 && !canCreate && <li className="px-2.5 py-2 text-sm text-slate-500 dark:text-slate-400">Nothing found.</li>}
+        {results.length === 0 && !canCreate && <li className="px-2.5 py-2 text-sm text-slate-500 dark:text-slate-400">Nothing matches that name.</li>}
       </ul>
     </div>
   )

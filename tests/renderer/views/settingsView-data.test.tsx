@@ -143,11 +143,11 @@ describe('SettingsView — data smoke tests', () => {
 
   it('the open tab\'s description shows as the panel subtitle, and as each tab\'s tooltip', () => {
     render(<SettingsView />)
-    expect(screen.getByRole('tab', { name: /Appearance/i }).getAttribute('title')).toBe('Theme, font size, and display options')
+    expect(screen.getByRole('tab', { name: /Appearance/i }).getAttribute('title')).toBe('Light or dark, text size, and how the list looks')
     fireEvent.click(screen.getByRole('tab', { name: /Security/i }))
-    expect(screen.getByText('Password and encryption settings')).toBeDefined()
+    expect(screen.getByText('Your password, recovery key and when Pulse locks')).toBeDefined()
     fireEvent.click(screen.getByRole('tab', { name: /About/i }))
-    expect(screen.getByText('Version info and credits')).toBeDefined()
-    expect(screen.queryByText('Password and encryption settings')).toBeNull()
+    expect(screen.getByText('Which version you have, and updates')).toBeDefined()
+    expect(screen.queryByText('Your password, recovery key and when Pulse locks')).toBeNull()
   })
 })

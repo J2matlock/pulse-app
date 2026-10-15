@@ -303,7 +303,7 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
           <button
             onClick={() => void handleReplace()}
             disabled={!hasMatches || !hasFind}
-            title="Replace current match (Enter in replace field)"
+            title="Replace this match (or press Enter in the Replace box)"
             className="hit-44 flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-base font-medium
                        text-slate-700 dark:text-slate-200
                        bg-slate-100 dark:bg-slate-700

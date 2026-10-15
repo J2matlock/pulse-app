@@ -100,7 +100,7 @@ export function DaysOffSection(): React.ReactElement {
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-slate-500 dark:text-slate-400">No days off added yet.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">No days off added yet. Add a day or a break above, and business-day deadlines skip it.</p>
       )}
     </section>
   )
