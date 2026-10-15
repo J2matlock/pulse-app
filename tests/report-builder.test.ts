@@ -436,6 +436,18 @@ describe('export', () => {
     expect(text).toContain('(Total Estimate by Stage')
   })
 
+  it('lines the Total up under the numbers in the PDF (persona study R7)', async () => {
+    const { buildReportPdf } = await import('../src/main/export-report')
+    const r = { columns: [{ key: 'g0', label: 'Kind', kind: 'text' as const }, { key: 'v0', label: 'How many', kind: 'number' as const }],
+      rows: [{ g0: 'Visit', v0: 2 }, { g0: 'Call', v0: 1 }], totals: { v0: 3 }, matched: 3, truncated: null }
+    const pdf = buildReportPdf('Notes by kind', 'Notes in Students · Date: this month', r).toString('latin1')
+    // One digit each, so right-aligned numbers start at the same x
+    const xOf = (s: string) => Number(new RegExp(`([\\d.]+) [\\d.]+ Td\\s*\\(${s}\\) Tj`).exec(pdf)?.[1])
+    expect(xOf('2')).toBeGreaterThan(0)
+    expect(xOf('3')).toBeCloseTo(xOf('2'), 1)
+    expect(xOf('1')).toBeCloseTo(xOf('2'), 1)
+  })
+
   it('says in the CSV when lines were left out, as the screen and the PDF do (F-023)', async () => {
     const { reportToCsv } = await import('../src/main/export-report')
     const r = runReport(gridId, { source: 'records', groupBy: [{ field: `col:${makeCol}` }], values: [{ fn: 'count' }] }, NOW)

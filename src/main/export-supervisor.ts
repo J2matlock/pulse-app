@@ -32,7 +32,9 @@ import { toYmd, ymdToDate } from '../shared/ymd'
 import { evaluate, isUsedUp } from '../shared/deadlineEngine'
 import { loadDeadlines } from './deadlines'
 import { PRODUCT_NAME } from '../shared/constants'
-import { vocabFor } from './vocab'
+import { featureOn, vocabFor } from './vocab'
+import { deadlineTitles } from './export-planner'
+import { formatMinutes } from '../shared/timeMileage'
 import { HUMAN_SERVICES_VOCAB, term } from '../shared/vocab'
 import { ARCHIVED_ROW, LIVE_ROW, NOT_TRASHED_ROW, archivedRow, liveRow, notTrashedRow } from '../shared/liveRecords'
 
@@ -157,13 +159,43 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   // The sentence says "N records", so count records, not deadlines; a used-up quota is
   // overdue, as on the dashboard and in the briefing (deadlineCounts) (F-017)
   const overdueRows = new Set<number>(), approachingRows = new Set<number>()
-  for (const d of [...loadDeadlines({ gridId, today: todayYmd }), ...legacy]) {
+  // Each record's soonest deadline in the next 7 days, to name them (persona study R7)
+  const soonest = new Map<number, { daysUntil: number; due: string; what: string }>()
+  const titleOf = deadlineTitles()
+  for (const d of [...loadDeadlines({ gridId, today: todayYmd }).map(x => ({ ...x, what: titleOf(x) })), ...legacy.map(x => ({ ...x, what: '' }))]) {
     if (d.daysUntil === null) continue
     if (d.daysUntil < 0 || isUsedUp(d)) overdueRows.add(d.row_id)
-    else if (d.daysUntil <= 7) approachingRows.add(d.row_id)
+    else if (d.daysUntil <= 7) {
+      approachingRows.add(d.row_id)
+      const was = soonest.get(d.row_id)
+      if (d.due && (!was || d.daysUntil < was.daysUntil)) soonest.set(d.row_id, { daysUntil: d.daysUntil, due: d.due, what: d.what })
+    }
   }
   const overdueCount = overdueRows.size
   const approachingCount = approachingRows.size
+  // "Tyrone (Review, Oct 22)", soonest first, up to 10 and then "and 3 more"
+  const NAMED_MAX = 10
+  const approachingNames = (() => {
+    if (approachingCount === 0) return ''
+    const names = batchGetClientNames(db, [...soonest.keys()], gridId)
+    const list = [...soonest.entries()].sort((a, b) => a[1].daysUntil - b[1].daysUntil || (names.get(a[0]) ?? '').localeCompare(names.get(b[0]) ?? ''))
+      .map(([rowId, s]) => `${names.get(rowId) || `${term(v, 'record', { cap: true })} #${rowId}`} (${[s.what, shortDate(ymdToDate(s.due))].filter(Boolean).join(', ')})`)
+    const shown = list.slice(0, NAMED_MAX)
+    return list.length > NAMED_MAX ? `${shown.join(', ')} and ${list.length - NAMED_MAX} more` : shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown[shown.length - 1]}` : shown.join('')
+  })()
+
+  // Time with records in the period, when time on notes is on (persona study R7)
+  const timeRows = featureOn('timeTracking') ? db.prepare(`
+    SELECT r.id AS row_id, COALESCE(NULLIF(r.display_name, ''), ?) AS name, COUNT(*) AS notes, SUM(cl.minutes) AS minutes
+    FROM case_log cl JOIN rows r ON r.id = cl.row_id
+    WHERE r.grid_id = ? AND ${NOT_TRASHED_ROW} AND cl.voided_at IS NULL AND cl.log_type != 'system' AND cl.minutes > 0
+      AND date(cl.occurred_at, 'localtime') >= ? AND date(cl.occurred_at, 'localtime') <= ?
+    GROUP BY r.id ORDER BY name COLLATE NOCASE
+  `).all(`Unnamed ${term(v, 'record')}`, gridId, dateRange.start, dateRange.end) as Array<{ row_id: number; name: string; notes: number; minutes: number }> : null
+  const timeTotal = timeRows?.reduce((n, t) => n + t.minutes, 0) ?? 0
+  const timeTitle = `Time with ${recs}`
+  // The roster heading in words that can't double up: "All students", not "Roster Roster" (persona study R7)
+  const rosterTitle = `All ${recs}`
 
   // The period's ends are calendar days; new Date('2026-10-01') would be UTC midnight, a day early in the US
   const periodDate = (s: string) => {
@@ -180,7 +212,8 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   // The deleted figure counts what is still in the Trash, so it can drop after Empty Trash or a restore (D-012)
   summaryParts.push(`During ${dateRangeLabel}, ${workerName || `the ${term(v, 'worker')}`} managed ${totalActive} active ${recs} (${newAdded} new, ${archivedClients} archived, ${deletedClients} deleted and still in the Trash).`)
   if (overdueCount > 0) summaryParts.push(`${asOf.charAt(0).toUpperCase()}${asOf.slice(1)}, ${recordsWord(overdueCount)} ${overdueCount === 1 ? 'has' : 'have'} overdue deadlines.`)
-  if (approachingCount > 0) summaryParts.push(`${approachingCount} ${approachingCount === 1 ? 'has' : 'have'} deadlines within 7 days.`)
+  if (approachingCount > 0) summaryParts.push(`${recordsWord(approachingCount)} ${approachingCount === 1 ? 'has' : 'have'} deadlines within 7 days: ${approachingNames}.`)
+  if (timeRows && timeTotal > 0) summaryParts.push(`${formatMinutes(timeTotal)} logged with ${recordsWord(timeRows.length)}.`)
   if (acuityEnabled && acuityBreakdown.length > 0) {
     const parts = acuityBreakdown.filter(a => a.cnt > 0).map(a => `${a.cnt} ${a.name} (${a.cnt * a.points} pts)`)
     if (parts.length > 0) summaryParts.push(`${Pri}: ${parts.join(', ')} — Total: ${acuityTotal} pts.`)
@@ -241,9 +274,15 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
       }
     }
 
+    if (timeRows) {
+      csvSections.push([], [timeTitle], [`${RecCap} Name`, ActsCap, 'Minutes'])
+      for (const t of timeRows) csvSections.push([sanitizeCsvFormula(t.name), t.notes, t.minutes])
+      csvSections.push(['Total', timeRows.reduce((n, t) => n + t.notes, 0), timeTotal])
+    }
+
     csvSections.push(
       [],
-      [`${ListCap} Roster`],
+      [rosterTitle],
       selectedColumns.map(c => sanitizeCsvFormula(c.name)),
       ...rosterText('csv'),
     )
@@ -423,6 +462,36 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
     y += 7
   }
 
+  // Time with records (time on notes): total and per record
+  if (timeRows) {
+    y += 4
+    sectionTitle(timeTitle)
+    if (timeRows.length === 0) {
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'italic')
+      doc.text(`No time logged on ${acts} in this period.`, marginL, y)
+      doc.setFont('helvetica', 'normal')
+      y += 8
+    } else {
+      autoTable(doc, {
+        head: [[RecCap, ActsCap, 'Minutes', 'Time']],
+        body: timeRows.map(t => [t.name, String(t.notes), t.minutes.toLocaleString('en-US'), formatMinutes(t.minutes)]),
+        foot: [['Total', String(timeRows.reduce((n, t) => n + t.notes, 0)), timeTotal.toLocaleString('en-US'), formatMinutes(timeTotal)]],
+        startY: y,
+        styles: { fontSize: 9, cellPadding: 1.8 },
+        headStyles: { fillColor: [71, 85, 105], textColor: 255 },
+        footStyles: { fillColor: [226, 232, 240], textColor: 0, fontStyle: 'bold' },
+        columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
+        // The heading and the Total line up with the numbers under them
+        didParseCell: (data: { section: string; column: { index: number }; cell: { styles: Record<string, unknown> } }) => {
+          if (data.section !== 'body' && data.column.index > 0) data.cell.styles.halign = 'right'
+        },
+        margin: { left: marginL, right: 16, bottom: footerBarH + 4 },
+      })
+      y = lastTableY(doc) + 8
+    }
+  }
+
   // Clients Archived
   if (archivedClientNames.length > 0) {
     y += 4
@@ -496,7 +565,7 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
     y = 18
   }
 
-  sectionTitle(`${ListCap} Roster`)
+  sectionTitle(rosterTitle)
 
   const rosterBody = rosterText('pdf')
 

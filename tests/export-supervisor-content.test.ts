@@ -236,7 +236,7 @@ describe('summary report roster', () => {
     insert.run(a, grid.columnIds[0], 'Kept Person')
     insert.run(b, grid.columnIds[0], 'Trashed Person')
     testDb.db.prepare("UPDATE rows SET deleted_at = datetime('now') WHERE id = ?").run(b)
-    const [, roster = ''] = (await summaryCsv()).split(' Roster')
+    const [, roster = ''] = (await summaryCsv()).split(/^All \w+\s*$/m)
     expect(roster).toContain('Kept Person')
     expect(roster).not.toContain('Trashed Person')
   })

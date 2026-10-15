@@ -49,6 +49,20 @@ export interface WhatsDueOptions {
 }
 
 /**
+ * What to call each deadline, as the dashboard does (deadlineLabel): "Appeal
+ * window" for a rule worked out from another column, else the column's name.
+ * The rules are read once.
+ */
+export function deadlineTitles(): (d: { column_config: string | null; column_name: string }) => string {
+  const rules = new Map((getDb().prepare('SELECT id, name, kind, rule_config FROM alert_rules').all() as Array<{ id: number; name: string; kind: string | null; rule_config: string | null }>).map(r => [r.id, r]))
+  return d => {
+    let ruleId: number | null = null
+    try { ruleId = (JSON.parse(d.column_config || '{}') as { alert_rule_id?: number }).alert_rule_id ?? null } catch { /* the plain column name below */ }
+    return deadlineLabel(ruleId != null ? rules.get(ruleId) : null, { name: d.column_name }).title
+  }
+}
+
+/**
  * The dashboard's Overdue tab plus its next-`days` window, over the same items
  * (every deadline whatever its colour rules, checklist items, tasks with a due
  * date that aren't snoozed, follow-ups), counted the same way (`isLateDeadline`,
@@ -66,13 +80,10 @@ export function loadDueRows(days: number, opts: WhatsDueOptions = {}): DueRow[] 
     out.push({ due: r.due, daysUntil: r.daysUntil, late, client: r.client, what: r.what, kind: r.kind })
   }
 
-  const rules = new Map((db.prepare('SELECT id, name, kind, rule_config FROM alert_rules').all() as Array<{ id: number; name: string; kind: string | null; rule_config: string | null }>).map(r => [r.id, r]))
+  const titleOf = deadlineTitles()
   for (const d of loadDeadlines({ today })) {
     if (d.daysUntil === null || !d.due) continue
-    let ruleId: number | null = null
-    try { ruleId = (JSON.parse(d.column_config || '{}') as { alert_rule_id?: number }).alert_rule_id ?? null } catch { /* the plain column name below */ }
-    const what = deadlineLabel(ruleId != null ? rules.get(ruleId) : null, { name: d.column_name }).title
-    keep({ due: d.due, daysUntil: d.daysUntil, state: d.state, client: d.client_name ?? '', what, kind: 'Deadline' })
+    keep({ due: d.due, daysUntil: d.daysUntil, state: d.state, client: d.client_name ?? '', what: titleOf(d), kind: 'Deadline' })
   }
 
   const dated = (due: string) => ({ due, daysUntil: daysBetween(today, due) })
