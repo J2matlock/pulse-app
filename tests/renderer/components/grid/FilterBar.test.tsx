@@ -42,7 +42,10 @@ vi.stubGlobal('crypto', { randomUUID: () => 'test-uuid-' + Math.random().toStrin
 import { useGridStore } from '../../../../src/renderer/stores/gridStore'
 import { FilterBar, FilterControls } from '../../../../src/renderer/components/grid/FilterBar'
 import { OPERATOR_LABELS } from '../../../../src/renderer/components/grid/filterOptions'
-import type { Column } from '../../../../src/shared/types'
+import { ANY_DEADLINE_COLUMN_ID, type Column, type GridRow, type ParsedAlertRule } from '../../../../src/shared/types'
+import { useAlertStore } from '../../../../src/renderer/stores/alertStore'
+import { matchFilter } from '../../../../src/renderer/utils/filterMatch'
+import { localDateString } from '../../../../src/shared/dates'
 import { setWords } from '../../vocabFixture'
 import { renderSettled } from '../../renderSettled'
 
@@ -221,6 +224,31 @@ describe('FilterControls (G-12, G-30)', () => {
     expect(useGridStore.getState().activeFilters).toEqual([{ columnId: -2, operator: 'due_status', value: 'overdue' }])
     fireEvent.click(screen.getByRole('button', { name: 'Overdue' }))
     expect(useGridStore.getState().activeFilters).toEqual([])
+  })
+
+  it('Overdue says how many, counted by the filter itself (Q2)', async () => {
+    const rule = { id: 4, name: 'Yearly', thresholds: [], interval_days: 365, interval_months: null, end_of_month: 0, kind: 'interval', rule_config: null, rule_condition: null, business_days: 0 } as unknown as ParsedAlertRule
+    useAlertStore.setState({ rules: [rule], isLoaded: true })
+    const columns = [makeColumn(1, 'Name'), { ...makeColumn(2, 'Review', 'date'), config: JSON.stringify({ alert_rule_id: 4 }) }]
+    const rows = [
+      { row_id: 1, col_1: 'Ann', col_2: '2020-01-05' }, { row_id: 2, col_1: 'Bo', col_2: '2021-06-01' },
+      { row_id: 3, col_1: 'Cy', col_2: localDateString() }, { row_id: 4, col_1: 'Di', col_2: null },
+    ] as unknown as GridRow[]
+    useGridStore.setState({ columns, rows })
+    await renderSettled(<FilterControls />)
+    const expected = rows.filter(r => matchFilter(r, { columnId: ANY_DEADLINE_COLUMN_ID, operator: 'due_status', value: 'overdue' }, columns, undefined, new Map([[4, rule]]))).length
+    expect(expected).toBe(2)
+    const chip = screen.getByRole('button', { name: 'Overdue (2)' })
+    expect(chip.getAttribute('title')).toBe('Show the 2 clients with an overdue deadline')
+    expect(chip.querySelector('.text-red-700')).not.toBeNull()
+    // While it's on, the count stays but the red goes: the rows on screen are the overdue ones
+    fireEvent.click(chip)
+    expect(screen.getByRole('button', { name: 'Overdue (2)' }).querySelector('.text-red-700')).toBeNull()
+    // Nothing late: plain "Overdue"
+    act(() => { useGridStore.setState({ rows: rows.slice(2), activeFilters: [] }) })
+    expect(screen.getByRole('button', { name: 'Overdue' })).toBeTruthy()
+    useAlertStore.setState({ rules: [] })
+    useGridStore.setState({ rows: [] })
   })
 
   it('the Add filter panel takes focus, closes on Escape and gives focus back (AUDIT-044)', async () => {
