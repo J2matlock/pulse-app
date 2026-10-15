@@ -23,7 +23,7 @@ import { loadPinnedReports, setReportPinned } from '../../../utils/pinnedReports
 export function DashboardCards({ summary, whatsDue, recentlyArchived, customizing, onDoneCustomizing }: {
   /** The summary tiles, which use the dashboard's own counts */
   summary: React.ReactNode
-  /** The deadline tabs: What's due, Overdue, This week, This month */
+  /** The deadline tabs: What's due, Overdue, Next 7 days, Next 30 days */
   whatsDue: React.ReactNode
   /** Archived records with Reactivate, from the dashboard's own load */
   recentlyArchived: React.ReactNode

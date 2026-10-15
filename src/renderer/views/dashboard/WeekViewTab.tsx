@@ -1,184 +1,167 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Clock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import type { CaseloadTask, ChecklistDueItem } from '../../../shared/types'
 import { LoadingOverlay } from '../../components/shared/LoadingSpinner'
-import type { ExtendedDeadlineInfo, FollowUpRow } from './types'
-import { getEffectiveDate } from './getEffectiveDate'
+import { SecondaryButton } from '../../components/ui/Button'
+import { ymdLocalDate } from '../../../shared/dates'
+import { assertNever } from '../../../shared/assertNever'
+import type { PriorityItem } from './types'
+import { itemDaysUntil } from './tabCounts'
 import { DeadlineRow } from './DeadlineRow'
-import { useSettingsStore } from '../../stores/settingsStore'
-import { isUsedUp } from '../../../shared/deadlineEngine'
-import { daysLeftInWeek, deadlineInWeekTab } from './tabCounts'
 
-export { daysLeftInWeek }
+/** A long window draws its soonest items first, like What's due (UX pass Q9b) */
+const FIRST_ITEMS_SHOWN = 100
 
-const OVERDUE = 'overdue'
-
-type WeekItem =
-  | { kind: 'deadline'; data: ExtendedDeadlineInfo; dateKey: string }
-  | { kind: 'task'; data: CaseloadTask; daysUntil: number; dateKey: string }
-  | { kind: 'checklist'; data: ChecklistDueItem; daysUntil: number; dateKey: string }
-  | { kind: 'followup'; data: FollowUpRow; daysUntil: number; dateKey: string }
-
-export function WeekViewTab({
-  deadlines, tasksWithDays, checklistWithDays, followUpsWithDays, isLoading, onMarkDone, onUndone,
-}: {
+export interface DueWindowProps {
+  /** The tab's rows, already filtered by the window (tabCounts.ts), soonest first */
+  items: PriorityItem[]
+  /** Today, YYYY-MM-DD (useToday) */
+  today: string
+  isLoading: boolean
   /** After Done: drop the row and reload */
   onMarkDone?: (rowId: number, columnId: number) => void
   onUndone?: () => Promise<void>
-  deadlines: ExtendedDeadlineInfo[]
-  tasksWithDays: Array<{ task: CaseloadTask; daysUntil: number }>
-  checklistWithDays: Array<{ item: ChecklistDueItem; daysUntil: number }>
-  followUpsWithDays: Array<{ followUp: FollowUpRow; daysUntil: number }>
-  isLoading: boolean
+}
+
+/** "Oct 14": a handful of headings, so a formatter per call is fine */
+const monthDay = (d: Date): string => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+
+function addDays(base: Date, n: number): Date {
+  const d = new Date(base)
+  d.setDate(d.getDate() + n)
+  return d
+}
+
+/**
+ * The rows of a "Next N days" tab, under a heading per day or per seven days.
+ * Groups come from days-until, so a day is a local calendar day.
+ */
+export function DueWindowList({ items, today, isLoading, onMarkDone, onUndone, groupDays, title, testId, emptyText }: DueWindowProps & {
+  /** 1: a heading per day; 7: a heading per seven days from today */
+  groupDays: 1 | 7
+  title: string
+  testId: string
+  emptyText: string
 }): React.ReactElement {
   const navigate = useNavigate()
-  const weekStart = useSettingsStore(s => s.weekStart)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const todayStr = today.toDateString()
-  // The calendar week (Settings → week starts on), from today to its last day
-  const daysLeft = daysLeftInWeek(today, weekStart)
+  const [showAll, setShowAll] = useState(false)
+  const shown = useMemo(() => showAll ? items : items.slice(0, FIRST_ITEMS_SHOWN), [items, showAll])
 
-  const weekItems = useMemo(() => {
-    const items: WeekItem[] = []
-    // Anything late goes at the top, however late; the rest by day
-    const keyFor = (daysUntil: number, date: Date | null) => daysUntil < 0 ? OVERDUE : (date ?? today).toDateString()
-    const inWeek = (daysUntil: number) => daysUntil <= daysLeft
-
-    for (const d of deadlines) {
-      const late = d.daysUntil < 0 || isUsedUp({ state: d.state, daysUntil: d.daysUntil })
-      // The same test the tab's count uses (tabCounts.ts)
-      if (deadlineInWeekTab(d, daysLeft)) items.push({ kind: 'deadline', data: d, dateKey: late ? OVERDUE : keyFor(d.daysUntil, getEffectiveDate(d)) })
-    }
-
-    for (const { task, daysUntil } of tasksWithDays) {
-      if (inWeek(daysUntil) && task.due_date) {
-        items.push({ kind: 'task', data: task, daysUntil, dateKey: keyFor(daysUntil, new Date(task.due_date + 'T00:00:00')) })
+  const groups = useMemo(() => {
+    const start = ymdLocalDate(today)
+    const out: Array<{ key: number; label: string; isToday: boolean; items: PriorityItem[] }> = []
+    for (const item of shown) {
+      const key = Math.floor(Math.max(0, itemDaysUntil(item)) / groupDays)
+      let g = out[out.length - 1]
+      if (!g || g.key !== key) {
+        const first = addDays(start, key * groupDays)
+        const label = groupDays === 1
+          ? first.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+          : `${monthDay(first)} – ${monthDay(addDays(first, groupDays - 1))}`
+        g = { key, label, isToday: groupDays === 1 && key === 0, items: [] }
+        out.push(g)
       }
+      g.items.push(item)
     }
+    return out
+  }, [shown, today, groupDays])
 
-    for (const { item: ci, daysUntil } of checklistWithDays) {
-      if (inWeek(daysUntil)) {
-        items.push({ kind: 'checklist', data: ci, daysUntil, dateKey: keyFor(daysUntil, new Date(ci.due_date! + 'T00:00:00')) })
+  if (isLoading) return <LoadingOverlay label={`Loading ${title.toLowerCase()}…`} />
+
+  const rowButton = 'w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-700/40 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600/40 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500'
+
+  function renderItem(item: PriorityItem, i: number): React.ReactNode {
+    switch (item.kind) {
+      case 'deadline': {
+        const d = item.data
+        // The same row as What's due: Done, Extend, Renew (D-22)
+        return (
+          <div key={`dl-${d.rowId}-${d.columnId}-${i}`} data-due-item role="list" className="rounded-lg bg-slate-50 dark:bg-slate-700/40 overflow-hidden">
+            <DeadlineRow deadline={d} onMarkDone={onMarkDone ?? (() => {})} onUndoneMarkDone={onUndone} />
+          </div>
+        )
       }
-    }
-
-    for (const { followUp, daysUntil } of followUpsWithDays) {
-      if (inWeek(daysUntil)) {
-        items.push({ kind: 'followup', data: followUp, daysUntil, dateKey: keyFor(daysUntil, new Date(followUp.follow_up_date + 'T00:00:00')) })
+      case 'task': {
+        const t = item.data
+        return (
+          // Buttons, so the keyboard can open them too (Q-053)
+          <button key={`task-${t.id}`} data-due-item type="button" className={rowButton} onClick={() => navigate('/tasks')}>
+            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-purple-400" />
+            <span className="flex-1 min-w-0">
+              <span className="font-medium text-slate-800 dark:text-slate-100">{t.title}</span>
+              <span className="text-sm bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded-sm ml-2">task</span>
+            </span>
+            {t.category && <span className="text-sm text-slate-500 dark:text-slate-400 flex-shrink-0">{t.category}</span>}
+          </button>
+        )
       }
+      case 'checklist': {
+        const ci = item.data
+        return (
+          <button key={`cl-${ci.id}`} data-due-item type="button" className={rowButton} onClick={() => navigate(`/profile/${ci.row_id}?gridId=${ci.grid_id}`)}>
+            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-teal-400" />
+            <span className="flex-1 min-w-0">
+              <span className="font-medium text-slate-800 dark:text-slate-100">{ci.title}</span>
+              <span className="text-sm bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 px-1.5 py-0.5 rounded-sm ml-2">checklist</span>
+            </span>
+            <span className="text-sm text-slate-500 dark:text-slate-400 flex-shrink-0">{ci.client_name} &middot; {ci.grid_name}</span>
+          </button>
+        )
+      }
+      case 'followup': {
+        const f = item.data
+        return (
+          <button key={`fu-${f.id}`} data-due-item type="button" className={rowButton} onClick={() => navigate(`/profile/${f.row_id}?gridId=${f.grid_id}`)}>
+            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-amber-400" />
+            <span className="flex-1 min-w-0">
+              <span className="font-medium text-slate-800 dark:text-slate-100">{f.client_name}</span>
+              <span className="text-sm bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-sm ml-2">follow-up</span>
+            </span>
+            <span className="text-sm text-slate-500 dark:text-slate-400 flex-shrink-0">{f.grid_name}</span>
+          </button>
+        )
+      }
+      default:
+        return assertNever(item)
     }
-
-    return items
-  }, [deadlines, tasksWithDays, checklistWithDays, followUpsWithDays, daysLeft]) // eslint-disable-line react-hooks/exhaustive-deps -- today only changes with the day, and the lists change with it
-
-  const dayGroups = useMemo(() => {
-    const map = new Map<string, WeekItem[]>()
-    for (const item of weekItems) {
-      const list = map.get(item.dateKey) || []
-      list.push(item)
-      map.set(item.dateKey, list)
-    }
-    const at = (k: string) => k === OVERDUE ? -Infinity : new Date(k).getTime()
-    return [...map.entries()].sort(([a], [b]) => at(a) - at(b))
-  }, [weekItems])
-
-  if (isLoading) return <LoadingOverlay label="Loading week view…" />
+  }
 
   return (
-    <div className="p-4">
+    <div className="p-4" data-testid={testId}>
       <h2 className="text-base font-semibold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
         <Clock className="w-5 h-5 text-blue-500" />
-        This week
+        {title}
       </h2>
-      {dayGroups.length === 0 ? (
+      {groups.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 gap-2 text-slate-500 dark:text-slate-400">
           <Clock className="w-10 h-10 opacity-40" />
-          <p className="text-base">Nothing late, and nothing else due this week.</p>
+          <p className="text-base">{emptyText}</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {dayGroups.map(([dateKey, items]) => {
-            const isOverdue = dateKey === OVERDUE
-            const isToday = dateKey === todayStr
-            const dayLabel = isOverdue ? 'Overdue' : new Date(dateKey).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
-            return (
-              <div key={dateKey}>
-                <div className={`text-sm font-semibold mb-2 uppercase tracking-wide ${
-                  isOverdue ? 'text-red-700 dark:text-red-300' : isToday ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'
-                }`}>
-                  {isToday ? `Today \u00b7 ${dayLabel}` : dayLabel}
-                </div>
-                <div className="space-y-1">
-                  {items.map((item, i) => {
-                    if (item.kind === 'deadline') {
-                      const d = item.data
-                      // The same row as the Priority List: Done, Extend, Renew (D-22)
-                      return (
-                        <div key={`dl-${d.rowId}-${d.columnId}-${i}`} role="list" className="rounded-lg bg-slate-50 dark:bg-slate-700/40 overflow-hidden">
-                          <DeadlineRow deadline={d} onMarkDone={onMarkDone ?? (() => {})} onUndoneMarkDone={onUndone} />
-                        </div>
-                      )
-                    }
-                    if (item.kind === 'task') {
-                      const t = item.data
-                      return (
-                        // Buttons, so the keyboard can open them too (Q-053)
-                        <button key={`task-${t.id}`}
-                          type="button"
-                          className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-700/40 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600/40 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-                          onClick={() => navigate('/tasks')}
-                        >
-                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-purple-400" />
-                          <span className="flex-1 min-w-0">
-                            <span className="font-medium text-slate-800 dark:text-slate-100">{t.title}</span>
-                            <span className="text-sm bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded-sm ml-2">task</span>
-                          </span>
-                          {t.category && <span className="text-sm text-slate-500 dark:text-slate-400 flex-shrink-0">{t.category}</span>}
-                        </button>
-                      )
-                    }
-                    if (item.kind === 'checklist') {
-                      const ci = item.data
-                      return (
-                        <button key={`cl-${ci.id}`}
-                          type="button"
-                          className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-700/40 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600/40 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-                          onClick={() => navigate(`/profile/${ci.row_id}?gridId=${ci.grid_id}`)}
-                        >
-                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-teal-400" />
-                          <span className="flex-1 min-w-0">
-                            <span className="font-medium text-slate-800 dark:text-slate-100">{ci.title}</span>
-                            <span className="text-sm bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 px-1.5 py-0.5 rounded-sm ml-2">checklist</span>
-                          </span>
-                          <span className="text-sm text-slate-500 dark:text-slate-400 flex-shrink-0">{ci.client_name} &middot; {ci.grid_name}</span>
-                        </button>
-                      )
-                    }
-                    // followup
-                    const f = item.data
-                    return (
-                      <button key={`fu-${f.id}`}
-                        type="button"
-                        className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-700/40 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600/40 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"
-                        onClick={() => navigate(`/profile/${f.row_id}?gridId=${f.grid_id}`)}
-                      >
-                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-amber-400" />
-                        <span className="flex-1 min-w-0">
-                          <span className="font-medium text-slate-800 dark:text-slate-100">{f.client_name}</span>
-                          <span className="text-sm bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-sm ml-2">follow-up</span>
-                        </span>
-                        <span className="text-sm text-slate-500 dark:text-slate-400 flex-shrink-0">{f.grid_name}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
+          {groups.map(g => (
+            <div key={g.key}>
+              <h3 className={`text-sm font-semibold mb-2 uppercase tracking-wide ${g.isToday ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                {g.isToday ? `Today · ${g.label}` : g.label}
+              </h3>
+              <div className="space-y-1">{g.items.map(renderItem)}</div>
+            </div>
+          ))}
+          {shown.length < items.length && (
+            <div className="flex items-center gap-3 pt-3 flex-wrap border-t border-slate-200 dark:border-slate-700">
+              <p className="flex-1 min-w-0 text-base text-slate-600 dark:text-slate-300">
+                Showing the soonest {shown.length.toLocaleString()} of {items.length.toLocaleString()}.
+              </p>
+              <SecondaryButton size="compact" onClick={() => setShowAll(true)}>Show all {items.length.toLocaleString()}</SecondaryButton>
+            </div>
+          )}
         </div>
       )}
     </div>
   )
+}
+
+/** The "Next 7 days" tab: today through a week from today, a heading per day */
+export function WeekViewTab(props: DueWindowProps): React.ReactElement {
+  return <DueWindowList {...props} groupDays={1} title="Next 7 days" testId="week-view" emptyText="Nothing due in the next 7 days." />
 }
