@@ -1,7 +1,7 @@
 /** Gallery search finds what people type (audit 2.13 / F-16). */
 import { describe, it, expect } from 'vitest'
 import { BUILTIN_STARTERS } from '../src/shared/starters'
-import { parseStarter, searchStarters, summarizeStarter } from '../src/shared/starters/schema'
+import { matchingVariants, parseStarter, searchStarters, summarizeStarter } from '../src/shared/starters/schema'
 
 const all = BUILTIN_STARTERS.map(raw => {
   const r = parseStarter(raw)
@@ -30,5 +30,33 @@ describe('searchStarters', () => {
     expect(ids('plumb')).toContain('home-services')
     expect(ids('human services').length).toBeGreaterThan(0)
     expect(ids('')).toHaveLength(all.length)
+  })
+
+  it('puts the starter named for the words before one found only through a layout (R8)', () => {
+    // CASA's keywords say "foster"; Human services has it only in a layout's name
+    const foster = ids('foster')
+    expect(foster.indexOf('casa-advocate')).toBeLessThan(foster.indexOf('human-services'))
+    // An empty search keeps the catalog's order
+    expect(ids('')).toEqual(all.map(s => s.id))
+  })
+})
+
+describe('matchingVariants (R8)', () => {
+  const humanServices = all.find(s => s.id === 'human-services')!
+  const names = (q: string) => matchingVariants(humanServices, q).map(v => v.name)
+
+  it('names the layouts a search found the starter by', () => {
+    expect(names('foster')).toEqual(['Foster Care Caseworker'])
+    expect(names('home health')).toEqual(['Home Health Coordinator'])
+    // List names count too ("IEP Caseload")
+    expect(names('iep')).toEqual(['IEP Coordinator'])
+  })
+
+  it('needs every word whole, and says nothing for the starter’s own words', () => {
+    expect(names('fost')).toEqual([])
+    expect(names('foster health')).toEqual([])
+    expect(names('human services')).toEqual([])
+    expect(names('')).toEqual([])
+    expect(matchingVariants(all.find(s => s.id === 'tax-preparer')!, 'tax')).toEqual([])
   })
 })

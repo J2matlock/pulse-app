@@ -155,6 +155,51 @@ describe('ApplyStarterDialog', () => {
     expect(screen.getByText(/No examples match/)).toBeTruthy()
   })
 
+  it('says which layout a search matched and opens it straight at review (R8)', async () => {
+    const withFoster = { ...summary, variants: [...summary.variants, { key: 'foster-care', name: 'Foster Care Caseworker', description: 'Placements', listNames: ['Foster Care Caseworker'] }] }
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === IPC.STARTER_LIST) return Promise.resolve({ ok: true, data: [withFoster] })
+      if (channel === IPC.STARTER_PREVIEW) return Promise.resolve({ ok: true, data: preview })
+      return Promise.resolve({ ok: true, data: [] })
+    })
+    renderDialog()
+    const card = await screen.findByRole('button', { name: /Human services/ })
+    expect(card.textContent).toMatch(/3 layouts to choose from/)
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search examples' }), { target: { value: 'foster' } })
+    const matched = screen.getByRole('button', { name: /Human services/ })
+    expect(matched.textContent).toMatch(/Matches: Foster Care Caseworker/)
+    expect(matched.textContent).not.toMatch(/layouts to choose from/)
+    fireEvent.click(matched)
+    expect(screen.queryByRole('radio')).toBeNull()
+    await screen.findByText('School Counselor 2')
+    expect(mockInvoke).toHaveBeenCalledWith(IPC.STARTER_PREVIEW, { builtinId: 'human-services' }, 'foster-care')
+    // Back shows the other layouts, with the matched one picked
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+    expect((screen.getByRole('radio', { name: /Foster Care Caseworker/ }) as HTMLInputElement).checked).toBe(true)
+  })
+
+  it('keeps Tab inside the dialog when the rest of the examples are folded away (R8, Mark)', async () => {
+    const business = { ...summary, id: 'tax-preparer', name: 'Tax preparer', group: 'Business', variants: [] }
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === IPC.STARTER_LIST) return Promise.resolve({ ok: true, data: [summary, business] })
+      return Promise.resolve({ ok: true, data: [] })
+    })
+    renderDialog('setup')
+    await screen.findByRole('button', { name: /Human services/ })
+    // Folded cards aren't drawn, so they can't be the last Tab stop
+    expect(screen.queryByRole('button', { name: /Tax preparer/ })).toBeNull()
+    const more = screen.getByText(/More examples/)
+    more.focus()
+    fireEvent.keyDown(document, { key: 'Tab' })
+    expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true)
+    expect(document.activeElement).not.toBe(more)
+    // Opened, the folded examples are there to pick
+    const details = more.closest('details') as HTMLDetailsElement
+    details.open = true
+    fireEvent(details, new Event('toggle'))
+    expect(await screen.findByRole('button', { name: /Tax preparer/ })).toBeTruthy()
+  })
+
   it('offers other ways to start when nothing matches, and focuses the search box (audit F-16, F-17)', async () => {
     const blank = vi.fn()
     render(<MemoryRouter><ApplyStarterDialog mode="setup" onClose={vi.fn()} onStartBlank={blank} onStartSpreadsheet={vi.fn()} /></MemoryRouter>)
