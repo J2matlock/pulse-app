@@ -3,7 +3,8 @@ import { useShallow } from 'zustand/react/shallow'
 import type { CaseloadTask, TaskPriority, TaskGroup } from '../../../shared/types'
 import { localDateString } from '../../../shared/dates'
 import { parseRepeatRule } from '../../../shared/recurrence'
-import { useFocusTrap } from '../../hooks/useFocusTrap'
+import { Dialog } from '../../components/ui/Dialog'
+import { PrimaryButton, SecondaryButton } from '../../components/ui/Button'
 import { FieldError, fieldErrorProps } from '../../components/shared/FieldError'
 import { useVocab } from '../../hooks/useVocab'
 import { useGridStore } from '../../stores/gridStore'
@@ -46,9 +47,6 @@ export function TaskFormDialog({ onClose, onSave, initial, groups }: TaskFormDia
   const [recurInterval, setRecurInterval] = useState(1)
   const [error, setError] = useState<string | null>(null)
   const titleRef = useRef<HTMLInputElement>(null)
-  const trapRef = useRef<HTMLDivElement>(null)
-
-  useFocusTrap(trapRef, true)
   useEffect(() => { titleRef.current?.focus() }, [])
 
   useEffect(() => {
@@ -100,17 +98,16 @@ export function TaskFormDialog({ onClose, onSave, initial, groups }: TaskFormDia
     onClose()
   }
 
-  const onKey = (e: { key: string }) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') onClose() }
+  // Escape is the dialog's (it closes from any field)
+  const onKey = (e: { key: string }) => { if (e.key === 'Enter') handleSave() }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-         onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="task-dialog-title"
-        className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4">
-        <h2 id="task-dialog-title" className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-          {editing ? 'Edit task' : 'Add task'}
-        </h2>
-
+    <Dialog open onClose={onClose} size="lg" title={editing ? 'Edit task' : 'Add task'}
+      footer={<>
+        <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
+        <PrimaryButton onClick={handleSave} disabled={!title.trim()}>{editing ? 'Save changes' : 'Add task'}</PrimaryButton>
+      </>}>
+      <div className="space-y-4">
         {/* Title */}
         <div>
           <label htmlFor="task-title" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -275,19 +272,7 @@ export function TaskFormDialog({ onClose, onSave, initial, groups }: TaskFormDia
         )}
         {/* The only check here is the due date, so the message belongs to that box */}
         <FieldError fieldId="task-due-date" error={error} className="text-base text-red-600 dark:text-red-400" />
-
-        {/* Actions */}
-        <div className="flex gap-3 justify-end pt-2">
-          <button onClick={onClose} className="btn-secondary">Cancel</button>
-          <button
-            onClick={handleSave}
-            disabled={!title.trim()}
-            className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {editing ? 'Save changes' : 'Add task'}
-          </button>
-        </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

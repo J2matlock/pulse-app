@@ -2,7 +2,7 @@
  * TemplateManagerView — Full-page view at /templates.
  * Manages setup templates (.pulse files) and checklist templates.
  */
-import React, { useCallback, useEffect, useId, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { Download, Upload, FileText, Plus, Check } from 'lucide-react'
 import { IPC } from '../../shared/ipc-channels'
 import type { ChecklistTemplate, SaveDialogResult, OpenDialogResult } from '../../shared/types'
@@ -17,10 +17,10 @@ import type { SetupTemplate } from './template-manager/types'
 import { LoadingOverlay as Spinner } from '../components/shared/LoadingSpinner'
 import { SetupTemplateCard } from './template-manager/SetupTemplateCard'
 import { ChecklistTemplateRow } from './template-manager/ChecklistTemplateRow'
-import { useFocusTrap } from '../hooks/useFocusTrap'
+import { Dialog } from '../components/ui/Dialog'
 import { EmptyState } from '../components/shared/EmptyState'
 import { useVocab } from '../hooks/useVocab'
-import { PrimaryButton } from '../components/ui/Button'
+import { PrimaryButton, SecondaryButton } from '../components/ui/Button'
 import { PurposeLine } from '../components/shared/PurposeLine'
 import { useFeature } from '../hooks/useFeature'
 import { friendlyError } from '../utils/friendlyError'
@@ -51,9 +51,6 @@ export default function TemplateManagerView(): React.ReactElement {
   const [exporting, setExporting] = useState(false)
   const [gridPickerOpen, setGridPickerOpen] = useState(false)
   const [pickerGridId, setPickerGridId] = useState<number | null>(null)
-  const gridPickerTrapRef = useRef<HTMLDivElement>(null)
-  const gridPickerTitleId = useId()
-  useFocusTrap(gridPickerTrapRef, gridPickerOpen, { onEscape: () => setGridPickerOpen(false) })
 
   const loadSetupTemplates = useCallback(async () => {
     setLoadingSetup(true)
@@ -448,54 +445,35 @@ export default function TemplateManagerView(): React.ReactElement {
       />
 
       {/* Grid picker modal */}
-      {gridPickerOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={e => { if (e.target === e.currentTarget) setGridPickerOpen(false) }}
+      <Dialog open={gridPickerOpen} onClose={() => setGridPickerOpen(false)} size="sm"
+        title={<>Save {w('list', { cap: true })} as Template</>}
+        footer={<>
+          <SecondaryButton onClick={() => setGridPickerOpen(false)}>Cancel</SecondaryButton>
+          <PrimaryButton
+            disabled={pickerGridId === null}
+            onClick={() => {
+              setGridPickerOpen(false)
+              if (pickerGridId !== null) void doExport(pickerGridId)
+            }}
+          >
+            Save as template
+          </PrimaryButton>
+        </>}>
+        <label htmlFor="template-mgr-caseload" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
+          Which {w('list')}?
+        </label>
+        <select
+          id="template-mgr-caseload"
+          value={pickerGridId ?? ''}
+          onChange={e => setPickerGridId(parseInt(e.target.value))}
+          className="input w-full"
+          style={{ fontSize: 15 }}
         >
-          <div ref={gridPickerTrapRef} role="dialog" aria-modal="true" aria-labelledby={gridPickerTitleId} className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-            <h2 id={gridPickerTitleId} className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-              Save {w('list', { cap: true })} as Template
-            </h2>
-            <div>
-              <label htmlFor="template-mgr-caseload" className="block text-base font-medium text-slate-700 dark:text-slate-300 mb-1">
-                Which {w('list')}?
-              </label>
-              <select
-                id="template-mgr-caseload"
-                value={pickerGridId ?? ''}
-                onChange={e => setPickerGridId(parseInt(e.target.value))}
-                className="input w-full"
-                style={{ fontSize: 15 }}
-              >
-                {grids.map(g => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex gap-3 justify-end pt-1">
-              <button
-                type="button"
-                onClick={() => setGridPickerOpen(false)}
-                className="btn-secondary"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={pickerGridId === null}
-                onClick={() => {
-                  setGridPickerOpen(false)
-                  if (pickerGridId !== null) void doExport(pickerGridId)
-                }}
-                className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Save as template
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          {grids.map(g => (
+            <option key={g.id} value={g.id}>{g.name}</option>
+          ))}
+        </select>
+      </Dialog>
 
       {/* Import preview modal */}
       {importedFile && (
