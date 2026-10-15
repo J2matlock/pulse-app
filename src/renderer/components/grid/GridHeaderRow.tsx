@@ -14,6 +14,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { dndAccessibility } from '../../utils/dndAnnouncements'
 import { User, Star, EyeOff, MoreHorizontal, Plus } from 'lucide-react'
+import type { SortingState } from '@tanstack/react-table'
 import type { GridTableHeader } from './gridTable'
 import type { Column } from '../../../shared/types'
 import { ColumnHeader } from './ColumnHeader'
@@ -34,9 +35,16 @@ interface SortableColHeaderProps {
   isLastFrozen: boolean
   /** Just added: lit for a moment so it's seen (UX-B-30) */
   flash?: boolean
+  /**
+   * How the table sorts this column, and whether its edge is being dragged. Props, not read
+   * from `header` here: the header object stays the same when only these change, so the memo
+   * wouldn't redraw for them (UX pass Q9b)
+   */
+  sortDir?: false | 'asc' | 'desc'
+  isResizing?: boolean
 }
 
-export const SortableColHeader = React.memo(function SortableColHeader({ header, col, colIndex, onAutoFit, rowHeight, frozenLeft, isLastFrozen, flash = false }: SortableColHeaderProps): React.ReactElement {
+export const SortableColHeader = React.memo(function SortableColHeader({ header, col, colIndex, onAutoFit, rowHeight, frozenLeft, isLastFrozen, flash = false, sortDir = false, isResizing = false }: SortableColHeaderProps): React.ReactElement {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `col_${col.id}`
   })
@@ -48,7 +56,7 @@ export const SortableColHeader = React.memo(function SortableColHeader({ header,
       ref={setNodeRef}
       role="columnheader"
       aria-colindex={colIndex}
-      aria-sort={header.column.getIsSorted() === 'asc' ? 'ascending' : header.column.getIsSorted() === 'desc' ? 'descending' : 'none'}
+      aria-sort={sortDir === 'asc' ? 'ascending' : sortDir === 'desc' ? 'descending' : 'none'}
       className={`group/colhead relative flex-shrink-0 border-r border-slate-300 dark:border-slate-600
                   ${flash ? 'bg-blue-100 dark:bg-blue-900/50 ring-3 ring-inset ring-blue-400 motion-col-enter' : 'bg-slate-50 dark:bg-slate-800'} transition-colors duration-700 select-none`}
       data-flash={flash || undefined}
@@ -77,9 +85,9 @@ export const SortableColHeader = React.memo(function SortableColHeader({ header,
           style={{ touchAction: 'none', userSelect: 'none' }}
           title="Drag to resize · Double-click to fit"
           data-testid="column-resize-handle"
-          data-resizing={header.column.getIsResizing() || undefined}
+          data-resizing={isResizing || undefined}
         >
-          <span aria-hidden="true" className={`block h-full w-[3px] rounded-full transition-colors ${header.column.getIsResizing()
+          <span aria-hidden="true" className={`block h-full w-[3px] rounded-full transition-colors ${isResizing
             ? 'bg-blue-500'
             : 'bg-transparent group-hover/colhead:bg-slate-400 dark:group-hover/colhead:bg-slate-500 group-hover/resize:bg-blue-500 dark:group-hover/resize:bg-blue-500'}`} />
         </div>
@@ -115,6 +123,9 @@ export interface GridHeaderRowProps {
   onAddColumn?: () => void
   /** A column just added, lit for a moment (UX-B-30) */
   flashColumnId?: number | null
+  /** The table's sort and the column whose edge is being dragged: the headers redraw when they change */
+  sorting?: SortingState
+  resizingColumnId?: string | null
 }
 
 interface SortableColumnHeadersProps {
@@ -129,6 +140,8 @@ interface SortableColumnHeadersProps {
   frozenLeftOffsets: Map<number, number>
   frozenColumnCount: number
   flashColumnId: number | null
+  sorting?: SortingState
+  resizingColumnId?: string | null
 }
 
 /**
@@ -138,10 +151,15 @@ interface SortableColumnHeadersProps {
  */
 const SortableColumnHeaders = React.memo(function SortableColumnHeaders({
   headers, columns, columnIds, leadingColCount, rowHeight, colSensors, onColumnDragEnd,
-  autoFitColumn, frozenLeftOffsets, frozenColumnCount, flashColumnId,
+  autoFitColumn, frozenLeftOffsets, frozenColumnCount, flashColumnId, sorting, resizingColumnId,
 }: SortableColumnHeadersProps): React.ReactElement {
   // A dragged column is read out by name, not its id (AUDIT-049)
   const dragA11y = useMemo(() => dndAccessibility(id => columns.find(c => `col_${c.id}` === id)?.name), [columns])
+  const sortDirOf = (header: GridTableHeader): false | 'asc' | 'desc' => {
+    if (!sorting) return header.column.getIsSorted()
+    const s = sorting.find(x => x.id === header.column.id)
+    return s ? (s.desc ? 'desc' : 'asc') : false
+  }
   return (
     <DndContext
       sensors={colSensors}
@@ -164,6 +182,8 @@ const SortableColumnHeaders = React.memo(function SortableColumnHeaders({
               frozenLeft={frozenLeftOffsets.get(col.id)}
               isLastFrozen={frozenLeftOffsets.has(col.id) && i === frozenColumnCount - 1}
               flash={flashColumnId === col.id}
+              sortDir={sortDirOf(header)}
+              isResizing={resizingColumnId === undefined ? header.column.getIsResizing() : resizingColumnId === header.column.id}
             />
           )
         })}
@@ -194,6 +214,8 @@ export const GridHeaderRow = React.memo(function GridHeaderRow({
   onHideTags,
   onAddColumn,
   flashColumnId = null,
+  sorting,
+  resizingColumnId,
 }: GridHeaderRowProps): React.ReactElement {
   const { t } = useVocab()
   // Screen readers pair each cell with the header in the same place (AUDIT-012)
@@ -347,6 +369,8 @@ export const GridHeaderRow = React.memo(function GridHeaderRow({
           frozenLeftOffsets={frozenLeftOffsets}
           frozenColumnCount={frozenColumnCount}
           flashColumnId={flashColumnId}
+          sorting={sorting}
+          resizingColumnId={resizingColumnId}
         />
         {/* Where a spreadsheet's next empty column would be: a "+" that adds one (UX-B-03).
             A header of its own (the rows have no cell under it), so the grid's shape stays honest */}

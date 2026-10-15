@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import React from 'react'
-import { render, act } from '@testing-library/react'
+import { render, act, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { Column, GridRow } from '../../../../src/shared/types'
 
@@ -106,6 +106,30 @@ describe('List redraws', () => {
     act(() => { useGridStore.setState(s => ({ rows: s.rows.map(r => r.row_id === 2 ? { ...r, col_2: 'Changed' } : r) })) })
     expect(view.container.querySelector('[data-row-id="2"][data-col-id="2"]')?.textContent).toContain('Changed')
     expect(headerDraws.n).toBe(0)
+  })
+
+  it('a sort still reaches the headers: aria-sort follows it', () => {
+    const view = mount()
+    const sortOf = () => [...view.container.querySelectorAll('[role="columnheader"][aria-sort]')]
+      .filter(h => h.getAttribute('aria-sort') !== 'none').map(h => `${h.textContent?.includes('Field 1') ? 'Field 1' : '?'}:${h.getAttribute('aria-sort')}`)
+    expect(sortOf()).toEqual([])
+    act(() => { useGridStore.setState({ sortConfig: [{ columnId: 2, direction: 'asc', priority: 1 }] }) })
+    expect(sortOf()).toEqual(['Field 1:ascending'])
+    act(() => { useGridStore.setState({ sortConfig: [{ columnId: 2, direction: 'desc', priority: 1 }] }) })
+    expect(sortOf()).toEqual(['Field 1:descending'])
+    act(() => { useGridStore.setState({ sortConfig: [] }) })
+    expect(sortOf()).toEqual([])
+  })
+
+  it("dragging a column's edge still lights its handle, and letting go puts it out", () => {
+    const view = mount()
+    const handle = () => view.container.querySelectorAll<HTMLElement>('[data-testid="column-resize-handle"]')[1]!
+    expect(handle().dataset.resizing).toBeUndefined()
+    act(() => { fireEvent.mouseDown(handle(), { clientX: 300 }) })
+    expect(handle().dataset.resizing).toBe('true')
+    act(() => { fireEvent.mouseMove(document, { clientX: 340 }) })
+    act(() => { fireEvent.mouseUp(document, { clientX: 340 }) })
+    expect(handle().dataset.resizing).toBeUndefined()
   })
 
   it('a renamed column still redraws its header', () => {

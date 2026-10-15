@@ -376,6 +376,8 @@ export function DataGrid(): React.ReactElement {
   // scroll or an edit doesn't redraw the header row (UX pass Q9b)
   const headers = useMemo(() => (headerGroups[0]?.headers ?? []).filter(h => h.id !== '_acuity_points'), [headerGroups])
   const hideTagsColumn = useCallback(() => setShowTagsColumn(false), [setShowTagsColumn])
+  // The header objects stay the same through these, so they go to the header row as props
+  const resizingColumnId = table.state.columnResizing.isResizingColumn || null
 
   // The rows the filter and search leave, in screen order: export, Find & Replace and
   // the counts act on these (G-05, G-24). Select-all and Ctrl+A use visualRowIds, which
@@ -654,6 +656,8 @@ export function DataGrid(): React.ReactElement {
             frozenColumnCount={frozenFitCount}
             setFrozenColumnCount={setFrozenColumnCount}
             flashColumnId={flashColumnId}
+            sorting={sorting}
+            resizingColumnId={resizingColumnId}
           />
         </div>
       </div>
