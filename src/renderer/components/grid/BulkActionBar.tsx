@@ -185,7 +185,7 @@ export function BulkActionBar({
           </SecondaryButton>
           {bulkAcuityOpen && (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => setBulkAcuityOpen(false)} />
+              <div className="fixed inset-0 z-40" data-dialog-backdrop="" onClick={() => setBulkAcuityOpen(false)} />
               <div className="absolute bottom-full mb-2 left-0 z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 w-44">
                 {acuityLevels.map(level => (
                   <button

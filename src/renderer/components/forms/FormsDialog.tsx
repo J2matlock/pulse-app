@@ -46,7 +46,7 @@ export function FormsDialog({ gridId, gridName, onClose }: { gridId: number; gri
 
   return (
     // A stray click outside must not throw away a form being built (its Cancel button is the way out)
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={e => { if (e.target === e.currentTarget && !editing) onClose() }}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" data-dialog-backdrop="" onClick={e => { if (e.target === e.currentTarget && !editing) onClose() }}>
       <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="forms-title" onClick={e => e.stopPropagation()}
         className={`w-full ${editing ? 'max-w-6xl' : 'max-w-lg'} max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4`}>
         <div className="flex items-center justify-between">

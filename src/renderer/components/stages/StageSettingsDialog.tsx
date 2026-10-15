@@ -94,7 +94,7 @@ export function StageSettingsDialog({ column, onClose }: { column: Column; onClo
             {options.map((o, i) => (
               <li key={o.value} className="rounded-lg border border-slate-200 dark:border-slate-700 p-2 space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex">
+                  <div className="flex" data-allow-repeat="">
                     <button type="button" aria-label={`Move ${o.value} earlier`} disabled={i === 0} onClick={() => move(i, -1)}
                       className="hit-44 p-1.5 rounded-sm text-slate-500 disabled:opacity-30 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"><ArrowUp className="w-4 h-4" /></button>
                     <button type="button" aria-label={`Move ${o.value} later`} disabled={i === options.length - 1} onClick={() => move(i, 1)}

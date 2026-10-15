@@ -390,7 +390,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
         {showMenu && createPortal(
             <>
               {/* Click-away backdrop; not while renaming, so the name's box can still be clicked into */}
-              {!isRenaming && <div className="fixed inset-0 z-[9998]" onClick={() => setShowMenu(false)} />}
+              {!isRenaming && <div className="fixed inset-0 z-[9998]" data-dialog-backdrop="" onClick={() => setShowMenu(false)} />}
               <div
                 ref={menuRef}
                 onKeyDown={onMenuKeyDown}
@@ -466,7 +466,7 @@ export function ColumnHeader({ column, dragHandleProps }: Props): React.ReactEle
                 </button>
               )}
               {/* Width without dragging (AUDIT-150): the menu stays open, so it can be pressed again. Worded, not −/+ (B-28) */}
-              <div className="px-3 py-1 text-base text-slate-700 dark:text-slate-300" role="group" aria-label="Column width">
+              <div className="px-3 py-1 text-base text-slate-700 dark:text-slate-300" role="group" aria-label="Column width" data-allow-repeat="">
                 <span className="block text-sm text-slate-600 dark:text-slate-300" aria-hidden="true">Column width</span>
                 <div className="flex items-center gap-1">
                   <button type="button" className="hit-44 min-h-11 px-2 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-700"

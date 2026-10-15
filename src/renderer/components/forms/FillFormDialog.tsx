@@ -234,7 +234,7 @@ export function FillFormDialog({ form, columns, row, onClose, onDone }: {
 
   return (
     <>
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={requestClose}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" data-dialog-backdrop="" onClick={requestClose}>
       <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="fill-form-title" onClick={e => e.stopPropagation()}
         className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4">
         <div className="flex items-center justify-between">

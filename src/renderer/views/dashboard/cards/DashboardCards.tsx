@@ -104,9 +104,9 @@ export function DashboardCards({ summary, whatsDue, recentlyArchived, customizin
                   {/* An unticked row is a card you can add, not one that's missing (UX D-46) */}
                   {!c.on && <span className="text-sm text-slate-500 dark:text-slate-400">(off)</span>}
                 </label>
-                <button type="button" aria-label={`Move ${f(c.def.title)} up`} disabled={i === 0} onClick={() => move(i, -1)}
+                <button type="button" data-allow-repeat="" aria-label={`Move ${f(c.def.title)} up`} disabled={i === 0} onClick={() => move(i, -1)}
                   className="hit-44 p-1.5 rounded-sm text-slate-500 disabled:opacity-30 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"><ArrowUp className="w-4 h-4" /></button>
-                <button type="button" aria-label={`Move ${f(c.def.title)} down`} disabled={i === cards.length - 1} onClick={() => move(i, 1)}
+                <button type="button" data-allow-repeat="" aria-label={`Move ${f(c.def.title)} down`} disabled={i === cards.length - 1} onClick={() => move(i, 1)}
                   className="hit-44 p-1.5 rounded-sm text-slate-500 disabled:opacity-30 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-blue-500"><ArrowDown className="w-4 h-4" /></button>
               </li>
             ))}

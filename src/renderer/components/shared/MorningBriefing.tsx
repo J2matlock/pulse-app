@@ -90,7 +90,7 @@ export function MorningBriefing({ suppressed, onFocusMode }: { suppressed: boole
   ]
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center-safe justify-center bg-black/40 p-4 overflow-y-auto" onClick={() => void close()}>
+    <div className="fixed inset-0 z-[150] flex items-center-safe justify-center bg-black/40 p-4 overflow-y-auto" data-dialog-backdrop="" onClick={() => void close()}>
       <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="briefing-title"
         className="w-full max-w-md rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 p-6"
         onClick={e => e.stopPropagation()}

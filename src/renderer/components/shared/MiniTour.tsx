@@ -160,7 +160,7 @@ export function MiniTour({ steps, onComplete, returnRoute = '#/help' }: MiniTour
         }
       `}</style>
 
-      <div className="fixed inset-0 z-[9999]" onClick={next}>
+      <div className="fixed inset-0 z-[9999]" data-dialog-backdrop="" onClick={next}>
         <div style={spotlightStyle} />
         <div style={pulseRingStyle} />
 

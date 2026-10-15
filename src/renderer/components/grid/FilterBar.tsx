@@ -190,7 +190,7 @@ export function FilterBar(): React.ReactElement | null {
       <AnimatePresence>
         {showPanel && newFilter && (
           <>
-            <div className="fixed inset-0 z-40" onClick={() => setShowPanel(false)} />
+            <div className="fixed inset-0 z-40" data-dialog-backdrop="" onClick={() => setShowPanel(false)} />
             <motion.div
               ref={panelRef}
               className="fixed z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl p-4 w-80"
@@ -341,7 +341,7 @@ export function FilterBar(): React.ReactElement | null {
       <AnimatePresence>
         {showSaved && (
           <>
-            <div className="fixed inset-0 z-40" onClick={() => setShowSaved(false)} />
+            <div className="fixed inset-0 z-40" data-dialog-backdrop="" onClick={() => setShowSaved(false)} />
             <motion.div
               ref={savedRef}
               onKeyDown={savedKeys}

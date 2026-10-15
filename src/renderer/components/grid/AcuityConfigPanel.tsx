@@ -199,7 +199,7 @@ function LevelRow({ level, index, total, onUpdate, onDelete, onMoveUp, onMoveDow
         <AnimatePresence>
           {showColorPicker && (
             <>
-              <div className="fixed inset-0 z-[60]" onClick={() => setShowColorPicker(false)} />
+              <div className="fixed inset-0 z-[60]" data-dialog-backdrop="" onClick={() => setShowColorPicker(false)} />
               <motion.div
                 onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setShowColorPicker(false) } }}
                 className="fixed bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-2 z-[60] grid grid-cols-4 gap-1.5"
@@ -264,7 +264,7 @@ function LevelRow({ level, index, total, onUpdate, onDelete, onMoveUp, onMoveDow
       <span className="text-sm text-slate-500 dark:text-slate-400">pts</span>
 
       {/* Reorder arrows */}
-      <div className="flex flex-col">
+      <div className="flex flex-col" data-allow-repeat="">
         <button
           onClick={onMoveUp}
           disabled={index === 0}

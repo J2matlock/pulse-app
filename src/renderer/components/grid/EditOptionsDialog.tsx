@@ -93,8 +93,8 @@ export function EditOptionsDialog({ column, onClose, onSaved }: Props): React.Re
             {r.original !== null && (usage[r.original] ?? 0) > 0 && (
               <span className="text-sm text-slate-500 dark:text-slate-400 w-10 text-right" title={`${usage[r.original]} ${t('record', { count: usage[r.original] })} use this`}>{usage[r.original]}</span>
             )}
-            <button type="button" className="hit-44 p-1 rounded text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 focus-visible:ring-3 focus-visible:ring-blue-500" aria-label={`Move ${r.value || 'choice'} up`} onClick={() => move(i, -1)} disabled={i === 0}><ArrowUp className="w-4 h-4" /></button>
-            <button type="button" className="hit-44 p-1 rounded text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 focus-visible:ring-3 focus-visible:ring-blue-500" aria-label={`Move ${r.value || 'choice'} down`} onClick={() => move(i, 1)} disabled={i === rows.length - 1}><ArrowDown className="w-4 h-4" /></button>
+            <button type="button" className="hit-44 p-1 rounded text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 focus-visible:ring-3 focus-visible:ring-blue-500" aria-label={`Move ${r.value || 'choice'} up`} data-allow-repeat="" onClick={() => move(i, -1)} disabled={i === 0}><ArrowUp className="w-4 h-4" /></button>
+            <button type="button" className="hit-44 p-1 rounded text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 focus-visible:ring-3 focus-visible:ring-blue-500" aria-label={`Move ${r.value || 'choice'} down`} data-allow-repeat="" onClick={() => move(i, 1)} disabled={i === rows.length - 1}><ArrowDown className="w-4 h-4" /></button>
             <button type="button" className="hit-44 p-1 rounded text-slate-500 hover:text-red-600 focus-visible:ring-3 focus-visible:ring-blue-500" aria-label={`Remove ${r.value || 'choice'}`} onClick={() => setRows(rs => rs.filter(x => x.key !== r.key))}><X className="w-4 h-4" /></button>
           </li>
         ))}

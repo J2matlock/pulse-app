@@ -249,7 +249,7 @@ export function FindReplaceBar({ open, onClose, rows, columns, onReplace, onRepl
             aria-label="Find text"
           />
           {/* Match counter + nav inside input area */}
-          <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+          <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5" data-allow-repeat="">
             <span className={`text-sm px-1.5 py-0.5 rounded font-medium min-w-[3rem] text-center
               ${hasFind && !hasMatches
                 ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20'

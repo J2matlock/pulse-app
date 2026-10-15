@@ -291,9 +291,9 @@ export default function CalendarView(): React.ReactElement {
           <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2 mr-2">
             <CalendarDays className="w-5 h-5" aria-hidden="true" />{mode === 'month' ? monthTitle(anchor) : mode === 'week' ? `Week of ${longDay(weekFrom)}` : mode === 'day' ? longDay(anchor) : `From ${longDay(anchor)}`}
           </h1>
-          <button type="button" aria-label={mode === 'month' ? 'Previous month' : mode === 'week' ? 'Previous week' : mode === 'day' ? 'Previous day' : 'Earlier'} onClick={() => step(-1)} className="btn-compact-secondary"><ChevronLeft className="w-4 h-4" /></button>
+          <button type="button" aria-label={mode === 'month' ? 'Previous month' : mode === 'week' ? 'Previous week' : mode === 'day' ? 'Previous day' : 'Earlier'} data-allow-repeat="" onClick={() => step(-1)} className="btn-compact-secondary"><ChevronLeft className="w-4 h-4" /></button>
           <button type="button" onClick={() => { setAnchor(today); setFocusDay(today) }} className="btn-compact-secondary">Today</button>
-          <button type="button" aria-label={mode === 'month' ? 'Next month' : mode === 'week' ? 'Next week' : mode === 'day' ? 'Next day' : 'Later'} onClick={() => step(1)} className="btn-compact-secondary"><ChevronRight className="w-4 h-4" /></button>
+          <button type="button" aria-label={mode === 'month' ? 'Next month' : mode === 'week' ? 'Next week' : mode === 'day' ? 'Next day' : 'Later'} data-allow-repeat="" onClick={() => step(1)} className="btn-compact-secondary"><ChevronRight className="w-4 h-4" /></button>
           <div role="group" aria-label="View" className="flex rounded-lg border border-slate-300 dark:border-slate-600 overflow-hidden">
             {MODES.map(m => (
               <button key={m} type="button" aria-pressed={mode === m} onClick={() => switchMode(m)}

@@ -171,7 +171,7 @@ export function ApplyStarterDialog({ mode, onClose, onApplied, initial, withSamp
 
   return (
     // During setup a stray click outside doesn't throw away the choices (audit F-18); ✕ and Esc still close
-    <div className="fixed inset-0 z-[200] flex items-center-safe justify-center bg-black/50 p-4 overflow-y-auto" onClick={() => { if (!working && mode !== 'setup') onClose() }}>
+    <div className="fixed inset-0 z-[200] flex items-center-safe justify-center bg-black/50 p-4 overflow-y-auto" data-dialog-backdrop="" onClick={() => { if (!working && mode !== 'setup') onClose() }}>
       {/* The steps scroll inside the panel, so the buttons at the bottom never leave the screen (UX-A-06) */}
       <div ref={trapRef} role="dialog" aria-modal="true" aria-labelledby="starter-title" onClick={e => e.stopPropagation()}
         className="w-full max-w-2xl max-h-[calc(100vh-2rem)] flex flex-col rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">

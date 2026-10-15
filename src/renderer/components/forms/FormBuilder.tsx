@@ -131,8 +131,8 @@ export function FormBuilder({ gridId, form, onSaved, onCancel }: { gridId: numbe
             <li key={key} data-field-key={key} className={`rounded-lg border-2 p-2 space-y-2 ${f.kind === 'section' ? 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/40' : 'border-slate-200 dark:border-slate-700'}`}>
               <div className="flex items-center gap-1">
                 <span className="flex-1 text-sm font-semibold text-slate-600 dark:text-slate-300">{title}</span>
-                <button type="button" data-move="up" aria-label={`Move ${title} up`} disabled={i === 0} onClick={() => move(i, -1)} className="hit-44 p-1.5 rounded-sm text-slate-500 disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
-                <button type="button" data-move="down" aria-label={`Move ${title} down`} disabled={i === fields.length - 1} onClick={() => move(i, 1)} className="hit-44 p-1.5 rounded-sm text-slate-500 disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
+                <button type="button" data-move="up" data-allow-repeat="" aria-label={`Move ${title} up`} disabled={i === 0} onClick={() => move(i, -1)} className="hit-44 p-1.5 rounded-sm text-slate-500 disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
+                <button type="button" data-move="down" data-allow-repeat="" aria-label={`Move ${title} down`} disabled={i === fields.length - 1} onClick={() => move(i, 1)} className="hit-44 p-1.5 rounded-sm text-slate-500 disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
                 <button type="button" aria-label={`Remove ${title}`} onClick={() => setItems(xs => xs.filter((_, j) => j !== i))} className="hit-44 p-1.5 rounded-sm text-slate-500 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
               </div>
               {f.kind === 'section' ? (

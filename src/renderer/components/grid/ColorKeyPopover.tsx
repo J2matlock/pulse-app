@@ -120,7 +120,7 @@ export function ColorKeyPopover({ rules, columnNames, label, buttonClassName, pl
       </button>
       {open && createPortal(
         <>
-          <div className="fixed inset-0 z-[9998]" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-[9998]" data-dialog-backdrop="" onClick={() => setOpen(false)} />
           <div
             ref={panelRef}
             role="dialog"

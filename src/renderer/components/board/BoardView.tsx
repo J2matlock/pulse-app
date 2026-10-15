@@ -141,7 +141,7 @@ function CardFieldsPicker({ columns, chosen, onChange }: { columns: Column[]; ch
       <button type="button" className="btn-compact-secondary" aria-expanded={open} onClick={() => setOpen(o => !o)}>
         <SlidersHorizontal className="w-4 h-4" />Show on cards
       </button>
-      {open && <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} aria-hidden="true" />}
+      {open && <div className="fixed inset-0 z-20" data-dialog-backdrop="" onClick={() => setOpen(false)} aria-hidden="true" />}
       {open && (
         <div role="group" aria-label="Show on cards" onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false) } }}
           className="absolute right-0 top-full mt-1 z-30 w-64 max-h-80 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl p-2">
