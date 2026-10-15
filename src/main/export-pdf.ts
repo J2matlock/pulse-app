@@ -76,6 +76,50 @@ export const GRID_PDF_MIN_PT = 11
 const rightAligned = (type: string): boolean =>
   type !== 'checkbox' && (COLUMN_TRAITS as Record<string, { numericText: boolean } | undefined>)[type]?.numericText === true
 
+const GRID_CELL_PADDING = 1.8
+
+/**
+ * Column widths for a list's PDF (persona study R7): each column is at least
+ * as wide as its longest word (so "11/03/2025" and "Parent/guardian" never
+ * break in the middle), and the room left goes to the columns with longer text.
+ * Only when even the words can't fit are they squeezed, in proportion.
+ */
+export function gridColumnWidths(doc: InstanceType<typeof jsPDF>, head: string[], body: string[][], fontSize: number, usable: number): number[] {
+  const pad = GRID_CELL_PADDING * 2 + 0.5
+  const sample = body.slice(0, 300)
+  const prevSize = doc.getFontSize()
+  // The widest word (byWord) or the widest line of a text
+  const measure = (style: 'normal' | 'bold', text: string, byWord: boolean): number => {
+    doc.setFont('helvetica', style)
+    const parts = byWord ? text.split(/\s+/) : text.split('\n')
+    return Math.max(0, ...parts.filter(Boolean).map(p => doc.getTextWidth(p)))
+  }
+  doc.setFontSize(fontSize)
+  const need: number[] = [], want: number[] = []
+  head.forEach((h, i) => {
+    let word = measure('bold', h, true), line = measure('bold', h, false)
+    for (const r of sample) {
+      const v = r[i] ?? ''
+      if (!v) continue
+      word = Math.max(word, measure('normal', v, true))
+      line = Math.max(line, measure('normal', v, false))
+    }
+    need.push(word + pad)
+    want.push(Math.max(word, Math.min(line, 90)) + pad)
+  })
+  doc.setFontSize(prevSize)
+  doc.setFont('helvetica', 'normal')
+  const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
+  if (sum(need) >= usable) return need.map(n => n * usable / sum(need))
+  if (sum(want) <= usable) {
+    const extra = (usable - sum(want)) / want.length
+    return want.map(w => w + extra)
+  }
+  const room = usable - sum(need)
+  const gap = want.map((w, i) => w - need[i]!)
+  return need.map((n, i) => n + room * gap[i]! / sum(gap))
+}
+
 export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
   const { gridId, columnIds, activeRowIds, destPath, title } = options
   const { grid, columns, rows } = loadGridData(gridId, { includeHidden: true })
@@ -112,29 +156,23 @@ export async function exportPdfGrid(options: PdfGridOptions): Promise<void> {
     selectedColumns.map(col => cellDisplayText(row[`col_${col.id}`] as string | null, col.column_type, dateFormat))
   )
 
-  // Compute column widths: Name gets more space
+  // 11 pt at the least, black on white with a black rule under the header (persona study R7):
+  // wide lists wrap onto more lines instead of shrinking the letters
   const gridColCount = selectedColumns.length
+  const gridFontSize = gridColCount > 6 ? GRID_PDF_MIN_PT : 12
   const gridUsable = 297 - 28 // A4 landscape minus margins
   const gridColStyles: Record<number, { cellWidth?: number; halign?: 'right' }> = {}
   if (gridColCount > 1) {
-    const nameW = Math.min(gridUsable * 0.25, 60)
-    const otherW = (gridUsable - nameW) / (gridColCount - 1)
-    gridColStyles[0] = { cellWidth: nameW }
-    for (let i = 1; i < gridColCount; i++) {
-      gridColStyles[i] = { cellWidth: otherW }
-    }
+    gridColumnWidths(doc, head[0]!, body, gridFontSize, gridUsable).forEach((w, i) => { gridColStyles[i] = { cellWidth: w } })
   }
   // Dates, numbers and days-left line up on the right, like the table on screen
   selectedColumns.forEach((c, i) => { if (i > 0 && rightAligned(c.column_type)) gridColStyles[i] = { ...gridColStyles[i], halign: 'right' } })
-  // 11 pt at the least, black on white with a black rule under the header (persona study R7):
-  // wide lists wrap onto more lines instead of shrinking the letters
-  const gridFontSize = gridColCount > 10 ? GRID_PDF_MIN_PT : 12
 
   autoTable(doc, {
     head,
     body,
     startY: 30 + titleExtra,
-    styles: { fontSize: gridFontSize, cellPadding: 1.8, textColor: 0, lineColor: 0, lineWidth: 0 },
+    styles: { fontSize: gridFontSize, cellPadding: GRID_CELL_PADDING, textColor: 0, lineColor: 0, lineWidth: 0 },
     headStyles: { fillColor: 255, textColor: 0, fontStyle: 'bold', lineColor: 0, lineWidth: { bottom: 0.35 } },
     bodyStyles: { lineColor: 0, lineWidth: { bottom: 0.1 } },
     alternateRowStyles: { fillColor: 255 },

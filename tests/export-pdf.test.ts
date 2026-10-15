@@ -205,6 +205,20 @@ describe('exportPdfGrid', () => {
     expect(date.x).toBeGreaterThan(header.x + 50)
   })
 
+  it('makes each column at least as wide as its longest word, so a wide list never breaks one (persona study R7)', async () => {
+    const { gridId, columnIds, rowIds } = seedGrid(testDb.db, { rowCount: 2, columnCount: 10 })
+    const rename = testDb.db.prepare('UPDATE columns SET name = ? WHERE id = ?')
+    rename.run('Parent/guardian', columnIds[8]); rename.run('Next appointment', columnIds[3])
+    const insert = testDb.db.prepare('INSERT INTO cells (row_id, column_id, value) VALUES (?, ?, ?)')
+    insert.run(rowIds[0], columnIds[5], 'Disability compensation')
+    insert.run(rowIds[0], columnIds[9], '11/03/2025')
+    const destPath = join(testDb.tmpDir, 'wide.pdf')
+    await exportPdfGrid({ gridId, columnIds: [], activeRowIds: [], destPath })
+    const pdf = readFileSync(destPath, 'latin1')
+    // Each word is whole inside one line of text
+    for (const word of ['Parent/guardian', 'appointment', 'compensation', '11/03/2025']) expect(pdf).toMatch(new RegExp(`\\((?:[^)]* )?${word.replace(/\//g, '\\/')}(?: [^)]*)?\\) Tj`))
+  })
+
   it('handles grid with zero rows', async () => {
     const { gridId } = seedGrid(testDb.db, { rowCount: 0, columnCount: 2 })
     const destPath = join(testDb.tmpDir, 'empty-grid.pdf')

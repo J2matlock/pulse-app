@@ -3,7 +3,7 @@
  * as a PDF, the same rows the dashboard's Overdue and Next N days tabs show,
  * worst first, in 12 pt black. The choice of days is remembered.
  */
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Printer } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { IPC } from '../../../shared/ipc-channels'
@@ -30,6 +30,8 @@ export function PrintDueDialog({ onClose }: { onClose: () => void }): React.Reac
   const [days, setDays] = useState<PrintDueDays>(DEFAULT_DAYS)
   const [appointments, setAppointments] = useState(true)
   const [working, setWorking] = useState(false)
+  // Focus starts on the choice that's selected, so arrow keys move from there
+  const checkedRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     let live = true
@@ -54,7 +56,7 @@ export function PrintDueDialog({ onClose }: { onClose: () => void }): React.Reac
   }
 
   return (
-    <Dialog open onClose={onClose} title="Print what's due"
+    <Dialog open onClose={onClose} title="Print what's due" initialFocus={checkedRef}
       icon={<Printer className="w-6 h-6 mt-2 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
       footer={<>
         <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
@@ -66,7 +68,7 @@ export function PrintDueDialog({ onClose }: { onClose: () => void }): React.Reac
           <legend className="font-semibold text-slate-900 dark:text-slate-100 mb-1">How far ahead?</legend>
           {PRINT_DUE_CHOICES.map(n => (
             <label key={n} className="flex items-center gap-3 px-3 rounded-lg border-2 border-slate-200 dark:border-slate-600 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20" style={{ minHeight: 44 }}>
-              <input type="radio" name="print-due-days" className="w-5 h-5" checked={days === n} onChange={() => setDays(n)} />
+              <input ref={days === n ? checkedRef : undefined} type="radio" name="print-due-days" className="w-5 h-5" checked={days === n} onChange={() => setDays(n)} />
               <span>Next {n} days</span>
             </label>
           ))}

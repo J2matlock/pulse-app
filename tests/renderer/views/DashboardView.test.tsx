@@ -280,6 +280,7 @@ describe('DashboardView — interactions', () => {
     fireEvent.click(screen.getAllByRole('menuitem').find(m => m.textContent?.startsWith("Print what's due"))!)
     const dialog = screen.getByRole('dialog', { name: "Print what's due" })
     expect((screen.getByRole('radio', { name: 'Next 30 days' }) as HTMLInputElement).checked).toBe(true)
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('radio', { name: 'Next 30 days' })))
     expect(dialog.textContent).toContain('Next 7 days')
     fireEvent.click(screen.getByRole('radio', { name: 'Next 90 days' }))
     mockSafeInvoke.mockClear()

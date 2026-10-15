@@ -34,6 +34,7 @@ import { loadDeadlines } from './deadlines'
 import { PRODUCT_NAME } from '../shared/constants'
 import { featureOn, vocabFor } from './vocab'
 import { deadlineTitles } from './export-planner'
+import { gridColumnWidths } from './export-pdf'
 import { formatMinutes } from '../shared/timeMileage'
 import { HUMAN_SERVICES_VOCAB, term } from '../shared/vocab'
 import { ARCHIVED_ROW, LIVE_ROW, NOT_TRASHED_ROW, archivedRow, liveRow, notTrashedRow } from '../shared/liveRecords'
@@ -572,17 +573,13 @@ export async function exportSupervisorReport(options: SupervisorReportOptions): 
   const rosterMarginL = rosterLandscape ? 12 : marginL
   const rosterMarginR = rosterLandscape ? 12 : 16
 
-  // Compute column widths: Name gets more space, others share the rest
+  // Each column at least as wide as its longest word ("Parent/guardian" doesn't break), the rest
+  // of the room to the longer text, as on a list's PDF (persona study R7)
   const rosterPageW = rosterLandscape ? 297 : 210
   const rosterUsable = rosterPageW - rosterMarginL - rosterMarginR
   const rosterColStyles: Record<number, { cellWidth?: number }> = {}
   if (colCount > 1) {
-    const nameW = Math.min(rosterUsable * 0.3, 60)
-    const otherW = (rosterUsable - nameW) / (colCount - 1)
-    rosterColStyles[0] = { cellWidth: nameW }
-    for (let i = 1; i < colCount; i++) {
-      rosterColStyles[i] = { cellWidth: otherW }
-    }
+    gridColumnWidths(doc, selectedColumns.map(c => c.name), rosterBody, rosterFontSize, rosterUsable).forEach((w, i) => { rosterColStyles[i] = { cellWidth: w } })
   }
 
   autoTable(doc, {

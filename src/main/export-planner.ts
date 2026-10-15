@@ -190,8 +190,8 @@ export async function exportWhatsDue(days: number, destPath: string, workerName?
     headStyles: { fillColor: [255, 255, 255], textColor: BLACK, fontStyle: 'bold', fontSize: 12, lineColor: BLACK, lineWidth: { bottom: PT } },
     bodyStyles: { lineColor: BLACK, lineWidth: { bottom: PT / 4 } },
     alternateRowStyles: { fillColor: [255, 255, 255] },
-    // Widths fit the longest header word and "123 days late" at 12 pt, so no word wraps
-    columnStyles: { 0: { cellWidth: 16 }, 1: { cellWidth: 33, fontStyle: 'bold' }, 2: { cellWidth: 27 }, 3: { cellWidth: 38 }, 5: { cellWidth: 28 } },
+    // Widths fit, at 12 pt bold with the padding, "123 days late", "Wed, Sep 30" and "Appointment", so none of them wraps
+    columnStyles: { 0: { cellWidth: 15 }, 1: { cellWidth: 31, fontStyle: 'bold' }, 2: { cellWidth: 30 }, 3: { cellWidth: 36 }, 5: { cellWidth: 30 } },
     margin: { left: marginL, right: marginL },
     didParseCell: (data: { section: string; row: { index: number }; cell: { styles: Record<string, unknown> } }) => {
       // Late is bold, not only a colour

@@ -191,8 +191,16 @@ export async function exportComplianceSummary(month: string, gridId: number | un
 
   let y0 = 34
   const ensure = (needed: number) => { if (y0 > pageH - needed) { doc.addPage(); y0 = 18 } }
-  const table = (head: string[], body: string[][], columnStyles: Record<number, Record<string, unknown>> = {}) => {
-    autoTable(doc, { startY: y0, head: [head], body, styles: { fontSize: 9, cellPadding: 1.6 }, headStyles: { fillColor: [100, 116, 139] }, columnStyles, margin: { left: marginL + 4, right: marginL } })
+  const table = (head: string[], body: string[][], columnStyles: Record<number, Record<string, unknown>> = {}, totalRow = false) => {
+    autoTable(doc, {
+      startY: y0, head: [head], body, styles: { fontSize: 9, cellPadding: 1.6 }, headStyles: { fillColor: [100, 116, 139] }, columnStyles, margin: { left: marginL + 4, right: marginL },
+      // A heading sits over its numbers (columnStyles reach only the body), and a Total line is bold
+      didParseCell: (data: { section: string; row: { index: number }; column: { index: number }; cell: { styles: Record<string, unknown> } }) => {
+        const halign = columnStyles[data.column.index]?.halign
+        if (data.section === 'head' && halign) data.cell.styles.halign = halign
+        if (totalRow && data.section === 'body' && data.row.index === body.length - 1) data.cell.styles.fontStyle = 'bold'
+      },
+    })
     y0 = lastTableY(doc) + 9
   }
   // A long value (several requirements) wraps inside the page instead of running off it (persona study R7)
@@ -227,7 +235,7 @@ export async function exportComplianceSummary(month: string, gridId: number | un
       const time = getTotals(month, g.gridId).byClient.filter(c => c.minutes > 0)
       const total = time.reduce((n, c) => n + c.minutes, 0)
       stat('Minutes this month', total === 0 ? `None logged on ${term(gv, 'activity', { many: true })}` : `${total.toLocaleString('en-US')} (${formatMinutes(total)})`)
-      if (time.length > 0) table([Rec, 'Minutes this month'], [...time.map(c => [c.clientName, c.minutes.toLocaleString('en-US')]), ['Total', total.toLocaleString('en-US')]], { 1: { halign: 'right' } })
+      if (time.length > 0) table([Rec, 'Minutes this month'], [...time.map(c => [c.clientName, c.minutes.toLocaleString('en-US')]), ['Total', total.toLocaleString('en-US')]], { 1: { halign: 'right' } }, true)
     }
     stat('Deadlines on time', g.deadlines.total === 0 ? 'No tracked deadlines' : `${pct(g.deadlines.onTime, g.deadlines.total)}  (${g.deadlines.onTime} of ${g.deadlines.total})${g.deadlines.extended ? `, ${g.deadlines.extended} extended` : ''}`)
     if (g.deadlines.exceptions.length > 0) {
